@@ -1,0 +1,92 @@
+name: Semantic adversarial lab (G)
+on:
+  push:
+    branches: [test/semantic-adversarial-lab]
+    paths:
+      - 'tests/semantic-adversarial-lab/**'
+      - '.github/workflows/semantic-adversarial-lab.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: semantic-adversarial-lab-${{ github.ref }}
+  cancel-in-progress: false
+defaults:
+  run:
+    shell: bash
+jobs:
+  selection:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    outputs:
+      matrix: ${{ steps.select.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - id: select
+        run: |
+          matrix=$(python3 tests/semantic-adversarial-lab/runner.py matrix)
+          printf 'matrix=%s\n' "$matrix" >> "$GITHUB_OUTPUT"
+  boundary:
+    needs: selection
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix: ${{ fromJSON(needs.selection.outputs.matrix) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_PROFILE_DEV_DEBUG: '0'
+      CARGO_PROFILE_TEST_DEBUG: '0'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Independently checkout immutable target
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ matrix.target_sha }}
+          path: audit-target
+          persist-credentials: false
+      - name: Verify G-only ownership and source identities
+        env:
+          TARGET_SHA: ${{ matrix.target_sha }}
+        run: |
+          python3 tests/semantic-adversarial-lab/ownership.py
+          test "$(git -C audit-target rev-parse HEAD)" = "$TARGET_SHA"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - name: Provision scoped runner namespace support
+        run: |
+          mkdir -p "$RUNNER_TEMP/g-lab-evidence"
+          bash scripts/dev/ci-driver-bwrap-profile.sh "$RUNNER_TEMP/g-lab-evidence/sandbox-setup.log"
+      - name: Provision pinned Rust for selected contract lane
+        if: matrix.lane != 'selftest'
+        uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - name: Execute independent exact-SHA boundary
+        env:
+          LANE: ${{ matrix.lane }}
+        run: python3 tests/semantic-adversarial-lab/runner.py "$LANE" --target-checkout audit-target
+      - name: Preserve bounded evidence even after failure
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: semantic-adversarial-${{ matrix.lane }}-${{ github.sha }}
+          path: ${{ runner.temp }}/g-lab-evidence
+          retention-days: 7
+          if-no-files-found: error
+  selected-gate:
+    if: always()
+    needs: [selection, boundary]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: All selected lanes must execute successfully
+        env:
+          SELECTION_RESULT: ${{ needs.selection.result }}
+          BOUNDARY_RESULT: ${{ needs.boundary.result }}
+        run: test "$SELECTION_RESULT" = success && test "$BOUNDARY_RESULT" = success

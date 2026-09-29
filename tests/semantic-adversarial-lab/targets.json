@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "baseline_sha": "b736d41b61c4a4146c9e75c16796e251b025e69f",
+  "contract_sha": "7ed5b848e4d2e7af235d6166e6f93e0cf0bac90d",
+  "combined_candidate_sha": null,
+  "targets": {
+    "A": "7ed5b848e4d2e7af235d6166e6f93e0cf0bac90d",
+    "B": "11b40fb0c59473bc0f007a879bf44c732d22b700",
+    "main": "b736d41b61c4a4146c9e75c16796e251b025e69f"
+  },
+  "selected_lanes": [
+    "selftest"
+  ],
+  "pins": {
+    "os": "ubuntu-24.04",
+    "rust": "1.98.1",
+    "godot_version": "4.7.2-stable",
+    "godot_binary_sha256": "8d106cbe6144c2dc7e881d61d2429c1a8a76e6b22ef48bd5e48dcf934953f71e",
+    "blender_version": "4.5.14",
+    "blender_archive_sha256": "9ba871ff2ecd36526b77432745980b7e6664ecd0c7ca11c48849073dcfe06da3"
+  },
+  "limits": {
+    "local_source_bytes": 268435456,
+    "heavy_jobs": 1,
+    "probe_seconds": 30,
+    "output_bytes": 262144,
+    "address_space_bytes": 1073741824,
+    "open_files": 128,
+    "maximum_fixture_fanout": 2
+  }
+}

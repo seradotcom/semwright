@@ -1,0 +1,335 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "id": "G-SELF-001",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "positive control",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-002",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "zero requested cases",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-003",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "missing result",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-004",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "duplicate result",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-005",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "wrong source SHA",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-006",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "wrong suite SHA",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-007",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "native evidence relabel",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-008",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "missing isolation",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-009",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "skipped outcome",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-010",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "FAIL preserved",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-011",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "BLOCKED preserved",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-012",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "NOT_RUN preserved",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-013",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "open blocker",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-014",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "nested duplicate JSON",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-015",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "nonfinite JSON",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-016",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "fake PASS stdout",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-017",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "case substitution",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-018",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "branch instead of SHA",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-019",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "boolean schema version",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-020",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "bool versus integer",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-021",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "absent versus null",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-022",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "NaN oracle comparison",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-023",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "missing final case",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-024",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "missing-case guard mutant killed",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-025",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "SHA guard mutant killed",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-026",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "verdict guard mutant killed",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-027",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "retest missing job",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-028",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "abbreviated SHA",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-029",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "receipt budget",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-030",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "no native or R16 overclaim",
+      "expected": {
+        "ok": true
+      }
+    }
+  ]
+}

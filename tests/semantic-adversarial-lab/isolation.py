@@ -1,0 +1,157 @@
+"""Disposable runner enclosure. No insecure fallback and no public listeners."""
+from __future__ import annotations
+import os
+from pathlib import Path
+import selectors
+import shutil
+import signal
+import subprocess
+import tempfile
+import time
+from typing import Any
+from lab_core import EvidenceError, strict_json
+
+def require_hosted() -> None:
+    if os.environ.get("GITHUB_ACTIONS") != "true" or os.environ.get("RUNNER_ENVIRONMENT") != "github-hosted":
+        raise EvidenceError("tests and attacks are restricted to GitHub-hosted disposable runners")
+    if os.name != "posix" or os.uname().sysname != "Linux":
+        raise EvidenceError("BLOCKED: this enclosure has only been implemented for Linux")
+
+def _limits() -> None:
+    import resource
+    resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+    resource.setrlimit(resource.RLIMIT_NOFILE, (128, 128))
+    resource.setrlimit(resource.RLIMIT_FSIZE, (8 * 1024 * 1024, 8 * 1024 * 1024))
+    resource.setrlimit(resource.RLIMIT_CPU, (30, 30))
+    resource.setrlimit(resource.RLIMIT_AS, (1024 * 1024 * 1024, 1024 * 1024 * 1024))
+
+def captured(argv: list[str], *, env: dict[str, str], timeout: float = 30.0,
+             maximum: int = 262144) -> dict[str, Any]:
+    started = time.monotonic()
+    process = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE, env=env, start_new_session=True, preexec_fn=_limits)
+    selector = selectors.DefaultSelector()
+    assert process.stdout is not None and process.stderr is not None
+    selector.register(process.stdout, selectors.EVENT_READ, "stdout")
+    selector.register(process.stderr, selectors.EVENT_READ, "stderr")
+    buffers = {"stdout": bytearray(), "stderr": bytearray()}
+    failure = None
+    try:
+        while selector.get_map():
+            if time.monotonic() - started > timeout:
+                failure = "timeout"
+                break
+            for key, _ in selector.select(0.05):
+                chunk = os.read(key.fileobj.fileno(), 8192)
+                if not chunk:
+                    selector.unregister(key.fileobj)
+                else:
+                    buffers[key.data].extend(chunk)
+                    if sum(map(len, buffers.values())) > maximum:
+                        failure = "output_budget"
+                        break
+            if failure:
+                break
+    finally:
+        selector.close()
+        if not failure:
+            try:
+                process.wait(timeout=1)
+            except subprocess.TimeoutExpired:
+                failure = "process_did_not_exit_after_output"
+        if failure or process.poll() is None:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        process.wait(timeout=5)
+        process.stdout.close()
+        process.stderr.close()
+    try:
+        os.killpg(process.pid, 0)
+        group_gone = False
+        os.killpg(process.pid, signal.SIGKILL)
+    except ProcessLookupError:
+        group_gone = True
+    return {"exit_code": process.returncode, "stdout": bytes(buffers["stdout"][:maximum]),
+            "stderr": bytes(buffers["stderr"][:maximum]), "termination_reason": failure,
+            "outer_process_group_gone": group_gone, "duration_seconds": round(time.monotonic() - started, 6)}
+
+class Enclosure:
+    def __init__(self, lab: Path, source_sha: str):
+        require_hosted()
+        binary = shutil.which("bwrap")
+        if binary is None:
+            raise EvidenceError("BLOCKED: bubblewrap unavailable")
+        self.bwrap = binary
+        self.lab = lab.resolve()
+        self.source_sha = source_sha
+        self.directory = tempfile.TemporaryDirectory(prefix="semwright-g-", dir=os.environ["RUNNER_TEMP"])
+        self.root = Path(self.directory.name)
+        (self.root / "out").mkdir()
+        (self.root / "private").mkdir()
+        (self.root / "private" / "sentinel").write_text("synthetic-unmounted-canary\n")
+        (self.root / "out" / "unmounted-symlink").symlink_to(self.root / "private" / "sentinel")
+        (self.root / "readonly").write_text("synthetic-read-only-canary\n")
+        self.verified = False
+        self.proof: dict[str, Any] = {}
+
+    def command(self, args: list[str], executable: Path | None = None,
+                source: Path | None = None) -> list[str]:
+        result = [self.bwrap, "--die-with-parent", "--new-session", "--unshare-all", "--clearenv",
+                  "--cap-drop", "ALL", "--proc", "/proc", "--dev", "/dev", "--tmpfs", "/tmp",
+                  "--dir", "/home", "--dir", "/home/lab", "--dir", "/plugin", "--dir", "/etc",
+                  "--dir", "/canary"]
+        for system in ("/usr", "/lib", "/lib64", "/bin"):
+            if Path(system).exists():
+                result += ["--ro-bind", system, system]
+        if Path("/etc/ld.so.cache").exists():
+            result += ["--ro-bind", "/etc/ld.so.cache", "/etc/ld.so.cache"]
+        result += ["--ro-bind", str(self.lab), "/lab", "--bind", str(self.root / "out"), "/out",
+                   "--ro-bind", str(self.root / "readonly"), "/canary/readonly", "--chdir", "/out"]
+        if executable is not None:
+            result += ["--ro-bind", str(executable.resolve()), "/plugin/bin"]
+        if source is not None:
+            result += ["--ro-bind", str(source.resolve()), "/source"]
+        fixed = {"HOME": "/home/lab", "TMPDIR": "/tmp", "XDG_CONFIG_HOME": "/tmp/config",
+                 "XDG_CACHE_HOME": "/tmp/cache", "XDG_DATA_HOME": "/tmp/data", "PATH": "/usr/bin:/bin",
+                 "LANG": "C.UTF-8", "LC_ALL": "C.UTF-8", "PYTHONDONTWRITEBYTECODE": "1",
+                 "G_LAB_TARGET_SHA": self.source_sha,
+                 "G_LAB_HOST_NETNS": os.readlink("/proc/self/ns/net"),
+                 "G_LAB_HOST_PIDNS": os.readlink("/proc/self/ns/pid")}
+        for key, value in fixed.items():
+            result += ["--setenv", key, value]
+        return result + ["--"] + args
+
+    def run(self, args: list[str], *, executable: Path | None = None,
+            source: Path | None = None, timeout: float = 30.0) -> dict[str, Any]:
+        require_hosted()
+        output = captured(self.command(args, executable, source),
+                          env={"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8", "G_SYNTHETIC_HOST_MARKER": "synthetic-not-a-secret"},
+                          timeout=timeout)
+        output["canaries_unchanged"] = (
+            (self.root / "readonly").read_text() == "synthetic-read-only-canary\n"
+            and (self.root / "private" / "sentinel").read_text() == "synthetic-unmounted-canary\n")
+        return output
+
+    def preflight(self) -> dict[str, Any]:
+        output = self.run(["/usr/bin/python3", "/lab/isolation_probe.py"])
+        if output["exit_code"] != 0 or output["termination_reason"] or not output["canaries_unchanged"] or not output["outer_process_group_gone"]:
+            detail = output["stderr"][:2048].decode("utf-8", errors="replace")
+            raise EvidenceError("BLOCKED: enclosure preflight failed; enforcement unchanged: " + detail)
+        proof = strict_json(output["stdout"])
+        if set(proof) != {"version", "checks"} or type(proof["version"]) is not int or proof["version"] != 1:
+            raise EvidenceError("BLOCKED: missing enclosure receipt")
+        expected = {"empty_inherited_marker", "private_home", "private_tmp", "only_loopback_interface",
+                    "separate_network_namespace", "separate_pid_namespace", "synthetic_unmounted_canary_inaccessible",
+                    "readonly_canary_readable", "readonly_canary_write_denied", "no_environment_authority"}
+        if set(proof["checks"]) != expected or any(v is not True for v in proof["checks"].values()):
+            raise EvidenceError("BLOCKED: incomplete enclosure controls")
+        self.verified = True
+        self.proof = {**proof, "canaries_unchanged": True, "outer_process_group_gone": True,
+                      "scope": "test enclosure only; not proof of product sandbox enforcement"}
+        return self.proof
+
+    def close(self) -> bool:
+        self.directory.cleanup()
+        return not self.root.exists()
