@@ -48,6 +48,15 @@ struct RootControl {
     started: Instant,
 }
 
+#[derive(Debug, Clone)]
+pub struct NativePlanContext {
+    pub owner: Owner,
+    pub project: String,
+    pub project_id: semwright_project_graph::ProjectId,
+    pub plan_digest: Digest,
+    pub intent_digest: Digest,
+}
+
 pub struct AuthoringRuntime {
     store: Store,
     profile: ProfileDescriptor,
@@ -146,6 +155,64 @@ impl AuthoringRuntime {
     pub fn inspect(&self, project: &str) -> Result<SnapshotView> {
         let snapshot = self.store.snapshot(project)?;
         Ok(snapshot_view(project, &snapshot))
+    }
+
+    pub fn native_plan_context(
+        &self,
+        owner: &Owner,
+        plan_id: &str,
+        scene: &str,
+    ) -> Result<NativePlanContext> {
+        validate::id(scene).map_err(|error| Error::invalid(error.to_string()))?;
+        let stored = self.stored_plan(owner, plan_id)?;
+        self.vault
+            .matches(owner, plan_id, &stored.plan)
+            .map_err(composition_error)?;
+        if stored.applied.is_none() {
+            return Err(Error::new(
+                ErrorCode::Conflict,
+                "Native verification requires a completed authoring apply",
+            ));
+        }
+        if !stored
+            .plan
+            .body
+            .intent
+            .scenes
+            .iter()
+            .any(|candidate| candidate.id == scene)
+        {
+            return Err(Error::new(
+                ErrorCode::NotFound,
+                "Native verification scene is not in the prepared Godot intent",
+            ));
+        }
+        let snapshot = self.store.snapshot(&stored.plan.body.intent.project)?;
+        if snapshot.status != "IN_SYNC" {
+            return Err(Error::new(
+                ErrorCode::Conflict,
+                "Native verification requires current managed sources",
+            ));
+        }
+        let record = snapshot.record().ok_or_else(|| {
+            Error::new(
+                ErrorCode::Conflict,
+                "Native verification requires a provider derivation record",
+            )
+        })?;
+        if record.intent_digest != stored.plan.body.intent_digest {
+            return Err(Error::new(
+                ErrorCode::Conflict,
+                "Native verification intent differs from the prepared plan",
+            ));
+        }
+        Ok(NativePlanContext {
+            owner: owner.clone(),
+            project: record.slug.clone(),
+            project_id: record.project.clone(),
+            plan_digest: stored.plan.digest.clone(),
+            intent_digest: stored.plan.body.intent_digest.clone(),
+        })
     }
 
     pub fn plan(&mut self, owner: &Owner, spec: GodotAuthoringSpec) -> Result<PlanResult> {

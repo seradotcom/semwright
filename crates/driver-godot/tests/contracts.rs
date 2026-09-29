@@ -41,14 +41,22 @@ fn all_driver_schemas_fit_external_registry_budget() {
 #[test]
 fn catalog_declares_generic_artifact_ports() {
     let catalog = Catalog::load().unwrap();
-    let rescan = catalog.get("driver.godot.assets.rescan").unwrap();
-    for expected in [
-        "artifact-in:model/3d",
-        "artifact-in:image/raster",
-        "artifact-in:image/vector",
-        "artifact-in:audio/sample",
+    for command in [
+        "driver.godot.assets.rescan",
+        "driver.godot.composition.plan",
     ] {
-        assert!(rescan.capability.tags.iter().any(|tag| tag == expected));
+        let capability = catalog.get(command).unwrap();
+        for expected in [
+            "artifact-in:model/3d",
+            "artifact-in:image/raster",
+            "artifact-in:image/vector",
+            "artifact-in:audio/sample",
+        ] {
+            assert!(
+                capability.capability.tags.iter().any(|tag| tag == expected),
+                "{command} missing {expected}"
+            );
+        }
     }
 
     for (name, expected) in [
@@ -701,4 +709,82 @@ fn scene_save_external_resource_policy_is_explicit_and_typed() {
     let mut out_of_scope = base.clone();
     out_of_scope["path"] = json!("res://another.tscn");
     assert!(save.validate_input(&out_of_scope).is_err());
+}
+
+#[test]
+fn runner_capabilities_accept_owned_managed_projects_without_accepting_paths() {
+    let catalog = Catalog::load().unwrap();
+    for name in [
+        "driver.godot.project.validate",
+        "driver.godot.project.run_test",
+        "driver.godot.export.pack",
+        "driver.godot.export.build",
+        "driver.godot.movie.capture",
+    ] {
+        let entry = catalog.get(name).unwrap();
+        let mut input = match name {
+            "driver.godot.export.pack" => {
+                json!({"managed_project":"technical_two","preset":"Linux","output":"game.pck"})
+            }
+            "driver.godot.export.build" => {
+                json!({"managed_project":"technical_two","preset":"Linux","output":"game.x86_64","debug":false})
+            }
+            "driver.godot.movie.capture" => {
+                json!({"managed_project":"technical_two","output":"game.avi","frames":30,"fps":30})
+            }
+            _ => json!({"managed_project":"technical_two"}),
+        };
+        entry.validate_input(&input).unwrap();
+
+        input["project"] = json!("a".repeat(64));
+        assert!(
+            entry.validate_input(&input).is_err(),
+            "{name} must reject simultaneous paired and managed selectors"
+        );
+
+        input.as_object_mut().unwrap().remove("project");
+        input["managed_project"] = json!("../escape");
+        assert!(
+            entry.validate_input(&input).is_err(),
+            "{name} must reject path-shaped managed project selectors"
+        );
+    }
+}
+
+#[test]
+fn native_authoring_verification_is_code_execution_and_not_a_plain_runner() {
+    let catalog = Catalog::load().unwrap();
+    let entry = catalog
+        .get("driver.godot.composition.native.verify")
+        .unwrap();
+    assert_eq!(entry.route, Route::AuthoringRunner);
+    assert_eq!(
+        entry.capability.descriptor.risk,
+        semwright_types::Risk::CodeExecution
+    );
+    assert!(entry.capability.descriptor.interactive_consent);
+    assert!(
+        !catalog
+            .capabilities_for_runtime(true, false)
+            .iter()
+            .any(
+                |capability| capability.descriptor.name == "driver.godot.composition.native.verify"
+            )
+    );
+    assert!(
+        !catalog
+            .capabilities_for_runtime(false, true)
+            .iter()
+            .any(
+                |capability| capability.descriptor.name == "driver.godot.composition.native.verify"
+            )
+    );
+    assert!(
+        catalog
+            .capabilities_for_runtime(true, true)
+            .iter()
+            .any(
+                |capability| capability.descriptor.name == "driver.godot.composition.native.verify"
+            )
+    );
 }

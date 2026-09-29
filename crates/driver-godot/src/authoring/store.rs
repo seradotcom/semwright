@@ -259,6 +259,58 @@ impl Store {
             exists,
         })
     }
+    pub(crate) fn execution_files(
+        &self,
+        slug: &str,
+    ) -> Result<(Snapshot, BTreeMap<String, Vec<u8>>)> {
+        let snapshot = self.snapshot(slug)?;
+        if snapshot.status != "IN_SYNC" {
+            return Err(conflict(
+                "Managed project must be IN_SYNC before native execution",
+            ));
+        }
+        let record = snapshot
+            .record()
+            .ok_or_else(|| conflict("Managed project ownership record is unavailable"))?;
+        let directory = self.output.child(slug, false).map_err(file_error)?;
+        let mut total = 0u64;
+        let mut files = BTreeMap::new();
+        for (path, file) in &record.files {
+            if !file.active {
+                continue;
+            }
+            let bytes = directory
+                .read(path, MAX_BYTES)
+                .map_err(file_error)?
+                .ok_or_else(|| conflict("Managed execution source disappeared"))?;
+            total = total.checked_add(bytes.len() as u64).ok_or_else(|| {
+                Error::new(
+                    ErrorCode::ResourceExhausted,
+                    "Managed execution byte overflow",
+                )
+            })?;
+            if total > MAX_BYTES {
+                return Err(Error::new(
+                    ErrorCode::ResourceExhausted,
+                    "Managed execution byte budget",
+                ));
+            }
+            if Digest::of_bytes(&bytes) != file.sha256 {
+                return Err(Error::new(
+                    ErrorCode::StaleReference,
+                    "Managed execution source changed after observation",
+                ));
+            }
+            files.insert(path.clone(), bytes);
+        }
+        if !files.contains_key("project.godot") {
+            return Err(conflict(
+                "Managed execution source is missing project.godot",
+            ));
+        }
+        Ok((snapshot, files))
+    }
+
     pub fn prepare(
         &self,
         spec: &GodotAuthoringSpec,

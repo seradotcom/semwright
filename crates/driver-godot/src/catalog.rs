@@ -20,6 +20,7 @@ pub enum Route {
     Plugin,
     Runner,
     Authoring,
+    AuthoringRunner,
 }
 
 pub struct Entry {
@@ -55,7 +56,7 @@ impl Catalog {
             };
             let mut tags = vec!["godot".into(), spec.tag.into()];
             match spec.name {
-                "assets.rescan" => {
+                "assets.rescan" | "composition.plan" => {
                     tags.push(artifact_input_tag("model/3d")?);
                     tags.push(artifact_input_tag("image/raster")?);
                     tags.push(artifact_input_tag("image/vector")?);
@@ -111,8 +112,12 @@ impl Catalog {
     ) -> Vec<Capability> {
         self.entries
             .values()
-            .filter(|entry| include_runner || entry.route != Route::Runner)
-            .filter(|entry| include_authoring || entry.route != Route::Authoring)
+            .filter(|entry| match entry.route {
+                Route::Runner => include_runner,
+                Route::Authoring => include_authoring,
+                Route::AuthoringRunner => include_runner && include_authoring,
+                Route::Local | Route::Plugin => true,
+            })
             .map(|entry| entry.capability.clone())
             .collect()
     }
@@ -372,6 +377,20 @@ fn specs() -> Vec<Spec> {
             false,
             profile::verify_in,
             profile::verify_out,
+        ),
+        spec(
+            "composition.native.verify",
+            "Run bounded native Godot inspect, persistence or play verification on a private managed copy",
+            "composition",
+            "project",
+            Route::AuthoringRunner,
+            CodeExecution,
+            NonIdempotent,
+            180_000,
+            false,
+            false,
+            profile::native_verify_in,
+            profile::native_verify_out,
         ),
         spec(
             "doctor",
@@ -5767,59 +5786,59 @@ fn project_class_describe_out() -> Value {
     read_out(json!({"oneOf":[unavailable,available]}))
 }
 
+fn managed_project_schema() -> Value {
+    json!({"type":"string","pattern":"^[a-z][a-z0-9_]{0,47}$"})
+}
+fn runner_selector(mut properties: Map<String, Value>, required: &[&str]) -> Value {
+    properties.insert("project".into(), hex_string(64));
+    properties.insert("managed_project".into(), managed_project_schema());
+    let mut schema = object(properties, required);
+    schema["oneOf"] = json!([
+        {"required":["project"],"not":{"required":["managed_project"]}},
+        {"required":["managed_project"],"not":{"required":["project"]}}
+    ]);
+    schema
+}
 fn runner_project_in() -> Value {
-    object(
-        Map::from_iter([("project".into(), hex_string(64))]),
-        &["project"],
-    )
+    runner_selector(Map::new(), &[])
 }
 fn runner_script_in() -> Value {
-    object(
-        Map::from_iter([
-            ("project".into(), hex_string(64)),
-            ("path".into(), string(240)),
-        ]),
-        &["project", "path"],
-    )
+    runner_selector(Map::from_iter([("path".into(), string(240))]), &["path"])
 }
 fn runner_test_in() -> Value {
-    object(
+    runner_selector(
         Map::from_iter([
-            ("project".into(), hex_string(64)),
             ("scene".into(), string(240)),
             (
                 "frames".into(),
                 json!({"type":"integer","minimum":1,"maximum":3600}),
             ),
         ]),
-        &["project"],
+        &[],
     )
 }
 fn runner_export_in() -> Value {
-    object(
+    runner_selector(
         Map::from_iter([
-            ("project".into(), hex_string(64)),
             ("preset".into(), string(128)),
             ("output".into(), string(200)),
         ]),
-        &["project", "preset", "output"],
+        &["preset", "output"],
     )
 }
 fn runner_build_in() -> Value {
-    object(
+    runner_selector(
         Map::from_iter([
-            ("project".into(), hex_string(64)),
             ("preset".into(), string(128)),
             ("output".into(), string(200)),
             ("debug".into(), boolean()),
         ]),
-        &["project", "preset", "output", "debug"],
+        &["preset", "output", "debug"],
     )
 }
 fn runner_movie_in() -> Value {
-    object(
+    runner_selector(
         Map::from_iter([
-            ("project".into(), hex_string(64)),
             ("scene".into(), string(240)),
             ("output".into(), string(200)),
             (
@@ -5831,7 +5850,7 @@ fn runner_movie_in() -> Value {
                 json!({"type":"integer","minimum":1,"maximum":240}),
             ),
         ]),
-        &["project", "output", "frames", "fps"],
+        &["output", "frames", "fps"],
     )
 }
 fn runner_out() -> Value {

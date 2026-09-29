@@ -1,11 +1,11 @@
 #![cfg(target_os = "linux")]
 
 use semwright_backend_api::Provider;
-use semwright_core::{Broker, NoApprover, audit::Audit};
+use semwright_core::{Approval, Approver, Broker, audit::Audit};
 use semwright_driver_host::DriverProvider;
 use semwright_driver_sdk::{
     ApplicationMatch, DRIVER_MANIFEST_VERSION, DRIVER_PROTOCOL_VERSION, DriverInterfaces,
-    DriverMount, DriverResources, Manifest, Transport,
+    DriverMount, DriverResources, DriverToolMount, Manifest, Transport,
 };
 use semwright_policy::{FilesystemGrant, Policy, PolicyConfig};
 use semwright_types::{ExecuteRequest, unique_id};
@@ -14,6 +14,7 @@ use sha2::{Digest, Sha256};
 use std::{
     os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
+    process::Command,
     sync::Arc,
 };
 use tokio_util::sync::CancellationToken;
@@ -55,18 +56,32 @@ async fn staged_driver() -> (tempfile::TempDir, PathBuf) {
 struct Fixture {
     _config: tempfile::TempDir,
     output: tempfile::TempDir,
+    artifacts: tempfile::TempDir,
     _state: tempfile::TempDir,
     _input: tempfile::TempDir,
+    runtime_sha256: String,
     roots: Vec<FilesystemGrant>,
 }
 
 fn fixture() -> Fixture {
     let config = tempfile::tempdir().unwrap();
     let output = tempfile::tempdir().unwrap();
+    let artifacts = tempfile::tempdir().unwrap();
     let state = tempfile::tempdir().unwrap();
     let input = tempfile::tempdir().unwrap();
-    for dir in [&config, &output, &state, &input] {
+    for dir in [&config, &output, &artifacts, &state, &input] {
         std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
+    }
+    let runtime =
+        PathBuf::from(std::env::var_os("GODOT_BIN").expect("GODOT_BIN must point to pinned Godot"))
+            .canonicalize()
+            .unwrap();
+    let runtime_sha256 = digest(&runtime);
+    if let Some(templates) = std::env::var_os("SEMWRIGHT_TEST_GODOT_EXPORT_TEMPLATES") {
+        let destination = artifacts
+            .path()
+            .join(".semwright-home/data/godot/export_templates/4.7.2.stable");
+        copy_tree(&PathBuf::from(templates), &destination);
     }
     let config_path = config.path().join("config.json");
     std::fs::write(
@@ -75,7 +90,12 @@ fn fixture() -> Fixture {
             "port": 9877,
             "development_mode": false,
             "projects": [],
-            "runner": null,
+            "runner": {
+                "executable": "/plugin/tools/godot",
+                "sha256": runtime_sha256,
+                "output_root": "/workspace/godot-authoring-artifacts",
+                "display": null
+            },
             "authoring": {
                 "output_root": "/workspace/godot-authoring-output",
                 "state_root": "/workspace/godot-authoring-state",
@@ -112,17 +132,31 @@ fn fixture() -> Fixture {
             read: true,
             write: false,
         },
+        FilesystemGrant {
+            name: "godot-authoring-artifacts".into(),
+            path: artifacts.path().canonicalize().unwrap(),
+            read: true,
+            write: true,
+        },
+        FilesystemGrant {
+            name: "godot-authoring-runtime".into(),
+            path: runtime,
+            read: true,
+            write: false,
+        },
     ];
     Fixture {
         _config: config,
         output,
+        artifacts,
         _state: state,
         _input: input,
+        runtime_sha256,
         roots,
     }
 }
 
-fn manifest(executable: PathBuf) -> Manifest {
+fn manifest(executable: PathBuf, runtime_sha256: String) -> Manifest {
     Manifest {
         manifest_version: DRIVER_MANIFEST_VERSION,
         protocol: DRIVER_PROTOCOL_VERSION,
@@ -158,10 +192,19 @@ fn manifest(executable: PathBuf) -> Manifest {
                 read_only: true,
                 execute: false,
             },
+            DriverMount {
+                root: "godot-authoring-artifacts".into(),
+                read_only: false,
+                execute: false,
+            },
         ],
         system_config: vec![],
         secrets: vec![],
-        tools: vec![],
+        tools: vec![DriverToolMount {
+            root: "godot-authoring-runtime".into(),
+            name: "godot".into(),
+            sha256: runtime_sha256,
+        }],
         network: false,
         loopback_port: None,
         resources: DriverResources {
@@ -182,6 +225,28 @@ fn manifest(executable: PathBuf) -> Manifest {
             native_refs: true,
             ..DriverInterfaces::default()
         },
+    }
+}
+
+struct TestApprover;
+
+#[async_trait::async_trait]
+impl Approver for TestApprover {
+    async fn approve(
+        &self,
+        approval: Approval,
+        cancellation: CancellationToken,
+    ) -> semwright_types::Result<bool> {
+        if cancellation.is_cancelled() {
+            return Ok(false);
+        }
+        Ok(matches!(
+            approval.command.as_str(),
+            "driver.godot.composition.native.verify"
+                | "driver.godot.project.validate"
+                | "driver.godot.project.run_test"
+                | "driver.godot.export.build"
+        ))
     }
 }
 
@@ -219,7 +284,7 @@ async fn empty_project_authoring_flows_through_broker_driver_host_and_provider()
     let driver_state = tempfile::tempdir().unwrap();
     std::fs::set_permissions(driver_state.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
     let provider = DriverProvider::connect(
-        manifest(executable),
+        manifest(executable, fixture.runtime_sha256.clone()),
         driver_state.path(),
         &helper,
         &fixture.roots,
@@ -239,7 +304,7 @@ async fn empty_project_authoring_flows_through_broker_driver_host_and_provider()
         policy,
         vec![],
         audit,
-        Arc::new(NoApprover),
+        Arc::new(TestApprover),
         None,
         json!({"test":"godot-authoring-empty-root"}),
         false,
@@ -309,6 +374,162 @@ async fn empty_project_authoring_flows_through_broker_driver_host_and_provider()
     );
     assert_eq!(verified["receipt"]["coverage"]["complete"], false);
 
+    let native_inspect = broker_call(
+        &broker,
+        &session,
+        "driver.godot.composition.native.verify",
+        json!({
+            "plan_id":plan_id,
+            "scene":"arena",
+            "verification":{"kind":"inspect"}
+        }),
+    )
+    .await;
+    assert_eq!(native_inspect["kind"], "inspect");
+    assert_eq!(
+        native_inspect["binding"]["plan_digest"],
+        plan["plan_digest"]
+    );
+    assert_eq!(native_inspect["binding"]["slug"], project_slug);
+    assert_eq!(native_inspect["observation"]["dependency_complete"], true);
+    assert!(
+        native_inspect["observation"]["authored"]["nodes"]
+            .as_array()
+            .is_some_and(|nodes| !nodes.is_empty())
+    );
+    assert!(
+        native_inspect["observation"]["authored"]["animations"]
+            .as_array()
+            .is_some_and(|animations| !animations.is_empty())
+    );
+
+    let native_persistence = broker_call(
+        &broker,
+        &session,
+        "driver.godot.composition.native.verify",
+        json!({
+            "plan_id":plan_id,
+            "scene":"arena",
+            "verification":{"kind":"persistence"}
+        }),
+    )
+    .await;
+    assert_eq!(native_persistence["kind"], "persistence");
+    assert_eq!(native_persistence["evidence"]["kind"], "reopened");
+    assert_ne!(
+        native_persistence["writer"]["process_id"],
+        native_persistence["reader"]["process_id"]
+    );
+
+    let native_play = broker_call(
+        &broker,
+        &session,
+        "driver.godot.composition.native.verify",
+        json!({
+            "plan_id":plan_id,
+            "scene":"arena",
+            "verification":{
+                "kind":"play",
+                "ticks":10,
+                "inputs":[
+                    {"tick":1,"action":"start","pressed":true},
+                    {"tick":2,"action":"start","pressed":false}
+                ],
+                "checkpoints":[1,2,10],
+                "variables":["score"],
+                "capture":false
+            }
+        }),
+    )
+    .await;
+    assert_eq!(native_play["kind"], "play");
+    assert_eq!(native_play["observation"]["inputs_delivered"], 2);
+    assert_eq!(
+        native_play["observation"]["frames"]
+            .as_array()
+            .map(Vec::len),
+        Some(3)
+    );
+    assert!(
+        native_play["observation"]["elapsed_physics_frames"]
+            .as_u64()
+            .is_some_and(|frames| frames >= 10)
+    );
+
+    let validated_project = broker_call(
+        &broker,
+        &session,
+        "driver.godot.project.validate",
+        json!({"managed_project":project_slug}),
+    )
+    .await;
+    assert_eq!(validated_project["success"], true);
+
+    let runtime = broker_call(
+        &broker,
+        &session,
+        "driver.godot.project.run_test",
+        json!({"managed_project":project_slug,"frames":10}),
+    )
+    .await;
+    assert_eq!(runtime["success"], true);
+
+    assert!(
+        std::env::var_os("SEMWRIGHT_TEST_GODOT_EXPORT_TEMPLATES").is_some(),
+        "standalone export acceptance requires pinned export templates"
+    );
+    let exported = broker_call(
+        &broker,
+        &session,
+        "driver.godot.export.build",
+        json!({
+            "managed_project":project_slug,
+            "preset":"Linux",
+            "output":"technical_two.x86_64",
+            "debug":false
+        }),
+    )
+    .await;
+    assert_eq!(exported["success"], true);
+    let artifact = exported["artifact"].as_str().unwrap();
+    assert_eq!(artifact, "technical_two.x86_64");
+    let binary = fixture.artifacts.path().join(artifact);
+    assert!(binary.is_file());
+    let bytes = std::fs::read(&binary).unwrap();
+    for forbidden in [
+        b"project.semwright.json".as_slice(),
+        b"native_observer.gd".as_slice(),
+        b"/workspace/godot-authoring-state".as_slice(),
+        b"SEMWRIGHT_GODOT_PORT".as_slice(),
+    ] {
+        assert!(
+            !bytes
+                .windows(forbidden.len())
+                .any(|window| window == forbidden),
+            "standalone export leaked authoring-only marker"
+        );
+    }
+    let standalone_home = tempfile::tempdir().unwrap();
+    let launched = Command::new("/usr/bin/timeout")
+        .args(["5", binary.to_str().unwrap(), "--headless"])
+        .env_clear()
+        .env("HOME", standalone_home.path())
+        .output()
+        .unwrap();
+    assert!(
+        launched.status.success() || launched.status.code() == Some(124),
+        "standalone export failed to launch: {}",
+        String::from_utf8_lossy(&launched.stderr)
+    );
+    let launch_log = format!(
+        "{}\n{}",
+        String::from_utf8_lossy(&launched.stdout),
+        String::from_utf8_lossy(&launched.stderr)
+    );
+    for marker in ["SCRIPT ERROR:", "Parse Error:"] {
+        assert!(!launch_log.contains(marker), "{launch_log}");
+    }
+
     let foreign = broker
         .clone()
         .execute(
@@ -328,15 +549,6 @@ async fn empty_project_authoring_flows_through_broker_driver_host_and_provider()
         foreign.error.unwrap().code,
         semwright_types::ErrorCode::PermissionDenied
     );
-
-    if let Some(destination) = std::env::var_os("SEMWRIGHT_TEST_GODOT_AUTHORING_EXPORT_DIR") {
-        let destination = PathBuf::from(destination);
-        assert!(
-            !destination.exists(),
-            "native handoff destination must start empty"
-        );
-        copy_tree(&product_project, &destination);
-    }
 
     broker.remove_provider("driver:godot").await.unwrap();
     Provider::shutdown(provider.as_ref()).await.unwrap();

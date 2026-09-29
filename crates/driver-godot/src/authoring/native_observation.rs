@@ -2,7 +2,8 @@
 //! Parsing this data does not establish authority: only the provider's isolated
 //! process runner may admit it as native evidence for an authenticated plan.
 use schemars::JsonSchema;
-use semwright_semantic_composition::{Digest, canonical_digest, strict_decode};
+use semwright_project_graph::ProjectId;
+use semwright_semantic_composition::{Digest, Owner, canonical_digest, strict_decode};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -42,6 +43,60 @@ pub struct NativeRequest {
     pub variables: Vec<String>,
     pub capture: bool,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum NativeVerification {
+    Inspect,
+    Persistence,
+    Play {
+        ticks: u32,
+        inputs: Vec<InputStep>,
+        checkpoints: Vec<u32>,
+        variables: Vec<String>,
+        capture: bool,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct NativeVerifyRequest {
+    pub plan_id: String,
+    pub scene: String,
+    pub verification: NativeVerification,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct NativeEvidenceBinding {
+    pub owner: Owner,
+    pub request_id: String,
+    pub project: ProjectId,
+    pub slug: String,
+    pub plan_digest: Digest,
+    pub intent_digest: Digest,
+    pub source_fingerprint: Digest,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum NativeVerifyResult {
+    Inspect {
+        binding: NativeEvidenceBinding,
+        observation: NativeObservation,
+    },
+    Persistence {
+        binding: NativeEvidenceBinding,
+        writer: NativeObservation,
+        reader: NativeObservation,
+        evidence: semwright_effect_conformance::ObservedValue,
+    },
+    Play {
+        binding: NativeEvidenceBinding,
+        observation: NativeObservation,
+    },
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct NativeResourceRef {

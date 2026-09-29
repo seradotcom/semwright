@@ -42,7 +42,7 @@ jobs:
           retention-days: 7
   godot-native-authoring:
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
+    timeout-minutes: 50
     env:
       CARGO_INCREMENTAL: '0'
       CARGO_PROFILE_DEV_DEBUG: '0'
@@ -65,32 +65,36 @@ jobs:
           sudo apt-get install -y bubblewrap apparmor-profiles apparmor-utils libpipewire-0.3-dev
           mkdir -p verification/godot-authoring
           bash scripts/dev/ci-driver-bwrap-profile.sh verification/godot-authoring/sandbox-setup.log
-      - name: Install pinned Godot 4.7.2
+      - name: Install pinned Godot 4.7.2 and Linux release template
         run: |
-          mkdir -p "$RUNNER_TEMP/godot"
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/godot" "$RUNNER_TEMP/export-templates"
           curl -fL --retry 4 --retry-delay 2             "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip"             -o "$RUNNER_TEMP/godot.zip"
           unzip -q "$RUNNER_TEMP/godot.zip" -d "$RUNNER_TEMP/godot"
           GODOT="$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64"
           echo "8d106cbe6144c2dc7e881d61d2429c1a8a76e6b22ef48bd5e48dcf934953f71e  $GODOT" | sha256sum -c -
           "$GODOT" --version | tee verification/godot-authoring/godot-version.txt
+          curl -fL --retry 4 --retry-delay 2             "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_export_templates.tpz"             -o "$RUNNER_TEMP/export-templates.tpz"
+          echo "f298490b8d44d934be425a5a65a51bf15f422428b229a06a6e11d9ffea248011  $RUNNER_TEMP/export-templates.tpz" | sha256sum -c -
+          unzip -j -q "$RUNNER_TEMP/export-templates.tpz"             "templates/linux_release.x86_64" -d "$RUNNER_TEMP/export-templates"
+          rm "$RUNNER_TEMP/export-templates.tpz"
+          chmod 0755 "$RUNNER_TEMP/export-templates/linux_release.x86_64"
+          test -x "$RUNNER_TEMP/export-templates/linux_release.x86_64"
           echo "GODOT_BIN=$GODOT" >> "$GITHUB_ENV"
+          echo "SEMWRIGHT_TEST_GODOT_EXPORT_TEMPLATES=$RUNNER_TEMP/export-templates" >> "$GITHUB_ENV"
+      - name: Managed runner and native route contracts
+        run: |
+          cargo test --locked -p semwright-driver-godot --lib runner::tests:: -- --nocapture
+          cargo test --locked -p semwright-driver-godot --test contracts             native_authoring_verification_is_code_execution_and_not_a_plain_runner -- --exact --nocapture
+          cargo test --locked -p semwright-driver-godot --test contracts             runner_capabilities_accept_owned_managed_projects_without_accepting_paths -- --exact --nocapture
       - name: Build sandbox helper
         run: cargo build --locked -p semwright-plugin-host --bin semwright-sandbox
       - name: Broker Driver Host empty-root bootstrap
         env:
           SEMWRIGHT_TEST_GODOT_AUTHORING_HOST: '1'
           SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
-          SEMWRIGHT_TEST_GODOT_AUTHORING_EXPORT_DIR: ${{ runner.temp }}/godot-product-project
         run: |
           cargo test --locked -p semwright-driver-godot --test authoring_host -- --ignored --nocapture             2>&1 | tee verification/godot-authoring/authoring-host.log
-          test -f "$RUNNER_TEMP/godot-product-project/project.godot"
-      - name: Native parse save reopen and playtest
-        run: |
-          python3 scripts/godot-authoring/native-run.py             "$GODOT_BIN" "$RUNNER_TEMP/godot-product-project"             "$GITHUB_WORKSPACE/verification/godot-authoring/native"
-      - name: Validate typed native receipts
-        env:
-          SEMWRIGHT_TEST_GODOT_NATIVE_EVIDENCE: ${{ github.workspace }}/verification/godot-authoring/native
-        run: cargo test --locked -p semwright-driver-godot --test authoring_native_live -- --ignored --nocapture
       - name: Native evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a

@@ -51,7 +51,7 @@ impl GodotDriver {
         let runner = config
             .runner
             .clone()
-            .map(|runner| Runner::new(runner, &config.projects))
+            .map(|runner| Runner::new(runner, &config.projects, config.authoring.as_ref()))
             .transpose()?;
         let (event_tx, event_rx) = mpsc::unbounded_channel();
         let bridge = Bridge::start(config.port, config.projects, event_tx).await?;
@@ -337,6 +337,48 @@ impl GodotDriver {
                     runner.execute_with_context(command, &args, context).await
                 } else {
                     runner.execute(command, &args).await
+                }
+            }
+            Route::AuthoringRunner => {
+                let context = context.ok_or_else(|| {
+                    Error::new(
+                        ErrorCode::PermissionDenied,
+                        "Godot native authoring verification requires authenticated Driver Host context",
+                    )
+                })?;
+                #[cfg(target_os = "linux")]
+                {
+                    let request: authoring::native_observation::NativeVerifyRequest =
+                        serde_json::from_value(args.clone())?;
+                    let owner = Owner {
+                        session: context.session().to_owned(),
+                        principal: PrincipalBinding::HostSession,
+                    };
+                    let binding = self
+                        .authoring
+                        .as_ref()
+                        .ok_or_else(|| {
+                            Error::new(
+                                ErrorCode::Unavailable,
+                                "Godot semantic authoring grant is not configured",
+                            )
+                        })?
+                        .native_plan_context(&owner, &request.plan_id, &request.scene)?;
+                    self.runner
+                        .as_ref()
+                        .ok_or_else(|| {
+                            Error::new(ErrorCode::Unavailable, "Godot runner is not configured")
+                        })?
+                        .execute_native_verification(request, binding, context)
+                        .await
+                }
+                #[cfg(not(target_os = "linux"))]
+                {
+                    let _ = context;
+                    Err(Error::new(
+                        ErrorCode::Unsupported,
+                        "Managed Godot native verification is not available on this host platform",
+                    ))
                 }
             }
             Route::Authoring => {

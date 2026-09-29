@@ -3,22 +3,82 @@
   "semwright": {
     "minimum_version": ">=0.9.0-dev.1",
     "capabilities": [
-      { "id": "driver.godot.composition.inspect", "required": true },
-      { "id": "driver.godot.composition.plan", "required": true },
-      { "id": "driver.godot.composition.apply", "required": true },
-      { "id": "driver.godot.composition.measure", "required": true },
-      { "id": "driver.godot.composition.validate", "required": true },
-      { "id": "driver.godot.composition.repair.plan", "required": true },
-      { "id": "driver.godot.composition.repair.apply", "required": true },
-      { "id": "driver.godot.composition.verify", "required": true },
-      { "id": "driver.godot.project.inspect", "required": false },
-      { "id": "driver.godot.scene.inspect", "required": false },
-      { "id": "driver.godot.scene.save", "required": false },
-      { "id": "driver.godot.scene.open", "required": false },
-      { "id": "driver.godot.export.preset.list", "required": false },
-      { "id": "driver.godot.export.preset.inspect", "required": false },
-      { "id": "driver.godot.export.pack", "required": false },
-      { "id": "driver.godot.export.build", "required": false }
+      {
+        "id": "driver.godot.composition.inspect",
+        "required": true
+      },
+      {
+        "id": "driver.godot.composition.plan",
+        "required": true
+      },
+      {
+        "id": "driver.godot.composition.apply",
+        "required": true
+      },
+      {
+        "id": "driver.godot.composition.measure",
+        "required": true
+      },
+      {
+        "id": "driver.godot.composition.validate",
+        "required": true
+      },
+      {
+        "id": "driver.godot.composition.repair.plan",
+        "required": true
+      },
+      {
+        "id": "driver.godot.composition.repair.apply",
+        "required": true
+      },
+      {
+        "id": "driver.godot.composition.verify",
+        "required": true
+      },
+      {
+        "id": "driver.godot.project.inspect",
+        "required": false
+      },
+      {
+        "id": "driver.godot.scene.inspect",
+        "required": false
+      },
+      {
+        "id": "driver.godot.scene.save",
+        "required": false
+      },
+      {
+        "id": "driver.godot.scene.open",
+        "required": false
+      },
+      {
+        "id": "driver.godot.export.preset.list",
+        "required": false
+      },
+      {
+        "id": "driver.godot.export.preset.inspect",
+        "required": false
+      },
+      {
+        "id": "driver.godot.export.pack",
+        "required": false
+      },
+      {
+        "id": "driver.godot.export.build",
+        "required": true
+      },
+      {
+        "id": "driver.godot.composition.native.verify",
+        "required": true
+      },
+      {
+        "id": "driver.godot.project.validate",
+        "required": true
+      },
+      {
+        "id": "driver.godot.project.run_test",
+        "required": true
+      }
     ],
     "semantic_packages": []
   }

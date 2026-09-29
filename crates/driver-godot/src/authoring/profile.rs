@@ -1,4 +1,7 @@
-use super::model::GodotAuthoringSpec;
+use super::{
+    model::GodotAuthoringSpec,
+    native_observation::{NativeVerifyRequest, NativeVerifyResult},
+};
 use schemars::{JsonSchema, schema_for};
 use semwright_project_graph::ExecutionReceipt;
 use semwright_semantic_composition::{
@@ -186,4 +189,10 @@ pub fn verify_in() -> Value {
 }
 pub fn verify_out() -> Value {
     generated::<VerifyResult>()
+}
+pub fn native_verify_in() -> Value {
+    generated::<NativeVerifyRequest>()
+}
+pub fn native_verify_out() -> Value {
+    generated::<NativeVerifyResult>()
 }

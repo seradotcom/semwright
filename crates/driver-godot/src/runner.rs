@@ -1,10 +1,22 @@
-use crate::config::{ProjectConfig, RunnerConfig};
+use crate::{
+    authoring::{
+        native_observation::{
+            MAX_OBSERVATION_BYTES, NATIVE_VERSION, NativeEvidenceBinding, NativeObservation,
+            NativeRequest, NativeVerification, NativeVerifyRequest, NativeVerifyResult,
+            PROBE_SOURCE, ProbeMode, decode_observation, persistence_value,
+        },
+        runtime::NativePlanContext,
+        store::{Snapshot, Store},
+        validate,
+    },
+    config::{AuthoringConfig, ProjectConfig, RunnerConfig},
+};
 use semwright_driver_sdk::DriverExecutionContext;
-use semwright_types::{Error, ErrorCode, JobArtifact, JobProgress, Result};
+use semwright_types::{Error, ErrorCode, JobArtifact, JobProgress, Result, unique_id};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{
-    collections::HashMap,
+    collections::{BTreeMap, BTreeSet, HashMap},
     io::Read,
     os::unix::process::CommandExt,
     path::{Component, Path, PathBuf},
@@ -16,20 +28,61 @@ use tokio_util::sync::CancellationToken;
 
 const MAX_LOG: usize = 64 * 1024;
 
+struct StagedManagedProject {
+    path: PathBuf,
+    snapshot: Snapshot,
+    expected: BTreeMap<String, semwright_semantic_composition::Digest>,
+}
+impl StagedManagedProject {
+    fn verify_sources(&self) -> Result<()> {
+        for (relative, expected) in &self.expected {
+            let path = self.path.join(relative);
+            let metadata = std::fs::symlink_metadata(&path)?;
+            if metadata.file_type().is_symlink() || !metadata.is_file() {
+                return Err(Error::new(
+                    ErrorCode::Conflict,
+                    "Native execution changed a managed source type",
+                ));
+            }
+            if file_digest(&path)? != expected.as_str() {
+                return Err(Error::new(
+                    ErrorCode::Conflict,
+                    "Native execution changed managed source bytes",
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+impl Drop for StagedManagedProject {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.path);
+    }
+}
+
 #[derive(Clone)]
 pub struct Runner {
     config: RunnerConfig,
     projects: HashMap<String, PathBuf>,
+    authoring: Option<AuthoringConfig>,
 }
 
 impl Runner {
-    pub fn new(config: RunnerConfig, projects: &[ProjectConfig]) -> Result<Self> {
+    pub fn new(
+        config: RunnerConfig,
+        projects: &[ProjectConfig],
+        authoring: Option<&AuthoringConfig>,
+    ) -> Result<Self> {
         verify_file(&config.executable, &config.sha256)?;
         let projects = projects
             .iter()
             .map(|p| (p.project.clone(), p.root.clone()))
             .collect();
-        Ok(Self { config, projects })
+        Ok(Self {
+            config,
+            projects,
+            authoring: authoring.cloned(),
+        })
     }
 
     pub async fn execute(&self, command: &str, args: &Value) -> Result<Value> {
@@ -72,20 +125,38 @@ impl Runner {
         Ok(value)
     }
 
+    pub async fn execute_native_verification(
+        &self,
+        request: NativeVerifyRequest,
+        binding: NativePlanContext,
+        context: &DriverExecutionContext,
+    ) -> Result<Value> {
+        context.check_cancelled()?;
+        self.native_verify(
+            request,
+            binding,
+            context.request_id().to_owned(),
+            Some(context.cancellation()),
+        )
+        .await
+    }
+
     async fn execute_inner(
         &self,
         command: &str,
         args: &Value,
         cancellation: Option<CancellationToken>,
     ) -> Result<Value> {
-        let project_id = args
-            .get("project")
+        let source_root = self.project_root(args)?;
+        let staged = args
+            .get("managed_project")
             .and_then(Value::as_str)
-            .ok_or_else(|| Error::invalid("Godot runner operation requires project"))?;
-        let root = self
-            .projects
-            .get(project_id)
-            .ok_or_else(|| Error::new(ErrorCode::NotFound, "Godot project is not configured"))?;
+            .map(|project| self.stage_managed_project(project))
+            .transpose()?;
+        let root = staged
+            .as_ref()
+            .map(|project| project.path.as_path())
+            .unwrap_or(source_root.as_path());
 
         let (argv, artifact, timeout) = match command {
             "driver.godot.project.validate" => (
@@ -235,6 +306,335 @@ impl Runner {
             "stderr": process.stderr,
             "artifact": artifact,
         }))
+    }
+
+    fn project_root(&self, args: &Value) -> Result<PathBuf> {
+        let paired = args.get("project").and_then(Value::as_str);
+        let managed = args.get("managed_project").and_then(Value::as_str);
+        match (paired, managed) {
+            (Some(project), None) => {
+                self.projects.get(project).cloned().ok_or_else(|| {
+                    Error::new(ErrorCode::NotFound, "Godot project is not configured")
+                })
+            }
+            (None, Some(project)) => {
+                validate::id(project).map_err(|error| Error::invalid(error.to_string()))?;
+                let authoring = self.authoring.as_ref().ok_or_else(|| {
+                    Error::new(
+                        ErrorCode::PermissionDenied,
+                        "Managed Godot project execution requires an authoring output grant",
+                    )
+                })?;
+                let snapshot = Store::new(authoring.clone())?.snapshot(project)?;
+                if snapshot.status != "IN_SYNC" {
+                    return Err(Error::new(
+                        ErrorCode::Conflict,
+                        format!(
+                            "Managed Godot project must be IN_SYNC before native execution ({})",
+                            snapshot.status
+                        ),
+                    ));
+                }
+                let root = authoring.output_root.join(project);
+                let metadata = std::fs::symlink_metadata(&root).map_err(|error| {
+                    if error.kind() == std::io::ErrorKind::NotFound {
+                        Error::new(ErrorCode::NotFound, "Managed Godot project does not exist")
+                    } else {
+                        error.into()
+                    }
+                })?;
+                if metadata.file_type().is_symlink() || !metadata.is_dir() {
+                    return Err(Error::new(
+                        ErrorCode::PermissionDenied,
+                        "Managed Godot project root must be an owned directory",
+                    ));
+                }
+                let canonical = root.canonicalize()?;
+                if canonical != root || !canonical.starts_with(&authoring.output_root) {
+                    return Err(Error::new(
+                        ErrorCode::PermissionDenied,
+                        "Managed Godot project escaped its authoring output grant",
+                    ));
+                }
+                Ok(root)
+            }
+            _ => Err(Error::invalid(
+                "Godot runner requires exactly one of project or managed_project",
+            )),
+        }
+    }
+
+    fn stage_managed_project(&self, project: &str) -> Result<StagedManagedProject> {
+        let authoring = self.authoring.as_ref().ok_or_else(|| {
+            Error::new(
+                ErrorCode::PermissionDenied,
+                "Managed Godot project execution requires an authoring output grant",
+            )
+        })?;
+        let store = Store::new(authoring.clone())?;
+        let (snapshot, files) = store.execution_files(project)?;
+        let path = self
+            .config
+            .output_root
+            .join(format!(".sw-project-{}", unique_id()));
+        std::fs::create_dir(&path)?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o700))?;
+        }
+        let mut expected = BTreeMap::new();
+        let result = (|| -> Result<()> {
+            for (relative, bytes) in files {
+                let rel = Path::new(&relative);
+                if rel.is_absolute()
+                    || relative.contains('\\')
+                    || rel
+                        .components()
+                        .any(|component| !matches!(component, Component::Normal(_)))
+                {
+                    return Err(Error::new(
+                        ErrorCode::Internal,
+                        "Provider-owned managed path is not portable",
+                    ));
+                }
+                let target = path.join(rel);
+                if let Some(parent) = target.parent() {
+                    std::fs::create_dir_all(parent)?;
+                }
+                std::fs::write(&target, &bytes)?;
+                expected.insert(
+                    relative,
+                    semwright_semantic_composition::Digest::of_bytes(&bytes),
+                );
+            }
+            Ok(())
+        })();
+        if let Err(error) = result {
+            let _ = std::fs::remove_dir_all(&path);
+            return Err(error);
+        }
+        let staged = StagedManagedProject {
+            path,
+            snapshot,
+            expected,
+        };
+        staged.verify_sources()?;
+        Ok(staged)
+    }
+
+    async fn native_verify(
+        &self,
+        request: NativeVerifyRequest,
+        binding: NativePlanContext,
+        request_id: String,
+        cancellation: Option<CancellationToken>,
+    ) -> Result<Value> {
+        validate::id(&request.scene).map_err(|error| Error::invalid(error.to_string()))?;
+        let staged = self.stage_managed_project(&binding.project)?;
+        let record = staged.snapshot.record().ok_or_else(|| {
+            Error::new(ErrorCode::Conflict, "Managed derivation record is missing")
+        })?;
+        if record.project != binding.project_id
+            || record.slug != binding.project
+            || record.intent_digest != binding.intent_digest
+        {
+            return Err(Error::new(
+                ErrorCode::Conflict,
+                "Native verification project binding changed after plan resolution",
+            ));
+        }
+        let actions: BTreeSet<String> = record
+            .intent
+            .inputs
+            .iter()
+            .map(|input| input.id.clone())
+            .collect();
+        let scene = format!("res://scenes/{}.tscn", request.scene);
+        let source = staged.snapshot.fingerprint.clone();
+        let evidence_binding = NativeEvidenceBinding {
+            owner: binding.owner,
+            request_id,
+            project: binding.project_id,
+            slug: binding.project,
+            plan_digest: binding.plan_digest,
+            intent_digest: binding.intent_digest,
+            source_fingerprint: source.clone(),
+        };
+        let private = self
+            .config
+            .output_root
+            .join(format!(".sw-native-{}", unique_id()));
+        std::fs::create_dir(&private)?;
+        let helper = private.join("native_observer.gd");
+        std::fs::write(&helper, PROBE_SOURCE.as_bytes())?;
+        let import_argv = vec![
+            "--headless".into(),
+            "--path".into(),
+            staged.path.display().to_string(),
+            "--import".into(),
+        ];
+        let import_result = self
+            .run(
+                &staged.path,
+                &import_argv,
+                Duration::from_secs(90),
+                cancellation.clone(),
+            )
+            .await;
+        if let Err(error) = import_result {
+            let _ = std::fs::remove_dir_all(&private);
+            return Err(error);
+        }
+        staged.verify_sources()?;
+
+        let result = async {
+            match request.verification {
+                NativeVerification::Inspect => {
+                    let native = NativeRequest {
+                        version: NATIVE_VERSION,
+                        nonce: format!("native_{}", unique_id()),
+                        source_fingerprint: source,
+                        mode: ProbeMode::Inspect,
+                        scene,
+                        ticks: 0,
+                        inputs: vec![],
+                        checkpoints: vec![],
+                        variables: vec![],
+                        capture: false,
+                    };
+                    native.validate(&actions)?;
+                    let observation = self
+                        .run_native_probe(&staged, &private, &helper, &native, cancellation)
+                        .await?;
+                    serde_json::to_value(NativeVerifyResult::Inspect {
+                        binding: evidence_binding,
+                        observation,
+                    })
+                    .map_err(Into::into)
+                }
+                NativeVerification::Persistence => {
+                    let writer_request = NativeRequest {
+                        version: NATIVE_VERSION,
+                        nonce: format!("native_save_{}", unique_id()),
+                        source_fingerprint: source.clone(),
+                        mode: ProbeMode::SaveCandidate,
+                        scene: scene.clone(),
+                        ticks: 0,
+                        inputs: vec![],
+                        checkpoints: vec![],
+                        variables: vec![],
+                        capture: false,
+                    };
+                    writer_request.validate(&actions)?;
+                    let writer = self
+                        .run_native_probe(
+                            &staged,
+                            &private,
+                            &helper,
+                            &writer_request,
+                            cancellation.clone(),
+                        )
+                        .await?;
+                    let reader_request = NativeRequest {
+                        version: NATIVE_VERSION,
+                        nonce: format!("native_reopen_{}", unique_id()),
+                        source_fingerprint: source,
+                        mode: ProbeMode::ReopenCandidate,
+                        scene,
+                        ticks: 0,
+                        inputs: vec![],
+                        checkpoints: vec![],
+                        variables: vec![],
+                        capture: false,
+                    };
+                    reader_request.validate(&actions)?;
+                    let reader = self
+                        .run_native_probe(&staged, &private, &helper, &reader_request, cancellation)
+                        .await?;
+                    let evidence = persistence_value(&writer, &reader)?;
+                    serde_json::to_value(NativeVerifyResult::Persistence {
+                        binding: evidence_binding,
+                        writer,
+                        reader,
+                        evidence,
+                    })
+                    .map_err(Into::into)
+                }
+                NativeVerification::Play {
+                    ticks,
+                    inputs,
+                    checkpoints,
+                    variables,
+                    capture,
+                } => {
+                    let native = NativeRequest {
+                        version: NATIVE_VERSION,
+                        nonce: format!("native_play_{}", unique_id()),
+                        source_fingerprint: source,
+                        mode: ProbeMode::Play,
+                        scene,
+                        ticks,
+                        inputs,
+                        checkpoints,
+                        variables,
+                        capture,
+                    };
+                    native.validate(&actions)?;
+                    let observation = self
+                        .run_native_probe(&staged, &private, &helper, &native, cancellation)
+                        .await?;
+                    serde_json::to_value(NativeVerifyResult::Play {
+                        binding: evidence_binding,
+                        observation,
+                    })
+                    .map_err(Into::into)
+                }
+            }
+        }
+        .await;
+        let _ = std::fs::remove_dir_all(&private);
+        result
+    }
+
+    async fn run_native_probe(
+        &self,
+        staged: &StagedManagedProject,
+        private: &Path,
+        helper: &Path,
+        request: &NativeRequest,
+        cancellation: Option<CancellationToken>,
+    ) -> Result<NativeObservation> {
+        let token = unique_id();
+        let request_path = private.join(format!("request-{token}.json"));
+        let output_path = private.join(format!("observation-{token}.json"));
+        let request_bytes = semwright_semantic_composition::canonical_bytes(request)
+            .map_err(|error| Error::invalid(error.to_string()))?;
+        std::fs::write(&request_path, request_bytes)?;
+        let argv = vec![
+            "--headless".into(),
+            "--path".into(),
+            staged.path.display().to_string(),
+            "--script".into(),
+            helper.display().to_string(),
+            "--".into(),
+            "--request".into(),
+            request_path.display().to_string(),
+            "--output".into(),
+            output_path.display().to_string(),
+        ];
+        self.run(&staged.path, &argv, Duration::from_secs(90), cancellation)
+            .await?;
+        staged.verify_sources()?;
+        let metadata = std::fs::metadata(&output_path)?;
+        if !metadata.is_file() || metadata.len() as usize > MAX_OBSERVATION_BYTES {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Native Godot observation exceeded its output budget",
+            ));
+        }
+        let bytes = std::fs::read(&output_path)?;
+        decode_observation(&bytes, request)
     }
 
     fn artifacts_from_result(&self, value: &Value) -> Result<Vec<JobArtifact>> {
@@ -488,4 +888,83 @@ fn validate_res(value: &str, suffix: &str) -> Result<()> {
         return Err(Error::invalid("Godot resource path is not allowed"));
     }
     Ok(())
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+    use std::os::unix::fs::PermissionsExt;
+
+    fn test_runner() -> (tempfile::TempDir, Runner) {
+        let root = tempfile::tempdir().unwrap();
+        for name in ["managed", "state", "artifacts"] {
+            std::fs::create_dir(root.path().join(name)).unwrap();
+        }
+        std::fs::set_permissions(
+            root.path().join("state"),
+            std::fs::Permissions::from_mode(0o700),
+        )
+        .unwrap();
+        let executable = PathBuf::from("/usr/bin/true").canonicalize().unwrap();
+        let config = RunnerConfig {
+            sha256: file_digest(&executable).unwrap(),
+            executable,
+            output_root: root.path().join("artifacts").canonicalize().unwrap(),
+            display: None,
+        };
+        let authoring = AuthoringConfig {
+            output_root: root.path().join("managed").canonicalize().unwrap(),
+            state_root: root.path().join("state").canonicalize().unwrap(),
+            input_root: None,
+        };
+        let spec =
+            validate::decode(include_bytes!("../tests/fixtures/authoring/two_d.json")).unwrap();
+        let store = Store::new(authoring.clone()).unwrap();
+        let prepared = store.prepare(&spec, false, false).unwrap();
+        store.apply(&prepared, || Ok(())).unwrap();
+        let runner = Runner::new(config, &[], Some(&authoring)).unwrap();
+        (root, runner)
+    }
+
+    #[test]
+    fn managed_project_selector_is_owner_rooted_and_exclusive() {
+        let (root, runner) = test_runner();
+        let project = runner
+            .project_root(&json!({"managed_project":"technical_two"}))
+            .unwrap();
+        assert_eq!(
+            project,
+            root.path()
+                .join("managed/technical_two")
+                .canonicalize()
+                .unwrap()
+        );
+        assert!(
+            runner
+                .project_root(&json!({
+                    "project":"a".repeat(64),
+                    "managed_project":"technical_two"
+                }))
+                .is_err()
+        );
+        assert!(
+            runner
+                .project_root(&json!({"managed_project":"../escape"}))
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn managed_project_rejects_source_drift_before_native_execution() {
+        let (root, runner) = test_runner();
+        std::fs::write(
+            root.path().join("managed/technical_two/project.godot"),
+            "config_version=5\n# external edit\n",
+        )
+        .unwrap();
+        let error = runner
+            .project_root(&json!({"managed_project":"technical_two"}))
+            .unwrap_err();
+        assert_eq!(error.code, ErrorCode::Conflict);
+    }
 }
