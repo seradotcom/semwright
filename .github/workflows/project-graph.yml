@@ -65,6 +65,11 @@ jobs:
           with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
               out.write('suite=' + value['suite'] + '\n')
           PYSELECT
+      - name: Install Linux media development libraries
+        if: steps.suite.outputs.suite == 'full'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpipewire-0.3-dev
       - name: Pinned fuzz toolchains and engine
         if: steps.suite.outputs.suite == 'full'
         run: |
