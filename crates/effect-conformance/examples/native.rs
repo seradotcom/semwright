@@ -192,6 +192,9 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     std::fs::create_dir_all(&output_dir)?;
     let source_sha = std::env::var("EXPECTED_SHA")?;
     let mut receipts = Vec::new();
+    let mut baseline_evaluation = None;
+    let mut native_runtime = String::new();
+    let mut verified_negatives = BTreeSet::new();
     for case in cases {
         // Pin the entire predicate/units/tolerance contract BEFORE native work.
         let rules = contract(&backend);
@@ -299,6 +302,12 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
                 .iter()
                 .any(|r| r.rule == id && r.verdict == Verdict::Fail)
         });
+        if *case == "baseline" && verdict == Verdict::Pass {
+            baseline_evaluation = Some(evaluation.clone());
+            native_runtime.clone_from(&measured.runtime);
+        } else if verdict == expected && negative_detected {
+            verified_negatives.insert(format!("{backend}/{case}@{source_sha}"));
+        }
         receipts.push(json!({"case":case,"expected_verdict":expected,"actual_verdict":verdict,"negative_detected":negative_detected,
             "evaluation":evaluation,"runtime":measured.runtime,"isolation":measured.isolation,"limits":measured.limits,
             "route":measured.route,"crash_durability":measured.crash_durability,"source_sha":source_sha}));
@@ -313,6 +322,58 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
             "native evaluator verdict or targeted negative detection failed",
         )?;
     }
+    let baseline = baseline_evaluation.ok_or("missing native baseline evaluation")?;
+    let all_rules = baseline.report.validation.required_rules.clone();
+    let mut mappings = BTreeMap::from([
+        (
+            QualityDimension::Actuation,
+            BTreeSet::from(["position".into()]),
+        ),
+        (
+            QualityDimension::Observation,
+            BTreeSet::from(["position".into()]),
+        ),
+        (
+            QualityDimension::Roundtrip,
+            BTreeSet::from(["persistence".into()]),
+        ),
+        (
+            QualityDimension::Persistence,
+            BTreeSet::from(["persistence".into()]),
+        ),
+        (
+            QualityDimension::EffectBoundedScope,
+            BTreeSet::from(["inventory".into()]),
+        ),
+        (QualityDimension::Conformance, all_rules.clone()),
+        (QualityDimension::NativeEvidence, all_rules),
+    ]);
+    if backend == "blender" {
+        mappings.insert(
+            QualityDimension::EnumerationCompleteness,
+            BTreeSet::from(["membership".into()]),
+        );
+    }
+    // Recovery remains UNKNOWN: these fixtures do not prove crash durability.
+    let quality = workflow_quality(
+        WorkflowIdentity {
+            driver: backend.clone(),
+            driver_version: env!("CARGO_PKG_VERSION").into(),
+            runtime: native_runtime,
+            os: std::env::consts::OS.into(),
+            workflow: format!("{backend}.native-adapter-save-reopen"),
+            fixture: "F-native-v1".into(),
+            source_sha: source_sha.clone(),
+            route: EvidenceRoute::NativeAdapter,
+        },
+        &mappings,
+        &baseline,
+        verified_negatives,
+    )?;
+    std::fs::write(
+        output_dir.join(format!("{backend}-quality.json")),
+        serde_json::to_vec_pretty(&quality)?,
+    )?;
     println!(
         "executed {} native {backend} cases through effect evaluator",
         cases.len()

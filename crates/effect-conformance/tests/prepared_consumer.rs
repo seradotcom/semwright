@@ -79,7 +79,7 @@ fn a_prepared_plan_pins_effect_contract_required_rules_scope_and_budget() {
     assert!(ctx.validate_plan(&plan, &profile, &contract).is_err());
 }
 #[test]
-fn unpinned_effect_contract_is_rejected_even_if_A_plan_digest_is_valid() {
+fn unpinned_effect_contract_is_rejected_even_if_a_plan_digest_is_valid() {
     let (contract, mut ctx, mut plan, profile) = prepared();
     plan.body.dependencies.clear();
     plan.digest = canonical_digest(&plan.body).unwrap();
