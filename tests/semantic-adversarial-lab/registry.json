@@ -596,6 +596,314 @@
       }
     },
     {
+      "id": "G-SELF-055",
+      "owner": "G",
+      "requirement": "G10",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "valid bounded artifact archive",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-056",
+      "owner": "G",
+      "requirement": "G10",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "wrong artifact digest",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-057",
+      "owner": "G",
+      "requirement": "G10",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "archive parent traversal",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-058",
+      "owner": "G",
+      "requirement": "G10",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "archive symlink",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-059",
+      "owner": "G",
+      "requirement": "G10",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "duplicate archive member",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-060",
+      "owner": "G",
+      "requirement": "G10",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "missing structured report",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-061",
+      "owner": "G",
+      "requirement": "G10",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "unexpected archive member",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-062",
+      "owner": "G",
+      "requirement": "G10",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "malformed ZIP",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-063",
+      "owner": "G",
+      "requirement": "G10",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "oversized member",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-064",
+      "owner": "G",
+      "requirement": "G10",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "valid report plus provisioning receipt",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-065",
+      "owner": "G",
+      "requirement": "G10",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "absolute archive path",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-066",
+      "owner": "G",
+      "requirement": "G10",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "directory archive member",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-067",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "exact-SHA collector positive control",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-068",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "wrong product source in report",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-069",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "wrong suite in report",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-070",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "wrong run attempt",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-071",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "missing requested case",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-072",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "fabricated executed count",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-073",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "false native acceptance",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-074",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "product report disguised as selftest",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-075",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "contract SHA substitution",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-076",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "dependency SHA substitution",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-077",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "FAIL hidden by success summary",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-078",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "omitted executed results",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-079",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "infrastructure BLOCKED preserved",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-080",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "skipped case cannot satisfy obligation",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-081",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "boolean executed count cannot impersonate integer",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-082",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "R16 closure field must be a strict boolean",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
       "id": "G-PLAN-001",
       "owner": "A",
       "requirement": "G03",

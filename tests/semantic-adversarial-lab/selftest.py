@@ -83,6 +83,8 @@ def run_all():
     ]
     from selftest_extra import extra_cases
     tests.extend(extra_cases())
+    from evidence_selftest import evidence_cases
+    tests.extend(evidence_cases())
     results = []
     for case_id, test in tests:
         try:
