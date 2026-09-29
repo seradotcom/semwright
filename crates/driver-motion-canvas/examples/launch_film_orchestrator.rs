@@ -176,24 +176,22 @@ mod linux {
         motion_node: Option<&Path>,
     ) -> AnyResult<Manifest> {
         let motion_v7 = id == "motion-canvas";
-        let tools = motion_node
-            .map(|node| {
-                Ok(DriverToolMount {
-                    root: "motion-node-tool".into(),
-                    name: "motion-node".into(),
-                    sha256: digest(node)?,
-                    mounts: vec![
-                        "project".into(),
-                        "output".into(),
-                        "runtime".into(),
-                        "fontconfig".into(),
-                    ],
-                    dependencies: vec![],
-                })
-            })
-            .transpose()?
-            .into_iter()
-            .collect();
+        let tools = if let Some(node) = motion_node {
+            vec![DriverToolMount {
+                root: "motion-node-tool".into(),
+                name: "motion-node".into(),
+                sha256: digest(node)?,
+                mounts: vec![
+                    "project".into(),
+                    "output".into(),
+                    "runtime".into(),
+                    "fontconfig".into(),
+                ],
+                dependencies: vec![],
+            }]
+        } else {
+            vec![]
+        };
         Ok(Manifest {
             manifest_version: 1,
             protocol: if motion_v7 { 7 } else { 1 },
