@@ -707,6 +707,28 @@ async fn hard_surface_and_product_scene_author_through_semwright() {
             assert_eq!(copy["data_users"], 1);
             assert_eq!(source["materials"][0]["id"], "housing");
             assert_eq!(copy["materials"][0]["id"], "insert");
+            let cutter = items.iter().find(|row| row["entity"] == "cutter").unwrap();
+            assert_eq!(cutter["type"], "MESH");
+            assert!(
+                source["modifiers"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|modifier| {
+                        modifier["type"] == "BOOLEAN"
+                            && modifier["target"] == "cutter"
+                            && modifier["operation"] == "DIFFERENCE"
+                            && modifier["solver"] == "EXACT"
+                    })
+            );
+            let cable = items.iter().find(|row| row["entity"] == "cable").unwrap();
+            assert_eq!(cable["type"], "CURVE");
+            assert_eq!(cable["curve"]["bevel_resolution"], 2);
+            assert_eq!(cable["materials"][0]["id"], "insert");
+            assert!((cable["materials"][0]["opacity"].as_f64().unwrap() - 0.82).abs() < 1e-5);
+            assert!(
+                (cable["materials"][0]["emission_strength"].as_f64().unwrap() - 0.35).abs() < 1e-5
+            );
         } else {
             let source = items.iter().find(|row| row["entity"] == "product").unwrap();
             let instance = items

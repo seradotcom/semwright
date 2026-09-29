@@ -232,6 +232,78 @@ fn instance_cannot_mutate_shared_material_slots() {
     assert!(s.validate().is_err());
 }
 
+#[test]
+fn curve_requires_bounded_generated_geometry() {
+    let mut s = spec();
+    let cable = s
+        .entities
+        .iter_mut()
+        .find(|entity| entity.id == "cable")
+        .unwrap();
+    cable.shape = Shape::Curve {
+        points: vec![[0., 0., 0.], [1., 0., 0.]],
+        cyclic: false,
+        extrude: 0.0,
+        bevel_depth: 0.0,
+        bevel_resolution: 0,
+    };
+    assert!(s.validate().is_err());
+}
+#[test]
+fn boolean_missing_target_is_rejected() {
+    let mut s = spec();
+    let housing = s
+        .entities
+        .iter_mut()
+        .find(|entity| entity.id == "housing")
+        .unwrap();
+    housing.modifiers.push(Modifier::Boolean {
+        operation: BooleanOperation::Difference,
+        target: "missing".into(),
+    });
+    assert!(s.validate().is_err());
+}
+#[test]
+fn boolean_dependencies_are_acyclic_and_topological() {
+    let s = spec();
+    let housing = s
+        .entities
+        .iter()
+        .find(|entity| entity.id == "housing")
+        .unwrap();
+    assert!(housing.dependency_ids().contains(&"cutter".to_string()));
+    let mut cyclic = s.clone();
+    let cutter = cyclic
+        .entities
+        .iter_mut()
+        .find(|entity| entity.id == "cutter")
+        .unwrap();
+    cutter.modifiers.push(Modifier::Boolean {
+        operation: BooleanOperation::Union,
+        target: "housing".into(),
+    });
+    assert!(cyclic.validate().is_err());
+}
+#[test]
+fn pbr_emission_and_opacity_are_bounded() {
+    let s = spec();
+    let insert = s
+        .materials
+        .iter()
+        .find(|material| material.id == "insert")
+        .unwrap();
+    assert_eq!(insert.opacity, 0.82);
+    assert_eq!(insert.emission_strength, 0.35);
+    let mut invalid = s.clone();
+    invalid
+        .materials
+        .iter_mut()
+        .find(|material| material.id == "insert")
+        .unwrap()
+        .emission_strength = 10.1;
+    assert!(invalid.validate().is_err());
+}
+
 fn owner() -> Owner {
     Owner {
         session: "host-session".into(),

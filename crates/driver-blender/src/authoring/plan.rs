@@ -147,17 +147,7 @@ fn prepare_internal(
             let graph: BTreeMap<_, _> = spec
                 .entities
                 .iter()
-                .map(|entity| {
-                    (
-                        entity.id.clone(),
-                        match &entity.shape {
-                            Shape::MeshInstance { source } | Shape::MeshCopy { source } => {
-                                vec![source.clone()]
-                            }
-                            _ => vec![],
-                        },
-                    )
-                })
+                .map(|entity| (entity.id.clone(), entity.dependency_ids()))
                 .collect();
             for id in dag_order(&graph)? {
                 let entity = spec
@@ -412,6 +402,7 @@ pub fn native_matches(intent: &AuthoringIntent, snapshot: &NativeSnapshot) -> bo
                     Shape::Armature { .. } => "ARMATURE",
                     Shape::Camera { .. } => "CAMERA",
                     Shape::AreaLight { .. } => "LIGHT",
+                    Shape::Curve { .. } => "CURVE",
                     _ => "MESH",
                 };
                 if r["type"].as_str() != Some(expected_type) {
@@ -452,6 +443,35 @@ pub fn native_matches(intent: &AuthoringIntent, snapshot: &NativeSnapshot) -> bo
                             return false;
                         }
                     }
+                    Shape::Curve {
+                        points,
+                        cyclic,
+                        extrude,
+                        bevel_depth,
+                        bevel_resolution,
+                    } => {
+                        let curve = &r["curve"];
+                        if curve["cyclic"].as_bool() != Some(*cyclic)
+                            || curve["bevel_resolution"].as_u64() != Some(*bevel_resolution as u64)
+                            || !curve["extrude"].as_f64().is_some_and(|value| {
+                                (value - extrude * spec.meters_per_unit).abs() < 1e-5
+                            })
+                            || !curve["bevel_depth"].as_f64().is_some_and(|value| {
+                                (value - bevel_depth * spec.meters_per_unit).abs() < 1e-5
+                            })
+                            || curve["points"].as_array().is_none_or(|actual| {
+                                actual.len() != points.len()
+                                    || actual.iter().zip(points).any(|(actual, expected)| {
+                                        !near(
+                                            actual,
+                                            &expected.map(|value| value * spec.meters_per_unit),
+                                        )
+                                    })
+                            })
+                        {
+                            return false;
+                        }
+                    }
                     _ => {}
                 }
                 if let Shape::Armature { bones } = &entity.shape {
@@ -485,8 +505,22 @@ pub fn native_matches(intent: &AuthoringIntent, snapshot: &NativeSnapshot) -> bo
                         let Some(expected) = spec.materials.iter().find(|v| &v.id == id) else {
                             return false;
                         };
+                        let expected_diffuse = [
+                            expected.base_color[0],
+                            expected.base_color[1],
+                            expected.base_color[2],
+                            expected.opacity,
+                        ];
                         if m["id"].as_str() != Some(id)
-                            || !near(&m["color"], &expected.base_color)
+                            || !near(&m["color"], &expected_diffuse)
+                            || !near(&m["base_color"], &expected.base_color)
+                            || !near(&m["emission_color"], &expected.emission_color)
+                            || !m["opacity"]
+                                .as_f64()
+                                .is_some_and(|value| (value - expected.opacity).abs() < 1e-5)
+                            || !m["emission_strength"].as_f64().is_some_and(|value| {
+                                (value - expected.emission_strength).abs() < 1e-5
+                            })
                             || !m["roughness"]
                                 .as_f64()
                                 .is_some_and(|x| (x - expected.roughness).abs() < 1e-5)
@@ -503,10 +537,28 @@ pub fn native_matches(intent: &AuthoringIntent, snapshot: &NativeSnapshot) -> bo
                     .iter()
                     .filter(|r| matches!(r,Relation::Skin{mesh,..} if mesh==&entity.id))
                     .count();
-                if r["modifiers"].as_array().map(Vec::len).unwrap_or(0)
-                    != entity.modifiers.len() + skin_count
-                {
+                let Some(native_modifiers) = r["modifiers"].as_array() else {
                     return false;
+                };
+                if native_modifiers.len() != entity.modifiers.len() + skin_count {
+                    return false;
+                }
+                for modifier in &entity.modifiers {
+                    if let Modifier::Boolean { operation, target } = modifier {
+                        let expected_operation = match operation {
+                            BooleanOperation::Difference => "DIFFERENCE",
+                            BooleanOperation::Union => "UNION",
+                            BooleanOperation::Intersect => "INTERSECT",
+                        };
+                        if !native_modifiers.iter().any(|row| {
+                            row["type"] == "BOOLEAN"
+                                && row["target"].as_str() == Some(target)
+                                && row["operation"].as_str() == Some(expected_operation)
+                                && row["solver"] == "EXACT"
+                        }) {
+                            return false;
+                        }
+                    }
                 }
             }
             for relation in &spec.relations {

@@ -10,6 +10,9 @@ Date: 2026-09-28/29. Runtime target is Blender **4.5.14 LTS**, pinned and hash-c
 - `Depsgraph` / evaluated IDs: https://docs.blender.org/api/4.5/bpy.types.Depsgraph.html
 - `Mesh.from_pydata`, `validate`, loop triangles: https://docs.blender.org/api/4.5/bpy.types.Mesh.html
 - math geometry utilities: https://docs.blender.org/api/4.5/mathutils.geometry.html
+- Blender 4.5 Boolean modifier semantics: https://docs.blender.org/manual/en/4.5/modeling/modifiers/generate/booleans.html
+- Blender Curve datablock/spline properties: pinned runtime RNA plus https://docs.blender.org/api/4.5/
+- Blender 4.5 Principled BSDF Alpha/Emission: https://docs.blender.org/manual/en/4.5/render/shader_nodes/shader/principled.html
 - action/slot/layer/channelbag/F-Curve availability is additionally checked by the existing pinned Blender RNA coverage lane.
 
 Design decisions: source and evaluated state are distinct because depsgraph evaluation applies animation, constraints and modifiers. Typed topology is validated before `Mesh.from_pydata`; if native `Mesh.validate` says repair was necessary, E rejects the geometry instead of silently changing it.

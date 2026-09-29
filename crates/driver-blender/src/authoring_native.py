@@ -194,6 +194,14 @@ class AuthoringRuntime:
                   "metallic": material.metallic, "library": material.library is not None,
                   "nodes": []}
         if material.use_nodes:
+            shader = material.node_tree.nodes.get("Principled BSDF")
+            check(shader is not None, "managed Principled shader missing", "Unsupported")
+            for socket in ("Base Color", "Alpha", "Emission Color", "Emission Strength"):
+                check(shader.inputs.get(socket) is not None, "pinned Principled input missing: " + socket, "Unsupported")
+            values["base_color"] = list(shader.inputs["Base Color"].default_value)
+            values["opacity"] = float(shader.inputs["Alpha"].default_value)
+            values["emission_color"] = list(shader.inputs["Emission Color"].default_value)
+            values["emission_strength"] = float(shader.inputs["Emission Strength"].default_value)
             check(len(material.node_tree.nodes) <= 64 and len(material.node_tree.links) <= 128, "node readback budget", "Unsupported")
             for node in material.node_tree.nodes:
                 ports = []
@@ -228,6 +236,12 @@ class AuthoringRuntime:
             elif modifier.type == "SUBSURF": settings.update(levels=modifier.levels, render_levels=modifier.render_levels)
             elif modifier.type == "ARRAY": settings.update(count=modifier.count, offset=list(modifier.constant_offset_displace), relative=modifier.use_relative_offset)
             elif modifier.type == "ARMATURE": settings.update(target=modifier.object.get(ENTITY) if modifier.object else None)
+            elif modifier.type == "BOOLEAN":
+                settings.update(
+                    target=modifier.object.get(ENTITY) if modifier.object else None,
+                    operation=modifier.operation,
+                    solver=modifier.solver,
+                )
             else: settings["coverage"] = "UNKNOWN"
             value["modifiers"].append(settings)
         for constraint in obj.constraints:
@@ -257,6 +271,20 @@ class AuthoringRuntime:
                 "groups": [group.name for group in obj.vertex_groups]})
             value.update(vertices=len(mesh.vertices), polygons=len(mesh.polygons), uv_layers=len(mesh.uv_layers), data_users=mesh.users)
             value["materials"] = [self._material(m) for m in mesh.materials]
+        elif obj.type == "CURVE":
+            curve = obj.data
+            check(len(curve.splines) == 1, "managed curve requires one spline", "Unsupported")
+            spline = curve.splines[0]
+            check(spline.type == "POLY" and len(spline.points) <= 256, "managed curve spline coverage", "Unsupported")
+            value["curve"] = {
+                "points": [list(point.co[:3]) for point in spline.points],
+                "cyclic": bool(spline.use_cyclic_u),
+                "extrude": float(curve.extrude),
+                "bevel_depth": float(curve.bevel_depth),
+                "bevel_resolution": int(curve.bevel_resolution),
+            }
+            value["data_users"] = curve.users
+            value["materials"] = [self._material(material) for material in curve.materials]
         elif obj.type == "ARMATURE":
             check(len(obj.data.bones) <= 64, "bone enumeration budget", "Unsupported")
             value["bones"] = [{"id": b.name, "head": list(b.head_local), "tail": list(b.tail_local),
@@ -300,9 +328,16 @@ class AuthoringRuntime:
                         check(m and m.get(ISLAND) == island and m.library is None, "foreign material dependency", "PolicyDenied")
                         check(m.use_nodes and all(n.bl_idname in {"ShaderNodeBsdfPrincipled", "ShaderNodeOutputMaterial"} for n in m.node_tree.nodes), "material graph outside managed PBR profile", "PolicyDenied")
                         check(not m.animation_data or len(m.animation_data.drivers) == 0, "material driver excluded", "PolicyDenied")
+            if obj.type == "CURVE":
+                for material in obj.data.materials:
+                    check(material and material.get(ISLAND) == island and material.library is None, "foreign curve material dependency", "PolicyDenied")
+                    check(material.use_nodes and all(node.bl_idname in {"ShaderNodeBsdfPrincipled", "ShaderNodeOutputMaterial"} for node in material.node_tree.nodes), "curve material graph outside managed PBR profile", "PolicyDenied")
             for modifier in obj.modifiers:
-                check(modifier.type in {"BEVEL", "MIRROR", "SUBSURF", "ARRAY", "ARMATURE"}, "unmanaged modifier", "PolicyDenied")
+                check(modifier.type in {"BEVEL", "MIRROR", "SUBSURF", "ARRAY", "ARMATURE", "BOOLEAN"}, "unmanaged modifier", "PolicyDenied")
                 if modifier.type == "ARMATURE": check(modifier.object and modifier.object.as_pointer() in pointers, "external armature", "PolicyDenied")
+                if modifier.type == "BOOLEAN":
+                    check(modifier.object and modifier.object.as_pointer() in pointers, "external boolean target", "PolicyDenied")
+                    check(modifier.operand_type == "OBJECT" and modifier.solver == "EXACT", "boolean contract drift", "PolicyDenied")
                 if modifier.type == "MIRROR": check(modifier.mirror_object is None, "external mirror reference", "PolicyDenied")
                 if modifier.type == "ARRAY": check(not modifier.use_object_offset and not modifier.start_cap and not modifier.end_cap, "external array dependency", "PolicyDenied")
             for constraint in obj.constraints:
@@ -344,13 +379,20 @@ class AuthoringRuntime:
             spec = operation["material"]
             mat = data.materials.new(self._name(island, spec["id"], data.materials))
             mat[ISLAND] = island; mat[MATERIAL] = spec["id"]
-            mat.diffuse_color = vec(spec["base_color"], 4)
+            base = vec(spec["base_color"], 4)
+            opacity = spec["opacity"]
+            mat.diffuse_color = [base[0], base[1], base[2], opacity]
             mat.roughness = spec["roughness"]; mat.metallic = spec["metallic"]; mat.use_nodes = True
             node = mat.node_tree.nodes.get("Principled BSDF")
             check(node is not None, "pinned Principled shader missing", "Unsupported")
-            node.inputs["Base Color"].default_value = mat.diffuse_color
+            for socket in ("Base Color", "Roughness", "Metallic", "Alpha", "Emission Color", "Emission Strength"):
+                check(node.inputs.get(socket) is not None, "pinned Principled input missing: " + socket, "Unsupported")
+            node.inputs["Base Color"].default_value = base
             node.inputs["Roughness"].default_value = mat.roughness
             node.inputs["Metallic"].default_value = mat.metallic
+            node.inputs["Alpha"].default_value = opacity
+            node.inputs["Emission Color"].default_value = vec(spec["emission_color"], 4)
+            node.inputs["Emission Strength"].default_value = spec["emission_strength"]
         elif kind == "entity":
             self._create_entity(island, operation["entity"], operation["meters_per_unit"])
         elif kind == "relation":
@@ -412,6 +454,22 @@ class AuthoringRuntime:
                 native.materials.clear()
                 for material in spec["materials"]:
                     native.materials.append(self.material(island, material))
+        elif kind == "curve":
+            native = data.curves.new(self._name(island, spec["id"], data.curves), "CURVE")
+            native.dimensions = "3D"
+            native.resolution_u = 1
+            native.fill_mode = "FULL"
+            native.extrude = shape["extrude"] * units
+            native.bevel_depth = shape["bevel_depth"] * units
+            native.bevel_resolution = shape["bevel_resolution"]
+            spline = native.splines.new("POLY")
+            spline.points.add(len(shape["points"]) - 1)
+            for point, co in zip(spline.points, shape["points"]):
+                point.co = (*[value * units for value in vec(co)], 1.0)
+            spline.use_cyclic_u = shape["cyclic"]
+            for material in spec["materials"]:
+                native.materials.append(self.material(island, material))
+            native[ISLAND] = island
         elif kind == "armature": native = data.armatures.new(self._name(island, spec["id"], data.armatures))
         elif kind == "camera":
             native = data.cameras.new(self._name(island, spec["id"], data.cameras))
@@ -435,7 +493,7 @@ class AuthoringRuntime:
             self.semantic._armature_edit(obj, create_bones)
         for i, modifier in enumerate(spec["modifiers"]):
             kind = modifier["kind"]
-            types = {"bevel":"BEVEL", "mirror":"MIRROR", "subdivision":"SUBSURF", "array":"ARRAY"}
+            types = {"bevel":"BEVEL", "mirror":"MIRROR", "subdivision":"SUBSURF", "array":"ARRAY", "boolean":"BOOLEAN"}
             check(kind in types, "modifier allowlist")
             native_mod = obj.modifiers.new("SW_modifier_"+str(i), types[kind])
             if kind == "bevel": native_mod.width = modifier["width"]*units; native_mod.segments = modifier["segments"]
@@ -444,6 +502,13 @@ class AuthoringRuntime:
             elif kind == "array":
                 native_mod.count = modifier["count"]; native_mod.use_relative_offset = False; native_mod.use_constant_offset = True
                 native_mod.constant_offset_displace = [v*units for v in modifier["offset"]]
+            elif kind == "boolean":
+                target = self.entity(island, modifier["target"])
+                check(target.type == "MESH" and target is not obj, "boolean target must be a different managed mesh")
+                native_mod.operand_type = "OBJECT"
+                native_mod.object = target
+                native_mod.operation = {"difference":"DIFFERENCE", "union":"UNION", "intersect":"INTERSECT"}[modifier["operation"]]
+                native_mod.solver = "EXACT"
 
     def _relation(self, island, relation):
         kind = relation["kind"]

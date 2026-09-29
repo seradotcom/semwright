@@ -31,6 +31,18 @@ pub struct Material {
     pub base_color: [f64; 4],
     pub roughness: f64,
     pub metallic: f64,
+    #[serde(default = "default_emission_color")]
+    pub emission_color: [f64; 4],
+    #[serde(default)]
+    pub emission_strength: f64,
+    #[serde(default = "default_opacity")]
+    pub opacity: f64,
+}
+fn default_emission_color() -> [f64; 4] {
+    [0.0, 0.0, 0.0, 1.0]
+}
+fn default_opacity() -> f64 {
+    1.0
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -58,6 +70,20 @@ pub struct Entity {
     pub transform: Transform,
     pub materials: Vec<String>,
     pub modifiers: Vec<Modifier>,
+}
+impl Entity {
+    pub fn dependency_ids(&self) -> Vec<String> {
+        let mut ids = BTreeSet::new();
+        if let Shape::MeshInstance { source } | Shape::MeshCopy { source } = &self.shape {
+            ids.insert(source.clone());
+        }
+        for modifier in &self.modifiers {
+            if let Modifier::Boolean { target, .. } = modifier {
+                ids.insert(target.clone());
+            }
+        }
+        ids.into_iter().collect()
+    }
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
@@ -97,6 +123,23 @@ pub enum Shape {
     MeshCopy {
         source: String,
     },
+    /// Editable legacy Curve datablock with one bounded POLY spline.
+    Curve {
+        points: Vec<[f64; 3]>,
+        cyclic: bool,
+        extrude: f64,
+        bevel_depth: f64,
+        bevel_resolution: u32,
+    },
+}
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum BooleanOperation {
+    Difference,
+    Union,
+    Intersect,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -109,10 +152,25 @@ pub struct Bone {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Modifier {
-    Bevel { width: f64, segments: u32 },
-    Mirror { axes: [bool; 3] },
-    Subdivision { levels: u32 },
-    Array { count: u32, offset: [f64; 3] },
+    Bevel {
+        width: f64,
+        segments: u32,
+    },
+    Mirror {
+        axes: [bool; 3],
+    },
+    Subdivision {
+        levels: u32,
+    },
+    Array {
+        count: u32,
+        offset: [f64; 3],
+    },
+    /// Non-destructive, exact-solver boolean against another managed mesh object.
+    Boolean {
+        operation: BooleanOperation,
+        target: String,
+    },
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
@@ -219,6 +277,13 @@ impl Shape {
             Self::Box { .. } => 8,
             Self::Cylinder { segments, .. } => *segments as usize * 2,
             Self::Mesh { vertices, .. } => vertices.len(),
+            Self::Curve {
+                points,
+                bevel_resolution,
+                ..
+            } => points
+                .len()
+                .saturating_mul((*bevel_resolution as usize + 1).saturating_mul(8)),
             _ => 0,
         }
     }
@@ -332,6 +397,28 @@ impl Shape {
                 vector(color, 0.0, 1.0)?;
             }
             Self::MeshInstance { source } | Self::MeshCopy { source } => local_id(source)?,
+            Self::Curve {
+                points,
+                cyclic,
+                extrude,
+                bevel_depth,
+                bevel_resolution,
+            } => {
+                ensure((2..=256).contains(&points.len()), "curve point budget")?;
+                if *cyclic {
+                    ensure(points.len() >= 3, "cyclic curve requires three points")?;
+                }
+                for point in points {
+                    vector(point, -10_000.0, 10_000.0)?;
+                }
+                finite(*extrude, 0.0, 1000.0)?;
+                finite(*bevel_depth, 0.0, 1000.0)?;
+                ensure(
+                    *extrude > 0.0 || *bevel_depth > 0.0,
+                    "curve requires explicit extrusion or bevel geometry",
+                )?;
+                ensure(*bevel_resolution <= 8, "curve bevel resolution budget")?;
+            }
             Self::Empty => {}
         }
         Ok(())
@@ -388,6 +475,15 @@ impl BlenderAuthoringSpec {
             )?;
             finite(m.roughness, 0.0, 1.0)?;
             finite(m.metallic, 0.0, 1.0)?;
+            for x in m.emission_color {
+                finite(x, 0.0, 1.0)?;
+            }
+            ensure(
+                m.emission_color[3] == 1.0,
+                "emission color alpha is not an opacity channel",
+            )?;
+            finite(m.emission_strength, 0.0, 10.0)?;
+            finite(m.opacity, 0.0, 1.0)?;
         }
         let mut entities = BTreeMap::new();
         let mut deps = BTreeMap::<String, Vec<String>>::new();
@@ -421,8 +517,9 @@ impl BlenderAuthoringSpec {
                             | Shape::Cylinder { .. }
                             | Shape::Mesh { .. }
                             | Shape::MeshCopy { .. }
+                            | Shape::Curve { .. }
                     ),
-                "material writes to shared instances require explicit mesh_copy",
+                "material writes require an owned mesh, explicit mesh_copy, or curve",
             )?;
             let mut multiplier = 1usize;
             for modifier in &entity.modifiers {
@@ -456,18 +553,17 @@ impl BlenderAuthoringSpec {
                         vector(offset, -1000.0, 1000.0)?;
                         multiplier = multiplier.saturating_mul(*count as usize);
                     }
+                    Modifier::Boolean { target, .. } => {
+                        local_id(target)?;
+                        ensure(target != &entity.id, "boolean cannot target itself")?;
+                        multiplier = multiplier.saturating_mul(4);
+                    }
                 }
             }
             predicted_vertices = predicted_vertices
                 .saturating_add(entity.shape.vertex_budget().saturating_mul(multiplier));
             multipliers.insert(entity.id.clone(), multiplier);
-            let dependencies = match &entity.shape {
-                Shape::MeshInstance { source } | Shape::MeshCopy { source } => {
-                    vec![source.clone()]
-                }
-                _ => vec![],
-            };
-            deps.insert(entity.id.clone(), dependencies);
+            deps.insert(entity.id.clone(), entity.dependency_ids());
         }
         for entity in &self.entities {
             if let Shape::MeshInstance { source } | Shape::MeshCopy { source } = &entity.shape {
@@ -489,6 +585,27 @@ impl BlenderAuthoringSpec {
                         .vertex_budget()
                         .saturating_mul(*multipliers.get(&entity.id).unwrap_or(&1)),
                 );
+            }
+        }
+        for entity in &self.entities {
+            for modifier in &entity.modifiers {
+                if let Modifier::Boolean { target, .. } = modifier {
+                    let target = entities.get(target).ok_or_else(|| {
+                        semwright_semantic_composition::ContractError::Invalid(
+                            "boolean target is missing".into(),
+                        )
+                    })?;
+                    ensure(
+                        matches!(
+                            target.shape,
+                            Shape::Box { .. }
+                                | Shape::Cylinder { .. }
+                                | Shape::Mesh { .. }
+                                | Shape::MeshCopy { .. }
+                        ),
+                        "boolean target must be a managed mesh object",
+                    )?;
+                }
             }
         }
         ensure(
