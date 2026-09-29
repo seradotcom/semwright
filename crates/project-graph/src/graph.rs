@@ -1,5 +1,5 @@
 use crate::*;
-use composition::{Digest, Owner, PrincipalBinding, Verdict, canonical_digest};
+use composition::{Digest, Owner, PrincipalBinding, canonical_digest};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
@@ -718,15 +718,14 @@ impl ProjectGraph {
                     || (comparison == Some(false) && !state.requires_reconcile)
                 {
                     freshness = Freshness::Stale;
-                } else if state.freshness != Freshness::Current
+                } else if (state.freshness != Freshness::Current
                     || state.existence != Existence::Present
                     || state.divergence == Divergence::Diverged
                     || state.requires_reconcile
-                    || comparison != Some(true)
+                    || comparison != Some(true))
+                    && freshness != Freshness::Stale
                 {
-                    if freshness != Freshness::Stale {
-                        freshness = Freshness::Unknown;
-                    }
+                    freshness = Freshness::Unknown;
                 }
                 k.coverage.complete &= state.coverage.complete;
                 k.coverage
