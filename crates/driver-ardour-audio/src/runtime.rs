@@ -491,6 +491,7 @@ impl DeepRuntime {
         let mut command = Command::new(tool);
         command
             .args(args)
+            .current_dir(temp_home.path())
             .env_clear()
             .env("HOME", temp_home.path())
             .env("XDG_CACHE_HOME", temp_home.path().join(".cache"))

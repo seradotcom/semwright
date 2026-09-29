@@ -1165,6 +1165,7 @@ async fn run_sealed_tool(
     let mut command = Command::new(tool_path(HELPER_NAME)?);
     command
         .args(args)
+        .current_dir(&private_home)
         .env_clear()
         .env("HOME", private_home.path())
         .env("XDG_CACHE_HOME", private_home.path().join(".cache"))

@@ -237,9 +237,11 @@ jobs:
           CREATE="$(find /usr/lib -type f -path '*ardour8*' -name 'ardour8-new_empty_session' -perm /111 -print -quit)"
           EXPORT="$(find /usr/lib -type f -path '*ardour8*' -name 'ardour8-export' -perm /111 -print -quit)"
           test -n "$LUA" && test -n "$CREATE" && test -n "$EXPORT"
-          echo "SEMWRIGHT_TEST_ARDOUR_LUA=$LUA" >> "$GITHUB_ENV"
-          echo "SEMWRIGHT_TEST_ARDOUR_CREATE=$CREATE" >> "$GITHUB_ENV"
-          echo "SEMWRIGHT_TEST_ARDOUR_EXPORT=$EXPORT" >> "$GITHUB_ENV"
+          {
+            echo "SEMWRIGHT_TEST_ARDOUR_LUA=$LUA"
+            echo "SEMWRIGHT_TEST_ARDOUR_CREATE=$CREATE"
+            echo "SEMWRIGHT_TEST_ARDOUR_EXPORT=$EXPORT"
+          } >> "$GITHUB_ENV"
           sha256sum "$LUA" "$CREATE" "$EXPORT" > verification/audio/ardour-tools.sha256
           echo "runtime=ardour 8.4.0; ubuntu_package=1:8.4.0+ds1-2ubuntu8" > verification/audio/ardour-tool-baseline.txt
       - name: Direct Ardour managed-create control
@@ -327,9 +329,11 @@ jobs:
           CREATE="$(find /usr/lib -type f -path '*ardour8*' -name 'ardour8-new_empty_session' -perm /111 -print -quit)"
           EXPORT="$(find /usr/lib -type f -path '*ardour8*' -name 'ardour8-export' -perm /111 -print -quit)"
           test -n "$LUA" && test -n "$CREATE" && test -n "$EXPORT"
-          echo "SEMWRIGHT_PACKAGE_ARDOUR_LUA=$LUA" >> "$GITHUB_ENV"
-          echo "SEMWRIGHT_PACKAGE_ARDOUR_CREATE=$CREATE" >> "$GITHUB_ENV"
-          echo "SEMWRIGHT_PACKAGE_ARDOUR_EXPORT=$EXPORT" >> "$GITHUB_ENV"
+          {
+            echo "SEMWRIGHT_PACKAGE_ARDOUR_LUA=$LUA"
+            echo "SEMWRIGHT_PACKAGE_ARDOUR_CREATE=$CREATE"
+            echo "SEMWRIGHT_PACKAGE_ARDOUR_EXPORT=$EXPORT"
+          } >> "$GITHUB_ENV"
       - name: Create and inspect real development packages
         run: |
           python3 scripts/audio/package-development.py             --semwright "$GITHUB_WORKSPACE/target/debug/semwright"             --faust-driver "$GITHUB_WORKSPACE/target/debug/semwright-faust-audio-driver"             --analysis-driver "$GITHUB_WORKSPACE/target/debug/semwright-audio-analysis-driver"             --ardour-driver "$GITHUB_WORKSPACE/target/debug/semwright-ardour-audio-driver"             --faust-helper "$RUNNER_TEMP/semwright-faust-interpreter"             --audio-meter "$RUNNER_TEMP/semwright-audio-meter"             --ardour-lua "$SEMWRIGHT_PACKAGE_ARDOUR_LUA"             --ardour-create "$SEMWRIGHT_PACKAGE_ARDOUR_CREATE"             --ardour-export "$SEMWRIGHT_PACKAGE_ARDOUR_EXPORT"             --faust-libraries /usr/share/faust             --output verification/audio/packages
