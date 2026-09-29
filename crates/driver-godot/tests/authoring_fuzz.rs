@@ -4,7 +4,7 @@ use semwright_godot_driver::authoring::{
     native_observation::{
         InputStep, MAX_NATIVE_KEYS, MAX_NATIVE_NODES, MAX_NATIVE_TRACKS, NATIVE_VERSION,
         NativeAnimation, NativeNode, NativeObservation, NativeProjection, NativeRequest,
-        NativeResourceRef, NativeTrack, PROBE_SOURCE, ProbeMode, track_page,
+        NativeResourceRef, NativeTrack, PROBE_SOURCE, ProbeMode, key_page, track_page,
     },
     profile::PlanRequest,
     validate,
@@ -132,6 +132,29 @@ proptest! {
         let observation = cursor_observation();
         let source = digest("source");
         let _ = track_page(&observation, &source, Some(&cursor), limit);
+    }
+
+    #[test]
+    fn key_cursor_and_selector_parser_are_total(
+        cursor in "\\PC{0,180}",
+        player in "\\PC{0,128}",
+        library in "\\PC{0,96}",
+        animation in "\\PC{0,96}",
+        track_index in 0u32..4096,
+        limit in any::<u16>(),
+    ) {
+        let observation = cursor_observation();
+        let source = digest("source");
+        let _ = key_page(
+            &observation,
+            &source,
+            &player,
+            &library,
+            &animation,
+            track_index,
+            Some(&cursor),
+            limit,
+        );
     }
 }
 
