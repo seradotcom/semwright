@@ -34,10 +34,24 @@ def local_id(value):
 
 
 def digest(value):
-    # Native projection algorithm is named separately from A's semwright-json-v1.
+    # Native geometry/internal digest helper; source projection has its own canonicalizer below.
     body = json.dumps(value, sort_keys=True, ensure_ascii=False, separators=(",", ":"), allow_nan=False).encode()
     check(len(body) <= 16_777_216, "native projection budget", "Unsupported")
     return hashlib.sha256(body).hexdigest()
+
+
+def source_projection_value(value):
+    # IEEE signed zero is semantically identical for Blender source state but JSON encodes
+    # -0.0 and 0.0 differently. Normalize only exact zeros; do not round or add tolerance.
+    if isinstance(value, float):
+        return 0.0 if value == 0.0 else value
+    if isinstance(value, list):
+        return [source_projection_value(item) for item in value]
+    if isinstance(value, tuple):
+        return [source_projection_value(item) for item in value]
+    if isinstance(value, dict):
+        return {key: source_projection_value(item) for key, item in value.items()}
+    return value
 
 
 def vec(value, count=3, maximum=1_000_000.0):
@@ -436,9 +450,12 @@ class AuthoringRuntime:
     def snapshot(self, island=None):
         rows = [self._row(obj) for obj in self._objects(island)]
         scene = self.bpy.context.scene
-        fingerprint = digest({"schema": "blender-source-projection-v1", "items": rows,
+        fingerprint = digest(source_projection_value({
+                              "schema": "blender-source-projection-v2", "items": rows,
                               "scene_units": scene.unit_settings.scale_length,
-                              "fps": scene.render.fps, "fps_base": scene.render.fps_base, "frame": scene.frame_current})
+                              "fps": scene.render.fps, "fps_base": scene.render.fps_base,
+                              "frame": scene.frame_current
+                          }))
         marker = self.island(island).get(MARKER) if island else None
         return {"native_session": self.session, "island": island, "fingerprint": fingerprint,
                 "drift": bool(island and marker != fingerprint), "total": len(rows), "items": rows,

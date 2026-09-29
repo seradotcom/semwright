@@ -663,7 +663,7 @@ fn c_receipt_requires_host_owned_ids_and_admission() {
                 bytes: None,
                 projection: Some(graph::ProjectionDigest {
                     digest: before.fingerprint.clone(),
-                    method: "blender-source-projection-v1".into(),
+                    method: "blender-source-projection-v2".into(),
                     method_version: 1,
                 }),
             },
