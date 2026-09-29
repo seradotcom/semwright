@@ -10,11 +10,12 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: packaging-${{ github.ref }}
+  group: packaging-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 jobs:
   native-package:
+    if: ${{ !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
     strategy:
       fail-fast: false
       matrix:

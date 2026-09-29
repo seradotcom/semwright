@@ -9,17 +9,18 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: supply-chain-${{ github.ref }}
+  group: supply-chain-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 jobs:
   nix-package:
+    if: ${{ !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: DeterminateSystems/determinate-nix-action@8d87e8d5e5b8a8309d4281094560f127d9a265f1
       - name: Build pinned Nix derivation
         run: |
@@ -34,13 +35,14 @@ jobs:
           nix-store --query --requisites "$result" | LC_ALL=C sort             > verification/supply-chain/nix-closure.txt
           nix path-info --json --closure-size "$result"             > verification/supply-chain/nix-path-info.json
           printf '%s\n' "1bc55b9def8165e82073919945c3239903fe4dc2"             > verification/supply-chain/nixpkgs-revision.txt
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: nix-certification-${{ github.sha }}
           path: verification/supply-chain
           retention-days: 30
 
   release-bundle:
+    if: ${{ !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
     strategy:
       fail-fast: false
       matrix:
@@ -57,7 +59,7 @@ jobs:
       CARGO_INCREMENTAL: 0
       CARGO_PROFILE_RELEASE_DEBUG: 0
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
         with:
           toolchain: 1.98.1
@@ -95,14 +97,14 @@ jobs:
             cd "supply-chain/${{ matrix.arch }}"
             find binaries packages sbom -type f -print0               | LC_ALL=C sort -z               | xargs -0 sha256sum > SHA256SUMS
           )
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: supply-chain-${{ matrix.arch }}-${{ github.sha }}
           path: supply-chain/${{ matrix.arch }}
           retention-days: 30
 
   attest:
-    if: github.event_name != 'pull_request'
+    if: ${{ (github.event_name != 'pull_request') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
     needs: [nix-package, release-bundle]
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -112,11 +114,11 @@ jobs:
       attestations: write
       artifact-metadata: write
     steps:
-      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: supply-chain-x86_64-${{ github.sha }}
           path: evidence/x86_64
-      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: supply-chain-aarch64-${{ github.sha }}
           path: evidence/aarch64
