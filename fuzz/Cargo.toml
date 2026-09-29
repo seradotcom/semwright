@@ -26,6 +26,8 @@ semwright-obs-driver = { package = "semwright-driver-obs", path = "../crates/dri
 semwright-video-domain = { path = "../crates/video-domain" }
 semwright-figma-driver = { package = "semwright-driver-figma", path = "../crates/driver-figma" }
 semwright-godot-driver = { package = "semwright-driver-godot", path = "../crates/driver-godot" }
+semwright-blender-driver = { package = "semwright-driver-blender", path = "../crates/driver-blender" }
+semwright-semantic-composition = { path = "../crates/semantic-composition" }
 semwright-driver-motion-canvas = { package = "semwright-driver-motion-canvas", path = "../crates/driver-motion-canvas" }
 
 [[bin]]
@@ -296,6 +298,13 @@ bench = false
 [[bin]]
 name = "skill_archive_path"
 path = "fuzz_targets/skill_archive_path.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "blender_authoring"
+path = "fuzz_targets/blender_authoring.rs"
 test = false
 doc = false
 bench = false

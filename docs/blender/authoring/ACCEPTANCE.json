@@ -130,17 +130,17 @@
     {
       "id": "E15",
       "condition": "Skill/package ready for consumer",
-      "implementation": "semwright-blender-production requirements include inspect/plan/apply/measure/validate/repair/verify/persist/reopen/export",
-      "test": "CI builds real semwright CLI, skill validate and clean skill bundle with SHA-256",
+      "implementation": "semwright-blender-production requirements include paged inspect, plan/apply/measure/validate/repair/verify/persist/reopen/export; CI validates and bundles with the real Semwright CLI",
+      "test": "exact-SHA skill validate + deterministic skill bundle SHA-256 + E source backup reconstruction",
       "status": "CI_PENDING"
     },
     {
       "id": "E16",
       "condition": "security/fuzz/CI exact-SHA without aesthetic auto-claim",
-      "implementation": "exact-SHA model+native workflow; hostile GLB closure cases; no aesthetic PASS",
-      "test": "model/native suites + direct disposable-Blender hostile preflight + skill bundle",
+      "implementation": "exact-SHA model+native workflow; hostile GLB closure; bounded cargo-fuzz blender_authoring target; deterministic source backup; no aesthetic PASS",
+      "test": "model/native suites + disposable-Blender hostile preflight + 20s/64KiB parser fuzz + skill/source package manifests",
       "status": "CI_PENDING",
-      "open": "fuzz/package/source backup still required after native lane stabilizes"
+      "open": "final exact-SHA evidence and cross-app D roundtrip remain before readiness"
     }
   ],
   "blender_authoring_ready": false

@@ -77,12 +77,21 @@ jobs:
         run: |
           set -o pipefail
           "$SEMWRIGHT_TEST_BLENDER_ROOT/blender" --background --factory-startup --disable-autoexec --python-exit-code 1             --python crates/driver-blender/tests/authoring_hostile.py 2>&1             | tee evidence/blender-authoring/hostile-export.log
+      - name: Bounded authoring parser fuzz
+        run: |
+          rustup toolchain install nightly-2026-09-18 --profile minimal
+          cargo +1.98.1 install --locked cargo-fuzz --version 0.13.2
+          set -o pipefail
+          cargo +nightly-2026-09-18 fuzz run blender_authoring --             -max_total_time=20 -timeout=3 -rss_limit_mb=1024 -max_len=65536             2>&1 | tee evidence/blender-authoring/fuzz-blender-authoring.log
       - name: Skill validate and clean bundle
         run: |
           cargo build --locked -p semwright-cli --bin semwright
           target/debug/semwright --json skill validate skills/semwright-blender-production             | tee evidence/blender-authoring/skill-validate.json
           target/debug/semwright --json skill bundle skills/semwright-blender-production             evidence/blender-authoring/semwright-blender-production.zip
           sha256sum evidence/blender-authoring/semwright-blender-production.zip             | tee evidence/blender-authoring/semwright-blender-production.zip.sha256
+      - name: Reproducible E source backup
+        run: |
+          python3 scripts/blender-authoring/package_source.py             --source "$GITHUB_SHA"             --output evidence/blender-authoring/semwright-blender-authoring-E-source.zip             | tee evidence/blender-authoring/source-package.json
       - name: Formatting gate
         run: cargo fmt --package semwright-driver-blender -- --check
       - name: Preserve bounded diagnostics
