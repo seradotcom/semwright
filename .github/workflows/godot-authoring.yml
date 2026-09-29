@@ -26,6 +26,8 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
         with:
           shared-key: godot-authoring-v1
+      - name: Evidence collector self-tests
+        run: python3 scripts/godot-authoring/test_collector.py
       - name: Formatting
         run: cargo fmt -p semwright-driver-godot -- --check
       - name: Typed model and compiler

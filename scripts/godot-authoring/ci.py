@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Exact-source diagnostic. Selectors are an enum, never shell command inputs."""
-import hashlib, json, os, pathlib, re, subprocess, sys, time
+import hashlib, json, os, pathlib, subprocess, sys, time
+from collector import parse_tests
 ROOT=pathlib.Path(__file__).resolve().parents[2]
 OUT=ROOT/"godot-authoring-evidence"
 SUITES={"godot-model": ["cargo", "test", "--locked", "-p", "semwright-driver-godot", "--test", "authoring", "--test", "authoring_store", "--", "--nocapture"]}
@@ -17,13 +18,11 @@ def main():
         result=subprocess.run(command,cwd=ROOT,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,check=False)
         log=result.stdout;(OUT/(suite+".log")).write_text(log)
         print(log,flush=True)
-        matches=re.findall(r"^test result: ok\. (\d+) passed; 0 failed; (\d+) ignored;",log,re.M)
-        counts = {}
-        for name, minimum in {"authoring":12,"authoring_store":11}.items():
-            section=re.search(r"Running tests/"+name+r"\.rs.*?\n(.*?)(?=\n\s*Running tests/|\Z)",log,re.S)
-            result_line=re.search(r"^test result: ok\. (\d+) passed; 0 failed; (\d+) ignored;",section.group(1),re.M) if section else None
-            if result_line and int(result_line.group(1))>=minimum:
-                counts[name]={"executed":int(result_line.group(1)),"ignored":int(result_line.group(2))}
+        try:
+            counts = parse_tests(log, {"authoring":12,"authoring_store":11})
+        except ValueError as error:
+            counts = {}
+            receipt["collector_error"] = str(error)
         receipt["test_binaries"]=counts
         if len(counts)==2:
             receipt["executed_tests"]=sum(c["executed"] for c in counts.values())
