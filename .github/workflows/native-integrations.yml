@@ -259,6 +259,8 @@ jobs:
   blender-driver:
     runs-on: ubuntu-24.04
     timeout-minutes: 40
+    env:
+      SEMWRIGHT_TEST_BLENDER_ROOT: /usr/local/blender-4.5.14-linux-x64
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
@@ -277,15 +279,16 @@ jobs:
           curl --fail --location --retry 3 --output /tmp/blender.tar.xz "$BLENDER_URL"
           echo "$BLENDER_SHA256  /tmp/blender.tar.xz" | sha256sum --check -
           sudo tar -xJf /tmp/blender.tar.xz -C /usr/local
-          sudo ln -sf /usr/local/blender-4.5.14-linux-x64/blender /usr/local/bin/blender
+          rm -f /tmp/blender.tar.xz
           mkdir -p verification/native-ci
           printf '%s  %s\n' "$BLENDER_SHA256" "$BLENDER_URL" | tee verification/native-ci/blender-download.log
-          /usr/local/bin/blender --version | head -5 | tee verification/native-ci/blender-version.log
-          test "$(/usr/local/bin/blender --version | head -1)" = "Blender 4.5.14 LTS"
+          "$SEMWRIGHT_TEST_BLENDER_ROOT/blender" --version | head -5 | tee verification/native-ci/blender-version.log
+          test "$("$SEMWRIGHT_TEST_BLENDER_ROOT/blender" --version | head -1)" = "Blender 4.5.14 LTS"
+          sha256sum "$SEMWRIGHT_TEST_BLENDER_ROOT/blender" | tee verification/native-ci/blender-executable-sha256.log
           bwrap --version | tee verification/native-ci/blender-bwrap-version.log
       - name: Generate pinned Blender RNA coverage inventory
         run: |
-          /usr/local/bin/blender --background --factory-startup --disable-autoexec \
+          "$SEMWRIGHT_TEST_BLENDER_ROOT/blender" --background --factory-startup --disable-autoexec \
             --python "$GITHUB_WORKSPACE/crates/driver-blender/tools/rna_coverage.py" -- \
             "$GITHUB_WORKSPACE/verification/native-ci/blender-rna-coverage.json"
           python3 - <<'PY2'
@@ -294,20 +297,42 @@ jobs:
           data=json.loads(Path('verification/native-ci/blender-rna-coverage.json').read_text())
           print(json.dumps(data['summary'], sort_keys=True))
           PY2
+      - name: Typed GLB adapter contract on real Blender
+        run: |
+          set -o pipefail
+          "$SEMWRIGHT_TEST_BLENDER_ROOT/blender" --background --factory-startup --disable-autoexec \
+            --python "$GITHUB_WORKSPACE/crates/driver-blender/tools/export_glb_contract.py" \
+            2>&1 | tee verification/native-ci/blender-export-glb-contract.log
       - name: Preflight scoped Driver Host Bubblewrap
         run: |
           bash scripts/dev/ci-driver-bwrap-profile.sh verification/native-ci/blender-sandbox-setup.log
           test -d /etc/fonts
-          bwrap_args=(--die-with-parent --new-session --unshare-all --clearenv --cap-drop ALL --proc /proc --dev /dev --tmpfs /tmp --dir /home --dir /workspace --dir /plugin)
+          test -x "$SEMWRIGHT_TEST_BLENDER_ROOT/blender"
+          bwrap_args=(--die-with-parent --new-session --unshare-all --clearenv --cap-drop ALL --proc /proc --dev /dev --tmpfs /tmp --dir /home --dir /workspace --dir /plugin --dir /plugin/tools)
           for runtime in /usr /lib /lib64; do
             if [ -e "$runtime" ]; then bwrap_args+=(--ro-bind "$runtime" "$runtime"); fi
           done
           bwrap_args+=(--dir /etc)
           if [ -e /etc/ld.so.cache ]; then bwrap_args+=(--ro-bind /etc/ld.so.cache /etc/ld.so.cache); fi
-          bwrap_args+=(--ro-bind /etc/fonts /etc/fonts)
-          bwrap "${bwrap_args[@]}" -- /usr/local/bin/blender --version
+          bwrap_args+=(
+            --ro-bind /etc/fonts /etc/fonts
+            --ro-bind "$SEMWRIGHT_TEST_BLENDER_ROOT" /workspace/blender-runtime
+            --ro-bind "$SEMWRIGHT_TEST_BLENDER_ROOT/blender" /plugin/tools/blender
+            --setenv HOME /home
+            --setenv PYTHONNOUSERSITE 1
+            --setenv LD_LIBRARY_PATH /workspace/blender-runtime/lib
+            --setenv BLENDER_SYSTEM_RESOURCES /workspace/blender-runtime/4.5
+            --setenv BLENDER_SYSTEM_SCRIPTS /workspace/blender-runtime/4.5/scripts
+            --setenv BLENDER_SYSTEM_EXTENSIONS /workspace/blender-runtime/4.5/extensions
+            --setenv BLENDER_SYSTEM_DATAFILES /workspace/blender-runtime/4.5/datafiles
+            --setenv BLENDER_SYSTEM_PYTHON /workspace/blender-runtime/4.5/python
+            --setenv BLENDER_USER_RESOURCES /tmp/blender-user
+          )
+          bwrap "${bwrap_args[@]}" -- /plugin/tools/blender --version
           set -o pipefail
-          bwrap "${bwrap_args[@]}" -- /usr/bin/bash -c 'ulimit -v 4194304; exec /usr/local/bin/blender --background --factory-startup --disable-autoexec --python-expr "import bpy; print(bpy.app.version_string)"' 2>&1 | tee verification/native-ci/blender-background-preflight.log
+          bwrap "${bwrap_args[@]}" -- /plugin/tools/blender --background --factory-startup --disable-autoexec \
+            --python-expr "import bpy; print(bpy.app.version_string)" \
+            2>&1 | tee verification/native-ci/blender-background-preflight.log
       - name: Build Blender driver surface
         run: |
           cargo build --locked -p semwright-driver-blender --bin semwright-blender-driver \
@@ -320,7 +345,7 @@ jobs:
           chmod 700 "$probe"
           cleanup() { rm -rf "$probe"; }
           trap cleanup EXIT
-          bwrap_args=(--die-with-parent --new-session --unshare-all --clearenv --cap-drop ALL --proc /proc --dev /dev --tmpfs /tmp --dir /home --dir /workspace --dir /plugin)
+          bwrap_args=(--die-with-parent --new-session --unshare-all --clearenv --cap-drop ALL --proc /proc --dev /dev --tmpfs /tmp --dir /home --dir /workspace --dir /plugin --dir /plugin/tools)
           for runtime in /usr /lib /lib64; do
             if [ -e "$runtime" ]; then
               bwrap_args+=(--ro-bind "$runtime" "$runtime")
@@ -332,6 +357,8 @@ jobs:
           fi
           bwrap_args+=(
             --ro-bind /etc/fonts /etc/fonts
+            --ro-bind "$SEMWRIGHT_TEST_BLENDER_ROOT" /workspace/blender-runtime
+            --ro-bind "$SEMWRIGHT_TEST_BLENDER_ROOT/blender" /plugin/tools/blender
             --ro-bind "$GITHUB_WORKSPACE/target/debug/semwright-blender-driver" /plugin/bin
             --ro-bind "$GITHUB_WORKSPACE/target/debug/semwright-sandbox" /plugin/sandbox
             --bind "$probe" /workspace/workspace
@@ -347,7 +374,9 @@ jobs:
           bwrap "${bwrap_args[@]}" -- /plugin/sandbox \
             --limit-nofile 256 --limit-nproc 64 --limit-cpu 300 \
             --limit-as 4294967296 --limit-fsize 1073741824 \
-            --write-root /workspace/workspace -- /plugin/bin \
+            --write-root /workspace/workspace \
+            --read-root /workspace/blender-runtime \
+            --exec-root /plugin/tools/blender -- /plugin/bin \
             </dev/null >/dev/null 2>verification/native-ci/blender-driver-handshake.log
           rc=$?
           set -e
@@ -368,7 +397,7 @@ jobs:
       - name: Interactive add-on through Xvfb, broker and Blender main thread
         run: |
           set -o pipefail
-          BIN_DIR=target/debug BLENDER_BIN=/usr/local/bin/blender scripts/dev/blender-addon-live-smoke.sh 2>&1 | tee verification/native-ci/blender-addon-live.log
+          BIN_DIR=target/debug BLENDER_BIN="$SEMWRIGHT_TEST_BLENDER_ROOT/blender" scripts/dev/blender-addon-live-smoke.sh 2>&1 | tee verification/native-ci/blender-addon-live.log
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:

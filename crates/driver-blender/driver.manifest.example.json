@@ -13,10 +13,18 @@
   },
   "transport": "stdio_v1",
   "mounts": [
-    {"root": "workspace", "read_only": false}
+    {"root": "workspace", "read_only": false},
+    {"root": "blender-runtime", "read_only": true}
   ],
   "system_config": [
     {"root": "font-config", "destination": "/etc/fonts"}
+  ],
+  "tools": [
+    {
+      "root": "blender-executable",
+      "name": "blender",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
   ],
   "network": false,
   "resources": {
@@ -26,7 +34,7 @@
     "address_space_bytes": 4294967296,
     "file_size_bytes": 1073741824
   },
-  "request_timeout_ms": 120000,
+  "request_timeout_ms": 300000,
   "interfaces": {
     "dynamic_capabilities": false,
     "cooperative_cancellation": false,

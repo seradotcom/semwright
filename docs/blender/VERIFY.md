@@ -16,11 +16,12 @@ The **Blender semantic driver** workflow must:
 4. enforce zero unmapped persistent IDs, zero missing relation targets and the authoring/UI boundary gates;
 5. run bounded semantic security/adversarial-ref tests;
 6. compile the Rust driver and production sandbox;
-7. validate the framed Driver Protocol handshake/catalog;
+7. validate the framed Driver Protocol handshake/catalog with Blender available only as an owner-pinned sealed executable plus a read-only portable-runtime mount;
 8. execute the real DriverProvider against sandboxed Blender;
 9. exercise stale refs, typed mutation, deep relations and the major authoring overlays;
-10. render a real PNG, reload it through scoped asset semantics and save a real `.blend`;
-11. upload coverage and live logs as retained evidence.
+10. execute the real `blender.export.glb` contract, verify the GLB header/SHA-256, dependency closure and no-overwrite behavior, and repeat that export through the broker path;
+11. render a real PNG, reload it through scoped asset semantics and save a real `.blend`;
+12. upload coverage, GLB-contract and live broker/DriverProvider logs as retained evidence.
 
 The live acceptance intentionally covers Blender 4.5-specific Action/F-Curve APIs rather than relying on newer Blender APIs.
 

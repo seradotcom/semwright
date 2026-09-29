@@ -70,13 +70,21 @@ def main():
     parser=argparse.ArgumentParser()
     parser.add_argument("--driver",required=True)
     parser.add_argument("--version",required=True)
+    parser.add_argument("--blender-root",required=True)
     args=parser.parse_args()
     driver=str(Path(args.driver).resolve())
+    blender_root=Path(args.blender_root).resolve(strict=True)
+    blender=blender_root/"blender"
+    if not blender.is_file():
+        raise RuntimeError(f"Blender executable missing: {blender}")
+    for relative in ("lib","4.5/scripts","4.5/extensions","4.5/datafiles","4.5/python"):
+        if not (blender_root/relative).is_dir():
+            raise RuntimeError(f"Blender runtime missing: {relative}")
     with tempfile.TemporaryDirectory(prefix="semwright-blender-probe-") as workspace:
         command=[
             "/usr/bin/bwrap","--die-with-parent","--new-session","--unshare-all","--clearenv",
             "--cap-drop","ALL","--proc","/proc","--dev","/dev","--perms","1777","--tmpfs","/dev/shm",
-            "--tmpfs","/tmp","--dir","/home","--dir","/workspace","--dir","/plugin",
+            "--tmpfs","/tmp","--dir","/home","--dir","/workspace","--dir","/plugin","--dir","/plugin/tools",
         ]
         for runtime in ["/usr","/lib","/lib64"]:
             if Path(runtime).exists():
@@ -86,6 +94,8 @@ def main():
             command += ["--ro-bind","/etc/ld.so.cache","/etc/ld.so.cache"]
         command += [
             "--ro-bind","/etc/fonts","/etc/fonts",
+            "--ro-bind",str(blender_root),"/workspace/blender-runtime",
+            "--ro-bind",str(blender),"/plugin/tools/blender",
             "--ro-bind",driver,"/plugin/bin",
             "--bind",workspace,"/workspace/workspace",
             "--setenv","HOME","/home",
