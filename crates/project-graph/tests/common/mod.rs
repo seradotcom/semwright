@@ -77,7 +77,7 @@ pub fn accept_observation(
     graph: &mut ProjectGraph,
     access: &ProjectAccess,
     mut record: RevisionRecord,
-) -> Result<RevisionRecord> {
+) -> semwright_project_graph::Result<RevisionRecord> {
     let resource = record
         .observation
         .scope
