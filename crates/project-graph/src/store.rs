@@ -243,10 +243,13 @@ impl GraphStore {
         {
             return Err(GraphError::Denied);
         }
-        let count: usize = tx
+        let count: i64 = tx
             .query_row("SELECT count(*) FROM journal", [], |r| r.get(0))
             .map_err(storage_error)?;
-        ensure(count <= MAX_LOG_ROWS, "journal row budget")?;
+        ensure(
+            (0..=MAX_LOG_ROWS as i64).contains(&count),
+            "journal row budget",
+        )?;
         let mut graph = ProjectGraph::new(project.clone(), principal.clone())?;
         let mut previous = Digest::of_bytes(&header_bytes);
         {
@@ -255,7 +258,8 @@ impl GraphStore {
                 .map_err(storage_error)?;
             let mut rows = stmt.query([]).map_err(storage_error)?;
             while let Some(row) = rows.next().map_err(storage_error)? {
-                let sequence: u64 = row.get(0).map_err(storage_error)?;
+                let sequence = u64::try_from(row.get::<_, i64>(0).map_err(storage_error)?)
+                    .map_err(|_| GraphError::Corrupt)?;
                 let before: String = row.get(1).map_err(storage_error)?;
                 let digest: String = row.get(2).map_err(storage_error)?;
                 let bytes: Vec<u8> = row.get(3).map_err(storage_error)?;
@@ -275,10 +279,10 @@ impl GraphStore {
                 previous = expected;
             }
         }
-        let indexed: usize = tx
+        let indexed: i64 = tx
             .query_row("SELECT count(*) FROM assets", [], |r| r.get(0))
             .map_err(storage_error)?;
-        let mut mismatch = indexed != graph.assets.len();
+        let mut mismatch = indexed != graph.assets.len() as i64;
         for (id, asset) in &graph.assets {
             let expected = canonical_bytes(asset)?;
             let stored: Option<(String, Vec<u8>)> = tx
@@ -373,12 +377,12 @@ impl GraphStore {
             .connection
             .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
             .map_err(storage_error)?;
-        let head: u64 = tx
+        let head: i64 = tx
             .query_row("SELECT coalesce(max(sequence),0) FROM journal", [], |r| {
                 r.get(0)
             })
             .map_err(storage_error)?;
-        if head != self.graph.sequence {
+        if head < 0 || head as u64 != self.graph.sequence {
             return Err(GraphError::Conflict);
         }
         if fault == Some(Boundary::BeforeJournal) {
@@ -400,8 +404,12 @@ impl GraphStore {
             Digest::parse(text)?
         };
         for (index, bytes) in payloads.iter().enumerate() {
-            let sequence = head + index as u64 + 1;
-            let digest = chain(&previous, sequence, bytes)?;
+            let sequence = head + index as i64 + 1;
+            let digest = chain(
+                &previous,
+                u64::try_from(sequence).map_err(|_| GraphError::Corrupt)?,
+                bytes,
+            )?;
             tx.execute(
                 "INSERT INTO journal(sequence,previous,digest,payload) VALUES(?1,?2,?3,?4)",
                 params![sequence, previous.as_str(), digest.as_str(), bytes],
@@ -467,6 +475,9 @@ impl GraphStore {
     /// One bounded backup slot. Existing backups are preserved, never overwritten.
     pub fn backup(&mut self, access: &ProjectAccess) -> Result<BackupManifest> {
         self.graph()?.access(access, true)?;
+        if access.visible.is_some() {
+            return Err(GraphError::Denied);
+        }
         let path = self.directory.join("backup.sqlite3");
         let mut options = std::fs::OpenOptions::new();
         options.write(true).create_new(true);

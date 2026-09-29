@@ -197,6 +197,7 @@ struct Cursor {
     sequence: u64,
     query: Digest,
     grants: Digest,
+    visibility: Digest,
     after: LogicalAssetId,
     created: std::time::Instant,
 }
@@ -238,6 +239,7 @@ impl QueryCursors {
             if c.owner != access.owner
                 || c.project != access.project
                 || c.grants != access.grants
+                || c.visibility != access.visibility
                 || c.query != digest
             {
                 return Err(GraphError::Denied);
@@ -295,6 +297,7 @@ impl QueryCursors {
                     sequence: graph.sequence,
                     query: digest,
                     grants: access.grants.clone(),
+                    visibility: access.visibility.clone(),
                     after: last.ok_or(GraphError::Corrupt)?,
                     created: std::time::Instant::now(),
                 },

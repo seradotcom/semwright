@@ -273,3 +273,55 @@ fn rebind_is_audited_generation_and_old_observation_cannot_resolve_it() {
     assert!(g.observe(&a, observation(id, "x", 7)).is_err());
     assert_eq!(g.revisions(&a, id, None, 256).unwrap().len(), 1);
 }
+
+#[test]
+fn cursor_binds_actual_visibility_even_when_grant_digest_is_reused() {
+    let (g, a, records) = chain();
+    let mut cursors = QueryCursors::default();
+    let page = cursors
+        .page(&g, &a, &AssetQuery::default(), None, 1)
+        .unwrap();
+    let subset = ProjectAccess::authorized(
+        owner(),
+        g.project_id().clone(),
+        Some(records.iter().map(|r| r.pin.asset.clone()).collect()),
+        false,
+        digest("grants"),
+    )
+    .unwrap();
+    assert!(matches!(
+        cursors.page(
+            &g,
+            &subset,
+            &AssetQuery::default(),
+            page.next_cursor.as_deref(),
+            1
+        ),
+        Err(GraphError::Denied)
+    ));
+    assert!(
+        g.revisions(&subset, &records[0].pin.asset, None, 1)
+            .is_err()
+    );
+}
+#[test]
+fn synthetic_changed_observation_cannot_prove_native_staleness() {
+    let (mut g, a, records) = chain();
+    let mut fake = observation(&records[0].pin.asset, "synthetic change", 9);
+    fake.observation.source = EvidenceSource::Fixture;
+    g.observe(&a, fake).unwrap();
+    assert_eq!(
+        g.inspect(&a, &records[0].pin.asset)
+            .unwrap()
+            .knowledge
+            .existence,
+        Existence::Unknown
+    );
+    assert_eq!(
+        g.inspect(&a, &records[2].pin.asset)
+            .unwrap()
+            .knowledge
+            .freshness,
+        Freshness::Unknown
+    );
+}

@@ -220,3 +220,23 @@ fn other_owner_and_future_schema_are_not_silently_migrated() {
     drop(store);
     assert!(GraphStore::open(&path, project, access.owner.principal.clone(), true).is_err());
 }
+
+#[test]
+fn partial_project_access_cannot_export_full_private_backup() {
+    let (_tmp, path, project, access) = fixture();
+    let mut store = open(&path, &project, &access);
+    let a = item("visible");
+    store
+        .transact(&access, |g| g.register(&access, a.clone()))
+        .unwrap();
+    let subset = ProjectAccess::authorized(
+        access.owner.clone(),
+        project,
+        Some([a.id].into()),
+        true,
+        access.grants.clone(),
+    )
+    .unwrap();
+    assert!(matches!(store.backup(&subset), Err(GraphError::Denied)));
+    assert!(!path.join("backup.sqlite3").exists());
+}

@@ -11,6 +11,7 @@ pub struct ProjectAccess {
     pub(crate) visible: Option<BTreeSet<LogicalAssetId>>,
     pub(crate) writable: bool,
     pub(crate) grants: Digest,
+    pub(crate) visibility: Digest,
 }
 impl ProjectAccess {
     pub fn authorized(
@@ -25,9 +26,26 @@ impl ProjectAccess {
             matches!(owner.principal, PrincipalBinding::Named(_)),
             "durable principal required",
         )?;
+        ensure(
+            visible.as_ref().is_none_or(|v| v.len() <= MAX_RESOURCES),
+            "visibility budget",
+        )?;
+        let mut scope = Vec::from(b"project-graph-visibility-v1:".as_slice());
+        match &visible {
+            None => scope.extend_from_slice(b"all"),
+            Some(ids) => {
+                scope.extend_from_slice(b"subset:");
+                for id in ids {
+                    scope.extend_from_slice(id.as_str().as_bytes());
+                    scope.push(0);
+                }
+            }
+        }
+        let visibility = Digest::of_bytes(&scope);
         Ok(Self {
             owner,
             project,
+            visibility,
             visible,
             writable,
             grants,
@@ -625,6 +643,7 @@ impl ProjectGraph {
         let mut k = Knowledge::unknown();
         k.existence = s.probe.existence();
         if s.tombstoned || s.gap || !self.seen.contains(id) {
+            k.existence = Existence::Unknown;
             visiting.remove(id);
             return Ok(k);
         }
@@ -640,6 +659,10 @@ impl ProjectGraph {
             composition::EvidenceSource::Fixture | composition::EvidenceSource::Simulation
         );
         if k.existence != Existence::Present || !real {
+            if !real {
+                k.existence = Existence::Unknown;
+                k.requires_reconcile = true;
+            }
             visiting.remove(id);
             return Ok(k);
         }
@@ -679,7 +702,11 @@ impl ProjectGraph {
                 Freshness::Unknown
             };
             for d in &receipt.required_determinants() {
-                match self.determinants.get(&(d.class, d.key.clone())) {
+                let observed = self
+                    .determinants_seen
+                    .then(|| self.determinants.get(&(d.class, d.key.clone())))
+                    .flatten();
+                match observed {
                     Some(now) if now != &d.digest => freshness = Freshness::Stale,
                     None => {
                         if freshness != Freshness::Stale {
@@ -748,6 +775,9 @@ impl ProjectGraph {
         limit: usize,
     ) -> Result<Vec<RevisionRecord>> {
         self.visible(access, id)?;
+        if access.visible.is_some() {
+            return Err(GraphError::Denied);
+        }
         ensure((1..=256).contains(&limit), "revision page limit")?;
         Ok(self
             .revisions
@@ -759,6 +789,9 @@ impl ProjectGraph {
     }
     pub fn receipt(&self, access: &ProjectAccess, id: &ReceiptId) -> Result<ExecutionReceipt> {
         self.access(access, false)?;
+        if access.visible.is_some() {
+            return Err(GraphError::Denied);
+        }
         let r = self.receipts.get(id).ok_or(GraphError::Denied)?;
         for pin in r.inputs.iter().chain(&r.outputs) {
             self.visible(access, &pin.asset)?;
