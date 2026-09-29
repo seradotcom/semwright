@@ -623,6 +623,13 @@ async fn broker_native_authoring_save_reopen_export_and_owner_denial() {
     let bytes = fs::read(workspace.path().join("articulated.glb")).unwrap();
     assert_eq!(&bytes[0..4], b"glTF");
     assert_eq!(export["sha256"], format!("{:x}", Sha256::digest(&bytes)));
+    let after_export = fixture
+        .call("composition.inspect", json!({"island":island}))
+        .await;
+    assert_eq!(
+        after_export["drift"], false,
+        "GLB export must restore frame/selection context without invalidating managed source"
+    );
     let evidence =
         PathBuf::from(std::env::var("SEMWRIGHT_AUTHORING_EVIDENCE").expect("evidence path"));
     fs::create_dir_all(&evidence).unwrap();
@@ -732,6 +739,13 @@ async fn hard_surface_and_product_scene_author_through_semwright() {
         );
         let report: semwright_semantic_composition::VerificationReport =
             serde_json::from_value(applied["report"].clone()).unwrap();
+        if report.verdict().unwrap() != semwright_semantic_composition::Verdict::Pass {
+            eprintln!(
+                "{label} verification_report={}\n{label} native_snapshot={}",
+                serde_json::to_string_pretty(&applied["report"]).unwrap(),
+                serde_json::to_string_pretty(&applied["snapshot"]).unwrap()
+            );
+        }
         assert_eq!(
             report.verdict().unwrap(),
             semwright_semantic_composition::Verdict::Pass,

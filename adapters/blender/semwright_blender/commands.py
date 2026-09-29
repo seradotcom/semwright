@@ -246,6 +246,9 @@ class Commands:
         inspect_export_closure(bpy, self.workspace, collection, args.get("animations", True))
         selected = list(bpy.context.selected_objects)
         active = bpy.context.view_layer.objects.active
+        scene = bpy.context.scene
+        frame_current = scene.frame_current
+        frame_subframe = scene.frame_subframe
         fd, temporary = tempfile.mkstemp(prefix=".semwright-export-", suffix=".glb", dir=os.path.dirname(target))
         os.close(fd)
         try:
@@ -292,3 +295,5 @@ class Commands:
                 if bpy.data.objects.get(obj.name) is obj:
                     obj.select_set(True)
             bpy.context.view_layer.objects.active = active
+            if scene.frame_current != frame_current or abs(scene.frame_subframe - frame_subframe) > 1e-9:
+                scene.frame_set(frame_current, subframe=frame_subframe)
