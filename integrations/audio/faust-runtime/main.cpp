@@ -8,6 +8,7 @@
 #include <sndfile.h>
 #include <algorithm>
 #include <array>
+#include <cerrno>
 #include <charconv>
 #include <cmath>
 #include <cstdint>
@@ -64,6 +65,13 @@ struct FactoryDelete {
 using Factory = std::unique_ptr<interpreter_dsp_factory, FactoryDelete>;
 struct FileDelete { void operator()(SNDFILE* file) const { if (file) sf_close(file); } };
 using SoundFile = std::unique_ptr<SNDFILE, FileDelete>;
+std::string factory_error(std::string error, int saved_errno) {
+    if (!error.empty()) return error;
+    if (saved_errno != 0) {
+        return std::string("errno=") + std::to_string(saved_errno) + ": " + std::strerror(saved_errno);
+    }
+    return "libfaust returned null without error text";
+}
 std::string json_string(std::string value) {
     if (value.size() > 512) value.resize(512);
     std::string out;
@@ -208,9 +216,12 @@ int execute(int argc, char** argv) {
         std::string probe_error;
         const std::string probe_source = "process = 0;";
         Factory probe_factory;
+        int probe_errno = 0;
         try {
+            errno = 0;
             probe_factory.reset(createInterpreterDSPFactoryFromString(
                 "semwright-runtime-probe", probe_source, 3, probe_options, probe_error));
+            probe_errno = errno;
         } catch (const std::exception& error) {
             probe_error = std::string("exception: ") + error.what();
         } catch (...) {
@@ -224,7 +235,7 @@ int execute(int argc, char** argv) {
             << "\"interpreter_compile\":" << (probe_factory ? "true" : "false") << ","
             << "\"diagnostic_class\":\""
             << (probe_factory ? "ok" : "interpreter_compile_failed") << "\","
-            << "\"diagnostic_prefix\":\"" << json_string(probe_error) << "\"}\n";
+            << "\"diagnostic_prefix\":\"" << json_string(factory_error(probe_error, probe_errno)) << "\"}\n";
         return 0;
     }
     auto source = read_source();
