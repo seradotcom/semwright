@@ -1537,14 +1537,21 @@ impl DriverExecutionContext {
         }
     }
 
-    async fn await_tool_job_reply(&self, id: String, response: Response) -> Result<ToolJobReply> {
+    async fn await_tool_job_reply(
+        &self,
+        id: String,
+        response: Response,
+        allow_cancelled_cleanup: bool,
+    ) -> Result<ToolJobReply> {
         if self.protocol < 6 || !self.interfaces.host_tools {
             return Err(Error::new(
                 ErrorCode::Unsupported,
                 "Detached runtime-tool jobs require Driver Protocol v6 Host mediation",
             ));
         }
-        self.check_cancelled()?;
+        if !allow_cancelled_cleanup {
+            self.check_cancelled()?;
+        }
         let (sender, receiver) = oneshot::channel();
         {
             let mut pending = self.tool_jobs.lock().await;
@@ -1559,29 +1566,34 @@ impl DriverExecutionContext {
             self.tool_jobs.lock().await.remove(&id);
             return Err(Error::unavailable("Driver protocol writer is closed"));
         }
-        tokio::select! {
-            biased;
-            _ = self.cancellation.cancelled() => {
-                self.tool_jobs.lock().await.remove(&id);
-                Err(Error::new(
-                    ErrorCode::Cancelled,
-                    "Runtime-tool job control cancelled",
-                ))
-            }
-            result = tokio::time::timeout(std::time::Duration::from_secs(5), receiver) => {
-                match result {
-                    Ok(Ok(result)) => result,
-                    Ok(Err(_)) => Err(Error::unavailable(
-                        "Runtime-tool job response channel closed",
-                    )),
-                    Err(_) => {
-                        self.tool_jobs.lock().await.remove(&id);
-                        Err(Error::new(
-                            ErrorCode::Timeout,
-                            "Runtime-tool job control timed out",
-                        ))
-                    }
+        let wait_for_host = async {
+            match tokio::time::timeout(std::time::Duration::from_secs(5), receiver).await {
+                Ok(Ok(result)) => result,
+                Ok(Err(_)) => Err(Error::unavailable(
+                    "Runtime-tool job response channel closed",
+                )),
+                Err(_) => {
+                    self.tool_jobs.lock().await.remove(&id);
+                    Err(Error::new(
+                        ErrorCode::Timeout,
+                        "Runtime-tool job control timed out",
+                    ))
                 }
+            }
+        };
+        if allow_cancelled_cleanup {
+            wait_for_host.await
+        } else {
+            tokio::select! {
+                biased;
+                _ = self.cancellation.cancelled() => {
+                    self.tool_jobs.lock().await.remove(&id);
+                    Err(Error::new(
+                        ErrorCode::Cancelled,
+                        "Runtime-tool job control cancelled",
+                    ))
+                }
+                result = wait_for_host => result,
             }
         }
     }
@@ -1614,6 +1626,7 @@ impl DriverExecutionContext {
                     timeout_ms,
                     cwd,
                 },
+                false,
             )
             .await?;
         match reply {
@@ -1677,6 +1690,7 @@ impl DriverExecutionContext {
                     timeout_ms,
                     cwd,
                 },
+                false,
             )
             .await?;
         match reply {
@@ -1705,6 +1719,7 @@ impl DriverExecutionContext {
                     parent: self.request_id.clone(),
                     job: job.clone(),
                 },
+                false,
             )
             .await?;
         match reply {
@@ -1740,6 +1755,7 @@ impl DriverExecutionContext {
                     parent: self.request_id.clone(),
                     job: job.clone(),
                 },
+                true,
             )
             .await?;
         match reply {
@@ -2816,6 +2832,69 @@ mod tests {
         assert_eq!(wire["type"], "tool_execute_v7");
         assert_eq!(wire["args"][1]["kind"], "mount_path");
         assert_eq!(wire["args"][2]["kind"], "tool_path");
+    }
+
+    #[tokio::test]
+    async fn runtime_tool_job_cancel_remains_available_for_cancelled_request_cleanup() {
+        let cancellation = CancellationToken::new();
+        let (output, mut receiver) = mpsc::unbounded_channel();
+        let tool_jobs = Arc::new(Mutex::new(BTreeMap::new()));
+        let context = DriverExecutionContext {
+            request_id: "runtime-tool-cleanup".into(),
+            session: "owner-session".into(),
+            native_target: None,
+            cancellation: cancellation.clone(),
+            output,
+            interfaces: DriverInterfaces {
+                host_tools: true,
+                ..Default::default()
+            },
+            protocol: 6,
+            tool_calls: Arc::new(Mutex::new(BTreeMap::new())),
+            tool_jobs: tool_jobs.clone(),
+        };
+        let job = RuntimeToolJob {
+            id: "job-cleanup-1".into(),
+        };
+
+        cancellation.cancel();
+        let error = context.runtime_tool_job_status(&job).await.unwrap_err();
+        assert_eq!(error.code, ErrorCode::Cancelled);
+
+        let cleanup_context = context.clone();
+        let cleanup_job = job.clone();
+        let cleanup =
+            tokio::spawn(
+                async move { cleanup_context.cancel_runtime_tool_job(&cleanup_job).await },
+            );
+        let response = receiver.recv().await.expect("cleanup cancel request");
+        let control_id = match response {
+            Response::ToolJobCancel {
+                id,
+                parent,
+                job: requested,
+            } => {
+                assert_eq!(parent, "runtime-tool-cleanup");
+                assert_eq!(requested, job);
+                id
+            }
+            other => panic!("unexpected cleanup response: {other:?}"),
+        };
+        let sender = tool_jobs
+            .lock()
+            .await
+            .remove(&control_id)
+            .expect("pending cleanup waiter");
+        sender
+            .send(Ok(ToolJobReply::Status {
+                job: job.clone(),
+                status: RuntimeToolJobStatus::Cancelled,
+            }))
+            .expect("deliver cleanup result");
+        assert!(matches!(
+            cleanup.await.unwrap().unwrap(),
+            RuntimeToolJobStatus::Cancelled
+        ));
     }
 
     #[test]
