@@ -495,6 +495,7 @@ fn native_revision_candidate(
     (
         resource.clone(),
         RevisionCandidate {
+            version: SCHEMA_VERSION,
             asset: asset.clone(),
             fingerprint: Fingerprint {
                 bytes: Some(fingerprint.clone()),
@@ -591,6 +592,14 @@ fn revision_adapter_rejects_method_project_generation_and_source_substitution() 
         1,
     )
     .unwrap();
+
+    let mut wrong_version = candidate.clone();
+    wrong_version.version = SCHEMA_VERSION + 1;
+    assert!(
+        adapter
+            .admit(&owner(), graph.project_id(), &asset, 1, wrong_version)
+            .is_err()
+    );
 
     let mut wrong_method = candidate.clone();
     wrong_method.observation.method = "client_claimed_native".into();
@@ -694,4 +703,133 @@ fn admitted_revision_is_owner_bound_and_nonexhaustive_complete_claim_is_rejected
         graph.accept_revision(&other, admitted),
         Err(GraphError::Denied)
     ));
+}
+
+#[test]
+fn provenance_explains_active_dependencies_derivatives_and_stale_reason() {
+    let (mut graph, access, records) = chain();
+    let source = records[0].pin.asset.clone();
+    let middle = records[1].pin.asset.clone();
+    let end = records[2].pin.asset.clone();
+
+    let source_view = graph.provenance(&access, &source, 256).unwrap();
+    assert_eq!(source_view.known_derivatives, vec![middle.clone()]);
+    assert!(source_view.producer.is_none());
+
+    let end_view = graph.provenance(&access, &end, 256).unwrap();
+    assert_eq!(
+        end_view.producer.as_ref().unwrap().inputs[0].asset,
+        middle.clone()
+    );
+    assert!(!end_view.unknown_frontier);
+
+    observe(&mut graph, &access, &source, "changed", 20);
+    let stale = graph.provenance(&access, &end, 256).unwrap();
+    assert_eq!(stale.asset.knowledge.freshness, Freshness::Stale);
+    assert!(
+        stale
+            .reasons
+            .contains(&ProvenanceReason::InputStale { asset: middle })
+    );
+}
+
+#[test]
+fn provenance_partial_scope_hides_receipt_membership_and_hidden_asset_ids() {
+    let (graph, _access, records) = chain();
+    let source = records[0].pin.asset.clone();
+    let middle = records[1].pin.asset.clone();
+    let end = records[2].pin.asset.clone();
+    let subset = ProjectAccess::authorized(
+        owner(),
+        graph.project_id().clone(),
+        Some([end.clone()].into()),
+        false,
+        digest("subset-grants"),
+    )
+    .unwrap();
+
+    let view = graph.provenance(&subset, &end, 256).unwrap();
+    assert!(view.producer.is_none());
+    assert!(view.unknown_frontier);
+    assert!(!view.truncated);
+    assert!(view.known_derivatives.is_empty());
+    assert!(view.possible_derivatives.is_empty());
+    let wire = serde_json::to_string(&view).unwrap();
+    assert!(!wire.contains(source.as_str()));
+    assert!(!wire.contains(middle.as_str()));
+}
+
+#[test]
+fn provenance_reports_changed_and_unknown_determinants_without_relabeling_history() {
+    let (mut graph, access, records) = chain();
+    let end = records[2].pin.asset.clone();
+    let before = graph.provenance(&access, &end, 256).unwrap();
+    let producer = before.producer.unwrap();
+    let receipt = graph.receipt(&access, &producer.receipt).unwrap();
+    let mut determinants = receipt.required_determinants();
+    assert!(!determinants.is_empty());
+    let changed_class = determinants[0].class;
+    let changed_key = determinants[0].key.clone();
+    determinants[0].digest = digest("changed-determinant");
+    determinants.truncate(1);
+    graph.observe_determinants(&access, determinants).unwrap();
+
+    let view = graph.provenance(&access, &end, 256).unwrap();
+    assert!(
+        view.reasons
+            .contains(&ProvenanceReason::DeterminantChanged {
+                class: changed_class,
+                key: changed_key,
+            })
+    );
+    assert!(
+        view.reasons
+            .iter()
+            .any(|reason| matches!(reason, ProvenanceReason::DeterminantUnknown { .. }))
+    );
+    assert_eq!(view.asset.knowledge.freshness, Freshness::Stale);
+}
+
+#[test]
+fn declared_derivatives_remain_possible_and_provenance_is_bounded() {
+    let (mut graph, access) = setup();
+    let source = asset(&mut graph, &access, "source");
+    let first = asset(&mut graph, &access, "declared-one");
+    let second = asset(&mut graph, &access, "declared-two");
+
+    for derived in [first.clone(), second.clone()] {
+        graph
+            .declare(
+                &access,
+                Edge {
+                    from: Vertex::Asset(derived),
+                    to: Vertex::Asset(source.clone()),
+                    relation: Relation::DerivedFrom,
+                    evidence: EdgeEvidence::Declared {
+                        declaration: ReceiptId::new(),
+                    },
+                },
+            )
+            .unwrap();
+    }
+
+    assert!(graph.provenance(&access, &source, 0).is_err());
+    assert!(graph.provenance(&access, &source, 257).is_err());
+
+    let bounded = graph.provenance(&access, &source, 1).unwrap();
+    assert!(bounded.known_derivatives.is_empty());
+    assert_eq!(bounded.possible_derivatives.len(), 1);
+    assert!(bounded.truncated);
+
+    let complete = graph.provenance(&access, &source, 256).unwrap();
+    assert!(complete.known_derivatives.is_empty());
+    assert_eq!(
+        complete.possible_derivatives,
+        [first.clone(), second.clone()]
+            .into_iter()
+            .collect::<std::collections::BTreeSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>()
+    );
+    assert!(!complete.truncated);
 }

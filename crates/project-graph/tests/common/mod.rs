@@ -98,6 +98,7 @@ pub fn accept_observation(
         record.observation.method_version,
     )?;
     let candidate = RevisionCandidate {
+        version: SCHEMA_VERSION,
         asset: record.pin.asset.clone(),
         fingerprint: record.pin.fingerprint.clone(),
         equivalence: record.pin.equivalence,

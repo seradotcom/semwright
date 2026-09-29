@@ -324,3 +324,224 @@ impl QueryCursors {
         })
     }
 }
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum ProvenanceReason {
+    ObservationRequired,
+    CoverageIncomplete { classes: BTreeSet<DependencyClass> },
+    OutputDiverged,
+    VerificationUnknown,
+    VerificationFailed,
+    DeterminantChanged { class: DependencyClass, key: String },
+    DeterminantUnknown { class: DependencyClass, key: String },
+    InputChanged { asset: LogicalAssetId },
+    InputStale { asset: LogicalAssetId },
+    InputMissing { asset: LogicalAssetId },
+    InputUnknown { asset: LogicalAssetId },
+}
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ProducerSummary {
+    pub receipt: ReceiptId,
+    pub derivation: DerivationId,
+    pub operation: OperationIdentity,
+    pub inputs: Vec<RevisionPin>,
+    pub verification: composition::Verdict,
+    pub coverage: Coverage,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ProvenanceView {
+    pub snapshot: u64,
+    pub asset: AssetView,
+    pub producer: Option<ProducerSummary>,
+    pub known_derivatives: Vec<LogicalAssetId>,
+    pub possible_derivatives: Vec<LogicalAssetId>,
+    pub reasons: Vec<ProvenanceReason>,
+    pub unknown_frontier: bool,
+    pub truncated: bool,
+}
+impl ProjectGraph {
+    /// Explain the currently active provenance without exposing hidden receipt
+    /// membership. A partial visibility grant is always an unknown frontier.
+    pub fn provenance(
+        &self,
+        access: &ProjectAccess,
+        id: &LogicalAssetId,
+        derivative_limit: usize,
+    ) -> Result<ProvenanceView> {
+        ensure(
+            (1..=256).contains(&derivative_limit),
+            "provenance derivative limit",
+        )?;
+        let state = self.visible(access, id)?;
+        let asset = self.inspect(access, id)?;
+        let mut reasons = BTreeSet::new();
+        let mut unknown_frontier = access.visible.is_some();
+        if asset.knowledge.requires_reconcile {
+            reasons.insert(ProvenanceReason::ObservationRequired);
+        }
+        if !asset.knowledge.coverage.complete {
+            reasons.insert(ProvenanceReason::CoverageIncomplete {
+                classes: asset.knowledge.coverage.unknown_frontier.clone(),
+            });
+        }
+        if asset.knowledge.divergence == Divergence::Diverged {
+            reasons.insert(ProvenanceReason::OutputDiverged);
+        }
+        match asset.knowledge.verification {
+            composition::Verdict::Unknown => {
+                reasons.insert(ProvenanceReason::VerificationUnknown);
+            }
+            composition::Verdict::Fail => {
+                reasons.insert(ProvenanceReason::VerificationFailed);
+            }
+            composition::Verdict::Pass => {}
+        }
+        let producer_receipt = state
+            .producer
+            .as_ref()
+            .and_then(|receipt| self.receipts.get(receipt));
+        let producer = if let Some(receipt) = producer_receipt {
+            let fully_visible = receipt
+                .inputs
+                .iter()
+                .chain(&receipt.outputs)
+                .all(|pin| access.sees(&pin.asset));
+            if !fully_visible {
+                unknown_frontier = true;
+                None
+            } else {
+                for determinant in receipt.required_determinants() {
+                    let current = self
+                        .determinants_seen
+                        .then(|| {
+                            self.determinants
+                                .get(&(determinant.class, determinant.key.clone()))
+                        })
+                        .flatten();
+                    match current {
+                        Some(value) if value != &determinant.digest => {
+                            reasons.insert(ProvenanceReason::DeterminantChanged {
+                                class: determinant.class,
+                                key: determinant.key,
+                            });
+                        }
+                        None => {
+                            reasons.insert(ProvenanceReason::DeterminantUnknown {
+                                class: determinant.class,
+                                key: determinant.key,
+                            });
+                        }
+                        _ => {}
+                    }
+                }
+                for input in &receipt.inputs {
+                    let input_state = self.visible(access, &input.asset)?;
+                    let input_knowledge = self.inspect(access, &input.asset)?.knowledge;
+                    if input_knowledge.existence == Existence::Missing
+                        && !input_knowledge.requires_reconcile
+                    {
+                        reasons.insert(ProvenanceReason::InputMissing {
+                            asset: input.asset.clone(),
+                        });
+                        continue;
+                    }
+                    if input_knowledge.freshness == Freshness::Stale {
+                        reasons.insert(ProvenanceReason::InputStale {
+                            asset: input.asset.clone(),
+                        });
+                    } else if input_knowledge.freshness == Freshness::Unknown
+                        || input_knowledge.requires_reconcile
+                    {
+                        reasons.insert(ProvenanceReason::InputUnknown {
+                            asset: input.asset.clone(),
+                        });
+                    }
+                    let current = input_state
+                        .latest
+                        .as_ref()
+                        .and_then(|revision| self.revisions.get(revision));
+                    let changed = current.is_none_or(|now| {
+                        now.binding_generation
+                            != self
+                                .revisions
+                                .get(&input.revision)
+                                .map(|expected| expected.binding_generation)
+                                .unwrap_or(u64::MAX)
+                            || input
+                                .fingerprint
+                                .equivalent(&now.pin.fingerprint, input.equivalence)
+                                != Some(true)
+                    });
+                    if changed {
+                        reasons.insert(ProvenanceReason::InputChanged {
+                            asset: input.asset.clone(),
+                        });
+                    }
+                }
+                Some(ProducerSummary {
+                    receipt: receipt.id.clone(),
+                    derivation: receipt.derivation.clone(),
+                    operation: receipt.operation.clone(),
+                    inputs: receipt.inputs.clone(),
+                    verification: receipt.verification.verdict()?,
+                    coverage: receipt.coverage.clone(),
+                })
+            }
+        } else {
+            None
+        };
+        let mut known_all = BTreeSet::new();
+        if let Some(targets) = self.reverse.get(id) {
+            for target in targets {
+                if !access.sees(target) {
+                    unknown_frontier = true;
+                    continue;
+                }
+                let active = self
+                    .assets
+                    .get(target)
+                    .and_then(|asset| asset.producer.as_ref())
+                    .and_then(|receipt| self.receipts.get(receipt))
+                    .is_some_and(|receipt| receipt.inputs.iter().any(|input| input.asset == *id));
+                if active {
+                    known_all.insert(target.clone());
+                }
+            }
+        }
+        let mut possible_all = BTreeSet::new();
+        if let Some(targets) = self.possible_reverse.get(id) {
+            for target in targets {
+                if !access.sees(target) {
+                    unknown_frontier = true;
+                } else if !known_all.contains(target) {
+                    possible_all.insert(target.clone());
+                }
+            }
+        }
+        if producer_receipt.is_some() && producer.is_none() {
+            unknown_frontier = true;
+        }
+        let total_derivatives = known_all
+            .len()
+            .checked_add(possible_all.len())
+            .ok_or(GraphError::Limit("provenance derivative count"))?;
+        let truncated = total_derivatives > derivative_limit;
+        let known_count = known_all.len().min(derivative_limit);
+        let remaining = derivative_limit - known_count;
+        let known_derivatives: Vec<_> = known_all.into_iter().take(known_count).collect();
+        let possible_derivatives: Vec<_> = possible_all.into_iter().take(remaining).collect();
+        Ok(ProvenanceView {
+            snapshot: self.sequence,
+            asset,
+            producer,
+            known_derivatives,
+            possible_derivatives,
+            reasons: reasons.into_iter().collect(),
+            unknown_frontier,
+            truncated,
+        })
+    }
+}

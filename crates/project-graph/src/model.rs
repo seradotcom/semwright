@@ -266,6 +266,7 @@ impl RevisionRecord {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct RevisionCandidate {
+    pub version: u32,
     pub asset: LogicalAssetId,
     pub fingerprint: Fingerprint,
     pub equivalence: Equivalence,
@@ -276,6 +277,7 @@ pub struct RevisionCandidate {
 }
 impl RevisionCandidate {
     pub fn validate(&self) -> Result<()> {
+        ensure(self.version == SCHEMA_VERSION, "revision candidate version")?;
         self.fingerprint.validate()?;
         self.coverage.validate()?;
         self.observation.base.validate()?;
