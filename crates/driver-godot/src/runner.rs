@@ -896,9 +896,14 @@ mod tests {
 
     fn test_runner() -> (tempfile::TempDir, Runner) {
         let root = tempfile::tempdir().unwrap();
-        for name in ["managed", "state", "artifacts"] {
+        for name in ["managed", "state", "artifacts", "input"] {
             std::fs::create_dir(root.path().join(name)).unwrap();
         }
+        std::fs::write(
+            root.path().join("input/start_cue.wav"),
+            include_bytes!("../tests/fixtures/authoring/start_cue.wav"),
+        )
+        .unwrap();
         std::fs::set_permissions(
             root.path().join("state"),
             std::fs::Permissions::from_mode(0o700),
@@ -914,7 +919,7 @@ mod tests {
         let authoring = AuthoringConfig {
             output_root: root.path().join("managed").canonicalize().unwrap(),
             state_root: root.path().join("state").canonicalize().unwrap(),
-            input_root: None,
+            input_root: Some(root.path().join("input").canonicalize().unwrap()),
         };
         let spec =
             validate::decode(include_bytes!("../tests/fixtures/authoring/two_d.json")).unwrap();

@@ -17,6 +17,11 @@ fn environment() -> (tempfile::TempDir, AuthoringConfig) {
     for name in ["output", "state", "input"] {
         fs::create_dir(root.path().join(name)).unwrap();
     }
+    fs::write(
+        root.path().join("input/start_cue.wav"),
+        include_bytes!("fixtures/authoring/start_cue.wav"),
+    )
+    .unwrap();
     fs::set_permissions(root.path().join("state"), fs::Permissions::from_mode(0o700)).unwrap();
     let config = AuthoringConfig {
         output_root: root.path().join("output"),
@@ -44,7 +49,7 @@ fn creates_from_empty_without_a_paired_editor_and_reopens_provider_state() {
     assert_eq!(observed.status, "IN_SYNC");
 }
 #[test]
-fn incremental_behavior_keeps_unaffected_native_resource_and_identity() {
+fn incremental_behavior_ui_and_entity_count_preserve_unaffected_resources_and_identity() {
     let (_root, config) = environment();
     let store = Store::new(config.clone()).unwrap();
     let mut spec = fixture();
@@ -52,21 +57,57 @@ fn incremental_behavior_keeps_unaffected_native_resource_and_identity() {
         .apply(&store.prepare(&spec, false, false).unwrap(), || Ok(()))
         .unwrap();
     let first = store.snapshot(&spec.project).unwrap();
-    let path = config
-        .output_root
-        .join(&spec.project)
-        .join("resources/arena_pulse.tres");
-    let inode = fs::metadata(&path).unwrap().ino();
+    let first_bindings = first.record().unwrap().bindings.clone();
+    let project = config.output_root.join(&spec.project);
+    let animation = project.join("resources/arena_pulse.tres");
+    let audio = project.join("assets/start_cue.wav");
+    let animation_inode = fs::metadata(&animation).unwrap().ino();
+    let audio_inode = fs::metadata(&audio).unwrap().ino();
+    let audio_bytes = fs::read(&audio).unwrap();
+
     spec.scenes[0].behavior.variables[0].initial = Literal::Int(4);
+    let hud = spec.scenes[0]
+        .entities
+        .iter_mut()
+        .find(|entity| entity.id == "hud")
+        .unwrap();
+    match &mut hud.node {
+        NativeNode::Label { text, .. } => *text = "Ready for the next round".into(),
+        _ => panic!("fixture HUD must remain a Label"),
+    }
+    spec.scenes[0].entities.push(Entity {
+        id: "bonus_marker".into(),
+        parent: None,
+        position: [12.0, 48.0, 0.0],
+        rotation: [0.0; 3],
+        scale: [1.0; 3],
+        groups: vec!["incremental".into()],
+        node: NativeNode::Visual2d {
+            size: [18.0, 18.0],
+            color: [0.2, 0.7, 0.9, 1.0],
+        },
+    });
+
     let plan = store.prepare(&spec, false, false).unwrap();
+    assert!(plan.writes.contains(&"scripts/arena.gd".into()));
+    assert!(plan.writes.contains(&"scenes/arena.tscn".into()));
     assert!(!plan.writes.contains(&"resources/arena_pulse.tres".into()));
+    assert!(!plan.writes.contains(&"assets/start_cue.wav".into()));
     store.apply(&plan, || Ok(())).unwrap();
+
     let second = store.snapshot(&spec.project).unwrap();
-    assert_eq!(
-        first.record().unwrap().bindings,
-        second.record().unwrap().bindings
-    );
-    assert_eq!(inode, fs::metadata(path).unwrap().ino());
+    let second_bindings = &second.record().unwrap().bindings;
+    for (key, identity) in first_bindings {
+        assert_eq!(
+            second_bindings.get(&key),
+            Some(&identity),
+            "pre-existing logical identity changed for {key}"
+        );
+    }
+    assert!(second_bindings.contains_key("entity:arena/bonus_marker"));
+    assert_eq!(animation_inode, fs::metadata(animation).unwrap().ino());
+    assert_eq!(audio_inode, fs::metadata(&audio).unwrap().ino());
+    assert_eq!(audio_bytes, fs::read(audio).unwrap());
 }
 #[test]
 fn identical_intent_is_a_noop() {

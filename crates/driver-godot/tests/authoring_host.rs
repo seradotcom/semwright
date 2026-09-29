@@ -89,6 +89,11 @@ fn fixture() -> Fixture {
         include_bytes!("fixtures/authoring/triangle.glb"),
     )
     .unwrap();
+    std::fs::write(
+        input.path().join("start_cue.wav"),
+        include_bytes!("fixtures/authoring/start_cue.wav"),
+    )
+    .unwrap();
 
     let config_path = config.path().join("config.json");
     std::fs::write(
@@ -481,6 +486,27 @@ async fn empty_project_authoring_flows_through_broker_driver_host_and_provider()
             .as_array()
             .is_some_and(|animations| !animations.is_empty())
     );
+    assert!(
+        native_inspect["observation"]["authored"]["nodes"]
+            .as_array()
+            .is_some_and(|nodes| nodes.iter().any(|node| {
+                node["logical_key"] == "arena/start_sfx" && node["class"] == "AudioStreamPlayer"
+            })),
+        "technical 2D game missing native audio cue player"
+    );
+    let start_cue_sha = digest(&fixture._input.path().join("start_cue.wav"));
+    assert!(
+        native_inspect["observation"]["dependencies"]
+            .as_array()
+            .is_some_and(|dependencies| dependencies.iter().any(|dependency| {
+                dependency["path"]
+                    .as_str()
+                    .is_some_and(|path| path.ends_with("assets/start_cue.wav"))
+                    && dependency["exists"] == true
+                    && dependency["sha256"] == start_cue_sha
+            })),
+        "technical 2D game missing pinned audio cue dependency"
+    );
 
     let native_persistence = broker_call(
         &broker,
@@ -616,6 +642,131 @@ async fn empty_project_authoring_flows_through_broker_driver_host_and_provider()
     for marker in ["SCRIPT ERROR:", "Parse Error:"] {
         assert!(!launch_log.contains(marker), "{launch_log}");
     }
+
+    let before_incremental = broker_call(
+        &broker,
+        &session,
+        "driver.godot.composition.inspect",
+        json!({"project":project_slug}),
+    )
+    .await;
+    assert_eq!(before_incremental["status"], "IN_SYNC");
+    let before_bindings = before_incremental["bindings"].as_object().unwrap().clone();
+    let behavior_path = product_project.join("scripts/arena.gd");
+    let animation_path = product_project.join("resources/arena_pulse.tres");
+    let audio_path = product_project.join("assets/start_cue.wav");
+    let behavior_before = digest(&behavior_path);
+    let animation_before = digest(&animation_path);
+    let audio_before = digest(&audio_path);
+
+    let mut incremental_spec = spec.clone();
+    incremental_spec["scenes"][0]["behavior"]["variables"][0]["initial"]["value"] = json!(4);
+    let entities = incremental_spec["scenes"][0]["entities"]
+        .as_array_mut()
+        .unwrap();
+    let hud = entities
+        .iter_mut()
+        .find(|entity| entity["id"] == "hud")
+        .unwrap();
+    hud["node"]["text"] = json!("Ready for the next round");
+    entities.push(json!({
+        "id":"bonus_marker",
+        "parent":null,
+        "position":[12.0,48.0,0.0],
+        "rotation":[0.0,0.0,0.0],
+        "scale":[1.0,1.0,1.0],
+        "groups":["incremental"],
+        "node":{
+            "kind":"visual2d",
+            "size":[18.0,18.0],
+            "color":[0.2,0.7,0.9,1.0]
+        }
+    }));
+
+    let incremental_plan = broker_call(
+        &broker,
+        &session,
+        "driver.godot.composition.plan",
+        json!({"spec":incremental_spec}),
+    )
+    .await;
+    let incremental_plan_id = incremental_plan["plan_id"].as_str().unwrap().to_owned();
+    let incremental_writes = incremental_plan["writes"].as_array().unwrap();
+    assert!(
+        incremental_writes
+            .iter()
+            .any(|path| path.as_str() == Some("scripts/arena.gd"))
+    );
+    assert!(
+        incremental_writes
+            .iter()
+            .any(|path| path.as_str() == Some("scenes/arena.tscn"))
+    );
+    assert!(
+        !incremental_writes
+            .iter()
+            .any(|path| path.as_str() == Some("resources/arena_pulse.tres"))
+    );
+    assert!(
+        !incremental_writes
+            .iter()
+            .any(|path| path.as_str() == Some("assets/start_cue.wav"))
+    );
+
+    let incremental_apply = broker_call(
+        &broker,
+        &session,
+        "driver.godot.composition.apply",
+        json!({"plan_id":incremental_plan_id}),
+    )
+    .await;
+    assert_eq!(incremental_apply["execution_status"], "completed");
+    assert_ne!(digest(&behavior_path), behavior_before);
+    assert_eq!(digest(&animation_path), animation_before);
+    assert_eq!(digest(&audio_path), audio_before);
+
+    let after_incremental = broker_call(
+        &broker,
+        &session,
+        "driver.godot.composition.inspect",
+        json!({"project":project_slug}),
+    )
+    .await;
+    assert_eq!(after_incremental["status"], "IN_SYNC");
+    let after_bindings = after_incremental["bindings"].as_object().unwrap();
+    for (key, identity) in before_bindings {
+        assert_eq!(
+            after_bindings.get(&key),
+            Some(&identity),
+            "incremental update changed pre-existing logical identity {key}"
+        );
+    }
+    assert!(after_bindings.contains_key("entity:arena/bonus_marker"));
+
+    let incremental_native = broker_call(
+        &broker,
+        &session,
+        "driver.godot.composition.native.verify",
+        json!({
+            "plan_id":incremental_plan_id,
+            "scene":"arena",
+            "verification":{"kind":"inspect"}
+        }),
+    )
+    .await;
+    assert!(
+        incremental_native["observation"]["authored"]["nodes"]
+            .as_array()
+            .is_some_and(|nodes| nodes.iter().any(|node| {
+                node["logical_key"] == "arena/bonus_marker" && node["class"] == "Polygon2D"
+            })),
+        "incremental entity count change missing from native readback"
+    );
+    let hud_native = managed_native_node(&incremental_native, "arena/hud");
+    assert_eq!(
+        hud_native["properties"]["text"]["value"],
+        "Ready for the next round"
+    );
 
     let spec3: Value =
         serde_json::from_slice(include_bytes!("fixtures/authoring/three_d.json")).unwrap();

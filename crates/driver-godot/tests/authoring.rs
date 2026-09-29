@@ -23,6 +23,17 @@ fn typed_two_and_three_dimensional_fixtures_compile() {
     }
 }
 #[test]
+fn technical_game_compiles_local_audio_cue_into_native_node_and_typed_action() {
+    let project = compile(&fixture()).unwrap();
+    assert!(project.files["scenes/arena.tscn"].contains("type=\"AudioStreamPlayer\""));
+    assert!(project.files["scenes/arena.tscn"].contains("assets/start_cue.wav"));
+    assert!(
+        project.files["scripts/arena.gd"].contains("n_start_sfx.play()"),
+        "start handler must realize typed PlayAudio through native AudioStreamPlayer"
+    );
+}
+
+#[test]
 fn unknown_fields_and_caller_code_are_rejected() {
     let mut v = serde_json::to_value(fixture()).unwrap();
     v["script"] = serde_json::json!("arbitrary GDScript");

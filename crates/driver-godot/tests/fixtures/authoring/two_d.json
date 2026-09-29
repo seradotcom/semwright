@@ -26,7 +26,14 @@
       "key": "r"
     }
   ],
-  "assets": [],
+  "assets": [
+    {
+      "id": "start_cue",
+      "kind": "audio",
+      "file": "start_cue.wav",
+      "sha256": "fe8a9694045e4b65131852f110f2f1289b293d089bd0ccf0b74277d417696bef"
+    }
+  ],
   "scenes": [
     {
       "id": "arena",
@@ -271,6 +278,30 @@
           "node": {
             "kind": "animator"
           }
+        },
+        {
+          "id": "start_sfx",
+          "parent": null,
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "groups": [],
+          "node": {
+            "kind": "audio",
+            "asset": "start_cue"
+          }
         }
       ],
       "animations": [
@@ -414,6 +445,10 @@
               {
                 "kind": "start_timer",
                 "timer": "deadline"
+              },
+              {
+                "kind": "play_audio",
+                "entity": "start_sfx"
               }
             ]
           },

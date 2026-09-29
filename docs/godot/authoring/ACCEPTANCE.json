@@ -63,12 +63,14 @@
     {
       "id": "D05",
       "requirement": "composable technical games",
-      "state": "PARTIAL_TECHNICAL_FIXTURES_NATIVE_PENDING",
-      "implementation": "2D and 3D technical-game intents with start/play/win/lose/restart; product-route playtest implemented",
+      "state": "IMPLEMENTED_TECHNICAL_GAMES_EVIDENCE_PENDING",
+      "implementation": "2D and 3D technical-game intents with input/objective/score/HUD/start/play/win/lose/restart, local supplied audio cue, camera/interactions and product-route playtest. Product E2E also replans one live managed 2D game to change behavior, HUD and entity count while preserving unaffected animation/audio bytes and existing logical IDs.",
       "tests": [
-        "two_d.json",
-        "three_d.json",
-        "native play"
+        "two_d.json with native AudioStreamPlayer/start cue",
+        "three_d.json with imported GLB/follow camera/animation/collision",
+        "native play",
+        "Broker/Host incremental behavior + HUD + entity-count update",
+        "unaffected animation/audio preservation and stable logical bindings"
       ],
       "tested_sha": null,
       "run_id": null,

@@ -21,6 +21,11 @@ fn environment() -> (tempfile::TempDir, AuthoringConfig) {
     for name in ["output", "state", "input"] {
         fs::create_dir(root.path().join(name)).unwrap();
     }
+    fs::write(
+        root.path().join("input/start_cue.wav"),
+        include_bytes!("fixtures/authoring/start_cue.wav"),
+    )
+    .unwrap();
     fs::set_permissions(root.path().join("state"), fs::Permissions::from_mode(0o700)).unwrap();
     let config = AuthoringConfig {
         output_root: root.path().join("output"),
