@@ -237,27 +237,13 @@ fn typed_acceleration_actions_are_physics_tick_only_and_dimension_checked() {
     );
 
     let mut wrong_event = two_d.clone();
-    let action = wrong_event.scenes[0]
-        .behavior
-        .handlers
-        .iter()
-        .find(|handler| matches!(handler.event, Event::PhysicsTick))
-        .and_then(|handler| {
-            handler
-                .actions
-                .iter()
-                .find(|action| matches!(action, Action::Accelerate2d { .. }))
-        })
-        .cloned()
-        .expect("typed acceleration action");
     wrong_event.scenes[0]
         .behavior
         .handlers
         .iter_mut()
-        .find(|handler| matches!(handler.event, Event::Ready))
-        .expect("ready handler")
-        .actions
-        .push(action);
+        .find(|handler| matches!(handler.event, Event::PhysicsTick))
+        .expect("physics handler")
+        .event = Event::Ready;
     assert!(validate(&wrong_event).is_err());
 
     let mut zero_limit = two_d.clone();
