@@ -72,6 +72,12 @@ jobs:
             python3 scripts/blender-authoring/run-suite.py --suite blender-model
           fi
           python3 scripts/blender-authoring/run-suite.py --suite "$SUITE"
+      - name: Fresh Blender GLB semantic roundtrip oracle
+        if: steps.selector.outputs.suite == 'blender-native-authoring'
+        run: |
+          set -o pipefail
+          test -f evidence/blender-authoring/articulated.glb
+          "$SEMWRIGHT_TEST_BLENDER_ROOT/blender"             --background --factory-startup --disable-autoexec --python-exit-code 1             --python crates/driver-blender/tests/glb_roundtrip_oracle.py --             "$GITHUB_WORKSPACE/evidence/blender-authoring/articulated.glb"             "$GITHUB_WORKSPACE/evidence/blender-authoring/glb-roundtrip-blender.json"             2>&1 | tee evidence/blender-authoring/glb-roundtrip-blender.log
       - name: Hostile GLB closure in disposable Blender
         if: steps.selector.outputs.suite == 'blender-native-authoring'
         run: |

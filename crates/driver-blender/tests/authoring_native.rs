@@ -574,6 +574,10 @@ async fn broker_native_authoring_save_reopen_export_and_owner_denial() {
     let bytes = fs::read(workspace.path().join("articulated.glb")).unwrap();
     assert_eq!(&bytes[0..4], b"glTF");
     assert_eq!(export["sha256"], format!("{:x}", Sha256::digest(&bytes)));
+    let evidence =
+        PathBuf::from(std::env::var("SEMWRIGHT_AUTHORING_EVIDENCE").expect("evidence path"));
+    fs::create_dir_all(&evidence).unwrap();
+    fs::write(evidence.join("articulated.glb"), &bytes).unwrap();
     let saved = fixture
         .call(
             "composition.persist",
@@ -615,9 +619,6 @@ async fn broker_native_authoring_save_reopen_export_and_owner_denial() {
     assert!(!native.drift);
     assert_eq!(fs::read(sentinel).unwrap(), b"must remain unchanged");
     fresh.provider.shutdown().await.unwrap();
-    let evidence =
-        PathBuf::from(std::env::var("SEMWRIGHT_AUTHORING_EVIDENCE").expect("evidence path"));
-    fs::create_dir_all(&evidence).unwrap();
     fs::write(
         evidence.join("native-pipeline.json"),
         serde_json::to_vec_pretty(&json!({
