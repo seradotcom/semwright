@@ -40,3 +40,62 @@ jobs:
           path: godot-authoring-evidence/
           if-no-files-found: warn
           retention-days: 7
+  godot-native-authoring:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_PROFILE_DEV_DEBUG: '0'
+      CARGO_PROFILE_TEST_DEBUG: '0'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Exact source checkout
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          shared-key: godot-authoring-native-v1
+      - name: Install isolated native prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap apparmor-profiles apparmor-utils libpipewire-0.3-dev
+          mkdir -p verification/godot-authoring
+          bash scripts/dev/ci-driver-bwrap-profile.sh verification/godot-authoring/sandbox-setup.log
+      - name: Install pinned Godot 4.7.2
+        run: |
+          mkdir -p "$RUNNER_TEMP/godot"
+          curl -fL --retry 4 --retry-delay 2             "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip"             -o "$RUNNER_TEMP/godot.zip"
+          unzip -q "$RUNNER_TEMP/godot.zip" -d "$RUNNER_TEMP/godot"
+          GODOT="$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64"
+          echo "8d106cbe6144c2dc7e881d61d2429c1a8a76e6b22ef48bd5e48dcf934953f71e  $GODOT" | sha256sum -c -
+          "$GODOT" --version | tee verification/godot-authoring/godot-version.txt
+          echo "GODOT_BIN=$GODOT" >> "$GITHUB_ENV"
+      - name: Build sandbox helper
+        run: cargo build --locked -p semwright-plugin-host --bin semwright-sandbox
+      - name: Broker Driver Host empty-root bootstrap
+        env:
+          SEMWRIGHT_TEST_GODOT_AUTHORING_HOST: '1'
+          SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
+          SEMWRIGHT_TEST_GODOT_AUTHORING_EXPORT_DIR: ${{ runner.temp }}/godot-product-project
+        run: |
+          cargo test --locked -p semwright-driver-godot --test authoring_host -- --ignored --nocapture             2>&1 | tee verification/godot-authoring/authoring-host.log
+          test -f "$RUNNER_TEMP/godot-product-project/project.godot"
+      - name: Native parse save reopen and playtest
+        run: |
+          python3 scripts/godot-authoring/native-run.py             "$GODOT_BIN" "$RUNNER_TEMP/godot-product-project"             "$GITHUB_WORKSPACE/verification/godot-authoring/native"
+      - name: Validate typed native receipts
+        env:
+          SEMWRIGHT_TEST_GODOT_NATIVE_EVIDENCE: ${{ github.workspace }}/verification/godot-authoring/native
+        run: cargo test --locked -p semwright-driver-godot --test authoring_native_live -- --ignored --nocapture
+      - name: Native evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: godot-native-authoring-${{ github.sha }}
+          path: verification/godot-authoring/
+          if-no-files-found: error
+          retention-days: 7
