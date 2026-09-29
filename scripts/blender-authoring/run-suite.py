@@ -10,8 +10,8 @@ import subprocess
 import time
 
 SUITES = {
-    "blender-model": (["cargo", "test", "--locked", "-p", "semwright-driver-blender", "--test", "authoring_model", "--", "--test-threads=1"], 33),
-    "blender-native-authoring": (["cargo", "test", "--locked", "-p", "semwright-driver-blender", "--features", "authoring-native", "--test", "authoring_native", "--", "--test-threads=1", "--nocapture"], 2),
+    "blender-model": (["cargo", "test", "--locked", "-p", "semwright-driver-blender", "--test", "authoring_model", "--", "--test-threads=1"], 35),
+    "blender-native-authoring": (["cargo", "test", "--locked", "-p", "semwright-driver-blender", "--features", "authoring-native", "--test", "authoring_native", "--", "--test-threads=1", "--nocapture"], 3),
 }
 
 def main():
@@ -48,7 +48,7 @@ def main():
         "event":os.environ.get("GITHUB_EVENT_NAME"),"workflow":os.environ.get("GITHUB_WORKFLOW"),"run_id":os.environ.get("GITHUB_RUN_ID"),
         "attempt":os.environ.get("GITHUB_RUN_ATTEMPT"),"job_key":os.environ.get("GITHUB_JOB"),"job_database_id":None,
         "contract_sha":"26602e4b25929be869d69ef28fef4dd9713180d7","glb_dependency_sha":"74671c11dda2133ce6af939896c49cdbb6ba47d5",
-        "p0_consumed_sha":"6ee52b428310370d3ad438a13964086a63f48367","e0_consumed_sha":"42204ac6a6f3c66ba66de5adfe689d8633bb7c74","suite":args.suite,"command":command,"passed":passed,"failed":failed,
+        "p0_consumed_sha":"6ee52b428310370d3ad438a13964086a63f48367","e0_consumed_sha":"5ed7d0ff8016d76031ec33846f27a237f196835c","suite":args.suite,"command":command,"passed":passed,"failed":failed,
         "ignored":ignored,"filtered":filtered,"rustc":subprocess.check_output(["rustc","--version"],text=True).strip(),
         "lock_sha256":hashlib.sha256(Path("Cargo.lock").read_bytes()).hexdigest(),"elapsed_seconds":time.monotonic()-start,
         "outcome":"PASS" if ok else "FAIL","native_scope":"Broker/Host Blender only" if args.suite != "blender-model" else "none",

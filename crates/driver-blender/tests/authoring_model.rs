@@ -1,129 +1,537 @@
+use proptest::prelude::*;
 use semwright_driver_blender::authoring::*;
 use semwright_media_time::Rate;
-use semwright_semantic_composition::*;
 use semwright_project_graph as graph;
-use proptest::prelude::*;
+use semwright_semantic_composition::*;
 use std::collections::BTreeMap;
 
 fn spec() -> BlenderAuthoringSpec {
-    serde_json::from_str(include_str!("../../../fixtures/blender-authoring/hard_surface.json")).unwrap()
+    serde_json::from_str(include_str!(
+        "../../../fixtures/blender-authoring/hard_surface.json"
+    ))
+    .unwrap()
 }
-#[test] fn valid_hard_surface() { spec().validate().unwrap(); }
-#[test] fn valid_articulated() { let s: BlenderAuthoringSpec = serde_json::from_str(include_str!("../../../fixtures/blender-authoring/articulated.json")).unwrap(); s.validate().unwrap(); }
-#[test] fn valid_product_scene() { let s: BlenderAuthoringSpec = serde_json::from_str(include_str!("../../../fixtures/blender-authoring/product_scene.json")).unwrap(); s.validate().unwrap(); }
-#[test] fn no_executable_escape_or_unknown_fields() {
-    let mut value = serde_json::to_value(spec()).unwrap(); value["python"] = "print(1)".into();
+#[test]
+fn valid_hard_surface() {
+    spec().validate().unwrap();
+}
+#[test]
+fn valid_articulated() {
+    let s: BlenderAuthoringSpec = serde_json::from_str(include_str!(
+        "../../../fixtures/blender-authoring/articulated.json"
+    ))
+    .unwrap();
+    s.validate().unwrap();
+}
+#[test]
+fn valid_product_scene() {
+    let s: BlenderAuthoringSpec = serde_json::from_str(include_str!(
+        "../../../fixtures/blender-authoring/product_scene.json"
+    ))
+    .unwrap();
+    s.validate().unwrap();
+}
+#[test]
+fn valid_collision_false_positive_fixture() {
+    let s: BlenderAuthoringSpec = serde_json::from_str(include_str!(
+        "../../../fixtures/blender-authoring/collision_false_positive.json"
+    ))
+    .unwrap();
+    s.validate().unwrap();
+}
+#[test]
+fn no_executable_escape_or_unknown_fields() {
+    let mut value = serde_json::to_value(spec()).unwrap();
+    value["python"] = "print(1)".into();
     assert!(serde_json::from_value::<BlenderAuthoringSpec>(value).is_err());
 }
-#[test] fn duplicate_json_keys_are_not_a_spec() {
+#[test]
+fn duplicate_json_keys_are_not_a_spec() {
     assert!(strict_decode::<BlenderAuthoringSpec>(br#"{"version":1,"version":2}"#).is_err());
 }
-#[test] fn duplicate_identity_rejected() { let mut s=spec(); s.entities.push(s.entities[0].clone()); assert!(s.validate().is_err()); }
-#[test] fn missing_material_rejected() { let mut s=spec(); s.entities[0].materials=vec!["absent".into()]; assert!(s.validate().is_err()); }
-#[test] fn missing_relation_rejected() { let mut s=spec(); s.relations.push(Relation::Parent{child:s.entities[0].id.clone(),parent:"absent".into()}); assert!(s.validate().is_err()); }
-#[test] fn self_relation_rejected() { let mut s=spec(); let id=s.entities[0].id.clone(); s.relations.push(Relation::Parent{child:id.clone(),parent:id}); assert!(s.validate().is_err()); }
-#[test] fn multiple_parents_rejected() { let mut s=spec(); let rel=Relation::Parent{child:s.entities[0].id.clone(),parent:s.entities[1].id.clone()}; s.relations.extend([rel.clone(),rel]); assert!(s.validate().is_err()); }
-#[test] fn graph_cycles_rejected() { assert!(dag_order(&BTreeMap::from([("a".into(),vec!["b".into()]),("b".into(),vec!["a".into()])])).is_err()); }
-#[test] fn graph_missing_rejected() { assert!(dag_order(&BTreeMap::from([("a".into(),vec!["b".into()])])).is_err()); }
-#[test] fn graph_is_deterministic() { let g=BTreeMap::from([("b".into(),vec!["a".into()]),("a".into(),vec![])]); assert_eq!(dag_order(&g).unwrap(),["a","b"]); }
-#[test] fn nonfinite_rejected() { let mut s=spec(); s.entities[0].transform.scale[0]=f64::NAN; assert!(s.validate().is_err()); }
-#[test] fn zero_scale_rejected() { let mut s=spec(); s.entities[0].transform.scale[0]=0.0; assert!(s.validate().is_err()); }
-#[test] fn negative_scale_is_explicit_not_lost() { let mut s=spec(); s.entities[0].transform.scale[0]=-1.0; s.validate().unwrap(); }
-#[test] fn invalid_topology_index_rejected() { let mut s=spec(); s.entities[0].shape=Shape::Mesh{vertices:vec![[0.,0.,0.],[1.,0.,0.],[0.,1.,0.]],faces:vec![vec![0,1,3]],uv:None}; assert!(s.validate().is_err()); }
-#[test] fn collapsed_face_rejected() { let mut s=spec(); s.entities[0].shape=Shape::Mesh{vertices:vec![[0.,0.,0.],[1.,0.,0.],[2.,0.,0.]],faces:vec![vec![0,1,2]],uv:None}; assert!(s.validate().is_err()); }
-#[test] fn bad_uv_length_rejected() { let mut s=spec(); s.entities[0].shape=Shape::Mesh{vertices:vec![[0.,0.,0.],[1.,0.,0.],[0.,1.,0.]],faces:vec![vec![0,1,2]],uv:Some(vec![[0.,0.]])}; assert!(s.validate().is_err()); }
-#[test] fn modifier_explosion_rejected() { let mut s=spec(); s.entities[0].modifiers=vec![Modifier::Array{count:16,offset:[1.,0.,0.]};8]; assert!(s.validate().is_err()); }
-#[test] fn unit_bounds_rejected() { let mut s=spec(); s.meters_per_unit=0.0; assert!(s.validate().is_err()); }
-#[test] fn bone_cycle_rejected() { let mut s=spec(); s.entities[0].materials.clear();s.entities[0].modifiers.clear();s.entities[0].shape=Shape::Armature{bones:vec![Bone{id:"a".into(),head:[0.;3],tail:[0.,0.,1.],parent:Some("b".into())},Bone{id:"b".into(),head:[0.,0.,1.],tail:[0.,0.,2.],parent:Some("a".into())}]};assert!(s.validate().is_err()); }
-#[test] fn duplicate_keys_rejected() { let mut s=spec();s.animation=Some(Animation{id:"move".into(),rate:Rate::new(24,1).unwrap(),channels:vec![Channel{entity:s.entities[0].id.clone(),bone:None,property:AnimatedProperty::Translation,keys:vec![Key{frame:1,value:[0.;3]},Key{frame:1,value:[1.;3]}]}]});assert!(s.validate().is_err()); }
-#[test] fn instance_cannot_mutate_shared_material_slots() { let mut s=spec();s.entities[1].shape=Shape::MeshInstance{source:s.entities[0].id.clone()};s.entities[1].materials=vec![s.materials[0].id.clone()];assert!(s.validate().is_err()); }
+#[test]
+fn duplicate_identity_rejected() {
+    let mut s = spec();
+    s.entities.push(s.entities[0].clone());
+    assert!(s.validate().is_err());
+}
+#[test]
+fn missing_material_rejected() {
+    let mut s = spec();
+    s.entities[0].materials = vec!["absent".into()];
+    assert!(s.validate().is_err());
+}
+#[test]
+fn missing_relation_rejected() {
+    let mut s = spec();
+    s.relations.push(Relation::Parent {
+        child: s.entities[0].id.clone(),
+        parent: "absent".into(),
+    });
+    assert!(s.validate().is_err());
+}
+#[test]
+fn self_relation_rejected() {
+    let mut s = spec();
+    let id = s.entities[0].id.clone();
+    s.relations.push(Relation::Parent {
+        child: id.clone(),
+        parent: id,
+    });
+    assert!(s.validate().is_err());
+}
+#[test]
+fn multiple_parents_rejected() {
+    let mut s = spec();
+    let rel = Relation::Parent {
+        child: s.entities[0].id.clone(),
+        parent: s.entities[1].id.clone(),
+    };
+    s.relations.extend([rel.clone(), rel]);
+    assert!(s.validate().is_err());
+}
+#[test]
+fn graph_cycles_rejected() {
+    assert!(
+        dag_order(&BTreeMap::from([
+            ("a".into(), vec!["b".into()]),
+            ("b".into(), vec!["a".into()])
+        ]))
+        .is_err()
+    );
+}
+#[test]
+fn graph_missing_rejected() {
+    assert!(dag_order(&BTreeMap::from([("a".into(), vec!["b".into()])])).is_err());
+}
+#[test]
+fn graph_is_deterministic() {
+    let g = BTreeMap::from([("b".into(), vec!["a".into()]), ("a".into(), vec![])]);
+    assert_eq!(dag_order(&g).unwrap(), ["a", "b"]);
+}
+#[test]
+fn nonfinite_rejected() {
+    let mut s = spec();
+    s.entities[0].transform.scale[0] = f64::NAN;
+    assert!(s.validate().is_err());
+}
+#[test]
+fn zero_scale_rejected() {
+    let mut s = spec();
+    s.entities[0].transform.scale[0] = 0.0;
+    assert!(s.validate().is_err());
+}
+#[test]
+fn negative_scale_is_explicit_not_lost() {
+    let mut s = spec();
+    s.entities[0].transform.scale[0] = -1.0;
+    s.validate().unwrap();
+}
+#[test]
+fn invalid_topology_index_rejected() {
+    let mut s = spec();
+    s.entities[0].shape = Shape::Mesh {
+        vertices: vec![[0., 0., 0.], [1., 0., 0.], [0., 1., 0.]],
+        faces: vec![vec![0, 1, 3]],
+        uv: None,
+    };
+    assert!(s.validate().is_err());
+}
+#[test]
+fn collapsed_face_rejected() {
+    let mut s = spec();
+    s.entities[0].shape = Shape::Mesh {
+        vertices: vec![[0., 0., 0.], [1., 0., 0.], [2., 0., 0.]],
+        faces: vec![vec![0, 1, 2]],
+        uv: None,
+    };
+    assert!(s.validate().is_err());
+}
+#[test]
+fn bad_uv_length_rejected() {
+    let mut s = spec();
+    s.entities[0].shape = Shape::Mesh {
+        vertices: vec![[0., 0., 0.], [1., 0., 0.], [0., 1., 0.]],
+        faces: vec![vec![0, 1, 2]],
+        uv: Some(vec![[0., 0.]]),
+    };
+    assert!(s.validate().is_err());
+}
+#[test]
+fn modifier_explosion_rejected() {
+    let mut s = spec();
+    s.entities[0].modifiers = vec![
+        Modifier::Array {
+            count: 16,
+            offset: [1., 0., 0.]
+        };
+        8
+    ];
+    assert!(s.validate().is_err());
+}
+#[test]
+fn unit_bounds_rejected() {
+    let mut s = spec();
+    s.meters_per_unit = 0.0;
+    assert!(s.validate().is_err());
+}
+#[test]
+fn bone_cycle_rejected() {
+    let mut s = spec();
+    s.entities[0].materials.clear();
+    s.entities[0].modifiers.clear();
+    s.entities[0].shape = Shape::Armature {
+        bones: vec![
+            Bone {
+                id: "a".into(),
+                head: [0.; 3],
+                tail: [0., 0., 1.],
+                parent: Some("b".into()),
+            },
+            Bone {
+                id: "b".into(),
+                head: [0., 0., 1.],
+                tail: [0., 0., 2.],
+                parent: Some("a".into()),
+            },
+        ],
+    };
+    assert!(s.validate().is_err());
+}
+#[test]
+fn duplicate_keys_rejected() {
+    let mut s = spec();
+    s.animation = Some(Animation {
+        id: "move".into(),
+        rate: Rate::new(24, 1).unwrap(),
+        channels: vec![Channel {
+            entity: s.entities[0].id.clone(),
+            bone: None,
+            property: AnimatedProperty::Translation,
+            keys: vec![
+                Key {
+                    frame: 1,
+                    value: [0.; 3],
+                },
+                Key {
+                    frame: 1,
+                    value: [1.; 3],
+                },
+            ],
+        }],
+    });
+    assert!(s.validate().is_err());
+}
+#[test]
+fn instance_cannot_mutate_shared_material_slots() {
+    let mut s = spec();
+    s.entities[1].shape = Shape::MeshInstance {
+        source: s.entities[0].id.clone(),
+    };
+    s.entities[1].materials = vec![s.materials[0].id.clone()];
+    assert!(s.validate().is_err());
+}
 
-fn owner() -> Owner { Owner{session:"host-session".into(),principal:PrincipalBinding::HostSession} }
-fn snap() -> NativeSnapshot { NativeSnapshot{native_session:"native-boot".into(),island:None,fingerprint:Digest::of_bytes(b"before"),drift:false,total:0,items:vec![],source_only:true,exhaustive:true} }
+fn owner() -> Owner {
+    Owner {
+        session: "host-session".into(),
+        principal: PrincipalBinding::HostSession,
+    }
+}
+fn snap() -> NativeSnapshot {
+    NativeSnapshot {
+        native_session: "native-boot".into(),
+        island: None,
+        fingerprint: Digest::of_bytes(b"before"),
+        drift: false,
+        total: 0,
+        items: vec![],
+        source_only: true,
+        exhaustive: true,
+    }
+}
 fn bindings() -> Vec<CapabilityBinding> {
     vec![CapabilityBinding {
         phase: Phase::Apply,
         command: "driver.blender.composition.apply".into(),
         descriptor: Digest::of_bytes(b"descriptor"),
-        effects: [EffectClass::CreateOwnedObject, EffectClass::UpdateOwnedObject].into(),
+        effects: [
+            EffectClass::CreateOwnedObject,
+            EffectClass::UpdateOwnedObject,
+        ]
+        .into(),
     }]
 }
-#[test] fn prepares_common_changeset_without_second_kernel() {
-    let s=spec(); let count=s.operation_count();
-    let prepared=prepare(owner(),AuthoringIntent::Create{spec:s},&snap(),"native_island".into(),bindings()).unwrap();
+#[test]
+fn prepares_common_changeset_without_second_kernel() {
+    let s = spec();
+    let count = s.operation_count();
+    let prepared = prepare(
+        owner(),
+        AuthoringIntent::Create { spec: s },
+        &snap(),
+        "native_island".into(),
+        bindings(),
+    )
+    .unwrap();
     prepared.plan.verify(&prepared.profile).unwrap();
-    assert_eq!(prepared.plan.body.changes.operations.len(),count);
-    assert_eq!(prepared.plan.body.changes.atomicity,Atomicity::NonAtomicSequence);
-    assert_eq!(prepared.plan.body.dependencies["effects.contract"],prepared.contract.digest().unwrap());
-    assert_eq!(prepared.plan.body.required_rules,prepared.contract.required_rules());
+    assert_eq!(prepared.plan.body.changes.operations.len(), count);
+    assert_eq!(
+        prepared.plan.body.changes.atomicity,
+        Atomicity::NonAtomicSequence
+    );
+    assert_eq!(
+        prepared.plan.body.dependencies["effects.contract"],
+        prepared.contract.digest().unwrap()
+    );
+    assert_eq!(
+        prepared.plan.body.required_rules,
+        prepared.contract.required_rules()
+    );
 }
-#[test] fn partial_snapshot_never_prepares() {
-    let mut s=snap(); s.exhaustive=false;
-    assert!(prepare(owner(),AuthoringIntent::Create{spec:spec()},&s,"native_island".into(),bindings()).is_err());
+#[test]
+fn partial_snapshot_never_prepares() {
+    let mut s = snap();
+    s.exhaustive = false;
+    assert!(
+        prepare(
+            owner(),
+            AuthoringIntent::Create { spec: spec() },
+            &s,
+            "native_island".into(),
+            bindings()
+        )
+        .is_err()
+    );
 }
-#[test] fn common_vault_refuses_client_tampering_and_replay() {
-    let prepared=prepare(owner(),AuthoringIntent::Create{spec:spec()},&snap(),"native_island".into(),bindings()).unwrap();
-    let p=prepared.plan;
-    let mut vault=PlanVault::bounded(16,8,64); let id=p.digest.as_str();
-    vault.issue(&owner(),id,&p,p.body.budget.clone(),p.body.changes.operations.len() as u32,None,false).unwrap();
-    let mut tampered=p.clone();tampered.body.changes.operations.clear();assert!(vault.matches(&owner(),id,&tampered).is_err());
-    let permit=vault.begin(&owner(),id,&p,"request-1").unwrap();vault.finish(permit,ExecutionStatus::Completed,vec![]).unwrap();assert!(vault.begin(&owner(),id,&p,"request-2").is_err());
+#[test]
+fn common_vault_refuses_client_tampering_and_replay() {
+    let prepared = prepare(
+        owner(),
+        AuthoringIntent::Create { spec: spec() },
+        &snap(),
+        "native_island".into(),
+        bindings(),
+    )
+    .unwrap();
+    let p = prepared.plan;
+    let mut vault = PlanVault::bounded(16, 8, 64);
+    let id = p.digest.as_str();
+    vault
+        .issue(
+            &owner(),
+            id,
+            &p,
+            p.body.budget.clone(),
+            p.body.changes.operations.len() as u32,
+            None,
+            false,
+        )
+        .unwrap();
+    let mut tampered = p.clone();
+    tampered.body.changes.operations.clear();
+    assert!(vault.matches(&owner(), id, &tampered).is_err());
+    let permit = vault.begin(&owner(), id, &p, "request-1").unwrap();
+    vault
+        .finish(permit, ExecutionStatus::Completed, vec![])
+        .unwrap();
+    assert!(vault.begin(&owner(), id, &p, "request-2").is_err());
 }
 fn transform_snapshot() -> NativeSnapshot {
-    let item=serde_json::json!({"entity":"part","type":"EMPTY","translation":[1.0,2.0,3.0],"rotation":[0.0,0.0,0.0],"scale":[1.0,1.0,1.0]});
-    NativeSnapshot{native_session:"native-boot".into(),island:Some("island".into()),fingerprint:Digest::of_bytes(b"transform"),drift:false,total:1,items:vec![item],source_only:true,exhaustive:true}
+    let item = serde_json::json!({"entity":"part","type":"EMPTY","translation":[1.0,2.0,3.0],"rotation":[0.0,0.0,0.0],"scale":[1.0,1.0,1.0]});
+    NativeSnapshot {
+        native_session: "native-boot".into(),
+        island: Some("island".into()),
+        fingerprint: Digest::of_bytes(b"transform"),
+        drift: false,
+        total: 1,
+        items: vec![item],
+        source_only: true,
+        exhaustive: true,
+    }
 }
-fn transform_prepared(before:&NativeSnapshot) -> PreparedAuthoring {
-    prepare(owner(),AuthoringIntent::Transform{island:"island".into(),entity:"part".into(),transform:Transform{translation:[1.,2.,3.],rotation:[0.;3],scale:[1.;3]},meters_per_unit:1.0,expected_fingerprint:before.fingerprint.clone()},before,"unused".into(),bindings()).unwrap()
+fn transform_prepared(before: &NativeSnapshot) -> PreparedAuthoring {
+    prepare(
+        owner(),
+        AuthoringIntent::Transform {
+            island: "island".into(),
+            entity: "part".into(),
+            transform: Transform {
+                translation: [1., 2., 3.],
+                rotation: [0.; 3],
+                scale: [1.; 3],
+            },
+            meters_per_unit: 1.0,
+            expected_fingerprint: before.fingerprint.clone(),
+        },
+        before,
+        "unused".into(),
+        bindings(),
+    )
+    .unwrap()
 }
-#[test] fn trusted_f_adapter_can_pass_native_readback() {
-    let before=transform_snapshot(); let prepared=transform_prepared(&before);
-    let evaluation=evaluate_native_effects(&prepared,"request-1",&before,&before,None,ExecutionStatus::Completed).unwrap();
-    assert_eq!(evaluation.verdict().unwrap(),Verdict::Pass);
+#[test]
+fn trusted_f_adapter_can_pass_native_readback() {
+    let before = transform_snapshot();
+    let prepared = transform_prepared(&before);
+    let evaluation = evaluate_native_effects(
+        &prepared,
+        "request-1",
+        &before,
+        &before,
+        None,
+        ExecutionStatus::Completed,
+    )
+    .unwrap();
+    assert_eq!(evaluation.verdict().unwrap(), Verdict::Pass);
 }
-#[test] fn drift_remains_a_required_f_failure() {
-    let before=transform_snapshot(); let prepared=transform_prepared(&before); let mut after=before.clone(); after.drift=true;
-    let evaluation=evaluate_native_effects(&prepared,"request-1",&before,&after,None,ExecutionStatus::Completed).unwrap();
-    assert_eq!(evaluation.verdict().unwrap(),Verdict::Fail);
+#[test]
+fn drift_remains_a_required_f_failure() {
+    let before = transform_snapshot();
+    let prepared = transform_prepared(&before);
+    let mut after = before.clone();
+    after.drift = true;
+    let evaluation = evaluate_native_effects(
+        &prepared,
+        "request-1",
+        &before,
+        &after,
+        None,
+        ExecutionStatus::Completed,
+    )
+    .unwrap();
+    assert_eq!(evaluation.verdict().unwrap(), Verdict::Fail);
 }
-#[test] fn root_transform_plan_rejects_observed_drift() {
-    let mut before=transform_snapshot(); before.drift=true;
-    let intent=AuthoringIntent::Transform{island:"island".into(),entity:"part".into(),transform:Transform{translation:[1.,2.,3.],rotation:[0.;3],scale:[1.;3]},meters_per_unit:1.0,expected_fingerprint:before.fingerprint.clone()};
-    assert!(prepare(owner(),intent,&before,"unused".into(),bindings()).is_err());
-}
-#[test] fn repair_plan_is_transform_only_and_inherits_root_budget() {
-    let before=transform_snapshot(); let root=transform_prepared(&before);
-    let mut vault=PlanVault::bounded(16,8,64);
-    vault.issue(&owner(),"root",&root.plan,root.plan.body.budget.clone(),root.plan.body.changes.operations.len() as u32,None,false).unwrap();
-    let permit=vault.begin(&owner(),"root",&root.plan,"root-request").unwrap();
-    vault.finish(permit,ExecutionStatus::Completed,vec![]).unwrap();
-    let mut drifted=before.clone(); drifted.drift=true; drifted.fingerprint=Digest::of_bytes(b"manual-drift");
-    let repair_intent=AuthoringIntent::Transform{island:"island".into(),entity:"part".into(),transform:Transform{translation:[1.,2.,3.],rotation:[0.;3],scale:[1.;3]},meters_per_unit:1.0,expected_fingerprint:drifted.fingerprint.clone()};
-    let child=prepare_repair(owner(),repair_intent,&drifted,bindings()).unwrap();
-    assert_eq!(child.plan.body.budget,root.plan.body.budget);
-    vault.issue(&owner(),"repair",&child.plan,child.plan.body.budget.clone(),child.plan.body.changes.operations.len() as u32,Some("root"),true).unwrap();
-    assert!(prepare_repair(owner(),AuthoringIntent::Create{spec:spec()},&snap(),bindings()).is_err());
-}
-#[test] fn c_receipt_requires_host_owned_ids_and_admission() {
-    let before=transform_snapshot(); let prepared=transform_prepared(&before);
-    let evaluation=evaluate_native_effects(&prepared,"request-1",&before,&before,None,ExecutionStatus::Completed).unwrap();
-    let descriptor=Digest::of_bytes(b"registered-apply-descriptor");
-    let runtime=Digest::of_bytes(b"pinned-blender-runtime");
-    let context=GraphReceiptContext {
-        id:graph::ReceiptId::new(), derivation:graph::DerivationId::new(), project:graph::ProjectId::new(),
-        inputs:vec![], outputs:vec![graph::RevisionPin {
-            asset:graph::LogicalAssetId::new(), revision:graph::AssetRevision::new(),
-            fingerprint:graph::Fingerprint{bytes:None,projection:Some(graph::ProjectionDigest{
-                digest:before.fingerprint.clone(),method:"blender-source-projection-v1".into(),method_version:1
-            })}, equivalence:graph::Equivalence::Projection
-        }],
-        additional_determinants:vec![], descriptor:descriptor.clone(), runtime:runtime.clone(),
-        completed_unix_ms:1, coverage:graph::Coverage::unknown(),
+#[test]
+fn root_transform_plan_rejects_observed_drift() {
+    let mut before = transform_snapshot();
+    before.drift = true;
+    let intent = AuthoringIntent::Transform {
+        island: "island".into(),
+        entity: "part".into(),
+        transform: Transform {
+            translation: [1., 2., 3.],
+            rotation: [0.; 3],
+            scale: [1.; 3],
+        },
+        meters_per_unit: 1.0,
+        expected_fingerprint: before.fingerprint.clone(),
     };
-    let receipt=graph_receipt_candidate(context,"request-1",&prepared.plan,evaluation.report).unwrap();
-    let adapter=graph::ReceiptAdapter::registered("driver.blender.composition.apply".into(),descriptor,runtime).unwrap();
-    let admitted=adapter.admit(&receipt.owner.clone(),"request-1",receipt).unwrap();
-    assert_eq!(admitted.record().verification.verdict().unwrap(),Verdict::Pass);
+    assert!(prepare(owner(), intent, &before, "unused".into(), bindings()).is_err());
+}
+#[test]
+fn repair_plan_is_transform_only_and_inherits_root_budget() {
+    let before = transform_snapshot();
+    let root = transform_prepared(&before);
+    let mut vault = PlanVault::bounded(16, 8, 64);
+    vault
+        .issue(
+            &owner(),
+            "root",
+            &root.plan,
+            root.plan.body.budget.clone(),
+            root.plan.body.changes.operations.len() as u32,
+            None,
+            false,
+        )
+        .unwrap();
+    let permit = vault
+        .begin(&owner(), "root", &root.plan, "root-request")
+        .unwrap();
+    vault
+        .finish(permit, ExecutionStatus::Completed, vec![])
+        .unwrap();
+    let mut drifted = before.clone();
+    drifted.drift = true;
+    drifted.fingerprint = Digest::of_bytes(b"manual-drift");
+    let repair_intent = AuthoringIntent::Transform {
+        island: "island".into(),
+        entity: "part".into(),
+        transform: Transform {
+            translation: [1., 2., 3.],
+            rotation: [0.; 3],
+            scale: [1.; 3],
+        },
+        meters_per_unit: 1.0,
+        expected_fingerprint: drifted.fingerprint.clone(),
+    };
+    let child = prepare_repair(owner(), repair_intent, &drifted, bindings()).unwrap();
+    assert_eq!(child.plan.body.budget, root.plan.body.budget);
+    vault
+        .issue(
+            &owner(),
+            "repair",
+            &child.plan,
+            child.plan.body.budget.clone(),
+            child.plan.body.changes.operations.len() as u32,
+            Some("root"),
+            true,
+        )
+        .unwrap();
+    assert!(
+        prepare_repair(
+            owner(),
+            AuthoringIntent::Create { spec: spec() },
+            &snap(),
+            bindings()
+        )
+        .is_err()
+    );
+}
+#[test]
+fn c_receipt_requires_host_owned_ids_and_admission() {
+    let before = transform_snapshot();
+    let prepared = transform_prepared(&before);
+    let evaluation = evaluate_native_effects(
+        &prepared,
+        "request-1",
+        &before,
+        &before,
+        None,
+        ExecutionStatus::Completed,
+    )
+    .unwrap();
+    let descriptor = Digest::of_bytes(b"registered-apply-descriptor");
+    let runtime = Digest::of_bytes(b"pinned-blender-runtime");
+    let context = GraphReceiptContext {
+        id: graph::ReceiptId::new(),
+        derivation: graph::DerivationId::new(),
+        project: graph::ProjectId::new(),
+        inputs: vec![],
+        outputs: vec![graph::RevisionPin {
+            asset: graph::LogicalAssetId::new(),
+            revision: graph::AssetRevision::new(),
+            fingerprint: graph::Fingerprint {
+                bytes: None,
+                projection: Some(graph::ProjectionDigest {
+                    digest: before.fingerprint.clone(),
+                    method: "blender-source-projection-v1".into(),
+                    method_version: 1,
+                }),
+            },
+            equivalence: graph::Equivalence::Projection,
+        }],
+        additional_determinants: vec![],
+        descriptor: descriptor.clone(),
+        runtime: runtime.clone(),
+        completed_unix_ms: 1,
+        coverage: graph::Coverage::unknown(),
+    };
+    let receipt =
+        graph_receipt_candidate(context, "request-1", &prepared.plan, evaluation.report).unwrap();
+    let adapter = graph::ReceiptAdapter::registered(
+        "driver.blender.composition.apply".into(),
+        descriptor,
+        runtime,
+    )
+    .unwrap();
+    let admitted = adapter
+        .admit(&receipt.owner.clone(), "request-1", receipt)
+        .unwrap();
+    assert_eq!(
+        admitted.record().verification.verdict().unwrap(),
+        Verdict::Pass
+    );
     assert!(!admitted.record().coverage.cache_safe());
 }
 proptest! {

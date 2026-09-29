@@ -1,12 +1,8 @@
 #![no_main]
 
 use libfuzzer_sys::fuzz_target;
-use semwright_blender_driver::authoring::{
-    AuthoringIntent, BlenderAuthoringSpec, NativeSnapshot,
-};
-use semwright_semantic_composition::{
-    Owner, PrincipalBinding, canonical_bytes, strict_decode,
-};
+use semwright_blender_driver::authoring::{AuthoringIntent, BlenderAuthoringSpec, NativeSnapshot};
+use semwright_semantic_composition::{Owner, PrincipalBinding, canonical_bytes, strict_decode};
 
 const MAX: usize = 196_608;
 

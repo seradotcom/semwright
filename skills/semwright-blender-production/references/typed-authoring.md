@@ -1,11 +1,19 @@
-# Typed authoring draft
+# Typed authoring boundary
 
-The live JSON Schema is authoritative. A create request is `{ "intent": { "kind": "create", "spec": ... } }`. Fields in `spec` are version, collection, meters_per_unit, materials, entities, relations and animation. Unknown fields are rejected. Fixtures under the repository's `fixtures/blender-authoring/` are development inputs, not hidden authoring scripts or evidence of success.
+The live JSON Schema is authoritative. A create request is `{ "intent": { "kind": "create", "spec": ... } }`. Fields in `spec` are version, collection, meters_per_unit, materials, entities, relations and animation. Unknown fields are rejected. Fixtures under `fixtures/blender-authoring/` are development inputs; the native acceptance suite still sends them through Broker → Driver Host → Composition → Blender.
 
-Lengths use explicit meters_per_unit; rotations are radians. Supported draft geometry includes box, cylinder, bounded mesh arrays, empty, armature, camera, area light and explicit shared mesh instance. Bevel, mirror, subdivision and array remain non-destructive. Materials are opaque base-color/roughness/metallic PBR, not arbitrary shaders. Skinning uses explicit bounded weights and declared bones. Animation is bounded linear keyframes in the baseline's slotted Actions, using A's media-time Rate.
+Lengths use explicit meters_per_unit; rotations are radians. Supported geometry includes box, cylinder, bounded mesh arrays, empty, armature, camera and area light. `mesh_instance` intentionally shares the source mesh datablock and therefore rejects material/modifier writes. `mesh_copy` is the explicit isolation primitive: the Blender backend copies the source mesh datablock first, then may assign its own material slots and non-destructive modifiers. It does not silently duplicate linked/unmanaged data.
 
-The runtime is Blender 4.5.14 LTS inside the existing Linux Driver Host sandbox. New Composition calls require authenticated protocol-v2 context and negotiated progress/cancellation support. Legacy protocol-v1 capabilities remain separate; v1 cannot manufacture an authoring Owner. External applications and authoring files are not automatically safe merely because they are native.
+Bevel, mirror, subdivision and array remain non-destructive. Materials are bounded base-color/roughness/metallic PBR, not arbitrary shader source. Skinning uses explicit bounded weights and declared bones. Animation uses bounded linear keyframes in Blender 4.5 slotted Actions, with rates represented through A's media-time Rate.
 
-Geometry arrays are data; Python source, expression strings, generic RNA method names, callbacks, plugins and downloads are not valid authoring inputs. A fixed compiler implementation in the driver is different from accepting caller code.
+Use `composition.inspect.page` for objects, bones, actions, curves, keyframes and selected properties when exhaustive traversal matters. Provider cursors are single-use and bound to authenticated Owner, native session, domain and source fingerprint; replay or any intervening native drift makes the cursor stale.
 
-Requirements not completed include general material node networks/texture authoring, copy-on-write, NLA, narrow-phase mesh intersection, repair, full pagination, host-admitted C receipts across export/handoff/import, Godot roundtrip, full hostile/fuzz and packaging acceptance. F effect evaluation is now wired to trusted native readback, but that does not close those other obligations.
+`composition.measure` reports source or evaluated state explicitly. Pairwise mesh collision evidence has two stages: AABB is only a broad-phase filter; when AABBs overlap and the declared object/triangle budgets allow complete evaluation, the backend performs world-space triangle narrow-phase with segment/triangle tests and a coplanar 2D triangle test. If the method or budget is insufficient it returns UNKNOWN. Pairwise object collision does **not** prove self-intersection, so `mesh_self_intersections` remains UNKNOWN.
+
+The runtime target is Blender 4.5.14 LTS inside the existing Linux Driver Host sandbox. New Composition calls require authenticated protocol-v3 request context and negotiated progress/cancellation support; protocol v2 does not preserve the Broker session inside the driver. Legacy protocol-v1 capabilities remain separate and cannot manufacture an authoring Owner.
+
+Geometry arrays are data; Python source, expression strings, generic RNA method names, callbacks, plugins and downloads are not valid authoring inputs. Fixed first-party Python inside the sealed Blender driver is backend implementation, not caller code.
+
+The only repair surface is transform-only, parent-PlanVault-bound repair. It cannot regenerate a created asset, remesh, remove parts, change materials/rigs, bake, or expand authority.
+
+Still open: general material node networks/texture authoring, NLA fidelity, host-admitted C receipts spanning export/handoff/import, D's public Godot GLB roundtrip, and final exact-SHA acceptance. F effect evaluation is wired to trusted native readback, but it does not close those separate obligations.

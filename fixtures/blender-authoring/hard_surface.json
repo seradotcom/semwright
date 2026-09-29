@@ -96,6 +96,41 @@
         "insert"
       ],
       "modifiers": []
+    },
+    {
+      "id": "housing_copy",
+      "name": "Housing Copy",
+      "shape": {
+        "kind": "mesh_copy",
+        "source": "housing"
+      },
+      "transform": {
+        "translation": [
+          -16,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "materials": [
+        "insert"
+      ],
+      "modifiers": [
+        {
+          "kind": "bevel",
+          "width": 0.1,
+          "segments": 1
+        }
+      ]
     }
   ],
   "relations": [],

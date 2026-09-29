@@ -1,19 +1,23 @@
-# Consumer handoff — E on A/C/F
+# Consumer handoff — E on A/C/F/D
 
-E consumes A C0 `26602e4b25929be869d69ef28fef4dd9713180d7`, C P0 publication `6ee52b428310370d3ad438a13964086a63f48367`, F head `42204ac6a6f3c66ba66de5adfe689d8633bb7c74`, and the GLB work now merged from PR #154. This is source consumption, not automatic certification of those heads. F's exact-SHA run 36504224825 failed a Clippy naming lint in F's own test; E records that independently of its API integration.
+E consumes A C0 `26602e4b…`, C P0 `6ee52b4…`, F source through `5ed7d0f…`, and the GLB exporter from PR #154 head `74671c1…`. Consumption is pinned source, not automatic certification of another role's release state.
 
 ## F effect evidence
 
-Every E `PreparedPlan` now pins `dependencies["effects.contract"]` to F's actual `EffectContract::digest`, and its required rules are exactly the contract's required rules. The trusted Rust adapter implements F's `EvidenceAdapter`; it derives principal/session/generation from the Driver execution context and native post-state, calls `collect`, then F's `evaluate`. No client JSON constructs `EvidenceBatch`.
+Every E `PreparedPlan` pins `dependencies["effects.contract"]` to the real F `EffectContract::digest`; A's required rules are exactly F's required rules. E's compiled `EvidenceAdapter` derives owner/provider-session/generation from the authenticated execution and native post-state, then calls F `collect` and `evaluate`. Client JSON cannot construct a trusted `EvidenceBatch`.
 
-The first contract checks complete bounded native source readback of the authored plan. Create workflows also check preservation of the whole-scene projection after excluding the newly managed island. These checks do not claim global filesystem/process noninterference, mesh self-intersection proof, or aesthetic quality. Missing global readback becomes UNKNOWN rather than rollback or PASS.
+Create verifies both typed native readback and preservation of the whole-scene source projection outside the newly managed island. Transform/repair verifies the requested transform against independent native readback. Missing/changed evidence yields FAIL/UNKNOWN under A/F semantics rather than being normalized to PASS.
 
 ## C Project Graph
 
-E uses C's actual `ProjectId`, `LogicalAssetId`, `AssetRevision`, `RevisionPin`, `OperationIdentity`, `ExecutionReceipt` and `ReceiptAdapter`. `graph_receipt_candidate` requires host-owned C IDs and exact descriptor/runtime digests. Local spec aliases and Blender island markers never become logical IDs.
+E uses C's real `ProjectId`, `LogicalAssetId`, `AssetRevision`, `RevisionPin`, `OperationIdentity`, `ExecutionReceipt` and `ReceiptAdapter`. Local spec IDs and Blender markers never become Project Graph IDs.
 
-The candidate records plan, parameter, descriptor, runtime and F contract determinants. Only C's registered `ReceiptAdapter::admit` can promote it to `AdmittedReceipt`. E does not expose receipt admission as a capability. Current coverage remains incomplete until export, handoff/import, external assets and remaining native dependencies are represented as separate C activities/revisions.
+The native E2E obtains the actual apply descriptor digest from the live provider catalog, the actual driver binary digest, and retains the exact Broker request ID. Host-owned logical IDs plus the F-verified report form an `ExecutionReceipt` candidate; only C's registered adapter admits it. Coverage remains incomplete for cross-app provenance until export/handoff/D-import/D-verification are represented as separate activities.
 
 ## D Godot
 
-The existing `driver.blender.export.glb` remains the only GLB exporter. E does not write `.tscn`, call private Godot helpers or add `send_to_godot`. D must consume the exported artifact through its public artifact/import boundary and produce a distinct Godot import/verification activity. That native Blender→GLB→Godot roundtrip is still open for E11.
+E never writes `.tscn` or calls D's private store/compiler. The existing Blender GLB capability produces the artifact. At inspected D SHA `557ad0b…`, D can validate self-contained GLB internally, but E did not find a public Broker-facing D semantic authoring/import capability. The exact contract E needs is documented in `D_GLB_HANDOFF.md`; E11 stays BLOCKED_DEPENDENCY until D publishes it.
+
+## Consumers of E
+
+Use the live catalog and Skill requirements, not names copied from this Markdown. Treat `composition.inspect.page` cursors as single-use provider state. Use `mesh_copy` only when isolation is explicitly intended; use `mesh_instance` when native sharing is intended. Never infer collision from AABB overlap or artistic quality from a structural verification report.

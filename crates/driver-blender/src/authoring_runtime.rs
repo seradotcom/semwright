@@ -7,9 +7,7 @@ use schemars::JsonSchema;
 use semwright_driver_blender::authoring::*;
 use semwright_driver_sdk::DriverExecutionContext;
 use semwright_semantic_composition as composition;
-use semwright_types::{
-    Error, ErrorCode, Idempotency, JobProgress, Result, Risk, unique_id,
-};
+use semwright_types::{Error, ErrorCode, Idempotency, JobProgress, Result, Risk, unique_id};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -174,7 +172,8 @@ pub(super) fn capabilities() -> Vec<Capability> {
         ),
         (
             "repair.plan",
-            serde_json::to_value(schemars::schema_for!(RepairPlanInput)).expect("schema serializes"),
+            serde_json::to_value(schemars::schema_for!(RepairPlanInput))
+                .expect("schema serializes"),
             plan_output.clone(),
             Risk::ReadOnly,
         ),
@@ -193,7 +192,12 @@ pub(super) fn capabilities() -> Vec<Capability> {
             json!({"type":"object"}),
             Risk::Mutating,
         ),
-        ("validate", reference.clone(), report.clone(), Risk::ReadOnly),
+        (
+            "validate",
+            reference.clone(),
+            report.clone(),
+            Risk::ReadOnly,
+        ),
         ("verify", reference, report, Risk::ReadOnly),
         (
             "persist",
@@ -230,9 +234,7 @@ pub(super) fn capabilities() -> Vec<Capability> {
             capability.descriptor.timeout_ms = 60_000;
             capability.tags = vec!["blender".into(), "composition".into(), "native".into()];
             if phase == "persist" {
-                capability
-                    .tags
-                    .push("artifact-out:model/3d".into());
+                capability.tags.push("artifact-out:model/3d".into());
             }
             capability
         })
@@ -322,10 +324,9 @@ fn insert_page_item(
 fn flatten_page(snapshot: &NativeSnapshot, domain: &str) -> Result<Vec<Value>> {
     let mut values = BTreeMap::<String, Value>::new();
     for row in &snapshot.items {
-        let entity = row
-            .get("entity")
-            .and_then(Value::as_str)
-            .ok_or_else(|| Error::new(ErrorCode::PluginProtocolError, "managed row lacks entity"))?;
+        let entity = row.get("entity").and_then(Value::as_str).ok_or_else(|| {
+            Error::new(ErrorCode::PluginProtocolError, "managed row lacks entity")
+        })?;
         match domain {
             "objects" => {
                 let value = json!({
@@ -351,11 +352,7 @@ fn flatten_page(snapshot: &NativeSnapshot, domain: &str) -> Result<Vec<Value>> {
                             "parent":bone.get("parent").cloned().unwrap_or(Value::Null),
                             "deform":bone.get("deform").cloned().unwrap_or(Value::Null)
                         });
-                        insert_page_item(
-                            &mut values,
-                            format!("bone-{entity}-{id}"),
-                            value,
-                        )?;
+                        insert_page_item(&mut values, format!("bone-{entity}-{id}"), value)?;
                     }
                 }
             }
@@ -363,10 +360,9 @@ fn flatten_page(snapshot: &NativeSnapshot, domain: &str) -> Result<Vec<Value>> {
                 let Some(action) = row.get("action").filter(|value| !value.is_null()) else {
                     continue;
                 };
-                let action_name = action
-                    .get("name")
-                    .and_then(Value::as_str)
-                    .ok_or_else(|| Error::new(ErrorCode::PluginProtocolError, "action lacks name"))?;
+                let action_name = action.get("name").and_then(Value::as_str).ok_or_else(|| {
+                    Error::new(ErrorCode::PluginProtocolError, "action lacks name")
+                })?;
                 if domain == "actions" {
                     insert_page_item(
                         &mut values,
@@ -382,7 +378,9 @@ fn flatten_page(snapshot: &NativeSnapshot, domain: &str) -> Result<Vec<Value>> {
                 let curves = action
                     .get("curves")
                     .and_then(Value::as_array)
-                    .ok_or_else(|| Error::new(ErrorCode::PluginProtocolError, "action lacks curves"))?;
+                    .ok_or_else(|| {
+                        Error::new(ErrorCode::PluginProtocolError, "action lacks curves")
+                    })?;
                 for curve in curves {
                     let path = curve.get("path").and_then(Value::as_str).ok_or_else(|| {
                         Error::new(ErrorCode::PluginProtocolError, "curve lacks path")
@@ -405,10 +403,9 @@ fn flatten_page(snapshot: &NativeSnapshot, domain: &str) -> Result<Vec<Value>> {
                         )?;
                         continue;
                     }
-                    let keys = curve
-                        .get("keys")
-                        .and_then(Value::as_array)
-                        .ok_or_else(|| Error::new(ErrorCode::PluginProtocolError, "curve lacks keys"))?;
+                    let keys = curve.get("keys").and_then(Value::as_array).ok_or_else(|| {
+                        Error::new(ErrorCode::PluginProtocolError, "curve lacks keys")
+                    })?;
                     for (ordinal, key) in keys.iter().enumerate() {
                         let key_array = key.as_array().ok_or_else(|| {
                             Error::new(ErrorCode::PluginProtocolError, "keyframe row is malformed")
@@ -441,9 +438,19 @@ fn flatten_page(snapshot: &NativeSnapshot, domain: &str) -> Result<Vec<Value>> {
             }
             "properties" => {
                 for property in [
-                    "translation","rotation","scale","parent","parent_type","parent_bone",
-                    "hidden_render","hidden_viewport","vertices","polygons","uv_layers",
-                    "data_users","data_name"
+                    "translation",
+                    "rotation",
+                    "scale",
+                    "parent",
+                    "parent_type",
+                    "parent_bone",
+                    "hidden_render",
+                    "hidden_viewport",
+                    "vertices",
+                    "polygons",
+                    "uv_layers",
+                    "data_users",
+                    "data_name",
                 ] {
                     let Some(value) = row.get(property) else {
                         continue;
@@ -482,7 +489,12 @@ async fn inspect_page(
         let bound = state
             .cursors
             .remove(&(owner.clone(), cursor))
-            .ok_or_else(|| Error::new(ErrorCode::StaleReference, "page cursor is unknown, replayed or belongs to another session"))?;
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorCode::StaleReference,
+                    "page cursor is unknown, replayed or belongs to another session",
+                )
+            })?;
         if bound.island != input.island
             || bound.domain != input.domain
             || bound.fingerprint != snapshot.fingerprint
@@ -587,9 +599,7 @@ pub(super) async fn execute(
         .map_err(|_| Error::invalid("invalid embedded schema"))?
         .is_valid(&args)
     {
-        return Err(Error::invalid(
-            "authoring arguments violate typed schema",
-        ));
+        return Err(Error::invalid("authoring arguments violate typed schema"));
     }
     let owner = composition::Owner {
         session: context.session().into(),
@@ -708,13 +718,9 @@ pub(super) async fn execute(
                 meters_per_unit,
                 expected_fingerprint: before.fingerprint.clone(),
             };
-            let prepared = prepare_repair(
-                owner.clone(),
-                repair_intent,
-                &before,
-                profile_bindings()?,
-            )
-            .map_err(common_error)?;
+            let prepared =
+                prepare_repair(owner.clone(), repair_intent, &before, profile_bindings()?)
+                    .map_err(common_error)?;
             let plan = prepared.plan.clone();
             let root_budget = state
                 .vault
@@ -849,7 +855,8 @@ pub(super) async fn execute(
                                 .collect(),
                         )
                         .map_err(common_error)?;
-                    let global_after = if matches!(plan.body.intent, AuthoringIntent::Create { .. }) {
+                    let global_after = if matches!(plan.body.intent, AuthoringIntent::Create { .. })
+                    {
                         snapshot(socket, None).await.ok()
                     } else {
                         None
@@ -869,11 +876,7 @@ pub(super) async fn execute(
                     let report = evaluation.report;
                     state
                         .vault
-                        .record_observation(
-                            &owner,
-                            plan_ref,
-                            report.validation.checks.len() as u32,
-                        )
+                        .record_observation(&owner, plan_ref, report.validation.checks.len() as u32)
                         .map_err(common_error)?;
                     if let Some(record) = state.records.get_mut(&key) {
                         record.after = Some(after.clone());
@@ -913,9 +916,10 @@ pub(super) async fn execute(
                 .ok_or_else(|| Error::invalid("plan ref"))?;
             let key = (owner.clone(), plan_ref.to_owned());
             let island = {
-                let record = state.records.get(&key).ok_or_else(|| {
-                    Error::new(ErrorCode::PolicyDenied, "plan session mismatch")
-                })?;
+                let record = state
+                    .records
+                    .get(&key)
+                    .ok_or_else(|| Error::new(ErrorCode::PolicyDenied, "plan session mismatch"))?;
                 plan_island(&record.prepared.plan)?.to_owned()
             };
             let after = snapshot(socket, Some(&island)).await?;

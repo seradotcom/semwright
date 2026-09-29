@@ -64,9 +64,9 @@
     {
       "id": "E06",
       "condition": "shared materials/resources preserved",
-      "implementation": "shared mesh instances are read-only for material/modifier mutation; explicit copy-on-write not implemented",
-      "test": "instance_cannot_mutate_shared_material_slots",
-      "status": "PARTIAL"
+      "implementation": "mesh_instance preserves a shared mesh datablock and rejects material/modifier writes; mesh_copy performs explicit copy-on-write before independent slots/modifiers",
+      "test": "model shared-write denial + hard-surface native source/copy datablock and material isolation + product-scene shared data identity",
+      "status": "CI_PENDING"
     },
     {
       "id": "E07",
@@ -78,10 +78,9 @@
     {
       "id": "E08",
       "condition": "bounds vs mesh evidence distinguished",
-      "implementation": "evaluated bounds + explicit self-intersection UNKNOWN",
-      "test": "native measure",
-      "status": "PARTIAL",
-      "open": "broad/narrow-phase false-positive fixture"
+      "implementation": "source/evaluated bounds plus complete bounded pairwise mesh test: AABB broad phase only filters; world-triangle segment/coplanar narrow phase decides pair intersection; self-intersection remains UNKNOWN",
+      "test": "collision_false_positive native fixture proves broad=true+narrow=SEPARATE, then typed transform produces narrow=INTERSECT; pair/object/triangle budgets return UNKNOWN instead of sampling",
+      "status": "CI_PENDING"
     },
     {
       "id": "E09",
@@ -115,10 +114,10 @@
     {
       "id": "E13",
       "condition": "real Project Graph and Effect receipts",
-      "implementation": "F trusted native EvidenceBatch/evaluation implemented; C candidate requires host IDs and C admission",
-      "test": "model consumer fixtures; native F evaluation",
+      "implementation": "F trusted native EvidenceBatch/evaluation uses the real apply post-state; native E2E creates a C ExecutionReceipt candidate from host-owned logical IDs plus the real request/descriptor/runtime and C ReceiptAdapter admits it",
+      "test": "model substitution/coverage cases + native apply requires F PASS and records admitted C authoring receipt digest in native-pipeline.json",
       "status": "PARTIAL",
-      "open": "integrated native C admitted receipt with export/handoff/import activities"
+      "open": "cross-app C activities/receipts for GLB handoff -> D import -> D verification remain blocked on D's public route"
     },
     {
       "id": "E14",

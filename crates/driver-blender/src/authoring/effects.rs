@@ -18,7 +18,10 @@ pub fn effect_contract(
     intent: &AuthoringIntent,
     changes: &ChangeSet<NativeOperation>,
 ) -> Result<effects::EffectContract> {
-    ensure(!changes.operations.is_empty(), "effect contract requires operations")?;
+    ensure(
+        !changes.operations.is_empty(),
+        "effect contract requires operations",
+    )?;
     let allowed = changes
         .operations
         .iter()
@@ -29,11 +32,10 @@ pub fn effect_contract(
         })
         .collect::<Vec<_>>();
     let last = changes.operations.last().expect("checked nonempty");
-    let address = last
-        .writes
-        .first()
-        .cloned()
-        .ok_or_else(|| ContractError::Invalid("final operation has no observed write".into()))?;
+    let address =
+        last.writes.first().cloned().ok_or_else(|| {
+            ContractError::Invalid("final operation has no observed write".into())
+        })?;
     let mut rules = vec![effects::EffectRule {
         id: READBACK_RULE.into(),
         version: 1,
@@ -205,7 +207,13 @@ pub fn evaluate_native_effects(
             .iter()
             .map(|op| op.id.clone())
             .collect(),
-        observation_scope: prepared.plan.body.observation_scope.iter().cloned().collect(),
+        observation_scope: prepared
+            .plan
+            .body
+            .observation_scope
+            .iter()
+            .cloned()
+            .collect(),
         execution_status: status,
         support_level: SupportLevel::Native,
         budget: prepared.plan.body.budget.clone(),

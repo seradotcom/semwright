@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "collection": "collision_false_positive",
+  "meters_per_unit": 1,
+  "materials": [],
+  "entities": [
+    {
+      "id": "triangle_a",
+      "name": "Triangle A",
+      "shape": {
+        "kind": "mesh",
+        "vertices": [[0,0,0],[2,0,0],[0,2,0]],
+        "faces": [[0,1,2]],
+        "uv": null
+      },
+      "transform": {
+        "translation": [0,0,0],
+        "rotation": [0,0,0],
+        "scale": [1,1,1]
+      },
+      "materials": [],
+      "modifiers": []
+    },
+    {
+      "id": "triangle_b",
+      "name": "Triangle B",
+      "shape": {
+        "kind": "mesh",
+        "vertices": [[2,2,0],[3,2,0],[2,3,0]],
+        "faces": [[0,1,2]],
+        "uv": null
+      },
+      "transform": {
+        "translation": [0,0,0],
+        "rotation": [0,0,0],
+        "scale": [1,1,1]
+      },
+      "materials": [],
+      "modifiers": []
+    }
+  ],
+  "relations": [],
+  "animation": null
+}

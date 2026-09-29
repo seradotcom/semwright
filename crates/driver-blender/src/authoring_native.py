@@ -11,6 +11,8 @@ import tempfile
 import uuid
 from pathlib import Path
 
+from mathutils import Vector, geometry
+
 from .validation import CommandError
 
 ISLAND = "sw_authoring_island"
@@ -45,6 +47,84 @@ def vec(value, count=3, maximum=1_000_000.0):
 
 def close(a, b, tolerance=1e-5):
     return len(a) == len(b) and all(abs(x-y) <= tolerance * max(1.0, abs(x), abs(y)) for x, y in zip(a, b))
+
+
+def bounds_overlap(a, b, epsilon=1e-9):
+    return all(a[i][0] <= b[i][1] + epsilon and b[i][0] <= a[i][1] + epsilon for i in range(3))
+
+
+def triangle_bounds(triangle):
+    return [[min(point[i] for point in triangle), max(point[i] for point in triangle)] for i in range(3)]
+
+
+def segment_triangle(a, b, triangle, epsilon=1e-9):
+    origin = Vector(a)
+    direction = Vector(b) - origin
+    v0, v1, v2 = (Vector(point) for point in triangle)
+    edge1 = v1 - v0
+    edge2 = v2 - v0
+    h = direction.cross(edge2)
+    determinant = edge1.dot(h)
+    if abs(determinant) <= epsilon:
+        return False
+    inverse = 1.0 / determinant
+    s = origin - v0
+    u = inverse * s.dot(h)
+    if u < -epsilon or u > 1.0 + epsilon:
+        return False
+    q = s.cross(edge1)
+    v = inverse * direction.dot(q)
+    if v < -epsilon or u + v > 1.0 + epsilon:
+        return False
+    t = inverse * edge2.dot(q)
+    return -epsilon <= t <= 1.0 + epsilon
+
+
+def triangles_intersect(a, b, epsilon=1e-9):
+    va = [Vector(point) for point in a]
+    vb = [Vector(point) for point in b]
+    normal_a = (va[1] - va[0]).cross(va[2] - va[0])
+    normal_b = (vb[1] - vb[0]).cross(vb[2] - vb[0])
+    if normal_a.length_squared <= epsilon or normal_b.length_squared <= epsilon:
+        return None
+    unit_a = normal_a.normalized()
+    unit_b = normal_b.normalized()
+    parallel = abs(unit_a.dot(unit_b)) >= 1.0 - 1e-8
+    coplanar = parallel and abs(unit_a.dot(vb[0] - va[0])) <= 1e-8
+    if coplanar:
+        axis = max(range(3), key=lambda i: abs(unit_a[i]))
+        def project(point):
+            return Vector(tuple(point[i] for i in range(3) if i != axis))
+        return geometry.intersect_tri_tri_2d(
+            *(project(point) for point in [*va, *vb])
+        )
+    if parallel:
+        return False
+    for first, second, triangle in [
+        (va[0], va[1], vb), (va[1], va[2], vb), (va[2], va[0], vb),
+        (vb[0], vb[1], va), (vb[1], vb[2], va), (vb[2], vb[0], va),
+    ]:
+        if segment_triangle(first, second, triangle, epsilon):
+            return True
+    return False
+
+
+def narrow_pair(triangles_a, triangles_b):
+    if len(triangles_a) * len(triangles_b) > 2_000_000:
+        return None, 0
+    tested = 0
+    for triangle_a in triangles_a:
+        bounds_a = triangle_bounds(triangle_a)
+        for triangle_b in triangles_b:
+            if not bounds_overlap(bounds_a, triangle_bounds(triangle_b)):
+                continue
+            tested += 1
+            intersection = triangles_intersect(triangle_a, triangle_b)
+            if intersection is None:
+                return None, tested
+            if intersection:
+                return True, tested
+    return False, tested
 
 
 class AuthoringRuntime:
@@ -316,10 +396,22 @@ class AuthoringRuntime:
                 layer = native.uv_layers.new(name="UVMap")
                 for i, value in enumerate(uv): layer.data[i].uv = vec(value, 2)
             for material in spec["materials"]: native.materials.append(self.material(island, material))
+            native[ISLAND] = island
         elif kind == "mesh_instance":
             source = self.entity(island, shape["source"])
             check(source.type == "MESH" and not spec["materials"] and not spec["modifiers"], "shared instance writes are excluded")
             native = source.data
+        elif kind == "mesh_copy":
+            source = self.entity(island, shape["source"])
+            check(source.type == "MESH", "mesh_copy source must be a managed mesh")
+            desired = self._name(island, spec["id"], data.meshes)
+            native = source.data.copy()
+            native.name = desired
+            native[ISLAND] = island
+            if spec["materials"]:
+                native.materials.clear()
+                for material in spec["materials"]:
+                    native.materials.append(self.material(island, material))
         elif kind == "armature": native = data.armatures.new(self._name(island, spec["id"], data.armatures))
         elif kind == "camera":
             native = data.cameras.new(self._name(island, spec["id"], data.cameras))
@@ -427,25 +519,90 @@ class AuthoringRuntime:
             self.bpy.context.view_layer.update()
             depsgraph = self.bpy.context.evaluated_depsgraph_get()
         rows = []
+        collision_meshes = []
+        total_triangles = 0
         for obj in objects:
             observed = obj.evaluated_get(depsgraph) if depsgraph is not None else obj
             row = {"entity": obj[ENTITY], "matrix_world": [list(r) for r in observed.matrix_world],
                    "method": "evaluated-depsgraph" if evaluated else "source-rna",
                    "frame": self.bpy.context.scene.frame_current,
-                   "mesh_self_intersections": {"verdict":"UNKNOWN", "reason":"no narrow-phase self-intersection method in this increment"}}
+                   "mesh_self_intersections": {
+                       "verdict":"UNKNOWN",
+                       "reason":"pairwise object collision does not establish self-intersection"
+                   }}
             if obj.type == "MESH":
                 mesh = observed.to_mesh() if evaluated else observed.data
                 try:
                     check(len(mesh.vertices) <= 262_144 and len(mesh.polygons) <= 262_144, "evaluated geometry exceeds budget", "Unsupported")
                     coords = [observed.matrix_world @ v.co for v in mesh.vertices]
-                    row["bounds_world_meters"] = [[min(p[i] for p in coords), max(p[i] for p in coords)] for i in range(3)] if coords else None
+                    bounds = [[min(p[i] for p in coords), max(p[i] for p in coords)] for i in range(3)] if coords else None
+                    row["bounds_world_meters"] = bounds
                     row["vertices"] = len(mesh.vertices); row["polygons"] = len(mesh.polygons)
-                    row["triangles_fan_count"] = sum(max(0, len(p.vertices)-2) for p in mesh.polygons)
+                    mesh.calc_loop_triangles()
+                    triangles = [
+                        [tuple(observed.matrix_world @ mesh.vertices[index].co) for index in triangle.vertices]
+                        for triangle in mesh.loop_triangles
+                    ]
+                    total_triangles += len(triangles)
+                    row["triangles"] = len(triangles)
+                    collision_meshes.append({
+                        "entity": obj[ENTITY],
+                        "bounds": bounds,
+                        "triangles": triangles,
+                    })
                 finally:
                     if evaluated: observed.to_mesh_clear()
             rows.append(row)
-        return {"island": island, "native_session": self.session, "method_version": 1,
-                "coverage": "single_frame" if evaluated else "source_only", "items": rows, "total":len(rows)}
+
+        collision = {
+            "method": "world-triangle-segment-coplanar-v1",
+            "frame": self.bpy.context.scene.frame_current,
+            "complete": True,
+            "pairs": [],
+            "unknown_reason": None,
+        }
+        if len(collision_meshes) > 64:
+            collision["complete"] = False
+            collision["unknown_reason"] = "mesh object budget exceeds 64"
+        elif total_triangles > 20_000:
+            collision["complete"] = False
+            collision["unknown_reason"] = "triangle budget exceeds 20000"
+        else:
+            for i, first in enumerate(collision_meshes):
+                for second in collision_meshes[i + 1:]:
+                    broad = bool(first["bounds"] and second["bounds"] and bounds_overlap(first["bounds"], second["bounds"]))
+                    result = {
+                        "a": first["entity"],
+                        "b": second["entity"],
+                        "broad_phase_aabb": broad,
+                        "narrow_phase": "NOT_REQUIRED",
+                        "triangle_pairs_tested": 0,
+                        "verdict": "SEPARATE",
+                    }
+                    if broad:
+                        intersects, tested = narrow_pair(first["triangles"], second["triangles"])
+                        result["triangle_pairs_tested"] = tested
+                        if intersects is None:
+                            result["narrow_phase"] = "UNKNOWN"
+                            result["verdict"] = "UNKNOWN"
+                            collision["complete"] = False
+                            if collision["unknown_reason"] is None:
+                                collision["unknown_reason"] = "narrow-phase pair budget or degenerate triangle"
+                        elif intersects:
+                            result["narrow_phase"] = "INTERSECT"
+                            result["verdict"] = "INTERSECT"
+                        else:
+                            result["narrow_phase"] = "SEPARATE"
+                    collision["pairs"].append(result)
+        return {
+            "island": island,
+            "native_session": self.session,
+            "method_version": 2,
+            "coverage": "single_frame" if evaluated else "source_only",
+            "items": rows,
+            "total": len(rows),
+            "mesh_pair_intersections": collision,
+        }
 
     def persist(self, island, relative):
         collection, objects = self._closed(island)

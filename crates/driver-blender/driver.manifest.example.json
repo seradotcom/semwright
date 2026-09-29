@@ -1,6 +1,6 @@
 {
   "manifest_version": 1,
-  "protocol": 1,
+  "protocol": 3,
   "id": "blender",
   "version": "0.9.0-dev.1",
   "publisher": "semwright",
@@ -37,8 +37,9 @@
   "request_timeout_ms": 300000,
   "interfaces": {
     "dynamic_capabilities": false,
-    "cooperative_cancellation": false,
+    "cooperative_cancellation": true,
     "events": false,
+    "progress": true,
     "health": true
   }
 }

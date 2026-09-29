@@ -42,7 +42,11 @@ pub struct Transform {
 }
 impl Default for Transform {
     fn default() -> Self {
-        Self { translation: [0.0; 3], rotation: [0.0; 3], scale: [1.0; 3] }
+        Self {
+            translation: [0.0; 3],
+            rotation: [0.0; 3],
+            scale: [1.0; 3],
+        }
     }
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
@@ -58,15 +62,41 @@ pub struct Entity {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Shape {
-    Box { size: [f64; 3] },
-    Cylinder { radius: f64, depth: f64, segments: u32 },
-    Mesh { vertices: Vec<[f64; 3]>, faces: Vec<Vec<u32>>, uv: Option<Vec<[f64; 2]>> },
+    Box {
+        size: [f64; 3],
+    },
+    Cylinder {
+        radius: f64,
+        depth: f64,
+        segments: u32,
+    },
+    Mesh {
+        vertices: Vec<[f64; 3]>,
+        faces: Vec<Vec<u32>>,
+        uv: Option<Vec<[f64; 2]>>,
+    },
     Empty,
-    Armature { bones: Vec<Bone> },
-    Camera { lens_mm: f64, clip_start: f64, clip_end: f64 },
-    AreaLight { energy_watts: f64, size: f64, color: [f64; 3] },
-    /// Explicit shared mesh instance, no evaluated collection/vertex instancing.
-    MeshInstance { source: String },
+    Armature {
+        bones: Vec<Bone>,
+    },
+    Camera {
+        lens_mm: f64,
+        clip_start: f64,
+        clip_end: f64,
+    },
+    AreaLight {
+        energy_watts: f64,
+        size: f64,
+        color: [f64; 3],
+    },
+    /// Explicit shared mesh datablock. Material/modifier writes are forbidden.
+    MeshInstance {
+        source: String,
+    },
+    /// Explicit copy-on-write of one concrete managed mesh datablock.
+    MeshCopy {
+        source: String,
+    },
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -87,13 +117,31 @@ pub enum Modifier {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Relation {
-    Parent { child: String, parent: String },
-    BoneParent { child: String, armature: String, bone: String },
+    Parent {
+        child: String,
+        parent: String,
+    },
+    BoneParent {
+        child: String,
+        armature: String,
+        bone: String,
+    },
     /// A native COPY_LOCATION constraint, not a one-time coordinate rewrite.
-    Follow { subject: String, target: String, offset: bool },
+    Follow {
+        subject: String,
+        target: String,
+        offset: bool,
+    },
     /// A native TRACK_TO constraint, with fixed local -Z / +Y axis convention.
-    LookAt { subject: String, target: String },
-    Skin { mesh: String, armature: String, weights: Vec<Weight> },
+    LookAt {
+        subject: String,
+        target: String,
+    },
+    Skin {
+        mesh: String,
+        armature: String,
+        weights: Vec<Weight>,
+    },
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -117,9 +165,15 @@ pub struct Channel {
     pub property: AnimatedProperty,
     pub keys: Vec<Key>,
 }
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
+)]
 #[serde(rename_all = "snake_case")]
-pub enum AnimatedProperty { Translation, Rotation, Scale }
+pub enum AnimatedProperty {
+    Translation,
+    Rotation,
+    Scale,
+}
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Key {
@@ -128,13 +182,24 @@ pub struct Key {
 }
 
 pub fn local_id(s: &str) -> Result<()> {
-    ensure(!s.is_empty() && s.len() <= 64 && s.bytes().all(|b| b.is_ascii_alphanumeric() || b"_-".contains(&b)), "local ID must be 1..64 ASCII letters, digits, underscore or hyphen")
+    ensure(
+        !s.is_empty()
+            && s.len() <= 64
+            && s.bytes()
+                .all(|b| b.is_ascii_alphanumeric() || b"_-".contains(&b)),
+        "local ID must be 1..64 ASCII letters, digits, underscore or hyphen",
+    )
 }
 pub fn finite(x: f64, low: f64, high: f64) -> Result<()> {
-    ensure(x.is_finite() && (low..=high).contains(&x), "finite number outside domain bounds")
+    ensure(
+        x.is_finite() && (low..=high).contains(&x),
+        "finite number outside domain bounds",
+    )
 }
 fn vector(v: &[f64; 3], low: f64, high: f64) -> Result<()> {
-    for x in v { finite(*x, low, high)?; }
+    for x in v {
+        finite(*x, low, high)?;
+    }
     Ok(())
 }
 impl Transform {
@@ -142,7 +207,10 @@ impl Transform {
         vector(&self.translation, -10_000.0, 10_000.0)?;
         vector(&self.rotation, -100.0, 100.0)?;
         vector(&self.scale, -100.0, 100.0)?;
-        ensure(self.scale.iter().all(|x| x.abs() >= 0.0001), "singular or near-zero transform scale")
+        ensure(
+            self.scale.iter().all(|x| x.abs() >= 0.0001),
+            "singular or near-zero transform scale",
+        )
     }
 }
 impl Shape {
@@ -157,56 +225,113 @@ impl Shape {
     fn validate(&self) -> Result<()> {
         match self {
             Self::Box { size } => vector(size, 0.0001, 10_000.0)?,
-            Self::Cylinder { radius, depth, segments } => {
-                finite(*radius, 0.0001, 1_000.0)?; finite(*depth, 0.0001, 10_000.0)?;
+            Self::Cylinder {
+                radius,
+                depth,
+                segments,
+            } => {
+                finite(*radius, 0.0001, 1_000.0)?;
+                finite(*depth, 0.0001, 10_000.0)?;
                 ensure((3..=128).contains(segments), "cylinder tessellation budget")?;
             }
-            Self::Mesh { vertices, faces, uv } => {
-                ensure((3..=MAX_VERTICES).contains(&vertices.len()) && (1..=MAX_FACES).contains(&faces.len()), "mesh allocation budget")?;
-                for v in vertices { vector(v, -10_000.0, 10_000.0)?; }
+            Self::Mesh {
+                vertices,
+                faces,
+                uv,
+            } => {
+                ensure(
+                    (3..=MAX_VERTICES).contains(&vertices.len())
+                        && (1..=MAX_FACES).contains(&faces.len()),
+                    "mesh allocation budget",
+                )?;
+                for v in vertices {
+                    vector(v, -10_000.0, 10_000.0)?;
+                }
                 let mut loops = 0;
                 let mut seen = BTreeSet::new();
                 for f in faces {
                     ensure((3..=32).contains(&f.len()), "face corner budget")?;
                     let ids: BTreeSet<_> = f.iter().copied().collect();
-                    ensure(ids.len() == f.len() && f.iter().all(|i| (*i as usize) < vertices.len()), "invalid mesh indices or repeated corner")?;
+                    ensure(
+                        ids.len() == f.len() && f.iter().all(|i| (*i as usize) < vertices.len()),
+                        "invalid mesh indices or repeated corner",
+                    )?;
                     ensure(seen.insert(ids), "duplicate vertex-set face")?;
                     // Nonzero fan area rejects collapsed polygons, not general self-intersection.
                     let a = vertices[f[0] as usize];
-                    let area = f[1..].windows(2).map(|w| {
-                        let b = vertices[w[0] as usize]; let c = vertices[w[1] as usize];
-                        let u = [b[0]-a[0], b[1]-a[1], b[2]-a[2]];
-                        let v = [c[0]-a[0], c[1]-a[1], c[2]-a[2]];
-                        let n = [u[1]*v[2]-u[2]*v[1], u[2]*v[0]-u[0]*v[2], u[0]*v[1]-u[1]*v[0]];
-                        n.iter().map(|x| x*x).sum::<f64>()
-                    }).sum::<f64>();
+                    let area = f[1..]
+                        .windows(2)
+                        .map(|w| {
+                            let b = vertices[w[0] as usize];
+                            let c = vertices[w[1] as usize];
+                            let u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+                            let v = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+                            let n = [
+                                u[1] * v[2] - u[2] * v[1],
+                                u[2] * v[0] - u[0] * v[2],
+                                u[0] * v[1] - u[1] * v[0],
+                            ];
+                            n.iter().map(|x| x * x).sum::<f64>()
+                        })
+                        .sum::<f64>();
                     ensure(area > 1e-20, "collapsed face")?;
                     loops += f.len();
                 }
                 ensure(loops <= 32768, "mesh loop budget")?;
                 if let Some(uv) = uv {
                     ensure(uv.len() == loops, "UV values must cover every face corner")?;
-                    for p in uv { for x in p { finite(*x, -1000.0, 1000.0)?; } }
+                    for p in uv {
+                        for x in p {
+                            finite(*x, -1000.0, 1000.0)?;
+                        }
+                    }
                 }
             }
             Self::Armature { bones } => {
                 ensure(!bones.is_empty() && bones.len() <= MAX_BONES, "bone budget")?;
                 let mut parents = BTreeMap::new();
                 for bone in bones {
-                    local_id(&bone.id)?; vector(&bone.head, -10_000.0, 10_000.0)?; vector(&bone.tail, -10_000.0, 10_000.0)?;
-                    ensure(bone.head.iter().zip(bone.tail).map(|(a,b)| (a-b)*(a-b)).sum::<f64>() >= 1e-12, "zero-length bone")?;
-                    ensure(parents.insert(bone.id.clone(), bone.parent.iter().cloned().collect()).is_none(), "duplicate bone ID")?;
+                    local_id(&bone.id)?;
+                    vector(&bone.head, -10_000.0, 10_000.0)?;
+                    vector(&bone.tail, -10_000.0, 10_000.0)?;
+                    ensure(
+                        bone.head
+                            .iter()
+                            .zip(bone.tail)
+                            .map(|(a, b)| (a - b) * (a - b))
+                            .sum::<f64>()
+                            >= 1e-12,
+                        "zero-length bone",
+                    )?;
+                    ensure(
+                        parents
+                            .insert(bone.id.clone(), bone.parent.iter().cloned().collect())
+                            .is_none(),
+                        "duplicate bone ID",
+                    )?;
                 }
                 dag_order(&parents)?;
             }
-            Self::Camera { lens_mm, clip_start, clip_end } => {
-                finite(*lens_mm, 1.0, 500.0)?; finite(*clip_start, 0.0001, 1000.0)?;
-                finite(*clip_end, 0.001, 100_000.0)?; ensure(clip_end > clip_start, "camera clip interval")?;
+            Self::Camera {
+                lens_mm,
+                clip_start,
+                clip_end,
+            } => {
+                finite(*lens_mm, 1.0, 500.0)?;
+                finite(*clip_start, 0.0001, 1000.0)?;
+                finite(*clip_end, 0.001, 100_000.0)?;
+                ensure(clip_end > clip_start, "camera clip interval")?;
             }
-            Self::AreaLight { energy_watts, size, color } => {
-                finite(*energy_watts, 0.0, 100_000.0)?; finite(*size, 0.0001, 1000.0)?; vector(color, 0.0, 1.0)?;
+            Self::AreaLight {
+                energy_watts,
+                size,
+                color,
+            } => {
+                finite(*energy_watts, 0.0, 100_000.0)?;
+                finite(*size, 0.0001, 1000.0)?;
+                vector(color, 0.0, 1.0)?;
             }
-            Self::MeshInstance { source } => local_id(source)?,
+            Self::MeshInstance { source } | Self::MeshCopy { source } => local_id(source)?,
             Self::Empty => {}
         }
         Ok(())
@@ -215,108 +340,296 @@ impl Shape {
 /// Deterministic topological order. Missing refs and cycles are separate from object naming.
 pub fn dag_order(graph: &BTreeMap<String, Vec<String>>) -> Result<Vec<String>> {
     ensure(graph.len() <= 4096, "dependency graph budget")?;
-    let mut emitted = BTreeSet::new(); let mut order = Vec::new();
-    for deps in graph.values() { ensure(deps.iter().all(|id| graph.contains_key(id)), "missing dependency")?; }
+    let mut emitted = BTreeSet::new();
+    let mut order = Vec::new();
+    for deps in graph.values() {
+        ensure(
+            deps.iter().all(|id| graph.contains_key(id)),
+            "missing dependency",
+        )?;
+    }
     while order.len() < graph.len() {
-        let next = graph.iter().find(|(id, deps)| !emitted.contains(*id) && deps.iter().all(|d| emitted.contains(d))).map(|(id,_)| id.clone());
-        let Some(id) = next else { return Err(semwright_semantic_composition::ContractError::Invalid("dependency cycle".into())); };
-        emitted.insert(id.clone()); order.push(id);
+        let next = graph
+            .iter()
+            .find(|(id, deps)| !emitted.contains(*id) && deps.iter().all(|d| emitted.contains(d)))
+            .map(|(id, _)| id.clone());
+        let Some(id) = next else {
+            return Err(semwright_semantic_composition::ContractError::Invalid(
+                "dependency cycle".into(),
+            ));
+        };
+        emitted.insert(id.clone());
+        order.push(id);
     }
     Ok(order)
 }
 impl BlenderAuthoringSpec {
     pub fn validate(&self) -> Result<()> {
         ensure(self.version == 1, "unknown BlenderAuthoringSpec version")?;
-        local_id(&self.collection)?; finite(self.meters_per_unit, 0.0001, 100.0)?;
-        ensure(!self.entities.is_empty() && self.entities.len() <= MAX_ENTITIES && self.materials.len() <= 64 && self.relations.len() <= 256, "authoring table budget")?;
+        local_id(&self.collection)?;
+        finite(self.meters_per_unit, 0.0001, 100.0)?;
+        ensure(
+            !self.entities.is_empty()
+                && self.entities.len() <= MAX_ENTITIES
+                && self.materials.len() <= 64
+                && self.relations.len() <= 256,
+            "authoring table budget",
+        )?;
         let mut materials = BTreeSet::new();
         for m in &self.materials {
-            local_id(&m.id)?; ensure(materials.insert(m.id.clone()), "duplicate material ID")?;
-            for x in m.base_color { finite(x, 0.0, 1.0)?; }
-            ensure(m.base_color[3] == 1.0, "transparent material fidelity requires the subsequent material-graph increment")?;
-            finite(m.roughness, 0.0, 1.0)?; finite(m.metallic, 0.0, 1.0)?;
+            local_id(&m.id)?;
+            ensure(materials.insert(m.id.clone()), "duplicate material ID")?;
+            for x in m.base_color {
+                finite(x, 0.0, 1.0)?;
+            }
+            ensure(
+                m.base_color[3] == 1.0,
+                "transparent material fidelity requires the subsequent material-graph increment",
+            )?;
+            finite(m.roughness, 0.0, 1.0)?;
+            finite(m.metallic, 0.0, 1.0)?;
         }
-        let mut entities = BTreeMap::new(); let mut deps = BTreeMap::<String,Vec<String>>::new();
+        let mut entities = BTreeMap::new();
+        let mut deps = BTreeMap::<String, Vec<String>>::new();
+        let mut multipliers = BTreeMap::<String, usize>::new();
         let mut predicted_vertices = 0usize;
         for entity in &self.entities {
             local_id(&entity.id)?;
-            ensure(!entity.name.is_empty() && entity.name.len() <= 80 && !entity.name.chars().any(char::is_control), "native display name budget")?;
-            ensure(entities.insert(entity.id.clone(), entity).is_none(), "duplicate entity ID")?;
-            entity.shape.validate()?; entity.transform.validate()?;
-            ensure(entity.materials.len() <= 8 && entity.materials.iter().all(|id| materials.contains(id)), "missing material or slot budget")?;
+            ensure(
+                !entity.name.is_empty()
+                    && entity.name.len() <= 80
+                    && !entity.name.chars().any(char::is_control),
+                "native display name budget",
+            )?;
+            ensure(
+                entities.insert(entity.id.clone(), entity).is_none(),
+                "duplicate entity ID",
+            )?;
+            entity.shape.validate()?;
+            entity.transform.validate()?;
+            ensure(
+                entity.materials.len() <= 8
+                    && entity.materials.iter().all(|id| materials.contains(id)),
+                "missing material or slot budget",
+            )?;
             ensure(entity.modifiers.len() <= 8, "modifier budget")?;
-            ensure(entity.materials.is_empty() || matches!(entity.shape, Shape::Box{..}|Shape::Cylinder{..}|Shape::Mesh{..}), "material writes to shared instances require explicit copy-on-write, unavailable in v1")?;
+            ensure(
+                entity.materials.is_empty()
+                    || matches!(
+                        entity.shape,
+                        Shape::Box { .. }
+                            | Shape::Cylinder { .. }
+                            | Shape::Mesh { .. }
+                            | Shape::MeshCopy { .. }
+                    ),
+                "material writes to shared instances require explicit mesh_copy",
+            )?;
             let mut multiplier = 1usize;
             for modifier in &entity.modifiers {
-                ensure(matches!(entity.shape, Shape::Box{..}|Shape::Cylinder{..}|Shape::Mesh{..}), "modifier requires owned mesh")?;
+                ensure(
+                    matches!(
+                        entity.shape,
+                        Shape::Box { .. }
+                            | Shape::Cylinder { .. }
+                            | Shape::Mesh { .. }
+                            | Shape::MeshCopy { .. }
+                    ),
+                    "modifier requires an owned or explicitly copied mesh",
+                )?;
                 match modifier {
-                    Modifier::Bevel{width,segments} => { finite(*width, 0.00001, 100.0)?; ensure((1..=4).contains(segments), "bevel segment budget")?; multiplier = multiplier.saturating_mul(32); }
-                    Modifier::Mirror{axes} => { ensure(axes.iter().any(|v| *v), "mirror has no axis")?; multiplier = multiplier.saturating_mul(1 << axes.iter().filter(|v| **v).count()); }
-                    Modifier::Subdivision{levels} => { ensure(*levels <= 2, "subdivision budget")?; multiplier = multiplier.saturating_mul(4usize.pow(*levels)); }
-                    Modifier::Array{count,offset} => { ensure((1..=16).contains(count), "array budget")?; vector(offset,-1000.0,1000.0)?; multiplier = multiplier.saturating_mul(*count as usize); }
+                    Modifier::Bevel { width, segments } => {
+                        finite(*width, 0.00001, 100.0)?;
+                        ensure((1..=4).contains(segments), "bevel segment budget")?;
+                        multiplier = multiplier.saturating_mul(32);
+                    }
+                    Modifier::Mirror { axes } => {
+                        ensure(axes.iter().any(|v| *v), "mirror has no axis")?;
+                        multiplier =
+                            multiplier.saturating_mul(1 << axes.iter().filter(|v| **v).count());
+                    }
+                    Modifier::Subdivision { levels } => {
+                        ensure(*levels <= 2, "subdivision budget")?;
+                        multiplier = multiplier.saturating_mul(4usize.pow(*levels));
+                    }
+                    Modifier::Array { count, offset } => {
+                        ensure((1..=16).contains(count), "array budget")?;
+                        vector(offset, -1000.0, 1000.0)?;
+                        multiplier = multiplier.saturating_mul(*count as usize);
+                    }
                 }
             }
-            predicted_vertices = predicted_vertices.saturating_add(entity.shape.vertex_budget().saturating_mul(multiplier));
-            let dependencies = if let Shape::MeshInstance{source} = &entity.shape { vec![source.clone()] } else { vec![] };
+            predicted_vertices = predicted_vertices
+                .saturating_add(entity.shape.vertex_budget().saturating_mul(multiplier));
+            multipliers.insert(entity.id.clone(), multiplier);
+            let dependencies = match &entity.shape {
+                Shape::MeshInstance { source } | Shape::MeshCopy { source } => {
+                    vec![source.clone()]
+                }
+                _ => vec![],
+            };
             deps.insert(entity.id.clone(), dependencies);
         }
-        ensure(predicted_vertices <= 262_144, "conservative evaluated geometry budget")?;
         for entity in &self.entities {
-            if let Shape::MeshInstance{source} = &entity.shape {
-                ensure(entities.get(source).is_some_and(|e| matches!(e.shape,Shape::Box{..}|Shape::Cylinder{..}|Shape::Mesh{..})), "instance source must be a concrete owned mesh")?;
+            if let Shape::MeshInstance { source } | Shape::MeshCopy { source } = &entity.shape {
+                let source_entity = entities.get(source).ok_or_else(|| {
+                    semwright_semantic_composition::ContractError::Invalid(
+                        "instance/copy source is missing".into(),
+                    )
+                })?;
+                ensure(
+                    matches!(
+                        source_entity.shape,
+                        Shape::Box { .. } | Shape::Cylinder { .. } | Shape::Mesh { .. }
+                    ),
+                    "instance/copy source must be a concrete owned mesh",
+                )?;
+                predicted_vertices = predicted_vertices.saturating_add(
+                    source_entity
+                        .shape
+                        .vertex_budget()
+                        .saturating_mul(*multipliers.get(&entity.id).unwrap_or(&1)),
+                );
             }
         }
-        let mut parented = BTreeSet::new(); let mut skinned = BTreeSet::new();
+        ensure(
+            predicted_vertices <= 262_144,
+            "conservative evaluated geometry budget",
+        )?;
+        let mut parented = BTreeSet::new();
+        let mut skinned = BTreeSet::new();
         for relation in &self.relations {
-            let (subject,target) = match relation {
-                Relation::Parent{child,parent} => { ensure(parented.insert(child), "multiple native parents")?; (child,parent) }
-                Relation::BoneParent{child,armature,bone} => { ensure(parented.insert(child), "multiple native parents")?; check_bone(&entities,armature,bone)?; (child,armature) }
-                Relation::Follow{subject,target,..}|Relation::LookAt{subject,target} => (subject,target),
-                Relation::Skin{mesh,armature,weights} => {
+            let (subject, target) = match relation {
+                Relation::Parent { child, parent } => {
+                    ensure(parented.insert(child), "multiple native parents")?;
+                    (child, parent)
+                }
+                Relation::BoneParent {
+                    child,
+                    armature,
+                    bone,
+                } => {
+                    ensure(parented.insert(child), "multiple native parents")?;
+                    check_bone(&entities, armature, bone)?;
+                    (child, armature)
+                }
+                Relation::Follow {
+                    subject, target, ..
+                }
+                | Relation::LookAt { subject, target } => (subject, target),
+                Relation::Skin {
+                    mesh,
+                    armature,
+                    weights,
+                } => {
                     ensure(skinned.insert(mesh), "multiple skin bindings")?;
-                    let Some(entity) = entities.get(mesh) else { return Err(semwright_semantic_composition::ContractError::Invalid("missing skin mesh".into())); };
-                    ensure(matches!(entity.shape,Shape::Box{..}|Shape::Cylinder{..}|Shape::Mesh{..}) && entity.modifiers.is_empty(), "skinning requires concrete source geometry without prior topology modifiers")?;
-                    ensure(!weights.is_empty() && weights.len() <= 32768, "weight budget")?;
-                    let mut totals = BTreeMap::<u32,f64>::new(); let mut seen = BTreeSet::new();
+                    let Some(entity) = entities.get(mesh) else {
+                        return Err(semwright_semantic_composition::ContractError::Invalid(
+                            "missing skin mesh".into(),
+                        ));
+                    };
+                    ensure(
+                        matches!(
+                            entity.shape,
+                            Shape::Box { .. } | Shape::Cylinder { .. } | Shape::Mesh { .. }
+                        ) && entity.modifiers.is_empty(),
+                        "skinning requires concrete source geometry without prior topology modifiers",
+                    )?;
+                    ensure(
+                        !weights.is_empty() && weights.len() <= 32768,
+                        "weight budget",
+                    )?;
+                    let mut totals = BTreeMap::<u32, f64>::new();
+                    let mut seen = BTreeSet::new();
                     for weight in weights {
-                        check_bone(&entities,armature,&weight.bone)?; finite(weight.weight,0.0,1.0)?;
-                        ensure((weight.vertex as usize) < entity.shape.vertex_budget() && seen.insert((weight.vertex,&weight.bone)), "duplicate weight or vertex outside topology")?;
+                        check_bone(&entities, armature, &weight.bone)?;
+                        finite(weight.weight, 0.0, 1.0)?;
+                        ensure(
+                            (weight.vertex as usize) < entity.shape.vertex_budget()
+                                && seen.insert((weight.vertex, &weight.bone)),
+                            "duplicate weight or vertex outside topology",
+                        )?;
                         *totals.entry(weight.vertex).or_default() += weight.weight;
                     }
-                    ensure(totals.len() == entity.shape.vertex_budget() && totals.values().all(|x| (x-1.0).abs() <= 1e-6), "skin weights must cover vertices and sum to one")?;
-                    (mesh,armature)
+                    ensure(
+                        totals.len() == entity.shape.vertex_budget()
+                            && totals.values().all(|x| (x - 1.0).abs() <= 1e-6),
+                        "skin weights must cover vertices and sum to one",
+                    )?;
+                    (mesh, armature)
                 }
             };
-            ensure(subject != target && entities.contains_key(subject) && entities.contains_key(target), "missing relationship subject/target or self relation")?;
-            deps.get_mut(subject).expect("validated subject").push(target.clone());
+            ensure(
+                subject != target
+                    && entities.contains_key(subject)
+                    && entities.contains_key(target),
+                "missing relationship subject/target or self relation",
+            )?;
+            deps.get_mut(subject)
+                .expect("validated subject")
+                .push(target.clone());
         }
         dag_order(&deps)?;
         if let Some(animation) = &self.animation {
-            local_id(&animation.id)?; animation.rate.validate()?;
-            ensure(animation.rate.num <= 240 && animation.rate.den <= 1001, "native frame-rate realization range")?;
-            ensure(!animation.channels.is_empty() && animation.channels.len() <= 128, "animation channel budget")?;
-            let mut channels = BTreeSet::new(); let mut keys = 0;
+            local_id(&animation.id)?;
+            animation.rate.validate()?;
+            ensure(
+                animation.rate.num <= 240 && animation.rate.den <= 1001,
+                "native frame-rate realization range",
+            )?;
+            ensure(
+                !animation.channels.is_empty() && animation.channels.len() <= 128,
+                "animation channel budget",
+            )?;
+            let mut channels = BTreeSet::new();
+            let mut keys = 0;
             for channel in &animation.channels {
-                ensure(entities.contains_key(&channel.entity) && channels.insert((&channel.entity,&channel.bone,channel.property)), "missing or duplicate animation channel")?;
-                if let Some(bone) = &channel.bone { check_bone(&entities,&channel.entity,bone)?; }
-                ensure(!channel.keys.is_empty() && channel.keys.windows(2).all(|w| w[0].frame < w[1].frame), "animation keys must be nonempty and strictly ordered")?;
+                ensure(
+                    entities.contains_key(&channel.entity)
+                        && channels.insert((&channel.entity, &channel.bone, channel.property)),
+                    "missing or duplicate animation channel",
+                )?;
+                if let Some(bone) = &channel.bone {
+                    check_bone(&entities, &channel.entity, bone)?;
+                }
+                ensure(
+                    !channel.keys.is_empty()
+                        && channel.keys.windows(2).all(|w| w[0].frame < w[1].frame),
+                    "animation keys must be nonempty and strictly ordered",
+                )?;
                 for key in &channel.keys {
                     ensure((0..=100_000).contains(&key.frame), "frame outside range")?;
-                    animation.rate.at(key.frame.into())?; vector(&key.value,-10_000.0,10_000.0)?;
-                    if channel.property == AnimatedProperty::Scale { ensure(key.value.iter().all(|x| x.abs() >= 0.0001), "singular scale key")?; }
+                    animation.rate.at(key.frame.into())?;
+                    vector(&key.value, -10_000.0, 10_000.0)?;
+                    if channel.property == AnimatedProperty::Scale {
+                        ensure(
+                            key.value.iter().all(|x| x.abs() >= 0.0001),
+                            "singular scale key",
+                        )?;
+                    }
                 }
                 keys += channel.keys.len();
             }
             ensure(keys <= MAX_KEYS, "keyframe budget")?;
         }
-        ensure(self.operation_count() <= MAX_OPERATIONS, "compiled operation budget")?;
+        ensure(
+            self.operation_count() <= MAX_OPERATIONS,
+            "compiled operation budget",
+        )?;
         canonical_bytes(self)?;
         Ok(())
     }
     pub fn operation_count(&self) -> usize {
-        1 + self.materials.len() + self.entities.len() + self.relations.len() + usize::from(self.animation.is_some())
+        1 + self.materials.len()
+            + self.entities.len()
+            + self.relations.len()
+            + usize::from(self.animation.is_some())
     }
 }
-fn check_bone(entities: &BTreeMap<String,&Entity>, rig: &str, bone: &str) -> Result<()> {
-    ensure(entities.get(rig).is_some_and(|e| matches!(&e.shape,Shape::Armature{bones} if bones.iter().any(|b| b.id == bone))), "missing armature or bone")
+fn check_bone(entities: &BTreeMap<String, &Entity>, rig: &str, bone: &str) -> Result<()> {
+    ensure(
+        entities.get(rig).is_some_and(
+            |e| matches!(&e.shape,Shape::Armature{bones} if bones.iter().any(|b| b.id == bone)),
+        ),
+        "missing armature or bone",
+    )
 }

@@ -8,19 +8,49 @@ use std::collections::{BTreeMap, BTreeSet};
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum AuthoringIntent {
-    Create { spec: BlenderAuthoringSpec },
+    Create {
+        spec: BlenderAuthoringSpec,
+    },
     /// Incremental edit, not a destructive regeneration of the model/rig/materials.
-    Transform { island: String, entity: String, transform: Transform, meters_per_unit: f64, expected_fingerprint: Digest },
+    Transform {
+        island: String,
+        entity: String,
+        transform: Transform,
+        meters_per_unit: f64,
+        expected_fingerprint: Digest,
+    },
 }
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum NativeOperation {
-    Collection { island: String, name: String },
-    Material { island: String, material: Material },
-    Entity { island: String, entity: Entity, meters_per_unit: f64 },
-    Relation { island: String, relation: Relation },
-    Animation { island: String, animation: Animation, meters_per_unit: f64 },
-    Transform { island: String, entity: String, transform: Transform, meters_per_unit: f64 },
+    Collection {
+        island: String,
+        name: String,
+    },
+    Material {
+        island: String,
+        material: Material,
+    },
+    Entity {
+        island: String,
+        entity: Entity,
+        meters_per_unit: f64,
+    },
+    Relation {
+        island: String,
+        relation: Relation,
+    },
+    Animation {
+        island: String,
+        animation: Animation,
+        meters_per_unit: f64,
+    },
+    Transform {
+        island: String,
+        entity: String,
+        transform: Transform,
+        meters_per_unit: f64,
+    },
 }
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -36,13 +66,19 @@ pub struct NativeSnapshot {
 }
 impl NativeSnapshot {
     pub fn base(&self, owner: &Owner) -> Result<BaseStateSet> {
-        ensure(self.source_only && self.exhaustive && self.total == self.items.len(), "planning requires complete source-only native snapshot")?;
+        ensure(
+            self.source_only && self.exhaustive && self.total == self.items.len(),
+            "planning requires complete source-only native snapshot",
+        )?;
         ensure(self.items.len() <= 512, "native snapshot item bound")?;
         bounded_id(&self.native_session)?;
         Ok(BaseStateSet(vec![BaseState {
             // One stable resource key spans whole-scene planning and managed-island readback.
             // The native island remains an observed property, not a fabricated global revision.
-            key: ResourceKey { provider: "driver:blender".into(), resource: "authoring-workspace".into() },
+            key: ResourceKey {
+                provider: "driver:blender".into(),
+                resource: "authoring-workspace".into(),
+            },
             document_id: "blender-authoring-workspace".into(),
             provider_session: owner.session.clone(),
             generation: self.native_session.clone(),
@@ -115,7 +151,9 @@ fn prepare_internal(
                     (
                         entity.id.clone(),
                         match &entity.shape {
-                            Shape::MeshInstance { source } => vec![source.clone()],
+                            Shape::MeshInstance { source } | Shape::MeshCopy { source } => {
+                                vec![source.clone()]
+                            }
                             _ => vec![],
                         },
                     )
@@ -246,8 +284,7 @@ fn prepare_internal(
         max_observations: 64,
         max_elapsed_ms: 300_000,
     };
-    let dependencies =
-        BTreeMap::from([("effects.contract".into(), contract.digest()?)]);
+    let dependencies = BTreeMap::from([("effects.contract".into(), contract.digest()?)]);
     let plan = PreparedPlan::prepare(
         PlanBody {
             contract_version: CONTRACT_VERSION,
@@ -325,72 +362,251 @@ pub fn phases() -> BTreeSet<Phase> {
 }
 
 fn near(actual: &Value, expected: &[f64]) -> bool {
-    actual.as_array().is_some_and(|a| a.len()==expected.len() && a.iter().zip(expected).all(|(x,y)| x.as_f64().is_some_and(|x| (x-y).abs() <= 1e-5 * y.abs().max(1.0))))
+    actual.as_array().is_some_and(|a| {
+        a.len() == expected.len()
+            && a.iter().zip(expected).all(|(x, y)| {
+                x.as_f64()
+                    .is_some_and(|x| (x - y).abs() <= 1e-5 * y.abs().max(1.0))
+            })
+    })
 }
 fn native_transform(row: &Value, expected: &Transform, units: f64) -> bool {
-    near(&row["translation"],&expected.translation.map(|x| x*units)) && near(&row["rotation"],&expected.rotation) && near(&row["scale"],&expected.scale)
+    near(
+        &row["translation"],
+        &expected.translation.map(|x| x * units),
+    ) && near(&row["rotation"], &expected.rotation)
+        && near(&row["scale"], &expected.scale)
 }
 /// Validate specifically enumerated source-RNA fields, not global artistry/effect correctness.
 /// Material links, frame-domain coverage, modifier fidelity and persistence remain separate gates.
 pub fn native_matches(intent: &AuthoringIntent, snapshot: &NativeSnapshot) -> bool {
-    if !snapshot.exhaustive || snapshot.total != snapshot.items.len() { return false; }
-    let row = |id: &str| snapshot.items.iter().find(|r| r["entity"].as_str() == Some(id));
+    if !snapshot.exhaustive || snapshot.total != snapshot.items.len() {
+        return false;
+    }
+    let row = |id: &str| {
+        snapshot
+            .items
+            .iter()
+            .find(|r| r["entity"].as_str() == Some(id))
+    };
     match intent {
-        AuthoringIntent::Transform{entity,transform,meters_per_unit,..} => row(entity).is_some_and(|r| native_transform(r,transform,*meters_per_unit)),
-        AuthoringIntent::Create{spec} => {
-            if snapshot.total != spec.entities.len() { return false; }
+        AuthoringIntent::Transform {
+            entity,
+            transform,
+            meters_per_unit,
+            ..
+        } => row(entity).is_some_and(|r| native_transform(r, transform, *meters_per_unit)),
+        AuthoringIntent::Create { spec } => {
+            if snapshot.total != spec.entities.len() {
+                return false;
+            }
             for entity in &spec.entities {
-                let Some(r) = row(&entity.id) else { return false; };
-                if !native_transform(r,&entity.transform,spec.meters_per_unit) { return false; }
-                let expected_type = match &entity.shape { Shape::Empty=>"EMPTY",Shape::Armature{..}=>"ARMATURE",Shape::Camera{..}=>"CAMERA",Shape::AreaLight{..}=>"LIGHT",_=>"MESH" };
-                if r["type"].as_str() != Some(expected_type) { return false; }
-                if matches!(entity.shape,Shape::Box{..}|Shape::Cylinder{..}|Shape::Mesh{..}) && r["vertices"].as_u64() != Some(entity.shape.vertex_budget() as u64) { return false; }
-                if let Shape::Armature{bones} = &entity.shape {
-                    let Some(actual) = r["bones"].as_array() else { return false; };
-                    if actual.len()!=bones.len() { return false; }
+                let Some(r) = row(&entity.id) else {
+                    return false;
+                };
+                if !native_transform(r, &entity.transform, spec.meters_per_unit) {
+                    return false;
+                }
+                let expected_type = match &entity.shape {
+                    Shape::Empty => "EMPTY",
+                    Shape::Armature { .. } => "ARMATURE",
+                    Shape::Camera { .. } => "CAMERA",
+                    Shape::AreaLight { .. } => "LIGHT",
+                    _ => "MESH",
+                };
+                if r["type"].as_str() != Some(expected_type) {
+                    return false;
+                }
+                let expected_vertices = match &entity.shape {
+                    Shape::Box { .. } | Shape::Cylinder { .. } | Shape::Mesh { .. } => {
+                        Some(entity.shape.vertex_budget())
+                    }
+                    Shape::MeshInstance { source } | Shape::MeshCopy { source } => spec
+                        .entities
+                        .iter()
+                        .find(|candidate| &candidate.id == source)
+                        .map(|candidate| candidate.shape.vertex_budget()),
+                    _ => None,
+                };
+                if expected_vertices
+                    .is_some_and(|count| r["vertices"].as_u64() != Some(count as u64))
+                {
+                    return false;
+                }
+                match &entity.shape {
+                    Shape::MeshInstance { source } => {
+                        let Some(source_row) = row(source) else {
+                            return false;
+                        };
+                        if r["data_name"] != source_row["data_name"] {
+                            return false;
+                        }
+                    }
+                    Shape::MeshCopy { source } => {
+                        let Some(source_row) = row(source) else {
+                            return false;
+                        };
+                        if r["data_name"] == source_row["data_name"]
+                            || r["data_users"].as_u64() != Some(1)
+                        {
+                            return false;
+                        }
+                    }
+                    _ => {}
+                }
+                if let Shape::Armature { bones } = &entity.shape {
+                    let Some(actual) = r["bones"].as_array() else {
+                        return false;
+                    };
+                    if actual.len() != bones.len() {
+                        return false;
+                    }
                     for bone in bones {
-                        let Some(b) = actual.iter().find(|b| b["id"].as_str()==Some(&bone.id)) else { return false; };
-                        if b["parent"].as_str()!=bone.parent.as_deref() || !near(&b["head"],&bone.head.map(|v| v*spec.meters_per_unit)) || !near(&b["tail"],&bone.tail.map(|v| v*spec.meters_per_unit)) { return false; }
+                        let Some(b) = actual.iter().find(|b| b["id"].as_str() == Some(&bone.id))
+                        else {
+                            return false;
+                        };
+                        if b["parent"].as_str() != bone.parent.as_deref()
+                            || !near(&b["head"], &bone.head.map(|v| v * spec.meters_per_unit))
+                            || !near(&b["tail"], &bone.tail.map(|v| v * spec.meters_per_unit))
+                        {
+                            return false;
+                        }
                     }
                 }
                 if !entity.materials.is_empty() {
-                    let Some(actual) = r["materials"].as_array() else { return false; };
-                    if actual.len()!=entity.materials.len() { return false; }
-                    for (id,m) in entity.materials.iter().zip(actual) {
-                        let Some(expected)=spec.materials.iter().find(|v| &v.id==id) else { return false; };
-                        if m["id"].as_str()!=Some(id) || !near(&m["color"],&expected.base_color)
-                            || !m["roughness"].as_f64().is_some_and(|x| (x-expected.roughness).abs()<1e-5)
-                            || !m["metallic"].as_f64().is_some_and(|x| (x-expected.metallic).abs()<1e-5) { return false; }
+                    let Some(actual) = r["materials"].as_array() else {
+                        return false;
+                    };
+                    if actual.len() != entity.materials.len() {
+                        return false;
+                    }
+                    for (id, m) in entity.materials.iter().zip(actual) {
+                        let Some(expected) = spec.materials.iter().find(|v| &v.id == id) else {
+                            return false;
+                        };
+                        if m["id"].as_str() != Some(id)
+                            || !near(&m["color"], &expected.base_color)
+                            || !m["roughness"]
+                                .as_f64()
+                                .is_some_and(|x| (x - expected.roughness).abs() < 1e-5)
+                            || !m["metallic"]
+                                .as_f64()
+                                .is_some_and(|x| (x - expected.metallic).abs() < 1e-5)
+                        {
+                            return false;
+                        }
                     }
                 }
-                let skin_count=spec.relations.iter().filter(|r| matches!(r,Relation::Skin{mesh,..} if mesh==&entity.id)).count();
-                if r["modifiers"].as_array().map(Vec::len).unwrap_or(0) != entity.modifiers.len()+skin_count { return false; }
+                let skin_count = spec
+                    .relations
+                    .iter()
+                    .filter(|r| matches!(r,Relation::Skin{mesh,..} if mesh==&entity.id))
+                    .count();
+                if r["modifiers"].as_array().map(Vec::len).unwrap_or(0)
+                    != entity.modifiers.len() + skin_count
+                {
+                    return false;
+                }
             }
             for relation in &spec.relations {
                 match relation {
-                    Relation::Parent{child,parent} => { if row(child).is_none_or(|r| r["parent"].as_str()!=Some(parent)) { return false; } }
-                    Relation::BoneParent{child,armature,bone} => { if row(child).is_none_or(|r| r["parent"].as_str()!=Some(armature) || r["parent_bone"].as_str()!=Some(bone) || r["parent_type"]!="BONE") { return false; } }
-                    Relation::Follow{subject,target,..}|Relation::LookAt{subject,target} => {
-                        let kind=if matches!(relation,Relation::Follow{..}) { "COPY_LOCATION" } else { "TRACK_TO" };
-                        if row(subject).and_then(|r| r["constraints"].as_array()).is_none_or(|rows| !rows.iter().any(|r| r["type"]==kind && r["target"].as_str()==Some(target))) { return false; }
+                    Relation::Parent { child, parent } => {
+                        if row(child).is_none_or(|r| r["parent"].as_str() != Some(parent)) {
+                            return false;
+                        }
                     }
-                    Relation::Skin{mesh,armature,..} => {
-                        if row(mesh).and_then(|r| r["modifiers"].as_array()).is_none_or(|rows| !rows.iter().any(|r| r["type"]=="ARMATURE" && r["target"].as_str()==Some(armature))) { return false; }
+                    Relation::BoneParent {
+                        child,
+                        armature,
+                        bone,
+                    } => {
+                        if row(child).is_none_or(|r| {
+                            r["parent"].as_str() != Some(armature)
+                                || r["parent_bone"].as_str() != Some(bone)
+                                || r["parent_type"] != "BONE"
+                        }) {
+                            return false;
+                        }
+                    }
+                    Relation::Follow {
+                        subject, target, ..
+                    }
+                    | Relation::LookAt { subject, target } => {
+                        let kind = if matches!(relation, Relation::Follow { .. }) {
+                            "COPY_LOCATION"
+                        } else {
+                            "TRACK_TO"
+                        };
+                        if row(subject)
+                            .and_then(|r| r["constraints"].as_array())
+                            .is_none_or(|rows| {
+                                !rows.iter().any(|r| {
+                                    r["type"] == kind && r["target"].as_str() == Some(target)
+                                })
+                            })
+                        {
+                            return false;
+                        }
+                    }
+                    Relation::Skin { mesh, armature, .. } => {
+                        if row(mesh)
+                            .and_then(|r| r["modifiers"].as_array())
+                            .is_none_or(|rows| {
+                                !rows.iter().any(|r| {
+                                    r["type"] == "ARMATURE"
+                                        && r["target"].as_str() == Some(armature)
+                                })
+                            })
+                        {
+                            return false;
+                        }
                     }
                 }
             }
-            if let Some(animation)=&spec.animation {
+            if let Some(animation) = &spec.animation {
                 for channel in &animation.channels {
-                    let Some(curves)=row(&channel.entity).and_then(|r| r["action"]["curves"].as_array()) else { return false; };
-                    let property=match channel.property {AnimatedProperty::Translation=>"location",AnimatedProperty::Rotation=>"rotation_euler",AnimatedProperty::Scale=>"scale"};
-                    let path=channel.bone.as_ref().map(|bone| format!("pose.bones[\"{bone}\"].{property}")).unwrap_or_else(|| property.into());
+                    let Some(curves) =
+                        row(&channel.entity).and_then(|r| r["action"]["curves"].as_array())
+                    else {
+                        return false;
+                    };
+                    let property = match channel.property {
+                        AnimatedProperty::Translation => "location",
+                        AnimatedProperty::Rotation => "rotation_euler",
+                        AnimatedProperty::Scale => "scale",
+                    };
+                    let path = channel
+                        .bone
+                        .as_ref()
+                        .map(|bone| format!("pose.bones[\"{bone}\"].{property}"))
+                        .unwrap_or_else(|| property.into());
                     for component in 0..3 {
-                        let Some(curve)=curves.iter().find(|c| c["path"]==path && c["index"].as_u64()==Some(component as u64)) else { return false; };
-                        let Some(keys)=curve["keys"].as_array() else { return false; };
-                        if keys.len()!=channel.keys.len() { return false; }
-                        for (actual,expected) in keys.iter().zip(&channel.keys) {
-                            let scale=if channel.property==AnimatedProperty::Translation {spec.meters_per_unit} else {1.0};
-                            if actual[0].as_f64()!=Some(expected.frame as f64) || actual[2]!="LINEAR" || !actual[1].as_f64().is_some_and(|x| (x-expected.value[component]*scale).abs()<1e-5) { return false; }
+                        let Some(curve) = curves.iter().find(|c| {
+                            c["path"] == path && c["index"].as_u64() == Some(component as u64)
+                        }) else {
+                            return false;
+                        };
+                        let Some(keys) = curve["keys"].as_array() else {
+                            return false;
+                        };
+                        if keys.len() != channel.keys.len() {
+                            return false;
+                        }
+                        for (actual, expected) in keys.iter().zip(&channel.keys) {
+                            let scale = if channel.property == AnimatedProperty::Translation {
+                                spec.meters_per_unit
+                            } else {
+                                1.0
+                            };
+                            if actual[0].as_f64() != Some(expected.frame as f64)
+                                || actual[2] != "LINEAR"
+                                || !actual[1].as_f64().is_some_and(|x| {
+                                    (x - expected.value[component] * scale).abs() < 1e-5
+                                })
+                            {
+                                return false;
+                            }
                         }
                     }
                 }

@@ -61,7 +61,7 @@ PY
 cat > "$TMP/driver.json" <<JSON
 {
   "manifest_version": 1,
-  "protocol": 1,
+  "protocol": 3,
   "id": "blender",
   "version": "$version",
   "publisher": "semwright",
@@ -94,8 +94,9 @@ cat > "$TMP/driver.json" <<JSON
   "request_timeout_ms": 300000,
   "interfaces": {
     "dynamic_capabilities": false,
-    "cooperative_cancellation": false,
+    "cooperative_cancellation": true,
     "events": false,
+    "progress": true,
     "health": true
   }
 }

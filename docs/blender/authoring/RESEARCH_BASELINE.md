@@ -1,20 +1,25 @@
 # Research baseline — Blender authoring
 
-Date: 2026-09-28/29. Runtime target is Blender **4.5.14 LTS** as verified by the existing Semwright workflow, not an arbitrary latest build.
+Date: 2026-09-28/29. Runtime target is Blender **4.5.14 LTS**, pinned and hash-checked by Semwright CI. Documentation informs implementation; the pinned runtime probe is the actual availability test.
 
-## Official Blender sources used
+## Blender references used
 
 - Blender 4.5 Python API root: https://docs.blender.org/api/4.5/
 - Blender 4.5 glTF manual: https://docs.blender.org/manual/en/4.5/addons/import_export/scene_gltf2.html
-- Blender Python `BlendDataLibraries.load/write`: https://docs.blender.org/api/4.5/bpy.types.BlendDataLibraries.html
-- Blender 4.5 `Depsgraph` / evaluated ID API: https://docs.blender.org/api/4.5/bpy.types.Depsgraph.html
-- Blender 4.5 `Mesh` API (`from_pydata`, `validate`): https://docs.blender.org/api/4.5/bpy.types.Mesh.html
-- Blender 4.5 action/slot/layer APIs are additionally runtime-probed by Semwright's existing pinned RNA coverage before native acceptance.
+- `BlendDataLibraries.load/write`: https://docs.blender.org/api/4.5/bpy.types.BlendDataLibraries.html
+- `Depsgraph` / evaluated IDs: https://docs.blender.org/api/4.5/bpy.types.Depsgraph.html
+- `Mesh.from_pydata`, `validate`, loop triangles: https://docs.blender.org/api/4.5/bpy.types.Mesh.html
+- math geometry utilities: https://docs.blender.org/api/4.5/mathutils.geometry.html
+- action/slot/layer/channelbag/F-Curve availability is additionally checked by the existing pinned Blender RNA coverage lane.
 
-Decisions: evaluated state is kept separate from source state because evaluated depsgraph applies animation/constraints/modifiers. `Mesh.from_pydata` input is validated by our typed model and then native `Mesh.validate`; if Blender repairs invalid geometry, E rejects instead of silently accepting the repair. `BlendDataLibraries.write` can expand indirectly referenced datablocks, therefore persistence requires dependency inventory and fresh-process readback rather than assuming the requested collection is the full write scope. The glTF exporter supports meshes/materials/textures/animation with mode-specific behavior, so selection alone is not treated as complete membership proof.
+Design decisions: source and evaluated state are distinct because depsgraph evaluation applies animation, constraints and modifiers. Typed topology is validated before `Mesh.from_pydata`; if native `Mesh.validate` says repair was necessary, E rejects the geometry instead of silently changing it.
 
-## Semwright sources
+AABB overlap is only broad-phase evidence. E's pairwise narrow phase works on evaluated world-space loop triangles, using segment/triangle intersection plus the documented 2D triangle helper for coplanar triangles. Budget/degeneracy returns UNKNOWN, and this method is not reused as a self-intersection claim.
 
-A C0 provides `Owner`, `BaseStateSet`, `PreparedPlan`, `ChangeSet`, `PlanVault` and reports. C P0 provides durable project identities/receipts. F E0 provides effect contracts, trusted evidence collection/evaluation and enumeration transcript rules. PR #154 provides the fixed GLB exporter and sealed-runtime probes. E adds no second copies of those authorities.
+`BlendDataLibraries.write` can expand indirect dependencies; therefore persistence requires closure checks and a fresh-process readback rather than assuming the requested collection is the exact serialized set. The glTF exporter can expand semantics through objects/modifiers/materials/textures/actions, so selection alone is not accepted as membership proof.
 
-The authoritative availability proof remains the exact pinned runtime CI. Documentation informs design; it does not certify that a symbol works in Semwright.
+## Semwright references
+
+A C0 owns Owner/BaseState/PreparedPlan/ChangeSet/PlanVault/reports. C P0 owns persistent graph identities/receipts/admission. F E0 owns effect predicates/evidence/evaluation. PR #154 owns the fixed GLB exporter/sealed-runtime probes. E adds Blender-domain compilation/adapters only; it does not fork those authorities.
+
+D SHA `557ad0b…` was inspected for GLB consumer design: its internal store validates a hash-pinned, self-contained GLB and can realize it as PackedScene, but that is not a public Broker route. E therefore records the roundtrip as a dependency blocker rather than calling private D code.

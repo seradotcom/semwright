@@ -2,22 +2,32 @@
 
 ## Authority retained
 
-All public writes remain Broker → policy → Driver Host → Blender. `Owner.session` is constructed from `DriverExecutionContext`; no authoring argument contains owner, principal, filesystem root or executable. A Composition plan is data held in A's `PlanVault`; apply revalidates the native source fingerprint immediately before side effects and consumes the plan before mutation. Replay is denied.
+All public writes remain Broker → policy → Driver Host → Blender. `Owner.session` comes from `DriverExecutionContext`; no authoring argument contains owner, principal, executable or filesystem root. Plans are A `PreparedPlan` data stored in A's `PlanVault`, and apply revalidates native state before mutation. Replay is denied.
 
-No arbitrary Python, generic operator name, shell, shader source, driver expression, callback, addon install, URL download or Godot project write is introduced. Python exists only as fixed first-party backend implementation staged by the sealed Rust driver, analogous to the existing bridge.
+No caller-selected Python, generic operator, shell command, shader source, driver expression, callback, addon install, URL download or Godot project write is introduced. Python in `authoring_native.py` is fixed first-party backend code staged by the sealed driver.
 
-## Failure semantics
+## Failure and repair semantics
 
-The native batch is explicitly `NonAtomicSequence`. If apply/cancellation fails after reservation, the driver kills its Blender child, marks its session poisoned and records an UNKNOWN attempt; it does not retry, refund budget or claim rollback. A successful native batch is separately observed before F can evaluate it.
+The native batch is `NonAtomicSequence`. Reservation happens before side effects. On failure/cancellation with uncertain effects, the Blender child is killed, the session is poisoned and the PlanVault attempt becomes UNKNOWN; no refund, hidden retry or rollback claim is made.
 
-Manual edits change the source projection; managed collection marker/fingerprint mismatch is drift. Linked or override content is denied for mutation. Shared mesh mutation through instance material/modifier changes is rejected until explicit copy-on-write exists.
+Repair is not a second authority path. Only a completed parent **Transform** can create a child repair. The child uses a fresh exact fingerprint, inherits the root convergence budget and may only restore the already-declared transform. Create/remesh/material/rig/bake/delete repair is rejected.
+
+## Shared data and readback
+
+`mesh_instance` shares a mesh datablock and cannot mutate its material slots or modifiers. `mesh_copy` explicitly duplicates the mesh datablock before independent slots/modifiers. Native acceptance checks source/copy datablock identity and shared-instance user counts.
+
+Paged readback cursors are opaque provider-owned state keyed by authenticated Owner. They are single-use and bound to island/domain/native-session/fingerprint. Replay, cross-session use or intervening native drift fails stale instead of turning an incomplete traversal into absence.
+
+Pairwise geometry measurement separates broad and narrow phases. Non-overlapping AABBs can prove pair separation; overlapping AABBs require the bounded world-triangle narrow phase. Object/triangle budget overflow or degenerate narrow-phase inputs produce UNKNOWN. Self-intersection is explicitly not inferred from pairwise object evidence.
 
 ## Export and persistence
 
-The existing fixed GLB exporter remains the only export implementation. E inventories bounded object/data/material/action/image dependencies before selection. Unsupported dependencies fail closed. Export still uses Blender's native operator internally; caller cannot choose another operator or exporter arguments.
+The existing fixed GLB exporter remains the only exporter. E inventories bounded object/data/material/action/image dependencies before selection. Linked/override dependencies, unsafe instancing, external targets, unbounded shader graphs and unsupported action expansion fail closed. Caller cannot select another operator or arbitrary exporter arguments.
 
-`composition.persist` creates a new `.blend` using `libraries.write`; the official API documents that indirect references are expanded, so E inventories a closed managed island and does not claim that the requested collection alone proves serialized scope. It never overwrites an existing destination. Fresh-process reopen uses the owner-granted workspace and the driver's `--disable-autoexec` Blender process.
+`composition.persist` creates a new `.blend` and never overwrites. `BlendDataLibraries.write` can expand indirect dependencies, so E first checks the managed island closure and still verifies in a fresh Blender process. External sentinels are observed in the native E2E. Linked/read-only content outside the managed/granted boundary remains denied rather than silently copied.
 
-## Known open security obligations
+## Evidence boundaries
 
-No proof of perfect sandboxing or TOCTOU elimination is claimed. Descriptor-relative file confinement is not added here. Texture/linked-library adversarial fixtures, full paginated observations, narrow-phase self-intersection, hostile active-handler/import cases, fuzz, packaging and Godot reimport remain open acceptance work. F's earlier head `42204ac…` had a Clippy-only failure after 34 contract tests; E later reconciled `5ed7d0f…`, which contains the owner fix and F's additional readback conformance work. E still waits for F's own release run before treating that head as independently certified.
+F PASS requires the trusted native channel and F's evaluator. C authoring receipt admission requires host-owned logical identities plus the real request/descriptor/runtime binding and C's own adapter. Neither proves the later cross-app GLB import activity.
+
+No perfect sandbox, ACID cross-app rollback, exactly-once execution, global filesystem noninterference, aesthetic quality, all-time animation validity or mesh self-intersection certification is claimed. Godot roundtrip and final exact-SHA CI remain open before readiness.
