@@ -112,7 +112,7 @@ def main():
         instancer.instance_type = "COLLECTION"
         instancer.instance_collection = instanced
         calls = Commands(bpy, work)
-        denied(calls, "instancer.glb")
+        denied(calls, "instancer.glb", expected="Unsupported")
         results.append("collection_instancer_denied")
 
         # Oversized collections are rejected before native exporter allocation.
