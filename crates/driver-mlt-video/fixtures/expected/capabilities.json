@@ -1429,6 +1429,298 @@
   },
   {
     "descriptor": {
+      "name": "driver.mlt-video.av.mux",
+      "version": "0.1.0",
+      "description": "Mux one digest-pinned video-only Motion mezzanine and one digest-pinned audio-only final mix into a bounded H.264/AAC MP4 through the pinned confined MLT runtime; no effects, gain, ducking, arbitrary argv or filter graph.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "video_root": {
+            "type": "string",
+            "enum": [
+              "project",
+              "media",
+              "output"
+            ]
+          },
+          "video_path": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "video_sha256": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "audio_root": {
+            "type": "string",
+            "enum": [
+              "project",
+              "media",
+              "output"
+            ]
+          },
+          "audio_path": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "audio_sha256": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "width": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 4096
+          },
+          "height": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 4096
+          },
+          "fps_num": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 240000
+          },
+          "fps_den": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000
+          },
+          "frame_count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 36000
+          },
+          "sample_rate": {
+            "type": "integer",
+            "enum": [
+              48000
+            ]
+          },
+          "channels": {
+            "type": "integer",
+            "enum": [
+              2
+            ]
+          },
+          "profile": {
+            "type": "string",
+            "enum": [
+              "h264-aac-mp4"
+            ]
+          },
+          "output_path": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "max_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1073741824
+          }
+        },
+        "required": [
+          "video_root",
+          "video_path",
+          "video_sha256",
+          "audio_root",
+          "audio_path",
+          "audio_sha256",
+          "width",
+          "height",
+          "fps_num",
+          "fps_den",
+          "frame_count",
+          "sample_rate",
+          "channels",
+          "profile",
+          "output_path",
+          "max_bytes"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "artifact": {
+            "type": "object",
+            "properties": {
+              "root": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "path": {
+                "type": "string",
+                "maxLength": 4096
+              },
+              "sha256": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "bytes": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1073741824
+              }
+            },
+            "required": [
+              "root",
+              "path",
+              "sha256",
+              "bytes"
+            ],
+            "additionalProperties": false
+          },
+          "profile": {
+            "type": "string",
+            "enum": [
+              "h264-aac-mp4"
+            ]
+          },
+          "frame_count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 36000
+          },
+          "fps_num": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 240000
+          },
+          "fps_den": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000
+          },
+          "sample_rate": {
+            "type": "integer",
+            "enum": [
+              48000
+            ]
+          },
+          "channels": {
+            "type": "integer",
+            "enum": [
+              2
+            ]
+          },
+          "media": {
+            "type": "object",
+            "properties": {
+              "width": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1,
+                "maximum": 16384
+              },
+              "height": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1,
+                "maximum": 16384
+              },
+              "frames": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 100000000
+              },
+              "duration_num": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000000000
+              },
+              "duration_den": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000000
+              },
+              "audio": {
+                "type": "boolean"
+              },
+              "video": {
+                "type": "boolean"
+              },
+              "codecs": {
+                "type": "array",
+                "maxItems": 16,
+                "items": {
+                  "type": "string",
+                  "maxLength": 128
+                }
+              }
+            },
+            "required": [
+              "width",
+              "height",
+              "frames",
+              "duration_num",
+              "duration_den",
+              "audio",
+              "video",
+              "codecs"
+            ],
+            "additionalProperties": false
+          },
+          "video_sha256": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "audio_sha256": {
+            "type": "string",
+            "maxLength": 64
+          }
+        },
+        "required": [
+          "artifact",
+          "profile",
+          "frame_count",
+          "fps_num",
+          "fps_den",
+          "sample_rate",
+          "channels",
+          "media",
+          "video_sha256",
+          "audio_sha256"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:mlt-video"
+      ],
+      "risk": "mutating",
+      "idempotency": "non_idempotent",
+      "timeout_ms": 300000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:mlt-video"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "video",
+      "audio",
+      "av",
+      "offline",
+      "mlt",
+      "artifact-in:video/mezzanine",
+      "artifact-in:audio/final-mix",
+      "artifact-out:video/master"
+    ],
+    "object_types": [
+      "video-artifact"
+    ]
+  },
+  {
+    "descriptor": {
       "name": "driver.mlt-video.clip.duplicate",
       "version": "0.1.0",
       "description": "Offline semantic clip.duplicate. Application data is untrusted; inspect format-level availability.",

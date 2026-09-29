@@ -276,6 +276,7 @@ impl App {
                 );
             }
             "frames.encode" => return self.frames_encode(a),
+            "av.mux" => return self.av_mux(a),
             "sync.probe" => return self.sync_probe(a),
             "render.profiles" => {
                 return Ok(obj([
@@ -1249,6 +1250,288 @@ impl App {
             opaque: false,
         })
     }
+
+    fn av_mux(&self, a: &Value) -> Result<Value> {
+        a.strict(
+            &[
+                "video_root",
+                "video_path",
+                "video_sha256",
+                "audio_root",
+                "audio_path",
+                "audio_sha256",
+                "width",
+                "height",
+                "fps_num",
+                "fps_den",
+                "frame_count",
+                "sample_rate",
+                "channels",
+                "profile",
+                "output_path",
+                "max_bytes",
+            ],
+            &[
+                "video_root",
+                "video_path",
+                "video_sha256",
+                "audio_root",
+                "audio_path",
+                "audio_sha256",
+                "width",
+                "height",
+                "fps_num",
+                "fps_den",
+                "frame_count",
+                "sample_rate",
+                "channels",
+                "profile",
+                "output_path",
+                "max_bytes",
+            ],
+        )?;
+        let video_root = a.str("video_root")?;
+        let video_path = a.str("video_path")?;
+        let video_sha256 = a.str("video_sha256")?;
+        let audio_root = a.str("audio_root")?;
+        let audio_path = a.str("audio_path")?;
+        let audio_sha256 = a.str("audio_sha256")?;
+        for root in [video_root, audio_root] {
+            if !matches!(root, "project" | "media" | "output") {
+                return Err(Error::new(
+                    "PermissionDenied",
+                    "AV media root is not owner-granted",
+                ));
+            }
+        }
+        for path in [video_path, audio_path] {
+            crate::fs::validate_relative(path)?;
+        }
+        if !valid_digest(video_sha256) || !valid_digest(audio_sha256) {
+            return Err(Error::invalid("AV media SHA-256 is malformed"));
+        }
+        if video_root == audio_root && video_path == audio_path {
+            return Err(Error::invalid(
+                "AV video and audio must be distinct verified artifacts",
+            ));
+        }
+
+        let width = u32::try_from(a.uint("width")?).map_err(|_| Error::limit("AV width"))?;
+        let height = u32::try_from(a.uint("height")?).map_err(|_| Error::limit("AV height"))?;
+        let fps_num =
+            u32::try_from(a.uint("fps_num")?).map_err(|_| Error::limit("AV fps numerator"))?;
+        let fps_den =
+            u32::try_from(a.uint("fps_den")?).map_err(|_| Error::limit("AV fps denominator"))?;
+        let rate = FrameRate::new(fps_num, fps_den)?;
+        let frame_count = a.uint("frame_count")?;
+        if frame_count == 0 || frame_count > 36_000 {
+            return Err(Error::limit("AV frame count"));
+        }
+        let sample_rate =
+            u32::try_from(a.uint("sample_rate")?).map_err(|_| Error::limit("AV sample rate"))?;
+        let channels =
+            u16::try_from(a.uint("channels")?).map_err(|_| Error::limit("AV channel count"))?;
+        if sample_rate != 48_000 || channels != 2 {
+            return Err(Error::unsupported(
+                "MLT AV mux currently certifies only 48 kHz stereo final masters",
+            ));
+        }
+        if a.str("profile")? != "h264-aac-mp4" {
+            return Err(Error::unsupported(
+                "MLT AV mux currently certifies only the h264-aac-mp4 delivery profile",
+            ));
+        }
+        let output_path = a.str("output_path")?;
+        crate::fs::validate_relative(output_path)?;
+        if !output_path.ends_with(".mp4") {
+            return Err(Error::invalid("H.264/AAC AV output must use .mp4"));
+        }
+        let max_bytes = a.uint("max_bytes")?;
+        if max_bytes == 0 || max_bytes > jobs::MAX_ARTIFACT_BYTES {
+            return Err(Error::limit("AV mux artifact byte budget"));
+        }
+
+        let video_info = self.probe_resource(video_root, video_path)?;
+        let audio_info = self.probe_resource(audio_root, audio_path)?;
+        if !video_info.video
+            || video_info.audio
+            || video_info.width != Some(width)
+            || video_info.height != Some(height)
+            || video_info
+                .frames
+                .is_some_and(|frames| frames != frame_count)
+            || media_frames(&video_info, rate)? != frame_count
+        {
+            return Err(Error::new(
+                "Conflict",
+                "Verified Motion mezzanine does not match the AV delivery profile",
+            ));
+        }
+        if !audio_info.audio
+            || audio_info.video
+            || audio_info.sample_rate != Some(sample_rate)
+            || audio_info.channels != Some(channels)
+            || media_frames(&audio_info, rate)? != frame_count
+        {
+            return Err(Error::new(
+                "Conflict",
+                "Verified audio master does not match 48 kHz stereo AV duration",
+            ));
+        }
+
+        let runtime = self.runtime.as_ref().ok_or_else(|| {
+            Error::new(
+                "Unavailable",
+                "AV mux requires the pinned confined MLT/ffprobe/ffmpeg runtime",
+            )
+        })?;
+        let mut project = Project::new(Profile {
+            width,
+            height,
+            fps: rate,
+            progressive: true,
+            sample_aspect: (1, 1),
+            display_aspect: (width, height),
+            colorspace: 709,
+            audio_channels: u32::from(channels),
+        })?;
+        let range = FrameRange::new(0, frame_count)?;
+        project.assets.insert(
+            "av-video".into(),
+            MediaAsset {
+                id: "av-video".into(),
+                name: "Verified Motion mezzanine".into(),
+                kind: "video".into(),
+                resource: Resource::Scoped {
+                    root: video_root.into(),
+                    path: video_path.into(),
+                },
+                frames: Some(frame_count),
+                service: "avformat".into(),
+                original: None,
+                proxy: None,
+                opaque: false,
+            },
+        );
+        project.assets.insert(
+            "av-audio".into(),
+            MediaAsset {
+                id: "av-audio".into(),
+                name: "Verified final audio master".into(),
+                kind: "audio".into(),
+                resource: Resource::Scoped {
+                    root: audio_root.into(),
+                    path: audio_path.into(),
+                },
+                frames: Some(frame_count),
+                service: "avformat".into(),
+                original: None,
+                proxy: None,
+                opaque: false,
+            },
+        );
+        project.sequences[0].tracks = vec![
+            Track {
+                id: "av-video-track".into(),
+                name: "Video".into(),
+                kind: "video".into(),
+                muted: false,
+                hidden: false,
+                lanes: vec![Timeline {
+                    id: "av-video-lane".into(),
+                    clips: vec![Clip {
+                        id: "av-video-clip".into(),
+                        name: "Verified Motion".into(),
+                        asset: "av-video".into(),
+                        start: 0,
+                        source: range,
+                        effects: vec![],
+                        binding: None,
+                        speed: (1, 1),
+                    }],
+                }],
+                effects: vec![],
+                opaque: false,
+            },
+            Track {
+                id: "av-audio-track".into(),
+                name: "Audio".into(),
+                kind: "audio".into(),
+                muted: false,
+                hidden: false,
+                lanes: vec![Timeline {
+                    id: "av-audio-lane".into(),
+                    clips: vec![Clip {
+                        id: "av-audio-clip".into(),
+                        name: "Verified final mix".into(),
+                        asset: "av-audio".into(),
+                        start: 0,
+                        source: range,
+                        effects: vec![],
+                        binding: None,
+                        speed: (1, 1),
+                    }],
+                }],
+                effects: vec![],
+                opaque: false,
+            },
+        ];
+        project.validate()?;
+        let render_profile = RenderProfile {
+            id: "av-h264-aac",
+            width: Some(width),
+            height: Some(height),
+            video_codec: Some("libx264"),
+            audio_codec: "aac",
+            container: "mp4",
+            extension: "mp4",
+        };
+        let pins = BTreeMap::from([
+            ("av-video".into(), video_sha256.into()),
+            ("av-audio".into(), audio_sha256.into()),
+        ]);
+        let cancel = AtomicBool::new(false);
+        let (artifact, media) = jobs::render_sync_pinned(
+            runtime,
+            project,
+            "sequence0",
+            &render_profile,
+            output_path,
+            self.roots.as_ref(),
+            &cancel,
+            &pins,
+            max_bytes,
+        )?;
+        if !media.video
+            || !media.audio
+            || media.width != Some(width)
+            || media.height != Some(height)
+            || media.frames.is_some_and(|frames| frames != frame_count)
+            || media.sample_rate != Some(sample_rate)
+            || media.channels != Some(channels)
+            || media_frames(&media, rate)? != frame_count
+            || !media.codecs.iter().any(|codec| codec == "h264")
+            || !media.codecs.iter().any(|codec| codec == "aac")
+        {
+            return Err(Error::new(
+                "BackendFailed",
+                "Encoded AV master failed post-mux stream/profile verification",
+            ));
+        }
+        Ok(obj([
+            ("artifact", artifact.json()),
+            ("profile", "h264-aac-mp4".into()),
+            ("frame_count", frame_count.into()),
+            ("fps_num", u64::from(rate.num).into()),
+            ("fps_den", u64::from(rate.den).into()),
+            ("sample_rate", u64::from(sample_rate).into()),
+            ("channels", u64::from(channels).into()),
+            ("media", media.json()),
+            ("video_sha256", video_sha256.into()),
+            ("audio_sha256", audio_sha256.into()),
+        ]))
+    }
+
     fn frames_encode(&self, a: &Value) -> Result<Value> {
         a.strict(
             &[

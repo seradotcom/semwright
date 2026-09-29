@@ -1187,6 +1187,8 @@ pub struct MediaInfo {
     pub duration_den: u64,
     pub audio: bool,
     pub video: bool,
+    pub sample_rate: Option<u32>,
+    pub channels: Option<u16>,
     pub codecs: Vec<String>,
 }
 impl MediaInfo {
@@ -1235,6 +1237,18 @@ impl MediaInfo {
             }
             if kind == "audio" {
                 info.audio = true;
+                if info.sample_rate.is_none() {
+                    info.sample_rate = s
+                        .opt("sample_rate")
+                        .and_then(|value| value.string().ok())
+                        .and_then(|value| value.parse::<u32>().ok());
+                }
+                if info.channels.is_none() {
+                    info.channels = s
+                        .opt("channels")
+                        .and_then(|value| value.u64().ok())
+                        .and_then(|value| u16::try_from(value).ok());
+                }
             }
             if info.duration_num == 0 {
                 if let (Some(ts), Some(tb)) = (

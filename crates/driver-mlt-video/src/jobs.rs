@@ -2,7 +2,7 @@
 use crate::{
     Error, Result, adapters,
     fs::{Artifact, PrivateDir, Root},
-    hash::{random_id, sha256},
+    hash::{Sha256, random_id, sha256},
     json::{Value, array, obj},
     model::*,
     runtime::{MediaInfo, RenderProfile, Runtime},
@@ -506,9 +506,34 @@ fn check_cancel(cancel: &AtomicBool) -> Result<()> {
         Ok(())
     }
 }
+pub(crate) fn render_sync_pinned(
+    runtime: &Runtime,
+    project: Project,
+    sequence: &str,
+    profile: &RenderProfile,
+    output: &str,
+    roots: &BTreeMap<String, Arc<Root>>,
+    cancel: &AtomicBool,
+    expected_sha256: &BTreeMap<String, String>,
+    artifact_limit: u64,
+) -> Result<(Artifact, MediaInfo)> {
+    render_impl(
+        runtime,
+        project,
+        sequence,
+        profile,
+        output,
+        roots,
+        cancel,
+        Some(expected_sha256),
+        artifact_limit,
+        || {},
+    )
+}
+
 fn render_worker(
     runtime: &Runtime,
-    mut p: Project,
+    project: Project,
     sequence: &str,
     profile: &RenderProfile,
     output: &str,
@@ -516,9 +541,60 @@ fn render_worker(
     cancel: &AtomicBool,
     snapshot: &Arc<Mutex<JobSnapshot>>,
 ) -> Result<(Artifact, MediaInfo)> {
+    render_impl(
+        runtime,
+        project,
+        sequence,
+        profile,
+        output,
+        roots,
+        cancel,
+        None,
+        MAX_ARTIFACT_BYTES,
+        || {
+            if let Ok(mut state) = snapshot.lock() {
+                state.state = State::Running;
+            }
+        },
+    )
+}
+
+fn render_impl<F: FnOnce()>(
+    runtime: &Runtime,
+    mut p: Project,
+    sequence: &str,
+    profile: &RenderProfile,
+    output: &str,
+    roots: &BTreeMap<String, Arc<Root>>,
+    cancel: &AtomicBool,
+    expected_sha256: Option<&BTreeMap<String, String>>,
+    artifact_limit: u64,
+    on_running: F,
+) -> Result<(Artifact, MediaInfo)> {
+    if artifact_limit == 0 || artifact_limit > MAX_ARTIFACT_BYTES {
+        return Err(Error::limit("Render artifact limit is outside bounds"));
+    }
     check_cancel(cancel)?;
     let seq = p.sequence(sequence)?.clone();
     let (asset_ids, groups) = required(&p, &seq)?;
+    if let Some(pins) = expected_sha256 {
+        let required_pins = asset_ids
+            .iter()
+            .filter(|id| !matches!(p.assets[id.as_str()].resource, Resource::Color(_)))
+            .cloned()
+            .collect::<BTreeSet<_>>();
+        let supplied_pins = pins.keys().cloned().collect::<BTreeSet<_>>();
+        if supplied_pins != required_pins
+            || pins
+                .values()
+                .any(|digest| !crate::hash::valid_digest(digest))
+        {
+            return Err(Error::new(
+                "PermissionDenied",
+                "Pinned AV render must bind every staged media asset and no unrelated asset",
+            ));
+        }
+    }
     if !profile.available(&runtime.catalog)
         || groups
             .iter()
@@ -546,6 +622,7 @@ fn render_worker(
         let mut source = mount.read_file(&path, MAX_MEDIA_BYTES)?;
         let name = format!("asset-{}.bin", &sha256(id.as_bytes())[..24]);
         let mut destination = inputs.create(&name)?;
+        let mut staged_hash = Sha256::new();
         let mut buf = [0; 65536];
         let mut size = 0;
         loop {
@@ -559,7 +636,16 @@ fn render_worker(
             if size > MAX_MEDIA_BYTES || total > MAX_JOB_INPUT_BYTES {
                 return Err(Error::limit("Staged media exceeds job input budget"));
             }
+            staged_hash.update(&buf[..n]);
             destination.write_all(&buf[..n])?;
+        }
+        if let Some(expected) = expected_sha256.and_then(|pins| pins.get(id))
+            && staged_hash.finish() != *expected
+        {
+            return Err(Error::new(
+                "StaleReference",
+                "Staged media bytes changed after the AV plan was prepared",
+            ));
         }
         destination.sync_all()?;
         drop(destination);
@@ -607,9 +693,7 @@ fn render_worker(
     drop(f);
     inputs.seal("project.mlt")?;
     check_cancel(cancel)?;
-    if let Ok(mut s) = snapshot.lock() {
-        s.state = State::Running;
-    }
+    on_running();
     runtime.render(inputs.path(), work.path(), profile, cancel)?;
     check_cancel(cancel)?;
     let media = runtime.validate_output(
@@ -620,10 +704,8 @@ fn render_worker(
         cancel,
     )?;
     check_cancel(cancel)?;
-    let source = Root::open(work.path(), true, false)?.read_file(
-        &format!("partial.{}", profile.extension),
-        MAX_ARTIFACT_BYTES,
-    )?;
+    let source = Root::open(work.path(), true, false)?
+        .read_file(&format!("partial.{}", profile.extension), artifact_limit)?;
     struct CancelReader<'a> {
         file: File,
         cancel: &'a AtomicBool,
@@ -649,7 +731,7 @@ fn render_worker(
             file: source,
             cancel,
         },
-        MAX_ARTIFACT_BYTES,
+        artifact_limit,
     ) {
         Ok(a) => a,
         Err(e) => {

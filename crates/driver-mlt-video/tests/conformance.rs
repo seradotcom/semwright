@@ -71,6 +71,7 @@ fn capability_namespace_unique_and_bounded() {
     let caps = catalog::capabilities().unwrap();
     assert!(caps.len() >= 70);
     for required in [
+        "driver.mlt-video.av.mux",
         "driver.mlt-video.frames.encode",
         "driver.mlt-video.sync.probe",
     ] {
@@ -190,4 +191,44 @@ fn schema_pages_bounded() {
         ("limit", 101u64.into()),
     ]);
     assert!(c.input(&args).is_err());
+}
+
+#[test]
+fn av_mux_schema_is_closed_and_declares_only_certified_audio_profile() {
+    let caps = catalog::capabilities().unwrap();
+    let mux = caps
+        .iter()
+        .find(|capability| capability.name == "driver.mlt-video.av.mux")
+        .unwrap();
+    let valid = obj([
+        ("video_root", "media".into()),
+        ("video_path", "video.mkv".into()),
+        ("video_sha256", "a".repeat(64).into()),
+        ("audio_root", "media".into()),
+        ("audio_path", "audio.wav".into()),
+        ("audio_sha256", "b".repeat(64).into()),
+        ("width", 1920u64.into()),
+        ("height", 1080u64.into()),
+        ("fps_num", 30000u64.into()),
+        ("fps_den", 1001u64.into()),
+        ("frame_count", 90u64.into()),
+        ("sample_rate", 48000u64.into()),
+        ("channels", 2u64.into()),
+        ("profile", "h264-aac-mp4".into()),
+        ("output_path", "master.mp4".into()),
+        ("max_bytes", 64_000_000u64.into()),
+    ]);
+    mux.input(&valid).unwrap();
+
+    let mut unknown = valid.clone();
+    if let Value::Object(fields) = &mut unknown {
+        fields.insert("shell".into(), "ffmpeg arbitrary".into());
+    }
+    assert!(mux.input(&unknown).is_err());
+
+    let mut unsupported_rate = valid;
+    if let Value::Object(fields) = &mut unsupported_rate {
+        fields.insert("sample_rate".into(), 44100u64.into());
+    }
+    assert!(mux.input(&unsupported_rate).is_err());
 }

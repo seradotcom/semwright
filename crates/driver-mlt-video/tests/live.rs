@@ -508,6 +508,73 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
     .unwrap_err();
     assert_eq!(stale_sync.code, semwright_types::ErrorCode::StaleReference);
 
+    let muxed = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.mlt-video.av.mux",
+        json!({
+            "video_root":"media",
+            "video_path":"red.mkv",
+            "video_sha256":digest(&media.path().join("red.mkv")),
+            "audio_root":"media",
+            "audio_path":"sine.wav",
+            "audio_sha256":digest(&media.path().join("sine.wav")),
+            "width":160,
+            "height":90,
+            "fps_num":25,
+            "fps_den":1,
+            "frame_count":50,
+            "sample_rate":48000,
+            "channels":2,
+            "profile":"h264-aac-mp4",
+            "output_path":"av-master.mp4",
+            "max_bytes":67108864
+        }),
+    )
+    .await
+    .unwrap();
+    assert_eq!(muxed["profile"], "h264-aac-mp4");
+    assert_eq!(muxed["frame_count"], 50);
+    assert_eq!(muxed["sample_rate"], 48000);
+    assert_eq!(muxed["channels"], 2);
+    assert_eq!(muxed["media"]["video"], true);
+    assert_eq!(muxed["media"]["audio"], true);
+    assert_eq!(muxed["artifact"]["root"], "output");
+    assert_eq!(muxed["artifact"]["path"], "av-master.mp4");
+    assert_eq!(
+        muxed["artifact"]["sha256"],
+        digest(&output.path().join("av-master.mp4"))
+    );
+    assert!(muxed["artifact"]["bytes"].as_u64().unwrap() > 0);
+
+    let stale_mux = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.mlt-video.av.mux",
+        json!({
+            "video_root":"media",
+            "video_path":"red.mkv",
+            "video_sha256":"0".repeat(64),
+            "audio_root":"media",
+            "audio_path":"sine.wav",
+            "audio_sha256":digest(&media.path().join("sine.wav")),
+            "width":160,
+            "height":90,
+            "fps_num":25,
+            "fps_den":1,
+            "frame_count":50,
+            "sample_rate":48000,
+            "channels":2,
+            "profile":"h264-aac-mp4",
+            "output_path":"stale-av-master.mp4",
+            "max_bytes":67108864
+        }),
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(stale_mux.code, semwright_types::ErrorCode::StaleReference);
+    assert!(!output.path().join("stale-av-master.mp4").exists());
+
     let created_project = call(
         provider.as_ref(),
         &capabilities,
