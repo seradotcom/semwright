@@ -37,3 +37,14 @@ test('render harness reports bounded state when browser rendering stalls', () =>
   assert.ok(render.includes('render wait failed:'));
   assert.ok(render.includes('diagnostics.length < 32'));
 });
+
+test('authoring font evidence is derived from pinned Fontsource resources and browser readiness', () => {
+  assert.equal(pkg.dependencies['@fontsource-variable/instrument-sans'], '5.3.0');
+  assert.equal(pkg.dependencies['@fontsource/ibm-plex-mono'], '5.3.0');
+  assert.ok(render.includes('pinnedFontEvidence'));
+  assert.ok(render.includes('unicode-range'));
+  assert.ok(render.includes('document.fonts.ready'));
+  assert.ok(render.includes('document.fonts.check'));
+  assert.ok(render.includes('font_resources_sha256'));
+  assert.ok(!render.includes('font_ready:known(true)'));
+});

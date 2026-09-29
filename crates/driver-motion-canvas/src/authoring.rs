@@ -54,6 +54,28 @@ pub fn check_binding(project: &Project) -> Result<()> {
 /// Assets must have entered the managed project through its existing authorized
 /// import/handoff path. An artifact reference is never used as a filesystem path.
 pub fn project(film: &Film, base: Option<&Project>) -> Result<(Project, Realization)> {
+    for font in [&film.editorial.font, &film.editorial.mono_font] {
+        ensure(
+            matches!(
+                font.family.as_str(),
+                "Instrument Sans Variable" | "IBM Plex Mono"
+            ),
+            "Motion Canvas backend only supports its two digest-pinned bundled font families",
+        )?;
+        ensure(
+            font.asset_digest.is_none(),
+            "Motion Canvas custom font assets are not supported until a native font import path is verified",
+        )?;
+        for fallback in &font.permitted_fallbacks {
+            ensure(
+                matches!(
+                    fallback.as_str(),
+                    "Instrument Sans Variable" | "IBM Plex Mono"
+                ),
+                "Motion Canvas fallback family is not part of the pinned runtime",
+            )?;
+        }
+    }
     let realization = a::realize(film).map_err(contract)?;
     if let Some(p) = base {
         check_binding(p)?;
@@ -380,5 +402,21 @@ mod tests {
         let (next, _) = project(&f, Some(&first)).unwrap();
         assert_eq!(next.revision, first.revision + 1);
         assert_eq!(next.generation, first.generation);
+    }
+
+    #[test]
+    fn backend_rejects_unpinned_or_custom_font_sources() {
+        let mut unsupported = film();
+        unsupported.editorial.font.family = "Unpinned Sans".into();
+        assert!(project(&unsupported, None).is_err());
+
+        let mut custom = film();
+        custom.editorial.font.asset_digest = Some(Digest::of_bytes(b"custom-font"));
+        assert!(project(&custom, None).is_err());
+
+        let mut fallback = film();
+        fallback.editorial.font.fallback = a::FontFallback::AllowAndReport;
+        fallback.editorial.font.permitted_fallbacks = vec!["Unpinned Fallback".into()];
+        assert!(project(&fallback, None).is_err());
     }
 }

@@ -150,6 +150,8 @@ pub struct RangeCoverage {
     pub method: String,
     pub observation_digest: Digest,
     pub render_input_digest: Digest,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub font_resources_digest: Option<Digest>,
     pub artifact_digest: Digest,
 }
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]

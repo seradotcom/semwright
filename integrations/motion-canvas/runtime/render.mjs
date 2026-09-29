@@ -10,6 +10,43 @@ import {firefox} from 'playwright';
 
 const motionCanvas = typeof motionCanvasModule === 'function' ? motionCanvasModule : motionCanvasModule.default;
 function fail(message) { throw new Error(message); }
+function unicodeRanges(css) {
+  const ranges=[];
+  for(const match of css.matchAll(/unicode-range:\s*([^;]+);/gi)){
+    for(const token of match[1].split(',').map(x=>x.trim())){
+      const value=token.replace(/^U\+/i,'');
+      let start;let end;
+      if(value.includes('?')){start=parseInt(value.replaceAll('?','0'),16);end=parseInt(value.replaceAll('?','F'),16);}
+      else if(value.includes('-')){const parts=value.split('-',2);start=parseInt(parts[0],16);end=parseInt(parts[1],16);}
+      else{start=parseInt(value,16);end=start;}
+      if(!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||start<0||end<start||end>0x10ffff)fail('invalid pinned font unicode-range');
+      ranges.push([start,end]);
+    }
+  }
+  return ranges;
+}
+async function pinnedFontEvidence(runtimeRoot){
+  const specs=[
+    {family:'Instrument Sans Variable',css:'node_modules/@fontsource-variable/instrument-sans/index.css',weights:[100,200,300,400,500,600,700,800,900]},
+    {family:'IBM Plex Mono',css:'node_modules/@fontsource/ibm-plex-mono/400.css',weights:[400]},
+  ];
+  const evidence=[];
+  for(const spec of specs){
+    const cssPath=path.join(runtimeRoot,spec.css);const css=await fs.readFile(cssPath,'utf8');
+    const refs=[...css.matchAll(/url\((?:['"]?)([^)'"]+\.woff2)(?:['"]?)\)/g)].map(m=>m[1]);
+    if(refs.length===0)fail(`pinned font ${spec.family} exposes no WOFF2 files`);
+    const hash=createHash('sha256');hash.update(Buffer.from(spec.css+'\n','utf8'));hash.update(Buffer.from(css,'utf8'));
+    for(const rel of [...new Set(refs)].sort()){
+      if(rel.includes('..')||path.isAbsolute(rel)||rel.includes('\\'))fail('invalid pinned font path');
+      const bytes=await fs.readFile(path.resolve(path.dirname(cssPath),rel));
+      if(bytes.length===0||bytes.length>16*1024*1024)fail('pinned font file exceeds bounds');
+      hash.update(Buffer.from(rel+'\n','utf8'));hash.update(bytes);
+    }
+    const codepoints=unicodeRanges(css);if(codepoints.length===0)fail(`pinned font ${spec.family} has no Unicode coverage`);
+    evidence.push({family:spec.family,sha256:hash.digest('hex'),weights:spec.weights,codepoints,face_loaded:false});
+  }
+  return evidence;
+}
 function args() {
   const out = {};
   for (let i = 2; i < process.argv.length; i += 2) {
@@ -41,6 +78,11 @@ renderer.onFrameChanged.subscribe(frame=>{state.frame=frame;state.phase='frame';
 renderer.onFinished.subscribe(result=>{state.result=result;});
 (async()=>{
   try {
+    if(config.authoring){
+      await document.fonts.ready;
+      const binding=globalThis.__SEMWRIGHT_NATIVE_CONFIG__;
+      binding.font_evidence=binding.font_evidence.map(face=>({...face,face_loaded:face.weights.some(weight=>document.fonts.check(String(weight)+' 16px "'+face.family+'"'))}));
+    }
     state.phase='rendering';
     await renderer.render({
       name:'frames',
@@ -69,6 +111,7 @@ async function main() {
   const a = args();
   const runtimeRoot = path.dirname(fileURLToPath(import.meta.url));
   const config = JSON.parse(Buffer.from(a.config, 'base64url').toString('utf8'));
+  if(config.authoring) config.fontEvidence=await pinnedFontEvidence(runtimeRoot);
   const project = path.resolve(a.project); const output = path.resolve(a.output);
   const work = await fs.mkdtemp(path.join(os.tmpdir(), 'semwright-motion-render-'));
   const dist = path.join(work, '.semwright-render-dist');
@@ -145,7 +188,7 @@ async function main() {
     if (state.result !== 0) fail(`renderer result ${state.result}; state=${JSON.stringify(state)} diagnostics=${JSON.stringify(diagnostics)}`);
     if(config.authoring){
       if(observationCount!==config.endFrameExclusive-config.firstFrame)fail('native observation count incomplete');
-      await fs.writeFile(path.join(output,'native-observations-receipt.json'),JSON.stringify({version:1,render_input_digest:config.renderInputDigest,sha256:observationHash.digest('hex'),bytes:observationBytes,frames:observationCount,fps_num:config.fpsNum,fps_den:config.fpsDen}),{flag:'wx'});
+      await fs.writeFile(path.join(output,'native-observations-receipt.json'),JSON.stringify({version:1,render_input_digest:config.renderInputDigest,font_resources_sha256:config.fontResourcesDigest,sha256:observationHash.digest('hex'),bytes:observationBytes,frames:observationCount,fps_num:config.fpsNum,fps_den:config.fpsDen}),{flag:'wx'});
     }
     const files = (await fs.readdir(path.join(output,'frames'))).sort();
     process.stdout.write(JSON.stringify({ok:true,renderer:'motion-canvas-core-renderer-v3.17.2-firefox',lastFrame:state.frame,files:files.map(file=>`frames/${file}`)})+'\n');

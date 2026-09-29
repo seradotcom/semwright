@@ -33,6 +33,7 @@ pub struct RendererRuntime {
     pub helper: PathBuf,
     pub browser: PathBuf,
     pub dependency_lock_sha256: String,
+    pub font_resources_sha256: String,
 }
 
 impl RendererRuntime {
@@ -62,6 +63,7 @@ impl RendererRuntime {
             helper: Tool,
             browser: Tool,
             dependency_lock: Tool,
+            font_resources: Vec<Tool>,
         }
         let config: Config = serde_json::from_slice(&bytes)?;
         let canonical_root = fs::canonicalize(root)?;
@@ -122,11 +124,53 @@ impl RendererRuntime {
                 "Motion Canvas dependency lock exceeds 4 MiB",
             ));
         }
+        if config.font_resources.is_empty() || config.font_resources.len() > 128 {
+            return Err(Error::invalid(
+                "Motion Canvas runtime must pin a bounded font resource set",
+            ));
+        }
+        let mut font_resources = BTreeMap::new();
+        for resource in &config.font_resources {
+            let allowed = resource.path
+                == "node_modules/@fontsource-variable/instrument-sans/index.css"
+                || resource.path == "node_modules/@fontsource/ibm-plex-mono/400.css"
+                || resource
+                    .path
+                    .starts_with("node_modules/@fontsource-variable/instrument-sans/files/")
+                || resource
+                    .path
+                    .starts_with("node_modules/@fontsource/ibm-plex-mono/files/");
+            if !allowed
+                || !(resource.path.ends_with(".css") || resource.path.ends_with(".woff2"))
+                || font_resources
+                    .insert(resource.path.clone(), resource.sha256.clone())
+                    .is_some()
+            {
+                return Err(Error::invalid(
+                    "Unexpected or duplicate pinned font resource",
+                ));
+            }
+            let path = resolve(resource)?;
+            if fs::metadata(path)?.len() > 16 * 1024 * 1024 {
+                return Err(Error::new(
+                    ErrorCode::ResourceExhausted,
+                    "Pinned font resource exceeds 16 MiB",
+                ));
+            }
+        }
+        let mut font_hasher = Sha256::new();
+        for (path, digest) in &font_resources {
+            font_hasher.update(path.as_bytes());
+            font_hasher.update([0]);
+            font_hasher.update(digest.as_bytes());
+            font_hasher.update([0]);
+        }
         Ok(Self {
             node: resolve(&config.node)?,
             helper: resolve(&config.helper)?,
             browser: resolve(&config.browser)?,
             dependency_lock_sha256: config.dependency_lock.sha256,
+            font_resources_sha256: format!("{:x}", font_hasher.finalize()),
         })
     }
 }
@@ -379,11 +423,13 @@ async fn run_render(
         crate::authoring::COMPILER_EXTENSION_VERSION,
         security::sha256(&fs::read(&runtime.helper)?),
         &runtime.dependency_lock_sha256,
+        &runtime.font_resources_sha256,
     ))
     .map_err(|e| Error::invalid(e.to_string()))?;
     let config = json!({
         "authoring": project.authoring.is_some(),
         "renderInputDigest":render_input_digest.as_str(),
+        "fontResourcesDigest":runtime.font_resources_sha256,
         "name": "frames",
         "width": plan.width,
         "height": plan.height,
@@ -718,6 +764,10 @@ fn validate_artifacts(
                 != Some(security::sha256(&data).as_str())
             || receipt.get("bytes").and_then(serde_json::Value::as_u64) != Some(data.len() as u64)
             || receipt.get("frames").and_then(serde_json::Value::as_u64) != Some(plan.frame_count)
+            || !receipt
+                .get("font_resources_sha256")
+                .and_then(serde_json::Value::as_str)
+                .is_some_and(security::digest)
         {
             return Err(Error::new(
                 ErrorCode::BackendFailed,
@@ -769,6 +819,7 @@ pub struct NativeObservationBundle {
     pub bytes: Vec<u8>,
     pub observation_sha256: String,
     pub render_input_digest: String,
+    pub font_resources_sha256: String,
     pub artifact_sha256: String,
     pub plan: RenderPlan,
 }
@@ -819,6 +870,12 @@ impl RenderManager {
             .and_then(serde_json::Value::as_str)
             .ok_or_else(|| Error::invalid("native render input binding absent"))?
             .to_owned();
+        let font_resources_sha256 = receipt
+            .get("font_resources_sha256")
+            .and_then(serde_json::Value::as_str)
+            .filter(|value| security::digest(value))
+            .ok_or_else(|| Error::invalid("native font evidence binding absent"))?
+            .to_owned();
         let bytes = crate::store::read_granted_file(
             &self.output_root,
             &format!("{}/native-observations.ndjson", artifact.directory),
@@ -840,6 +897,7 @@ impl RenderManager {
             bytes,
             observation_sha256,
             render_input_digest,
+            font_resources_sha256,
             artifact_sha256: artifact.manifest_sha256,
             plan,
         })

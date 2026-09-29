@@ -531,6 +531,13 @@ async fn composition_authoring_runs_through_broker_driver_host_and_native_render
     .await;
     assert_eq!(verified["report"]["execution_status"], "completed");
     assert_eq!(verified["report"]["support_level"], "native");
+    assert_eq!(
+        verified["measurement"]["coverage"]["font_resources_digest"]
+            .as_str()
+            .expect("native font resource digest")
+            .len(),
+        64
+    );
     assert!(
         verified["measurement"]["findings"]
             .as_array()

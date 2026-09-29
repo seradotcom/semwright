@@ -669,6 +669,9 @@ impl MotionDriver {
                 .map_err(contract_error)?,
             render_input_digest: c::Digest::parse(bundle.render_input_digest)
                 .map_err(contract_error)?,
+            font_resources_digest: Some(
+                c::Digest::parse(bundle.font_resources_sha256).map_err(contract_error)?,
+            ),
             artifact_digest: c::Digest::parse(bundle.artifact_sha256).map_err(contract_error)?,
         };
         let reader = std::io::BufReader::new(std::io::Cursor::new(bundle.bytes));
