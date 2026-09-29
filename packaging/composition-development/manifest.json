@@ -38,6 +38,7 @@
     ".github/workflows/composition-diagnostics.yml",
     ".github/workflows/composition-driver-diagnostics.yml",
     ".github/workflows/composition-fuzz.yml",
+    ".github/workflows/composition-mutants.yml",
     ".github/workflows/figma-semantic-authoring.yml",
     ".github/workflows/motion-canvas.yml"
   ]

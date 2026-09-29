@@ -1,0 +1,128 @@
+name: Composition mutation testing
+
+on:
+  push:
+    branches: [feat/composition-media]
+    paths:
+      - 'crates/semantic-composition/**'
+      - 'crates/media-time/**'
+      - 'crates/motion-authoring/**'
+      - 'crates/av-composition/**'
+      - '.github/workflows/composition-mutants.yml'
+  pull_request:
+    paths:
+      - 'crates/semantic-composition/**'
+      - 'crates/media-time/**'
+      - 'crates/motion-authoring/**'
+      - 'crates/av-composition/**'
+      - '.github/workflows/composition-mutants.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: composition-mutants-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  mutants:
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include:
+          - id: kernel
+            package: semwright-semantic-composition
+            files: 'src/controller.rs src/vault.rs'
+          - id: media-time
+            package: semwright-media-time
+            files: 'src/lib.rs src/cue.rs'
+          - id: motion
+            package: semwright-motion-authoring
+            files: 'src/temporal.rs src/measurement.rs'
+          - id: av
+            package: semwright-av-composition
+            files: 'src/sync.rs src/coordinator.rs src/executor.rs'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: composition-mutants-${{ matrix.id }}-v1
+      - name: Install pinned cargo-mutants
+        run: cargo install --locked cargo-mutants --version 27.1.0
+      - name: Validate non-empty mutation selection
+        env:
+          PACKAGE: ${{ matrix.package }}
+          FILES: ${{ matrix.files }}
+          ID: ${{ matrix.id }}
+        run: |
+          set -euo pipefail
+          mkdir -p "verification/composition-mutants/$ID"
+          args=()
+          for file in $FILES; do args+=(--file "$file"); done
+          cargo mutants --no-config --package "$PACKAGE" "${args[@]}" --list --json \
+            > "verification/composition-mutants/$ID/mutants.json"
+          python3 - "$ID" <<'PY'
+          import json, sys
+          from pathlib import Path
+          path=Path('verification/composition-mutants')/sys.argv[1]/'mutants.json'
+          data=json.loads(path.read_text())
+          count=len(data) if isinstance(data,list) else len(data.get('mutants',[]))
+          if count < 1:
+              raise SystemExit('mutation selector produced zero mutants')
+          print(f'selected_mutants={count}')
+          PY
+      - name: Run selected mutation suite
+        env:
+          PACKAGE: ${{ matrix.package }}
+          FILES: ${{ matrix.files }}
+          ID: ${{ matrix.id }}
+        run: |
+          set -euo pipefail
+          args=()
+          for file in $FILES; do args+=(--file "$file"); done
+          cargo mutants --no-config --package "$PACKAGE" "${args[@]}" \
+            --output "verification/composition-mutants/$ID/out" \
+            --timeout 90 --jobs 2 --colors=never --no-times
+      - name: Summarize mutation outcomes
+        if: always()
+        env:
+          ID: ${{ matrix.id }}
+        run: |
+          python3 - "$ID" <<'PY'
+          import json, os, sys
+          from pathlib import Path
+          root=Path('verification/composition-mutants')/sys.argv[1]
+          outcomes=root/'out/outcomes.json'
+          summary={
+              'schema_version':1,
+              'tested_sha':os.environ['GITHUB_SHA'],
+              'run_id':os.environ['GITHUB_RUN_ID'],
+              'run_attempt':os.environ['GITHUB_RUN_ATTEMPT'],
+              'target':sys.argv[1],
+              'outcomes_present':outcomes.is_file(),
+              'claim_scope':'selected high-risk source files only',
+          }
+          if outcomes.is_file():
+              summary['outcomes']=json.loads(outcomes.read_text())
+          (root/'summary.json').write_text(json.dumps(summary,indent=2)+'\n')
+          PY
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: composition-mutants-${{ matrix.id }}-${{ github.sha }}
+          path: verification/composition-mutants/${{ matrix.id }}
+          retention-days: 7
+          if-no-files-found: error
