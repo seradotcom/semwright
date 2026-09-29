@@ -45,7 +45,7 @@ jobs:
           ffprobe -version | head -3 | tee verification/mlt-runtime-tools/ffprobe-version.log
       - name: Enforce Driver Host AppArmor chain
         run: |
-          scripts/dev/ci-driver-bwrap-profile.sh verification/mlt-runtime-tools/sandbox.log
+          bash scripts/dev/ci-driver-bwrap-profile.sh verification/mlt-runtime-tools/sandbox.log
       - name: MLT unit and runner contract
         run: |
           cargo test --locked -p semwright-mlt-video-driver --all-features 2>&1 | tee verification/mlt-runtime-tools/tests.log

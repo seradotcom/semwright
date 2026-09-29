@@ -537,7 +537,7 @@ jobs:
           bwrap --version | tee verification/native-ci/bwrap-version.log
       - name: Preflight unprivileged Bubblewrap
         run: |
-          scripts/dev/ci-driver-bwrap-profile.sh verification/native-ci/extended-driver-sandbox.log
+          bash scripts/dev/ci-driver-bwrap-profile.sh verification/native-ci/extended-driver-sandbox.log
       - name: Build and test MLT semantic driver
         run: |
           cargo test --locked -p semwright-mlt-video-driver --all-features 2>&1 | tee verification/native-ci/mlt-tests.log
