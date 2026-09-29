@@ -1,12 +1,13 @@
 #![cfg(target_os = "linux")]
 
-use semwright_backend_api::Provider;
+use semwright_backend_api::{Backend, Provider};
 use semwright_core::{Approval, Approver, Broker, audit::Audit};
 use semwright_driver_host::DriverProvider;
 use semwright_driver_sdk::{
     ApplicationMatch, DRIVER_MANIFEST_VERSION, DRIVER_PROTOCOL_VERSION, DriverInterfaces,
     DriverMount, DriverResources, DriverToolMount, Manifest, Transport,
 };
+use semwright_platform_common::artifact::ArtifactHandoff;
 use semwright_policy::{FilesystemGrant, Policy, PolicyConfig};
 use semwright_types::{ExecuteRequest, unique_id};
 use serde_json::{Value, json};
@@ -871,6 +872,294 @@ async fn empty_project_authoring_flows_through_broker_driver_host_and_provider()
         foreign.error.unwrap().code,
         semwright_types::ErrorCode::PermissionDenied
     );
+
+    broker.remove_provider("driver:godot").await.unwrap();
+    Provider::shutdown(provider.as_ref()).await.unwrap();
+}
+
+const E_ARTICULATED_GLB_SHA256: &str =
+    "43c01fb5f32765c502f4ddb5e46bf788b383537a15c00cd1534dff9fc4fab32b";
+
+#[tokio::test]
+#[ignore = "requires pinned E Blender GLB artifact, bubblewrap/Landlock and pinned Godot"]
+async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {
+    let Some(glb_path) = std::env::var_os("SEMWRIGHT_TEST_E_GLB") else {
+        return;
+    };
+    let e_glb = PathBuf::from(glb_path).canonicalize().unwrap();
+    assert_eq!(
+        e_glb.file_name().and_then(|name| name.to_str()),
+        Some("articulated.glb")
+    );
+    assert_eq!(digest(&e_glb), E_ARTICULATED_GLB_SHA256);
+    let e_root = e_glb.parent().unwrap().canonicalize().unwrap();
+
+    let fixture = fixture();
+    let godot_input = fixture._input.path().canonicalize().unwrap();
+    let handoff_grants = vec![
+        FilesystemGrant {
+            name: "e-blender-output".into(),
+            path: e_root,
+            read: true,
+            write: false,
+        },
+        FilesystemGrant {
+            name: "godot-authoring-input".into(),
+            path: godot_input.clone(),
+            read: true,
+            write: true,
+        },
+    ];
+    let artifact_backend: Arc<dyn Backend> =
+        Arc::new(ArtifactHandoff::new(&handoff_grants).unwrap());
+
+    let audit_dir = tempfile::tempdir().unwrap();
+    let audit = Audit::open(&audit_dir.path().join("audit"), 65_536, 2).unwrap();
+    let policy = Policy::new(PolicyConfig {
+        allow: ["driver:godot".into()].into(),
+        filesystem: handoff_grants.clone(),
+        ..Default::default()
+    })
+    .unwrap();
+    let broker = Broker::new(
+        policy,
+        vec![artifact_backend],
+        audit,
+        Arc::new(TestApprover),
+        None,
+        json!({
+            "test":"godot-cross-app-blender-glb",
+            "e_source_sha":"a5a242327ed435e9b95dc4921adf055f5391f5d7",
+            "e_run_id":36521758152u64,
+            "e_glb_sha256":E_ARTICULATED_GLB_SHA256
+        }),
+        false,
+    )
+    .unwrap();
+
+    let session = unique_id();
+    let handoff = broker_call(
+        &broker,
+        &session,
+        "artifact.handoff",
+        json!({
+            "source_root":"e-blender-output",
+            "source_path":"articulated.glb",
+            "destination_root":"godot-authoring-input",
+            "destination_path":"articulated.glb",
+            "expected_sha256":E_ARTICULATED_GLB_SHA256,
+            "max_bytes":16_777_216,
+            "semantic_type":"model/3d",
+            "media_type":"model/gltf-binary"
+        }),
+    )
+    .await;
+    assert_eq!(handoff["copied"], true);
+    assert_eq!(handoff["atomic"], true);
+    assert_eq!(handoff["sha256"], E_ARTICULATED_GLB_SHA256);
+    assert_eq!(
+        digest(&godot_input.join("articulated.glb")),
+        E_ARTICULATED_GLB_SHA256
+    );
+
+    let (_binary_dir, executable) = staged_driver().await;
+    let helper = PathBuf::from(
+        std::env::var_os("SEMWRIGHT_TEST_SANDBOX_HELPER")
+            .expect("SEMWRIGHT_TEST_SANDBOX_HELPER must point to semwright-sandbox"),
+    );
+    let driver_state = tempfile::tempdir().unwrap();
+    std::fs::set_permissions(driver_state.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
+    let provider = DriverProvider::connect(
+        manifest(executable, fixture.runtime_sha256.clone()),
+        driver_state.path(),
+        &helper,
+        &fixture.roots,
+        false,
+    )
+    .await
+    .unwrap();
+    broker.mount_provider(provider.clone()).await.unwrap();
+
+    let mut spec: Value =
+        serde_json::from_slice(include_bytes!("fixtures/authoring/three_d.json")).unwrap();
+    spec["project"] = json!("cross_app_articulated");
+    spec["title"] = json!("Cross-app Blender articulated GLB");
+    spec["assets"][0]["file"] = json!("articulated.glb");
+    spec["assets"][0]["sha256"] = json!(E_ARTICULATED_GLB_SHA256);
+
+    let plan = broker_call(
+        &broker,
+        &session,
+        "driver.godot.composition.plan",
+        json!({"spec":spec}),
+    )
+    .await;
+    let plan_id = plan["plan_id"].as_str().unwrap().to_owned();
+    let applied = broker_call(
+        &broker,
+        &session,
+        "driver.godot.composition.apply",
+        json!({"plan_id":plan_id}),
+    )
+    .await;
+    assert_eq!(applied["execution_status"], "completed");
+
+    let inspected = broker_call(
+        &broker,
+        &session,
+        "driver.godot.composition.native.verify",
+        json!({
+            "plan_id":plan_id,
+            "scene":"arena",
+            "verification":{"kind":"inspect"}
+        }),
+    )
+    .await;
+    let readback = effect_rule_verdict(&inspected, "godot.native_readback.arena.v1").unwrap();
+    assert!(matches!(readback, "PASS" | "UNKNOWN"));
+
+    let dependencies = inspected["observation"]["dependencies"].as_array().unwrap();
+    assert!(
+        dependencies.iter().any(|dependency| {
+            dependency["path"]
+                .as_str()
+                .is_some_and(|path| path.ends_with("assets/articulated.glb"))
+                && dependency["exists"] == true
+                && dependency["sha256"] == E_ARTICULATED_GLB_SHA256
+        }),
+        "native dependency closure did not pin E articulated.glb"
+    );
+
+    let nodes = inspected["observation"]["authored"]["nodes"]
+        .as_array()
+        .unwrap();
+    let skeletons = nodes
+        .iter()
+        .filter(|node| node["class"] == "Skeleton3D")
+        .collect::<Vec<_>>();
+    assert!(!skeletons.is_empty(), "E GLB imported without Skeleton3D");
+    assert!(
+        skeletons.iter().any(|node| {
+            let Some(properties) = node["properties"].as_object() else {
+                return false;
+            };
+            let names = properties
+                .iter()
+                .filter_map(|(name, value)| {
+                    name.starts_with("bone_name_")
+                        .then(|| value["value"].as_str())
+                        .flatten()
+                })
+                .collect::<std::collections::BTreeSet<_>>();
+            names.contains("base") && names.contains("hinge")
+        }),
+        "E GLB base/hinge bones missing from Godot native readback"
+    );
+    assert!(
+        nodes.iter().any(|node| {
+            node["class"] == "MeshInstance3D"
+                && node["properties"]["skeleton"]["value"]
+                    .as_str()
+                    .is_some_and(|path| !path.is_empty())
+        }),
+        "E GLB skin binding missing from Godot MeshInstance3D readback"
+    );
+
+    let resources = inspected["observation"]["authored"]["resources"]
+        .as_array()
+        .unwrap();
+    let imported_materials = resources
+        .iter()
+        .filter(|resource| {
+            resource["resource"]["path"]
+                .as_str()
+                .is_some_and(|path| path.starts_with("res://assets/articulated.glb"))
+                && resource["resource"]["class"]
+                    .as_str()
+                    .is_some_and(|class| class.contains("Material"))
+        })
+        .count();
+    assert!(
+        imported_materials >= 2,
+        "expected E GLB material bindings in Godot readback, got {imported_materials}"
+    );
+
+    let animations = inspected["observation"]["authored"]["animations"]
+        .as_array()
+        .unwrap();
+    assert!(
+        animations.iter().any(|animation| {
+            animation["tracks"].as_array().is_some_and(|tracks| {
+                tracks
+                    .iter()
+                    .map(|track| track["key_count"].as_u64().unwrap_or_default())
+                    .sum::<u64>()
+                    > 2
+            })
+        }),
+        "E GLB animation did not survive Godot import"
+    );
+
+    let persisted = broker_call(
+        &broker,
+        &session,
+        "driver.godot.composition.native.verify",
+        json!({
+            "plan_id":plan_id,
+            "scene":"arena",
+            "verification":{"kind":"persistence"}
+        }),
+    )
+    .await;
+    assert!(effect_rule_passes(
+        &persisted,
+        "godot.native_persistence.arena.v1"
+    ));
+    assert_eq!(persisted["evidence"]["kind"], "reopened");
+    assert_ne!(
+        persisted["writer"]["process_id"],
+        persisted["reader"]["process_id"]
+    );
+
+    let played = broker_call(
+        &broker,
+        &session,
+        "driver.godot.composition.native.verify",
+        json!({
+            "plan_id":plan_id,
+            "scene":"arena",
+            "verification":{
+                "kind":"play",
+                "ticks":12,
+                "inputs":[
+                    {"tick":1,"action":"start","pressed":true},
+                    {"tick":2,"action":"start","pressed":false},
+                    {"tick":2,"action":"right","pressed":true},
+                    {"tick":9,"action":"right","pressed":false}
+                ],
+                "checkpoints":[1,2,9,12],
+                "variables":["score"],
+                "capture":false
+            }
+        }),
+    )
+    .await;
+    assert!(effect_rule_passes(&played, "godot.native_runtime.arena.v1"));
+    assert_eq!(played["observation"]["inputs_delivered"], 4);
+    let frames = played["observation"]["frames"].as_array().unwrap();
+    assert_eq!(frames.len(), 4);
+    let last = frames.last().unwrap();
+    assert_eq!(last["state"], "play");
+    assert!(last["fault"].is_null());
+
+    let validated = broker_call(
+        &broker,
+        &session,
+        "driver.godot.project.validate",
+        json!({"managed_project":"cross_app_articulated"}),
+    )
+    .await;
+    assert_eq!(validated["success"], true);
 
     broker.remove_provider("driver:godot").await.unwrap();
     Provider::shutdown(provider.as_ref()).await.unwrap();

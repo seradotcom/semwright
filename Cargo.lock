@@ -3032,6 +3032,7 @@ dependencies = [
  "semwright-project-graph",
  "semwright-semantic-composition",
  "semwright-policy",
+ "semwright-platform-common",
  "semwright-registry",
  "semwright-types",
  "schemars",

@@ -167,12 +167,14 @@
     {
       "id": "D12",
       "requirement": "Blender GLB preserved gameplay",
-      "state": "BOUNDARY_IMPLEMENTED_CROSS_APP_PENDING",
-      "implementation": "generic model/3d artifact port + bounded GLB intake + native private-copy import/readback; E artifact run pending",
+      "state": "IMPLEMENTED_CROSS_APP_EVIDENCE_PENDING",
+      "implementation": "pinned successful E native GLB artifact (E a5a2423/run 36521758152/artifact 11014081697) -> Broker artifact.handoff -> D plan/apply -> native inspect/persistence/play; E GLB SHA-256 is fixed before transfer",
       "tests": [
-        "artifact port contract",
-        "GLB validation",
-        "native verify"
+        "E native/oracle/hostile provenance verification",
+        "Broker artifact.handoff with expected_sha256",
+        "Godot skeleton/bones/skin/material/animation native readback",
+        "fresh-process persistence",
+        "technical gameplay playtest"
       ],
       "tested_sha": null,
       "run_id": null,
