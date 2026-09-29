@@ -25,3 +25,5 @@ The development package lane now exercises the repository's real static-index in
 Installation deliberately does not execute a driver or grant driver scopes. Native use is proven by the faust-native, analysis-native, and ardour-native Driver Host lanes on the same source SHA, where the owner grants and sealed runtime tools are explicit. This preserves the distribution security boundary instead of turning install into an authority side effect.
 
 The sealed Faust runtime uses a 4 GiB address-space ceiling for the embedded compiler/interpreter; CPU, process, file, filesystem and network limits remain independently bounded.
+
+The sealed Faust runtime permits at most 64 sandboxed processes/threads because libfaust compilation uses a bounded pthread with a larger stack and aborts if pthread creation is denied; CPU, address-space, file-size, filesystem and network limits remain independently enforced.

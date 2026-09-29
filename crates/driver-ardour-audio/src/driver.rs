@@ -1030,9 +1030,12 @@ fn deep_capabilities() -> Vec<Capability> {
                     "export_banner":{"type":"string","minLength":1,"maxLength":160},
                     "create_self_test":{"type":"boolean"},
                     "create_diagnostic_class":{"type":"string","minLength":1,"maxLength":64},
-                    "create_diagnostic_prefix":{"type":"string","maxLength":512}
+                    "create_diagnostic_prefix":{"type":"string","maxLength":512},
+                    "reopen_self_test":{"type":"boolean"},
+                    "reopen_diagnostic_class":{"type":"string","minLength":1,"maxLength":64},
+                    "reopen_diagnostic_prefix":{"type":"string","maxLength":512}
                 },
-                "required":["ardour_version","lua_banner","create_banner","export_banner","create_self_test","create_diagnostic_class","create_diagnostic_prefix"],
+                "required":["ardour_version","lua_banner","create_banner","export_banner","create_self_test","create_diagnostic_class","create_diagnostic_prefix","reopen_self_test","reopen_diagnostic_class","reopen_diagnostic_prefix"],
                 "additionalProperties":false
             }),
             &["audio-project"],

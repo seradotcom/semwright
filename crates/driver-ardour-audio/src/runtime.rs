@@ -69,6 +69,9 @@ pub struct ArdourRuntimeProbe {
     pub create_self_test: bool,
     pub create_diagnostic_class: String,
     pub create_diagnostic_prefix: String,
+    pub reopen_self_test: bool,
+    pub reopen_diagnostic_class: String,
+    pub reopen_diagnostic_prefix: String,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -259,6 +262,62 @@ impl DeepRuntime {
                 bounded_text_diagnostic(&bounded_diagnostic(&probe_run.stdout, &probe_run.stderr)),
             )
         };
+        let (reopen_self_test, reopen_diagnostic_class, reopen_diagnostic_prefix) =
+            if create_self_test {
+                let script_dir = tempfile::Builder::new()
+                    .prefix("semwright-ardour-reopen-probe-")
+                    .tempdir()?;
+                let script = script_dir.path().join("probe.lua");
+                fs::write(
+                    &script,
+                    r#"local dir = arg[1]
+local state = arg[2]
+load_session(dir, state)
+if not Session then error("reopen failed") end
+print("SEMWRIGHT_ARDOUR_REOPEN_OK")
+close_session()
+"#,
+                )?;
+                let reopen_args = vec![
+                    script.to_string_lossy().into_owned(),
+                    probe_session.to_string_lossy().into_owned(),
+                    probe_state.into(),
+                ];
+                let reopen_run = self
+                    .run_tool_capture(context, &self.lua_tool, &reopen_args)
+                    .await?;
+                let stdout = String::from_utf8_lossy(&reopen_run.stdout);
+                if reopen_run.exit_code == 0 && stdout.contains("SEMWRIGHT_ARDOUR_REOPEN_OK") {
+                    (
+                        true,
+                        "ok".to_string(),
+                        bounded_text_diagnostic("native session reopened through ardour-lua"),
+                    )
+                } else {
+                    let classified = if reopen_run.exit_code != 0 {
+                        classify_tool_failure(&reopen_run.stdout, &reopen_run.stderr)
+                    } else {
+                        Error::new(
+                            ErrorCode::ProtocolMismatch,
+                            "Ardour reopen probe did not emit the expected marker",
+                        )
+                    };
+                    (
+                        false,
+                        format!("{:?}", classified.code),
+                        bounded_text_diagnostic(&bounded_diagnostic(
+                            &reopen_run.stdout,
+                            &reopen_run.stderr,
+                        )),
+                    )
+                }
+            } else {
+                (
+                    false,
+                    "create_prerequisite_failed".to_string(),
+                    String::new(),
+                )
+            };
         Ok(ArdourRuntimeProbe {
             ardour_version: self.config.ardour_version.clone(),
             lua_banner,
@@ -267,6 +326,9 @@ impl DeepRuntime {
             create_self_test,
             create_diagnostic_class,
             create_diagnostic_prefix,
+            reopen_self_test,
+            reopen_diagnostic_class,
+            reopen_diagnostic_prefix,
         })
     }
 
