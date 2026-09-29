@@ -125,7 +125,7 @@ impl Runner {
         Ok(value)
     }
 
-    pub async fn execute_native_verification(
+    pub(crate) async fn execute_native_verification(
         &self,
         request: NativeVerifyRequest,
         binding: NativePlanContext,

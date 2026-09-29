@@ -54,12 +54,12 @@ struct RootControl {
 }
 
 #[derive(Debug, Clone)]
-pub struct NativePlanContext {
-    pub owner: Owner,
-    pub project: String,
-    pub project_id: semwright_project_graph::ProjectId,
-    pub plan_digest: Digest,
-    pub intent_digest: Digest,
+pub(crate) struct NativePlanContext {
+    pub(crate) owner: Owner,
+    pub(crate) project: String,
+    pub(crate) project_id: semwright_project_graph::ProjectId,
+    pub(crate) plan_digest: Digest,
+    pub(crate) intent_digest: Digest,
 }
 
 pub struct AuthoringRuntime {
@@ -157,7 +157,7 @@ impl AuthoringRuntime {
         Ok(value)
     }
 
-    pub fn evaluate_native(
+    pub(crate) fn evaluate_native(
         &mut self,
         owner: &Owner,
         plan_id: &str,
@@ -250,7 +250,7 @@ impl AuthoringRuntime {
         Ok(snapshot_view(project, &snapshot))
     }
 
-    pub fn native_plan_context(
+    pub(crate) fn native_plan_context(
         &self,
         owner: &Owner,
         plan_id: &str,

@@ -67,7 +67,7 @@ pub struct NativeVerifyRequest {
     pub verification: NativeVerification,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct NativeEvidenceBinding {
     pub owner: Owner,
@@ -80,7 +80,7 @@ pub struct NativeEvidenceBinding {
     pub source_fingerprint: Digest,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[derive(Debug, Clone, Serialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum NativeVerifyResult {
     Inspect {
@@ -100,7 +100,7 @@ pub enum NativeVerifyResult {
 }
 
 impl NativeVerifyResult {
-    pub fn binding(&self) -> &NativeEvidenceBinding {
+    pub(crate) fn binding(&self) -> &NativeEvidenceBinding {
         match self {
             Self::Inspect { binding, .. }
             | Self::Persistence { binding, .. }
