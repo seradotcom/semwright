@@ -37,3 +37,9 @@ Unfixed sensitive product findings, should they be established, remain private w
 ## Continuation safeguards
 
 Retests retain both full suite commits and a separately recomputed immutable oracle fingerprint. Changing only the target selector cannot hide changed expectations, guards, contract/runtime pins or budgets. Collection retains prior raw receipts and per-attempt reports instead of overwriting failure history. These are G-owned harness changes; their controls are included in the current registered suite and still require hosted execution. No product finding is auto-closed.
+
+## G-LAB-003 — missing failed-preflight diagnostics
+
+Classification: laboratory diagnostic defect, provisional low severity. The fail-closed decision was preserved, but a nonzero probe exit discarded its captured structured stdout and left an empty error detail. The first hosted example is run 36506309475 / job 109210343273 on suite fe78c7b048d1e88f6646f28d7ac28d3b9f84c119, with zero registered cases executed and 82 marked BLOCKED. This does not establish a product sandbox defect.
+
+The G-only correction retains bounded diagnostic bytes/hashes and parsed failed-control names before refusal, and records them through cleanup. It does not remove namespaces, mounts, capability drops, canaries, budgets, environment filtering or cleanup checks. The narrow follow-up is selftest-only. The underlying preflight cause and the correction require a new exact-SHA job.

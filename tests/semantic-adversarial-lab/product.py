@@ -229,6 +229,7 @@ def run_product(lane: str, target: Path, source_sha: str, suite_sha: str, cases:
                 build.restore()
         return results
     finally:
+        report["isolation"] = enclosure.proof
         enclosure_clean = enclosure.close()
         build_clean = True if build is None else build.close()
         report["cleanup_verified"] = enclosure_clean and build_clean

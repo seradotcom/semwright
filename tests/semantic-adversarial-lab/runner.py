@@ -67,6 +67,9 @@ def selftest(source_sha: str, suite_sha: str, cases: list[dict], report: dict):
                                      "before_controls": ["G-SELF-053", "G-SELF-054"],
                                      "after_controls": ["G-SELF-031", "G-SELF-042", "G-SELF-043"],
                                      "scope": "lab oracle defects only; not product vulnerabilities"}
+        report["selftest_process"] = {**{k: v for k, v in raw.items() if k not in {"stdout", "stderr"}},
+                                      "stdout_sha256": digest(raw["stdout"]), "stderr_sha256": digest(raw["stderr"]),
+                                      "stderr_excerpt": raw["stderr"][:4096].decode("utf-8", errors="replace")}
         parsed = strict_json(raw["stdout"])
         if set(parsed) != {"schema_version", "results"} or type(parsed["schema_version"]) is not int or parsed["schema_version"] != 1:
             raise EvidenceError("selftest receipt missing")
@@ -80,9 +83,12 @@ def selftest(source_sha: str, suite_sha: str, cases: list[dict], report: dict):
                 raise EvidenceError("malformed selftest row")
             results.append({"case_id": row["case_id"], "source_sha": source_sha, "suite_sha": suite_sha,
                             "scope": "lab_selftest", "isolation_verified": enclosure.verified,
-                            "outcome": "PASS" if row["ok"] and raw["exit_code"] == 0 else "FAIL",
+                            "outcome": "PASS" if row["ok"] else "FAIL", "observed_ok": row["ok"],
                             "error_class": row["error_class"]})
         report["results"] = results
+        expected_exit = 0 if all(row["ok"] for row in parsed["results"]) else 1
+        if raw["exit_code"] != expected_exit:
+            raise EvidenceError("selftest exit status contradicts its complete structured case receipt")
         report["execution"] = {k: v for k, v in raw.items() if k not in {"stdout", "stderr"}}
         if raw["termination_reason"] or not raw["canaries_unchanged"] or not raw["outer_process_group_gone"]:
             raise EvidenceError("test enclosure lifecycle failed")

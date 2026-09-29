@@ -23,3 +23,11 @@ Suite `85d39e89232c8bbf80e0fce98e097b36e6c05860` added audio/AV and historical o
 Suite `fe78c7b048d1e88f6646f28d7ac28d3b9f84c119`, run `36506309475`, includes 217 registered cases and independently validates ingestion of the resulting artifacts. Product targets remain A `7ed5b848e4d2e7af235d6166e6f93e0cf0bac90d` and B `11b40fb0c59473bc0f007a879bf44c732d22b700`; main was not substituted for either. Actual run receipts, not this submission record, determine whether tests executed.
 
 The resumed administrative main observation was `7a3bae71144bf2c2278b34fc5743e0ceed6dddd1`; it is not the frozen lab baseline, not a tested combined candidate and not a substitute for A/B results. Additional source inspection was blocked by the remote tool. No product edit or alternative access bypass followed that block.
+
+## First actual hosted boundary result
+
+Run `36506309475`, suite `fe78c7b048d1e88f6646f28d7ac28d3b9f84c119`, selftest job `109210343273`, failed at enclosure preflight before any of its 82 registered controls executed. Artifact `11007479124` was downloaded and hash-verified; raw receipt SHA-256 is `26aaf1ae12223849b9d2e8dda6277d4aed4b51cf242c374650f8602d597d858c`. The report had no failed-control detail because the wrapper discarded captured stdout on a nonzero probe exit. The underlying enclosure cause was not yet established.
+
+G-LAB-003 is this diagnostic-loss defect in G, not a product vulnerability. Diagnostic instrumentation was published in `9f2afd7776149e44884cc2eaa5fd816af57960e1`; its selector still contained four lanes because the edit helper stopped before the selector write. This follow-up applies the selftest-only selector and preserves product-enclosure diagnostics through cleanup. No 9f2afd7 run is claimed to have been selftest-only.
+
+The diagnostic records environment key names, never values. All existing isolation guards remain unchanged. The next selector requests only `selftest`, avoiding Rust/native work while the shared prerequisite is investigated. The other 135 product contract cases remain registered and NOT_RUN. Per-case selftest outcomes now preserve their structured assertion result while the overall gate still requires a consistent process exit and all required cases to pass; one failing case is not mislabeled as every case failing.

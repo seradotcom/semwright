@@ -9,10 +9,7 @@
     "main": "b736d41b61c4a4146c9e75c16796e251b025e69f"
   },
   "selected_lanes": [
-    "selftest",
-    "composition",
-    "audio",
-    "av"
+    "selftest"
   ],
   "pins": {
     "os": "ubuntu-24.04",
