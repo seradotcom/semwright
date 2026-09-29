@@ -69,11 +69,13 @@ fn hello_unknown_fields_denied() {
 #[test]
 fn capability_namespace_unique_and_bounded() {
     let caps = catalog::capabilities().unwrap();
-    assert!(caps.len() >= 69);
-    assert!(
-        caps.iter()
-            .any(|capability| capability.name == "driver.mlt-video.sync.probe")
-    );
+    assert!(caps.len() >= 70);
+    for required in [
+        "driver.mlt-video.frames.encode",
+        "driver.mlt-video.sync.probe",
+    ] {
+        assert!(caps.iter().any(|capability| capability.name == required));
+    }
     let mut seen = BTreeSet::new();
     for c in &caps {
         assert!(c.name.starts_with(catalog::PREFIX));

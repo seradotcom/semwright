@@ -4322,6 +4322,225 @@
   },
   {
     "descriptor": {
+      "name": "driver.mlt-video.frames.encode",
+      "version": "0.1.0",
+      "description": "Verify a Motion Canvas artifact manifest and its PNG hashes, then encode a bounded video-only FFV1 Matroska mezzanine with the pinned confined ffmpeg runtime.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "root": {
+            "type": "string",
+            "enum": [
+              "project",
+              "media",
+              "output"
+            ]
+          },
+          "manifest_path": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "expected_manifest_sha256": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "output_path": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "max_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1073741824
+          }
+        },
+        "required": [
+          "root",
+          "manifest_path",
+          "expected_manifest_sha256",
+          "output_path",
+          "max_bytes"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "artifact": {
+            "type": "object",
+            "properties": {
+              "root": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "path": {
+                "type": "string",
+                "maxLength": 4096
+              },
+              "sha256": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "bytes": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1073741824
+              }
+            },
+            "required": [
+              "root",
+              "path",
+              "sha256",
+              "bytes"
+            ],
+            "additionalProperties": false
+          },
+          "source_manifest_sha256": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "codec": {
+            "type": "string",
+            "enum": [
+              "ffv1"
+            ]
+          },
+          "container": {
+            "type": "string",
+            "enum": [
+              "matroska"
+            ]
+          },
+          "frame_count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 36000
+          },
+          "width": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4096
+          },
+          "height": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4096
+          },
+          "fps_num": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 120000
+          },
+          "fps_den": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1001
+          },
+          "media": {
+            "type": "object",
+            "properties": {
+              "width": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1,
+                "maximum": 16384
+              },
+              "height": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1,
+                "maximum": 16384
+              },
+              "frames": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 100000000
+              },
+              "duration_num": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000000000
+              },
+              "duration_den": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000000
+              },
+              "audio": {
+                "type": "boolean"
+              },
+              "video": {
+                "type": "boolean"
+              },
+              "codecs": {
+                "type": "array",
+                "maxItems": 16,
+                "items": {
+                  "type": "string",
+                  "maxLength": 128
+                }
+              }
+            },
+            "required": [
+              "width",
+              "height",
+              "frames",
+              "duration_num",
+              "duration_den",
+              "audio",
+              "video",
+              "codecs"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "artifact",
+          "source_manifest_sha256",
+          "codec",
+          "container",
+          "frame_count",
+          "width",
+          "height",
+          "fps_num",
+          "fps_den",
+          "media"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:mlt-video"
+      ],
+      "risk": "mutating",
+      "idempotency": "non_idempotent",
+      "timeout_ms": 300000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:mlt-video"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "video",
+      "offline",
+      "mlt",
+      "artifact-in:motion/frame-sequence",
+      "artifact-out:video/mezzanine"
+    ],
+    "object_types": [
+      "video-artifact"
+    ]
+  },
+  {
+    "descriptor": {
       "name": "driver.mlt-video.keyframe.list",
       "version": "0.1.0",
       "description": "Offline semantic keyframe.list. Application data is untrusted; inspect format-level availability.",

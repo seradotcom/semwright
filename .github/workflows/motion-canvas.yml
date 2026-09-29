@@ -10,6 +10,7 @@ on:
       - 'crates/motion-authoring/**'
       - 'integrations/composition/motion/**'
       - 'integrations/motion-canvas/**'
+      - 'scripts/motion-canvas/**'
       - 'fixtures/motion-canvas/**'
       - 'demos/launch-film/**'
       - 'recipes/demo/**'
@@ -228,41 +229,7 @@ jobs:
           test "${#BROWSERS[@]}" -eq 1
           BROWSER="${BROWSERS[0]}"
           BROWSER_REL=$(realpath --relative-to="$PWD" "$BROWSER")
-          export BROWSER_REL
-          python3 - <<'PY'
-          from pathlib import Path
-          import hashlib, json, os, re
-          def sha(path: Path) -> str:
-              h=hashlib.sha256()
-              with path.open('rb') as f:
-                  for chunk in iter(lambda:f.read(65536), b''): h.update(chunk)
-              return h.hexdigest()
-          css_files=[
-              Path('node_modules/@fontsource-variable/instrument-sans/index.css'),
-              Path('node_modules/@fontsource/ibm-plex-mono/400.css'),
-          ]
-          fixed=list(css_files)
-          for css in css_files:
-              if not css.is_file(): raise SystemExit(f'missing pinned font stylesheet: {css}')
-              text=css.read_text()
-              for ref in re.findall(r"url\((?:['\"]?)([^)'\"]+\.woff2)(?:['\"]?)\)", text):
-                  if '..' in ref or ref.startswith('/'): raise SystemExit(f'invalid pinned font reference: {ref}')
-                  fixed.append((css.parent / ref).resolve().relative_to(Path.cwd().resolve()))
-          resources=[]; seen=set()
-          for path in sorted(fixed, key=lambda p:p.as_posix()):
-              if not path.is_file(): raise SystemExit(f'missing pinned font resource: {path}')
-              rel=path.as_posix()
-              if rel in seen: continue
-              seen.add(rel); resources.append({'path':rel,'sha256':sha(path)})
-          runtime={
-              'node':{'path':'.semwright-tools/node','sha256':sha(Path('.semwright-tools/node'))},
-              'helper':{'path':'render.mjs','sha256':sha(Path('render.mjs'))},
-              'browser':{'path':os.environ['BROWSER_REL'],'sha256':sha(Path(os.environ['BROWSER_REL']))},
-              'dependency_lock':{'path':'package-lock.json','sha256':sha(Path('package-lock.json'))},
-              'font_resources':resources,
-          }
-          Path('runtime.json').write_text(json.dumps(runtime,indent=2)+'\n')
-          PY
+          python3 "$GITHUB_WORKSPACE/scripts/motion-canvas/runtime-manifest.py"             --root "$PWD" --browser-rel "$BROWSER_REL"
           cat runtime.json
       - name: Real Driver Host conformance and sandboxed render/cancellation
         env:

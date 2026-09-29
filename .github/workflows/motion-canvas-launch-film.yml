@@ -28,6 +28,8 @@ jobs:
     timeout-minutes: 75
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
         with:
           toolchain: 1.98.1
@@ -130,23 +132,23 @@ jobs:
           test "${#BROWSERS[@]}" -eq 1
           BROWSER="${BROWSERS[0]}"
           BROWSER_REL=$(realpath --relative-to="$PWD" "$BROWSER")
-          NODE_SHA=$(sha256sum .semwright-tools/node | awk '{print $1}')
-          HELPER_SHA=$(sha256sum render.mjs | awk '{print $1}')
-          BROWSER_SHA=$(sha256sum "$BROWSER" | awk '{print $1}')
-          BROWSER_REL="$BROWSER_REL" NODE_SHA="$NODE_SHA" HELPER_SHA="$HELPER_SHA" BROWSER_SHA="$BROWSER_SHA" node --input-type=module -e "import fs from 'node:fs'; fs.writeFileSync('runtime.json', JSON.stringify({node:{path:'.semwright-tools/node',sha256:process.env.NODE_SHA},helper:{path:'render.mjs',sha256:process.env.HELPER_SHA},browser:{path:process.env.BROWSER_REL,sha256:process.env.BROWSER_SHA}},null,2))"
+          python3 "$GITHUB_WORKSPACE/scripts/motion-canvas/runtime-manifest.py"             --root "$PWD" --browser-rel "$BROWSER_REL"
+          cat runtime.json
       - name: Pin MLT runtime tools by digest
         run: |
           mkdir -p "$RUNNER_TEMP/mlt-runtime"
           MELT=$(realpath "$(command -v melt)")
           FFPROBE=$(realpath "$(command -v ffprobe)")
+          FFMPEG=$(realpath "$(command -v ffmpeg)")
           BWRAP=$(realpath "$(command -v bwrap)")
           MELT_SHA=$(sha256sum "$MELT" | awk '{print $1}')
           FFPROBE_SHA=$(sha256sum "$FFPROBE" | awk '{print $1}')
+          FFMPEG_SHA=$(sha256sum "$FFMPEG" | awk '{print $1}')
           BWRAP_SHA=$(sha256sum "$BWRAP" | awk '{print $1}')
-          MELT="$MELT" FFPROBE="$FFPROBE" BWRAP="$BWRAP" MELT_SHA="$MELT_SHA" FFPROBE_SHA="$FFPROBE_SHA" BWRAP_SHA="$BWRAP_SHA" python3 - <<'PY'
+          MELT="$MELT" FFPROBE="$FFPROBE" FFMPEG="$FFMPEG" BWRAP="$BWRAP" MELT_SHA="$MELT_SHA" FFPROBE_SHA="$FFPROBE_SHA" FFMPEG_SHA="$FFMPEG_SHA" BWRAP_SHA="$BWRAP_SHA" python3 - <<'PY'
           import json, os
           path=os.path.join(os.environ['RUNNER_TEMP'],'mlt-runtime','runtime.json')
-          value={'schema':1,'melt':{'path':os.environ['MELT'],'sha256':os.environ['MELT_SHA']},'ffprobe':{'path':os.environ['FFPROBE'],'sha256':os.environ['FFPROBE_SHA']},'bubblewrap':{'path':os.environ['BWRAP'],'sha256':os.environ['BWRAP_SHA']},'timeout_seconds':3300}
+          value={'schema':1,'melt':{'path':os.environ['MELT'],'sha256':os.environ['MELT_SHA']},'ffprobe':{'path':os.environ['FFPROBE'],'sha256':os.environ['FFPROBE_SHA']},'ffmpeg':{'path':os.environ['FFMPEG'],'sha256':os.environ['FFMPEG_SHA']},'bubblewrap':{'path':os.environ['BWRAP'],'sha256':os.environ['BWRAP_SHA']},'timeout_seconds':3300}
           open(path,'w').write(json.dumps(value,indent=2)+'\n')
           PY
       - name: Build Semwright providers and bounded orchestrator

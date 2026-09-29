@@ -146,6 +146,10 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
             "path": ffprobe,
             "sha256": digest(&ffprobe)
         },
+        "ffmpeg": {
+            "path": ffmpeg,
+            "sha256": digest(&ffmpeg)
+        },
         "bubblewrap": {
             "path": bwrap.to_string_lossy(),
             "sha256": digest(&bwrap)
@@ -224,6 +228,72 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
         .status()
         .unwrap();
     assert!(status.success(), "failed to create AV sync marker fixture");
+
+    let motion_artifact = media.path().join("motion-artifact");
+    let motion_frames = motion_artifact.join("frames");
+    std::fs::create_dir_all(&motion_frames).unwrap();
+    let motion_pattern = motion_frames.join("%06d.png");
+    let status = Command::new(&ffmpeg)
+        .args([
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=c=blue:s=160x90:r=30:d=0.2",
+            "-frames:v",
+            "6",
+            "-start_number",
+            "0",
+        ])
+        .arg(&motion_pattern)
+        .status()
+        .unwrap();
+    assert!(status.success(), "failed to create Motion frame oracle");
+    let frame_rows = (0..6u64)
+        .map(|index| {
+            let path = motion_frames.join(format!("{index:06}.png"));
+            let bytes = std::fs::metadata(&path).unwrap().len();
+            json!({
+                "index": index,
+                "file": format!("frames/{index:06}.png"),
+                "bytes": bytes,
+                "sha256": digest(&path),
+                "pixel_sha256": null,
+                "min_alpha": null,
+                "max_alpha": null
+            })
+        })
+        .collect::<Vec<_>>();
+    let motion_manifest = json!({
+        "native_observations": null,
+        "renderer": "motion-canvas-core-renderer-v3.17.2",
+        "plan": {
+            "renderer": "bundled_browser_v1",
+            "width": 160,
+            "height": 90,
+            "fps": 30,
+            "fps_denominator": 1,
+            "first_frame": 0,
+            "end_frame_exclusive": 6,
+            "frame_count": 6,
+            "project_duration_ms": 200,
+            "alpha": false,
+            "color_space": "srgb",
+            "timeout_ms": 120000
+        },
+        "pixel_validation": {"mode":"sampled","sample_indices":[0,1,3,4,5]},
+        "frames": frame_rows
+    });
+    let motion_manifest_path = motion_artifact.join("artifact-manifest.json");
+    std::fs::write(
+        &motion_manifest_path,
+        serde_json::to_vec_pretty(&motion_manifest).unwrap(),
+    )
+    .unwrap();
+    let motion_manifest_digest = digest(&motion_manifest_path);
 
     let manifest = Manifest {
         manifest_version: 1,
@@ -316,11 +386,17 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
             .iter()
             .all(|capability| capability.descriptor.name.starts_with("driver.mlt-video."))
     );
-    assert!(
-        capabilities
-            .iter()
-            .any(|capability| { capability.descriptor.name == "driver.mlt-video.sync.probe" })
-    );
+    for required in [
+        "driver.mlt-video.frames.encode",
+        "driver.mlt-video.sync.probe",
+    ] {
+        assert!(
+            capabilities
+                .iter()
+                .any(|capability| capability.descriptor.name == required),
+            "missing required delivery capability: {required}"
+        );
+    }
 
     let doctor = call(
         provider.as_ref(),
@@ -341,6 +417,51 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
             .as_str()
             .is_some_and(|value| !value.is_empty())
     );
+
+    let mezzanine = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.mlt-video.frames.encode",
+        json!({
+            "root":"media",
+            "manifest_path":"motion-artifact/artifact-manifest.json",
+            "expected_manifest_sha256":motion_manifest_digest,
+            "output_path":"motion-mezzanine.mkv",
+            "max_bytes":67108864
+        }),
+    )
+    .await
+    .unwrap();
+    assert_eq!(mezzanine["codec"], "ffv1");
+    assert_eq!(mezzanine["container"], "matroska");
+    assert_eq!(mezzanine["frame_count"], 6);
+    assert_eq!(mezzanine["width"], 160);
+    assert_eq!(mezzanine["height"], 90);
+    assert_eq!(mezzanine["media"]["video"], true);
+    assert_eq!(mezzanine["media"]["audio"], false);
+    assert!(
+        output.path().join("motion-mezzanine.mkv").is_file(),
+        "frames.encode did not publish its verified mezzanine"
+    );
+    let stale_frames = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.mlt-video.frames.encode",
+        json!({
+            "root":"media",
+            "manifest_path":"motion-artifact/artifact-manifest.json",
+            "expected_manifest_sha256":"0".repeat(64),
+            "output_path":"stale-mezzanine.mkv",
+            "max_bytes":67108864
+        }),
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(
+        stale_frames.code,
+        semwright_types::ErrorCode::StaleReference
+    );
+    assert!(!output.path().join("stale-mezzanine.mkv").exists());
 
     let sync_digest = digest(&sync_source);
     let sync = call(

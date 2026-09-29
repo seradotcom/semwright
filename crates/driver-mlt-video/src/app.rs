@@ -275,6 +275,7 @@ impl App {
                     }),
                 );
             }
+            "frames.encode" => return self.frames_encode(a),
             "sync.probe" => return self.sync_probe(a),
             "render.profiles" => {
                 return Ok(obj([
@@ -1248,6 +1249,220 @@ impl App {
             opaque: false,
         })
     }
+    fn frames_encode(&self, a: &Value) -> Result<Value> {
+        a.strict(
+            &[
+                "root",
+                "manifest_path",
+                "expected_manifest_sha256",
+                "output_path",
+                "max_bytes",
+            ],
+            &[
+                "root",
+                "manifest_path",
+                "expected_manifest_sha256",
+                "output_path",
+                "max_bytes",
+            ],
+        )?;
+        let root_name = a.str("root")?;
+        if !matches!(root_name, "project" | "media" | "output") {
+            return Err(Error::new(
+                "PermissionDenied",
+                "Motion frame manifest root is not granted",
+            ));
+        }
+        let manifest_path = a.str("manifest_path")?;
+        crate::fs::validate_relative(manifest_path)?;
+        let expected_manifest_sha256 = a.str("expected_manifest_sha256")?;
+        if !valid_digest(expected_manifest_sha256) {
+            return Err(Error::invalid("Motion frame manifest digest is malformed"));
+        }
+        let output_path = a.str("output_path")?;
+        crate::fs::validate_relative(output_path)?;
+        if !output_path.ends_with(".mkv") {
+            return Err(Error::invalid("Motion mezzanine output must use .mkv"));
+        }
+        let max_bytes = a.uint("max_bytes")?;
+        if max_bytes == 0 || max_bytes > jobs::MAX_ARTIFACT_BYTES {
+            return Err(Error::limit("Motion mezzanine output byte budget"));
+        }
+        let runtime = self.runtime.as_ref().ok_or_else(|| {
+            Error::new(
+                "Unavailable",
+                "Frame encoding requires the pinned confined ffmpeg runtime",
+            )
+        })?;
+        let mount = self
+            .roots
+            .get(root_name)
+            .ok_or_else(|| Error::new("PermissionDenied", "Motion frame root absent"))?;
+        let manifest_bytes = mount.read(manifest_path, 8 * 1024 * 1024)?;
+        if sha256(&manifest_bytes) != expected_manifest_sha256 {
+            return Err(Error::new(
+                "StaleReference",
+                "Motion frame manifest digest changed before encoding",
+            ));
+        }
+        let manifest: serde_json::Value = serde_json::from_slice(&manifest_bytes)
+            .map_err(|_| Error::invalid("Motion frame manifest is malformed"))?;
+        let plan = manifest
+            .get("plan")
+            .and_then(serde_json::Value::as_object)
+            .ok_or_else(|| Error::invalid("Motion frame manifest omitted render plan"))?;
+        let required_u64 = |name: &str| -> Result<u64> {
+            plan.get(name)
+                .and_then(serde_json::Value::as_u64)
+                .ok_or_else(|| Error::invalid(format!("Motion render plan omitted {name}")))
+        };
+        let width = u32::try_from(required_u64("width")?)
+            .map_err(|_| Error::limit("Motion render width"))?;
+        let height = u32::try_from(required_u64("height")?)
+            .map_err(|_| Error::limit("Motion render height"))?;
+        let fps_num = u32::try_from(required_u64("fps")?)
+            .map_err(|_| Error::limit("Motion render fps numerator"))?;
+        let fps_den = u32::try_from(
+            plan.get("fps_denominator")
+                .and_then(serde_json::Value::as_u64)
+                .unwrap_or(1),
+        )
+        .map_err(|_| Error::limit("Motion render fps denominator"))?;
+        let first_frame = required_u64("first_frame")?;
+        let frame_count = required_u64("frame_count")?;
+        if frame_count == 0
+            || frame_count > 36_000
+            || first_frame
+                .checked_add(frame_count)
+                .is_none_or(|end| end > 100_000_000)
+        {
+            return Err(Error::limit("Motion frame manifest count/range"));
+        }
+        let frames = manifest
+            .get("frames")
+            .and_then(serde_json::Value::as_array)
+            .ok_or_else(|| Error::invalid("Motion frame manifest omitted frames"))?;
+        if frames.len() as u64 != frame_count {
+            return Err(Error::new(
+                "Conflict",
+                "Motion frame manifest count does not match its render plan",
+            ));
+        }
+        let parent = manifest_path
+            .rsplit_once('/')
+            .map(|(parent, _)| parent)
+            .unwrap_or("");
+        let inputs = PrivateDir::new(Path::new("/tmp"))?;
+        let work = PrivateDir::new(Path::new("/tmp"))?;
+        let mut total = 0u64;
+        for (index, frame) in frames.iter().enumerate() {
+            let index_u64 = index as u64;
+            if frame.get("index").and_then(serde_json::Value::as_u64) != Some(index_u64) {
+                return Err(Error::invalid(
+                    "Motion frame manifest index is not contiguous",
+                ));
+            }
+            let number = first_frame
+                .checked_add(index_u64)
+                .ok_or_else(|| Error::limit("Motion frame number overflow"))?;
+            let expected_file = format!("frames/{number:06}.png");
+            let file = frame
+                .get("file")
+                .and_then(serde_json::Value::as_str)
+                .ok_or_else(|| Error::invalid("Motion frame manifest omitted file"))?;
+            if file != expected_file {
+                return Err(Error::invalid(
+                    "Motion frame manifest contains an unexpected basename",
+                ));
+            }
+            let expected_bytes = frame
+                .get("bytes")
+                .and_then(serde_json::Value::as_u64)
+                .filter(|bytes| *bytes > 8 && *bytes <= 32 * 1024 * 1024)
+                .ok_or_else(|| Error::limit("Motion PNG byte budget"))?;
+            let expected_sha256 = frame
+                .get("sha256")
+                .and_then(serde_json::Value::as_str)
+                .filter(|digest| valid_digest(digest))
+                .ok_or_else(|| Error::invalid("Motion PNG digest is malformed"))?;
+            let source_path = if parent.is_empty() {
+                file.to_owned()
+            } else {
+                format!("{parent}/{file}")
+            };
+            crate::fs::validate_relative(&source_path)?;
+            let mut source = mount.read_file(&source_path, expected_bytes)?;
+            let destination_name = format!("{number:06}.png");
+            let mut destination = inputs.create(&destination_name)?;
+            let mut hasher = Sha256::new();
+            let mut size = 0u64;
+            let mut signature = Vec::with_capacity(8);
+            let mut buffer = [0u8; 65_536];
+            loop {
+                let count = source.read(&mut buffer)?;
+                if count == 0 {
+                    break;
+                }
+                if signature.len() < 8 {
+                    let needed = 8 - signature.len();
+                    signature.extend_from_slice(&buffer[..count.min(needed)]);
+                }
+                size = size
+                    .checked_add(count as u64)
+                    .ok_or_else(|| Error::limit("Motion PNG size overflow"))?;
+                total = total
+                    .checked_add(count as u64)
+                    .ok_or_else(|| Error::limit("Motion frame-set size overflow"))?;
+                if size > expected_bytes || total > jobs::MAX_JOB_INPUT_BYTES {
+                    return Err(Error::limit("Motion frame-set staging budget"));
+                }
+                hasher.update(&buffer[..count]);
+                destination.write_all(&buffer[..count])?;
+            }
+            destination.sync_all()?;
+            drop(destination);
+            if size != expected_bytes
+                || hasher.finish() != expected_sha256
+                || signature.as_slice() != b"\x89PNG\r\n\x1a\n"
+            {
+                return Err(Error::new(
+                    "StaleReference",
+                    "Motion PNG bytes no longer match the verified render manifest",
+                ));
+            }
+            inputs.seal(&destination_name)?;
+        }
+        let media = runtime.encode_frames(
+            inputs.path(),
+            work.path(),
+            first_frame,
+            frame_count,
+            fps_num,
+            fps_den,
+            width,
+            height,
+            &AtomicBool::new(false),
+        )?;
+        let output = self
+            .roots
+            .get("output")
+            .ok_or_else(|| Error::new("Unavailable", "Output mount is absent"))?;
+        let source = Root::open(work.path(), true, false)?.read_file("mezzanine.mkv", max_bytes)?;
+        let artifact = output.publish("output", output_path, source, max_bytes)?;
+        Ok(obj([
+            ("artifact", artifact.json()),
+            ("source_manifest_sha256", expected_manifest_sha256.into()),
+            ("codec", "ffv1".into()),
+            ("container", "matroska".into()),
+            ("frame_count", frame_count.into()),
+            ("width", u64::from(width).into()),
+            ("height", u64::from(height).into()),
+            ("fps_num", u64::from(fps_num).into()),
+            ("fps_den", u64::from(fps_den).into()),
+            ("media", media.json()),
+        ]))
+    }
+
     fn sync_probe(&self, a: &Value) -> Result<Value> {
         a.strict(
             &["root", "path", "expected_sha256", "window_us", "cues"],

@@ -401,6 +401,7 @@ impl ServiceCatalog {
 pub struct Runtime {
     pub melt: Tool,
     pub ffprobe: Tool,
+    pub ffmpeg: Tool,
     pub bubblewrap: Tool,
     pub timeout: Duration,
     pub catalog: ServiceCatalog,
@@ -410,14 +411,29 @@ pub struct Runtime {
 impl Runtime {
     pub fn load(v: &Value) -> Result<Self> {
         v.strict(
-            &["schema", "melt", "ffprobe", "bubblewrap", "timeout_seconds"],
-            &["schema", "melt", "ffprobe", "bubblewrap", "timeout_seconds"],
+            &[
+                "schema",
+                "melt",
+                "ffprobe",
+                "ffmpeg",
+                "bubblewrap",
+                "timeout_seconds",
+            ],
+            &[
+                "schema",
+                "melt",
+                "ffprobe",
+                "ffmpeg",
+                "bubblewrap",
+                "timeout_seconds",
+            ],
         )?;
         if v.uint("schema")? != 1 {
             return Err(Error::unsupported("Runtime configuration schema"));
         }
         let melt = Tool::parse(v.get("melt")?)?;
         let ffprobe = Tool::parse(v.get("ffprobe")?)?;
+        let ffmpeg = Tool::parse(v.get("ffmpeg")?)?;
         let bubblewrap = Tool::parse(v.get("bubblewrap")?)?;
         let timeout = v.uint("timeout_seconds")?;
         if !(1..=3600).contains(&timeout) {
@@ -428,7 +444,7 @@ impl Runtime {
         // bytes we verified. Bubblewrap is different: Linux/AppArmor installations can
         // grant user-namespace permission specifically to its canonical system path.
         // Keep that root-owned, non-writable path and re-verify its digest before use.
-        for (name, tool) in [("melt", &melt), ("ffprobe", &ffprobe)] {
+        for (name, tool) in [("melt", &melt), ("ffprobe", &ffprobe), ("ffmpeg", &ffmpeg)] {
             let mut source = tool.verify()?;
             let mut destination = tools.create(name)?;
             let mut hash = crate::hash::Sha256::new();
@@ -461,6 +477,7 @@ impl Runtime {
         let mut runtime = Self {
             melt,
             ffprobe,
+            ffmpeg,
             bubblewrap,
             timeout: Duration::from_secs(timeout),
             catalog: ServiceCatalog::default(),
@@ -522,6 +539,7 @@ impl Runtime {
             let pinned = match tool {
                 "melt" => &self.melt,
                 "ffprobe" => &self.ffprobe,
+                "ffmpeg" => &self.ffmpeg,
                 _ => return Err(Error::invalid("Unknown pinned runtime tool")),
             };
             pinned.verify()?;
@@ -531,6 +549,7 @@ impl Runtime {
                 // not reservations; ffprobe keeps the smaller probe budget.
                 "melt" => (300, 4_294_967_296),
                 "ffprobe" => (30, 1_073_741_824),
+                "ffmpeg" => (300, 4_294_967_296),
                 _ => return Err(Error::invalid("Unknown pinned runtime tool")),
             };
             return Ok(ProcessSpec {
@@ -608,6 +627,7 @@ impl Runtime {
         let (cpu_seconds, address_space_bytes) = match tool {
             "melt" => (300, 4_294_967_296),
             "ffprobe" => (30, 1_073_741_824),
+            "ffmpeg" => (300, 4_294_967_296),
             _ => return Err(Error::invalid("Unknown pinned runtime tool")),
         };
         Ok(ProcessSpec {
@@ -826,6 +846,101 @@ impl Runtime {
             missing_video,
             missing_audio,
         })
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn encode_frames(
+        &self,
+        inputs: &Path,
+        work: &Path,
+        first_frame: u64,
+        frame_count: u64,
+        fps_num: u32,
+        fps_den: u32,
+        width: u32,
+        height: u32,
+        cancel: &AtomicBool,
+    ) -> Result<MediaInfo> {
+        if frame_count == 0
+            || frame_count > 36_000
+            || fps_num == 0
+            || fps_den == 0
+            || fps_num > 120_000
+            || fps_den > 1001
+            || width == 0
+            || height == 0
+            || width > 4096
+            || height > 4096
+            || u64::from(width) * u64::from(height) > 8_847_360
+        {
+            return Err(Error::invalid(
+                "Invalid bounded Motion frame encode profile",
+            ));
+        }
+        if cancel.load(Ordering::Acquire) {
+            return Err(Error::new(
+                "Cancelled",
+                "Frame encode cancelled before start",
+            ));
+        }
+        let pattern = self.input_path(inputs, "%06d.png");
+        let output = self.work_path(work, "mezzanine.mkv");
+        let args = vec![
+            "-v".into(),
+            "error".into(),
+            "-nostdin".into(),
+            "-framerate".into(),
+            format!("{fps_num}/{fps_den}").into(),
+            "-start_number".into(),
+            first_frame.to_string().into(),
+            "-i".into(),
+            pattern.into_os_string(),
+            "-frames:v".into(),
+            frame_count.to_string().into(),
+            "-an".into(),
+            "-c:v".into(),
+            "ffv1".into(),
+            "-level".into(),
+            "3".into(),
+            "-g".into(),
+            "1".into(),
+            "-pix_fmt".into(),
+            "yuv444p".into(),
+            "-threads".into(),
+            "2".into(),
+            "-f".into(),
+            "matroska".into(),
+            output.into_os_string(),
+        ];
+        run(
+            &self.spec("ffmpeg", args, inputs, work, self.timeout)?,
+            cancel,
+        )?
+        .checked()?;
+        let info = self.probe(work, work, "mezzanine.mkv", cancel)?;
+        if !info.video
+            || info.audio
+            || info.width != Some(width)
+            || info.height != Some(height)
+            || info.frames.is_some_and(|frames| frames != frame_count)
+            || info.duration_num == 0
+            || info.duration_den == 0
+        {
+            return Err(Error::new(
+                "BackendFailed",
+                "FFV1 mezzanine does not match the verified Motion frame plan",
+            ));
+        }
+        let actual = u128::from(info.duration_num) * u128::from(fps_num);
+        let wanted = u128::from(frame_count) * u128::from(fps_den) * u128::from(info.duration_den);
+        let tolerance = u128::from(fps_den) * u128::from(info.duration_den);
+        if actual.abs_diff(wanted) > tolerance {
+            return Err(Error::new(
+                "BackendFailed",
+                "FFV1 mezzanine duration differs by more than one source frame",
+            ));
+        }
+        Ok(info)
     }
 
     pub fn render(
