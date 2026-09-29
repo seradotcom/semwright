@@ -461,10 +461,10 @@ impl ProjectGraph {
                     return Err(GraphError::Conflict);
                 }
                 ensure(self.revisions.len() < 100_000, "revision history limit")?;
-                if let Some(old) = s.latest.as_ref().and_then(|r| self.revisions.get(r)) {
-                    if record.observed_unix_ms < old.observed_unix_ms {
-                        return Err(GraphError::Conflict);
-                    }
+                if let Some(old) = s.latest.as_ref().and_then(|r| self.revisions.get(r))
+                    && record.observed_unix_ms < old.observed_unix_ms
+                {
+                    return Err(GraphError::Conflict);
                 }
                 let id = record.pin.asset.clone();
                 self.revisions
@@ -583,10 +583,11 @@ impl ProjectGraph {
                 continue;
             }
             for e in self.edges.values() {
-                if e.relation == Relation::Contains && e.from == Vertex::Asset(id.clone()) {
-                    if let Vertex::Asset(next) = &e.to {
-                        pending.push(next.clone());
-                    }
+                if e.relation == Relation::Contains
+                    && e.from == Vertex::Asset(id.clone())
+                    && let Vertex::Asset(next) = &e.to
+                {
+                    pending.push(next.clone());
                 }
             }
         }
@@ -705,10 +706,10 @@ impl ProjectGraph {
         }
         if completed {
             for output in &r.outputs {
-                if let Some(s) = self.assets.get_mut(&output.asset) {
-                    if s.latest.as_ref() == Some(&output.revision) {
-                        s.producer = Some(r.id.clone());
-                    }
+                if let Some(s) = self.assets.get_mut(&output.asset)
+                    && s.latest.as_ref() == Some(&output.revision)
+                {
+                    s.producer = Some(r.id.clone());
                 }
                 for input in &r.inputs {
                     self.reverse

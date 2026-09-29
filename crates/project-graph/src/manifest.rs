@@ -89,25 +89,24 @@ impl ProjectGraph {
         }
         let mut declarations = Vec::new();
         for edge in self.edges.values() {
-            if let (Vertex::Asset(from), Vertex::Asset(to)) = (&edge.from, &edge.to) {
-                if selected.contains(from)
-                    && selected.contains(to)
-                    && matches!(
-                        edge.relation,
-                        Relation::Contains
-                            | Relation::References
-                            | Relation::DerivedFrom
-                            | Relation::Realizes
-                            | Relation::PublishedAs
-                    )
-                {
-                    ensure(declarations.len() < 1024, "manifest edge page limit")?;
-                    declarations.push(PortableEdge {
-                        from: from.clone(),
-                        to: to.clone(),
-                        relation: edge.relation,
-                    });
-                }
+            if let (Vertex::Asset(from), Vertex::Asset(to)) = (&edge.from, &edge.to)
+                && selected.contains(from)
+                && selected.contains(to)
+                && matches!(
+                    edge.relation,
+                    Relation::Contains
+                        | Relation::References
+                        | Relation::DerivedFrom
+                        | Relation::Realizes
+                        | Relation::PublishedAs
+                )
+            {
+                ensure(declarations.len() < 1024, "manifest edge page limit")?;
+                declarations.push(PortableEdge {
+                    from: from.clone(),
+                    to: to.clone(),
+                    relation: edge.relation,
+                });
             }
         }
         let manifest = PortableManifest {

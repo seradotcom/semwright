@@ -109,10 +109,10 @@ impl ProjectGraph {
                         .get(target)
                         .and_then(|s| s.producer.as_ref())
                         .and_then(|r| self.receipts.get(r));
-                    if let Some(r) = r {
-                        if r.inputs.iter().any(|p| p.asset == id) {
-                            targets.insert(target.clone(), Some(r.id.clone()));
-                        }
+                    if let Some(r) = r
+                        && r.inputs.iter().any(|p| p.asset == id)
+                    {
+                        targets.insert(target.clone(), Some(r.id.clone()));
                     }
                 }
             }

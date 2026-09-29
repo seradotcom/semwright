@@ -276,10 +276,9 @@ impl ProjectGraph {
                     .get(&input.asset)
                     .and_then(|s| s.producer.as_ref())
                     .and_then(|r| self.receipts.get(r))
+                    && node_ids.contains(&upstream.derivation)
                 {
-                    if node_ids.contains(&upstream.derivation) {
-                        node.depends_on.insert(upstream.derivation.clone());
-                    }
+                    node.depends_on.insert(upstream.derivation.clone());
                 }
             }
         }
