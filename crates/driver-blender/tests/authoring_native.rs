@@ -630,6 +630,7 @@ async fn broker_native_authoring_save_reopen_export_and_owner_denial() {
         after_export["drift"], false,
         "GLB export must restore frame/selection context without invalidating managed source"
     );
+    eprintln!("ARTICULATED_STAGE after_export_ok");
     let evidence =
         PathBuf::from(std::env::var("SEMWRIGHT_AUTHORING_EVIDENCE").expect("evidence path"));
     fs::create_dir_all(&evidence).unwrap();
@@ -640,6 +641,7 @@ async fn broker_native_authoring_save_reopen_export_and_owner_denial() {
             json!({"island":island,"path":"articulated.blend"}),
         )
         .await;
+    eprintln!("ARTICULATED_STAGE persist_ok");
     assert!(
         !fixture
             .raw(
@@ -664,6 +666,7 @@ async fn broker_native_authoring_save_reopen_export_and_owner_denial() {
         writer, reopened["native_session"],
         "must be a fresh native process"
     );
+    eprintln!("ARTICULATED_STAGE reopen_ok");
     assert_eq!(reopened["total"], 3);
     let native: semwright_driver_blender::authoring::NativeSnapshot =
         serde_json::from_value(reopened.clone()).unwrap();

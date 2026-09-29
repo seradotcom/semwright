@@ -249,6 +249,7 @@ class AuthoringRuntime:
                     actual_sha256 = None
                 topology_valid = False
                 links = material.node_tree.links
+                same_node = lambda left, right: left.as_pointer() == right.as_pointer()
                 if role == "normal":
                     normal_nodes = [
                         candidate
@@ -257,15 +258,15 @@ class AuthoringRuntime:
                         and candidate.get("sw_texture_role") == "normal"
                     ]
                     topology_valid = len(normal_nodes) == 1 and any(
-                        link.from_node is node
+                        same_node(link.from_node, node)
                         and link.from_socket.name == "Color"
-                        and link.to_node is normal_nodes[0]
+                        and same_node(link.to_node, normal_nodes[0])
                         and link.to_socket.name == "Color"
                         for link in links
                     ) and any(
-                        link.from_node is normal_nodes[0]
+                        same_node(link.from_node, normal_nodes[0])
                         and link.from_socket.name == "Normal"
-                        and link.to_node is shader
+                        and same_node(link.to_node, shader)
                         and link.to_socket.name == "Normal"
                         for link in links
                     )
@@ -273,17 +274,17 @@ class AuthoringRuntime:
                     target = expected_inputs[role]
                     if channel == "alpha":
                         topology_valid = any(
-                            link.from_node is node
+                            same_node(link.from_node, node)
                             and link.from_socket.name == "Alpha"
-                            and link.to_node is shader
+                            and same_node(link.to_node, shader)
                             and link.to_socket.name == target
                             for link in links
                         )
                     elif channel == "color":
                         topology_valid = any(
-                            link.from_node is node
+                            same_node(link.from_node, node)
                             and link.from_socket.name == "Color"
-                            and link.to_node is shader
+                            and same_node(link.to_node, shader)
                             and link.to_socket.name == target
                             for link in links
                         )
@@ -296,15 +297,15 @@ class AuthoringRuntime:
                         ]
                         output = {"red": "Red", "green": "Green", "blue": "Blue"}[channel]
                         topology_valid = len(separate) == 1 and any(
-                            link.from_node is node
+                            same_node(link.from_node, node)
                             and link.from_socket.name == "Color"
-                            and link.to_node is separate[0]
+                            and same_node(link.to_node, separate[0])
                             and link.to_socket.name == "Color"
                             for link in links
                         ) and any(
-                            link.from_node is separate[0]
+                            same_node(link.from_node, separate[0])
                             and link.from_socket.name == output
-                            and link.to_node is shader
+                            and same_node(link.to_node, shader)
                             and link.to_socket.name == target
                             for link in links
                         )
