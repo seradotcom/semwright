@@ -458,6 +458,13 @@ jobs:
           echo "GODOT_BIN=$GODOT" >> "$GITHUB_ENV"
       - name: Build sandbox helper
         run: cargo build --locked -p semwright-plugin-host --bin semwright-sandbox
+      - name: Cross-app Driver Host handshake control
+        env:
+          SEMWRIGHT_TEST_GODOT_AUTHORING_HOST: '1'
+          SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
+        run: |
+          set -euo pipefail
+          cargo test --locked -p semwright-driver-godot --test authoring_host             empty_project_authoring_flows_through_broker_driver_host_and_provider             -- --ignored --exact --nocapture             2>&1 | tee verification/godot-cross-app/provider-handshake-control.log
       - name: Generic E artifact handoff to D native import and gameplay
         env:
           SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
