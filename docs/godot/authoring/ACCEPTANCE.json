@@ -110,11 +110,14 @@
     {
       "id": "D08",
       "requirement": "external persistence sentinels",
-      "state": "SOURCE_PASS_NATIVE_REOPEN_PENDING",
-      "implementation": "external dependency sentinels plus save and fresh-process reopen",
+      "state": "IMPLEMENTED_NATIVE_PERSISTENCE_EVIDENCE_PENDING",
+      "implementation": "external dependency sentinels plus save/fresh-process reopen; #171 scene-only contract now checks byte-exact external material and texture preservation, shared external identity, embedded/shared subresource persistence and inherited-scene fail-closed behavior",
       "tests": [
         "persistence sentinel regression",
-        "native persistence"
+        "native save -> distinct-process reopen",
+        "#171 native scene-save external material/texture bytes",
+        "#171 embedded/shared subresource reload",
+        "#171 inherited scene rejection without write"
       ],
       "tested_sha": "44adb0688efe0b3ccfc142ef10ed3cf510325074",
       "run_id": 36521988929,
@@ -153,10 +156,13 @@
     {
       "id": "D11",
       "requirement": "authorized repair/no overwrite",
-      "state": "SOURCE_PASS_HOST_GATE_PENDING",
-      "implementation": "owner-bound one-shot apply, bounded missing-source repair and DIVERGED no-overwrite",
+      "state": "PARTIAL_MISSING_SOURCE_REPAIR_IMPLEMENTED_RECONCILIATION_BLOCKED",
+      "implementation": "owner-bound one-shot apply, bounded missing-source repair and DIVERGED no-overwrite are implemented. Store has fail-closed partial-publication state, but authorized Partial/Unknown reconciliation cannot be exposed without an A PlanVault reconciliation transition: current C0 and A head reject further begin/child repair after a non-Completed attempt.",
       "tests": [
-        "owner/repair tests",
+        "owner-bound one-shot apply",
+        "bounded missing-source repair with original intent/budget",
+        "DIVERGED external-edit denial",
+        "partial publication remains blocked until explicit reconciliation",
         "runner drift denial"
       ],
       "tested_sha": null,
@@ -227,10 +233,12 @@
     {
       "id": "D16",
       "requirement": "171 regression/hostile/gates",
-      "state": "PARTIAL_171_GREEN_HOSTILE_PENDING",
-      "implementation": "#171 real-Godot readback/scene-save remained green; D hostile/fuzz/final gates open",
+      "state": "PARTIAL_171_GREEN_EXPANDED_D_GATE_PENDING",
+      "implementation": "#171 real-Godot readback/scene-save previously green; D native-authoring lane now reruns readback plus expanded scene-save persistence contract on the exact D SHA before Host E2E; hostile/fuzz/final gates remain required",
       "tests": [
-        "Godot driver integration real-godot"
+        "Godot driver integration real-godot historical regression",
+        "D native #171 readback contract",
+        "D native expanded scene-save persistence contract"
       ],
       "tested_sha": "9a7a0ce7ba67dc92d06f4e656cc3e5b9002f3140",
       "run_id": 36525334763,
