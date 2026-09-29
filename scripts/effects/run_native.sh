@@ -14,9 +14,9 @@ if [[ "$suite" == godot || "$suite" == native-all ]]; then
   curl --fail --location --retry 3 \
     'https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip' \
     -o "$RUNNER_TEMP/effects-godot.zip"
+  echo "cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4  $RUNNER_TEMP/effects-godot.zip" | sha256sum --check -
   unzip -q "$RUNNER_TEMP/effects-godot.zip" -d "$runtime"
   export GODOT_BIN="$runtime/Godot_v4.7.2-stable_linux.x86_64"
-  echo "cadd3204e728a35d3f13adb7fd0d7902636b79f6b95c40c265eb73b6c35329e4  $GODOT_BIN" | sha256sum --check -
   env -i PATH=/usr/bin:/bin LANG=C.UTF-8 "$GODOT_BIN" --version > verification/effects/godot-version.txt
   sha256sum "$GODOT_BIN" > verification/effects/godot-binary.sha256
   cargo run --locked -p semwright-effect-conformance --example native -- godot
