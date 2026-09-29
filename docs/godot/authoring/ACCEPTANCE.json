@@ -235,5 +235,6 @@
     }
   ],
   "candidate_sha": null,
-  "current_run_id": null
+  "current_run_id": null,
+  "status_note": "Set exact candidate/run only from executed CI evidence; repository docs do not predeclare READY."
 }
