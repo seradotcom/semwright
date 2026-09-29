@@ -103,19 +103,39 @@ fn empty_root_plan_apply_validate_verify_uses_a_c_f_contracts() {
     let validated = runtime.validate(&owner, &plan.plan_id).unwrap();
     assert_eq!(validated.report.verdict().unwrap(), Verdict::Pass);
     assert_eq!(validated.controller_state, State::Verified);
-    assert_eq!(validated.report.checks.len(), 2);
-    assert!(validated.report.checks.iter().all(|check| {
-        check.evidence.len() == 1
+    assert_eq!(validated.report.checks.len(), 5);
+    let required = validated
+        .report
+        .checks
+        .iter()
+        .filter(|check| validated.report.required_rules.contains(&check.rule))
+        .collect::<Vec<_>>();
+    assert_eq!(required.len(), 2);
+    assert!(required.iter().all(|check| {
+        check.verdict == Verdict::Pass
+            && check.evidence.len() == 1
             && matches!(
                 check.evidence[0].method.as_str(),
                 "godot_managed_source_hash" | "godot_derivation_manifest"
             )
     }));
+    let native_preferences = validated
+        .report
+        .checks
+        .iter()
+        .filter(|check| !validated.report.required_rules.contains(&check.rule))
+        .collect::<Vec<_>>();
+    assert_eq!(native_preferences.len(), 3);
+    assert!(
+        native_preferences
+            .iter()
+            .all(|check| { check.verdict == Verdict::Unknown && check.evidence.is_empty() })
+    );
 
     let verified = runtime.verify(&owner, &plan.plan_id).unwrap();
     assert_eq!(verified.report.verdict().unwrap(), Verdict::Pass);
     assert_eq!(verified.report.effects_observed.len(), 2);
-    assert!(verified.report.effects_unobservable.is_empty());
+    assert_eq!(verified.report.effects_unobservable.len(), 3);
     assert_eq!(verified.receipt.owner, owner);
     assert_eq!(
         verified.receipt.operation.capability,
