@@ -525,3 +525,85 @@ async fn project_store_database_inherits_private_windows_acl() {
     )
     .unwrap();
 }
+
+#[tokio::test]
+async fn project_gc_collects_only_private_history_free_state_and_keeps_user_files() {
+    let (_temp, root, state) = fixture();
+    let sentinel = root.join("sentinel.bin");
+    std::fs::write(&sentinel, b"user-owned").unwrap();
+    let broker = broker(&root, &state, "audit-gc", "os-user-v1:fixture:gc");
+    let session = unique_id();
+    let created = call(
+        &broker,
+        &session,
+        "project.create",
+        json!({"root":"workspace"}),
+    )
+    .await;
+    assert!(created.ok, "{created:?}");
+    let project = created.data.unwrap()["project"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    let imported = call(
+        &broker,
+        &session,
+        "project.manifest.import",
+        json!({
+            "root":"workspace",
+            "project":project,
+            "manifest":{
+                "version":1,
+                "source_project":"prj_00000000000000000000000000000001",
+                "source_snapshot":0,
+                "assets":[{
+                    "source_id":"asset_00000000000000000000000000000001",
+                    "label":"portable garbage",
+                    "resource_type":"fixture"
+                }],
+                "declarations":[],
+                "coverage_complete":false
+            }
+        }),
+    )
+    .await;
+    assert!(imported.ok, "{imported:?}");
+    let local = imported.data.unwrap()["result"]["mapping"][0]["local"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    let tombstone = call(
+        &broker,
+        &session,
+        "project.asset.tombstone",
+        json!({"root":"workspace","project":project,"asset":local}),
+    )
+    .await;
+    assert!(tombstone.ok, "{tombstone:?}");
+
+    let preview = call(
+        &broker,
+        &session,
+        "project.gc.preview",
+        json!({"root":"workspace","project":project,"limit":16}),
+    )
+    .await;
+    assert!(preview.ok, "{preview:?}");
+    let preview = preview.data.unwrap();
+    assert_eq!(preview["result"]["candidates"][0], local);
+    assert_eq!(preview["result"]["user_files_deleted"], false);
+
+    let collected = call(
+        &broker,
+        &session,
+        "project.gc.collect",
+        json!({"root":"workspace","project":project,"assets":[local]}),
+    )
+    .await;
+    assert!(collected.ok, "{collected:?}");
+    let collected = collected.data.unwrap();
+    assert_eq!(collected["result"]["user_files_deleted"], false);
+    assert_eq!(std::fs::read(&sentinel).unwrap(), b"user-owned");
+}

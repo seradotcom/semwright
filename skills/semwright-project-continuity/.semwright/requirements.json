@@ -16,7 +16,9 @@
       { "id": "project.manifest.export", "required": true },
       { "id": "project.manifest.import", "required": true },
       { "id": "project.asset.rebind", "required": false },
-      { "id": "project.asset.tombstone", "required": false }
+      { "id": "project.asset.tombstone", "required": false },
+      { "id": "project.gc.preview", "required": false },
+      { "id": "project.gc.collect", "required": false }
     ],
     "semantic_packages": []
   }

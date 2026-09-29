@@ -211,6 +211,7 @@ impl ProjectGraphs {
             "project.query"
                 | "project.asset.inspect"
                 | "project.asset.provenance"
+                | "project.gc.preview"
                 | "project.revisions"
                 | "project.impact"
                 | "project.manifest.export"
@@ -344,6 +345,25 @@ impl ProjectGraphs {
                     .transact(&scoped, |graph| graph.tombstone(&scoped, &asset))
                     .map_err(graph_error)?;
                 json!({"tombstoned":true,"user_files_deleted":false,"snapshot":store.graph().map_err(graph_error)?.snapshot_revision()})
+            }
+            "project.gc.preview" => serde_json::to_value(
+                store
+                    .graph()
+                    .map_err(graph_error)?
+                    .garbage_preview(&full, args["limit"].as_u64().unwrap_or(64) as usize)
+                    .map_err(graph_error)?,
+            )?,
+            "project.gc.collect" => {
+                let ids: Vec<g::LogicalAssetId> = decode(&args["assets"])?;
+                let collected = ids.clone();
+                store
+                    .transact(&full, |graph| graph.collect_garbage(&full, ids))
+                    .map_err(graph_error)?;
+                json!({
+                    "collected": collected,
+                    "user_files_deleted": false,
+                    "snapshot": store.graph().map_err(graph_error)?.snapshot_revision()
+                })
             }
             "project.query" => {
                 let query: g::AssetQuery = decode(args.get("query").unwrap_or(&json!({})))?;

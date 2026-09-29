@@ -2,7 +2,7 @@
 
 Generated from `schemas/commands.json`; do not edit by hand.
 
-157 built-in descriptors. A descriptor is not proof of live backend support.
+159 built-in descriptors. A descriptor is not proof of live backend support.
 Run `semwright doctor` and consult `compatibility.md` and `../VERIFY.md`.
 
 Every command accepts only its documented properties. Use `commands describe NAME`
@@ -168,6 +168,8 @@ for many backends in this development handoff; strengthening them is a release g
 | `project.manifest.export` | `filesystem.read:root` | read_only | 10000 ms | core |
 | `project.manifest.import` | `filesystem.read:root`, `project.manage` | mutating | 20000 ms | core |
 | `project.asset.provenance` | `filesystem.read:root` | read_only | 10000 ms | core |
+| `project.gc.preview` | `filesystem.read:root` | read_only | 10000 ms | core |
+| `project.gc.collect` | `filesystem.read:root`, `project.manage` | mutating | 10000 ms | core |
 
 ## `doctor`
 
@@ -4843,6 +4845,78 @@ Idempotency: `read_only`. Dry run: `true`.
     "root",
     "project",
     "asset"
+  ]
+}
+```
+
+## `project.gc.preview`
+
+Preview bounded Project Graph-private garbage candidates. Only tombstoned assets with no revisions, receipts, edges or external intents are eligible; user files are never candidates.
+
+Idempotency: `read_only`. Dry run: `true`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "root": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^[a-zA-Z0-9_-]+$"
+    },
+    "project": {
+      "type": "string",
+      "pattern": "^prj_[0-9a-f]{32}$"
+    },
+    "limit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 256
+    }
+  },
+  "required": [
+    "root",
+    "project"
+  ]
+}
+```
+
+## `project.gc.collect`
+
+Collect explicitly selected history-free tombstoned records from Project Graph materialized state while preserving the canonical journal and all user files.
+
+Idempotency: `non_idempotent`. Dry run: `false`.
+
+```json
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "root": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^[a-zA-Z0-9_-]+$"
+    },
+    "project": {
+      "type": "string",
+      "pattern": "^prj_[0-9a-f]{32}$"
+    },
+    "assets": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^asset_[0-9a-f]{32}$"
+      }
+    }
+  },
+  "required": [
+    "root",
+    "project",
+    "assets"
   ]
 }
 ```

@@ -220,19 +220,25 @@
     {
       "requirement": "C12",
       "condition": "Portable untrusted manifests and safe GC",
-      "status": "PASS",
+      "status": "PENDING_CI",
       "implementation": [
         "crates/project-graph/src/manifest.rs",
-        "crates/project-graph/src/graph.rs"
+        "crates/project-graph/src/graph.rs GarbageCollectionPreview/collect_garbage",
+        "crates/core/src/project_graph.rs project.gc.preview/project.gc.collect"
       ],
       "tests": [
         "imported_manifest_never_inherits_identity_locator_receipts_or_current",
-        "malformed_manifest_and_parent_cycle_leave_target_unchanged"
+        "malformed_manifest_and_parent_cycle_leave_target_unchanged",
+        "garbage_collection_only_removes_history_free_graph_state_and_never_user_files",
+        "garbage_collection_refuses_history_references_and_partial_visibility",
+        "garbage_preview_is_bounded_and_reports_truncation_without_hidden_counts",
+        "garbage_collection_replays_without_deleting_canonical_journal_history",
+        "project_gc_collects_only_private_history_free_state_and_keeps_user_files"
       ],
-      "tested_sha": "d7a8b0cb38f385f0699523614fe8de099f11b09f",
-      "run_id": 36600659015,
-      "job_id": 109516876942,
-      "evidence": "Exact-SHA d7a8b0c full lane PASS: 62/62 Project Graph tests, zero failed/ignored, strict clippy/schemas/rustdoc, 8/8 Broker integration tests, durable-principal regression, daemon check and bounded fuzz. This requirement is covered by that source unless separately noted; RevisionAdapter additions in fb15f52 remain pending their own exact-SHA rerun."
+      "tested_sha": null,
+      "run_id": null,
+      "job_id": null,
+      "evidence": "Portable manifest/import safety is previously green. New bounded graph-private GC removes only tombstoned assets with no revisions, receipts, edges or external intents, preserves canonical journal history and never receives/deletes user file paths. Exact-SHA graph/store/Broker tests are pending before PASS."
     },
     {
       "requirement": "C13",

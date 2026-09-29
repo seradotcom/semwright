@@ -21,8 +21,8 @@ fn continuity_skill_uses_real_catalog_and_bundler_without_claiming_runtime_execu
     let report = skills::conformance_test(&package, &catalog, env!("CARGO_PKG_VERSION")).unwrap();
     assert!(report.pass);
     assert_eq!(report.script_execution, "disabled");
-    assert_eq!(report.examples.checked, 5);
-    assert_eq!(report.examples.passed, 5);
+    assert_eq!(report.examples.checked, 6);
+    assert_eq!(report.examples.passed, 6);
     assert_eq!(report.executed_operations, 0);
     let temp = tempfile::tempdir().unwrap();
     let copy = temp.path().join("semwright-project-continuity");
@@ -35,6 +35,7 @@ fn continuity_skill_uses_real_catalog_and_bundler_without_claiming_runtime_execu
         ".semwright/examples/project-create.json",
         ".semwright/examples/impact.json",
         ".semwright/examples/provenance.json",
+        ".semwright/examples/gc-preview.json",
     ] {
         let target = copy.join(relative);
         std::fs::create_dir_all(target.parent().unwrap()).unwrap();

@@ -24,7 +24,7 @@ The graph must preserve distinctions between logical identity, native identity a
 
 **Malicious portable import.** Imported manifests cannot import locators, owner identity, trusted receipts, CURRENT state or permissions. Local IDs are reallocated and only bounded declarations are accepted.
 
-**Destructive cleanup.** Tombstone is graph-only. No default GC deletes user sources or outputs. A future destructive cleanup requires an explicit policy-gated scope and verification.
+**Destructive cleanup.** Tombstone is graph-only. `project.gc.preview`/`collect` are bounded to tombstoned graph-private records with zero revision/receipt/edge/intent references and preserve the canonical journal. They accept no deletion path and never unlink user sources or outputs. Removing one project's materialized record is not a claim of global ownership over a native resource that another project may also reference. Any future destructive native cleanup or shared-resource reclamation remains a separate policy-gated capability with explicit reference accounting.
 
 ## Denial, ambiguity and resource attacks
 Denied/offline/timeout/ambiguous probes remain UNKNOWN, never MISSING. Watch loss/overflow/reorder invalidates affected scope until a bounded rescan. Node/edge/depth/result/cursor/store/payload budgets return truncation/conflict/resource exhaustion rather than fabricated completeness.

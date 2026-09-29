@@ -2111,5 +2111,41 @@
       "provenance",
       "dependencies"
     ]
+  },
+  "project.gc.preview": {
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": null,
+    "aliases": [],
+    "object_types": [
+      "project",
+      "asset"
+    ],
+    "untrusted_metadata": false,
+    "tags": [
+      "project",
+      "graph",
+      "garbage-collection",
+      "preview"
+    ]
+  },
+  "project.gc.collect": {
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "0.9.0-dev.1",
+    "app": null,
+    "aliases": [],
+    "object_types": [
+      "project",
+      "asset"
+    ],
+    "untrusted_metadata": false,
+    "tags": [
+      "project",
+      "graph",
+      "garbage-collection",
+      "cleanup"
+    ]
   }
 }
