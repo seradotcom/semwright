@@ -1,6 +1,7 @@
 use semwright_driver_blender::authoring::*;
 use semwright_media_time::Rate;
 use semwright_semantic_composition::*;
+use semwright_project_graph as graph;
 use proptest::prelude::*;
 use std::collections::BTreeMap;
 
@@ -39,18 +40,74 @@ fn spec() -> BlenderAuthoringSpec {
 
 fn owner() -> Owner { Owner{session:"host-session".into(),principal:PrincipalBinding::HostSession} }
 fn snap() -> NativeSnapshot { NativeSnapshot{native_session:"native-boot".into(),island:None,fingerprint:Digest::of_bytes(b"before"),drift:false,total:0,items:vec![],source_only:true,exhaustive:true} }
-fn descriptor() -> ProfileDescriptor { profile(vec![CapabilityBinding{phase:Phase::Apply,command:"driver.blender.composition.apply".into(),descriptor:Digest::of_bytes(b"descriptor"),effects:[EffectClass::CreateOwnedObject,EffectClass::UpdateOwnedObject].into()}]).unwrap() }
-#[test] fn prepares_common_changeset_without_second_kernel() { let s=spec();let count=s.operation_count();let p=prepare(owner(),AuthoringIntent::Create{spec:s},&snap(),"native_island".into(),&descriptor()).unwrap();p.verify(&descriptor()).unwrap();assert_eq!(p.body.changes.operations.len(),count);assert_eq!(p.body.changes.atomicity,Atomicity::NonAtomicSequence); }
-#[test] fn partial_snapshot_never_prepares() { let mut s=snap();s.exhaustive=false;assert!(prepare(owner(),AuthoringIntent::Create{spec:spec()},&s,"native_island".into(),&descriptor()).is_err()); }
+fn bindings() -> Vec<CapabilityBinding> {
+    vec![CapabilityBinding {
+        phase: Phase::Apply,
+        command: "driver.blender.composition.apply".into(),
+        descriptor: Digest::of_bytes(b"descriptor"),
+        effects: [EffectClass::CreateOwnedObject, EffectClass::UpdateOwnedObject].into(),
+    }]
+}
+#[test] fn prepares_common_changeset_without_second_kernel() {
+    let s=spec(); let count=s.operation_count();
+    let prepared=prepare(owner(),AuthoringIntent::Create{spec:s},&snap(),"native_island".into(),bindings()).unwrap();
+    prepared.plan.verify(&prepared.profile).unwrap();
+    assert_eq!(prepared.plan.body.changes.operations.len(),count);
+    assert_eq!(prepared.plan.body.changes.atomicity,Atomicity::NonAtomicSequence);
+    assert_eq!(prepared.plan.body.dependencies["effects.contract"],prepared.contract.digest().unwrap());
+    assert_eq!(prepared.plan.body.required_rules,prepared.contract.required_rules());
+}
+#[test] fn partial_snapshot_never_prepares() {
+    let mut s=snap(); s.exhaustive=false;
+    assert!(prepare(owner(),AuthoringIntent::Create{spec:spec()},&s,"native_island".into(),bindings()).is_err());
+}
 #[test] fn common_vault_refuses_client_tampering_and_replay() {
-    let p=prepare(owner(),AuthoringIntent::Create{spec:spec()},&snap(),"native_island".into(),&descriptor()).unwrap();
+    let prepared=prepare(owner(),AuthoringIntent::Create{spec:spec()},&snap(),"native_island".into(),bindings()).unwrap();
+    let p=prepared.plan;
     let mut vault=PlanVault::bounded(16,8,64); let id=p.digest.as_str();
     vault.issue(&owner(),id,&p,p.body.budget.clone(),p.body.changes.operations.len() as u32,None,false).unwrap();
     let mut tampered=p.clone();tampered.body.changes.operations.clear();assert!(vault.matches(&owner(),id,&tampered).is_err());
     let permit=vault.begin(&owner(),id,&p,"request-1").unwrap();vault.finish(permit,ExecutionStatus::Completed,vec![]).unwrap();assert!(vault.begin(&owner(),id,&p,"request-2").is_err());
 }
-#[test] fn native_structure_cannot_stand_in_for_F_evidence() { let p=prepare(owner(),AuthoringIntent::Create{spec:spec()},&snap(),"native_island".into(),&descriptor()).unwrap();let report=verification(&p,&snap(),true,ExecutionStatus::Completed).unwrap();assert_eq!(report.verdict().unwrap(),Verdict::Unknown); }
-#[test] fn failed_required_native_rule_remains_fail() { let p=prepare(owner(),AuthoringIntent::Create{spec:spec()},&snap(),"native_island".into(),&descriptor()).unwrap();assert_eq!(verification(&p,&snap(),false,ExecutionStatus::Completed).unwrap().verdict().unwrap(),Verdict::Fail); }
+fn transform_snapshot() -> NativeSnapshot {
+    let item=serde_json::json!({"entity":"part","type":"EMPTY","translation":[1.0,2.0,3.0],"rotation":[0.0,0.0,0.0],"scale":[1.0,1.0,1.0]});
+    NativeSnapshot{native_session:"native-boot".into(),island:Some("island".into()),fingerprint:Digest::of_bytes(b"transform"),drift:false,total:1,items:vec![item],source_only:true,exhaustive:true}
+}
+fn transform_prepared(before:&NativeSnapshot) -> PreparedAuthoring {
+    prepare(owner(),AuthoringIntent::Transform{island:"island".into(),entity:"part".into(),transform:Transform{translation:[1.,2.,3.],rotation:[0.;3],scale:[1.;3]},meters_per_unit:1.0,expected_fingerprint:before.fingerprint.clone()},before,"unused".into(),bindings()).unwrap()
+}
+#[test] fn trusted_F_adapter_can_pass_native_readback() {
+    let before=transform_snapshot(); let prepared=transform_prepared(&before);
+    let evaluation=evaluate_native_effects(&prepared,"request-1",&before,&before,None,ExecutionStatus::Completed).unwrap();
+    assert_eq!(evaluation.verdict().unwrap(),Verdict::Pass);
+}
+#[test] fn drift_remains_a_required_F_failure() {
+    let before=transform_snapshot(); let prepared=transform_prepared(&before); let mut after=before.clone(); after.drift=true;
+    let evaluation=evaluate_native_effects(&prepared,"request-1",&before,&after,None,ExecutionStatus::Completed).unwrap();
+    assert_eq!(evaluation.verdict().unwrap(),Verdict::Fail);
+}
+#[test] fn C_receipt_requires_host_owned_ids_and_admission() {
+    let before=transform_snapshot(); let prepared=transform_prepared(&before);
+    let evaluation=evaluate_native_effects(&prepared,"request-1",&before,&before,None,ExecutionStatus::Completed).unwrap();
+    let descriptor=Digest::of_bytes(b"registered-apply-descriptor");
+    let runtime=Digest::of_bytes(b"pinned-blender-runtime");
+    let context=GraphReceiptContext {
+        id:graph::ReceiptId::new(), derivation:graph::DerivationId::new(), project:graph::ProjectId::new(),
+        inputs:vec![], outputs:vec![graph::RevisionPin {
+            asset:graph::LogicalAssetId::new(), revision:graph::AssetRevision::new(),
+            fingerprint:graph::Fingerprint{bytes:None,projection:Some(graph::ProjectionDigest{
+                digest:before.fingerprint.clone(),method:"blender-source-projection-v1".into(),method_version:1
+            })}, equivalence:graph::Equivalence::Projection
+        }],
+        additional_determinants:vec![], descriptor:descriptor.clone(), runtime:runtime.clone(),
+        completed_unix_ms:1, coverage:graph::Coverage::unknown(),
+    };
+    let receipt=graph_receipt_candidate(context,"request-1",&prepared.plan,evaluation.report).unwrap();
+    let adapter=graph::ReceiptAdapter::registered("driver.blender.composition.apply".into(),descriptor,runtime).unwrap();
+    let admitted=adapter.admit(&receipt.owner.clone(),"request-1",receipt).unwrap();
+    assert_eq!(admitted.record().verification.verdict().unwrap(),Verdict::Pass);
+    assert!(!admitted.record().coverage.cache_safe());
+}
 proptest! {
     #[test] fn finite_dimension_roundtrip(x in 0.01f64..100.0) { let mut s=spec();s.entities[0].shape=Shape::Box{size:[x,x/2.,x*2.]};s.validate().unwrap();let encoded=canonical_bytes(&s).unwrap();let decoded:BlenderAuthoringSpec=strict_decode(&encoded).unwrap();prop_assert_eq!(canonical_bytes(&decoded).unwrap(),encoded); }
     #[test] fn all_out_of_bounds_indices_fail(i in 3u32..u32::MAX) { let mut s=spec();s.entities[0].shape=Shape::Mesh{vertices:vec![[0.,0.,0.],[1.,0.,0.],[0.,1.,0.]],faces:vec![vec![0,1,i]],uv:None};prop_assert!(s.validate().is_err()); }

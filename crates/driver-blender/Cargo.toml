@@ -22,6 +22,8 @@ serde.workspace = true
 schemars.workspace = true
 semwright-semantic-composition.workspace = true
 semwright-media-time.workspace = true
+semwright-effect-conformance.workspace = true
+semwright-project-graph.workspace = true
 
 [features]
 authoring-native = []
@@ -31,6 +33,7 @@ workspace = true
 
 [dev-dependencies]
 proptest.workspace = true
+semwright-core.workspace = true
 semwright-driver-host.workspace = true
 semwright-backend-api.workspace = true
 semwright-policy.workspace = true

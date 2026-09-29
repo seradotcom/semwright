@@ -40,8 +40,10 @@ impl NativeSnapshot {
         ensure(self.items.len() <= 512, "native snapshot item bound")?;
         bounded_id(&self.native_session)?;
         Ok(BaseStateSet(vec![BaseState {
-            key: ResourceKey { provider: "driver:blender".into(), resource: self.island.clone().unwrap_or_else(|| "private-scene".into()) },
-            document_id: self.island.clone().unwrap_or_else(|| self.native_session.clone()),
+            // One stable resource key spans whole-scene planning and managed-island readback.
+            // The native island remains an observed property, not a fabricated global revision.
+            key: ResourceKey { provider: "driver:blender".into(), resource: "authoring-workspace".into() },
+            document_id: "blender-authoring-workspace".into(),
             provider_session: owner.session.clone(),
             generation: self.native_session.clone(),
             revision: Revision::Fingerprint(self.fingerprint.clone()),
@@ -49,99 +51,227 @@ impl NativeSnapshot {
         }]))
     }
 }
-pub fn profile(bindings: Vec<CapabilityBinding>) -> Result<ProfileDescriptor> {
+pub fn profile(
+    bindings: Vec<CapabilityBinding>,
+    required_rules: BTreeSet<String>,
+) -> Result<ProfileDescriptor> {
     let p = ProfileDescriptor {
-        identity: ProfileIdentity { id: "blender-native-authoring".into(), version: 1, intent_schema: schema_digest::<AuthoringIntent>()?, operation_schema: schema_digest::<NativeOperation>()? },
+        identity: ProfileIdentity {
+            id: "blender-native-authoring".into(),
+            version: 1,
+            intent_schema: schema_digest::<AuthoringIntent>()?,
+            operation_schema: schema_digest::<NativeOperation>()?,
+        },
         capabilities: bindings,
-        required_rules: ["blender.native-readback.v1".into(), "blender.effect-conformance.v1".into()].into(),
-        allowed_effects: [EffectClass::Inspect,EffectClass::CreateOwnedObject,EffectClass::UpdateOwnedObject].into(),
+        required_rules,
+        allowed_effects: [
+            EffectClass::Inspect,
+            EffectClass::CreateOwnedObject,
+            EffectClass::UpdateOwnedObject,
+        ]
+        .into(),
     };
-    p.validate()?; Ok(p)
+    p.validate()?;
+    Ok(p)
 }
 pub fn prepare(
     owner: Owner,
     intent: AuthoringIntent,
     snapshot: &NativeSnapshot,
     new_island: String,
-    descriptor: &ProfileDescriptor,
-) -> Result<PreparedPlan<AuthoringIntent,NativeOperation>> {
+    bindings: Vec<CapabilityBinding>,
+) -> Result<PreparedAuthoring> {
     let base = snapshot.base(&owner)?;
     let mut payloads = Vec::new();
     match &intent {
-        AuthoringIntent::Create{spec} => {
-            spec.validate()?; local_id(&new_island)?;
-            ensure(snapshot.island.is_none(), "new collection plan requires whole source scene observation")?;
-            payloads.push(("collection".into(),NativeOperation::Collection{island:new_island.clone(),name:spec.collection.clone()}));
+        AuthoringIntent::Create { spec } => {
+            spec.validate()?;
+            local_id(&new_island)?;
+            ensure(
+                snapshot.island.is_none(),
+                "new collection plan requires whole source scene observation",
+            )?;
+            payloads.push((
+                "collection".into(),
+                NativeOperation::Collection {
+                    island: new_island.clone(),
+                    name: spec.collection.clone(),
+                },
+            ));
             for material in &spec.materials {
-                payloads.push((format!("material-{}",material.id),NativeOperation::Material{island:new_island.clone(),material:material.clone()}));
+                payloads.push((
+                    format!("material-{}", material.id),
+                    NativeOperation::Material {
+                        island: new_island.clone(),
+                        material: material.clone(),
+                    },
+                ));
             }
-            let graph: BTreeMap<_,_> = spec.entities.iter().map(|e| (e.id.clone(),match &e.shape { Shape::MeshInstance{source}=>vec![source.clone()],_=>vec![] })).collect();
+            let graph: BTreeMap<_, _> = spec
+                .entities
+                .iter()
+                .map(|entity| {
+                    (
+                        entity.id.clone(),
+                        match &entity.shape {
+                            Shape::MeshInstance { source } => vec![source.clone()],
+                            _ => vec![],
+                        },
+                    )
+                })
+                .collect();
             for id in dag_order(&graph)? {
-                let entity = spec.entities.iter().find(|e| e.id == id).expect("validated entity").clone();
-                payloads.push((format!("entity-{id}"),NativeOperation::Entity{island:new_island.clone(),entity,meters_per_unit:spec.meters_per_unit}));
+                let entity = spec
+                    .entities
+                    .iter()
+                    .find(|entity| entity.id == id)
+                    .expect("validated entity")
+                    .clone();
+                payloads.push((
+                    format!("entity-{id}"),
+                    NativeOperation::Entity {
+                        island: new_island.clone(),
+                        entity,
+                        meters_per_unit: spec.meters_per_unit,
+                    },
+                ));
             }
-            for (i,relation) in spec.relations.iter().enumerate() {
-                payloads.push((format!("relation-{i}"),NativeOperation::Relation{island:new_island.clone(),relation:relation.clone()}));
+            for (index, relation) in spec.relations.iter().enumerate() {
+                payloads.push((
+                    format!("relation-{index}"),
+                    NativeOperation::Relation {
+                        island: new_island.clone(),
+                        relation: relation.clone(),
+                    },
+                ));
             }
             if let Some(animation) = &spec.animation {
-                payloads.push(("animation".into(),NativeOperation::Animation{island:new_island.clone(),animation:animation.clone(),meters_per_unit:spec.meters_per_unit}));
+                payloads.push((
+                    "animation".into(),
+                    NativeOperation::Animation {
+                        island: new_island.clone(),
+                        animation: animation.clone(),
+                        meters_per_unit: spec.meters_per_unit,
+                    },
+                ));
             }
         }
-        AuthoringIntent::Transform{island,entity,transform,meters_per_unit,expected_fingerprint} => {
-            local_id(island)?; local_id(entity)?; transform.validate()?; finite(*meters_per_unit,0.0001,100.0)?;
-            ensure(snapshot.island.as_deref() == Some(island) && !snapshot.drift, "managed collection identity or manual-edit drift")?;
-            ensure(&snapshot.fingerprint == expected_fingerprint, "external edit invalidates transform plan")?;
-            ensure(snapshot.items.iter().filter(|row| row.get("entity").and_then(Value::as_str) == Some(entity)).count() == 1, "entity identity ambiguous or absent")?;
-            payloads.push((format!("transform-{entity}"),NativeOperation::Transform{island:island.clone(),entity:entity.clone(),transform:transform.clone(),meters_per_unit:*meters_per_unit}));
+        AuthoringIntent::Transform {
+            island,
+            entity,
+            transform,
+            meters_per_unit,
+            expected_fingerprint,
+        } => {
+            local_id(island)?;
+            local_id(entity)?;
+            transform.validate()?;
+            finite(*meters_per_unit, 0.0001, 100.0)?;
+            ensure(
+                snapshot.island.as_deref() == Some(island) && !snapshot.drift,
+                "managed collection identity or manual-edit drift",
+            )?;
+            ensure(
+                &snapshot.fingerprint == expected_fingerprint,
+                "external edit invalidates transform plan",
+            )?;
+            ensure(
+                snapshot
+                    .items
+                    .iter()
+                    .filter(|row| row.get("entity").and_then(Value::as_str) == Some(entity))
+                    .count()
+                    == 1,
+                "entity identity ambiguous or absent",
+            )?;
+            payloads.push((
+                format!("transform-{entity}"),
+                NativeOperation::Transform {
+                    island: island.clone(),
+                    entity: entity.clone(),
+                    transform: transform.clone(),
+                    meters_per_unit: *meters_per_unit,
+                },
+            ));
         }
     }
     let resource = base.0[0].key.clone();
     let mut operations = Vec::new();
     let mut previous = None;
-    for (id,payload) in payloads {
-        let effect = if matches!(payload,NativeOperation::Transform{..}|NativeOperation::Relation{..}|NativeOperation::Animation{..}) { EffectClass::UpdateOwnedObject } else { EffectClass::CreateOwnedObject };
-        let address = Address{resource:resource.clone(),logical_id:id.clone(),property:"declared-native-state".into()};
+    for (id, payload) in payloads {
+        let effect = if matches!(
+            payload,
+            NativeOperation::Transform { .. }
+                | NativeOperation::Relation { .. }
+                | NativeOperation::Animation { .. }
+        ) {
+            EffectClass::UpdateOwnedObject
+        } else {
+            EffectClass::CreateOwnedObject
+        };
+        let address = Address {
+            resource: resource.clone(),
+            logical_id: id.clone(),
+            property: "declared-native-state".into(),
+        };
         operations.push(TypedOperation {
-            id:id.clone(),payload,reads:vec![address.clone()],writes:vec![address],
-            effects:[effect].into(),depends_on:previous.into_iter().collect(),
-            postconditions:["blender.native-readback.v1".into()].into(),
+            id: id.clone(),
+            payload,
+            reads: vec![address.clone()],
+            writes: vec![address],
+            effects: [effect].into(),
+            depends_on: previous.into_iter().collect(),
+            postconditions: BTreeSet::new(),
         });
         previous = Some(id);
     }
-    let budget = ConvergenceBudget { max_iterations:1,max_operations:MAX_OPERATIONS as u32,max_findings:512,max_observations:64,max_elapsed_ms:300_000 };
-    PreparedPlan::prepare(PlanBody {
-        contract_version: CONTRACT_VERSION,profile:descriptor.identity.clone(),owner,base,
-        intent_digest:canonical_digest(&intent)?,intent,dependencies:BTreeMap::new(),
-        observation_scope:operations.iter().flat_map(|o| o.writes.clone()).collect(),
-        changes:ChangeSet{operations,atomicity:Atomicity::NonAtomicSequence},
-        required_rules:descriptor.required_rules.clone(),budget,require_compare_and_swap:false,
-    },descriptor)
-}
-
-/// This is a native structural receipt, not C's Project Graph receipt or F's evaluator.
-/// Missing owner contracts remain required UNKNOWN checks rather than invented success.
-pub fn verification(
-    plan: &PreparedPlan<AuthoringIntent,NativeOperation>,
-    after: &NativeSnapshot,
-    native_match: bool,
-    status: ExecutionStatus,
-) -> Result<VerificationReport> {
-    let base = after.base(&plan.body.owner)?;
-    let scope = plan.body.observation_scope.iter().map(|address| Address { resource:base.0[0].key.clone(),..address.clone() }).collect();
-    let evidence = ObservationRef {
-        id:after.fingerprint.as_str().into(),base:base.clone(),source:EvidenceSource::NativeApi,
-        method:"blender-bounded-source-rna".into(),method_version:1,scope,artifact:None,exhaustive:after.exhaustive,
+    let mut changes = ChangeSet {
+        operations,
+        atomicity: Atomicity::NonAtomicSequence,
     };
-    let checks = vec![
-        RuleResult{rule:"blender.native-readback.v1".into(),version:1,verdict:if native_match {Verdict::Pass} else {Verdict::Fail},evidence_class:EvidenceClass::Deterministic,evidence:vec![evidence],reason:None},
-        RuleResult{rule:"blender.effect-conformance.v1".into(),version:1,verdict:Verdict::Unknown,evidence_class:EvidenceClass::Deterministic,evidence:vec![],reason:Some("F-owned E0 evaluator and C-owned P0 receipt not consumed in this patch; structural readback alone is not effect conformance".into())},
-    ];
-    Ok(VerificationReport {
-        execution_status:status,
-        validation:ValidationReport{plan_digest:plan.digest.clone(),base,required_rules:plan.body.required_rules.clone(),checks},
-        support_level:SupportLevel::Native,effects_observed:vec![],effects_unobservable:plan.body.observation_scope.clone(),
+    let contract = effect_contract(&intent, &changes)?;
+    let required_rules = contract.required_rules();
+    if let Some(final_operation) = changes.operations.last_mut() {
+        final_operation.postconditions = required_rules.clone();
+    }
+    let descriptor = profile(bindings, required_rules.clone())?;
+    let budget = ConvergenceBudget {
+        max_iterations: 1,
+        max_operations: MAX_OPERATIONS as u32,
+        max_findings: 512,
+        max_observations: 64,
+        max_elapsed_ms: 300_000,
+    };
+    let dependencies =
+        BTreeMap::from([("effects.contract".into(), contract.digest()?)]);
+    let plan = PreparedPlan::prepare(
+        PlanBody {
+            contract_version: CONTRACT_VERSION,
+            profile: descriptor.identity.clone(),
+            owner,
+            base,
+            intent_digest: canonical_digest(&intent)?,
+            intent,
+            dependencies,
+            observation_scope: changes
+                .operations
+                .iter()
+                .flat_map(|operation| operation.writes.clone())
+                .collect(),
+            changes,
+            required_rules,
+            budget,
+            require_compare_and_swap: false,
+        },
+        &descriptor,
+    )?;
+    Ok(PreparedAuthoring {
+        plan,
+        profile: descriptor,
+        contract,
     })
 }
+
 pub fn phases() -> BTreeSet<Phase> { [Phase::Inspect,Phase::Plan,Phase::Apply,Phase::Measure,Phase::Validate,Phase::Verify].into() }
 
 fn near(actual: &Value, expected: &[f64]) -> bool {

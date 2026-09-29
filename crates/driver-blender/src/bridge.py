@@ -27,9 +27,11 @@ sys.path.insert(0, runtime)
 from semwright_blender_runtime.commands import Commands  # noqa: E402
 from semwright_blender_runtime.validation import CommandError  # noqa: E402
 from semwright_blender_runtime.semantic import SemanticError, SemanticStore  # noqa: E402
+from semwright_blender_runtime.authoring_native import AuthoringRuntime  # noqa: E402
 
 commands = Commands(bpy, workspace)
 semantic = SemanticStore(bpy, commands.workspace.root)
+authoring = AuthoringRuntime(bpy, commands, semantic)
 
 
 def exact(stream, size):
@@ -360,6 +362,8 @@ def summary():
 def dispatch(command, args):
     if not isinstance(command, str) or not isinstance(args, dict):
         raise CommandError("InvalidArgument", "Blender driver request is malformed")
+    if command.startswith("driver.blender._authoring."):
+        return authoring.dispatch(command[len("driver.blender._authoring."):], args)
     if command == "driver.blender.semantic.summary":
         if args:
             raise CommandError("InvalidArgument", "Semantic summary accepts no arguments")

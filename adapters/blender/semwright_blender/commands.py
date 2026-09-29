@@ -8,6 +8,7 @@ import stat
 from pathlib import Path
 
 from .validation import CommandError, validate
+from .export_scope import inspect_export_closure
 
 SCHEMAS = json.loads(Path(__file__).with_name("commands.json").read_text())
 
@@ -242,6 +243,7 @@ class Commands:
                     raise CommandError("Conflict", "Export collection must include its armature dependencies")
         if bpy.context.mode != "OBJECT":
             raise CommandError("Conflict", "GLB export requires object mode")
+        inspect_export_closure(bpy, self.workspace, collection, args.get("animations", True))
         selected = list(bpy.context.selected_objects)
         active = bpy.context.view_layer.objects.active
         fd, temporary = tempfile.mkstemp(prefix=".semwright-export-", suffix=".glb", dir=os.path.dirname(target))
