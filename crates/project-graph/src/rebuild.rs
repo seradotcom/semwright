@@ -33,6 +33,7 @@ pub trait RebuildCatalog {
 pub enum RebuildBlock {
     NoProductionReceipt,
     ObservationRequired,
+    OutputDiverged,
     IncompleteDependencies,
     HiddenDependencies,
     CapabilityUnavailable,
@@ -205,6 +206,11 @@ impl ProjectGraph {
                 blockers.insert(RebuildBlock::ObservationRequired);
                 report.unknown_frontier = true;
             }
+            if view.knowledge.divergence == Divergence::Diverged {
+                // Overwriting an external edit needs an explicit new native plan,
+                // not an automatic continuation of historical production.
+                blockers.insert(RebuildBlock::OutputDiverged);
+            }
             if receipt
                 .inputs
                 .iter()
@@ -223,6 +229,12 @@ impl ProjectGraph {
                 blockers.insert(RebuildBlock::CapabilityUnavailable);
             }
             for input in &receipt.inputs {
+                if cancellation.load(Ordering::Relaxed) {
+                    report.cancelled = true;
+                    report.truncated = true;
+                    blockers.insert(RebuildBlock::Cancelled);
+                    break;
+                }
                 if report.visited_edges >= budget.edges {
                     report.truncated = true;
                     blockers.insert(RebuildBlock::BudgetExhausted);
@@ -244,6 +256,17 @@ impl ProjectGraph {
                     blockers,
                 },
             );
+            if report.truncated {
+                break;
+            }
+        }
+        // No second traversal of a partial graph may conceal exhaustion or
+        // allocate an apparent dependency ordering after cancellation.
+        if report.truncated || report.cancelled {
+            report.nodes = nodes.into_values().collect();
+            report.unknown_frontier = true;
+            composition::canonical_bytes(&report)?;
+            return Ok(report);
         }
         let node_ids: BTreeSet<_> = nodes.keys().cloned().collect();
         for node in nodes.values_mut() {
@@ -384,4 +407,118 @@ fn dependency_order(
         "cyclic production dependencies",
     )?;
     Ok(result)
+}
+
+/// Agent-proposed targets and budgets. This is not an executable program.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RebuildRequest {
+    pub targets: Vec<LogicalAssetId>,
+    pub traversal: TraversalBudget,
+    /// Counts preparation calls, not hidden native suboperations or approvals.
+    pub convergence: composition::ConvergenceBudget,
+}
+/// Ephemeral data bound by A's existing PlanVault; never persisted as authority.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RebuildReservation {
+    pub plan_ref: String,
+    pub proposal: RebuildProposal,
+    pub grants: Digest,
+    pub visibility: Digest,
+    pub budget: composition::ConvergenceBudget,
+}
+impl ProjectGraph {
+    /// Host entry point. The proposal is recomputed here; client-supplied claims
+    /// cannot be promoted by presenting a matching digest or clearing blockers.
+    pub fn reserve_rebuild(
+        &self,
+        access: &ProjectAccess,
+        request: &RebuildRequest,
+        catalog: &impl RebuildCatalog,
+        vault: &mut composition::PlanVault,
+        cancellation: &AtomicBool,
+    ) -> Result<RebuildReservation> {
+        self.access(access, true)?;
+        request.convergence.validate()?;
+        let proposal = self.propose_rebuild(
+            access,
+            &request.targets,
+            catalog,
+            request.traversal.clone(),
+            cancellation,
+        )?;
+        if proposal.cancelled {
+            return Err(GraphError::Cancelled);
+        }
+        if !proposal.ready_for_preparation() {
+            return Err(GraphError::Conflict);
+        }
+        ensure(
+            !proposal.nodes.is_empty(),
+            "no rebuild preparation required",
+        )?;
+        let operations = u32::try_from(proposal.nodes.len())
+            .map_err(|_| GraphError::Limit("preparation count"))?;
+        let reservation = RebuildReservation {
+            plan_ref: uuid::Uuid::new_v4().to_string(),
+            proposal,
+            grants: access.grants.clone(),
+            visibility: access.visibility.clone(),
+            budget: request.convergence.clone(),
+        };
+        vault.issue(
+            &access.owner,
+            &reservation.plan_ref,
+            &reservation,
+            reservation.budget.clone(),
+            operations,
+            None,
+            false,
+        )?;
+        Ok(reservation)
+    }
+    /// Validate/consume the existing vault reservation before the trusted host
+    /// enters native PREPARATION through Broker. This permit is not a policy
+    /// grant and authorizes no direct filesystem/app writes or provider fallback.
+    /// The host must use A's controller and record finish/partial/unknown there.
+    #[allow(clippy::too_many_arguments)]
+    pub fn begin_rebuild_preparation(
+        &self,
+        access: &ProjectAccess,
+        reservation: &RebuildReservation,
+        catalog: &impl RebuildCatalog,
+        vault: &mut composition::PlanVault,
+        request_id: &str,
+        cancellation: &AtomicBool,
+    ) -> Result<composition::BeginPermit> {
+        self.access(access, true)?;
+        vault.matches(&access.owner, &reservation.plan_ref, reservation)?;
+        if reservation.grants != access.grants || reservation.visibility != access.visibility {
+            return Err(GraphError::Denied);
+        }
+        if reservation.proposal.project != self.project
+            || reservation.proposal.snapshot != self.sequence
+            || reservation.proposal.observation_epoch != self.epoch
+        {
+            return Err(GraphError::Conflict);
+        }
+        for node in &reservation.proposal.nodes {
+            if cancellation.load(Ordering::Relaxed) {
+                return Err(GraphError::Cancelled);
+            }
+            if catalog.lookup(&node.historical_operation)? != node.current_binding {
+                return Err(GraphError::Conflict);
+            }
+        }
+        if cancellation.load(Ordering::Relaxed) {
+            return Err(GraphError::Cancelled);
+        }
+        Ok(vault.begin(
+            &access.owner,
+            &reservation.plan_ref,
+            reservation,
+            request_id,
+        )?)
+    }
 }

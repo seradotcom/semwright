@@ -195,3 +195,242 @@ fn unavailable_catalog_is_a_blocker_not_provider_substitution() {
             .all(|n| n.blockers.contains(&RebuildBlock::CapabilityUnavailable))
     );
 }
+
+fn request(target: LogicalAssetId) -> RebuildRequest {
+    RebuildRequest {
+        targets: vec![target],
+        traversal: budget(),
+        convergence: composition::ConvergenceBudget {
+            max_iterations: 8,
+            max_operations: 16,
+            max_findings: 16,
+            max_observations: 16,
+            max_elapsed_ms: 60_000,
+        },
+    }
+}
+#[test]
+fn altered_reservation_cannot_be_promoted_even_with_a_recomputed_digest() {
+    let (mut g, a, records) = pipeline();
+    observe(&mut g, &a, &records[0].pin.asset, "changed", 20);
+    let mut vault = composition::PlanVault::bounded(16, 16, 32);
+    let reservation = g
+        .reserve_rebuild(
+            &a,
+            &request(records[2].pin.asset.clone()),
+            &Catalog,
+            &mut vault,
+            &AtomicBool::new(false),
+        )
+        .unwrap();
+    let mut altered = reservation.clone();
+    altered.proposal.nodes[0].historical_operation.parameters = digest("injected");
+    // Computing a new public digest cannot change A's server-held canonical bytes.
+    let _digest = composition::canonical_digest(&altered).unwrap();
+    assert!(
+        g.begin_rebuild_preparation(
+            &a,
+            &altered,
+            &Catalog,
+            &mut vault,
+            "prepare-1",
+            &AtomicBool::new(false)
+        )
+        .is_err()
+    );
+    let permit = g
+        .begin_rebuild_preparation(
+            &a,
+            &reservation,
+            &Catalog,
+            &mut vault,
+            "prepare-1",
+            &AtomicBool::new(false),
+        )
+        .unwrap();
+    vault
+        .finish(permit, composition::ExecutionStatus::Completed, vec![])
+        .unwrap();
+    assert!(
+        g.begin_rebuild_preparation(
+            &a,
+            &reservation,
+            &Catalog,
+            &mut vault,
+            "prepare-2",
+            &AtomicBool::new(false)
+        )
+        .is_err()
+    );
+}
+#[test]
+fn reservation_binds_session_grants_snapshot_and_restart_epoch() {
+    let (mut g, a, records) = pipeline();
+    observe(&mut g, &a, &records[0].pin.asset, "changed", 20);
+    let mut vault = composition::PlanVault::bounded(16, 16, 32);
+    let reservation = g
+        .reserve_rebuild(
+            &a,
+            &request(records[2].pin.asset.clone()),
+            &Catalog,
+            &mut vault,
+            &AtomicBool::new(false),
+        )
+        .unwrap();
+    let mut other_owner = owner();
+    other_owner.session = "new-session".into();
+    let session = ProjectAccess::authorized(
+        other_owner,
+        g.project_id().clone(),
+        None,
+        true,
+        digest("grants"),
+    )
+    .unwrap();
+    assert!(
+        g.begin_rebuild_preparation(
+            &session,
+            &reservation,
+            &Catalog,
+            &mut vault,
+            "p",
+            &AtomicBool::new(false)
+        )
+        .is_err()
+    );
+    let grants = ProjectAccess::authorized(
+        owner(),
+        g.project_id().clone(),
+        None,
+        true,
+        digest("changed-grants"),
+    )
+    .unwrap();
+    assert!(matches!(
+        g.begin_rebuild_preparation(
+            &grants,
+            &reservation,
+            &Catalog,
+            &mut vault,
+            "p",
+            &AtomicBool::new(false)
+        ),
+        Err(GraphError::Denied)
+    ));
+    let mut restarted = g.clone();
+    restarted.restart_observation_epoch();
+    assert!(matches!(
+        restarted.begin_rebuild_preparation(
+            &a,
+            &reservation,
+            &Catalog,
+            &mut vault,
+            "p",
+            &AtomicBool::new(false)
+        ),
+        Err(GraphError::Conflict)
+    ));
+    g.rename(&a, &records[0].pin.asset, "renamed source".into())
+        .unwrap();
+    assert!(matches!(
+        g.begin_rebuild_preparation(
+            &a,
+            &reservation,
+            &Catalog,
+            &mut vault,
+            "p",
+            &AtomicBool::new(false)
+        ),
+        Err(GraphError::Conflict)
+    ));
+}
+#[test]
+fn changed_runtime_or_cancelled_attempt_does_not_enter_the_controller() {
+    struct Changed;
+    impl RebuildCatalog for Changed {
+        fn lookup(&self, p: &OperationIdentity) -> Result<Option<RebuildBinding>> {
+            let mut binding = Catalog.lookup(p)?.unwrap();
+            binding.runtime = digest("new-runtime");
+            Ok(Some(binding))
+        }
+    }
+    let (mut g, a, records) = pipeline();
+    observe(&mut g, &a, &records[0].pin.asset, "changed", 20);
+    let mut vault = composition::PlanVault::bounded(16, 16, 32);
+    let reservation = g
+        .reserve_rebuild(
+            &a,
+            &request(records[2].pin.asset.clone()),
+            &Catalog,
+            &mut vault,
+            &AtomicBool::new(false),
+        )
+        .unwrap();
+    assert!(matches!(
+        g.begin_rebuild_preparation(
+            &a,
+            &reservation,
+            &Changed,
+            &mut vault,
+            "p",
+            &AtomicBool::new(false)
+        ),
+        Err(GraphError::Conflict)
+    ));
+    assert!(matches!(
+        g.begin_rebuild_preparation(
+            &a,
+            &reservation,
+            &Catalog,
+            &mut vault,
+            "p",
+            &AtomicBool::new(true)
+        ),
+        Err(GraphError::Cancelled)
+    ));
+    assert!(
+        vault
+            .ledger(&owner(), &reservation.plan_ref)
+            .unwrap()
+            .is_empty()
+    );
+}
+#[test]
+fn diverged_output_is_not_silently_overwritten_by_rebuild() {
+    let (mut g, a, records) = pipeline();
+    observe(&mut g, &a, &records[2].pin.asset, "external edit", 20);
+    let p = g
+        .propose_rebuild(
+            &a,
+            &[records[2].pin.asset.clone()],
+            &Catalog,
+            budget(),
+            &AtomicBool::new(false),
+        )
+        .unwrap();
+    assert!(!p.ready_for_preparation());
+    assert!(
+        p.nodes
+            .iter()
+            .any(|n| n.blockers.contains(&RebuildBlock::OutputDiverged))
+    );
+}
+#[test]
+fn exceeded_edge_budget_does_not_build_a_second_unbounded_ordering() {
+    let (mut g, a, records) = pipeline();
+    observe(&mut g, &a, &records[0].pin.asset, "changed", 20);
+    let mut limits = budget();
+    limits.edges = 1;
+    let p = g
+        .propose_rebuild(
+            &a,
+            &[records[2].pin.asset.clone()],
+            &Catalog,
+            limits,
+            &AtomicBool::new(false),
+        )
+        .unwrap();
+    assert!(p.truncated && p.unknown_frontier && p.order.is_empty());
+    assert_eq!(p.visited_edges, 1);
+    assert!(!p.ready_for_preparation());
+}
