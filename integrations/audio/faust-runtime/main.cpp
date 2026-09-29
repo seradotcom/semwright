@@ -218,10 +218,18 @@ int execute(int argc, char** argv) {
         Factory probe_factory;
         int probe_errno = 0;
         try {
+            std::string expanded_sha;
+            std::string expanded_error;
+            std::cerr << "probe_stage=before_expand\n";
+            const std::string expanded = expandDSPFromString(
+                "semwright-runtime-probe", probe_source, 3, probe_options, expanded_sha, expanded_error);
+            std::cerr << "probe_stage=after_expand;expanded=" << (!expanded.empty() ? 1 : 0)
+                      << ";expand_error=" << json_string(expanded_error) << "\n";
             errno = 0;
             probe_factory.reset(createInterpreterDSPFactoryFromString(
                 "semwright-runtime-probe", probe_source, 3, probe_options, probe_error));
             probe_errno = errno;
+            std::cerr << "probe_stage=after_factory;factory=" << (probe_factory ? 1 : 0) << "\n";
         } catch (const std::exception& error) {
             probe_error = std::string("exception: ") + error.what();
         } catch (...) {
