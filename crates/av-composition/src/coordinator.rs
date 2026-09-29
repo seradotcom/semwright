@@ -88,6 +88,7 @@ pub struct DeliveryInput {
 #[serde(rename_all = "snake_case")]
 pub enum TransferKind {
     ByteCopy,
+    LosslessMezzanine,
     VerifiedTranscode,
 }
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -588,6 +589,19 @@ impl AvCoordinator {
                             && input.metadata == artifact.metadata,
                         "byte copy changed artifact content or metadata",
                     )?,
+                    TransferKind::LosslessMezzanine => {
+                        ensure(
+                            stage == Stage::TransferMotion,
+                            "lossless frame mezzanine applies only to Motion transfer",
+                        )?;
+                        ensure(
+                            input.metadata.duration == artifact.metadata.duration
+                                && input.metadata.video == artifact.metadata.video
+                                && input.metadata.audio.is_none()
+                                && input.artifact_digest != artifact.sha256,
+                            "lossless Motion mezzanine changed timeline/profile or did not create a new artifact",
+                        )?;
+                    }
                     TransferKind::VerifiedTranscode => {
                         ensure(
                             stage == Stage::TransferMotion,

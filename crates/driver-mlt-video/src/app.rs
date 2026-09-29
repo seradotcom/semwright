@@ -1509,6 +1509,7 @@ impl App {
             || media.frames.is_some_and(|frames| frames != frame_count)
             || media.sample_rate != Some(sample_rate)
             || media.channels != Some(channels)
+            || media.audio_sample_frames.is_none()
             || media_frames(&media, rate)? != frame_count
             || !media.codecs.iter().any(|codec| codec == "h264")
             || !media.codecs.iter().any(|codec| codec == "aac")
@@ -1526,6 +1527,13 @@ impl App {
             ("fps_den", u64::from(rate.den).into()),
             ("sample_rate", u64::from(sample_rate).into()),
             ("channels", u64::from(channels).into()),
+            (
+                "audio_sample_frames",
+                media
+                    .audio_sample_frames
+                    .ok_or_else(|| Error::new("BackendFailed", "Final audio sample count missing"))?
+                    .into(),
+            ),
             ("media", media.json()),
             ("video_sha256", video_sha256.into()),
             ("audio_sha256", audio_sha256.into()),

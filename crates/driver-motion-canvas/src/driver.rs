@@ -914,7 +914,7 @@ impl MotionDriver {
                             reference: artifact.manifest.clone(),
                             media_type: Some("application/json".into()),
                             sha256: Some(artifact.manifest_sha256.clone()),
-                            bytes: None,
+                            bytes: Some(artifact.manifest_bytes),
                         }]
                     } else {
                         vec![]

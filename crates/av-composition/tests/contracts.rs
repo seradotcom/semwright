@@ -598,3 +598,39 @@ fn artifact_reuse_never_crosses_owner_sessions() {
         .is_err()
     );
 }
+
+#[test]
+fn agent_a_native_command_inventory_does_not_claim_audio_or_publication() {
+    for stage in [
+        Stage::PlanDelivery,
+        Stage::ApplyMotion,
+        Stage::RenderMotion,
+        Stage::VerifyMotion,
+        Stage::TransferMotion,
+        Stage::Mux,
+        Stage::VerifySync,
+    ] {
+        let commands = agent_a_stage_commands(stage).expect("Agent-A stage mapping");
+        assert!(!commands.is_empty());
+        assert!(
+            commands
+                .iter()
+                .all(|command| command.starts_with("driver."))
+        );
+    }
+    assert_eq!(Stage::TransferMotion.service(), Service::Delivery);
+    for stage in [
+        Stage::ApplyAudio,
+        Stage::RenderAudio,
+        Stage::VerifyAudio,
+        Stage::TransferAudio,
+        Stage::VerifyFinalAudio,
+        Stage::PreparePublication,
+        Stage::Publish,
+    ] {
+        assert!(
+            agent_a_stage_commands(stage).is_none(),
+            "Agent A must not silently claim {stage:?}"
+        );
+    }
+}

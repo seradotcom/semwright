@@ -61,11 +61,8 @@ impl Stage {
             Self::ApplyAudio | Self::RenderAudio | Self::VerifyAudio | Self::VerifyFinalAudio => {
                 Service::Audio
             }
-            Self::PlanDelivery | Self::Mux => Service::Delivery,
-            Self::TransferMotion
-            | Self::TransferAudio
-            | Self::PreparePublication
-            | Self::Publish => Service::Artifacts,
+            Self::PlanDelivery | Self::TransferMotion | Self::Mux => Service::Delivery,
+            Self::TransferAudio | Self::PreparePublication | Self::Publish => Service::Artifacts,
             Self::VerifySync => Service::Decode,
         }
     }

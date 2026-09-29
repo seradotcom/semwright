@@ -1,8 +1,8 @@
 {
   "PROVENANCE.json": "0ad5f992c9cbd885009df4841ccaa617cf885a5b09d72eab87d8008202ab00be",
-  "expected/capabilities.json": "a839834883a9ff4d119ae51db7e949929b344a149e60de30d2cc9963efee652f",
-  "expected/catalog-wire.json": "bbeb61bf5a1d3353e180feb5c5aa2bf8471c2aa48924c9f2507f89b773e7695e",
-  "expected/digests.json": "478006415ed89f667fd4bdf249086eecf013b9d936890039780ced0d87acd6f4",
+  "expected/capabilities.json": "22b8ce9237ad58cd91e6c44318da942030a3b2a8fdbff0247ead6dda2dcf00e5",
+  "expected/catalog-wire.json": "2450c0d051a11f3ab49e19109669cb3a1b0ac1daecacee1d0639e77035ffc13e",
+  "expected/digests.json": "2fedbacc5211c49cafea95f9684f1fb07f55957a890eb943c34aa46e0e4e8fea",
   "kdenlive/file-uri.kdenlive": "9d9017e08a69bab303b336d922e5d241a12922ac7ab9d26402abb1bc8bc8fcbf",
   "kdenlive/future.kdenlive": "a8f0491fa66e5b6c20f21f75a1c1737ec674b99a09122e5e701ab113ef74741b",
   "kdenlive/multiple.kdenlive": "a2487cea93c77514803dff98a33b3e9967076bd96e1f52ce29aa3b78df56ceb4",

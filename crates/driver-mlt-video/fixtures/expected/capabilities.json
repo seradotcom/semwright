@@ -1676,6 +1676,11 @@
           "audio_sha256": {
             "type": "string",
             "maxLength": 64
+          },
+          "audio_sample_frames": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 384000000
           }
         },
         "required": [
@@ -1686,6 +1691,7 @@
           "fps_den",
           "sample_rate",
           "channels",
+          "audio_sample_frames",
           "media",
           "video_sha256",
           "audio_sha256"

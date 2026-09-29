@@ -195,6 +195,7 @@ pub struct ArtifactSummary {
     pub first_png: String,
     pub last_png: String,
     pub manifest_sha256: String,
+    pub manifest_bytes: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -811,6 +812,9 @@ fn validate_artifacts(
         first_png: format!("{directory}/frames/{first}"),
         last_png: format!("{directory}/frames/{last}"),
         manifest_sha256: security::sha256(&manifest_bytes),
+        manifest_bytes: u64::try_from(manifest_bytes.len()).map_err(|_| {
+            Error::new(ErrorCode::ResourceExhausted, "manifest byte count overflow")
+        })?,
     })
 }
 

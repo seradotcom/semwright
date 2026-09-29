@@ -256,5 +256,6 @@ fn media_probe_observes_audio_rate_and_channels() {
     assert!(!media.video);
     assert_eq!(media.sample_rate, Some(48_000));
     assert_eq!(media.channels, Some(2));
+    assert_eq!(media.audio_sample_frames, Some(96_000));
     assert_eq!((media.duration_num, media.duration_den), (96_000, 48_000));
 }

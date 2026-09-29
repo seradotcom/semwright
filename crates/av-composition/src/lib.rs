@@ -1,9 +1,11 @@
 //! Fixed audiovisual coordination, not a new general workflow or authority engine.
+mod agent_a;
 mod coordinator;
 mod executor;
 mod model;
 mod publication;
 mod sync;
+pub use agent_a::*;
 pub use coordinator::*;
 pub use executor::*;
 pub use model::*;
