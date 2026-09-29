@@ -108,9 +108,47 @@ jobs:
           path: verification/audio
           retention-days: 7
           if-no-files-found: error
+  analysis-native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: audio-v1-analysis-noble
+      - name: Install pinned analysis runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libebur128-dev=1.2.6-1build1 libsndfile1-dev bubblewrap libpipewire-0.3-dev
+          mkdir -p verification/audio
+          dpkg-query -W libebur128-dev libsndfile1-dev > verification/audio/analysis-runtime-packages.txt
+      - name: Check namespace prerequisite without changing host security policy
+        run: |
+          bwrap --die-with-parent --unshare-all --ro-bind /usr /usr --ro-bind /lib /lib --ro-bind /lib64 /lib64 --proc /proc --dev /dev -- /usr/bin/true
+      - name: Build fixed meter and sandbox binaries on runner
+        run: |
+          g++ -std=c++17 -O2 -Wall -Wextra -Werror integrations/audio/analysis-runtime/main.cpp -lebur128 -lsndfile -o "$RUNNER_TEMP/semwright-audio-meter"
+          cargo build --locked -p semwright-plugin-host -p semwright-faust-audio-driver --bins
+      - name: Broker to sealed libebur128 meter with independent WAV oracle
+        run: |
+          export SEMWRIGHT_TEST_AUDIO_METER="$RUNNER_TEMP/semwright-audio-meter"
+          export SEMWRIGHT_TEST_SANDBOX_HELPER="$GITHUB_WORKSPACE/target/debug/semwright-sandbox"
+          python3 scripts/audio/run-suite.py analysis-host
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: audio-analysis-${{ github.sha }}
+          path: verification/audio
+          retention-days: 7
+          if-no-files-found: error
   audio-gate:
     if: always()
-    needs: [audio-domain, faust-native]
+    needs: [audio-domain, faust-native, analysis-native]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
@@ -118,4 +156,5 @@ jobs:
         env:
           DOMAIN_RESULT: ${{ needs.audio-domain.result }}
           FAUST_RESULT: ${{ needs.faust-native.result }}
-        run: test "$DOMAIN_RESULT" = success && test "$FAUST_RESULT" = success
+          ANALYSIS_RESULT: ${{ needs.analysis-native.result }}
+        run: test "$DOMAIN_RESULT" = success && test "$FAUST_RESULT" = success && test "$ANALYSIS_RESULT" = success

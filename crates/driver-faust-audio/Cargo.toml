@@ -14,6 +14,10 @@ path = "src/lib.rs"
 name = "semwright-faust-audio-driver"
 path = "src/main.rs"
 
+[[bin]]
+name = "semwright-audio-analysis-driver"
+path = "src/analysis_main.rs"
+
 [features]
 default = []
 live-tests = []
