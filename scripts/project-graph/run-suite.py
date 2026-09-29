@@ -25,14 +25,14 @@ if sha != (os.environ.get("EXPECTED_SHA") or os.environ["GITHUB_SHA"]):
     raise SystemExit("checkout does not match expected source SHA")
 start = time.monotonic()
 report = {"schema_version": 1, "role": "C", "source_sha": sha, "workflow_sha": os.environ["GITHUB_SHA"], "contract_sha": "26602e4b25929be869d69ef28fef4dd9713180d7", "workflow": os.environ.get("GITHUB_WORKFLOW"), "run_id": os.environ.get("GITHUB_RUN_ID"), "attempt": os.environ.get("GITHUB_RUN_ATTEMPT"), "job": os.environ.get("GITHUB_JOB"), "event": os.environ.get("GITHUB_EVENT_NAME"), "suite": suite, "scope": "lock-resolution-only" if suite == "lockfile" else "portable-model-not-native", "native": False, "outcome": "UNKNOWN", "requested_tests": 0, "executed_tests": 0, "ignored_tests": 0, "job_id": None, "runtime_versions": {}, "steps": []}
-def run(name, command, print_output=True):
+def run(name, command, print_output=True, check=True):
     report["active_step"] = name
     result = subprocess.run(command, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     (out / (name + ".log")).write_text(result.stdout)
     if print_output:
         print(result.stdout, flush=True)
     report["steps"].append({"name": name, "command": command, "exit_code": result.returncode})
-    if result.returncode:
+    if result.returncode and check:
         raise RuntimeError(name + " failed")
     return result.stdout
 try:
@@ -51,21 +51,20 @@ try:
         inventory = run("inventory", ["cargo", "test", *package, *features, "--all-targets", "--", "--list"])
         expected_tests = len(re.findall(r"^.+: test$", inventory, re.MULTILINE))
         report["requested_tests"] = expected_tests
-        if expected_tests < 24:
+        if expected_tests < (36 if suite == "store" else 29):
             raise RuntimeError("missing graph test inventory")
-        tests = run("tests", ["cargo", "test", *package, *features, "--all-targets"])
+        tests = run("tests", ["cargo", "test", *package, *features, "--all-targets"], check=False)
         summaries = re.findall(r"^test result: (?:ok|FAILED)\. (\d+) passed; (\d+) failed; (\d+) ignored; (\d+) measured; (\d+) filtered out;", tests, re.MULTILINE)
         passed = sum(int(x[0]) for x in summaries)
         failed = sum(int(x[1]) for x in summaries)
         ignored = sum(int(x[2]) for x in summaries)
         report.update(executed_tests=passed + failed, ignored_tests=ignored, failed_tests=failed)
-        if failed or ignored or passed != expected_tests:
+        if report["steps"][-1]["exit_code"] or failed or ignored or passed != expected_tests:
             raise RuntimeError("executed passing inventory does not match request")
         run("clippy", ["cargo", "clippy", *package, *features, "--all-targets", "--", "-D", "warnings"])
-        schemas = run("schemas", ["cargo", "run", *package, *features, "--example", "schemas"], False)
-        # Cargo diagnostics go to stderr in the combined log; obtain JSON separately.
-        executable = Path("target/debug/examples/schemas")
-        (out / "schemas.json").write_bytes(subprocess.check_output([str(executable)]))
+        schemas = run("schemas", ["cargo", "run", "--quiet", *package, *features, "--example", "schemas"], False)
+        json.loads(schemas)
+        (out / "schemas.json").write_text(schemas)
         run("rustdoc", ["cargo", "doc", *package, *features, "--no-deps"])
         report["outcome"] = "PASS"
 except Exception as error:

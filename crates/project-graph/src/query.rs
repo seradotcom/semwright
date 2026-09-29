@@ -65,6 +65,7 @@ impl ProjectGraph {
         };
         let mut queue = VecDeque::from([(source.clone(), 0usize, true)]);
         let mut visited = BTreeSet::new();
+        let mut scheduled = BTreeSet::from([(source.clone(), true)]);
         while let Some((id, depth, definite)) = queue.pop_front() {
             if cancellation.load(Ordering::Relaxed) {
                 report.cancelled = true;
@@ -123,25 +124,31 @@ impl ProjectGraph {
                     report.truncated = true;
                     break;
                 }
-                if report.visited_edges >= budget.edges
-                    || report.known.len() + report.possible.len() >= budget.results
-                {
+                if report.visited_edges >= budget.edges {
                     report.truncated = true;
                     break;
                 }
                 report.visited_edges += 1;
                 let known = definite && receipt.is_some();
-                if !visited.contains(&(target.clone(), known)) {
+                if scheduled.insert((target.clone(), known)) {
+                    if target != *source
+                        && report.known.len() + report.possible.len() >= budget.results
+                    {
+                        report.truncated = true;
+                        break;
+                    }
                     let hit = ImpactHit {
                         asset: target.clone(),
                         via: id.clone(),
                         depth: depth + 1,
                         receipt,
                     };
-                    if known {
-                        report.known.push(hit);
-                    } else {
-                        report.possible.push(hit);
+                    if target != *source {
+                        if known {
+                            report.known.push(hit);
+                        } else {
+                            report.possible.push(hit);
+                        }
                     }
                     queue.push_back((target, depth + 1, known));
                 }

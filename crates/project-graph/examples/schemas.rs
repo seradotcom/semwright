@@ -2,6 +2,9 @@ use semwright_project_graph::*;
 fn main() {
     let schemas = serde_json::json!({
         "schema_version": SCHEMA_VERSION,
+        "manifest": schemars::schema_for!(PortableManifest),
+        "impact": schemars::schema_for!(ImpactReport),
+        "query": schemars::schema_for!(AssetQuery),
         "receipt": schemars::schema_for!(ExecutionReceipt),
         "asset": schemars::schema_for!(Asset),
         "edge": schemars::schema_for!(Edge),

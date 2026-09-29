@@ -1,7 +1,15 @@
 //! Project identity and evidence, not an execution authority or conversation memory.
 //! Composition's owner, resources, base states, digests and verification are reused.
+#[cfg(feature = "store")]
+mod store;
+#[cfg(feature = "store")]
+pub use store::*;
+mod watch;
+pub use watch::*;
 mod query;
 pub use query::*;
+mod manifest;
+pub use manifest::*;
 mod graph;
 pub use graph::*;
 mod identity;
@@ -18,6 +26,8 @@ pub const MAX_EDGES: usize = 100_000;
 pub type Result<T> = std::result::Result<T, GraphError>;
 #[derive(Debug, thiserror::Error)]
 pub enum GraphError {
+    #[error("project database operation failed; original evidence preserved")]
+    Storage,
     #[error("invalid project graph: {0}")]
     Invalid(&'static str),
     #[error("project access denied")]
