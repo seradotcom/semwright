@@ -910,7 +910,21 @@ local function mutate(command)
     if not db_milli then error("invalid send gain") end
     local level = source:send_level_controllable(send_index)
     if not level or level:isnil() then error("send level control is unavailable") end
-    level:set_value(10.0 ^ (db_milli / 20000.0), no_group())
+    if not level:writable() then
+      level:set_automation_state(ARDOUR.AutoState.Off)
+    end
+    if not level:writable() then error("send level control is not writable") end
+    local coeff = 10.0 ^ (db_milli / 20000.0)
+    local lower = tonumber(level:lower())
+    local upper = tonumber(level:upper())
+    if not lower or not upper or coeff < lower or coeff > upper then
+      error("send gain is outside native control bounds")
+    end
+    level:set_value(coeff, no_group())
+    local observed = tonumber(level:get_value())
+    if not observed or math.abs(observed - coeff) > 0.000001 then
+      error("send gain native readback mismatch")
+    end
   elseif command == "send_remove" then
     local source = require_route(arg[5])
     local processor = require_send(source, arg[6])
