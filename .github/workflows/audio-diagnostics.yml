@@ -171,12 +171,9 @@ jobs:
           CREATE="$(find /usr/lib -type f -path '*ardour8*' -name 'ardour8-new_empty_session' -perm /111 -print -quit)"
           EXPORT="$(find /usr/lib -type f -path '*ardour8*' -name 'ardour8-export' -perm /111 -print -quit)"
           test -n "$LUA" && test -n "$CREATE" && test -n "$EXPORT"
-          printf 'SEMWRIGHT_TEST_ARDOUR_LUA=%s
-' "$LUA" >> "$GITHUB_ENV"
-          printf 'SEMWRIGHT_TEST_ARDOUR_CREATE=%s
-' "$CREATE" >> "$GITHUB_ENV"
-          printf 'SEMWRIGHT_TEST_ARDOUR_EXPORT=%s
-' "$EXPORT" >> "$GITHUB_ENV"
+          echo "SEMWRIGHT_TEST_ARDOUR_LUA=$LUA" >> "$GITHUB_ENV"
+          echo "SEMWRIGHT_TEST_ARDOUR_CREATE=$CREATE" >> "$GITHUB_ENV"
+          echo "SEMWRIGHT_TEST_ARDOUR_EXPORT=$EXPORT" >> "$GITHUB_ENV"
           sha256sum "$LUA" "$CREATE" "$EXPORT" > verification/audio/ardour-tools.sha256
           "$LUA" --version > verification/audio/ardour-lua-version.txt
           "$CREATE" --version > verification/audio/ardour-create-version.txt
