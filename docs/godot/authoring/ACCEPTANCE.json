@@ -168,13 +168,16 @@
       "id": "D12",
       "requirement": "Blender GLB preserved gameplay",
       "state": "IMPLEMENTED_CROSS_APP_EVIDENCE_PENDING",
-      "implementation": "pinned successful E native GLB artifact (E a5a2423/run 36521758152/artifact 11014081697) -> Broker artifact.handoff -> D plan/apply -> native inspect/persistence/play; E GLB SHA-256 is fixed before transfer",
+      "implementation": "incremental replacement on one managed 3D game: baseline triangle.glb -> native inspect/play -> pinned E native articulated.glb artifact (E a5a2423/run 36521758152/artifact 11014081697) via Broker artifact.handoff -> replan/apply same logical asset slot -> native inspect/persistence/play; E GLB SHA-256 is fixed before transfer",
       "tests": [
         "E native/oracle/hostile provenance verification",
+        "baseline triangle GLB native import and gameplay",
         "Broker artifact.handoff with expected_sha256",
+        "incremental replacement preserves logical bindings and generated behavior bytes",
+        "gameplay collision layer/mask/shape mapping unchanged across replacement",
         "Godot skeleton/bones/skin/material/animation native readback",
         "fresh-process persistence",
-        "technical gameplay playtest"
+        "technical gameplay playtest before and after replacement"
       ],
       "tested_sha": null,
       "run_id": null,

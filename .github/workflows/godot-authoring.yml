@@ -317,8 +317,12 @@ jobs:
               "e_run_id": int(os.environ["E_RUN_ID"]),
               "e_artifact_id": int(os.environ["E_ARTIFACT_ID"]),
               "e_glb_sha256": os.environ["E_GLB_SHA256"],
-              "route": "E artifact -> Broker artifact.handoff -> D composition.plan/apply -> D native inspect/persistence/play",
+              "route": "D baseline triangle GLB -> native inspect/play -> E artifact -> Broker artifact.handoff -> incremental D composition.plan/apply -> native inspect/persistence/play",
               "outcome": "PASS",
+              "incremental_asset_replacement_verified": True,
+              "behavior_bytes_preserved": True,
+              "gameplay_collision_mapping_preserved": True,
+              "logical_bindings_preserved": True,
               "cross_app_c_receipt_verified": False,
               "godot_authoring_ready": False,
           }

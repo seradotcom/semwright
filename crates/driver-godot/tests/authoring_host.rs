@@ -291,6 +291,52 @@ fn effect_rule_passes(response: &Value, rule: &str) -> bool {
     effect_rule_verdict(response, rule) == Some("PASS")
 }
 
+fn managed_native_node<'a>(response: &'a Value, logical_key: &str) -> &'a Value {
+    response["observation"]["authored"]["nodes"]
+        .as_array()
+        .and_then(|nodes| {
+            nodes
+                .iter()
+                .find(|node| node["logical_key"].as_str() == Some(logical_key))
+        })
+        .unwrap_or_else(|| panic!("missing managed native node {logical_key}"))
+}
+
+fn gameplay_collision_signature(response: &Value) -> Value {
+    let nodes = response["observation"]["authored"]["nodes"]
+        .as_array()
+        .expect("native node array");
+    let bodies = ["arena/player", "arena/collectible", "arena/obstacle"]
+        .into_iter()
+        .map(|key| {
+            let node = managed_native_node(response, key);
+            json!({
+                "key":key,
+                "class":node["class"].clone(),
+                "layer":node["properties"]["collision_layer"].clone(),
+                "mask":node["properties"]["collision_mask"].clone(),
+            })
+        })
+        .collect::<Vec<_>>();
+    let shapes = ["player", "collectible", "obstacle"]
+        .into_iter()
+        .map(|parent| {
+            let node = nodes
+                .iter()
+                .find(|node| {
+                    node["class"] == "CollisionShape3D" && node["parent"].as_str() == Some(parent)
+                })
+                .unwrap_or_else(|| panic!("missing CollisionShape3D under {parent}"));
+            json!({
+                "parent":parent,
+                "shape_class":node["properties"]["shape"]["value"]["class"].clone(),
+                "disabled":node["properties"]["disabled"].clone(),
+            })
+        })
+        .collect::<Vec<_>>();
+    json!({"bodies":bodies,"shapes":shapes})
+}
+
 #[tokio::test]
 #[ignore = "requires bubblewrap/Landlock sandbox helper and production driver binary"]
 async fn empty_project_authoring_flows_through_broker_driver_host_and_provider() {
@@ -937,7 +983,127 @@ async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {
     )
     .unwrap();
 
+    let (_binary_dir, executable) = staged_driver().await;
+    let helper = PathBuf::from(
+        std::env::var_os("SEMWRIGHT_TEST_SANDBOX_HELPER")
+            .expect("SEMWRIGHT_TEST_SANDBOX_HELPER must point to semwright-sandbox"),
+    );
+    let driver_state = tempfile::tempdir().unwrap();
+    std::fs::set_permissions(driver_state.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
+    let provider = DriverProvider::connect(
+        manifest(executable, fixture.runtime_sha256.clone()),
+        driver_state.path(),
+        &helper,
+        &fixture.roots,
+        false,
+    )
+    .await
+    .unwrap();
+    broker.mount_provider(provider.clone()).await.unwrap();
+
     let session = unique_id();
+    let mut baseline_spec: Value =
+        serde_json::from_slice(include_bytes!("fixtures/authoring/three_d.json")).unwrap();
+    baseline_spec["project"] = json!("cross_app_articulated");
+    baseline_spec["title"] = json!("Cross-app GLB replacement");
+
+    let baseline_plan = broker_call(
+        &broker,
+        &session,
+        "driver.godot.composition.plan",
+        json!({"spec":baseline_spec}),
+    )
+    .await;
+    let baseline_plan_id = baseline_plan["plan_id"].as_str().unwrap().to_owned();
+    let baseline_apply = broker_call(
+        &broker,
+        &session,
+        "driver.godot.composition.apply",
+        json!({"plan_id":baseline_plan_id}),
+    )
+    .await;
+    assert_eq!(baseline_apply["execution_status"], "completed");
+
+    let baseline_snapshot = broker_call(
+        &broker,
+        &session,
+        "driver.godot.composition.inspect",
+        json!({"project":"cross_app_articulated"}),
+    )
+    .await;
+    assert_eq!(baseline_snapshot["status"], "IN_SYNC");
+    let baseline_bindings = baseline_snapshot["bindings"].clone();
+    let product_project = fixture.output.path().join("cross_app_articulated");
+    let behavior_path = product_project.join("scripts/arena.gd");
+    let baseline_behavior_sha = digest(&behavior_path);
+    let triangle_path = product_project.join("assets/triangle.glb");
+    let baseline_triangle_sha = digest(&triangle_path);
+    assert_eq!(
+        baseline_triangle_sha,
+        "150f5ad8fcc374e0c2b2058868207117a6a89446bbb1607c426d0e9bf42246c6"
+    );
+
+    let baseline_native = broker_call(
+        &broker,
+        &session,
+        "driver.godot.composition.native.verify",
+        json!({
+            "plan_id":baseline_plan_id,
+            "scene":"arena",
+            "verification":{"kind":"inspect"}
+        }),
+    )
+    .await;
+    let baseline_collision = gameplay_collision_signature(&baseline_native);
+    let baseline_import = managed_native_node(&baseline_native, "arena/imported_model");
+    assert_eq!(baseline_import["class"], "Node3D");
+    assert!(
+        baseline_native["observation"]["dependencies"]
+            .as_array()
+            .is_some_and(|dependencies| dependencies.iter().any(|dependency| {
+                dependency["path"]
+                    .as_str()
+                    .is_some_and(|path| path.ends_with("assets/triangle.glb"))
+                    && dependency["exists"] == true
+                    && dependency["sha256"] == baseline_triangle_sha
+            })),
+        "baseline GLB dependency was not observed"
+    );
+
+    let baseline_play = broker_call(
+        &broker,
+        &session,
+        "driver.godot.composition.native.verify",
+        json!({
+            "plan_id":baseline_plan_id,
+            "scene":"arena",
+            "verification":{
+                "kind":"play",
+                "ticks":12,
+                "inputs":[
+                    {"tick":1,"action":"start","pressed":true},
+                    {"tick":2,"action":"start","pressed":false},
+                    {"tick":2,"action":"right","pressed":true},
+                    {"tick":9,"action":"right","pressed":false}
+                ],
+                "checkpoints":[1,2,9,12],
+                "variables":["score"],
+                "capture":false
+            }
+        }),
+    )
+    .await;
+    assert!(effect_rule_passes(
+        &baseline_play,
+        "godot.native_runtime.arena.v1"
+    ));
+    let baseline_last = baseline_play["observation"]["frames"]
+        .as_array()
+        .and_then(|frames| frames.last())
+        .unwrap();
+    assert_eq!(baseline_last["state"], "play");
+    assert!(baseline_last["fault"].is_null());
+
     let handoff = broker_call(
         &broker,
         &session,
@@ -962,54 +1128,72 @@ async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {
         E_ARTICULATED_GLB_SHA256
     );
 
-    let (_binary_dir, executable) = staged_driver().await;
-    let helper = PathBuf::from(
-        std::env::var_os("SEMWRIGHT_TEST_SANDBOX_HELPER")
-            .expect("SEMWRIGHT_TEST_SANDBOX_HELPER must point to semwright-sandbox"),
-    );
-    let driver_state = tempfile::tempdir().unwrap();
-    std::fs::set_permissions(driver_state.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
-    let provider = DriverProvider::connect(
-        manifest(executable, fixture.runtime_sha256.clone()),
-        driver_state.path(),
-        &helper,
-        &fixture.roots,
-        false,
-    )
-    .await
-    .unwrap();
-    broker.mount_provider(provider.clone()).await.unwrap();
+    let mut replacement_spec = baseline_spec.clone();
+    replacement_spec["assets"][0]["file"] = json!("articulated.glb");
+    replacement_spec["assets"][0]["sha256"] = json!(E_ARTICULATED_GLB_SHA256);
 
-    let mut spec: Value =
-        serde_json::from_slice(include_bytes!("fixtures/authoring/three_d.json")).unwrap();
-    spec["project"] = json!("cross_app_articulated");
-    spec["title"] = json!("Cross-app Blender articulated GLB");
-    spec["assets"][0]["file"] = json!("articulated.glb");
-    spec["assets"][0]["sha256"] = json!(E_ARTICULATED_GLB_SHA256);
-
-    let plan = broker_call(
+    let replacement_plan = broker_call(
         &broker,
         &session,
         "driver.godot.composition.plan",
-        json!({"spec":spec}),
+        json!({"spec":replacement_spec}),
     )
     .await;
-    let plan_id = plan["plan_id"].as_str().unwrap().to_owned();
-    let applied = broker_call(
+    let replacement_plan_id = replacement_plan["plan_id"].as_str().unwrap().to_owned();
+    let writes = replacement_plan["writes"].as_array().unwrap();
+    assert!(
+        writes
+            .iter()
+            .any(|path| path.as_str() == Some("assets/articulated.glb")),
+        "replacement plan did not add Blender GLB"
+    );
+    assert!(
+        writes
+            .iter()
+            .any(|path| path.as_str() == Some("scenes/arena.tscn")),
+        "replacement plan did not update native scene binding"
+    );
+    assert!(
+        !writes
+            .iter()
+            .any(|path| path.as_str() == Some("scripts/arena.gd")),
+        "asset substitution unexpectedly rewrote behavior"
+    );
+
+    let replacement_apply = broker_call(
         &broker,
         &session,
         "driver.godot.composition.apply",
-        json!({"plan_id":plan_id}),
+        json!({"plan_id":replacement_plan_id}),
     )
     .await;
-    assert_eq!(applied["execution_status"], "completed");
+    assert_eq!(replacement_apply["execution_status"], "completed");
+    assert_eq!(digest(&behavior_path), baseline_behavior_sha);
+    assert_eq!(digest(&triangle_path), baseline_triangle_sha);
+    assert_eq!(
+        digest(&product_project.join("assets/articulated.glb")),
+        E_ARTICULATED_GLB_SHA256
+    );
+
+    let replacement_snapshot = broker_call(
+        &broker,
+        &session,
+        "driver.godot.composition.inspect",
+        json!({"project":"cross_app_articulated"}),
+    )
+    .await;
+    assert_eq!(replacement_snapshot["status"], "IN_SYNC");
+    assert_eq!(
+        replacement_snapshot["bindings"], baseline_bindings,
+        "asset substitution changed logical scene/entity identities"
+    );
 
     let inspected = broker_call(
         &broker,
         &session,
         "driver.godot.composition.native.verify",
         json!({
-            "plan_id":plan_id,
+            "plan_id":replacement_plan_id,
             "scene":"arena",
             "verification":{"kind":"inspect"}
         }),
@@ -1017,6 +1201,11 @@ async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {
     .await;
     let readback = effect_rule_verdict(&inspected, "godot.native_readback.arena.v1").unwrap();
     assert!(matches!(readback, "PASS" | "UNKNOWN"));
+    assert_eq!(
+        gameplay_collision_signature(&inspected),
+        baseline_collision,
+        "Blender asset substitution changed declared gameplay collision mapping"
+    );
 
     let dependencies = inspected["observation"]["dependencies"].as_array().unwrap();
     assert!(
@@ -1105,7 +1294,7 @@ async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {
         &session,
         "driver.godot.composition.native.verify",
         json!({
-            "plan_id":plan_id,
+            "plan_id":replacement_plan_id,
             "scene":"arena",
             "verification":{"kind":"persistence"}
         }),
@@ -1126,7 +1315,7 @@ async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {
         &session,
         "driver.godot.composition.native.verify",
         json!({
-            "plan_id":plan_id,
+            "plan_id":replacement_plan_id,
             "scene":"arena",
             "verification":{
                 "kind":"play",
@@ -1149,7 +1338,8 @@ async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {
     let frames = played["observation"]["frames"].as_array().unwrap();
     assert_eq!(frames.len(), 4);
     let last = frames.last().unwrap();
-    assert_eq!(last["state"], "play");
+    assert_eq!(last["state"], baseline_last["state"]);
+    assert_eq!(last["variables"], baseline_last["variables"]);
     assert!(last["fault"].is_null());
 
     let validated = broker_call(
