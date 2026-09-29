@@ -5,7 +5,8 @@ fn wave(tag: u16, bits: u16, channels: u16, data: &[u8]) -> Vec<u8> {
     let rate = 48000_u32;
     let align = channels * (bits / 8);
     let mut bytes = b"RIFF".to_vec();
-    bytes.extend((36_u32 + data.len() as u32 + data.len() as u32 % 2).to_le_bytes());
+    let padding = u32::from(!data.len().is_multiple_of(2));
+    bytes.extend((36_u32 + data.len() as u32 + padding).to_le_bytes());
     bytes.extend(b"WAVEfmt ");
     bytes.extend(16_u32.to_le_bytes());
     bytes.extend(tag.to_le_bytes());
@@ -17,7 +18,7 @@ fn wave(tag: u16, bits: u16, channels: u16, data: &[u8]) -> Vec<u8> {
     bytes.extend(b"data");
     bytes.extend((data.len() as u32).to_le_bytes());
     bytes.extend(data);
-    if data.len() % 2 != 0 {
+    if !data.len().is_multiple_of(2) {
         bytes.push(0);
     }
     bytes

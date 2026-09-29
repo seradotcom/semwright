@@ -60,11 +60,29 @@ using Factory = std::unique_ptr<interpreter_dsp_factory, FactoryDelete>;
 struct FileDelete { void operator()(SNDFILE* file) const { if (file) sf_close(file); } };
 using SoundFile = std::unique_ptr<SNDFILE, FileDelete>;
 std::string safe_version() {
-    std::string version(getCLibFaustVersion());
-    if (version.size() > 128) throw std::runtime_error("invalid library version");
-    for (char c : version) if (!(std::isalnum(static_cast<unsigned char>(c)) || c == '.' || c == '-' || c == ' '))
-        throw std::runtime_error("unexpected library version characters");
-    return version;
+    const std::string raw(getCLibFaustVersion());
+    if (raw.empty() || raw.size() > 128)
+        throw std::runtime_error("invalid library version");
+    // libfaust releases return either a bare semver or a decorated build
+    // string. Protocol receipts use only the first strict numeric X.Y.Z
+    // component and the Rust runtime separately allowlists supported versions.
+    for (std::size_t start = 0; start < raw.size(); ++start) {
+        if (!std::isdigit(static_cast<unsigned char>(raw[start]))) continue;
+        std::size_t cursor = start;
+        for (int part = 0; part < 3; ++part) {
+            const std::size_t first = cursor;
+            while (cursor < raw.size()
+                   && std::isdigit(static_cast<unsigned char>(raw[cursor]))) ++cursor;
+            if (cursor == first) break;
+            if (part < 2) {
+                if (cursor >= raw.size() || raw[cursor] != '.') break;
+                ++cursor;
+            } else {
+                return raw.substr(start, cursor - start);
+            }
+        }
+    }
+    throw std::runtime_error("library version does not contain semantic X.Y.Z");
 }
 int execute(int argc, char** argv) {
     if (argc == 2 && std::string(argv[1]) == "version") {
