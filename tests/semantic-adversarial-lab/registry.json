@@ -3959,6 +3959,17 @@
       "expected": {
         "cross_principal_intent_denied": true
       }
+    },
+    {
+      "id": "G-SELF-093",
+      "owner": "G",
+      "requirement": "G11",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "collector resolves graph/effects to immutable C/F targets instead of main fallback",
+      "expected": {
+        "ok": true
+      }
     }
   ]
 }

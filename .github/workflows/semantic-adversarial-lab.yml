@@ -83,7 +83,7 @@ jobs:
           retention-days: 7
           if-no-files-found: error
   selected-gate:
-    if: always()
+    if: ${{ always() && !cancelled() }}
     needs: [selection, boundary]
     runs-on: ubuntu-24.04
     timeout-minutes: 2

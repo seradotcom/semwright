@@ -249,12 +249,12 @@
         "G-EFFECT-039",
         "G-EFFECT-040"
       ],
-      "source_sha": null,
+      "source_sha": "b30d693c24d7dc0527834b7830823655be5216ce",
       "suite_sha": null,
       "run_id": null,
       "job_id": null,
       "evidence": [],
-      "blocker": "92 lab controls, 20 A verification cases, 40 F effect/evidence cases and two A evaluator mutants registered. Hosted selftest must pass before product lanes execute.",
+      "blocker": "40 independent effect evaluator/false-PASS/enumeration/readback contract cases plus 3 guard mutants registered against final F delivery SHA; exact-SHA G execution pending.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },
@@ -314,7 +314,7 @@
       "run_id": null,
       "job_id": null,
       "evidence": [],
-      "blocker": "52 independent graph identity/drift/cursor/watch/manifest/store/external-intent recovery cases registered against final C delivery SHA; exact-SHA G execution pending.",
+      "blocker": "52 independent graph identity/drift/cursor/watch/manifest/store/external-intent recovery cases executed against final C delivery SHA: 52 PASS, 0 FAIL/BLOCKED/NOT_RUN in G run 36531233609.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },

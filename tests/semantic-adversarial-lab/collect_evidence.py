@@ -18,7 +18,10 @@ from lab_core import EvidenceError, compare_observation, digest, full_sha, stric
 
 REPO = "seradotcom/semwright"
 LAB = Path(__file__).resolve().parent
-ROLES = {"composition": "A", "av": "A", "motion": "A", "figma": "A", "audio": "B"}
+ROLES = {"composition": "A", "av": "A", "motion": "A", "figma": "A", "audio": "B", "graph": "C", "effects": "F"}
+
+def target_for_lane(lock: dict, lane: str, suite: str) -> str:
+    return suite if lane == "selftest" else lock["targets"][ROLES.get(lane, "main")]
 
 def immutable_write(path: Path, data: bytes) -> None:
     """Content-addressed history is append-only, never an overwrite of a failure."""
@@ -75,7 +78,7 @@ def frozen_json(sha: str, filename: str):
     return strict_json(raw)
 
 def validate_lane(report: dict, lane: str, cases: list[dict], lock: dict, suite: str, run: dict, *, expected_oracle: str | None = None):
-    source = suite if lane == "selftest" else lock["targets"][ROLES.get(lane, "main")]
+    source = target_for_lane(lock, lane, suite)
     requested = [c["id"] for c in cases]
     scope = cases[0]["scope"]
     if (report.get("schema_version") != 1 or type(report.get("schema_version")) is not int
@@ -142,7 +145,9 @@ def main():
     findings = []
     for lane in lock["selected_lanes"]:
         cases = [c for c in registry if c["lane"] == lane]
-        matrix_target = lock["targets"][ROLES.get(lane, "main")]
+        matrix_target = target_for_lane(lock, lane, suite)
+        if lane == "selftest":
+            matrix_target = lock["targets"]["main"]
         job_matches = [j for j in jobs if j["name"] == f"boundary ({lane}, {matrix_target})"]
         artifact_matches = [a for a in artifacts if a["name"] == f"semantic-adversarial-{lane}-{suite}"]
         row = {"lane": lane, "requested_count": len(cases), "source_sha": suite if lane == "selftest" else matrix_target,

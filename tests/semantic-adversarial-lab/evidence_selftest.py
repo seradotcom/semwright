@@ -8,7 +8,7 @@ from pathlib import Path
 import warnings
 import zipfile
 from artifact_io import MAX_FILE, read_evidence_archive
-from collect_evidence import validate_lane, immutable_write
+from collect_evidence import validate_lane, immutable_write, target_for_lane
 from lab_core import EvidenceError, digest, summarize
 from oracle_identity import payload_digest
 from selftest_extra import target_only_retest, closure_rejects
@@ -89,6 +89,16 @@ def identity_control(change, equal):
     change(files, lock)
     return (payload_digest(files, lock) == before) is equal
 
+
+def collector_role_targets():
+    lock = {"targets": {"main": "0" * 40, "A": "a" * 40, "B": "b" * 40, "C": "c" * 40, "F": "f" * 40}}
+    return (
+        target_for_lane(lock, "selftest", SUITE) == SUITE
+        and target_for_lane(lock, "graph", SUITE) == "c" * 40
+        and target_for_lane(lock, "effects", SUITE) == "f" * 40
+        and target_for_lane(lock, "packaging", SUITE) == "0" * 40
+    )
+
 def history_control(overwrite):
     with tempfile.TemporaryDirectory(prefix="g-synthetic-evidence-", dir="/out") as directory:
         path = Path(directory) / "receipt.json"
@@ -139,4 +149,5 @@ def evidence_cases():
         ("G-SELF-090", lambda: identity_control(lambda f, c: f.update({"registry.json": b"relaxed expectations"}), False)),
         ("G-SELF-091", lambda: history_control(False)),
         ("G-SELF-092", lambda: history_control(True)),
+        ("G-SELF-093", collector_role_targets),
     ]

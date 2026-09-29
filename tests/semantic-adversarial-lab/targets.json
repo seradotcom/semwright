@@ -8,11 +8,11 @@
     "B": "11b40fb0c59473bc0f007a879bf44c732d22b700",
     "main": "b736d41b61c4a4146c9e75c16796e251b025e69f",
     "C": "673392d683fc4e6d355440f0d9d86f1bfc040f21",
-    "F": "c1507c163c85675ba067911f8713a52677497e6d"
+    "F": "b30d693c24d7dc0527834b7830823655be5216ce"
   },
   "selected_lanes": [
     "selftest",
-    "graph"
+    "effects"
   ],
   "pins": {
     "os": "ubuntu-24.04",
