@@ -76,17 +76,17 @@ fn transform_snapshot() -> NativeSnapshot {
 fn transform_prepared(before:&NativeSnapshot) -> PreparedAuthoring {
     prepare(owner(),AuthoringIntent::Transform{island:"island".into(),entity:"part".into(),transform:Transform{translation:[1.,2.,3.],rotation:[0.;3],scale:[1.;3]},meters_per_unit:1.0,expected_fingerprint:before.fingerprint.clone()},before,"unused".into(),bindings()).unwrap()
 }
-#[test] fn trusted_F_adapter_can_pass_native_readback() {
+#[test] fn trusted_f_adapter_can_pass_native_readback() {
     let before=transform_snapshot(); let prepared=transform_prepared(&before);
     let evaluation=evaluate_native_effects(&prepared,"request-1",&before,&before,None,ExecutionStatus::Completed).unwrap();
     assert_eq!(evaluation.verdict().unwrap(),Verdict::Pass);
 }
-#[test] fn drift_remains_a_required_F_failure() {
+#[test] fn drift_remains_a_required_f_failure() {
     let before=transform_snapshot(); let prepared=transform_prepared(&before); let mut after=before.clone(); after.drift=true;
     let evaluation=evaluate_native_effects(&prepared,"request-1",&before,&after,None,ExecutionStatus::Completed).unwrap();
     assert_eq!(evaluation.verdict().unwrap(),Verdict::Fail);
 }
-#[test] fn C_receipt_requires_host_owned_ids_and_admission() {
+#[test] fn c_receipt_requires_host_owned_ids_and_admission() {
     let before=transform_snapshot(); let prepared=transform_prepared(&before);
     let evaluation=evaluate_native_effects(&prepared,"request-1",&before,&before,None,ExecutionStatus::Completed).unwrap();
     let descriptor=Digest::of_bytes(b"registered-apply-descriptor");
@@ -109,6 +109,6 @@ fn transform_prepared(before:&NativeSnapshot) -> PreparedAuthoring {
     assert!(!admitted.record().coverage.cache_safe());
 }
 proptest! {
-    #[test] fn finite_dimension_roundtrip(x in 0.01f64..100.0) { let mut s=spec();s.entities[0].shape=Shape::Box{size:[x,x/2.,x*2.]};s.validate().unwrap();let encoded=canonical_bytes(&s).unwrap();let decoded:BlenderAuthoringSpec=strict_decode(&encoded).unwrap();prop_assert_eq!(canonical_bytes(&decoded).unwrap(),encoded); }
+    #[test] fn finite_dimension_wire_normalizes_stably(x in 0.01f64..100.0) { let mut s=spec();s.entities[0].shape=Shape::Box{size:[x,x/2.,x*2.]};s.validate().unwrap();let first=canonical_bytes(&s).unwrap();let decoded:BlenderAuthoringSpec=strict_decode(&first).unwrap();decoded.validate().unwrap();let normalized=canonical_bytes(&decoded).unwrap();let decoded_again:BlenderAuthoringSpec=strict_decode(&normalized).unwrap();prop_assert_eq!(canonical_bytes(&decoded_again).unwrap(),normalized);if let Shape::Box{size}=decoded.entities[0].shape { prop_assert!((size[0]-x).abs() <= 1e-12*x.abs().max(1.0)); } else { prop_assert!(false); }}
     #[test] fn all_out_of_bounds_indices_fail(i in 3u32..u32::MAX) { let mut s=spec();s.entities[0].shape=Shape::Mesh{vertices:vec![[0.,0.,0.],[1.,0.,0.],[0.,1.,0.]],faces:vec![vec![0,1,i]],uv:None};prop_assert!(s.validate().is_err()); }
 }

@@ -1,0 +1,147 @@
+{
+  "version": 1,
+  "role": "E",
+  "branch": "feat/blender-semantic-authoring",
+  "pr": 175,
+  "baseline_sha": "7a3bae71144bf2c2278b34fc5743e0ceed6dddd1",
+  "dependency_shas": {
+    "a_c0": "26602e4b25929be869d69ef28fef4dd9713180d7",
+    "c_p0": "6ee52b428310370d3ad438a13964086a63f48367",
+    "f_consumed": "42204ac6a6f3c66ba66de5adfe689d8633bb7c74",
+    "f_e0_initial": "dd6d22d6ec6c7c5ef378da58ed75ca18b25ba5ff",
+    "glb_head": "74671c11dda2133ce6af939896c49cdbb6ba47d5",
+    "glb_merge": "7a3bae71144bf2c2278b34fc5743e0ceed6dddd1"
+  },
+  "source_shas": {
+    "dependency_reconciliation": "995d856968a5f1bf16739d11ca122825bf2b9fc1",
+    "model": "4dbee6e462275cb0b97b95f86eff605986a436ec",
+    "native_effects": "2d87f2f3df6e931090ace10bd268a211f6459ff6"
+  },
+  "external_dependency_evidence": {
+    "f_run_id": 36504224825,
+    "f_job_id": 109201878358,
+    "f_outcome": "FAIL",
+    "f_reason": "Clippy non_snake_case lint in F-owned test name; E must not call this head CI-certified."
+  },
+  "requirements": [
+    {
+      "id": "E01",
+      "condition": "real A/C/F contracts consumed without duplicate kernel",
+      "implementation": "A PreparedPlan/PlanVault + F EffectContract/EvidenceAdapter + C ExecutionReceipt consumer",
+      "test": "authoring_model::{prepares_common_changeset_without_second_kernel,trusted_F_adapter_can_pass_native_readback,C_receipt_requires_host_owned_ids_and_admission}",
+      "status": "CI_PENDING"
+    },
+    {
+      "id": "E02",
+      "condition": "existing GLB reconciled, no parallel unsafe exporter",
+      "implementation": "PR #154 merged; export_scope.py preflight before existing export_glb",
+      "test": "authoring_native existing driver.blender.export.glb route",
+      "status": "CI_PENDING"
+    },
+    {
+      "id": "E03",
+      "condition": "managed source of truth/island and external drift",
+      "implementation": "native island/entity markers + fingerprint marker + plan freshness",
+      "test": "model drift + native replay/inspect",
+      "status": "CI_PENDING"
+    },
+    {
+      "id": "E04",
+      "condition": "bounded parametric geometry/topology",
+      "implementation": "box/cylinder/mesh arrays, explicit indices/UVs, native Mesh.validate rejection",
+      "test": "property/index/collapse/UV tests + native articulated fixture",
+      "status": "CI_PENDING"
+    },
+    {
+      "id": "E05",
+      "condition": "transforms/relationships/units with native evaluated measurement",
+      "implementation": "meter scale, XYZ transforms, parent/bone/follow/look-at, evaluated depsgraph measure",
+      "test": "native measure single-frame route",
+      "status": "CI_PENDING"
+    },
+    {
+      "id": "E06",
+      "condition": "shared materials/resources preserved",
+      "implementation": "shared mesh instances are read-only for material/modifier mutation; explicit copy-on-write not implemented",
+      "test": "instance_cannot_mutate_shared_material_slots",
+      "status": "PARTIAL"
+    },
+    {
+      "id": "E07",
+      "condition": "native rig/actions/keyframes with complete readback/pagination",
+      "implementation": "armature bones, skinning, slotted Action/F-Curves linear keys; bounded full snapshot",
+      "test": "articulated native fixture",
+      "status": "PARTIAL",
+      "open": "provider-owned pagination transcript for bones/actions/curves/properties"
+    },
+    {
+      "id": "E08",
+      "condition": "bounds vs mesh evidence distinguished",
+      "implementation": "evaluated bounds + explicit self-intersection UNKNOWN",
+      "test": "native measure",
+      "status": "PARTIAL",
+      "open": "broad/narrow-phase false-positive fixture"
+    },
+    {
+      "id": "E09",
+      "condition": "save/reopen with undeclared rewrites excluded",
+      "implementation": "new libraries.write artifact only + sentinel + fresh process reopen",
+      "test": "authoring_native",
+      "status": "CI_PENDING"
+    },
+    {
+      "id": "E10",
+      "condition": "effective export membership/dependencies safe",
+      "implementation": "parent/armature/modifier/constraint/material/image/action preflight + no overwrite",
+      "test": "authoring_native + existing PR154 regressions",
+      "status": "CI_PENDING"
+    },
+    {
+      "id": "E11",
+      "condition": "GLB roundtrip Blender and Godot",
+      "implementation": "Blender GLB creation/read header only",
+      "test": null,
+      "status": "OPEN",
+      "open": "fresh Blender import semantic compare and D public Godot import/compare"
+    },
+    {
+      "id": "E12",
+      "condition": "repair does not destroy art or widen authority",
+      "implementation": "no repair capability published",
+      "test": null,
+      "status": "OPEN"
+    },
+    {
+      "id": "E13",
+      "condition": "real Project Graph and Effect receipts",
+      "implementation": "F trusted native EvidenceBatch/evaluation implemented; C candidate requires host IDs and C admission",
+      "test": "model consumer fixtures; native F evaluation",
+      "status": "PARTIAL",
+      "open": "integrated native C admitted receipt with export/handoff/import activities"
+    },
+    {
+      "id": "E14",
+      "condition": "articulated/hard-surface/product fixtures through product route",
+      "implementation": "three typed data fixtures",
+      "test": "model parses all; native currently articulated only",
+      "status": "PARTIAL"
+    },
+    {
+      "id": "E15",
+      "condition": "Skill/package ready for consumer",
+      "implementation": "semwright-blender-production draft Skill",
+      "test": null,
+      "status": "OPEN",
+      "open": "Skill/package conformance and final descriptor lock"
+    },
+    {
+      "id": "E16",
+      "condition": "security/fuzz/CI exact-SHA without aesthetic auto-claim",
+      "implementation": "exact-SHA workflow + source security boundaries",
+      "test": "native lane pending",
+      "status": "PARTIAL",
+      "open": "hostile cases, fuzz, packaging and final evidence"
+    }
+  ],
+  "blender_authoring_ready": false
+}
