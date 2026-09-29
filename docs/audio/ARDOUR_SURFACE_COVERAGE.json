@@ -51,8 +51,8 @@
     {
       "surface": "session range",
       "status": "implemented",
-      "route": "Session:set_session_extents",
-      "evidence": "native snapshot start/end readback"
+      "route": "Locations:session_range_location -> Location:set",
+      "evidence": "native snapshot current_start_sample/current_end_sample readback"
     },
     {
       "surface": "save-as/reopen",
@@ -74,15 +74,15 @@
     },
     {
       "surface": "complete sends/routing graph",
-      "status": "pending",
-      "route": "native snapshot v1",
-      "evidence": "projection marks incomplete/read-only"
+      "status": "partial_native",
+      "route": "Session:add_internal_sends + InternalSend readback; main-output topology remains incomplete",
+      "evidence": "typed send create/gain/remove has revision-bound native readback; full route-output graph is still a declared loss"
     },
     {
       "surface": "plugin inventory/state/automation",
-      "status": "pending",
-      "route": "native snapshot v1",
-      "evidence": "opaque or incomplete; not advertised as writable"
+      "status": "partial_native",
+      "route": "Route:nth_plugin + PluginInsert + LuaAPI plugin parameter/automation APIs with owner allowlist",
+      "evidence": "bounded identity/parameter readback and allowlisted insert/remove/parameter/automation are native-CI gated; opaque plugin state blobs remain native-only"
     },
     {
       "surface": "MIDI phrase/instrument authoring",
@@ -117,14 +117,14 @@
     {
       "surface": "bounded plugin inventory",
       "status": "implemented_pending_native",
-      "route": "Route:nth_plugin -> PluginInsert",
-      "evidence": "native CI verifies bindings; plugin state/parameters remain read-only"
+      "route": "Route:nth_plugin -> PluginInsert -> parameter descriptors/control lists",
+      "evidence": "bounded plugin identities, enabled/latency, parameter ranges/current values and automation-point counts are verified in ardour-native"
     },
     {
       "surface": "portable groups/order",
-      "status": "portable_only",
-      "route": "audio-domain semantic edits",
-      "evidence": "Ardour v1 projection emits read-only loss; no native group mapping claimed"
+      "status": "partial_native",
+      "route": "Session:route_groups/new_route_group with portable StemGroup projection; route ordering remains portable-only",
+      "evidence": "group create/add/remove/delete and projection are native-CI gated; reorder remains a declared gap"
     },
     {
       "surface": "portable tempo/meter map",
@@ -147,14 +147,32 @@
     {
       "surface": "portable clip split/slip/fades",
       "status": "partial_native",
-      "route": "audio-domain edits; Ardour move/trim/remove only",
-      "evidence": "Ardour fades/split/slip remain unprojected/read-only"
+      "route": "audio-domain edits; Ardour move/trim/remove/split through fixed Lua",
+      "evidence": "split has revision-bound readback; fades are write-only in 8.4 Lua and slip remains unprojected"
     },
     {
       "surface": "pinned runtime identity probe",
       "status": "implemented_pending_native",
       "route": "-V on luasession/new_empty_session/export with fixed runtime environment",
       "evidence": "ardour-native before session mutation"
+    },
+    {
+      "surface": "allowlisted plugin mutation",
+      "status": "implemented_pending_native",
+      "route": "runtime allowlist -> LuaAPI.new_plugin / Route:remove_processor / set_plugin_insert_param / plugin_automation",
+      "evidence": "agent input selects only owner IDs; semantic plugin+parameter identity and post-readback required"
+    },
+    {
+      "surface": "native route groups",
+      "status": "implemented_pending_native",
+      "route": "Session:new_route_group / RouteGroup:add/remove / Session:remove_route_group",
+      "evidence": "groups project to StemGroup where members are portable audio tracks"
+    },
+    {
+      "surface": "native clip split",
+      "status": "implemented_pending_native",
+      "route": "Playlist:split_region",
+      "evidence": "region-count and split-position postcondition under exact revision"
     }
   ]
 }

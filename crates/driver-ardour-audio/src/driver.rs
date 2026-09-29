@@ -23,6 +23,15 @@ use tokio::time::{Duration, sleep};
 
 const PROJECT_ID: &str = "ardour_session";
 
+type DeepMutationSpec = (
+    &'static str,
+    Value,
+    Risk,
+    Idempotency,
+    bool,
+    &'static [&'static str],
+);
+
 struct Cached {
     revision: String,
     report: ProjectionReport,
@@ -371,6 +380,53 @@ impl ArdourAudioDriver {
         }))
     }
 
+    async fn deep_plugins_inspect(&self, args: &Value) -> Result<Value> {
+        let state = text_arg(args, "state", 128)?;
+        let runtime = self.deep_runtime()?;
+        let native = runtime.inspect(state).await?;
+        let revision = native_revision(&native)?;
+        let mut plugins = Vec::new();
+        for route in &native.routes {
+            let route_id = match route.kind {
+                RouteKind::Master => "master".to_string(),
+                RouteKind::Track => semantic_id("stem", &route.id),
+                RouteKind::Bus => semantic_id("bus", &route.id),
+                RouteKind::Other => continue,
+            };
+            for plugin in &route.plugins {
+                plugins.push(json!({
+                    "route_id": route_id.clone(),
+                    "plugin_id": semantic_id("plugin", &plugin.id),
+                    "name": &plugin.name,
+                    "unique_id": &plugin.unique_id,
+                    "enabled": plugin.enabled,
+                    "latency_samples": plugin.latency_samples,
+                    "parameters_complete": plugin.parameters_complete,
+                    "parameters": &plugin.parameters
+                }));
+                if plugins.len() > 16_384 {
+                    return Err(Error::new(
+                        ErrorCode::ResourceExhausted,
+                        "Ardour plugin inventory exceeded response budget",
+                    ));
+                }
+            }
+        }
+        let value = json!({
+            "revision": revision,
+            "ardour_version": runtime.version(),
+            "allowlisted_plugins": runtime.allowed_plugin_ids(),
+            "plugins": plugins
+        });
+        if serde_json::to_vec(&value)?.len() > 2 * 1024 * 1024 {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Ardour plugin inventory exceeded serialized response budget",
+            ));
+        }
+        Ok(value)
+    }
+
     fn deep_runtime(&self) -> Result<&DeepRuntime> {
         self.deep_runtime.as_ref().ok_or_else(|| {
             Error::new(
@@ -491,7 +547,7 @@ impl ArdourAudioDriver {
                 "Ardour deep snapshot revision is stale",
             ));
         }
-        let mutation = deep_mutation(command, args, &before)?;
+        let mutation = deep_mutation(command, args, &before, runtime)?;
         if let NativeMutation::RouteRemove { route_id } = &mutation {
             let route = before
                 .routes
@@ -539,6 +595,9 @@ impl ArdourAudioDriver {
             "driver.ardour-audio.session.inspect" => self.inspect().await,
             "driver.ardour-audio.session.deep.inspect" => self.deep_inspect(args).await,
             "driver.ardour-audio.session.deep.runtime.probe" => self.deep_runtime_probe().await,
+            "driver.ardour-audio.session.deep.plugins.inspect" => {
+                self.deep_plugins_inspect(args).await
+            }
             "driver.ardour-audio.session.deep.create" => self.deep_create(args).await,
             "driver.ardour-audio.session.deep.save-as" => self.deep_save_as(args).await,
             "driver.ardour-audio.session.deep.export" => self.deep_export(args).await,
@@ -553,6 +612,18 @@ impl ArdourAudioDriver {
             | "driver.ardour-audio.session.deep.clip.move"
             | "driver.ardour-audio.session.deep.clip.trim"
             | "driver.ardour-audio.session.deep.clip.remove"
+            | "driver.ardour-audio.session.deep.clip.split"
+            | "driver.ardour-audio.session.deep.send.create"
+            | "driver.ardour-audio.session.deep.send.gain.set"
+            | "driver.ardour-audio.session.deep.send.remove"
+            | "driver.ardour-audio.session.deep.group.create"
+            | "driver.ardour-audio.session.deep.group.add"
+            | "driver.ardour-audio.session.deep.group.remove"
+            | "driver.ardour-audio.session.deep.group.delete"
+            | "driver.ardour-audio.session.deep.plugin.insert"
+            | "driver.ardour-audio.session.deep.plugin.remove"
+            | "driver.ardour-audio.session.deep.plugin.parameter.set"
+            | "driver.ardour-audio.session.deep.plugin.automation.point.add"
             | "driver.ardour-audio.session.deep.range.set" => self.deep_mutate(command, args).await,
             "driver.ardour-audio.session.project" => {
                 self.inspect().await?;
@@ -909,6 +980,63 @@ fn deep_capabilities() -> Vec<Capability> {
             }),
             &["audio-project"],
         ),
+        deep_read_input_descriptor(
+            "driver.ardour-audio.session.deep.plugins.inspect",
+            "Read bounded native plugin identities, parameter metadata and automation-point counts for a managed Ardour session",
+            json!({
+                "type":"object",
+                "properties":{"state":state.clone()},
+                "required":["state"],
+                "additionalProperties":false
+            }),
+            json!({
+                "type":"object",
+                "properties":{
+                    "revision":revision.clone(),
+                    "ardour_version":{"const":"8.4.0"},
+                    "allowlisted_plugins":{"type":"array","maxItems":64,"items":{"type":"string","maxLength":128}},
+                    "plugins":{
+                        "type":"array",
+                        "maxItems":16384,
+                        "items":{
+                            "type":"object",
+                            "properties":{
+                                "route_id":{"type":"string","minLength":1,"maxLength":256},
+                                "plugin_id":{"type":"string","minLength":1,"maxLength":256},
+                                "name":{"type":"string","minLength":1,"maxLength":4096},
+                                "unique_id":{"type":["string","null"],"maxLength":1024},
+                                "enabled":{"type":"boolean"},
+                                "latency_samples":{"type":"integer","minimum":0},
+                                "parameters_complete":{"type":"boolean"},
+                                "parameters":{
+                                    "type":"array",
+                                    "maxItems":4096,
+                                    "items":{
+                                        "type":"object",
+                                        "properties":{
+                                            "index":{"type":"integer","minimum":0,"maximum":4095},
+                                            "label":{"type":"string","minLength":1,"maxLength":1024},
+                                            "value_microunits":{"type":"integer"},
+                                            "lower_microunits":{"type":"integer"},
+                                            "upper_microunits":{"type":"integer"},
+                                            "normal_microunits":{"type":"integer"},
+                                            "automation_points":{"type":"integer","minimum":0,"maximum":1000000}
+                                        },
+                                        "required":["index","label","value_microunits","lower_microunits","upper_microunits","normal_microunits","automation_points"],
+                                        "additionalProperties":false
+                                    }
+                                }
+                            },
+                            "required":["route_id","plugin_id","name","unique_id","enabled","latency_samples","parameters_complete","parameters"],
+                            "additionalProperties":false
+                        }
+                    }
+                },
+                "required":["revision","ardour_version","allowlisted_plugins","plugins"],
+                "additionalProperties":false
+            }),
+            &["audio-plugin", "audio-plugin-parameter"],
+        ),
         deep_descriptor(
             "driver.ardour-audio.session.deep.create",
             "Create and reopen a managed Ardour 8.4 candidate using the official Dummy-backend session utility",
@@ -1010,7 +1138,7 @@ fn deep_capabilities() -> Vec<Capability> {
         ),
     ];
 
-    let mutation_specs: [(&str, Value, Risk, Idempotency, bool, &[&str]); 12] = [
+    let mutation_specs: [DeepMutationSpec; 20] = [
         (
             "driver.ardour-audio.session.deep.stem.create",
             json!({"channels":{"type":"integer","minimum":1,"maximum":64},"name":{"type":"string","minLength":1,"maxLength":4096}}),
@@ -1100,6 +1228,70 @@ fn deep_capabilities() -> Vec<Capability> {
             &["audio-clip"],
         ),
         (
+            "driver.ardour-audio.session.deep.clip.split",
+            json!({"region_id":{"type":"string","minLength":1,"maxLength":256},"frame":{"type":"integer","minimum":0,"maximum":9223372036854775807u64}}),
+            Risk::MutatingReversible,
+            Idempotency::NonIdempotent,
+            false,
+            &["audio-clip"],
+        ),
+        (
+            "driver.ardour-audio.session.deep.send.create",
+            json!({"source_route_id":{"type":"string","minLength":1,"maxLength":256},"target_bus_id":{"type":"string","minLength":1,"maxLength":256},"pre_fader":{"type":"boolean"}}),
+            Risk::MutatingReversible,
+            Idempotency::NonIdempotent,
+            false,
+            &["audio-send"],
+        ),
+        (
+            "driver.ardour-audio.session.deep.send.gain.set",
+            json!({"source_route_id":{"type":"string","minLength":1,"maxLength":256},"target_bus_id":{"type":"string","minLength":1,"maxLength":256},"gain_millidb":{"type":"integer","minimum":-120000,"maximum":24000}}),
+            Risk::MutatingReversible,
+            Idempotency::Idempotent,
+            false,
+            &["audio-send"],
+        ),
+        (
+            "driver.ardour-audio.session.deep.send.remove",
+            json!({"source_route_id":{"type":"string","minLength":1,"maxLength":256},"target_bus_id":{"type":"string","minLength":1,"maxLength":256}}),
+            Risk::Destructive,
+            Idempotency::Destructive,
+            true,
+            &["audio-send"],
+        ),
+        (
+            "driver.ardour-audio.session.deep.group.create",
+            json!({"name":{"type":"string","minLength":1,"maxLength":4096},"route_id":{"type":"string","minLength":1,"maxLength":256}}),
+            Risk::MutatingReversible,
+            Idempotency::NonIdempotent,
+            false,
+            &["audio-group"],
+        ),
+        (
+            "driver.ardour-audio.session.deep.group.add",
+            json!({"group_id":{"type":"string","minLength":1,"maxLength":256},"route_id":{"type":"string","minLength":1,"maxLength":256}}),
+            Risk::MutatingReversible,
+            Idempotency::Idempotent,
+            false,
+            &["audio-group", "audio-stem"],
+        ),
+        (
+            "driver.ardour-audio.session.deep.group.remove",
+            json!({"group_id":{"type":"string","minLength":1,"maxLength":256},"route_id":{"type":"string","minLength":1,"maxLength":256}}),
+            Risk::MutatingReversible,
+            Idempotency::Idempotent,
+            false,
+            &["audio-group", "audio-stem"],
+        ),
+        (
+            "driver.ardour-audio.session.deep.group.delete",
+            json!({"group_id":{"type":"string","minLength":1,"maxLength":256}}),
+            Risk::Destructive,
+            Idempotency::Destructive,
+            true,
+            &["audio-group"],
+        ),
+        (
             "driver.ardour-audio.session.deep.range.set",
             json!({"start":{"type":"integer","minimum":0,"maximum":9223372036854775806u64},"end":{"type":"integer","minimum":1,"maximum":9223372036854775807u64}}),
             Risk::MutatingReversible,
@@ -1137,6 +1329,84 @@ fn deep_capabilities() -> Vec<Capability> {
             &[],
         ));
     }
+    let plugin_specs: [DeepMutationSpec; 4] = [
+        (
+            "driver.ardour-audio.session.deep.plugin.insert",
+            json!({"route_id":{"type":"string","minLength":1,"maxLength":256},"plugin":{"type":"string","pattern":"^[a-z0-9][a-z0-9_-]{0,127}$"}}),
+            Risk::MutatingReversible,
+            Idempotency::NonIdempotent,
+            false,
+            &["audio-plugin"][..],
+        ),
+        (
+            "driver.ardour-audio.session.deep.plugin.remove",
+            json!({"route_id":{"type":"string","minLength":1,"maxLength":256},"plugin_id":{"type":"string","minLength":1,"maxLength":256}}),
+            Risk::Destructive,
+            Idempotency::Destructive,
+            true,
+            &["audio-plugin"][..],
+        ),
+        (
+            "driver.ardour-audio.session.deep.plugin.parameter.set",
+            json!({
+                "route_id":{"type":"string","minLength":1,"maxLength":256},
+                "plugin_id":{"type":"string","minLength":1,"maxLength":256},
+                "expected_plugin_unique_id":{"type":["string","null"],"minLength":1,"maxLength":1024},
+                "parameter_index":{"type":"integer","minimum":0,"maximum":4095},
+                "expected_parameter_label":{"type":"string","minLength":1,"maxLength":1024},
+                "value_microunits":{"type":"integer","minimum":-1000000000000000i64,"maximum":1000000000000000i64}
+            }),
+            Risk::MutatingReversible,
+            Idempotency::Idempotent,
+            false,
+            &["audio-plugin-parameter"][..],
+        ),
+        (
+            "driver.ardour-audio.session.deep.plugin.automation.point.add",
+            json!({
+                "route_id":{"type":"string","minLength":1,"maxLength":256},
+                "plugin_id":{"type":"string","minLength":1,"maxLength":256},
+                "expected_plugin_unique_id":{"type":["string","null"],"minLength":1,"maxLength":1024},
+                "parameter_index":{"type":"integer","minimum":0,"maximum":4095},
+                "expected_parameter_label":{"type":"string","minLength":1,"maxLength":1024},
+                "frame":{"type":"integer","minimum":0,"maximum":9223372036854775807u64},
+                "value_microunits":{"type":"integer","minimum":-1000000000000000i64,"maximum":1000000000000000i64}
+            }),
+            Risk::MutatingReversible,
+            Idempotency::NonIdempotent,
+            false,
+            &["audio-plugin-automation"][..],
+        ),
+    ];
+    for (name, fields, risk, idempotency, consent, objects) in plugin_specs {
+        let mut properties = fields.as_object().cloned().expect("plugin fields");
+        properties.insert("state".into(), state.clone());
+        properties.insert("expected_revision".into(), revision.clone());
+        let mut required = vec!["state".to_string(), "expected_revision".to_string()];
+        required.extend(
+            properties
+                .keys()
+                .filter(|key| key.as_str() != "state" && key.as_str() != "expected_revision")
+                .cloned(),
+        );
+        required.sort();
+        values.push(deep_descriptor(
+            name,
+            "Apply an owner-allowlisted typed Ardour plugin operation and verify it by native identity/readback",
+            json!({
+                "type":"object",
+                "properties":properties,
+                "required":required,
+                "additionalProperties":false
+            }),
+            verified.clone(),
+            risk,
+            idempotency,
+            consent,
+            objects,
+            &[],
+        ));
+    }
     values
 }
 
@@ -1146,12 +1416,28 @@ fn deep_read_descriptor(
     output_schema: Value,
     object_types: &[&str],
 ) -> Capability {
+    deep_read_input_descriptor(
+        name,
+        description,
+        empty_schema(),
+        output_schema,
+        object_types,
+    )
+}
+
+fn deep_read_input_descriptor(
+    name: &str,
+    description: &str,
+    input_schema: Value,
+    output_schema: Value,
+    object_types: &[&str],
+) -> Capability {
     Capability {
         descriptor: CommandDescriptor {
             name: name.into(),
             version: "1".into(),
             description: description.into(),
-            input_schema: empty_schema(),
+            input_schema,
             output_schema,
             requires: vec![DRIVER_SCOPE.into()],
             risk: Risk::ReadOnly,
@@ -1342,6 +1628,7 @@ fn deep_mutation(
     command: &str,
     args: &Value,
     snapshot: &NativeArdourSnapshot,
+    runtime: &DeepRuntime,
 ) -> Result<NativeMutation> {
     let route_id = || {
         let semantic = text_arg(args, "route_id", 256)?;
@@ -1350,6 +1637,29 @@ fn deep_mutation(
     let region_id = || {
         let semantic = text_arg(args, "region_id", 256)?;
         resolve_native_region_id(snapshot, semantic)
+    };
+    let group_id = || {
+        let semantic = text_arg(args, "group_id", 256)?;
+        resolve_native_group_id(snapshot, semantic)
+    };
+    let stem_route_id = |key: &str| {
+        let semantic = text_arg(args, key, 256)?;
+        let native = resolve_native_route_id(snapshot, semantic)?;
+        if !snapshot
+            .routes
+            .iter()
+            .any(|route| route.id == native && route.kind == RouteKind::Track)
+        {
+            return Err(Error::invalid(
+                "Ardour route-group membership requires an audio stem",
+            ));
+        }
+        Ok(native)
+    };
+    let plugin = || {
+        let route = route_id()?;
+        let semantic = text_arg(args, "plugin_id", 256)?;
+        resolve_native_plugin(snapshot, &route, semantic)
     };
     match command {
         "driver.ardour-audio.session.deep.stem.create" => Ok(NativeMutation::StemCreate {
@@ -1395,6 +1705,122 @@ fn deep_mutation(
         "driver.ardour-audio.session.deep.clip.remove" => Ok(NativeMutation::ClipRemove {
             region_id: region_id()?,
         }),
+        "driver.ardour-audio.session.deep.clip.split" => {
+            let native_id = region_id()?;
+            let frame = u64_arg(args, "frame", 0, i64::MAX as u64)?;
+            let region = snapshot
+                .routes
+                .iter()
+                .flat_map(|route| route.regions.iter())
+                .find(|region| region.id == native_id)
+                .ok_or_else(|| Error::new(ErrorCode::NotFound, "Ardour split region is absent"))?;
+            let end = region.position.saturating_add(region.length);
+            if frame <= region.position || frame >= end {
+                return Err(Error::invalid(
+                    "Ardour split frame must be inside the region",
+                ));
+            }
+            Ok(NativeMutation::ClipSplit {
+                region_id: native_id,
+                frame,
+            })
+        }
+        "driver.ardour-audio.session.deep.send.create" => Ok(NativeMutation::SendCreate {
+            source_route: {
+                let semantic = text_arg(args, "source_route_id", 256)?;
+                resolve_native_route_id(snapshot, semantic)?
+            },
+            target_route: {
+                let semantic = text_arg(args, "target_bus_id", 256)?;
+                resolve_native_route_id(snapshot, semantic)?
+            },
+            pre_fader: bool_arg(args, "pre_fader")?,
+        }),
+        "driver.ardour-audio.session.deep.send.gain.set" => Ok(NativeMutation::SendGain {
+            source_route: {
+                let semantic = text_arg(args, "source_route_id", 256)?;
+                resolve_native_route_id(snapshot, semantic)?
+            },
+            target_route: {
+                let semantic = text_arg(args, "target_bus_id", 256)?;
+                resolve_native_route_id(snapshot, semantic)?
+            },
+            gain_millidb: i32_arg(args, "gain_millidb", -120_000, 24_000)?,
+        }),
+        "driver.ardour-audio.session.deep.send.remove" => Ok(NativeMutation::SendRemove {
+            source_route: {
+                let semantic = text_arg(args, "source_route_id", 256)?;
+                resolve_native_route_id(snapshot, semantic)?
+            },
+            target_route: {
+                let semantic = text_arg(args, "target_bus_id", 256)?;
+                resolve_native_route_id(snapshot, semantic)?
+            },
+        }),
+        "driver.ardour-audio.session.deep.group.create" => Ok(NativeMutation::GroupCreate {
+            name: text_arg(args, "name", 4096)?.to_owned(),
+            route_id: stem_route_id("route_id")?,
+        }),
+        "driver.ardour-audio.session.deep.group.add" => Ok(NativeMutation::GroupAdd {
+            group_id: group_id()?,
+            route_id: stem_route_id("route_id")?,
+        }),
+        "driver.ardour-audio.session.deep.group.remove" => Ok(NativeMutation::GroupRemove {
+            group_id: group_id()?,
+            route_id: stem_route_id("route_id")?,
+        }),
+        "driver.ardour-audio.session.deep.group.delete" => Ok(NativeMutation::GroupDelete {
+            group_id: group_id()?,
+        }),
+        "driver.ardour-audio.session.deep.plugin.insert" => {
+            let allowed = runtime.allowed_plugin(text_arg(args, "plugin", 128)?)?;
+            Ok(NativeMutation::PluginInsert {
+                route_id: route_id()?,
+                plugin_name: allowed.native_name.clone(),
+                plugin_type: allowed.kind.clone(),
+                preset: allowed.preset.clone(),
+            })
+        }
+        "driver.ardour-audio.session.deep.plugin.remove" => {
+            let (route, native_plugin) = plugin()?;
+            Ok(NativeMutation::PluginRemove {
+                route_id: route,
+                plugin_id: native_plugin.id.clone(),
+            })
+        }
+        "driver.ardour-audio.session.deep.plugin.parameter.set" => {
+            let (route, native_plugin) = plugin()?;
+            let parameter_index = u64_arg(args, "parameter_index", 0, 4095)? as u32;
+            verify_plugin_parameter_identity(args, native_plugin, parameter_index)?;
+            Ok(NativeMutation::PluginParamSet {
+                route_id: route,
+                plugin_id: native_plugin.id.clone(),
+                parameter_index,
+                value_microunits: i64_arg(
+                    args,
+                    "value_microunits",
+                    -1_000_000_000_000_000,
+                    1_000_000_000_000_000,
+                )?,
+            })
+        }
+        "driver.ardour-audio.session.deep.plugin.automation.point.add" => {
+            let (route, native_plugin) = plugin()?;
+            let parameter_index = u64_arg(args, "parameter_index", 0, 4095)? as u32;
+            verify_plugin_parameter_identity(args, native_plugin, parameter_index)?;
+            Ok(NativeMutation::PluginAutomationPoint {
+                route_id: route,
+                plugin_id: native_plugin.id.clone(),
+                parameter_index,
+                frame: u64_arg(args, "frame", 0, i64::MAX as u64)?,
+                value_microunits: i64_arg(
+                    args,
+                    "value_microunits",
+                    -1_000_000_000_000_000,
+                    1_000_000_000_000_000,
+                )?,
+            })
+        }
         "driver.ardour-audio.session.deep.range.set" => Ok(NativeMutation::SessionRange {
             start: u64_arg(args, "start", 0, i64::MAX as u64 - 1)?,
             end: u64_arg(args, "end", 1, i64::MAX as u64)?,
@@ -1428,6 +1854,68 @@ fn resolve_native_region_id(snapshot: &NativeArdourSnapshot, semantic: &str) -> 
         .find(|region| semantic_id("clip", &region.id) == semantic)
         .map(|region| region.id.clone())
         .ok_or_else(|| Error::new(ErrorCode::NotFound, "Semantic Ardour clip does not exist"))
+}
+
+fn resolve_native_group_id(snapshot: &NativeArdourSnapshot, semantic: &str) -> Result<String> {
+    snapshot
+        .groups
+        .iter()
+        .find(|group| semantic_id("group", &group.id) == semantic)
+        .map(|group| group.id.clone())
+        .ok_or_else(|| Error::new(ErrorCode::NotFound, "Semantic Ardour group does not exist"))
+}
+
+fn resolve_native_plugin<'a>(
+    snapshot: &'a NativeArdourSnapshot,
+    route_id: &str,
+    semantic: &str,
+) -> Result<(String, &'a crate::native::NativePlugin)> {
+    let route = snapshot
+        .routes
+        .iter()
+        .find(|route| route.id == route_id)
+        .ok_or_else(|| Error::new(ErrorCode::NotFound, "Ardour plugin route does not exist"))?;
+    route
+        .plugins
+        .iter()
+        .find(|plugin| semantic_id("plugin", &plugin.id) == semantic)
+        .map(|plugin| (route.id.clone(), plugin))
+        .ok_or_else(|| Error::new(ErrorCode::NotFound, "Semantic Ardour plugin does not exist"))
+}
+
+fn verify_plugin_parameter_identity(
+    args: &Value,
+    plugin: &crate::native::NativePlugin,
+    parameter_index: u32,
+) -> Result<()> {
+    let expected_unique = match args.get("expected_plugin_unique_id") {
+        Some(Value::Null) => None,
+        Some(Value::String(value))
+            if !value.is_empty() && value.len() <= 1024 && !value.chars().any(char::is_control) =>
+        {
+            Some(value.as_str())
+        }
+        _ => return Err(Error::invalid("Invalid Ardour expected_plugin_unique_id")),
+    };
+    if plugin.unique_id.as_deref() != expected_unique {
+        return Err(Error::new(
+            ErrorCode::StaleReference,
+            "Ardour plugin unique identity changed",
+        ));
+    }
+    let expected_label = text_arg(args, "expected_parameter_label", 1024)?;
+    let parameter = plugin
+        .parameters
+        .iter()
+        .find(|parameter| parameter.index == parameter_index)
+        .ok_or_else(|| Error::new(ErrorCode::NotFound, "Ardour plugin parameter is absent"))?;
+    if parameter.label != expected_label {
+        return Err(Error::new(
+            ErrorCode::StaleReference,
+            "Ardour plugin parameter label changed",
+        ));
+    }
+    Ok(())
 }
 
 fn native_effect_verified(
@@ -1515,6 +2003,212 @@ fn native_effect_verified(
                 .any(|region| region.id == *region_id)
                 && region_after(region_id).is_none()
         }
+        NativeMutation::ClipSplit { region_id, frame } => {
+            let before_regions = before
+                .routes
+                .iter()
+                .map(|route| route.regions.len())
+                .sum::<usize>();
+            let after_regions = after
+                .routes
+                .iter()
+                .map(|route| route.regions.len())
+                .sum::<usize>();
+            let original = before
+                .routes
+                .iter()
+                .flat_map(|route| route.regions.iter())
+                .find(|region| region.id == *region_id);
+            original.is_some_and(|region| {
+                let end = region.position.saturating_add(region.length);
+                *frame > region.position
+                    && *frame < end
+                    && after_regions == before_regions.saturating_add(1)
+                    && after
+                        .routes
+                        .iter()
+                        .flat_map(|route| route.regions.iter())
+                        .any(|candidate| candidate.position == *frame)
+            })
+        }
+        NativeMutation::SendCreate {
+            source_route,
+            target_route,
+            pre_fader,
+        } => {
+            let before_count = before
+                .routes
+                .iter()
+                .find(|route| route.id == *source_route)
+                .map(|route| {
+                    route
+                        .sends
+                        .iter()
+                        .filter(|send| send.target_route == *target_route)
+                        .count()
+                })
+                .unwrap_or(0);
+            route_after(source_route).is_some_and(|route| {
+                let matching = route
+                    .sends
+                    .iter()
+                    .filter(|send| {
+                        send.target_route == *target_route && send.pre_fader == *pre_fader
+                    })
+                    .count();
+                before_count == 0 && matching == 1
+            })
+        }
+        NativeMutation::SendGain {
+            source_route,
+            target_route,
+            gain_millidb,
+        } => route_after(source_route).is_some_and(|route| {
+            let matching = route
+                .sends
+                .iter()
+                .filter(|send| send.target_route == *target_route)
+                .collect::<Vec<_>>();
+            matching.len() == 1 && matching[0].gain_millidb.abs_diff(*gain_millidb) <= 1
+        }),
+        NativeMutation::SendRemove {
+            source_route,
+            target_route,
+        } => {
+            before
+                .routes
+                .iter()
+                .find(|route| route.id == *source_route)
+                .is_some_and(|route| {
+                    route
+                        .sends
+                        .iter()
+                        .any(|send| send.target_route == *target_route)
+                })
+                && route_after(source_route).is_some_and(|route| {
+                    !route
+                        .sends
+                        .iter()
+                        .any(|send| send.target_route == *target_route)
+                })
+        }
+        NativeMutation::GroupCreate { name, route_id } => {
+            let old_ids = before
+                .groups
+                .iter()
+                .map(|group| group.id.as_str())
+                .collect::<std::collections::BTreeSet<_>>();
+            let created = after
+                .groups
+                .iter()
+                .filter(|group| !old_ids.contains(group.id.as_str()))
+                .collect::<Vec<_>>();
+            created.len() == 1
+                && created[0].name == *name
+                && created[0].route_ids.iter().any(|member| member == route_id)
+        }
+        NativeMutation::GroupAdd { group_id, route_id } => after
+            .groups
+            .iter()
+            .find(|group| group.id == *group_id)
+            .is_some_and(|group| group.route_ids.iter().any(|member| member == route_id)),
+        NativeMutation::GroupRemove { group_id, route_id } => after
+            .groups
+            .iter()
+            .find(|group| group.id == *group_id)
+            .is_some_and(|group| !group.route_ids.iter().any(|member| member == route_id)),
+        NativeMutation::GroupDelete { group_id } => {
+            before.groups.iter().any(|group| group.id == *group_id)
+                && !after.groups.iter().any(|group| group.id == *group_id)
+        }
+        NativeMutation::PluginInsert {
+            route_id,
+            plugin_name,
+            ..
+        } => {
+            let old_ids = before
+                .routes
+                .iter()
+                .find(|route| route.id == *route_id)
+                .map(|route| {
+                    route
+                        .plugins
+                        .iter()
+                        .map(|plugin| plugin.id.as_str())
+                        .collect::<std::collections::BTreeSet<_>>()
+                })
+                .unwrap_or_default();
+            route_after(route_id).is_some_and(|route| {
+                let created = route
+                    .plugins
+                    .iter()
+                    .filter(|plugin| !old_ids.contains(plugin.id.as_str()))
+                    .collect::<Vec<_>>();
+                created.len() == 1 && created[0].name == *plugin_name
+            })
+        }
+        NativeMutation::PluginRemove {
+            route_id,
+            plugin_id,
+        } => {
+            before
+                .routes
+                .iter()
+                .find(|route| route.id == *route_id)
+                .is_some_and(|route| route.plugins.iter().any(|plugin| plugin.id == *plugin_id))
+                && route_after(route_id).is_some_and(|route| {
+                    !route.plugins.iter().any(|plugin| plugin.id == *plugin_id)
+                })
+        }
+        NativeMutation::PluginParamSet {
+            route_id,
+            plugin_id,
+            parameter_index,
+            value_microunits,
+        } => route_after(route_id).is_some_and(|route| {
+            route
+                .plugins
+                .iter()
+                .find(|plugin| plugin.id == *plugin_id)
+                .and_then(|plugin| {
+                    plugin
+                        .parameters
+                        .iter()
+                        .find(|parameter| parameter.index == *parameter_index)
+                })
+                .is_some_and(|parameter| {
+                    parameter.value_microunits.abs_diff(*value_microunits) <= 1
+                })
+        }),
+        NativeMutation::PluginAutomationPoint {
+            route_id,
+            plugin_id,
+            parameter_index,
+            ..
+        } => {
+            let before_count = before
+                .routes
+                .iter()
+                .find(|route| route.id == *route_id)
+                .and_then(|route| route.plugins.iter().find(|plugin| plugin.id == *plugin_id))
+                .and_then(|plugin| {
+                    plugin
+                        .parameters
+                        .iter()
+                        .find(|parameter| parameter.index == *parameter_index)
+                })
+                .map(|parameter| parameter.automation_points);
+            let after_count = route_after(route_id)
+                .and_then(|route| route.plugins.iter().find(|plugin| plugin.id == *plugin_id))
+                .and_then(|plugin| {
+                    plugin
+                        .parameters
+                        .iter()
+                        .find(|parameter| parameter.index == *parameter_index)
+                })
+                .map(|parameter| parameter.automation_points);
+            matches!((before_count, after_count), (Some(before), Some(after)) if after == before.saturating_add(1))
+        }
         NativeMutation::SessionRange { start, end } => {
             after.session_start == *start && after.session_end == *end
         }
@@ -1551,6 +2245,12 @@ fn i32_arg(args: &Value, key: &str, min: i32, max: i32) -> Result<i32> {
     args.get(key)
         .and_then(Value::as_i64)
         .and_then(|value| i32::try_from(value).ok())
+        .filter(|value| (min..=max).contains(value))
+        .ok_or_else(|| Error::invalid(format!("Invalid Ardour {key}")))
+}
+fn i64_arg(args: &Value, key: &str, min: i64, max: i64) -> Result<i64> {
+    args.get(key)
+        .and_then(Value::as_i64)
         .filter(|value| (min..=max).contains(value))
         .ok_or_else(|| Error::invalid(format!("Invalid Ardour {key}")))
 }

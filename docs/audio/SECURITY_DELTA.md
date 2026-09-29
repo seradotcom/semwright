@@ -4,9 +4,9 @@ This work expands parser, native-tool, media and DAW surfaces. It does not close
 
 ## Authority and execution
 
-Every advertised driver capability still requires its driver scope through the Broker. Skills, plans, manifests, receipts, hashes and support classifications are data, not permission. Destructive Ardour route/clip removal keeps the normal sensitive-operation confirmation boundary.
+Every advertised driver capability still requires its driver scope through the Broker. Skills, plans, manifests, receipts, hashes and support classifications are data, not permission. Destructive Ardour route/clip/send/group/plugin removal keeps the normal sensitive-operation confirmation boundary.
 
-Faust and analysis use Driver Host digest-pinned tool mounts. Ardour deep execution uses fixed tool names and a fixed Semwright Lua adapter; agent values are validated argv. There is no public arbitrary Faust source, compiler flags, Lua source, raw OSC, shell, remote host or executable field.
+Faust and analysis use Driver Host digest-pinned tool mounts. Ardour deep execution uses fixed tool names and a fixed Semwright Lua adapter; agent values are validated argv. Plugin loading is additionally restricted to owner-pinned runtime IDs that resolve to fixed native names/types; parameter writes require the observed plugin unique identity plus parameter label/index. There is no public arbitrary Faust source, compiler flags, Lua source, raw OSC, plugin path/type, shell, remote host or executable field.
 
 ## Filesystem and media
 
@@ -16,7 +16,7 @@ Ardour runtime, project and output roots are separate grants. Save-as reopens th
 
 ## Native boundary
 
-A sandboxed driver does not imply a user's normal Ardour process is sandboxed. Native CI uses disposable runner state and the Dummy backend. No microphone, physical speaker, external streaming, paid service or user plugin directory is required. Experimental Ardour HTTP/WebSocket surfaces are not enabled.
+A sandboxed driver does not imply a user's normal Ardour process is sandboxed. Native CI uses disposable runner state, the Dummy backend and only an explicitly allowlisted first-party Ardour Lua processor for plugin conformance. No microphone, physical speaker, external streaming, paid service or user plugin directory is required. Experimental Ardour HTTP/WebSocket surfaces are not enabled.
 
 ## Residual release review
 

@@ -3,7 +3,7 @@ use semwright_audio_domain::{
     edit::{self, Edit},
     model::AudioProject,
 };
-use semwright_backend_api::Provider;
+use semwright_backend_api::{Context, Provider};
 use semwright_core::{Broker, NoApprover, audit::Audit};
 use semwright_driver_host::DriverProvider;
 use semwright_driver_sdk::{
@@ -32,6 +32,41 @@ fn required_path(name: &str) -> PathBuf {
     assert!(path.is_file(), "native prerequisite is not a file: {name}");
     path.canonicalize().unwrap()
 }
+async fn direct_host_call(
+    provider: &DriverProvider,
+    capabilities: &[semwright_backend_api::ProvidedCapability],
+    command: &str,
+    args: Value,
+) -> semwright_types::Result<Value> {
+    let descriptor = capabilities
+        .iter()
+        .find(|capability| capability.descriptor.name == format!("driver.ardour-audio.{command}"))
+        .unwrap_or_else(|| panic!("missing direct host capability {command}"));
+    Provider::execute(
+        provider,
+        &Context {
+            session: "ardour-host-diagnostic".into(),
+            request_id: unique_id(),
+            cancellation: CancellationToken::new(),
+        },
+        &descriptor.descriptor,
+        &args,
+    )
+    .await
+}
+
+fn clear_disposable_project(path: &Path) {
+    for entry in fs::read_dir(path).unwrap() {
+        let entry = entry.unwrap();
+        let child = entry.path();
+        if child.is_dir() {
+            fs::remove_dir_all(child).unwrap();
+        } else {
+            fs::remove_file(child).unwrap();
+        }
+    }
+}
+
 async fn call(broker: &Arc<Broker>, command: &str, args: Value) -> Envelope {
     broker
         .clone()
@@ -125,7 +160,18 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
     let runtime = root.path().join("runtime");
     fs::write(
         runtime.join("semwright-runtime.json"),
-        serde_json::to_vec(&json!({"schema_version":1,"ardour_version":"8.4.0"})).unwrap(),
+        serde_json::to_vec(&json!({
+            "schema_version":1,
+            "ardour_version":"8.4.0",
+            "allowed_plugins":[{
+                "id":"ace-inline-scope",
+                "native_name":"ACE Inline Scope",
+                "kind":"lua",
+                "preset":"",
+                "unique_id":null
+            }]
+        }))
+        .unwrap(),
     )
     .unwrap();
     fs::set_permissions(
@@ -257,6 +303,20 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
     )
     .await
     .unwrap();
+    let direct_capabilities = Provider::capabilities(provider.as_ref()).await.unwrap();
+    let direct_create = direct_host_call(
+        provider.as_ref(),
+        &direct_capabilities,
+        "session.deep.create",
+        json!({"state":"Diagnostic","sample_rate":48000,"master_channels":2}),
+    )
+    .await;
+    assert!(
+        direct_create.is_ok(),
+        "raw Driver Host Ardour create failed before Broker redaction: {direct_create:?}"
+    );
+    clear_disposable_project(&project);
+
     let broker = Broker::new(
         Policy::new(PolicyConfig {
             allow: ["driver:ardour-audio".into()].into(),
@@ -326,23 +386,345 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
     assert!(bus.ok, "{bus:?}");
     let revision3 = bus.data.unwrap()["revision"].as_str().unwrap().to_owned();
 
+    let aux_stem = call(
+        &broker,
+        "session.deep.stem.create",
+        json!({"state":"Base","expected_revision":revision3,"channels":2,"name":"Group Aux"}),
+    )
+    .await;
+    assert!(aux_stem.ok, "{aux_stem:?}");
+    let revision4 = aux_stem.data.unwrap()["revision"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
     let inspected = call(&broker, "session.deep.inspect", json!({"state":"Base"})).await;
     assert!(inspected.ok, "{inspected:?}");
     let inspected_data = inspected.data.unwrap();
-    assert_eq!(inspected_data["revision"], revision3);
+    assert_eq!(inspected_data["revision"], revision4);
     let project_json = parse_project(&inspected_data);
     let stems = project_json["stems"].as_array().unwrap();
-    assert_eq!(stems.len(), 1, "{project_json}");
-    assert_eq!(stems[0]["name"], "Proof Stem");
-    assert!(
-        project_json["buses"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|bus| bus["name"] == "Proof Bus"),
-        "{project_json}"
+    assert_eq!(stems.len(), 2, "{project_json}");
+    let stem_id = stems
+        .iter()
+        .find(|stem| stem["name"] == "Proof Stem")
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let aux_stem_id = stems
+        .iter()
+        .find(|stem| stem["name"] == "Group Aux")
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let bus_id = project_json["buses"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|bus| bus["name"] == "Proof Bus")
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    let send = call(
+        &broker,
+        "session.deep.send.create",
+        json!({
+            "state":"Base",
+            "expected_revision":revision4,
+            "source_route_id":stem_id,
+            "target_bus_id":bus_id,
+            "pre_fader":false
+        }),
+    )
+    .await;
+    assert!(send.ok, "{send:?}");
+    let revision5 = send.data.unwrap()["revision"].as_str().unwrap().to_owned();
+
+    let send_gain = call(
+        &broker,
+        "session.deep.send.gain.set",
+        json!({
+            "state":"Base",
+            "expected_revision":revision5,
+            "source_route_id":stem_id,
+            "target_bus_id":bus_id,
+            "gain_millidb":-6000
+        }),
+    )
+    .await;
+    assert!(send_gain.ok, "{send_gain:?}");
+    let revision6 = send_gain.data.unwrap()["revision"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    let group = call(
+        &broker,
+        "session.deep.group.create",
+        json!({
+            "state":"Base",
+            "expected_revision":revision6,
+            "name":"Proof Group",
+            "route_id":stem_id
+        }),
+    )
+    .await;
+    assert!(group.ok, "{group:?}");
+    let revision7 = group.data.unwrap()["revision"].as_str().unwrap().to_owned();
+
+    let group_snapshot = call(&broker, "session.deep.inspect", json!({"state":"Base"})).await;
+    assert!(group_snapshot.ok, "{group_snapshot:?}");
+    let group_project = parse_project(group_snapshot.data.as_ref().unwrap());
+    let group_id = group_project["groups"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|group| group["name"] == "Proof Group")
+        .unwrap()["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    let group_add = call(
+        &broker,
+        "session.deep.group.add",
+        json!({
+            "state":"Base",
+            "expected_revision":revision7,
+            "group_id":group_id,
+            "route_id":aux_stem_id
+        }),
+    )
+    .await;
+    assert!(group_add.ok, "{group_add:?}");
+    let revision8 = group_add.data.unwrap()["revision"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    let group_remove = call(
+        &broker,
+        "session.deep.group.remove",
+        json!({
+            "state":"Base",
+            "expected_revision":revision8,
+            "group_id":group_id,
+            "route_id":aux_stem_id
+        }),
+    )
+    .await;
+    assert!(group_remove.ok, "{group_remove:?}");
+    let revision9 = group_remove.data.unwrap()["revision"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    let plugin_insert = call(
+        &broker,
+        "session.deep.plugin.insert",
+        json!({
+            "state":"Base",
+            "expected_revision":revision9,
+            "route_id":stem_id,
+            "plugin":"ace-inline-scope"
+        }),
+    )
+    .await;
+    assert!(plugin_insert.ok, "{plugin_insert:?}");
+    let revision10 = plugin_insert.data.unwrap()["revision"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    let plugin_inventory = call(
+        &broker,
+        "session.deep.plugins.inspect",
+        json!({"state":"Base"}),
+    )
+    .await;
+    assert!(plugin_inventory.ok, "{plugin_inventory:?}");
+    let plugin_data = plugin_inventory.data.unwrap();
+    assert_eq!(plugin_data["revision"], revision10);
+    let plugin_row = plugin_data["plugins"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|plugin| plugin["route_id"] == stem_id && plugin["name"] == "ACE Inline Scope")
+        .unwrap()
+        .clone();
+    let plugin_id = plugin_row["plugin_id"].as_str().unwrap().to_owned();
+    let parameter = plugin_row["parameters"]
+        .as_array()
+        .unwrap()
+        .first()
+        .expect("allowlisted acceptance plugin exposes parameters")
+        .clone();
+    let parameter_index = parameter["index"].as_u64().unwrap();
+    let parameter_label = parameter["label"].as_str().unwrap().to_owned();
+    let parameter_current = parameter["value_microunits"].as_i64().unwrap();
+    let parameter_lower = parameter["lower_microunits"].as_i64().unwrap();
+    let parameter_upper = parameter["upper_microunits"].as_i64().unwrap();
+    let parameter_target = if parameter_current != parameter_lower {
+        parameter_lower
+    } else {
+        parameter_upper
+    };
+    assert_ne!(parameter_lower, parameter_upper);
+    let plugin_unique_id = plugin_row["unique_id"].clone();
+
+    let parameter_set = call(
+        &broker,
+        "session.deep.plugin.parameter.set",
+        json!({
+            "state":"Base",
+            "expected_revision":revision10,
+            "route_id":stem_id,
+            "plugin_id":plugin_id,
+            "expected_plugin_unique_id":plugin_unique_id,
+            "parameter_index":parameter_index,
+            "expected_parameter_label":parameter_label,
+            "value_microunits":parameter_target
+        }),
+    )
+    .await;
+    assert!(parameter_set.ok, "{parameter_set:?}");
+    let revision11 = parameter_set.data.unwrap()["revision"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    let parameter_observed = call(
+        &broker,
+        "session.deep.plugins.inspect",
+        json!({"state":"Base"}),
+    )
+    .await;
+    assert!(parameter_observed.ok, "{parameter_observed:?}");
+    let observed_data = parameter_observed.data.unwrap();
+    assert_eq!(observed_data["revision"], revision11);
+    let observed_plugin = observed_data["plugins"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|plugin| plugin["plugin_id"] == plugin_id)
+        .unwrap();
+    let observed_parameter = observed_plugin["parameters"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|parameter| parameter["index"] == parameter_index)
+        .unwrap();
+    assert_eq!(observed_parameter["value_microunits"], parameter_target);
+    let automation_before = observed_parameter["automation_points"].as_u64().unwrap();
+
+    let automation = call(
+        &broker,
+        "session.deep.plugin.automation.point.add",
+        json!({
+            "state":"Base",
+            "expected_revision":revision11,
+            "route_id":stem_id,
+            "plugin_id":plugin_id,
+            "expected_plugin_unique_id":plugin_unique_id,
+            "parameter_index":parameter_index,
+            "expected_parameter_label":parameter_label,
+            "frame":24000,
+            "value_microunits":parameter_target
+        }),
+    )
+    .await;
+    assert!(automation.ok, "{automation:?}");
+    let revision12 = automation.data.unwrap()["revision"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+
+    let automation_observed = call(
+        &broker,
+        "session.deep.plugins.inspect",
+        json!({"state":"Base"}),
+    )
+    .await;
+    assert!(automation_observed.ok, "{automation_observed:?}");
+    let automation_data = automation_observed.data.unwrap();
+    assert_eq!(automation_data["revision"], revision12);
+    let automation_parameter = automation_data["plugins"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|plugin| plugin["plugin_id"] == plugin_id)
+        .unwrap()["parameters"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|parameter| parameter["index"] == parameter_index)
+        .unwrap();
+    assert_eq!(
+        automation_parameter["automation_points"].as_u64().unwrap(),
+        automation_before + 1
     );
-    let stem_id = stems[0]["id"].as_str().unwrap().to_owned();
+
+    for (command, args) in [
+        (
+            "session.deep.send.remove",
+            json!({
+                "state":"Base",
+                "expected_revision":revision12,
+                "source_route_id":stem_id,
+                "target_bus_id":bus_id
+            }),
+        ),
+        (
+            "session.deep.group.delete",
+            json!({
+                "state":"Base",
+                "expected_revision":revision12,
+                "group_id":group_id
+            }),
+        ),
+        (
+            "session.deep.plugin.remove",
+            json!({
+                "state":"Base",
+                "expected_revision":revision12,
+                "route_id":stem_id,
+                "plugin_id":plugin_id
+            }),
+        ),
+    ] {
+        let denied = call(&broker, command, args).await;
+        assert!(!denied.ok, "{denied:?}");
+        assert_eq!(denied.error.unwrap().code, ErrorCode::ConsentRequired);
+    }
+
+    let before_rename = call(&broker, "session.deep.inspect", json!({"state":"Base"})).await;
+    assert!(before_rename.ok, "{before_rename:?}");
+    let before_rename_data = before_rename.data.unwrap();
+    assert_eq!(before_rename_data["revision"], revision12);
+    let project_json = parse_project(&before_rename_data);
+    let proof_stem = project_json["stems"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|stem| stem["id"] == stem_id)
+        .unwrap();
+    assert_eq!(proof_stem["sends"].as_array().unwrap().len(), 1);
+    assert_eq!(proof_stem["sends"][0]["gain"], -6000);
+    let proof_group = project_json["groups"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|group| group["id"] == group_id)
+        .unwrap();
+    assert_eq!(
+        proof_group["stems"].as_array().unwrap(),
+        &[Value::String(stem_id.clone())]
+    );
+
     let reference_before: AudioProject = serde_json::from_value(project_json.clone()).unwrap();
     let reference_expected = edit::apply(
         &reference_before,
@@ -355,15 +737,16 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
     )
     .unwrap()
     .result;
+    let revision_before_rename = revision12.clone();
 
     let renamed = call(
         &broker,
         "session.deep.route.rename",
-        json!({"state":"Base","expected_revision":revision3,"route_id":stem_id,"name":"Renamed Proof"}),
+        json!({"state":"Base","expected_revision":revision_before_rename,"route_id":stem_id,"name":"Renamed Proof"}),
     )
     .await;
     assert!(renamed.ok, "{renamed:?}");
-    let revision4 = renamed.data.unwrap()["revision"]
+    let revision_after_rename = renamed.data.unwrap()["revision"]
         .as_str()
         .unwrap()
         .to_owned();
@@ -380,7 +763,7 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
     let stale = call(
         &broker,
         "session.deep.route.mute",
-        json!({"state":"Base","expected_revision":revision3,"route_id":project_json["stems"][0]["id"],"value":true}),
+        json!({"state":"Base","expected_revision":revision_before_rename,"route_id":stem_id,"value":true}),
     )
     .await;
     assert!(!stale.ok);
@@ -389,7 +772,7 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
     let saved = call(
         &broker,
         "session.deep.save-as",
-        json!({"source_state":"Base","candidate_state":"Candidate","expected_revision":revision4}),
+        json!({"source_state":"Base","candidate_state":"Candidate","expected_revision":revision_after_rename}),
     )
     .await;
     assert!(saved.ok, "{saved:?}");
@@ -412,7 +795,14 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
         candidate_revision
     );
     let candidate_project = parse_project(reopened.data.as_ref().unwrap());
-    assert_eq!(candidate_project["stems"][0]["name"], "Renamed Proof");
+    assert!(
+        candidate_project["stems"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|stem| stem["id"] == stem_id && stem["name"] == "Renamed Proof"),
+        "{candidate_project}"
+    );
 
     let rendered = call(
         &broker,
@@ -444,7 +834,7 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
     let destructive = call(
         &broker,
         "session.deep.route.remove",
-        json!({"state":"Candidate","expected_revision":candidate_revision,"route_id":candidate_project["stems"][0]["id"]}),
+        json!({"state":"Candidate","expected_revision":candidate_revision,"route_id":stem_id}),
     )
     .await;
     assert!(!destructive.ok);
@@ -462,6 +852,12 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
             "runtime_probe":true,
             "create_reopen":true,
             "native_bus_create":true,
+            "native_internal_send_create_and_gain":true,
+            "native_route_group_membership":true,
+            "allowlisted_plugin_insert":true,
+            "plugin_parameter_readback_and_write":true,
+            "plugin_automation_point_readback":true,
+            "destructive_send_group_plugin_denied_without_consent":true,
             "differential_rename_digest":true,
             "semantic_target_mapping":true,
             "stale_revision_denied":true,

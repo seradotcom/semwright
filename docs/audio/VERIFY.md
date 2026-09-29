@@ -7,7 +7,7 @@ All evidence is SHA-bound. A run from another SHA is diagnostic history only.
 | audio-domain | portable model, authoring lifecycle, schemas/catalog coverage, format/clippy |
 | faust-native | pinned Faust translation/interpreter/render and Broker -> Driver Host path |
 | analysis-native | sealed libebur128 meter, digest-bound artifact and independent WAV decode |
-| ardour-native | real Ardour 8.4 managed session create/edit/save/reopen/export under Dummy backend |
+| ardour-native | real Ardour 8.4 managed session create/edit/save/reopen/export under Dummy backend, including revision-bound bus/send/group/plugin/automation conformance where supported |
 | audio-package | real SWDP creation/inspection and development bundle hashes |
 | audio-gate | every selected required lane ran and passed |
 

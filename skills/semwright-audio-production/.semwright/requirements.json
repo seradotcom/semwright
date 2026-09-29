@@ -40,6 +40,10 @@
         "required": true
       },
       {
+        "id": "driver.ardour-audio.session.deep.plugins.inspect",
+        "required": false
+      },
+      {
         "id": "driver.ardour-audio.session.deep.create",
         "required": true
       },

@@ -44,10 +44,39 @@ pub struct NativeSend {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct NativePluginParameter {
+    pub index: u32,
+    pub label: String,
+    pub value_microunits: i64,
+    pub lower_microunits: i64,
+    pub upper_microunits: i64,
+    pub normal_microunits: i64,
+    pub automation_points: u32,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct NativePlugin {
     pub id: String,
     pub name: String,
     pub unique_id: Option<String>,
+    pub enabled: bool,
+    pub latency_samples: u64,
+    pub parameters: Vec<NativePluginParameter>,
+    pub parameters_complete: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct NativeGroup {
+    pub id: String,
+    pub name: String,
+    pub route_ids: Vec<String>,
+    pub active: bool,
+    pub relative: bool,
+    pub gain: bool,
+    pub mute: bool,
+    pub solo: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -79,6 +108,8 @@ pub struct ArdourSnapshot {
     pub session_start: u64,
     pub session_end: u64,
     pub routes: Vec<NativeRoute>,
+    #[serde(default)]
+    pub groups: Vec<NativeGroup>,
     #[serde(default)]
     pub warnings: Vec<String>,
 }
@@ -155,6 +186,53 @@ impl ArdourSnapshot {
                 if let Some(id) = &plugin.unique_id {
                     bounded_text("plugin unique ID", id, 1024)?;
                 }
+                if plugin.parameters.len() > 4096 || plugin.latency_samples > i64::MAX as u64 {
+                    return Err(Error::limit("Ardour plugin snapshot exceeds bounds"));
+                }
+                let mut parameter_indexes = BTreeSet::new();
+                for parameter in &plugin.parameters {
+                    bounded_text("plugin parameter label", &parameter.label, 1024)?;
+                    if !parameter_indexes.insert(parameter.index)
+                        || parameter.lower_microunits > parameter.upper_microunits
+                        || parameter.value_microunits < parameter.lower_microunits
+                        || parameter.value_microunits > parameter.upper_microunits
+                        || parameter.normal_microunits < parameter.lower_microunits
+                        || parameter.normal_microunits > parameter.upper_microunits
+                        || parameter.automation_points > 1_000_000
+                    {
+                        return Err(Error::invalid("Invalid Ardour plugin parameter snapshot"));
+                    }
+                }
+            }
+        }
+        if self.groups.len() > 1024 {
+            return Err(Error::limit("Ardour route-group count exceeds limit"));
+        }
+        let route_ids = self
+            .routes
+            .iter()
+            .map(|route| route.id.as_str())
+            .collect::<BTreeSet<_>>();
+        let mut group_ids = BTreeSet::new();
+        for group in &self.groups {
+            token("group ID", &group.id)?;
+            bounded_text("group name", &group.name, 4096)?;
+            if !group_ids.insert(group.id.as_str())
+                || group.route_ids.len() > MAX_ROUTES
+                || group
+                    .route_ids
+                    .iter()
+                    .any(|id| !route_ids.contains(id.as_str()))
+            {
+                return Err(Error::invalid("Invalid Ardour route group"));
+            }
+            let mut members = BTreeSet::new();
+            if group
+                .route_ids
+                .iter()
+                .any(|id| !members.insert(id.as_str()))
+            {
+                return Err(Error::invalid("Ardour route group repeats a route"));
             }
         }
         Ok(())

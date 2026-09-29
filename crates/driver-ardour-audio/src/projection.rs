@@ -8,7 +8,7 @@ use semwright_audio_domain::{
     hash::sha256,
     model::{
         AudioClip, AudioProfile, AudioProject, Bus, BusSend, ClipSource, EffectChain, Sample,
-        SampleOrigin, SampleSource, Stem,
+        SampleOrigin, SampleSource, Stem, StemGroup,
     },
     support::{AudioOperation, OperationSupport},
     time::{SampleFrame, SampleRange, SampleRate},
@@ -36,15 +36,20 @@ impl SemanticAudioProjection<ArdourSnapshot> for ArdourProjection {
                     | AudioOperation::StemMute
                     | AudioOperation::StemSolo
                     | AudioOperation::StemGainSet
+                    | AudioOperation::GroupSet
+                    | AudioOperation::GroupRemove
                     | AudioOperation::ClipMove
+                    | AudioOperation::ClipSplit
                     | AudioOperation::ClipRemove
                     | AudioOperation::BusCreate
                     | AudioOperation::BusRemove
                     | AudioOperation::BusGainSet => OperationSupport::SafeRoundtrip,
                     AudioOperation::StemCreate
                     | AudioOperation::StemPanSet
+                    | AudioOperation::StemSendSet
                     | AudioOperation::ClipTrim
-                    | AudioOperation::BusPanSet => OperationSupport::MetadataRisk,
+                    | AudioOperation::BusPanSet
+                    | AudioOperation::BusSendSet => OperationSupport::MetadataRisk,
                     _ => OperationSupport::Unsupported,
                 };
                 let reason = (support == OperationSupport::Unsupported).then(|| {
@@ -78,13 +83,6 @@ impl SemanticAudioProjection<ArdourSnapshot> for ArdourProjection {
                 code: "ardour.tempo_map_not_projected".into(),
                 semantic_path: Some("tempo_changes".into()),
                 detail: "Ardour backend v1 does not observe the native tempo/meter map; neutral defaults are not round-trip evidence".into(),
-            },
-            ProjectionLoss {
-                kind: ProjectionLossKind::UnsupportedSemantic,
-                impact: ProjectionLossImpact::ReadOnly,
-                code: "ardour.groups_not_projected".into(),
-                semantic_path: Some("groups".into()),
-                detail: "Ardour route groups are not projected by the v1 managed-session snapshot".into(),
             },
             ProjectionLoss {
                 kind: ProjectionLossKind::UnsupportedSemantic,
@@ -273,6 +271,50 @@ impl SemanticAudioProjection<ArdourSnapshot> for ArdourProjection {
             });
         }
         project.samples = samples;
+
+        let route_to_stem = native
+            .routes
+            .iter()
+            .filter(|route| route.kind == RouteKind::Track)
+            .map(|route| (route.id.as_str(), semantic_id("stem", &route.id)))
+            .collect::<BTreeMap<_, _>>();
+        for group in &native.groups {
+            let mut stems = Vec::new();
+            let mut has_unprojectable = false;
+            for route_id in &group.route_ids {
+                if let Some(stem) = route_to_stem.get(route_id.as_str()) {
+                    stems.push(stem.clone());
+                } else {
+                    has_unprojectable = true;
+                }
+            }
+            if stems.is_empty() {
+                loss(
+                    &mut losses,
+                    ProjectionLossKind::UnsupportedSemantic,
+                    ProjectionLossImpact::ReadOnly,
+                    "ardour.group_has_no_portable_stems",
+                    Some(format!("group/{}", group.id)),
+                    "Ardour route group has no audio-track members representable by StemGroup",
+                );
+                continue;
+            }
+            if has_unprojectable {
+                loss(
+                    &mut losses,
+                    ProjectionLossKind::RoundTripRisk,
+                    ProjectionLossImpact::ReadOnly,
+                    "ardour.group_contains_non_stem_routes",
+                    Some(format!("group/{}", group.id)),
+                    "Ardour route group also contains buses or non-audio routes not representable by StemGroup",
+                );
+            }
+            project.groups.push(StemGroup {
+                id: semantic_id("group", &group.id),
+                name: group.name.clone(),
+                stems,
+            });
+        }
 
         for route in native
             .routes
@@ -493,6 +535,7 @@ mod tests {
                     plugins_complete: true,
                 },
             ],
+            groups: vec![],
             warnings: vec![],
         }
     }
@@ -514,6 +557,10 @@ mod tests {
             id: "plugin1".into(),
             name: "Mystery".into(),
             unique_id: Some("vendor.id".into()),
+            enabled: true,
+            latency_samples: 0,
+            parameters: vec![],
+            parameters_complete: true,
         });
         native.routes[1].regions[0].source_path = None;
         let report = ArdourProjection.project(&native).unwrap();

@@ -14,6 +14,9 @@ Official source inspected: `session_utils/new_empty_session.cc`, `session_utils/
 
 Ardour utilities and libraries are GPL-2.0-or-later components. No GPL implementation source is copied into the permissive audio-domain. System runtime loading, plugin/script activation and native-library search paths require their own audited grants and acceptance.
 
+Ardour 8.4 Lua binding source was also checked for Session:add_internal_sends, Session:new_route_group, Session:remove_route_group, RouteGroup:add/remove, Playlist:split_region, LuaAPI:new_plugin, LuaAPI:set_plugin_insert_param, LuaAPI:plugin_automation, AutomationList/ControlList, PluginInsert, and MidiModel note-diff commands. Ardour own send_to_bus.lua, s_pluginutils.lua, s_plugin_automation.lua, addscopes.lua, and scope.lua examples corroborate those bindings. ACE Inline Scope is selected as the first-party acceptance plugin through a runtime allowlist; agent input never supplies a raw native plugin name/type. The same source inspection found MIDI note editing for existing MidiRegion/MidiModel, but no headless source/region factory equivalent to the Editor import/create path, so from-empty MIDI region authoring remains a documented upstream restriction.
+
+
 ## Observation discipline
 
 Legacy OSC strip numbers are not durable identities. Native session readback and save-as must be verified separately from transport control. The fixed Lua CLI is not the Editor; editor-only operations must not be invented.

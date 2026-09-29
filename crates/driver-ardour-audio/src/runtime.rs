@@ -30,9 +30,23 @@ const RUN_TIMEOUT: Duration = Duration::from_secs(60);
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub struct AllowedPlugin {
+    pub id: String,
+    pub native_name: String,
+    pub kind: String,
+    #[serde(default)]
+    pub preset: String,
+    #[serde(default)]
+    pub unique_id: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RuntimeConfig {
     pub schema_version: u32,
     pub ardour_version: String,
+    #[serde(default)]
+    pub allowed_plugins: Vec<AllowedPlugin>,
 }
 
 #[derive(Clone, Debug)]
@@ -114,11 +128,31 @@ impl DeepRuntime {
         create_tool: PathBuf,
         export_tool: PathBuf,
     ) -> Result<Self> {
-        if config.schema_version != 1 || config.ardour_version != "8.4.0" {
+        if config.schema_version != 1
+            || config.ardour_version != "8.4.0"
+            || config.allowed_plugins.len() > 64
+        {
             return Err(Error::new(
                 ErrorCode::ProtocolMismatch,
                 "Unsupported pinned Ardour runtime manifest",
             ));
+        }
+        let mut plugin_ids = std::collections::BTreeSet::new();
+        for plugin in &config.allowed_plugins {
+            if !valid_slug(&plugin.id)
+                || !plugin_ids.insert(plugin.id.as_str())
+                || plugin.native_name.is_empty()
+                || plugin.native_name.len() > 1024
+                || plugin.native_name.chars().any(char::is_control)
+                || !matches!(plugin.kind.as_str(), "lua" | "lv2")
+                || plugin.preset.len() > 1024
+                || plugin.preset.chars().any(char::is_control)
+                || plugin.unique_id.as_ref().is_some_and(|value| {
+                    value.is_empty() || value.len() > 1024 || value.chars().any(char::is_control)
+                })
+            {
+                return Err(Error::invalid("Invalid Ardour plugin allowlist entry"));
+            }
         }
         directory(&session_root, "Ardour project")?;
         directory(&output_root, "Ardour output")?;
@@ -137,6 +171,27 @@ impl DeepRuntime {
 
     pub fn version(&self) -> &str {
         &self.config.ardour_version
+    }
+
+    pub fn allowed_plugin(&self, id: &str) -> Result<&AllowedPlugin> {
+        self.config
+            .allowed_plugins
+            .iter()
+            .find(|plugin| plugin.id == id)
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorCode::PolicyDenied,
+                    "Plugin is outside the owner-pinned Ardour allowlist",
+                )
+            })
+    }
+
+    pub fn allowed_plugin_ids(&self) -> Vec<String> {
+        self.config
+            .allowed_plugins
+            .iter()
+            .map(|plugin| plugin.id.clone())
+            .collect()
     }
 
     pub async fn probe(&self) -> Result<ArdourRuntimeProbe> {
@@ -540,6 +595,14 @@ fn version_banner(stdout: &[u8], prefix: &str) -> Result<String> {
     Ok(line.to_owned())
 }
 
+fn valid_slug(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 128
+        && value.bytes().all(|byte| {
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'-' | b'_')
+        })
+}
+
 fn validate_state(value: &str) -> Result<()> {
     if value.is_empty()
         || value.len() > 128
@@ -652,6 +715,7 @@ mod tests {
                 sends_complete: false,
                 plugins_complete: false,
             }],
+            groups: vec![],
             warnings: vec![],
         }
     }

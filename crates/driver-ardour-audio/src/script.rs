@@ -48,6 +48,62 @@ pub enum NativeMutation {
     ClipRemove {
         region_id: String,
     },
+    ClipSplit {
+        region_id: String,
+        frame: u64,
+    },
+    SendCreate {
+        source_route: String,
+        target_route: String,
+        pre_fader: bool,
+    },
+    SendGain {
+        source_route: String,
+        target_route: String,
+        gain_millidb: i32,
+    },
+    SendRemove {
+        source_route: String,
+        target_route: String,
+    },
+    GroupCreate {
+        name: String,
+        route_id: String,
+    },
+    GroupAdd {
+        group_id: String,
+        route_id: String,
+    },
+    GroupRemove {
+        group_id: String,
+        route_id: String,
+    },
+    GroupDelete {
+        group_id: String,
+    },
+    PluginInsert {
+        route_id: String,
+        plugin_name: String,
+        plugin_type: String,
+        preset: String,
+    },
+    PluginRemove {
+        route_id: String,
+        plugin_id: String,
+    },
+    PluginParamSet {
+        route_id: String,
+        plugin_id: String,
+        parameter_index: u32,
+        value_microunits: i64,
+    },
+    PluginAutomationPoint {
+        route_id: String,
+        plugin_id: String,
+        parameter_index: u32,
+        frame: u64,
+        value_microunits: i64,
+    },
     SessionRange {
         start: u64,
         end: u64,
@@ -156,6 +212,160 @@ impl NativeMutation {
                 validate_id(region_id)?;
                 Ok(vec!["clip_remove".into(), region_id.clone()])
             }
+            Self::ClipSplit { region_id, frame } => {
+                validate_id(region_id)?;
+                Ok(vec![
+                    "clip_split".into(),
+                    region_id.clone(),
+                    frame.to_string(),
+                ])
+            }
+            Self::SendCreate {
+                source_route,
+                target_route,
+                pre_fader,
+            } => {
+                validate_id(source_route)?;
+                validate_id(target_route)?;
+                if source_route == target_route {
+                    return Err(Error::invalid("Ardour send source and target must differ"));
+                }
+                Ok(vec![
+                    "send_create".into(),
+                    source_route.clone(),
+                    target_route.clone(),
+                    if *pre_fader { "1" } else { "0" }.into(),
+                ])
+            }
+            Self::SendGain {
+                source_route,
+                target_route,
+                gain_millidb,
+            } => {
+                validate_id(source_route)?;
+                validate_id(target_route)?;
+                if !(-120_000..=24_000).contains(gain_millidb) {
+                    return Err(Error::invalid("Ardour send gain exceeds semantic bounds"));
+                }
+                Ok(vec![
+                    "send_gain".into(),
+                    source_route.clone(),
+                    target_route.clone(),
+                    gain_millidb.to_string(),
+                ])
+            }
+            Self::SendRemove {
+                source_route,
+                target_route,
+            } => {
+                validate_id(source_route)?;
+                validate_id(target_route)?;
+                Ok(vec![
+                    "send_remove".into(),
+                    source_route.clone(),
+                    target_route.clone(),
+                ])
+            }
+            Self::GroupCreate { name, route_id } => {
+                validate_name(name)?;
+                validate_id(route_id)?;
+                Ok(vec!["group_create".into(), name.clone(), route_id.clone()])
+            }
+            Self::GroupAdd { group_id, route_id } => {
+                validate_id(group_id)?;
+                validate_id(route_id)?;
+                Ok(vec!["group_add".into(), group_id.clone(), route_id.clone()])
+            }
+            Self::GroupRemove { group_id, route_id } => {
+                validate_id(group_id)?;
+                validate_id(route_id)?;
+                Ok(vec![
+                    "group_remove".into(),
+                    group_id.clone(),
+                    route_id.clone(),
+                ])
+            }
+            Self::GroupDelete { group_id } => {
+                validate_id(group_id)?;
+                Ok(vec!["group_delete".into(), group_id.clone()])
+            }
+            Self::PluginInsert {
+                route_id,
+                plugin_name,
+                plugin_type,
+                preset,
+            } => {
+                validate_id(route_id)?;
+                validate_name(plugin_name)?;
+                if !matches!(plugin_type.as_str(), "lua" | "lv2") {
+                    return Err(Error::invalid("Unsupported Ardour plugin allowlist type"));
+                }
+                if preset.len() > 1024 || preset.chars().any(char::is_control) {
+                    return Err(Error::invalid("Invalid Ardour plugin preset"));
+                }
+                Ok(vec![
+                    "plugin_insert".into(),
+                    route_id.clone(),
+                    plugin_name.clone(),
+                    plugin_type.clone(),
+                    preset.clone(),
+                ])
+            }
+            Self::PluginRemove {
+                route_id,
+                plugin_id,
+            } => {
+                validate_id(route_id)?;
+                validate_id(plugin_id)?;
+                Ok(vec![
+                    "plugin_remove".into(),
+                    route_id.clone(),
+                    plugin_id.clone(),
+                ])
+            }
+            Self::PluginParamSet {
+                route_id,
+                plugin_id,
+                parameter_index,
+                value_microunits,
+            } => {
+                validate_id(route_id)?;
+                validate_id(plugin_id)?;
+                if *parameter_index > 4095 || value_microunits.abs() > 1_000_000_000_000_000 {
+                    return Err(Error::invalid("Invalid Ardour plugin parameter mutation"));
+                }
+                Ok(vec![
+                    "plugin_param_set".into(),
+                    route_id.clone(),
+                    plugin_id.clone(),
+                    parameter_index.to_string(),
+                    value_microunits.to_string(),
+                ])
+            }
+            Self::PluginAutomationPoint {
+                route_id,
+                plugin_id,
+                parameter_index,
+                frame,
+                value_microunits,
+            } => {
+                validate_id(route_id)?;
+                validate_id(plugin_id)?;
+                if *parameter_index > 4095
+                    || *frame > i64::MAX as u64
+                    || value_microunits.abs() > 1_000_000_000_000_000
+                {
+                    return Err(Error::invalid("Invalid Ardour plugin automation point"));
+                }
+                Ok(vec![
+                    "plugin_automation_point".into(),
+                    route_id.clone(),
+                    plugin_id.clone(),
+                    parameter_index.to_string(),
+                    frame.to_string(),
+                    value_microunits.to_string(),
+                ])
+            }
             Self::SessionRange { start, end } => {
                 if end <= start || *end > i64::MAX as u64 {
                     return Err(Error::invalid("Invalid Ardour session range"));
@@ -237,6 +447,15 @@ local function db_milli_from_coeff(v)
   if milli < -120000 then milli = -120000 end
   if milli > 24000 then milli = 24000 end
   return milli
+end
+
+local function micro(v)
+  v = tonumber(v)
+  if not v or v ~= v or v > 1000000000.0 or v < -1000000000.0 then
+    error("native numeric value is outside bounded range")
+  end
+  local scaled = v * 1000000.0
+  return math.floor(scaled + (scaled >= 0 and 0.5 or -0.5))
 end
 
 local function object_id(value)
@@ -345,6 +564,38 @@ local function route_pan_milli(route)
   return p
 end
 
+local function inspect_plugin_parameters(processor, plugin)
+  local parameters = {}
+  local count = tonumber(plugin:parameter_count()) or 0
+  if count < 0 or count > 4096 then return parameters, false end
+  for index = 0, count - 1 do
+    local ok_auto, automation_list, control_list, descriptor =
+      pcall(function() return ARDOUR.LuaAPI.plugin_automation(processor, index) end)
+    if not ok_auto or not automation_list or automation_list:isnil()
+      or not control_list or control_list:isnil() or not descriptor then
+      return parameters, false
+    end
+    local ok_value, value, valid_value =
+      pcall(function() return ARDOUR.LuaAPI.get_processor_param(processor, index) end)
+    if not ok_value or valid_value == false then return parameters, false end
+    local ok_nth, control_id, nth_ok =
+      pcall(function() return plugin:nth_parameter(index, false) end)
+    if not ok_nth or nth_ok == false then return parameters, false end
+    local label = plugin:parameter_label(control_id)
+    if not label or #tostring(label) == 0 then label = "parameter-" .. tostring(index) end
+    table.insert(parameters, obj({
+      field("index", tostring(index)),
+      field("label", q(label)),
+      field("value_microunits", tostring(micro(value))),
+      field("lower_microunits", tostring(micro(descriptor.lower))),
+      field("upper_microunits", tostring(micro(descriptor.upper))),
+      field("normal_microunits", tostring(micro(descriptor.normal))),
+      field("automation_points", tostring(tonumber(control_list:size()) or 0))
+    }))
+  end
+  return parameters, true
+end
+
 local function inspect_plugins(route)
   local plugins = {}
   for index = 0, 255 do
@@ -354,10 +605,18 @@ local function inspect_plugins(route)
     if not insert or insert:isnil() then return plugins, false end
     local plugin = insert:plugin(0)
     if not plugin or plugin:isnil() then return plugins, false end
+    local parameters, parameters_complete = inspect_plugin_parameters(processor, plugin)
+    local unique_id = plugin:unique_id()
+    local unique_json = "null"
+    if unique_id and #tostring(unique_id) > 0 then unique_json = q(unique_id) end
     table.insert(plugins, obj({
       field("id", q(object_id(processor))),
       field("name", q(plugin:name())),
-      field("unique_id", q(plugin:unique_id()))
+      field("unique_id", unique_json),
+      field("enabled", bool(insert:enabled())),
+      field("latency_samples", tostring(tonumber(insert:signal_latency()) or 0)),
+      field("parameters", arr(parameters)),
+      field("parameters_complete", bool(parameters_complete))
     }))
   end
   return plugins, false
@@ -431,6 +690,30 @@ local function inspect_route(route)
   })
 end
 
+local function inspect_groups()
+  local groups = {}
+  local count = 0
+  for group in Session:route_groups():iter() do
+    count = count + 1
+    if count > 1024 then error("route group budget exceeded") end
+    local routes = {}
+    for route in group:route_list():iter() do
+      table.insert(routes, q(route_id(route)))
+    end
+    table.insert(groups, obj({
+      field("id", q(object_id(group))),
+      field("name", q(group:name())),
+      field("route_ids", arr(routes)),
+      field("active", bool(group:is_active())),
+      field("relative", bool(group:is_relative())),
+      field("gain", bool(group:is_gain())),
+      field("mute", bool(group:is_mute())),
+      field("solo", bool(group:is_solo()))
+    }))
+  end
+  return groups
+end
+
 local function snapshot(version)
   local routes = {}
   for route in Session:get_routes():iter() do
@@ -444,6 +727,7 @@ local function snapshot(version)
     field("session_start", tostring(Session:current_start_sample())),
     field("session_end", tostring(Session:current_end_sample())),
     field("routes", arr(routes)),
+    field("groups", arr(inspect_groups())),
     field("warnings", "[]")
   })
 end
@@ -463,6 +747,44 @@ local function require_region(id)
   local region, playlist = find_region(id)
   if not region then error("region not found") end
   return region, playlist
+end
+
+local function require_group(id)
+  for group in Session:route_groups():iter() do
+    if object_id(group) == id then return group end
+  end
+  error("route group not found")
+end
+
+local function require_plugin(route, id)
+  for index = 0, 255 do
+    local processor = route:nth_plugin(index)
+    if not processor or processor:isnil() then break end
+    if object_id(processor) == id then
+      local insert = processor:to_plugininsert()
+      if not insert or insert:isnil() then error("plugin insert cast failed") end
+      return processor, insert
+    end
+  end
+  error("plugin not found")
+end
+
+local function require_send(source, target_id)
+  local found = nil
+  for index = 0, 255 do
+    local processor = source:nth_send(index)
+    if not processor or processor:isnil() then break end
+    local internal = processor:to_internalsend()
+    if internal and not internal:isnil() then
+      local target = internal:target_route()
+      if target and not target:isnil() and route_id(target) == target_id then
+        if found then error("multiple sends to target are ambiguous") end
+        found = processor
+      end
+    end
+  end
+  if not found then error("send not found") end
+  return found, found:to_internalsend()
 end
 
 local function mutate(command)
@@ -549,6 +871,87 @@ local function mutate(command)
   elseif command == "clip_remove" then
     local region, playlist = require_region(arg[5])
     playlist:remove_region(region)
+  elseif command == "clip_split" then
+    local region, playlist = require_region(arg[5])
+    local frame = tonumber(arg[6])
+    if not frame then error("invalid split frame") end
+    playlist:split_region(region, Temporal.timepos_t(frame))
+  elseif command == "send_create" then
+    local source = require_route(arg[5])
+    local target = require_route(arg[6])
+    if route_id(source) == route_id(target) then error("self send is not supported") end
+    local tracks = ARDOUR.RouteListPtr()
+    tracks:push_back(source)
+    local placement = arg[7] == "1" and ARDOUR.Placement.PreFader or ARDOUR.Placement.PostFader
+    Session:add_internal_sends(target, placement, tracks)
+  elseif command == "send_gain" then
+    local source = require_route(arg[5])
+    local _, internal = require_send(source, arg[6])
+    local db_milli = tonumber(arg[7])
+    if not db_milli then error("invalid send gain") end
+    internal:gain_control():set_value(10.0 ^ (db_milli / 20000.0), no_group())
+  elseif command == "send_remove" then
+    local source = require_route(arg[5])
+    local processor = require_send(source, arg[6])
+    local status = source:remove_processor(processor)
+    if status ~= 0 then error("send removal failed") end
+  elseif command == "group_create" then
+    local group = Session:new_route_group(arg[5])
+    if not group then error("route group create failed") end
+    group:set_active(true)
+    group:add(require_route(arg[6]))
+  elseif command == "group_add" then
+    require_group(arg[5]):add(require_route(arg[6]))
+  elseif command == "group_remove" then
+    require_group(arg[5]):remove(require_route(arg[6]))
+  elseif command == "group_delete" then
+    Session:remove_route_group(require_group(arg[5]))
+  elseif command == "plugin_insert" then
+    local route = require_route(arg[5])
+    local plugin_type
+    if arg[7] == "lua" then plugin_type = ARDOUR.PluginType.Lua
+    elseif arg[7] == "lv2" then plugin_type = ARDOUR.PluginType.LV2
+    else error("plugin type outside fixed adapter allowlist") end
+    local processor = ARDOUR.LuaAPI.new_plugin(Session, arg[6], plugin_type, arg[8] or "")
+    if not processor or processor:isnil() then error("allowed plugin is unavailable") end
+    local status = route:add_processor_by_index(processor, 0, nil, true)
+    if status ~= 0 then error("plugin insertion failed") end
+  elseif command == "plugin_remove" then
+    local route = require_route(arg[5])
+    local processor = require_plugin(route, arg[6])
+    local status = route:remove_processor(processor)
+    if status ~= 0 then error("plugin removal failed") end
+  elseif command == "plugin_param_set" then
+    local route = require_route(arg[5])
+    local _, insert = require_plugin(route, arg[6])
+    local index = tonumber(arg[7])
+    local value = tonumber(arg[8])
+    if not index or not value then error("invalid plugin parameter") end
+    value = value / 1000000.0
+    if not ARDOUR.LuaAPI.set_plugin_insert_param(insert, index, value) then
+      error("plugin parameter rejected by native bounds")
+    end
+  elseif command == "plugin_automation_point" then
+    local route = require_route(arg[5])
+    local processor = require_plugin(route, arg[6])
+    local index = tonumber(arg[7])
+    local frame = tonumber(arg[8])
+    local value = tonumber(arg[9])
+    if not index or not frame or not value then error("invalid plugin automation point") end
+    value = value / 1000000.0
+    local automation_list, control_list, descriptor = ARDOUR.LuaAPI.plugin_automation(processor, index)
+    if not automation_list or automation_list:isnil() or not control_list or control_list:isnil() then
+      error("plugin automation is unavailable")
+    end
+    if value < descriptor.lower or value > descriptor.upper then
+      error("plugin automation value outside native bounds")
+    end
+    Session:begin_reversible_command("Semwright plugin automation")
+    local before = automation_list:get_state()
+    control_list:add(Temporal.timepos_t(frame), value, false, true)
+    local after = automation_list:get_state()
+    Session:add_command(automation_list:memento_command(before, after))
+    Session:commit_reversible_command(nil)
   elseif command == "session_range" then
     local start_sample = tonumber(arg[5])
     local end_sample = tonumber(arg[6])

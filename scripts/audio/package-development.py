@@ -169,7 +169,15 @@ def main():
 
     ardour_runtime = out / "ardour-runtime.json"
     ardour_runtime.write_text(json.dumps({
-        "schema_version": 1, "ardour_version": "8.4.0"
+        "schema_version": 1,
+        "ardour_version": "8.4.0",
+        "allowed_plugins": [{
+            "id": "ace-inline-scope",
+            "native_name": "ACE Inline Scope",
+            "kind": "lua",
+            "preset": "",
+            "unique_id": None,
+        }],
     }, indent=2) + "\n")
 
     specs = [

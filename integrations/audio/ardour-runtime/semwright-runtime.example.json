@@ -1,4 +1,13 @@
 {
   "schema_version": 1,
-  "ardour_version": "8.4.0"
+  "ardour_version": "8.4.0",
+  "allowed_plugins": [
+    {
+      "id": "ace-inline-scope",
+      "native_name": "ACE Inline Scope",
+      "kind": "lua",
+      "preset": "",
+      "unique_id": null
+    }
+  ]
 }
