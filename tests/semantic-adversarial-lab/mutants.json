@@ -39,12 +39,12 @@
       "id": "G-MUT-F-002",
       "lane": "effects",
       "path": "crates/effect-conformance/src/evaluator.rs",
-      "needle": "    if !o.observation.exhaustive\n        || !o.coverage.consistent",
-      "replacement": "    if false\n        || !o.coverage.consistent",
+      "needle": "        || o.coverage.missing.contains(&rule.address)\n    {",
+      "replacement": "        || false\n    {",
       "cases": [
-        "G-EFFECT-011"
+        "G-EFFECT-012"
       ],
-      "relevance": "Removing exhaustive-observation enforcement must not promote a sampled observation to PASS."
+      "relevance": "Removing explicit missing-coverage enforcement must make an otherwise exact observation disagree with the frozen oracle."
     },
     {
       "id": "G-MUT-F-003",

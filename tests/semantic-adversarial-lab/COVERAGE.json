@@ -254,7 +254,7 @@
       "run_id": null,
       "job_id": null,
       "evidence": [],
-      "blocker": "40 independent effect evaluator/false-PASS/enumeration/readback contract cases plus 3 guard mutants registered against final F delivery SHA; exact-SHA G execution pending.",
+      "blocker": "40/40 effect contract cases passed against F b30d693 in run 36645662616; G-MUT-F-002 was invalid because exhaustive is redundantly enforced by A. Mutant retargeted to F-specific missing-coverage guard; exact-SHA retest pending.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },
