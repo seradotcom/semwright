@@ -26,15 +26,28 @@ jobs:
   effect-contract:
     if: github.event_name != 'pull_request' || github.head_ref != 'feat/effect-conformance'
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 30
     defaults:
       run:
         shell: bash
+    env:
+      EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
+      - name: Validate versioned lane selector
+        id: lane
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          suite=json.loads(Path('scripts/effects/lane.json').read_text())['suite']
+          assert suite in ('effect-contract','godot','blender','native-all','mutations','release')
+          with open(os.environ['GITHUB_OUTPUT'],'a') as output:
+              print('suite='+suite,file=output)
+          PY
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
         with:
           toolchain: 1.98.1
@@ -42,23 +55,35 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
         with:
           key: effects-v1-ubuntu-x64-rust1.98.1
+      - name: Collect formatting diff without altering tested source
+        run: |
+          mkdir -p verification/effects
+          cargo fmt -p semwright-effect-conformance
+          git diff -- crates/effect-conformance > verification/effects/format.patch
+          if test -s verification/effects/format.patch; then git apply -R verification/effects/format.patch; fi
       - name: Exact source and executed-test receipts
-        env:
-          EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: python3 scripts/effects/run_suite.py effect-contract
       - name: Clippy and rustdoc
         run: |
           cargo clippy --locked -p semwright-effect-conformance --all-targets -- -D warnings
           RUSTDOCFLAGS='-D warnings' cargo doc --locked -p semwright-effect-conformance --no-deps
-      - name: Format gate and small remediation patch
+      - name: Native isolated driver adapter conformance
+        if: contains(fromJSON('["godot","blender","native-all","release"]'), steps.lane.outputs.suite)
+        env:
+          SELECTED_SUITE: ${{ steps.lane.outputs.suite }}
         run: |
-          cargo fmt -p semwright-effect-conformance
-          git diff -- crates/effect-conformance > verification/effects/format.patch
-          if test -s verification/effects/format.patch; then
-            git apply -R verification/effects/format.patch
-            echo 'Source formatting requires the attached patch.'
-            exit 1
-          fi
+          case "$SELECTED_SUITE" in
+            godot|blender|native-all) bash scripts/effects/run_native.sh "$SELECTED_SUITE";;
+            release) bash scripts/effects/run_native.sh native-all;;
+            *) exit 1;;
+          esac
+      - name: Targeted guard mutation tests
+        if: contains(fromJSON('["mutations","release"]'), steps.lane.outputs.suite)
+        run: python3 scripts/effects/mutations.py
+      - name: Format and source-integrity gate
+        run: |
+          test ! -s verification/effects/format.patch
+          git diff --exit-code -- crates/effect-conformance
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:

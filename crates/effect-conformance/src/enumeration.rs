@@ -60,8 +60,9 @@ pub fn audit_enumeration(expected: &EnumerationBinding, pages: &[EnumerationPage
             fail(&mut audit, "final-page loss or premature final page");
         }
         if !page.final_page && page.items.is_empty() { fail(&mut audit, "non-final page made no progress"); }
-        if let Some(cursor) = &page.cursor_out {
-            if bounded_id(cursor).is_err() || !cursors.insert(cursor.clone()) { fail(&mut audit, "invalid or repeated continuation cursor"); }
+        if let Some(cursor) = &page.cursor_out
+            && (bounded_id(cursor).is_err() || !cursors.insert(cursor.clone())) {
+            fail(&mut audit, "invalid or repeated continuation cursor");
         }
         if page.items.len() > 4096 || audit.count.saturating_add(page.items.len()) > 4096 {
             fail(&mut audit, "enumeration item budget exceeded"); return audit;
