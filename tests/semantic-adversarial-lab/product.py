@@ -16,7 +16,10 @@ from lab_core import EvidenceError, compare_observation, digest, strict_json, va
 LAB = Path(__file__).resolve().parent
 PACKAGES = {"composition": ("semwright-semantic-composition", "semantic-composition", "composition_probe.rs"),
             "audio": ("semwright-audio-domain", "audio-domain", "audio_probe.rs"),
-            "av": ("semwright-av-composition", "av-composition", "av_probe.rs")}
+            "av": ("semwright-av-composition", "av-composition", "av_probe.rs"),
+            "graph": ("semwright-project-graph", "project-graph", "graph_probe.rs"),
+            "effects": ("semwright-effect-conformance", "effect-conformance", "effects_probe.rs")}
+PACKAGE_FEATURES = {"graph": ["store"]}
 
 def hashed(path: Path) -> str:
     h = hashlib.sha256()
@@ -89,10 +92,19 @@ class BuildCopy:
         log = self.root / (label + ".log")
         started = time.monotonic()
         with log.open("wb") as output:
-            process = subprocess.Popen(["cargo", "build", "--locked", "-p", self.package,
-                                        "--example", "g_adversarial_probe", "--message-format=json-render-diagnostics"],
-                                       cwd=self.source, env=self.env, stdin=subprocess.DEVNULL,
-                                       stdout=output, stderr=subprocess.STDOUT, start_new_session=True)
+            command = ["cargo", "build", "--locked", "-p", self.package, "--example", "g_adversarial_probe"]
+            if features := PACKAGE_FEATURES.get(self.lane):
+                command += ["--features", ",".join(features)]
+            command += ["--message-format=json-render-diagnostics"]
+            process = subprocess.Popen(
+                command,
+                cwd=self.source,
+                env=self.env,
+                stdin=subprocess.DEVNULL,
+                stdout=output,
+                stderr=subprocess.STDOUT,
+                start_new_session=True,
+            )
             reason = None
             while process.poll() is None:
                 if time.monotonic() - started > 900 or log.stat().st_size > 8 * 1024 * 1024:

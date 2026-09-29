@@ -11,7 +11,7 @@ SCHEMA_VERSION = 1
 SHA1 = re.compile(r"[0-9a-f]{40}\Z")
 CASE_ID = re.compile(r"G-[A-Z]+-[0-9]{3}\Z")
 OUTCOMES = frozenset({"PASS", "FAIL", "BLOCKED", "NOT_RUN"})
-LANES = frozenset({"selftest", "composition", "audio", "av", "packaging", "graph", "godot-native", "blender-native", "motion", "figma", "lifecycle"})
+LANES = frozenset({"selftest", "composition", "audio", "av", "packaging", "graph", "effects", "godot-native", "blender-native", "motion", "figma", "lifecycle"})
 
 class EvidenceError(ValueError):
     """Evidence is absent, ambiguous, stale, or outside the frozen contract."""
