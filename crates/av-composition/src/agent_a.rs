@@ -111,7 +111,8 @@ impl AgentAStageAdapter {
             value
                 .get(field)
                 .and_then(Value::as_str)
-                .ok_or_else(|| Error::Invalid(format!("provider omitted {field}")))?,
+                .ok_or_else(|| Error::Invalid(format!("provider omitted {field}")))?
+                .to_owned(),
         )
         .map_err(|error| Error::Invalid(error.to_string()))
     }
@@ -355,7 +356,8 @@ impl AgentAStageAdapter {
             artifact
                 .get("manifest_sha256")
                 .and_then(Value::as_str)
-                .ok_or_else(|| Error::Invalid("Motion artifact omitted manifest digest".into()))?,
+                .ok_or_else(|| Error::Invalid("Motion artifact omitted manifest digest".into()))?
+                .to_owned(),
         )
         .map_err(|error| Error::Invalid(error.to_string()))?;
         let manifest_bytes = artifact
@@ -497,7 +499,8 @@ impl AgentAStageAdapter {
             receipt
                 .get("sha256")
                 .and_then(Value::as_str)
-                .ok_or_else(|| Error::Invalid("mezzanine digest missing".into()))?,
+                .ok_or_else(|| Error::Invalid("mezzanine digest missing".into()))?
+                .to_owned(),
         )
         .map_err(|error| Error::Invalid(error.to_string()))?;
         let bytes = receipt
@@ -608,7 +611,8 @@ impl AgentAStageAdapter {
             receipt
                 .get("sha256")
                 .and_then(Value::as_str)
-                .ok_or_else(|| Error::Invalid("AV master digest missing".into()))?,
+                .ok_or_else(|| Error::Invalid("AV master digest missing".into()))?
+                .to_owned(),
         )
         .map_err(|error| Error::Invalid(error.to_string()))?;
         let bytes = receipt
