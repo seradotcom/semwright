@@ -264,7 +264,7 @@ jobs:
             ulimit -v 4194304
             export TMPDIR="$RUNNER_TEMP/motion-firefox-4g-tmp" TMP="$RUNNER_TEMP/motion-firefox-4g-tmp" TEMP="$RUNNER_TEMP/motion-firefox-4g-tmp"
             export MOZ_DISABLE_CONTENT_SANDBOX=1
-            ./.semwright-tools/node --disable-wasm-trap-handler --max-old-space-size=256 probe.mjs
+            "$RUNNER_TEMP/semwright-motion-node" --disable-wasm-trap-handler --max-old-space-size=256 probe.mjs
           ) >verification/firefox-4g-address-space.log 2>&1
           rc=$?
           set -e
