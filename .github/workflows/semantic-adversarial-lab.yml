@@ -4,6 +4,9 @@ on:
     branches: [test/semantic-adversarial-lab]
     paths:
       - 'tests/semantic-adversarial-lab/**'
+      - '!tests/semantic-adversarial-lab/**/*.md'
+      - '!tests/semantic-adversarial-lab/COVERAGE.json'
+      - '!tests/semantic-adversarial-lab/reports/**'
       - '.github/workflows/semantic-adversarial-lab.yml'
   workflow_dispatch:
 permissions:

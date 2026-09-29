@@ -904,6 +904,116 @@
       }
     },
     {
+      "id": "G-SELF-083",
+      "owner": "G",
+      "requirement": "G11",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "target-only commit retest with identical oracle positive control",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-084",
+      "owner": "G",
+      "requirement": "G11",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "changed oracle digest cannot close finding",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-085",
+      "owner": "G",
+      "requirement": "G11",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "collector recomputes oracle from immutable Git source",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-086",
+      "owner": "G",
+      "requirement": "G11",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "missing oracle identity blocks closure",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-087",
+      "owner": "G",
+      "requirement": "G11",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "target selector change preserves oracle identity",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-088",
+      "owner": "G",
+      "requirement": "G11",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "relaxed limits change oracle identity",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-089",
+      "owner": "G",
+      "requirement": "G11",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "changed executable guard changes oracle identity",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-090",
+      "owner": "G",
+      "requirement": "G11",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "relaxed expectations change oracle identity",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-091",
+      "owner": "G",
+      "requirement": "G11",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "immutable evidence write is idempotent",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-092",
+      "owner": "G",
+      "requirement": "G11",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "PASS cannot overwrite retained before-FAIL receipt",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
       "id": "G-PLAN-001",
       "owner": "A",
       "requirement": "G03",

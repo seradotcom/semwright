@@ -11,6 +11,7 @@ import subprocess
 import sys
 import tempfile
 from isolation import Enclosure, require_hosted
+from oracle_identity import from_git as oracle_identity
 from lab_core import EvidenceError, LANES, digest, full_sha, strict_json, summarize, write_json
 
 LAB = Path(__file__).resolve().parent
@@ -34,7 +35,8 @@ def config():
 
 def metadata(source_sha: str, suite_sha: str, lane: str) -> dict:
     return {"schema_version": 1, "role": "G", "lane": lane, "source_sha": source_sha,
-            "suite_sha": suite_sha, "contract_sha": config()["contract_sha"],
+            "suite_sha": suite_sha, "oracle_tree_sha256": oracle_identity(LAB.parents[1], suite_sha),
+            "contract_sha": config()["contract_sha"],
             "product_target_sha": None if lane == "selftest" else source_sha,
             "dependency_shas": config()["targets"], "workflow": os.environ.get("GITHUB_WORKFLOW"),
             "github_sha": os.environ.get("GITHUB_SHA"), "run_id": os.environ.get("GITHUB_RUN_ID"),

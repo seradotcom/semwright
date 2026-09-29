@@ -154,8 +154,10 @@ def validate_retest(before: dict[str, Any], after: dict[str, Any], fix_sha: str,
     if after.get("source_sha") != fix_sha or before.get("source_sha") == fix_sha:
         raise EvidenceError("fix SHA mismatch")
     full_sha(before.get("suite_sha"))
-    if after.get("suite_sha") != before["suite_sha"]:
-        raise EvidenceError("retest must use the same frozen oracle suite")
+    full_sha(after.get("suite_sha"))
+    oracle = before.get("oracle_tree_sha256")
+    if not isinstance(oracle, str) or not re.fullmatch(r"[0-9a-f]{64}", oracle) or after.get("oracle_tree_sha256") != oracle:
+        raise EvidenceError("retest must use identical oracle code/expectations/runtime/limit pins")
     if not isinstance(affected, set) or not affected or any(not isinstance(c, str) or not CASE_ID.fullmatch(c) for c in affected):
         raise EvidenceError("invalid affected family")
     for receipt in (before, after):

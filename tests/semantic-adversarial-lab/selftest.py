@@ -73,10 +73,7 @@ def run_all():
             'if row.get("source_sha") != source_sha or row.get("suite_sha") != suite_sha:', 'if False:')))),
         ("G-SELF-026", lambda: summary([row(outcome="FAIL")], evaluator=mutant(
             'elif counts["FAIL"] or open_blockers:', 'elif open_blockers:'))["status"] != "AUDIT_COMPLETE_WITH_FINDINGS"),
-        ("G-SELF-027", lambda: rejects(lambda: core.validate_retest(
-            {"finding_id": "G-F-001", "outcome": "FAIL", "source_sha": SOURCE},
-            {"finding_id": "G-F-001", "outcome": "PASS", "source_sha": SUITE, "affected_cases": ["a"], "run_id": "1"},
-            SUITE, {"a"}))),
+        ("G-SELF-027", lambda: __import__("selftest_extra").closure_rejects(lambda before, after: after.pop("job_id"))),
         ("G-SELF-028", lambda: rejects(lambda: core.full_sha("a" * 7))),
         ("G-SELF-029", lambda: rejects(lambda: core.strict_json('"' + 'x' * 1_048_577 + '"'))),
         ("G-SELF-030", lambda: summary()["native_acceptance"] is False and summary()["r16_closed"] is False),

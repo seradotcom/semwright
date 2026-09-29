@@ -9,15 +9,45 @@ from __future__ import annotations
 import argparse
 import datetime
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
 from artifact_io import MAX_ARCHIVE, read_evidence_archive
+from oracle_identity import from_git as oracle_identity
 from lab_core import EvidenceError, compare_observation, digest, full_sha, strict_json, summarize, write_json
 
 REPO = "seradotcom/semwright"
 LAB = Path(__file__).resolve().parent
 ROLES = {"composition": "A", "av": "A", "motion": "A", "figma": "A", "audio": "B"}
+
+def immutable_write(path: Path, data: bytes) -> None:
+    """Content-addressed history is append-only, never an overwrite of a failure."""
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if path.is_symlink():
+        raise EvidenceError("history symlink prohibited")
+    try:
+        with path.open("xb") as stream:
+            stream.write(data)
+        path.chmod(0o600)
+    except FileExistsError:
+        if not path.is_file() or path.read_bytes() != data:
+            raise EvidenceError("immutable evidence history collision/overwrite")
+
+
+def preserve_old_aliases(output: Path, lanes: list[str]) -> None:
+    names = ["EXPERIMENT_INDEX.json", "JOB_PROVENANCE.json", "FINDINGS_PRIVATE.json", "EVIDENCE.md"]
+    names += [lane + ".json" for lane in lanes]
+    for name in names:
+        old = output / name
+        if old.is_symlink():
+            raise EvidenceError("evidence output alias is a symlink")
+        if old.is_file():
+            if old.stat().st_size > 1024 * 1024:
+                raise EvidenceError("existing evidence exceeds preservation budget")
+            data = old.read_bytes()
+            immutable_write(output / "history" / "content" / digest(data) / name, data)
+
 
 def api(endpoint: str, *, binary: bool = False):
     if not endpoint.startswith("repos/" + REPO + "/actions/"):
@@ -45,7 +75,7 @@ def frozen_json(sha: str, filename: str):
                                    sha + ":tests/semantic-adversarial-lab/" + filename])
     return strict_json(raw)
 
-def validate_lane(report: dict, lane: str, cases: list[dict], lock: dict, suite: str, run: dict):
+def validate_lane(report: dict, lane: str, cases: list[dict], lock: dict, suite: str, run: dict, *, expected_oracle: str | None = None):
     source = suite if lane == "selftest" else lock["targets"][ROLES.get(lane, "main")]
     requested = [c["id"] for c in cases]
     scope = cases[0]["scope"]
@@ -60,6 +90,8 @@ def validate_lane(report: dict, lane: str, cases: list[dict], lock: dict, suite:
         raise EvidenceError("contract/dependency substitution")
     if report.get("product_target_sha") != (None if lane == "selftest" else source):
         raise EvidenceError("selftest/product target attribution mismatch")
+    if expected_oracle is not None and report.get("oracle_tree_sha256") is not None and report["oracle_tree_sha256"] != expected_oracle:
+        raise EvidenceError("oracle identity differs from immutable suite source")
     calculated = summarize(requested, report.get("results"), source, suite, scope=scope)
     declared = report.get("summary", {})
     for field in ("counts", "scope", "requested_count", "executed_count", "r16_closed"):
@@ -88,6 +120,7 @@ def main():
             or run.get("path") != ".github/workflows/semantic-adversarial-lab.yml"
             or run.get("event") not in {"push", "workflow_dispatch"}):
         raise EvidenceError("run does not belong to the explicit G workflow and suite")
+    oracle = oracle_identity(LAB.parents[1], suite)
     lock = frozen_json(suite, "targets.json")
     registry = frozen_json(suite, "registry.json")["cases"]
     jobs = pages(f"repos/{REPO}/actions/runs/{args.run_id}/attempts/{run['run_attempt']}/jobs", "jobs")
@@ -95,9 +128,14 @@ def main():
     if sum(a["size_in_bytes"] for a in artifacts) > 8 * 1024 * 1024:
         raise EvidenceError("run artifact budget exceeded; do not download large build outputs")
     output = args.output.resolve()
-    output.mkdir(parents=True, exist_ok=True)
+    output.mkdir(parents=True, exist_ok=True, mode=0o700)
+    output.chmod(0o700)
+    if sum(p.stat().st_size for p in output.rglob("*") if p.is_file() and not p.is_symlink()) > 16 * 1024 * 1024:
+        raise EvidenceError("per-run evidence retention budget reached; preserve/archive deliberately before more collection")
+    preserve_old_aliases(output, lock["selected_lanes"])
     index = {"schema_version": 1, "role": "G", "repo": REPO, "suite_sha": suite,
              "run_id": run["id"], "run_attempt": run["run_attempt"], "run_url": run["html_url"],
+             "oracle_tree_sha256": oracle, "collector_sha256": digest(Path(__file__).read_bytes()),
              "run_status": run["status"], "run_conclusion": run["conclusion"],
              "observed_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
              "targets": lock["targets"], "combined_candidate_sha": lock["combined_candidate_sha"],
@@ -130,9 +168,12 @@ def main():
             blob = api(f"repos/{REPO}/actions/artifacts/{artifact['id']}/zip", binary=True)
             files = read_evidence_archive(blob, lane, remote_digest[7:])
             raw = files[lane + ".json"]
+            row.update(artifact_id=artifact["id"], artifact_sha256=digest(blob), receipt_sha256=digest(raw))
+            immutable_write(output / "receipts" / (digest(raw) + ".json"), raw)
             report = strict_json(raw)
-            calculated = validate_lane(report, lane, cases, lock, suite, run)
+            calculated = validate_lane(report, lane, cases, lock, suite, run, expected_oracle=oracle)
             row.update(calculated)
+            row["oracle_tree_sha256"] = oracle
             row.update(artifact_id=artifact["id"], artifact_sha256=digest(blob), receipt_sha256=digest(raw))
             if calculated["status"] in {"HARNESS_SELFTEST_PASS", "NO_OPEN_BLOCKING_FINDINGS_IN_TESTED_SCOPE"} and job["conclusion"] != "success":
                 raise EvidenceError("green receipt without a successfully completed lane job")
@@ -175,6 +216,9 @@ def main():
               "Findings remain untriaged until impact/reachability and test-oracle correctness are reviewed with their owner.",
               "Missing receipts, incomplete execution and the absent integrated candidate remain explicit blockers."]
     (output / "EVIDENCE.md").write_text("\n".join(lines) + "\n")
+    snapshot = output / "history" / ("attempt-" + str(run["run_attempt"])) / digest((output / "EXPERIMENT_INDEX.json").read_bytes())
+    for name in ("EXPERIMENT_INDEX.json", "JOB_PROVENANCE.json", "FINDINGS_PRIVATE.json", "EVIDENCE.md"):
+        immutable_write(snapshot / name, (output / name).read_bytes())
     print(json.dumps(index, indent=2))
     return 0
 

@@ -3,11 +3,15 @@ from __future__ import annotations
 import copy
 import io
 import stat
+import tempfile
+from pathlib import Path
 import warnings
 import zipfile
 from artifact_io import MAX_FILE, read_evidence_archive
-from collect_evidence import validate_lane
+from collect_evidence import validate_lane, immutable_write
 from lab_core import EvidenceError, digest, summarize
+from oracle_identity import payload_digest
+from selftest_extra import target_only_retest, closure_rejects
 
 SOURCE = "1" * 40
 SUITE = "2" * 40
@@ -72,6 +76,28 @@ def infrastructure_blocked():
     report["summary"]["status"] = "BLOCKED"
     return validate_lane(report, "composition", cases, lock, SUITE, run)["status"] == "BLOCKED"
 
+def rejected_oracle_report():
+    report, cases, lock, run = example()
+    report["oracle_tree_sha256"] = "c" * 64
+    return rejects(lambda: validate_lane(report, "composition", cases, lock, SUITE, run, expected_oracle="b" * 64))
+
+def identity_control(change, equal):
+    files = {"probe.rs": b"synthetic-probe", "registry.json": b"synthetic-expectations"}
+    lock = {"schema_version": 1, "targets": {"A": SOURCE}, "pins": {"runtime": "synthetic"},
+            "limits": {"operations": 4}, "contract_sha": SOURCE, "selected_lanes": ["composition"]}
+    before = payload_digest(files, lock)
+    change(files, lock)
+    return (payload_digest(files, lock) == before) is equal
+
+def history_control(overwrite):
+    with tempfile.TemporaryDirectory(prefix="g-synthetic-evidence-", dir="/out") as directory:
+        path = Path(directory) / "receipt.json"
+        immutable_write(path, b"synthetic-before-FAIL")
+        if overwrite:
+            return rejects(lambda: immutable_write(path, b"synthetic-after-PASS")) and path.read_bytes() == b"synthetic-before-FAIL"
+        immutable_write(path, b"synthetic-before-FAIL")
+        return path.read_bytes() == b"synthetic-before-FAIL"
+
 def evidence_cases():
     regular = stat.S_IFREG | 0o600
     return [
@@ -103,4 +129,14 @@ def evidence_cases():
         ("G-SELF-080", lambda: evidence_rejected(lambda r: r.update(skipped_cases=["G-PLAN-001"]))),
         ("G-SELF-081", lambda: evidence_rejected(lambda r: r["summary"].update(executed_count=True))),
         ("G-SELF-082", lambda: evidence_rejected(lambda r: r["summary"].update(r16_closed=0))),
+        ("G-SELF-083", target_only_retest),
+        ("G-SELF-084", lambda: closure_rejects(lambda b, a: a.update(oracle_tree_sha256="c" * 64))),
+        ("G-SELF-085", rejected_oracle_report),
+        ("G-SELF-086", lambda: closure_rejects(lambda b, a: a.pop("oracle_tree_sha256"))),
+        ("G-SELF-087", lambda: identity_control(lambda f, c: c["targets"].update(A="3" * 40), True)),
+        ("G-SELF-088", lambda: identity_control(lambda f, c: c["limits"].update(operations=99), False)),
+        ("G-SELF-089", lambda: identity_control(lambda f, c: f.update({"probe.rs": b"modified guard"}), False)),
+        ("G-SELF-090", lambda: identity_control(lambda f, c: f.update({"registry.json": b"relaxed expectations"}), False)),
+        ("G-SELF-091", lambda: history_control(False)),
+        ("G-SELF-092", lambda: history_control(True)),
     ]

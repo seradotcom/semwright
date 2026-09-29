@@ -21,7 +21,7 @@ def receipts():
     pair = []
     for source, failing, run in [(BEFORE, True, "17"), (FIX, False, "18")]:
         pair.append({"finding_id": "G-F-001", "outcome": "FAIL" if failing else "PASS",
-                     "source_sha": source, "suite_sha": SUITE, "scope": "product_contract",
+                     "source_sha": source, "suite_sha": SUITE, "oracle_tree_sha256": "b" * 64, "scope": "product_contract",
                      "affected_cases": sorted(FAMILY), "run_id": run, "job_id": run + "01",
                      "evidence_sha256": "a" * 64, "cleanup_verified": True, "infrastructure_blockers": [],
                      "results": [{"case_id": case_id, "source_sha": source, "suite_sha": SUITE,
@@ -60,6 +60,14 @@ def historical_unobserved_closure_observed():
     historical.validate_retest(before, after, FIX, FAMILY)
     return rejects(lambda: core.validate_retest(before, after, FIX, FAMILY))
 
+def target_only_retest():
+    before, after = receipts()
+    after["suite_sha"] = "4" * 40
+    for result in after["results"]:
+        result["suite_sha"] = after["suite_sha"]
+    core.validate_retest(before, after, FIX, FAMILY)
+    return True
+
 def extra_cases():
     return [
         ("G-SELF-031", lambda: rejects(lambda: core.strict_json('{"n":1e9999}'))),
@@ -76,7 +84,7 @@ def extra_cases():
         ("G-SELF-042", lambda: closure_rejects(lambda b, a: a.pop("results"))),
         ("G-SELF-043", positive_closure),
         ("G-SELF-044", lambda: closure_rejects(lambda b, a: a["results"].pop())),
-        ("G-SELF-045", lambda: closure_rejects(lambda b, a: a.update(suite_sha="4" * 40))),
+        ("G-SELF-045", lambda: closure_rejects(lambda b, a: a.update(suite_sha="4" * 40, oracle_tree_sha256="c" * 64))),
         ("G-SELF-046", lambda: closure_rejects(lambda b, a: a.update(evidence_sha256="not-a-hash"))),
         ("G-SELF-047", lambda: closure_rejects(lambda b, a: a["results"][0].update(source_sha=BEFORE))),
         ("G-SELF-048", lambda: closure_rejects(lambda b, a: a["results"][0].update(outcome="BLOCKED"))),
