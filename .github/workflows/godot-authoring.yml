@@ -48,7 +48,6 @@ jobs:
       CARGO_INCREMENTAL: '0'
       CARGO_PROFILE_DEV_DEBUG: '0'
       CARGO_PROFILE_TEST_DEBUG: '0'
-      CARGO_TARGET_DIR: ${{ runner.temp }}/godot-native-target
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -58,6 +57,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
         with:
           toolchain: 1.98.1
+      - name: Isolate native Cargo target
+        run: echo "CARGO_TARGET_DIR=$RUNNER_TEMP/godot-native-target" >> "$GITHUB_ENV"
       - name: Install isolated native prerequisites
         run: |
           sudo apt-get update
@@ -84,10 +85,9 @@ jobs:
       - name: Build sandbox helper
         run: cargo build --locked -p semwright-plugin-host --bin semwright-sandbox
       - name: Broker Driver Host isolated native scenarios
-        env:
-          SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ runner.temp }}/godot-native-target/debug/semwright-sandbox
         run: |
           set -euo pipefail
+          export SEMWRIGHT_TEST_SANDBOX_HELPER="$CARGO_TARGET_DIR/debug/semwright-sandbox"
           : > verification/godot-authoring/authoring-host.log
           for test_name in             driver_host_handshake_control_reaches_capabilities             empty_project_authoring_flows_through_broker_driver_host_and_provider             animation_tree_state_machine_and_blend_space_round_trip_natively             shared_and_local_to_scene_materials_are_native_and_isolated             typed_transform_and_reparent_actions_round_trip_natively
           do
@@ -160,7 +160,6 @@ jobs:
           PY2
       - name: D12 Blender replacement through Broker and Driver Host
         env:
-          SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ runner.temp }}/godot-native-target/debug/semwright-sandbox
           SEMWRIGHT_TEST_E_GLB: ${{ github.workspace }}/verification/godot-authoring/cross-app/articulated.glb
           SEMWRIGHT_TEST_D12_C_RECEIPT_OUT: ${{ github.workspace }}/verification/godot-authoring/cross-app/c-receipt.json
           E_SOURCE_SHA: d80471b9ceb828a2a531dfac9eaa4e970ea589a9
@@ -169,6 +168,7 @@ jobs:
           E_GLB_SHA256: f756e288afb978993488e2f59b07179b1c97f7801d5f4314166de0d2b6db7ca5
         run: |
           set -euo pipefail
+          export SEMWRIGHT_TEST_SANDBOX_HELPER="$CARGO_TARGET_DIR/debug/semwright-sandbox"
           OUT=verification/godot-authoring/cross-app
           cargo test --locked -p semwright-driver-godot --test authoring_host \
             blender_glb_handoff_preserves_godot_semantics_and_gameplay \
