@@ -111,19 +111,26 @@ impl GraphStore {
             let _ = std::fs::canonicalize(directory)?;
         }
         let path = directory.join("project.sqlite3");
-        if !path.try_exists()? {
+        let existed = path.try_exists()?;
+        #[cfg(unix)]
+        if !existed {
             let mut options = std::fs::OpenOptions::new();
             options.write(true).create_new(true);
-            #[cfg(unix)]
-            {
-                use std::os::unix::fs::OpenOptionsExt;
-                options
-                    .mode(0o600)
-                    .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK);
-            }
+            use std::os::unix::fs::OpenOptionsExt;
+            options
+                .mode(0o600)
+                .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK);
             options.open(&path)?.sync_all()?;
         }
+        // Existing Windows stores are verified before SQLite receives the path.
+        // New Windows files inherit the protected owner-only parent DACL and are
+        // verified on every subsequent reopen. Unix pre-creates mode 0600 above.
+        #[cfg(unix)]
         check_private_file(&path)?;
+        #[cfg(target_os = "windows")]
+        if existed {
+            check_private_file(&path)?;
+        }
         for suffix in [
             "project.sqlite3-journal",
             "project.sqlite3-wal",
@@ -134,13 +141,13 @@ impl GraphStore {
                 check_private_file(&p)?;
             }
         }
-        let mut connection = Connection::open_with_flags(
-            &path,
-            OpenFlags::SQLITE_OPEN_READ_WRITE
-                | OpenFlags::SQLITE_OPEN_NOFOLLOW
-                | OpenFlags::SQLITE_OPEN_NO_MUTEX,
-        )
-        .map_err(storage_error)?;
+        let mut flags = OpenFlags::SQLITE_OPEN_READ_WRITE
+            | OpenFlags::SQLITE_OPEN_NOFOLLOW
+            | OpenFlags::SQLITE_OPEN_NO_MUTEX;
+        if !existed {
+            flags |= OpenFlags::SQLITE_OPEN_CREATE;
+        }
+        let mut connection = Connection::open_with_flags(&path, flags).map_err(storage_error)?;
         connection
             .busy_timeout(Duration::from_millis(1000))
             .map_err(storage_error)?;
