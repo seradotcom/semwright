@@ -6,8 +6,10 @@ use super::{
 };
 use crate::config::AuthoringConfig;
 use semwright_effect_conformance::{
-    EFFECT_CONTRACT_VERSION, EffectContract, EffectLimit, EffectRule, Obligation,
-    ObservationMethod, ObservedValue, Predicate,
+    AdapterIdentity, AdapterObservation, Attribution, EFFECT_CONTRACT_VERSION, EffectContract,
+    EffectEvaluation, EffectLimit, EffectRule, EvaluationContext, EvidenceAdapter, EvidenceBinding,
+    Obligation, ObservationCoverage, ObservationMethod, ObservedValue, Predicate, ReadbackState,
+    collect, evaluate,
 };
 use semwright_project_graph::{
     Coverage, DependencyClass, DerivationId, Determinant, Equivalence, ExecutionReceipt,
@@ -16,10 +18,9 @@ use semwright_project_graph::{
 };
 use semwright_semantic_composition::{
     Address, Atomicity, BaseState, BaseStateSet, ChangeSet, Concurrency, ContractError, Controller,
-    ConvergenceBudget, Digest, EffectClass, EvidenceClass, EvidenceSource, ExecutionStatus, Owner,
-    Phase, PlanBody, PlanVault, PreparedPlan, ProfileDescriptor, ResourceKey, Revision, RuleResult,
-    State, SupportLevel, TypedOperation, ValidationReport, Verdict, VerificationReport,
-    canonical_digest,
+    ConvergenceBudget, Digest, EffectClass, EvidenceSource, ExecutionStatus, Owner, Phase,
+    PlanBody, PlanVault, PreparedPlan, ProfileDescriptor, ResourceKey, Revision, State,
+    SupportLevel, TypedOperation, Verdict, VerificationReport, canonical_digest,
 };
 use semwright_types::{Error, ErrorCode, Result, unique_id};
 use serde::de::DeserializeOwned;
@@ -574,7 +575,9 @@ impl AuthoringRuntime {
     }
 
     pub fn validate(&mut self, owner: &Owner, plan_id: &str) -> Result<ValidateResult> {
-        let (report, progress, candidate_count, root_plan_id) = self.validation(owner, plan_id)?;
+        let (evaluation, progress, candidate_count, root_plan_id) =
+            self.validation(owner, plan_id)?;
+        let report = evaluation.report.validation;
         let findings = report
             .checks
             .iter()
@@ -608,7 +611,7 @@ impl AuthoringRuntime {
 
     pub fn verify(&mut self, owner: &Owner, plan_id: &str) -> Result<VerifyResult> {
         let key = (owner.clone(), plan_id.to_owned());
-        let (root_plan_id, applied_request_id, repair, writes) = {
+        let (root_plan_id, applied_request_id, repair) = {
             let stored = self.plans.get(&key).ok_or_else(|| {
                 Error::new(ErrorCode::PermissionDenied, "Unknown Godot authoring plan")
             })?;
@@ -624,17 +627,10 @@ impl AuthoringRuntime {
                     Error::new(ErrorCode::Internal, "Missing apply request identity")
                 })?,
                 stored.repair,
-                stored
-                    .plan
-                    .body
-                    .changes
-                    .operations
-                    .iter()
-                    .flat_map(|operation| operation.writes.clone())
-                    .collect::<Vec<_>>(),
             )
         };
-        let (report, progress, candidate_count, _) = self.validation(owner, plan_id)?;
+        let (evaluation, progress, candidate_count, _) = self.validation(owner, plan_id)?;
+        let report = evaluation.report.validation.clone();
         self.vault
             .record_observation(
                 owner,
@@ -665,22 +661,7 @@ impl AuthoringRuntime {
             }
             control.controller.state
         };
-        let verdict = report.verdict().map_err(composition_error)?;
-        let verification = VerificationReport {
-            execution_status: ExecutionStatus::Completed,
-            validation: report,
-            support_level: SupportLevel::Composed,
-            effects_observed: if verdict == Verdict::Pass {
-                writes.clone()
-            } else {
-                vec![]
-            },
-            effects_unobservable: if verdict == Verdict::Pass {
-                vec![]
-            } else {
-                writes
-            },
-        };
+        let verification = evaluation.report;
         let receipt = self.project_receipt(
             owner,
             plan_id,
@@ -700,7 +681,7 @@ impl AuthoringRuntime {
         &self,
         owner: &Owner,
         plan_id: &str,
-    ) -> Result<(ValidationReport, Vec<u64>, usize, String)> {
+    ) -> Result<(EffectEvaluation, Vec<u64>, usize, String)> {
         let stored = self.stored_plan(owner, plan_id)?;
         self.vault
             .matches(owner, plan_id, &stored.plan)
@@ -708,58 +689,44 @@ impl AuthoringRuntime {
         let project = &stored.plan.body.intent.project;
         let snapshot = self.store.snapshot(project)?;
         let current_base = base_state(owner, project, &snapshot)?;
-        let observation = observation(
+        let request_id = stored.apply_request_id.as_deref().ok_or_else(|| {
+            Error::new(
+                ErrorCode::Conflict,
+                "Effect validation requires a completed authoring apply",
+            )
+        })?;
+        let context = EvaluationContext {
+            owner: owner.clone(),
+            request_id: request_id.into(),
+            plan_digest: stored.plan.digest.clone(),
+            contract_digest: stored.effects.digest().map_err(composition_error)?,
+            before: stored.plan.body.base.clone(),
+            after: current_base,
+            operations: stored
+                .plan
+                .body
+                .changes
+                .operations
+                .iter()
+                .map(|operation| operation.id.clone())
+                .collect(),
+            observation_scope: stored.plan.body.observation_scope.iter().cloned().collect(),
+            execution_status: ExecutionStatus::Completed,
+            support_level: SupportLevel::Composed,
+            budget: stored.plan.body.budget.clone(),
+        };
+        context
+            .validate_plan(&stored.plan, &self.profile, &stored.effects)
+            .map_err(composition_error)?;
+        let mut adapter = StoreEvidenceAdapter {
             owner,
             project,
-            &snapshot,
-            stored.plan.body.observation_scope.clone(),
-        )?;
-        let mut checks = Vec::new();
-        for rule in &stored.effects.rules {
-            let actual = match rule.id.as_str() {
-                RULE_MANAGED_CURRENT => Some(ObservedValue::Bool {
-                    value: snapshot.status == "IN_SYNC",
-                }),
-                RULE_INTENT_MATCH => snapshot.record().map(|record| ObservedValue::Digest {
-                    value: record.intent_digest.clone(),
-                }),
-                _ => None,
-            };
-            let verdict = match actual
-                .as_ref()
-                .map(|value| rule.predicate.compare(value))
-                .transpose()
-                .map_err(composition_error)?
-                .flatten()
-            {
-                Some(true) => Verdict::Pass,
-                Some(false) => Verdict::Fail,
-                None => Verdict::Unknown,
-            };
-            checks.push(RuleResult {
-                rule: rule.id.clone(),
-                version: rule.version,
-                verdict,
-                evidence_class: EvidenceClass::Deterministic,
-                evidence: vec![observation.clone()],
-                reason: match verdict {
-                    Verdict::Pass => None,
-                    Verdict::Fail => {
-                        Some("Observed persisted state differs from the prepared intent".into())
-                    }
-                    Verdict::Unknown => {
-                        Some("Required persisted state could not be compared".into())
-                    }
-                },
-            });
-        }
-        let report = ValidationReport {
-            plan_digest: stored.plan.digest.clone(),
-            base: current_base,
-            required_rules: stored.effects.required_rules(),
-            checks,
+            snapshot: &snapshot,
+            post_base: &context.after,
         };
-        report.verdict().map_err(composition_error)?;
+        let batch = collect(&stored.effects, &context, &mut adapter).map_err(composition_error)?;
+        let evaluation = evaluate(&stored.effects, &context, &batch).map_err(composition_error)?;
+        evaluation.verdict().map_err(composition_error)?;
         let bad_files = snapshot
             .files
             .iter()
@@ -777,7 +744,7 @@ impl AuthoringRuntime {
         let has_missing = snapshot.files.iter().any(|file| file.state == "missing");
         let candidate_count = usize::from(has_missing && !has_diverged && intent_bad == 0);
         Ok((
-            report,
+            evaluation,
             vec![bad_files, intent_bad],
             candidate_count,
             stored.root_plan_id.clone(),
@@ -992,6 +959,85 @@ fn effect_contract(
     };
     contract.validate().map_err(composition_error)?;
     Ok(contract)
+}
+
+struct StoreEvidenceAdapter<'a> {
+    owner: &'a Owner,
+    project: &'a str,
+    snapshot: &'a Snapshot,
+    post_base: &'a BaseStateSet,
+}
+
+impl EvidenceAdapter for StoreEvidenceAdapter<'_> {
+    fn identity(&self, resource: &ResourceKey) -> Option<AdapterIdentity> {
+        if *resource != project_resource(self.project) {
+            return None;
+        }
+        let state = self
+            .post_base
+            .0
+            .iter()
+            .find(|state| &state.key == resource)?;
+        Some(AdapterIdentity {
+            owner: (*self.owner).clone(),
+            provider: resource.provider.clone(),
+            provider_session: state.provider_session.clone(),
+            generation: state.generation.clone(),
+        })
+    }
+
+    fn observe(
+        &mut self,
+        context: &EvaluationContext,
+        rule: &EffectRule,
+    ) -> semwright_semantic_composition::Result<AdapterObservation> {
+        let value = match rule.id.as_str() {
+            RULE_MANAGED_CURRENT => ObservedValue::Bool {
+                value: self.snapshot.status == "IN_SYNC",
+            },
+            RULE_INTENT_MATCH => self
+                .snapshot
+                .record()
+                .map(|record| ObservedValue::Digest {
+                    value: record.intent_digest.clone(),
+                })
+                .ok_or_else(|| {
+                    ContractError::Unknown("Godot derivation manifest is unavailable".into())
+                })?,
+            _ => {
+                return Err(ContractError::Unknown(
+                    "Godot effect rule has no registered store observer".into(),
+                ));
+            }
+        };
+        Ok(AdapterObservation {
+            binding: EvidenceBinding {
+                owner: (*self.owner).clone(),
+                request_id: context.request_id.clone(),
+                operation_id: rule.operation_id.clone(),
+                plan_digest: context.plan_digest.clone(),
+                contract_digest: context.contract_digest.clone(),
+            },
+            observation: semwright_semantic_composition::ObservationRef {
+                id: format!("godot_effect_obs_{}", unique_id()),
+                base: self.post_base.clone(),
+                source: rule.method.source,
+                method: rule.method.name.clone(),
+                method_version: rule.method.version,
+                scope: context.observation_scope.iter().cloned().collect(),
+                artifact: rule.artifact.clone(),
+                exhaustive: true,
+            },
+            readback: ReadbackState::Observed,
+            value: Some(value),
+            coverage: ObservationCoverage {
+                consistent: true,
+                missing: vec![],
+                attribution: Attribution::Ordered,
+                enumeration: None,
+            },
+        })
+    }
 }
 
 fn observation(

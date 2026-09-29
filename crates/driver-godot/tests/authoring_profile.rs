@@ -103,9 +103,19 @@ fn empty_root_plan_apply_validate_verify_uses_a_c_f_contracts() {
     let validated = runtime.validate(&owner, &plan.plan_id).unwrap();
     assert_eq!(validated.report.verdict().unwrap(), Verdict::Pass);
     assert_eq!(validated.controller_state, State::Verified);
+    assert_eq!(validated.report.checks.len(), 2);
+    assert!(validated.report.checks.iter().all(|check| {
+        check.evidence.len() == 1
+            && matches!(
+                check.evidence[0].method.as_str(),
+                "godot_managed_source_hash" | "godot_derivation_manifest"
+            )
+    }));
 
     let verified = runtime.verify(&owner, &plan.plan_id).unwrap();
     assert_eq!(verified.report.verdict().unwrap(), Verdict::Pass);
+    assert_eq!(verified.report.effects_observed.len(), 2);
+    assert!(verified.report.effects_unobservable.is_empty());
     assert_eq!(verified.receipt.owner, owner);
     assert_eq!(
         verified.receipt.operation.capability,
