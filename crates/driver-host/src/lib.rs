@@ -6,14 +6,14 @@ use async_trait::async_trait;
 use semwright_backend_api::{
     Context, ProvidedCapability, Provider, ProviderInterfaces, ProviderSignal,
 };
-#[cfg(target_os = "windows")]
+#[cfg(any(target_os = "linux", target_os = "windows"))]
 use semwright_driver_sdk::DriverToolMount;
 use semwright_driver_sdk::{
     DriverInterfaces, DriverRequestContext, Manifest, Request, Response, RuntimeToolCwd,
     ToolExecutionOutput, capabilities_digest, descriptor_digest,
     validate_runtime_tool_execute_request,
 };
-#[cfg(target_os = "windows")]
+#[cfg(any(target_os = "linux", target_os = "windows"))]
 use semwright_platform_api::launch::{
     Mount, MountClass, ResourceLimits, SANDBOX_HOST_TOOL_CWD_ENV, SandboxSpec,
 };
@@ -42,7 +42,7 @@ use std::{
 };
 #[cfg(target_os = "linux")]
 use std::{ffi::CString, os::fd::FromRawFd};
-#[cfg(target_os = "windows")]
+#[cfg(any(target_os = "linux", target_os = "windows"))]
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 #[cfg(all(test, unix))]
 use tokio::process::Command;
@@ -86,6 +86,15 @@ struct SealedTool {
     staged: Arc<StagedFile>,
     sha256: String,
 }
+
+#[cfg(target_os = "linux")]
+#[derive(Clone)]
+struct LinuxBrokerTool {
+    name: String,
+    staged: Arc<StagedFile>,
+    sha256: String,
+}
+
 #[async_trait]
 trait HostToolExecutor: Send + Sync {
     async fn execute(
@@ -99,7 +108,7 @@ trait HostToolExecutor: Send + Sync {
     ) -> Result<ToolExecutionOutput>;
 }
 
-#[cfg(target_os = "windows")]
+#[cfg(any(target_os = "linux", target_os = "windows"))]
 const MAX_HOST_TOOL_OUTPUT_BYTES: usize = 256 * 1024;
 const MAX_HOST_TOOL_CALLS: usize = 8;
 
@@ -282,7 +291,7 @@ impl HostToolExecutor for HostToolBroker {
         spec.limits = Some(match spec.limits.take() {
             Some(limit) => ResourceLimits {
                 open_files: limit.open_files,
-                processes: 1,
+                processes: limit.processes,
                 cpu_seconds: limit
                     .cpu_seconds
                     .min(timeout_cpu_seconds)
@@ -292,7 +301,7 @@ impl HostToolExecutor for HostToolBroker {
             },
             None => ResourceLimits {
                 open_files: 64,
-                processes: 1,
+                processes: 8,
                 cpu_seconds: timeout_cpu_seconds.min(remaining_operation_cpu.unwrap_or(u64::MAX)),
                 address_space_bytes: 512 * 1024 * 1024,
                 file_size_bytes: 16 * 1024 * 1024,
@@ -374,6 +383,242 @@ impl HostToolExecutor for HostToolBroker {
 
         result
     }
+}
+
+#[cfg(target_os = "linux")]
+struct LinuxHostToolBroker {
+    tools: BTreeMap<String, LinuxBrokerTool>,
+    contracts: BTreeMap<String, DriverToolMount>,
+    workspace_mounts: BTreeMap<String, Mount>,
+    template: SandboxSpec,
+    operation_cpu_seconds: u64,
+}
+
+#[cfg(target_os = "linux")]
+impl LinuxHostToolBroker {
+    fn new(
+        root_spec: &SandboxSpec,
+        tools: &[LinuxBrokerTool],
+        contracts: &[DriverToolMount],
+        operation_cpu_seconds: u64,
+    ) -> Result<Self> {
+        let mut by_name = BTreeMap::new();
+        for tool in tools {
+            if by_name.insert(tool.name.clone(), tool.clone()).is_some() {
+                return Err(Error::invalid("Duplicate Linux Host-mediated sealed tool"));
+            }
+        }
+        let workspace_mounts = root_spec
+            .mounts
+            .iter()
+            .filter(|mount| mount.class == MountClass::Workspace)
+            .map(|mount| (mount.logical_name.clone(), mount.clone()))
+            .collect::<BTreeMap<_, _>>();
+        let mut contract_by_name = BTreeMap::new();
+        for contract in contracts {
+            if !by_name.contains_key(&contract.name)
+                || contract
+                    .mounts
+                    .iter()
+                    .any(|mount| !workspace_mounts.contains_key(mount))
+                || contract_by_name
+                    .insert(contract.name.clone(), contract.clone())
+                    .is_some()
+            {
+                return Err(Error::invalid(
+                    "Linux Host-tool contract does not match sealed tool/mount authority",
+                ));
+            }
+        }
+        if contract_by_name.len() != by_name.len() {
+            return Err(Error::invalid(
+                "Every Linux Host tool requires one matching manifest contract",
+            ));
+        }
+
+        let mut template = root_spec.clone();
+        template.mounts.clear();
+        template.environment.clear();
+        template.sealed_tools.clear();
+        template.network = false;
+        Ok(Self {
+            tools: by_name,
+            contracts: contract_by_name,
+            workspace_mounts,
+            template,
+            operation_cpu_seconds,
+        })
+    }
+}
+
+#[cfg(target_os = "linux")]
+#[async_trait]
+impl HostToolExecutor for LinuxHostToolBroker {
+    async fn execute(
+        &self,
+        name: &str,
+        args: Vec<String>,
+        stdin_bytes: Vec<u8>,
+        timeout_ms: u64,
+        cwd: Option<RuntimeToolCwd>,
+        _charged_cpu_seconds: Arc<Mutex<u64>>,
+    ) -> Result<ToolExecutionOutput> {
+        validate_runtime_tool_execute_request(name, &args, &stdin_bytes, timeout_ms, cwd.as_ref())?;
+        if self.operation_cpu_seconds != 0 {
+            return Err(Error::new(
+                ErrorCode::Unsupported,
+                "Linux Host-mediated tools do not yet provide aggregate per-operation CPU accounting",
+            ));
+        }
+        let tool = self.tools.get(name).ok_or_else(|| {
+            Error::new(
+                ErrorCode::PolicyDenied,
+                "Driver requested an ungranted Linux sealed tool",
+            )
+        })?;
+        let _ = semwright_platform_services::verify_sealed_tool_executable(
+            &tool.staged.0,
+            &tool.sha256,
+        )?;
+        let contract = self.contracts.get(name).ok_or_else(|| {
+            Error::new(
+                ErrorCode::PolicyDenied,
+                "Driver requested a Linux sealed tool without a manifest contract",
+            )
+        })?;
+
+        let mut spec = self.template.clone();
+        spec.staged_executable = tool.staged.0.clone();
+        spec.args = args;
+        spec.mounts = contract
+            .mounts
+            .iter()
+            .map(|mount| {
+                self.workspace_mounts.get(mount).cloned().ok_or_else(|| {
+                    Error::new(
+                        ErrorCode::PolicyDenied,
+                        "Linux Host-tool mount authority disappeared",
+                    )
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        spec.environment.clear();
+        spec.environment.push((
+            semwright_platform_api::launch::SANDBOX_HOST_TOOL_CHILD_ENV.into(),
+            "1".into(),
+        ));
+        if let Some(cwd) = cwd {
+            if !contract.mounts.contains(&cwd.mount) {
+                return Err(Error::new(
+                    ErrorCode::PolicyDenied,
+                    "Runtime tool working directory is outside the Linux tool mount allowlist",
+                ));
+            }
+            spec.environment.push((
+                SANDBOX_HOST_TOOL_CWD_ENV.into(),
+                format!("/workspace/{}", cwd.mount),
+            ));
+        }
+        spec.sealed_tools.clear();
+
+        let timeout = Duration::from_millis(timeout_ms);
+        let timeout_cpu_seconds = timeout
+            .as_secs()
+            .saturating_add(u64::from(timeout.subsec_nanos() != 0))
+            .max(1);
+        spec.limits = Some(match spec.limits.take() {
+            Some(limit) => ResourceLimits {
+                open_files: limit.open_files,
+                processes: limit.processes,
+                cpu_seconds: limit.cpu_seconds.min(timeout_cpu_seconds),
+                address_space_bytes: limit.address_space_bytes,
+                file_size_bytes: limit.file_size_bytes,
+            },
+            None => ResourceLimits {
+                open_files: 64,
+                processes: 8,
+                cpu_seconds: timeout_cpu_seconds,
+                address_space_bytes: 512 * 1024 * 1024,
+                file_size_bytes: 16 * 1024 * 1024,
+            },
+        });
+
+        let mut child = semwright_platform_services::sandbox_spawn(&spec)?;
+        let mut child_stdin = child.take_stdin()?;
+        let child_stdout = child.take_stdout()?;
+        let execution = async {
+            if !stdin_bytes.is_empty() {
+                child_stdin.write_all(&stdin_bytes).await?;
+            }
+            child_stdin.shutdown().await?;
+            drop(child_stdin);
+
+            let mut stdout = Vec::new();
+            let mut bounded = child_stdout.take((MAX_HOST_TOOL_OUTPUT_BYTES + 1) as u64);
+            bounded.read_to_end(&mut stdout).await?;
+            if stdout.len() > MAX_HOST_TOOL_OUTPUT_BYTES {
+                return Err(Error::new(
+                    ErrorCode::ResourceExhausted,
+                    "Linux Host-mediated sealed tool output exceeded its bound",
+                ));
+            }
+            let exit_code = child.wait_exit_code().await?.ok_or_else(|| {
+                Error::new(
+                    ErrorCode::BackendFailed,
+                    "Linux Host-mediated sealed tool did not expose an exit code",
+                )
+            })?;
+            let output = ToolExecutionOutput {
+                exit_code,
+                stdout,
+                stderr: Vec::new(),
+            };
+            output.validate()?;
+            Ok(output)
+        };
+
+        match tokio::time::timeout(timeout, execution).await {
+            Ok(Ok(output)) => Ok(output),
+            Ok(Err(error)) => {
+                let _ = child.kill().await;
+                Err(error)
+            }
+            Err(_) => {
+                let _ = child.kill().await;
+                Err(Error::new(
+                    ErrorCode::Timeout,
+                    "Linux Host-mediated sealed tool timed out",
+                ))
+            }
+        }
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn stage_linux_broker_tool(
+    path: &Path,
+    digest: &str,
+    name: &str,
+    state: &Path,
+) -> Result<LinuxBrokerTool> {
+    let bytes = semwright_platform_services::verify_sealed_tool_executable(path, digest)?;
+    let staged_path = state.join(format!("driver-host-tool-{name}-{}", unique_id()));
+    let staged = Arc::new(StagedFile(staged_path.clone()));
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(&staged_path)?;
+    file.write_all(&bytes)?;
+    file.sync_all()?;
+    file.set_permissions(std::fs::Permissions::from_mode(0o500))?;
+    drop(file);
+    let _ = semwright_platform_services::verify_sealed_tool_executable(&staged_path, digest)?;
+    Ok(LinuxBrokerTool {
+        name: name.to_owned(),
+        staged,
+        sha256: digest.to_ascii_lowercase(),
+    })
 }
 
 #[cfg(target_os = "windows")]
@@ -1282,6 +1527,9 @@ fn sandbox_spec(
             loopback::SANDBOX_SOCKET.into(),
         ));
     }
+    if manifest.interfaces.host_tools {
+        environment.push(("SEMWRIGHT_DRIVER_HOST_TOOLS".into(), "1".into()));
+    }
     Ok(SandboxSpec {
         kind: SandboxKind::Driver,
         staged_executable: staged.into(),
@@ -1789,18 +2037,58 @@ impl DriverProvider {
                     seal_verified_tool(&grant.path, &tool.sha256, &tool.name)
                 })
                 .collect::<Result<Vec<_>>>()?;
+            #[cfg(target_os = "linux")]
+            let broker_tools = if manifest.protocol >= 5 && manifest.interfaces.host_tools {
+                manifest
+                    .tools
+                    .iter()
+                    .map(|tool| {
+                        let grant = roots
+                            .iter()
+                            .find(|grant| grant.name == tool.root)
+                            .ok_or_else(|| {
+                                Error::new(
+                                    ErrorCode::PolicyDenied,
+                                    "Driver tool grant disappeared before Linux Host staging",
+                                )
+                            })?;
+                        stage_linux_broker_tool(&grant.path, &tool.sha256, &tool.name, state)
+                    })
+                    .collect::<Result<Vec<_>>>()?
+            } else {
+                Vec::new()
+            };
             let loopback = match manifest.loopback_port {
                 Some(port) => Some(loopback::start(state, port).await?),
                 None => None,
             };
+            let driver_visible_tools: &[SealedTool] =
+                if manifest.protocol >= 5 && manifest.interfaces.host_tools {
+                    &[]
+                } else {
+                    &sealed_tools
+                };
             let spec = sandbox_spec(
                 &manifest,
                 &staged_path,
                 helper,
                 roots,
                 loopback.as_deref().map(loopback::LoopbackProxy::directory),
-                &sealed_tools,
+                driver_visible_tools,
             )?;
+            #[cfg(target_os = "linux")]
+            let tool_broker: Option<Arc<dyn HostToolExecutor>> =
+                if manifest.protocol >= 5 && manifest.interfaces.host_tools {
+                    Some(Arc::new(LinuxHostToolBroker::new(
+                        &spec,
+                        &broker_tools,
+                        &manifest.tools,
+                        manifest.resources.operation_cpu_seconds,
+                    )?))
+                } else {
+                    None
+                };
+            #[cfg(not(target_os = "linux"))]
             let tool_broker: Option<Arc<dyn HostToolExecutor>> = None;
             let mut child = semwright_platform_services::sandbox_spawn(&spec)?;
             let process_id = child

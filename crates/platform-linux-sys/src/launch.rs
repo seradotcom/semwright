@@ -1,7 +1,8 @@
 use semwright_platform_api::launch::{
-    ExecutableVerifier, MaterializedMount, MaterializedTool, Mount, MountClass, SANDBOX_MOUNTS_ENV,
-    SANDBOX_TOOLS_ENV, SandboxKind, SandboxLauncher, SandboxSpec, SealedToolSource,
-    encode_materialized_mounts, encode_materialized_tools,
+    ExecutableVerifier, MaterializedMount, MaterializedTool, Mount, MountClass,
+    SANDBOX_HOST_TOOL_CHILD_ENV, SANDBOX_HOST_TOOL_CWD_ENV, SANDBOX_MOUNTS_ENV, SANDBOX_TOOLS_ENV,
+    SandboxKind, SandboxLauncher, SandboxSpec, SealedToolSource, encode_materialized_mounts,
+    encode_materialized_tools,
 };
 use semwright_types::{Error, ErrorCode, Result};
 use sha2::{Digest, Sha256};
@@ -229,7 +230,34 @@ impl SandboxLauncher for LinuxSandbox {
                 p.arg("--setenv").arg(SANDBOX_TOOLS_ENV).arg(tool_table);
             }
         }
+        let sandbox_cwd = if let Some((_, requested)) = s
+            .environment
+            .iter()
+            .find(|(name, _)| name == SANDBOX_HOST_TOOL_CWD_ENV)
+        {
+            let allowed = s
+                .mounts
+                .iter()
+                .filter(|mount| mount.class == MountClass::Workspace)
+                .map(materialized_destination)
+                .collect::<Result<Vec<_>>>()?;
+            if !allowed.iter().any(|path| path == requested) {
+                return Err(Error::new(
+                    ErrorCode::SandboxDenied,
+                    "Linux Host-tool working directory is outside selected mounts",
+                ));
+            }
+            requested.clone()
+        } else {
+            "/tmp".into()
+        };
         for (name, value) in &s.environment {
+            if matches!(
+                name.as_str(),
+                SANDBOX_HOST_TOOL_CHILD_ENV | SANDBOX_HOST_TOOL_CWD_ENV
+            ) {
+                continue;
+            }
             p.arg("--setenv").arg(name).arg(value);
         }
         if matches!(s.kind, SandboxKind::Driver | SandboxKind::ExternalMcp) {
@@ -254,7 +282,9 @@ impl SandboxLauncher for LinuxSandbox {
                 SandboxKind::Plugin => {}
             }
         }
-        p.args(["--chdir", "/tmp", "--", "/plugin/sandbox"]);
+        p.arg("--chdir")
+            .arg(&sandbox_cwd)
+            .args(["--", "/plugin/sandbox"]);
         if let Some(l) = &s.limits {
             for (flag, n) in [
                 ("--limit-nofile", l.open_files),

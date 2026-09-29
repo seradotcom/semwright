@@ -106,7 +106,14 @@ pub fn tool_path(name: &str) -> Result<PathBuf> {
         Err(std::env::VarError::NotPresent) => {
             #[cfg(unix)]
             {
-                Ok(Path::new("/plugin/tools").join(name))
+                let path = Path::new("/plugin/tools").join(name);
+                if path.is_file() {
+                    Ok(path)
+                } else {
+                    Err(Error::unavailable(
+                        "Requested sandbox tool was not materialized",
+                    ))
+                }
             }
             #[cfg(not(unix))]
             {
@@ -1043,9 +1050,9 @@ impl DriverExecutionContext {
     /// Select the platform-safe execution route for a declared secondary runtime tool.
     ///
     /// Callers do not branch on filesystem conventions. Linux drivers consume the
-    /// Host-materialized sealed executable; Windows requires protocol-v4 Host mediation.
-    /// macOS remains fail-closed at the platform sandbox boundary until arbitrary driver
-    /// isolation is implemented.
+    /// Host-materialized sealed executable on Linux v4; protocol v5 switches Linux to
+    /// Host mediation so per-tool mount authority matches Windows. macOS remains fail-closed
+    /// at the platform sandbox boundary until arbitrary driver isolation is implemented.
     pub fn runtime_tool_mode(&self, name: &str) -> Result<RuntimeToolMode> {
         if !valid_tool_name(name) {
             return Err(Error::invalid("Invalid runtime tool name"));
@@ -1063,8 +1070,12 @@ impl DriverExecutionContext {
         }
         #[cfg(target_os = "linux")]
         {
-            tool_path(name)?;
-            Ok(RuntimeToolMode::Materialized)
+            if self.protocol >= 5 && self.interfaces.host_tools {
+                Ok(RuntimeToolMode::HostMediated)
+            } else {
+                tool_path(name)?;
+                Ok(RuntimeToolMode::Materialized)
+            }
         }
         #[cfg(not(any(target_os = "linux", target_os = "windows")))]
         {
@@ -2095,10 +2106,18 @@ mod tests {
             RuntimeToolMode::HostMediated
         );
         #[cfg(target_os = "linux")]
-        assert_eq!(
-            context.runtime_tool_mode("probe").unwrap(),
-            RuntimeToolMode::Materialized
-        );
+        {
+            assert_eq!(
+                context.runtime_tool_mode("probe").unwrap(),
+                RuntimeToolMode::Materialized
+            );
+            let mut v5 = context.clone();
+            v5.protocol = 5;
+            assert_eq!(
+                v5.runtime_tool_mode("probe").unwrap(),
+                RuntimeToolMode::HostMediated
+            );
+        }
         #[cfg(not(any(target_os = "linux", target_os = "windows")))]
         assert!(matches!(
             context.runtime_tool_mode("probe"),

@@ -36,6 +36,7 @@ fn interfaces() -> DriverInterfaces {
         artifacts: true,
         health: true,
         native_refs: true,
+        host_tools: true,
         ..DriverInterfaces::default()
     }
 }
@@ -82,7 +83,7 @@ fn manifest(
                 root: "godot-runtime".into(),
                 name: "godot".into(),
                 sha256,
-                mounts: vec![],
+                mounts: vec!["godot-project".into()],
             })
             .into_iter()
             .collect(),
@@ -165,8 +166,6 @@ fn fixture() -> Fixture {
                 "secret_file": "/run/secrets/godot-pairing"
             }],
             "runner": {
-                "executable": "/plugin/tools/godot",
-                "sha256": tool_sha256.clone(),
                 "output_root": "/workspace/godot-project",
                 "display": null
             }

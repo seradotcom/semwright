@@ -66,6 +66,7 @@ impl Driver for GodotDriver {
             artifacts: true,
             health: true,
             native_refs: true,
+            host_tools: std::env::var_os("SEMWRIGHT_DRIVER_HOST_TOOLS").is_some(),
             ..DriverInterfaces::default()
         }
     }

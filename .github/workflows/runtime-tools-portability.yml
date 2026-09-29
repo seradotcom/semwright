@@ -48,6 +48,46 @@ jobs:
           cargo test --locked -p semwright-driver-sdk tests::v5_runtime_tool_mounts_and_cwd_are_bounded -- --exact
       - run: cargo clippy --locked -p semwright-driver-sdk --all-targets --no-deps -- -D warnings
 
+  linux-v5-host:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - name: Install and preflight Bubblewrap
+        run: |
+          if ! command -v bwrap >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y bubblewrap
+          fi
+          current_userns=$(sysctl -n kernel.unprivileged_userns_clone 2>/dev/null || true)
+          if [ -n "$current_userns" ] && [ "$current_userns" != "1" ]; then
+            sudo sysctl -w kernel.unprivileged_userns_clone=1
+          fi
+          current_apparmor=$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || true)
+          if [ "$current_apparmor" = "1" ]; then
+            sudo apt-get update
+            sudo apt-get install -y apparmor-profiles apparmor-utils
+            profile=/usr/share/apparmor/extra-profiles/bwrap-userns-restrict
+            if [ -f "$profile" ] && sudo install -m 0644 "$profile" /etc/apparmor.d/bwrap-userns-restrict && sudo apparmor_parser -r /etc/apparmor.d/bwrap-userns-restrict; then
+              echo "Bubblewrap AppArmor profile loaded"
+            else
+              sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+            fi
+          fi
+          bwrap --version
+      - name: Build sandbox helper
+        run: cargo build --locked -p semwright-plugin-host --bin semwright-sandbox
+      - name: Linux v5 Host-mediated runtime tool
+        env:
+          SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
+        run: |
+          cargo test --locked -p semwright-driver-host --features test-tools \
+            --test runtime_tools_linux linux_v5_runtime_tool_is_host_mediated_and_mount_scoped \
+            -- --ignored --exact --nocapture
+
   windows-v5-host:
     runs-on: windows-2025
     timeout-minutes: 20

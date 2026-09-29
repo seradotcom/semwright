@@ -1,18 +1,18 @@
 use crate::config::{ProjectConfig, RunnerConfig};
-use semwright_driver_sdk::DriverExecutionContext;
+use semwright_driver_sdk::{DriverExecutionContext, RuntimeToolCwd};
 use semwright_types::{Error, ErrorCode, JobArtifact, JobProgress, Result};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
+#[cfg(unix)]
+use std::os::unix::process::CommandExt;
 use std::{
     collections::HashMap,
     io::Read,
-    os::unix::process::CommandExt,
     path::{Component, Path, PathBuf},
     process::Stdio,
     time::Duration,
 };
 use tokio::{io::AsyncReadExt, process::Command};
-use tokio_util::sync::CancellationToken;
 
 const MAX_LOG: usize = 64 * 1024;
 
@@ -24,7 +24,9 @@ pub struct Runner {
 
 impl Runner {
     pub fn new(config: RunnerConfig, projects: &[ProjectConfig]) -> Result<Self> {
-        verify_file(&config.executable, &config.sha256)?;
+        if let (Some(executable), Some(sha256)) = (&config.executable, &config.sha256) {
+            verify_file(executable, sha256)?;
+        }
         let projects = projects
             .iter()
             .map(|p| (p.project.clone(), p.root.clone()))
@@ -54,9 +56,7 @@ impl Runner {
             },
             vec![],
         )?;
-        let value = self
-            .execute_inner(command, args, Some(context.cancellation()))
-            .await?;
+        let value = self.execute_inner(command, args, Some(context)).await?;
         let artifacts = self.artifacts_from_result(&value)?;
         context.report_progress(
             JobProgress {
@@ -76,7 +76,7 @@ impl Runner {
         &self,
         command: &str,
         args: &Value,
-        cancellation: Option<CancellationToken>,
+        context: Option<&DriverExecutionContext>,
     ) -> Result<Value> {
         let project_id = args
             .get("project")
@@ -218,7 +218,7 @@ impl Runner {
             }
         };
 
-        let process = self.run(root, &argv, timeout, cancellation).await?;
+        let process = self.run(root, &argv, timeout, context).await?;
         let artifact = artifact
             .filter(|path| path.is_file())
             .map(|path| {
@@ -274,9 +274,64 @@ impl Runner {
         root: &Path,
         argv: &[String],
         timeout: Duration,
-        cancellation: Option<CancellationToken>,
+        context: Option<&DriverExecutionContext>,
     ) -> Result<ProcessOutput> {
-        verify_file(&self.config.executable, &self.config.sha256)?;
+        if self.config.executable.is_none() {
+            let context = context.ok_or_else(|| {
+                Error::new(
+                    ErrorCode::Unsupported,
+                    "Host-managed Godot runner requires Driver execution context",
+                )
+            })?;
+            if self.config.display.is_some() {
+                return Err(Error::new(
+                    ErrorCode::Unsupported,
+                    "Host-managed Godot movie capture requires typed display authority",
+                ));
+            }
+            let output = context
+                .execute_runtime_tool_with_cwd(
+                    "godot",
+                    argv.to_vec(),
+                    Vec::new(),
+                    timeout,
+                    RuntimeToolCwd {
+                        mount: "godot-project".into(),
+                        relative: String::new(),
+                    },
+                )
+                .await?;
+            if output.stdout.len() > MAX_LOG || output.stderr.len() > MAX_LOG {
+                return Err(Error::new(
+                    ErrorCode::ResourceExhausted,
+                    "Godot runner output exceeded limit",
+                ));
+            }
+            if output.exit_code != 0 {
+                return Err(Error::new(
+                    ErrorCode::BackendFailed,
+                    "Godot runner exited with non-zero status",
+                ));
+            }
+            return Ok(ProcessOutput {
+                exit_code: output.exit_code,
+                stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
+                stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+            });
+        }
+
+        let executable = self
+            .config
+            .executable
+            .as_ref()
+            .ok_or_else(|| Error::unavailable("Direct Godot executable is absent"))?;
+        let sha256 = self
+            .config
+            .sha256
+            .as_ref()
+            .ok_or_else(|| Error::unavailable("Direct Godot digest is absent"))?;
+        verify_file(executable, sha256)?;
+
         let home = self.config.output_root.join(".semwright-home");
         std::fs::create_dir_all(&home)?;
         #[cfg(unix)]
@@ -285,7 +340,7 @@ impl Runner {
             std::fs::set_permissions(&home, std::fs::Permissions::from_mode(0o700))?;
         }
 
-        let mut command = Command::new(&self.config.executable);
+        let mut command = Command::new(executable);
         command
             .args(argv)
             .current_dir(root)
@@ -301,9 +356,11 @@ impl Runner {
         if let Some(display) = &self.config.display {
             command.env("DISPLAY", display);
         }
+        #[cfg(unix)]
         command.as_std_mut().process_group(0);
 
         let mut child = command.spawn()?;
+        #[cfg(unix)]
         let pid = child
             .id()
             .ok_or_else(|| Error::new(ErrorCode::Internal, "Godot child has no PID"))?
@@ -324,6 +381,7 @@ impl Runner {
             Cancelled,
             TimedOut,
         }
+        let cancellation = context.map(DriverExecutionContext::cancellation);
         let outcome = if let Some(cancellation) = cancellation {
             tokio::select! {
                 result = child.wait() => WaitOutcome::Exited(result),
@@ -339,8 +397,12 @@ impl Runner {
         let status = match outcome {
             WaitOutcome::Exited(result) => result?,
             WaitOutcome::Cancelled => {
-                // SAFETY: PID belongs to the process group created for this child above.
-                unsafe { libc::kill(-pid, libc::SIGKILL) };
+                #[cfg(unix)]
+                {
+                    // SAFETY: PID belongs to the process group created for this child above.
+                    unsafe { libc::kill(-pid, libc::SIGKILL) };
+                }
+                let _ = child.kill().await;
                 let _ = child.wait().await;
                 return Err(Error::new(
                     ErrorCode::Cancelled,
@@ -348,8 +410,12 @@ impl Runner {
                 ));
             }
             WaitOutcome::TimedOut => {
-                // SAFETY: PID belongs to the process group created for this child above.
-                unsafe { libc::kill(-pid, libc::SIGKILL) };
+                #[cfg(unix)]
+                {
+                    // SAFETY: PID belongs to the process group created for this child above.
+                    unsafe { libc::kill(-pid, libc::SIGKILL) };
+                }
+                let _ = child.kill().await;
                 let _ = child.wait().await;
                 return Err(Error::new(ErrorCode::Timeout, "Godot runner timed out"));
             }

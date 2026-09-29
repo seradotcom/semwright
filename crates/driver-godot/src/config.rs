@@ -24,8 +24,10 @@ impl Drop for ProjectConfig {
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct RunnerConfig {
-    pub executable: PathBuf,
-    pub sha256: String,
+    #[serde(default)]
+    pub executable: Option<PathBuf>,
+    #[serde(default)]
+    pub sha256: Option<String>,
     pub output_root: PathBuf,
     #[serde(default)]
     pub display: Option<String>,
@@ -155,12 +157,30 @@ impl Config {
                 ));
             }
         }
-        if let Some(runner) = &self.runner
-            && (!runner.executable.is_absolute()
-                || runner.executable.canonicalize()? != runner.executable
-                || !runner.executable.is_file()
-                || !is_hex(&runner.sha256, 64)
-                || !runner.output_root.is_absolute()
+        if let Some(runner) = &self.runner {
+            match (&runner.executable, &runner.sha256) {
+                (None, None) => {}
+                (Some(executable), Some(sha256)) => {
+                    if !self.development_mode
+                        || !executable.is_absolute()
+                        || executable.canonicalize()? != *executable
+                        || !executable.is_file()
+                        || !is_hex(sha256, 64)
+                    {
+                        return Err(Error::new(
+                            ErrorCode::PermissionDenied,
+                            "Direct Godot runner executable is development-only and must be canonical/digest-pinned",
+                        ));
+                    }
+                }
+                _ => {
+                    return Err(Error::new(
+                        ErrorCode::PermissionDenied,
+                        "Godot runner executable and digest must be supplied together",
+                    ));
+                }
+            }
+            if !runner.output_root.is_absolute()
                 || runner.output_root.canonicalize()? != runner.output_root
                 || !runner.output_root.is_dir()
                 || runner.display.as_ref().is_some_and(|display| {
@@ -169,12 +189,13 @@ impl Config {
                         || !display[1..]
                             .bytes()
                             .all(|b| b.is_ascii_digit() || b == b'.')
-                }))
-        {
-            return Err(Error::new(
-                ErrorCode::PermissionDenied,
-                "Godot runner paths or digest are invalid",
-            ));
+                })
+            {
+                return Err(Error::new(
+                    ErrorCode::PermissionDenied,
+                    "Godot runner output/display configuration is invalid",
+                ));
+            }
         }
         Ok(())
     }
@@ -304,6 +325,62 @@ mod tests {
 
         let config = Config::load(&config_path).unwrap();
         assert_eq!(config.projects[0].secret, "b".repeat(64));
+    }
+
+    #[test]
+    fn production_runner_uses_host_managed_tool_authority() {
+        let project = private_dir();
+        std::fs::write(project.path().join("project.godot"), "config_version=5\n").unwrap();
+        let output = private_dir();
+        let config = Config {
+            port: 9877,
+            development_mode: false,
+            projects: vec![ProjectConfig {
+                project: "a".repeat(64),
+                root: project.path().canonicalize().unwrap(),
+                secret: "b".repeat(64),
+            }],
+            runner: Some(RunnerConfig {
+                executable: None,
+                sha256: None,
+                output_root: output.path().canonicalize().unwrap(),
+                display: None,
+            }),
+        };
+        config.validate().unwrap();
+    }
+
+    #[test]
+    fn direct_runner_executable_is_development_only() {
+        let project = private_dir();
+        std::fs::write(project.path().join("project.godot"), "config_version=5\n").unwrap();
+        let output = private_dir();
+        let binary_dir = private_dir();
+        let binary = binary_dir.path().join("godot");
+        std::fs::write(&binary, b"fixture").unwrap();
+        std::fs::set_permissions(&binary, std::fs::Permissions::from_mode(0o500)).unwrap();
+        let binary = binary.canonicalize().unwrap();
+
+        let make = |development_mode| Config {
+            port: 9877,
+            development_mode,
+            projects: vec![ProjectConfig {
+                project: "a".repeat(64),
+                root: project.path().canonicalize().unwrap(),
+                secret: "b".repeat(64),
+            }],
+            runner: Some(RunnerConfig {
+                executable: Some(binary.clone()),
+                sha256: Some("c".repeat(64)),
+                output_root: output.path().canonicalize().unwrap(),
+                display: None,
+            }),
+        };
+        assert_eq!(
+            make(false).validate().unwrap_err().code,
+            ErrorCode::PermissionDenied
+        );
+        make(true).validate().unwrap();
     }
 
     #[test]
