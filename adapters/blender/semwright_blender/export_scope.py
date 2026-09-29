@@ -6,7 +6,7 @@ claiming that Blender's use_selection is the complete export boundary.
 from pathlib import Path
 from .validation import CommandError
 
-SAFE_MODIFIERS = {"BEVEL", "MIRROR", "SUBSURF", "ARRAY", "ARMATURE", "WEIGHTED_NORMAL", "TRIANGULATE"}
+SAFE_MODIFIERS = {"BEVEL", "MIRROR", "SUBSURF", "ARRAY", "ARMATURE", "BOOLEAN", "WEIGHTED_NORMAL", "TRIANGULATE"}
 SAFE_CONSTRAINTS = {"COPY_LOCATION", "COPY_ROTATION", "COPY_SCALE", "COPY_TRANSFORMS", "TRACK_TO",
                     "DAMPED_TRACK", "LOCKED_TRACK", "LIMIT_LOCATION", "LIMIT_ROTATION", "LIMIT_SCALE"}
 SAFE_SHADERS = {"ShaderNodeBsdfPrincipled", "ShaderNodeOutputMaterial", "ShaderNodeTexImage",
@@ -57,6 +57,14 @@ def inspect_export_closure(bpy, workspace, collection, animations):
             elif modifier.type == "ARRAY":
                 for dependency in [modifier.offset_object, modifier.start_cap, modifier.end_cap]:
                     require(dependency is None or dependency.as_pointer() in selected, "array target outside export closure")
+            elif modifier.type == "BOOLEAN":
+                require(
+                    modifier.operand_type == "OBJECT"
+                    and modifier.solver == "EXACT"
+                    and modifier.object is not None
+                    and modifier.object.as_pointer() in selected,
+                    "boolean target/solver outside managed export closure",
+                )
         owners = [obj]
         if obj.type == "ARMATURE":
             require(len(obj.pose.bones) <= 512, "export bone budget")
@@ -68,10 +76,19 @@ def inspect_export_closure(bpy, workspace, collection, animations):
                 require(target is None or target.as_pointer() in selected, "constraint target outside export closure")
         animation = obj.animation_data
         if animation:
-            require(len(animation.nla_tracks) == 0, "NLA export closure needs a dedicated fidelity contract")
+            require(len(animation.nla_tracks) <= 16, "NLA export track budget")
             if animation.action:
                 inactive(animation.action)
                 actions[animation.action.as_pointer()] = animation.action
+            total_strips = 0
+            for track in animation.nla_tracks:
+                require(len(track.strips) <= 16, "NLA export strip budget")
+                for strip in track.strips:
+                    total_strips += 1
+                    require(total_strips <= 64, "NLA export total strip budget")
+                    require(strip.action is not None, "NLA strip is missing its Action")
+                    inactive(strip.action)
+                    actions[strip.action.as_pointer()] = strip.action
     require(len(materials) <= 256, "export distinct material budget")
     for material in materials.values():
         inactive(material)

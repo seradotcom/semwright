@@ -334,7 +334,8 @@ class AuthoringRuntime:
                  "parent_inverse": [list(row) for row in obj.matrix_parent_inverse],
                  "collections": sorted(c.name for c in obj.users_collection),
                  "hidden_render": obj.hide_render, "hidden_viewport": obj.hide_viewport,
-                 "modifiers": [], "constraints": [], "action": None, "drivers": 0}
+                 "modifiers": [], "constraints": [], "action": None, "actions": [],
+                 "nla_tracks": [], "drivers": 0}
         for modifier in obj.modifiers:
             settings = {"name": modifier.name, "type": modifier.type,
                         "show_viewport": modifier.show_viewport, "show_render": modifier.show_render}
@@ -361,9 +362,38 @@ class AuthoringRuntime:
             else: settings.update(track_axis=constraint.track_axis, up_axis=constraint.up_axis)
             value["constraints"].append(settings)
         if obj.animation_data:
-            value["drivers"] = len(obj.animation_data.drivers)
-            check(len(obj.animation_data.nla_tracks) == 0, "NLA readback not covered in this increment", "Unsupported")
-            value["action"] = self._action(obj.animation_data.action)
+            animation_data = obj.animation_data
+            value["drivers"] = len(animation_data.drivers)
+            check(len(animation_data.nla_tracks) <= 16, "NLA track readback budget", "Unsupported")
+            actions = {}
+            if animation_data.action is not None:
+                actions[animation_data.action.as_pointer()] = animation_data.action
+                value["action"] = self._action(animation_data.action)
+            nla_tracks = []
+            total_strips = 0
+            for track in animation_data.nla_tracks:
+                check(len(track.strips) <= 16, "NLA strip readback budget", "Unsupported")
+                strips = []
+                for strip in track.strips:
+                    total_strips += 1
+                    check(total_strips <= 64, "total NLA strip readback budget", "Unsupported")
+                    check(strip.action is not None, "NLA strip missing Action", "Unsupported")
+                    check(strip.action.get(ISLAND) == obj.get(ISLAND), "NLA strip references unmanaged Action", "PolicyDenied")
+                    actions[strip.action.as_pointer()] = strip.action
+                    strips.append({
+                        "name": strip.name,
+                        "action": strip.action.name,
+                        "frame_start": float(strip.frame_start),
+                        "frame_end": float(strip.frame_end),
+                        "action_frame_start": float(strip.action_frame_start),
+                        "action_frame_end": float(strip.action_frame_end),
+                        "repeat": float(strip.repeat),
+                        "scale": float(strip.scale),
+                        "influence": float(strip.influence),
+                    })
+                nla_tracks.append({"name": track.name, "muted": bool(track.mute), "strips": strips})
+            value["nla_tracks"] = nla_tracks
+            value["actions"] = [self._action(actions[key]) for key in sorted(actions)]
         if obj.data:
             value["data_name"] = obj.data.name
             value["data_library"] = obj.data.library is not None
@@ -423,10 +453,27 @@ class AuthoringRuntime:
             check(obj.library is None and obj.override_library is None and not obj.is_instancer, "linked/override/instancer scope", "PolicyDenied")
             check(obj.parent is None or obj.parent.as_pointer() in pointers, "parent outside scope", "PolicyDenied")
             check(all(c is collection for c in obj.users_collection), "object linked into another collection", "PolicyDenied")
-            check(not obj.animation_data or (len(obj.animation_data.drivers) == 0 and len(obj.animation_data.nla_tracks) == 0), "active drivers/NLA excluded", "PolicyDenied")
-            if obj.animation_data and obj.animation_data.action:
-                action = obj.animation_data.action
-                check(action.library is None and action.get(ISLAND) == island, "external action dependency", "PolicyDenied")
+            if obj.animation_data:
+                animation_data = obj.animation_data
+                check(len(animation_data.drivers) == 0, "active animation drivers excluded", "PolicyDenied")
+                check(len(animation_data.nla_tracks) <= 16, "NLA track closure budget", "Unsupported")
+                managed_actions = []
+                if animation_data.action is not None:
+                    managed_actions.append(animation_data.action)
+                total_strips = 0
+                for track in animation_data.nla_tracks:
+                    check(len(track.strips) <= 16, "NLA strip closure budget", "Unsupported")
+                    for strip in track.strips:
+                        total_strips += 1
+                        check(total_strips <= 64, "total NLA strip closure budget", "Unsupported")
+                        check(strip.action is not None, "NLA strip missing Action", "PolicyDenied")
+                        managed_actions.append(strip.action)
+                for action in managed_actions:
+                    check(
+                        action.library is None and action.get(ISLAND) == island,
+                        "external action dependency",
+                        "PolicyDenied",
+                    )
             if obj.data:
                 check(obj.data.library is None and obj.data.override_library is None, "linked data excluded", "PolicyDenied")
                 if obj.type == "MESH":
@@ -743,15 +790,22 @@ class AuthoringRuntime:
         check(abs(scene.render.fps / scene.render.fps_base - requested) <= 1e-6,
               "managed islands do not silently change the scene frame rate", "Conflict")
         channels = {}
-        for channel in animation["channels"]: channels.setdefault(channel["entity"], []).append(channel)
+        for channel in animation["channels"]:
+            channels.setdefault(channel["entity"], []).append(channel)
+        actions = {}
         for entity, rows in channels.items():
             obj = self.entity(island, entity)
-            check(not obj.animation_data or obj.animation_data.action is None, "existing action binding", "Conflict")
+            check(
+                not obj.animation_data
+                or (obj.animation_data.action is None and len(obj.animation_data.nla_tracks) == 0),
+                "existing action/NLA binding",
+                "Conflict",
+            )
             action = self.bpy.data.actions.new(self._name(island, entity, self.bpy.data.actions))
             action[ISLAND] = island
             slot = action.slots.new(id_type="OBJECT", name=obj.name)
-            strip = action.layers.new(animation["id"]).strips.new(type="KEYFRAME")
-            bag = strip.channelbag(slot, ensure=True)
+            action_strip = action.layers.new(animation["id"]).strips.new(type="KEYFRAME")
+            bag = action_strip.channelbag(slot, ensure=True)
             obj.animation_data_create(); obj.animation_data.action = action; obj.animation_data.action_slot = slot
             for channel in rows:
                 property_name = {"translation":"location", "rotation":"rotation_euler", "scale":"scale"}[channel["property"]]
@@ -767,6 +821,31 @@ class AuthoringRuntime:
                         value = key["value"][component] * (units if channel["property"] == "translation" else 1)
                         point.co = (key["frame"], value); point.interpolation = "LINEAR"
                     curve.update()
+            actions[entity] = (obj, action, slot)
+
+        tracks_by_entity = {}
+        for track in animation.get("nla_tracks", []):
+            tracks_by_entity.setdefault(track["entity"], []).append(track)
+        for entity, track_specs in tracks_by_entity.items():
+            obj, action, slot = actions[entity]
+            # Once arranged through NLA, the Action is no longer also active.
+            obj.animation_data.action = None
+            for track_spec in track_specs:
+                track = obj.animation_data.nla_tracks.new()
+                track.name = "SW_NLA_" + local_id(track_spec["id"])
+                for strip_spec in track_spec["strips"]:
+                    nla_strip = track.strips.new(
+                        "SW_NLA_" + local_id(strip_spec["id"]),
+                        int(strip_spec["start_frame"]),
+                        action,
+                    )
+                    nla_strip.action_frame_start = float(strip_spec["action_frame_start"])
+                    nla_strip.action_frame_end = float(strip_spec["action_frame_end"])
+                    nla_strip.repeat = float(strip_spec["repeat"])
+                    nla_strip.scale = float(strip_spec["scale"])
+                    nla_strip.influence = float(strip_spec["influence"])
+                    if hasattr(nla_strip, "action_slot"):
+                        nla_strip.action_slot = slot
 
     def finish(self, island):
         self._closed(island)

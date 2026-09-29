@@ -71,8 +71,8 @@
     {
       "id": "E07",
       "condition": "native rig/actions/keyframes with complete readback/pagination",
-      "implementation": "armature bones, skinning, slotted Action/F-Curves linear keys plus provider-owned session/fingerprint-bound paging for objects,bones,actions,curves,keyframes,properties",
-      "test": "authoring_native articulated readback; limit=1 pagination across six domains; cursor replay and cursor-after-drift rejection",
+      "implementation": "armature bones, skinning, slotted Action/F-Curves linear keys, bounded NLA tracks/strips over same-entity managed Actions, plus provider-owned session/fingerprint-bound paging for objects,bones,actions,curves,keyframes,properties",
+      "test": "authoring_native articulated Action+NLA readback/export; model rejects out-of-range/external-channel NLA; limit=1 pagination across six domains; cursor replay and cursor-after-drift rejection",
       "status": "CI_PENDING"
     },
     {

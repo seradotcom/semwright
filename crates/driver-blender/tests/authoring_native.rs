@@ -312,6 +312,22 @@ async fn broker_native_authoring_save_reopen_export_and_owner_denial() {
         semwright_semantic_composition::Verdict::Pass,
         "trusted F adapter must verify native readback and unmanaged preservation"
     );
+    let rig_row = applied["snapshot"]["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["entity"] == "rig")
+        .unwrap();
+    assert_eq!(rig_row["actions"].as_array().unwrap().len(), 1);
+    assert_eq!(rig_row["nla_tracks"].as_array().unwrap().len(), 1);
+    assert_eq!(rig_row["nla_tracks"][0]["name"], "SW_NLA_locomotion");
+    assert_eq!(
+        rig_row["nla_tracks"][0]["strips"][0]["name"],
+        "SW_NLA_hinge_cycle"
+    );
+    assert_eq!(rig_row["nla_tracks"][0]["strips"][0]["repeat"], 2.0);
+    assert_eq!(rig_row["nla_tracks"][0]["strips"][0]["scale"], 1.0);
+    assert_eq!(rig_row["nla_tracks"][0]["strips"][0]["influence"], 1.0);
 
     let typed_plan: semwright_semantic_composition::PreparedPlan<
         semwright_driver_blender::authoring::AuthoringIntent,

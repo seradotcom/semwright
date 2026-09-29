@@ -695,9 +695,16 @@ pub fn native_matches(intent: &AuthoringIntent, snapshot: &NativeSnapshot) -> bo
             }
             if let Some(animation) = &spec.animation {
                 for channel in &animation.channels {
-                    let Some(curves) =
-                        row(&channel.entity).and_then(|r| r["action"]["curves"].as_array())
-                    else {
+                    let Some(entity_row) = row(&channel.entity) else {
+                        return false;
+                    };
+                    let Some(actions) = entity_row["actions"].as_array() else {
+                        return false;
+                    };
+                    if actions.len() != 1 {
+                        return false;
+                    }
+                    let Some(curves) = actions[0]["curves"].as_array() else {
                         return false;
                     };
                     let property = match channel.property {
@@ -735,6 +742,69 @@ pub fn native_matches(intent: &AuthoringIntent, snapshot: &NativeSnapshot) -> bo
                                 })
                             {
                                 return false;
+                            }
+                        }
+                    }
+                }
+                for entity in &spec.entities {
+                    let expected_tracks = animation
+                        .nla_tracks
+                        .iter()
+                        .filter(|track| track.entity == entity.id)
+                        .collect::<Vec<_>>();
+                    let Some(entity_row) = row(&entity.id) else {
+                        return false;
+                    };
+                    let Some(actual_tracks) = entity_row["nla_tracks"].as_array() else {
+                        return false;
+                    };
+                    if actual_tracks.len() != expected_tracks.len() {
+                        return false;
+                    }
+                    for expected_track in expected_tracks {
+                        let expected_name = format!("SW_NLA_{}", expected_track.id);
+                        let Some(actual_track) = actual_tracks
+                            .iter()
+                            .find(|track| track["name"].as_str() == Some(expected_name.as_str()))
+                        else {
+                            return false;
+                        };
+                        let Some(actual_strips) = actual_track["strips"].as_array() else {
+                            return false;
+                        };
+                        if actual_strips.len() != expected_track.strips.len() {
+                            return false;
+                        }
+                        for expected_strip in &expected_track.strips {
+                            let expected_strip_name = format!("SW_NLA_{}", expected_strip.id);
+                            let Some(actual_strip) = actual_strips.iter().find(|strip| {
+                                strip["name"].as_str() == Some(expected_strip_name.as_str())
+                            }) else {
+                                return false;
+                            };
+                            let expected_end = expected_strip.start_frame as f64
+                                + (expected_strip.action_frame_end
+                                    - expected_strip.action_frame_start)
+                                    as f64
+                                    * expected_strip.repeat
+                                    * expected_strip.scale;
+                            for (field, expected) in [
+                                ("frame_start", expected_strip.start_frame as f64),
+                                ("frame_end", expected_end),
+                                (
+                                    "action_frame_start",
+                                    expected_strip.action_frame_start as f64,
+                                ),
+                                ("action_frame_end", expected_strip.action_frame_end as f64),
+                                ("repeat", expected_strip.repeat),
+                                ("scale", expected_strip.scale),
+                                ("influence", expected_strip.influence),
+                            ] {
+                                if !actual_strip[field].as_f64().is_some_and(|value| {
+                                    (value - expected).abs() <= 1e-5 * expected.abs().max(1.0)
+                                }) {
+                                    return false;
+                                }
                             }
                         }
                     }

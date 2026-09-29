@@ -267,6 +267,28 @@ pub struct Animation {
     pub id: String,
     pub rate: Rate,
     pub channels: Vec<Channel>,
+    /// Optional NLA arrangement over the managed Action generated for each entity.
+    /// Tracks cannot reference arbitrary external Actions.
+    #[serde(default)]
+    pub nla_tracks: Vec<NlaTrack>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct NlaTrack {
+    pub id: String,
+    pub entity: String,
+    pub strips: Vec<NlaStrip>,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct NlaStrip {
+    pub id: String,
+    pub start_frame: i32,
+    pub action_frame_start: i32,
+    pub action_frame_end: i32,
+    pub repeat: f64,
+    pub scale: f64,
+    pub influence: f64,
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -840,6 +862,7 @@ impl BlenderAuthoringSpec {
                 "animation channel budget",
             )?;
             let mut channels = BTreeSet::new();
+            let mut frame_ranges = BTreeMap::<String, (i32, i32)>::new();
             let mut keys = 0;
             for channel in &animation.channels {
                 ensure(
@@ -866,9 +889,60 @@ impl BlenderAuthoringSpec {
                         )?;
                     }
                 }
+                let first = channel.keys.first().expect("nonempty keys").frame;
+                let last = channel.keys.last().expect("nonempty keys").frame;
+                frame_ranges
+                    .entry(channel.entity.clone())
+                    .and_modify(|range| {
+                        range.0 = range.0.min(first);
+                        range.1 = range.1.max(last);
+                    })
+                    .or_insert((first, last));
                 keys += channel.keys.len();
             }
             ensure(keys <= MAX_KEYS, "keyframe budget")?;
+            ensure(animation.nla_tracks.len() <= 16, "NLA track budget")?;
+            let mut track_ids = BTreeSet::new();
+            let mut total_strips = 0usize;
+            for track in &animation.nla_tracks {
+                local_id(&track.id)?;
+                local_id(&track.entity)?;
+                ensure(track_ids.insert(track.id.clone()), "duplicate NLA track ID")?;
+                let Some((action_start, action_end)) = frame_ranges.get(&track.entity) else {
+                    return Err(semwright_semantic_composition::ContractError::Invalid(
+                        "NLA track entity has no managed animation channels".into(),
+                    ));
+                };
+                ensure(
+                    !track.strips.is_empty() && track.strips.len() <= 16,
+                    "NLA strip budget",
+                )?;
+                let mut strip_ids = BTreeSet::new();
+                for strip in &track.strips {
+                    local_id(&strip.id)?;
+                    ensure(strip_ids.insert(strip.id.clone()), "duplicate NLA strip ID")?;
+                    ensure(
+                        (0..=100_000).contains(&strip.start_frame)
+                            && strip.action_frame_start >= *action_start
+                            && strip.action_frame_end <= *action_end
+                            && strip.action_frame_start < strip.action_frame_end,
+                        "NLA frame range outside managed Action",
+                    )?;
+                    finite(strip.repeat, 0.01, 32.0)?;
+                    finite(strip.scale, 0.01, 32.0)?;
+                    finite(strip.influence, 0.0, 1.0)?;
+                    let end = strip.start_frame as f64
+                        + (strip.action_frame_end - strip.action_frame_start) as f64
+                            * strip.repeat
+                            * strip.scale;
+                    ensure(
+                        end.is_finite() && end <= 100_000.0,
+                        "NLA evaluated frame budget",
+                    )?;
+                    total_strips += 1;
+                }
+            }
+            ensure(total_strips <= 64, "total NLA strip budget")?;
         }
         ensure(
             self.operation_count() <= MAX_OPERATIONS,

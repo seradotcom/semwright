@@ -357,82 +357,94 @@ fn flatten_page(snapshot: &NativeSnapshot, domain: &str) -> Result<Vec<Value>> {
                 }
             }
             "actions" | "curves" | "keyframes" => {
-                let Some(action) = row.get("action").filter(|value| !value.is_null()) else {
-                    continue;
-                };
-                let action_name = action.get("name").and_then(Value::as_str).ok_or_else(|| {
-                    Error::new(ErrorCode::PluginProtocolError, "action lacks name")
-                })?;
-                if domain == "actions" {
-                    insert_page_item(
-                        &mut values,
-                        page_member("action", &json!([entity, action_name]))?,
-                        json!({
-                            "entity":entity,
-                            "action":action_name,
-                            "slots":action.get("slots").cloned().unwrap_or(Value::Null)
-                        }),
-                    )?;
-                    continue;
-                }
-                let curves = action
-                    .get("curves")
+                let actions = row
+                    .get("actions")
                     .and_then(Value::as_array)
                     .ok_or_else(|| {
-                        Error::new(ErrorCode::PluginProtocolError, "action lacks curves")
+                        Error::new(ErrorCode::PluginProtocolError, "object lacks action list")
                     })?;
-                for curve in curves {
-                    let path = curve.get("path").and_then(Value::as_str).ok_or_else(|| {
-                        Error::new(ErrorCode::PluginProtocolError, "curve lacks path")
-                    })?;
-                    let index = curve.get("index").and_then(Value::as_u64).ok_or_else(|| {
-                        Error::new(ErrorCode::PluginProtocolError, "curve lacks index")
-                    })?;
-                    let curve_identity = json!([entity, action_name, path, index]);
-                    if domain == "curves" {
+                for action in actions {
+                    let action_name =
+                        action.get("name").and_then(Value::as_str).ok_or_else(|| {
+                            Error::new(ErrorCode::PluginProtocolError, "action lacks name")
+                        })?;
+                    if domain == "actions" {
                         insert_page_item(
                             &mut values,
-                            page_member("curve", &curve_identity)?,
+                            page_member("action", &json!([entity, action_name]))?,
                             json!({
                                 "entity":entity,
                                 "action":action_name,
-                                "path":path,
-                                "index":index,
-                                "key_count":curve.get("keys").and_then(Value::as_array).map_or(0, Vec::len)
+                                "slots":action.get("slots").cloned().unwrap_or(Value::Null)
                             }),
                         )?;
                         continue;
                     }
-                    let keys = curve.get("keys").and_then(Value::as_array).ok_or_else(|| {
-                        Error::new(ErrorCode::PluginProtocolError, "curve lacks keys")
-                    })?;
-                    for (ordinal, key) in keys.iter().enumerate() {
-                        let key_array = key.as_array().ok_or_else(|| {
-                            Error::new(ErrorCode::PluginProtocolError, "keyframe row is malformed")
+                    let curves =
+                        action
+                            .get("curves")
+                            .and_then(Value::as_array)
+                            .ok_or_else(|| {
+                                Error::new(ErrorCode::PluginProtocolError, "action lacks curves")
+                            })?;
+                    for curve in curves {
+                        let path = curve.get("path").and_then(Value::as_str).ok_or_else(|| {
+                            Error::new(ErrorCode::PluginProtocolError, "curve lacks path")
                         })?;
-                        if key_array.len() != 3 {
-                            return Err(Error::new(
-                                ErrorCode::PluginProtocolError,
-                                "keyframe row has wrong arity",
-                            ));
+                        let index =
+                            curve.get("index").and_then(Value::as_u64).ok_or_else(|| {
+                                Error::new(ErrorCode::PluginProtocolError, "curve lacks index")
+                            })?;
+                        let curve_identity = json!([entity, action_name, path, index]);
+                        if domain == "curves" {
+                            insert_page_item(
+                                &mut values,
+                                page_member("curve", &curve_identity)?,
+                                json!({
+                                    "entity":entity,
+                                    "action":action_name,
+                                    "path":path,
+                                    "index":index,
+                                    "key_count":curve.get("keys").and_then(Value::as_array).map_or(0, Vec::len)
+                                }),
+                            )?;
+                            continue;
                         }
-                        insert_page_item(
-                            &mut values,
-                            page_member(
-                                "key",
-                                &json!([entity, action_name, path, index, ordinal]),
-                            )?,
-                            json!({
-                                "entity":entity,
-                                "action":action_name,
-                                "path":path,
-                                "index":index,
-                                "ordinal":ordinal,
-                                "frame":key_array[0],
-                                "value":key_array[1],
-                                "interpolation":key_array[2]
-                            }),
-                        )?;
+                        let keys =
+                            curve.get("keys").and_then(Value::as_array).ok_or_else(|| {
+                                Error::new(ErrorCode::PluginProtocolError, "curve lacks keys")
+                            })?;
+                        for (ordinal, key) in keys.iter().enumerate() {
+                            let key_array = key.as_array().ok_or_else(|| {
+                                Error::new(
+                                    ErrorCode::PluginProtocolError,
+                                    "keyframe row is malformed",
+                                )
+                            })?;
+                            if key_array.len() != 3 {
+                                return Err(Error::new(
+                                    ErrorCode::PluginProtocolError,
+                                    "keyframe row has wrong arity",
+                                ));
+                            }
+                            insert_page_item(
+                                &mut values,
+                                page_member(
+                                    "key",
+                                    &json!([entity, action_name, path, index, ordinal]),
+                                )?,
+                                json!({
+                                    "entity":entity,
+                                    "action":action_name,
+                                    "path":path,
+                                    "index":index,
+                                    "ordinal":ordinal,
+                                    "frame":key_array[0],
+                                    "value":key_array[1],
+                                    "interpolation":key_array[2]
+                                }),
+                            )?;
+                        }
                     }
                 }
             }
