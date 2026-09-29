@@ -1,0 +1,183 @@
+{
+  "schema_version": 1,
+  "role": "C",
+  "project_graph_ready": false,
+  "requirements": [
+    {
+      "requirement": "C01",
+      "condition": "P0 published with consumer fixtures",
+      "status": "OPEN",
+      "implementation": [],
+      "tests": [],
+      "tested_sha": null,
+      "run_id": null,
+      "job_id": null,
+      "evidence": null
+    },
+    {
+      "requirement": "C02",
+      "condition": "Logical identity distinct from path/digest/ref",
+      "status": "OPEN",
+      "implementation": [],
+      "tests": [],
+      "tested_sha": null,
+      "run_id": null,
+      "job_id": null,
+      "evidence": null
+    },
+    {
+      "requirement": "C03",
+      "condition": "Immutable revisions and exact derivations",
+      "status": "OPEN",
+      "implementation": [],
+      "tests": [],
+      "tested_sha": null,
+      "run_id": null,
+      "job_id": null,
+      "evidence": null
+    },
+    {
+      "requirement": "C04",
+      "condition": "Independent knowledge dimensions",
+      "status": "OPEN",
+      "implementation": [],
+      "tests": [],
+      "tested_sha": null,
+      "run_id": null,
+      "job_id": null,
+      "evidence": null
+    },
+    {
+      "requirement": "C05",
+      "condition": "Deny/offline UNKNOWN, not MISSING",
+      "status": "OPEN",
+      "implementation": [],
+      "tests": [],
+      "tested_sha": null,
+      "run_id": null,
+      "job_id": null,
+      "evidence": null
+    },
+    {
+      "requirement": "C06",
+      "condition": "Transitive invalidation and unknown frontier",
+      "status": "OPEN",
+      "implementation": [],
+      "tests": [],
+      "tested_sha": null,
+      "run_id": null,
+      "job_id": null,
+      "evidence": null
+    },
+    {
+      "requirement": "C07",
+      "condition": "Watcher gaps/reorder/duplicates",
+      "status": "OPEN",
+      "implementation": [],
+      "tests": [],
+      "tested_sha": null,
+      "run_id": null,
+      "job_id": null,
+      "evidence": null
+    },
+    {
+      "requirement": "C08",
+      "condition": "Scoped snapshot pagination",
+      "status": "OPEN",
+      "implementation": [],
+      "tests": [],
+      "tested_sha": null,
+      "run_id": null,
+      "job_id": null,
+      "evidence": null
+    },
+    {
+      "requirement": "C09",
+      "condition": "Typed rebuild through Broker",
+      "status": "OPEN",
+      "implementation": [],
+      "tests": [],
+      "tested_sha": null,
+      "run_id": null,
+      "job_id": null,
+      "evidence": null
+    },
+    {
+      "requirement": "C10",
+      "condition": "Reuse only with valid complete dependencies",
+      "status": "OPEN",
+      "implementation": [],
+      "tests": [],
+      "tested_sha": null,
+      "run_id": null,
+      "job_id": null,
+      "evidence": null
+    },
+    {
+      "requirement": "C11",
+      "condition": "Crash-safe private local store",
+      "status": "OPEN",
+      "implementation": [],
+      "tests": [],
+      "tested_sha": null,
+      "run_id": null,
+      "job_id": null,
+      "evidence": null
+    },
+    {
+      "requirement": "C12",
+      "condition": "Portable untrusted manifests and safe GC",
+      "status": "OPEN",
+      "implementation": [],
+      "tests": [],
+      "tested_sha": null,
+      "run_id": null,
+      "job_id": null,
+      "evidence": null
+    },
+    {
+      "requirement": "C13",
+      "condition": "Native Blender GLB Godot pipeline",
+      "status": "OPEN",
+      "implementation": [],
+      "tests": [],
+      "tested_sha": null,
+      "run_id": null,
+      "job_id": null,
+      "evidence": null
+    },
+    {
+      "requirement": "C14",
+      "condition": "Native motion AV audio pipeline",
+      "status": "OPEN",
+      "implementation": [],
+      "tests": [],
+      "tested_sha": null,
+      "run_id": null,
+      "job_id": null,
+      "evidence": null
+    },
+    {
+      "requirement": "C15",
+      "condition": "Usable continuity Skill",
+      "status": "OPEN",
+      "implementation": [],
+      "tests": [],
+      "tested_sha": null,
+      "run_id": null,
+      "job_id": null,
+      "evidence": null
+    },
+    {
+      "requirement": "C16",
+      "condition": "Scale fuzz hostile packaging exact SHA",
+      "status": "OPEN",
+      "implementation": [],
+      "tests": [],
+      "tested_sha": null,
+      "run_id": null,
+      "job_id": null,
+      "evidence": null
+    }
+  ]
+}

@@ -409,3 +409,36 @@ impl ReceiptAdapter {
         Ok(AdmittedReceipt(receipt))
     }
 }
+impl ExecutionReceipt {
+    /// Current runtime/descriptor/parameters must be observed for this activity;
+    /// copying these pins from history is not a reconcile operation.
+    pub fn required_determinants(&self) -> Vec<Determinant> {
+        let key = self.derivation.as_str().to_owned();
+        let mut values = vec![
+            Determinant {
+                class: DependencyClass::Runtime,
+                key: key.clone(),
+                digest: self.operation.runtime.clone(),
+            },
+            Determinant {
+                class: DependencyClass::Descriptor,
+                key: key.clone(),
+                digest: self.operation.descriptor.clone(),
+            },
+            Determinant {
+                class: DependencyClass::Parameters,
+                key: key.clone(),
+                digest: self.operation.parameters.clone(),
+            },
+        ];
+        if let Some(recipe) = &self.operation.recipe {
+            values.push(Determinant {
+                class: DependencyClass::Recipe,
+                key,
+                digest: recipe.clone(),
+            });
+        }
+        values.extend(self.determinants.iter().cloned());
+        values
+    }
+}

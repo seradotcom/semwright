@@ -1,5 +1,9 @@
 //! Project identity and evidence, not an execution authority or conversation memory.
 //! Composition's owner, resources, base states, digests and verification are reused.
+mod query;
+pub use query::*;
+mod graph;
+pub use graph::*;
 mod identity;
 mod knowledge;
 mod model;
