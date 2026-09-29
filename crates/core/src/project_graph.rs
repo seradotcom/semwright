@@ -4,7 +4,7 @@
 //! request sessions remain ephemeral and are never persisted as ownership.
 use super::*;
 use g::composition::{self as c, Digest, Owner, PrincipalBinding};
-use semwright_platform_api::filesystem::{ScopedFilesystem, ScopedRoot};
+use semwright_platform_api::filesystem::ScopedFilesystem;
 use semwright_project_graph as g;
 use std::path::{Path, PathBuf};
 const MAX_OPEN_PROJECTS: usize = 8;
@@ -98,10 +98,10 @@ impl ProjectGraphs {
         self.cursors.revoke_session(session);
     }
     fn evict_one(&mut self) {
-        if self.stores.len() >= MAX_OPEN_PROJECTS {
-            if let Some(id) = self.stores.keys().next().cloned() {
-                self.stores.remove(&id);
-            }
+        if self.stores.len() >= MAX_OPEN_PROJECTS
+            && let Some(id) = self.stores.keys().next().cloned()
+        {
+            self.stores.remove(&id);
         }
     }
     fn create(
@@ -213,7 +213,7 @@ impl ProjectGraphs {
                 | "project.manifest.export"
         );
         let full = g::ProjectAccess::authorized(
-            owner,
+            owner.clone(),
             id.clone(),
             None,
             write,
@@ -248,6 +248,7 @@ impl ProjectGraphs {
                             graph,
                             &full,
                             context,
+                            &owner,
                             root,
                             &asset.id,
                             byte_limit(args),
@@ -284,6 +285,7 @@ impl ProjectGraphs {
                             graph,
                             &scoped,
                             context,
+                            &owner,
                             root,
                             &asset,
                             byte_limit(args),
@@ -311,6 +313,7 @@ impl ProjectGraphs {
                             graph,
                             &scoped,
                             context,
+                            &owner,
                             root,
                             &asset,
                             byte_limit(args),
@@ -436,6 +439,7 @@ fn reconcile(
     graph: &mut g::ProjectGraph,
     access: &g::ProjectAccess,
     context: &Context,
+    owner: &Owner,
     grant: &semwright_policy::FilesystemGrant,
     id: &g::LogicalAssetId,
     limit: usize,
@@ -510,38 +514,47 @@ fn reconcile(
             .as_millis(),
     )
     .map_err(|_| g::GraphError::Invalid("Observation clock range"))?;
-    graph.observe(
-        access,
-        g::RevisionRecord {
-            pin: g::RevisionPin {
-                asset: id.clone(),
-                revision: g::AssetRevision::new(),
-                fingerprint: g::Fingerprint {
-                    bytes: Some(digest.clone()),
-                    projection: None,
-                },
-                equivalence: g::Equivalence::ExactBytes,
-            },
-            observed_unix_ms: now,
-            binding_generation: view.binding_generation,
-            observation: c::ObservationRef {
-                id: format!("file-observation-{}", uuid::Uuid::new_v4()),
-                base,
-                source: c::EvidenceSource::FileRead,
-                method: observation.method.into(),
-                method_version: observation.method_version,
-                scope: vec![c::Address {
-                    resource,
-                    logical_id: id.as_str().into(),
-                    property: "bytes".into(),
-                }],
-                artifact: Some(digest),
-                exhaustive: true,
-            },
-            // Full bytes are observed; native dependency extraction is NOT provided by a generic read.
-            coverage: g::Coverage::unknown(),
+    let method = observation.method.to_owned();
+    let adapter = g::RevisionAdapter::registered(
+        resource.clone(),
+        c::EvidenceSource::FileRead,
+        method.clone(),
+        observation.method_version,
+    )?;
+    let candidate = g::RevisionCandidate {
+        asset: id.clone(),
+        fingerprint: g::Fingerprint {
+            bytes: Some(digest.clone()),
+            projection: None,
         },
-    )
+        equivalence: g::Equivalence::ExactBytes,
+        observed_unix_ms: now,
+        binding_generation: view.binding_generation,
+        observation: c::ObservationRef {
+            id: format!("file-observation-{}", uuid::Uuid::new_v4()),
+            base,
+            source: c::EvidenceSource::FileRead,
+            method,
+            method_version: observation.method_version,
+            scope: vec![c::Address {
+                resource,
+                logical_id: id.as_str().into(),
+                property: "bytes".into(),
+            }],
+            artifact: Some(digest),
+            exhaustive: true,
+        },
+        // Full bytes are observed; native dependency extraction is NOT provided by a generic read.
+        coverage: g::Coverage::unknown(),
+    };
+    let admitted = adapter.admit(
+        owner,
+        graph.project_id(),
+        id,
+        view.binding_generation,
+        candidate,
+    )?;
+    graph.accept_revision(access, admitted)
 }
 fn prospective_canonical_directory(directory: &Path) -> Result<PathBuf> {
     if !directory.is_absolute() {

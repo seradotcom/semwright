@@ -270,7 +270,7 @@ fn rebind_is_audited_generation_and_old_observation_cannot_resolve_it() {
     )
     .unwrap();
     assert_eq!(g.inspect(&a, id).unwrap().binding_generation, 2);
-    assert!(g.observe(&a, observation(id, "x", 7)).is_err());
+    assert!(accept_observation(&mut g, &a, observation(id, "x", 7)).is_err());
     assert_eq!(g.revisions(&a, id, None, 256).unwrap().len(), 1);
 }
 
@@ -309,7 +309,7 @@ fn synthetic_changed_observation_cannot_prove_native_staleness() {
     let (mut g, a, records) = chain();
     let mut fake = observation(&records[0].pin.asset, "synthetic change", 9);
     fake.observation.source = EvidenceSource::Fixture;
-    g.observe(&a, fake).unwrap();
+    accept_observation(&mut g, &a, fake).unwrap();
     assert_eq!(
         g.inspect(&a, &records[0].pin.asset)
             .unwrap()
@@ -373,7 +373,7 @@ fn same_bytes_after_explicit_rebind_do_not_validate_old_derivation() {
         .unwrap();
     let mut new = observation(id, "x", 10);
     new.binding_generation = 2;
-    graph.observe(&access, new).unwrap();
+    accept_observation(&mut graph, &access, new).unwrap();
     assert_eq!(
         graph
             .inspect(&access, &records[2].pin.asset)
@@ -476,6 +476,222 @@ fn external_intent_visibility_does_not_leak_hidden_affected_resources() {
     .unwrap();
     assert!(matches!(
         g.external_intent(&subset, &intent_id),
+        Err(GraphError::Denied)
+    ));
+}
+
+fn native_revision_candidate(
+    graph: &ProjectGraph,
+    asset: &LogicalAssetId,
+    source: EvidenceSource,
+    method: &str,
+    coverage: Coverage,
+) -> (composition::ResourceKey, RevisionCandidate) {
+    let resource = composition::ResourceKey {
+        provider: "godot".into(),
+        resource: "managed:fixture-project".into(),
+    };
+    let fingerprint = digest("native-readback");
+    (
+        resource.clone(),
+        RevisionCandidate {
+            asset: asset.clone(),
+            fingerprint: Fingerprint {
+                bytes: Some(fingerprint.clone()),
+                projection: None,
+            },
+            equivalence: Equivalence::ExactBytes,
+            observed_unix_ms: 100,
+            binding_generation: 1,
+            observation: composition::ObservationRef {
+                id: "godot-native-observation".into(),
+                base: composition::BaseStateSet(vec![composition::BaseState {
+                    key: resource.clone(),
+                    document_id: graph.project_id().as_str().into(),
+                    provider_session: "driver-session".into(),
+                    generation: "godot-native-v1".into(),
+                    revision: composition::Revision::Fingerprint(fingerprint.clone()),
+                    concurrency: composition::Concurrency::BestEffortRevalidate,
+                }]),
+                source,
+                method: method.into(),
+                method_version: 1,
+                scope: vec![composition::Address {
+                    resource,
+                    logical_id: "scene/main".into(),
+                    property: "native_readback".into(),
+                }],
+                artifact: Some(fingerprint),
+                exhaustive: true,
+            },
+            coverage,
+        },
+    )
+}
+
+#[test]
+fn registered_revision_adapter_assigns_revision_without_creating_activity() {
+    let (mut graph, access) = setup();
+    let asset = asset(&mut graph, &access, "native-scene");
+    let (resource, candidate) = native_revision_candidate(
+        &graph,
+        &asset,
+        EvidenceSource::NativeApi,
+        "godot_native_project_observation",
+        Coverage::unknown(),
+    );
+    let wire = serde_json::to_value(&candidate).unwrap();
+    assert!(wire.get("revision").is_none());
+
+    let adapter = RevisionAdapter::registered(
+        resource,
+        EvidenceSource::NativeApi,
+        "godot_native_project_observation".into(),
+        1,
+    )
+    .unwrap();
+    let admitted = adapter
+        .admit(&owner(), graph.project_id(), &asset, 1, candidate)
+        .unwrap();
+    let revision = admitted.record().pin.revision.clone();
+    graph.accept_revision(&access, admitted).unwrap();
+
+    assert_eq!(
+        graph.inspect(&access, &asset).unwrap().latest_revision,
+        Some(revision)
+    );
+    let impact = graph
+        .impact(&access, &asset, budget(), &AtomicBool::new(false))
+        .unwrap();
+    assert!(impact.known.is_empty());
+    assert!(
+        !graph
+            .inspect(&access, &asset)
+            .unwrap()
+            .knowledge
+            .cache_safe()
+    );
+}
+
+#[test]
+fn revision_adapter_rejects_method_project_generation_and_source_substitution() {
+    let (mut graph, access) = setup();
+    let asset = asset(&mut graph, &access, "native-scene");
+    let (resource, candidate) = native_revision_candidate(
+        &graph,
+        &asset,
+        EvidenceSource::NativeApi,
+        "godot_native_project_observation",
+        Coverage::unknown(),
+    );
+    let adapter = RevisionAdapter::registered(
+        resource.clone(),
+        EvidenceSource::NativeApi,
+        "godot_native_project_observation".into(),
+        1,
+    )
+    .unwrap();
+
+    let mut wrong_method = candidate.clone();
+    wrong_method.observation.method = "client_claimed_native".into();
+    assert!(matches!(
+        adapter.admit(&owner(), graph.project_id(), &asset, 1, wrong_method),
+        Err(GraphError::Denied)
+    ));
+
+    assert!(matches!(
+        adapter.admit(&owner(), &ProjectId::new(), &asset, 1, candidate.clone(),),
+        Err(GraphError::Denied)
+    ));
+    assert!(matches!(
+        adapter.admit(&owner(), graph.project_id(), &asset, 2, candidate.clone()),
+        Err(GraphError::Denied)
+    ));
+
+    let other = RevisionAdapter::registered(
+        resource,
+        EvidenceSource::FileRead,
+        "godot_native_project_observation".into(),
+        1,
+    )
+    .unwrap();
+    assert!(matches!(
+        other.admit(&owner(), graph.project_id(), &asset, 1, candidate),
+        Err(GraphError::Denied)
+    ));
+}
+
+#[test]
+fn admitted_partial_native_revision_remains_unknown_not_cache_safe() {
+    let (mut graph, access) = setup();
+    let asset = asset(&mut graph, &access, "native-scene");
+    let mut unknown = std::collections::BTreeSet::new();
+    unknown.insert(DependencyClass::ImportSettings);
+    let (resource, candidate) = native_revision_candidate(
+        &graph,
+        &asset,
+        EvidenceSource::NativeApi,
+        "godot_native_project_observation",
+        Coverage {
+            complete: false,
+            unknown_frontier: unknown,
+        },
+    );
+    let adapter = RevisionAdapter::registered(
+        resource,
+        EvidenceSource::NativeApi,
+        "godot_native_project_observation".into(),
+        1,
+    )
+    .unwrap();
+    let admitted = adapter
+        .admit(&owner(), graph.project_id(), &asset, 1, candidate)
+        .unwrap();
+    graph.accept_revision(&access, admitted).unwrap();
+
+    let knowledge = graph.inspect(&access, &asset).unwrap().knowledge;
+    assert_eq!(knowledge.verification, Verdict::Unknown);
+    assert!(!knowledge.coverage.cache_safe());
+    assert!(!knowledge.cache_safe());
+}
+
+#[test]
+fn admitted_revision_is_owner_bound_and_nonexhaustive_complete_claim_is_rejected() {
+    let (mut graph, access) = setup();
+    let asset = asset(&mut graph, &access, "native-scene");
+    let (resource, mut candidate) = native_revision_candidate(
+        &graph,
+        &asset,
+        EvidenceSource::NativeApi,
+        "godot_native_project_observation",
+        Coverage::complete(),
+    );
+    candidate.observation.exhaustive = false;
+    assert!(candidate.validate().is_err());
+
+    candidate.observation.exhaustive = true;
+    let adapter = RevisionAdapter::registered(
+        resource,
+        EvidenceSource::NativeApi,
+        "godot_native_project_observation".into(),
+        1,
+    )
+    .unwrap();
+    let admitted = adapter
+        .admit(&owner(), graph.project_id(), &asset, 1, candidate)
+        .unwrap();
+    let mut other_owner = owner();
+    other_owner.session = "other-session".into();
+    let other = ProjectAccess::authorized(
+        other_owner,
+        graph.project_id().clone(),
+        None,
+        true,
+        digest("grants"),
+    )
+    .unwrap();
+    assert!(matches!(
+        graph.accept_revision(&other, admitted),
         Err(GraphError::Denied)
     ));
 }

@@ -20,6 +20,9 @@ fuzz_target!(|data: &[u8]| {
     let _ = composition::strict_decode::<Fingerprint>(data);
     let _ = composition::strict_decode::<DurableLocator>(data);
     let _ = composition::strict_decode::<RevisionRecord>(data);
+    if let Ok(candidate) = composition::strict_decode::<RevisionCandidate>(data) {
+        let _ = candidate.validate();
+    }
     if let Ok(intent) = composition::strict_decode::<ExternalIntent>(data) {
         let _ = intent.validate();
     }

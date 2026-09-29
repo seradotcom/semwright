@@ -192,6 +192,7 @@ async fn project_service_requires_host_configuration_and_exposes_no_receipt_admi
     assert_eq!(unavailable.error.unwrap().code, ErrorCode::Unavailable);
 
     assert!(unconfigured.describe("project.receipt.admit").is_err());
+    assert!(unconfigured.describe("project.revision.admit").is_err());
     assert!(unconfigured.describe("project.rebuild.execute").is_err());
 }
 

@@ -397,11 +397,19 @@ impl ProjectGraph {
             true,
         )
     }
-    /// Host-only observation ingress: callers cannot expose this as an arbitrary JSON route.
-    pub fn observe(&mut self, access: &ProjectAccess, record: RevisionRecord) -> Result<()> {
-        self.visible(access, &record.pin.asset)?;
+    /// Trusted live observation ingress. `AdmittedRevision` can only be created
+    /// by a registered RevisionAdapter; raw RevisionRecord JSON has no promotion path.
+    pub fn accept_revision(
+        &mut self,
+        access: &ProjectAccess,
+        revision: AdmittedRevision,
+    ) -> Result<()> {
         self.access(access, true)?;
-        self.apply(GraphEvent::Observe(record), true)
+        if revision.project != self.project || revision.owner != access.owner {
+            return Err(GraphError::Denied);
+        }
+        self.visible(access, &revision.record.pin.asset)?;
+        self.apply(GraphEvent::Observe(revision.record), true)
     }
     pub fn record_probe(
         &mut self,

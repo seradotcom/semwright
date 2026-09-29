@@ -73,6 +73,50 @@ pub fn observation(id: &LogicalAssetId, bytes: &str, tick: u64) -> RevisionRecor
         coverage: Coverage::complete(),
     }
 }
+pub fn accept_observation(
+    graph: &mut ProjectGraph,
+    access: &ProjectAccess,
+    mut record: RevisionRecord,
+) -> Result<RevisionRecord> {
+    let resource = record
+        .observation
+        .scope
+        .first()
+        .ok_or(GraphError::Invalid("fixture observation scope"))?
+        .resource
+        .clone();
+    for state in &mut record.observation.base.0 {
+        if state.key == resource {
+            state.document_id = graph.project_id().as_str().into();
+        }
+    }
+    let current_generation = graph.inspect(access, &record.pin.asset)?.binding_generation;
+    let adapter = RevisionAdapter::registered(
+        resource,
+        record.observation.source,
+        record.observation.method.clone(),
+        record.observation.method_version,
+    )?;
+    let candidate = RevisionCandidate {
+        asset: record.pin.asset.clone(),
+        fingerprint: record.pin.fingerprint.clone(),
+        equivalence: record.pin.equivalence,
+        observed_unix_ms: record.observed_unix_ms,
+        binding_generation: record.binding_generation,
+        observation: record.observation,
+        coverage: record.coverage,
+    };
+    let admitted = adapter.admit(
+        &owner(),
+        graph.project_id(),
+        &record.pin.asset,
+        current_generation,
+        candidate,
+    )?;
+    let accepted = admitted.record().clone();
+    graph.accept_revision(access, admitted)?;
+    Ok(accepted)
+}
 pub fn observe(
     graph: &mut ProjectGraph,
     access: &ProjectAccess,
@@ -80,9 +124,7 @@ pub fn observe(
     bytes: &str,
     tick: u64,
 ) -> RevisionRecord {
-    let r = observation(id, bytes, tick);
-    graph.observe(access, r.clone()).unwrap();
-    r
+    accept_observation(graph, access, observation(id, bytes, tick)).unwrap()
 }
 pub fn receipt(
     project: ProjectId,

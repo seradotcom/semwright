@@ -1,6 +1,6 @@
 use crate::composition::{
-    BaseStateSet, Digest, ExecutionStatus, ObservationRef, Owner, ResourceKey, VerificationReport,
-    canonical_digest,
+    BaseStateSet, Digest, EvidenceSource, ExecutionStatus, ObservationRef, Owner, ResourceKey,
+    VerificationReport, canonical_digest,
 };
 use crate::{
     AssetRevision, DerivationId, ExternalIntentId, LogicalAssetId, MAX_DEPENDENCIES, ProjectId,
@@ -258,6 +258,150 @@ impl RevisionRecord {
                 && self.observation.method_version > 0,
             "revision observation version/time",
         )
+    }
+}
+
+/// Untrusted native/readback observation candidate. It contains no durable
+/// revision identity and certifies no production activity.
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct RevisionCandidate {
+    pub asset: LogicalAssetId,
+    pub fingerprint: Fingerprint,
+    pub equivalence: Equivalence,
+    pub observed_unix_ms: u64,
+    pub binding_generation: u64,
+    pub observation: ObservationRef,
+    pub coverage: Coverage,
+}
+impl RevisionCandidate {
+    pub fn validate(&self) -> Result<()> {
+        self.fingerprint.validate()?;
+        self.coverage.validate()?;
+        self.observation.base.validate()?;
+        name(&self.observation.id)?;
+        name(&self.observation.method)?;
+        ensure(
+            self.observed_unix_ms > 0
+                && self.binding_generation > 0
+                && self.observation.method_version > 0
+                && !self.observation.scope.is_empty()
+                && self.observation.scope.len() <= 4096,
+            "revision candidate observation bounds",
+        )?;
+        ensure(
+            self.observation.exhaustive || !self.coverage.complete,
+            "non-exhaustive observation cannot claim complete coverage",
+        )?;
+        for address in &self.observation.scope {
+            name(&address.logical_id)?;
+            name(&address.property)?;
+            name(&address.resource.provider)?;
+            name(&address.resource.resource)?;
+            ensure(
+                self.observation
+                    .base
+                    .0
+                    .iter()
+                    .any(|state| state.key == address.resource),
+                "revision scope resource absent from observation base",
+            )?;
+        }
+        canonical_digest(self)?;
+        Ok(())
+    }
+}
+
+/// Trusted-host promotion of a native/readback observation. No Deserialize
+/// implementation exists, so caller JSON cannot acquire this authority.
+#[derive(Debug, Clone)]
+pub struct AdmittedRevision {
+    pub(crate) project: ProjectId,
+    pub(crate) owner: Owner,
+    pub(crate) record: RevisionRecord,
+}
+impl AdmittedRevision {
+    pub fn record(&self) -> &RevisionRecord {
+        &self.record
+    }
+}
+
+/// Registered observation origin/method binding. This adapter admits evidence;
+/// it does not verify effects, create activities or authorize native execution.
+pub struct RevisionAdapter {
+    resource: ResourceKey,
+    source: EvidenceSource,
+    method: String,
+    method_version: u32,
+}
+impl RevisionAdapter {
+    pub fn registered(
+        resource: ResourceKey,
+        source: EvidenceSource,
+        method: String,
+        method_version: u32,
+    ) -> Result<Self> {
+        name(&resource.provider)?;
+        name(&resource.resource)?;
+        name(&method)?;
+        ensure(method_version > 0, "revision adapter method version")?;
+        Ok(Self {
+            resource,
+            source,
+            method,
+            method_version,
+        })
+    }
+
+    pub fn admit(
+        &self,
+        authenticated: &Owner,
+        project: &ProjectId,
+        expected_asset: &LogicalAssetId,
+        expected_generation: u64,
+        candidate: RevisionCandidate,
+    ) -> Result<AdmittedRevision> {
+        candidate.validate()?;
+        if &candidate.asset != expected_asset
+            || candidate.binding_generation != expected_generation
+            || candidate.observation.source != self.source
+            || candidate.observation.method != self.method
+            || candidate.observation.method_version != self.method_version
+        {
+            return Err(crate::GraphError::Denied);
+        }
+        let base = candidate
+            .observation
+            .base
+            .0
+            .iter()
+            .find(|state| state.key == self.resource)
+            .ok_or(crate::GraphError::Denied)?;
+        if base.document_id != project.as_str()
+            || !candidate
+                .observation
+                .scope
+                .iter()
+                .any(|address| address.resource == self.resource)
+        {
+            return Err(crate::GraphError::Denied);
+        }
+        Ok(AdmittedRevision {
+            project: project.clone(),
+            owner: authenticated.clone(),
+            record: RevisionRecord {
+                pin: RevisionPin {
+                    asset: candidate.asset,
+                    revision: AssetRevision::new(),
+                    fingerprint: candidate.fingerprint,
+                    equivalence: candidate.equivalence,
+                },
+                observed_unix_ms: candidate.observed_unix_ms,
+                binding_generation: candidate.binding_generation,
+                observation: candidate.observation,
+                coverage: candidate.coverage,
+            },
+        })
     }
 }
 #[derive(
