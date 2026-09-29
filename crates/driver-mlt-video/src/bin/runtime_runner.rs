@@ -134,10 +134,9 @@ fn main() {
             });
             match serde_json::to_string(&value) {
                 Ok(encoded) if encoded.len() <= 4096 => print!("{encoded}"),
-                _ => print!(
-                    "{}",
-                    r#"{"schema":1,"operation":"error","error":"runtime runner failed"}"#
-                ),
+                _ => {
+                    print!(r#"{{"schema":1,"operation":"error","error":"runtime runner failed"}}"#)
+                }
             }
             std::process::exit(2);
         }
@@ -146,8 +145,7 @@ fn main() {
         Ok(encoded) if encoded.len() <= 256 * 1024 => print!("{encoded}"),
         _ => {
             print!(
-                "{}",
-                r#"{"schema":1,"operation":"error","error":"runtime runner output exceeded its bound"}"#
+                r#"{{"schema":1,"operation":"error","error":"runtime runner output exceeded its bound"}}"#
             );
             std::process::exit(1);
         }
