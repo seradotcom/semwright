@@ -1654,7 +1654,7 @@ impl Driver for BlenderDriver {
         if authoring_runtime::handles(command) {
             return Err(Error::new(
                 ErrorCode::Unsupported,
-                "Authoring requires trusted protocol-v2 execution context",
+                "Authoring requires trusted protocol-v3 request context",
             ));
         }
         let capability = capability(command)?;

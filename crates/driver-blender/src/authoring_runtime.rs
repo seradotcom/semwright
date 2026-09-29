@@ -219,7 +219,7 @@ pub(super) fn capabilities() -> Vec<Capability> {
         .map(|(phase, input, output, risk)| {
             let mut capability = descriptor(
                 &format!("driver.blender.composition.{phase}"),
-                "Bounded Blender native authoring; requires trusted protocol-v2 execution context",
+                "Bounded Blender native authoring; requires trusted protocol-v3 request context",
                 input,
                 output,
                 &["composition"],
