@@ -41,8 +41,9 @@ class DevelopmentPackageTests(unittest.TestCase):
                 self.assertIn("docs/composition/DEMO_PRODUCTION_HANDOFF.md", paths)
                 self.assertIn("skills/semwright-video-production/SKILL.md", paths)
                 self.assertIn("integrations/motion-canvas/runtime/package-lock.json", paths)
-                self.assertNotIn("target", "/".join(paths))
-                self.assertNotIn("node_modules", "/".join(paths))
+                parts = {part for value in paths for part in Path(value).parts}
+                self.assertNotIn("target", parts)
+                self.assertNotIn("node_modules", parts)
 
     def test_archive_rejects_path_traversal(self):
         with tempfile.TemporaryDirectory(prefix="composition-package-hostile-") as temp:

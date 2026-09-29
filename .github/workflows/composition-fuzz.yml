@@ -1,0 +1,125 @@
+name: Composition fuzz
+
+on:
+  push:
+    branches: [feat/composition-media]
+    paths:
+      - 'crates/semantic-composition/**'
+      - 'crates/media-time/**'
+      - 'crates/motion-authoring/**'
+      - 'crates/av-composition/**'
+      - 'fuzz/Cargo.toml'
+      - 'fuzz/fuzz_targets/composition_contract.rs'
+      - 'fuzz/fuzz_targets/media_time_contract.rs'
+      - 'fuzz/fuzz_targets/motion_authoring_contract.rs'
+      - 'fuzz/fuzz_targets/av_contract.rs'
+      - '.github/workflows/composition-fuzz.yml'
+  pull_request:
+    paths:
+      - 'crates/semantic-composition/**'
+      - 'crates/media-time/**'
+      - 'crates/motion-authoring/**'
+      - 'crates/av-composition/**'
+      - 'fuzz/Cargo.toml'
+      - 'fuzz/fuzz_targets/composition_contract.rs'
+      - 'fuzz/fuzz_targets/media_time_contract.rs'
+      - 'fuzz/fuzz_targets/motion_authoring_contract.rs'
+      - 'fuzz/fuzz_targets/av_contract.rs'
+      - '.github/workflows/composition-fuzz.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: composition-fuzz-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: nightly-2026-09-18
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: composition-fuzz-v1
+          workspaces: fuzz
+      - name: Install pinned cargo-fuzz
+        run: |
+          rustup toolchain install 1.98.1 --profile minimal
+          cargo +1.98.1 install --locked cargo-fuzz --version 0.13.2
+      - name: Validate target allowlist and run bounded fuzz smoke
+        run: |
+          set -euo pipefail
+          mkdir -p verification/composition-fuzz
+          targets=(
+            composition_contract
+            media_time_contract
+            motion_authoring_contract
+            av_contract
+          )
+          cargo +nightly-2026-09-18 fuzz list | sort > verification/composition-fuzz/targets.txt
+          for target in "${targets[@]}"; do
+            grep -Fx -- "$target" verification/composition-fuzz/targets.txt >/dev/null
+            cargo +nightly-2026-09-18 fuzz run "$target" -- \
+              -max_total_time=20 \
+              -timeout=3 \
+              -rss_limit_mb=1024 \
+              -max_len=65536 \
+              2>&1 | tee "verification/composition-fuzz/$target.log"
+          done
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          root = Path("verification/composition-fuzz")
+          targets = [
+              "composition_contract",
+              "media_time_contract",
+              "motion_authoring_contract",
+              "av_contract",
+          ]
+          result = {
+              "schema_version": 1,
+              "tested_sha": os.environ["GITHUB_SHA"],
+              "run_id": os.environ["GITHUB_RUN_ID"],
+              "run_attempt": os.environ["GITHUB_RUN_ATTEMPT"],
+              "runner": os.environ["RUNNER_OS"],
+              "targets": [],
+              "claim_scope": "bounded fuzz smoke; absence of crashes is not proof of absence of defects",
+          }
+          for target in targets:
+              path = root / f"{target}.log"
+              if not path.is_file():
+                  raise SystemExit(f"missing fuzz log: {target}")
+              text = path.read_text(errors="replace")
+              if "ERROR: libFuzzer" in text or "SUMMARY: libFuzzer" in text:
+                  raise SystemExit(f"fuzz target failed: {target}")
+              result["targets"].append({
+                  "name": target,
+                  "log_bytes": path.stat().st_size,
+                  "executed": True,
+              })
+          (root / "summary.json").write_text(json.dumps(result, indent=2) + "\n")
+          PY
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: composition-fuzz-${{ github.sha }}
+          path: |
+            verification/composition-fuzz
+            fuzz/artifacts/composition_contract
+            fuzz/artifacts/media_time_contract
+            fuzz/artifacts/motion_authoring_contract
+            fuzz/artifacts/av_contract
+          retention-days: 7
+          if-no-files-found: error
