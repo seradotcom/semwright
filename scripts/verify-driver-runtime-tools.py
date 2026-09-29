@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Reject new ambient executable discovery in production application-driver source."""
+"""Reject new application-driver runtime discovery and private resolver patterns."""
 
 from __future__ import annotations
 
@@ -14,12 +14,20 @@ PATTERNS = (
     re.compile(r'Command::new\(\s*"(?:which|where(?:\.exe)?)"\s*\)'),
     re.compile(r"(?i)[A-Z]:\\\\Program Files\\\\"),
     re.compile(r"/Applications/[^\s\"']+\.app/"),
+    re.compile(r"\btool_path\("),
+    re.compile(r'"runtime\.json"'),
+    re.compile(r"/plugin/tools/"),
 )
-# Existing persistent-runtime debt. Exact counts prevent the baseline from growing.
+
+# Existing runtime debt. Exact counts make this a ratchet: entries may disappear
+# as drivers migrate to generic primitives, but they may never grow silently.
 LEGACY_COUNTS = {
+    ("crates/driver-blender/src/main.rs", "tool_path("): 1,
     ("crates/driver-libreoffice/src/main.rs", "/usr/bin/python3"): 1,
     ("crates/driver-libreoffice/src/main.rs", "/usr/bin/soffice"): 1,
     ("crates/driver-libreoffice/src/main.rs", "/usr/bin/sh"): 1,
+    ("crates/driver-mlt-video/src/app.rs", '"runtime.json"'): 1,
+    ("crates/driver-motion-canvas/src/renderer.rs", '"runtime.json"'): 1,
 }
 
 issues: list[str] = []
@@ -37,12 +45,21 @@ for path in sorted((ROOT / "crates").glob("driver-*/src/**/*.rs")):
                 if key in LEGACY_COUNTS:
                     legacy_seen[key] += 1
                 else:
-                    issues.append(f"{rel}:{line_no}: ambient executable discovery: {token}")
+                    issues.append(
+                        f"{rel}:{line_no}: driver-owned runtime resolution is not allowed: {token}"
+                    )
 
 for key, expected in sorted(LEGACY_COUNTS.items()):
     actual = legacy_seen[key]
     if actual != expected:
-        issues.append(f"legacy baseline changed: {key[0]}: {key[1]} expected={expected} actual={actual}")
+        issues.append(
+            f"legacy runtime baseline changed: {key[0]}: {key[1]} "
+            f"expected={expected} actual={actual}"
+        )
+
 if issues:
     raise SystemExit("driver runtime-tool boundary failed:\n" + "\n".join(issues))
-print(f"driver runtime-tool boundary: PASS; tracked legacy entries={sum(legacy_seen.values())}")
+print(
+    "driver runtime-tool boundary: PASS; "
+    f"tracked legacy entries={sum(legacy_seen.values())}"
+)
