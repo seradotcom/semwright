@@ -4,6 +4,8 @@
 mod store;
 #[cfg(feature = "store")]
 pub use store::*;
+mod rebuild;
+pub use rebuild::*;
 mod watch;
 pub use watch::*;
 mod query;

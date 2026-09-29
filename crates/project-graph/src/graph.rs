@@ -286,6 +286,11 @@ impl ProjectGraph {
         determinants: Vec<Determinant>,
     ) -> Result<()> {
         self.access(access, true)?;
+        // This operation replaces a project-wide observed set. A subset grant
+        // cannot overwrite determining inputs of assets it cannot inspect.
+        if access.visible.is_some() {
+            return Err(GraphError::Denied);
+        }
         self.apply(GraphEvent::Determinants(determinants), true)
     }
     pub fn invalidate_scope(
