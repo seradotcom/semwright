@@ -1,7 +1,5 @@
 use semwright_audio_domain::{
-    analysis::LoudnessAnalysis,
-    signal_analysis::SignalStatistics,
-    wav::WaveReader,
+    analysis::LoudnessAnalysis, signal_analysis::SignalStatistics, wav::WaveReader,
 };
 use semwright_driver_sdk::{DriverExecutionContext, tool_path, workspace_mount};
 use semwright_types::{Error, ErrorCode, Result};
@@ -42,7 +40,9 @@ impl AnalysisRuntime {
         let input_root = workspace_mount("analysis-input")?;
         let metadata = fs::symlink_metadata(&input_root)?;
         if metadata.file_type().is_symlink() || !metadata.is_dir() {
-            return Err(Error::invalid("Audio analysis input grant must be a real directory"));
+            return Err(Error::invalid(
+                "Audio analysis input grant must be a real directory",
+            ));
         }
         let meter = tool_path(METER_NAME)?;
         regular(&meter, 64 * 1024 * 1024)?;
@@ -59,7 +59,9 @@ impl AnalysisRuntime {
         validate_name(file_name)?;
         validate_digest(expected_sha256)?;
         if !matches!(layout, "mono" | "stereo") {
-            return Err(Error::invalid("Audio analysis layout must be mono or stereo"));
+            return Err(Error::invalid(
+                "Audio analysis layout must be mono or stereo",
+            ));
         }
         if let Some(context) = context {
             context.check_cancelled()?;
@@ -98,7 +100,11 @@ impl AnalysisRuntime {
             file_name: file_name.into(),
             sha256,
             bytes,
-            format: if file_name.ends_with(".wav") { "wav" } else { "flac" },
+            format: if file_name.ends_with(".wav") {
+                "wav"
+            } else {
+                "flac"
+            },
             loudness,
             statistics,
         })
@@ -118,19 +124,27 @@ impl AnalysisRuntime {
             .stderr(Stdio::piped())
             .kill_on_drop(true)
             .spawn()?;
-        let stdout = child.stdout.take().ok_or_else(|| Error::unavailable("meter stdout"))?;
-        let stderr = child.stderr.take().ok_or_else(|| Error::unavailable("meter stderr"))?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| Error::unavailable("meter stdout"))?;
+        let stderr = child
+            .stderr
+            .take()
+            .ok_or_else(|| Error::unavailable("meter stderr"))?;
         let cancellation = context.map(DriverExecutionContext::cancellation);
         let work = async {
-            let (stdout, stderr, status) = tokio::try_join!(
-                bounded(stdout),
-                bounded(stderr),
-                async { child.wait().await.map_err(Error::from) }
-            )?;
+            let (stdout, stderr, status) =
+                tokio::try_join!(bounded(stdout), bounded(stderr), async {
+                    child.wait().await.map_err(Error::from)
+                })?;
             if !status.success() {
                 return Err(Error::new(
                     ErrorCode::BackendFailed,
-                    format!("Pinned audio meter failed with {} stderr bytes", stderr.len()),
+                    format!(
+                        "Pinned audio meter failed with {} stderr bytes",
+                        stderr.len()
+                    ),
                 ));
             }
             let value: LoudnessAnalysis = serde_json::from_slice(&stdout)?;
@@ -146,7 +160,12 @@ impl AnalysisRuntime {
         } else {
             tokio::time::timeout(Duration::from_secs(30), work)
                 .await
-                .unwrap_or_else(|_| Err(Error::new(ErrorCode::Timeout, "Audio analysis exceeded runtime budget")))
+                .unwrap_or_else(|_| {
+                    Err(Error::new(
+                        ErrorCode::Timeout,
+                        "Audio analysis exceeded runtime budget",
+                    ))
+                })
         };
         if result.is_err() {
             let _ = child.kill().await;
@@ -158,7 +177,10 @@ impl AnalysisRuntime {
 
 async fn bounded<R: tokio::io::AsyncRead + Unpin>(reader: R) -> Result<Vec<u8>> {
     let mut data = Vec::new();
-    reader.take((MAX_OUTPUT_BYTES + 1) as u64).read_to_end(&mut data).await?;
+    reader
+        .take((MAX_OUTPUT_BYTES + 1) as u64)
+        .read_to_end(&mut data)
+        .await?;
     if data.len() > MAX_OUTPUT_BYTES {
         return Err(Error::new(
             ErrorCode::ResourceExhausted,
@@ -174,9 +196,14 @@ fn snapshot_input(source: &Path, file_name: &str) -> Result<(TempDir, PathBuf, S
     let mut input = File::open(source)?;
     let opened = input.metadata()?;
     same_file(&before, &opened)?;
-    let temp = tempfile::Builder::new().prefix("semwright-audio-analysis-").tempdir()?;
+    let temp = tempfile::Builder::new()
+        .prefix("semwright-audio-analysis-")
+        .tempdir()?;
     let staged = temp.path().join(file_name);
-    let mut output = OpenOptions::new().write(true).create_new(true).open(&staged)?;
+    let mut output = OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&staged)?;
     let mut hash = Sha256::new();
     let mut copied = 0u64;
     let mut buffer = [0u8; 64 * 1024];
@@ -188,7 +215,12 @@ fn snapshot_input(source: &Path, file_name: &str) -> Result<(TempDir, PathBuf, S
         copied = copied
             .checked_add(count as u64)
             .filter(|size| *size <= MAX_INPUT_BYTES)
-            .ok_or_else(|| Error::new(ErrorCode::ResourceExhausted, "Audio input copy exceeded limit"))?;
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorCode::ResourceExhausted,
+                    "Audio input copy exceeded limit",
+                )
+            })?;
         output.write_all(&buffer[..count])?;
         hash.update(&buffer[..count]);
     }
@@ -205,13 +237,19 @@ fn snapshot_input(source: &Path, file_name: &str) -> Result<(TempDir, PathBuf, S
 
 fn same_file(before: &fs::Metadata, opened: &fs::Metadata) -> Result<()> {
     if before.len() != opened.len() {
-        return Err(Error::new(ErrorCode::Conflict, "Audio input changed before snapshot"));
+        return Err(Error::new(
+            ErrorCode::Conflict,
+            "Audio input changed before snapshot",
+        ));
     }
     #[cfg(unix)]
     {
         use std::os::unix::fs::MetadataExt;
         if before.dev() != opened.dev() || before.ino() != opened.ino() {
-            return Err(Error::new(ErrorCode::Conflict, "Audio input identity changed"));
+            return Err(Error::new(
+                ErrorCode::Conflict,
+                "Audio input identity changed",
+            ));
         }
     }
     Ok(())

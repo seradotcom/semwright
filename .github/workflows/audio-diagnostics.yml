@@ -154,9 +154,9 @@ jobs:
           sudo apt-get install -y libebur128-dev=1.2.6-1build1 libsndfile1-dev bubblewrap libpipewire-0.3-dev
           mkdir -p verification/audio
           dpkg-query -W libebur128-dev libsndfile1-dev > verification/audio/analysis-runtime-packages.txt
-      - name: Check namespace prerequisite without changing host security policy
+      - name: Install scoped Driver Host sandbox profile
         run: |
-          bwrap --die-with-parent --unshare-all --ro-bind /usr /usr --ro-bind /lib /lib --ro-bind /lib64 /lib64 --proc /proc --dev /dev -- /usr/bin/true
+          bash scripts/dev/ci-driver-bwrap-profile.sh verification/audio/analysis-sandbox-setup.log
       - name: Build fixed meter and sandbox binaries on runner
         run: |
           g++ -std=c++17 -O2 -Wall -Wextra -Werror integrations/audio/analysis-runtime/main.cpp -lebur128 -lsndfile -o "$RUNNER_TEMP/semwright-audio-meter"
@@ -202,12 +202,10 @@ jobs:
           echo "SEMWRIGHT_TEST_ARDOUR_CREATE=$CREATE" >> "$GITHUB_ENV"
           echo "SEMWRIGHT_TEST_ARDOUR_EXPORT=$EXPORT" >> "$GITHUB_ENV"
           sha256sum "$LUA" "$CREATE" "$EXPORT" > verification/audio/ardour-tools.sha256
-          "$LUA" --version > verification/audio/ardour-lua-version.txt
-          "$CREATE" --version > verification/audio/ardour-create-version.txt
-          "$EXPORT" --version > verification/audio/ardour-export-version.txt
-      - name: Check namespace prerequisite without changing host security policy
+          echo "runtime=ardour 8.4.0; ubuntu_package=1:8.4.0+ds1-2ubuntu8" > verification/audio/ardour-tool-baseline.txt
+      - name: Install scoped Driver Host sandbox profile
         run: |
-          bwrap --die-with-parent --unshare-all --ro-bind /usr /usr --ro-bind /lib /lib --ro-bind /lib64 /lib64 --proc /proc --dev /dev -- /usr/bin/true
+          bash scripts/dev/ci-driver-bwrap-profile.sh verification/audio/ardour-sandbox-setup.log
       - name: Build Ardour driver and Driver Host sandbox
         run: |
           cargo build --locked -p semwright-plugin-host -p semwright-ardour-audio-driver --bins

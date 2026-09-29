@@ -176,11 +176,17 @@ impl DeepRuntime {
         Ok(snapshot)
     }
 
-    pub async fn save_as(&self, source_state: &str, candidate_state: &str) -> Result<ArdourSnapshot> {
+    pub async fn save_as(
+        &self,
+        source_state: &str,
+        candidate_state: &str,
+    ) -> Result<ArdourSnapshot> {
         validate_state(source_state)?;
         validate_state(candidate_state)?;
         if source_state == candidate_state {
-            return Err(Error::invalid("Ardour save-as requires a distinct snapshot name"));
+            return Err(Error::invalid(
+                "Ardour save-as requires a distinct snapshot name",
+            ));
         }
         let candidate = self.state_path(candidate_state);
         if candidate.try_exists()? {
@@ -235,7 +241,8 @@ impl DeepRuntime {
         regular(&output, MAX_ARTIFACT_BYTES)?;
         let sha256 = file_sha256(&output, MAX_ARTIFACT_BYTES)?;
         let bytes = fs::metadata(&output)?.len();
-        let reader = WaveReader::open(File::open(&output)?, MAX_ARTIFACT_BYTES).map_err(domain_error)?;
+        let reader =
+            WaveReader::open(File::open(&output)?, MAX_ARTIFACT_BYTES).map_err(domain_error)?;
         let info = reader.info().clone();
         if info.sample_rate.0 != sample_rate
             || info.frames == 0
@@ -303,8 +310,14 @@ impl DeepRuntime {
             .stderr(Stdio::piped())
             .kill_on_drop(true);
         let mut child = command.spawn()?;
-        let stdout = child.stdout.take().ok_or_else(|| Error::unavailable("Ardour stdout"))?;
-        let stderr = child.stderr.take().ok_or_else(|| Error::unavailable("Ardour stderr"))?;
+        let stdout = child
+            .stdout
+            .take()
+            .ok_or_else(|| Error::unavailable("Ardour stdout"))?;
+        let stderr = child
+            .stderr
+            .take()
+            .ok_or_else(|| Error::unavailable("Ardour stderr"))?;
         let execution = async {
             let (stdout, stderr, status) = tokio::try_join!(
                 read_bounded(stdout, MAX_STDOUT_BYTES),
@@ -314,14 +327,20 @@ impl DeepRuntime {
             if !status.success() {
                 return Err(Error::new(
                     ErrorCode::BackendFailed,
-                    format!("Pinned Ardour tool exited unsuccessfully ({} stderr bytes)", stderr.len()),
+                    format!(
+                        "Pinned Ardour tool exited unsuccessfully ({} stderr bytes)",
+                        stderr.len()
+                    ),
                 ));
             }
             Ok::<Vec<u8>, Error>(stdout)
         };
-        timeout(RUN_TIMEOUT, execution)
-            .await
-            .map_err(|_| Error::new(ErrorCode::Timeout, "Ardour native tool exceeded runtime budget"))?
+        timeout(RUN_TIMEOUT, execution).await.map_err(|_| {
+            Error::new(
+                ErrorCode::Timeout,
+                "Ardour native tool exceeded runtime budget",
+            )
+        })?
     }
 
     fn state_path(&self, state: &str) -> PathBuf {
@@ -331,7 +350,10 @@ impl DeepRuntime {
 
 async fn read_bounded(reader: impl tokio::io::AsyncRead + Unpin, max: usize) -> Result<Vec<u8>> {
     let mut bytes = Vec::new();
-    reader.take((max + 1) as u64).read_to_end(&mut bytes).await?;
+    reader
+        .take((max + 1) as u64)
+        .read_to_end(&mut bytes)
+        .await?;
     if bytes.len() > max {
         return Err(Error::new(
             ErrorCode::ResourceExhausted,
@@ -342,12 +364,21 @@ async fn read_bounded(reader: impl tokio::io::AsyncRead + Unpin, max: usize) -> 
 }
 
 fn parse_snapshot(stdout: &[u8]) -> Result<ArdourSnapshot> {
-    let text = std::str::from_utf8(stdout)
-        .map_err(|_| Error::new(ErrorCode::ProtocolMismatch, "Ardour adapter output is not UTF-8"))?;
-    let mut results = text.lines().filter_map(|line| line.strip_prefix(RESULT_PREFIX));
-    let encoded = results
-        .next()
-        .ok_or_else(|| Error::new(ErrorCode::ProtocolMismatch, "Ardour adapter result marker is absent"))?;
+    let text = std::str::from_utf8(stdout).map_err(|_| {
+        Error::new(
+            ErrorCode::ProtocolMismatch,
+            "Ardour adapter output is not UTF-8",
+        )
+    })?;
+    let mut results = text
+        .lines()
+        .filter_map(|line| line.strip_prefix(RESULT_PREFIX));
+    let encoded = results.next().ok_or_else(|| {
+        Error::new(
+            ErrorCode::ProtocolMismatch,
+            "Ardour adapter result marker is absent",
+        )
+    })?;
     if results.next().is_some() {
         return Err(Error::new(
             ErrorCode::ProtocolMismatch,
@@ -388,7 +419,9 @@ fn validate_output_name(value: &str) -> Result<()> {
 fn directory(path: &Path, label: &str) -> Result<()> {
     let metadata = fs::symlink_metadata(path)?;
     if metadata.file_type().is_symlink() || !metadata.is_dir() {
-        return Err(Error::invalid(format!("{label} grant must be a real directory")));
+        return Err(Error::invalid(format!(
+            "{label} grant must be a real directory"
+        )));
     }
     Ok(())
 }
@@ -399,7 +432,9 @@ fn regular(path: &Path, limit: u64) -> Result<()> {
         || metadata.len() == 0
         || metadata.len() > limit
     {
-        return Err(Error::invalid("Expected bounded regular Ardour runtime file"));
+        return Err(Error::invalid(
+            "Expected bounded regular Ardour runtime file",
+        ));
     }
     Ok(())
 }
@@ -416,7 +451,12 @@ fn file_sha256(path: &Path, limit: u64) -> Result<String> {
         size = size
             .checked_add(read as u64)
             .filter(|value| *value <= limit)
-            .ok_or_else(|| Error::new(ErrorCode::ResourceExhausted, "Ardour artifact hash budget exceeded"))?;
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorCode::ResourceExhausted,
+                    "Ardour artifact hash budget exceeded",
+                )
+            })?;
         digest.update(&buffer[..read]);
     }
     Ok(format!("{:x}", digest.finalize()))

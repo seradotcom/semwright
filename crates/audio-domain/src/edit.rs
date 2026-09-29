@@ -89,6 +89,10 @@ pub enum Edit {
         stem: String,
         pan_milli: i16,
     },
+    StemSendSet {
+        stem: String,
+        send: BusSend,
+    },
     ClipInsert {
         stem: String,
         clip: AudioClip,
@@ -186,6 +190,7 @@ impl Edit {
             Self::StemSolo { .. } => AudioOperation::StemSolo,
             Self::StemGainSet { .. } => AudioOperation::StemGainSet,
             Self::StemPanSet { .. } => AudioOperation::StemPanSet,
+            Self::StemSendSet { .. } => AudioOperation::StemSendSet,
             Self::ClipInsert { .. } => AudioOperation::ClipInsert,
             Self::ClipMove { .. } => AudioOperation::ClipMove,
             Self::ClipTrim { .. } => AudioOperation::ClipTrim,
@@ -393,6 +398,19 @@ pub fn apply_with_identity_base(
             result.stem_mut(&stem)?.pan_milli = pan_milli;
             affected.push(stem);
         }
+        Edit::StemSendSet { stem, send } => {
+            let stem_ref = result.stem_mut(&stem)?;
+            if let Some(existing) = stem_ref
+                .sends
+                .iter_mut()
+                .find(|value| value.target_bus == send.target_bus)
+            {
+                *existing = send;
+            } else {
+                stem_ref.sends.push(send);
+            }
+            affected.push(stem);
+        }
         Edit::ClipInsert { stem, mut clip } => {
             clip.id = new_id("clip");
             created.push(clip.id.clone());
@@ -525,11 +543,12 @@ pub fn apply_with_identity_base(
             if bus == result.master_bus {
                 return Err(Error::invalid("Master bus cannot be removed"));
             }
-            if result.stems.iter().any(|stem| stem.output_bus == bus)
-                || result
-                    .buses
-                    .iter()
-                    .any(|candidate| candidate.sends.iter().any(|send| send.target_bus == bus))
+            if result.stems.iter().any(|stem| {
+                stem.output_bus == bus || stem.sends.iter().any(|send| send.target_bus == bus)
+            }) || result
+                .buses
+                .iter()
+                .any(|candidate| candidate.sends.iter().any(|send| send.target_bus == bus))
             {
                 return Err(Error::new(
                     "Conflict",

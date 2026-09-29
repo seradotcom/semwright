@@ -101,6 +101,24 @@
       "status": "security_excluded",
       "route": null,
       "evidence": "no public escape hatch"
+    },
+    {
+      "surface": "bus creation",
+      "status": "implemented_pending_native",
+      "route": "Session:new_audio_route(... AudioBus ...)",
+      "evidence": "revision-bound native readback in ardour-native"
+    },
+    {
+      "surface": "bounded send inventory",
+      "status": "implemented_pending_native",
+      "route": "Route:nth_send -> InternalSend",
+      "evidence": "native CI verifies bindings; incomplete target/process topology remains lossy"
+    },
+    {
+      "surface": "bounded plugin inventory",
+      "status": "implemented_pending_native",
+      "route": "Route:nth_plugin -> PluginInsert",
+      "evidence": "native CI verifies bindings; plugin state/parameters remain read-only"
     }
   ]
 }

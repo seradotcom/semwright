@@ -1,7 +1,7 @@
 use crate::domain;
 use schemars::JsonSchema;
 use semwright_audio_domain::{
-    model::{AudioProject, EffectChain, validate_id},
+    model::{AudioProject, BusSend, EffectChain, validate_id},
     presets::SfxPreset,
     units::MilliDb,
 };
@@ -72,6 +72,8 @@ pub struct TrackIntent {
     pub channels: u16,
     pub gain: MilliDb,
     pub pan_milli: i16,
+    #[serde(default)]
+    pub sends: Vec<BusSend>,
     pub effects: EffectChain,
     pub clips: Vec<ClipIntent>,
 }
@@ -173,6 +175,16 @@ impl AudioIntent {
                 (1..=64).contains(&track.channels) && (-1000..=1000).contains(&track.pan_milli),
                 "track channel/pan bounds",
             )?;
+            ensure(track.sends.len() <= 256, "track send budget")?;
+            let mut send_targets = BTreeSet::new();
+            for send in &track.sends {
+                domain(project.bus(&send.target_bus))?;
+                domain(MilliDb::new(send.gain.0))?;
+                ensure(
+                    send_targets.insert(&send.target_bus),
+                    "duplicate track send target",
+                )?;
+            }
             if let Some(id) = &track.existing_stem {
                 domain(project.stem(id))?;
                 ensure(

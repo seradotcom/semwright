@@ -2854,14 +2854,18 @@ version = "0.9.0-dev.1"
 dependencies = [
  "async-trait",
  "semwright-audio-domain",
+ "semwright-backend-api",
+ "semwright-core",
  "semwright-driver-host",
  "semwright-driver-sdk",
+ "semwright-policy",
  "semwright-types",
  "serde",
  "serde_json",
  "sha2",
  "tempfile",
  "tokio",
+ "tokio-util",
 ]
 
 [[package]]
@@ -2881,8 +2885,8 @@ dependencies = [
 name = "semwright-audio-domain"
 version = "0.9.0-dev.1"
 dependencies = [
- "schemars",
  "proptest",
+ "schemars",
  "serde",
  "serde_json",
  "sha2",

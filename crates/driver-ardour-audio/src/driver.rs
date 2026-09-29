@@ -371,7 +371,6 @@ impl ArdourAudioDriver {
         }))
     }
 
-
     fn deep_runtime(&self) -> Result<&DeepRuntime> {
         self.deep_runtime.as_ref().ok_or_else(|| {
             Error::new(
@@ -390,7 +389,9 @@ impl ArdourAudioDriver {
             .create(state, sample_rate, master_channels)
             .await?;
         let revision = native_revision(&native)?;
-        let report = ArdourProjection.project(&native).map_err(map_domain_error)?;
+        let report = ArdourProjection
+            .project(&native)
+            .map_err(map_domain_error)?;
         Ok(json!({
             "accepted": true,
             "verified": true,
@@ -441,7 +442,9 @@ impl ArdourAudioDriver {
         let sample_rate = u64_arg(args, "sample_rate", 8_000, 192_000)? as u32;
         let bit_depth = u64_arg(args, "bit_depth", 16, 32)? as u16;
         if !matches!(bit_depth, 16 | 24 | 32) {
-            return Err(Error::invalid("Ardour export bit depth must be 16, 24 or 32"));
+            return Err(Error::invalid(
+                "Ardour export bit depth must be 16, 24 or 32",
+            ));
         }
         let runtime = self.deep_runtime()?;
         let before = runtime.inspect(state).await?;
@@ -534,6 +537,7 @@ impl ArdourAudioDriver {
             "driver.ardour-audio.session.deep.save-as" => self.deep_save_as(args).await,
             "driver.ardour-audio.session.deep.export" => self.deep_export(args).await,
             "driver.ardour-audio.session.deep.stem.create"
+            | "driver.ardour-audio.session.deep.bus.create"
             | "driver.ardour-audio.session.deep.route.remove"
             | "driver.ardour-audio.session.deep.route.rename"
             | "driver.ardour-audio.session.deep.route.mute"
@@ -957,7 +961,7 @@ fn deep_capabilities() -> Vec<Capability> {
                 "properties":{
                     "state":state.clone(),
                     "expected_revision":revision.clone(),
-                    "file_name":{"type":"string","minLength":5,"maxLength":200,"pattern":"^[A-Za-z0-9][A-Za-z0-9._-]*\.wav$"},
+                    "file_name":{"type":"string","minLength":5,"maxLength":200,"pattern":"^[A-Za-z0-9][A-Za-z0-9._-]*\\.wav$"},
                     "sample_rate":{"type":"integer","minimum":8000,"maximum":192000},
                     "bit_depth":{"type":"integer","enum":[16,24,32]}
                 },
@@ -979,12 +983,12 @@ fn deep_capabilities() -> Vec<Capability> {
             Risk::MutatingReversible,
             Idempotency::NonIdempotent,
             false,
-            &["audio-project","audio-artifact"],
+            &["audio-project", "audio-artifact"],
             &["artifact-out:audio/wav"],
         ),
     ];
 
-    let mutation_specs: [(&str, Value, Risk, Idempotency, bool, &[&str]); 11] = [
+    let mutation_specs: [(&str, Value, Risk, Idempotency, bool, &[&str]); 12] = [
         (
             "driver.ardour-audio.session.deep.stem.create",
             json!({"channels":{"type":"integer","minimum":1,"maximum":64},"name":{"type":"string","minLength":1,"maxLength":4096}}),
@@ -994,12 +998,20 @@ fn deep_capabilities() -> Vec<Capability> {
             &["audio-stem"],
         ),
         (
+            "driver.ardour-audio.session.deep.bus.create",
+            json!({"channels":{"type":"integer","minimum":1,"maximum":64},"name":{"type":"string","minLength":1,"maxLength":4096}}),
+            Risk::MutatingReversible,
+            Idempotency::NonIdempotent,
+            false,
+            &["audio-bus"],
+        ),
+        (
             "driver.ardour-audio.session.deep.route.remove",
             json!({"route_id":{"type":"string","minLength":1,"maxLength":256}}),
             Risk::Destructive,
             Idempotency::Destructive,
             true,
-            &["audio-stem","audio-bus"],
+            &["audio-stem", "audio-bus"],
         ),
         (
             "driver.ardour-audio.session.deep.route.rename",
@@ -1007,7 +1019,7 @@ fn deep_capabilities() -> Vec<Capability> {
             Risk::MutatingReversible,
             Idempotency::Idempotent,
             false,
-            &["audio-stem","audio-bus"],
+            &["audio-stem", "audio-bus"],
         ),
         (
             "driver.ardour-audio.session.deep.route.mute",
@@ -1015,7 +1027,7 @@ fn deep_capabilities() -> Vec<Capability> {
             Risk::MutatingReversible,
             Idempotency::Idempotent,
             false,
-            &["audio-stem","audio-bus"],
+            &["audio-stem", "audio-bus"],
         ),
         (
             "driver.ardour-audio.session.deep.route.solo",
@@ -1023,7 +1035,7 @@ fn deep_capabilities() -> Vec<Capability> {
             Risk::MutatingReversible,
             Idempotency::Idempotent,
             false,
-            &["audio-stem","audio-bus"],
+            &["audio-stem", "audio-bus"],
         ),
         (
             "driver.ardour-audio.session.deep.route.gain.set",
@@ -1031,7 +1043,7 @@ fn deep_capabilities() -> Vec<Capability> {
             Risk::MutatingReversible,
             Idempotency::Idempotent,
             false,
-            &["audio-stem","audio-bus"],
+            &["audio-stem", "audio-bus"],
         ),
         (
             "driver.ardour-audio.session.deep.route.pan.set",
@@ -1039,7 +1051,7 @@ fn deep_capabilities() -> Vec<Capability> {
             Risk::MutatingReversible,
             Idempotency::Idempotent,
             false,
-            &["audio-stem","audio-bus"],
+            &["audio-stem", "audio-bus"],
         ),
         (
             "driver.ardour-audio.session.deep.clip.move",
@@ -1269,7 +1281,6 @@ fn inspect_schema() -> Value {
     })
 }
 
-
 fn native_revision(snapshot: &NativeArdourSnapshot) -> Result<String> {
     snapshot.validate().map_err(map_domain_error)?;
     Ok(format!(
@@ -1293,6 +1304,10 @@ fn deep_mutation(
     };
     match command {
         "driver.ardour-audio.session.deep.stem.create" => Ok(NativeMutation::StemCreate {
+            channels: u64_arg(args, "channels", 1, 64)? as u16,
+            name: text_arg(args, "name", 4096)?.to_owned(),
+        }),
+        "driver.ardour-audio.session.deep.bus.create" => Ok(NativeMutation::BusCreate {
             channels: u64_arg(args, "channels", 1, 64)? as u16,
             name: text_arg(args, "name", 4096)?.to_owned(),
         }),
@@ -1342,7 +1357,6 @@ fn deep_mutation(
     }
 }
 
-
 fn resolve_native_route_id(snapshot: &NativeArdourSnapshot, semantic: &str) -> Result<String> {
     snapshot
         .routes
@@ -1382,8 +1396,11 @@ fn native_effect_verified(
     };
     match mutation {
         NativeMutation::StemCreate { channels, name } => {
-            let old_ids: std::collections::BTreeSet<_> =
-                before.routes.iter().map(|route| route.id.as_str()).collect();
+            let old_ids: std::collections::BTreeSet<_> = before
+                .routes
+                .iter()
+                .map(|route| route.id.as_str())
+                .collect();
             let created: Vec<_> = after
                 .routes
                 .iter()
@@ -1391,6 +1408,22 @@ fn native_effect_verified(
                 .collect();
             created.len() == 1
                 && created[0].kind == RouteKind::Track
+                && created[0].channels == *channels
+                && created[0].name == *name
+        }
+        NativeMutation::BusCreate { channels, name } => {
+            let old_ids: std::collections::BTreeSet<_> = before
+                .routes
+                .iter()
+                .map(|route| route.id.as_str())
+                .collect();
+            let created: Vec<_> = after
+                .routes
+                .iter()
+                .filter(|route| !old_ids.contains(route.id.as_str()))
+                .collect();
+            created.len() == 1
+                && created[0].kind == RouteKind::Bus
                 && created[0].channels == *channels
                 && created[0].name == *name
         }
@@ -1415,8 +1448,7 @@ fn native_effect_verified(
         NativeMutation::RoutePan {
             route_id,
             pan_milli,
-        } => route_after(route_id)
-            .is_some_and(|route| route.pan_milli.abs_diff(*pan_milli) <= 1),
+        } => route_after(route_id).is_some_and(|route| route.pan_milli.abs_diff(*pan_milli) <= 1),
         NativeMutation::ClipMove { region_id, start } => {
             region_after(region_id).is_some_and(|region| region.position == *start)
         }
@@ -1424,9 +1456,8 @@ fn native_effect_verified(
             region_id,
             source_start,
             length,
-        } => region_after(region_id).is_some_and(|region| {
-            region.source_start == *source_start && region.length == *length
-        }),
+        } => region_after(region_id)
+            .is_some_and(|region| region.source_start == *source_start && region.length == *length),
         NativeMutation::ClipRemove { region_id } => {
             before
                 .routes

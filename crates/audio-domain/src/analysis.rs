@@ -69,9 +69,10 @@ impl LoudnessAnalysis {
             || !matches!(self.true_peak_oversample, 1 | 2 | 4)
             || self.momentary_window_ms != 400
             || self.short_term_window_ms != 3000
-            || self.unknown_reason.as_ref().is_some_and(|v| {
-                v.is_empty() || v.len() > 256 || v.chars().any(char::is_control)
-            })
+            || self
+                .unknown_reason
+                .as_ref()
+                .is_some_and(|v| v.is_empty() || v.len() > 256 || v.chars().any(char::is_control))
         {
             return Err(Error::invalid("Invalid loudness analysis receipt"));
         }

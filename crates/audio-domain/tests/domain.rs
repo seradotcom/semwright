@@ -35,6 +35,7 @@ fn stem(id: &str, output: &str) -> Stem {
         gain: MilliDb(0),
         pan_milli: 0,
         output_bus: output.into(),
+        sends: vec![],
         clips: vec![],
         effects: EffectChain::default(),
         automations: vec![],
@@ -173,6 +174,66 @@ fn referenced_bus_cannot_be_removed_transactionally() {
     .unwrap_err();
     assert_eq!(err.code, "Conflict");
     assert_eq!(project.buses.len(), 2);
+}
+
+#[test]
+fn stem_send_is_typed_and_protects_referenced_bus() {
+    let mut project = empty_project();
+    project.buses.push(bus("fx"));
+    project.stems.push(stem("dialogue", "master"));
+    project.validate().unwrap();
+
+    let revision = edit::revision(&project).unwrap();
+    let changed = edit::apply(
+        &project,
+        &revision,
+        Edit::StemSendSet {
+            stem: "dialogue".into(),
+            send: BusSend {
+                target_bus: "fx".into(),
+                gain: MilliDb(-6_000),
+                enabled: true,
+                pre_fader: true,
+            },
+        },
+        "stem-send",
+    )
+    .unwrap()
+    .result;
+    let sends = &changed.stem("dialogue").unwrap().sends;
+    assert_eq!(sends.len(), 1);
+    assert_eq!(sends[0].target_bus, "fx");
+    assert_eq!(sends[0].gain, MilliDb(-6_000));
+    assert!(sends[0].pre_fader);
+
+    let revision = edit::revision(&changed).unwrap();
+    let err = edit::apply(
+        &changed,
+        &revision,
+        Edit::BusRemove { bus: "fx".into() },
+        "remove-send-target",
+    )
+    .unwrap_err();
+    assert_eq!(err.code, "Conflict");
+
+    let revision = edit::revision(&project).unwrap();
+    assert!(
+        edit::apply(
+            &project,
+            &revision,
+            Edit::StemSendSet {
+                stem: "dialogue".into(),
+                send: BusSend {
+                    target_bus: "missing".into(),
+                    gain: MilliDb(0),
+                    enabled: true,
+                    pre_fader: false,
+                },
+            },
+            "bad-send",
+        )
+        .is_err()
+    );
 }
 
 #[test]

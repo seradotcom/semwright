@@ -38,6 +38,7 @@ impl SemanticAudioProjection<ArdourSnapshot> for ArdourProjection {
                     | AudioOperation::StemGainSet
                     | AudioOperation::ClipMove
                     | AudioOperation::ClipRemove
+                    | AudioOperation::BusCreate
                     | AudioOperation::BusRemove
                     | AudioOperation::BusGainSet => OperationSupport::SafeRoundtrip,
                     AudioOperation::StemCreate
@@ -168,15 +169,25 @@ impl SemanticAudioProjection<ArdourSnapshot> for ArdourProjection {
                     ),
                 }
             }
-            if !route.sends.is_empty() {
-                loss(
-                    &mut losses,
-                    ProjectionLossKind::UnsupportedSemantic,
-                    ProjectionLossImpact::ReadOnly,
-                    "ardour.track_sends_not_projected",
-                    Some(format!("stem/{stem_id}")),
-                    "The v1 neutral model does not represent auxiliary sends owned directly by a stem",
-                );
+            let mut sends = Vec::new();
+            for send in &route.sends {
+                if let Some(target) = route_to_bus.get(&send.target_route) {
+                    sends.push(BusSend {
+                        target_bus: target.clone(),
+                        gain: MilliDb(send.gain_millidb),
+                        enabled: send.enabled,
+                        pre_fader: send.pre_fader,
+                    });
+                } else {
+                    loss(
+                        &mut losses,
+                        ProjectionLossKind::UnsupportedSemantic,
+                        ProjectionLossImpact::ReadOnly,
+                        "ardour.unresolved_track_send",
+                        Some(format!("stem/{stem_id}")),
+                        "Ardour track send target was not present in the projected bus graph",
+                    );
+                }
             }
             append_route_completeness_losses(&mut losses, route);
             append_plugin_losses(&mut losses, route);
@@ -189,6 +200,7 @@ impl SemanticAudioProjection<ArdourSnapshot> for ArdourProjection {
                 gain: MilliDb(route.gain_millidb),
                 pan_milli: route.pan_milli,
                 output_bus: "master".into(),
+                sends,
                 clips,
                 effects: EffectChain::default(),
                 automations: vec![],

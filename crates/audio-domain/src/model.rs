@@ -731,6 +731,8 @@ pub struct Stem {
     pub gain: MilliDb,
     pub pan_milli: i16,
     pub output_bus: String,
+    #[serde(default)]
+    pub sends: Vec<BusSend>,
     pub clips: Vec<AudioClip>,
     pub effects: EffectChain,
     pub automations: Vec<Automation>,
@@ -745,6 +747,13 @@ impl Stem {
         }
         MilliDb::new(self.gain.0)?;
         self.effects.validate()?;
+        if self.sends.len() > 256 {
+            return Err(Error::limit("Stem send count exceeds limit"));
+        }
+        for send in &self.sends {
+            validate_id(&send.target_bus)?;
+            MilliDb::new(send.gain.0)?;
+        }
         if self.clips.len() > MAX_CLIPS {
             return Err(Error::limit("Stem clip count exceeds limit"));
         }
@@ -925,6 +934,11 @@ impl AudioProject {
             )?;
             if !bus_ids.contains(stem.output_bus.as_str()) {
                 return Err(Error::invalid("Stem output bus is missing"));
+            }
+            for send in &stem.sends {
+                if !bus_ids.contains(send.target_bus.as_str()) {
+                    return Err(Error::invalid("Stem send target bus is missing"));
+                }
             }
             effect_count += stem.effects.effects.len();
             automation_points += stem

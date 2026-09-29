@@ -249,6 +249,7 @@ pub fn plan(
                         gain: track.gain,
                         pan_milli: track.pan_milli,
                         output_bus: track.output_bus.clone(),
+                        sends: vec![],
                         clips: vec![],
                         effects: track.effects.clone(),
                         automations: vec![],
@@ -261,6 +262,17 @@ pub fn plan(
                 .clone()
         };
         bindings.insert(track.id.clone(), stem_id.clone());
+        for send in &track.sends {
+            builder.add(
+                Edit::StemSendSet {
+                    stem: stem_id.clone(),
+                    send: send.clone(),
+                },
+                &stem_id,
+                "sends",
+                false,
+            )?;
+        }
         for clip in &track.clips {
             let (start, frames, error) = clip_time(clip, &cues, rate)?;
             errors.insert(clip.id.clone(), error);

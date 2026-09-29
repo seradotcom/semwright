@@ -25,7 +25,9 @@ impl AudioAnalysisDriver {
             .capabilities
             .iter()
             .find(|capability| capability.descriptor.name == command)
-            .ok_or_else(|| Error::new(ErrorCode::NotFound, "Audio analysis capability is absent"))?;
+            .ok_or_else(|| {
+                Error::new(ErrorCode::NotFound, "Audio analysis capability is absent")
+            })?;
         if descriptor_digest(&capability.descriptor)? != digest {
             return Err(Error::new(
                 ErrorCode::Conflict,
@@ -50,7 +52,10 @@ impl AudioAnalysisDriver {
             })),
             "driver.audio-analysis.artifact.measure" => {
                 let runtime = self.runtime.as_ref().ok_or_else(|| {
-                    Error::new(ErrorCode::Unavailable, "Pinned audio analysis runtime is unavailable")
+                    Error::new(
+                        ErrorCode::Unavailable,
+                        "Pinned audio analysis runtime is unavailable",
+                    )
                 })?;
                 let file_name = text(args, "file_name", 200)?;
                 let expected_sha256 = text(args, "expected_sha256", 64)?;

@@ -9,6 +9,10 @@ pub enum NativeMutation {
         channels: u16,
         name: String,
     },
+    BusCreate {
+        channels: u16,
+        name: String,
+    },
     RouteRemove {
         route_id: String,
     },
@@ -63,6 +67,17 @@ impl NativeMutation {
                 }
                 Ok(vec![
                     "stem_create".into(),
+                    channels.to_string(),
+                    name.clone(),
+                ])
+            }
+            Self::BusCreate { channels, name } => {
+                validate_name(name)?;
+                if !(1..=64).contains(channels) {
+                    return Err(Error::invalid("Invalid Ardour bus channel count"));
+                }
+                Ok(vec![
+                    "bus_create".into(),
                     channels.to_string(),
                     name.clone(),
                 ])
@@ -224,7 +239,13 @@ local function db_milli_from_coeff(v)
   return milli
 end
 
-local function route_id(route) return route:id():to_s() end
+local function object_id(value)
+  local stateful = value:to_stateful()
+  if not stateful or stateful:isnil() then error("native object has no stable stateful identity") end
+  return stateful:id():to_s()
+end
+
+local function route_id(route) return object_id(route) end
 
 local function find_route(id)
   for route in Session:get_routes():iter() do
@@ -246,7 +267,7 @@ local function find_region(id)
       local playlist = track:playlist()
       if playlist and not playlist:isnil() then
         for region in playlist:region_list():iter() do
-          if region:id():to_s() == id then return region, playlist end
+          if object_id(region) == id then return region, playlist end
         end
       end
     end
@@ -258,7 +279,7 @@ const _: () = ();
 pub const LUA_ADAPTER_BODY: &str = r#"
 local function inspect_region(region, route_channels)
   local source = region:source(0)
-  local source_id = source:id():to_s()
+  local source_id = object_id(source)
   local source_name = source:name()
   local source_frames = samples(source:length())
   local source_path = "null"
@@ -283,7 +304,7 @@ local function inspect_region(region, route_channels)
   if ok_locked then locked = value_locked and true or false end
 
   return obj({
-    field("id", q(region:id():to_s())),
+    field("id", q(object_id(region))),
     field("name", q(region:name())),
     field("position", tostring(samples(region:position()))),
     field("source_start", tostring(samples(region:start()))),
@@ -324,9 +345,64 @@ local function route_pan_milli(route)
   return p
 end
 
+local function inspect_plugins(route)
+  local plugins = {}
+  for index = 0, 255 do
+    local processor = route:nth_plugin(index)
+    if not processor or processor:isnil() then return plugins, true end
+    local insert = processor:to_plugininsert()
+    if not insert or insert:isnil() then return plugins, false end
+    local plugin = insert:plugin(0)
+    if not plugin or plugin:isnil() then return plugins, false end
+    table.insert(plugins, obj({
+      field("id", q(object_id(processor))),
+      field("name", q(plugin:name())),
+      field("unique_id", q(plugin:unique_id()))
+    }))
+  end
+  return plugins, false
+end
+
+local function processor_index(route, wanted)
+  for index = 0, 511 do
+    local processor = route:nth_processor(index)
+    if not processor or processor:isnil() then return nil, true end
+    if object_id(processor) == wanted then return index, true end
+  end
+  return nil, false
+end
+
+local function inspect_sends(route)
+  local sends = {}
+  local amp = route:amp()
+  if not amp or amp:isnil() then return sends, false end
+  local amp_index, bounded = processor_index(route, object_id(amp))
+  if not bounded or amp_index == nil then return sends, false end
+
+  for index = 0, 255 do
+    local processor = route:nth_send(index)
+    if not processor or processor:isnil() then return sends, true end
+    local internal = processor:to_internalsend()
+    if not internal or internal:isnil() then return sends, false end
+    local target = internal:target_route()
+    if not target or target:isnil() then return sends, false end
+    local send_index, complete = processor_index(route, object_id(processor))
+    if not complete or send_index == nil then return sends, false end
+    table.insert(sends, obj({
+      field("target_route", q(route_id(target))),
+      field("gain_millidb", tostring(db_milli_from_coeff(internal:gain_control():get_value()))),
+      field("enabled", bool(internal:active())),
+      field("pre_fader", bool(send_index < amp_index))
+    }))
+  end
+  return sends, false
+end
+
 local function inspect_route(route)
   local channels = route_channels(route)
   local regions = {}
+  local plugins, plugins_complete = inspect_plugins(route)
+  local sends, sends_complete = inspect_sends(route)
   local track = route_track(route)
   if track then
     local playlist = track:playlist()
@@ -347,11 +423,11 @@ local function inspect_route(route)
     field("gain_millidb", tostring(db_milli_from_coeff(route:gain_control():get_value()))),
     field("pan_milli", tostring(route_pan_milli(route))),
     field("regions", arr(regions)),
-    field("sends", "[]"),
-    field("plugins", "[]"),
+    field("sends", arr(sends)),
+    field("plugins", arr(plugins)),
     field("routing_complete", "false"),
-    field("sends_complete", "false"),
-    field("plugins_complete", "false")
+    field("sends_complete", bool(sends_complete)),
+    field("plugins_complete", bool(plugins_complete))
   })
 end
 
@@ -399,7 +475,7 @@ local function mutate(command)
     local created = Session:new_audio_track(
       channels,
       channels,
-      ARDOUR.RouteGroup(),
+      nil,
       1,
       "",
       ARDOUR.PresentationInfo.max_order,
@@ -413,6 +489,25 @@ local function mutate(command)
       renamed = true
     end
     if not renamed then error("track create returned no route") end
+  elseif command == "bus_create" then
+    local channels = tonumber(arg[5])
+    local name = arg[6]
+    if not channels or channels < 1 or channels > 64 then error("invalid channels") end
+    local created = Session:new_audio_route(
+      channels,
+      channels,
+      nil,
+      1,
+      "",
+      ARDOUR.PresentationInfo.Flag.AudioBus,
+      ARDOUR.PresentationInfo.max_order
+    )
+    local renamed = false
+    for route in created:iter() do
+      route:set_name(name)
+      renamed = true
+    end
+    if not renamed then error("bus create returned no route") end
   elseif command == "route_remove" then
     local route = require_route(arg[5])
     local ok_master, master = pcall(function() return route:is_master() end)
@@ -460,7 +555,10 @@ local function mutate(command)
     if not start_sample or not end_sample or end_sample <= start_sample then
       error("invalid session range")
     end
-    Session:set_session_extents(
+    local locations = Session:locations()
+    local session_range = locations:session_range_location()
+    if not session_range then error("session range is unavailable") end
+    session_range:set(
       Temporal.timepos_t(start_sample),
       Temporal.timepos_t(end_sample)
     )

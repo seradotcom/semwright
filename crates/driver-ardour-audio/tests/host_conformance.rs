@@ -62,7 +62,10 @@ fn pcm16_frames(path: &Path) -> (u16, u32, u64, bool) {
         assert!(start + size <= bytes.len());
         if id == b"fmt " {
             assert!(size >= 16);
-            assert_eq!(u16::from_le_bytes(bytes[start..start + 2].try_into().unwrap()), 1);
+            assert_eq!(
+                u16::from_le_bytes(bytes[start..start + 2].try_into().unwrap()),
+                1
+            );
             channels = Some(u16::from_le_bytes(
                 bytes[start + 2..start + 4].try_into().unwrap(),
             ));
@@ -273,7 +276,10 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
     )
     .await;
     assert!(created.ok, "{created:?}");
-    let revision0 = created.data.unwrap()["revision"].as_str().unwrap().to_owned();
+    let revision0 = created.data.unwrap()["revision"]
+        .as_str()
+        .unwrap()
+        .to_owned();
 
     let ranged = call(
         &broker,
@@ -282,7 +288,10 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
     )
     .await;
     assert!(ranged.ok, "{ranged:?}");
-    let revision1 = ranged.data.unwrap()["revision"].as_str().unwrap().to_owned();
+    let revision1 = ranged.data.unwrap()["revision"]
+        .as_str()
+        .unwrap()
+        .to_owned();
 
     let stem = call(
         &broker,
@@ -293,29 +302,49 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
     assert!(stem.ok, "{stem:?}");
     let revision2 = stem.data.unwrap()["revision"].as_str().unwrap().to_owned();
 
+    let bus = call(
+        &broker,
+        "session.deep.bus.create",
+        json!({"state":"Base","expected_revision":revision2,"channels":2,"name":"Proof Bus"}),
+    )
+    .await;
+    assert!(bus.ok, "{bus:?}");
+    let revision3 = bus.data.unwrap()["revision"].as_str().unwrap().to_owned();
+
     let inspected = call(&broker, "session.deep.inspect", json!({"state":"Base"})).await;
     assert!(inspected.ok, "{inspected:?}");
     let inspected_data = inspected.data.unwrap();
-    assert_eq!(inspected_data["revision"], revision2);
+    assert_eq!(inspected_data["revision"], revision3);
     let project_json = parse_project(&inspected_data);
     let stems = project_json["stems"].as_array().unwrap();
     assert_eq!(stems.len(), 1, "{project_json}");
     assert_eq!(stems[0]["name"], "Proof Stem");
+    assert!(
+        project_json["buses"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|bus| bus["name"] == "Proof Bus"),
+        "{project_json}"
+    );
     let stem_id = stems[0]["id"].as_str().unwrap().to_owned();
 
     let renamed = call(
         &broker,
         "session.deep.route.rename",
-        json!({"state":"Base","expected_revision":revision2,"route_id":stem_id,"name":"Renamed Proof"}),
+        json!({"state":"Base","expected_revision":revision3,"route_id":stem_id,"name":"Renamed Proof"}),
     )
     .await;
     assert!(renamed.ok, "{renamed:?}");
-    let revision3 = renamed.data.unwrap()["revision"].as_str().unwrap().to_owned();
+    let revision4 = renamed.data.unwrap()["revision"]
+        .as_str()
+        .unwrap()
+        .to_owned();
 
     let stale = call(
         &broker,
         "session.deep.route.mute",
-        json!({"state":"Base","expected_revision":revision2,"route_id":project_json["stems"][0]["id"],"value":true}),
+        json!({"state":"Base","expected_revision":revision3,"route_id":project_json["stems"][0]["id"],"value":true}),
     )
     .await;
     assert!(!stale.ok);
@@ -324,17 +353,28 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
     let saved = call(
         &broker,
         "session.deep.save-as",
-        json!({"source_state":"Base","candidate_state":"Candidate","expected_revision":revision3}),
+        json!({"source_state":"Base","candidate_state":"Candidate","expected_revision":revision4}),
     )
     .await;
     assert!(saved.ok, "{saved:?}");
     let saved_data = saved.data.unwrap();
     assert_eq!(saved_data["source_preserved"], true);
-    let candidate_revision = saved_data["candidate_revision"].as_str().unwrap().to_owned();
+    let candidate_revision = saved_data["candidate_revision"]
+        .as_str()
+        .unwrap()
+        .to_owned();
 
-    let reopened = call(&broker, "session.deep.inspect", json!({"state":"Candidate"})).await;
+    let reopened = call(
+        &broker,
+        "session.deep.inspect",
+        json!({"state":"Candidate"}),
+    )
+    .await;
     assert!(reopened.ok, "{reopened:?}");
-    assert_eq!(reopened.data.as_ref().unwrap()["revision"], candidate_revision);
+    assert_eq!(
+        reopened.data.as_ref().unwrap()["revision"],
+        candidate_revision
+    );
     let candidate_project = parse_project(reopened.data.as_ref().unwrap());
     assert_eq!(candidate_project["stems"][0]["name"], "Renamed Proof");
 
@@ -347,7 +387,10 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
     assert!(rendered.ok, "{rendered:?}");
     let receipt = rendered.data.unwrap();
     assert_eq!(receipt["source_preserved"], true);
-    assert_eq!(receipt["artifact"]["sha256"], digest(&output.join("proof.wav")));
+    assert_eq!(
+        receipt["artifact"]["sha256"],
+        digest(&output.join("proof.wav"))
+    );
     assert_eq!(receipt["artifact"]["frames"], 48_000);
     let (channels, rate, frames, silent) = pcm16_frames(&output.join("proof.wav"));
     assert_eq!((channels, rate, frames), (2, 48_000, 48_000));
@@ -381,6 +424,7 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
             "route":"broker-policy-driver-host-sealed-ardour-8.4",
             "ardour_version":"8.4.0",
             "create_reopen":true,
+            "native_bus_create":true,
             "semantic_target_mapping":true,
             "stale_revision_denied":true,
             "save_as_source_preserved":true,

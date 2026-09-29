@@ -2,8 +2,8 @@
   "schema_version": 1,
   "semantic_model_version": 1,
   "generated_from": {
-    "audio_operation_count": 38,
-    "capability_count": 39
+    "audio_operation_count": 39,
+    "capability_count": 40
   },
   "audio_operations": [
     {
@@ -83,6 +83,11 @@
     },
     {
       "id": "stem.pan.set",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "stem.send.set",
       "classification": "shared_semantic_operation",
       "classified": true
     },
@@ -344,6 +349,15 @@
     },
     {
       "id": "driver.ardour-audio.session.deep.stem.create",
+      "provider": "driver:ardour-audio",
+      "family": "ardour",
+      "support": "native",
+      "fidelity": "native_readback",
+      "evidence": "native_ci_required",
+      "classified": true
+    },
+    {
+      "id": "driver.ardour-audio.session.deep.bus.create",
       "provider": "driver:ardour-audio",
       "family": "ardour",
       "support": "native",

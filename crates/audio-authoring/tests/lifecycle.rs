@@ -1,6 +1,6 @@
 use semwright_audio_authoring::*;
 use semwright_audio_domain::{
-    model::{AudioProfile, AudioProject, EffectChain},
+    model::{AudioProfile, AudioProject, Bus, BusSend, EffectChain},
     presets::SfxPreset,
     signal_analysis::PcmAnalyzer,
     units::MilliDb,
@@ -39,6 +39,7 @@ fn intent(p: &AudioProject) -> AudioIntent {
             channels: p.profile.channels,
             gain: MilliDb(-6000),
             pan_milli: 0,
+            sends: vec![],
             effects: EffectChain::default(),
             clips: vec![ClipIntent {
                 id: "pulse".into(),
@@ -101,6 +102,43 @@ fn plans_are_deterministic_and_leave_the_source_unchanged() {
     assert_eq!(p.semantic_digest().unwrap(), before);
     assert_eq!(result.stems[0].id, first.logical_bindings["sfx"]);
 }
+#[test]
+fn authoring_plan_materializes_typed_stem_sends() {
+    let mut p = project();
+    p.buses.push(Bus {
+        id: "fx".into(),
+        name: "FX".into(),
+        channels: 2,
+        gain: MilliDb(0),
+        pan_milli: 0,
+        effects: EffectChain::default(),
+        sends: vec![],
+        automations: vec![],
+    });
+    p.validate().unwrap();
+    let mut spec = intent(&p);
+    spec.tracks[0].sends.push(BusSend {
+        target_bus: "fx".into(),
+        gain: MilliDb(-9_000),
+        enabled: true,
+        pre_fader: false,
+    });
+    let base = base_for(
+        &p,
+        "driver:faust-audio",
+        &owner(),
+        "generation-1",
+        Concurrency::CompareAndSwap,
+    )
+    .unwrap();
+    let planned = plan(&p, base, owner(), spec, &descriptor()).unwrap();
+    let result = replay(&p, &planned, &descriptor()).unwrap();
+    let stem = result.stem(&planned.logical_bindings["sfx"]).unwrap();
+    assert_eq!(stem.sends.len(), 1);
+    assert_eq!(stem.sends[0].target_bus, "fx");
+    assert_eq!(stem.sends[0].gain, MilliDb(-9_000));
+}
+
 #[test]
 fn repeated_sfx_presets_have_distinct_internal_signal_ids() {
     let p = project();

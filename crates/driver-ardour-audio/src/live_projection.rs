@@ -151,6 +151,7 @@ fn stem(strip: &ArdourStrip, losses: &mut Vec<ProjectionLoss>) -> Stem {
         gain: MilliDb(0),
         pan_milli: 0,
         output_bus: "master".into(),
+        sends: vec![],
         clips: vec![],
         effects: EffectChain::default(),
         automations: vec![],
