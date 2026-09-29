@@ -21,6 +21,7 @@ struct NativeMeasurement {
     values: BTreeMap<String, ObservedValue>,
     writer_process: String,
     reader_process: String,
+    readback_fault: bool,
     isolation: String,
     limits: BTreeMap<String, u64>,
     route: String,
@@ -30,6 +31,7 @@ struct NativeAdapter {
     owner: Owner,
     session: String,
     measured: BTreeMap<String, ObservedValue>,
+    readback_fault: bool,
     attribution: Attribution,
 }
 impl EvidenceAdapter for NativeAdapter {
@@ -46,10 +48,14 @@ impl EvidenceAdapter for NativeAdapter {
         ctx: &EvaluationContext,
         rule: &EffectRule,
     ) -> Result<AdapterObservation> {
-        let value = self.measured.get(&rule.id).cloned().ok_or_else(|| {
-            ContractError::Unknown(format!("native observer did not produce {}", rule.id))
-        })?;
-        let enumeration = if let ObservedValue::Members { values } = &value {
+        let value = if self.readback_fault {
+            None
+        } else {
+            Some(self.measured.get(&rule.id).cloned().ok_or_else(|| {
+                ContractError::Unknown(format!("native observer did not produce {}", rule.id))
+            })?)
+        };
+        let enumeration = if let Some(ObservedValue::Members { values }) = &value {
             Some(vec![EnumerationPage {
                 binding: ctx.enumeration_binding(rule)?,
                 index: 0,
@@ -80,13 +86,21 @@ impl EvidenceAdapter for NativeAdapter {
                 method_version: rule.method.version,
                 scope: vec![rule.address.clone()],
                 artifact: None,
-                exhaustive: true,
+                exhaustive: !self.readback_fault,
             },
-            readback: ReadbackState::Observed,
-            value: Some(value),
+            readback: if self.readback_fault {
+                ReadbackState::Error
+            } else {
+                ReadbackState::Observed
+            },
+            value,
             coverage: ObservationCoverage {
-                consistent: true,
-                missing: vec![],
+                consistent: !self.readback_fault,
+                missing: if self.readback_fault {
+                    vec![rule.address.clone()]
+                } else {
+                    vec![]
+                },
                 attribution: self.attribution,
                 enumeration,
             },
@@ -180,8 +194,18 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     }
     let backend = std::env::args().nth(1).ok_or("expected godot or blender")?;
     let cases: &[&str] = match backend.as_str() {
-        "godot" => &["baseline", "external-mutant", "observation-mutant"],
-        "blender" => &["baseline", "external-mutant", "membership-mutant"],
+        "godot" => &[
+            "baseline",
+            "external-mutant",
+            "observation-mutant",
+            "readback-fault",
+        ],
+        "blender" => &[
+            "baseline",
+            "external-mutant",
+            "membership-mutant",
+            "readback-fault",
+        ],
         _ => return Err("unknown native suite".into()),
     };
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -280,9 +304,10 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
             owner,
             session: measured.reader_process.clone(),
             measured: measured.values,
-            // Fault injection is an explicitly ordered external writer, not a
-            // claim that the product itself caused the excluded-resource change.
-            attribution: if *case == "baseline" {
+            readback_fault: measured.readback_fault,
+            // Content mutants are explicitly ordered external writers. A failed
+            // readback is isolated but still cannot produce semantic verification.
+            attribution: if matches!(*case, "baseline" | "readback-fault") {
                 Attribution::Isolated
             } else {
                 Attribution::Ordered
@@ -290,10 +315,10 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         };
         let evidence = collect(&rules, &ctx, &mut adapter)?;
         let evaluation = evaluate(&rules, &ctx, &evidence)?;
-        let expected = if *case == "baseline" {
-            Verdict::Pass
-        } else {
-            Verdict::Fail
+        let expected = match *case {
+            "baseline" => Verdict::Pass,
+            "readback-fault" => Verdict::Unknown,
+            _ => Verdict::Fail,
         };
         let verdict = evaluation.verdict()?;
         let expected_failure = match *case {
@@ -302,14 +327,23 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
             "membership-mutant" => Some("membership"),
             _ => None,
         };
-        let negative_detected = expected_failure.is_none_or(|id| {
+        let negative_detected = if *case == "readback-fault" {
             evaluation
                 .report
                 .validation
                 .checks
                 .iter()
-                .any(|r| r.rule == id && r.verdict == Verdict::Fail)
-        });
+                .all(|r| r.verdict == Verdict::Unknown && r.evidence.is_empty())
+        } else {
+            expected_failure.is_none_or(|id| {
+                evaluation
+                    .report
+                    .validation
+                    .checks
+                    .iter()
+                    .any(|r| r.rule == id && r.verdict == Verdict::Fail)
+            })
+        };
         if *case == "baseline" && verdict == Verdict::Pass {
             baseline_evaluation = Some(evaluation.clone());
             native_runtime.clone_from(&measured.runtime);
@@ -318,7 +352,8 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         }
         receipts.push(json!({"case":case,"expected_verdict":expected,"actual_verdict":verdict,"negative_detected":negative_detected,
             "evaluation":evaluation,"runtime":measured.runtime,"isolation":measured.isolation,"limits":measured.limits,
-            "route":measured.route,"crash_durability":measured.crash_durability,"source_sha":source_sha}));
+            "route":measured.route,"readback_fault":measured.readback_fault,
+            "crash_durability":measured.crash_durability,"source_sha":source_sha}));
         std::fs::write(
             output_dir.join(format!("{backend}-native.json")),
             serde_json::to_vec_pretty(

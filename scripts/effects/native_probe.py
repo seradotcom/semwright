@@ -13,8 +13,8 @@ import sys
 import tempfile
 import time
 
-CASES = {"godot": {"baseline", "external-mutant", "observation-mutant"},
-         "blender": {"baseline", "external-mutant", "membership-mutant"}}
+CASES = {"godot": {"baseline", "external-mutant", "observation-mutant", "readback-fault"},
+         "blender": {"baseline", "external-mutant", "membership-mutant", "readback-fault"}}
 if os.environ.get("GITHUB_ACTIONS") != "true":
     raise SystemExit("native probes are GitHub-hosted CI only")
 if len(sys.argv) != 3 or sys.argv[1] not in CASES or sys.argv[2] not in CASES[sys.argv[1]]:
@@ -52,7 +52,7 @@ def inventory(root):
     return result
 
 
-def launch(work, native_args, phase):
+def launch(work, native_args, phase, expect_failure=False):
     runtime_root = Path("/opt/semwright-effect-runtimes")
     executable = Path(native_args[0]).resolve()
     try:
@@ -84,9 +84,15 @@ def launch(work, native_args, phase):
         proc.kill(); proc.communicate(); raise RuntimeError("native observer deadline exceeded")
     if len(output) > 1024 * 1024: raise RuntimeError("native log budget exceeded")
     text = output.decode(errors="replace")
+    path = work / (phase + ".json")
+    if expect_failure:
+        if proc.returncode == 0:
+            raise RuntimeError("native fault injection unexpectedly succeeded")
+        if path.exists():
+            raise RuntimeError("faulted observer produced a measurement receipt")
+        return {"fault_log_digest": digest(output)}, f"host-pid:{proc.pid}:started:{started}"
     if proc.returncode or any(marker in text for marker in ("SCRIPT ERROR:", "Parse Error:", "ERROR:")):
         sys.stderr.write(text[-16000:]); raise RuntimeError("native process failed")
-    path = work / (phase + ".json")
     if not path.is_file() or path.stat().st_size > 65536: raise RuntimeError("missing/oversized native measurement")
     result = json.loads(path.read_text())
     if result.get("schema_version") != 1 or result.get("phase") != phase: raise RuntimeError("native measurement version/phase mismatch")
@@ -137,6 +143,19 @@ with tempfile.TemporaryDirectory(prefix="semwright-effects-",dir=os.environ["RUN
         persisted.write_text(text.replace(old,"Vector3(9, 2, 3)",1))
     if backend == "blender" and case == "membership-mutant":
         launch(work,args("mutant"),"mutant")
+    if case == "readback-fault":
+        fault_args = args("read")
+        missing = "res://missing_probe.gd" if backend == "godot" else "/src/scripts/effects/missing_probe.py"
+        fault_args[fault_args.index("res://probe.gd" if backend == "godot" else "/src/scripts/effects/blender_probe.py")] = missing
+        _,reader=launch(work,fault_args,"readback-fault",expect_failure=True)
+        after=inventory(data)
+        print(json.dumps({"schema_version":1,"backend":backend,"case":case,"runtime":written["runtime"],
+            "before_digest":projection(before),"after_digest":projection(after),"values":{},
+            "writer_process":writer,"reader_process":reader,"readback_fault":True,
+            "isolation":"bubblewrap-unshare-all-clearenv-disposable-root",
+            "limits":{"native_timeout_seconds":90,"root_files":32,"file_bytes":16777216},
+            "route":"native-product-adapter-not-broker","crash_durability":"NOT_TESTED"},sort_keys=True))
+        raise SystemExit(0)
     reopened,reader=launch(work,args("read"),"read")
     after=inventory(data)
     allowed = {"scene.tscn"} if backend == "godot" else {"scene.blend", "scope.glb"}
@@ -158,7 +177,7 @@ with tempfile.TemporaryDirectory(prefix="semwright-effects-",dir=os.environ["RUN
             artifact={"kind":"preservation","before":written["export"]["sha256"],"after":after["scope.glb"]})
     print(json.dumps({"schema_version":1,"backend":backend,"case":case,"runtime":reopened["runtime"],
         "before_digest":projection(before),"after_digest":projection(after),"values":values,
-        "writer_process":writer,"reader_process":reader,
+        "writer_process":writer,"reader_process":reader,"readback_fault":False,
         "isolation":"bubblewrap-unshare-all-clearenv-disposable-root",
         "limits":{"native_timeout_seconds":90,"root_files":32,"file_bytes":16777216},
         "route":"native-product-adapter-not-broker","crash_durability":"NOT_TESTED"},sort_keys=True))
