@@ -12,7 +12,7 @@ This file is the source-controlled integration ledger. Fields marked PENDING mus
 - B consumed C0 through normal Git ancestry: verified locally
 - B observed working head at this checkpoint: ea144de5af1b663ff5ad821793c105b95f5f819d
 - B AUDIO_READY_FOR_INTEGRATION: false
-- Current origin/main observed during this checkpoint: b736d41b61c4a4146c9e75c16796e251b025e69f
+- Current origin/main reconciled into A: e3713e90e87f1caa8f7105c065094d5c724d144e
 - Integration branch/worktree: PENDING until B-ready handoff
 - Combined candidate SHA: PENDING
 
