@@ -10,7 +10,9 @@
   },
   "selected_lanes": [
     "selftest",
-    "composition"
+    "composition",
+    "audio",
+    "av"
   ],
   "pins": {
     "os": "ubuntu-24.04",
@@ -28,5 +30,10 @@
     "address_space_bytes": 1073741824,
     "open_files": 128,
     "maximum_fixture_fanout": 2
+  },
+  "harness_history": {
+    "suite_sha": "8ec7a74c3518216feb02ba1b9c55cf3183a0da2a",
+    "path": "tests/semantic-adversarial-lab/lab_core.py",
+    "sha256": "78beb81bfb3788a16d5a82b06c4b4d094f080a42334924da6889f845203d79d0"
   }
 }

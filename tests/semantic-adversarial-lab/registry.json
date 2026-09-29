@@ -332,6 +332,270 @@
       }
     },
     {
+      "id": "G-SELF-031",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "numeric exponent overflow",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-032",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "negative exponent overflow",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-033",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "non-UTF8 wire encoding",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-034",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "unpaired Unicode value surrogate",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-035",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "unpaired Unicode key surrogate",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-036",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "depth budget",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-037",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "depth boundary positive control",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-038",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "unknown evidence scope",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-039",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "invalid requested case ID",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-040",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "boolean blocker count",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-041",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "nonobject result family",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-042",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "fake closure without observations",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-043",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "complete same-suite retest positive control",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-044",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "missing affected retest case",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-045",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "changed oracle suite at closure",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-046",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "missing evidence digest",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-047",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "stale result within fixing run",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-048",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "blocked affected retest case",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-049",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "valid UTF8 Unicode positive control",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-050",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "unverified cleanup at closure",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-051",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "boolean job identifier",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-052",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "missing isolation at closure",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-053",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "before: frozen oracle accepts exponent overflow",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-054",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "before/fix: frozen oracle accepts unobserved closure; current rejects",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
       "id": "G-PLAN-001",
       "owner": "A",
       "requirement": "G03",
@@ -1191,6 +1455,805 @@
       "description": "unknown authority metadata",
       "expected": {
         "unknown_authority_field_rejected": true
+      }
+    },
+    {
+      "id": "G-AUDIO-001",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "synthetic PCM positive control",
+      "expected": {
+        "frames": 4,
+        "nonfinite": 0,
+        "peak_millidbfs": -6021,
+        "rms_millidbfs": -9031,
+        "entirely_silent": false
+      }
+    },
+    {
+      "id": "G-AUDIO-002",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "silence has undefined logarithmic levels",
+      "expected": {
+        "frames": 8,
+        "peak": null,
+        "rms": null,
+        "silent": true,
+        "ranges": 1,
+        "exhaustive": true
+      }
+    },
+    {
+      "id": "G-AUDIO-003",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "nonfinite samples not mislabelled silence",
+      "expected": {
+        "nonfinite": 3,
+        "finite": 0,
+        "silent": false,
+        "peak": null,
+        "rms": null,
+        "dc": null
+      }
+    },
+    {
+      "id": "G-AUDIO-004",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "nonfinite samples excluded from finite denominator",
+      "expected": {
+        "nonfinite": 1,
+        "finite": 2,
+        "peak": -6021,
+        "rms": -6021,
+        "dc": 0.0
+      }
+    },
+    {
+      "id": "G-AUDIO-005",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "partial interleaved frame rejected before state change",
+      "expected": {
+        "partial_frame_denied": true,
+        "frames_after_valid": 1
+      }
+    },
+    {
+      "id": "G-AUDIO-006",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "frame budget rejection is not consumption",
+      "expected": {
+        "over_budget_denied": true,
+        "frames": 2
+      }
+    },
+    {
+      "id": "G-AUDIO-007",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "overflowing finite block rejected before state change",
+      "expected": {
+        "huge_finite_denied": true,
+        "frames": 1,
+        "silent": true
+      }
+    },
+    {
+      "id": "G-AUDIO-008",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "out of normalized range sample count",
+      "expected": {
+        "out_of_range": 2,
+        "nonfinite": 0
+      }
+    },
+    {
+      "id": "G-AUDIO-009",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "streaming partition invariance",
+      "expected": {
+        "streaming_partition_invariant": true
+      }
+    },
+    {
+      "id": "G-AUDIO-010",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "truncated silence index is nonexhaustive",
+      "expected": {
+        "stored_ranges": 4096,
+        "exhaustive": false
+      }
+    },
+    {
+      "id": "G-AUDIO-011",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "empty analyzer has no valid result",
+      "expected": {
+        "empty_analysis_denied": true
+      }
+    },
+    {
+      "id": "G-AUDIO-012",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "invalid channel/frame/threshold configurations",
+      "expected": {
+        "invalid_configurations_denied": 5
+      }
+    },
+    {
+      "id": "G-AUDIO-013",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "stereo channel isolation",
+      "expected": {
+        "left_peak": null,
+        "right_peak": 0,
+        "silent": false,
+        "silence_ranges": 0
+      }
+    },
+    {
+      "id": "G-AUDIO-014",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "PCM statistics are not mastering or intelligibility",
+      "expected": {
+        "claims_lufs": false,
+        "claims_true_peak": false,
+        "claims_intelligibility": false
+      }
+    },
+    {
+      "id": "G-AUDIO-015",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "signed zero remains silence",
+      "expected": {
+        "signed_zero_silent": true,
+        "peak": null
+      }
+    },
+    {
+      "id": "G-WAVE-001",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "PCM16 decode and EOF positive control",
+      "expected": {
+        "frames": 4,
+        "decoded": [
+          -1.0,
+          0.0,
+          0.5,
+          0.999969482421875
+        ],
+        "eof": true
+      }
+    },
+    {
+      "id": "G-WAVE-002",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "every truncation of bounded fixture",
+      "expected": {
+        "truncations_rejected": 52,
+        "bytes": 52
+      }
+    },
+    {
+      "id": "G-WAVE-003",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "RIFF length mismatch",
+      "expected": {
+        "size_mismatch_rejected": true
+      }
+    },
+    {
+      "id": "G-WAVE-004",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "duplicate data chunk",
+      "expected": {
+        "duplicate_data_rejected": true
+      }
+    },
+    {
+      "id": "G-WAVE-005",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "duplicate fmt chunk",
+      "expected": {
+        "duplicate_format_rejected": true
+      }
+    },
+    {
+      "id": "G-WAVE-006",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "wrong block alignment",
+      "expected": {
+        "alignment_rejected": true
+      }
+    },
+    {
+      "id": "G-WAVE-007",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "wrong byte rate",
+      "expected": {
+        "byte_rate_rejected": true
+      }
+    },
+    {
+      "id": "G-WAVE-008",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "partial sample payload",
+      "expected": {
+        "partial_sample_rejected": true
+      }
+    },
+    {
+      "id": "G-WAVE-009",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "missing format chunk",
+      "expected": {
+        "missing_format_rejected": true
+      }
+    },
+    {
+      "id": "G-WAVE-010",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "input byte budget",
+      "expected": {
+        "input_budget_rejected": true
+      }
+    },
+    {
+      "id": "G-WAVE-011",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "odd padded unknown chunk positive control",
+      "expected": {
+        "odd_unknown_chunk_preserved_samples": [
+          -1.0,
+          0.0,
+          0.5,
+          0.999969482421875
+        ]
+      }
+    },
+    {
+      "id": "G-WAVE-012",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "frame seek bounds",
+      "expected": {
+        "seek_frame": [
+          0.5
+        ],
+        "beyond_end_denied": true,
+        "seek_end_is_eof": true
+      }
+    },
+    {
+      "id": "G-WAVE-013",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "invalid read buffer does not consume input",
+      "expected": {
+        "zero_buffer_denied": true,
+        "oversize_buffer_denied": true,
+        "no_consumption": [
+          -1.0
+        ]
+      }
+    },
+    {
+      "id": "G-WAVE-014",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "float WAV preserves nonfinite classification",
+      "expected": {
+        "decoded_nonfinite": 2,
+        "finite": 1,
+        "silent": false
+      }
+    },
+    {
+      "id": "G-WAVE-015",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "128 seeded bounded header/data mutations",
+      "expected": {
+        "bounded_parser_mutations_completed": 128
+      }
+    },
+    {
+      "id": "G-SYNC-001",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "synthetic sync positive control",
+      "expected": {
+        "verdict": "PASS",
+        "count": 3,
+        "missing_any": false
+      }
+    },
+    {
+      "id": "G-SYNC-002",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "common absolute audio/video drift",
+      "expected": {
+        "verdict": "FAIL"
+      }
+    },
+    {
+      "id": "G-SYNC-003",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "missing final cue",
+      "expected": {
+        "verdict": "UNKNOWN",
+        "missing_any": true
+      }
+    },
+    {
+      "id": "G-SYNC-004",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "duplicate cue observation",
+      "expected": {
+        "duplicate_detection_rejected": true
+      }
+    },
+    {
+      "id": "G-SYNC-005",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "nonexhaustive audio scan",
+      "expected": {
+        "verdict": "UNKNOWN"
+      }
+    },
+    {
+      "id": "G-SYNC-006",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "fixture cannot be promoted to decoded evidence",
+      "expected": {
+        "verdict": "UNKNOWN"
+      }
+    },
+    {
+      "id": "G-SYNC-007",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "confidence below declared floor",
+      "expected": {
+        "verdict": "UNKNOWN"
+      }
+    },
+    {
+      "id": "G-SYNC-008",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "uncertainty exceeds tolerance",
+      "expected": {
+        "verdict": "UNKNOWN"
+      }
+    },
+    {
+      "id": "G-SYNC-009",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "cumulative drift exceeds bound",
+      "expected": {
+        "verdict": "FAIL"
+      }
+    },
+    {
+      "id": "G-SYNC-010",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "known FAIL survives a missing cue",
+      "expected": {
+        "verdict": "FAIL"
+      }
+    },
+    {
+      "id": "G-SYNC-011",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "negative tolerance rejected",
+      "expected": {
+        "negative_tolerance_rejected": true
+      }
+    },
+    {
+      "id": "G-SYNC-012",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "unbounded tolerance rejected",
+      "expected": {
+        "unbounded_tolerance_rejected": true
+      }
+    },
+    {
+      "id": "G-SYNC-013",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "negative uncertainty rejected",
+      "expected": {
+        "negative_uncertainty_rejected": true
+      }
+    },
+    {
+      "id": "G-SYNC-014",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "nonincreasing absolute cues rejected",
+      "expected": {
+        "nonincreasing_cues_rejected": true
+      }
+    },
+    {
+      "id": "G-SYNC-015",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "old decoder schema rejected",
+      "expected": {
+        "stale_decoder_schema_rejected": true
+      }
+    },
+    {
+      "id": "G-AV-001",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "complete synthetic 14-stage contract positive control",
+      "expected": {
+        "ready": true,
+        "stages": 14,
+        "r16_closed": false,
+        "promotional_video": false
+      }
+    },
+    {
+      "id": "G-AV-002",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "audio apply unknown after video verification",
+      "expected": {
+        "incomplete_stage_rejected": true,
+        "ready": false,
+        "state_unknown": true,
+        "manifest_unavailable": true,
+        "prior_completed": 4
+      }
+    },
+    {
+      "id": "G-AV-003",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "audio render unknown after audio mutation",
+      "expected": {
+        "incomplete_stage_rejected": true,
+        "ready": false,
+        "state_unknown": true,
+        "manifest_unavailable": true,
+        "prior_completed": 5
+      }
+    },
+    {
+      "id": "G-AV-004",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "pre-dispatch cancellation blocks reservation",
+      "expected": {
+        "cancelled_state": true,
+        "new_reservation_rejected": true,
+        "ready": false
+      }
+    },
+    {
+      "id": "G-AV-005",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "lost dispatch cannot silently retry",
+      "expected": {
+        "blind_cancellation_refused": true,
+        "unknown_ledger": true,
+        "new_dispatch_denied": true,
+        "ready": false
+      }
+    },
+    {
+      "id": "G-AV-006",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "altered reserved payload cannot dispatch",
+      "expected": {
+        "altered_stage_rejected": true,
+        "dispatches": 0
+      }
+    },
+    {
+      "id": "G-AV-007",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "duplicate dispatch",
+      "expected": {
+        "duplicate_dispatch_rejected": true,
+        "dispatches": 1
+      }
+    },
+    {
+      "id": "G-AV-008",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "duplicate completion receipt",
+      "expected": {
+        "duplicate_receipt_rejected": true,
+        "ledger_entries": 1
+      }
+    },
+    {
+      "id": "G-AV-009",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "request plan owner stage generation bindings",
+      "expected": {
+        "receipt_bindings_rejected": 5
+      }
+    },
+    {
+      "id": "G-AV-010",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "provider reconnect before dispatch",
+      "expected": {
+        "reconnected_provider_rejected": true,
+        "dispatches": 0
+      }
+    },
+    {
+      "id": "G-AV-011",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "resource replacement before dispatch",
+      "expected": {
+        "changed_resource_rejected": true,
+        "dispatches": 0
+      }
+    },
+    {
+      "id": "G-AV-012",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "read-only stage with changed revision",
+      "expected": {
+        "read_only_write_receipt_rejected": true,
+        "ready": false
+      }
+    },
+    {
+      "id": "G-AV-013",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "render for old source plan",
+      "expected": {
+        "stale_render_plan_rejected": true,
+        "ready": false
+      }
+    },
+    {
+      "id": "G-AV-014",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "fixture labelled readback",
+      "expected": {
+        "fixture_readback_rejected": true,
+        "ready": false
+      }
+    },
+    {
+      "id": "G-AV-015",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "readback for a different audio artifact",
+      "expected": {
+        "different_artifact_readback_rejected": true,
+        "ready": false
+      }
+    },
+    {
+      "id": "G-AV-016",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "final audio FAIL prevents publication",
+      "expected": {
+        "failed_final_audio_rejected": true,
+        "ready": false
+      }
+    },
+    {
+      "id": "G-AV-017",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "sync UNKNOWN prevents publication",
+      "expected": {
+        "unknown_sync_rejected": true,
+        "ready": false
+      }
+    },
+    {
+      "id": "G-AV-018",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "audio artifact missing audio metadata",
+      "expected": {
+        "missing_audio_metadata_rejected": true,
+        "ready": false
+      }
+    },
+    {
+      "id": "G-AV-019",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "stale cue digest in audio subplan",
+      "expected": {
+        "stale_subplan_cues_rejected": true
+      }
+    },
+    {
+      "id": "G-AV-020",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "prevent undisclosed second mix",
+      "expected": {
+        "nonfinal_mix_rejected": true
       }
     }
   ]

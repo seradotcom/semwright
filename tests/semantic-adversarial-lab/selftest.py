@@ -81,6 +81,8 @@ def run_all():
         ("G-SELF-029", lambda: rejects(lambda: core.strict_json('"' + 'x' * 1_048_577 + '"'))),
         ("G-SELF-030", lambda: summary()["native_acceptance"] is False and summary()["r16_closed"] is False),
     ]
+    from selftest_extra import extra_cases
+    tests.extend(extra_cases())
     results = []
     for case_id, test in tests:
         try:

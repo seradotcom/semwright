@@ -9,8 +9,9 @@ from pathlib import Path
 import platform
 import subprocess
 import sys
+import tempfile
 from isolation import Enclosure, require_hosted
-from lab_core import EvidenceError, LANES, full_sha, strict_json, summarize, write_json
+from lab_core import EvidenceError, LANES, digest, full_sha, strict_json, summarize, write_json
 
 LAB = Path(__file__).resolve().parent
 OWNERS = {"composition": "A", "av": "A", "motion": "A", "figma": "A", "audio": "B"}
@@ -49,7 +50,21 @@ def selftest(source_sha: str, suite_sha: str, cases: list[dict], report: dict):
     enclosure = Enclosure(LAB, source_sha)
     try:
         report["isolation"] = enclosure.preflight()
-        raw = enclosure.run(["/usr/bin/python3", "/lab/selftest.py"])
+        historical = config()["harness_history"]
+        full_sha(historical["suite_sha"])
+        if historical["path"] != "tests/semantic-adversarial-lab/lab_core.py":
+            raise EvidenceError("historical source path outside G lab")
+        blob = subprocess.check_output(["git", "-C", str(LAB.parents[1]), "show",
+                                        historical["suite_sha"] + ":" + historical["path"]])
+        if digest(blob) != historical["sha256"]:
+            raise EvidenceError("historical oracle source digest mismatch")
+        with tempfile.TemporaryDirectory(prefix="g-history-", dir=os.environ["RUNNER_TEMP"]) as directory:
+            (Path(directory) / "before_lab_core.py").write_bytes(blob)
+            raw = enclosure.run(["/usr/bin/python3", "/lab/selftest.py"], source=Path(directory))
+        report["harness_history"] = {**historical, "fix_suite_sha": suite_sha,
+                                     "before_controls": ["G-SELF-053", "G-SELF-054"],
+                                     "after_controls": ["G-SELF-031", "G-SELF-042", "G-SELF-043"],
+                                     "scope": "lab oracle defects only; not product vulnerabilities"}
         parsed = strict_json(raw["stdout"])
         if set(parsed) != {"schema_version", "results"} or type(parsed["schema_version"]) is not int or parsed["schema_version"] != 1:
             raise EvidenceError("selftest receipt missing")

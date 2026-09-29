@@ -24,13 +24,36 @@ def _unique(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
         out[key] = value
     return out
 
+def _finite_float(value: str) -> float:
+    parsed = float(value)
+    if not math.isfinite(parsed):
+        raise EvidenceError("nonfinite JSON exponent")
+    return parsed
+
 def strict_json(data: str | bytes) -> Any:
-    if len(data.encode("utf-8") if isinstance(data, str) else data) > 1_048_576:
-        raise EvidenceError("receipt exceeds byte budget")
     try:
-        return json.loads(data, object_pairs_hook=_unique,
-                          parse_constant=lambda _: (_ for _ in ()).throw(EvidenceError("nonfinite JSON")))
-    except (ValueError, UnicodeError, RecursionError) as exc:
+        encoded = data.encode("utf-8", errors="strict") if isinstance(data, str) else data
+        if len(encoded) > 1_048_576:
+            raise EvidenceError("receipt exceeds byte budget")
+        text = encoded.decode("utf-8", errors="strict")
+        value = json.loads(text, object_pairs_hook=_unique, parse_float=_finite_float,
+                           parse_constant=lambda _: (_ for _ in ()).throw(EvidenceError("nonfinite JSON")))
+        pending = [(value, 0)]
+        count = 0
+        while pending:
+            node, depth = pending.pop()
+            count += 1
+            if depth > 64 or count > 65536:
+                raise EvidenceError("receipt nesting/node budget")
+            if isinstance(node, str):
+                node.encode("utf-8", errors="strict")
+            elif isinstance(node, dict):
+                pending.extend((k, depth + 1) for k in node)
+                pending.extend((v, depth + 1) for v in node.values())
+            elif isinstance(node, list):
+                pending.extend((v, depth + 1) for v in node)
+        return value
+    except (ValueError, UnicodeError, RecursionError, OverflowError) as exc:
         raise EvidenceError("invalid strict JSON") from exc
 
 def digest(data: bytes) -> str:
@@ -76,6 +99,12 @@ def summarize(requested: list[str], results: list[dict[str, Any]], source_sha: s
               suite_sha: str, *, open_blockers: int = 0, scope: str = "product_contract") -> dict[str, Any]:
     full_sha(source_sha)
     full_sha(suite_sha)
+    if scope not in {"lab_selftest", "product_contract", "native_application", "source_inspection"}:
+        raise EvidenceError("unknown evidence scope")
+    if not isinstance(requested, list) or any(not isinstance(c, str) or not CASE_ID.fullmatch(c) for c in requested):
+        raise EvidenceError("invalid requested case ID")
+    if not isinstance(results, list) or any(not isinstance(row, dict) for row in results):
+        raise EvidenceError("result family must contain objects")
     if not requested or len(requested) != len(set(requested)):
         raise EvidenceError("zero or duplicate requested cases")
     if type(open_blockers) is not int or open_blockers < 0:
@@ -83,13 +112,13 @@ def summarize(requested: list[str], results: list[dict[str, Any]], source_sha: s
     seen: set[str] = set()
     counts = dict.fromkeys(sorted(OUTCOMES), 0)
     for row in results:
-        if row.get("case_id") in seen or row.get("case_id") not in requested:
+        if not isinstance(row.get("case_id"), str) or row.get("case_id") in seen or row.get("case_id") not in requested:
             raise EvidenceError("duplicate or unrequested result")
         seen.add(row["case_id"])
         if row.get("source_sha") != source_sha or row.get("suite_sha") != suite_sha:
             raise EvidenceError("mixed-SHA result family")
         outcome = row.get("outcome")
-        if outcome not in OUTCOMES:
+        if not isinstance(outcome, str) or outcome not in OUTCOMES:
             raise EvidenceError("unknown outcome")
         if row.get("scope") != scope:
             raise EvidenceError("evidence class/source spoof")
@@ -113,14 +142,42 @@ def summarize(requested: list[str], results: list[dict[str, Any]], source_sha: s
 
 def validate_retest(before: dict[str, Any], after: dict[str, Any], fix_sha: str,
                     affected: set[str]) -> None:
+    """A closure receipt is a complete exact-SHA family, not a caller PASS flag."""
     full_sha(fix_sha)
+    if not isinstance(before, dict) or not isinstance(after, dict):
+        raise EvidenceError("retest receipts must be objects")
     if before.get("finding_id") != after.get("finding_id") or not before.get("finding_id"):
         raise EvidenceError("finding identity mismatch")
     if before.get("outcome") != "FAIL" or after.get("outcome") != "PASS":
         raise EvidenceError("missing before-fail / after-pass")
+    full_sha(before.get("source_sha"))
     if after.get("source_sha") != fix_sha or before.get("source_sha") == fix_sha:
         raise EvidenceError("fix SHA mismatch")
-    if set(after.get("affected_cases", [])) != affected or not affected:
-        raise EvidenceError("affected regression family not re-executed")
-    if not after.get("run_id") or not after.get("job_id"):
-        raise EvidenceError("retest requires observed run and job IDs")
+    full_sha(before.get("suite_sha"))
+    if after.get("suite_sha") != before["suite_sha"]:
+        raise EvidenceError("retest must use the same frozen oracle suite")
+    if not isinstance(affected, set) or not affected or any(not isinstance(c, str) or not CASE_ID.fullmatch(c) for c in affected):
+        raise EvidenceError("invalid affected family")
+    for receipt in (before, after):
+        declared = receipt.get("affected_cases")
+        if not isinstance(declared, list) or any(not isinstance(c, str) for c in declared) or len(declared) != len(affected) or set(declared) != affected:
+            raise EvidenceError("affected regression family not re-executed")
+        for key in ("run_id", "job_id"):
+            identifier = receipt.get(key)
+            if isinstance(identifier, bool) or not re.fullmatch(r"[1-9][0-9]*", str(identifier)):
+                raise EvidenceError("retest requires observed run and job IDs")
+        proof_digest = receipt.get("evidence_sha256")
+        if not isinstance(proof_digest, str) or not re.fullmatch(r"[0-9a-f]{64}", proof_digest):
+            raise EvidenceError("retest needs a content-addressed evidence artifact")
+        if receipt.get("cleanup_verified") is not True or receipt.get("infrastructure_blockers") != []:
+            raise EvidenceError("retest infrastructure or cleanup unresolved")
+        scope = receipt.get("scope")
+        if scope not in {"product_contract", "native_application"}:
+            raise EvidenceError("selftest/static inspection cannot close a product finding")
+        summary = summarize(sorted(affected), receipt.get("results"), receipt["source_sha"],
+                            receipt["suite_sha"], scope=scope)
+        expected_status = "AUDIT_COMPLETE_WITH_FINDINGS" if receipt is before else "NO_OPEN_BLOCKING_FINDINGS_IN_TESTED_SCOPE"
+        if summary["status"] != expected_status:
+            raise EvidenceError("reported retest verdict disagrees with executed family")
+    if before["scope"] != after["scope"]:
+        raise EvidenceError("retest changed evidence class")
