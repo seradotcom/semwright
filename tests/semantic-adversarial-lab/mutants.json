@@ -1,7 +1,61 @@
 {
   "schema_version": 1,
   "mutants": [
-    {"id":"G-MUT-001","lane":"composition","path":"crates/semantic-composition/src/model.rs","needle":"        if failed {\n            Ok(Verdict::Fail)","replacement":"        if false && failed {\n            Ok(Verdict::Fail)","cases":["G-VERIFY-002","G-VERIFY-014"],"relevance":"Removing required FAIL precedence must be detected independently of successful execution."},
-    {"id":"G-MUT-002","lane":"composition","path":"crates/semantic-composition/src/model.rs","needle":"                    || !ev.exhaustive","replacement":"                    || false","cases":["G-VERIFY-005"],"relevance":"Sampling falsely promoted to exhaustive native evidence must be detected."}
+    {
+      "id": "G-MUT-001",
+      "lane": "composition",
+      "path": "crates/semantic-composition/src/model.rs",
+      "needle": "        if failed {\n            Ok(Verdict::Fail)",
+      "replacement": "        if false && failed {\n            Ok(Verdict::Fail)",
+      "cases": [
+        "G-VERIFY-002",
+        "G-VERIFY-014"
+      ],
+      "relevance": "Removing required FAIL precedence must be detected independently of successful execution."
+    },
+    {
+      "id": "G-MUT-002",
+      "lane": "composition",
+      "path": "crates/semantic-composition/src/model.rs",
+      "needle": "                    || !ev.exhaustive",
+      "replacement": "                    || false",
+      "cases": [
+        "G-VERIFY-005"
+      ],
+      "relevance": "Sampling falsely promoted to exhaustive native evidence must be detected."
+    },
+    {
+      "id": "G-MUT-F-001",
+      "lane": "effects",
+      "path": "crates/effect-conformance/src/evaluator.rs",
+      "needle": "    if o.readback != ReadbackState::Observed {",
+      "replacement": "    if false {",
+      "cases": [
+        "G-EFFECT-013"
+      ],
+      "relevance": "Removing independent-readback enforcement must make request-echo evidence disagree with the frozen oracle."
+    },
+    {
+      "id": "G-MUT-F-002",
+      "lane": "effects",
+      "path": "crates/effect-conformance/src/evaluator.rs",
+      "needle": "    if !o.observation.exhaustive\n        || !o.coverage.consistent",
+      "replacement": "    if false\n        || !o.coverage.consistent",
+      "cases": [
+        "G-EFFECT-011"
+      ],
+      "relevance": "Removing exhaustive-observation enforcement must not promote a sampled observation to PASS."
+    },
+    {
+      "id": "G-MUT-F-003",
+      "lane": "effects",
+      "path": "crates/effect-conformance/src/evidence.rs",
+      "needle": "        let result = if identity != adapter.identity(&rule.address.resource) {",
+      "replacement": "        let result = if false {",
+      "cases": [
+        "G-EFFECT-019"
+      ],
+      "relevance": "Removing observer generation continuity must be detected when the channel reconnects during readback."
+    }
   ]
 }
