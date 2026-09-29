@@ -36,29 +36,45 @@ fn mesh_attribute_domain_cardinality_is_strict() {
 }
 #[test]
 fn shared_mesh_instance_rejects_attribute_or_shading_writes() {
-    let mut s = spec();
-    let copy = s
+    let copy = spec()
         .entities
         .iter()
         .find(|entity| entity.id == "cutter")
         .unwrap()
         .attributes[0]
         .clone();
-    let instance = s
-        .entities
-        .iter_mut()
-        .find(|entity| entity.id == "housing_copy")
-        .unwrap();
-    instance.shape = Shape::MeshInstance {
-        source: "housing".into(),
-    };
-    instance.materials.clear();
-    instance.modifiers.clear();
-    instance.attributes = vec![copy];
-    assert!(s.validate().is_err());
-    instance.attributes.clear();
-    instance.shade_smooth = true;
-    assert!(s.validate().is_err());
+
+    let mut attribute_case = spec();
+    {
+        let instance = attribute_case
+            .entities
+            .iter_mut()
+            .find(|entity| entity.id == "housing_copy")
+            .unwrap();
+        instance.shape = Shape::MeshInstance {
+            source: "housing".into(),
+        };
+        instance.materials.clear();
+        instance.modifiers.clear();
+        instance.attributes = vec![copy];
+    }
+    assert!(attribute_case.validate().is_err());
+
+    let mut shading_case = spec();
+    {
+        let instance = shading_case
+            .entities
+            .iter_mut()
+            .find(|entity| entity.id == "housing_copy")
+            .unwrap();
+        instance.shape = Shape::MeshInstance {
+            source: "housing".into(),
+        };
+        instance.materials.clear();
+        instance.modifiers.clear();
+        instance.shade_smooth = true;
+    }
+    assert!(shading_case.validate().is_err());
 }
 #[test]
 fn valid_articulated() {
