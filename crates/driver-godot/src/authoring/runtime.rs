@@ -303,10 +303,7 @@ impl AuthoringRuntime {
             "project_graph_contract".into(),
             Digest::of_bytes(format!("project-graph-v{SCHEMA_VERSION}").as_bytes()),
         );
-        dependencies.insert(
-            "effect_contract".into(),
-            Digest::of_bytes(format!("effect-conformance-v{EFFECT_CONTRACT_VERSION}").as_bytes()),
-        );
+        dependencies.insert("effects.contract".into(), effect_contract_digest.clone());
         let observation_scope = vec![
             Address {
                 resource: resource.clone(),
