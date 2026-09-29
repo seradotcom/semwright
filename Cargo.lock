@@ -3518,6 +3518,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "semwright-project-graph"
+version = "0.9.0-dev.1"
+dependencies = [
+ "proptest",
+ "schemars",
+ "semwright-semantic-composition",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "uuid",
+]
+
+[[package]]
 name = "semwright-protocol"
 version = "0.9.0-dev.1"
 dependencies = [
