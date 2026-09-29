@@ -795,6 +795,40 @@ async fn hard_surface_and_product_scene_author_through_semwright() {
             assert_eq!(copy["materials"][0]["id"], "insert");
             let cutter = items.iter().find(|row| row["entity"] == "cutter").unwrap();
             assert_eq!(cutter["type"], "MESH");
+            assert_eq!(cutter["smooth_polygons"], cutter["polygons"]);
+            assert_eq!(cutter["normal_method"], "source-polygon-normal-v1");
+            assert_eq!(cutter["normal_digest"].as_str().map(str::len), Some(64));
+            let cutter_attributes = cutter["attributes"].as_array().unwrap();
+            assert_eq!(cutter_attributes.len(), 3);
+            for (id, domain, data_type, count) in [
+                ("wear", "POINT", "FLOAT", 8usize),
+                ("flow", "POINT", "FLOAT_VECTOR", 8usize),
+                ("panel", "FACE", "FLOAT_COLOR", 6usize),
+            ] {
+                let attribute = cutter_attributes
+                    .iter()
+                    .find(|attribute| attribute["id"] == id)
+                    .unwrap();
+                assert_eq!(attribute["domain"], domain);
+                assert_eq!(attribute["data_type"], data_type);
+                assert_eq!(attribute["values"].as_array().unwrap().len(), count);
+            }
+            let measured_cutter = measured["items"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|row| row["entity"] == "cutter")
+                .unwrap();
+            assert_eq!(measured_cutter["method"], "evaluated-depsgraph");
+            assert_eq!(
+                measured_cutter["normal_method"],
+                "evaluated-polygon-normal-v1"
+            );
+            assert_eq!(
+                measured_cutter["attributes"].as_array().unwrap().len(),
+                3,
+                "evaluated measurement must preserve managed attributes"
+            );
             assert!(
                 source["modifiers"]
                     .as_array()
@@ -866,6 +900,93 @@ async fn hard_surface_and_product_scene_author_through_semwright() {
                 "mesh_instance must stay shared"
             );
             assert_eq!(source["data_users"], 2);
+
+            // Product-scene preview reuses the public Blender capabilities through the
+            // same Broker/Driver Host path. The harness only verifies the resulting PNG.
+            let camera_name = items
+                .iter()
+                .find(|row| row["entity"] == "camera")
+                .and_then(|row| row["name"].as_str())
+                .unwrap()
+                .to_owned();
+            let scenes = fixture
+                .call("semantic.objects", json!({"root":"scenes","limit":8}))
+                .await;
+            let scene_ref = scenes["items"]
+                .as_array()
+                .and_then(|rows| rows.first())
+                .and_then(|row| row["ref"].as_str())
+                .unwrap()
+                .to_owned();
+            let cameras = fixture
+                .call(
+                    "semantic.objects",
+                    json!({"root":"objects","query":camera_name,"limit":8}),
+                )
+                .await;
+            let camera_ref = cameras["items"]
+                .as_array()
+                .and_then(|rows| {
+                    rows.iter()
+                        .find(|row| row["name"].as_str() == Some(camera_name.as_str()))
+                })
+                .and_then(|row| row["ref"].as_str())
+                .unwrap()
+                .to_owned();
+            fixture
+                .call(
+                    "semantic.relation.set",
+                    json!({"ref":scene_ref,"property":"camera","target_ref":camera_ref}),
+                )
+                .await;
+            let world = fixture
+                .call(
+                    "semantic.datablock.create",
+                    json!({"root":"worlds","name":"SemwrightProductWorld"}),
+                )
+                .await;
+            fixture
+                .call(
+                    "semantic.property.set",
+                    json!({
+                        "ref":world["ref"],
+                        "property":"color",
+                        "value":[0.03,0.03,0.03]
+                    }),
+                )
+                .await;
+            fixture
+                .call(
+                    "semantic.relation.set",
+                    json!({"ref":scene_ref,"property":"world","target_ref":world["ref"]}),
+                )
+                .await;
+            let world_color = fixture
+                .call(
+                    "semantic.property.get",
+                    json!({"ref":world["ref"],"property":"color"}),
+                )
+                .await;
+            assert_eq!(world_color["value"], json!([0.03, 0.03, 0.03]));
+            fixture
+                .call(
+                    "render.settings",
+                    json!({"width":64,"height":64,"engine":"BLENDER_EEVEE_NEXT"}),
+                )
+                .await;
+            let rendered = fixture
+                .call("render", json!({"path":"product-preview.png"}))
+                .await;
+            assert_eq!(rendered["format"], "png");
+            let preview = fs::read(workspace.path().join("product-preview.png")).unwrap();
+            assert_eq!(&preview[..8], b"\x89PNG\r\n\x1a\n");
+            let scene = fixture.call("scene.inspect", json!({})).await;
+            assert_eq!(scene["camera"], camera_name);
+            assert_eq!(scene["resolution"], json!([64, 64]));
+            if let Ok(evidence) = std::env::var("SEMWRIGHT_AUTHORING_EVIDENCE") {
+                fs::create_dir_all(&evidence).unwrap();
+                fs::write(PathBuf::from(evidence).join("product-preview.png"), &preview).unwrap();
+            }
         }
     }
     fixture.provider.shutdown().await.unwrap();
@@ -902,6 +1023,14 @@ async fn hard_surface_and_product_scene_author_through_semwright() {
     assert_ne!(
         source["data_name"], copy["data_name"],
         "copy-on-write mesh identity must survive fresh-process persistence"
+    );
+    let cutter = items.iter().find(|row| row["entity"] == "cutter").unwrap();
+    assert_eq!(cutter["smooth_polygons"], cutter["polygons"]);
+    assert_eq!(cutter["normal_method"], "source-polygon-normal-v1");
+    assert_eq!(
+        cutter["attributes"].as_array().map(Vec::len),
+        Some(3),
+        "managed attributes must survive fresh-process save/reopen"
     );
     let cable = items.iter().find(|row| row["entity"] == "cable").unwrap();
     let expected_sha = format!(

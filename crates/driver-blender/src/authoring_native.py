@@ -64,6 +64,34 @@ def close(a, b, tolerance=1e-5):
     return len(a) == len(b) and all(abs(x-y) <= tolerance * max(1.0, abs(x), abs(y)) for x, y in zip(a, b))
 
 
+def managed_mesh_attributes(mesh):
+    rows = []
+    total = 0
+    fields = {"FLOAT": "value", "FLOAT_VECTOR": "vector", "FLOAT_COLOR": "color"}
+    for attribute in mesh.attributes:
+        if not attribute.name.startswith("SW_attr_"):
+            continue
+        identity = local_id(attribute.name[len("SW_attr_"):])
+        check(attribute.data_type in fields, "managed mesh attribute type changed", "Conflict")
+        check(attribute.domain in {"POINT", "FACE", "CORNER"}, "managed mesh attribute domain changed", "Conflict")
+        check(len(attribute.data) <= 32768, "managed mesh attribute data budget", "Unsupported")
+        total += len(attribute.data)
+        check(total <= 65536, "managed mesh attribute total budget", "Unsupported")
+        field = fields[attribute.data_type]
+        values = []
+        for item in attribute.data:
+            value = getattr(item, field)
+            values.append(float(value) if field == "value" else [float(v) for v in value])
+        rows.append({
+            "id": identity,
+            "name": attribute.name,
+            "domain": attribute.domain,
+            "data_type": attribute.data_type,
+            "values": values,
+        })
+    return sorted(rows, key=lambda row: row["id"])
+
+
 def bounds_overlap(a, b, epsilon=1e-9):
     return all(a[i][0] <= b[i][1] + epsilon and b[i][0] <= a[i][1] + epsilon for i in range(3))
 
@@ -416,11 +444,20 @@ class AuthoringRuntime:
             mesh = obj.data
             check(len(mesh.polygons) <= 262_144 and len(mesh.loops) <= 1_048_576 and len(mesh.uv_layers) <= 8, "mesh readback bound", "Unsupported")
             check(len(obj.vertex_groups) <= 64, "weight group readback budget", "Unsupported")
-            value["geometry_digest"] = digest({"vertices": [list(v.co) for v in mesh.vertices],
+            attributes = managed_mesh_attributes(mesh)
+            normals = [list(p.normal) for p in mesh.polygons]
+            value["geometry_digest"] = digest(source_projection_value({
+                "vertices": [list(v.co) for v in mesh.vertices],
                 "faces": [[list(p.vertices), p.material_index, p.use_smooth] for p in mesh.polygons],
                 "uv": [[[float(x) for x in loop.uv] for loop in layer.data] for layer in mesh.uv_layers],
                 "weights": [[[group.group, group.weight] for group in v.groups] for v in mesh.vertices],
-                "groups": [group.name for group in obj.vertex_groups]})
+                "groups": [group.name for group in obj.vertex_groups],
+                "attributes": attributes,
+            }))
+            value["normal_digest"] = digest(source_projection_value(normals))
+            value["normal_method"] = "source-polygon-normal-v1"
+            value["smooth_polygons"] = sum(1 for polygon in mesh.polygons if polygon.use_smooth)
+            value["attributes"] = attributes
             value.update(vertices=len(mesh.vertices), polygons=len(mesh.polygons), uv_layers=len(mesh.uv_layers), data_users=mesh.users)
             value["materials"] = [self._material(m) for m in mesh.materials]
         elif obj.type == "CURVE":
@@ -741,6 +778,44 @@ class AuthoringRuntime:
             native = data.lights.new(self._name(island, spec["id"], data.lights), "AREA")
             native.energy = shape["energy_watts"]; native.size = shape["size"]*units; native.color = vec(shape["color"])
         else: check(kind == "empty", "unsupported native entity")
+
+        if native is not None and getattr(getattr(native, "bl_rna", None), "identifier", "") == "Mesh":
+            attributes = spec.get("attributes", [])
+            shade_smooth = spec.get("shade_smooth", False)
+            check(isinstance(shade_smooth, bool), "shade_smooth must be boolean")
+            if kind == "mesh_instance":
+                check(not attributes and not shade_smooth, "shared instance mesh writes are excluded")
+            else:
+                for polygon in native.polygons:
+                    polygon.use_smooth = shade_smooth
+                type_map = {
+                    "float": ("FLOAT", "value"),
+                    "vector": ("FLOAT_VECTOR", "vector"),
+                    "color": ("FLOAT_COLOR", "color"),
+                }
+                domain_map = {"point": "POINT", "face": "FACE", "corner": "CORNER"}
+                check(len(attributes) <= 16, "mesh attribute count budget")
+                total = 0
+                for attribute in attributes:
+                    identity = local_id(attribute["id"])
+                    domain = domain_map.get(attribute["domain"])
+                    data_kind = attribute["data"]["kind"]
+                    check(domain is not None and data_kind in type_map, "mesh attribute type/domain allowlist")
+                    data_type, field = type_map[data_kind]
+                    attr_name = "SW_attr_" + identity
+                    existing = native.attributes.get(attr_name)
+                    if existing is not None:
+                        check(kind == "mesh_copy", "managed attribute already exists", "Conflict")
+                        native.attributes.remove(existing)
+                    created = native.attributes.new(name=attr_name, type=data_type, domain=domain)
+                    values = attribute["data"]["values"]
+                    check(len(values) == len(created.data), "mesh attribute native cardinality mismatch")
+                    total += len(values)
+                    check(total <= 65536, "mesh attribute total budget", "Unsupported")
+                    for item, value in zip(created.data, values):
+                        setattr(item, field, float(value) if field == "value" else value)
+                native.update()
+
         obj = data.objects.new(name, native)
         obj[ISLAND] = island; obj[ENTITY] = spec["id"]; obj["sw_display_name"] = spec["name"]
         collection.objects.link(obj)
@@ -898,6 +973,15 @@ class AuthoringRuntime:
                     bounds = [[min(p[i] for p in coords), max(p[i] for p in coords)] for i in range(3)] if coords else None
                     row["bounds_world_meters"] = bounds
                     row["vertices"] = len(mesh.vertices); row["polygons"] = len(mesh.polygons)
+                    row["attributes"] = managed_mesh_attributes(mesh)
+                    row["smooth_polygons"] = sum(1 for polygon in mesh.polygons if polygon.use_smooth)
+                    row["normal_digest"] = digest(source_projection_value(
+                        [list(polygon.normal) for polygon in mesh.polygons]
+                    ))
+                    row["normal_method"] = (
+                        "evaluated-polygon-normal-v1" if evaluated
+                        else "source-polygon-normal-v1"
+                    )
                     mesh.calc_loop_triangles()
                     triangles = [
                         [tuple(observed.matrix_world @ mesh.vertices[index].co) for index in triangle.vertices]

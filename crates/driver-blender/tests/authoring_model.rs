@@ -16,6 +16,51 @@ fn valid_hard_surface() {
     spec().validate().unwrap();
 }
 #[test]
+fn mesh_attribute_domain_cardinality_is_strict() {
+    let mut s = spec();
+    let cutter = s
+        .entities
+        .iter_mut()
+        .find(|entity| entity.id == "cutter")
+        .unwrap();
+    let wear = cutter
+        .attributes
+        .iter_mut()
+        .find(|attribute| attribute.id == "wear")
+        .unwrap();
+    let MeshAttributeData::Float { values } = &mut wear.data else {
+        panic!("wear fixture must be float");
+    };
+    values.pop();
+    assert!(s.validate().is_err());
+}
+#[test]
+fn shared_mesh_instance_rejects_attribute_or_shading_writes() {
+    let mut s = spec();
+    let copy = s
+        .entities
+        .iter()
+        .find(|entity| entity.id == "cutter")
+        .unwrap()
+        .attributes[0]
+        .clone();
+    let instance = s
+        .entities
+        .iter_mut()
+        .find(|entity| entity.id == "housing_copy")
+        .unwrap();
+    instance.shape = Shape::MeshInstance {
+        source: "housing".into(),
+    };
+    instance.materials.clear();
+    instance.modifiers.clear();
+    instance.attributes = vec![copy];
+    assert!(s.validate().is_err());
+    instance.attributes.clear();
+    instance.shade_smooth = true;
+    assert!(s.validate().is_err());
+}
+#[test]
 fn valid_articulated() {
     let s: BlenderAuthoringSpec = serde_json::from_str(include_str!(
         "../../../fixtures/blender-authoring/articulated.json"

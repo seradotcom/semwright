@@ -123,7 +123,37 @@ pub struct Entity {
     pub transform: Transform,
     pub materials: Vec<String>,
     pub modifiers: Vec<Modifier>,
+    /// Source-mesh shading intent. This does not claim custom-normal authoring.
+    #[serde(default)]
+    pub shade_smooth: bool,
+    /// Closed typed custom-attribute subset; no arbitrary Blender attribute type string.
+    #[serde(default)]
+    pub attributes: Vec<MeshAttribute>,
 }
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum MeshAttributeDomain {
+    Point,
+    Face,
+    Corner,
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum MeshAttributeData {
+    Float { values: Vec<f64> },
+    Vector { values: Vec<[f64; 3]> },
+    Color { values: Vec<[f64; 4]> },
+}
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct MeshAttribute {
+    pub id: String,
+    pub domain: MeshAttributeDomain,
+    pub data: MeshAttributeData,
+}
+
 impl Entity {
     pub fn dependency_ids(&self) -> Vec<String> {
         let mut ids = BTreeSet::new();
@@ -460,6 +490,27 @@ impl Shape {
             _ => 0,
         }
     }
+
+    /// Source topology before non-destructive modifiers. Used only for typed
+    /// mesh-attribute cardinality; evaluated topology is measured separately.
+    pub fn mesh_topology_counts(&self) -> Option<(usize, usize, usize)> {
+        match self {
+            Self::Box { .. } => Some((8, 6, 24)),
+            Self::Cylinder { segments, .. } => {
+                let segments = *segments as usize;
+                Some((segments * 2, segments + 2, segments * 6))
+            }
+            Self::Mesh {
+                vertices, faces, ..
+            } => Some((
+                vertices.len(),
+                faces.len(),
+                faces.iter().map(Vec::len).sum(),
+            )),
+            _ => None,
+        }
+    }
+
     fn validate(&self) -> Result<()> {
         match self {
             Self::Box { size } => vector(size, 0.0001, 10_000.0)?,
@@ -623,6 +674,65 @@ pub fn dag_order(graph: &BTreeMap<String, Vec<String>>) -> Result<Vec<String>> {
     }
     Ok(order)
 }
+
+impl MeshAttributeData {
+    fn len(&self) -> usize {
+        match self {
+            Self::Float { values } => values.len(),
+            Self::Vector { values } => values.len(),
+            Self::Color { values } => values.len(),
+        }
+    }
+
+    fn validate_values(&self) -> Result<()> {
+        match self {
+            Self::Float { values } => {
+                for value in values {
+                    finite(*value, -1_000_000.0, 1_000_000.0)?;
+                }
+            }
+            Self::Vector { values } => {
+                for value in values {
+                    vector(value, -1_000_000.0, 1_000_000.0)?;
+                }
+            }
+            Self::Color { values } => {
+                for value in values {
+                    for component in value {
+                        finite(*component, 0.0, 1.0)?;
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+fn validate_mesh_attributes(
+    attributes: &[MeshAttribute],
+    counts: (usize, usize, usize),
+) -> Result<()> {
+    ensure(attributes.len() <= 16, "mesh attribute count budget")?;
+    let mut ids = BTreeSet::new();
+    let mut total_values = 0usize;
+    for attribute in attributes {
+        local_id(&attribute.id)?;
+        ensure(ids.insert(attribute.id.clone()), "duplicate mesh attribute ID")?;
+        attribute.data.validate_values()?;
+        let expected = match attribute.domain {
+            MeshAttributeDomain::Point => counts.0,
+            MeshAttributeDomain::Face => counts.1,
+            MeshAttributeDomain::Corner => counts.2,
+        };
+        ensure(
+            attribute.data.len() == expected,
+            "mesh attribute cardinality must match declared domain",
+        )?;
+        total_values = total_values.saturating_add(expected);
+    }
+    ensure(total_values <= 65_536, "mesh attribute value budget")
+}
+
 impl BlenderAuthoringSpec {
     pub fn validate(&self) -> Result<()> {
         ensure(self.version == 1, "unknown BlenderAuthoringSpec version")?;
@@ -758,6 +868,32 @@ impl BlenderAuthoringSpec {
                     ),
                 "material writes require an owned mesh, explicit mesh_copy, or curve",
             )?;
+            match &entity.shape {
+                Shape::Box { .. } | Shape::Cylinder { .. } | Shape::Mesh { .. } => {
+                    validate_mesh_attributes(
+                        &entity.attributes,
+                        entity.shape.mesh_topology_counts().expect("concrete mesh counts"),
+                    )?;
+                }
+                Shape::MeshCopy { .. } => {
+                    // Cardinality is validated after the source shape is resolved.
+                    ensure(entity.attributes.len() <= 16, "mesh attribute count budget")?;
+                    for attribute in &entity.attributes {
+                        local_id(&attribute.id)?;
+                        attribute.data.validate_values()?;
+                    }
+                }
+                Shape::MeshInstance { .. } => {
+                    ensure(
+                        entity.attributes.is_empty() && !entity.shade_smooth,
+                        "shared mesh instance cannot mutate attributes or shading",
+                    )?;
+                }
+                _ => ensure(
+                    entity.attributes.is_empty() && !entity.shade_smooth,
+                    "mesh attributes/shading require owned mesh geometry",
+                )?,
+            }
             let mut multiplier = 1usize;
             for modifier in &entity.modifiers {
                 ensure(
@@ -822,6 +958,15 @@ impl BlenderAuthoringSpec {
                         .vertex_budget()
                         .saturating_mul(*multipliers.get(&entity.id).unwrap_or(&1)),
                 );
+                if matches!(entity.shape, Shape::MeshCopy { .. }) {
+                    validate_mesh_attributes(
+                        &entity.attributes,
+                        source_entity
+                            .shape
+                            .mesh_topology_counts()
+                            .expect("validated concrete copy source"),
+                    )?;
+                }
             }
         }
         for entity in &self.entities {

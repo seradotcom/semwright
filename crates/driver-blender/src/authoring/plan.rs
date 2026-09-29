@@ -380,6 +380,52 @@ fn native_transform(row: &Value, expected: &Transform, units: f64) -> bool {
     ) && near(&row["rotation"], &expected.rotation)
         && near(&row["scale"], &expected.scale)
 }
+
+fn mesh_attribute_matches(actual: &Value, expected: &MeshAttribute) -> bool {
+    let domain = match expected.domain {
+        MeshAttributeDomain::Point => "POINT",
+        MeshAttributeDomain::Face => "FACE",
+        MeshAttributeDomain::Corner => "CORNER",
+    };
+    let (data_type, values_match): (&str, bool) = match &expected.data {
+        MeshAttributeData::Float { values } => (
+            "FLOAT",
+            actual["values"].as_array().is_some_and(|rows| {
+                rows.len() == values.len()
+                    && rows.iter().zip(values).all(|(row, expected)| {
+                        row.as_f64().is_some_and(|value| {
+                            (value - expected).abs() <= 1e-5 * expected.abs().max(1.0)
+                        })
+                    })
+            }),
+        ),
+        MeshAttributeData::Vector { values } => (
+            "FLOAT_VECTOR",
+            actual["values"].as_array().is_some_and(|rows| {
+                rows.len() == values.len()
+                    && rows
+                        .iter()
+                        .zip(values)
+                        .all(|(row, expected)| near(row, expected))
+            }),
+        ),
+        MeshAttributeData::Color { values } => (
+            "FLOAT_COLOR",
+            actual["values"].as_array().is_some_and(|rows| {
+                rows.len() == values.len()
+                    && rows
+                        .iter()
+                        .zip(values)
+                        .all(|(row, expected)| near(row, expected))
+            }),
+        ),
+    };
+    actual["id"].as_str() == Some(expected.id.as_str())
+        && actual["domain"].as_str() == Some(domain)
+        && actual["data_type"].as_str() == Some(data_type)
+        && values_match
+}
+
 /// Validate specifically enumerated source-RNA fields, not global artistry/effect correctness.
 /// Material links, frame-domain coverage, modifier fidelity and persistence remain separate gates.
 pub fn native_matches(intent: &AuthoringIntent, snapshot: &NativeSnapshot) -> bool {
@@ -436,6 +482,41 @@ pub fn native_matches(intent: &AuthoringIntent, snapshot: &NativeSnapshot) -> bo
                     .is_some_and(|count| r["vertices"].as_u64() != Some(count as u64))
                 {
                     return false;
+                }
+                if matches!(
+                    entity.shape,
+                    Shape::Box { .. }
+                        | Shape::Cylinder { .. }
+                        | Shape::Mesh { .. }
+                        | Shape::MeshCopy { .. }
+                ) {
+                    let Some(polygons) = r["polygons"].as_u64() else {
+                        return false;
+                    };
+                    let expected_smooth = if entity.shade_smooth { polygons } else { 0 };
+                    if r["smooth_polygons"].as_u64() != Some(expected_smooth) {
+                        return false;
+                    }
+                    let Some(actual_attributes) = r["attributes"].as_array() else {
+                        return false;
+                    };
+                    if !matches!(entity.shape, Shape::MeshCopy { .. })
+                        && actual_attributes.len() != entity.attributes.len()
+                    {
+                        return false;
+                    }
+                    for expected_attribute in &entity.attributes {
+                        if !actual_attributes.iter().any(|actual| {
+                            mesh_attribute_matches(actual, expected_attribute)
+                        }) {
+                            return false;
+                        }
+                    }
+                    if r["normal_method"].as_str() != Some("source-polygon-normal-v1")
+                        || r["normal_digest"].as_str().is_none()
+                    {
+                        return false;
+                    }
                 }
                 match &entity.shape {
                     Shape::MeshInstance { source } => {
