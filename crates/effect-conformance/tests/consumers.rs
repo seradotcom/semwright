@@ -5,7 +5,7 @@ use semwright_effect_conformance::*;
 use std::collections::{BTreeMap, BTreeSet};
 
 #[test]
-fn figma_motion_audio_consumers_use_identical_A_reports_without_native_claims() {
+fn figma_motion_audio_consumers_use_identical_a_reports_without_native_claims() {
     for (profile, units, value) in [
         ("figma.layout", "pixel", 640.0),
         ("motion.frame", "frame", 24.0),
@@ -91,7 +91,7 @@ fn incomplete_quality_mapping_and_missing_negative_proofs_stay_unknown() {
     );
 }
 #[test]
-fn wire_flags_match_A_and_unknown_cannot_be_renamed_to_success() {
+fn wire_flags_match_a_and_unknown_cannot_be_renamed_to_success() {
     let evaluation = run(&mut ModelAdapter {
         trusted: false,
         ..Default::default()

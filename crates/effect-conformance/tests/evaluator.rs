@@ -98,7 +98,7 @@ fn removing_required_rule_or_replaying_context_cannot_silently_pass() {
     assert!(evaluate(&c, &ctx, &batch).is_err());
 }
 #[test]
-fn vacuous_contract_is_explicitly_unknown_and_bare_A_report_is_invalid() {
+fn vacuous_contract_is_explicitly_unknown_and_bare_a_report_is_invalid() {
     let (mut c, mut ctx) = fixture();
     c.rules.clear();
     ctx.contract_digest = c.digest().unwrap();
