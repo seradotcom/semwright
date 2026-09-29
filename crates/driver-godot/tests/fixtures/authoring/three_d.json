@@ -30,8 +30,8 @@
     {
       "id": "fixture_prop",
       "kind": "glb",
-      "file": "fixture_prop.glb",
-      "sha256": "eb161ee940c8f1be9ad75437f6de8083a5c6408d8914b05e4fbf73d08175b8d5"
+      "file": "triangle.glb",
+      "sha256": "150f5ad8fcc374e0c2b2058868207117a6a89446bbb1607c426d0e9bf42246c6"
     }
   ],
   "scenes": [
@@ -361,7 +361,7 @@
       ],
       "animations": [
         {
-          "id": "prop_pulse",
+          "id": "pulse",
           "animator": "animator",
           "length": 1.0,
           "looping": true,
