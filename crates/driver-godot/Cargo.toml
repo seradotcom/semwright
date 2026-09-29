@@ -22,6 +22,9 @@ jsonschema.workspace = true
 libc.workspace = true
 semwright-driver-sdk.workspace = true
 semwright-semantic-composition.workspace = true
+semwright-project-graph.workspace = true
+semwright-effect-conformance = { path = "../effect-conformance", version = "=0.9.0-dev.1" }
+schemars.workspace = true
 semwright-types.workspace = true
 serde.workspace = true
 serde_json.workspace = true

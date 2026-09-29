@@ -94,6 +94,7 @@ async fn local_driver_routes_work() {
             secret: "b".repeat(64),
         }],
         runner: None,
+        authoring: None,
     };
     let mut driver = GodotDriver::new(config).await.unwrap();
     let catalog = Catalog::load().unwrap();

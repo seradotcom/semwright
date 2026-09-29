@@ -245,6 +245,10 @@ impl Bridge {
             sessions: sessions.clone(),
             stop: stop.clone(),
         };
+        // Authoring-only configuration does not create a control listener or fake editor session.
+        if projects.is_empty() {
+            return Ok(bridge);
+        }
         let projects = Arc::new(
             projects
                 .into_iter()

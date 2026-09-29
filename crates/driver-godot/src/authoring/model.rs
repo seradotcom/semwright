@@ -1,3 +1,4 @@
+use schemars::JsonSchema;
 use semwright_semantic_composition::Digest;
 use serde::{Deserialize, Serialize};
 
@@ -5,7 +6,7 @@ pub const AUTHORING_VERSION: u32 = 1;
 pub const GENERATOR_VERSION: &str = "semwright-godot-ir-v1";
 pub const MAX_SPEC_BYTES: usize = 196_608;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct GodotAuthoringSpec {
     pub version: u32,
@@ -18,14 +19,14 @@ pub struct GodotAuthoringSpec {
     pub scenes: Vec<Scene>,
     pub limits: RuntimeLimits,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ProjectSettings {
     pub width: u32,
     pub height: u32,
     pub physics_ticks: u32,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct RuntimeLimits {
     pub actions_per_event: u32,
@@ -45,13 +46,13 @@ impl Default for RuntimeLimits {
         }
     }
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct InputAction {
     pub id: String,
     pub key: Key,
 }
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Key {
     Left,
@@ -85,14 +86,14 @@ impl Key {
         }
     }
 }
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum AssetKind {
     Glb,
     Texture,
     Audio,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Asset {
     pub id: String,
@@ -100,13 +101,13 @@ pub struct Asset {
     pub file: String,
     pub sha256: Digest,
 }
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum Dimension {
     Two,
     Three,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Scene {
     pub id: String,
@@ -115,7 +116,7 @@ pub struct Scene {
     pub animations: Vec<Clip>,
     pub behavior: Behavior,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Entity {
     pub id: String,
@@ -126,7 +127,7 @@ pub struct Entity {
     pub groups: Vec<String>,
     pub node: NativeNode,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum NativeNode {
     Node2d,
@@ -226,20 +227,20 @@ impl NativeNode {
         }
     }
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Shape2d {
     Rectangle { size: [f64; 2] },
     Circle { radius: f64 },
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Shape3d {
     Box { size: [f64; 3] },
     Sphere { radius: f64 },
     Capsule { radius: f64, height: f64 },
 }
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum ValueType {
     Bool,
@@ -249,7 +250,7 @@ pub enum ValueType {
     Vector3,
     Color,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(
     tag = "kind",
     content = "value",
@@ -276,13 +277,13 @@ impl Literal {
         }
     }
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Variable {
     pub id: String,
     pub initial: Literal,
 }
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum BinaryOp {
     Add,
@@ -294,7 +295,7 @@ pub enum BinaryOp {
     And,
     Or,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Expression {
     Literal { value: Literal },
@@ -306,7 +307,7 @@ pub enum Expression {
     Vector2 { x: u16, y: u16 },
     Vector3 { x: u16, y: u16, z: u16 },
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Behavior {
     pub states: Vec<String>,
@@ -317,14 +318,14 @@ pub struct Behavior {
     pub timers: Vec<Timer>,
     pub signals: Vec<String>,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Timer {
     pub id: String,
     pub ticks: u32,
     pub repeat: bool,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Event {
     Ready,
@@ -334,7 +335,7 @@ pub enum Event {
     Timer { timer: String },
     Signal { signal: String },
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Handler {
     pub id: String,
@@ -344,7 +345,7 @@ pub struct Handler {
     pub repeat: u16,
     pub actions: Vec<Action>,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Action {
     Set {
@@ -405,7 +406,7 @@ pub enum Action {
         scene: String,
     },
 }
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum AnimatedProperty {
     Position,
@@ -413,7 +414,7 @@ pub enum AnimatedProperty {
     Scale,
     Visible,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Clip {
     pub id: String,
@@ -422,14 +423,14 @@ pub struct Clip {
     pub looping: bool,
     pub tracks: Vec<Track>,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Track {
     pub entity: String,
     pub property: AnimatedProperty,
     pub keys: Vec<Keyframe>,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Keyframe {
     pub time: f64,

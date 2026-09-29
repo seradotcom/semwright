@@ -3,7 +3,7 @@
 import hashlib, json, os, pathlib, re, subprocess, sys, time
 ROOT=pathlib.Path(__file__).resolve().parents[2]
 OUT=ROOT/"godot-authoring-evidence"
-SUITES={"godot-model": ["cargo", "test", "--locked", "-p", "semwright-driver-godot", "--test", "authoring", "--", "--nocapture"]}
+SUITES={"godot-model": ["cargo", "test", "--locked", "-p", "semwright-driver-godot", "--test", "authoring", "--test", "authoring_store", "--", "--nocapture"]}
 def main():
     if len(sys.argv)!=2 or sys.argv[1] not in SUITES:
         raise SystemExit("unregistered Godot authoring diagnostic selector")
@@ -12,14 +12,22 @@ def main():
     if os.environ.get("GITHUB_EVENT_NAME")=="push" and sha!=os.environ.get("GITHUB_SHA"):
         raise SystemExit("checkout SHA mismatch")
     suite=sys.argv[1];start=time.monotonic();command=SUITES[suite]
-    receipt=dict(schema_version=1,role="D",source_sha=sha,suite=suite,contract_sha="26602e4b25929be869d69ef28fef4dd9713180d7",dependencies={"P0":None,"E0":None},workflow=os.environ.get("GITHUB_WORKFLOW"),run_id=os.environ.get("GITHUB_RUN_ID"),attempt=os.environ.get("GITHUB_RUN_ATTEMPT"),event=os.environ.get("GITHUB_EVENT_NAME"),job=os.environ.get("GITHUB_JOB"),job_id=None,runtime=None,features=[],lock_sha256=hashlib.sha256((ROOT/"Cargo.lock").read_bytes()).hexdigest(),command=command,requested_tests=12,executed_tests=0,skipped=None,native=False,outcome="FAIL",duration_seconds=None)
+    receipt=dict(schema_version=1,role="D",source_sha=sha,suite=suite,contract_sha="26602e4b25929be869d69ef28fef4dd9713180d7",dependencies={"P0":"6ee52b428310370d3ad438a13964086a63f48367","E0":"dd59d1d008d8bf950521cbda3ab466891db94ed2"},workflow=os.environ.get("GITHUB_WORKFLOW"),run_id=os.environ.get("GITHUB_RUN_ID"),attempt=os.environ.get("GITHUB_RUN_ATTEMPT"),event=os.environ.get("GITHUB_EVENT_NAME"),job=os.environ.get("GITHUB_JOB"),job_id=None,runtime=None,features=[],lock_sha256=hashlib.sha256((ROOT/"Cargo.lock").read_bytes()).hexdigest(),command=command,requested_tests=23,executed_tests=0,skipped=None,native=False,outcome="FAIL",duration_seconds=None)
     try:
         result=subprocess.run(command,cwd=ROOT,text=True,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,check=False)
         log=result.stdout;(OUT/(suite+".log")).write_text(log)
         print(log,flush=True)
         matches=re.findall(r"^test result: ok\. (\d+) passed; 0 failed; (\d+) ignored;",log,re.M)
-        if len(matches)==1:
-            receipt["executed_tests"],receipt["skipped"]=map(int,matches[0])
+        counts = {}
+        for name, minimum in {"authoring":12,"authoring_store":11}.items():
+            section=re.search(r"Running tests/"+name+r"\.rs.*?\n(.*?)(?=\n\s*Running tests/|\Z)",log,re.S)
+            result_line=re.search(r"^test result: ok\. (\d+) passed; 0 failed; (\d+) ignored;",section.group(1),re.M) if section else None
+            if result_line and int(result_line.group(1))>=minimum:
+                counts[name]={"executed":int(result_line.group(1)),"ignored":int(result_line.group(2))}
+        receipt["test_binaries"]=counts
+        if len(counts)==2:
+            receipt["executed_tests"]=sum(c["executed"] for c in counts.values())
+            receipt["skipped"]=sum(c["ignored"] for c in counts.values())
         ok=result.returncode==0 and receipt["executed_tests"]>=receipt["requested_tests"] and receipt["skipped"]==0
         receipt["outcome"]="PASS" if ok else "FAIL"
         receipt["exit_code"]=result.returncode

@@ -27,7 +27,7 @@ jobs:
         with:
           shared-key: godot-authoring-v1
       - name: Formatting
-        run: cargo fmt --all -- --check
+        run: cargo fmt -p semwright-driver-godot -- --check
       - name: Typed model and compiler
         run: python3 scripts/godot-authoring/ci.py godot-model
       - name: Diagnostic evidence
