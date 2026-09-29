@@ -32,6 +32,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
+          fetch-depth: 0
       - name: Validate source and enum selector
         id: selector
         run: |
@@ -92,15 +93,33 @@ jobs:
           cargo +nightly-2026-09-18 fuzz run blender_authoring --             -max_total_time=20 -timeout=3 -rss_limit_mb=1024 -max_len=65536             2>&1 | tee evidence/blender-authoring/fuzz-blender-authoring.log
       - name: Skill validate and clean bundle
         run: |
+          set -o pipefail
           cargo build --locked -p semwright-cli --bin semwright
           target/debug/semwright --json skill validate skills/semwright-blender-production             | tee evidence/blender-authoring/skill-validate.json
           target/debug/semwright --json skill bundle skills/semwright-blender-production             evidence/blender-authoring/semwright-blender-production.zip
           sha256sum evidence/blender-authoring/semwright-blender-production.zip             | tee evidence/blender-authoring/semwright-blender-production.zip.sha256
+          test -s evidence/blender-authoring/skill-validate.json
+          test -s evidence/blender-authoring/semwright-blender-production.zip
+          sha256sum --check --strict evidence/blender-authoring/semwright-blender-production.zip.sha256
       - name: Reproducible E source backup
         run: |
+          set -o pipefail
           python3 scripts/blender-authoring/package_source.py             --source "$GITHUB_SHA"             --output evidence/blender-authoring/semwright-blender-authoring-E-source.zip             | tee evidence/blender-authoring/source-package.json
+          test -s evidence/blender-authoring/source-package.json
+          test -s evidence/blender-authoring/semwright-blender-authoring-E-source.zip
+          test -s evidence/blender-authoring/semwright-blender-authoring-E-source.zip.sha256
+          python3 -m json.tool evidence/blender-authoring/source-package.json >/dev/null
+          sha256sum --check --strict evidence/blender-authoring/semwright-blender-authoring-E-source.zip.sha256
+          python3 scripts/blender-authoring/package_source.py             --source "$GITHUB_SHA"             --output /tmp/semwright-blender-authoring-E-source-second.zip             >/tmp/source-package-second.json
+          cmp evidence/blender-authoring/semwright-blender-authoring-E-source.zip             /tmp/semwright-blender-authoring-E-source-second.zip
+          rm -f /tmp/semwright-blender-authoring-E-source-second.zip             /tmp/semwright-blender-authoring-E-source-second.zip.sha256             /tmp/source-package-second.json
       - name: Formatting gate
         run: cargo fmt --package semwright-driver-blender -- --check
+      - name: Finalize exact-SHA acceptance evidence
+        run: |
+          python3 scripts/blender-authoring/finalize_evidence.py             | tee evidence/blender-authoring/acceptance-final-summary.json
+          test -s evidence/blender-authoring/acceptance-final.json
+          python3 -m json.tool evidence/blender-authoring/acceptance-final.json >/dev/null
       - name: Preserve bounded diagnostics
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
