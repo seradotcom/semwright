@@ -43,13 +43,22 @@ pub struct ImpactReport {
     pub visited_nodes: usize,
     pub visited_edges: usize,
 }
+/// Live cancellation probe, without spawning another scheduler or watcher.
+pub trait CancellationCheck {
+    fn cancelled(&self) -> bool;
+}
+impl CancellationCheck for AtomicBool {
+    fn cancelled(&self) -> bool {
+        self.load(Ordering::Relaxed)
+    }
+}
 impl ProjectGraph {
-    pub fn impact(
+    pub fn impact<C: CancellationCheck + ?Sized>(
         &self,
         access: &ProjectAccess,
         source: &LogicalAssetId,
         budget: TraversalBudget,
-        cancellation: &AtomicBool,
+        cancellation: &C,
     ) -> Result<ImpactReport> {
         self.visible(access, source)?;
         budget.validate()?;
@@ -67,7 +76,7 @@ impl ProjectGraph {
         let mut visited = BTreeSet::new();
         let mut scheduled = BTreeSet::from([(source.clone(), true)]);
         while let Some((id, depth, definite)) = queue.pop_front() {
-            if cancellation.load(Ordering::Relaxed) {
+            if cancellation.cancelled() {
                 report.cancelled = true;
                 report.truncated = true;
                 break;
@@ -119,7 +128,7 @@ impl ProjectGraph {
                 continue;
             }
             for (target, receipt) in targets {
-                if cancellation.load(Ordering::Relaxed) {
+                if cancellation.cancelled() {
                     report.cancelled = true;
                     report.truncated = true;
                     break;
@@ -176,7 +185,7 @@ impl ProjectGraph {
     }
 }
 #[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
-#[serde(deny_unknown_fields)]
+#[serde(deny_unknown_fields, default)]
 pub struct AssetQuery {
     pub resource_type: Option<String>,
     pub status: Option<String>,

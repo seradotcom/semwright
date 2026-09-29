@@ -74,6 +74,8 @@ pub(crate) struct AssetState {
     pub probe: ProbeOutcome,
     pub producer: Option<ReceiptId>,
     pub gap: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub instance: Option<Digest>,
 }
 /// Canonical private log events are not public ingestion requests.
 #[derive(Clone, Serialize, Deserialize)]
@@ -85,6 +87,11 @@ pub(crate) struct AssetState {
 )]
 pub(crate) enum GraphEvent {
     Register(Asset),
+    BindInstance {
+        id: LogicalAssetId,
+        expected_generation: u64,
+        identity: Digest,
+    },
     Rename {
         id: LogicalAssetId,
         label: String,
@@ -145,6 +152,58 @@ impl ProjectGraph {
             determinants_seen: false,
             pending: Vec::new(),
         })
+    }
+    pub fn observation_epoch(&self) -> &str {
+        &self.epoch
+    }
+    pub fn file_scope(&self, access: &ProjectAccess, root: &str) -> Result<ProjectAccess> {
+        self.access(access, false)?;
+        let visible = self
+            .assets
+            .iter()
+            .filter(|(id, s)| {
+                access.sees(id)
+                    && match &s.asset.locator {
+                        None => true,
+                        Some(DurableLocator::ScopedFile { root: r, .. }) => r == root,
+                        Some(DurableLocator::Native { .. }) => false,
+                    }
+            })
+            .map(|(id, _)| id.clone())
+            .collect();
+        ProjectAccess::authorized(
+            access.owner.clone(),
+            access.project.clone(),
+            Some(visible),
+            access.writable,
+            access.grants.clone(),
+        )
+    }
+    pub fn bound_instance(
+        &self,
+        access: &ProjectAccess,
+        id: &LogicalAssetId,
+    ) -> Result<Option<Digest>> {
+        Ok(self.visible(access, id)?.instance.clone())
+    }
+    /// Host-only binding observation; a changed instance requires an explicit audited rebind first.
+    pub fn bind_instance(
+        &mut self,
+        access: &ProjectAccess,
+        id: &LogicalAssetId,
+        expected_generation: u64,
+        identity: Digest,
+    ) -> Result<()> {
+        self.visible(access, id)?;
+        self.access(access, true)?;
+        self.apply(
+            GraphEvent::BindInstance {
+                id: id.clone(),
+                expected_generation,
+                identity,
+            },
+            true,
+        )
     }
     pub fn project_id(&self) -> &ProjectId {
         &self.project
@@ -333,8 +392,25 @@ impl ProjectGraph {
                         probe: ProbeOutcome::Ambiguous,
                         producer: None,
                         gap: true,
+                        instance: None,
                     },
                 );
+            }
+            GraphEvent::BindInstance {
+                id,
+                expected_generation,
+                identity,
+            } => {
+                let state = self.assets.get_mut(id).ok_or(GraphError::Denied)?;
+                if state.binding_generation != *expected_generation
+                    || state.instance.as_ref().is_some_and(|old| old != identity)
+                {
+                    return Err(GraphError::Conflict);
+                }
+                if state.instance.as_ref() == Some(identity) {
+                    return Ok(());
+                }
+                state.instance = Some(identity.clone());
             }
             GraphEvent::Rename { id, label } => {
                 name(label)?;
@@ -362,6 +438,7 @@ impl ProjectGraph {
                     .ok_or(GraphError::Limit("binding generation"))?;
                 s.asset.locator = Some(locator.clone());
                 s.binding_generation = generation;
+                s.instance = None;
                 s.latest = None;
                 s.producer = None;
                 s.probe = ProbeOutcome::Ambiguous;
@@ -544,6 +621,30 @@ impl ProjectGraph {
                 "receipt substitutes revision or fingerprint",
             )?;
         }
+        // Receipt bases must describe the same actual revision observations, not only
+        // matching IDs/digests supplied alongside an unrelated source/report.
+        for (pins, base) in [
+            (&r.inputs, &r.source_base),
+            (&r.outputs, &r.verification.validation.base),
+        ] {
+            for pin in pins {
+                let stored = self
+                    .revisions
+                    .get(&pin.revision)
+                    .ok_or(GraphError::Conflict)?;
+                for expected in &stored.observation.base.0 {
+                    let actual = base
+                        .0
+                        .iter()
+                        .find(|v| v.key == expected.key)
+                        .ok_or(GraphError::Conflict)?;
+                    ensure(
+                        canonical_digest(actual)? == canonical_digest(expected)?,
+                        "receipt observation/base substitution",
+                    )?;
+                }
+            }
+        }
         let completed = r.verification.execution_status == composition::ExecutionStatus::Completed;
         let needed = r
             .inputs
@@ -684,6 +785,11 @@ impl ProjectGraph {
         };
         if let Some(receipt) = s.producer.as_ref().and_then(|r| self.receipts.get(r)) {
             k.verification = receipt.verification.verdict()?;
+            if k.verification == composition::Verdict::Pass
+                && !report_covers_output(receipt, observed)
+            {
+                k.verification = composition::Verdict::Unknown;
+            }
             k.coverage.complete &= receipt.coverage.complete;
             k.coverage
                 .unknown_frontier
@@ -803,4 +909,25 @@ impl ProjectGraph {
         }
         Ok(r.clone())
     }
+}
+
+/// Correlate evidence with this output identity; this does not reevaluate A/F quality rules.
+fn report_covers_output(receipt: &ExecutionReceipt, observed: &RevisionRecord) -> bool {
+    receipt.verification.validation.checks.iter().any(|check| {
+        receipt
+            .verification
+            .validation
+            .required_rules
+            .contains(&check.rule)
+            && check.verdict == composition::Verdict::Pass
+            && check.evidence.iter().any(|evidence| {
+                evidence.exhaustive
+                    && evidence.scope.iter().any(|address| {
+                        observed.observation.scope.iter().any(|expected| {
+                            address.resource == expected.resource
+                                && address.logical_id == expected.logical_id
+                        })
+                    })
+            })
+    })
 }

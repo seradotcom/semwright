@@ -29,10 +29,11 @@ pub struct ScopedObserver {
     scope: BTreeSet<LogicalAssetId>,
     last: Option<(u64, Digest)>,
     rescan: bool,
+    epoch: String,
 }
 impl ScopedObserver {
     pub fn register(
-        graph: &ProjectGraph,
+        graph: &mut ProjectGraph,
         access: &ProjectAccess,
         scope: BTreeSet<LogicalAssetId>,
     ) -> Result<Self> {
@@ -44,7 +45,9 @@ impl ScopedObserver {
         for id in &scope {
             graph.visible(access, id)?;
         }
+        graph.invalidate_scope(access, scope.iter().cloned().collect())?;
         Ok(Self {
+            epoch: graph.observation_epoch().into(),
             owner: access.owner.clone(),
             project: access.project.clone(),
             grants: access.grants.clone(),
@@ -55,6 +58,9 @@ impl ScopedObserver {
     }
     fn check(&self, graph: &ProjectGraph, access: &ProjectAccess) -> Result<()> {
         graph.access(access, true)?;
+        if graph.observation_epoch() != self.epoch {
+            return Err(GraphError::Conflict);
+        }
         if access.owner != self.owner
             || access.project != self.project
             || access.grants != self.grants

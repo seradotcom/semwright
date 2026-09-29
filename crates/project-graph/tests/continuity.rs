@@ -6,7 +6,7 @@ fn watcher_loss_reorder_duplicate_and_rescan_are_explicit() {
     let (mut g, a) = setup();
     let id = asset(&mut g, &a, "source");
     observe(&mut g, &a, &id, "a", 1);
-    let mut watcher = ScopedObserver::register(&g, &a, [id.clone()].into()).unwrap();
+    let mut watcher = ScopedObserver::register(&mut g, &a, [id.clone()].into()).unwrap();
     let first = watcher
         .event(&mut g, &a, 10, WatchHint::Changed(vec![id.clone()]))
         .unwrap();
@@ -77,4 +77,25 @@ fn malformed_manifest_and_parent_cycle_leave_target_unchanged() {
     assert!(g.import_manifest(&a, &m).is_err());
     assert_eq!(g.snapshot_revision(), 0);
     assert!(PortableManifest::decode(br#"{"version":1,"version":2}"#).is_err());
+}
+
+#[test]
+fn watcher_registration_and_restart_never_reuse_old_rescan_evidence() {
+    let (mut graph, access) = setup();
+    let id = asset(&mut graph, &access, "file");
+    observe(&mut graph, &access, &id, "initial", 1);
+    let mut watcher = ScopedObserver::register(&mut graph, &access, [id.clone()].into()).unwrap();
+    assert_eq!(
+        graph.inspect(&access, &id).unwrap().knowledge.label(),
+        "UNKNOWN"
+    );
+    assert!(watcher.finish_rescan(&graph, &access).is_err());
+    observe(&mut graph, &access, &id, "current", 2);
+    watcher.finish_rescan(&graph, &access).unwrap();
+    graph.restart_observation_epoch();
+    assert!(
+        watcher
+            .event(&mut graph, &access, 1, WatchHint::Changed(vec![id]))
+            .is_err()
+    );
 }

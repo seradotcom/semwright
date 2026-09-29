@@ -325,3 +325,32 @@ fn synthetic_changed_observation_cannot_prove_native_staleness() {
         Freshness::Unknown
     );
 }
+
+#[test]
+fn receipt_cannot_substitute_source_base_while_retaining_valid_revision_pins() {
+    let (mut g, a) = setup();
+    let x = asset(&mut g, &a, "source");
+    let y = asset(&mut g, &a, "output");
+    let input = observe(&mut g, &a, &x, "x", 1);
+    let output = observe(&mut g, &a, &y, "y", 2);
+    let mut receipt = receipt(g.project_id().clone(), &[input], &output, 3);
+    receipt.source_base.0[0].generation = "foreign-generation".into();
+    assert!(g.accept_receipt(&a, admit(receipt)).is_err());
+}
+#[test]
+fn report_pass_for_another_output_does_not_certify_this_output() {
+    let (mut g, a) = setup();
+    let x = asset(&mut g, &a, "source");
+    let y = asset(&mut g, &a, "output");
+    let input = observe(&mut g, &a, &x, "x", 1);
+    let output = observe(&mut g, &a, &y, "y", 2);
+    let mut r = receipt(g.project_id().clone(), &[input], &output, 3);
+    r.verification.validation.checks[0].evidence[0].scope[0].logical_id = x.as_str().into();
+    assert_eq!(r.verification.verdict().unwrap(), Verdict::Pass);
+    g.observe_determinants(&a, r.required_determinants())
+        .unwrap();
+    g.accept_receipt(&a, admit(r)).unwrap();
+    let state = g.inspect(&a, &y).unwrap().knowledge;
+    assert_eq!(state.verification, Verdict::Unknown);
+    assert!(!state.cache_safe());
+}

@@ -443,7 +443,8 @@ impl GraphStore {
                 GraphEvent::Register(a) => {
                     ids.insert(a.id.clone());
                 }
-                GraphEvent::Rename { id, .. }
+                GraphEvent::BindInstance { id, .. }
+                | GraphEvent::Rename { id, .. }
                 | GraphEvent::Rebind { id, .. }
                 | GraphEvent::Probe { id, .. }
                 | GraphEvent::Tombstone(id) => {
