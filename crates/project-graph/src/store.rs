@@ -95,7 +95,7 @@ impl GraphStore {
         principal: PrincipalBinding,
         repair_indexes: bool,
     ) -> Result<Self> {
-        semwright_platform_services::private_directory(directory)
+        semwright_platform_services::private_data_directory(directory)
             .map_err(|_| GraphError::Denied)?;
         ensure(directory.is_absolute(), "absolute private state directory")?;
         #[cfg(unix)]
@@ -547,7 +547,7 @@ impl GraphStore {
             manifest.version == SCHEMA_VERSION && manifest.bytes <= MAX_DB_BYTES,
             "backup schema/budget",
         )?;
-        semwright_platform_services::private_directory(backup_directory)
+        semwright_platform_services::private_data_directory(backup_directory)
             .map_err(|_| GraphError::Denied)?;
         let bytes = read_private(&backup_directory.join("backup.sqlite3"))?;
         ensure(
@@ -558,7 +558,7 @@ impl GraphStore {
             !destination.try_exists()?,
             "restore must preserve existing state",
         )?;
-        semwright_platform_services::private_directory(destination)
+        semwright_platform_services::private_data_directory(destination)
             .map_err(|_| GraphError::Denied)?;
         let mut options = std::fs::OpenOptions::new();
         options.write(true).create_new(true);

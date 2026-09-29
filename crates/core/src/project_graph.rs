@@ -82,7 +82,7 @@ impl ProjectGraphs {
                 "Canonical private project state and authenticated principal required",
             ));
         }
-        semwright_platform_services::private_directory(home)?;
+        semwright_platform_services::private_data_directory(home)?;
         #[cfg(any(target_os = "linux", target_os = "macos"))]
         if std::fs::canonicalize(home)? != home {
             return Err(Error::invalid(
@@ -132,7 +132,7 @@ impl ProjectGraphs {
         };
         let id = g::ProjectId::new();
         let directory = self.home.join(id.as_str());
-        semwright_platform_services::private_directory(&directory)?;
+        semwright_platform_services::private_data_directory(&directory)?;
         let private =
             semwright_platform_services::filesystem().open_root(&directory, true, true)?;
         private.write_atomic(

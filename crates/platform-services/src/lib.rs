@@ -22,6 +22,16 @@ pub use unix::{current_uid, private_directory, validate_peer};
 pub fn private_directory(path: &Path) -> Result<()> {
     semwright_platform_windows_sys::paths::ensure_private_directory(path)
 }
+/// Private persistent-data directory: owner-only on every supported host.
+/// Use this when child files must inherit the confidentiality boundary.
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+pub fn private_data_directory(path: &Path) -> Result<()> {
+    unix::private_directory(path)
+}
+#[cfg(target_os = "windows")]
+pub fn private_data_directory(path: &Path) -> Result<()> {
+    semwright_platform_windows_sys::paths::ensure_owner_only_directory(path)
+}
 #[cfg(target_os = "windows")]
 pub fn windows_pipe_path(kind: &str) -> Result<PathBuf> {
     semwright_platform_windows_sys::pipe::pipe_path(kind)
