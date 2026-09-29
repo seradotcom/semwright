@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Original Semwright architecture. Uses the unmodified system libfaust API.
 // This executable is owner-pinned and invoked by Driver Host, never by a shell.
+#include <cstring>
+#include <iostream>
 #include <faust/dsp/interpreter-dsp.h>
 #include <faust/dsp/poly-interpreter-dsp.h>
 #include <sndfile.h>
@@ -10,7 +12,6 @@
 #include <cmath>
 #include <cstdint>
 #include <fcntl.h>
-#include <iostream>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -255,8 +256,8 @@ int execute(int argc, char** argv) {
             throw std::runtime_error("staged sample input is not a bounded regular file");
         }
         SF_INFO source_info{};
-        SoundFile source(sf_open_fd(input_fd, SFM_READ, &source_info, SF_TRUE));
-        if (!source) {
+        SoundFile sample_input(sf_open_fd(input_fd, SFM_READ, &source_info, SF_TRUE));
+        if (!sample_input) {
             close(input_fd);
             close(root);
             throw std::runtime_error("sample decoder initialization failed");
@@ -330,11 +331,11 @@ int execute(int argc, char** argv) {
             int filled = 0;
             while (filled < count) {
                 const auto request = count - filled;
-                const auto got = sf_readf_float(source.get(), source_interleaved.data(), request);
+                const auto got = sf_readf_float(sample_input.get(), source_interleaved.data(), request);
                 if (got < 0) throw std::runtime_error("sample decoder returned a negative frame count");
                 if (got == 0) {
                     if (!looped) break;
-                    if (sf_seek(source.get(), 0, SEEK_SET) < 0)
+                    if (sf_seek(sample_input.get(), 0, SEEK_SET) < 0)
                         throw std::runtime_error("sample loop seek failed");
                     continue;
                 }
@@ -469,7 +470,7 @@ int execute(int argc, char** argv) {
                 throw std::runtime_error("short polyphonic audio write");
             done += static_cast<std::uint64_t>(count);
         }
-        processor->allNotesOff(true);
+        processor->ctrlChange(0, 123, 0);
         sf_write_sync(output.get());
         if (sf_close(output.release()) != 0)
             throw std::runtime_error("polyphonic audio finalization failed");
