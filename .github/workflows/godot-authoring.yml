@@ -296,6 +296,7 @@ jobs:
         env:
           SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
         run: |
+          set -euo pipefail
           cargo test --locked -p semwright-driver-godot --test authoring_host \
             persistence_lane_reopens_in_fresh_process_and_preserves_dependencies \
             -- --ignored --exact --nocapture \
@@ -361,6 +362,7 @@ jobs:
         env:
           SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
         run: |
+          set -euo pipefail
           cargo test --locked -p semwright-driver-godot --test authoring_host \
             export_lane_builds_and_launches_without_editor_or_semwright \
             -- --ignored --exact --nocapture \
@@ -396,6 +398,7 @@ jobs:
           shared-key: godot-authoring-hostile-v1
       - name: Property fuzz IR plan native wire and cursors
         run: |
+          set -euo pipefail
           mkdir -p verification/godot-authoring-hostile
           cargo test --locked -p semwright-driver-godot --test authoring_fuzz -- --nocapture             2>&1 | tee verification/godot-authoring-hostile/property-fuzz.log
       - name: Focused hostile regressions

@@ -369,9 +369,14 @@ async fn hosted_authoring(test_name: &str) -> HostedAuthoring {
             .expect("SEMWRIGHT_TEST_SANDBOX_HELPER must point to semwright-sandbox"),
     );
     let fixture = fixture();
+    let startup_gate = fixture._state.path().join(".enable-startup-diagnostics");
+    let startup_diagnostic = fixture._state.path().join(".driver-startup-error");
+    std::fs::write(&startup_gate, b"1").unwrap();
+    std::fs::set_permissions(&startup_gate, std::fs::Permissions::from_mode(0o600)).unwrap();
+
     let driver_state = tempfile::tempdir().unwrap();
     std::fs::set_permissions(driver_state.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
-    let provider = DriverProvider::connect(
+    let provider = match DriverProvider::connect(
         manifest(executable, fixture.runtime_sha256.clone()),
         driver_state.path(),
         &helper,
@@ -379,7 +384,18 @@ async fn hosted_authoring(test_name: &str) -> HostedAuthoring {
         false,
     )
     .await
-    .unwrap();
+    {
+        Ok(provider) => provider,
+        Err(error) => {
+            let diagnostic =
+                std::fs::read_to_string(&startup_diagnostic).unwrap_or_else(|diagnostic_error| {
+                    format!("<startup diagnostic unavailable: {diagnostic_error}>")
+                });
+            panic!("Driver Host startup failed: {error:?}; private diagnostic: {diagnostic}");
+        }
+    };
+    std::fs::remove_file(&startup_gate).unwrap();
+    let _ = std::fs::remove_file(&startup_diagnostic);
 
     let audit_dir = tempfile::tempdir().unwrap();
     let audit = Audit::open(&audit_dir.path().join("audit"), 65_536, 2).unwrap();

@@ -1,4 +1,35 @@
 use semwright_godot_driver::{Config, GodotDriver};
+use std::io::Write;
+
+const STARTUP_DIAGNOSTIC_GATE: &str =
+    "/workspace/godot-authoring-state/.enable-startup-diagnostics";
+const STARTUP_DIAGNOSTIC_PATH: &str = "/workspace/godot-authoring-state/.driver-startup-error";
+
+fn write_startup_diagnostic(error: &semwright_types::Error) {
+    let Ok(gate) = std::fs::symlink_metadata(STARTUP_DIAGNOSTIC_GATE) else {
+        return;
+    };
+    if !gate.file_type().is_file() || gate.len() > 32 {
+        return;
+    }
+    let mut message = error.message.replace(['\r', '\n'], " ");
+    message.truncate(2048);
+    let Ok(mut file) = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(STARTUP_DIAGNOSTIC_PATH)
+    else {
+        return;
+    };
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let _ = file.set_permissions(std::fs::Permissions::from_mode(0o600));
+    }
+    let _ = writeln!(file, "code={:?}", error.code);
+    let _ = writeln!(file, "message={message}");
+    let _ = file.sync_all();
+}
 
 #[tokio::main]
 async fn main() {
@@ -21,6 +52,7 @@ async fn main() {
     }
     .await;
     if let Err(error) = result {
+        write_startup_diagnostic(&error);
         eprintln!("godot driver stopped: {:?}", error.code);
         std::process::exit(1);
     }
