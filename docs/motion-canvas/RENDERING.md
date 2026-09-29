@@ -13,15 +13,15 @@ The controlled build sets Motion Canvas `buildForEditor: true` only to select up
 ## Production path
 
 1. Rust validates `semwright-motion.json` and a bounded `RenderProfile`.
-2. Deterministic generated source is materialized in a content-addressed project tree.
-3. Driver Host supplies an owner-approved read-only runtime mount with explicit `execute: true`, plus a separate non-executable read-only `fontconfig` system-config grant mapped only to `/etc/fonts`.
-4. Rust verifies SHA-256 pins for Node, `render.mjs` and the exact Playwright Firefox executable.
-5. A render job starts pinned Node only inside Driver Host. Node is capped with `--disable-wasm-trap-handler` and `--max-old-space-size=256`; the outer driver request uses the existing SDK maximum of 256 tasks and remains at 4 GiB virtual address space; this follows the measured Firefox 151 WebRender `EAGAIN` at 128 tasks.
-6. Rust pins `TMPDIR`, `TMP`, `TEMP` and XDG state to the job-specific writable output directory. The helper copies the generated project into that private area and performs the Vite build there.
-7. After verifying the Driver Host marker, the helper launches only the pinned Firefox executable in headless persistent-context mode with fixed sandbox-composition environment values and `dom.ipc.forkserver.enable=false`. It uses Playwright's startup `about:blank` page instead of requesting a second page after launch, because CI showed that the context-new-page operation could not create a target inside the nested namespace. The fixed fork-server preference separately bypasses Firefox's Linux fork-server broker after CI proved that broker could not create a tab subprocess inside the already-isolated Driver Host namespace; normal Firefox content processes remain enabled. There is no request-controlled browser flag surface.
+2. Deterministic generated source is materialized in a content-addressed project tree under the owner-granted `project` root.
+3. Driver Host supplies a SHA-pinned `motion-node` tool plus the exact per-tool `project`, `output`, read-only executable `runtime`, and read-only `fontconfig` grants. No installation path is discovered by the driver.
+4. Rust embeds `render.mjs` at compile time and submits it as bounded stdin to Node. Project/output/fontconfig paths travel as protocol-v7 typed Host refs; only validated semantic relative names remain ordinary literals.
+5. Driver Host creates a detached session-bound Node job with the runtime root as its logical cwd. Node is capped with `--disable-wasm-trap-handler` and `--max-old-space-size=256`; process/time/resource containment belongs to the Host job rather than a private driver launcher.
+6. The helper canonicalizes every Host-resolved root, combines it only with validated relative project/output names, and rejects any escape. Firefox writable profile/cache/tmp state is redirected to the job-specific output directory.
+7. The helper resolves Playwright's Firefox executable from the runtime bundle and rejects it unless its canonical path remains inside that bundle. After verifying the Driver Host marker it launches Firefox in headless persistent-context mode with fixed sandbox-composition environment values and `dom.ipc.forkserver.enable=false`. There is no request-controlled browser flag or executable-path surface.
 8. The helper creates a disposable Playwright context and intercepts the synthetic `semwright.invalid` origin from the local Vite build. All external page requests are aborted and no HTTP/CDP server is exposed.
 9. Motion Canvas core `Renderer` is awaited directly. Its fixed Semwright exporter returns PNG data only through an owner-controlled Playwright binding.
-10. Rust validates every frame name, symlink boundary, compressed-byte SHA-256 and bounded PNG header/dimensions before returning artifact paths. Renders of up to 60 frames receive exhaustive pixel decode/hash/alpha evidence; longer sequences deeply validate five deterministic frame samples while preserving byte-level integrity evidence for every frame. That CPU/I/O work runs on Tokio's blocking pool so the current-thread Driver Protocol loop stays responsive.
+10. After the Host job reports success, Rust validates every frame name, symlink boundary, compressed-byte SHA-256 and bounded PNG header/dimensions before returning artifact paths. Renders of up to 60 frames receive exhaustive pixel decode/hash/alpha evidence; longer sequences deeply validate five deterministic frame samples while preserving byte-level integrity evidence for every frame. That CPU/I/O work runs on Tokio's blocking pool so the Driver Protocol loop stays responsive.
 
 If the browser-side render times out, the helper reports a bounded state snapshot (`phase`, last observed frame, renderer result/error) plus at most 32 bounded console/page-error diagnostics. This avoids turning a browser hang into an opaque timeout.
 
@@ -29,7 +29,7 @@ The helper never accepts arbitrary JavaScript, npm packages, commands or URLs fr
 
 ## Cancellation and timeout
 
-Node is started in a new owned process group; Firefox descendants inherit that group. Cancellation or timeout terminates the group, escalates after a bounded grace period and deletes partial output. The Motion Canvas manifest negotiates Protocol v3: `render.execute` reports observed render-state transitions plus the validated terminal artifact through the protocol context and honors cooperative request cancellation. The asynchronous `render.start/status/cancel/result` surface remains backed by the same job registry rather than a second renderer path.
+Node is started as a session-bound Host runtime-tool job and Firefox descendants remain inside that Host-owned process boundary. Timeout, explicit `render.cancel`, provider shutdown and `render.execute` request cancellation all converge on Host job cancellation/reaping. Protocol v7 reports observed render-state transitions plus the validated terminal artifact through the protocol context. The asynchronous `render.start/status/cancel/result` surface and synchronous `render.execute` share the same Host job substrate rather than separate renderer paths.
 
 ## Firefox version pin
 
@@ -37,7 +37,7 @@ The renderer deliberately pins Playwright 1.61.1 / Firefox 151.0. CI with Playwr
 
 ## Firefox sandbox layering
 
-The certified Ubuntu path runs the Playwright-pinned Firefox build inside the already-required Driver Host Bubblewrap + Landlock boundary. The runtime executable is selected uniquely and SHA-256 pinned in the owner manifest. Firefox's nested content sandbox is disabled with fixed helper-owned environment settings only after the outer Semwright sandbox marker is present; this avoids nesting a second sandbox authority while keeping AppArmor, Landlock, explicit filesystem grants, process limits and `network=false` authoritative.
+The certified Ubuntu path runs the Playwright-pinned Firefox build inside the already-required Driver Host Bubblewrap + Landlock boundary. Node is the SHA-pinned Host tool; Firefox is resolved canonically from the explicitly executable owner runtime bundle and cannot escape that root. The complete browser bundle is not yet claimed as an immutable Host-attested artifact. Firefox's nested content sandbox is disabled with fixed helper-owned environment settings only after the outer Semwright sandbox marker is present; this avoids nesting a second sandbox authority while keeping AppArmor, Landlock, explicit filesystem grants, process limits and `network=false` authoritative.
 
 Chrome-for-Testing/Chromium was evaluated first. Multiple exact CI builds aborted with `SIGTRAP/int3` before a usable automation endpoint appeared, even after isolated AppArmor, task-budget and address-space experiments. The production route therefore fails away from that browser rather than weakening Semwright's sandbox.
 

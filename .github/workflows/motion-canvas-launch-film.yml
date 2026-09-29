@@ -120,20 +120,20 @@ jobs:
         run: |
           npm ci --ignore-scripts
           npx --no-install playwright install --with-deps firefox
-      - name: Pin Motion Canvas runtime tools by digest
+      - name: Stage Motion Canvas Node tool for Driver Host
         working-directory: integrations/motion-canvas/runtime
         run: |
-          mkdir -p .semwright-tools
-          cp "$(command -v node)" .semwright-tools/node
-          chmod 0755 .semwright-tools/node
+          NODE_TOOL="$RUNNER_TEMP/semwright-motion-node"
+          cp "$(command -v node)" "$NODE_TOOL"
+          chmod 0700 "$NODE_TOOL"
           mapfile -t BROWSERS < <(find node_modules/playwright-core/.local-browsers -path '*/firefox-*/firefox/firefox' -type f -perm -111 -print)
           test "${#BROWSERS[@]}" -eq 1
-          BROWSER="${BROWSERS[0]}"
-          BROWSER_REL=$(realpath --relative-to="$PWD" "$BROWSER")
-          NODE_SHA=$(sha256sum .semwright-tools/node | awk '{print $1}')
-          HELPER_SHA=$(sha256sum render.mjs | awk '{print $1}')
-          BROWSER_SHA=$(sha256sum "$BROWSER" | awk '{print $1}')
-          BROWSER_REL="$BROWSER_REL" NODE_SHA="$NODE_SHA" HELPER_SHA="$HELPER_SHA" BROWSER_SHA="$BROWSER_SHA" node --input-type=module -e "import fs from 'node:fs'; fs.writeFileSync('runtime.json', JSON.stringify({node:{path:'.semwright-tools/node',sha256:process.env.NODE_SHA},helper:{path:'render.mjs',sha256:process.env.HELPER_SHA},browser:{path:process.env.BROWSER_REL,sha256:process.env.BROWSER_SHA}},null,2))"
+          mkdir -p "$GITHUB_WORKSPACE/verification/motion-canvas-launch"
+          {
+            echo "node_sha256=$(sha256sum "$NODE_TOOL" | awk '{print $1}')"
+            echo "browser_sha256=$(sha256sum "${BROWSERS[0]}" | awk '{print $1}')"
+            echo "embedded_helper_sha256=$(sha256sum render.mjs | awk '{print $1}')"
+          } > "$GITHUB_WORKSPACE/verification/motion-canvas-launch/runtime-tool-attestation.txt"
       - name: Pin MLT runtime tools by digest
         run: |
           mkdir -p "$RUNNER_TEMP/mlt-runtime"
@@ -166,6 +166,7 @@ jobs:
             target/debug/semwright-mlt-video-driver \
             target/debug/semwright-sandbox \
             integrations/motion-canvas/runtime \
+            "$RUNNER_TEMP/semwright-motion-node" \
             "$RUNNER_TEMP/mlt-runtime" \
             demos/launch-film/semwright-motion.json \
             "$RUNNER_TEMP/launch-sound.wav" \

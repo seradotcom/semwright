@@ -1,6 +1,6 @@
 {
   "manifest_version": 1,
-  "protocol": 3,
+  "protocol": 7,
   "id": "motion-canvas",
   "version": "0.9.0-dev.1",
   "publisher": "semwright",
@@ -34,19 +34,34 @@
       "root": "runtime",
       "read_only": true,
       "execute": true
-    }
-  ],
-  "system_config": [
+    },
     {
       "root": "fontconfig",
-      "destination": "/etc/fonts"
+      "read_only": true
+    }
+  ],
+  "system_config": [],
+  "secrets": [],
+  "tools": [
+    {
+      "root": "motion-node-tool",
+      "name": "motion-node",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "mounts": [
+        "project",
+        "output",
+        "runtime",
+        "fontconfig"
+      ]
     }
   ],
   "network": false,
+  "loopback_port": null,
   "resources": {
-    "open_files": 256,
+    "open_files": 512,
     "processes": 256,
     "cpu_seconds": 300,
+    "operation_cpu_seconds": 0,
     "address_space_bytes": 4294967296,
     "file_size_bytes": 1073741824
   },
@@ -58,6 +73,7 @@
     "health": true,
     "progress": true,
     "artifacts": true,
-    "native_refs": false
+    "native_refs": false,
+    "host_tools": true
   }
 }
