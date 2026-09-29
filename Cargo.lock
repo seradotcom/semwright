@@ -2978,6 +2978,7 @@ dependencies = [
  "semwright-policy",
  "semwright-project-graph",
  "semwright-protocol",
+ "semwright-registry",
  "semwright-semantic-composition",
  "semwright-types",
  "serde",

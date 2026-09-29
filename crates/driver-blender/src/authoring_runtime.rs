@@ -157,7 +157,7 @@ pub(super) fn capabilities() -> Vec<Capability> {
         ),
         (
             "plan",
-            serde_json::to_value(schemars::schema_for!(PlanInput)).expect("schema serializes"),
+            plan_transport_input_schema(),
             plan_output.clone(),
             Risk::ReadOnly,
         ),

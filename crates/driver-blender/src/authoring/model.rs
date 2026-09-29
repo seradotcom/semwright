@@ -314,6 +314,77 @@ pub struct Key {
     pub value: [f64; 3],
 }
 
+/// Compact public transport schema for composition.plan. The full AuthoringIntent
+/// schema remains part of ProfileIdentity and is enforced by strict serde decode plus
+/// BlenderAuthoringSpec::validate; the external Registry envelope is deliberately
+/// shallow enough to stay within its bounded schema walk.
+pub fn plan_transport_input_schema() -> serde_json::Value {
+    let id = serde_json::json!({
+        "type":"string","minLength":1,"maxLength":64,
+        "pattern":"^[A-Za-z0-9_-]+$"
+    });
+    let vec3 = serde_json::json!({
+        "type":"array","minItems":3,"maxItems":3,
+        "items":{"type":"number"}
+    });
+    serde_json::json!({
+        "type":"object",
+        "properties":{
+            "intent":{
+                "oneOf":[
+                    {
+                        "type":"object",
+                        "properties":{
+                            "kind":{"const":"create"},
+                            "spec":{
+                                "type":"object",
+                                "properties":{
+                                    "version":{"type":"integer","const":1},
+                                    "collection":id.clone(),
+                                    "meters_per_unit":{"type":"number","exclusiveMinimum":0.0,"maximum":100.0},
+                                    "textures":{"type":"array","maxItems":32,"items":{"type":"object","maxProperties":8}},
+                                    "materials":{"type":"array","maxItems":64,"items":{"type":"object","maxProperties":24}},
+                                    "entities":{"type":"array","minItems":1,"maxItems":128,"items":{"type":"object","maxProperties":16}},
+                                    "relations":{"type":"array","maxItems":256,"items":{"type":"object","maxProperties":16}},
+                                    "animation":{"type":["object","null"],"maxProperties":8}
+                                },
+                                "required":["version","collection","meters_per_unit","materials","entities","relations"],
+                                "additionalProperties":false
+                            }
+                        },
+                        "required":["kind","spec"],
+                        "additionalProperties":false
+                    },
+                    {
+                        "type":"object",
+                        "properties":{
+                            "kind":{"const":"transform"},
+                            "island":id.clone(),
+                            "entity":id,
+                            "transform":{
+                                "type":"object",
+                                "properties":{
+                                    "translation":vec3.clone(),
+                                    "rotation":vec3.clone(),
+                                    "scale":vec3
+                                },
+                                "required":["translation","rotation","scale"],
+                                "additionalProperties":false
+                            },
+                            "meters_per_unit":{"type":"number","exclusiveMinimum":0.0,"maximum":100.0},
+                            "expected_fingerprint":{"type":"string","pattern":"^[a-f0-9]{64}$"}
+                        },
+                        "required":["kind","island","entity","transform","meters_per_unit","expected_fingerprint"],
+                        "additionalProperties":false
+                    }
+                ]
+            }
+        },
+        "required":["intent"],
+        "additionalProperties":false
+    })
+}
+
 pub fn local_id(s: &str) -> Result<()> {
     ensure(
         !s.is_empty()
@@ -604,39 +675,41 @@ impl BlenderAuthoringSpec {
             )?;
             finite(m.emission_strength, 0.0, 10.0)?;
             finite(m.opacity, 0.0, 1.0)?;
-            for binding in [&m.base_color_texture, &m.emission_texture] {
-                if let Some(binding) = binding {
-                    local_id(&binding.texture)?;
-                    ensure(
-                        binding.channel == TextureChannel::Color,
-                        "color texture binding requires color channel",
-                    )?;
-                    ensure(
-                        textures
-                            .get(&binding.texture)
-                            .is_some_and(|texture| texture.color_space == TextureColorSpace::Srgb),
-                        "color texture requires declared sRGB asset",
-                    )?;
-                }
+            for binding in [&m.base_color_texture, &m.emission_texture]
+                .into_iter()
+                .flatten()
+            {
+                local_id(&binding.texture)?;
+                ensure(
+                    binding.channel == TextureChannel::Color,
+                    "color texture binding requires color channel",
+                )?;
+                ensure(
+                    textures
+                        .get(&binding.texture)
+                        .is_some_and(|texture| texture.color_space == TextureColorSpace::Srgb),
+                    "color texture requires declared sRGB asset",
+                )?;
             }
             for binding in [
                 &m.roughness_texture,
                 &m.metallic_texture,
                 &m.opacity_texture,
-            ] {
-                if let Some(binding) = binding {
-                    local_id(&binding.texture)?;
-                    ensure(
-                        binding.channel != TextureChannel::Color,
-                        "scalar texture binding requires explicit component channel",
-                    )?;
-                    ensure(
-                        textures.get(&binding.texture).is_some_and(|texture| {
-                            texture.color_space == TextureColorSpace::NonColor
-                        }),
-                        "scalar texture requires declared non-color asset",
-                    )?;
-                }
+            ]
+            .into_iter()
+            .flatten()
+            {
+                local_id(&binding.texture)?;
+                ensure(
+                    binding.channel != TextureChannel::Color,
+                    "scalar texture binding requires explicit component channel",
+                )?;
+                ensure(
+                    textures
+                        .get(&binding.texture)
+                        .is_some_and(|texture| texture.color_space == TextureColorSpace::NonColor),
+                    "scalar texture requires declared non-color asset",
+                )?;
             }
             if let Some(binding) = &m.normal_texture {
                 local_id(&binding.texture)?;

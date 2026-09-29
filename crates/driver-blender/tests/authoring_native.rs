@@ -22,6 +22,39 @@ use std::{
 };
 use tokio_util::sync::CancellationToken;
 
+fn native_lane_root() -> Option<PathBuf> {
+    if std::env::var("SEMWRIGHT_NATIVE_AUTHORING_ACCEPTANCE").as_deref() != Ok("1") {
+        eprintln!(
+            "SKIP_NATIVE_AUTHORING: explicit acceptance lane marker is not set;              all-features compile/coverage must not require a provisioned Blender runtime"
+        );
+        return None;
+    }
+    assert_eq!(
+        std::env::var("GITHUB_ACTIONS").as_deref(),
+        Ok("true"),
+        "native acceptance marker is CI-only"
+    );
+    assert_eq!(
+        std::env::var("RUNNER_ENVIRONMENT").as_deref(),
+        Ok("github-hosted"),
+        "native acceptance marker requires a GitHub-hosted disposable runner"
+    );
+    let root = PathBuf::from(
+        std::env::var("SEMWRIGHT_TEST_BLENDER_ROOT")
+            .expect("acceptance lane marker requires Blender runtime"),
+    );
+    let helper = PathBuf::from(
+        std::env::var("SEMWRIGHT_TEST_SANDBOX_HELPER")
+            .expect("acceptance lane marker requires sandbox helper"),
+    );
+    assert!(
+        root.join("blender").is_file(),
+        "pinned Blender binary missing"
+    );
+    assert!(helper.is_file(), "sandbox helper missing");
+    Some(root)
+}
+
 struct NativeFixture {
     broker: Arc<Broker>,
     provider: Arc<DriverProvider>,
@@ -264,9 +297,9 @@ async fn enumerate_domain(
 
 #[tokio::test]
 async fn broker_native_authoring_save_reopen_export_and_owner_denial() {
-    let root = PathBuf::from(
-        std::env::var("SEMWRIGHT_TEST_BLENDER_ROOT").expect("required Blender runtime"),
-    );
+    let Some(root) = native_lane_root() else {
+        return;
+    };
     let workspace = tempfile::tempdir().unwrap();
     let sentinel = workspace.path().join("external-sentinel.txt");
     fs::write(&sentinel, b"must remain unchanged").unwrap();
@@ -658,9 +691,9 @@ async fn broker_native_authoring_save_reopen_export_and_owner_denial() {
 
 #[tokio::test]
 async fn hard_surface_and_product_scene_author_through_semwright() {
-    let root = PathBuf::from(
-        std::env::var("SEMWRIGHT_TEST_BLENDER_ROOT").expect("required Blender runtime"),
-    );
+    let Some(root) = native_lane_root() else {
+        return;
+    };
     let workspace = tempfile::tempdir().unwrap();
     fs::create_dir_all(workspace.path().join("textures")).unwrap();
     fs::write(
@@ -863,9 +896,9 @@ async fn hard_surface_and_product_scene_author_through_semwright() {
 
 #[tokio::test]
 async fn aabb_overlap_requires_narrow_phase_before_collision_claim() {
-    let root = PathBuf::from(
-        std::env::var("SEMWRIGHT_TEST_BLENDER_ROOT").expect("required Blender runtime"),
-    );
+    let Some(root) = native_lane_root() else {
+        return;
+    };
     let workspace = tempfile::tempdir().unwrap();
     let fixture = NativeFixture::start(workspace.path(), &root, true).await;
     let spec: Value = serde_json::from_str(include_str!(

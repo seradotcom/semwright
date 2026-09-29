@@ -25,6 +25,7 @@ jobs:
       CARGO_PROFILE_DEV_DEBUG: '0'
       CARGO_PROFILE_TEST_DEBUG: '0'
       SEMWRIGHT_AUTHORING_EVIDENCE: ${{ github.workspace }}/evidence/blender-authoring
+      SEMWRIGHT_NATIVE_AUTHORING_ACCEPTANCE: '1'
       SEMWRIGHT_TEST_BLENDER_ROOT: /usr/local/blender-4.5.14-linux-x64
       SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
     steps:

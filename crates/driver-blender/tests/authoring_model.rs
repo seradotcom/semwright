@@ -32,6 +32,48 @@ fn valid_product_scene() {
     s.validate().unwrap();
 }
 #[test]
+fn public_plan_transport_schema_fits_registry_budget_and_preserves_strict_decode() {
+    let schema = plan_transport_input_schema();
+    semwright_registry::bounds::schema_budget(&schema, true).unwrap();
+    let validator = jsonschema::validator_for(&schema).unwrap();
+
+    let create = serde_json::json!({
+        "intent":{
+            "kind":"create",
+            "spec":serde_json::to_value(spec()).unwrap()
+        }
+    });
+    assert!(validator.is_valid(&create));
+    let decoded: AuthoringIntent = serde_json::from_value(create["intent"].clone()).unwrap();
+    assert!(matches!(decoded, AuthoringIntent::Create { .. }));
+
+    let digest = Digest::of_bytes(b"transport-transform");
+    let transform = serde_json::json!({
+        "intent":{
+            "kind":"transform",
+            "island":"managed_island",
+            "entity":"part",
+            "transform":{
+                "translation":[1.0,2.0,3.0],
+                "rotation":[0.0,0.0,0.0],
+                "scale":[1.0,1.0,1.0]
+            },
+            "meters_per_unit":1.0,
+            "expected_fingerprint":digest.as_str()
+        }
+    });
+    assert!(validator.is_valid(&transform));
+    let decoded: AuthoringIntent = serde_json::from_value(transform["intent"].clone()).unwrap();
+    assert!(matches!(decoded, AuthoringIntent::Transform { .. }));
+
+    let mut nested_unknown = create;
+    nested_unknown["intent"]["spec"]["entities"][0]["python"] = "print(1)".into();
+    assert!(
+        serde_json::from_value::<AuthoringIntent>(nested_unknown["intent"].clone()).is_err(),
+        "compact registry envelope never replaces strict typed decoding"
+    );
+}
+#[test]
 fn valid_collision_false_positive_fixture() {
     let s: BlenderAuthoringSpec = serde_json::from_str(include_str!(
         "../../../fixtures/blender-authoring/collision_false_positive.json"

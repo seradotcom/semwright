@@ -2,7 +2,7 @@
 
 ## Authority retained
 
-All public writes remain Broker → policy → Driver Host → Blender. `Owner.session` comes from `DriverExecutionContext`; no authoring argument contains owner, principal, executable or filesystem root. Plans are A `PreparedPlan` data stored in A's `PlanVault`, and apply revalidates native state before mutation. Replay is denied.
+All public writes remain Broker → policy → Driver Host → Blender. The Registry-facing `composition.plan` input schema is a bounded transport envelope rather than a duplicated deep authoring schema; after transport validation, the driver performs strict serde decoding into `AuthoringIntent`, validates the full `BlenderAuthoringSpec`, and pins the full schema digest in `ProfileIdentity` before any plan can enter `PlanVault`. `Owner.session` comes from `DriverExecutionContext`; no authoring argument contains owner, principal, executable or filesystem root. Plans are A `PreparedPlan` data stored in A's `PlanVault`, and apply revalidates native state before mutation. Replay is denied.
 
 No caller-selected Python, generic operator, shell command, shader source, driver expression, callback, addon install, URL download or Godot project write is introduced. Texture inputs are clean relative workspace paths with codec/size bounds and lowercase SHA-256 pins; the fixed backend hashes before load and again during closure/readback so a changed external asset becomes stale instead of silently trusted. Python in `authoring_native.py` is fixed first-party backend code staged by the sealed driver.
 
