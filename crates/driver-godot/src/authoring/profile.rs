@@ -1,7 +1,4 @@
-use super::{
-    model::GodotAuthoringSpec,
-    native_observation::{NativeVerifyRequest, NativeVerifyResult},
-};
+use super::model::GodotAuthoringSpec;
 use schemars::{JsonSchema, schema_for};
 use semwright_project_graph::ExecutionReceipt;
 use semwright_semantic_composition::{

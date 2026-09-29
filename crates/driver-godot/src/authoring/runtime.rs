@@ -3,6 +3,7 @@ use super::{
     model::{GENERATOR_VERSION, GodotAuthoringSpec},
     profile::*,
     store::{PreparedFiles, Snapshot, Store, WriteReceipt},
+    validate,
 };
 use crate::config::AuthoringConfig;
 use semwright_effect_conformance::{
