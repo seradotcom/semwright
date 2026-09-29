@@ -162,7 +162,18 @@ impl DeepRuntime {
         // Ardour 8.4's utility has internal error paths that still return zero.
         // The native state artifact and a clean reopen are the acceptance signal.
         regular(&state_file, 64 * 1024 * 1024)?;
-        self.inspect(state).await
+        let snapshot = self.inspect(state).await?;
+        let stereo_master = snapshot
+            .routes
+            .iter()
+            .any(|route| route.kind == crate::native::RouteKind::Master && route.channels == 2);
+        if !stereo_master {
+            return Err(Error::new(
+                ErrorCode::BackendFailed,
+                "Created Ardour session did not reopen with the required stereo master",
+            ));
+        }
+        Ok(snapshot)
     }
 
     pub async fn save_as(&self, source_state: &str, candidate_state: &str) -> Result<ArdourSnapshot> {
