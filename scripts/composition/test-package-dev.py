@@ -40,6 +40,7 @@ class DevelopmentPackageTests(unittest.TestCase):
                 paths = {entry["path"] for entry in metadata["entries"]}
                 self.assertIn("docs/composition/DEMO_PRODUCTION_HANDOFF.md", paths)
                 self.assertIn("skills/semwright-video-production/SKILL.md", paths)
+                self.assertIn("skills/semwright-av-production/SKILL.md", paths)
                 self.assertIn("integrations/motion-canvas/runtime/package-lock.json", paths)
                 parts = {part for value in paths for part in Path(value).parts}
                 self.assertNotIn("target", parts)

@@ -10,6 +10,10 @@ on:
       - 'crates/core/src/lib.rs'
       - 'crates/core/tests/provider_runtime.rs'
       - 'crates/recipes/**'
+      - 'crates/skills/src/tests.rs'
+      - 'skills/semwright-figma-production/**'
+      - 'skills/semwright-video-production/**'
+      - 'skills/semwright-av-production/**'
       - 'fixtures/composition/**'
       - 'benchmarks/composition/**'
       - 'packaging/composition-development/**'
@@ -114,9 +118,26 @@ jobs:
           path: verification/composition-package
           retention-days: 7
           if-no-files-found: error
+  skill-packages:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: composition-skills-v1
+      - name: First-party Composition Skills validate
+        run: cargo test --locked -p semwright-skills official_skills_validate_and_keep_progressive_disclosure_small -- --exact --nocapture
+      - name: AV Skill stays blocked without public audio Composition
+        run: cargo test --locked -p semwright-skills av_skill_stays_blocked_until_public_audio_composition_is_advertised -- --exact --nocapture
   contracts-gate:
     if: always()
-    needs: [contracts, broker-session, development-package]
+    needs: [contracts, broker-session, development-package, skill-packages]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
@@ -125,4 +146,5 @@ jobs:
           CONTRACTS: ${{ needs.contracts.result }}
           BROKER: ${{ needs.broker-session.result }}
           PACKAGE: ${{ needs.development-package.result }}
-        run: test "$CONTRACTS" = success && test "$BROKER" = success && test "$PACKAGE" = success
+          SKILLS: ${{ needs.skill-packages.result }}
+        run: test "$CONTRACTS" = success && test "$BROKER" = success && test "$PACKAGE" = success && test "$SKILLS" = success

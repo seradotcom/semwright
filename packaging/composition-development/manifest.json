@@ -34,6 +34,7 @@
     "fuzz/fuzz_targets/av_contract.rs",
     "skills/semwright-figma-production",
     "skills/semwright-video-production",
+    "skills/semwright-av-production",
     "docs/composition",
     ".github/workflows/composition-diagnostics.yml",
     ".github/workflows/composition-driver-diagnostics.yml",

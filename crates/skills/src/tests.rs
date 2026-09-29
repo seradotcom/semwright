@@ -635,6 +635,7 @@ fn official_skills_validate_and_keep_progressive_disclosure_small() {
         "semwright-driver-authoring",
         "semwright-figma-production",
         "semwright-video-production",
+        "semwright-av-production",
     ] {
         let report = validate(&repo.join("skills").join(name)).unwrap();
         assert!(report.standard_valid, "{name}");
@@ -647,4 +648,49 @@ fn official_skills_validate_and_keep_progressive_disclosure_small() {
             "{name} package text footprint is too large"
         );
     }
+}
+
+#[test]
+fn av_skill_stays_blocked_until_public_audio_composition_is_advertised() {
+    let repo = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let package = load(&repo.join("skills/semwright-av-production")).unwrap();
+    let required = [
+        "driver.motion-canvas.composition.plan",
+        "driver.motion-canvas.composition.apply",
+        "driver.motion-canvas.composition.verify",
+        "driver.motion-canvas.render.execute",
+        "driver.mlt-video.frames.encode",
+        "driver.mlt-video.av.mux",
+        "driver.mlt-video.sync.probe",
+        "driver.faust-audio.backend.contract",
+        "driver.faust-audio.sfx.render",
+        "driver.faust-audio.synth.render",
+        "driver.audio-analysis.artifact.measure",
+        "driver.ardour-audio.session.deep.inspect",
+        "driver.ardour-audio.session.deep.create",
+        "driver.ardour-audio.session.deep.save-as",
+        "driver.ardour-audio.session.deep.export",
+        "artifact.handoff",
+    ];
+    let mut catalog = required
+        .iter()
+        .map(|name| capability(name, &[], true))
+        .collect::<Vec<_>>();
+
+    let blocked = doctor(&package, &catalog, "0.9.0-dev.1").unwrap();
+    assert!(!blocked.semwright_compatible);
+    assert!(blocked.requirements.iter().any(|requirement| {
+        requirement.state == "missing"
+            && requirement.requirement.starts_with("query:")
+            && requirement.requirement.contains("\"audio\"")
+            && requirement.requirement.contains("\"composition\"")
+    }));
+
+    catalog.push(capability(
+        "driver.fixture.audio-composition",
+        &["audio", "composition"],
+        true,
+    ));
+    let resolved = doctor(&package, &catalog, "0.9.0-dev.1").unwrap();
+    assert!(resolved.semwright_compatible, "{resolved:#?}");
 }
