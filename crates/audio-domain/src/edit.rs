@@ -4,8 +4,9 @@ use crate::{
     Error, Result,
     hash::sha256,
     model::{
-        AudioClip, AudioProfile, AudioProject, Automation, Bus, BusSend, EffectInstance, Sample,
-        Signal, Stem, Synth,
+        AudioClip, AudioProfile, AudioProject, Automation, Bus, BusSend, EffectInstance, Marker,
+        MidiPhrase, NamedRange, ProjectMetadata, Sample, Signal, Stem, StemGroup, Synth,
+        TempoChange,
     },
     presets::{self, SfxPreset},
     support::AudioOperation,
@@ -32,6 +33,9 @@ pub enum AutomationOwner {
 pub enum Edit {
     ProjectProfileSet {
         profile: AudioProfile,
+    },
+    ProjectMetadataSet {
+        metadata: ProjectMetadata,
     },
     SampleImport {
         sample: Sample,
@@ -93,6 +97,16 @@ pub enum Edit {
         stem: String,
         send: BusSend,
     },
+    StemReorder {
+        stem: String,
+        before: Option<String>,
+    },
+    GroupSet {
+        group: StemGroup,
+    },
+    GroupRemove {
+        group: String,
+    },
     ClipInsert {
         stem: String,
         clip: AudioClip,
@@ -106,6 +120,22 @@ pub enum Edit {
         stem: String,
         clip: String,
         source: SampleRange,
+    },
+    ClipSlip {
+        stem: String,
+        clip: String,
+        source_start: u64,
+    },
+    ClipSplit {
+        stem: String,
+        clip: String,
+        at: u64,
+    },
+    ClipFadeSet {
+        stem: String,
+        clip: String,
+        fade_in_frames: u64,
+        fade_out_frames: u64,
     },
     ClipRemove {
         stem: String,
@@ -160,9 +190,34 @@ pub enum Edit {
         bus: String,
         send: BusSend,
     },
+    BusReorder {
+        bus: String,
+        before: Option<String>,
+    },
     StemRoute {
         stem: String,
         bus: String,
+    },
+    MarkerSet {
+        marker: Marker,
+    },
+    MarkerRemove {
+        marker: String,
+    },
+    RangeSet {
+        range: NamedRange,
+    },
+    RangeRemove {
+        range: String,
+    },
+    TempoMapSet {
+        changes: Vec<TempoChange>,
+    },
+    MidiPhraseSet {
+        phrase: MidiPhrase,
+    },
+    MidiPhraseRemove {
+        phrase: String,
     },
     SfxPresetMaterialize {
         preset: SfxPreset,
@@ -175,6 +230,7 @@ impl Edit {
     pub const fn operation(&self) -> AudioOperation {
         match self {
             Self::ProjectProfileSet { .. } => AudioOperation::ProjectProfileSet,
+            Self::ProjectMetadataSet { .. } => AudioOperation::ProjectMetadataSet,
             Self::SampleImport { .. } => AudioOperation::SampleImport,
             Self::SampleRemove { .. } => AudioOperation::SampleRemove,
             Self::SynthCreate { .. } => AudioOperation::SynthCreate,
@@ -191,9 +247,15 @@ impl Edit {
             Self::StemGainSet { .. } => AudioOperation::StemGainSet,
             Self::StemPanSet { .. } => AudioOperation::StemPanSet,
             Self::StemSendSet { .. } => AudioOperation::StemSendSet,
+            Self::StemReorder { .. } => AudioOperation::StemReorder,
+            Self::GroupSet { .. } => AudioOperation::GroupSet,
+            Self::GroupRemove { .. } => AudioOperation::GroupRemove,
             Self::ClipInsert { .. } => AudioOperation::ClipInsert,
             Self::ClipMove { .. } => AudioOperation::ClipMove,
             Self::ClipTrim { .. } => AudioOperation::ClipTrim,
+            Self::ClipSlip { .. } => AudioOperation::ClipSlip,
+            Self::ClipSplit { .. } => AudioOperation::ClipSplit,
+            Self::ClipFadeSet { .. } => AudioOperation::ClipFadeSet,
             Self::ClipRemove { .. } => AudioOperation::ClipRemove,
             Self::ClipDuplicate { .. } => AudioOperation::ClipDuplicate,
             Self::EffectAdd { .. } => AudioOperation::EffectAdd,
@@ -208,7 +270,15 @@ impl Edit {
             Self::BusGainSet { .. } => AudioOperation::BusGainSet,
             Self::BusPanSet { .. } => AudioOperation::BusPanSet,
             Self::BusSendSet { .. } => AudioOperation::BusSendSet,
+            Self::BusReorder { .. } => AudioOperation::BusReorder,
             Self::StemRoute { .. } => AudioOperation::StemRoute,
+            Self::MarkerSet { .. } => AudioOperation::MarkerSet,
+            Self::MarkerRemove { .. } => AudioOperation::MarkerRemove,
+            Self::RangeSet { .. } => AudioOperation::RangeSet,
+            Self::RangeRemove { .. } => AudioOperation::RangeRemove,
+            Self::TempoMapSet { .. } => AudioOperation::TempoMapSet,
+            Self::MidiPhraseSet { .. } => AudioOperation::MidiPhraseSet,
+            Self::MidiPhraseRemove { .. } => AudioOperation::MidiPhraseRemove,
             Self::SfxPresetMaterialize { .. } => AudioOperation::SfxPresetMaterialize,
         }
     }
@@ -269,6 +339,10 @@ pub fn apply_with_identity_base(
             profile.validate()?;
             result.profile = profile;
             affected.push("profile".into());
+        }
+        Edit::ProjectMetadataSet { metadata } => {
+            result.metadata = metadata;
+            affected.push("metadata".into());
         }
         Edit::SampleImport { mut sample } => {
             sample.id = new_id("sample");
@@ -366,6 +440,16 @@ pub fn apply_with_identity_base(
             result.stems.push(stem);
         }
         Edit::StemRemove { stem } => {
+            if result
+                .groups
+                .iter()
+                .any(|group| group.stems.iter().any(|member| member == &stem))
+            {
+                return Err(Error::new(
+                    "Conflict",
+                    "Audio stem is still referenced by a group",
+                ));
+            }
             let old = result.stems.len();
             result.stems.retain(|value| value.id != stem);
             if old == result.stems.len() {
@@ -411,6 +495,34 @@ pub fn apply_with_identity_base(
             }
             affected.push(stem);
         }
+        Edit::StemReorder { stem, before } => {
+            reorder_stem(&mut result.stems, &stem, before.as_deref())?;
+            affected.push(stem);
+        }
+        Edit::GroupSet { mut group } => {
+            if group.id.is_empty() {
+                group.id = new_id("group");
+                created.push(group.id.clone());
+                result.groups.push(group);
+            } else if let Some(existing) = result.groups.iter_mut().find(|item| item.id == group.id)
+            {
+                let id = existing.id.clone();
+                *existing = group;
+                existing.id = id;
+            } else {
+                created.push(group.id.clone());
+                result.groups.push(group);
+            }
+            affected.push("groups".into());
+        }
+        Edit::GroupRemove { group } => {
+            let old = result.groups.len();
+            result.groups.retain(|value| value.id != group);
+            if old == result.groups.len() {
+                return Err(not_found("group"));
+            }
+            affected.push(group);
+        }
         Edit::ClipInsert { stem, mut clip } => {
             clip.id = new_id("clip");
             created.push(clip.id.clone());
@@ -440,6 +552,84 @@ pub fn apply_with_identity_base(
                 target.fade_in_frames = 0;
                 target.fade_out_frames = 0;
             }
+            affected.extend([stem, clip]);
+        }
+        Edit::ClipSlip {
+            stem,
+            clip,
+            source_start,
+        } => {
+            let target = result
+                .stem_mut(&stem)?
+                .clips
+                .iter_mut()
+                .find(|value| value.id == clip)
+                .ok_or_else(|| not_found("clip"))?;
+            if !matches!(target.source, crate::model::ClipSource::Sample { .. }) {
+                return Err(Error::unsupported(
+                    "Slip editing is defined only for sample-backed clips",
+                ));
+            }
+            let end = source_start
+                .checked_add(target.duration())
+                .ok_or_else(|| Error::limit("Clip slip source range overflows"))?;
+            target.source_range = SampleRange::new(source_start, end)?;
+            affected.extend([stem, clip]);
+        }
+        Edit::ClipSplit { stem, clip, at } => {
+            let stem_ref = result.stem_mut(&stem)?;
+            let index = stem_ref
+                .clips
+                .iter()
+                .position(|value| value.id == clip)
+                .ok_or_else(|| not_found("clip"))?;
+            let original = stem_ref.clips[index].clone();
+            let end = original.end()?;
+            if at <= original.start.0 || at >= end {
+                return Err(Error::invalid(
+                    "Clip split must be strictly inside the clip",
+                ));
+            }
+            let offset = at - original.start.0;
+            let source_split = original
+                .source_range
+                .start
+                .0
+                .checked_add(offset)
+                .ok_or_else(|| Error::limit("Clip split source position overflows"))?;
+            let mut left = original.clone();
+            left.source_range = SampleRange::new(original.source_range.start.0, source_split)?;
+            left.fade_out_frames = 0;
+            let mut right = original;
+            right.id = new_id("clip");
+            right.start.0 = at;
+            right.source_range = SampleRange::new(source_split, right.source_range.end.0)?;
+            right.fade_in_frames = 0;
+            stem_ref.clips[index] = left;
+            stem_ref.clips.insert(index + 1, right.clone());
+            created.push(right.id);
+            affected.extend([stem, clip]);
+        }
+        Edit::ClipFadeSet {
+            stem,
+            clip,
+            fade_in_frames,
+            fade_out_frames,
+        } => {
+            let target = result
+                .stem_mut(&stem)?
+                .clips
+                .iter_mut()
+                .find(|value| value.id == clip)
+                .ok_or_else(|| not_found("clip"))?;
+            if fade_in_frames
+                .checked_add(fade_out_frames)
+                .is_none_or(|sum| sum > target.duration())
+            {
+                return Err(Error::invalid("Clip fades exceed clip duration"));
+            }
+            target.fade_in_frames = fade_in_frames;
+            target.fade_out_frames = fade_out_frames;
             affected.extend([stem, clip]);
         }
         Edit::ClipRemove { stem, clip } => {
@@ -601,9 +791,93 @@ pub fn apply_with_identity_base(
             }
             affected.push(bus);
         }
+        Edit::BusReorder { bus, before } => {
+            reorder_bus(&mut result.buses, &bus, before.as_deref())?;
+            affected.push(bus);
+        }
         Edit::StemRoute { stem, bus } => {
             result.stem_mut(&stem)?.output_bus = bus;
             affected.push(stem);
+        }
+        Edit::MarkerSet { mut marker } => {
+            if marker.id.is_empty() {
+                marker.id = new_id("marker");
+                created.push(marker.id.clone());
+                result.markers.push(marker);
+            } else if let Some(existing) =
+                result.markers.iter_mut().find(|item| item.id == marker.id)
+            {
+                let id = existing.id.clone();
+                *existing = marker;
+                existing.id = id;
+            } else {
+                created.push(marker.id.clone());
+                result.markers.push(marker);
+            }
+            affected.push("markers".into());
+        }
+        Edit::MarkerRemove { marker } => {
+            let old = result.markers.len();
+            result.markers.retain(|value| value.id != marker);
+            if old == result.markers.len() {
+                return Err(not_found("marker"));
+            }
+            affected.push(marker);
+        }
+        Edit::RangeSet { mut range } => {
+            if range.id.is_empty() {
+                range.id = new_id("range");
+                created.push(range.id.clone());
+                result.ranges.push(range);
+            } else if let Some(existing) = result.ranges.iter_mut().find(|item| item.id == range.id)
+            {
+                let id = existing.id.clone();
+                *existing = range;
+                existing.id = id;
+            } else {
+                created.push(range.id.clone());
+                result.ranges.push(range);
+            }
+            affected.push("ranges".into());
+        }
+        Edit::RangeRemove { range } => {
+            let old = result.ranges.len();
+            result.ranges.retain(|value| value.id != range);
+            if old == result.ranges.len() {
+                return Err(not_found("range"));
+            }
+            affected.push(range);
+        }
+        Edit::TempoMapSet { changes } => {
+            result.tempo_changes = changes;
+            affected.push("tempo_map".into());
+        }
+        Edit::MidiPhraseSet { mut phrase } => {
+            if phrase.id.is_empty() {
+                phrase.id = new_id("midi_phrase");
+                created.push(phrase.id.clone());
+                result.midi_phrases.push(phrase);
+            } else if let Some(existing) = result
+                .midi_phrases
+                .iter_mut()
+                .find(|item| item.id == phrase.id)
+            {
+                let id = existing.id.clone();
+                *existing = phrase;
+                existing.id = id;
+            } else {
+                created.push(phrase.id.clone());
+                result.midi_phrases.push(phrase);
+            }
+            affected.push("midi_phrases".into());
+        }
+        Edit::MidiPhraseRemove { phrase } => {
+            let old = result.midi_phrases.len();
+            result.midi_phrases.retain(|value| value.id != phrase);
+            if old == result.midi_phrases.len() {
+                return Err(not_found("MIDI phrase"));
+            }
+            affected.push(phrase);
         }
         Edit::SfxPresetMaterialize {
             preset,
@@ -635,6 +909,46 @@ pub fn apply_with_identity_base(
         affected,
         created,
     })
+}
+
+fn reorder_stem(values: &mut Vec<Stem>, id: &str, before: Option<&str>) -> Result<()> {
+    let index = values
+        .iter()
+        .position(|value| value.id == id)
+        .ok_or_else(|| not_found("stem"))?;
+    if before == Some(id) {
+        return Err(Error::invalid("Stem cannot be ordered before itself"));
+    }
+    let value = values.remove(index);
+    let target = match before {
+        Some(before) => values
+            .iter()
+            .position(|candidate| candidate.id == before)
+            .ok_or_else(|| not_found("stem order target"))?,
+        None => values.len(),
+    };
+    values.insert(target, value);
+    Ok(())
+}
+
+fn reorder_bus(values: &mut Vec<Bus>, id: &str, before: Option<&str>) -> Result<()> {
+    let index = values
+        .iter()
+        .position(|value| value.id == id)
+        .ok_or_else(|| not_found("bus"))?;
+    if before == Some(id) {
+        return Err(Error::invalid("Bus cannot be ordered before itself"));
+    }
+    let value = values.remove(index);
+    let target = match before {
+        Some(before) => values
+            .iter()
+            .position(|candidate| candidate.id == before)
+            .ok_or_else(|| not_found("bus order target"))?,
+        None => values.len(),
+    };
+    values.insert(target, value);
+    Ok(())
 }
 
 fn chain_mut<'a>(

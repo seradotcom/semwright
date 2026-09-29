@@ -444,6 +444,7 @@ pub fn replay(
                 Edit::StemCreate { .. }
                     | Edit::StemGainSet { .. }
                     | Edit::StemPanSet { .. }
+                    | Edit::StemSendSet { .. }
                     | Edit::StemRoute { .. }
                     | Edit::SynthCreate { .. }
                     | Edit::ClipInsert { .. }

@@ -1,7 +1,10 @@
 use semwright_audio_domain::{
     Error, Result,
     hash::sha256,
-    model::{AudioProject, Effect, FilterKind, Signal, SignalNodeKind, Synth, Waveform},
+    model::{
+        AudioProject, DistortionAlgorithm, DynamicsDetector, Effect, FilterKind, Signal,
+        SignalNodeKind, Synth, Waveform,
+    },
     time::SampleRate,
     units::{MilliDb, MilliHz, Permille},
 };
@@ -298,7 +301,16 @@ fn effect_expr(input: &str, effect: &Effect) -> Result<String> {
         Effect::Filter { filter } => {
             filter_expr(input, filter.kind, filter.cutoff, filter.resonance)
         }
-        Effect::Distortion { drive, mix } => {
+        Effect::Distortion {
+            algorithm,
+            drive,
+            mix,
+        } => {
+            if *algorithm != DistortionAlgorithm::Tanh {
+                return Err(Error::unsupported(
+                    "Faust distortion mapping supports only the declared tanh algorithm",
+                ));
+            }
             let wet = fraction(*mix);
             let dry = decimal(1.0 - f64::from(mix.0) / 1000.0);
             let drive = db_gain(*drive)?;
@@ -325,10 +337,12 @@ fn effect_expr(input: &str, effect: &Effect) -> Result<String> {
             release_ms,
             knee,
             makeup,
+            detector,
+            channel_link,
         } => {
-            if knee.0 != 0 {
+            if knee.0 != 0 || *detector != DynamicsDetector::Peak || channel_link.0 != 1000 {
                 return Err(Error::unsupported(
-                    "Faust compressor mapping cannot preserve non-zero semantic knee",
+                    "Faust compressor mapping requires zero knee, peak detection and fully linked channels",
                 ));
             }
             Ok(format!(
@@ -356,8 +370,11 @@ fn effect_expr(input: &str, effect: &Effect) -> Result<String> {
         // The semantic limiter omits attack/lookahead/hold and reverb does not
         // yet name an algorithm/topology. Choosing hidden values here would
         // make two conforming backends render meaningfully different intent.
-        Effect::Limiter { .. } | Effect::Reverb { .. } => Err(Error::unsupported(
-            "Faust backend requires a richer semantic contract for this effect",
+        Effect::Limiter { .. }
+        | Effect::Reverb { .. }
+        | Effect::GateExpander { .. }
+        | Effect::ChannelMap { .. } => Err(Error::unsupported(
+            "Faust backend has no fidelity-certified mapping for this semantic effect",
         )),
     }
 }

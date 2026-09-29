@@ -17,6 +17,12 @@ pub const MAX_BUSES: usize = 256;
 pub const MAX_CLIPS: usize = 100_000;
 pub const MAX_EFFECTS: usize = 16_384;
 pub const MAX_AUTOMATION_POINTS: usize = 1_000_000;
+pub const MAX_GROUPS: usize = 256;
+pub const MAX_MARKERS: usize = 4096;
+pub const MAX_RANGES: usize = 4096;
+pub const MAX_TEMPO_CHANGES: usize = 4096;
+pub const MAX_MIDI_PHRASES: usize = 1024;
+pub const MAX_MIDI_EVENTS: usize = 1_000_000;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -223,6 +229,38 @@ impl EqBand {
     }
 }
 
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum DynamicsDetector {
+    #[default]
+    Peak,
+    Rms,
+}
+
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum ReverbAlgorithm {
+    #[default]
+    Schroeder,
+    Freeverb,
+    Plate,
+}
+
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum DistortionAlgorithm {
+    #[default]
+    Tanh,
+    HardClip,
+    SoftClip,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Effect {
@@ -236,14 +274,34 @@ pub enum Effect {
         release_ms: u32,
         knee: MilliDb,
         makeup: MilliDb,
+        detector: DynamicsDetector,
+        channel_link: Permille,
+    },
+    GateExpander {
+        threshold: MilliDb,
+        ratio_milli: u32,
+        attack_ms: u32,
+        hold_ms: u32,
+        release_ms: u32,
+        range: MilliDb,
+        detector: DynamicsDetector,
+        channel_link: Permille,
     },
     Limiter {
         ceiling: MilliDb,
+        attack_ms: u32,
+        lookahead_ms: u32,
+        hold_ms: u32,
         release_ms: u32,
+        true_peak: bool,
+        detector: DynamicsDetector,
+        channel_link: Permille,
     },
     Reverb {
+        algorithm: ReverbAlgorithm,
         room: Permille,
         damping: Permille,
+        diffusion: Permille,
         mix: Permille,
         pre_delay_ms: u32,
     },
@@ -253,8 +311,14 @@ pub enum Effect {
         mix: Permille,
     },
     Distortion {
+        algorithm: DistortionAlgorithm,
         drive: MilliDb,
         mix: Permille,
+    },
+    ChannelMap {
+        input_channels: u16,
+        output_channels: u16,
+        matrix_milli: Vec<i32>,
     },
     Filter {
         filter: Filter,
@@ -281,10 +345,13 @@ impl Effect {
                 release_ms,
                 knee,
                 makeup,
+                detector: _,
+                channel_link,
             } => {
                 MilliDb::new(threshold.0)?;
                 MilliDb::new(knee.0)?;
                 MilliDb::new(makeup.0)?;
+                Permille::new(channel_link.0)?;
                 if !(1000..=100_000).contains(ratio_milli)
                     || *attack_ms > 60_000
                     || *release_ms > 120_000
@@ -292,23 +359,60 @@ impl Effect {
                     return Err(Error::invalid("Invalid compressor parameters"));
                 }
             }
+            Self::GateExpander {
+                threshold,
+                ratio_milli,
+                attack_ms,
+                hold_ms,
+                release_ms,
+                range,
+                detector: _,
+                channel_link,
+            } => {
+                MilliDb::new(threshold.0)?;
+                MilliDb::new(range.0)?;
+                Permille::new(channel_link.0)?;
+                if !(1000..=100_000).contains(ratio_milli)
+                    || *attack_ms > 60_000
+                    || *hold_ms > 120_000
+                    || *release_ms > 120_000
+                    || range.0 > 0
+                {
+                    return Err(Error::invalid("Invalid gate/expander parameters"));
+                }
+            }
             Self::Limiter {
                 ceiling,
+                attack_ms,
+                lookahead_ms,
+                hold_ms,
                 release_ms,
+                true_peak: _,
+                detector: _,
+                channel_link,
             } => {
                 MilliDb::new(ceiling.0)?;
-                if *release_ms > 120_000 {
-                    return Err(Error::invalid("Invalid limiter release"));
+                Permille::new(channel_link.0)?;
+                if ceiling.0 > 0
+                    || *attack_ms > 60_000
+                    || *lookahead_ms > 10_000
+                    || *hold_ms > 120_000
+                    || *release_ms > 120_000
+                {
+                    return Err(Error::invalid("Invalid limiter parameters"));
                 }
             }
             Self::Reverb {
+                algorithm: _,
                 room,
                 damping,
+                diffusion,
                 mix,
                 pre_delay_ms,
             } => {
                 Permille::new(room.0)?;
                 Permille::new(damping.0)?;
+                Permille::new(diffusion.0)?;
                 Permille::new(mix.0)?;
                 if *pre_delay_ms > 10_000 {
                     return Err(Error::invalid("Invalid reverb pre-delay"));
@@ -325,9 +429,29 @@ impl Effect {
                     return Err(Error::invalid("Invalid delay parameters"));
                 }
             }
-            Self::Distortion { drive, mix } => {
+            Self::Distortion {
+                algorithm: _,
+                drive,
+                mix,
+            } => {
                 MilliDb::new(drive.0)?;
                 Permille::new(mix.0)?;
+            }
+            Self::ChannelMap {
+                input_channels,
+                output_channels,
+                matrix_milli,
+            } => {
+                if !(1..=64).contains(input_channels)
+                    || !(1..=64).contains(output_channels)
+                    || matrix_milli.len()
+                        != usize::from(*input_channels) * usize::from(*output_channels)
+                    || matrix_milli
+                        .iter()
+                        .any(|value| !(-8_000..=8_000).contains(value))
+                {
+                    return Err(Error::invalid("Invalid channel-map matrix"));
+                }
             }
             Self::Filter { filter } => filter.validate()?,
             Self::Gain { gain } => {
@@ -543,11 +667,16 @@ pub enum EffectParameter {
     ThresholdDb,
     Ratio,
     AttackMs,
+    HoldMs,
+    LookaheadMs,
     ReleaseMs,
+    ChannelLink,
     Mix,
     Feedback,
     Room,
     Damping,
+    Diffusion,
+    PreDelayMs,
     DriveDb,
     CeilingDb,
 }
@@ -578,6 +707,9 @@ pub enum AutomationTarget {
     StemPan,
     BusGain,
     BusPan,
+    StemSendGain {
+        target_bus: String,
+    },
     BusSendGain {
         target_bus: String,
     },
@@ -627,7 +759,9 @@ impl Automation {
         if let AutomationTarget::EffectParameter { effect, .. } = &self.target {
             validate_id(effect)?;
         }
-        if let AutomationTarget::BusSendGain { target_bus } = &self.target {
+        if let AutomationTarget::StemSendGain { target_bus }
+        | AutomationTarget::BusSendGain { target_bus } = &self.target
+        {
             validate_id(target_bus)?;
         }
         if let AutomationTarget::SynthSignalParameter { synth, signal, .. } = &self.target {
@@ -679,6 +813,16 @@ impl AudioClip {
     }
 }
 
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum SendRole {
+    #[default]
+    Audio,
+    Sidechain,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct BusSend {
@@ -686,6 +830,21 @@ pub struct BusSend {
     pub gain: MilliDb,
     pub enabled: bool,
     pub pre_fader: bool,
+    #[serde(default)]
+    pub role: SendRole,
+    /// Explicit sample delay on the feedback edge. Zero means algebraic/current block.
+    #[serde(default)]
+    pub delay_frames: u32,
+}
+impl BusSend {
+    pub fn validate(&self) -> Result<()> {
+        validate_id(&self.target_bus)?;
+        MilliDb::new(self.gain.0)?;
+        if self.delay_frames > 57_600_000 {
+            return Err(Error::limit("Send delay exceeds bounded feedback memory"));
+        }
+        Ok(())
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
@@ -713,8 +872,7 @@ impl Bus {
             return Err(Error::limit("Bus send count exceeds limit"));
         }
         for send in &self.sends {
-            validate_id(&send.target_bus)?;
-            MilliDb::new(send.gain.0)?;
+            send.validate()?;
         }
         validate_automations(&self.automations)
     }
@@ -751,8 +909,7 @@ impl Stem {
             return Err(Error::limit("Stem send count exceeds limit"));
         }
         for send in &self.sends {
-            validate_id(&send.target_bus)?;
-            MilliDb::new(send.gain.0)?;
+            send.validate()?;
         }
         if self.clips.len() > MAX_CLIPS {
             return Err(Error::limit("Stem clip count exceeds limit"));
@@ -782,17 +939,229 @@ impl Stem {
     }
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct ProjectMetadata {
+    pub name: Option<String>,
+    pub session_label: Option<String>,
+    pub delivery_profile: Option<String>,
+}
+impl ProjectMetadata {
+    fn validate(&self) -> Result<()> {
+        for (label, value) in [
+            ("project name", self.name.as_deref()),
+            ("session label", self.session_label.as_deref()),
+            ("delivery profile", self.delivery_profile.as_deref()),
+        ] {
+            if let Some(value) = value {
+                validate_text(label, value, 4096)?;
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct StemGroup {
+    pub id: String,
+    pub name: String,
+    pub stems: Vec<String>,
+}
+impl StemGroup {
+    fn validate(&self) -> Result<()> {
+        validate_id(&self.id)?;
+        validate_text("stem group name", &self.name, 4096)?;
+        if self.stems.is_empty() || self.stems.len() > MAX_STEMS {
+            return Err(Error::invalid("Stem group membership count is invalid"));
+        }
+        let mut seen = BTreeSet::new();
+        for stem in &self.stems {
+            validate_id(stem)?;
+            if !seen.insert(stem) {
+                return Err(Error::invalid("Stem group repeats a member"));
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Marker {
+    pub id: String,
+    pub frame: SampleFrame,
+    pub label: String,
+}
+impl Marker {
+    fn validate(&self) -> Result<()> {
+        validate_id(&self.id)?;
+        validate_text("marker label", &self.label, 4096)?;
+        if self.frame.0 > MAX_SAMPLE_FRAME {
+            return Err(Error::limit("Marker exceeds sample-frame budget"));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct NamedRange {
+    pub id: String,
+    pub range: SampleRange,
+    pub label: String,
+}
+impl NamedRange {
+    fn validate(&self) -> Result<()> {
+        validate_id(&self.id)?;
+        validate_text("range label", &self.label, 4096)?;
+        SampleRange::new(self.range.start.0, self.range.end.0)?;
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TempoChange {
+    pub frame: SampleFrame,
+    pub tempo_milli_bpm: u32,
+    pub time_signature_numerator: u8,
+    pub time_signature_denominator: u8,
+}
+impl TempoChange {
+    fn validate(&self) -> Result<()> {
+        if self.frame.0 == 0
+            || self.frame.0 > MAX_SAMPLE_FRAME
+            || !(20_000..=400_000).contains(&self.tempo_milli_bpm)
+            || !(1..=32).contains(&self.time_signature_numerator)
+            || !matches!(self.time_signature_denominator, 1 | 2 | 4 | 8 | 16 | 32)
+        {
+            return Err(Error::invalid("Invalid tempo/meter change"));
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum MidiEvent {
+    Note {
+        id: String,
+        start: SampleFrame,
+        duration_frames: u64,
+        channel: u8,
+        note: u8,
+        velocity: u8,
+    },
+    Control {
+        id: String,
+        frame: SampleFrame,
+        channel: u8,
+        controller: u8,
+        value: u8,
+    },
+}
+impl MidiEvent {
+    fn id(&self) -> &str {
+        match self {
+            Self::Note { id, .. } | Self::Control { id, .. } => id,
+        }
+    }
+    fn validate(&self) -> Result<()> {
+        validate_id(self.id())?;
+        match self {
+            Self::Note {
+                start,
+                duration_frames,
+                channel,
+                note,
+                velocity,
+                ..
+            } => {
+                if *channel > 15
+                    || *note > 127
+                    || *velocity > 127
+                    || *duration_frames == 0
+                    || start
+                        .0
+                        .checked_add(*duration_frames)
+                        .is_none_or(|end| end > MAX_SAMPLE_FRAME)
+                {
+                    return Err(Error::invalid("Invalid bounded MIDI note"));
+                }
+            }
+            Self::Control {
+                frame,
+                channel,
+                controller,
+                value,
+                ..
+            } => {
+                if *channel > 15 || *controller > 127 || *value > 127 || frame.0 > MAX_SAMPLE_FRAME
+                {
+                    return Err(Error::invalid("Invalid bounded MIDI control event"));
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct MidiPhrase {
+    pub id: String,
+    pub name: String,
+    pub instrument_synth: Option<String>,
+    pub events: Vec<MidiEvent>,
+}
+impl MidiPhrase {
+    fn validate(&self, synths: &BTreeMap<String, Synth>) -> Result<()> {
+        validate_id(&self.id)?;
+        validate_text("MIDI phrase name", &self.name, 4096)?;
+        if self.events.is_empty() || self.events.len() > MAX_MIDI_EVENTS {
+            return Err(Error::invalid("MIDI phrase event count is invalid"));
+        }
+        if let Some(synth) = &self.instrument_synth {
+            validate_id(synth)?;
+            if !synths.contains_key(synth) {
+                return Err(Error::invalid("MIDI phrase instrument synth is missing"));
+            }
+        }
+        let mut ids = BTreeSet::new();
+        for event in &self.events {
+            event.validate()?;
+            if !ids.insert(event.id()) {
+                return Err(Error::invalid("MIDI phrase repeats an event identity"));
+            }
+        }
+        Ok(())
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct AudioProject {
     pub model_version: u32,
     pub id: String,
     pub profile: AudioProfile,
+    #[serde(default)]
+    pub metadata: ProjectMetadata,
     pub samples: BTreeMap<String, Sample>,
     pub synths: BTreeMap<String, Synth>,
     pub stems: Vec<Stem>,
     pub buses: Vec<Bus>,
     pub master_bus: String,
+    #[serde(default)]
+    pub groups: Vec<StemGroup>,
+    #[serde(default)]
+    pub markers: Vec<Marker>,
+    #[serde(default)]
+    pub ranges: Vec<NamedRange>,
+    #[serde(default)]
+    pub tempo_changes: Vec<TempoChange>,
+    #[serde(default)]
+    pub midi_phrases: Vec<MidiPhrase>,
 }
 
 impl AudioProject {
@@ -813,9 +1182,15 @@ impl AudioProject {
             }],
             master_bus: "master".into(),
             profile,
+            metadata: ProjectMetadata::default(),
             samples: BTreeMap::new(),
             synths: BTreeMap::new(),
             stems: vec![],
+            groups: vec![],
+            markers: vec![],
+            ranges: vec![],
+            tempo_changes: vec![],
+            midi_phrases: vec![],
         })
     }
 
@@ -855,11 +1230,17 @@ impl AudioProject {
         }
         validate_id(&self.id)?;
         self.profile.validate()?;
+        self.metadata.validate()?;
         if self.samples.len() > MAX_SAMPLES
             || self.synths.len() > MAX_SYNTHS
             || self.stems.len() > MAX_STEMS
             || self.buses.is_empty()
             || self.buses.len() > MAX_BUSES
+            || self.groups.len() > MAX_GROUPS
+            || self.markers.len() > MAX_MARKERS
+            || self.ranges.len() > MAX_RANGES
+            || self.tempo_changes.len() > MAX_TEMPO_CHANGES
+            || self.midi_phrases.len() > MAX_MIDI_PHRASES
         {
             return Err(Error::limit("Audio project collection budget exceeded"));
         }
@@ -911,9 +1292,12 @@ impl AudioProject {
                 .map(|automation| automation.points.len())
                 .sum::<usize>();
             for send in &bus.sends {
-                if !bus_ids.contains(send.target_bus.as_str()) || send.target_bus == bus.id {
+                if !bus_ids.contains(send.target_bus.as_str()) {
+                    return Err(Error::invalid("Bus send target is missing"));
+                }
+                if send.enabled && send.target_bus == bus.id && send.delay_frames == 0 {
                     return Err(Error::invalid(
-                        "Bus send target is missing or self-referential",
+                        "Enabled self-feedback requires an explicit nonzero delay",
                     ));
                 }
             }
@@ -976,7 +1360,60 @@ impl AudioProject {
             }
         }
 
+        let stem_ids: BTreeSet<_> = self.stems.iter().map(|stem| stem.id.as_str()).collect();
+        let mut grouped = BTreeSet::new();
+        for group in &self.groups {
+            group.validate()?;
+            unique(&mut ids, &group.id)?;
+            for stem in &group.stems {
+                if !stem_ids.contains(stem.as_str()) || !grouped.insert(stem.as_str()) {
+                    return Err(Error::invalid(
+                        "Stem group references a missing or multiply-grouped stem",
+                    ));
+                }
+            }
+        }
+
+        let mut marker_ids = BTreeSet::new();
+        for marker in &self.markers {
+            marker.validate()?;
+            if !marker_ids.insert(marker.id.as_str()) {
+                return Err(Error::invalid("Duplicate marker identity"));
+            }
+        }
+        let mut range_ids = BTreeSet::new();
+        for range in &self.ranges {
+            range.validate()?;
+            if !range_ids.insert(range.id.as_str()) {
+                return Err(Error::invalid("Duplicate range identity"));
+            }
+        }
+
+        let mut previous_tempo_frame = 0u64;
+        for change in &self.tempo_changes {
+            change.validate()?;
+            if change.frame.0 <= previous_tempo_frame {
+                return Err(Error::invalid(
+                    "Tempo/meter changes must be strictly increasing after frame zero",
+                ));
+            }
+            previous_tempo_frame = change.frame.0;
+        }
+
+        let mut phrase_ids = BTreeSet::new();
+        let mut midi_event_count = 0usize;
+        for phrase in &self.midi_phrases {
+            phrase.validate(&self.synths)?;
+            if !phrase_ids.insert(phrase.id.as_str()) {
+                return Err(Error::invalid("Duplicate MIDI phrase identity"));
+            }
+            midi_event_count = midi_event_count
+                .checked_add(phrase.events.len())
+                .ok_or_else(|| Error::limit("MIDI event count overflow"))?;
+        }
+
         if clip_count > MAX_CLIPS
+            || midi_event_count > MAX_MIDI_EVENTS
             || effect_count > MAX_EFFECTS
             || automation_points > MAX_AUTOMATION_POINTS
         {
@@ -1060,7 +1497,9 @@ fn validate_bus_acyclic(buses: &[Bus]) -> Result<()> {
             .get(id)
             .ok_or_else(|| Error::invalid("Bus routing references missing bus"))?;
         for send in &bus.sends {
-            visit(&send.target_bus, by_id, temporary, permanent)?;
+            if send.enabled && send.delay_frames == 0 {
+                visit(&send.target_bus, by_id, temporary, permanent)?;
+            }
         }
         temporary.remove(id);
         permanent.insert(id);
@@ -1136,6 +1575,11 @@ fn validate_automation_targets(
             }
             AutomationTarget::BusGain | AutomationTarget::BusPan if !owner_is_bus => {
                 return Err(Error::invalid("Bus automation cannot belong to a stem"));
+            }
+            AutomationTarget::StemSendGain { target_bus } => {
+                if owner_is_bus || !bus_ids.contains(target_bus.as_str()) {
+                    return Err(Error::invalid("Invalid stem-send automation target"));
+                }
             }
             AutomationTarget::BusSendGain { target_bus } => {
                 if !owner_is_bus || target_bus == owner_id || !bus_ids.contains(target_bus.as_str())
@@ -1216,6 +1660,7 @@ fn validate_automation_value(target: &AutomationTarget, value: i64) -> Result<()
     let valid = match target {
         AutomationTarget::StemGain
         | AutomationTarget::BusGain
+        | AutomationTarget::StemSendGain { .. }
         | AutomationTarget::BusSendGain { .. } => (-120_000..=24_000).contains(&value),
         AutomationTarget::StemPan | AutomationTarget::BusPan => (-1000..=1000).contains(&value),
         AutomationTarget::EffectParameter { parameter, .. } => match parameter {
@@ -1226,13 +1671,18 @@ fn validate_automation_value(target: &AutomationTarget, value: i64) -> Result<()
             EffectParameter::FrequencyHz => (1..=192_000_000).contains(&value),
             EffectParameter::Q => (100..=50_000).contains(&value),
             EffectParameter::Ratio => (1000..=100_000).contains(&value),
-            EffectParameter::AttackMs | EffectParameter::ReleaseMs => {
+            EffectParameter::AttackMs | EffectParameter::HoldMs | EffectParameter::ReleaseMs => {
                 (0..=120_000).contains(&value)
             }
-            EffectParameter::Mix
+            EffectParameter::LookaheadMs | EffectParameter::PreDelayMs => {
+                (0..=10_000).contains(&value)
+            }
+            EffectParameter::ChannelLink
+            | EffectParameter::Mix
             | EffectParameter::Feedback
             | EffectParameter::Room
-            | EffectParameter::Damping => (0..=1000).contains(&value),
+            | EffectParameter::Damping
+            | EffectParameter::Diffusion => (0..=1000).contains(&value),
         },
         AutomationTarget::SynthSignalParameter { parameter, .. } => match parameter {
             SynthParameter::FrequencyHz

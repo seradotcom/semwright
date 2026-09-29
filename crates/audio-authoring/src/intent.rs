@@ -178,8 +178,8 @@ impl AudioIntent {
             ensure(track.sends.len() <= 256, "track send budget")?;
             let mut send_targets = BTreeSet::new();
             for send in &track.sends {
+                domain(send.validate())?;
                 domain(project.bus(&send.target_bus))?;
-                domain(MilliDb::new(send.gain.0))?;
                 ensure(
                     send_targets.insert(&send.target_bus),
                     "duplicate track send target",

@@ -69,14 +69,45 @@ impl SemanticAudioProjection<ArdourSnapshot> for ArdourProjection {
             ..AudioProfile::default()
         })?;
         project.id = format!("ardour_{}", &sha256(native.session_name.as_bytes())[..24]);
+        project.metadata.name = Some(native.session_name.clone());
 
-        let mut losses = vec![ProjectionLoss {
-            kind: ProjectionLossKind::NativeMetadataOnly,
-            impact: ProjectionLossImpact::Advisory,
-            code: "ardour.tempo_map_not_projected".into(),
-            semantic_path: None,
-            detail: "Ardour backend v1 preserves session tempo/meter natively but projects the neutral default until tempo-map conformance is added".into(),
-        }];
+        let mut losses = vec![
+            ProjectionLoss {
+                kind: ProjectionLossKind::UnsupportedSemantic,
+                impact: ProjectionLossImpact::ReadOnly,
+                code: "ardour.tempo_map_not_projected".into(),
+                semantic_path: Some("tempo_changes".into()),
+                detail: "Ardour backend v1 does not observe the native tempo/meter map; neutral defaults are not round-trip evidence".into(),
+            },
+            ProjectionLoss {
+                kind: ProjectionLossKind::UnsupportedSemantic,
+                impact: ProjectionLossImpact::ReadOnly,
+                code: "ardour.groups_not_projected".into(),
+                semantic_path: Some("groups".into()),
+                detail: "Ardour route groups are not projected by the v1 managed-session snapshot".into(),
+            },
+            ProjectionLoss {
+                kind: ProjectionLossKind::UnsupportedSemantic,
+                impact: ProjectionLossImpact::ReadOnly,
+                code: "ardour.automation_not_projected".into(),
+                semantic_path: Some("automation".into()),
+                detail: "Ardour automation lists/controls are not yet projected into portable automation lanes".into(),
+            },
+            ProjectionLoss {
+                kind: ProjectionLossKind::UnsupportedSemantic,
+                impact: ProjectionLossImpact::ReadOnly,
+                code: "ardour.midi_not_projected".into(),
+                semantic_path: Some("midi_phrases".into()),
+                detail: "Ardour MIDI regions/events are not projected by the current audio-only region adapter".into(),
+            },
+            ProjectionLoss {
+                kind: ProjectionLossKind::UnsupportedSemantic,
+                impact: ProjectionLossImpact::ReadOnly,
+                code: "ardour.region_fades_not_projected".into(),
+                semantic_path: Some("stems".into()),
+                detail: "Ardour region fade/crossfade state is not yet present in the native snapshot".into(),
+            },
+        ];
 
         if let Some(route) = master {
             let bus = project.bus_mut("master")?;
@@ -132,6 +163,8 @@ impl SemanticAudioProjection<ArdourSnapshot> for ArdourProjection {
                             gain: MilliDb(send.gain_millidb),
                             enabled: send.enabled,
                             pre_fader: send.pre_fader,
+                            role: semwright_audio_domain::model::SendRole::Audio,
+                            delay_frames: 0,
                         });
                     }
                 } else {
@@ -177,6 +210,8 @@ impl SemanticAudioProjection<ArdourSnapshot> for ArdourProjection {
                         gain: MilliDb(send.gain_millidb),
                         enabled: send.enabled,
                         pre_fader: send.pre_fader,
+                        role: semwright_audio_domain::model::SendRole::Audio,
+                        delay_frames: 0,
                     });
                 } else {
                     loss(
@@ -438,7 +473,7 @@ mod tests {
         assert_eq!(report.project.samples.len(), 1);
         assert_eq!(report.project.stems[0].clips.len(), 1);
         assert!(!report.project.stems[0].id.contains("track1"));
-        assert_eq!(report.fidelity, ProjectionFidelity::SemanticallyEquivalent);
+        assert_eq!(report.fidelity, ProjectionFidelity::LossyReadOnly);
     }
 
     #[test]

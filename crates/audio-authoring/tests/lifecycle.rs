@@ -122,6 +122,8 @@ fn authoring_plan_materializes_typed_stem_sends() {
         gain: MilliDb(-9_000),
         enabled: true,
         pre_fader: false,
+        role: semwright_audio_domain::model::SendRole::Audio,
+        delay_frames: 0,
     });
     let base = base_for(
         &p,

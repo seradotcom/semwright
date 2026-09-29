@@ -8,7 +8,7 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 
-pub const RENDER_CONTRACT_VERSION: u32 = 1;
+pub const RENDER_CONTRACT_VERSION: u32 = 2;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
 #[serde(rename_all = "snake_case")]
@@ -23,6 +23,34 @@ pub enum BitDepth {
     Pcm16,
     Pcm24,
     Pcm32,
+}
+
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum ResampleQuality {
+    Draft,
+    Medium,
+    #[default]
+    High,
+    Mastering,
+}
+
+#[derive(
+    Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema,
+)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum DitherPolicy {
+    #[default]
+    None,
+    Tpdf {
+        seed: u64,
+    },
+    NoiseShaped {
+        seed: u64,
+        order: u8,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, schemars::JsonSchema)]
@@ -44,7 +72,10 @@ pub struct RenderIntent {
     pub channels: u16,
     pub bit_depth: BitDepth,
     pub normalize_lufs_milli: Option<i32>,
-    pub dither_seed: Option<u64>,
+    #[serde(default)]
+    pub resample_quality: ResampleQuality,
+    #[serde(default)]
+    pub dither: DitherPolicy,
 }
 
 impl RenderIntent {
@@ -78,6 +109,11 @@ impl RenderIntent {
             }
         }
 
+        if let DitherPolicy::NoiseShaped { order, .. } = self.dither
+            && !(1..=8).contains(&order)
+        {
+            return Err(Error::invalid("Noise-shaped dither order must be 1..=8"));
+        }
         let natural = match &self.source {
             RenderSource::Project => project.duration(),
             RenderSource::Stem { stem } => project.stem(stem)?.duration(),
@@ -89,16 +125,28 @@ impl RenderIntent {
         if natural == 0 {
             return Err(Error::invalid("Cannot render empty audio"));
         }
-        match self.range {
+        let source_frames = match self.range {
             Some(range) => {
                 SampleRange::new(range.start.0, range.end.0)?;
                 if !matches!(self.source, RenderSource::Synth { .. }) && range.end.0 > natural {
                     return Err(Error::invalid("Audio render range exceeds source duration"));
                 }
-                Ok(range.duration())
+                range.duration()
             }
-            None => Ok(natural),
+            None => natural,
+        };
+        let numerator = u128::from(source_frames) * u128::from(self.sample_rate.0);
+        let denominator = u128::from(project.profile.sample_rate.0);
+        let rounded = numerator
+            .checked_add(denominator / 2)
+            .ok_or_else(|| Error::limit("Resampled frame count overflow"))?
+            / denominator;
+        let frames = u64::try_from(rounded)
+            .map_err(|_| Error::limit("Resampled frame count exceeds u64"))?;
+        if frames == 0 || frames > crate::time::MAX_SAMPLE_FRAME {
+            return Err(Error::limit("Resampled frame count exceeds audio budget"));
         }
+        Ok(frames)
     }
 
     pub fn semantic_digest(&self, project: &AudioProject) -> Result<String> {

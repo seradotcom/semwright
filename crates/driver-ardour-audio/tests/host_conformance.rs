@@ -1,4 +1,8 @@
 #![cfg(target_os = "linux")]
+use semwright_audio_domain::{
+    edit::{self, Edit},
+    model::AudioProject,
+};
 use semwright_backend_api::Provider;
 use semwright_core::{Broker, NoApprover, audit::Audit};
 use semwright_driver_host::DriverProvider;
@@ -269,6 +273,17 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
     .unwrap();
     broker.mount_provider(provider.clone()).await.unwrap();
 
+    let runtime_probe = call(&broker, "session.deep.runtime.probe", json!({})).await;
+    assert!(runtime_probe.ok, "{runtime_probe:?}");
+    let runtime_probe_data = runtime_probe.data.unwrap();
+    assert_eq!(runtime_probe_data["ardour_version"], "8.4.0");
+    for key in ["lua_banner", "create_banner", "export_banner"] {
+        assert!(
+            runtime_probe_data[key].as_str().unwrap().contains("8.4"),
+            "{runtime_probe_data}"
+        );
+    }
+
     let created = call(
         &broker,
         "session.deep.create",
@@ -328,6 +343,18 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
         "{project_json}"
     );
     let stem_id = stems[0]["id"].as_str().unwrap().to_owned();
+    let reference_before: AudioProject = serde_json::from_value(project_json.clone()).unwrap();
+    let reference_expected = edit::apply(
+        &reference_before,
+        &reference_before.semantic_digest().unwrap(),
+        Edit::StemRename {
+            stem: stem_id.clone(),
+            name: "Renamed Proof".into(),
+        },
+        "differential-rename",
+    )
+    .unwrap()
+    .result;
 
     let renamed = call(
         &broker,
@@ -340,6 +367,15 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
         .as_str()
         .unwrap()
         .to_owned();
+    let after_rename = call(&broker, "session.deep.inspect", json!({"state":"Base"})).await;
+    assert!(after_rename.ok, "{after_rename:?}");
+    let native_after: AudioProject =
+        serde_json::from_value(parse_project(after_rename.data.as_ref().unwrap())).unwrap();
+    assert_eq!(
+        native_after.semantic_digest().unwrap(),
+        reference_expected.semantic_digest().unwrap(),
+        "native Ardour rename diverged from the portable reference edit"
+    );
 
     let stale = call(
         &broker,
@@ -423,8 +459,10 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
             "schema_version":1,
             "route":"broker-policy-driver-host-sealed-ardour-8.4",
             "ardour_version":"8.4.0",
+            "runtime_probe":true,
             "create_reopen":true,
             "native_bus_create":true,
+            "differential_rename_digest":true,
             "semantic_target_mapping":true,
             "stale_revision_denied":true,
             "save_as_source_preserved":true,

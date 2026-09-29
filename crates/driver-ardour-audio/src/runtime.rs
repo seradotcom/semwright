@@ -47,6 +47,15 @@ pub struct DeepRuntime {
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(deny_unknown_fields)]
+pub struct ArdourRuntimeProbe {
+    pub ardour_version: String,
+    pub lua_banner: String,
+    pub create_banner: String,
+    pub export_banner: String,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(deny_unknown_fields)]
 pub struct ExportReceipt {
     pub file_name: String,
     pub sha256: String,
@@ -121,6 +130,35 @@ impl DeepRuntime {
 
     pub fn version(&self) -> &str {
         &self.config.ardour_version
+    }
+
+    pub async fn probe(&self) -> Result<ArdourRuntimeProbe> {
+        let lua_banner = version_banner(
+            &self.run_tool(&self.lua_tool, &["-V".into()]).await?,
+            "ardour-lua",
+        )?;
+        let create_banner = version_banner(
+            &self.run_tool(&self.create_tool, &["-V".into()]).await?,
+            "ardour-utils",
+        )?;
+        let export_banner = version_banner(
+            &self.run_tool(&self.export_tool, &["-V".into()]).await?,
+            "ardour-utils",
+        )?;
+        for banner in [&lua_banner, &create_banner, &export_banner] {
+            if !banner.contains("8.4") {
+                return Err(Error::new(
+                    ErrorCode::ProtocolMismatch,
+                    "Pinned Ardour utility version differs from the managed 8.4 baseline",
+                ));
+            }
+        }
+        Ok(ArdourRuntimeProbe {
+            ardour_version: self.config.ardour_version.clone(),
+            lua_banner,
+            create_banner,
+            export_banner,
+        })
     }
 
     pub async fn inspect(&self, state: &str) -> Result<ArdourSnapshot> {
@@ -388,6 +426,27 @@ fn parse_snapshot(stdout: &[u8]) -> Result<ArdourSnapshot> {
     let snapshot: ArdourSnapshot = serde_json::from_str(encoded)?;
     snapshot.validate().map_err(domain_error)?;
     Ok(snapshot)
+}
+
+fn version_banner(stdout: &[u8], prefix: &str) -> Result<String> {
+    let text = std::str::from_utf8(stdout).map_err(|_| {
+        Error::new(
+            ErrorCode::ProtocolMismatch,
+            "Ardour utility version output is not UTF-8",
+        )
+    })?;
+    let line = text.lines().next().unwrap_or_default().trim();
+    if line.is_empty()
+        || line.len() > 160
+        || !line.starts_with(prefix)
+        || line.chars().any(char::is_control)
+    {
+        return Err(Error::new(
+            ErrorCode::ProtocolMismatch,
+            "Ardour utility version banner has an unexpected shape",
+        ));
+    }
+    Ok(line.to_owned())
 }
 
 fn validate_state(value: &str) -> Result<()> {

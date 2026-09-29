@@ -380,6 +380,11 @@ impl ArdourAudioDriver {
         })
     }
 
+    async fn deep_runtime_probe(&self) -> Result<Value> {
+        let probe = self.deep_runtime()?.probe().await?;
+        Ok(serde_json::to_value(probe)?)
+    }
+
     async fn deep_create(&self, args: &Value) -> Result<Value> {
         let state = text_arg(args, "state", 128)?;
         let sample_rate = u64_arg(args, "sample_rate", 8_000, 192_000)? as u32;
@@ -533,6 +538,7 @@ impl ArdourAudioDriver {
             }
             "driver.ardour-audio.session.inspect" => self.inspect().await,
             "driver.ardour-audio.session.deep.inspect" => self.deep_inspect(args).await,
+            "driver.ardour-audio.session.deep.runtime.probe" => self.deep_runtime_probe().await,
             "driver.ardour-audio.session.deep.create" => self.deep_create(args).await,
             "driver.ardour-audio.session.deep.save-as" => self.deep_save_as(args).await,
             "driver.ardour-audio.session.deep.export" => self.deep_export(args).await,
@@ -887,6 +893,22 @@ fn deep_capabilities() -> Vec<Capability> {
         "additionalProperties":false
     });
     let mut values = vec![
+        deep_read_descriptor(
+            "driver.ardour-audio.session.deep.runtime.probe",
+            "Execute version probes for the fixed pinned Ardour 8.4 Lua, session-create and export utilities",
+            json!({
+                "type":"object",
+                "properties":{
+                    "ardour_version":{"const":"8.4.0"},
+                    "lua_banner":{"type":"string","minLength":1,"maxLength":160},
+                    "create_banner":{"type":"string","minLength":1,"maxLength":160},
+                    "export_banner":{"type":"string","minLength":1,"maxLength":160}
+                },
+                "required":["ardour_version","lua_banner","create_banner","export_banner"],
+                "additionalProperties":false
+            }),
+            &["audio-project"],
+        ),
         deep_descriptor(
             "driver.ardour-audio.session.deep.create",
             "Create and reopen a managed Ardour 8.4 candidate using the official Dummy-backend session utility",
@@ -1116,6 +1138,33 @@ fn deep_capabilities() -> Vec<Capability> {
         ));
     }
     values
+}
+
+fn deep_read_descriptor(
+    name: &str,
+    description: &str,
+    output_schema: Value,
+    object_types: &[&str],
+) -> Capability {
+    Capability {
+        descriptor: CommandDescriptor {
+            name: name.into(),
+            version: "1".into(),
+            description: description.into(),
+            input_schema: empty_schema(),
+            output_schema,
+            requires: vec![DRIVER_SCOPE.into()],
+            risk: Risk::ReadOnly,
+            idempotency: Idempotency::ReadOnly,
+            timeout_ms: 15_000,
+            dry_run: true,
+            interactive_consent: false,
+            backends: vec![DRIVER_SCOPE.into()],
+        },
+        aliases: vec![],
+        tags: vec!["audio".into(), "ardour".into(), "native-session".into()],
+        object_types: object_types.iter().map(|value| (*value).into()).collect(),
+    }
 }
 
 fn deep_descriptor(

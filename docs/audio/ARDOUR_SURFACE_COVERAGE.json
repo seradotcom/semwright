@@ -119,6 +119,42 @@
       "status": "implemented_pending_native",
       "route": "Route:nth_plugin -> PluginInsert",
       "evidence": "native CI verifies bindings; plugin state/parameters remain read-only"
+    },
+    {
+      "surface": "portable groups/order",
+      "status": "portable_only",
+      "route": "audio-domain semantic edits",
+      "evidence": "Ardour v1 projection emits read-only loss; no native group mapping claimed"
+    },
+    {
+      "surface": "portable tempo/meter map",
+      "status": "portable_only",
+      "route": "audio-domain tempo_changes",
+      "evidence": "Ardour v1 projection emits read-only loss"
+    },
+    {
+      "surface": "portable MIDI phrases/controllers",
+      "status": "portable_only",
+      "route": "audio-domain MIDI metadata",
+      "evidence": "Ardour native MIDI authoring remains unsupported"
+    },
+    {
+      "surface": "portable delayed feedback/sidechain sends",
+      "status": "portable_only",
+      "route": "BusSend role + delay_frames",
+      "evidence": "algebraic cycles rejected; native Ardour send mutation not yet advertised"
+    },
+    {
+      "surface": "portable clip split/slip/fades",
+      "status": "partial_native",
+      "route": "audio-domain edits; Ardour move/trim/remove only",
+      "evidence": "Ardour fades/split/slip remain unprojected/read-only"
+    },
+    {
+      "surface": "pinned runtime identity probe",
+      "status": "implemented_pending_native",
+      "route": "-V on luasession/new_empty_session/export with fixed runtime environment",
+      "evidence": "ardour-native before session mutation"
     }
   ]
 }

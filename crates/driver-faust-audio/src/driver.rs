@@ -7,7 +7,10 @@ use semwright_audio_domain::{
     backend::{BackendContract, BackendIdentity, ProjectionFidelity},
     model::{AudioProfile, AudioProject, Synth},
     presets::{self, SfxPreset},
-    render::{AudioFormat, BitDepth, RENDER_CONTRACT_VERSION, RenderIntent, RenderSource},
+    render::{
+        AudioFormat, BitDepth, DitherPolicy, RENDER_CONTRACT_VERSION, RenderIntent, RenderSource,
+        ResampleQuality,
+    },
     support::{AudioOperation, OperationSupport},
     time::{SampleRange, SampleRate},
 };
@@ -132,6 +135,14 @@ pub fn capability_catalog() -> Vec<Capability> {
             description: "Inspect deterministic Faust runtime availability without executing DSP",
             input: empty_schema,
             output: doctor_schema,
+            risk: Risk::ReadOnly,
+            idempotency: Idempotency::ReadOnly,
+        },
+        Op {
+            name: "runtime.probe",
+            description: "Execute only the pinned sealed Faust helper version probe through Driver Host confinement",
+            input: empty_schema,
+            output: runtime_probe_schema,
             risk: Risk::ReadOnly,
             idempotency: Idempotency::ReadOnly,
         },
@@ -296,6 +307,25 @@ impl FaustAudioDriver {
         }
         match command.strip_prefix("driver.faust-audio.") {
             Some("doctor") => self.health().await,
+            Some("runtime.probe") => {
+                let runtime = self.runtime.as_ref().ok_or_else(|| {
+                    Error::new(
+                        ErrorCode::Unavailable,
+                        "Pinned Faust runtime is unavailable",
+                    )
+                })?;
+                let context = context.as_ref().ok_or_else(|| {
+                    Error::new(
+                        ErrorCode::Unsupported,
+                        "Driver Host execution context is required",
+                    )
+                })?;
+                Ok(json!({
+                    "runtime_available": true,
+                    "compiler_version": runtime.probe(context).await?,
+                    "sealed_helper_executed": true
+                }))
+            }
             Some("backend.contract") => {
                 let contract = self.contract()?;
                 Ok(json!({
@@ -440,7 +470,8 @@ impl FaustAudioDriver {
             channels: request.channels,
             bit_depth: request.bit_depth,
             normalize_lufs_milli: None,
-            dither_seed: None,
+            resample_quality: ResampleQuality::High,
+            dither: DitherPolicy::None,
         };
         let artifact = runtime
             .render(context, &program, &intent, &project, &request.output_file)
@@ -683,6 +714,19 @@ fn source_output_schema() -> Value {
         "arbitrary_source":{"const":false}
     },"required":["source","source_sha256","translator_version","outputs","arbitrary_source"],"additionalProperties":false})
 }
+fn runtime_probe_schema() -> Value {
+    json!({
+        "type":"object",
+        "properties":{
+            "runtime_available":{"const":true},
+            "compiler_version":{"type":"string","minLength":1,"maxLength":128},
+            "sealed_helper_executed":{"const":true}
+        },
+        "required":["runtime_available","compiler_version","sealed_helper_executed"],
+        "additionalProperties":false
+    })
+}
+
 fn doctor_schema() -> Value {
     json!({"type":"object","properties":{
         "healthy":{"const":true},

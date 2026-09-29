@@ -61,7 +61,7 @@ async fn call(broker: &Arc<Broker>, command: &str, args: Value) -> Envelope {
             ExecuteRequest {
                 command: format!("driver.audio-analysis.{command}"),
                 args,
-                dry_run: true,
+                dry_run: false,
                 backend: None,
             },
             CancellationToken::new(),

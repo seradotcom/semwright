@@ -7,8 +7,9 @@ use semwright_audio_domain::{
     edit::{self, Edit},
     model::{
         AudioClip, AudioProfile, AudioProject, Automation, AutomationCurve, AutomationPoint,
-        AutomationTarget, Bus, BusSend, ClipSource, EffectChain, Oscillator, Sample, SampleOrigin,
-        SampleSource, Signal, SignalNodeKind, Stem, Synth, SynthParameter, Waveform,
+        AutomationTarget, Bus, BusSend, ClipSource, EffectChain, Marker, MidiEvent, MidiPhrase,
+        NamedRange, Oscillator, ProjectMetadata, Sample, SampleOrigin, SampleSource, Signal,
+        SignalNodeKind, Stem, StemGroup, Synth, SynthParameter, TempoChange, Waveform,
     },
     presets::{self, SfxPreset},
     provider::{
@@ -16,7 +17,10 @@ use semwright_audio_domain::{
         AssetProviderKind, GenerationKind,
     },
     refs::RefStore,
-    render::{AudioFormat, BitDepth, RENDER_CONTRACT_VERSION, RenderIntent, RenderSource},
+    render::{
+        AudioFormat, BitDepth, DitherPolicy, RENDER_CONTRACT_VERSION, RenderIntent, RenderSource,
+        ResampleQuality,
+    },
     support::{AudioOperation, OperationSupport},
     time::{SampleFrame, SampleRange, SampleRate},
     units::{MilliDb, MilliHz, Permille},
@@ -148,14 +152,66 @@ fn bus_routing_cycles_are_rejected() {
         gain: MilliDb(0),
         enabled: true,
         pre_fader: false,
+        role: semwright_audio_domain::model::SendRole::Audio,
+        delay_frames: 0,
     });
     project.buses[1].sends.push(BusSend {
         target_bus: "master".into(),
         gain: MilliDb(0),
         enabled: true,
         pre_fader: false,
+        role: semwright_audio_domain::model::SendRole::Audio,
+        delay_frames: 0,
     });
     assert!(project.validate().is_err());
+}
+
+#[test]
+fn delayed_feedback_and_sidechain_edges_are_explicit() {
+    use semwright_audio_domain::model::SendRole;
+
+    let mut project = empty_project();
+    project.buses.push(bus("fx"));
+    project.buses[0].sends.push(BusSend {
+        target_bus: "fx".into(),
+        gain: MilliDb(-6_000),
+        enabled: true,
+        pre_fader: false,
+        role: SendRole::Audio,
+        delay_frames: 0,
+    });
+    project.buses[1].sends.push(BusSend {
+        target_bus: "master".into(),
+        gain: MilliDb(-12_000),
+        enabled: true,
+        pre_fader: true,
+        role: SendRole::Sidechain,
+        delay_frames: 1,
+    });
+    project.validate().unwrap();
+    assert_eq!(project.buses[1].sends[0].role, SendRole::Sidechain);
+
+    project.buses[1].sends[0].delay_frames = 0;
+    assert!(project.validate().is_err());
+
+    project.buses[1].sends[0].enabled = false;
+    project.validate().unwrap();
+}
+
+#[test]
+fn self_feedback_requires_declared_delay_when_enabled() {
+    let mut project = empty_project();
+    project.buses[0].sends.push(BusSend {
+        target_bus: "master".into(),
+        gain: MilliDb(-18_000),
+        enabled: true,
+        pre_fader: false,
+        role: semwright_audio_domain::model::SendRole::Audio,
+        delay_frames: 0,
+    });
+    assert!(project.validate().is_err());
+    project.buses[0].sends[0].delay_frames = 48;
+    project.validate().unwrap();
 }
 
 #[test]
@@ -194,6 +250,8 @@ fn stem_send_is_typed_and_protects_referenced_bus() {
                 gain: MilliDb(-6_000),
                 enabled: true,
                 pre_fader: true,
+                role: semwright_audio_domain::model::SendRole::Audio,
+                delay_frames: 0,
             },
         },
         "stem-send",
@@ -228,12 +286,284 @@ fn stem_send_is_typed_and_protects_referenced_bus() {
                     gain: MilliDb(0),
                     enabled: true,
                     pre_fader: false,
+                    role: semwright_audio_domain::model::SendRole::Audio,
+                    delay_frames: 0,
                 },
             },
             "bad-send",
         )
         .is_err()
     );
+}
+
+#[test]
+fn professional_portable_edit_workflow_covers_groups_timeline_midi_and_clip_edits() {
+    let mut project = empty_project();
+    project.samples.insert(
+        "sample".into(),
+        Sample {
+            id: "sample".into(),
+            name: "narration.wav".into(),
+            channels: 1,
+            sample_rate: SampleRate(48_000),
+            frames: 2_000,
+            source: SampleSource::RelativePath {
+                path: "audio/narration.wav".into(),
+            },
+            origin: SampleOrigin::Imported,
+        },
+    );
+    let mut first = stem("dialogue", "master");
+    first.clips.push(AudioClip {
+        id: "line".into(),
+        name: "line".into(),
+        source: ClipSource::Sample {
+            sample: "sample".into(),
+        },
+        start: SampleFrame(100),
+        source_range: SampleRange::new(100, 500).unwrap(),
+        gain: MilliDb(0),
+        fade_in_frames: 0,
+        fade_out_frames: 0,
+    });
+    project.stems.push(first);
+    project.stems.push(stem("music", "master"));
+    project.buses.push(bus("fx"));
+    project.validate().unwrap();
+
+    let apply = |project: &AudioProject, edit: Edit, seed: &str| {
+        edit::apply(project, &edit::revision(project).unwrap(), edit, seed)
+            .unwrap()
+            .result
+    };
+
+    let project = apply(
+        &project,
+        Edit::ProjectMetadataSet {
+            metadata: ProjectMetadata {
+                name: Some("AV fixture".into()),
+                session_label: Some("candidate-a".into()),
+                delivery_profile: Some("technical-stereo".into()),
+            },
+        },
+        "metadata",
+    );
+    let project = apply(
+        &project,
+        Edit::GroupSet {
+            group: StemGroup {
+                id: "beds".into(),
+                name: "Beds".into(),
+                stems: vec!["dialogue".into(), "music".into()],
+            },
+        },
+        "group",
+    );
+    let project = apply(
+        &project,
+        Edit::StemReorder {
+            stem: "music".into(),
+            before: Some("dialogue".into()),
+        },
+        "stem-order",
+    );
+    assert_eq!(project.stems[0].id, "music");
+    assert!(
+        edit::apply(
+            &project,
+            &edit::revision(&project).unwrap(),
+            Edit::StemRemove {
+                stem: "dialogue".into(),
+            },
+            "protected-group-member",
+        )
+        .is_err()
+    );
+
+    let project = apply(
+        &project,
+        Edit::BusReorder {
+            bus: "fx".into(),
+            before: Some("master".into()),
+        },
+        "bus-order",
+    );
+    assert_eq!(project.buses[0].id, "fx");
+
+    let project = apply(
+        &project,
+        Edit::ClipFadeSet {
+            stem: "dialogue".into(),
+            clip: "line".into(),
+            fade_in_frames: 20,
+            fade_out_frames: 20,
+        },
+        "fade",
+    );
+    let outcome = edit::apply(
+        &project,
+        &edit::revision(&project).unwrap(),
+        Edit::ClipSplit {
+            stem: "dialogue".into(),
+            clip: "line".into(),
+            at: 300,
+        },
+        "split",
+    )
+    .unwrap();
+    let right = outcome.created[0].clone();
+    let mut project = outcome.result;
+    project = apply(
+        &project,
+        Edit::ClipSlip {
+            stem: "dialogue".into(),
+            clip: "line".into(),
+            source_start: 200,
+        },
+        "slip",
+    );
+    project = apply(
+        &project,
+        Edit::ClipMove {
+            stem: "dialogue".into(),
+            clip: right.clone(),
+            start: 280,
+        },
+        "overlap",
+    );
+    project = apply(
+        &project,
+        Edit::ClipFadeSet {
+            stem: "dialogue".into(),
+            clip: "line".into(),
+            fade_in_frames: 20,
+            fade_out_frames: 20,
+        },
+        "left-crossfade",
+    );
+    project = apply(
+        &project,
+        Edit::ClipFadeSet {
+            stem: "dialogue".into(),
+            clip: right.clone(),
+            fade_in_frames: 20,
+            fade_out_frames: 20,
+        },
+        "right-crossfade",
+    );
+    let dialogue = project.stem("dialogue").unwrap();
+    let left = dialogue
+        .clips
+        .iter()
+        .find(|clip| clip.id == "line")
+        .unwrap();
+    let right_clip = dialogue.clips.iter().find(|clip| clip.id == right).unwrap();
+    assert!(right_clip.start.0 < left.end().unwrap());
+    assert_eq!(left.source_range, SampleRange::new(200, 400).unwrap());
+
+    project = apply(
+        &project,
+        Edit::MarkerSet {
+            marker: Marker {
+                id: "beat-one".into(),
+                frame: SampleFrame(480),
+                label: "Beat one".into(),
+            },
+        },
+        "marker",
+    );
+    project = apply(
+        &project,
+        Edit::RangeSet {
+            range: NamedRange {
+                id: "narration-range".into(),
+                range: SampleRange::new(100, 800).unwrap(),
+                label: "Narration".into(),
+            },
+        },
+        "range",
+    );
+    project = apply(
+        &project,
+        Edit::TempoMapSet {
+            changes: vec![TempoChange {
+                frame: SampleFrame(48_000),
+                tempo_milli_bpm: 90_000,
+                time_signature_numerator: 3,
+                time_signature_denominator: 4,
+            }],
+        },
+        "tempo",
+    );
+    project = apply(
+        &project,
+        Edit::MidiPhraseSet {
+            phrase: MidiPhrase {
+                id: "accent".into(),
+                name: "Accent phrase".into(),
+                instrument_synth: None,
+                events: vec![
+                    MidiEvent::Note {
+                        id: "note-one".into(),
+                        start: SampleFrame(1_000),
+                        duration_frames: 12_000,
+                        channel: 0,
+                        note: 60,
+                        velocity: 96,
+                    },
+                    MidiEvent::Control {
+                        id: "mod-one".into(),
+                        frame: SampleFrame(2_000),
+                        channel: 0,
+                        controller: 1,
+                        value: 64,
+                    },
+                ],
+            },
+        },
+        "midi",
+    );
+    project.validate().unwrap();
+    assert_eq!(project.metadata.name.as_deref(), Some("AV fixture"));
+    assert_eq!(project.groups.len(), 1);
+    assert_eq!(project.markers.len(), 1);
+    assert_eq!(project.ranges.len(), 1);
+    assert_eq!(project.tempo_changes.len(), 1);
+    assert_eq!(project.midi_phrases.len(), 1);
+
+    let project = apply(
+        &project,
+        Edit::MarkerRemove {
+            marker: "beat-one".into(),
+        },
+        "marker-remove",
+    );
+    let project = apply(
+        &project,
+        Edit::RangeRemove {
+            range: "narration-range".into(),
+        },
+        "range-remove",
+    );
+    let project = apply(
+        &project,
+        Edit::MidiPhraseRemove {
+            phrase: "accent".into(),
+        },
+        "midi-remove",
+    );
+    let project = apply(
+        &project,
+        Edit::GroupRemove {
+            group: "beds".into(),
+        },
+        "group-remove",
+    );
+    project.validate().unwrap();
+    assert!(project.markers.is_empty());
+    assert!(project.ranges.is_empty());
+    assert!(project.midi_phrases.is_empty());
+    assert!(project.groups.is_empty());
 }
 
 #[test]
@@ -393,12 +723,66 @@ fn render_intent_is_deterministic_and_validates_source() {
         channels: 2,
         bit_depth: BitDepth::Pcm24,
         normalize_lufs_milli: None,
-        dither_seed: Some(7),
+        resample_quality: ResampleQuality::Mastering,
+        dither: DitherPolicy::Tpdf { seed: 7 },
     };
     assert_eq!(
         intent.semantic_digest(&project).unwrap(),
         intent.semantic_digest(&project).unwrap()
     );
+}
+
+#[test]
+fn render_contract_resamples_duration_and_validates_dither_policy() {
+    let mut project = empty_project();
+    project.samples.insert(
+        "one-second".into(),
+        Sample {
+            id: "one-second".into(),
+            name: "one-second".into(),
+            channels: 1,
+            sample_rate: SampleRate(48_000),
+            frames: 48_000,
+            source: SampleSource::Silence,
+            origin: SampleOrigin::Deterministic {
+                generator: "fixture".into(),
+                seed: 1,
+            },
+        },
+    );
+    let mut voice = stem("voice", "master");
+    voice.clips.push(AudioClip {
+        id: "voice-clip".into(),
+        name: "voice".into(),
+        source: ClipSource::Sample {
+            sample: "one-second".into(),
+        },
+        start: SampleFrame(0),
+        source_range: SampleRange::new(0, 48_000).unwrap(),
+        gain: MilliDb(0),
+        fade_in_frames: 0,
+        fade_out_frames: 0,
+    });
+    project.stems.push(voice);
+    project.validate().unwrap();
+
+    let render = RenderIntent {
+        contract_version: RENDER_CONTRACT_VERSION,
+        source: RenderSource::Project,
+        range: None,
+        format: AudioFormat::Wav,
+        sample_rate: SampleRate(44_100),
+        channels: 2,
+        bit_depth: BitDepth::Pcm24,
+        normalize_lufs_milli: None,
+        resample_quality: ResampleQuality::Mastering,
+        dither: DitherPolicy::NoiseShaped { seed: 7, order: 4 },
+    };
+    assert_eq!(render.validate_against(&project).unwrap(), 44_100);
+
+    let mut invalid = render;
+    invalid.dither = DitherPolicy::NoiseShaped { seed: 7, order: 0 };
+    assert!(invalid.validate_against(&project).is_err());
 }
 
 #[test]

@@ -67,6 +67,12 @@
       "status": "implemented",
       "mapping": "sealed interpreter + libsndfile",
       "evidence": "native CI required"
+    },
+    {
+      "surface": "sealed runtime identity probe",
+      "status": "implemented_pending_native",
+      "mapping": "fixed helper version operation",
+      "evidence": "Broker -> Driver Host native CI"
     }
   ]
 }

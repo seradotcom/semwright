@@ -1,5 +1,9 @@
 #![cfg(target_os = "linux")]
 //! Actual Broker -> policy -> Driver Host -> sealed interpreter -> decoded PCM.
+use semwright_audio_domain::{
+    presets::{self, SfxPreset},
+    time::SampleRate,
+};
 use semwright_backend_api::Provider;
 use semwright_core::{Broker, NoApprover, audit::Audit};
 use semwright_driver_host::DriverProvider;
@@ -219,6 +223,37 @@ async fn broker_sealed_faust_render_has_pcm_provenance_and_no_overwrite() {
     assert!(health.ok, "{health:?}");
     let doctor = health.data.unwrap();
     assert_eq!(doctor["runtime_available"], true, "{doctor}");
+    let runtime_probe = call(&broker, "runtime.probe", json!({})).await;
+    assert!(runtime_probe.ok, "{runtime_probe:?}");
+    assert_eq!(
+        runtime_probe.data.as_ref().unwrap()["compiler_version"],
+        std::env::var("SEMWRIGHT_TEST_FAUST_VERSION").unwrap()
+    );
+    assert_eq!(
+        runtime_probe.data.as_ref().unwrap()["sealed_helper_executed"],
+        true
+    );
+    let validation_synth = presets::synth_for(
+        SfxPreset::Notification,
+        "host-validate",
+        SampleRate(48_000),
+        48_000,
+        42,
+    )
+    .unwrap();
+    let validated = call(
+        &broker,
+        "synth.validate",
+        json!({
+            "synth_json": serde_json::to_string(&validation_synth).unwrap(),
+            "sample_rate": 48_000,
+            "duration_frames": 48_000,
+            "channels": 2
+        }),
+    )
+    .await;
+    assert!(validated.ok, "{validated:?}");
+    assert_eq!(validated.data.as_ref().unwrap()["valid"], true);
     let arguments = json!({"preset":"notification","seed":42,"sample_rate":48000,"duration_frames":48000,"channels":2,"format":"wav","bit_depth":16,"output_file":"proof.wav"});
     let result = call(&broker, "sfx.render", arguments.clone()).await;
     assert!(result.ok, "{result:?}");

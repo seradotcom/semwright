@@ -557,7 +557,7 @@ local function mutate(command)
     end
     local locations = Session:locations()
     local session_range = locations:session_range_location()
-    if not session_range or session_range:isnil() then error("session range is unavailable") end
+    if not session_range then error("session range is unavailable") end
     local range_status = session_range:set(
       Temporal.timepos_t(start_sample),
       Temporal.timepos_t(end_sample)

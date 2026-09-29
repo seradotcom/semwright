@@ -2,7 +2,7 @@
 use crate::faust::FaustProgram;
 use semwright_audio_domain::{
     model::AudioProject,
-    render::{AudioFormat, BitDepth, RenderIntent},
+    render::{AudioFormat, BitDepth, DitherPolicy, RenderIntent},
 };
 use semwright_driver_sdk::{DriverExecutionContext, tool_path, workspace_mount};
 use semwright_types::{Error, ErrorCode, Result};
@@ -92,6 +92,25 @@ impl Runtime {
     pub fn version(&self) -> &str {
         &self.config.compiler_version
     }
+    pub async fn probe(&self, context: &DriverExecutionContext) -> Result<String> {
+        context.check_cancelled()?;
+        self.verify_libraries()?;
+        let output = run_sealed_tool(context, vec!["version".into()], &[]).await?;
+        if output.exit_code != 0 {
+            return Err(classify_tool_exit(&output.stderr));
+        }
+        let value: serde_json::Value = serde_json::from_slice(&output.stdout)?;
+        if value["schema_version"] != 1
+            || value["engine"] != "faust-interpreter"
+            || value["compiler_version"] != self.config.compiler_version
+        {
+            return Err(Error::new(
+                ErrorCode::ProtocolMismatch,
+                "Faust runtime probe receipt differs from the pinned runtime",
+            ));
+        }
+        Ok(self.config.compiler_version.clone())
+    }
     fn verify_libraries(&self) -> Result<()> {
         let metadata = fs::symlink_metadata(&self.library_root)?;
         if !metadata.is_dir() || metadata.file_type().is_symlink() {
@@ -149,10 +168,7 @@ impl Runtime {
         }
         let output = run_sealed_tool(context, args, source).await?;
         if output.exit_code != 0 {
-            return Err(Error::new(
-                ErrorCode::BackendFailed,
-                "Pinned Faust interpreter failed; inspect bounded Host diagnostics",
-            ));
+            return Err(classify_tool_exit(&output.stderr));
         }
         context.check_cancelled()?;
         let value: serde_json::Value = serde_json::from_slice(&output.stdout)?;
@@ -205,7 +221,7 @@ impl Runtime {
             || intent.channels != program.outputs
             || intent.sample_rate != project.profile.sample_rate
             || intent.normalize_lufs_milli.is_some()
-            || intent.dither_seed.is_some()
+            || intent.dither != DitherPolicy::None
             || intent.range.is_some_and(|r| r.start.0 != 0)
             || (intent.format == AudioFormat::Flac && intent.bit_depth == BitDepth::Pcm32)
         {
@@ -338,6 +354,36 @@ fn validate_file_name(value: &str, format: AudioFormat) -> Result<()> {
     Ok(())
 }
 
+fn classify_tool_exit(stderr: &[u8]) -> Error {
+    let text = String::from_utf8_lossy(stderr);
+    if text.contains("Permission denied") || text.contains("Operation not permitted") {
+        Error::new(
+            ErrorCode::SandboxDenied,
+            "Sandbox denied an operation required by the pinned Faust helper",
+        )
+    } else if text.contains("error while loading shared libraries")
+        || text.contains("No such file or directory")
+    {
+        Error::new(
+            ErrorCode::Unavailable,
+            "Pinned Faust helper runtime dependencies are unavailable",
+        )
+    } else if text.contains("library mount")
+        || text.contains("standard library import")
+        || text.contains("external Faust mechanism")
+    {
+        Error::new(
+            ErrorCode::ProtocolMismatch,
+            "Pinned Faust helper rejected the staged runtime contract",
+        )
+    } else {
+        Error::new(
+            ErrorCode::BackendFailed,
+            "Pinned Faust helper exited unsuccessfully",
+        )
+    }
+}
+
 async fn bounded_output<R: tokio::io::AsyncRead + Unpin>(reader: R) -> Result<Vec<u8>> {
     let mut result = Vec::new();
     reader.take(262145).read_to_end(&mut result).await?;
@@ -370,7 +416,21 @@ async fn run_sealed_tool(
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .kill_on_drop(true)
-        .spawn()?;
+        .spawn()
+        .map_err(|error| match error.kind() {
+            std::io::ErrorKind::PermissionDenied => Error::new(
+                ErrorCode::SandboxDenied,
+                "Sandbox denied the pinned Faust helper execution",
+            ),
+            std::io::ErrorKind::NotFound => Error::new(
+                ErrorCode::Unavailable,
+                "Pinned Faust helper or its loader is unavailable",
+            ),
+            _ => Error::new(
+                ErrorCode::BackendFailed,
+                "Could not start the pinned Faust helper",
+            ),
+        })?;
     let mut input = child
         .stdin
         .take()

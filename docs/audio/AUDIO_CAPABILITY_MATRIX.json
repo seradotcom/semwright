@@ -2,12 +2,17 @@
   "schema_version": 1,
   "semantic_model_version": 1,
   "generated_from": {
-    "audio_operation_count": 39,
-    "capability_count": 40
+    "audio_operation_count": 54,
+    "capability_count": 42
   },
   "audio_operations": [
     {
       "id": "project.profile.set",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "project.metadata.set",
       "classification": "shared_semantic_operation",
       "classified": true
     },
@@ -92,6 +97,21 @@
       "classified": true
     },
     {
+      "id": "stem.reorder",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "group.set",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "group.remove",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
       "id": "clip.insert",
       "classification": "shared_semantic_operation",
       "classified": true
@@ -103,6 +123,21 @@
     },
     {
       "id": "clip.trim",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "clip.slip",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "clip.split",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "clip.fade.set",
       "classification": "shared_semantic_operation",
       "classified": true
     },
@@ -177,7 +212,47 @@
       "classified": true
     },
     {
+      "id": "bus.reorder",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
       "id": "stem.route",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "marker.set",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "marker.remove",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "range.set",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "range.remove",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "tempo_map.set",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "midi_phrase.set",
+      "classification": "shared_semantic_operation",
+      "classified": true
+    },
+    {
+      "id": "midi_phrase.remove",
       "classification": "shared_semantic_operation",
       "classified": true
     },
@@ -210,6 +285,15 @@
       "support": "implemented",
       "fidelity": "deterministic_declared",
       "evidence": "portable_plus_native_runtime_contract",
+      "classified": true
+    },
+    {
+      "id": "driver.faust-audio.runtime.probe",
+      "provider": "driver:faust-audio",
+      "family": "faust",
+      "support": "native",
+      "fidelity": "runtime_identity",
+      "evidence": "native_ci_required",
       "classified": true
     },
     {
@@ -317,6 +401,15 @@
       "family": "ardour",
       "support": "native",
       "fidelity": "native_readback",
+      "evidence": "native_ci_required",
+      "classified": true
+    },
+    {
+      "id": "driver.ardour-audio.session.deep.runtime.probe",
+      "provider": "driver:ardour-audio",
+      "family": "ardour",
+      "support": "native",
+      "fidelity": "runtime_identity",
       "evidence": "native_ci_required",
       "classified": true
     },

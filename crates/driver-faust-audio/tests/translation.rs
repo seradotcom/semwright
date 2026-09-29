@@ -1,7 +1,7 @@
 use semwright_audio_domain::{
     model::{
-        AudioProfile, AudioProject, Effect, Filter, FilterKind, Oscillator, Signal, SignalNodeKind,
-        Synth, Waveform,
+        AudioProfile, AudioProject, DistortionAlgorithm, DynamicsDetector, Effect, Filter,
+        FilterKind, Oscillator, ReverbAlgorithm, Signal, SignalNodeKind, Synth, Waveform,
     },
     presets::{self, SfxPreset},
     time::SampleRate,
@@ -163,6 +163,8 @@ fn fidelity_certified_effects_map_to_explicit_faust_primitives() {
                 release_ms: 100,
                 knee: MilliDb(0),
                 makeup: MilliDb(2_000),
+                detector: DynamicsDetector::Peak,
+                channel_link: Permille(1000),
             },
             "co.compressor_mono",
         ),
@@ -186,6 +188,7 @@ fn fidelity_certified_effects_map_to_explicit_faust_primitives() {
         ),
         (
             Effect::Distortion {
+                algorithm: DistortionAlgorithm::Tanh,
                 drive: MilliDb(6_000),
                 mix: Permille(500),
             },
@@ -210,22 +213,66 @@ fn effects_with_unmodeled_semantics_are_rejected_not_approximated() {
         release_ms: 100,
         knee: MilliDb(3_000),
         makeup: MilliDb(0),
+        detector: DynamicsDetector::Peak,
+        channel_link: Permille(1000),
     };
     assert!(compile_project_synth(&effect_project(compressor_with_knee), "fx", 48_000, 1).is_err());
 
     let limiter = Effect::Limiter {
         ceiling: MilliDb(-1_000),
+        attack_ms: 0,
+        lookahead_ms: 5,
+        hold_ms: 0,
         release_ms: 100,
+        true_peak: true,
+        detector: DynamicsDetector::Peak,
+        channel_link: Permille(1000),
     };
     assert!(compile_project_synth(&effect_project(limiter), "fx", 48_000, 1).is_err());
 
     let reverb = Effect::Reverb {
+        algorithm: ReverbAlgorithm::Schroeder,
         room: Permille(500),
         damping: Permille(500),
+        diffusion: Permille(700),
         mix: Permille(500),
         pre_delay_ms: 10,
     };
     assert!(compile_project_synth(&effect_project(reverb), "fx", 48_000, 1).is_err());
+}
+
+#[test]
+fn fidelity_sensitive_dynamics_and_channel_maps_fail_closed() {
+    let rms = Effect::Compressor {
+        threshold: MilliDb(-18_000),
+        ratio_milli: 2_000,
+        attack_ms: 5,
+        release_ms: 80,
+        knee: MilliDb(0),
+        makeup: MilliDb(0),
+        detector: DynamicsDetector::Rms,
+        channel_link: Permille(1000),
+    };
+    assert!(compile_project_synth(&effect_project(rms), "fx", 48_000, 1).is_err());
+
+    let gate = Effect::GateExpander {
+        threshold: MilliDb(-40_000),
+        ratio_milli: 4_000,
+        attack_ms: 5,
+        hold_ms: 20,
+        release_ms: 100,
+        range: MilliDb(-60_000),
+        detector: DynamicsDetector::Peak,
+        channel_link: Permille(1000),
+    };
+    assert!(compile_project_synth(&effect_project(gate), "fx", 48_000, 1).is_err());
+
+    let map = Effect::ChannelMap {
+        input_channels: 1,
+        output_channels: 2,
+        matrix_milli: vec![1000, 1000],
+    };
+    assert!(compile_project_synth(&effect_project(map), "fx", 48_000, 1).is_err());
 }
 
 #[test]
