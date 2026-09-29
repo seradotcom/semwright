@@ -139,12 +139,19 @@ mod tests {
             environment: vec![],
             sealed_tools: vec![],
             network: false,
-            limits: None,
+            limits: Some(semwright_platform_api::launch::ResourceLimits {
+                open_files: 64,
+                processes: 16,
+                cpu_seconds: 20,
+                address_space_bytes: 512 * 1024 * 1024,
+                file_size_bytes: 16 * 1024 * 1024,
+            }),
         };
         assert!(!MacSandbox.available(Path::new("/tmp/helper")));
-        assert_eq!(
-            MacSandbox.command(&spec).unwrap_err().code,
-            ErrorCode::SandboxDenied
-        );
+        let error = match MacSandbox.command(&spec) {
+            Err(error) => error,
+            Ok(_) => panic!("macOS sandbox unexpectedly became available"),
+        };
+        assert_eq!(error.code, ErrorCode::SandboxDenied);
     }
 }
