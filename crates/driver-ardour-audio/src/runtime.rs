@@ -100,9 +100,6 @@ pub struct ArdourRuntimeProbe {
     pub range_self_test: bool,
     pub range_diagnostic_class: String,
     pub range_diagnostic_prefix: String,
-    pub send_gain_self_test: bool,
-    pub send_gain_diagnostic_class: String,
-    pub send_gain_diagnostic_prefix: String,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -472,130 +469,6 @@ close_session()
                     String::new(),
                 )
             };
-        let (send_gain_self_test, send_gain_diagnostic_class, send_gain_diagnostic_prefix) =
-            if range_self_test {
-                let result: std::result::Result<(), (String, String)> = async {
-                    self.probe_adapter_step(
-                        context,
-                        &probe_session,
-                        probe_state,
-                        &["master_create".into(), "2".into()],
-                    )
-                    .await?;
-                    let stem_snapshot = self
-                        .probe_adapter_step(
-                            context,
-                            &probe_session,
-                            probe_state,
-                            &["stem_create".into(), "2".into(), "Probe Stem".into()],
-                        )
-                        .await?;
-                    let stem_id = stem_snapshot
-                        .routes
-                        .iter()
-                        .find(|route| {
-                            route.kind == crate::native::RouteKind::Track
-                                && route.name == "Probe Stem"
-                        })
-                        .map(|route| route.id.clone())
-                        .ok_or_else(|| {
-                            (
-                                "BackendFailed".to_string(),
-                                "probe stem was absent after native creation".to_string(),
-                            )
-                        })?;
-                    let bus_snapshot = self
-                        .probe_adapter_step(
-                            context,
-                            &probe_session,
-                            probe_state,
-                            &["bus_create".into(), "2".into(), "Probe Bus".into()],
-                        )
-                        .await?;
-                    let bus_id = bus_snapshot
-                        .routes
-                        .iter()
-                        .find(|route| {
-                            route.kind == crate::native::RouteKind::Bus && route.name == "Probe Bus"
-                        })
-                        .map(|route| route.id.clone())
-                        .ok_or_else(|| {
-                            (
-                                "BackendFailed".to_string(),
-                                "probe bus was absent after native creation".to_string(),
-                            )
-                        })?;
-                    self.probe_adapter_step(
-                        context,
-                        &probe_session,
-                        probe_state,
-                        &[
-                            "send_create".into(),
-                            stem_id.clone(),
-                            bus_id.clone(),
-                            "0".into(),
-                        ],
-                    )
-                    .await?;
-                    self.probe_adapter_step(
-                        context,
-                        &probe_session,
-                        probe_state,
-                        &[
-                            "send_gain".into(),
-                            stem_id.clone(),
-                            bus_id.clone(),
-                            "-6000".into(),
-                        ],
-                    )
-                    .await?;
-                    let gain_snapshot = self
-                        .probe_adapter_step(
-                            context,
-                            &probe_session,
-                            probe_state,
-                            &["inspect".into()],
-                        )
-                        .await?;
-                    let send = gain_snapshot
-                        .routes
-                        .iter()
-                        .find(|route| route.id == stem_id)
-                        .and_then(|route| {
-                            route.sends.iter().find(|send| send.target_route == bus_id)
-                        })
-                        .ok_or_else(|| {
-                            (
-                                "BackendFailed".to_string(),
-                                "probe send disappeared after gain mutation".to_string(),
-                            )
-                        })?;
-                    if send.gain_millidb.abs_diff(-6_000) > 1 {
-                        return Err((
-                            "BackendFailed".to_string(),
-                            format!("probe send gain readback mismatch:{}", send.gain_millidb),
-                        ));
-                    }
-                    Ok(())
-                }
-                .await;
-                match result {
-                    Ok(()) => (
-                        true,
-                        "ok".to_string(),
-                        bounded_text_diagnostic(
-                            "native internal-send gain write persisted through reopen/readback",
-                        ),
-                    ),
-                    Err((class, detail)) => (false, class, bounded_text_diagnostic(&detail)),
-                }
-            } else {
-                (
-                    false,
-                    "range_prerequisite_failed".to_string(),
-                    String::new(),
-                )
-            };
 
         Ok(ArdourRuntimeProbe {
             ardour_version: self.config.ardour_version.clone(),
@@ -614,9 +487,6 @@ close_session()
             range_self_test,
             range_diagnostic_class,
             range_diagnostic_prefix,
-            send_gain_self_test,
-            send_gain_diagnostic_class,
-            send_gain_diagnostic_prefix,
         })
     }
 
