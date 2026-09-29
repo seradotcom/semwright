@@ -345,7 +345,15 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
         json!({"state":"Base","sample_rate":48000,"master_channels":2}),
     )
     .await;
-    assert!(created.ok, "{created:?}");
+    if !created.ok {
+        let managed = project.join("managed-session");
+        let state_file = managed.join("Base.ardour");
+        panic!(
+            "Ardour deep.create failed; managed_dir_created={}; state_file_created={}; envelope={created:?}",
+            managed.is_dir(),
+            state_file.is_file()
+        );
+    }
     let revision0 = created.data.unwrap()["revision"]
         .as_str()
         .unwrap()

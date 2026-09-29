@@ -8,6 +8,8 @@ use semwright_driver_sdk::{DriverExecutionContext, tool_path, workspace_mount};
 use semwright_types::{Error, ErrorCode, Result};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+#[cfg(unix)]
+use std::os::unix::process::ExitStatusExt;
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs::{self, File, OpenOptions},
@@ -1220,14 +1222,31 @@ async fn run_sealed_tool(
                 Ok::<(), Error>(())
             };
             let wait = async { child.wait().await.map_err(Error::from) };
-            let (_, stdout, stderr, status) = tokio::try_join!(
+            let (_, stdout, mut stderr, status) = tokio::try_join!(
                 write_input,
                 bounded_output(stdout),
                 bounded_output(stderr),
                 wait
             )?;
+            let exit_code = if let Some(code) = status.code() {
+                code
+            } else {
+                #[cfg(unix)]
+                {
+                    let signal = status.signal().unwrap_or(0);
+                    let diagnostic = format!("sealed_helper_signal={signal}\n");
+                    if stderr.len().saturating_add(diagnostic.len()) <= 262_144 {
+                        stderr.extend_from_slice(diagnostic.as_bytes());
+                    }
+                    128_i32.saturating_add(signal)
+                }
+                #[cfg(not(unix))]
+                {
+                    -1
+                }
+            };
             Ok(semwright_driver_sdk::ToolExecutionOutput {
-                exit_code: status.code().unwrap_or(-1),
+                exit_code,
                 stdout,
                 stderr,
             })
