@@ -53,10 +53,20 @@ def inventory(root):
 
 
 def launch(work, native_args, phase):
+    runtime_root = Path("/opt/semwright-effect-runtimes")
+    executable = Path(native_args[0]).resolve()
+    try:
+        relative_executable = executable.relative_to(runtime_root)
+    except ValueError as error:
+        raise RuntimeError("native executable escaped the pinned runtime root") from error
+    sandbox_executable = Path("/plugin/tools/runtimes") / relative_executable
+    native_args = [str(sandbox_executable), *native_args[1:]]
     args = ["bwrap", "--die-with-parent", "--new-session", "--unshare-all", "--clearenv",
             "--cap-drop", "ALL", "--proc", "/proc", "--dev", "/dev", "--tmpfs", "/tmp",
             "--dir", "/home", "--dir", "/home/native", "--dir", "/etc",
+            "--dir", "/plugin", "--dir", "/plugin/tools",
             "--ro-bind", str(source), "/src", "--bind", str(work), "/work",
+            "--ro-bind", str(runtime_root), "/plugin/tools/runtimes",
             "--setenv", "HOME", "/home/native", "--setenv", "XDG_CACHE_HOME", "/tmp/cache",
             "--setenv", "XDG_CONFIG_HOME", "/tmp/config", "--setenv", "PATH", "/usr/local/bin:/usr/bin:/bin",
             "--setenv", "LANG", "C.UTF-8", "--chdir", "/work"]
@@ -64,8 +74,6 @@ def launch(work, native_args, phase):
         if Path(runtime).exists(): args += ["--ro-bind", runtime, runtime]
     for config in ("/etc/ld.so.cache", "/etc/fonts"):
         if Path(config).exists(): args += ["--ro-bind", config, config]
-    # Runtime downloads live under /opt in the GitHub ephemeral runner only.
-    args += ["--ro-bind", "/opt/semwright-effect-runtimes", "/opt/semwright-effect-runtimes"]
     args += ["--"] + native_args
     started = time.monotonic_ns()
     proc = subprocess.Popen(args,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,

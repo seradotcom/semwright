@@ -12,7 +12,7 @@ The implementation is crates/effect-conformance. It consumes A reports/PlanVault
 ## Current evidence discipline
 The named checkpoint documents preserve their historical SHAs; do not treat their status paragraphs as a live dashboard. Current evidence is the exact-SHA Actions artifact, the PR #172 handoff and the private coordination F.json. No file named READY is itself an acceptance receipt.
 
-At source 42204ac6a6f3c66ba66de5adfe689d8633bb7c74, 34 contract tests executed with zero skips. The overall job failed strict test naming; identifiers were corrected in a00bc6a8cf422cb002f55a4b5cd15f406cd234e0 without relaxing assertions. Source added later is not retrospectively tested by that run. Native and portable acceptance, targeted mutation execution and final consumer integration remain unconfirmed at this handoff.
+At source 42204ac6a6f3c66ba66de5adfe689d8633bb7c74, 34 contract tests executed with zero skips. The overall job failed strict test naming; identifiers were corrected in a00bc6a8cf422cb002f55a4b5cd15f406cd234e0 without relaxing assertions. Source added later is not retrospectively tested by that run. Native and portable acceptance, targeted mutation execution and final consumer integration remain unconfirmed in that checkpoint.
 
 ## Reconstructible backup
 backup/semwright-effect-conformance-F-source.zip snapshots source a00bc6a8cf422cb002f55a4b5cd15f406cd234e0. It contains a complete F source patch against C P0 6ee52b428310370d3ad438a13964086a63f48367, exact file hashes and a restore runbook. Its SHA-256 is a329e77f1ead34e5243c3cf32b5dc31c5eefc47bdd94f490f31a7d7c885a20f4.
