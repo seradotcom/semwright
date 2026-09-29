@@ -1753,13 +1753,17 @@ mod tests {
     use semwright_types::{Idempotency, Risk};
 
     fn manifest() -> Manifest {
+        #[cfg(windows)]
+        let executable = PathBuf::from(r"C:\semwright\driver.exe");
+        #[cfg(not(windows))]
+        let executable = PathBuf::from("/tmp/driver");
         Manifest {
             manifest_version: 1,
             protocol: 1,
             id: "fixture".into(),
             version: "1.0".into(),
             publisher: "semwright-tests".into(),
-            executable: "/tmp/driver".into(),
+            executable,
             sha256: "a".repeat(64),
             application: ApplicationMatch {
                 desktop_id: Some("org.example.Fixture".into()),

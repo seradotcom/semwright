@@ -398,7 +398,10 @@ async fn secure_windows_runtime_tool_cwd_is_bound_to_declared_mounts() {
 
     let allowed = tempfile::tempdir().expect("allowed tool workspace");
     let denied = tempfile::tempdir().expect("driver-only workspace");
-    let allowed_path = std::fs::canonicalize(allowed.path()).expect("canonical allowed workspace");
+    // Use the ordinary absolute Win32 spelling as owner input. Rust canonicalize()
+    // produces a \\?\ extended path on this runner; the Host intentionally rejects
+    // externally supplied extended/device spellings before opening the grant.
+    let allowed_path = allowed.path().to_path_buf();
 
     let mut candidate = manifest(executable);
     candidate.protocol = 5;
@@ -436,7 +439,7 @@ async fn secure_windows_runtime_tool_cwd_is_bound_to_declared_mounts() {
         },
         FilesystemGrant {
             name: "other-workspace".into(),
-            path: std::fs::canonicalize(denied.path()).expect("canonical denied workspace"),
+            path: denied.path().to_path_buf(),
             read: true,
             write: true,
         },
@@ -478,7 +481,7 @@ async fn secure_windows_runtime_tool_cwd_is_bound_to_declared_mounts() {
         .expect("tool cwd receipt");
     assert_eq!(
         std::fs::canonicalize(reported).expect("canonical tool cwd"),
-        allowed_path
+        std::fs::canonicalize(&allowed_path).expect("canonical expected tool cwd")
     );
 
     let error = Provider::execute(
