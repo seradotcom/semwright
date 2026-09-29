@@ -1090,3 +1090,152 @@ fn apply_repair(
     a::realize(film).map_err(contract_error)?;
     Ok(())
 }
+
+#[cfg(test)]
+mod repair_tests {
+    use super::*;
+    use semwright_media_time::Rational as Q;
+
+    fn q(n: i64, d: i64) -> Q {
+        Q::new(n, d).unwrap()
+    }
+
+    fn repair_fixture() -> a::Film {
+        let mut film: a::Film = c::strict_decode(include_bytes!(
+            "../../../fixtures/composition/motion/technical.json"
+        ))
+        .unwrap();
+        film.timing.duration = q(4, 1);
+        for span in &mut film.timing.spans {
+            match span.id.as_str() {
+                "sequence-span" => {
+                    span.minimum = q(4, 1);
+                    span.preferred = q(4, 1);
+                    span.maximum = q(4, 1);
+                }
+                "shot-span" => {
+                    span.minimum = q(3, 1);
+                    span.preferred = q(3, 1);
+                    span.maximum = q(4, 1);
+                }
+                _ => {}
+            }
+        }
+        film.sequences[0].beats[0].shots[0].constraints[0] = a::VisualConstraint::MinimumVisible {
+            subject: "box_a".into(),
+            duration: q(4, 1),
+        };
+        film.validate().unwrap();
+        a::realize(&film).unwrap();
+        film
+    }
+
+    fn minimum_visible_failure() -> a::MotionFinding {
+        a::MotionFinding {
+            id: "finding-minimum-visible".into(),
+            rule: "shot:constraint:0".into(),
+            subject: "box_a".into(),
+            verdict: c::Verdict::Fail,
+            evidence_class: c::EvidenceClass::Deterministic,
+            first_frame: Some(0),
+            affected_frames: 30,
+            reason: "native full-frame visibility is shorter than the declared minimum".into(),
+        }
+    }
+
+    #[test]
+    fn extend_hold_retimes_within_declared_slack_and_re_realizes() {
+        let mut film = repair_fixture();
+        let before = a::realize(&film).unwrap();
+        assert_eq!(
+            before
+                .schedule
+                .interval("shot-span")
+                .unwrap()
+                .duration()
+                .unwrap(),
+            q(3, 1)
+        );
+
+        let finding = minimum_visible_failure();
+        apply_repair(
+            &mut film,
+            &RepairChange::ExtendHold {
+                finding: finding.id.clone(),
+                span: "shot-span".into(),
+                duration: q(4, 1),
+            },
+            &finding,
+        )
+        .unwrap();
+
+        let span = film
+            .timing
+            .spans
+            .iter()
+            .find(|span| span.id == "shot-span")
+            .unwrap();
+        assert_eq!(span.preferred, q(4, 1));
+        assert_eq!(span.maximum, q(4, 1));
+        let after = a::realize(&film).unwrap();
+        assert_eq!(
+            after
+                .schedule
+                .interval("shot-span")
+                .unwrap()
+                .duration()
+                .unwrap(),
+            q(4, 1)
+        );
+        assert_eq!(after.schedule.duration, q(4, 1));
+    }
+
+    #[test]
+    fn extend_hold_rejects_duration_beyond_declared_slack_without_mutating_film() {
+        let mut film = repair_fixture();
+        let before = c::canonical_digest(&film).unwrap();
+        let finding = minimum_visible_failure();
+        let error = apply_repair(
+            &mut film,
+            &RepairChange::ExtendHold {
+                finding: finding.id.clone(),
+                span: "shot-span".into(),
+                duration: q(5, 1),
+            },
+            &finding,
+        )
+        .unwrap_err();
+        assert_eq!(error.code, ErrorCode::Conflict);
+        assert_eq!(c::canonical_digest(&film).unwrap(), before);
+        assert_eq!(
+            film.timing
+                .spans
+                .iter()
+                .find(|span| span.id == "shot-span")
+                .unwrap()
+                .preferred,
+            q(3, 1)
+        );
+    }
+
+    #[test]
+    fn extend_hold_rejects_finding_for_another_constraint_or_subject() {
+        let mut film = repair_fixture();
+        let before = c::canonical_digest(&film).unwrap();
+        let mut finding = minimum_visible_failure();
+        finding.subject = "box_b".into();
+        assert!(
+            apply_repair(
+                &mut film,
+                &RepairChange::ExtendHold {
+                    finding: finding.id.clone(),
+                    span: "shot-span".into(),
+                    duration: q(4, 1),
+                },
+                &finding,
+            )
+            .is_err()
+        );
+        assert_eq!(c::canonical_digest(&film).unwrap(), before);
+    }
+}
