@@ -104,7 +104,7 @@ fn median(mut values: Vec<f64>) -> Option<f64> {
     }
     values.sort_by(|a, b| a.total_cmp(b));
     let middle = values.len() / 2;
-    Some(if values.len() % 2 == 0 {
+    Some(if values.len().is_multiple_of(2) {
         (values[middle - 1] + values[middle]) / 2.0
     } else {
         values[middle]
@@ -140,7 +140,7 @@ fn detection(
         .min(600_000_000);
     let rows = all_rows
         .into_iter()
-        .filter(|(time, _)| *time >= start && *time <= end)
+        .filter(|(time, _)| (start..=end).contains(time))
         .collect::<Vec<_>>();
     if rows.is_empty() {
         return Ok(None);
