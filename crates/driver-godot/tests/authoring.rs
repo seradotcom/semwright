@@ -35,8 +35,8 @@ fn technical_game_compiles_local_audio_cue_into_native_node_and_typed_action() {
         "start handler must realize typed PlayAudio through native AudioStreamPlayer"
     );
     assert!(
-        script.contains("sw_state = &\"play\""),
-        "typed start transition must compile to the expected native state"
+        script.contains("sw_state = \"play\""),
+        "typed start transition must compile to the expected String state"
     );
     assert!(
         script.contains("var v_score: int = 0"),

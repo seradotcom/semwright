@@ -1674,6 +1674,28 @@ async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {
 
     let fixture = fixture();
     let godot_input = fixture._input.path().canonicalize().unwrap();
+
+    // Start and attest the Godot provider before opening a writable artifact
+    // handoff handle on the same host input directory. The provider itself
+    // retains the normal read-only input grant; only Broker's artifact backend
+    // receives write authority for the explicit handoff.
+    let (_binary_dir, executable) = staged_driver().await;
+    let helper = PathBuf::from(
+        std::env::var_os("SEMWRIGHT_TEST_SANDBOX_HELPER")
+            .expect("SEMWRIGHT_TEST_SANDBOX_HELPER must point to semwright-sandbox"),
+    );
+    let driver_state = tempfile::tempdir().unwrap();
+    std::fs::set_permissions(driver_state.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
+    let provider = DriverProvider::connect(
+        manifest(executable, fixture.runtime_sha256.clone()),
+        driver_state.path(),
+        &helper,
+        &fixture.roots,
+        false,
+    )
+    .await
+    .unwrap();
+
     let handoff_grants = vec![
         FilesystemGrant {
             name: "e-blender-output".into(),
@@ -1715,22 +1737,6 @@ async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {
     )
     .unwrap();
 
-    let (_binary_dir, executable) = staged_driver().await;
-    let helper = PathBuf::from(
-        std::env::var_os("SEMWRIGHT_TEST_SANDBOX_HELPER")
-            .expect("SEMWRIGHT_TEST_SANDBOX_HELPER must point to semwright-sandbox"),
-    );
-    let driver_state = tempfile::tempdir().unwrap();
-    std::fs::set_permissions(driver_state.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
-    let provider = DriverProvider::connect(
-        manifest(executable, fixture.runtime_sha256.clone()),
-        driver_state.path(),
-        &helper,
-        &fixture.roots,
-        false,
-    )
-    .await
-    .unwrap();
     broker.mount_provider(provider.clone()).await.unwrap();
 
     let session = unique_id();
