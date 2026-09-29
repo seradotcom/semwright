@@ -309,12 +309,12 @@
         "G-GRAPH-038",
         "G-GRAPH-039"
       ],
-      "source_sha": "7d2ed3bc4eee37b548158c13286f8498553718a9",
+      "source_sha": "673392d683fc4e6d355440f0d9d86f1bfc040f21",
       "suite_sha": null,
       "run_id": null,
       "job_id": null,
       "evidence": [],
-      "blocker": "39 independent graph identity/drift/cursor/watch/manifest/store cases registered against C snapshot; not executed yet.",
+      "blocker": "39 independent graph identity/drift/cursor/watch/manifest/store cases registered against final C delivery SHA; exact-SHA G execution pending.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },
