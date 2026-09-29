@@ -2,7 +2,7 @@
 
 ## New active surface
 
-D adds semantic project authoring and native verification. `composition.native.verify`, `composition.native.tracks.page` and `composition.native.keys.page` are CodeExecution because all launch pinned Godot on provider-generated code; the paging routes are read-only with respect to canonical project state but are not relabeled as ordinary ReadOnly risk. They are advertised only with authoring grants plus a runner and require authenticated Driver Host context plus an A-issued plan.
+D adds semantic project authoring and native verification. `composition.native.verify`, `composition.native.query`, `composition.native.tracks.page` and `composition.native.keys.page` are CodeExecution because all launch pinned Godot on provider-generated code; query/paging are read-only with respect to canonical project state but are not relabeled as ordinary low-risk reads. They are advertised only with authoring grants plus a runner and require authenticated Driver Host context plus an A-issued plan. Native query accepts only one managed logical node key or persistent `res://` resource path and at most 32 lowercase allowlisted property names; filtering occurs inside the provider after trusted inspect, so the model does not receive the complete projection.
 
 ## Enforced boundaries
 

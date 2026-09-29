@@ -104,6 +104,27 @@ fn empty_root_plan_apply_validate_verify_uses_a_c_f_contracts() {
     let measured = runtime.measure(&owner, &plan.plan_id).unwrap();
     assert_eq!(measured.snapshot.status, "IN_SYNC");
     assert!(measured.observation.exhaustive);
+    let managed_script = measured
+        .snapshot
+        .files
+        .iter()
+        .find(|file| file.path == "scripts/arena.gd")
+        .expect("managed behavior file");
+    assert!(
+        managed_script
+            .asset
+            .as_deref()
+            .is_some_and(|asset| asset.starts_with("asset_"))
+    );
+    assert!(
+        managed_script
+            .revision
+            .as_deref()
+            .is_some_and(|revision| revision.starts_with("rev_"))
+    );
+    assert_eq!(managed_script.kind.as_deref(), Some("behavior"));
+    assert_eq!(managed_script.logical_key.as_deref(), Some("arena"));
+    assert_eq!(managed_script.active, Some(true));
 
     let validated = runtime.validate(&owner, &plan.plan_id).unwrap();
     assert_eq!(validated.report.verdict().unwrap(), Verdict::Pass);

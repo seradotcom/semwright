@@ -29,6 +29,13 @@ pub(super) fn generate(spec: &GodotAuthoringSpec, scene: &Scene) -> Result<(Stri
             quoted(&paths[&e.id])
         ));
     }
+    for graph in &scene.animation_graphs {
+        code.push_str(&format!(
+            "@onready var ag_{}: AnimationTree = get_node_or_null({})\n",
+            graph.id,
+            quoted(&format!("_sw_animtree_{}", graph.id))
+        ));
+    }
     for t in &b.timers {
         code.push_str(&format!(
             "@onready var t_{}: Timer = get_node_or_null({})\n",
@@ -41,6 +48,25 @@ pub(super) fn generate(spec: &GodotAuthoringSpec, scene: &Scene) -> Result<(Stri
     code.push_str("\nfunc _ready() -> void:\n    if get_tree().get_node_count() > _sw_limits.entities:\n        _sw_fail(\"entity_budget\")\n        return\n");
     for e in &scene.entities {
         code.push_str(&format!("    if not _sw_binding(n_{}): return\n", e.id));
+    }
+    for graph in &scene.animation_graphs {
+        code.push_str(&format!(
+            "    if not _sw_binding(ag_{}): return\n",
+            graph.id
+        ));
+        if graph.active {
+            match &graph.root {
+                AnimationGraphRoot::StateMachine { initial, .. } => code.push_str(&format!(
+                    "    if not _sw_animation_start(ag_{}, &{}): return\n",
+                    graph.id,
+                    quoted(initial)
+                )),
+                AnimationGraphRoot::BlendSpace1d { initial, .. } => code.push_str(&format!(
+                    "    if not _sw_animation_blend(ag_{}, {:?}): return\n",
+                    graph.id, initial
+                )),
+            }
+        }
     }
     for (i, h) in b.handlers.iter().enumerate() {
         match &h.event {
@@ -216,6 +242,13 @@ fn action(a: &Action) -> String {
             binding(entity),
             quoted(clip)
         ),
+        Action::AnimationState { graph, state } => format!(
+            "        if not _sw_animation_state(ag_{graph}, &{}): return\n",
+            quoted(state)
+        ),
+        Action::AnimationBlend { graph, value } => {
+            format!("        if not _sw_animation_blend(ag_{graph}, float(e[{value}])): return\n")
+        }
         Action::PlayAudio { entity } => format!("{}        n_{entity}.play()\n", binding(entity)),
         Action::StartTimer { timer } => format!("        t_{timer}.start()\n"),
         Action::CancelTimer { timer } => format!("        t_{timer}.stop()\n"),

@@ -757,6 +757,7 @@ fn native_authoring_verification_is_code_execution_and_not_a_plain_runner() {
     let catalog = Catalog::load().unwrap();
     for name in [
         "driver.godot.composition.native.verify",
+        "driver.godot.composition.native.query",
         "driver.godot.composition.native.tracks.page",
         "driver.godot.composition.native.keys.page",
     ] {
@@ -785,6 +786,46 @@ fn native_authoring_verification_is_code_execution_and_not_a_plain_runner() {
                 .iter()
                 .any(|capability| capability.descriptor.name == name)
         );
+    }
+
+    let query = catalog
+        .get("driver.godot.composition.native.query")
+        .unwrap();
+    let node_query = json!({
+        "plan_id":"godot_plan_1234",
+        "scene":"arena",
+        "target":{"kind":"node","logical_key":"arena/player"},
+        "properties":["velocity","script"]
+    });
+    query.validate_input(&node_query).unwrap();
+    let resource_query = json!({
+        "plan_id":"godot_plan_1234",
+        "scene":"arena",
+        "target":{"kind":"resource","path":"res://resources/material.tres"},
+        "properties":["roughness"]
+    });
+    query.validate_input(&resource_query).unwrap();
+    for invalid in [
+        json!({
+            "plan_id":"godot_plan_1234",
+            "scene":"arena",
+            "target":{"kind":"node","logical_key":"arena/player"},
+            "properties":["velocity","velocity"]
+        }),
+        json!({
+            "plan_id":"godot_plan_1234",
+            "scene":"arena",
+            "target":{"kind":"resource","path":"../material.tres"},
+            "properties":[]
+        }),
+        json!({
+            "plan_id":"godot_plan_1234",
+            "scene":"arena",
+            "target":{"kind":"node","logical_key":"arena/player"},
+            "properties":["bad/property"]
+        }),
+    ] {
+        assert!(query.validate_input(&invalid).is_err(), "{invalid}");
     }
 
     let page = catalog

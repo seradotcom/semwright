@@ -331,6 +331,18 @@ func _node_properties(node: Node, path: String) -> Dictionary:
         values.stream = _value(node.get("stream"), path + ":stream")
         values.bus = _value(node.get("bus"), path + ":bus")
         values.volume_db = _value(node.get("volume_db"), path + ":volume_db")
+    if node is AnimationTree:
+        values.active = _value(node.active, path + ":animation_tree_active")
+        values.anim_player = _value(node.anim_player, path + ":animation_tree_player")
+        values.tree_root = _value(node.tree_root, path + ":animation_tree_root")
+        if node.tree_root is AnimationNodeStateMachine:
+            var playback: AnimationNodeStateMachinePlayback = node.get("parameters/playback") as AnimationNodeStateMachinePlayback
+            if playback == null:
+                _fail("animation_state_machine_playback_missing:" + path)
+            else:
+                values.current_state = _value(playback.get_current_node(), path + ":animation_current_state")
+        elif node.tree_root is AnimationNodeBlendSpace1D:
+            values.blend_position = _value(node.get("parameters/blend_position"), path + ":animation_blend_position")
     if node is Skeleton3D:
         values.bone_count = _value(node.get_bone_count(), path + ":bone_count")
         if node.get_bone_count() > 32: _note("skeleton_rest_scope_limit:" + path)
@@ -384,6 +396,54 @@ func _resource_properties(resource: Resource, binding: String, depth: int) -> Di
     elif resource is ShaderMaterial:
         names = ["shader"]
         _note("shader_material_parameters_not_enumerated:" + binding)
+    elif resource is AnimationNodeAnimation:
+        values.animation = _value(resource.animation, binding + ":animation", depth)
+    elif resource is AnimationNodeStateMachineTransition:
+        values.switch_mode = _value(int(resource.switch_mode), binding + ":switch_mode", depth)
+        values.advance_mode = _value(int(resource.advance_mode), binding + ":advance_mode", depth)
+        values.xfade_time = _value(resource.xfade_time, binding + ":xfade_time", depth)
+        values.reset = _value(resource.reset, binding + ":reset", depth)
+        if not str(resource.advance_condition).is_empty() or not resource.advance_expression.is_empty():
+            _fail("animation_transition_condition_or_expression:" + binding)
+    elif resource is AnimationNodeStateMachine:
+        var state_names: Array[String] = []
+        for info in resource.get_property_list():
+            var dynamic_name: String = str(info.get("name", ""))
+            if dynamic_name.begins_with("states/") and dynamic_name.ends_with("/node"):
+                var state_name: String = dynamic_name.get_slice("/", 1)
+                if state_name != "Start" and state_name != "End" and not state_names.has(state_name):
+                    state_names.append(state_name)
+        state_names.sort()
+        if state_names.size() > 16: _fail("animation_state_machine_state_budget:" + binding)
+        else:
+            values.state_count = _value(state_names.size(), binding + ":state_count", depth)
+            for index in range(state_names.size()):
+                var state_name: String = state_names[index]
+                values["state_" + str(index) + "_name"] = _value(state_name, binding + ":state_name", depth)
+                values["state_" + str(index) + "_position"] = _value(resource.get_node_position(state_name), binding + ":state_position", depth)
+                var state_node: AnimationNode = resource.get_node(state_name)
+                values["state_" + str(index) + "_node"] = _value(state_node, binding + ":state_node", depth)
+        var transition_count: int = resource.get_transition_count()
+        if transition_count > 24: _fail("animation_state_machine_transition_budget:" + binding)
+        else:
+            values.transition_count = _value(transition_count, binding + ":transition_count", depth)
+            for index in range(transition_count):
+                values["transition_" + str(index) + "_from"] = _value(resource.get_transition_from(index), binding + ":transition_from", depth)
+                values["transition_" + str(index) + "_to"] = _value(resource.get_transition_to(index), binding + ":transition_to", depth)
+                values["transition_" + str(index) + "_resource"] = _value(resource.get_transition(index), binding + ":transition_resource", depth)
+    elif resource is AnimationNodeBlendSpace1D:
+        values.min_space = _value(resource.min_space, binding + ":min_space", depth)
+        values.max_space = _value(resource.max_space, binding + ":max_space", depth)
+        values.sync_mode = _value(int(resource.sync_mode), binding + ":sync_mode", depth)
+        values.cyclic_length = _value(resource.cyclic_length, binding + ":cyclic_length", depth)
+        var point_count: int = resource.get_blend_point_count()
+        if point_count > 16: _fail("animation_blend_point_budget:" + binding)
+        else:
+            values.point_count = _value(point_count, binding + ":point_count", depth)
+            for index in range(point_count):
+                values["point_" + str(index) + "_name"] = _value(resource.get_blend_point_name(index), binding + ":point_name", depth)
+                values["point_" + str(index) + "_position"] = _value(resource.get_blend_point_position(index), binding + ":point_position", depth)
+                values["point_" + str(index) + "_node"] = _value(resource.get_blend_point_node(index), binding + ":point_node", depth)
     if resource is PrimitiveMesh: names.append("material")
     for name in names: values[name] = _value(resource.get(name), binding + ":" + name, depth)
     if resource is Mesh:

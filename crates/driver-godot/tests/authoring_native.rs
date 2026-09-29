@@ -299,6 +299,101 @@ fn native_key_cursor_is_track_bound_and_survives_fresh_process() {
 }
 
 #[test]
+fn native_target_query_is_bounded_filtered_and_rejects_ambiguity() {
+    let observed = observation(
+        ProbeMode::Inspect,
+        "native_query_0001",
+        "401",
+        projection("res://scenes/arena.tscn", "11", "21"),
+        digest("scene"),
+        None,
+    );
+
+    let node = query_projection(
+        &observed,
+        &NativeQueryTarget::Node {
+            logical_key: "scene:arena".into(),
+        },
+        &["material".into()],
+    )
+    .unwrap();
+    let NativeQueryValue::Node { value: node } = node else {
+        panic!("node query returned resource");
+    };
+    assert_eq!(node.logical_key.as_deref(), Some("scene:arena"));
+    assert_eq!(node.properties.len(), 1);
+    assert!(matches!(
+        node.properties.get("material"),
+        Some(NativeValue::Resource(resource))
+            if resource.path == "res://assets/material.tres"
+    ));
+
+    let resource = query_projection(
+        &observed,
+        &NativeQueryTarget::Resource {
+            path: "res://assets/material.tres".into(),
+        },
+        &["roughness".into()],
+    )
+    .unwrap();
+    let NativeQueryValue::Resource { value: resource } = resource else {
+        panic!("resource query returned node");
+    };
+    assert_eq!(resource.resource.path, "res://assets/material.tres");
+    assert_eq!(resource.properties.len(), 1);
+    assert!(matches!(
+        resource.properties.get("roughness"),
+        Some(NativeValue::Float(value)) if (*value - 0.5).abs() < f64::EPSILON
+    ));
+
+    assert!(
+        query_projection(
+            &observed,
+            &NativeQueryTarget::Node {
+                logical_key: "scene:arena".into(),
+            },
+            &["missing".into()],
+        )
+        .is_err()
+    );
+    assert!(
+        query_projection(
+            &observed,
+            &NativeQueryTarget::Node {
+                logical_key: "scene:arena".into(),
+            },
+            &["material".into(), "material".into()],
+        )
+        .is_err()
+    );
+    assert!(
+        query_projection(
+            &observed,
+            &NativeQueryTarget::Resource {
+                path: "../material.tres".into(),
+            },
+            &[],
+        )
+        .is_err()
+    );
+
+    let mut ambiguous = observed;
+    ambiguous.authored.resources[1]
+        .properties
+        .insert("roughness".into(), NativeValue::Float(0.7));
+    assert!(
+        query_projection(
+            &ambiguous,
+            &NativeQueryTarget::Resource {
+                path: "res://assets/material.tres".into(),
+            },
+            &["roughness".into()],
+        )
+        .is_err()
+    );
+}
+
+#[test]
 fn persistence_requires_fresh_process_and_unchanged_external_sentinels() {
     let candidate = digest("saved-scene");
     let writer = observation(

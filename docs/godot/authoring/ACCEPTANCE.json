@@ -8,9 +8,10 @@
       "id": "D01",
       "requirement": "Cn production consumer",
       "state": "IMPLEMENTED_CURRENT_SHA_PENDING",
-      "implementation": "A PreparedPlan/PlanVault + C ProjectId/LogicalAssetId/ExecutionReceipt + F EffectContract consumer",
+      "implementation": "A PreparedPlan/PlanVault + C ProjectId/LogicalAssetId/AssetRevision/ExecutionReceipt + F EffectContract consumer; composition.inspect preserves per-file C asset/revision/kind/logical-key mappings from the Store",
       "tests": [
-        "authoring_profile empty-root A/C/F consumer"
+        "authoring_profile empty-root A/C/F consumer",
+        "managed source file exposes C asset/revision identity"
       ],
       "tested_sha": null,
       "run_id": null,
@@ -34,10 +35,11 @@
       "id": "D03",
       "requirement": "2D/3D owner/readback",
       "state": "PARTIAL_2D_3D_MODEL_NATIVE_PENDING",
-      "implementation": "typed 2D/3D scenes plus native owner/resource readback on private copy",
+      "implementation": "typed 2D/3D scenes plus native owner/resource readback on private copy; explicit shared versus local-to-scene material bindings preserve shared identity and isolate local overrides",
       "tests": [
-        "typed 2D/3D fixture compile",
-        "native inspect"
+        "typed 2D/3D/resource-sharing fixture compile",
+        "native inspect",
+        "shared material aliasing and local-to-scene isolation E2E"
       ],
       "tested_sha": null,
       "run_id": null,
@@ -97,8 +99,10 @@
       "id": "D07",
       "requirement": "full animation paging",
       "state": "IMPLEMENTED_NATIVE_PAGING_EVIDENCE_PENDING",
-      "implementation": "complete native animation/library/track/key observation plus product-routed composition.native.tracks.page and composition.native.keys.page; stateless cursors bind source fingerprint, normalized native projection and exact key-page selector across fresh inspect processes",
+      "implementation": "complete native animation/library/track/key observation plus typed AnimationTree StateMachine and BlendSpace1D realization; product-routed composition.native.tracks.page and composition.native.keys.page use stateless cursors bound to source fingerprint, normalized native projection and exact key-page selector across fresh inspect processes",
       "tests": [
+        "typed deterministic state-machine/blend-space compiler regressions",
+        "native AnimationTree state/blend readback and runtime E2E",
         "native track and key cursor cross-process regressions",
         "Broker/Host 70-track plus 70-key two-page native E2E"
       ],
@@ -212,9 +216,10 @@
       "id": "D14",
       "requirement": "route audit and independent oracle",
       "state": "PRODUCT_ROUTE_IMPLEMENTED_ORACLE_PENDING",
-      "implementation": "native evidence executes behind Broker/Driver Host; standalone export oracle implemented",
+      "implementation": "native evidence executes behind Broker/Driver Host; targeted composition.native.query filters one managed node/resource server-side without returning the full projection; standalone export oracle implemented",
       "tests": [
-        "host route/native/export E2E"
+        "host route/native/query/export E2E",
+        "native query schema/filter/ambiguity regressions"
       ],
       "tested_sha": null,
       "run_id": null,

@@ -355,12 +355,25 @@ impl Store {
             .into_iter()
             .flat_map(|r| r.intent.scenes.iter())
             .flat_map(|scene| {
-                std::iter::once(format!("scene:{}", scene.id)).chain(
-                    scene
-                        .entities
-                        .iter()
-                        .map(|e| format!("entity:{}/{}", scene.id, e.id)),
-                )
+                std::iter::once(format!("scene:{}", scene.id))
+                    .chain(
+                        scene
+                            .entities
+                            .iter()
+                            .map(|e| format!("entity:{}/{}", scene.id, e.id)),
+                    )
+                    .chain(
+                        scene
+                            .materials
+                            .iter()
+                            .map(|material| format!("material:{}/{}", scene.id, material.id)),
+                    )
+                    .chain(
+                        scene
+                            .animation_graphs
+                            .iter()
+                            .map(|graph| format!("animation_graph:{}/{}", scene.id, graph.id)),
+                    )
             })
             .collect();
         let mut bindings: BTreeMap<String, LogicalAssetId> = old
@@ -377,6 +390,16 @@ impl Store {
             for entity in &scene.entities {
                 bindings
                     .entry(format!("entity:{}/{}", scene.id, entity.id))
+                    .or_default();
+            }
+            for material in &scene.materials {
+                bindings
+                    .entry(format!("material:{}/{}", scene.id, material.id))
+                    .or_default();
+            }
+            for graph in &scene.animation_graphs {
+                bindings
+                    .entry(format!("animation_graph:{}/{}", scene.id, graph.id))
                     .or_default();
             }
         }
@@ -705,6 +728,12 @@ fn bind_native_identities(
                 (
                     format!("{}/{}", scene.id, e.id),
                     format!("entity:{}/{}", scene.id, e.id),
+                )
+            }))
+            .chain(scene.animation_graphs.iter().map(|graph| {
+                (
+                    format!("animation_graph/{}/{}", scene.id, graph.id),
+                    format!("animation_graph:{}/{}", scene.id, graph.id),
                 )
             }))
         {

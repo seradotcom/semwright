@@ -287,6 +287,19 @@ pub fn validate(spec: &GodotAuthoringSpec) -> Result<Analysis> {
     for scene in &spec.scenes {
         let paths = paths(scene)?;
         ensure(scene.entities.len() <= 512, "entity count per scene")?;
+        let material_ids = ids(scene.materials.iter().map(|m| m.id.as_str()), 64)?;
+        let materials: BTreeMap<_, _> = scene
+            .materials
+            .iter()
+            .map(|material| (material.id.as_str(), material))
+            .collect();
+        for material in &scene.materials {
+            color(&material.color)?;
+            ensure(
+                material.roughness.is_finite() && (0.0..=1.0).contains(&material.roughness),
+                "material roughness range",
+            )?;
+        }
         let entities: BTreeMap<_, _> = scene.entities.iter().map(|e| (e.id.as_str(), e)).collect();
         let node = |s: &str| {
             entities
@@ -338,6 +351,32 @@ pub fn validate(spec: &GodotAuthoringSpec) -> Result<Analysis> {
                     shape3(shape)?;
                     color(c)?;
                 }
+                NativeNode::Mesh3dMaterial { shape, material } => {
+                    shape3(shape)?;
+                    ensure(
+                        material_ids.contains(&material.material)
+                            && materials.contains_key(material.material.as_str()),
+                        "material binding missing",
+                    )?;
+                    match material.sharing {
+                        MaterialSharing::Shared => ensure(
+                            material.color_override.is_none()
+                                && material.roughness_override.is_none(),
+                            "shared material binding cannot carry per-instance overrides",
+                        )?,
+                        MaterialSharing::LocalToScene => {
+                            if let Some(value) = &material.color_override {
+                                color(value)?;
+                            }
+                            if let Some(value) = material.roughness_override {
+                                ensure(
+                                    value.is_finite() && (0.0..=1.0).contains(&value),
+                                    "local material roughness range",
+                                )?;
+                            }
+                        }
+                    }
+                }
                 NativeNode::Light { energy, color: c } => {
                     finite(&[*energy])?;
                     ensure((0.0..=16.0).contains(energy), "light energy range")?;
@@ -369,6 +408,121 @@ pub fn validate(spec: &GodotAuthoringSpec) -> Result<Analysis> {
             }
             analysis.entities += 1;
         }
+
+        let clip_ids = ids(scene.animations.iter().map(|clip| clip.id.as_str()), 32)?;
+        let graph_ids = ids(
+            scene.animation_graphs.iter().map(|graph| graph.id.as_str()),
+            16,
+        )?;
+        let graph_map: BTreeMap<_, _> = scene
+            .animation_graphs
+            .iter()
+            .map(|graph| (graph.id.as_str(), graph))
+            .collect();
+        let clip_belongs = |clip: &str, animator: &str| {
+            scene
+                .animations
+                .iter()
+                .any(|candidate| candidate.id == clip && candidate.animator == animator)
+        };
+        for graph in &scene.animation_graphs {
+            ensure(
+                matches!(node(&graph.animator)?.node, NativeNode::Animator),
+                "animation graph animator missing",
+            )?;
+            match &graph.root {
+                AnimationGraphRoot::StateMachine {
+                    initial,
+                    states,
+                    transitions,
+                } => {
+                    let state_ids = ids(states.iter().map(|state| state.id.as_str()), 16)?;
+                    ensure(
+                        state_ids.contains(initial),
+                        "animation state initial missing",
+                    )?;
+                    for state in states {
+                        finite(&state.position)?;
+                        ensure(
+                            clip_ids.contains(&state.clip)
+                                && clip_belongs(&state.clip, &graph.animator),
+                            "animation state clip binding missing",
+                        )?;
+                    }
+                    ensure(transitions.len() <= 24, "animation state transition count")?;
+                    let mut transition_pairs = BTreeSet::new();
+                    for transition in transitions {
+                        ensure(
+                            state_ids.contains(&transition.from)
+                                && state_ids.contains(&transition.to)
+                                && transition.from != transition.to
+                                && transition_pairs
+                                    .insert((transition.from.clone(), transition.to.clone())),
+                            "animation state transition binding/duplicate",
+                        )?;
+                        ensure(
+                            transition.xfade_time.is_finite()
+                                && (0.0..=10.0).contains(&transition.xfade_time),
+                            "animation state transition xfade range",
+                        )?;
+                    }
+                }
+                AnimationGraphRoot::BlendSpace1d {
+                    min,
+                    max,
+                    initial,
+                    sync_mode,
+                    cyclic_length,
+                    points,
+                } => {
+                    finite(&[*min, *max, *initial])?;
+                    ensure(
+                        min < max && (*min..=*max).contains(initial),
+                        "animation blend bounds/initial",
+                    )?;
+                    ensure(
+                        (2..=16).contains(&points.len()),
+                        "animation blend point count",
+                    )?;
+                    ids(points.iter().map(|point| point.id.as_str()), 16)?;
+                    let mut positions = Vec::new();
+                    for point in points {
+                        finite(&[point.position])?;
+                        ensure(
+                            (*min..=*max).contains(&point.position)
+                                && clip_ids.contains(&point.clip)
+                                && clip_belongs(&point.clip, &graph.animator),
+                            "animation blend point binding/range",
+                        )?;
+                        ensure(
+                            !positions
+                                .iter()
+                                .any(|existing: &f64| (*existing - point.position).abs() < 1e-9),
+                            "animation blend point position duplicate",
+                        )?;
+                        positions.push(point.position);
+                    }
+                    match sync_mode {
+                        AnimationBlendSyncMode::CyclicConstant => {
+                            let length = cyclic_length.ok_or_else(|| {
+                                ContractError::Invalid(
+                                    "constant animation blend sync requires cyclic_length".into(),
+                                )
+                            })?;
+                            ensure(
+                                length.is_finite() && (0.001..=3600.0).contains(&length),
+                                "animation blend cyclic length",
+                            )?;
+                        }
+                        _ => ensure(
+                            cyclic_length.is_none(),
+                            "cyclic_length only allowed for constant animation blend sync",
+                        )?,
+                    }
+                }
+            }
+        }
+
         let b = &scene.behavior;
         let states = ids(b.states.iter().map(String::as_str), 32)?;
         ensure(states.contains(&b.initial_state), "initial state missing")?;
@@ -513,6 +667,31 @@ pub fn validate(spec: &GodotAuthoringSpec) -> Result<Analysis> {
                                     .any(|c| c.id == *clip && c.animator == *entity),
                             "animation binding missing",
                         )?;
+                    }
+                    Action::AnimationState { graph, state } => {
+                        let graph = graph_map.get(graph.as_str()).ok_or_else(|| {
+                            ContractError::Invalid("animation graph binding missing".into())
+                        })?;
+                        let AnimationGraphRoot::StateMachine { states, .. } = &graph.root else {
+                            return Err(ContractError::Invalid(
+                                "animation state action requires state machine graph".into(),
+                            ));
+                        };
+                        ensure(
+                            graph_ids.contains(&graph.id)
+                                && states.iter().any(|candidate| candidate.id == *state),
+                            "animation state action target missing",
+                        )?;
+                    }
+                    Action::AnimationBlend { graph, value } => {
+                        let graph = graph_map.get(graph.as_str()).ok_or_else(|| {
+                            ContractError::Invalid("animation graph binding missing".into())
+                        })?;
+                        ensure(
+                            matches!(&graph.root, AnimationGraphRoot::BlendSpace1d { .. }),
+                            "animation blend action requires 1D blend graph",
+                        )?;
+                        typed(*value, ValueType::Scalar)?;
                     }
                     Action::PlayAudio { entity } => ensure(
                         matches!(node(entity)?.node, NativeNode::Audio { .. }),

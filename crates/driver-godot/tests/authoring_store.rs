@@ -110,6 +110,94 @@ fn incremental_behavior_ui_and_entity_count_preserve_unaffected_resources_and_id
     assert_eq!(audio_bytes, fs::read(audio).unwrap());
 }
 #[test]
+fn material_and_animation_graph_bindings_are_persistent_project_identities() {
+    let (_root, config) = environment();
+    let store = Store::new(config.clone()).unwrap();
+
+    let mut materials =
+        validate::decode(include_bytes!("fixtures/authoring/resource_sharing.json")).unwrap();
+    store
+        .apply(&store.prepare(&materials, false, false).unwrap(), || Ok(()))
+        .unwrap();
+    let first_material = store
+        .snapshot(&materials.project)
+        .unwrap()
+        .record()
+        .unwrap()
+        .bindings["material:arena/bronze"]
+        .clone();
+    let NativeNode::Mesh3dMaterial { material, .. } = &mut materials.scenes[0].entities[2].node
+    else {
+        panic!("resource sharing fixture changed");
+    };
+    material.roughness_override = Some(0.4);
+    store
+        .apply(&store.prepare(&materials, false, false).unwrap(), || Ok(()))
+        .unwrap();
+    let material_snapshot = store.snapshot(&materials.project).unwrap();
+    assert_eq!(
+        material_snapshot.record().unwrap().bindings["material:arena/bronze"],
+        first_material
+    );
+    let material_file = &material_snapshot.record().unwrap().files
+        ["resources/arena_material_bronze.tres"];
+    assert_eq!(material_file.logical_key, "material:arena/bronze");
+    assert_eq!(material_file.kind, "material_shared");
+    assert!(material_file.active);
+
+    let mut graphs =
+        validate::decode(include_bytes!("fixtures/authoring/animation_graphs.json")).unwrap();
+    store
+        .apply(&store.prepare(&graphs, false, false).unwrap(), || Ok(()))
+        .unwrap();
+    let first_graph_bindings = store
+        .snapshot(&graphs.project)
+        .unwrap()
+        .record()
+        .unwrap()
+        .bindings
+        .iter()
+        .filter(|(key, _)| key.starts_with("animation_graph:"))
+        .map(|(key, value)| (key.clone(), value.clone()))
+        .collect::<std::collections::BTreeMap<_, _>>();
+    assert_eq!(first_graph_bindings.len(), 2);
+
+    let AnimationGraphRoot::StateMachine { transitions, .. } =
+        &mut graphs.scenes[0].animation_graphs[0].root
+    else {
+        panic!("animation graph fixture changed");
+    };
+    transitions[0].xfade_time = 0.35;
+    store
+        .apply(&store.prepare(&graphs, false, false).unwrap(), || Ok(()))
+        .unwrap();
+    let graph_snapshot = store.snapshot(&graphs.project).unwrap();
+    for (key, identity) in &first_graph_bindings {
+        assert_eq!(
+            graph_snapshot.record().unwrap().bindings.get(key),
+            Some(identity)
+        );
+    }
+    let scene = fs::read_to_string(
+        config
+            .output_root
+            .join(&graphs.project)
+            .join("scenes/arena.tscn"),
+    )
+    .unwrap();
+    for (key, identity) in first_graph_bindings {
+        let logical_key = key
+            .strip_prefix("animation_graph:")
+            .expect("graph binding prefix");
+        assert!(scene.contains(&format!(
+            "metadata/semwright_logical_key={}\nmetadata/semwright_logical_id={}",
+            serde_json::to_string(&format!("animation_graph/{logical_key}")).unwrap(),
+            serde_json::to_string(identity.as_str()).unwrap()
+        )));
+    }
+}
+
+#[test]
 fn identical_intent_is_a_noop() {
     let (_root, config) = environment();
     let store = Store::new(config).unwrap();

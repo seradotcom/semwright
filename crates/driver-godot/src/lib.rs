@@ -403,6 +403,81 @@ impl GodotDriver {
                             )
                             .map_err(Into::into)
                         }
+                        "driver.godot.composition.native.query" => {
+                            use authoring::native_observation::{
+                                NativeQueryRequest, NativeQueryResponse, NativeVerification,
+                                NativeVerifyRequest, NativeVerifyResult, query_projection,
+                            };
+                            let query_request: NativeQueryRequest =
+                                serde_json::from_value(args.clone())?;
+                            let binding = self
+                                .authoring
+                                .as_ref()
+                                .ok_or_else(|| {
+                                    Error::new(
+                                        ErrorCode::Unavailable,
+                                        "Godot semantic authoring grant is not configured",
+                                    )
+                                })?
+                                .native_plan_context(
+                                    &owner,
+                                    &query_request.plan_id,
+                                    &query_request.scene,
+                                )?;
+                            let verify_request = NativeVerifyRequest {
+                                plan_id: query_request.plan_id.clone(),
+                                scene: query_request.scene.clone(),
+                                verification: NativeVerification::Inspect,
+                            };
+                            let result = self
+                                .runner
+                                .as_ref()
+                                .ok_or_else(|| {
+                                    Error::new(
+                                        ErrorCode::Unavailable,
+                                        "Godot runner is not configured",
+                                    )
+                                })?
+                                .execute_native_verification(verify_request, binding, context)
+                                .await?;
+                            let effects = self
+                                .authoring
+                                .as_mut()
+                                .ok_or_else(|| {
+                                    Error::new(
+                                        ErrorCode::Unavailable,
+                                        "Godot semantic authoring grant is not configured",
+                                    )
+                                })?
+                                .evaluate_native(
+                                    &owner,
+                                    &query_request.plan_id,
+                                    context.request_id(),
+                                    &query_request.scene,
+                                    &result,
+                                )?;
+                            let NativeVerifyResult::Inspect {
+                                binding,
+                                observation,
+                            } = result
+                            else {
+                                return Err(Error::new(
+                                    ErrorCode::Internal,
+                                    "Native target query requires inspect evidence",
+                                ));
+                            };
+                            let query = query_projection(
+                                &observation,
+                                &query_request.target,
+                                &query_request.properties,
+                            )?;
+                            serde_json::to_value(NativeQueryResponse {
+                                binding,
+                                query,
+                                effects,
+                            })
+                            .map_err(Into::into)
+                        }
                         "driver.godot.composition.native.tracks.page" => {
                             use authoring::native_observation::{
                                 NativeTrackPageRequest, NativeTrackPageResponse,

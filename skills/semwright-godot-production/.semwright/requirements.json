@@ -72,6 +72,10 @@
         "required": true
       },
       {
+        "id": "driver.godot.composition.native.query",
+        "required": true
+      },
+      {
         "id": "driver.godot.composition.native.tracks.page",
         "required": true
       },

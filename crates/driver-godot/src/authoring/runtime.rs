@@ -1419,11 +1419,19 @@ fn snapshot_view(project: &str, snapshot: &Snapshot) -> SnapshotView {
         files: snapshot
             .files
             .iter()
-            .map(|file| FileObservationView {
-                path: file.path.clone(),
-                expected: file.expected.clone(),
-                actual: file.actual.clone(),
-                state: file.state.clone(),
+            .map(|file| {
+                let managed = record.and_then(|record| record.files.get(&file.path));
+                FileObservationView {
+                    path: file.path.clone(),
+                    expected: file.expected.clone(),
+                    actual: file.actual.clone(),
+                    state: file.state.clone(),
+                    asset: managed.map(|file| file.asset.as_str().to_owned()),
+                    revision: managed.map(|file| file.revision.as_str().to_owned()),
+                    kind: managed.map(|file| file.kind.clone()),
+                    logical_key: managed.map(|file| file.logical_key.clone()),
+                    active: managed.map(|file| file.active),
+                }
             })
             .collect(),
     }

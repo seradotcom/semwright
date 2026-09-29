@@ -32,6 +32,11 @@ pub struct FileObservationView {
     pub expected: Option<Digest>,
     pub actual: Option<Digest>,
     pub state: String,
+    pub asset: Option<String>,
+    pub revision: Option<String>,
+    pub kind: Option<String>,
+    pub logical_key: Option<String>,
+    pub active: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -324,6 +329,122 @@ pub fn native_verify_out() -> Value {
         ]
     })
 }
+pub fn native_query_in() -> Value {
+    let property = json!({
+        "type":"string",
+        "minLength":1,
+        "maxLength":96,
+        "pattern":"^[a-z][a-z0-9_]{0,95}$"
+    });
+    json!({
+        "type":"object",
+        "additionalProperties":false,
+        "required":["plan_id","scene","target"],
+        "properties":{
+            "plan_id":{"type":"string","minLength":1,"maxLength":256},
+            "scene":{"type":"string","pattern":"^[a-z][a-z0-9_]{0,47}$"},
+            "target":{
+                "oneOf":[
+                    {
+                        "type":"object",
+                        "additionalProperties":false,
+                        "required":["kind","logical_key"],
+                        "properties":{
+                            "kind":{"const":"node"},
+                            "logical_key":{"type":"string","minLength":1,"maxLength":256}
+                        }
+                    },
+                    {
+                        "type":"object",
+                        "additionalProperties":false,
+                        "required":["kind","path"],
+                        "properties":{
+                            "kind":{"const":"resource"},
+                            "path":{"type":"string","minLength":7,"maxLength":1024,"pattern":"^res://"}
+                        }
+                    }
+                ]
+            },
+            "properties":{"type":"array","maxItems":32,"uniqueItems":true,"items":property}
+        }
+    })
+}
+
+pub fn native_query_out() -> Value {
+    let native_value = json!({"type":"object","maxProperties":2});
+    let property_map = json!({
+        "type":"object",
+        "maxProperties":32,
+        "additionalProperties":native_value
+    });
+    let node = json!({
+        "type":"object",
+        "additionalProperties":false,
+        "required":[
+            "path","class","instance_id","parent","owner","scene_file",
+            "logical_id","logical_key","groups","properties"
+        ],
+        "properties":{
+            "path":{"type":"string","maxLength":1024},
+            "class":{"type":"string","maxLength":128},
+            "instance_id":{"type":"string","maxLength":64},
+            "parent":{"type":["string","null"],"maxLength":1024},
+            "owner":{"type":["string","null"],"maxLength":1024},
+            "scene_file":{"type":"string","maxLength":1024},
+            "logical_id":{"type":["string","null"],"maxLength":256},
+            "logical_key":{"type":["string","null"],"maxLength":256},
+            "groups":{"type":"array","maxItems":64,"items":{"type":"string","maxLength":128}},
+            "properties":property_map.clone()
+        }
+    });
+    let resource_ref = json!({
+        "type":"object",
+        "additionalProperties":false,
+        "required":["class","path","uid","instance_id","local_to_scene"],
+        "properties":{
+            "class":{"type":"string","maxLength":128},
+            "path":{"type":"string","maxLength":1024},
+            "uid":{"type":["string","null"],"maxLength":128},
+            "instance_id":{"type":"string","maxLength":64},
+            "local_to_scene":{"type":"boolean"}
+        }
+    });
+    let resource = json!({
+        "type":"object",
+        "additionalProperties":false,
+        "required":["resource","properties"],
+        "properties":{
+            "resource":resource_ref,
+            "properties":property_map
+        }
+    });
+    json!({
+        "type":"object",
+        "additionalProperties":false,
+        "required":["binding","query","effects"],
+        "properties":{
+            "binding":native_binding_schema(),
+            "effects":native_effects_schema(),
+            "query":{
+                "oneOf":[
+                    {
+                        "type":"object",
+                        "additionalProperties":false,
+                        "required":["kind","value"],
+                        "properties":{"kind":{"const":"node"},"value":node}
+                    },
+                    {
+                        "type":"object",
+                        "additionalProperties":false,
+                        "required":["kind","value"],
+                        "properties":{"kind":{"const":"resource"},"value":resource}
+                    }
+                ]
+            }
+        }
+    })
+}
+
 pub fn native_track_page_in() -> Value {
     json!({
         "type":"object",

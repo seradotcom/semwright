@@ -113,9 +113,39 @@ pub struct Scene {
     pub id: String,
     pub dimension: Dimension,
     pub entities: Vec<Entity>,
+    #[serde(default)]
+    pub materials: Vec<Material3d>,
     pub animations: Vec<Clip>,
+    #[serde(default)]
+    pub animation_graphs: Vec<AnimationGraph>,
     pub behavior: Behavior,
 }
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Material3d {
+    pub id: String,
+    pub color: [f64; 4],
+    pub roughness: f64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum MaterialSharing {
+    Shared,
+    LocalToScene,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct MaterialBinding {
+    pub material: String,
+    pub sharing: MaterialSharing,
+    #[serde(default)]
+    pub color_override: Option<[f64; 4]>,
+    #[serde(default)]
+    pub roughness_override: Option<f64>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Entity {
@@ -160,6 +190,10 @@ pub enum NativeNode {
         shape: Shape3d,
         color: [f64; 4],
     },
+    Mesh3dMaterial {
+        shape: Shape3d,
+        material: MaterialBinding,
+    },
     Camera2d {
         follow: String,
     },
@@ -197,7 +231,7 @@ impl NativeNode {
             Self::Area2d { .. } => "Area2D",
             Self::Area3d { .. } => "Area3D",
             Self::Visual2d { .. } => "Polygon2D",
-            Self::Mesh3d { .. } => "MeshInstance3D",
+            Self::Mesh3d { .. } | Self::Mesh3dMaterial { .. } => "MeshInstance3D",
             Self::Camera2d { .. } => "Camera2D",
             Self::Camera3d { .. } => "Camera3D",
             Self::Label { .. } => "Label",
@@ -220,6 +254,7 @@ impl NativeNode {
             | Self::Body3d { .. }
             | Self::Area3d { .. }
             | Self::Mesh3d { .. }
+            | Self::Mesh3dMaterial { .. }
             | Self::Camera3d { .. }
             | Self::Instance { .. }
             | Self::Light { .. } => Some(Dimension::Three),
@@ -382,6 +417,14 @@ pub enum Action {
         entity: String,
         clip: String,
     },
+    AnimationState {
+        graph: String,
+        state: String,
+    },
+    AnimationBlend {
+        graph: String,
+        value: u16,
+    },
     PlayAudio {
         entity: String,
     },
@@ -435,4 +478,94 @@ pub struct Track {
 pub struct Keyframe {
     pub time: f64,
     pub value: Literal,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AnimationGraph {
+    pub id: String,
+    pub animator: String,
+    pub active: bool,
+    pub root: AnimationGraphRoot,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum AnimationGraphRoot {
+    StateMachine {
+        initial: String,
+        states: Vec<AnimationState>,
+        transitions: Vec<AnimationTransition>,
+    },
+    BlendSpace1d {
+        min: f64,
+        max: f64,
+        initial: f64,
+        sync_mode: AnimationBlendSyncMode,
+        #[serde(default)]
+        cyclic_length: Option<f64>,
+        points: Vec<AnimationBlendPoint>,
+    },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AnimationState {
+    pub id: String,
+    pub clip: String,
+    pub position: [f64; 2],
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum AnimationTransitionSwitch {
+    Immediate,
+    Sync,
+    AtEnd,
+}
+impl AnimationTransitionSwitch {
+    pub fn code(self) -> u8 {
+        match self {
+            Self::Immediate => 0,
+            Self::Sync => 1,
+            Self::AtEnd => 2,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AnimationTransition {
+    pub from: String,
+    pub to: String,
+    pub xfade_time: f64,
+    pub reset: bool,
+    pub switch_mode: AnimationTransitionSwitch,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum AnimationBlendSyncMode {
+    None,
+    Independent,
+    CyclicMutable,
+    CyclicConstant,
+}
+impl AnimationBlendSyncMode {
+    pub fn code(self) -> u8 {
+        match self {
+            Self::None => 0,
+            Self::Independent => 1,
+            Self::CyclicMutable => 2,
+            Self::CyclicConstant => 3,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AnimationBlendPoint {
+    pub id: String,
+    pub clip: String,
+    pub position: f64,
 }

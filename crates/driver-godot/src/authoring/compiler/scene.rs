@@ -96,6 +96,32 @@ pub(super) fn generate(
     }
     let mut resources = String::new();
     let mut nodes = String::new();
+    let material_map: BTreeMap<_, _> = scene
+        .materials
+        .iter()
+        .map(|material| (material.id.as_str(), material))
+        .collect();
+    for material in &scene.materials {
+        let path = format!("resources/{}_material_{}.tres", scene.id, material.id);
+        let resource_id = format!("shared_material_{}", material.id);
+        let text = format!(
+            "[gd_resource type=\"StandardMaterial3D\" format=3]\n\n[resource]\nresource_local_to_scene=false\nalbedo_color={}\nroughness={:?}\n",
+            vector("Color", &material.color),
+            material.roughness
+        );
+        ext.push_str(&format!(
+            "[ext_resource type=\"StandardMaterial3D\" path={} id={}]\n",
+            quoted(&format!("res://{path}")),
+            quoted(&resource_id)
+        ));
+        insert(
+            out,
+            path,
+            text,
+            format!("material:{}/{}", scene.id, material.id),
+            "material_shared",
+        )?;
+    }
     for clip in &scene.animations {
         let mut animation = format!(
             "[gd_resource type=\"Animation\" format=3]\n\n[resource]\nresource_name={}\nlength={:?}\nloop_mode={}\n",
@@ -126,6 +152,123 @@ pub(super) fn generate(
             "animation",
         )?;
     }
+    for graph in &scene.animation_graphs {
+        let root_id = format!("sw_animgraph_{}", graph.id);
+        match &graph.root {
+            AnimationGraphRoot::StateMachine {
+                initial: _,
+                states,
+                transitions,
+            } => {
+                for state in states {
+                    let state_id = format!("{}_state_{}", root_id, state.id);
+                    resources.push_str(&format!(
+                        "\n[sub_resource type=\"AnimationNodeAnimation\" id={}]\nanimation = &{}\n",
+                        quoted(&state_id),
+                        quoted(&state.clip)
+                    ));
+                }
+                for (index, transition) in transitions.iter().enumerate() {
+                    let transition_id = format!("{}_transition_{index}", root_id);
+                    resources.push_str(&format!(
+                        "\n[sub_resource type=\"AnimationNodeStateMachineTransition\" id={}]\nswitch_mode={}\nadvance_mode=1\nxfade_time={:?}\nreset={}\n",
+                        quoted(&transition_id),
+                        transition.switch_mode.code(),
+                        transition.xfade_time,
+                        transition.reset
+                    ));
+                }
+                let mut machine = format!(
+                    "\n[sub_resource type=\"AnimationNodeStateMachine\" id={}]\nresource_local_to_scene=true\nstates/Start/position=Vector2(-160.0, 0.0)\nstates/End/position=Vector2(160.0, 180.0)\n",
+                    quoted(&root_id)
+                );
+                for state in states {
+                    machine.push_str(&format!(
+                        "states/{}/node=SubResource({})\nstates/{}/position={}\n",
+                        state.id,
+                        quoted(&format!("{}_state_{}", root_id, state.id)),
+                        state.id,
+                        vector("Vector2", &state.position)
+                    ));
+                }
+                let transition_rows = transitions
+                    .iter()
+                    .enumerate()
+                    .flat_map(|(index, transition)| {
+                        [
+                            quoted(&transition.from),
+                            quoted(&transition.to),
+                            format!(
+                                "SubResource({})",
+                                quoted(&format!("{}_transition_{index}", root_id))
+                            ),
+                        ]
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                machine.push_str(&format!("transitions=[{transition_rows}]\n"));
+                resources.push_str(&machine);
+                let playback_id = format!("{}_playback", root_id);
+                resources.push_str(&format!(
+                    "\n[sub_resource type=\"AnimationNodeStateMachinePlayback\" id={}]\nresource_local_to_scene=true\n",
+                    quoted(&playback_id)
+                ));
+                nodes.push_str(&format!(
+                    "\n[node name={} type=\"AnimationTree\" parent=\".\"]\nactive={}\nanim_player=NodePath({})\ntree_root=SubResource({})\nparameters/playback=SubResource({})\nmetadata/semwright_animation_graph={}\nmetadata/semwright_logical_id={}\n",
+                    quoted(&format!("_sw_animtree_{}", graph.id)),
+                    graph.active,
+                    quoted(&format!("../{}", paths[&graph.animator])),
+                    quoted(&root_id),
+                    quoted(&playback_id),
+                    quoted(&graph.id),
+                    quoted(&format!("animation_graph/{}/{}", scene.id, graph.id))
+                ));
+            }
+            AnimationGraphRoot::BlendSpace1d {
+                min,
+                max,
+                initial,
+                sync_mode,
+                cyclic_length,
+                points,
+            } => {
+                for point in points {
+                    let point_id = format!("{}_point_{}", root_id, point.id);
+                    resources.push_str(&format!(
+                        "\n[sub_resource type=\"AnimationNodeAnimation\" id={}]\nanimation = &{}\n",
+                        quoted(&point_id),
+                        quoted(&point.clip)
+                    ));
+                }
+                let mut blend = format!(
+                    "\n[sub_resource type=\"AnimationNodeBlendSpace1D\" id={}]\nresource_local_to_scene=true\nmin_space={min:?}\nmax_space={max:?}\nsync_mode={}\nvalue_label=\"blend\"\n",
+                    quoted(&root_id),
+                    sync_mode.code()
+                );
+                if let Some(length) = cyclic_length {
+                    blend.push_str(&format!("cyclic_length={length:?}\n"));
+                }
+                for (index, point) in points.iter().enumerate() {
+                    blend.push_str(&format!(
+                        "blend_point_{index}/node=SubResource({})\nblend_point_{index}/pos={:?}\n",
+                        quoted(&format!("{}_point_{}", root_id, point.id)),
+                        point.position
+                    ));
+                }
+                resources.push_str(&blend);
+                nodes.push_str(&format!(
+                    "\n[node name={} type=\"AnimationTree\" parent=\".\"]\nactive={}\nanim_player=NodePath({})\ntree_root=SubResource({})\nparameters/blend_position={initial:?}\nmetadata/semwright_animation_graph={}\nmetadata/semwright_logical_id={}\n",
+                    quoted(&format!("_sw_animtree_{}", graph.id)),
+                    graph.active,
+                    quoted(&format!("../{}", paths[&graph.animator])),
+                    quoted(&root_id),
+                    quoted(&graph.id),
+                    quoted(&format!("animation_graph/{}/{}", scene.id, graph.id))
+                ));
+            }
+        }
+    }
+
     for e in &scene.entities {
         let parent = e.parent.as_ref().map(|p| paths[p].as_str()).unwrap_or(".");
         let groups = if e.groups.is_empty() {
@@ -212,6 +355,48 @@ pub(super) fn generate(
                     "mesh=SubResource({})\nmaterial_override=ExtResource({})\n",
                     quoted(&sid),
                     quoted(&format!("material_{}", e.id))
+                ));
+            }
+            NativeNode::Mesh3dMaterial { shape, material } => {
+                let (class, props) = shape3(shape, true);
+                resources.push_str(&format!(
+                    "\n[sub_resource type={} id={}]\n{props}\n",
+                    quoted(class),
+                    quoted(&sid)
+                ));
+                let base = material_map
+                    .get(material.material.as_str())
+                    .expect("validated material binding");
+                let resource_id = match material.sharing {
+                    MaterialSharing::Shared => format!("shared_material_{}", material.material),
+                    MaterialSharing::LocalToScene => {
+                        let color = material.color_override.unwrap_or(base.color);
+                        let roughness = material.roughness_override.unwrap_or(base.roughness);
+                        let path = format!("resources/{}_{}_material_local.tres", scene.id, e.id);
+                        let resource_id = format!("local_material_{}", e.id);
+                        let text = format!(
+                            "[gd_resource type=\"StandardMaterial3D\" format=3]\n\n[resource]\nresource_local_to_scene=true\nalbedo_color={}\nroughness={roughness:?}\n",
+                            vector("Color", &color)
+                        );
+                        ext.push_str(&format!(
+                            "[ext_resource type=\"StandardMaterial3D\" path={} id={}]\n",
+                            quoted(&format!("res://{path}")),
+                            quoted(&resource_id)
+                        ));
+                        insert(
+                            out,
+                            path,
+                            text,
+                            format!("{}/{}/local_material", scene.id, e.id),
+                            "material_local_to_scene",
+                        )?;
+                        resource_id
+                    }
+                };
+                nodes.push_str(&format!(
+                    "mesh=SubResource({})\nmaterial_override=ExtResource({})\n",
+                    quoted(&sid),
+                    quoted(&resource_id)
                 ));
             }
             NativeNode::Camera2d { .. } => nodes.push_str("enabled=true\n"),

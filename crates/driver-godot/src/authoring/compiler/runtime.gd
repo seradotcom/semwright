@@ -80,3 +80,22 @@ func _sw_spawn(prefab: PackedScene, count: int) -> void:
             for child in current.get_children(): pending.append(child)
         get_tree().current_scene.add_child(instance)
         if not sw_fault.is_empty(): return
+
+func _sw_animation_start(tree: AnimationTree, state: StringName) -> bool:
+    if not _sw_binding(tree): return false
+    var playback: AnimationNodeStateMachinePlayback = tree.get("parameters/playback") as AnimationNodeStateMachinePlayback
+    if playback == null: return _sw_fail("animation_state_machine_playback")
+    playback.start(state, true)
+    return true
+
+func _sw_animation_state(tree: AnimationTree, state: StringName) -> bool:
+    if not _sw_binding(tree): return false
+    var playback: AnimationNodeStateMachinePlayback = tree.get("parameters/playback") as AnimationNodeStateMachinePlayback
+    if playback == null: return _sw_fail("animation_state_machine_playback")
+    playback.travel(state, true)
+    return true
+
+func _sw_animation_blend(tree: AnimationTree, blend: float) -> bool:
+    if not _sw_binding(tree) or not _sw_valid(blend): return false
+    tree.set("parameters/blend_position", blend)
+    return true

@@ -9,6 +9,8 @@ fn typed_two_and_three_dimensional_fixtures_compile() {
     for bytes in [
         include_bytes!("fixtures/authoring/two_d.json").as_slice(),
         include_bytes!("fixtures/authoring/three_d.json").as_slice(),
+        include_bytes!("fixtures/authoring/resource_sharing.json").as_slice(),
+        include_bytes!("fixtures/authoring/animation_graphs.json").as_slice(),
     ] {
         let project = compile(&decode(bytes).unwrap()).unwrap();
         assert!(project.files.contains_key("project.godot"));
@@ -152,6 +154,109 @@ fn runtime_contains_no_authoring_credentials_or_listener() {
         }
     }
 }
+#[test]
+fn animation_tree_state_machine_and_blend_space_are_typed_and_deterministic() {
+    let bytes = include_bytes!("fixtures/authoring/animation_graphs.json");
+    let spec = decode(bytes).unwrap();
+    let project = compile(&spec).unwrap();
+    let scene = &project.files["scenes/arena.tscn"];
+    let script = &project.files["scripts/arena.gd"];
+
+    assert!(scene.contains("type=\"AnimationTree\""));
+    assert!(scene.contains("type=\"AnimationNodeStateMachine\""));
+    assert!(scene.contains("type=\"AnimationNodeStateMachineTransition\""));
+    assert!(scene.contains("advance_mode=1"));
+    assert!(scene.contains("xfade_time=0.15"));
+    assert!(!scene.contains("advance_expression"));
+    assert!(scene.contains("type=\"AnimationNodeBlendSpace1D\""));
+    assert!(scene.contains("sync_mode=1"));
+    assert!(scene.contains("blend_point_1/pos=1.0"));
+    assert!(script.contains("_sw_animation_state(ag_motion, &\"run\")"));
+    assert!(script.contains("_sw_animation_blend(ag_speed, float(e[0]))"));
+    assert!(script.contains("_sw_animation_start(ag_motion, &\"idle\")"));
+
+    let again = compile(&spec).unwrap();
+    assert_eq!(project.files, again.files);
+    assert_eq!(project.intent_digest, again.intent_digest);
+
+    let mut wrong_action = spec.clone();
+    wrong_action.scenes[0].behavior.handlers[0].actions[0] = Action::AnimationState {
+        graph: "speed".into(),
+        state: "run".into(),
+    };
+    assert!(validate(&wrong_action).is_err());
+
+    let mut missing_cycle = spec;
+    let AnimationGraphRoot::BlendSpace1d {
+        sync_mode,
+        cyclic_length,
+        ..
+    } = &mut missing_cycle.scenes[0].animation_graphs[1].root
+    else {
+        panic!("fixture blend graph changed");
+    };
+    *sync_mode = AnimationBlendSyncMode::CyclicConstant;
+    *cyclic_length = None;
+    assert!(validate(&missing_cycle).is_err());
+
+    let mut injected: serde_json::Value = serde_json::from_slice(bytes).unwrap();
+    injected["scenes"][0]["animation_graphs"][0]["root"]["transitions"][0]["advance_expression"] =
+        serde_json::json!("OS.execute('no')");
+    assert!(decode(&serde_json::to_vec(&injected).unwrap()).is_err());
+}
+
+#[test]
+fn shared_material_and_local_to_scene_copy_are_explicit_and_incremental() {
+    let bytes = include_bytes!("fixtures/authoring/resource_sharing.json");
+    let spec = decode(bytes).unwrap();
+    let first = compile(&spec).unwrap();
+    let scene = &first.files["scenes/arena.tscn"];
+    assert_eq!(
+        scene
+            .matches("ExtResource(\"shared_material_bronze\")")
+            .count(),
+        2
+    );
+    assert!(scene.contains("ExtResource(\"local_material_local_a\")"));
+    assert!(scene.contains("ExtResource(\"local_material_local_b\")"));
+
+    let shared = &first.files["resources/arena_material_bronze.tres"];
+    let local_a = &first.files["resources/arena_local_a_material_local.tres"];
+    let local_b = &first.files["resources/arena_local_b_material_local.tres"];
+    assert!(shared.contains("resource_local_to_scene=false"));
+    assert!(local_a.contains("resource_local_to_scene=true"));
+    assert!(local_b.contains("resource_local_to_scene=true"));
+    assert_ne!(local_a, local_b);
+
+    let mut changed = spec.clone();
+    let binding = match &mut changed.scenes[0].entities[2].node {
+        NativeNode::Mesh3dMaterial { material, .. } => material,
+        other => panic!("unexpected local material fixture node: {other:?}"),
+    };
+    binding.color_override = Some([0.2, 0.9, 0.3, 1.0]);
+    let second = compile(&changed).unwrap();
+    assert_eq!(
+        first.files["resources/arena_material_bronze.tres"],
+        second.files["resources/arena_material_bronze.tres"]
+    );
+    assert_eq!(
+        first.files["resources/arena_local_b_material_local.tres"],
+        second.files["resources/arena_local_b_material_local.tres"]
+    );
+    assert_ne!(
+        first.files["resources/arena_local_a_material_local.tres"],
+        second.files["resources/arena_local_a_material_local.tres"]
+    );
+
+    let mut illegal = spec;
+    let shared_binding = match &mut illegal.scenes[0].entities[0].node {
+        NativeNode::Mesh3dMaterial { material, .. } => material,
+        other => panic!("unexpected shared material fixture node: {other:?}"),
+    };
+    shared_binding.color_override = Some([1.0, 0.0, 0.0, 1.0]);
+    assert!(validate(&illegal).is_err());
+}
+
 #[test]
 fn behavior_edit_preserves_unrelated_animation_bytes() {
     let s = fixture();

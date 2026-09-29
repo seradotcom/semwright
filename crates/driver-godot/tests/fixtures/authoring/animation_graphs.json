@@ -1,0 +1,162 @@
+{
+  "version": 1,
+  "project": "animation_graphs",
+  "title": "Animation Graphs",
+  "main_scene": "arena",
+  "settings": {"width": 640, "height": 360, "physics_ticks": 60},
+  "inputs": [],
+  "assets": [],
+  "scenes": [
+    {
+      "id": "arena",
+      "dimension": "two",
+      "entities": [
+        {
+          "id": "state_visual",
+          "parent": null,
+          "position": [-80,0,0],
+          "rotation": [0,0,0],
+          "scale": [1,1,1],
+          "groups": [],
+          "node": {"kind":"visual2d","size":[48,48],"color":[0.7,0.3,0.2,1.0]}
+        },
+        {
+          "id": "blend_visual",
+          "parent": null,
+          "position": [80,0,0],
+          "rotation": [0,0,0],
+          "scale": [1,1,1],
+          "groups": [],
+          "node": {"kind":"visual2d","size":[48,48],"color":[0.2,0.5,0.9,1.0]}
+        },
+        {
+          "id": "state_animator",
+          "parent": null,
+          "position": [0,0,0],
+          "rotation": [0,0,0],
+          "scale": [1,1,1],
+          "groups": [],
+          "node": {"kind":"animator"}
+        },
+        {
+          "id": "blend_animator",
+          "parent": null,
+          "position": [0,0,0],
+          "rotation": [0,0,0],
+          "scale": [1,1,1],
+          "groups": [],
+          "node": {"kind":"animator"}
+        }
+      ],
+      "materials": [],
+      "animations": [
+        {
+          "id":"idle",
+          "animator":"state_animator",
+          "length":1.0,
+          "looping":true,
+          "tracks":[{"entity":"state_visual","property":"scale","keys":[
+            {"time":0.0,"value":{"kind":"vector2","value":[1.0,1.0]}},
+            {"time":1.0,"value":{"kind":"vector2","value":[1.0,1.0]}}
+          ]}]
+        },
+        {
+          "id":"run",
+          "animator":"state_animator",
+          "length":1.0,
+          "looping":true,
+          "tracks":[{"entity":"state_visual","property":"scale","keys":[
+            {"time":0.0,"value":{"kind":"vector2","value":[1.0,1.0]}},
+            {"time":1.0,"value":{"kind":"vector2","value":[1.25,1.25]}}
+          ]}]
+        },
+        {
+          "id":"slow",
+          "animator":"blend_animator",
+          "length":1.0,
+          "looping":true,
+          "tracks":[{"entity":"blend_visual","property":"scale","keys":[
+            {"time":0.0,"value":{"kind":"vector2","value":[1.0,1.0]}},
+            {"time":1.0,"value":{"kind":"vector2","value":[1.05,1.05]}}
+          ]}]
+        },
+        {
+          "id":"fast",
+          "animator":"blend_animator",
+          "length":1.0,
+          "looping":true,
+          "tracks":[{"entity":"blend_visual","property":"scale","keys":[
+            {"time":0.0,"value":{"kind":"vector2","value":[1.0,1.0]}},
+            {"time":1.0,"value":{"kind":"vector2","value":[1.5,1.5]}}
+          ]}]
+        }
+      ],
+      "animation_graphs": [
+        {
+          "id":"motion",
+          "animator":"state_animator",
+          "active":true,
+          "root":{
+            "kind":"state_machine",
+            "initial":"idle",
+            "states":[
+              {"id":"idle","clip":"idle","position":[-80,0]},
+              {"id":"run","clip":"run","position":[80,0]}
+            ],
+            "transitions":[
+              {"from":"idle","to":"run","xfade_time":0.15,"reset":true,"switch_mode":"immediate"},
+              {"from":"run","to":"idle","xfade_time":0.2,"reset":false,"switch_mode":"sync"}
+            ]
+          }
+        },
+        {
+          "id":"speed",
+          "animator":"blend_animator",
+          "active":true,
+          "root":{
+            "kind":"blend_space1d",
+            "min":0.0,
+            "max":1.0,
+            "initial":0.0,
+            "sync_mode":"independent",
+            "cyclic_length":null,
+            "points":[
+              {"id":"slow","clip":"slow","position":0.0},
+              {"id":"fast","clip":"fast","position":1.0}
+            ]
+          }
+        }
+      ],
+      "behavior": {
+        "states":["play"],
+        "initial_state":"play",
+        "variables":[],
+        "expressions":[
+          {"kind":"literal","value":{"kind":"scalar","value":0.75}}
+        ],
+        "handlers":[
+          {
+            "id":"activate_graphs",
+            "event":{"kind":"ready"},
+            "state":"play",
+            "condition":null,
+            "repeat":1,
+            "actions":[
+              {"kind":"animation_state","graph":"motion","state":"run"},
+              {"kind":"animation_blend","graph":"speed","value":0}
+            ]
+          }
+        ],
+        "timers":[],
+        "signals":[]
+      }
+    }
+  ],
+  "limits":{
+    "actions_per_event":16,
+    "actions_per_tick":64,
+    "events_per_tick":16,
+    "entities":64,
+    "spawns_per_tick":2
+  }
+}

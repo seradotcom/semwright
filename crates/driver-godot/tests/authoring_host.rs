@@ -255,6 +255,7 @@ impl Approver for TestApprover {
         Ok(matches!(
             approval.command.as_str(),
             "driver.godot.composition.native.verify"
+                | "driver.godot.composition.native.query"
                 | "driver.godot.composition.native.tracks.page"
                 | "driver.godot.composition.native.keys.page"
                 | "driver.godot.project.validate"
@@ -305,6 +306,14 @@ fn managed_native_node<'a>(response: &'a Value, logical_key: &str) -> &'a Value 
                 .find(|node| node["logical_key"].as_str() == Some(logical_key))
         })
         .unwrap_or_else(|| panic!("missing managed native node {logical_key}"))
+}
+
+fn managed_native_resource_property<'a>(
+    response: &'a Value,
+    logical_key: &str,
+    property: &str,
+) -> &'a Value {
+    &managed_native_node(response, logical_key)["properties"][property]["value"]
 }
 
 fn gameplay_collision_signature(response: &Value) -> Value {
@@ -460,6 +469,7 @@ async fn empty_project_authoring_flows_through_broker_driver_host_and_provider()
         "driver.godot.composition.repair.apply",
         "driver.godot.composition.verify",
         "driver.godot.composition.native.verify",
+        "driver.godot.composition.native.query",
         "driver.godot.composition.native.tracks.page",
         "driver.godot.composition.native.keys.page",
     ] {
@@ -1136,6 +1146,333 @@ async fn empty_project_authoring_flows_through_broker_driver_host_and_provider()
 
     broker.remove_provider("driver:godot").await.unwrap();
     Provider::shutdown(provider.as_ref()).await.unwrap();
+}
+
+#[tokio::test]
+#[ignore = "requires bubblewrap/Landlock sandbox helper and pinned Godot"]
+async fn animation_tree_state_machine_and_blend_space_round_trip_natively() {
+    let host = hosted_authoring("godot-authoring-animation-tree").await;
+    let spec: Value =
+        serde_json::from_slice(include_bytes!("fixtures/authoring/animation_graphs.json")).unwrap();
+    let plan = broker_call(
+        &host.broker,
+        &host.session,
+        "driver.godot.composition.plan",
+        json!({"spec":spec}),
+    )
+    .await;
+    let plan_id = plan["plan_id"].as_str().unwrap().to_owned();
+    let applied = broker_call(
+        &host.broker,
+        &host.session,
+        "driver.godot.composition.apply",
+        json!({"plan_id":plan_id}),
+    )
+    .await;
+    assert_eq!(applied["execution_status"], "completed");
+
+    let inspected = broker_call(
+        &host.broker,
+        &host.session,
+        "driver.godot.composition.native.verify",
+        json!({
+            "plan_id":plan_id,
+            "scene":"arena",
+            "verification":{"kind":"inspect"}
+        }),
+    )
+    .await;
+    let nodes = inspected["observation"]["authored"]["nodes"]
+        .as_array()
+        .unwrap();
+    let motion = nodes
+        .iter()
+        .find(|node| node["path"] == "_sw_animtree_motion")
+        .expect("native state machine AnimationTree");
+    let speed = nodes
+        .iter()
+        .find(|node| node["path"] == "_sw_animtree_speed")
+        .expect("native blend AnimationTree");
+    assert_eq!(motion["class"], "AnimationTree");
+    assert_eq!(speed["class"], "AnimationTree");
+    assert_eq!(motion["logical_key"], "animation_graph/arena/motion");
+    assert_eq!(speed["logical_key"], "animation_graph/arena/speed");
+    assert!(
+        motion["logical_id"]
+            .as_str()
+            .is_some_and(|id| id.starts_with("asset_"))
+    );
+    assert!(
+        speed["logical_id"]
+            .as_str()
+            .is_some_and(|id| id.starts_with("asset_"))
+    );
+    assert_eq!(motion["properties"]["active"]["value"], true);
+    assert_eq!(speed["properties"]["active"]["value"], true);
+
+    let resources = inspected["observation"]["authored"]["resources"]
+        .as_array()
+        .unwrap();
+    let motion_root_id = motion["properties"]["tree_root"]["value"]["instance_id"]
+        .as_str()
+        .unwrap();
+    let speed_root_id = speed["properties"]["tree_root"]["value"]["instance_id"]
+        .as_str()
+        .unwrap();
+    let motion_root = resources
+        .iter()
+        .find(|resource| resource["resource"]["instance_id"] == motion_root_id)
+        .expect("state machine root resource");
+    let speed_root = resources
+        .iter()
+        .find(|resource| resource["resource"]["instance_id"] == speed_root_id)
+        .expect("blend root resource");
+    assert_eq!(
+        motion_root["resource"]["class"],
+        "AnimationNodeStateMachine"
+    );
+    assert_eq!(motion_root["properties"]["state_count"]["value"], "2");
+    assert_eq!(motion_root["properties"]["transition_count"]["value"], "2");
+    assert_eq!(speed_root["resource"]["class"], "AnimationNodeBlendSpace1D");
+    assert_eq!(speed_root["properties"]["point_count"]["value"], "2");
+    assert_eq!(speed_root["properties"]["sync_mode"]["value"], "1");
+
+    let persisted = broker_call(
+        &host.broker,
+        &host.session,
+        "driver.godot.composition.native.verify",
+        json!({
+            "plan_id":plan_id,
+            "scene":"arena",
+            "verification":{"kind":"persistence"}
+        }),
+    )
+    .await;
+    assert!(effect_rule_passes(
+        &persisted,
+        "godot.native_persistence.arena.v1"
+    ));
+    assert_eq!(persisted["evidence"]["kind"], "reopened");
+    assert_ne!(
+        persisted["writer"]["process_id"],
+        persisted["reader"]["process_id"]
+    );
+
+    let played = broker_call(
+        &host.broker,
+        &host.session,
+        "driver.godot.composition.native.verify",
+        json!({
+            "plan_id":plan_id,
+            "scene":"arena",
+            "verification":{
+                "kind":"play",
+                "ticks":3,
+                "inputs":[],
+                "checkpoints":[1,3],
+                "variables":[],
+                "capture":false
+            }
+        }),
+    )
+    .await;
+    assert!(effect_rule_passes(&played, "godot.native_runtime.arena.v1"));
+    let live_nodes = played["observation"]["live"]["nodes"].as_array().unwrap();
+    let live_motion = live_nodes
+        .iter()
+        .find(|node| node["path"] == "_sw_animtree_motion")
+        .expect("live state tree");
+    let live_speed = live_nodes
+        .iter()
+        .find(|node| node["path"] == "_sw_animtree_speed")
+        .expect("live blend tree");
+    assert_eq!(live_motion["properties"]["current_state"]["value"], "run");
+    assert_eq!(live_speed["properties"]["blend_position"]["value"], 0.75);
+    assert!(
+        played["observation"]["frames"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|frame| frame["fault"].is_null())
+    );
+
+    shutdown_hosted(host).await;
+}
+
+#[tokio::test]
+#[ignore = "requires bubblewrap/Landlock sandbox helper and pinned Godot"]
+async fn shared_and_local_to_scene_materials_are_native_and_isolated() {
+    let host = hosted_authoring("godot-authoring-resource-sharing").await;
+    let mut spec: Value =
+        serde_json::from_slice(include_bytes!("fixtures/authoring/resource_sharing.json")).unwrap();
+    let plan = broker_call(
+        &host.broker,
+        &host.session,
+        "driver.godot.composition.plan",
+        json!({"spec":spec}),
+    )
+    .await;
+    let plan_id = plan["plan_id"].as_str().unwrap().to_owned();
+    let applied = broker_call(
+        &host.broker,
+        &host.session,
+        "driver.godot.composition.apply",
+        json!({"plan_id":plan_id}),
+    )
+    .await;
+    assert_eq!(applied["execution_status"], "completed");
+
+    let observed = broker_call(
+        &host.broker,
+        &host.session,
+        "driver.godot.composition.native.verify",
+        json!({
+            "plan_id":plan_id,
+            "scene":"arena",
+            "verification":{"kind":"inspect"}
+        }),
+    )
+    .await;
+    let shared_a =
+        managed_native_resource_property(&observed, "arena/shared_a", "material_override");
+    let shared_b =
+        managed_native_resource_property(&observed, "arena/shared_b", "material_override");
+    assert_eq!(shared_a["path"], shared_b["path"]);
+    assert_eq!(shared_a["instance_id"], shared_b["instance_id"]);
+    assert_eq!(shared_a["local_to_scene"], false);
+
+    let local_a = managed_native_resource_property(&observed, "arena/local_a", "material_override");
+    let local_b = managed_native_resource_property(&observed, "arena/local_b", "material_override");
+    assert_eq!(local_a["local_to_scene"], true);
+    assert_eq!(local_b["local_to_scene"], true);
+    assert_ne!(local_a["path"], local_b["path"]);
+    assert_ne!(local_a["instance_id"], local_b["instance_id"]);
+
+    let node_query = broker_call(
+        &host.broker,
+        &host.session,
+        "driver.godot.composition.native.query",
+        json!({
+            "plan_id":plan_id,
+            "scene":"arena",
+            "target":{"kind":"node","logical_key":"arena/shared_a"},
+            "properties":["material_override"]
+        }),
+    )
+    .await;
+    assert!(node_query.get("observation").is_none());
+    assert_eq!(node_query["query"]["kind"], "node");
+    assert_eq!(
+        node_query["query"]["value"]["logical_key"],
+        "arena/shared_a"
+    );
+    assert_eq!(
+        node_query["query"]["value"]["properties"]
+            .as_object()
+            .map(serde_json::Map::len),
+        Some(1)
+    );
+    let shared_resource_path =
+        node_query["query"]["value"]["properties"]["material_override"]["value"]["path"]
+            .as_str()
+            .expect("shared material resource path")
+            .to_owned();
+
+    let resource_query = broker_call(
+        &host.broker,
+        &host.session,
+        "driver.godot.composition.native.query",
+        json!({
+            "plan_id":plan_id,
+            "scene":"arena",
+            "target":{"kind":"resource","path":shared_resource_path},
+            "properties":["roughness"]
+        }),
+    )
+    .await;
+    assert!(resource_query.get("observation").is_none());
+    assert_eq!(resource_query["query"]["kind"], "resource");
+    assert_eq!(
+        resource_query["query"]["value"]["resource"]["path"],
+        shared_resource_path
+    );
+    assert_eq!(
+        resource_query["query"]["value"]["properties"]
+            .as_object()
+            .map(serde_json::Map::len),
+        Some(1)
+    );
+    assert_eq!(
+        resource_query["query"]["value"]["properties"]["roughness"]["value"],
+        0.6
+    );
+
+    let project = host.fixture.output.path().join("resource_sharing");
+    let shared_path = project.join("resources/arena_material_bronze.tres");
+    let local_a_path = project.join("resources/arena_local_a_material_local.tres");
+    let local_b_path = project.join("resources/arena_local_b_material_local.tres");
+    let shared_before = digest(&shared_path);
+    let local_a_before = digest(&local_a_path);
+    let local_b_before = digest(&local_b_path);
+
+    spec["scenes"][0]["entities"][2]["node"]["material"]["color_override"] =
+        json!([0.2, 0.9, 0.3, 1.0]);
+    let changed = broker_call(
+        &host.broker,
+        &host.session,
+        "driver.godot.composition.plan",
+        json!({"spec":spec}),
+    )
+    .await;
+    let changed_id = changed["plan_id"].as_str().unwrap().to_owned();
+    let writes = changed["writes"].as_array().unwrap();
+    assert!(
+        writes
+            .iter()
+            .any(|value| value == "resources/arena_local_a_material_local.tres")
+    );
+    assert!(
+        !writes
+            .iter()
+            .any(|value| value == "resources/arena_material_bronze.tres")
+    );
+    assert!(
+        !writes
+            .iter()
+            .any(|value| value == "resources/arena_local_b_material_local.tres")
+    );
+    let changed_apply = broker_call(
+        &host.broker,
+        &host.session,
+        "driver.godot.composition.apply",
+        json!({"plan_id":changed_id}),
+    )
+    .await;
+    assert_eq!(changed_apply["execution_status"], "completed");
+    assert_eq!(digest(&shared_path), shared_before);
+    assert_eq!(digest(&local_b_path), local_b_before);
+    assert_ne!(digest(&local_a_path), local_a_before);
+
+    let reopened = broker_call(
+        &host.broker,
+        &host.session,
+        "driver.godot.composition.native.verify",
+        json!({
+            "plan_id":changed_id,
+            "scene":"arena",
+            "verification":{"kind":"inspect"}
+        }),
+    )
+    .await;
+    let local_a_after = &managed_native_node(&reopened, "arena/local_a")["properties"]["material_override"]
+        ["value"];
+    let local_b_after = &managed_native_node(&reopened, "arena/local_b")["properties"]["material_override"]
+        ["value"];
+    assert_eq!(local_a_after["local_to_scene"], true);
+    assert_eq!(local_b_after["local_to_scene"], true);
+    assert_ne!(local_a_after["path"], local_b_after["path"]);
+
+    shutdown_hosted(host).await;
 }
 
 #[tokio::test]

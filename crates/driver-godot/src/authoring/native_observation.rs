@@ -89,6 +89,60 @@ pub struct NativeKeyPageRequest {
     pub limit: u16,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum NativeQueryTarget {
+    Node { logical_key: String },
+    Resource { path: String },
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct NativeQueryRequest {
+    pub plan_id: String,
+    pub scene: String,
+    pub target: NativeQueryTarget,
+    #[serde(default)]
+    pub properties: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct NativeQueriedNode {
+    pub path: String,
+    pub class: String,
+    pub instance_id: String,
+    pub parent: Option<String>,
+    pub owner: Option<String>,
+    pub scene_file: String,
+    pub logical_id: Option<String>,
+    pub logical_key: Option<String>,
+    pub groups: Vec<String>,
+    pub properties: BTreeMap<String, NativeValue>,
+}
+
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct NativeQueriedResource {
+    pub resource: NativeResourceRef,
+    pub properties: BTreeMap<String, NativeValue>,
+}
+
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum NativeQueryValue {
+    Node { value: NativeQueriedNode },
+    Resource { value: NativeQueriedResource },
+}
+
+#[derive(Debug, Clone, Serialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct NativeQueryResponse {
+    pub binding: NativeEvidenceBinding,
+    pub query: NativeQueryValue,
+    pub effects: EffectEvaluation,
+}
+
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct NativeEvidenceBinding {
@@ -1053,6 +1107,140 @@ pub fn key_page(
             .then(|| format!("gky1.{}.{end}", query_digest.as_str())),
     })
 }
+fn query_property_set(properties: &[String]) -> semwright_types::Result<BTreeSet<&str>> {
+    ensure(properties.len() <= 32, "Native query property count")?;
+    let mut requested = BTreeSet::new();
+    for property in properties {
+        ensure(
+            !property.is_empty()
+                && property.len() <= 96
+                && property
+                    .bytes()
+                    .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_'),
+            "Native query property name",
+        )?;
+        ensure(
+            requested.insert(property.as_str()),
+            "Duplicate native query property",
+        )?;
+    }
+    Ok(requested)
+}
+
+fn select_properties(
+    source: &BTreeMap<String, NativeValue>,
+    requested: &BTreeSet<&str>,
+) -> semwright_types::Result<BTreeMap<String, NativeValue>> {
+    let mut selected = BTreeMap::new();
+    for property in requested {
+        let value = source.get(*property).ok_or_else(|| {
+            semwright_types::Error::new(
+                semwright_types::ErrorCode::NotFound,
+                format!("Native query property not observed: {property}"),
+            )
+        })?;
+        selected.insert((*property).to_owned(), value.clone());
+    }
+    Ok(selected)
+}
+
+/// Return one bounded target from an already admitted native observation.
+///
+/// This is a model-facing projection only. It performs no I/O and does not
+/// establish authority; callers must obtain the observation through the trusted
+/// plan/session-bound native inspect path first.
+pub fn query_projection(
+    observation: &NativeObservation,
+    target: &NativeQueryTarget,
+    properties: &[String],
+) -> semwright_types::Result<NativeQueryValue> {
+    let requested = query_property_set(properties)?;
+    match target {
+        NativeQueryTarget::Node { logical_key } => {
+            ensure(
+                !logical_key.is_empty()
+                    && logical_key.len() <= 256
+                    && !logical_key.chars().any(char::is_control)
+                    && !logical_key.contains(".."),
+                "Native node query logical key",
+            )?;
+            let matches = observation
+                .authored
+                .nodes
+                .iter()
+                .filter(|node| node.logical_key.as_deref() == Some(logical_key.as_str()))
+                .collect::<Vec<_>>();
+            if matches.is_empty() {
+                return Err(semwright_types::Error::new(
+                    semwright_types::ErrorCode::NotFound,
+                    "Managed native node query target was not observed",
+                ));
+            }
+            ensure(
+                matches.len() == 1,
+                "Managed native node logical key collision",
+            )?;
+            let node = matches[0];
+            Ok(NativeQueryValue::Node {
+                value: NativeQueriedNode {
+                    path: node.path.clone(),
+                    class: node.class.clone(),
+                    instance_id: node.instance_id.clone(),
+                    parent: node.parent.clone(),
+                    owner: node.owner.clone(),
+                    scene_file: node.scene_file.clone(),
+                    logical_id: node.logical_id.clone(),
+                    logical_key: node.logical_key.clone(),
+                    groups: node.groups.clone(),
+                    properties: select_properties(&node.properties, &requested)?,
+                },
+            })
+        }
+        NativeQueryTarget::Resource { path } => {
+            ensure(
+                path.starts_with("res://")
+                    && path.len() <= 1024
+                    && !path.contains("..")
+                    && !path.chars().any(char::is_control),
+                "Native resource query path",
+            )?;
+            let matches = observation
+                .authored
+                .resources
+                .iter()
+                .filter(|resource| resource.resource.path == *path)
+                .collect::<Vec<_>>();
+            if matches.is_empty() {
+                return Err(semwright_types::Error::new(
+                    semwright_types::ErrorCode::NotFound,
+                    "Managed native resource query target was not observed",
+                ));
+            }
+            let first_digest = canonical_digest(&(&matches[0].resource, &matches[0].properties))
+                .map_err(|error| {
+                    invalid(&format!("Native resource query canonicalization: {error}"))
+                })?;
+            for resource in matches.iter().skip(1) {
+                let digest = canonical_digest(&(&resource.resource, &resource.properties))
+                    .map_err(|error| {
+                        invalid(&format!("Native resource query canonicalization: {error}"))
+                    })?;
+                ensure(
+                    digest == first_digest,
+                    "Native resource path resolves to ambiguous resources",
+                )?;
+            }
+            let resource = matches[0];
+            Ok(NativeQueryValue::Resource {
+                value: NativeQueriedResource {
+                    resource: resource.resource.clone(),
+                    properties: select_properties(&resource.properties, &requested)?,
+                },
+            })
+        }
+    }
+}
+
 fn dependency_sentinels(
     observation: &NativeObservation,
 ) -> semwright_types::Result<Vec<(String, String, bool, Option<Digest>)>> {
