@@ -50,8 +50,8 @@
     {
       "id": "E04",
       "condition": "bounded parametric geometry/topology",
-      "implementation": "box/cylinder/mesh arrays, explicit indices/UVs, native Mesh.validate rejection",
-      "test": "property/index/collapse/UV tests + native articulated fixture",
+      "implementation": "box/cylinder/typed mesh arrays, explicit indices/UVs, editable POLY curve extrusion/bevel, non-destructive bevel/mirror/subdivision/array and exact-solver Boolean with managed target, native Mesh.validate rejection",
+      "test": "property/index/collapse/UV/budget tests + hard-surface native curve/boolean readback + collision narrow-phase fixture",
       "status": "CI_PENDING"
     },
     {
@@ -85,15 +85,15 @@
     {
       "id": "E09",
       "condition": "save/reopen with undeclared rewrites excluded",
-      "implementation": "new libraries.write artifact only + sentinel + fresh process reopen",
-      "test": "authoring_native",
+      "implementation": "new libraries.write artifact only + sentinel + fresh-process reopen; hard-surface persistence re-resolves hash-pinned external texture and preserves explicit mesh_copy isolation/material node bindings",
+      "test": "authoring_native articulated fresh-process exact projection + hard-surface texture/copy-on-write fresh-process readback",
       "status": "CI_PENDING"
     },
     {
       "id": "E10",
       "condition": "effective export membership/dependencies safe",
-      "implementation": "parent/armature/modifier/constraint/material/image/action preflight + no overwrite",
-      "test": "authoring_native + existing PR154 regressions",
+      "implementation": "parent/armature/boolean/modifier/constraint/material/image/action/NLA dependency preflight + global ACTIONS closure + no overwrite; existing PR154 exporter remains the only GLB writer",
+      "test": "authoring_native articulated NLA export + hostile closure fixtures + existing PR154 regressions + fresh Blender GLB reimport oracle",
       "status": "CI_PENDING"
     },
     {

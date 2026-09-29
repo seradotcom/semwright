@@ -669,6 +669,8 @@ async fn hard_surface_and_product_scene_author_through_semwright() {
     )
     .unwrap();
     let fixture = NativeFixture::start(workspace.path(), &root, true).await;
+    let mut hard_surface_saved: Option<Value> = None;
+    let mut hard_surface_island: Option<String> = None;
     for (label, source) in [
         (
             "hard_surface",
@@ -782,6 +784,15 @@ async fn hard_surface_and_product_scene_author_through_semwright() {
                     .unwrap()["colorspace"],
                 "Non-Color"
             );
+            hard_surface_saved = Some(
+                fixture
+                    .call(
+                        "composition.persist",
+                        json!({"island":island,"path":"hard-surface.blend"}),
+                    )
+                    .await,
+            );
+            hard_surface_island = Some(island.to_owned());
         } else {
             let source = items.iter().find(|row| row["entity"] == "product").unwrap();
             let instance = items
@@ -796,6 +807,58 @@ async fn hard_surface_and_product_scene_author_through_semwright() {
         }
     }
     fixture.provider.shutdown().await.unwrap();
+    drop(fixture);
+
+    let saved = hard_surface_saved.expect("hard-surface persistence receipt");
+    let island = hard_surface_island.expect("hard-surface island identity");
+    let fresh = NativeFixture::start(workspace.path(), &root, true).await;
+    let reopened = fresh
+        .call(
+            "composition.reopen",
+            json!({
+                "island":island,
+                "path":"hard-surface.blend",
+                "sha256":saved["sha256"]
+            }),
+        )
+        .await;
+    let expected_spec: Value = serde_json::from_str(include_str!(
+        "../../../fixtures/blender-authoring/hard_surface.json"
+    ))
+    .unwrap();
+    assert_eq!(
+        reopened["total"].as_u64(),
+        Some(expected_spec["entities"].as_array().unwrap().len() as u64)
+    );
+    assert_eq!(reopened["drift"], false);
+    let items = reopened["items"].as_array().unwrap();
+    let source = items.iter().find(|row| row["entity"] == "housing").unwrap();
+    let copy = items
+        .iter()
+        .find(|row| row["entity"] == "housing_copy")
+        .unwrap();
+    assert_ne!(
+        source["data_name"], copy["data_name"],
+        "copy-on-write mesh identity must survive fresh-process persistence"
+    );
+    let cable = items.iter().find(|row| row["entity"] == "cable").unwrap();
+    let expected_sha = format!(
+        "{:x}",
+        Sha256::digest(include_bytes!(
+            "../../../fixtures/blender-authoring/surface.png"
+        ))
+    );
+    for binding in cable["materials"][0]["texture_bindings"]
+        .as_array()
+        .unwrap()
+    {
+        assert_eq!(
+            binding["sha256"], expected_sha,
+            "fresh process must re-resolve and hash the declared texture"
+        );
+        assert_eq!(binding["topology_valid"], true);
+    }
+    fresh.provider.shutdown().await.unwrap();
 }
 
 #[tokio::test]
