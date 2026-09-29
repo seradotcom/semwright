@@ -1,8 +1,8 @@
 mod common;
 use common::*;
-use semwright_effect_conformance::*;
-use semwright_effect_conformance::composition::*;
 use proptest::prelude::*;
+use semwright_effect_conformance::composition::*;
+use semwright_effect_conformance::*;
 proptest! {
     #![proptest_config(ProptestConfig::with_cases(128))]
     #[test]

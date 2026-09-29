@@ -7,11 +7,11 @@ pub use predicate::*;
 pub use semwright_semantic_composition as composition;
 
 mod enumeration;
-mod evidence;
 mod evaluator;
+mod evidence;
 pub use enumeration::*;
-pub use evidence::*;
 pub use evaluator::*;
+pub use evidence::*;
 
 mod quality;
 pub use quality::*;
