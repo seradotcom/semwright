@@ -12,6 +12,7 @@ on:
       - 'crates/recipes/**'
       - 'fixtures/composition/**'
       - 'benchmarks/composition/**'
+      - 'packaging/composition-development/**'
       - 'scripts/composition/**'
       - '.github/workflows/composition-diagnostics.yml'
       - 'Cargo.lock'
@@ -89,9 +90,29 @@ jobs:
         run: cargo test --locked -p semwright-core --test provider_runtime session_executor_preserves_broker_policy_before_provider_execution -- --exact --nocapture
       - name: Core bridge lint
         run: cargo clippy --locked -p semwright-core --lib -- -D warnings
+  development-package:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Development package unit tests
+        run: python scripts/composition/test-package-dev.py
+      - name: Build and verify Agent-A source handoff
+        run: |
+          mkdir -p verification/composition-package
+          python scripts/composition/package-dev.py build             --output verification/composition-package/semwright-composition-development.zip
+          python scripts/composition/package-dev.py verify             verification/composition-package/semwright-composition-development.zip
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: composition-development-${{ github.sha }}
+          path: verification/composition-package
+          retention-days: 7
+          if-no-files-found: error
   contracts-gate:
     if: always()
-    needs: [contracts, broker-session]
+    needs: [contracts, broker-session, development-package]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
@@ -99,4 +120,5 @@ jobs:
         env:
           CONTRACTS: ${{ needs.contracts.result }}
           BROKER: ${{ needs.broker-session.result }}
-        run: test "$CONTRACTS" = success && test "$BROKER" = success
+          PACKAGE: ${{ needs.development-package.result }}
+        run: test "$CONTRACTS" = success && test "$BROKER" = success && test "$PACKAGE" = success
