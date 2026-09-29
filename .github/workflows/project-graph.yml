@@ -8,6 +8,9 @@ on:
       - '.github/workflows/project-graph.yml'
       - 'Cargo.lock'
       - 'Cargo.toml'
+      - 'skills/semwright-project-continuity/**'
+      - 'crates/platform-api/src/filesystem.rs'
+      - 'crates/platform-linux-sys/src/filesystem.rs'
   workflow_dispatch:
     inputs:
       expected_sha:
@@ -43,6 +46,21 @@ jobs:
         with:
           toolchain: 1.88.0
           components: rustfmt, clippy
+      - name: Read bounded suite selector
+        id: suite
+        run: |
+          python3 - <<'PYSELECT'
+          import json, os
+          value = json.load(open('scripts/project-graph/lane.json'))
+          assert set(value) == {'suite'} and value['suite'] in {'contracts','store','lockfile','fuzz-lock','full'}
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
+              out.write('suite=' + value['suite'] + '\n')
+          PYSELECT
+      - name: Pinned fuzz toolchains and engine
+        if: steps.suite.outputs.suite == 'full'
+        run: |
+          rustup toolchain install 1.98.1 nightly-2026-09-18 --profile minimal
+          cargo +1.98.1 install --locked cargo-fuzz --version 0.13.2
       - name: Allowlisted exact-SHA lane
         env:
           EXPECTED_SHA: ${{ inputs.expected_sha || github.sha }}

@@ -846,10 +846,14 @@ impl ProjectGraph {
                     .get(&input.asset)
                     .and_then(|a| a.latest.as_ref())
                     .and_then(|r| self.revisions.get(r));
-                let comparison = current.and_then(|r| {
+                let comparison = current.and_then(|now| {
+                    let expected = self.revisions.get(&input.revision)?;
+                    if expected.binding_generation != now.binding_generation {
+                        return None;
+                    }
                     input
                         .fingerprint
-                        .equivalent(&r.pin.fingerprint, input.equivalence)
+                        .equivalent(&now.pin.fingerprint, input.equivalence)
                 });
                 if state.freshness == Freshness::Stale
                     || (state.existence == Existence::Missing && !state.requires_reconcile)

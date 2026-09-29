@@ -1,0 +1,6 @@
+{
+  "capability": "capabilities.describe",
+  "input": {
+    "name": "capabilities.search"
+  }
+}

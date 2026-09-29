@@ -1,0 +1,7 @@
+{
+  "capability": "capabilities.search",
+  "input": {
+    "query": "project graph",
+    "limit": 20
+  }
+}

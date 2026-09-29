@@ -13,7 +13,7 @@ if os.environ.get("GITHUB_ACTIONS") != "true":
 root = Path(__file__).resolve().parents[2]
 os.chdir(root)
 selection = json.loads(Path("scripts/project-graph/lane.json").read_text())
-if set(selection) != {"suite"} or selection["suite"] not in {"contracts", "store", "lockfile"}:
+if set(selection) != {"suite"} or selection["suite"] not in {"contracts", "store", "lockfile", "fuzz-lock", "full"}:
     raise SystemExit("unknown Project Graph suite")
 if len(sys.argv) != 2 or sys.argv[1] not in {"auto", selection["suite"]}:
     raise SystemExit("suite request does not match committed selector")
@@ -38,20 +38,23 @@ def run(name, command, print_output=True, check=True):
 try:
     report["runtime_versions"]["rustc"] = subprocess.check_output(["rustc", "--version"], text=True).strip()
     report["lock_sha256_before"] = hashlib.sha256(Path("Cargo.lock").read_bytes()).hexdigest()
-    if suite == "lockfile":
+    if suite == "fuzz-lock":
+        run("fuzz-lock", [sys.executable, "scripts/project-graph/fuzz-lane.py", "resolve"])
+        report["outcome"] = "LOCKFILE_RESOLVED_NOT_TESTED"
+    elif suite == "lockfile":
         run("resolve-lock", ["cargo", "metadata", "--format-version", "1"], False)
         (out / "Cargo.lock").write_bytes(Path("Cargo.lock").read_bytes())
         report["outcome"] = "LOCKFILE_RESOLVED_NOT_TESTED"
         # Cargo metadata includes runner paths, not useful final evidence.
         (out / "resolve-lock.log").unlink()
     else:
-        features = ["--features", "store"] if suite == "store" else []
+        features = ["--features", "store"] if suite in {"store", "full"} else []
         package = ["--locked", "-p", "semwright-project-graph"]
         run("format", ["cargo", "fmt", "-p", "semwright-project-graph", "--", "--check"])
         inventory = run("inventory", ["cargo", "test", *package, *features, "--all-targets", "--", "--list"])
         expected_tests = len(re.findall(r"^.+: test$", inventory, re.MULTILINE))
         report["requested_tests"] = expected_tests
-        if expected_tests < (36 if suite == "store" else 29):
+        if expected_tests < (36 if suite in {"store", "full"} else 29):
             raise RuntimeError("missing graph test inventory")
         tests = run("tests", ["cargo", "test", *package, *features, "--all-targets"], check=False)
         summaries = re.findall(r"^test result: (?:ok|FAILED)\. (\d+) passed; (\d+) failed; (\d+) ignored; (\d+) measured; (\d+) filtered out;", tests, re.MULTILINE)
@@ -66,6 +69,8 @@ try:
         json.loads(schemas)
         (out / "schemas.json").write_text(schemas)
         run("rustdoc", ["cargo", "doc", *package, *features, "--no-deps"])
+        if suite == "full":
+            run("bounded-fuzz", [sys.executable, "scripts/project-graph/fuzz-lane.py", "run"])
         report["outcome"] = "PASS"
 except Exception as error:
     report.update(outcome="FAIL", error=str(error))

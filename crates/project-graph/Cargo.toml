@@ -22,6 +22,8 @@ uuid.workspace = true
 semwright-semantic-composition.workspace = true
 
 [dev-dependencies]
+semwright-skills.workspace = true
+semwright-registry.workspace = true
 tempfile.workspace = true
 proptest.workspace = true
 

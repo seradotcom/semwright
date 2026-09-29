@@ -354,3 +354,39 @@ fn report_pass_for_another_output_does_not_certify_this_output() {
     assert_eq!(state.verification, Verdict::Unknown);
     assert!(!state.cache_safe());
 }
+
+#[test]
+fn same_bytes_after_explicit_rebind_do_not_validate_old_derivation() {
+    let (mut graph, access, records) = chain();
+    let id = &records[0].pin.asset;
+    graph
+        .rebind(
+            &access,
+            id,
+            1,
+            DurableLocator::ScopedFile {
+                root: "workspace".into(),
+                relative_path: "replacement.bin".into(),
+            },
+            "explicit replacement selection".into(),
+        )
+        .unwrap();
+    let mut new = observation(id, "x", 10);
+    new.binding_generation = 2;
+    graph.observe(&access, new).unwrap();
+    assert_eq!(
+        graph
+            .inspect(&access, &records[2].pin.asset)
+            .unwrap()
+            .knowledge
+            .freshness,
+        Freshness::Unknown
+    );
+    assert!(
+        !graph
+            .inspect(&access, &records[2].pin.asset)
+            .unwrap()
+            .knowledge
+            .cache_safe()
+    );
+}
