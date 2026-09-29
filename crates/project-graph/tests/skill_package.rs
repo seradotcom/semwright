@@ -21,8 +21,8 @@ fn continuity_skill_uses_real_catalog_and_bundler_without_claiming_runtime_execu
     let report = skills::conformance_test(&package, &catalog, env!("CARGO_PKG_VERSION")).unwrap();
     assert!(report.pass);
     assert_eq!(report.script_execution, "disabled");
-    assert_eq!(report.examples.checked, 2);
-    assert_eq!(report.examples.passed, 2);
+    assert_eq!(report.examples.checked, 4);
+    assert_eq!(report.examples.passed, 4);
     assert_eq!(report.executed_operations, 0);
     let temp = tempfile::tempdir().unwrap();
     let copy = temp.path().join("semwright-project-continuity");
@@ -32,6 +32,8 @@ fn continuity_skill_uses_real_catalog_and_bundler_without_claiming_runtime_execu
         ".semwright/requirements.json",
         ".semwright/examples/discover.json",
         ".semwright/examples/describe.json",
+        ".semwright/examples/project-create.json",
+        ".semwright/examples/impact.json",
     ] {
         let target = copy.join(relative);
         std::fs::create_dir_all(target.parent().unwrap()).unwrap();
@@ -59,7 +61,7 @@ fn continuity_skill_uses_real_catalog_and_bundler_without_claiming_runtime_execu
         bundle.sha256,
         semwright_project_graph::composition::Digest::of_bytes(&bytes).as_str()
     );
-    let evidence = serde_json::json!({"schema_version":1,"validation":validation,"conformance":report,"bundle":bundle,"runtime_gate":"BLOCKED: Project Graph Broker routes not integrated","native":false,"executed_project_operations":0});
+    let evidence = serde_json::json!({"schema_version":1,"validation":validation,"conformance":report,"bundle":bundle,"runtime_gate":"Broker route execution evidence is produced by the separate core integration lane; native cross-app and rebuild execution remain open","native":false,"executed_project_operations":0});
     std::fs::write(
         output.join("skill-package.json"),
         serde_json::to_vec_pretty(&evidence).unwrap(),

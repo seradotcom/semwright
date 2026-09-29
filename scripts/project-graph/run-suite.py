@@ -70,6 +70,65 @@ try:
         (out / "schemas.json").write_text(schemas)
         run("rustdoc", ["cargo", "doc", *package, *features, "--no-deps"])
         if suite == "full":
+            run(
+                "integration-format",
+                [
+                    "cargo", "fmt",
+                    "-p", "semwright-core",
+                    "-p", "semwright-platform-services",
+                    "-p", "semwright-daemon",
+                    "--", "--check",
+                ],
+            )
+            broker_inventory = run(
+                "broker-inventory",
+                ["cargo", "test", "--locked", "-p", "semwright-core", "--test", "project_graph", "--", "--list"],
+            )
+            broker_expected = len(re.findall(r"^.+: test$", broker_inventory, re.MULTILINE))
+            report["broker_requested_tests"] = broker_expected
+            if broker_expected < 3:
+                raise RuntimeError("missing Broker Project Graph test inventory")
+            broker_tests = run(
+                "broker-tests",
+                ["cargo", "test", "--locked", "-p", "semwright-core", "--test", "project_graph"],
+                check=False,
+            )
+            broker_summaries = re.findall(
+                r"^test result: (?:ok|FAILED)\. (\d+) passed; (\d+) failed; (\d+) ignored;",
+                broker_tests,
+                re.MULTILINE,
+            )
+            broker_passed = sum(int(row[0]) for row in broker_summaries)
+            broker_failed = sum(int(row[1]) for row in broker_summaries)
+            broker_ignored = sum(int(row[2]) for row in broker_summaries)
+            report["broker_executed_tests"] = broker_passed + broker_failed
+            if (
+                report["steps"][-1]["exit_code"]
+                or broker_failed
+                or broker_ignored
+                or broker_passed != broker_expected
+            ):
+                raise RuntimeError("Broker Project Graph tests failed or were skipped")
+            principal_tests = run(
+                "principal-tests",
+                [
+                    "cargo", "test", "--locked",
+                    "-p", "semwright-platform-services",
+                    "durable_user_principal_excludes_broker_or_logon_session_identity",
+                ],
+                check=False,
+            )
+            principal_summaries = re.findall(
+                r"^test result: (?:ok|FAILED)\. (\d+) passed; (\d+) failed; (\d+) ignored;",
+                principal_tests,
+                re.MULTILINE,
+            )
+            principal_passed = sum(int(row[0]) for row in principal_summaries)
+            principal_failed = sum(int(row[1]) for row in principal_summaries)
+            if report["steps"][-1]["exit_code"] or principal_failed or principal_passed != 1:
+                raise RuntimeError("durable OS principal regression did not execute exactly once")
+            report["principal_tests"] = principal_passed
+            run("daemon-wiring", ["cargo", "check", "--locked", "-p", "semwright-daemon"])
             run("bounded-fuzz", [sys.executable, "scripts/project-graph/fuzz-lane.py", "run"])
         report["outcome"] = "PASS"
 except Exception as error:

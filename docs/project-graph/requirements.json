@@ -33,10 +33,10 @@
         "same_bytes_after_explicit_rebind_do_not_validate_old_derivation",
         "instance_identity_survives_in_place_edit_but_not_same_path_replacement"
       ],
-      "tested_sha": null,
-      "run_id": null,
-      "job_id": null,
-      "evidence": "Implemented; final exact-SHA full lane 36521594559 is queued."
+      "tested_sha": "673392d683fc4e6d355440f0d9d86f1bfc040f21",
+      "run_id": 36522866949,
+      "job_id": 109259374416,
+      "evidence": "Exact ancestor full lane executed 62/62 tests, zero failed/ignored, fmt/clippy/schemas/rustdoc and four bounded fuzz targets PASS. Implemented; final exact-SHA full lane 36521594559 is queued. Final Broker-integrated candidate must rerun before closure."
     },
     {
       "requirement": "C03",
@@ -52,10 +52,10 @@
         "receipt_cannot_substitute_source_base_while_retaining_valid_revision_pins",
         "reopen_preserves_history_and_does_not_reuse_observation_epoch"
       ],
-      "tested_sha": null,
-      "run_id": null,
-      "job_id": null,
-      "evidence": "Implemented; awaiting final full-lane evidence."
+      "tested_sha": "673392d683fc4e6d355440f0d9d86f1bfc040f21",
+      "run_id": 36522866949,
+      "job_id": 109259374416,
+      "evidence": "Exact ancestor full lane executed 62/62 tests, zero failed/ignored, fmt/clippy/schemas/rustdoc and four bounded fuzz targets PASS. Implemented; awaiting Final Broker-integrated candidate must rerun before closure."
     },
     {
       "requirement": "C04",
@@ -70,10 +70,10 @@
         "external_output_change_is_diverged_and_downstream_stale",
         "report_pass_for_another_output_does_not_certify_this_output"
       ],
-      "tested_sha": null,
-      "run_id": null,
-      "job_id": null,
-      "evidence": "Implemented; awaiting final full-lane evidence."
+      "tested_sha": "673392d683fc4e6d355440f0d9d86f1bfc040f21",
+      "run_id": 36522866949,
+      "job_id": 109259374416,
+      "evidence": "Exact ancestor full lane executed 62/62 tests, zero failed/ignored, fmt/clippy/schemas/rustdoc and four bounded fuzz targets PASS. Implemented; awaiting Final Broker-integrated candidate must rerun before closure."
     },
     {
       "requirement": "C05",
@@ -88,10 +88,10 @@
         "denied_and_missing_remain_distinct_and_required_dependency_is_not_current",
         "native_missing_budget_and_read_denial_have_distinct_protocol_errors"
       ],
-      "tested_sha": null,
-      "run_id": null,
-      "job_id": null,
-      "evidence": "Fixture and confined-native primitive cases implemented; no Broker graph route yet."
+      "tested_sha": "673392d683fc4e6d355440f0d9d86f1bfc040f21",
+      "run_id": 36522866949,
+      "job_id": 109259374416,
+      "evidence": "Exact ancestor full lane 36522866949 executed 62/62 tests with deny/offline/MISSING and confined native-file negatives passing. Broker project routes are now source-integrated; final exact-SHA Broker/daemon lane is pending."
     },
     {
       "requirement": "C06",
@@ -106,10 +106,10 @@
         "incremental_receipt_index_matches_independent_full_fixed_point",
         "bounded_impact_reports_truncation_and_cancelled_scope"
       ],
-      "tested_sha": null,
-      "run_id": null,
-      "job_id": null,
-      "evidence": "Incremental/differential implementation present; final full lane pending."
+      "tested_sha": "673392d683fc4e6d355440f0d9d86f1bfc040f21",
+      "run_id": 36522866949,
+      "job_id": 109259374416,
+      "evidence": "Exact ancestor full lane executed 62/62 tests, zero failed/ignored, fmt/clippy/schemas/rustdoc and four bounded fuzz targets PASS. Incremental/differential implementation present; Final Broker-integrated candidate must rerun before closure."
     },
     {
       "requirement": "C07",
@@ -124,10 +124,10 @@
         "watcher_registration_and_restart_never_reuse_old_rescan_evidence",
         "restart_and_watcher_gap_require_new_observation"
       ],
-      "tested_sha": null,
-      "run_id": null,
-      "job_id": null,
-      "evidence": "Implemented without a background watcher daemon; final full lane pending."
+      "tested_sha": "673392d683fc4e6d355440f0d9d86f1bfc040f21",
+      "run_id": 36522866949,
+      "job_id": 109259374416,
+      "evidence": "Exact ancestor full lane executed 62/62 tests, zero failed/ignored, fmt/clippy/schemas/rustdoc and four bounded fuzz targets PASS. Implemented without a background watcher daemon; Final Broker-integrated candidate must rerun before closure."
     },
     {
       "requirement": "C08",
@@ -141,10 +141,10 @@
         "scope_filter_never_reveals_hidden_names_or_counts",
         "cursor_binds_actual_visibility_even_when_grant_digest_is_reused"
       ],
-      "tested_sha": null,
-      "run_id": null,
-      "job_id": null,
-      "evidence": "Implemented; final full lane pending."
+      "tested_sha": "673392d683fc4e6d355440f0d9d86f1bfc040f21",
+      "run_id": 36522866949,
+      "job_id": 109259374416,
+      "evidence": "Exact ancestor full lane executed 62/62 tests, zero failed/ignored, fmt/clippy/schemas/rustdoc and four bounded fuzz targets PASS. Implemented; Final Broker-integrated candidate must rerun before closure."
     },
     {
       "requirement": "C09",
@@ -153,18 +153,21 @@
       "implementation": [
         "crates/project-graph/src/rebuild.rs",
         "crates/project-graph/src/{model,graph}.rs ExternalIntent recovery boundary",
-        "docs/project-graph/P1_REBUILD_HANDOFF.md",
-        "docs/project-graph/integration-drafts/project_graph.rs"
+        "crates/core/src/project_graph.rs graph-state Broker adapter",
+        "crates/core/src/lib.rs existing Broker core dispatch",
+        "docs/project-graph/P1_REBUILD_HANDOFF.md"
       ],
       "tests": [
         "altered_reservation_cannot_be_promoted_even_with_a_recomputed_digest",
         "reservation_binds_session_grants_snapshot_and_restart_epoch",
-        "changed_runtime_or_cancelled_attempt_does_not_enter_the_controller"
+        "changed_runtime_or_cancelled_attempt_does_not_enter_the_controller",
+        "project_routes_reenter_broker_policy_and_survive_session_rotation",
+        "filesystem_read_grant_alone_cannot_mutate_project_state"
       ],
       "tested_sha": null,
       "run_id": null,
       "job_id": null,
-      "evidence": "Typed proposal, A PlanVault reservation and durable external-intent recovery boundary exist, but Broker/core/daemon graph route is not wired or compiled. Durable authenticated principal propagation is unresolved across the current daemon boundary. No Broker trace/deny evidence."
+      "evidence": "Graph-state project.* routing now reuses Broker schema/policy/audit/execution gating and an OS-derived durable principal. Typed rebuild remains blocked because RebuildCatalog still needs trusted native capability-to-preparation bindings and there is intentionally no project.rebuild.execute route or second scheduler."
     },
     {
       "requirement": "C10",
@@ -180,10 +183,10 @@
         "unavailable_catalog_is_a_blocker_not_provider_substitution",
         "diverged_output_is_not_silently_overwritten_by_rebuild"
       ],
-      "tested_sha": null,
-      "run_id": null,
-      "job_id": null,
-      "evidence": "Implemented conservatively; final full lane pending."
+      "tested_sha": "673392d683fc4e6d355440f0d9d86f1bfc040f21",
+      "run_id": 36522866949,
+      "job_id": 109259374416,
+      "evidence": "Exact ancestor full lane executed 62/62 tests, zero failed/ignored, fmt/clippy/schemas/rustdoc and four bounded fuzz targets PASS. Implemented conservatively; Final Broker-integrated candidate must rerun before closure."
     },
     {
       "requirement": "C11",
@@ -204,10 +207,10 @@
         "external_applying_intent_reopens_unknown_and_cannot_be_redispatched",
         "external_intent_requires_dispatch_and_matching_persisted_receipt"
       ],
-      "tested_sha": null,
-      "run_id": null,
-      "job_id": null,
-      "evidence": "SQLite journal/index boundaries plus durable external PREPARED/APPLYING/terminal ledger are implemented. Interrupted APPLYING reopens UNKNOWN and cannot redispatch. Native host wiring around real Broker/provider calls remains open; final exact-SHA full lane pending."
+      "tested_sha": "673392d683fc4e6d355440f0d9d86f1bfc040f21",
+      "run_id": 36522866949,
+      "job_id": 109259374416,
+      "evidence": "Exact ancestor full lane 36522866949 passed store fault/reopen/recovery tests. Durable PREPARED/APPLYING/terminal ExternalIntent state is implemented; interrupted APPLYING reopens UNKNOWN and cannot redispatch. Wiring that ledger around a future native rebuild dispatch remains part of C09/native integration, not a local-transaction claim. Final Broker-integrated candidate rerun pending."
     },
     {
       "requirement": "C12",
@@ -221,23 +224,25 @@
         "imported_manifest_never_inherits_identity_locator_receipts_or_current",
         "malformed_manifest_and_parent_cycle_leave_target_unchanged"
       ],
-      "tested_sha": null,
-      "run_id": null,
-      "job_id": null,
-      "evidence": "Portable import/export is declaration-only; tombstone never deletes user files; no destructive user-file GC is implemented. Final full lane pending."
+      "tested_sha": "673392d683fc4e6d355440f0d9d86f1bfc040f21",
+      "run_id": 36522866949,
+      "job_id": 109259374416,
+      "evidence": "Exact ancestor full lane executed 62/62 tests, zero failed/ignored, fmt/clippy/schemas/rustdoc and four bounded fuzz targets PASS. Portable import/export is declaration-only; tombstone never deletes user files; no destructive user-file GC is implemented. Final Broker-integrated candidate must rerun before closure."
     },
     {
       "requirement": "C13",
       "condition": "Native Blender GLB Godot pipeline",
       "status": "BLOCKED",
       "implementation": [
-        "C P0 reviewed by E PR #175; C reviewed E receipt candidate at 872aa964a8864d138bac43e6eac46306b498e4a7"
+        "C P0 consumed by D/E",
+        "E receipt candidate reviewed at 872aa964a8864d138bac43e6eac46306b498e4a7",
+        "D native observation source observed at 6904d263a2b0f9b5161bafc30973de5f7193e712"
       ],
       "tests": [],
       "tested_sha": null,
       "run_id": null,
       "job_id": null,
-      "evidence": "E receipt shape is compatible and conservative; E native run 36521454495 is pending. D model run 36508797435 at 568e1edc14528436d49b56dfcfb990756f9a364e succeeded, but D native GLB import/reopen observation adapter is still implementing. C Broker route remains unwired."
+      "evidence": "E receipt shape is compatible and conservative; D publishes native observation/save-reopen machinery and persistent LogicalAssetId metadata. The complete Blender\u2192GLB\u2192Godot import/readback activity with admitted C receipts on one integrated SHA is still absent, so C13 remains blocked."
     },
     {
       "requirement": "C14",
@@ -250,23 +255,27 @@
       "tested_sha": null,
       "run_id": null,
       "job_id": null,
-      "evidence": "No A/B native AV receipt flow has been consumed into C and C Broker graph routing is unwired. A candidate checks are still running; no PASS transferred."
+      "evidence": "A C1/PR #168 has been inspected, but no A/B native AV/audio receipt flow has been consumed into C on one integrated tested SHA. C14 remains blocked independently of graph-state Broker routing."
     },
     {
       "requirement": "C15",
       "condition": "Usable continuity Skill with real requirements",
-      "status": "PARTIAL",
+      "status": "PENDING_CI",
       "implementation": [
         "skills/semwright-project-continuity",
-        "crates/project-graph/tests/skill_package.rs"
+        "crates/project-graph/tests/skill_package.rs",
+        "schemas/commands.json registered project.* descriptors",
+        "crates/core/tests/project_graph.rs Broker route tests"
       ],
       "tests": [
-        "continuity_skill_uses_real_catalog_and_bundler_without_claiming_runtime_execution"
+        "continuity_skill_uses_real_catalog_and_bundler_without_claiming_runtime_execution",
+        "project_routes_reenter_broker_policy_and_survive_session_rotation",
+        "project_catalog_preview_exposes_availability_without_granting_management"
       ],
-      "tested_sha": null,
-      "run_id": null,
-      "job_id": null,
-      "evidence": "Package/requirements/examples are implemented against real Skills/Registry tooling, but operational graph routes are absent, so the Skill cannot yet be called runtime-usable. Final package test is in the queued full lane."
+      "tested_sha": "673392d683fc4e6d355440f0d9d86f1bfc040f21",
+      "run_id": 36522866949,
+      "job_id": 109259374416,
+      "evidence": "Run 36522866949 at exact 673392d produced the prior real .swskill/lock/package. Source now binds registered project.* requirements plus four schema examples and real Broker route tests; final exact-SHA package/Broker rerun is required before PASS."
     },
     {
       "requirement": "C16",
@@ -283,10 +292,21 @@
         "four bounded fuzz targets: manifest, receipt, traversal, store",
         "hostile identity/manifest/cursor/store cases across test suite"
       ],
-      "tested_sha": null,
-      "run_id": null,
-      "job_id": null,
-      "evidence": "Remote fuzz lock is pinned at SHA-256 3ff72edc7795d5e917deb96c35a2c0a4a66657f95b492856d7fccf08d0880662. Full exact-SHA run 36521594559 for 2776300 is queued; package/audit/global gates must be checked separately."
+      "tested_sha": "673392d683fc4e6d355440f0d9d86f1bfc040f21",
+      "run_id": 36522866949,
+      "job_id": 109259374416,
+      "evidence": "Run 36522866949 at exact 673392d passed scale fixture (10k resources/50k edges), package generation and four bounded fuzz targets (manifest 1,057,434; receipt 434,000; traversal 16,123; store 1,793 executions). Final Broker-integrated exact-SHA run plus applicable global source/supply-chain checks are still required."
     }
-  ]
+  ],
+  "last_full_pass": {
+    "source_sha": "673392d683fc4e6d355440f0d9d86f1bfc040f21",
+    "run_id": 36522866949,
+    "job_id": 109259374416,
+    "requested_tests": 62,
+    "executed_tests": 62,
+    "failed_tests": 0,
+    "ignored_tests": 0,
+    "outcome": "PASS",
+    "scope": "portable-model-not-native"
+  }
 }

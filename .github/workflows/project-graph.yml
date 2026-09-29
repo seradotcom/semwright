@@ -4,11 +4,20 @@ on:
     branches: [feat/project-graph]
     paths:
       - 'crates/project-graph/**'
+      - 'crates/core/Cargo.toml'
+      - 'crates/core/src/lib.rs'
+      - 'crates/core/src/project_graph.rs'
+      - 'crates/core/tests/project_graph.rs'
+      - 'crates/daemon/src/semwrightd.rs'
+      - 'crates/platform-services/src/lib.rs'
       - 'scripts/project-graph/**'
       - '.github/workflows/project-graph.yml'
       - 'Cargo.lock'
       - 'Cargo.toml'
+      - 'schemas/commands.json'
+      - 'schemas/builtin-provenance.json'
       - 'skills/semwright-project-continuity/**'
+      - 'tests/python/test_contracts.py'
       - 'crates/platform-api/src/filesystem.rs'
       - 'crates/platform-linux-sys/src/filesystem.rs'
   workflow_dispatch:

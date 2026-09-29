@@ -36,6 +36,6 @@ There is no scheduler or background process in this module. Replanning after con
 
 These tests use synthetic host-side model observations and are NOT Blender/Godot/AV native evidence. The diagnostic script inventories and runs all crate tests on the exact pushed SHA; a queued run, passing test step followed by failed Clippy, or the earlier P0 PASS is not a P1 release PASS. The normal source lane is `cargo test --locked -p semwright-project-graph --features store --all-targets`, in GitHub Actions only, followed by strict Clippy, generated schemas and rustdoc.
 
-## Integration request to the concurrent C runtime work
+## Runtime integration boundary
 
-Expose read-only proposals only through catalog-registered graph routes and derive `ProjectAccess` from authenticated runtime/grants, never from user-supplied Owner. Wire reservations using A's existing vault/controller. Do not claim `PROJECT_GRAPH_READY` from this contract or install a second execution engine. Both Blender-to-GLB-to-Godot and motion/AV/audio require their own real source-SHA-bound receipts and a combined candidate.
+The candidate now derives `ProjectAccess` from daemon-owned OS identity plus current Broker session/grants for registered graph-state routes. Rebuild proposal/reservation remains intentionally unexposed: a trusted `RebuildCatalog` still needs native-owner capability-to-preparation bindings, and any actual application step must use A's vault/controller then re-enter Broker policy. Do not add a generic execute-plan command or second engine to close that gap. Blender-to-GLB-to-Godot and motion/AV/audio still require their own source-SHA-bound native receipts and a combined candidate.
