@@ -82,7 +82,7 @@ def main() -> None:
     if head != args.head:
         raise SystemExit("head must be an exact SHA")
     config = json.loads(CONFIG_PATH.read_text())
-    if set(config) != {"version", "default_mode", "certification_trailer"}:
+    if set(config) != {"version", "default_mode", "certification_trailer", "certification_request"}:
         raise SystemExit("invalid Blender authoring CI config shape")
     if config["version"] != 2 or config["default_mode"] != "iteration":
         raise SystemExit("unsupported Blender authoring CI config")
@@ -91,6 +91,13 @@ def main() -> None:
         raise SystemExit("certification trailer must be nonempty")
     message = git("show", "-s", "--format=%B", head)
     certification = cert_trailer in {line.strip() for line in message.splitlines()}
+    request = config["certification_request"]
+    if request is not None and (not isinstance(request, str) or len(request) != 40):
+        raise SystemExit("certification_request must be null or a full parent SHA")
+    if certification:
+        parent = git("rev-parse", f"{head}^")
+        if request != parent:
+            raise SystemExit("certification_request must equal the candidate commit parent SHA")
     paths = changed_paths(args.base, head)
 
     areas = {
@@ -129,6 +136,7 @@ def main() -> None:
         "source_sha": head,
         "base_sha": args.base or None,
         "certification_trailer": cert_trailer if certification else None,
+        "certification_request": request,
         "changed_paths": paths,
         "areas": areas,
         "need_rust": need_rust,

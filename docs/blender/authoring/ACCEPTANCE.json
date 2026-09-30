@@ -137,7 +137,7 @@
       "id": "E16",
       "condition": "security/fuzz/CI exact-SHA without aesthetic auto-claim",
       "implementation": "area-directed iteration CI plus a separate exact-SHA certification mode; Blender launch is factory-clean with autoexec disabled; cancellation is checked before plan consumption and between bounded native operations; hostile GLB closure; bounded cargo-fuzz; deterministic source backup; no aesthetic PASS",
-      "test": "ordinary pushes classify changed paths and run only affected model/native/export/security/fuzz/Skill/package gates; an integration candidate must carry `Semwright-Certify: blender-authoring`, which forces the 50-case model suite, native suite, startup-security unit test, pre-cancel semantics, fresh-Blender oracle, 9 hostile cases, 20s/64KiB fuzz, Skill/source package manifests and finalizer evidence on that exact SHA",
+      "test": "ordinary pushes classify changed paths and run only affected model/native/export/security/fuzz/Skill/package gates; an integration candidate must carry `Semwright-Certify: blender-authoring` and bind `certification_request` to its parent SHA, which forces the 50-case model suite, native suite, startup-security unit test, pre-cancel semantics, fresh-Blender oracle, 9 hostile cases, 20s/64KiB fuzz, Skill/source package manifests and finalizer evidence on that exact SHA",
       "status": "CI_PENDING",
       "open": "final exact-SHA evidence and cross-app D roundtrip remain before readiness"
     }
