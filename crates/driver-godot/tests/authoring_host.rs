@@ -658,7 +658,7 @@ async fn empty_project_authoring_flows_through_broker_driver_host_and_provider()
         "technical 2D game missing pinned audio cue dependency"
     );
 
-    let native_persistence = broker_call(
+    let native_persistence = broker_call_with_native_diagnostic(
         &broker,
         &session,
         "driver.godot.composition.native.verify",
@@ -667,6 +667,7 @@ async fn empty_project_authoring_flows_through_broker_driver_host_and_provider()
             "scene":"arena",
             "verification":{"kind":"persistence"}
         }),
+        fixture._state.path(),
     )
     .await;
     assert_eq!(native_persistence["kind"], "persistence");
@@ -1580,7 +1581,7 @@ async fn persistence_lane_reopens_in_fresh_process_and_preserves_dependencies() 
     .await;
     assert_eq!(applied["execution_status"], "completed");
 
-    let persisted = broker_call(
+    let persisted = broker_call_with_native_diagnostic(
         &host.broker,
         &host.session,
         "driver.godot.composition.native.verify",
@@ -1589,6 +1590,7 @@ async fn persistence_lane_reopens_in_fresh_process_and_preserves_dependencies() 
             "scene":"arena",
             "verification":{"kind":"persistence"}
         }),
+        host.fixture._state.path(),
     )
     .await;
     assert_eq!(persisted["kind"], "persistence");
