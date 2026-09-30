@@ -30,8 +30,63 @@ fn is_appcontainer() -> bool {
     result.is_ok() && returned == std::mem::size_of::<u32>() as u32 && value != 0
 }
 
+fn session_loop() -> std::io::Result<()> {
+    use std::io::{ErrorKind, Read, Write};
+
+    const MAX_FRAME: usize = 256 * 1024;
+    let stdin = std::io::stdin();
+    let stdout = std::io::stdout();
+    let mut input = stdin.lock();
+    let mut output = stdout.lock();
+    loop {
+        let mut header = [0u8; 4];
+        match input.read_exact(&mut header) {
+            Ok(()) => {}
+            Err(error) if error.kind() == ErrorKind::UnexpectedEof => return Ok(()),
+            Err(error) => return Err(error),
+        }
+        let length = u32::from_be_bytes(header) as usize;
+        if length > MAX_FRAME {
+            return Err(std::io::Error::new(
+                ErrorKind::InvalidData,
+                "session frame exceeds fixture bound",
+            ));
+        }
+        let mut payload = vec![0u8; length];
+        input.read_exact(&mut payload)?;
+        output.write_all(&header)?;
+        output.write_all(&payload)?;
+        output.flush()?;
+    }
+}
+
 fn main() {
     let args = std::env::args().skip(1).collect::<Vec<_>>();
+    if args.iter().any(|arg| arg == "--session") {
+        let lifecycle_marker = args.iter().any(|arg| arg == "--lifecycle-marker");
+        if args
+            .iter()
+            .any(|arg| !matches!(arg.as_str(), "--session" | "--lifecycle-marker"))
+            || args.iter().filter(|arg| *arg == "--session").count() != 1
+        {
+            eprintln!("session mode received an unsupported argument");
+            std::process::exit(12);
+        }
+        if lifecycle_marker && std::fs::write("started.marker", b"started").is_err() {
+            std::process::exit(14);
+        }
+        let result = session_loop();
+        if lifecycle_marker
+            && result.is_ok()
+            && std::fs::write("finished.marker", b"finished").is_err()
+        {
+            std::process::exit(15);
+        }
+        if result.is_err() {
+            std::process::exit(13);
+        }
+        return;
+    }
     let print_cwd = args.iter().any(|arg| arg == "--print-cwd");
     let print_mount_table = args.iter().any(|arg| arg == "--print-mount-table");
     let lifecycle_marker = args.iter().any(|arg| arg == "--lifecycle-marker");

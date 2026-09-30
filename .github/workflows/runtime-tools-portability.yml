@@ -52,6 +52,7 @@ jobs:
           cargo test --locked -p semwright-driver-sdk tests::v6_detached_runtime_tool_jobs_are_bounded_and_versioned -- --exact
           cargo test --locked -p semwright-driver-sdk tests::v7_runtime_tool_path_refs_are_typed_bounded_and_dependency_scoped -- --exact
           cargo test --locked -p semwright-driver-sdk tests::v8_runtime_tool_system_config_is_declared_and_version_gated -- --exact
+          cargo test --locked -p semwright-driver-sdk tests::runtime_tool_session_roundtrip_is_bounded_and_cleanup_survives_cancel -- --exact
       - run: cargo clippy --locked -p semwright-driver-sdk --all-targets --no-deps -- -D warnings
 
   linux-v5-host:
@@ -62,6 +63,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
         with:
           toolchain: 1.98.1
+          components: clippy
       - name: Install and preflight Bubblewrap
         run: |
           if ! command -v bwrap >/dev/null; then
@@ -84,6 +86,10 @@ jobs:
             fi
           fi
           bwrap --version
+      - name: Linux runtime-tool implementation lint
+        run: |
+          cargo clippy --locked -p semwright-platform-linux-sys --all-targets --no-deps -- -D warnings
+          cargo clippy --locked -p semwright-driver-host --features test-tools --all-targets --no-deps -- -D warnings
       - name: Build sandbox helper
         run: cargo build --locked -p semwright-plugin-host --bin semwright-sandbox
       - name: Linux v5 Host-mediated runtime tool
@@ -114,6 +120,13 @@ jobs:
           cargo test --locked -p semwright-driver-host --features test-tools \
             --test runtime_tools_linux linux_v8_runtime_tool_receives_only_declared_system_config \
             -- --ignored --exact --nocapture
+      - name: Linux v8 provider-scoped runtime-tool sessions
+        env:
+          SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
+        run: |
+          cargo test --locked -p semwright-driver-host --features test-tools \
+            --test runtime_tools_linux linux_v8_runtime_tool_sessions_are_provider_scoped_and_reaped \
+            -- --ignored --exact --nocapture
 
   windows-v5-host:
     runs-on: windows-2025
@@ -127,3 +140,4 @@ jobs:
       - run: cargo test --locked -p semwright-driver-host --test windows_secure_host secure_windows_runtime_tool_jobs_are_detached_session_bound_and_cancellable -- --exact
       - run: cargo test --locked -p semwright-driver-host --test windows_secure_host secure_windows_v7_runtime_tool_paths_are_mount_and_dependency_scoped -- --exact
       - run: cargo test --locked -p semwright-driver-host --test windows_secure_host secure_windows_v8_runtime_tool_receives_only_declared_system_config -- --exact
+      - run: cargo test --locked -p semwright-driver-host --test windows_secure_host secure_windows_v8_runtime_tool_sessions_are_provider_scoped_and_reaped -- --exact
