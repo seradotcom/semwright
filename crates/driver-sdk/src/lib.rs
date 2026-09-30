@@ -2251,10 +2251,14 @@ async fn serve_v1<D: Driver>(
             | Request::ToolFailure { .. }
             | Request::ToolJobStarted { .. }
             | Request::ToolJobState { .. }
-            | Request::ToolJobFailure { .. } => {
+            | Request::ToolJobFailure { .. }
+            | Request::ToolSessionStarted { .. }
+            | Request::ToolSessionFrame { .. }
+            | Request::ToolSessionClosed { .. }
+            | Request::ToolSessionFailure { .. } => {
                 return Err(Error::new(
                     ErrorCode::ProtocolMismatch,
-                    "Driver protocol v1 received a v2-only or duplicate request",
+                    "Driver protocol v1 received a newer-protocol or duplicate request",
                 ));
             }
         }
