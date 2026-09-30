@@ -1,38 +1,45 @@
-use crate::{
-    authoring::{
-        native_observation::{
-            MAX_OBSERVATION_BYTES, NATIVE_VERSION, NativeEvidenceBinding, NativeObservation,
-            NativeRequest, NativeVerification, NativeVerifyRequest, NativeVerifyResult,
-            PROBE_SOURCE, ProbeMode, decode_observation, persistence_value,
-        },
-        runtime::NativePlanContext,
-        store::{Snapshot, Store},
-        validate,
+#[cfg(target_os = "linux")]
+use crate::authoring::{
+    native_observation::{
+        MAX_OBSERVATION_BYTES, NATIVE_VERSION, NativeEvidenceBinding, NativeObservation,
+        NativeRequest, NativeVerification, NativeVerifyRequest, NativeVerifyResult, PROBE_SOURCE,
+        ProbeMode, decode_observation, persistence_value,
     },
-    config::{AuthoringConfig, ProjectConfig, RunnerConfig},
+    runtime::NativePlanContext,
+    store::{Snapshot, Store},
+    validate,
 };
+use crate::config::{AuthoringConfig, ProjectConfig, RunnerConfig};
 use semwright_driver_sdk::DriverExecutionContext;
-use semwright_types::{Error, ErrorCode, JobArtifact, JobProgress, Result, unique_id};
+#[cfg(target_os = "linux")]
+use semwright_types::unique_id;
+use semwright_types::{Error, ErrorCode, JobArtifact, JobProgress, Result};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{
-    collections::{BTreeMap, BTreeSet, HashMap},
-    io::{Read, Write},
+    collections::HashMap,
     os::unix::process::CommandExt,
     path::{Component, Path, PathBuf},
     process::Stdio,
     time::Duration,
+};
+#[cfg(target_os = "linux")]
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    io::Write,
 };
 use tokio::{io::AsyncReadExt, process::Command};
 use tokio_util::sync::CancellationToken;
 
 const MAX_LOG: usize = 64 * 1024;
 
+#[cfg(target_os = "linux")]
 struct StagedManagedProject {
     path: PathBuf,
     snapshot: Snapshot,
     expected: BTreeMap<String, semwright_semantic_composition::Digest>,
 }
+#[cfg(target_os = "linux")]
 impl StagedManagedProject {
     fn verify_sources(&self) -> Result<()> {
         for (relative, expected) in &self.expected {
@@ -54,6 +61,7 @@ impl StagedManagedProject {
         Ok(())
     }
 }
+#[cfg(target_os = "linux")]
 impl Drop for StagedManagedProject {
     fn drop(&mut self) {
         let _ = std::fs::remove_dir_all(&self.path);
@@ -64,6 +72,7 @@ impl Drop for StagedManagedProject {
 pub struct Runner {
     config: RunnerConfig,
     projects: HashMap<String, PathBuf>,
+    #[cfg(target_os = "linux")]
     authoring: Option<AuthoringConfig>,
 }
 
@@ -78,9 +87,12 @@ impl Runner {
             .iter()
             .map(|p| (p.project.clone(), p.root.clone()))
             .collect();
+        #[cfg(not(target_os = "linux"))]
+        let _ = authoring;
         Ok(Self {
             config,
             projects,
+            #[cfg(target_os = "linux")]
             authoring: authoring.cloned(),
         })
     }
@@ -125,6 +137,7 @@ impl Runner {
         Ok(value)
     }
 
+    #[cfg(target_os = "linux")]
     pub(crate) async fn execute_native_verification(
         &self,
         request: NativeVerifyRequest,
@@ -146,6 +159,7 @@ impl Runner {
         result
     }
 
+    #[cfg(target_os = "linux")]
     fn write_private_native_diagnostic(&self, error: &Error) {
         let Some(authoring) = self.authoring.as_ref() else {
             return;
@@ -184,15 +198,19 @@ impl Runner {
         cancellation: Option<CancellationToken>,
     ) -> Result<Value> {
         let source_root = self.project_root(args)?;
+        #[cfg(target_os = "linux")]
         let staged = args
             .get("managed_project")
             .and_then(Value::as_str)
             .map(|project| self.stage_managed_project(project))
             .transpose()?;
+        #[cfg(target_os = "linux")]
         let root = staged
             .as_ref()
             .map(|project| project.path.as_path())
             .unwrap_or(source_root.as_path());
+        #[cfg(not(target_os = "linux"))]
+        let root = source_root.as_path();
 
         let (argv, artifact, timeout) = match command {
             "driver.godot.project.validate" => (
@@ -354,45 +372,56 @@ impl Runner {
                 })
             }
             (None, Some(project)) => {
-                validate::id(project).map_err(|error| Error::invalid(error.to_string()))?;
-                let authoring = self.authoring.as_ref().ok_or_else(|| {
-                    Error::new(
-                        ErrorCode::PermissionDenied,
-                        "Managed Godot project execution requires an authoring output grant",
-                    )
-                })?;
-                let snapshot = Store::new(authoring.clone())?.snapshot(project)?;
-                if snapshot.status != "IN_SYNC" {
-                    return Err(Error::new(
-                        ErrorCode::Conflict,
-                        format!(
-                            "Managed Godot project must be IN_SYNC before native execution ({})",
-                            snapshot.status
-                        ),
-                    ));
-                }
-                let root = authoring.output_root.join(project);
-                let metadata = std::fs::symlink_metadata(&root).map_err(|error| {
-                    if error.kind() == std::io::ErrorKind::NotFound {
-                        Error::new(ErrorCode::NotFound, "Managed Godot project does not exist")
-                    } else {
-                        error.into()
+                #[cfg(target_os = "linux")]
+                {
+                    validate::id(project).map_err(|error| Error::invalid(error.to_string()))?;
+                    let authoring = self.authoring.as_ref().ok_or_else(|| {
+                        Error::new(
+                            ErrorCode::PermissionDenied,
+                            "Managed Godot project execution requires an authoring output grant",
+                        )
+                    })?;
+                    let snapshot = Store::new(authoring.clone())?.snapshot(project)?;
+                    if snapshot.status != "IN_SYNC" {
+                        return Err(Error::new(
+                            ErrorCode::Conflict,
+                            format!(
+                                "Managed Godot project must be IN_SYNC before native execution ({})",
+                                snapshot.status
+                            ),
+                        ));
                     }
-                })?;
-                if metadata.file_type().is_symlink() || !metadata.is_dir() {
-                    return Err(Error::new(
-                        ErrorCode::PermissionDenied,
-                        "Managed Godot project root must be an owned directory",
-                    ));
+                    let root = authoring.output_root.join(project);
+                    let metadata = std::fs::symlink_metadata(&root).map_err(|error| {
+                        if error.kind() == std::io::ErrorKind::NotFound {
+                            Error::new(ErrorCode::NotFound, "Managed Godot project does not exist")
+                        } else {
+                            error.into()
+                        }
+                    })?;
+                    if metadata.file_type().is_symlink() || !metadata.is_dir() {
+                        return Err(Error::new(
+                            ErrorCode::PermissionDenied,
+                            "Managed Godot project root must be an owned directory",
+                        ));
+                    }
+                    let canonical = root.canonicalize()?;
+                    if canonical != root || !canonical.starts_with(&authoring.output_root) {
+                        return Err(Error::new(
+                            ErrorCode::PermissionDenied,
+                            "Managed Godot project escaped its authoring output grant",
+                        ));
+                    }
+                    Ok(root)
                 }
-                let canonical = root.canonicalize()?;
-                if canonical != root || !canonical.starts_with(&authoring.output_root) {
-                    return Err(Error::new(
-                        ErrorCode::PermissionDenied,
-                        "Managed Godot project escaped its authoring output grant",
-                    ));
+                #[cfg(not(target_os = "linux"))]
+                {
+                    let _ = project;
+                    Err(Error::new(
+                        ErrorCode::Unsupported,
+                        "Managed Godot project execution is only available on Linux",
+                    ))
                 }
-                Ok(root)
             }
             _ => Err(Error::invalid(
                 "Godot runner requires exactly one of project or managed_project",
@@ -400,6 +429,7 @@ impl Runner {
         }
     }
 
+    #[cfg(target_os = "linux")]
     fn stage_managed_project(&self, project: &str) -> Result<StagedManagedProject> {
         let authoring = self.authoring.as_ref().ok_or_else(|| {
             Error::new(
@@ -459,6 +489,7 @@ impl Runner {
         Ok(staged)
     }
 
+    #[cfg(target_os = "linux")]
     async fn native_verify(
         &self,
         request: NativeVerifyRequest,
@@ -632,6 +663,7 @@ impl Runner {
         result
     }
 
+    #[cfg(target_os = "linux")]
     async fn run_native_probe(
         &self,
         staged: &StagedManagedProject,
@@ -925,7 +957,7 @@ fn validate_res(value: &str, suffix: &str) -> Result<()> {
     Ok(())
 }
 
-#[cfg(all(test, unix))]
+#[cfg(all(test, target_os = "linux"))]
 mod tests {
     use super::*;
     use std::os::unix::fs::PermissionsExt;
