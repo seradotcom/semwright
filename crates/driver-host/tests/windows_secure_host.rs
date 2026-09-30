@@ -1002,6 +1002,7 @@ async fn secure_windows_v8_runtime_tool_sessions_are_provider_scoped_and_reaped(
         name: "probe".into(),
         sha256: digest(&owner_tool),
         mounts: vec!["tool-workspace".into()],
+        system_config: vec![],
         dependencies: vec![],
     }];
     let roots = vec![
