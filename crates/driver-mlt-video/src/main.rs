@@ -1102,6 +1102,73 @@ mod tests {
     }
 
     #[test]
+    fn host_media_info_accepts_real_ffprobe_video_and_audio_envelopes() {
+        let video = serde_json::json!({
+            "schema": 1,
+            "operation": "probe",
+            "media": {
+                "format": {
+                    "duration": "2.000000",
+                    "format_name": "matroska,webm",
+                    "size": "4790"
+                },
+                "streams": [{
+                    "codec_type": "video",
+                    "codec_name": "ffv1",
+                    "width": 160,
+                    "height": 90,
+                    "time_base": "1/1000",
+                    "start_time": "0.000000"
+                }]
+            }
+        });
+        let video = host_media_info(&serde_json::to_vec(&video).unwrap()).unwrap();
+        assert!(video.video);
+        assert!(!video.audio);
+        assert_eq!(video.width, Some(160));
+        assert_eq!(video.height, Some(90));
+        assert_eq!(video.duration_num, 2_000_000);
+        assert_eq!(video.duration_den, 1_000_000);
+        assert_eq!(video.codecs, ["ffv1"]);
+
+        let audio = serde_json::json!({
+            "schema": 1,
+            "operation": "probe",
+            "media": {
+                "format": {
+                    "bit_rate": "1536176",
+                    "duration": "2.000000",
+                    "format_name": "wav",
+                    "size": "384044"
+                },
+                "streams": [{
+                    "codec_type": "audio",
+                    "codec_name": "pcm_s16le",
+                    "channels": 2,
+                    "duration": "2.000000",
+                    "duration_ts": 96000,
+                    "sample_rate": "48000",
+                    "time_base": "1/48000"
+                }]
+            }
+        });
+        let audio = host_media_info(&serde_json::to_vec(&audio).unwrap()).unwrap();
+        assert!(audio.audio);
+        assert!(!audio.video);
+        assert_eq!(audio.width, None);
+        assert_eq!(audio.height, None);
+        assert_eq!(audio.duration_num, 96_000);
+        assert_eq!(audio.duration_den, 48_000);
+        assert_eq!(audio.codecs, ["pcm_s16le"]);
+        assert_eq!(
+            audio
+                .frame_capacity(semwright_mlt_video::time::FrameRate::new(25, 1).unwrap())
+                .unwrap(),
+            Some(50)
+        );
+    }
+
+    #[test]
     fn host_catalog_parser_is_strict_and_bounded() {
         let valid = serde_json::json!({
             "schema": 1,
