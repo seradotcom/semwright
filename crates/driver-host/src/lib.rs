@@ -2827,7 +2827,7 @@ fn spawn_v2_reader(
                     }
                     let entry = host_tool_sessions.lock().await.get(&session.id).cloned();
                     let request = match entry {
-                        Some(entry) => {
+                        Some(_) => {
                             let removed = host_tool_sessions.lock().await.remove(&session.id);
                             if let Some(entry) = removed {
                                 reap_host_tool_session(entry).await;
