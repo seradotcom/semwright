@@ -2967,6 +2967,7 @@ version = "0.9.0-dev.1"
 dependencies = [
  "async-trait",
  "jsonschema",
+ "libc",
  "semwright-backend-api",
  "semwright-driver-host",
  "semwright-driver-sdk",
