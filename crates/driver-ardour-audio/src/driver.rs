@@ -1034,7 +1034,7 @@ fn deep_capabilities() -> Vec<Capability> {
     let mut values = vec![
         deep_read_descriptor(
             "driver.ardour-audio.session.deep.runtime.probe",
-            "Execute version probes plus an ephemeral Dummy-backend session-create self-test for the pinned Ardour 8.4 runtime",
+            "Execute bounded version, create, reopen, semantic-snapshot and session-range health checks for the pinned Ardour 8.4 runtime",
             json!({
                 "type":"object",
                 "properties":{
@@ -1053,15 +1053,9 @@ fn deep_capabilities() -> Vec<Capability> {
                     "snapshot_diagnostic_prefix":{"type":"string","maxLength":512},
                     "range_self_test":{"type":"boolean"},
                     "range_diagnostic_class":{"type":"string","minLength":1,"maxLength":64},
-                    "range_diagnostic_prefix":{"type":"string","maxLength":512},
-                    "group_self_test":{"type":"boolean"},
-                    "group_diagnostic_class":{"type":"string","minLength":1,"maxLength":64},
-                    "group_diagnostic_prefix":{"type":"string","maxLength":512},
-                    "automation_self_test":{"type":"boolean"},
-                    "automation_diagnostic_class":{"type":"string","minLength":1,"maxLength":64},
-                    "automation_diagnostic_prefix":{"type":"string","maxLength":512}
+                    "range_diagnostic_prefix":{"type":"string","maxLength":512}
                 },
-                "required":["ardour_version","lua_banner","create_banner","export_banner","create_self_test","create_diagnostic_class","create_diagnostic_prefix","reopen_self_test","reopen_diagnostic_class","reopen_diagnostic_prefix","snapshot_self_test","snapshot_diagnostic_class","snapshot_diagnostic_prefix","range_self_test","range_diagnostic_class","range_diagnostic_prefix","group_self_test","group_diagnostic_class","group_diagnostic_prefix","automation_self_test","automation_diagnostic_class","automation_diagnostic_prefix"],
+                "required":["ardour_version","lua_banner","create_banner","export_banner","create_self_test","create_diagnostic_class","create_diagnostic_prefix","reopen_self_test","reopen_diagnostic_class","reopen_diagnostic_prefix","snapshot_self_test","snapshot_diagnostic_class","snapshot_diagnostic_prefix","range_self_test","range_diagnostic_class","range_diagnostic_prefix"],
                 "additionalProperties":false
             }),
             &["audio-project"],
