@@ -1,8 +1,8 @@
 //! Concrete Agent-A stage realization through descriptor-pinned Broker commands.
 //! Audio authoring/final-audio analysis remain delegated to Agent B's public provider.
 use crate::{
-    AvPlan, DeliveryCodec, DeliveryInput, Error, NativeResult, Result, Stage, StageCall,
-    StageCommandRunner, StagePayload, TransferKind,
+    ArtifactHandoffHint, AvPlan, DeliveryCodec, DeliveryInput, Error, NativeResult, Result, Stage,
+    StageCall, StageCommandRunner, StagePayload, TransferKind,
 };
 use semwright_media_time::{
     AudioMetadata, MediaArtifact, MediaMetadata, Rational, Retention, Round, VideoMetadata,
