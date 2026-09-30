@@ -42,7 +42,7 @@ fn parse_bwrap_child_pid(bytes: &[u8]) -> Result<u32> {
     let pid = value
         .get("child-pid")
         .and_then(serde_json::Value::as_u64)
-        .filter(|pid| *pid > 0 && *pid <= i32::MAX as u64)
+        .filter(|pid| (1..=i32::MAX as u64).contains(pid))
         .ok_or_else(|| {
             Error::new(
                 ErrorCode::SandboxDenied,
@@ -123,10 +123,7 @@ fn read_bwrap_child_pid(read_fd: &OwnedFd, monitor: &mut Child) -> Result<u32> {
             return parse_bwrap_child_pid(&bytes);
         } else {
             let error = std::io::Error::last_os_error();
-            if !error
-                .raw_os_error()
-                .is_some_and(|code| code == libc::EAGAIN || code == libc::EWOULDBLOCK)
-            {
+            if error.kind() != std::io::ErrorKind::WouldBlock {
                 return Err(error.into());
             }
         }
