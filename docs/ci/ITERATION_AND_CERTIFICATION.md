@@ -34,7 +34,9 @@ scripts/dev/certify-candidate.sh <ref> <source_sha> <base_sha>
 
 The helper verifies the local ref/SHA/ancestry before asking GitHub to dispatch; the workflow independently repeats the same checks on the runner.
 
-The final candidate always runs the complete global Quality, Native application integration, Dependency/Coverage/Fuzz, Packaging, and Supply-chain workflows through their reusable `workflow_call` entry points. Specialized platform/driver workflows are additionally called when the candidate diff affects their area.
+The final candidate always runs the complete global Quality, Native application integration, Dependency/Coverage/Fuzz, Packaging, Supply-chain, and maintainer secret-precheck workflows through their reusable `workflow_call` entry points. Specialized platform/driver workflows are additionally called when the candidate diff affects their area.
+
+Release artifact admission remains a later release-stage gate (`release.yml`): it is intentionally not conflated with ordinary integration certification because it asserts release readiness and package publication conditions rather than code-integration readiness.
 
 Final artifacts include:
 

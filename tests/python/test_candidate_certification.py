@@ -16,6 +16,7 @@ class CandidateCertificationWorkflowTests(unittest.TestCase):
             "security.yml",
             "packaging-certification.yml",
             "supply-chain.yml",
+            "pre-r16.yml",
         ]:
             self.assertIn(f"uses: ./.github/workflows/{workflow}", text)
 

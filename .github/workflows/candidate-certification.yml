@@ -99,6 +99,10 @@ jobs:
     needs: verify
     uses: ./.github/workflows/supply-chain.yml
 
+  secret_precheck:
+    needs: verify
+    uses: ./.github/workflows/pre-r16.yml
+
   godot:
     needs: verify
     if: ${{ needs.verify.outputs.godot == 'true' }}
@@ -158,6 +162,7 @@ jobs:
       - security
       - packaging
       - supply_chain
+      - secret_precheck
       - godot
       - motion
       - obs
@@ -184,6 +189,7 @@ jobs:
           SECURITY: ${{ needs.security.result }}
           PACKAGING: ${{ needs.packaging.result }}
           SUPPLY_CHAIN: ${{ needs.supply_chain.result }}
+          SECRET_PRECHECK: ${{ needs.secret_precheck.result }}
           GODOT: ${{ needs.godot.result }}
           MOTION: ${{ needs.motion.result }}
           OBS: ${{ needs.obs.result }}
@@ -201,11 +207,12 @@ jobs:
           import json, os
           names = [
               "verify", "quality", "native", "security", "packaging", "supply_chain",
-              "godot", "motion", "obs", "blender", "figma", "driver_session",
+              "secret_precheck", "godot", "motion", "obs", "blender", "figma", "driver_session",
               "windows", "macos", "x11_live", "plasma_live",
           ]
           env_names = {
               "supply_chain": "SUPPLY_CHAIN",
+              "secret_precheck": "SECRET_PRECHECK",
               "driver_session": "DRIVER_SESSION",
               "x11_live": "X11_LIVE",
               "plasma_live": "PLASMA_LIVE",
