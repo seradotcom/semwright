@@ -1864,37 +1864,6 @@ async fn typed_transform_and_reparent_actions_round_trip_natively() {
     .await;
     assert_eq!(applied["execution_status"], "completed");
 
-    let inspected = broker_call(
-        &host.broker,
-        &host.session,
-        "driver.godot.composition.native.verify",
-        json!({
-            "plan_id":plan_id,
-            "scene":"arena",
-            "verification":{"kind":"inspect"}
-        }),
-    )
-    .await;
-    assert!(effect_rule_passes(
-        &inspected,
-        "godot.native_readback.arena.v1"
-    ));
-
-    let player = managed_native_node(&inspected, "arena/player");
-    assert_eq!(player["properties"]["rotation"]["type"], "float");
-    let rotation = player["properties"]["rotation"]["value"]
-        .as_f64()
-        .expect("player rotation");
-    assert!((rotation - 0.25).abs() < 1.0e-5, "{rotation}");
-
-    let visual = managed_native_node(&inspected, "arena/visual");
-    assert_eq!(visual["properties"]["scale"]["type"], "vector2");
-    assert_eq!(visual["properties"]["scale"]["value"], json!([1.5, 1.5]));
-
-    let collectible_visual = managed_native_node(&inspected, "arena/collectible_visual");
-    assert_eq!(collectible_visual["parent"], "player");
-    assert_eq!(inspected["observation"]["failures"], json!([]));
-
     let played = broker_call(
         &host.broker,
         &host.session,
@@ -1918,6 +1887,32 @@ async fn typed_transform_and_reparent_actions_round_trip_natively() {
     .await;
     assert!(effect_rule_passes(&played, "godot.native_runtime.arena.v1"));
     assert_eq!(played["observation"]["inputs_delivered"], 2);
+    assert_eq!(played["observation"]["failures"], json!([]));
+
+    let live_nodes = played["observation"]["live"]["nodes"]
+        .as_array()
+        .expect("live native nodes");
+    let live_node = |logical_key: &str| {
+        live_nodes
+            .iter()
+            .find(|node| node["logical_key"].as_str() == Some(logical_key))
+            .unwrap_or_else(|| panic!("missing live native node {logical_key}"))
+    };
+
+    let player = live_node("arena/player");
+    assert_eq!(player["properties"]["rotation"]["type"], "float");
+    let rotation = player["properties"]["rotation"]["value"]
+        .as_f64()
+        .expect("player live rotation");
+    assert!((rotation - 0.25).abs() < 1.0e-5, "{rotation}");
+
+    let visual = live_node("arena/visual");
+    assert_eq!(visual["properties"]["scale"]["type"], "vector2");
+    assert_eq!(visual["properties"]["scale"]["value"], json!([1.5, 1.5]));
+
+    let collectible_visual = live_node("arena/collectible_visual");
+    assert_eq!(collectible_visual["parent"], "player");
+
     let last = played["observation"]["frames"]
         .as_array()
         .and_then(|frames| frames.last())
