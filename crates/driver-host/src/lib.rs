@@ -1126,20 +1126,28 @@ impl HostToolExecutor for LinuxHostToolBroker {
         ));
         spec.environment
             .push((SANDBOX_HOST_TOOL_TYPED_ARGS_ENV.into(), "1".into()));
-        spec.sealed_tools = dependencies
+        let dependency_files = dependencies
             .iter()
             .map(|dependency| {
-                self.tools
-                    .get(dependency)
-                    .map(LinuxBrokerTool::dependency_mount)
-                    .ok_or_else(|| {
-                        Error::new(
-                            ErrorCode::PolicyDenied,
-                            "Linux runtime-tool session dependency disappeared from Host staging",
-                        )
-                    })
+                let dependency_tool = self.tools.get(dependency).ok_or_else(|| {
+                    Error::new(
+                        ErrorCode::PolicyDenied,
+                        "Linux runtime-tool session dependency disappeared from Host staging",
+                    )
+                })?;
+                Ok((
+                    dependency_tool.name.clone(),
+                    dependency_tool.fresh_dependency_file()?,
+                ))
             })
             .collect::<Result<Vec<_>>>()?;
+        spec.sealed_tools = dependency_files
+            .iter()
+            .map(|(name, file)| SealedToolMount {
+                source: SealedToolSource::UnixFd(file.as_raw_fd()),
+                name: name.clone(),
+            })
+            .collect();
         if let Some(cwd) = cwd {
             if !contract.mounts.contains(&cwd.mount) {
                 return Err(Error::new(
