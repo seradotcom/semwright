@@ -76,6 +76,12 @@ jobs:
             python3 scripts/blender-authoring/run-suite.py --suite blender-model
           fi
           python3 scripts/blender-authoring/run-suite.py --suite "$SUITE"
+      - name: Driver startup security contract
+        if: steps.selector.outputs.suite == 'blender-native-authoring'
+        run: |
+          set -o pipefail
+          cargo test --locked -p semwright-driver-blender --bin semwright-blender-driver             blender_launch_is_factory_clean_and_disables_autoexec -- --test-threads=1             2>&1 | tee evidence/blender-authoring/startup-security.log
+          grep -F 'test result: ok' evidence/blender-authoring/startup-security.log
       - name: Fresh Blender GLB semantic roundtrip oracle
         if: steps.selector.outputs.suite == 'blender-native-authoring'
         run: |

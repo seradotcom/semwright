@@ -57,8 +57,8 @@
     {
       "id": "E05",
       "condition": "transforms/relationships/units with native evaluated measurement",
-      "implementation": "meter scale, XYZ transforms, parent/bone/follow/look-at, evaluated depsgraph measure",
-      "test": "native source/evaluated measurement with transforms, bounds, normals and managed attributes; product-scene camera/light/world/render preview uses public Broker capabilities",
+      "implementation": "meter scale, XYZ transforms, parent/bone/follow/look-at plus axis-selective align with explicit local/world spaces; evaluated depsgraph measure and bounded pair measurements for spacing/contact evidence",
+      "test": "native source/evaluated measurement with transforms, bounds, normals and managed attributes; product scene verifies COPY_LOCATION align axes/spaces plus pair distance/clearance; camera/light/world/render preview uses public Broker capabilities",
       "status": "CI_PENDING"
     },
     {
@@ -71,8 +71,8 @@
     {
       "id": "E07",
       "condition": "native rig/actions/keyframes with complete readback/pagination",
-      "implementation": "armature bones, skinning, slotted Action/F-Curves linear keys, bounded NLA tracks/strips over same-entity managed Actions, plus provider-owned session/fingerprint-bound paging for objects,bones,actions,curves,keyframes,properties",
-      "test": "authoring_native articulated Action+NLA readback/export; model rejects out-of-range/external-channel NLA; limit=1 pagination across six domains; cursor replay and cursor-after-drift rejection",
+      "implementation": "armature bones, skinning, slotted Action/F-Curves linear keys, bounded NLA tracks/strips over same-entity managed Actions, provider-owned pagination, and sampled evaluated animation bound to A media-time Rate rather than a second clock",
+      "test": "authoring_native samples frame 0 and 12 at 24 fps, proves hinge/bone-parented evaluated transforms change, rejects rate mismatch, restores frame state, then validates Action+NLA readback/export and pagination/cursor drift cases",
       "status": "CI_PENDING"
     },
     {
@@ -107,8 +107,8 @@
     {
       "id": "E12",
       "condition": "repair does not destroy art or widen authority",
-      "implementation": "composition.repair.plan/apply is transform-only, parent PlanVault-bound, fresh-fingerprint-bound, shared root budget; create/remesh/material/rig/bake repair is rejected.",
-      "test": "authoring_model repair budget/deny cases + native second-writer drift -> verify FAIL -> repair -> PASS",
+      "implementation": "ordinary incremental transform and material-slot edits use fresh-fingerprint plans; composition.repair.plan/apply remains transform-only, parent PlanVault-bound and shared-budget so repair cannot expand into material/remesh/rig/bake authority.",
+      "test": "native typed material_slots updates an isolated mesh and rejects shared-instance mutation; transform edit preserves identity; second-writer drift -> verify FAIL -> parent-bound repair -> PASS; model repair budget/deny cases",
       "status": "CI_PENDING"
     },
     {
@@ -136,8 +136,8 @@
     {
       "id": "E16",
       "condition": "security/fuzz/CI exact-SHA without aesthetic auto-claim",
-      "implementation": "exact-SHA model+native workflow; hostile GLB closure; bounded cargo-fuzz blender_authoring target; deterministic source backup; no aesthetic PASS",
-      "test": "model suite including real Registry external-schema budget, strict nested decode, typed attribute cardinality and shared-instance write denial; explicit native-lane marker prevents generic --all-features/coverage jobs from requiring Blender; native suites + 9-case disposable-Blender hostile preflight (driver/constraint/modifier/global-action/script-node/instancer/oversize/linked/symlink) + 20s/64KiB parser fuzz + skill/source package manifests",
+      "implementation": "exact-SHA model+native workflow; Blender launch is factory-clean with autoexec disabled; cancellation is checked before plan consumption and between bounded native operations; hostile GLB closure; bounded cargo-fuzz; deterministic source backup; no aesthetic PASS",
+      "test": "50-case model suite; driver-binary startup security unit test; native pre-cancelled apply proves no object write/plan consumption; native suites + 9-case hostile preflight (driver/constraint/modifier/global-action/script-node/instancer/oversize/linked/symlink) + 20s/64KiB parser fuzz + skill/source package manifests; finalizer requires explicit native evidence markers",
       "status": "CI_PENDING",
       "open": "final exact-SHA evidence and cross-app D roundtrip remain before readiness"
     }

@@ -40,7 +40,7 @@ skill = load("skill-validate.json")
 source_package = load("source-package.json")
 
 for report, expected_suite, minimum in [
-    (model, "blender-model", 49),
+    (model, "blender-model", 50),
     (native, "blender-native-authoring", 3),
 ]:
     require(report["source_sha"] == SOURCE, f"{expected_suite} source SHA mismatch")
@@ -54,6 +54,27 @@ require(pipeline["native_authoring_c_f_verified"] is True, "native C/F evidence 
 require(pipeline["writer_process"] != pipeline["reader_process"], "reopen was not fresh-process")
 require(roundtrip["result"] == "PASS", "fresh Blender GLB oracle did not PASS")
 require(roundtrip["source_sha256"] == pipeline["glb"]["sha256"], "GLB oracle digest mismatch")
+
+native_log = EVIDENCE / "blender-native-authoring.log"
+require(native_log.is_file() and native_log.stat().st_size > 0, "native authoring log missing")
+native_text = native_log.read_text(errors="replace")
+for marker in [
+    "NATIVE_PRE_CANCELLED_PASS",
+    "NATIVE_MEDIA_TIME_SAMPLE_PASS",
+    "NATIVE_INCREMENTAL_MATERIAL_PASS",
+    "NATIVE_ALIGN_PASS",
+    "NATIVE_PRODUCT_PREVIEW_PASS",
+]:
+    require(marker in native_text, f"missing native evidence marker: {marker}")
+
+startup_log = EVIDENCE / "startup-security.log"
+require(startup_log.is_file() and startup_log.stat().st_size > 0, "startup security log missing")
+require("test result: ok" in startup_log.read_text(errors="replace"), "startup security test failed")
+
+preview = EVIDENCE / "product-preview.png"
+require(preview.is_file() and preview.stat().st_size > 8, "product preview missing")
+require(preview.read_bytes()[:8] == b"\x89PNG\r\n\x1a\n", "product preview is not PNG")
+
 require(skill["result"] == "valid" and skill["standard_valid"] is True, "Skill validation failed")
 
 skill_zip = EVIDENCE / "semwright-blender-production.zip"
@@ -107,6 +128,12 @@ matrix["exact_evidence"] = {
     "source_backup_sha256": source_sum,
     "hostile_cases": 9,
     "fresh_blender_roundtrip": True,
+    "startup_factory_clean_autoexec_disabled": True,
+    "pre_cancelled_apply_fail_closed": True,
+    "sampled_media_time_verified": True,
+    "incremental_material_slots_verified": True,
+    "axis_selective_align_verified": True,
+    "product_preview_sha256": sha256(preview),
     "godot_reimport_verified": False,
 }
 matrix["blender_authoring_ready"] = False

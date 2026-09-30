@@ -356,6 +356,7 @@ async fn broker_native_authoring_save_reopen_export_and_owner_denial() {
         fixture.call("composition.inspect", json!({})).await,
         "pre-cancelled apply must not author objects or consume the plan"
     );
+    eprintln!("NATIVE_PRE_CANCELLED_PASS");
     let apply_request = "native-articulated-apply";
     let applied = fixture
         .call_with_request(
@@ -570,6 +571,7 @@ async fn broker_native_authoring_save_reopen_export_and_owner_denial() {
         after_samples["drift"], false,
         "sampled measurement must restore Blender frame state"
     );
+    eprintln!("NATIVE_MEDIA_TIME_SAMPLE_PASS");
 
     // Provider-owned pagination is bound to the native session + source fingerprint.
     let mut replay_cursor = None;
@@ -1041,6 +1043,7 @@ async fn hard_surface_and_product_scene_author_through_semwright() {
                 .find(|row| row["entity"] == "insert")
                 .unwrap();
             assert_eq!(updated_insert["materials"][0]["id"], "housing");
+            eprintln!("NATIVE_INCREMENTAL_MATERIAL_PASS");
 
             hard_surface_saved = Some(
                 fixture
@@ -1074,6 +1077,7 @@ async fn hard_surface_and_product_scene_author_through_semwright() {
             assert_eq!(align["offset"], false);
             assert_eq!(align["owner_space"], "WORLD");
             assert_eq!(align["target_space"], "WORLD");
+            eprintln!("NATIVE_ALIGN_PASS");
 
             let pair_measurement = fixture
                 .call(
@@ -1217,6 +1221,7 @@ async fn hard_surface_and_product_scene_author_through_semwright() {
             let scene = fixture.call("scene.inspect", json!({})).await;
             assert_eq!(scene["camera"].as_str(), Some(camera_name.as_str()));
             assert_eq!(scene["resolution"], json!([64, 64]));
+            eprintln!("NATIVE_PRODUCT_PREVIEW_PASS");
             if let Ok(evidence) = std::env::var("SEMWRIGHT_AUTHORING_EVIDENCE") {
                 fs::create_dir_all(&evidence).unwrap();
                 fs::write(
