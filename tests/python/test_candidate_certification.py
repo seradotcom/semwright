@@ -20,6 +20,17 @@ class CandidateCertificationWorkflowTests(unittest.TestCase):
         ]:
             self.assertIn(f"uses: ./.github/workflows/{workflow}", text)
 
+    def test_supply_chain_attestation_permissions_are_available_to_reusable_workflow(self):
+        import yaml
+
+        workflow = yaml.safe_load(WORKFLOW.read_text())
+        self.assertEqual(workflow["permissions"]["contents"], "read")
+        self.assertEqual(workflow["permissions"]["id-token"], "write")
+        self.assertEqual(workflow["permissions"]["attestations"], "write")
+        self.assertEqual(workflow["permissions"]["artifact-metadata"], "write")
+        self.assertEqual(workflow["jobs"]["verify"]["permissions"], {"contents": "read"})
+        self.assertEqual(workflow["jobs"]["evidence"]["permissions"], {"contents": "read"})
+
     def test_evidence_manifest_is_uploaded(self):
         text = WORKFLOW.read_text()
         self.assertIn("CERTIFICATION.json", text)
