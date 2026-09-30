@@ -22,10 +22,10 @@ Protocol v7 adds typed runtime-tool arguments. `MountPath` identifies only the r
 | --- | --- | --- | --- |
 | Blender | Persistent background application session | `tool_path("blender")` | Host-managed persistent runtime session |
 | LibreOffice | Persistent soffice + UNO/Python bridge | fixed `/usr/bin/python3`, `/usr/bin/soffice`, `/usr/bin/sh` | Host-managed runtime bundle + persistent session |
-| MLT | Render/probe work may outlive the initiating request | private `runtime.json` for melt/ffprobe/bwrap | Host-owned detached runtime job + multi-tool bundle |
+| MLT | Render/probe work may outlive the initiating request | generic v7 Host tool/job boundary; no production `runtime.json` | migrated in the stacked MLT runtime-tool work |
 | Motion Canvas | Async render job with Node helper + browser | private `runtime.json` | Host-owned detached runtime job + multi-tool bundle |
 | Godot runner | Request-scoped one-shot tool | generic v5 runtime-tool boundary | migrated in the stacked runtime-tool work |
 
 Persistent sessions and detached jobs are intentionally not emulated with request-scoped `execute_runtime_tool`: doing so would change cancellation and lifetime semantics. Those are distinct Host primitives that should reuse the same logical tool/mount authority rather than adding per-driver path resolvers.
 
-`scripts/verify-driver-runtime-tools.py` is a ratchet. It rejects new production driver code that embeds common OS installation paths, calls `tool_path()` directly, reads a private `runtime.json`, or names `/plugin/tools/`. The exact six historical exceptions above are counted; they may disappear as migrations land but cannot grow silently. Test fixtures and developer scripts remain outside that production-source guard.
+`scripts/verify-driver-runtime-tools.py` is a ratchet. It rejects new production driver code that embeds common OS installation paths, calls `tool_path()` directly, reads a private `runtime.json`, or names `/plugin/tools/`. The exact remaining historical exceptions are counted; they may disappear as migrations land but cannot grow silently. Test fixtures and developer scripts remain outside that production-source guard.
