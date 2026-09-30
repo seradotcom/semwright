@@ -1535,9 +1535,12 @@ async fn shared_and_local_to_scene_materials_are_native_and_isolated() {
             .map(serde_json::Map::len),
         Some(1)
     );
-    assert_eq!(
-        resource_query["query"]["value"]["properties"]["roughness"]["value"],
-        0.6
+    let shared_roughness = resource_query["query"]["value"]["properties"]["roughness"]["value"]
+        .as_f64()
+        .expect("shared roughness");
+    assert!(
+        (shared_roughness - 0.6).abs() < 1.0e-5,
+        "{shared_roughness}"
     );
 
     let project = host.fixture.output.path().join("resource_sharing");
