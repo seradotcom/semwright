@@ -607,84 +607,8 @@ close_session()
 
         let (automation_self_test, automation_diagnostic_class, automation_diagnostic_prefix) =
             if snapshot_self_test {
-                if let Some(plugin) = self.config.allowed_plugins.first() {
-                    let script_dir = tempfile::Builder::new()
-                        .prefix("semwright-ardour-automation-probe-")
-                        .tempdir()?;
-                    let script_path = script_dir.path().join("semwright-ardour.lua");
-                    fs::write(&script_path, script::source())?;
-                    let automation_args = lua_tool_args(
-                        &script_path,
-                        vec![
-                            probe_session.to_string_lossy().into_owned(),
-                            probe_state.into(),
-                            self.config.ardour_version.clone(),
-                            "automation_self_test".into(),
-                            plugin.native_name.clone(),
-                            plugin.kind.clone(),
-                            plugin.preset.clone(),
-                        ],
-                    );
-                    let automation_run = self
-                        .run_tool_capture(context, &self.lua_tool, &automation_args)
-                        .await?;
-                    if automation_run.exit_code != 0 {
-                        let classified =
-                            classify_tool_failure(&automation_run.stdout, &automation_run.stderr);
-                        (
-                            false,
-                            format!("{:?}", classified.code),
-                            bounded_text_diagnostic(&bounded_diagnostic(
-                                &automation_run.stdout,
-                                &automation_run.stderr,
-                            )),
-                        )
-                    } else {
-                        match parse_snapshot(&automation_run.stdout) {
-                            Ok(snapshot) => {
-                                let verified = snapshot.routes.iter().any(|route| {
-                                    route.name == "Semwright Probe Automation"
-                                        && route.plugins.iter().any(|native_plugin| {
-                                            native_plugin
-                                                .parameters
-                                                .iter()
-                                                .any(|parameter| parameter.automation_points > 0)
-                                        })
-                                });
-                                if verified {
-                                    (
-                                        true,
-                                        "ok".to_string(),
-                                        bounded_text_diagnostic(
-                                            "plugin automation point added and observed in native snapshot",
-                                        ),
-                                    )
-                                } else {
-                                    (
-                                        false,
-                                        "BackendFailed".to_string(),
-                                        bounded_text_diagnostic(
-                                            "automation probe snapshot did not contain the expected point",
-                                        ),
-                                    )
-                                }
-                            }
-                            Err(error) => (
-                                false,
-                                format!("{:?}", error.code),
-                                bounded_text_diagnostic(&error.message),
-                            ),
-                        }
-                    }
-                } else {
-                    (
-                        false,
-                        "plugin_prerequisite_missing".to_string(),
-                        bounded_text_diagnostic(
-                            "automation probe requires one pinned allowlisted plugin",
-                        ),
-                    )
-                }
+                self.probe_plugin_automation(context, &probe_session, probe_state)
+                    .await?
             } else {
                 (
                     false,
@@ -717,6 +641,250 @@ close_session()
             automation_diagnostic_class,
             automation_diagnostic_prefix,
         })
+    }
+
+    async fn probe_operation(
+        &self,
+        context: Option<&DriverExecutionContext>,
+        script_path: &Path,
+        session: &Path,
+        state: &str,
+        stage: &str,
+        operation_args: Vec<String>,
+    ) -> Result<std::result::Result<ArdourSnapshot, (String, String)>> {
+        let args = lua_tool_args(
+            script_path,
+            [
+                vec![
+                    session.to_string_lossy().into_owned(),
+                    state.to_string(),
+                    self.config.ardour_version.clone(),
+                ],
+                operation_args,
+            ]
+            .concat(),
+        );
+        let run = self
+            .run_tool_capture(context, &self.lua_tool, &args)
+            .await?;
+        if run.exit_code != 0 {
+            let classified = classify_tool_failure(&run.stdout, &run.stderr);
+            return Ok(Err((
+                format!("{:?}", classified.code),
+                bounded_text_diagnostic(&format!(
+                    "{stage}:{}",
+                    bounded_diagnostic(&run.stdout, &run.stderr)
+                )),
+            )));
+        }
+        match parse_snapshot(&run.stdout) {
+            Ok(snapshot) => Ok(Ok(snapshot)),
+            Err(error) => Ok(Err((
+                format!("{:?}", error.code),
+                bounded_text_diagnostic(&format!("{stage}:{}", error.message)),
+            ))),
+        }
+    }
+
+    async fn probe_plugin_automation(
+        &self,
+        context: Option<&DriverExecutionContext>,
+        session: &Path,
+        state: &str,
+    ) -> Result<(bool, String, String)> {
+        let Some(plugin) = self.config.allowed_plugins.first() else {
+            return Ok((
+                false,
+                "plugin_prerequisite_missing".to_string(),
+                bounded_text_diagnostic("automation probe requires one pinned allowlisted plugin"),
+            ));
+        };
+        let script_dir = tempfile::Builder::new()
+            .prefix("semwright-ardour-automation-probe-")
+            .tempdir()?;
+        let script_path = script_dir.path().join("semwright-ardour.lua");
+        fs::write(&script_path, script::source())?;
+
+        let stem_snapshot = match self
+            .probe_operation(
+                context,
+                &script_path,
+                session,
+                state,
+                "stem_create",
+                vec![
+                    "stem_create".into(),
+                    "2".into(),
+                    "Semwright Probe Automation".into(),
+                ],
+            )
+            .await?
+        {
+            Ok(snapshot) => snapshot,
+            Err((class, diagnostic)) => return Ok((false, class, diagnostic)),
+        };
+        let Some(route_id) = stem_snapshot
+            .routes
+            .iter()
+            .find(|route| route.name == "Semwright Probe Automation")
+            .map(|route| route.id.clone())
+        else {
+            return Ok((
+                false,
+                "BackendFailed".to_string(),
+                bounded_text_diagnostic("stem_create:probe route missing after reopen"),
+            ));
+        };
+
+        let plugin_snapshot = match self
+            .probe_operation(
+                context,
+                &script_path,
+                session,
+                state,
+                "plugin_insert",
+                vec![
+                    "plugin_insert".into(),
+                    route_id.clone(),
+                    plugin.native_name.clone(),
+                    plugin.kind.clone(),
+                    plugin.preset.clone(),
+                ],
+            )
+            .await?
+        {
+            Ok(snapshot) => snapshot,
+            Err((class, diagnostic)) => return Ok((false, class, diagnostic)),
+        };
+        let Some(native_plugin) = plugin_snapshot
+            .routes
+            .iter()
+            .find(|route| route.id == route_id)
+            .and_then(|route| route.plugins.first())
+        else {
+            return Ok((
+                false,
+                "BackendFailed".to_string(),
+                bounded_text_diagnostic("plugin_insert:plugin missing after reopen"),
+            ));
+        };
+        if !native_plugin.parameters_complete {
+            return Ok((
+                false,
+                "BackendFailed".to_string(),
+                bounded_text_diagnostic("plugin_insert:parameter projection incomplete"),
+            ));
+        }
+        let plugin_id = native_plugin.id.clone();
+        let Some(parameter) = native_plugin.parameters.first() else {
+            return Ok((
+                false,
+                "BackendFailed".to_string(),
+                bounded_text_diagnostic("plugin_insert:plugin exposes no automatable parameter"),
+            ));
+        };
+        if parameter.lower_microunits == parameter.upper_microunits {
+            return Ok((
+                false,
+                "BackendFailed".to_string(),
+                bounded_text_diagnostic("plugin_insert:first parameter has no writable range"),
+            ));
+        }
+        let parameter_index = parameter.index;
+        let target = if parameter.value_microunits != parameter.lower_microunits {
+            parameter.lower_microunits
+        } else {
+            parameter.upper_microunits
+        };
+        let automation_before = parameter.automation_points;
+
+        let parameter_snapshot = match self
+            .probe_operation(
+                context,
+                &script_path,
+                session,
+                state,
+                "plugin_param_set",
+                vec![
+                    "plugin_param_set".into(),
+                    route_id.clone(),
+                    plugin_id.clone(),
+                    parameter_index.to_string(),
+                    target.to_string(),
+                ],
+            )
+            .await?
+        {
+            Ok(snapshot) => snapshot,
+            Err((class, diagnostic)) => return Ok((false, class, diagnostic)),
+        };
+        let parameter_persisted = parameter_snapshot
+            .routes
+            .iter()
+            .find(|route| route.id == route_id)
+            .and_then(|route| route.plugins.iter().find(|item| item.id == plugin_id))
+            .and_then(|item| {
+                item.parameters
+                    .iter()
+                    .find(|item| item.index == parameter_index)
+            })
+            .is_some_and(|item| item.value_microunits == target);
+        if !parameter_persisted {
+            return Ok((
+                false,
+                "BackendFailed".to_string(),
+                bounded_text_diagnostic("plugin_param_set:value did not persist across reopen"),
+            ));
+        }
+
+        let automation_snapshot = match self
+            .probe_operation(
+                context,
+                &script_path,
+                session,
+                state,
+                "plugin_automation_point",
+                vec![
+                    "plugin_automation_point".into(),
+                    route_id.clone(),
+                    plugin_id.clone(),
+                    parameter_index.to_string(),
+                    "24000".into(),
+                    target.to_string(),
+                ],
+            )
+            .await?
+        {
+            Ok(snapshot) => snapshot,
+            Err((class, diagnostic)) => return Ok((false, class, diagnostic)),
+        };
+        let automation_after = automation_snapshot
+            .routes
+            .iter()
+            .find(|route| route.id == route_id)
+            .and_then(|route| route.plugins.iter().find(|item| item.id == plugin_id))
+            .and_then(|item| {
+                item.parameters
+                    .iter()
+                    .find(|item| item.index == parameter_index)
+            })
+            .map(|item| item.automation_points);
+        if automation_after != Some(automation_before.saturating_add(1)) {
+            return Ok((
+                false,
+                "BackendFailed".to_string(),
+                bounded_text_diagnostic(&format!(
+                    "plugin_automation_point:count mismatch before={automation_before} after={automation_after:?}"
+                )),
+            ));
+        }
+        Ok((
+            true,
+            "ok".to_string(),
+            bounded_text_diagnostic(
+                "plugin automation persisted through insert, parameter set, point add and reopen",
+            ),
+        ))
     }
 
     pub async fn inspect(

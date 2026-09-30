@@ -953,42 +953,6 @@ local function mutate(command)
     if status ~= 0 then error("route group member remove failed") end
   elseif command == "group_delete" then
     Session:remove_route_group(require_group(arg[5]))
-  elseif command == "automation_self_test" then
-    local plugin_type
-    if arg[6] == "lua" then plugin_type = ARDOUR.PluginType.Lua
-    elseif arg[6] == "lv2" then plugin_type = ARDOUR.PluginType.LV2
-    else error("automation_probe_plugin_type") end
-    local created = Session:new_audio_track(
-      2, 2, nil, 1, "", ARDOUR.PresentationInfo.max_order,
-      ARDOUR.TrackMode.Normal, true, true
-    )
-    local route = nil
-    for candidate in created:iter() do
-      candidate:set_name("Semwright Probe Automation")
-      route = candidate
-      break
-    end
-    if not route then error("automation_probe_track_create") end
-    local processor = ARDOUR.LuaAPI.new_plugin(Session, arg[5], plugin_type, arg[7] or "")
-    if not processor or processor:isnil() then error("automation_probe_plugin_create") end
-    local status = route:add_processor_by_index(processor, 0, nil, true)
-    if status ~= 0 then error("automation_probe_plugin_insert") end
-    local automation_list, control_list, descriptor =
-      ARDOUR.LuaAPI.plugin_automation(processor, 0)
-    if not automation_list or automation_list:isnil()
-      or not control_list or control_list:isnil() or not descriptor then
-      error("automation_probe_lookup")
-    end
-    local value = tonumber(descriptor.normal)
-    if not value or value < descriptor.lower or value > descriptor.upper then
-      error("automation_probe_value")
-    end
-    Session:begin_reversible_command("Semwright automation probe")
-    local before = automation_list:get_state()
-    control_list:add(Temporal.timepos_t(24000), value, false, true)
-    local after = automation_list:get_state()
-    Session:add_command(automation_list:memento_command(before, after))
-    Session:commit_reversible_command(nil)
   elseif command == "plugin_insert" then
     local route = require_route(arg[5])
     local plugin_type
