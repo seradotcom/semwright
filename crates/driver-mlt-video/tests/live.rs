@@ -262,6 +262,7 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
                 name: "mlt-runner".into(),
                 sha256: digest(&runtime_runner),
                 mounts: vec!["mlt-runtime".into(), "scratch".into()],
+                system_config: vec![],
                 dependencies: vec!["melt".into(), "ffprobe".into()],
             },
             DriverToolMount {
@@ -269,6 +270,7 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
                 name: "melt".into(),
                 sha256: digest(&melt),
                 mounts: vec![],
+                system_config: vec![],
                 dependencies: vec![],
             },
             DriverToolMount {
@@ -276,6 +278,7 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
                 name: "ffprobe".into(),
                 sha256: digest(&ffprobe),
                 mounts: vec![],
+                system_config: vec![],
                 dependencies: vec![],
             },
         ],
