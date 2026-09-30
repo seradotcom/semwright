@@ -27,8 +27,8 @@ use semwright_policy::{FilesystemGrant, Policy, PolicyConfig};
 use semwright_recipes::Executor;
 use semwright_semantic_composition::{
     BaseState, BaseStateSet, CapabilityBinding, Concurrency, ConvergenceBudget, Digest,
-    EffectClass, EvidenceSource, ExecutionStatus, Owner, Phase, PrincipalBinding, ResourceKey,
-    Revision, SupportLevel, Verdict, canonical_digest,
+    EffectClass, ExecutionStatus, Owner, Phase, ResourceKey, Revision, SupportLevel, Verdict,
+    canonical_digest,
 };
 use semwright_types::ExecuteRequest;
 use serde_json::{Value, json};
@@ -1283,13 +1283,13 @@ async fn combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_s
 
     let mp4 = fs::read_dir(&harness.output)
         .unwrap()
-        .filter_map(Result::ok)
+        .filter_map(|entry| entry.ok())
         .map(|entry| entry.path())
         .find(|path| path.extension().and_then(|value| value.to_str()) == Some("mp4"))
         .expect("combined AV MP4");
     let decoded_wav = fs::read_dir(&harness.output)
         .unwrap()
-        .filter_map(Result::ok)
+        .filter_map(|entry| entry.ok())
         .map(|entry| entry.path())
         .find(|path| {
             path.file_name()
