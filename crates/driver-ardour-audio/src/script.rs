@@ -1205,8 +1205,10 @@ mod tests {
         assert!(
             source().contains("if status ~= 0 then error(\"route group member add failed\") end")
         );
-        assert!(source()
-            .contains("if status ~= 0 then error(\"route group member remove failed\") end"));
+        assert!(
+            source()
+                .contains("if status ~= 0 then error(\"route group member remove failed\") end")
+        );
     }
 
     #[test]
@@ -1263,31 +1265,39 @@ mod tests {
             vec!["master_create".to_string(), "2".to_string()]
         );
         assert!(NativeMutation::MasterCreate { channels: 0 }.argv().is_err());
-        assert!(NativeMutation::MasterCreate { channels: 65 }
-            .argv()
-            .is_err());
+        assert!(
+            NativeMutation::MasterCreate { channels: 65 }
+                .argv()
+                .is_err()
+        );
     }
 
     #[test]
     fn mutation_arguments_are_bounded() {
-        assert!(NativeMutation::RouteRemove {
-            route_id: "../bad".into()
-        }
-        .argv()
-        .is_err());
-        assert!(NativeMutation::RoutePan {
-            route_id: "r1".into(),
-            pan_milli: 1001
-        }
-        .argv()
-        .is_err());
-        assert!(NativeMutation::ClipTrim {
-            region_id: "c1".into(),
-            source_start: u64::MAX,
-            length: 2
-        }
-        .argv()
-        .is_err());
+        assert!(
+            NativeMutation::RouteRemove {
+                route_id: "../bad".into()
+            }
+            .argv()
+            .is_err()
+        );
+        assert!(
+            NativeMutation::RoutePan {
+                route_id: "r1".into(),
+                pan_milli: 1001
+            }
+            .argv()
+            .is_err()
+        );
+        assert!(
+            NativeMutation::ClipTrim {
+                region_id: "c1".into(),
+                source_start: u64::MAX,
+                length: 2
+            }
+            .argv()
+            .is_err()
+        );
     }
 
     #[test]

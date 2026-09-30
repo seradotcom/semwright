@@ -353,6 +353,11 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
         with:
           key: audio-v1-ardour84-noble
+      - name: Ardour driver source quality
+        run: |
+          cargo fmt -p semwright-ardour-audio-driver -- --check
+          cargo clippy --locked -p semwright-ardour-audio-driver --all-targets -- -D warnings
+          cargo test --locked -p semwright-ardour-audio-driver --lib --tests
       - name: Install pinned Ardour runtime
         run: |
           sudo apt-get update
