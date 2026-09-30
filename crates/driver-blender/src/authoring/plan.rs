@@ -506,9 +506,10 @@ pub fn native_matches(intent: &AuthoringIntent, snapshot: &NativeSnapshot) -> bo
                         return false;
                     }
                     for expected_attribute in &entity.attributes {
-                        if !actual_attributes.iter().any(|actual| {
-                            mesh_attribute_matches(actual, expected_attribute)
-                        }) {
+                        if !actual_attributes
+                            .iter()
+                            .any(|actual| mesh_attribute_matches(actual, expected_attribute))
+                        {
                             return false;
                         }
                     }

@@ -1002,7 +1002,11 @@ async fn hard_surface_and_product_scene_author_through_semwright() {
             assert_eq!(scene["resolution"], json!([64, 64]));
             if let Ok(evidence) = std::env::var("SEMWRIGHT_AUTHORING_EVIDENCE") {
                 fs::create_dir_all(&evidence).unwrap();
-                fs::write(PathBuf::from(evidence).join("product-preview.png"), &preview).unwrap();
+                fs::write(
+                    PathBuf::from(evidence).join("product-preview.png"),
+                    &preview,
+                )
+                .unwrap();
             }
         }
     }

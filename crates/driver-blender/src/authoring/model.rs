@@ -717,7 +717,10 @@ fn validate_mesh_attributes(
     let mut total_values = 0usize;
     for attribute in attributes {
         local_id(&attribute.id)?;
-        ensure(ids.insert(attribute.id.clone()), "duplicate mesh attribute ID")?;
+        ensure(
+            ids.insert(attribute.id.clone()),
+            "duplicate mesh attribute ID",
+        )?;
         attribute.data.validate_values()?;
         let expected = match attribute.domain {
             MeshAttributeDomain::Point => counts.0,
@@ -872,7 +875,10 @@ impl BlenderAuthoringSpec {
                 Shape::Box { .. } | Shape::Cylinder { .. } | Shape::Mesh { .. } => {
                     validate_mesh_attributes(
                         &entity.attributes,
-                        entity.shape.mesh_topology_counts().expect("concrete mesh counts"),
+                        entity
+                            .shape
+                            .mesh_topology_counts()
+                            .expect("concrete mesh counts"),
                     )?;
                 }
                 Shape::MeshCopy { .. } => {
