@@ -1,0 +1,197 @@
+{
+  "schema_version": 1,
+  "project": {
+    "model_version": 1,
+    "id": "av-technical-fixture",
+    "profile": {
+      "sample_rate": 48000,
+      "channels": 2,
+      "tempo_milli_bpm": 120000,
+      "time_signature_numerator": 4,
+      "time_signature_denominator": 4
+    },
+    "metadata": {
+      "name": "Technical AV sync fixture",
+      "session_label": "synthetic-no-user-media",
+      "delivery_profile": "technical-stereo"
+    },
+    "samples": {},
+    "synths": {},
+    "stems": [
+      {
+        "id": "silence",
+        "name": "Silent verification stem",
+        "channels": 2,
+        "muted": false,
+        "soloed": false,
+        "gain": 0,
+        "pan_milli": 0,
+        "output_bus": "master",
+        "sends": [],
+        "clips": [],
+        "effects": {
+          "effects": []
+        },
+        "automations": []
+      }
+    ],
+    "buses": [
+      {
+        "id": "master",
+        "name": "Master",
+        "channels": 2,
+        "gain": 0,
+        "pan_milli": 0,
+        "effects": {
+          "effects": []
+        },
+        "sends": [],
+        "automations": []
+      }
+    ],
+    "master_bus": "master",
+    "groups": [
+      {
+        "id": "verification",
+        "name": "Verification",
+        "stems": [
+          "silence"
+        ]
+      }
+    ],
+    "markers": [
+      {
+        "id": "origin",
+        "frame": 0,
+        "label": "Origin"
+      },
+      {
+        "id": "one_second",
+        "frame": 48000,
+        "label": "One second"
+      }
+    ],
+    "ranges": [
+      {
+        "id": "first_second",
+        "range": {
+          "start": 0,
+          "end": 48000
+        },
+        "label": "First second"
+      }
+    ],
+    "tempo_changes": [
+      {
+        "frame": 48000,
+        "tempo_milli_bpm": 90000,
+        "time_signature_numerator": 3,
+        "time_signature_denominator": 4
+      }
+    ],
+    "midi_phrases": [
+      {
+        "id": "synthetic_accent",
+        "name": "Synthetic accent metadata",
+        "instrument_synth": null,
+        "events": [
+          {
+            "kind": "note",
+            "id": "note_c4",
+            "start": 24000,
+            "duration_frames": 12000,
+            "channel": 0,
+            "note": 60,
+            "velocity": 96
+          },
+          {
+            "kind": "control",
+            "id": "mod_mid",
+            "frame": 30000,
+            "channel": 0,
+            "controller": 1,
+            "value": 64
+          }
+        ]
+      }
+    ]
+  },
+  "cues": {
+    "version": 1,
+    "cues": [
+      {
+        "id": "impulse_origin",
+        "anchor": {
+          "kind": "absolute",
+          "time": {
+            "num": "0",
+            "den": "1"
+          }
+        },
+        "duration": {
+          "num": "1",
+          "den": "48000"
+        },
+        "source": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "method": "synthetic_impulse",
+        "version": 1,
+        "confidence": 10000
+      },
+      {
+        "id": "word_hello",
+        "anchor": {
+          "kind": "absolute",
+          "time": {
+            "num": "1",
+            "den": "2"
+          }
+        },
+        "duration": {
+          "num": "1",
+          "den": "4"
+        },
+        "source": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "method": "synthetic_word_timing",
+        "version": 1,
+        "confidence": 10000
+      },
+      {
+        "id": "after_word",
+        "anchor": {
+          "kind": "after",
+          "cue": "word_hello",
+          "offset": {
+            "num": "1",
+            "den": "10"
+          }
+        },
+        "duration": {
+          "num": "1",
+          "den": "20"
+        },
+        "source": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "method": "synthetic_transition",
+        "version": 1,
+        "confidence": 10000
+      }
+    ]
+  },
+  "crossfade": {
+    "overlap_frames": 2400,
+    "left_fade_out_frames": 2400,
+    "right_fade_in_frames": 2400
+  },
+  "resampling": {
+    "source_rate": 44100,
+    "source_frames": 44100,
+    "target_rate": 48000,
+    "expected_target_frames": 48000
+  },
+  "av_sync": {
+    "video_rate_num": 30000,
+    "video_rate_den": 1001,
+    "video_frame": 30,
+    "audio_rate": 48000,
+    "expected_audio_frame": 48048
+  }
+}

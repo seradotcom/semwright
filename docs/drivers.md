@@ -226,6 +226,15 @@ The workspace includes several larger integration surfaces in addition to the ex
   independent fake server, the real Semwright Driver Host sandbox, bounded fuzz targets and a
   disposable read-only OBS Studio instance. Driver Protocol v1 still does not transport child
   events, cooperative cancellation or dynamic capability changes into the broker.
+- `crates/driver-faust-audio` provides typed deterministic synthesis/SFX, hash-pinned
+  sample-backed rendering and bounded polyphonic MIDI rendering, plus a separate digest-bound
+  acoustic analysis executable. Generated Faust source is derived from semantic data; native
+  helpers are owner-pinned sealed tools. `crates/driver-ardour-audio` provides official loopback
+  OSC and a managed Ardour 8.4 deep-session route with revision-bound native readback,
+  save/reopen/export, internal sends, route groups and owner-allowlisted plugin
+  parameter/automation operations. Editor-only media import, from-empty native MIDI-region
+  creation, full route-output topology and fade readback remain explicit coverage gaps rather
+  than being approximated.
 - `crates/driver-motion-canvas` provides 18 curated capabilities over a versioned
   `semwright-motion.json` model, deterministic Motion Canvas generation, revision-bound refs,
   atomic semantic transactions and bounded render jobs. Generated media stays disposable and

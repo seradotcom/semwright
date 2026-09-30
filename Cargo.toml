@@ -67,6 +67,8 @@ semwright-semantic-composition = { path = "crates/semantic-composition", version
 semwright-av-composition = { path = "crates/av-composition", version = "=0.9.0-dev.1" }
 semwright-motion-authoring = { path = "crates/motion-authoring", version = "=0.9.0-dev.1" }
 semwright-media-time = { path = "crates/media-time", version = "=0.9.0-dev.1" }
+semwright-audio-authoring = { path = "crates/audio-authoring", version = "=0.9.0-dev.1" }
+semwright-audio-domain = { path = "crates/audio-domain", version = "=0.9.0-dev.1" }
 semwright-video-domain = { path = "crates/video-domain", version = "=0.9.0-dev.1" }
 semwright-protocol = { path = "crates/protocol", version = "=0.9.0-dev.1" }
 semwright-registry = { path = "crates/registry", version = "=0.9.0-dev.1" }

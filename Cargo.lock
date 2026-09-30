@@ -2849,6 +2849,54 @@ dependencies = [
 ]
 
 [[package]]
+name = "semwright-ardour-audio-driver"
+version = "0.9.0-dev.1"
+dependencies = [
+ "async-trait",
+ "semwright-audio-domain",
+ "semwright-backend-api",
+ "semwright-core",
+ "semwright-driver-host",
+ "semwright-driver-sdk",
+ "semwright-faust-audio-driver",
+ "semwright-policy",
+ "semwright-registry",
+ "semwright-skills",
+ "semwright-types",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "tokio",
+ "tokio-util",
+]
+
+[[package]]
+name = "semwright-audio-authoring"
+version = "0.9.0-dev.1"
+dependencies = [
+ "proptest",
+ "schemars",
+ "semwright-audio-domain",
+ "semwright-media-time",
+ "semwright-semantic-composition",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "semwright-audio-domain"
+version = "0.9.0-dev.1"
+dependencies = [
+ "proptest",
+ "schemars",
+ "serde",
+ "serde_json",
+ "sha2",
+ "uuid",
+]
+
+[[package]]
 name = "semwright-av-composition"
 version = "0.9.0-dev.1"
 dependencies = [
@@ -3198,6 +3246,26 @@ dependencies = [
  "semwright-types",
  "serde_json",
  "tokio",
+]
+
+[[package]]
+name = "semwright-faust-audio-driver"
+version = "0.9.0-dev.1"
+dependencies = [
+ "async-trait",
+ "semwright-audio-domain",
+ "semwright-backend-api",
+ "semwright-core",
+ "semwright-driver-host",
+ "semwright-driver-sdk",
+ "semwright-policy",
+ "semwright-types",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "tokio",
+ "tokio-util",
 ]
 
 [[package]]

@@ -1,0 +1,67 @@
+{
+  "manifest_version": 1,
+  "protocol": 4,
+  "version": "0.9.0-dev.1",
+  "publisher": "semwright-development",
+  "transport": "stdio_v1",
+  "system_config": [],
+  "secrets": [],
+  "network": false,
+  "loopback_port": null,
+  "resources": {
+    "open_files": 256,
+    "processes": 16,
+    "cpu_seconds": 120,
+    "operation_cpu_seconds": 120,
+    "address_space_bytes": 2147483648,
+    "file_size_bytes": 536870912
+  },
+  "request_timeout_ms": 180000,
+  "id": "faust-audio",
+  "executable": "/ABSOLUTE/PATH/semwright-faust-audio-driver",
+  "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "application": {
+    "desktop_id": null,
+    "process_names": [
+      "faust"
+    ],
+    "supported_versions": [
+      "2.37.3",
+      "2.70.3"
+    ]
+  },
+  "mounts": [
+    {
+      "root": "faust-libraries",
+      "read_only": true,
+      "execute": false
+    },
+    {
+      "root": "audio-assets",
+      "read_only": true,
+      "execute": false
+    },
+    {
+      "root": "output",
+      "read_only": false,
+      "execute": false
+    }
+  ],
+  "tools": [
+    {
+      "root": "faust-tool",
+      "name": "faust-interpreter",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ],
+  "interfaces": {
+    "dynamic_capabilities": false,
+    "cooperative_cancellation": true,
+    "events": false,
+    "progress": true,
+    "artifacts": true,
+    "health": true,
+    "native_refs": false,
+    "host_tools": false
+  }
+}

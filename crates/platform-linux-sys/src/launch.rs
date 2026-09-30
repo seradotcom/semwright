@@ -66,6 +66,15 @@ impl ExecutableVerifier for LinuxVerifier {
 pub fn verify_sealed_tool_executable(path: &Path, digest: &str) -> Result<Vec<u8>> {
     verify_executable_bounded(path, digest, MAX_SEALED_TOOL_EXECUTABLE_BYTES)
 }
+fn merged_usr_alias(path: &Path, target: &Path) -> bool {
+    std::fs::read_link(path).is_ok_and(|link| {
+        link == target
+            || target
+                .strip_prefix("/")
+                .is_ok_and(|relative| link == relative)
+    })
+}
+
 fn materialized_destination(mount: &Mount) -> Result<String> {
     mount.validate()?;
     let prefix = match mount.class {
@@ -135,6 +144,13 @@ impl SandboxLauncher for LinuxSandbox {
             if Path::new(r).exists() {
                 p.args(["--ro-bind", r, r]);
             }
+        }
+        // Ubuntu/Debian merged-usr hosts expose /bin as a symlink into /usr/bin.
+        // The sandbox already grants /usr read+execute. Recreate only that alias so
+        // POSIX APIs such as popen(), which require /bin/sh, resolve to the same
+        // already-authorized bytes without adding another executable filesystem tree.
+        if merged_usr_alias(Path::new("/bin"), Path::new("/usr/bin")) {
+            p.args(["--symlink", "usr/bin", "/bin"]);
         }
         p.args(["--dir", "/etc"]);
         if Path::new("/etc/ld.so.cache").exists() {
@@ -312,6 +328,27 @@ mod tests {
         let error =
             verify_executable_bounded(&executable, &digest, bytes.len() as u64 - 1).unwrap_err();
         assert_eq!(error.code, ErrorCode::PermissionDenied);
+    }
+
+    #[test]
+    fn merged_usr_alias_accepts_relative_and_absolute_usr_targets_only() {
+        use std::os::unix::fs::symlink;
+
+        let root = tempfile::tempdir().unwrap();
+        let relative = root.path().join("bin-relative");
+        let absolute = root.path().join("bin-absolute");
+        let wrong = root.path().join("bin-wrong");
+        symlink("usr/bin", &relative).unwrap();
+        symlink("/usr/bin", &absolute).unwrap();
+        symlink("usr/local/bin", &wrong).unwrap();
+
+        assert!(merged_usr_alias(&relative, Path::new("/usr/bin")));
+        assert!(merged_usr_alias(&absolute, Path::new("/usr/bin")));
+        assert!(!merged_usr_alias(&wrong, Path::new("/usr/bin")));
+        assert!(!merged_usr_alias(
+            &root.path().join("missing"),
+            Path::new("/usr/bin")
+        ));
     }
 
     #[test]
