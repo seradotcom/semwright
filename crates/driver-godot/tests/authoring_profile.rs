@@ -1,6 +1,10 @@
 #![cfg(target_os = "linux")]
 use semwright_godot_driver::{
     authoring::{
+        native_observation::{
+            NATIVE_VERSION, NativeEvidenceBinding, NativeNode, NativeObservation, NativeProjection,
+            NativeVerifyResult, ProbeMode,
+        },
         profile::{RepairMode, RepairPlanRequest},
         runtime::AuthoringRuntime,
         *,
@@ -8,9 +12,14 @@ use semwright_godot_driver::{
     catalog::{Catalog, Route},
     config::AuthoringConfig,
 };
-use semwright_semantic_composition::{Owner, PrincipalBinding, State, Verdict};
+use semwright_project_graph::{
+    Asset, Equivalence, ProjectAccess, ProjectGraph, ProjectId, RevisionAdapter,
+};
+use semwright_semantic_composition::{
+    Digest, EvidenceSource, Owner, PrincipalBinding, State, Verdict,
+};
 use semwright_types::ErrorCode;
-use std::{fs, os::unix::fs::PermissionsExt};
+use std::{collections::BTreeMap, fs, os::unix::fs::PermissionsExt};
 
 fn fixture() -> GodotAuthoringSpec {
     validate::decode(include_bytes!("fixtures/authoring/two_d.json")).unwrap()
@@ -235,4 +244,183 @@ fn missing_managed_source_has_bounded_repair_but_diverged_source_does_not() {
     fs::write(&generated, b"# human edit\n").unwrap();
     let conflict = runtime.plan(&owner, spec).unwrap_err();
     assert_eq!(conflict.code, ErrorCode::Conflict);
+}
+
+#[test]
+fn native_revision_candidate_requires_c_generation_and_c_admits_it() {
+    let (_root, config) = environment();
+    let mut runtime = runtime(config);
+    let driver_owner = owner("driver-host-session");
+    let spec = fixture();
+    let scene = spec.main_scene.clone();
+    let plan = runtime.plan(&driver_owner, spec.clone()).unwrap();
+    runtime
+        .apply(
+            &driver_owner,
+            &plan.plan_id,
+            false,
+            "req-native-revision-apply",
+            || Ok(()),
+        )
+        .unwrap();
+
+    let snapshot = runtime.inspect(&spec.project).unwrap();
+    let project_id = ProjectId::parse(snapshot.project_id.clone().unwrap()).unwrap();
+    let scene_asset = semwright_project_graph::LogicalAssetId::parse(
+        snapshot.bindings[&format!("scene:{scene}")].clone(),
+    )
+    .unwrap();
+    let projection = NativeProjection {
+        nodes: vec![NativeNode {
+            path: ".".into(),
+            class: "Node2D".into(),
+            instance_id: "101".into(),
+            parent: None,
+            owner: None,
+            scene_file: format!("res://scenes/{scene}.tscn"),
+            logical_id: Some(scene_asset.as_str().into()),
+            logical_key: Some(scene.clone()),
+            groups: vec![],
+            properties: BTreeMap::new(),
+        }],
+        resources: vec![],
+        animations: vec![],
+        connections: vec![],
+        unknown: vec![],
+    };
+    let result = NativeVerifyResult::Inspect {
+        binding: NativeEvidenceBinding {
+            owner: driver_owner.clone(),
+            request_id: "req-native-revision".into(),
+            project: project_id.clone(),
+            slug: spec.project.clone(),
+            scene: scene.clone(),
+            plan_digest: plan.plan_digest.clone(),
+            intent_digest: plan.intent_digest.clone(),
+            source_fingerprint: snapshot.fingerprint.clone(),
+        },
+        observation: NativeObservation {
+            version: NATIVE_VERSION,
+            nonce: "native_revision_0001".into(),
+            source_fingerprint: snapshot.fingerprint.clone(),
+            mode: ProbeMode::Inspect,
+            engine_version: "4.7.2.stable.test".into(),
+            process_id: "101".into(),
+            loaded_scene: format!("res://scenes/{scene}.tscn"),
+            loaded_scene_sha256: Digest::of_bytes(b"native-scene"),
+            candidate_sha256: None,
+            authored: projection,
+            live: None,
+            frames: vec![],
+            dependencies: vec![],
+            dependency_complete: true,
+            inputs_delivered: 0,
+            elapsed_physics_frames: 0,
+            failures: vec![],
+        },
+    };
+
+    assert!(
+        runtime
+            .native_revision_candidate(
+                &driver_owner,
+                &plan.plan_id,
+                "req-native-revision",
+                &scene,
+                0,
+                &result,
+            )
+            .is_err()
+    );
+
+    let graph_owner = Owner {
+        session: "project-graph-host-session".into(),
+        principal: PrincipalBinding::Named("os-user-v1:test-owner".into()),
+    };
+    let access = ProjectAccess::authorized(
+        graph_owner.clone(),
+        project_id.clone(),
+        None,
+        true,
+        Digest::of_bytes(b"project-grants"),
+    )
+    .unwrap();
+    let mut graph = ProjectGraph::new(project_id.clone(), graph_owner.principal.clone()).unwrap();
+    graph
+        .register(
+            &access,
+            Asset {
+                id: scene_asset.clone(),
+                resource_type: "godot_scene".into(),
+                label: scene.clone(),
+                locator: None,
+            },
+        )
+        .unwrap();
+    let generation = graph
+        .inspect(&access, &scene_asset)
+        .unwrap()
+        .binding_generation;
+    let candidate = runtime
+        .native_revision_candidate(
+            &driver_owner,
+            &plan.plan_id,
+            "req-native-revision",
+            &scene,
+            generation,
+            &result,
+        )
+        .unwrap();
+    assert_eq!(candidate.asset, scene_asset);
+    assert_eq!(candidate.binding_generation, generation);
+    assert!(candidate.coverage.complete);
+    assert_eq!(candidate.equivalence, Equivalence::Projection);
+    assert_eq!(candidate.observation.source, EvidenceSource::NativeApi);
+    assert_eq!(
+        candidate.observation.method,
+        "godot_native_project_observation"
+    );
+    assert_eq!(candidate.observation.scope.len(), 1);
+
+    let resource = candidate.observation.scope[0].resource.clone();
+    let adapter = RevisionAdapter::registered(
+        resource,
+        EvidenceSource::NativeApi,
+        "godot_native_project_observation".into(),
+        1,
+    )
+    .unwrap();
+    let admitted = adapter
+        .admit(
+            &graph_owner,
+            &project_id,
+            &scene_asset,
+            generation,
+            candidate,
+        )
+        .unwrap();
+    graph.accept_revision(&access, admitted).unwrap();
+    assert_eq!(
+        graph
+            .revisions(&access, &scene_asset, None, 8)
+            .unwrap()
+            .len(),
+        1
+    );
+
+    let stale = runtime
+        .native_revision_candidate(
+            &driver_owner,
+            &plan.plan_id,
+            "req-native-revision",
+            &scene,
+            generation + 1,
+            &result,
+        )
+        .unwrap();
+    assert!(
+        adapter
+            .admit(&graph_owner, &project_id, &scene_asset, generation, stale,)
+            .is_err()
+    );
 }

@@ -19,7 +19,7 @@ def main():
         log=result.stdout;(OUT/(suite+".log")).write_text(log)
         print(log,flush=True)
         try:
-            counts = parse_tests(log, {"authoring":18,"authoring_store":14,"authoring_profile":4,"authoring_native":10})
+            counts = parse_tests(log, {"authoring":18,"authoring_store":14,"authoring_profile":5,"authoring_native":10})
         except ValueError as error:
             counts = {}
             receipt["collector_error"] = str(error)

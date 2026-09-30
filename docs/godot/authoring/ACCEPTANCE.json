@@ -7,66 +7,77 @@
     {
       "id": "D01",
       "requirement": "Cn production consumer",
-      "state": "IMPLEMENTED_CURRENT_SHA_PENDING",
-      "implementation": "A PreparedPlan/PlanVault + C ProjectId/LogicalAssetId/AssetRevision/ExecutionReceipt + F EffectContract consumer; composition.inspect preserves per-file C asset/revision/kind/logical-key mappings from the Store",
+      "state": "HISTORICAL_CERTIFIED_CURRENT_C_REVISION_ADAPTER_RETEST_REQUIRED",
+      "implementation": "A PreparedPlan/PlanVault plus C final Project Graph history through 504ad2c6632305b580b51703a60b0a194865780d and F EffectContract are consumed without forking their kernels. Store identities remain C LogicalAssetId/AssetRevision; current source also constructs C RevisionCandidate for native read-only evidence using the trusted host-supplied binding generation.",
       "tests": [
         "authoring_profile empty-root A/C/F consumer",
-        "managed source file exposes C asset/revision identity"
+        "managed source file exposes C asset/revision identity",
+        "C RevisionAdapter admit/accept consumer with stale-generation rejection"
       ],
-      "tested_sha": null,
-      "run_id": null,
-      "job_id": null,
-      "evidence": []
+      "tested_sha": "2895f4fddd921648615ab1ca946d78d89e0fed97",
+      "run_id": 36787419869,
+      "job_id": 110132115405,
+      "evidence": [
+        "godot-authoring exact-SHA certification 2895f4f: model PASS",
+        "current source changed after that certification and requires a new exact-SHA run"
+      ]
     },
     {
       "id": "D02",
       "requirement": "empty-root bootstrap by Broker",
-      "state": "IMPLEMENTED_NATIVE_EVIDENCE_QUEUED",
+      "state": "HISTORICAL_CERTIFIED_CURRENT_SHA_RETEST_REQUIRED",
       "implementation": "Broker to Driver Host to composition.plan/apply on an empty granted output root",
       "tests": [
         "authoring_host empty-root E2E"
       ],
-      "tested_sha": null,
-      "run_id": null,
-      "job_id": null,
-      "evidence": []
+      "tested_sha": "2895f4fddd921648615ab1ca946d78d89e0fed97",
+      "run_id": 36787419869,
+      "job_id": 110132115418,
+      "evidence": [
+        "godot-authoring exact-SHA certification 2895f4f: native PASS",
+        "current source changed after that certification and requires a new exact-SHA run"
+      ]
     },
     {
       "id": "D03",
       "requirement": "2D/3D owner/readback",
-      "state": "PARTIAL_2D_3D_MODEL_NATIVE_PENDING",
+      "state": "HISTORICAL_CERTIFIED_CURRENT_SHA_RETEST_REQUIRED",
       "implementation": "typed 2D/3D scenes plus native owner/resource readback on private copy; explicit shared versus local-to-scene material bindings preserve shared identity and isolate local overrides",
       "tests": [
         "typed 2D/3D/resource-sharing fixture compile",
         "native inspect",
         "shared material aliasing and local-to-scene isolation E2E"
       ],
-      "tested_sha": null,
-      "run_id": null,
-      "job_id": null,
-      "evidence": []
+      "tested_sha": "2895f4fddd921648615ab1ca946d78d89e0fed97",
+      "run_id": 36787419869,
+      "job_id": 110132115418,
+      "evidence": [
+        "godot-authoring exact-SHA certification 2895f4f: native PASS",
+        "current source changed after that certification and requires a new exact-SHA run"
+      ]
     },
     {
       "id": "D04",
       "requirement": "typed no-escape IR",
-      "state": "SOURCE_PASS_CURRENT_SHA_PENDING",
+      "state": "HISTORICAL_CERTIFIED_CURRENT_SHA_RETEST_REQUIRED",
       "implementation": "typed Behavior IR with arithmetic/comparison/logic/clamp/bounded lerp expressions, strict decode/validation and deterministic generated GDScript without caller code",
       "tests": [
         "model/compiler/security suite",
         "typed lerp endpoint/weight/range regression",
         "fixed native probe no arbitrary execution"
       ],
-      "tested_sha": "44adb0688efe0b3ccfc142ef10ed3cf510325074",
-      "run_id": 36521988929,
-      "job_id": 109256656257,
+      "tested_sha": "2895f4fddd921648615ab1ca946d78d89e0fed97",
+      "run_id": 36787419869,
+      "job_id": 110132115405,
       "evidence": [
-        "godot-model exact-SHA PASS; native=false"
+        "godot-authoring exact-SHA certification 2895f4f: model PASS",
+        "current source changed after that certification and requires a new exact-SHA run"
       ]
     },
     {
       "id": "D05",
       "requirement": "composable technical games",
-      "state": "IMPLEMENTED_TECHNICAL_GAMES_EVIDENCE_PENDING",
+      "state": "HISTORICAL_CERTIFIED_CURRENT_SHA_RETEST_REQUIRED",
       "implementation": "2D and 3D technical-game intents with input/objective/score/HUD/start/play/win/lose/restart, local supplied audio cue, camera/interactions and product-route playtest. Typed behavior actions include position/rotation/scale, bounded reparent with explicit keep_global semantics, and physics-tick-only vector acceleration for Body2D/Body3D so gravity can be declared without arbitrary force/method calls; product E2E also replans one live managed 2D game to change behavior, HUD and entity count while preserving unaffected animation/audio bytes and existing logical IDs.",
       "tests": [
         "two_d.json with native AudioStreamPlayer/start cue",
@@ -78,15 +89,18 @@
         "Broker/Host incremental behavior + HUD + entity-count update",
         "unaffected animation/audio preservation and stable logical bindings"
       ],
-      "tested_sha": null,
-      "run_id": null,
-      "job_id": null,
-      "evidence": []
+      "tested_sha": "2895f4fddd921648615ab1ca946d78d89e0fed97",
+      "run_id": 36787419869,
+      "job_id": 110132115418,
+      "evidence": [
+        "godot-authoring exact-SHA certification 2895f4f: native PASS",
+        "current source changed after that certification and requires a new exact-SHA run"
+      ]
     },
     {
       "id": "D06",
       "requirement": "runtime budgets",
-      "state": "SOURCE_PASS_NATIVE_RUNTIME_PENDING",
+      "state": "HISTORICAL_CERTIFIED_CURRENT_SHA_RETEST_REQUIRED",
       "implementation": "tick/event/entity/spawn limits plus native runtime telemetry and bounded inputs; movement and acceleration are physics-tick-only, dimension-typed and max-speed bounded; runtime transform helpers reject lost bindings, invalid numeric/type values, hierarchy cycles, cross-tree reparent and keep_global dimension mismatch",
       "tests": [
         "budget tests",
@@ -94,17 +108,18 @@
         "typed acceleration event/dimension/max-speed fail-closed regression",
         "native gravity acceleration playtest"
       ],
-      "tested_sha": "44adb0688efe0b3ccfc142ef10ed3cf510325074",
-      "run_id": 36521988929,
-      "job_id": 109256656257,
+      "tested_sha": "2895f4fddd921648615ab1ca946d78d89e0fed97",
+      "run_id": 36787419869,
+      "job_id": 110132115418,
       "evidence": [
-        "godot-model exact-SHA PASS; native=false"
+        "godot-authoring exact-SHA certification 2895f4f: native PASS",
+        "current source changed after that certification and requires a new exact-SHA run"
       ]
     },
     {
       "id": "D07",
       "requirement": "full animation paging",
-      "state": "IMPLEMENTED_NATIVE_PAGING_EVIDENCE_PENDING",
+      "state": "HISTORICAL_CERTIFIED_CURRENT_SHA_RETEST_REQUIRED",
       "implementation": "complete native animation/library/track/key observation plus typed AnimationTree StateMachine and BlendSpace1D realization; product-routed composition.native.tracks.page and composition.native.keys.page use stateless cursors bound to source fingerprint, normalized native projection and exact key-page selector across fresh inspect processes",
       "tests": [
         "typed deterministic state-machine/blend-space compiler regressions",
@@ -112,17 +127,18 @@
         "native track and key cursor cross-process regressions",
         "Broker/Host 70-track plus 70-key two-page native E2E"
       ],
-      "tested_sha": "44adb0688efe0b3ccfc142ef10ed3cf510325074",
-      "run_id": 36521988929,
-      "job_id": 109256656257,
+      "tested_sha": "2895f4fddd921648615ab1ca946d78d89e0fed97",
+      "run_id": 36787419869,
+      "job_id": 110132115418,
       "evidence": [
-        "godot-model exact-SHA PASS; native=false"
+        "godot-authoring exact-SHA certification 2895f4f: native PASS",
+        "current source changed after that certification and requires a new exact-SHA run"
       ]
     },
     {
       "id": "D08",
       "requirement": "external persistence sentinels",
-      "state": "IMPLEMENTED_NATIVE_PERSISTENCE_EVIDENCE_PENDING",
+      "state": "HISTORICAL_CERTIFIED_CURRENT_SHA_RETEST_REQUIRED",
       "implementation": "external dependency sentinels plus save/fresh-process reopen; dedicated godot-persistence lane also executes the #171 scene-only contract for byte-exact external material/texture preservation, shared external identity, embedded/shared subresource persistence and inherited-scene fail-closed behavior",
       "tests": [
         "portable persistence sentinel regression",
@@ -132,46 +148,53 @@
         "#171 embedded/shared subresource reload",
         "#171 inherited scene rejection without write"
       ],
-      "tested_sha": "44adb0688efe0b3ccfc142ef10ed3cf510325074",
-      "run_id": 36521988929,
-      "job_id": 109256656257,
+      "tested_sha": "2895f4fddd921648615ab1ca946d78d89e0fed97",
+      "run_id": 36787419869,
+      "job_id": 110132115257,
       "evidence": [
-        "godot-model exact-SHA PASS; native=false"
+        "godot-authoring exact-SHA certification 2895f4f: persistence PASS",
+        "current source changed after that certification and requires a new exact-SHA run"
       ]
     },
     {
       "id": "D09",
       "requirement": "codegen/export provenance",
-      "state": "IMPLEMENTED_EXPORT_GATE_PENDING",
+      "state": "HISTORICAL_CERTIFIED_CURRENT_SHA_RETEST_REQUIRED",
       "implementation": "generated-source provenance, private-copy execution and export filtering",
       "tests": [
         "runtime secret/listener regression",
         "export inspection"
       ],
-      "tested_sha": null,
-      "run_id": null,
-      "job_id": null,
-      "evidence": []
+      "tested_sha": "2895f4fddd921648615ab1ca946d78d89e0fed97",
+      "run_id": 36787419869,
+      "job_id": 110132115355,
+      "evidence": [
+        "godot-authoring exact-SHA certification 2895f4f: export PASS",
+        "current source changed after that certification and requires a new exact-SHA run"
+      ]
     },
     {
       "id": "D10",
       "requirement": "standalone export run",
-      "state": "IMPLEMENTED_DEDICATED_EXPORT_EVIDENCE_PENDING",
+      "state": "HISTORICAL_CERTIFIED_CURRENT_SHA_RETEST_REQUIRED",
       "implementation": "dedicated godot-export lane creates a managed project through Broker/Driver Host, validates/runs it, calls existing export.build, scans the release binary for authoring-only markers, then launches it with cleared environment and no editor/Semwright",
       "tests": [
         "godot-export managed project validate/run",
         "release export marker/secret scan",
         "standalone exported-game launch with clean HOME"
       ],
-      "tested_sha": null,
-      "run_id": null,
-      "job_id": null,
-      "evidence": []
+      "tested_sha": "2895f4fddd921648615ab1ca946d78d89e0fed97",
+      "run_id": 36787419869,
+      "job_id": 110132115355,
+      "evidence": [
+        "godot-authoring exact-SHA certification 2895f4f: export PASS",
+        "current source changed after that certification and requires a new exact-SHA run"
+      ]
     },
     {
       "id": "D11",
       "requirement": "authorized repair/no overwrite",
-      "state": "PARTIAL_MISSING_SOURCE_REPAIR_IMPLEMENTED_RECONCILIATION_BLOCKED",
+      "state": "PARTIAL_REPAIR_CERTIFIED_A_RECONCILIATION_BLOCKED",
       "implementation": "owner-bound one-shot apply, bounded missing-source repair and DIVERGED no-overwrite are implemented. Store has fail-closed partial-publication state, but authorized Partial/Unknown reconciliation cannot be exposed without an A PlanVault reconciliation transition: current C0 and A head reject further begin/child repair after a non-Completed attempt.",
       "tests": [
         "owner-bound one-shot apply",
@@ -180,15 +203,18 @@
         "partial publication remains blocked until explicit reconciliation",
         "runner drift denial"
       ],
-      "tested_sha": null,
-      "run_id": null,
-      "job_id": null,
-      "evidence": []
+      "tested_sha": "2895f4fddd921648615ab1ca946d78d89e0fed97",
+      "run_id": 36787419869,
+      "job_id": 110132115318,
+      "evidence": [
+        "godot-authoring exact-SHA certification 2895f4f: hostile repair/diverged gates PASS",
+        "current A PlanVault still has no explicit reconciliation transition after non-Completed attempt; partial publication retry remains blocked"
+      ]
     },
     {
       "id": "D12",
       "requirement": "Blender GLB preserved gameplay",
-      "state": "IMPLEMENTED_CROSS_APP_EVIDENCE_PENDING",
+      "state": "HISTORICAL_CERTIFIED_CURRENT_SHA_RETEST_REQUIRED",
       "implementation": "incremental replacement on one managed 3D game: baseline triangle.glb -> native inspect/play -> pinned E native articulated.glb artifact (E d80471b/run 36543391358/artifact 11023505708) via Broker artifact.handoff -> replan/apply same logical asset slot -> native inspect/persistence/play -> composition.verify C receipt that pins the articulated GLB LogicalAssetId/AssetRevision/bytes; the heavy route runs in the already-attested native-authoring runner and a dependent cross-app job independently revalidates receipts and E bytes",
       "tests": [
         "E native/oracle/hostile provenance verification",
@@ -202,45 +228,55 @@
         "C ExecutionReceipt for replacement apply pins articulated GLB asset/revision/SHA",
         "independent cross-app oracle redownloads E artifact and compares exact bytes"
       ],
-      "tested_sha": null,
-      "run_id": null,
-      "job_id": null,
-      "evidence": []
+      "tested_sha": "2895f4fddd921648615ab1ca946d78d89e0fed97",
+      "run_id": 36787419869,
+      "job_id": 110135821542,
+      "evidence": [
+        "godot-authoring exact-SHA certification 2895f4f: cross PASS",
+        "current source changed after that certification and requires a new exact-SHA run"
+      ]
     },
     {
       "id": "D13",
       "requirement": "C/F integration",
-      "state": "PARTIAL_C_APPLY_NATIVE_F_IMPLEMENTED_READONLY_C_BLOCKED_EVIDENCE_PENDING",
-      "implementation": "source verification uses trusted F EvidenceAdapter and C apply receipt; native readback/runtime/persistence use trusted F evaluation; D12 replacement apply is closed with an admitted C ExecutionReceipt/output pin. C provenance for read-only native observations remains blocked on a suitable C observation contract and is not synthesized locally",
+      "state": "C_REVISION_ADAPTER_IMPLEMENTED_RETEST_REQUIRED",
+      "implementation": "Source and native verification use F EvidenceAdapter/evaluator and apply/export use C ExecutionReceipt. Current source consumes C final trusted revision-admission contract: D derives an untrusted RevisionCandidate from authenticated native readback, stable LogicalAssetId and projection, while binding_generation is supplied only by the trusted Project Graph host; C RevisionAdapter/accept_revision retain promotion authority.",
       "tests": [
         "A/C/F consumer test",
         "native F readback/runtime/persistence evaluation",
-        "D12 replacement composition.verify C receipt/output pin"
+        "D12 replacement composition.verify C receipt/output pin",
+        "C native RevisionCandidate consumer: admit/accept plus stale generation rejection"
       ],
-      "tested_sha": null,
-      "run_id": null,
-      "job_id": null,
-      "evidence": []
+      "tested_sha": "2895f4fddd921648615ab1ca946d78d89e0fed97",
+      "run_id": 36787419869,
+      "job_id": 110132115418,
+      "evidence": [
+        "previous F/native and C apply consumer evidence certified at 2895f4f",
+        "new C read-only RevisionCandidate consumer is implemented in current source and awaits exact-SHA Actions evidence"
+      ]
     },
     {
       "id": "D14",
       "requirement": "route audit and independent oracle",
-      "state": "PRODUCT_ROUTE_IMPLEMENTED_ORACLE_PENDING",
+      "state": "HISTORICAL_CERTIFIED_CURRENT_SHA_RETEST_REQUIRED",
       "implementation": "native evidence executes behind Broker/Driver Host; targeted composition.native.query filters one managed node/resource server-side without returning the full projection; standalone export oracle implemented; D12 heavy native route executes after Driver Host attestation in godot-native-authoring and a separate dependent cross-app job independently revalidates its C/D receipts plus the pinned E artifact bytes",
       "tests": [
         "host route/native/query/export E2E",
         "native query schema/filter/ambiguity regressions",
         "independent D12 receipt/artifact oracle"
       ],
-      "tested_sha": null,
-      "run_id": null,
-      "job_id": null,
-      "evidence": []
+      "tested_sha": "2895f4fddd921648615ab1ca946d78d89e0fed97",
+      "run_id": 36787419869,
+      "job_id": 110132115418,
+      "evidence": [
+        "godot-authoring exact-SHA certification 2895f4f: native PASS",
+        "current source changed after that certification and requires a new exact-SHA run"
+      ]
     },
     {
       "id": "D15",
       "requirement": "Skill/install/packages",
-      "state": "SKILL_AND_PACKAGES_IMPLEMENTED_EVIDENCE_PENDING",
+      "state": "HISTORICAL_CERTIFIED_CURRENT_SHA_RETEST_REQUIRED",
       "implementation": "production Skill plus exact-SHA CLI validate/inspect/bundle and deterministic reconstructable source package. Iteration pushes run only affected lanes and emit scope evidence; delivery/package is certification-only and requires one exact candidate SHA with model/native/persistence/export/hostile/cross-app all successful",
       "tests": [
         "scope selector self-tests and per-push scope.json evidence",
@@ -248,15 +284,18 @@
         "semwright skill validate/inspect/bundle",
         "package_source.py reconstruction/checksums plus certification.json gate manifest"
       ],
-      "tested_sha": null,
-      "run_id": null,
-      "job_id": null,
-      "evidence": []
+      "tested_sha": "2895f4fddd921648615ab1ca946d78d89e0fed97",
+      "run_id": 36787419869,
+      "job_id": 110135886441,
+      "evidence": [
+        "godot-authoring exact-SHA certification 2895f4f: package PASS",
+        "current source changed after that certification and requires a new exact-SHA run"
+      ]
     },
     {
       "id": "D16",
       "requirement": "171 regression/hostile/gates",
-      "state": "PARTIAL_171_GREEN_EXPANDED_D_GATE_PENDING",
+      "state": "HISTORICAL_CERTIFIED_CURRENT_SHA_RETEST_REQUIRED",
       "implementation": "#171 real-Godot readback/scene-save previously green; current D gates rerun readback in godot-native-authoring and the expanded scene-save persistence contract in godot-persistence on the exact D SHA, with hostile/fuzz/cross-app/export/package still independently required",
       "tests": [
         "Godot driver integration real-godot historical regression",
@@ -264,15 +303,16 @@
         "godot-persistence expanded #171 scene-save contract",
         "godot-hostile property/focused adversarial suite"
       ],
-      "tested_sha": "9a7a0ce7ba67dc92d06f4e656cc3e5b9002f3140",
-      "run_id": 36525334763,
-      "job_id": 109267005569,
+      "tested_sha": "2895f4fddd921648615ab1ca946d78d89e0fed97",
+      "run_id": 36787419869,
+      "job_id": 110132115318,
       "evidence": [
-        "real-godot PASS including #171 readback and scene-only save; hostile/final D gates open"
+        "godot-authoring exact-SHA certification 2895f4f: hostile PASS",
+        "current source changed after that certification and requires a new exact-SHA run"
       ]
     }
   ],
   "candidate_sha": null,
   "current_run_id": null,
-  "status_note": "Set exact candidate/run only from executed CI evidence; repository docs do not predeclare READY."
+  "status_note": "Historical D certification run 36787419869 is exact for 2895f4fddd921648615ab1ca946d78d89e0fed97. Current source additionally merges C 504ad2c6632305b580b51703a60b0a194865780d and implements trusted-host revision-candidate consumption, so READY remains false until a new exact-SHA run. D11 remains blocked on an A PlanVault reconciliation transition; no retry authority is synthesized."
 }

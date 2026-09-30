@@ -15,8 +15,8 @@ use semwright_effect_conformance::{
 };
 use semwright_project_graph::{
     Coverage, DependencyClass, DerivationId, Determinant, Equivalence, ExecutionReceipt,
-    Fingerprint, GraphError, OperationIdentity, ReceiptAdapter, ReceiptId, RevisionPin,
-    SCHEMA_VERSION,
+    Fingerprint, GraphError, OperationIdentity, ProjectionDigest, ReceiptAdapter, ReceiptId,
+    RevisionCandidate, RevisionPin, SCHEMA_VERSION,
 };
 use semwright_semantic_composition::{
     Address, Atomicity, BaseState, BaseStateSet, ChangeSet, Concurrency, ContractError, Controller,
@@ -37,6 +37,8 @@ const OPERATION_ID: &str = "publish_managed_project";
 const NATIVE_READBACK_PROPERTY: &str = "native_readback";
 const NATIVE_RUNTIME_PROPERTY: &str = "native_runtime";
 const NATIVE_PERSISTENCE_PROPERTY: &str = "native_persistence";
+const NATIVE_REVISION_METHOD: &str = "godot_native_project_observation";
+const NATIVE_REVISION_METHOD_VERSION: u32 = 1;
 
 struct StoredPlan {
     plan: PreparedPlan<GodotAuthoringSpec, GodotOperation>,
@@ -243,6 +245,127 @@ impl AuthoringRuntime {
             .record_observation(owner, plan_id, findings)
             .map_err(composition_error)?;
         Ok(evaluation)
+    }
+
+    /// Build C's untrusted read-only revision candidate from an already-bound
+    /// native result. The durable binding generation is supplied by the trusted
+    /// Project Graph host; D never derives or increments that authority locally.
+    pub fn native_revision_candidate(
+        &self,
+        owner: &Owner,
+        plan_id: &str,
+        request_id: &str,
+        scene: &str,
+        binding_generation: u64,
+        result: &NativeVerifyResult,
+    ) -> Result<RevisionCandidate> {
+        if binding_generation == 0 {
+            return Err(Error::invalid(
+                "Project Graph binding generation must be nonzero",
+            ));
+        }
+        let context = self.native_plan_context(owner, plan_id, scene)?;
+        let snapshot = self.store.snapshot(&context.project)?;
+        let record = snapshot.record().ok_or_else(|| {
+            Error::new(
+                ErrorCode::Conflict,
+                "Native revision admission requires provider derivation state",
+            )
+        })?;
+        let binding = result.binding();
+        if binding.owner != *owner
+            || binding.request_id != request_id
+            || binding.project != context.project_id
+            || binding.slug != context.project
+            || binding.scene != scene
+            || binding.plan_digest != context.plan_digest
+            || binding.intent_digest != context.intent_digest
+            || binding.source_fingerprint != snapshot.fingerprint
+        {
+            return Err(Error::new(
+                ErrorCode::ProtocolMismatch,
+                "Native revision evidence differs from authenticated plan/state",
+            ));
+        }
+        let native = match result {
+            NativeVerifyResult::Inspect { observation, .. }
+            | NativeVerifyResult::Play { observation, .. } => observation,
+            NativeVerifyResult::Persistence { reader, .. } => reader,
+        };
+        if native.source_fingerprint != snapshot.fingerprint {
+            return Err(Error::new(
+                ErrorCode::ProtocolMismatch,
+                "Native revision source fingerprint differs from managed state",
+            ));
+        }
+        let asset = record
+            .bindings
+            .get(&format!("scene:{scene}"))
+            .cloned()
+            .ok_or_else(|| Error::new(ErrorCode::Conflict, "Managed scene identity is missing"))?;
+        let projection = native.authored.stable_digest()?;
+        let live_complete = native
+            .live
+            .as_ref()
+            .is_none_or(|projection| projection.unknown.is_empty());
+        let runtime_complete = !matches!(result, NativeVerifyResult::Play { .. })
+            || (native.live.is_some()
+                && !native.frames.is_empty()
+                && native.frames.iter().all(|frame| frame.fault.is_none()));
+        let complete = native.dependency_complete
+            && native.authored.unknown.is_empty()
+            && live_complete
+            && native.failures.is_empty()
+            && runtime_complete;
+        let coverage = if complete {
+            Coverage::complete()
+        } else {
+            Coverage::unknown()
+        };
+        let properties: &[&str] = match result {
+            NativeVerifyResult::Inspect { .. } => &[NATIVE_READBACK_PROPERTY],
+            NativeVerifyResult::Persistence { .. } => {
+                &[NATIVE_READBACK_PROPERTY, NATIVE_PERSISTENCE_PROPERTY]
+            }
+            NativeVerifyResult::Play { .. } => &[NATIVE_READBACK_PROPERTY, NATIVE_RUNTIME_PROPERTY],
+        };
+        let resource = project_resource(&context.project);
+        let scope = properties
+            .iter()
+            .map(|property| Address {
+                resource: resource.clone(),
+                logical_id: scene.to_owned(),
+                property: (*property).to_owned(),
+            })
+            .collect();
+        let candidate = RevisionCandidate {
+            version: SCHEMA_VERSION,
+            asset,
+            fingerprint: Fingerprint {
+                bytes: Some(native.loaded_scene_sha256.clone()),
+                projection: Some(ProjectionDigest {
+                    digest: projection,
+                    method: NATIVE_REVISION_METHOD.into(),
+                    method_version: NATIVE_REVISION_METHOD_VERSION,
+                }),
+            },
+            equivalence: Equivalence::Projection,
+            observed_unix_ms: now_unix_ms()?,
+            binding_generation,
+            observation: semwright_semantic_composition::ObservationRef {
+                id: format!("godot_native_revision_{}", unique_id()),
+                base: base_state(owner, &context.project, &snapshot)?,
+                source: EvidenceSource::NativeApi,
+                method: NATIVE_REVISION_METHOD.into(),
+                method_version: NATIVE_REVISION_METHOD_VERSION,
+                scope,
+                artifact: None,
+                exhaustive: complete,
+            },
+            coverage,
+        };
+        candidate.validate().map_err(graph_error)?;
+        Ok(candidate)
     }
 
     pub fn inspect(&self, project: &str) -> Result<SnapshotView> {
