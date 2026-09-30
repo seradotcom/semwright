@@ -1,16 +1,16 @@
 # Blender → Godot GLB handoff contract
 
-E inspected D's published source SHA `557ad0b555d21f77d678fd760fb471dccfdee82d` without merging or editing D-owned paths.
+E initially inspected D's published source SHA `557ad0b555d21f77d678fd760fb471dccfdee82d` without merging or editing D-owned paths. That historical inspection predated D's later public cross-app artifact-handoff/import lane.
 
 ## What D already proves in source
 
 D's typed authoring model has `AssetKind::Glb` with a declared relative file and SHA-256. Its store reads the declared input from its configured input root, checks the exact digest, enforces a 16 MiB input budget, validates GLB v2 framing/chunks, bounds JSON structure, and rejects external/data URI dependencies. D's compiler can realize an `Instance` of that GLB as a `PackedScene`.
 
-Those are implementation facts at the inspected SHA. They are not yet E11 acceptance evidence.
+Those implementation facts informed the contract below. They are not, by themselves, E11 acceptance evidence.
 
-## Missing public boundary
+## Current public boundary and missing acceptance
 
-At `557ad0b…`, E did not find a Broker-facing Godot Composition/authoring capability that accepts an artifact token or a host-granted GLB input and returns native import/readback evidence. The current published D coordination state also says native parsing/persistence/export acceptance is not established.
+D now owns a Broker-facing cross-app artifact handoff/import route and a dedicated cross-app GLB lane. E therefore no longer treats the API boundary itself as missing. E11 remains blocked because no exact-SHA D candidate has yet completed that public route with native Godot import/readback/semantic verification against an authentic final E artifact.
 
 E therefore must **not**:
 - call `authoring::store::Store` directly;
@@ -21,7 +21,7 @@ E therefore must **not**:
 
 ## Required D receipt for E11
 
-When D publishes the route, E needs one public, policy-checked flow with:
+For E11 closure, E needs one exact-SHA public, policy-checked D flow with:
 1. artifact/input identity and exact Blender GLB digest;
 2. D project/base identity and owner session from the authenticated execution context;
 3. declared `AssetKind::Glb` and bounded destination under D's own grants;
@@ -33,4 +33,4 @@ When D publishes the route, E needs one public, policy-checked flow with:
 
 E's existing `driver.blender.export.glb` remains the producer. D remains the importer/consumer. Neither driver receives the other's filesystem authority.
 
-Until that D capability and exact-SHA native evidence exist, E11 remains `BLOCKED_DEPENDENCY`, not PASS and not unsupported.
+Until that exact-SHA D native cross-app evidence exists, E11 remains `BLOCKED_DEPENDENCY`, not PASS and not unsupported.

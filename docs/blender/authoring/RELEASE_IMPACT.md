@@ -4,7 +4,7 @@ PR #175 is the E development PR. Source commits exist, but BLENDER_AUTHORING_REA
 
 ## Compatibility
 
-Existing Blender capabilities retain their public names. The PR adds `driver.blender.composition.{inspect,plan,apply,measure,validate,verify,persist,reopen}`; authoring calls require protocol-v3 authenticated request context; protocol v2 collapses the child session to `driver-v2` and is therefore insufficient for PlanVault owner binding. Legacy context-free execution explicitly refuses those new mutations.
+Existing Blender capabilities retain their public names. The PR adds `driver.blender.composition.{inspect,plan,apply,measure,validate,verify,persist,reopen}`; authoring calls require protocol-v3 authenticated request context; protocol v2 collapses the child session to `driver-v2` and is therefore insufficient for PlanVault owner binding. The typed plan surface now includes ordinary incremental `transform` and `material_slots` intents plus axis-selective `align` relations, while repair remains transform-only. `composition.measure` additionally accepts bounded pair measurements and optional sampled `{frame, rate}` using A's `media-time::Rate`. Legacy context-free execution explicitly refuses those new mutations.
 
 PR #154's `driver.blender.export.glb` is reused. E adds a conservative dependency preflight before that exporter. Content previously accepted solely because it was selected can now be denied when linked/override data, external parents/targets, unmanaged modifiers/constraints, unrelated action expansion, unsupported shader graphs or out-of-workspace textures make effective membership unprovable. This is intentional fail-closed behavior and requires native regression evidence.
 

@@ -14,6 +14,6 @@ The runtime target is Blender 4.5.14 LTS inside the existing Linux Driver Host s
 
 Geometry arrays are data; Python source, expression strings, generic RNA method names, callbacks, plugins and downloads are not valid authoring inputs. Fixed first-party Python inside the sealed Blender driver is backend implementation, not caller code.
 
-The only repair surface is transform-only, parent-PlanVault-bound repair. It cannot regenerate a created asset, remesh, remove parts, change materials/rigs, bake, or expand authority.
+Ordinary incremental edits are separate from repair: `transform` and `material_slots` require a fresh managed fingerprint, and `material_slots` is denied on shared mesh data unless the caller first chose explicit `mesh_copy` isolation. The only repair surface is transform-only, parent-PlanVault-bound repair. It cannot regenerate a created asset, remesh, remove parts, change materials/rigs, bake, or expand authority.
 
-Still open: node-graph authoring beyond the closed typed PBR network, cross-format NLA track preservation, host-admitted C receipts spanning export/handoff/import, D's public Godot GLB roundtrip, and final exact-SHA acceptance. F effect evaluation is wired to trusted native readback, but it does not close those separate obligations.
+Still open: node-graph authoring beyond the closed typed PBR network, cross-format NLA track preservation, host-admitted C receipts spanning export/handoff/import, and an exact-SHA D Godot cross-app GLB roundtrip. F effect evaluation is wired to trusted native readback, but it does not close those separate obligations; exact-SHA E acceptance is represented by the CI artifact rather than asserted by this prose.

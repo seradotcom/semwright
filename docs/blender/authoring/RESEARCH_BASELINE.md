@@ -25,4 +25,4 @@ AABB overlap is only broad-phase evidence. E's pairwise narrow phase works on ev
 
 A C0 owns Owner/BaseState/PreparedPlan/ChangeSet/PlanVault/reports. C P0 owns persistent graph identities/receipts/admission. F E0 owns effect predicates/evidence/evaluation. PR #154 owns the fixed GLB exporter/sealed-runtime probes. E adds Blender-domain compilation/adapters only; it does not fork those authorities.
 
-D SHA `557ad0b…` was inspected for GLB consumer design: its internal store validates a hash-pinned, self-contained GLB and can realize it as PackedScene, but that is not a public Broker route. E therefore records the roundtrip as a dependency blocker rather than calling private D code.
+Historical D SHA `557ad0b…` was the design baseline: its internal store validated a hash-pinned, self-contained GLB and could realize it as PackedScene before a public Broker route existed. D later published a public cross-app artifact-handoff/import route. E still records the Godot roundtrip as a dependency blocker until that public route has exact-SHA native acceptance against an authentic E artifact; private D code is never used as substitute evidence.

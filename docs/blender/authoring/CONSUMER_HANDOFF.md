@@ -16,7 +16,7 @@ The native E2E obtains the actual apply descriptor digest from the live provider
 
 ## D Godot
 
-E never writes `.tscn` or calls D's private store/compiler. The existing Blender GLB capability produces the artifact. At inspected D SHA `557ad0b…`, D can validate self-contained GLB internally, but E did not find a public Broker-facing D semantic authoring/import capability. The exact contract E needs is documented in `D_GLB_HANDOFF.md`; E11 stays BLOCKED_DEPENDENCY until D publishes it.
+E never writes `.tscn` or calls D's private store/compiler. The existing Blender GLB capability produces the artifact. The original D inspection at `557ad0b…` predated D's public cross-app artifact-handoff/import lane; D now owns that Broker-facing route. E11 remains `BLOCKED_DEPENDENCY` for a different reason: no exact-SHA D run has yet completed native Godot import/readback/semantic verification against an authentic final E artifact. The evidence contract remains documented in `D_GLB_HANDOFF.md`.
 
 ## Consumers of E
 

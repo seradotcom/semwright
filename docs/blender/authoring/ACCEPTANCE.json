@@ -99,10 +99,10 @@
     {
       "id": "E11",
       "condition": "GLB roundtrip Blender and Godot",
-      "implementation": "E exports with the existing GLB capability; D SHA 557ad0b validates self-contained GLB internally but does not yet publish a Broker-facing authoring/import capability consumable by E.",
+      "implementation": "E exports with the existing GLB capability. D now publishes the Broker-facing cross-app artifact handoff/import route, but E has no exact-SHA D PASS yet for native Godot import/readback/semantic comparison against an authentic final E artifact.",
       "test": null,
       "status": "BLOCKED_DEPENDENCY",
-      "open": "D must publish its public GLB authoring/import route and native acceptance SHA; then E can run export -> artifact handoff -> D import -> semantic comparison without private store calls."
+      "open": "Require a D exact-SHA godot-cross-app-glb PASS over the public artifact route, including native Godot observations and C/F-bound receipts; E never substitutes private Store calls or direct Godot filesystem writes."
     },
     {
       "id": "E12",
@@ -117,7 +117,7 @@
       "implementation": "F trusted native EvidenceBatch/evaluation uses the real apply post-state; native E2E creates a C ExecutionReceipt candidate from host-owned logical IDs plus the real request/descriptor/runtime and C ReceiptAdapter admits it",
       "test": "model substitution/coverage cases + native apply requires F PASS and records admitted C authoring receipt digest in native-pipeline.json",
       "status": "PARTIAL",
-      "open": "cross-app C activities/receipts for GLB handoff -> D import -> D verification remain blocked on D's public route"
+      "open": "cross-app C activities/receipts remain pending a successful D artifact handoff -> native import -> verification activity and subsequent C-owned admission/provenance; Blender-native C/F evidence alone is insufficient"
     },
     {
       "id": "E14",

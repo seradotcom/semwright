@@ -110,7 +110,7 @@ for requirement in matrix["requirements"]:
         requirement["status"] = "PARTIAL"
         requirement["open"] = (
             "Blender-native C/F authoring evidence PASS; cross-app C activities/receipts "
-            "remain dependent on the D import/verification route."
+            "remain dependent on a successful D import/verification activity and C-owned admission/provenance."
         )
     else:
         raise SystemExit(f"unexpected acceptance requirement: {rid}")
