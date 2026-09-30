@@ -15,18 +15,22 @@ fn fake_melt() -> PathBuf {
     PathBuf::from(env!("CARGO_BIN_EXE_fake-melt"))
 }
 
-fn runtime_bundle(entrypoint: &Path) -> tempfile::TempDir {
+fn fake_ffprobe() -> PathBuf {
+    PathBuf::from(env!("CARGO_BIN_EXE_fake-ffprobe"))
+}
+
+fn runtime_bundle(entrypoint: &Path, name: &str) -> tempfile::TempDir {
     let root = tempfile::tempdir().expect("runtime bundle");
     let bin = root.path().join("bin");
     fs::create_dir(&bin).expect("runtime bin");
-    fs::copy(entrypoint, bin.join("melt")).expect("copy runtime entrypoint");
+    fs::copy(entrypoint, bin.join(name)).expect("copy runtime entrypoint");
     root
 }
 
 #[test]
 fn runtime_runner_discovers_bounded_catalog_from_explicit_dependency() {
     let sealed = fake_melt();
-    let bundle = runtime_bundle(&sealed);
+    let bundle = runtime_bundle(&sealed, "melt");
     let output = Command::new(runner())
         .args(["discover", "--runtime-root"])
         .arg(bundle.path())
@@ -73,7 +77,7 @@ fn runtime_runner_discovers_bounded_catalog_from_explicit_dependency() {
 #[test]
 fn runtime_runner_rejects_unmaterialized_relative_dependencies() {
     let sealed = fake_melt();
-    let bundle = runtime_bundle(&sealed);
+    let bundle = runtime_bundle(&sealed, "melt");
     let output = Command::new(runner())
         .args(["discover", "--runtime-root"])
         .arg(bundle.path())
@@ -94,7 +98,7 @@ fn runtime_runner_rejects_unmaterialized_relative_dependencies() {
 #[test]
 fn runtime_runner_rejects_bundle_entrypoint_that_does_not_match_sealed_tool() {
     let sealed = fake_melt();
-    let bundle = runtime_bundle(&sealed);
+    let bundle = runtime_bundle(&sealed, "melt");
     fs::write(bundle.path().join("bin/melt"), b"not the sealed executable").unwrap();
     let output = Command::new(runner())
         .args(["discover", "--runtime-root"])
@@ -110,6 +114,63 @@ fn runtime_runner_rejects_bundle_entrypoint_that_does_not_match_sealed_tool() {
         value["error"]
             .as_str()
             .is_some_and(|message| message.contains("does not match the Host-sealed melt bytes"))
+    );
+}
+
+#[test]
+fn runtime_runner_probes_one_confined_scratch_file_with_sealed_ffprobe() {
+    let sealed = fake_ffprobe();
+    let bundle = runtime_bundle(&sealed, "ffprobe");
+    let scratch = tempfile::tempdir().expect("scratch root");
+    let job = scratch.path().join("job-a");
+    fs::create_dir(&job).unwrap();
+    fs::write(job.join("probe.bin"), b"fixture-media").unwrap();
+
+    let output = Command::new(runner())
+        .args(["probe", "--runtime-root"])
+        .arg(bundle.path())
+        .args(["--ffprobe-sealed"])
+        .arg(&sealed)
+        .args(["--scratch-root"])
+        .arg(scratch.path())
+        .args(["--directory", "job-a", "--name", "probe.bin"])
+        .output()
+        .expect("run bounded ffprobe operation");
+    assert!(
+        output.status.success(),
+        "runner stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let value: Value = serde_json::from_slice(&output.stdout).expect("probe JSON");
+    assert_eq!(value["schema"], 1);
+    assert_eq!(value["operation"], "probe");
+    assert_eq!(value["media"]["streams"][0]["codec_name"], "ffv1");
+    assert_eq!(value["media"]["format"]["duration"], "2.000000000");
+}
+
+#[test]
+fn runtime_runner_probe_rejects_scratch_traversal() {
+    let sealed = fake_ffprobe();
+    let bundle = runtime_bundle(&sealed, "ffprobe");
+    let scratch = tempfile::tempdir().expect("scratch root");
+    let output = Command::new(runner())
+        .args(["probe", "--runtime-root"])
+        .arg(bundle.path())
+        .args(["--ffprobe-sealed"])
+        .arg(&sealed)
+        .args(["--scratch-root"])
+        .arg(scratch.path())
+        .args(["--directory", "../escape", "--name", "probe.bin"])
+        .output()
+        .expect("run traversal probe");
+    assert!(!output.status.success());
+    let value: Value = serde_json::from_slice(&output.stdout).expect("probe error JSON");
+    assert_eq!(value["operation"], "error");
+    assert!(
+        value["error"]
+            .as_str()
+            .is_some_and(|message| message.contains("one bounded path component"))
     );
 }
 

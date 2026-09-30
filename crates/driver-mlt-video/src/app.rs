@@ -9,7 +9,7 @@ use crate::{
     json::{Value, array, display, obj},
     model::*,
     refs::RefStore,
-    runtime::{RenderProfile, Runtime},
+    runtime::{RenderProfile, Runtime, ServiceCatalog},
     time::{FrameRange, FrameRate},
 };
 use semwright_video_domain::support::VideoOperation;
@@ -41,6 +41,7 @@ pub struct App {
     refs: RefStore,
     pub roots: Arc<BTreeMap<String, Arc<Root>>>,
     pub runtime: Option<Arc<Runtime>>,
+    pub catalog: Option<ServiceCatalog>,
     pub jobs: Jobs,
     pub runtime_reason: String,
 }
@@ -51,6 +52,7 @@ impl App {
             projects: BTreeMap::new(),
             refs: RefStore::default(),
             roots: Arc::new(roots),
+            catalog: runtime.as_ref().map(|runtime| runtime.catalog.clone()),
             runtime,
             jobs: Jobs::new(),
             runtime_reason:
@@ -119,12 +121,12 @@ impl App {
                     "shotcut-annotations-inspection/1".into(),
                 ]),
             ),
-            ("render_available", self.runtime.is_some().into()),
+            ("render_available", self.catalog.is_some().into()),
             (
                 "mlt_version",
-                self.runtime
+                self.catalog
                     .as_ref()
-                    .map_or(Value::Null, |r| r.catalog.version.clone().into()),
+                    .map_or(Value::Null, |catalog| catalog.version.clone().into()),
             ),
             ("capabilities", self.capabilities.len().into()),
             (
@@ -136,21 +138,46 @@ impl App {
             ("native_gui_verified", false.into()),
         ])
     }
+    pub fn validate_call(&self, command: &str, digest: &str, args: &Value) -> Result<()> {
+        let capability = self
+            .capabilities
+            .iter()
+            .find(|c| c.name == command)
+            .ok_or_else(|| Error::new("NotFound", "Capability not registered"))?;
+        if capability.digest != digest {
+            return Err(Error::new("Conflict", "Pinned descriptor digest mismatch"));
+        }
+        capability.input(args)
+    }
+
     pub fn execute(&mut self, command: &str, digest: &str, args: Value) -> Result<Value> {
+        self.execute_with_probe(command, digest, args, None)
+    }
+
+    pub fn execute_with_probe(
+        &mut self,
+        command: &str,
+        digest: &str,
+        args: Value,
+        probe: Option<crate::runtime::MediaInfo>,
+    ) -> Result<Value> {
+        self.validate_call(command, digest, &args)?;
         let capability = self
             .capabilities
             .iter()
             .find(|c| c.name == command)
             .cloned()
             .ok_or_else(|| Error::new("NotFound", "Capability not registered"))?;
-        if capability.digest != digest {
-            return Err(Error::new("Conflict", "Pinned descriptor digest mismatch"));
-        }
-        capability.input(&args)?;
         let operation = command
             .strip_prefix(catalog::PREFIX)
             .ok_or_else(|| Error::invalid("Driver namespace mismatch"))?;
-        let value = self.dispatch(operation, &args)?;
+        if probe.is_some() && !matches!(operation, "asset.import" | "asset.relink") {
+            return Err(Error::new(
+                "Internal",
+                "Host media probe was supplied to a non-media operation",
+            ));
+        }
+        let value = self.dispatch(operation, &args, probe.as_ref())?;
         if let Err(mut e) = capability.output(&value) {
             if capability.mutates() {
                 e.outcome_known = false;
@@ -235,7 +262,12 @@ impl App {
         );
         self.project_handle(&id)
     }
-    fn dispatch(&mut self, op: &str, a: &Value) -> Result<Value> {
+    fn dispatch(
+        &mut self,
+        op: &str,
+        a: &Value,
+        probe: Option<&crate::runtime::MediaInfo>,
+    ) -> Result<Value> {
         match op {
             "doctor" => return Ok(self.doctor()),
             "project.create" => {
@@ -282,14 +314,14 @@ impl App {
                         array(
                             RenderProfile::all()
                                 .iter()
-                                .map(|p| p.json(self.runtime.as_ref().map(|r| &r.catalog))),
+                                .map(|p| p.json(self.catalog.as_ref())),
                         ),
                     ),
                     (
                         "mlt_version",
-                        self.runtime
+                        self.catalog
                             .as_ref()
-                            .map_or(Value::Null, |r| r.catalog.version.clone().into()),
+                            .map_or(Value::Null, |catalog| catalog.version.clone().into()),
                     ),
                 ]));
             }
@@ -323,9 +355,9 @@ impl App {
                     ),
                     (
                         "mlt_version",
-                        self.runtime
+                        self.catalog
                             .as_ref()
-                            .map_or(Value::Null, |r| r.catalog.version.clone().into()),
+                            .map_or(Value::Null, |catalog| catalog.version.clone().into()),
                     ),
                 ]));
             }
@@ -512,7 +544,7 @@ impl App {
                     revision,
                     &profile,
                     a.str("output")?,
-                    self.runtime.as_deref(),
+                    self.catalog.as_ref(),
                     &self.roots,
                 )
             }
@@ -578,7 +610,7 @@ impl App {
             }
             "search" => self.search(a, &pid, revision, p, sequence.as_deref()),
             _ => {
-                let edit = self.make_edit(op, a, &pid, revision, p, sequence.as_deref())?;
+                let edit = self.make_edit(op, a, &pid, revision, p, sequence.as_deref(), probe)?;
                 let mut seed = a.object()?.clone();
                 seed.remove("preview");
                 seed.remove("allow_metadata_risk");
@@ -645,9 +677,9 @@ impl App {
             ("maximum_milli", (max as i64).into()),
             (
                 "available",
-                self.runtime
+                self.catalog
                     .as_ref()
-                    .is_some_and(|r| r.catalog.has("filters", service))
+                    .is_some_and(|catalog| catalog.has("filters", service))
                     .into(),
             ),
             ("metadata_untrusted", true.into()),
@@ -964,6 +996,7 @@ impl App {
         revision: &str,
         p: &Project,
         sequence: Option<&str>,
+        probe: Option<&crate::runtime::MediaInfo>,
     ) -> Result<Edit> {
         let s = || {
             sequence
@@ -986,7 +1019,7 @@ impl App {
                 name: a.str("name")?.into(),
             },
             "asset.import" => Edit::AssetImport {
-                asset: self.import_asset(p, a)?,
+                asset: self.import_asset(p, a, probe)?,
             },
             "asset.relink" => {
                 let asset = r("asset", "asset")?;
@@ -997,7 +1030,10 @@ impl App {
                         .ok_or_else(|| Error::new("NotFound", "Asset not found"))?;
                     (old.frames, old.kind.clone())
                 };
-                let info = self.probe_resource(a.str("root")?, a.str("path")?)?;
+                let info = match probe {
+                    Some(info) => info.clone(),
+                    None => self.probe_resource(a.str("root")?, a.str("path")?)?,
+                };
                 let frames = media_frames(&info, p.profile.fps)?;
                 if old_frames.is_some_and(|old| frames < old) || old_kind == "image" {
                     return Err(Error::unsupported(
@@ -1167,7 +1203,12 @@ impl App {
             _ => return Err(Error::new("NotFound", "Capability implementation missing")),
         })
     }
-    fn import_asset(&self, p: &Project, a: &Value) -> Result<MediaAsset> {
+    fn import_asset(
+        &self,
+        p: &Project,
+        a: &Value,
+        probe: Option<&crate::runtime::MediaInfo>,
+    ) -> Result<MediaAsset> {
         let name = a.str("name")?.to_owned();
         let (kind, resource, frames, service) = if a.str("kind")? == "color" {
             if a.opt("root").is_some() || a.opt("path").is_some() || a.opt("image_frames").is_some()
@@ -1193,7 +1234,10 @@ impl App {
             }
             let root = a.str("root")?;
             let path = a.str("path")?;
-            let info = self.probe_resource(root, path)?;
+            let info = match probe {
+                Some(info) => info.clone(),
+                None => self.probe_resource(root, path)?,
+            };
             let still = info.duration_num == 0
                 && info.video
                 && info
@@ -1203,9 +1247,9 @@ impl App {
             let (frames, kind, service) = if still {
                 let f = a.uint("image_frames")?;
                 if !self
-                    .runtime
+                    .catalog
                     .as_ref()
-                    .is_some_and(|r| r.catalog.has("producers", "pixbuf"))
+                    .is_some_and(|catalog| catalog.has("producers", "pixbuf"))
                 {
                     return Err(Error::new("Unavailable", "Image producer is unavailable"));
                 }

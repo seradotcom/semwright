@@ -134,12 +134,14 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
     let media = tempfile::tempdir().unwrap();
     let output = tempfile::tempdir().unwrap();
     let runtime = tempfile::tempdir().unwrap();
+    let scratch = tempfile::tempdir().unwrap();
     let state = tempfile::tempdir().unwrap();
     for directory in [
         project.path(),
         media.path(),
         output.path(),
         runtime.path(),
+        scratch.path(),
         state.path(),
     ] {
         std::fs::set_permissions(directory, std::fs::Permissions::from_mode(0o700)).unwrap();
@@ -246,6 +248,11 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
                 read_only: true,
                 execute: true,
             },
+            DriverMount {
+                root: "scratch".into(),
+                read_only: false,
+                execute: false,
+            },
         ],
         system_config: vec![],
         secrets: vec![],
@@ -254,13 +261,20 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
                 root: "mlt-runner-root".into(),
                 name: "mlt-runner".into(),
                 sha256: digest(&runtime_runner),
-                mounts: vec!["mlt-runtime".into()],
-                dependencies: vec!["melt".into()],
+                mounts: vec!["mlt-runtime".into(), "scratch".into()],
+                dependencies: vec!["melt".into(), "ffprobe".into()],
             },
             DriverToolMount {
                 root: "melt-root".into(),
                 name: "melt".into(),
                 sha256: digest(&melt),
+                mounts: vec![],
+                dependencies: vec![],
+            },
+            DriverToolMount {
+                root: "ffprobe-root".into(),
+                name: "ffprobe".into(),
+                sha256: digest(&ffprobe),
                 mounts: vec![],
                 dependencies: vec![],
             },
@@ -317,6 +331,12 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
             write: false,
         },
         FilesystemGrant {
+            name: "scratch".into(),
+            path: scratch.path().canonicalize().unwrap(),
+            read: true,
+            write: true,
+        },
+        FilesystemGrant {
             name: "mlt-runner-root".into(),
             path: runtime_runner.canonicalize().unwrap(),
             read: true,
@@ -325,6 +345,12 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
         FilesystemGrant {
             name: "melt-root".into(),
             path: melt.clone(),
+            read: true,
+            write: false,
+        },
+        FilesystemGrant {
+            name: "ffprobe-root".into(),
+            path: ffprobe.clone(),
             read: true,
             write: false,
         },
