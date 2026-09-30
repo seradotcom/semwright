@@ -1,6 +1,9 @@
 name: Exact candidate certification
 
 on:
+  push:
+    branches:
+      - 'candidate/**'
   workflow_dispatch:
     inputs:
       source_sha:
@@ -19,7 +22,7 @@ permissions:
   artifact-metadata: write
 
 concurrency:
-  group: exact-candidate-certification-${{ inputs.source_sha }}
+  group: exact-candidate-certification-${{ inputs.source_sha || github.sha }}
   cancel-in-progress: false
 
 defaults:
@@ -33,6 +36,8 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     outputs:
+      source_sha: ${{ steps.scope.outputs.source_sha }}
+      base_sha: ${{ steps.scope.outputs.base_sha }}
       godot: ${{ steps.scope.outputs.godot }}
       motion: ${{ steps.scope.outputs.motion }}
       obs: ${{ steps.scope.outputs.obs }}
@@ -54,17 +59,29 @@ jobs:
       - id: scope
         name: Bind certification to exact candidate SHA
         env:
-          SOURCE_SHA: ${{ inputs.source_sha }}
-          BASE_SHA: ${{ inputs.base_sha }}
+          DISPATCH_SOURCE_SHA: ${{ inputs.source_sha }}
+          DISPATCH_BASE_SHA: ${{ inputs.base_sha }}
           CHECKED_OUT_SHA: ${{ github.sha }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           set -euo pipefail
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            SOURCE_SHA="$DISPATCH_SOURCE_SHA"
+            BASE_SHA="$DISPATCH_BASE_SHA"
+          else
+            SOURCE_SHA="$CHECKED_OUT_SHA"
+            git fetch --no-tags origin main
+            BASE_SHA=$(git merge-base "$SOURCE_SHA" origin/main)
+          fi
+
           [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
           [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]]
           test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
           test "$CHECKED_OUT_SHA" = "$SOURCE_SHA"
           git cat-file -e "$BASE_SHA^{commit}"
           git merge-base --is-ancestor "$BASE_SHA" "$SOURCE_SHA"
+          printf 'source_sha=%s\n' "$SOURCE_SHA" >> "$GITHUB_OUTPUT"
+          printf 'base_sha=%s\n' "$BASE_SHA" >> "$GITHUB_OUTPUT"
 
           mkdir -p verification/candidate-certification
           printf '%s\n' "$SOURCE_SHA" > verification/candidate-certification/SOURCE_SHA
@@ -77,7 +94,7 @@ jobs:
             python3 scripts/dev/ci-affected-areas.py --json             > verification/candidate-certification/AFFECTED_AREAS.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: candidate-scope-${{ inputs.source_sha }}
+          name: candidate-scope-${{ steps.scope.outputs.source_sha }}
           path: verification/candidate-certification
           retention-days: 30
 
@@ -209,8 +226,8 @@ jobs:
           persist-credentials: false
       - name: Record certification result manifest
         env:
-          SOURCE_SHA: ${{ inputs.source_sha }}
-          BASE_SHA: ${{ inputs.base_sha }}
+          SOURCE_SHA: ${{ needs.verify.outputs.source_sha }}
+          BASE_SHA: ${{ needs.verify.outputs.base_sha }}
           VERIFY: ${{ needs.verify.result }}
           QUALITY: ${{ needs.quality.result }}
           NATIVE: ${{ needs.native.result }}
@@ -270,6 +287,6 @@ jobs:
           cat verification/candidate-certification/CERTIFICATION.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: candidate-certification-${{ inputs.source_sha }}
+          name: candidate-certification-${{ needs.verify.outputs.source_sha }}
           path: verification/candidate-certification
           retention-days: 30

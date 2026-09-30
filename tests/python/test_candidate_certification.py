@@ -23,6 +23,14 @@ class CandidateCertificationWorkflowTests(unittest.TestCase):
         ]:
             self.assertIn(f"uses: ./.github/workflows/{workflow}", text)
 
+    def test_candidate_branch_push_binds_to_checked_out_sha(self):
+        text = WORKFLOW.read_text()
+        self.assertIn("- 'candidate/**'", text)
+        self.assertIn('SOURCE_SHA="$CHECKED_OUT_SHA"', text)
+        self.assertIn('BASE_SHA=$(git merge-base "$SOURCE_SHA" origin/main)', text)
+        self.assertIn("printf 'source_sha=%s\\n' \"$SOURCE_SHA\" >> \"$GITHUB_OUTPUT\"", text)
+        self.assertIn("printf 'base_sha=%s\\n' \"$BASE_SHA\" >> \"$GITHUB_OUTPUT\"", text)
+
     def test_supply_chain_attestation_permissions_are_available_to_reusable_workflow(self):
         import yaml
 
@@ -37,7 +45,7 @@ class CandidateCertificationWorkflowTests(unittest.TestCase):
     def test_evidence_manifest_is_uploaded(self):
         text = WORKFLOW.read_text()
         self.assertIn("CERTIFICATION.json", text)
-        self.assertIn("candidate-certification-${{ inputs.source_sha }}", text)
+        self.assertIn("candidate-certification-${{ needs.verify.outputs.source_sha }}", text)
 
 
 if __name__ == "__main__":
