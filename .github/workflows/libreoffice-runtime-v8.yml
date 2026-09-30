@@ -1,0 +1,78 @@
+name: LibreOffice v8 runtime
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "crates/driver-libreoffice/**"
+      - "scripts/dev/libreoffice-driver-smoke.sh"
+      - "scripts/verify-driver-runtime-tools.py"
+      - ".github/workflows/libreoffice-runtime-v8.yml"
+
+permissions:
+  contents: read
+
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_DEV_DEBUG: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+  CARGO_TERM_COLOR: always
+
+jobs:
+  libreoffice-v8:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: libreoffice-v8
+      - name: Install LibreOffice, PyUNO and sandbox dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap fontconfig libreoffice-writer libreoffice-calc python3-uno unzip libpipewire-0.3-dev
+          mkdir -p verification/libreoffice-v8
+          soffice --version | tee verification/libreoffice-v8/version.log
+          /usr/bin/python3 -c 'import uno; print("pyuno=ok")' | tee verification/libreoffice-v8/pyuno.log
+          test -x /usr/lib/libreoffice/program/soffice.bin
+          sha256sum /usr/lib/libreoffice/program/soffice.bin "$(realpath /usr/bin/python3)" |
+            tee verification/libreoffice-v8/runtime-tools.sha256
+      - name: Preflight scoped Driver Host Bubblewrap
+        run: |
+          bash scripts/dev/ci-driver-bwrap-profile.sh verification/libreoffice-v8/sandbox-setup.log
+          test -d /etc/libreoffice
+          test -d /etc/fonts
+          bwrap --version | tee verification/libreoffice-v8/bwrap-version.log
+      - name: Build affected LibreOffice surface
+        run: |
+          cargo build --locked -p semwright-driver-libreoffice             --bin semwright-libreoffice-driver             --bin semwright-libreoffice-runtime-runner             -p semwright-plugin-host --bin semwright-sandbox             -p semwright-cli --bin semwright             -p semwright-daemon --bin semwrightd
+          cargo test --locked -p semwright-driver-libreoffice             --bin semwright-libreoffice-driver             --bin semwright-libreoffice-runtime-runner
+          cargo clippy --locked -p semwright-driver-libreoffice --all-targets --no-deps -- -D warnings
+      - name: Real protocol-v8 DriverProvider against LibreOffice UNO
+        env:
+          SEMWRIGHT_TEST_LIBREOFFICE: "1"
+          SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
+        run: |
+          set -o pipefail
+          cargo test --locked -p semwright-driver-libreoffice             real_libreoffice_driver_runs_inside_sandbox             -- --ignored --exact --nocapture 2>&1 |
+            tee verification/libreoffice-v8/live.log
+      - name: Broker policy CLI and LibreOffice end-to-end
+        run: |
+          set -o pipefail
+          BIN_DIR=target/debug scripts/dev/libreoffice-driver-smoke.sh 2>&1 |
+            tee verification/libreoffice-v8/broker-smoke.log
+      - name: Runtime resolver ratchet
+        run: python3 scripts/verify-driver-runtime-tools.py
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: libreoffice-v8-evidence-${{ github.sha }}
+          path: verification/libreoffice-v8
+          retention-days: 14
