@@ -7,6 +7,8 @@ on:
       - 'adapters/blender/**'
       - 'fixtures/blender-authoring/**'
       - 'scripts/blender-authoring/**'
+      - 'fuzz/fuzz_targets/blender_authoring.rs'
+      - 'docs/blender/authoring/**'
       - 'skills/semwright-blender-production/**'
       - '.ci/blender-authoring.json'
       - '.github/workflows/blender-authoring.yml'
