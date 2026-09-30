@@ -32,6 +32,17 @@ fuzz_target!(|data: &[u8]| {
                 let _ = (island, entity, meters_per_unit);
                 let _ = transform.validate();
             }
+            AuthoringIntent::MaterialSlots {
+                island,
+                entity,
+                materials,
+                ..
+            } => {
+                let _ = (island, entity);
+                for material in materials {
+                    let _ = semwright_blender_driver::authoring::local_id(&material);
+                }
+            }
         }
     }
     if let Ok(snapshot) = strict_decode::<NativeSnapshot>(data) {
