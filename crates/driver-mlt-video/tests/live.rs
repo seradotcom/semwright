@@ -422,7 +422,7 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
     project_ref = sequence["project"].as_str().unwrap().to_owned();
     revision = sequence["resulting_revision"].as_str().unwrap().to_owned();
 
-    for (name, path) in [("Video", "red.mkv"), ("Audio", "sine.wav")] {
+    for (name, path) in [("Audio", "sine.wav"), ("Video", "red.mkv")] {
         eprintln!("MLT live import begin: {name} ({path})");
         let value = call(
             provider.as_ref(),
