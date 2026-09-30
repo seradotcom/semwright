@@ -29,7 +29,6 @@ def classify(files: list[str], certify: bool=False) -> dict[str,bool]:
         ))
         if common or workspace or any_prefix(p,(
             "fixtures/composition/","benchmarks/composition/","scripts/composition/run-suite.py",
-            ".github/workflows/composition-diagnostics.yml",
         )):
             flags["contracts"]=True
         if any_prefix(p,(
@@ -56,19 +55,16 @@ def classify(files: list[str], certify: bool=False) -> dict[str,bool]:
         if workspace or motion_common or any_prefix(p,(
             "crates/driver-motion-canvas/","integrations/composition/motion/",
             "integrations/motion-canvas/","scripts/motion-canvas/","fixtures/motion-canvas/",
-            "demos/launch-film/","docs/motion-canvas/",".github/workflows/motion-canvas.yml",
-            ".github/workflows/composition-driver-diagnostics.yml",
+            "demos/launch-film/","docs/motion-canvas/",
         )):
             flags["motion"]=True
         if workspace or any_prefix(p,(
             "crates/semantic-composition/","crates/driver-figma/","demos/figma-semantic-authoring/",
-            "fuzz/fuzz_targets/figma_composition.rs",".github/workflows/figma-semantic-authoring.yml",
-            ".github/workflows/composition-driver-diagnostics.yml",
+            "fuzz/fuzz_targets/figma_composition.rs",
         )):
             flags["figma"]=True
         if workspace or any_prefix(p,(
             "crates/driver-mlt-video/","crates/video-domain/",
-            ".github/workflows/native-integrations.yml",
         )):
             flags["mlt"]=True
 
@@ -80,11 +76,8 @@ def classify(files: list[str], certify: bool=False) -> dict[str,bool]:
             flags["fuzz_motion"]=flags["mutants_motion"]=True
         if any_prefix(p,("crates/av-composition/","fuzz/fuzz_targets/av_contract.rs")):
             flags["fuzz_av"]=flags["mutants_av"]=True
-        if p in {"fuzz/Cargo.toml",".github/workflows/composition-fuzz.yml"}:
+        if p == "fuzz/Cargo.toml":
             for name in ("fuzz_kernel","fuzz_media","fuzz_motion","fuzz_av"):
-                flags[name]=True
-        if p == ".github/workflows/composition-mutants.yml":
-            for name in ("mutants_kernel","mutants_media","mutants_motion","mutants_av"):
                 flags[name]=True
         if workspace or any_prefix(p,(
             "crates/driver-sdk/","crates/driver-host/","crates/registry/","crates/backend-api/",

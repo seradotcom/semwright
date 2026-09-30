@@ -29,6 +29,21 @@ class ScopeTests(unittest.TestCase):
         f=scope.classify(["crates/semantic-composition/src/controller.rs"])
         self.assertTrue(f["contracts"]); self.assertTrue(f["figma"]); self.assertTrue(f["motion"])
         self.assertTrue(f["fuzz_kernel"]); self.assertTrue(f["mutants_kernel"])
+    def test_workflow_yaml_alone_does_not_retest_product(self):
+        f=scope.classify([
+            ".github/workflows/native-integrations.yml",
+            ".github/workflows/motion-canvas.yml",
+            ".github/workflows/figma-semantic-authoring.yml",
+            ".github/workflows/composition-fuzz.yml",
+            ".github/workflows/composition-mutants.yml",
+        ])
+        self.assertFalse(any(f.values()))
+    def test_scope_helper_change_runs_only_light_package_validation(self):
+        f=scope.classify(["scripts/composition/ci-scope.py"])
+        self.assertTrue(f["package"])
+        for name,value in f.items():
+            if name != "package":
+                self.assertFalse(value,name)
     def test_certification_forces_every_area(self):
         f=scope.classify([],True)
         self.assertTrue(all(f.values()))
