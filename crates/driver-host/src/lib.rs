@@ -112,11 +112,49 @@ struct LinuxBrokerTool {
 }
 #[cfg(target_os = "linux")]
 impl LinuxBrokerTool {
-    fn dependency_mount(&self) -> SealedToolMount {
-        SealedToolMount {
-            source: SealedToolSource::UnixFd(self.dependency_file.as_raw_fd()),
-            name: self.name.clone(),
+    fn fresh_dependency_file(&self) -> Result<std::fs::File> {
+        let proc_path = CString::new(format!(
+            "/proc/self/fd/{}",
+            self.dependency_file.as_raw_fd()
+        ))
+        .map_err(|_| Error::invalid("Invalid Linux Host-tool dependency descriptor path"))?;
+        // Re-open the sealed inode for every invocation. Bubblewrap --file consumes
+        // its input descriptor to EOF, so reusing one provider-lifetime file
+        // description makes the second child see an exhausted dependency.
+        // SAFETY: proc_path is a live NUL-terminated path to a descriptor owned by self.
+        let fd = unsafe { libc::open(proc_path.as_ptr(), libc::O_RDONLY) };
+        if fd < 0 {
+            return Err(std::io::Error::last_os_error().into());
         }
+        // SAFETY: open returned a new owned descriptor on success.
+        let file = unsafe { std::fs::File::from_raw_fd(fd) };
+        // Explicitly pin the independent open-file-description to offset zero.
+        // SAFETY: fd is live and SEEK_SET with a scalar offset has no pointer arguments.
+        if unsafe { libc::lseek(fd, 0, libc::SEEK_SET) } != 0 {
+            return Err(std::io::Error::last_os_error().into());
+        }
+        let owner = self.dependency_file.metadata()?;
+        let fresh = file.metadata()?;
+        if owner.dev() != fresh.dev() || owner.ino() != fresh.ino() {
+            return Err(Error::new(
+                ErrorCode::SandboxDenied,
+                "Linux Host-tool dependency reopen changed inode identity",
+            ));
+        }
+        // SAFETY: F_GETFD/F_GETFL read scalar descriptor flags.
+        let fd_flags = unsafe { libc::fcntl(fd, libc::F_GETFD) };
+        let status_flags = unsafe { libc::fcntl(fd, libc::F_GETFL) };
+        if fd_flags < 0
+            || status_flags < 0
+            || fd_flags & libc::FD_CLOEXEC != 0
+            || status_flags & libc::O_ACCMODE != libc::O_RDONLY
+        {
+            return Err(Error::new(
+                ErrorCode::SandboxDenied,
+                "Linux Host-tool dependency descriptor is not read-only/inheritable",
+            ));
+        }
+        Ok(file)
     }
 }
 
@@ -743,20 +781,23 @@ impl HostToolExecutor for LinuxHostToolBroker {
             spec.environment
                 .push((SANDBOX_HOST_TOOL_TYPED_ARGS_ENV.into(), "1".into()));
         }
-        spec.sealed_tools = dependencies
-            .iter()
-            .map(|dependency| {
-                self.tools
-                    .get(dependency)
-                    .map(LinuxBrokerTool::dependency_mount)
-                    .ok_or_else(|| {
-                        Error::new(
-                            ErrorCode::PolicyDenied,
-                            "Linux runtime-tool dependency disappeared from Host staging",
-                        )
-                    })
-            })
-            .collect::<Result<Vec<_>>>()?;
+        let mut dependency_files = Vec::with_capacity(dependencies.len());
+        let mut sealed_dependencies = Vec::with_capacity(dependencies.len());
+        for dependency in &dependencies {
+            let dependency_tool = self.tools.get(dependency).ok_or_else(|| {
+                Error::new(
+                    ErrorCode::PolicyDenied,
+                    "Linux runtime-tool dependency disappeared from Host staging",
+                )
+            })?;
+            let fresh = dependency_tool.fresh_dependency_file()?;
+            sealed_dependencies.push(SealedToolMount {
+                source: SealedToolSource::UnixFd(fresh.as_raw_fd()),
+                name: dependency_tool.name.clone(),
+            });
+            dependency_files.push(fresh);
+        }
+        spec.sealed_tools = sealed_dependencies;
         if let Some(cwd) = cwd {
             if !contract.mounts.contains(&cwd.mount) {
                 return Err(Error::new(
@@ -792,6 +833,9 @@ impl HostToolExecutor for LinuxHostToolBroker {
         });
 
         let mut child = semwright_platform_services::sandbox_spawn(&spec)?;
+        // Bubblewrap inherited its own copies during spawn. Parent-side fresh
+        // descriptors can now close without affecting the child materialization.
+        drop(dependency_files);
         let mut child_stdin = child.take_stdin()?;
         let child_stdout = child.take_stdout()?;
         let execution = async {
@@ -3856,6 +3900,34 @@ mod tests {
             validate_owner_permissions(&dynamic, &[], false),
             Err(error) if error.code == ErrorCode::Unsupported
         ));
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn linux_host_tool_dependency_reopens_from_zero_for_every_invocation() {
+        let source = Path::new("/usr/bin/true");
+        let expected = std::fs::read(source).unwrap();
+        let digest = format!("{:x}", Sha256::digest(&expected));
+        let sealed = seal_verified_tool(source, &digest, "probe").unwrap();
+        let state = tempfile::tempdir().unwrap();
+        let broker = stage_linux_broker_tool(
+            source,
+            &digest,
+            "probe",
+            state.path(),
+            sealed.duplicate_data_file_inheritable().unwrap(),
+        )
+        .unwrap();
+
+        let mut first = broker.fresh_dependency_file().unwrap();
+        let mut first_bytes = Vec::new();
+        std::io::Read::read_to_end(&mut first, &mut first_bytes).unwrap();
+        assert_eq!(first_bytes, expected);
+
+        let mut second = broker.fresh_dependency_file().unwrap();
+        let mut second_bytes = Vec::new();
+        std::io::Read::read_to_end(&mut second, &mut second_bytes).unwrap();
+        assert_eq!(second_bytes, expected);
     }
 
     #[cfg(target_os = "linux")]
