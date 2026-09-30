@@ -103,6 +103,9 @@ pub struct ArdourRuntimeProbe {
     pub group_self_test: bool,
     pub group_diagnostic_class: String,
     pub group_diagnostic_prefix: String,
+    pub automation_self_test: bool,
+    pub automation_diagnostic_class: String,
+    pub automation_diagnostic_prefix: String,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -473,129 +476,21 @@ close_session()
                 )
             };
 
-        let (group_self_test, group_diagnostic_class, group_diagnostic_prefix) = if range_self_test
-        {
-            let script_dir = tempfile::Builder::new()
-                .prefix("semwright-ardour-group-probe-")
-                .tempdir()?;
-            let script_path = script_dir.path().join("semwright-ardour.lua");
-            fs::write(&script_path, script::source())?;
-
-            let stem_args = lua_tool_args(
-                &script_path,
-                vec![
-                    probe_session.to_string_lossy().into_owned(),
-                    probe_state.into(),
-                    self.config.ardour_version.clone(),
-                    "stem_create".into(),
-                    "2".into(),
-                    "Semwright Probe Stem".into(),
-                ],
-            );
-            let stem_run = self
-                .run_tool_capture(context, &self.lua_tool, &stem_args)
-                .await?;
-            if stem_run.exit_code != 0 {
-                let classified = classify_tool_failure(&stem_run.stdout, &stem_run.stderr);
-                (
-                    false,
-                    format!("{:?}", classified.code),
-                    bounded_text_diagnostic(&bounded_diagnostic(
-                        &stem_run.stdout,
-                        &stem_run.stderr,
-                    )),
-                )
-            } else {
-                match parse_snapshot(&stem_run.stdout) {
-                    Ok(stem_snapshot) => {
-                        let route_id = stem_snapshot
-                            .routes
-                            .iter()
-                            .find(|route| {
-                                route.kind == crate::native::RouteKind::Track
-                                    && route.name == "Semwright Probe Stem"
-                            })
-                            .map(|route| route.id.clone());
-                        if let Some(route_id) = route_id {
-                            let group_args = lua_tool_args(
-                                &script_path,
-                                vec![
-                                    probe_session.to_string_lossy().into_owned(),
-                                    probe_state.into(),
-                                    self.config.ardour_version.clone(),
-                                    "group_create".into(),
-                                    "Semwright Probe Group".into(),
-                                    route_id.clone(),
-                                ],
-                            );
-                            let group_run = self
-                                .run_tool_capture(context, &self.lua_tool, &group_args)
-                                .await?;
-                            if group_run.exit_code != 0 {
-                                let classified =
-                                    classify_tool_failure(&group_run.stdout, &group_run.stderr);
-                                (
-                                    false,
-                                    format!("{:?}", classified.code),
-                                    bounded_text_diagnostic(&bounded_diagnostic(
-                                        &group_run.stdout,
-                                        &group_run.stderr,
-                                    )),
-                                )
-                            } else {
-                                match parse_snapshot(&group_run.stdout) {
-                                    Ok(group_snapshot) => {
-                                        let verified = group_snapshot.groups.iter().any(|group| {
-                                            group.name == "Semwright Probe Group"
-                                                && group
-                                                    .route_ids
-                                                    .iter()
-                                                    .any(|member| member == &route_id)
-                                        });
-                                        if verified {
-                                            (
-                                                true,
-                                                "ok".to_string(),
-                                                bounded_text_diagnostic(
-                                                    "route group created, populated, saved and observed in native snapshot",
-                                                ),
-                                            )
-                                        } else {
-                                            (
-                                                false,
-                                                "BackendFailed".to_string(),
-                                                bounded_text_diagnostic(
-                                                    "route group snapshot did not contain the expected member",
-                                                ),
-                                            )
-                                        }
-                                    }
-                                    Err(error) => (
-                                        false,
-                                        format!("{:?}", error.code),
-                                        bounded_text_diagnostic(&error.message),
-                                    ),
-                                }
-                            }
-                        } else {
-                            (
-                                false,
-                                "BackendFailed".to_string(),
-                                bounded_text_diagnostic(
-                                    "probe stem was not observable after native creation",
-                                ),
-                            )
-                        }
-                    }
-                    Err(error) => (
-                        false,
-                        format!("{:?}", error.code),
-                        bounded_text_diagnostic(&error.message),
-                    ),
-                }
-            }
+        let (
+            group_self_test,
+            group_diagnostic_class,
+            group_diagnostic_prefix,
+            automation_self_test,
+            automation_diagnostic_class,
+            automation_diagnostic_prefix,
+        ) = if range_self_test {
+            self.probe_group_automation(context, &probe_session, probe_state)
+                .await?
         } else {
             (
+                false,
+                "range_prerequisite_failed".to_string(),
+                String::new(),
                 false,
                 "range_prerequisite_failed".to_string(),
                 String::new(),
@@ -622,7 +517,262 @@ close_session()
             group_self_test,
             group_diagnostic_class,
             group_diagnostic_prefix,
+            automation_self_test,
+            automation_diagnostic_class,
+            automation_diagnostic_prefix,
         })
+    }
+
+    async fn probe_operation(
+        &self,
+        context: Option<&DriverExecutionContext>,
+        script_path: &Path,
+        session: &Path,
+        state: &str,
+        stage: &str,
+        operation_args: Vec<String>,
+    ) -> Result<std::result::Result<ArdourSnapshot, (String, String)>> {
+        let args = lua_tool_args(
+            script_path,
+            [
+                vec![
+                    session.to_string_lossy().into_owned(),
+                    state.to_string(),
+                    self.config.ardour_version.clone(),
+                ],
+                operation_args,
+            ]
+            .concat(),
+        );
+        let run = self
+            .run_tool_capture(context, &self.lua_tool, &args)
+            .await?;
+        if run.exit_code != 0 {
+            let classified = classify_tool_failure(&run.stdout, &run.stderr);
+            return Ok(Err((
+                format!("{:?}", classified.code),
+                bounded_text_diagnostic(&format!(
+                    "{stage}:{}",
+                    bounded_diagnostic(&run.stdout, &run.stderr)
+                )),
+            )));
+        }
+        match parse_snapshot(&run.stdout) {
+            Ok(snapshot) => Ok(Ok(snapshot)),
+            Err(error) => Ok(Err((
+                format!("{:?}", error.code),
+                bounded_text_diagnostic(&format!("{stage}:{}", error.message)),
+            ))),
+        }
+    }
+
+    async fn probe_group_automation(
+        &self,
+        context: Option<&DriverExecutionContext>,
+        session: &Path,
+        state: &str,
+    ) -> Result<(bool, String, String, bool, String, String)> {
+        let Some(plugin) = self.config.allowed_plugins.first() else {
+            let diagnostic =
+                bounded_text_diagnostic("automation probe requires one pinned allowlisted plugin");
+            return Ok((
+                false,
+                "plugin_prerequisite_missing".to_string(),
+                diagnostic.clone(),
+                false,
+                "plugin_prerequisite_missing".to_string(),
+                diagnostic,
+            ));
+        };
+        let script_dir = tempfile::Builder::new()
+            .prefix("semwright-ardour-group-automation-probe-")
+            .tempdir()?;
+        let script_path = script_dir.path().join("semwright-ardour.lua");
+        fs::write(&script_path, script::source())?;
+
+        let setup_snapshot = match self
+            .probe_operation(
+                context,
+                &script_path,
+                session,
+                state,
+                "group_automation_setup",
+                vec![
+                    "probe_group_automation_setup".into(),
+                    plugin.native_name.clone(),
+                    plugin.kind.clone(),
+                    plugin.preset.clone(),
+                ],
+            )
+            .await?
+        {
+            Ok(snapshot) => snapshot,
+            Err((class, diagnostic)) => {
+                return Ok((
+                    false,
+                    class.clone(),
+                    diagnostic.clone(),
+                    false,
+                    class,
+                    diagnostic,
+                ));
+            }
+        };
+        let Some(route) = setup_snapshot
+            .routes
+            .iter()
+            .find(|route| route.name == "Semwright Probe Stem")
+        else {
+            let diagnostic =
+                bounded_text_diagnostic("group_automation_setup:probe route missing");
+            return Ok((
+                false,
+                "BackendFailed".to_string(),
+                diagnostic.clone(),
+                false,
+                "BackendFailed".to_string(),
+                diagnostic,
+            ));
+        };
+        let route_id = route.id.clone();
+        let group_verified = setup_snapshot.groups.iter().any(|group| {
+            group.name == "Semwright Probe Group"
+                && group.route_ids.iter().any(|member| member == &route_id)
+        });
+        let Some(native_plugin) = route.plugins.first() else {
+            return Ok((
+                group_verified,
+                if group_verified { "ok" } else { "BackendFailed" }.to_string(),
+                bounded_text_diagnostic(if group_verified {
+                    "route group created and populated"
+                } else {
+                    "group_automation_setup:route group membership missing"
+                }),
+                false,
+                "BackendFailed".to_string(),
+                bounded_text_diagnostic("group_automation_setup:plugin missing"),
+            ));
+        };
+        if !native_plugin.parameters_complete {
+            return Ok((
+                group_verified,
+                if group_verified { "ok" } else { "BackendFailed" }.to_string(),
+                bounded_text_diagnostic(if group_verified {
+                    "route group created and populated"
+                } else {
+                    "group_automation_setup:route group membership missing"
+                }),
+                false,
+                "BackendFailed".to_string(),
+                bounded_text_diagnostic("group_automation_setup:parameter projection incomplete"),
+            ));
+        }
+        let plugin_id = native_plugin.id.clone();
+        let Some(parameter) = native_plugin.parameters.first() else {
+            return Ok((
+                group_verified,
+                if group_verified { "ok" } else { "BackendFailed" }.to_string(),
+                bounded_text_diagnostic(if group_verified {
+                    "route group created and populated"
+                } else {
+                    "group_automation_setup:route group membership missing"
+                }),
+                false,
+                "BackendFailed".to_string(),
+                bounded_text_diagnostic("group_automation_setup:no automatable parameter"),
+            ));
+        };
+        if parameter.lower_microunits == parameter.upper_microunits {
+            return Ok((
+                group_verified,
+                if group_verified { "ok" } else { "BackendFailed" }.to_string(),
+                bounded_text_diagnostic(if group_verified {
+                    "route group created and populated"
+                } else {
+                    "group_automation_setup:route group membership missing"
+                }),
+                false,
+                "BackendFailed".to_string(),
+                bounded_text_diagnostic("group_automation_setup:first parameter has no range"),
+            ));
+        }
+        let parameter_index = parameter.index;
+        let target = parameter.lower_microunits;
+        let automation_before = parameter.automation_points;
+
+        let final_snapshot = match self
+            .probe_operation(
+                context,
+                &script_path,
+                session,
+                state,
+                "plugin_automation_point",
+                vec![
+                    "probe_automation_point".into(),
+                    route_id.clone(),
+                    plugin_id.clone(),
+                    parameter_index.to_string(),
+                    target.to_string(),
+                ],
+            )
+            .await?
+        {
+            Ok(snapshot) => snapshot,
+            Err((class, diagnostic)) => {
+                return Ok((
+                    group_verified,
+                    if group_verified { "ok" } else { "BackendFailed" }.to_string(),
+                    bounded_text_diagnostic(if group_verified {
+                        "route group created and populated"
+                    } else {
+                        "group_automation_setup:route group membership missing"
+                    }),
+                    false,
+                    class,
+                    diagnostic,
+                ));
+            }
+        };
+
+        let group_after = final_snapshot.groups.iter().any(|group| {
+            group.name == "Semwright Probe Group"
+                && group.route_ids.iter().any(|member| member == &route_id)
+        });
+        let automation_after = final_snapshot
+            .routes
+            .iter()
+            .find(|route| route.id == route_id)
+            .and_then(|route| route.plugins.iter().find(|item| item.id == plugin_id))
+            .and_then(|item| {
+                item.parameters
+                    .iter()
+                    .find(|item| item.index == parameter_index)
+            })
+            .map(|item| item.automation_points);
+        let automation_verified =
+            automation_after == Some(automation_before.saturating_add(1));
+
+        Ok((
+            group_after,
+            if group_after { "ok" } else { "BackendFailed" }.to_string(),
+            bounded_text_diagnostic(if group_after {
+                "route group persisted across plugin automation reopen"
+            } else {
+                "plugin_automation_point:route group did not persist"
+            }),
+            automation_verified,
+            if automation_verified {
+                "ok"
+            } else {
+                "BackendFailed"
+            }
+            .to_string(),
+            bounded_text_diagnostic(if automation_verified {
+                "plugin automation point persisted across explicit native reopen"
+            } else {
+                "plugin_automation_point:automation point did not persist across reopen"
+            }),
+        ))
     }
 
     pub async fn inspect(
