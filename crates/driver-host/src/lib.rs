@@ -125,9 +125,11 @@ fn fresh_linux_dependency_file(source: &std::fs::File) -> Result<std::fs::File> 
     // SAFETY: open returned a new owned descriptor on success.
     let file = unsafe { std::fs::File::from_raw_fd(fd) };
     // Make the intended inheritance/offset contract explicit and fail closed.
-    // SAFETY: fd is live and these fcntl/lseek operations only use scalar arguments.
+    // SAFETY: fd is live; F_GETFD reads scalar descriptor flags and has no pointer arguments.
     let fd_flags = unsafe { libc::fcntl(fd, libc::F_GETFD) };
+    // SAFETY: fd is live; F_GETFL reads scalar status flags and has no pointer arguments.
     let status_flags = unsafe { libc::fcntl(fd, libc::F_GETFL) };
+    // SAFETY: fd is live; SEEK_SET with a scalar offset has no pointer arguments.
     let offset = unsafe { libc::lseek(fd, 0, libc::SEEK_SET) };
     if fd_flags < 0
         || status_flags < 0
