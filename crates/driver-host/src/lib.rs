@@ -111,12 +111,42 @@ struct LinuxBrokerTool {
     dependency_file: Arc<std::fs::File>,
 }
 #[cfg(target_os = "linux")]
+fn fresh_linux_dependency_file(source: &std::fs::File) -> Result<std::fs::File> {
+    let proc_path = CString::new(format!("/proc/self/fd/{}", source.as_raw_fd()))
+        .map_err(|_| Error::invalid("Invalid Linux dependency descriptor path"))?;
+    // Re-open the sealed inode for every invocation. F_DUPFD/dup would share
+    // the same open-file offset, allowing Bubblewrap --file to consume the
+    // descriptor once and leave a later invocation at EOF.
+    // SAFETY: proc_path is a live NUL-terminated path to a Host-owned sealed file.
+    let fd = unsafe { libc::open(proc_path.as_ptr(), libc::O_RDONLY) };
+    if fd < 0 {
+        return Err(std::io::Error::last_os_error().into());
+    }
+    // SAFETY: open returned a new owned descriptor on success.
+    let file = unsafe { std::fs::File::from_raw_fd(fd) };
+    // Make the intended inheritance/offset contract explicit and fail closed.
+    // SAFETY: fd is live and these fcntl/lseek operations only use scalar arguments.
+    let fd_flags = unsafe { libc::fcntl(fd, libc::F_GETFD) };
+    let status_flags = unsafe { libc::fcntl(fd, libc::F_GETFL) };
+    let offset = unsafe { libc::lseek(fd, 0, libc::SEEK_SET) };
+    if fd_flags < 0
+        || status_flags < 0
+        || fd_flags & libc::FD_CLOEXEC != 0
+        || status_flags & libc::O_ACCMODE != libc::O_RDONLY
+        || offset != 0
+    {
+        return Err(Error::new(
+            ErrorCode::SandboxDenied,
+            "Linux runtime-tool dependency descriptor is not fresh/read-only/inheritable",
+        ));
+    }
+    Ok(file)
+}
+
+#[cfg(target_os = "linux")]
 impl LinuxBrokerTool {
-    fn dependency_mount(&self) -> SealedToolMount {
-        SealedToolMount {
-            source: SealedToolSource::UnixFd(self.dependency_file.as_raw_fd()),
-            name: self.name.clone(),
-        }
+    fn fresh_dependency_file(&self) -> Result<std::fs::File> {
+        fresh_linux_dependency_file(&self.dependency_file)
     }
 }
 
@@ -743,20 +773,28 @@ impl HostToolExecutor for LinuxHostToolBroker {
             spec.environment
                 .push((SANDBOX_HOST_TOOL_TYPED_ARGS_ENV.into(), "1".into()));
         }
-        spec.sealed_tools = dependencies
+        let dependency_files = dependencies
             .iter()
             .map(|dependency| {
-                self.tools
-                    .get(dependency)
-                    .map(LinuxBrokerTool::dependency_mount)
-                    .ok_or_else(|| {
-                        Error::new(
-                            ErrorCode::PolicyDenied,
-                            "Linux runtime-tool dependency disappeared from Host staging",
-                        )
-                    })
+                let dependency_tool = self.tools.get(dependency).ok_or_else(|| {
+                    Error::new(
+                        ErrorCode::PolicyDenied,
+                        "Linux runtime-tool dependency disappeared from Host staging",
+                    )
+                })?;
+                Ok((
+                    dependency_tool.name.clone(),
+                    dependency_tool.fresh_dependency_file()?,
+                ))
             })
             .collect::<Result<Vec<_>>>()?;
+        spec.sealed_tools = dependency_files
+            .iter()
+            .map(|(name, file)| SealedToolMount {
+                source: SealedToolSource::UnixFd(file.as_raw_fd()),
+                name: name.clone(),
+            })
+            .collect();
         if let Some(cwd) = cwd {
             if !contract.mounts.contains(&cwd.mount) {
                 return Err(Error::new(
@@ -3897,6 +3935,25 @@ mod tests {
             std::io::Error::last_os_error().raw_os_error(),
             Some(libc::EPERM)
         );
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn linux_dependency_reopen_has_an_independent_zero_offset() {
+        let source = Path::new("/usr/bin/true");
+        let digest = format!("{:x}", Sha256::digest(std::fs::read(source).unwrap()));
+        let tool = seal_verified_tool(source, &digest, "dependency").unwrap();
+
+        let mut first = fresh_linux_dependency_file(&tool.data_file).unwrap();
+        let mut second = fresh_linux_dependency_file(&tool.data_file).unwrap();
+
+        let mut consumed = Vec::new();
+        std::io::Read::read_to_end(&mut first, &mut consumed).unwrap();
+        assert!(!consumed.is_empty());
+
+        let mut magic = [0u8; 4];
+        std::io::Read::read_exact(&mut second, &mut magic).unwrap();
+        assert_eq!(&magic, b"\x7fELF");
     }
 
     #[cfg(target_os = "linux")]
