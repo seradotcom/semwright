@@ -5,7 +5,9 @@
 
 use semwright_mlt_video::{
     hash::reader_hash,
-    runtime::{ProcessSpec, ServiceCatalog, constrained_environment, run},
+    runtime::{
+        ProcessSpec, RenderProfile, ServiceCatalog, constrained_environment, render_argv, run,
+    },
 };
 use serde_json::{Map, Value, json};
 use std::{
@@ -124,13 +126,8 @@ fn direct_component(value: &str, label: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn scratch_file(
-    scratch_root: &Path,
-    directory: &str,
-    name: &str,
-) -> Result<(PathBuf, PathBuf), String> {
+fn scratch_dir(scratch_root: &Path, directory: &str) -> Result<PathBuf, String> {
     direct_component(directory, "scratch directory")?;
-    direct_component(name, "scratch filename")?;
     let root_meta = std::fs::symlink_metadata(scratch_root)
         .map_err(|_| "scratch root is unavailable".to_string())?;
     if !scratch_root.is_absolute() || !root_meta.is_dir() || root_meta.file_type().is_symlink() {
@@ -142,6 +139,16 @@ fn scratch_file(
     if !work_meta.is_dir() || work_meta.file_type().is_symlink() {
         return Err("scratch job directory must be a non-symlink directory".into());
     }
+    Ok(work)
+}
+
+fn scratch_file(
+    scratch_root: &Path,
+    directory: &str,
+    name: &str,
+) -> Result<(PathBuf, PathBuf), String> {
+    direct_component(name, "scratch filename")?;
+    let work = scratch_dir(scratch_root, directory)?;
     let target = work.join(name);
     let target_meta = std::fs::symlink_metadata(&target)
         .map_err(|_| "scratch media file is unavailable".to_string())?;
@@ -187,6 +194,52 @@ fn probe(
         "schema": 1,
         "operation": "probe",
         "media": media,
+    }))
+}
+
+fn render(
+    melt: &Path,
+    scratch_root: &Path,
+    directory: &str,
+    profile_id: &str,
+) -> Result<Value, String> {
+    let work = scratch_dir(scratch_root, directory)?;
+    let project = work.join("project.mlt");
+    let project_meta = std::fs::symlink_metadata(&project)
+        .map_err(|_| "render project.mlt is unavailable".to_string())?;
+    if !project_meta.is_file() || project_meta.file_type().is_symlink() {
+        return Err("render project.mlt must be a regular non-symlink file".into());
+    }
+    let profile = RenderProfile::get(profile_id)
+        .map_err(|error| format!("{}: {}", error.code, error.message))?;
+    let output_name = format!("partial.{}", profile.extension);
+    direct_component(&output_name, "render output")?;
+    let output = work.join(&output_name);
+    if output.exists() {
+        return Err("render output already exists".into());
+    }
+    let args = render_argv(
+        OsString::from("project.mlt"),
+        OsString::from(output_name.clone()),
+        &profile,
+    );
+    execute(
+        melt,
+        args,
+        &work,
+        Duration::from_secs(120),
+        300,
+        4_294_967_296,
+    )?;
+    let metadata = std::fs::symlink_metadata(&output)
+        .map_err(|_| "render output is unavailable".to_string())?;
+    if !metadata.is_file() || metadata.file_type().is_symlink() {
+        return Err("render output must be a regular non-symlink file".into());
+    }
+    Ok(json!({
+        "schema": 1,
+        "operation": "render",
+        "output": output_name,
     }))
 }
 
@@ -283,6 +336,19 @@ fn parse() -> Result<Value, String> {
             }
             let ffprobe = runtime_entry(&runtime_root, &sealed_ffprobe, "ffprobe")?;
             probe(&ffprobe, &scratch_root, &directory, &name)
+        }
+        "render" => {
+            let runtime_root = PathBuf::from(required_flag(&mut args, "--runtime-root", "render")?);
+            let sealed_melt =
+                dependency_path(&required_flag(&mut args, "--melt-sealed", "render")?)?;
+            let scratch_root = PathBuf::from(required_flag(&mut args, "--scratch-root", "render")?);
+            let directory = required_flag(&mut args, "--directory", "render")?;
+            let profile = required_flag(&mut args, "--profile", "render")?;
+            if args.next().is_some() {
+                return Err("runtime runner received unexpected arguments".into());
+            }
+            let melt = runtime_entry(&runtime_root, &sealed_melt, "melt")?;
+            render(&melt, &scratch_root, &directory, &profile)
         }
         _ => Err("runtime operation is unsupported".into()),
     }

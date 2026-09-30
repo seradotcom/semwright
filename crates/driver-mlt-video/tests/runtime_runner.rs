@@ -206,6 +206,66 @@ fn runtime_runner_probe_rejects_scratch_traversal() {
 }
 
 #[test]
+fn runtime_runner_renders_one_curated_profile_inside_scratch() {
+    let sealed = fake_melt();
+    let bundle = runtime_bundle(&sealed, "melt");
+    let scratch = tempfile::tempdir().expect("scratch root");
+    let job = scratch.path().join("job-render");
+    fs::create_dir(&job).unwrap();
+    fs::write(job.join("project.mlt"), b"<mlt/>").unwrap();
+
+    let output = Command::new(runner())
+        .args(["render", "--runtime-root"])
+        .arg(bundle.path())
+        .args(["--melt-sealed"])
+        .arg(&sealed)
+        .args(["--scratch-root"])
+        .arg(scratch.path())
+        .args(["--directory", "job-render", "--profile", "lossless"])
+        .output()
+        .expect("run bounded render operation");
+    assert!(
+        output.status.success(),
+        "runner stdout={} stderr={}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let value: Value = serde_json::from_slice(&output.stdout).expect("render JSON");
+    assert_eq!(value["schema"], 1);
+    assert_eq!(value["operation"], "render");
+    assert_eq!(value["output"], "partial.mkv");
+    assert_eq!(
+        fs::read(job.join("partial.mkv")).unwrap(),
+        b"fixture-render"
+    );
+}
+
+#[test]
+fn runtime_runner_rejects_unknown_render_profile() {
+    let sealed = fake_melt();
+    let bundle = runtime_bundle(&sealed, "melt");
+    let scratch = tempfile::tempdir().expect("scratch root");
+    let job = scratch.path().join("job-render");
+    fs::create_dir(&job).unwrap();
+    fs::write(job.join("project.mlt"), b"<mlt/>").unwrap();
+
+    let output = Command::new(runner())
+        .args(["render", "--runtime-root"])
+        .arg(bundle.path())
+        .args(["--melt-sealed"])
+        .arg(&sealed)
+        .args(["--scratch-root"])
+        .arg(scratch.path())
+        .args(["--directory", "job-render", "--profile", "not-a-profile"])
+        .output()
+        .expect("run invalid render profile");
+    assert!(!output.status.success());
+    let value: Value = serde_json::from_slice(&output.stdout).expect("render error JSON");
+    assert_eq!(value["operation"], "error");
+}
+
+#[test]
+
 fn runtime_runner_rejects_unknown_operations() {
     let output = Command::new(runner())
         .arg("shell")

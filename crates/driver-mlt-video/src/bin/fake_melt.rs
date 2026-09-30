@@ -25,6 +25,21 @@ fn main() {
         }
         return;
     }
+    if args.first().map(String::as_str) == Some("project.mlt") {
+        if !std::path::Path::new("project.mlt").is_file() {
+            std::process::exit(3);
+        }
+        let output = args
+            .iter()
+            .find_map(|arg| arg.strip_prefix("avformat:"))
+            .filter(|path| !path.is_empty() && !path.contains('/') && !path.contains('\\'))
+            .unwrap_or_else(|| {
+                eprintln!("missing bounded avformat output");
+                std::process::exit(4);
+            });
+        std::fs::write(output, b"fixture-render").unwrap();
+        return;
+    }
     let mode = args.first().map(String::as_str).unwrap_or("ok");
     match mode {
         "ok" => println!("completed"),

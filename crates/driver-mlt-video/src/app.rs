@@ -35,6 +35,14 @@ struct Loaded {
     revision: String,
     source: Option<SourcePin>,
 }
+#[derive(Clone)]
+pub struct RenderRequest {
+    pub project: Project,
+    pub sequence: String,
+    pub revision: String,
+    pub profile: RenderProfile,
+    pub output: String,
+}
 pub struct App {
     pub capabilities: Vec<Capability>,
     projects: BTreeMap<String, Loaded>,
@@ -150,6 +158,61 @@ impl App {
         capability.input(args)
     }
 
+    pub fn prepare_render_request(&mut self, args: &Value) -> Result<RenderRequest> {
+        let pid = self.identify(args.str("project")?)?;
+        let loaded = self.projects.get(&pid).cloned().ok_or_else(Error::stale)?;
+        if let Some(expected) = args.opt("expected_revision")
+            && expected.string()? != loaded.revision
+        {
+            return Err(Error::stale());
+        }
+        let sequence = self.resolve(args, "sequence", &pid, &loaded.revision, "sequence")?;
+        let profile = RenderProfile::get(args.str("profile")?)?;
+        let output = args.str("output")?.to_owned();
+        let plan = jobs::render_plan(
+            &loaded.project,
+            &sequence,
+            &loaded.revision,
+            &profile,
+            &output,
+            self.catalog.as_ref(),
+            &self.roots,
+        )?;
+        if !plan.get("runnable")?.boolean()? {
+            return Err(Error::new(
+                "Unavailable",
+                "Render preflight lacks runtime services",
+            ));
+        }
+        Ok(RenderRequest {
+            project: loaded.project,
+            sequence,
+            revision: loaded.revision,
+            profile,
+            output,
+        })
+    }
+
+    pub fn validate_output(&self, command: &str, value: &Value) -> Result<()> {
+        let capability = self
+            .capabilities
+            .iter()
+            .find(|capability| capability.name == command)
+            .ok_or_else(|| Error::new("NotFound", "Capability not registered"))?;
+        if let Err(mut error) = capability.output(value) {
+            if capability.mutates() {
+                error.outcome_known = false;
+            }
+            return Err(error);
+        }
+        if value.encode().len() > 900_000 {
+            let mut error = Error::limit("Result exceeds response frame budget");
+            error.outcome_known = !capability.mutates();
+            return Err(error);
+        }
+        Ok(())
+    }
+
     pub fn execute(&mut self, command: &str, digest: &str, args: Value) -> Result<Value> {
         self.execute_with_probe(command, digest, args, None)
     }
@@ -178,17 +241,7 @@ impl App {
             ));
         }
         let value = self.dispatch(operation, &args, probe.as_ref())?;
-        if let Err(mut e) = capability.output(&value) {
-            if capability.mutates() {
-                e.outcome_known = false;
-            }
-            return Err(e);
-        }
-        if value.encode().len() > 900_000 {
-            let mut e = Error::limit("Result exceeds response frame budget");
-            e.outcome_known = !capability.mutates();
-            return Err(e);
-        }
+        self.validate_output(command, &value)?;
         Ok(value)
     }
     fn identify(&mut self, token: &str) -> Result<String> {
