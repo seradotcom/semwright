@@ -140,9 +140,39 @@ struct DoctorOutput {
     active_jobs: usize,
     capability_count: usize,
 }
+// Schema-only view for the legacy deep-inspection response. Runtime Project
+// validation remains complete; this avoids recursively embedding Motion authoring IR.
+#[allow(dead_code)]
+#[derive(Debug, Clone, JsonSchema)]
+struct ProjectInspectSceneSchema {
+    id: String,
+    name: String,
+    duration_ms: u64,
+    nodes: Vec<Value>,
+    animations: Vec<Value>,
+    cues: Vec<Value>,
+    transition: Option<Value>,
+}
+#[allow(dead_code)]
+#[derive(Debug, Clone, JsonSchema)]
+struct ProjectInspectSchema {
+    authoring: Option<Value>,
+    schema_version: u32,
+    component_version: u32,
+    id: String,
+    generation: String,
+    revision: u64,
+    settings: Settings,
+    theme: Theme,
+    variables: BTreeMap<String, Value>,
+    scenes: Vec<ProjectInspectSceneSchema>,
+    assets: Vec<Asset>,
+    audio: Vec<AudioTrack>,
+}
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct SnapshotOutput {
+    #[schemars(with = "ProjectInspectSchema")]
     project: Project,
     fingerprint: String,
     refs: Vec<ObjectRef>,
@@ -1656,6 +1686,32 @@ mod tests {
             "Motion Canvas catalog is {} bytes but protocol budget is {}",
             bytes.len(),
             semwright_types::MAX_FRAME
+        );
+    }
+
+    #[test]
+    fn project_inspect_schema_is_registry_bounded_and_accepts_real_output_shape() {
+        let capability = MotionDriver::catalog()
+            .unwrap()
+            .into_iter()
+            .find(|capability| capability.descriptor.name == "driver.motion-canvas.project.inspect")
+            .expect("project.inspect capability");
+        semwright_registry::bounds::schema_budget(&capability.descriptor.input_schema, true)
+            .unwrap();
+        semwright_registry::bounds::schema_budget(&capability.descriptor.output_schema, true)
+            .unwrap();
+
+        let output = serde_json::to_value(SnapshotOutput {
+            project: fixture(),
+            fingerprint: "a".repeat(64),
+            refs: vec![],
+            generated: vec![],
+        })
+        .unwrap();
+        let validator = jsonschema::validator_for(&capability.descriptor.output_schema).unwrap();
+        assert!(
+            validator.is_valid(&output),
+            "compact project.inspect schema rejected the driver's own validated output"
         );
     }
 
