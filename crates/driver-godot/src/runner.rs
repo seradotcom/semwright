@@ -18,6 +18,7 @@ use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{
     collections::HashMap,
+    io::Read,
     os::unix::process::CommandExt,
     path::{Component, Path, PathBuf},
     process::Stdio,
