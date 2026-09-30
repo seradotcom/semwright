@@ -49,6 +49,7 @@ jobs:
     timeout-minutes: 3
     outputs:
       mutant_ids: ${{ steps.scope.outputs.mutant_ids }}
+      mode: ${{ steps.scope.outputs.mode }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -126,6 +127,23 @@ jobs:
               ;;
             *) echo "unexpected mutation area: $ID" >&2; exit 2 ;;
           esac
+      - name: Select iteration mutation scope
+        env:
+          MODE: ${{ needs.scope.outputs.mode }}
+        run: |
+          if [ "$MODE" = certify ]; then
+            echo 'MUTATION_REGEX=' >> "$GITHUB_ENV"
+            exit 0
+          fi
+          regex=$(python3 - "$CRITICAL" <<'PY'
+          import re,sys
+          names=[value for value in sys.argv[1].split(';') if value]
+          if not names:
+              raise SystemExit('critical mutation symbol list is empty')
+          print('('+'|'.join(re.escape(value) for value in names)+')')
+          PY
+          )
+          printf 'MUTATION_REGEX=%s\n' "$regex" >> "$GITHUB_ENV"
       - name: Install pinned cargo-mutants
         run: cargo install --locked cargo-mutants --version 27.1.0
       - name: Validate non-empty mutation selection
@@ -136,6 +154,7 @@ jobs:
           mkdir -p "verification/composition-mutants/$ID"
           args=()
           for file in $FILES; do args+=(--file "$file"); done
+          if [ -n "$MUTATION_REGEX" ]; then args+=(--re "$MUTATION_REGEX"); fi
           cargo mutants --no-config --package "$PACKAGE" "${args[@]}" --list --json             > "verification/composition-mutants/$ID/mutants.json"
           python3 - "$ID" "$CRITICAL" <<'PY'
           import json, sys
@@ -160,15 +179,17 @@ jobs:
           set -euo pipefail
           args=()
           for file in $FILES; do args+=(--file "$file"); done
+          if [ -n "$MUTATION_REGEX" ]; then args+=(--re "$MUTATION_REGEX"); fi
           set +e
           cargo mutants --no-config --package "$PACKAGE" "${args[@]}"             --output "verification/composition-mutants/$ID/out"             --timeout 90 --jobs 2 --colors=never --no-times
           rc=$?
           set -e
           echo "$rc" > "verification/composition-mutants/$ID/survey-exit-code.txt"
           test -f "verification/composition-mutants/$ID/out/mutants.out/outcomes.json"
-      - name: Summarize broad survey and enforce critical invariants
+      - name: Summarize mutation evidence and enforce critical invariants
         env:
           ID: ${{ matrix.id }}
+          MODE: ${{ needs.scope.outputs.mode }}
         run: |
           python3 - "$ID" "$CRITICAL" <<'PY'
           import collections, json, os, sys
@@ -207,7 +228,11 @@ jobs:
               'run_id':os.environ['GITHUB_RUN_ID'],
               'run_attempt':os.environ['GITHUB_RUN_ATTEMPT'],
               'target':target,
-              'claim_scope':'area-specific broad survey plus blocking critical-function gate',
+              'claim_scope':(
+                  'full area survey plus blocking critical-function gate'
+                  if os.environ['MODE']=='certify'
+                  else 'critical-function targeted iteration'
+              ),
               'survey_exit_code':int((root/'survey-exit-code.txt').read_text().strip()),
               'totals':dict(counts),
               'critical_functions':sorted(critical),
