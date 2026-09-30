@@ -42,9 +42,14 @@ def connect():
 
 
 def product_version():
+    runtime_root = os.environ.get("SEMWRIGHT_LIBREOFFICE_RUNTIME", "")
+    if not runtime_root:
+        return "unknown"
     try:
         with open(
-            "/usr/lib/libreoffice/program/versionrc", "r", encoding="utf-8"
+            os.path.join(runtime_root, "program", "versionrc"),
+            "r",
+            encoding="utf-8",
         ) as handle:
             for line in handle:
                 if line.startswith("ProductVersion="):
