@@ -3,9 +3,22 @@ defaults:
   run:
     shell: bash
 on:
+  workflow_call:
   push:
     branches: [main]
+    paths:
+      - 'crates/platform-linux/**'
+      - 'crates/platform-linux-sys/**'
+      - 'crates/platform-api/**'
+      - 'crates/platform-services/**'
+      - '.github/workflows/live-plasma.yml'
   pull_request:
+    paths:
+      - 'crates/platform-linux/**'
+      - 'crates/platform-linux-sys/**'
+      - 'crates/platform-api/**'
+      - 'crates/platform-services/**'
+      - '.github/workflows/live-plasma.yml'
   workflow_dispatch:
 permissions:
   contents: read

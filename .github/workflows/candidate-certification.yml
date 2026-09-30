@@ -1,0 +1,247 @@
+name: Exact candidate certification
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: "Exact 40-character candidate commit SHA"
+        required: true
+        type: string
+      base_sha:
+        description: "Exact integration base commit SHA"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+  artifact-metadata: write
+
+concurrency:
+  group: exact-candidate-certification-${{ inputs.source_sha }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  verify:
+    permissions:
+      contents: read
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      godot: ${{ steps.scope.outputs.godot }}
+      motion: ${{ steps.scope.outputs.motion }}
+      obs: ${{ steps.scope.outputs.obs }}
+      blender_semantic: ${{ steps.scope.outputs.blender_semantic }}
+      figma_semantic: ${{ steps.scope.outputs.figma_semantic }}
+      driver_session: ${{ steps.scope.outputs.driver_session }}
+      platform_windows: ${{ steps.scope.outputs.platform_windows }}
+      platform_macos: ${{ steps.scope.outputs.platform_macos }}
+      native_x11: ${{ steps.scope.outputs.native_x11 }}
+      native_sway: ${{ steps.scope.outputs.native_sway }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: scope
+        name: Bind certification to exact candidate SHA
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          BASE_SHA: ${{ inputs.base_sha }}
+          CHECKED_OUT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$CHECKED_OUT_SHA" = "$SOURCE_SHA"
+          git cat-file -e "$BASE_SHA^{commit}"
+          git merge-base --is-ancestor "$BASE_SHA" "$SOURCE_SHA"
+
+          mkdir -p verification/candidate-certification
+          printf '%s\n' "$SOURCE_SHA" > verification/candidate-certification/SOURCE_SHA
+          printf '%s\n' "$BASE_SHA" > verification/candidate-certification/BASE_SHA
+          git diff --name-only "$BASE_SHA" "$SOURCE_SHA" |
+            tee verification/candidate-certification/CHANGED_PATHS.txt |
+            python3 scripts/dev/ci-affected-areas.py |
+            tee -a "$GITHUB_OUTPUT"
+          git diff --name-only "$BASE_SHA" "$SOURCE_SHA" |
+            python3 scripts/dev/ci-affected-areas.py --json             > verification/candidate-certification/AFFECTED_AREAS.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: candidate-scope-${{ inputs.source_sha }}
+          path: verification/candidate-certification
+          retention-days: 30
+
+  quality:
+    needs: verify
+    uses: ./.github/workflows/ci.yml
+    with:
+      full_cert: true
+
+  native:
+    needs: verify
+    uses: ./.github/workflows/native-integrations.yml
+    with:
+      full_cert: true
+
+  security:
+    needs: verify
+    uses: ./.github/workflows/security.yml
+    with:
+      full_cert: true
+
+  packaging:
+    needs: verify
+    uses: ./.github/workflows/packaging-certification.yml
+
+  supply_chain:
+    needs: verify
+    uses: ./.github/workflows/supply-chain.yml
+
+  secret_precheck:
+    needs: verify
+    uses: ./.github/workflows/pre-r16.yml
+
+  godot:
+    needs: verify
+    if: ${{ needs.verify.outputs.godot == 'true' }}
+    uses: ./.github/workflows/godot-integration.yml
+
+  motion:
+    needs: verify
+    if: ${{ needs.verify.outputs.motion == 'true' }}
+    uses: ./.github/workflows/motion-canvas.yml
+
+  obs:
+    needs: verify
+    if: ${{ needs.verify.outputs.obs == 'true' }}
+    uses: ./.github/workflows/obs-integration.yml
+
+  blender:
+    needs: verify
+    if: ${{ needs.verify.outputs.blender_semantic == 'true' }}
+    uses: ./.github/workflows/blender-semantic.yml
+
+  figma:
+    needs: verify
+    if: ${{ needs.verify.outputs.figma_semantic == 'true' }}
+    uses: ./.github/workflows/figma-semantic-authoring.yml
+
+  driver_session:
+    needs: verify
+    if: ${{ needs.verify.outputs.driver_session == 'true' }}
+    uses: ./.github/workflows/driver-session-continuity.yml
+
+  windows:
+    needs: verify
+    if: ${{ needs.verify.outputs.platform_windows == 'true' }}
+    uses: ./.github/workflows/windows-platform.yml
+
+  macos:
+    needs: verify
+    if: ${{ needs.verify.outputs.platform_macos == 'true' }}
+    uses: ./.github/workflows/platformization-macos.yml
+
+  x11_live:
+    needs: verify
+    if: ${{ needs.verify.outputs.native_x11 == 'true' }}
+    uses: ./.github/workflows/live-x11-ewmh.yml
+
+  plasma_live:
+    needs: verify
+    if: ${{ needs.verify.outputs.native_sway == 'true' || needs.verify.outputs.native_x11 == 'true' }}
+    uses: ./.github/workflows/live-plasma.yml
+
+  evidence:
+    if: ${{ always() }}
+    permissions:
+      contents: read
+    needs:
+      - verify
+      - quality
+      - native
+      - security
+      - packaging
+      - supply_chain
+      - secret_precheck
+      - godot
+      - motion
+      - obs
+      - blender
+      - figma
+      - driver_session
+      - windows
+      - macos
+      - x11_live
+      - plasma_live
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Record certification result manifest
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          BASE_SHA: ${{ inputs.base_sha }}
+          VERIFY: ${{ needs.verify.result }}
+          QUALITY: ${{ needs.quality.result }}
+          NATIVE: ${{ needs.native.result }}
+          SECURITY: ${{ needs.security.result }}
+          PACKAGING: ${{ needs.packaging.result }}
+          SUPPLY_CHAIN: ${{ needs.supply_chain.result }}
+          SECRET_PRECHECK: ${{ needs.secret_precheck.result }}
+          GODOT: ${{ needs.godot.result }}
+          MOTION: ${{ needs.motion.result }}
+          OBS: ${{ needs.obs.result }}
+          BLENDER: ${{ needs.blender.result }}
+          FIGMA: ${{ needs.figma.result }}
+          DRIVER_SESSION: ${{ needs.driver_session.result }}
+          WINDOWS: ${{ needs.windows.result }}
+          MACOS: ${{ needs.macos.result }}
+          X11_LIVE: ${{ needs.x11_live.result }}
+          PLASMA_LIVE: ${{ needs.plasma_live.result }}
+        run: |
+          set -euo pipefail
+          mkdir -p verification/candidate-certification
+          python3 - <<'PY'
+          import json, os
+          names = [
+              "verify", "quality", "native", "security", "packaging", "supply_chain",
+              "secret_precheck", "godot", "motion", "obs", "blender", "figma", "driver_session",
+              "windows", "macos", "x11_live", "plasma_live",
+          ]
+          env_names = {
+              "supply_chain": "SUPPLY_CHAIN",
+              "secret_precheck": "SECRET_PRECHECK",
+              "driver_session": "DRIVER_SESSION",
+              "x11_live": "X11_LIVE",
+              "plasma_live": "PLASMA_LIVE",
+          }
+          results = {
+              name: os.environ[env_names.get(name, name.upper())]
+              for name in names
+          }
+          payload = {
+              "schema": 1,
+              "source_sha": os.environ["SOURCE_SHA"],
+              "base_sha": os.environ["BASE_SHA"],
+              "results": results,
+          }
+          open("verification/candidate-certification/CERTIFICATION.json", "w").write(
+              json.dumps(payload, indent=2, sort_keys=True) + "\n"
+          )
+          PY
+          sha256sum verification/candidate-certification/CERTIFICATION.json             > verification/candidate-certification/SHA256SUMS.txt
+          cat verification/candidate-certification/CERTIFICATION.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: candidate-certification-${{ inputs.source_sha }}
+          path: verification/candidate-certification
+          retention-days: 30
