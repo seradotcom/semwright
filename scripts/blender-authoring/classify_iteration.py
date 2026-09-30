@@ -41,7 +41,10 @@ FUZZ_PREFIXES = (
     "crates/driver-blender/src/authoring/model.rs",
     "crates/driver-blender/src/authoring/plan.rs",
 )
-SKILL_PREFIXES = ("skills/semwright-blender-production/",)
+SKILL_PREFIXES = (
+    "skills/semwright-blender-production/",
+    "scripts/blender-authoring/verify_skill_bundle.sh",
+)
 PACKAGE_PREFIXES = (
     "scripts/blender-authoring/package_source.py",
     "scripts/blender-authoring/finalize_evidence.py",

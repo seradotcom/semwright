@@ -125,18 +125,7 @@ jobs:
 
       - name: Skill validate and clean bundle
         if: steps.plan.outputs.skill == 'true'
-        run: |
-          set -o pipefail
-          cargo build --locked -p semwright-cli --bin semwright
-          target/debug/semwright --json skill validate skills/semwright-blender-production             | tee evidence/blender-authoring/skill-validate.json
-          target/debug/semwright --json skill bundle skills/semwright-blender-production             evidence/blender-authoring/semwright-blender-production.zip
-          sha256sum evidence/blender-authoring/semwright-blender-production.zip             | tee evidence/blender-authoring/semwright-blender-production.zip.sha256
-          test -s evidence/blender-authoring/skill-validate.json
-          test -s evidence/blender-authoring/semwright-blender-production.zip
-          (
-            cd evidence/blender-authoring
-            sha256sum --check --strict semwright-blender-production.zip.sha256
-          )
+        run: bash scripts/blender-authoring/verify_skill_bundle.sh
 
       - name: Reproducible E source backup
         if: steps.plan.outputs.package == 'true'
