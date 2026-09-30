@@ -43,11 +43,18 @@ fn runtime_entry(runtime_root: &Path, sealed_melt: &Path) -> Result<PathBuf, Str
     if !runtime_root.is_absolute() || !root_meta.is_dir() || root_meta.file_type().is_symlink() {
         return Err("MLT runtime root must be an absolute non-symlink directory".into());
     }
-    let candidate = runtime_root.join("bin").join("melt");
-    let candidate_meta = std::fs::symlink_metadata(&candidate)
+    let canonical_root = std::fs::canonicalize(runtime_root)
+        .map_err(|_| "MLT runtime root could not be canonicalized".to_string())?;
+    let entry = runtime_root.join("bin").join("melt");
+    let candidate = std::fs::canonicalize(&entry)
         .map_err(|_| "MLT runtime entrypoint is unavailable".to_string())?;
+    if candidate.strip_prefix(&canonical_root).is_err() {
+        return Err("MLT runtime entrypoint escaped the delegated runtime root".into());
+    }
+    let candidate_meta = std::fs::symlink_metadata(&candidate)
+        .map_err(|_| "MLT runtime entrypoint metadata is unavailable".to_string())?;
     if !candidate_meta.is_file() || candidate_meta.file_type().is_symlink() {
-        return Err("MLT runtime entrypoint must be a regular non-symlink file".into());
+        return Err("Canonical MLT runtime entrypoint must be a regular file".into());
     }
     let (sealed_hash, sealed_size) = reader_hash(
         std::fs::File::open(sealed_melt)
