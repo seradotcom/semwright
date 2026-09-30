@@ -27,6 +27,7 @@ const MAX_ARTIFACT_BYTES: u64 = 512 * 1024 * 1024;
 const MAX_STDOUT_BYTES: usize = 2 * 1024 * 1024;
 const MAX_STDERR_BYTES: usize = 256 * 1024;
 const RUN_TIMEOUT: Duration = Duration::from_secs(60);
+const PROBE_AUTOMATION_FRAME: u64 = 24_000;
 const ARDOUR_TEMPLATE_NAME: &str = "Semwright Managed";
 const ARDOUR_TEMPLATE_XML: &str = r#"<?xml version="1.0" encoding="UTF-8"?>
 <Session version="5990" id-counter="2" name-counter="1" event-counter="1" vca-counter="1">
@@ -623,8 +624,7 @@ close_session()
             .iter()
             .find(|route| route.name == "Semwright Probe Stem")
         else {
-            let diagnostic =
-                bounded_text_diagnostic("group_automation_setup:probe route missing");
+            let diagnostic = bounded_text_diagnostic("group_automation_setup:probe route missing");
             return Ok((
                 false,
                 "BackendFailed".to_string(),
@@ -642,7 +642,12 @@ close_session()
         let Some(native_plugin) = route.plugins.first() else {
             return Ok((
                 group_verified,
-                if group_verified { "ok" } else { "BackendFailed" }.to_string(),
+                if group_verified {
+                    "ok"
+                } else {
+                    "BackendFailed"
+                }
+                .to_string(),
                 bounded_text_diagnostic(if group_verified {
                     "route group created and populated"
                 } else {
@@ -656,7 +661,12 @@ close_session()
         if !native_plugin.parameters_complete {
             return Ok((
                 group_verified,
-                if group_verified { "ok" } else { "BackendFailed" }.to_string(),
+                if group_verified {
+                    "ok"
+                } else {
+                    "BackendFailed"
+                }
+                .to_string(),
                 bounded_text_diagnostic(if group_verified {
                     "route group created and populated"
                 } else {
@@ -671,7 +681,12 @@ close_session()
         let Some(parameter) = native_plugin.parameters.first() else {
             return Ok((
                 group_verified,
-                if group_verified { "ok" } else { "BackendFailed" }.to_string(),
+                if group_verified {
+                    "ok"
+                } else {
+                    "BackendFailed"
+                }
+                .to_string(),
                 bounded_text_diagnostic(if group_verified {
                     "route group created and populated"
                 } else {
@@ -685,7 +700,12 @@ close_session()
         if parameter.lower_microunits == parameter.upper_microunits {
             return Ok((
                 group_verified,
-                if group_verified { "ok" } else { "BackendFailed" }.to_string(),
+                if group_verified {
+                    "ok"
+                } else {
+                    "BackendFailed"
+                }
+                .to_string(),
                 bounded_text_diagnostic(if group_verified {
                     "route group created and populated"
                 } else {
@@ -707,13 +727,7 @@ close_session()
                 session,
                 state,
                 "plugin_automation_point",
-                vec![
-                    "probe_automation_point".into(),
-                    route_id.clone(),
-                    plugin_id.clone(),
-                    parameter_index.to_string(),
-                    target.to_string(),
-                ],
+                probe_automation_operation_args(&route_id, &plugin_id, parameter_index, target),
             )
             .await?
         {
@@ -721,7 +735,12 @@ close_session()
             Err((class, diagnostic)) => {
                 return Ok((
                     group_verified,
-                    if group_verified { "ok" } else { "BackendFailed" }.to_string(),
+                    if group_verified {
+                        "ok"
+                    } else {
+                        "BackendFailed"
+                    }
+                    .to_string(),
                     bounded_text_diagnostic(if group_verified {
                         "route group created and populated"
                     } else {
@@ -749,8 +768,7 @@ close_session()
                     .find(|item| item.index == parameter_index)
             })
             .map(|item| item.automation_points);
-        let automation_verified =
-            automation_after == Some(automation_before.saturating_add(1));
+        let automation_verified = automation_after == Some(automation_before.saturating_add(1));
 
         Ok((
             group_after,
@@ -1108,6 +1126,22 @@ close_session()
     }
 }
 
+fn probe_automation_operation_args(
+    route_id: &str,
+    plugin_id: &str,
+    parameter_index: u32,
+    value_microunits: i64,
+) -> Vec<String> {
+    vec![
+        "probe_automation_point".into(),
+        route_id.into(),
+        plugin_id.into(),
+        parameter_index.to_string(),
+        PROBE_AUTOMATION_FRAME.to_string(),
+        value_microunits.to_string(),
+    ]
+}
+
 fn lua_tool_args(script_path: &Path, script_args: Vec<String>) -> Vec<String> {
     let mut args = Vec::with_capacity(script_args.len().saturating_add(2));
     args.push("--".into());
@@ -1444,6 +1478,21 @@ mod tests {
     }
 
     #[test]
+    fn automation_probe_argv_includes_explicit_frame_and_value() {
+        assert_eq!(
+            probe_automation_operation_args("route-1", "plugin-1", 3, -250_000),
+            vec![
+                "probe_automation_point".to_string(),
+                "route-1".to_string(),
+                "plugin-1".to_string(),
+                "3".to_string(),
+                "24000".to_string(),
+                "-250000".to_string(),
+            ]
+        );
+    }
+
+    #[test]
     fn lua_tool_args_stop_getopt_before_negative_semantic_values() {
         let args = lua_tool_args(
             Path::new("/tmp/semwright-ardour.lua"),
@@ -1589,7 +1638,7 @@ mod tests {
             route_id: route_id.clone(),
             plugin_id: plugin_id.clone(),
             parameter_index: parameter.index,
-            frame: 24_000,
+            frame: PROBE_AUTOMATION_FRAME,
             value_microunits: target,
         };
         let operation_args = mutation.argv().unwrap();
