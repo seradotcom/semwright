@@ -166,7 +166,7 @@ pub enum NativeVerifyResult {
     Persistence {
         binding: NativeEvidenceBinding,
         writer: NativeObservation,
-        reader: NativeObservation,
+        reader: Box<NativeObservation>,
         evidence: semwright_effect_conformance::ObservedValue,
     },
     Play {
@@ -1260,9 +1260,11 @@ pub fn query_projection(
     }
 }
 
+type DependencySentinel = (String, String, bool, Option<Digest>);
+
 fn dependency_sentinels(
     observation: &NativeObservation,
-) -> semwright_types::Result<Vec<(String, String, bool, Option<Digest>)>> {
+) -> semwright_types::Result<Vec<DependencySentinel>> {
     ensure(
         observation.dependency_complete,
         "Persistence requires complete native dependency enumeration",

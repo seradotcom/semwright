@@ -786,7 +786,7 @@ fn validate_asset(kind: AssetKind, bytes: &[u8]) -> Result<()> {
                     .try_into()
                     .map_err(|_| Error::invalid("GLB chunk length"))?,
             ) as usize;
-            if length > 524_288 || length % 4 != 0 || 20 + length > bytes.len() {
+            if length > 524_288 || !length.is_multiple_of(4) || 20 + length > bytes.len() {
                 return Err(Error::invalid("GLB JSON chunk bounds"));
             }
             let json: serde_json::Value =
@@ -824,7 +824,7 @@ fn validate_asset(kind: AssetKind, bytes: &[u8]) -> Result<()> {
                         .try_into()
                         .map_err(|_| Error::invalid("GLB binary length"))?,
                 ) as usize;
-                if binary + 8 + size != bytes.len() || size % 4 != 0 {
+                if binary + 8 + size != bytes.len() || !size.is_multiple_of(4) {
                     return Err(Error::invalid("GLB binary bounds"));
                 }
             }

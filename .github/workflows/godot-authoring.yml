@@ -14,6 +14,9 @@ permissions:
 concurrency:
   group: godot-authoring-${{ (github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[godot-certify]')) && format('certify-{0}', github.sha) || format('iterate-{0}', github.ref) }}
   cancel-in-progress: ${{ github.event_name == 'push' && !contains(github.event.head_commit.message, '[godot-certify]') }}
+defaults:
+  run:
+    shell: bash
 jobs:
   scope:
     runs-on: ubuntu-24.04

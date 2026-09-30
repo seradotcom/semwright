@@ -593,7 +593,7 @@ impl Runner {
                     Ok(NativeVerifyResult::Persistence {
                         binding: evidence_binding,
                         writer,
-                        reader,
+                        reader: Box::new(reader),
                         evidence,
                     })
                 }
