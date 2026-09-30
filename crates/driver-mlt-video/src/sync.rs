@@ -149,7 +149,11 @@ fn detection(
         .ok_or_else(|| Error::invalid("Sync metric baseline is absent"))?;
     let &(time, maximum) = rows
         .iter()
-        .max_by(|left, right| left.1.total_cmp(&right.1))
+        .max_by(|left, right| {
+            left.1
+                .total_cmp(&right.1)
+                .then_with(|| right.0.cmp(&left.0))
+        })
         .ok_or_else(|| Error::invalid("Sync metric maximum is absent"))?;
     let delta = maximum - baseline;
     let confidence = match metric {
@@ -322,5 +326,39 @@ mod tests {
     fn cue_ids_are_strict_data_not_filter_syntax() {
         assert!(valid_cue_id("cue-1"));
         assert!(!valid_cue_id("x;movie=/etc/passwd"));
+    }
+}
+
+#[cfg(test)]
+mod equal_peak_tests {
+    use super::*;
+
+    fn frame(time: &str, tag: &str, value: &str) -> serde_json::Value {
+        serde_json::json!({
+            "best_effort_timestamp_time": time,
+            "tags": { tag: value }
+        })
+    }
+
+    #[test]
+    fn equal_peak_prefers_earliest_presentation_timestamp() {
+        let tag = "lavfi.signalstats.YAVG";
+        let value = serde_json::json!({"frames":[
+            frame("0.966667",tag,"12"),
+            frame("1.000000",tag,"240"),
+            frame("1.033333",tag,"240"),
+            frame("1.066667",tag,"12")
+        ]});
+        let detection = flash(
+            &CueWindow {
+                id: "flash".into(),
+                expected_us: 1_000_000,
+            },
+            &serde_json::to_vec(&value).unwrap(),
+            100_000,
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(detection.presentation_time_us, 1_000_000);
     }
 }
