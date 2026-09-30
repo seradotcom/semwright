@@ -62,6 +62,59 @@ jobs:
           cargo build --locked -p semwright-plugin-host --bin semwright-sandbox \
             -p semwright-mlt-video-driver --bin semwright-mlt-video-driver \
             -p semwright-mlt-video-driver --bin semwright-mlt-runtime-runner
+          MELT_REAL=$(realpath /usr/bin/melt)
+          MLT_RUNTIME_ROOT=$(dirname "$(dirname "$MELT_REAL")")
+          target/debug/semwright-mlt-runtime-runner \
+            discover --runtime-root "$MLT_RUNTIME_ROOT" --melt-sealed "$MELT_REAL" \
+            > verification/mlt-runtime-tools/direct-discovery.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          value = json.loads(Path("verification/mlt-runtime-tools/direct-discovery.json").read_text())
+          assert value["schema"] == 1 and value["operation"] == "discover"
+          assert value["version"] and len(value["groups"]) == 6
+          PY
+          exec {MELT_FD}< "$MELT_REAL"
+          nested=(bwrap --die-with-parent --new-session --unshare-all --clearenv --cap-drop ALL
+            --proc /proc --dev /dev --tmpfs /tmp
+            --dir /home --dir /workspace --dir /plugin --dir /plugin/tools
+            --dir /run --dir /run/secrets --dir /etc
+            --ro-bind /usr /usr
+            --ro-bind target/debug/semwright-mlt-runtime-runner /plugin/bin
+            --ro-bind target/debug/semwright-sandbox /plugin/sandbox
+            --ro-bind "$MLT_RUNTIME_ROOT" /workspace/mlt-runtime
+            --perms 0500 --file "$MELT_FD" /plugin/tools/melt
+            --setenv HOME /home --setenv PATH /usr/bin:/bin --setenv LANG C.UTF-8
+            --setenv XDG_CACHE_HOME /tmp/cache --setenv XDG_CONFIG_HOME /tmp/config
+            --setenv XDG_DATA_HOME /tmp/data --setenv SEMWRIGHT_DRIVER_SANDBOX landlock-bwrap-v1
+            --chdir /tmp)
+          for root in /lib /lib64; do
+            [[ ! -e "$root" ]] || nested+=(--ro-bind "$root" "$root")
+          done
+          [[ ! -f /etc/ld.so.cache ]] || nested+=(--ro-bind /etc/ld.so.cache /etc/ld.so.cache)
+          [[ ! -d /etc/alternatives ]] || nested+=(--ro-bind /etc/alternatives /etc/alternatives)
+          nested+=(-- /plugin/sandbox
+            --limit-nofile 512 --limit-nproc 256 --limit-cpu 30
+            --limit-as 4294967296 --limit-fsize 1073741824
+            --exec-root /workspace/mlt-runtime --exec-root /plugin/tools/melt
+            -- /plugin/bin discover --runtime-root /workspace/mlt-runtime
+            --melt-sealed /plugin/tools/melt)
+          set +e
+          "${nested[@]}" > verification/mlt-runtime-tools/nested-discovery.json \
+            2> verification/mlt-runtime-tools/nested-discovery.stderr
+          nested_rc=$?
+          set -e
+          echo "exit_code=$nested_rc" > verification/mlt-runtime-tools/nested-discovery.exit
+          cat verification/mlt-runtime-tools/nested-discovery.json || true
+          cat verification/mlt-runtime-tools/nested-discovery.stderr || true
+          test "$nested_rc" -eq 0
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          direct = json.loads(Path("verification/mlt-runtime-tools/direct-discovery.json").read_text())
+          nested = json.loads(Path("verification/mlt-runtime-tools/nested-discovery.json").read_text())
+          assert nested == direct
+          PY
           cargo test --locked -p semwright-mlt-video-driver real_mlt_video_driver_runs_inside_sandbox -- --ignored --nocapture \
             2>&1 | tee verification/mlt-runtime-tools/live.log
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a

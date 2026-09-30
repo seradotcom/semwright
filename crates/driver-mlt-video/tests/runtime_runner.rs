@@ -3,6 +3,7 @@
 use serde_json::Value;
 use std::{
     fs,
+    os::unix::fs::symlink,
     path::{Path, PathBuf},
     process::Command,
 };
@@ -23,7 +24,9 @@ fn runtime_bundle(entrypoint: &Path, name: &str) -> tempfile::TempDir {
     let root = tempfile::tempdir().expect("runtime bundle");
     let bin = root.path().join("bin");
     fs::create_dir(&bin).expect("runtime bin");
-    fs::copy(entrypoint, bin.join(name)).expect("copy runtime entrypoint");
+    let real = format!("{name}-real");
+    fs::copy(entrypoint, bin.join(&real)).expect("copy runtime entrypoint");
+    symlink(&real, bin.join(name)).expect("runtime entrypoint symlink");
     root
 }
 
@@ -99,7 +102,11 @@ fn runtime_runner_rejects_unmaterialized_relative_dependencies() {
 fn runtime_runner_rejects_bundle_entrypoint_that_does_not_match_sealed_tool() {
     let sealed = fake_melt();
     let bundle = runtime_bundle(&sealed, "melt");
-    fs::write(bundle.path().join("bin/melt"), b"not the sealed executable").unwrap();
+    fs::write(
+        bundle.path().join("bin/melt-real"),
+        b"not the sealed executable",
+    )
+    .unwrap();
     let output = Command::new(runner())
         .args(["discover", "--runtime-root"])
         .arg(bundle.path())
@@ -113,7 +120,7 @@ fn runtime_runner_rejects_bundle_entrypoint_that_does_not_match_sealed_tool() {
     assert!(
         value["error"]
             .as_str()
-            .is_some_and(|message| message.contains("does not match the Host-sealed melt bytes"))
+            .is_some_and(|message| message.contains("does not match the Host-sealed tool bytes"))
     );
 }
 
@@ -171,6 +178,30 @@ fn runtime_runner_probe_rejects_scratch_traversal() {
         value["error"]
             .as_str()
             .is_some_and(|message| message.contains("one bounded path component"))
+    );
+}
+
+#[test]
+fn runtime_runner_rejects_entrypoint_symlink_that_escapes_runtime_root() {
+    let sealed = fake_melt();
+    let root = tempfile::tempdir().expect("runtime root");
+    let bin = root.path().join("bin");
+    fs::create_dir(&bin).expect("runtime bin");
+    symlink(&sealed, bin.join("melt")).expect("escaping runtime entrypoint symlink");
+    let output = Command::new(runner())
+        .args(["discover", "--runtime-root"])
+        .arg(root.path())
+        .args(["--melt-sealed"])
+        .arg(&sealed)
+        .output()
+        .expect("run escaping runtime entrypoint");
+    assert!(!output.status.success());
+    let value: Value = serde_json::from_slice(&output.stdout).expect("runner error JSON");
+    assert_eq!(value["operation"], "error");
+    assert!(
+        value["error"]
+            .as_str()
+            .is_some_and(|message| message.contains("escaped the delegated runtime root"))
     );
 }
 
