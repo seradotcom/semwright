@@ -229,7 +229,14 @@ impl MltVideoDriver {
                         value: "discover".into(),
                     },
                     RuntimeToolArg::Literal {
-                        value: "--melt".into(),
+                        value: "--runtime-root".into(),
+                    },
+                    RuntimeToolArg::MountPath {
+                        mount: "mlt-runtime".into(),
+                        relative: String::new(),
+                    },
+                    RuntimeToolArg::Literal {
+                        value: "--melt-sealed".into(),
                     },
                     RuntimeToolArg::ToolPath {
                         tool: "melt".into(),
