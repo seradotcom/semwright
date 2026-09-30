@@ -1446,8 +1446,40 @@ async fn shared_and_local_to_scene_materials_are_native_and_isolated() {
     let local_b = managed_native_resource_property(&observed, "arena/local_b", "material_override");
     assert_eq!(local_a["local_to_scene"], true);
     assert_eq!(local_b["local_to_scene"], true);
-    assert_ne!(local_a["path"], local_b["path"]);
+    assert_eq!(local_a["path"], "");
+    assert_eq!(local_b["path"], "");
     assert_ne!(local_a["instance_id"], local_b["instance_id"]);
+    let resources = observed["observation"]["authored"]["resources"]
+        .as_array()
+        .expect("native resource array");
+    let local_resource_a = resources
+        .iter()
+        .find(|resource| resource["resource"]["instance_id"] == local_a["instance_id"])
+        .expect("local A material resource");
+    let local_resource_b = resources
+        .iter()
+        .find(|resource| resource["resource"]["instance_id"] == local_b["instance_id"])
+        .expect("local B material resource");
+    let roughness_a = local_resource_a["properties"]["roughness"]["value"]
+        .as_f64()
+        .expect("local A roughness");
+    let roughness_b = local_resource_b["properties"]["roughness"]["value"]
+        .as_f64()
+        .expect("local B roughness");
+    assert!((roughness_a - 0.25).abs() < 1.0e-5, "{roughness_a}");
+    assert!((roughness_b - 0.7).abs() < 1.0e-5, "{roughness_b}");
+    let color_a = local_resource_a["properties"]["albedo_color"]["value"]
+        .as_array()
+        .expect("local A albedo");
+    let color_b = local_resource_b["properties"]["albedo_color"]["value"]
+        .as_array()
+        .expect("local B albedo");
+    for (actual, expected) in color_a.iter().zip([0.8, 0.2, 0.1, 1.0]) {
+        assert!((actual.as_f64().expect("local A albedo component") - expected).abs() < 1.0e-5);
+    }
+    for (actual, expected) in color_b.iter().zip([0.1, 0.4, 0.9, 1.0]) {
+        assert!((actual.as_f64().expect("local B albedo component") - expected).abs() < 1.0e-5);
+    }
 
     let node_query = broker_call(
         &host.broker,
