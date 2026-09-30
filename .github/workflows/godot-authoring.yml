@@ -2,14 +2,67 @@ name: Godot semantic authoring diagnostics
 on:
   push:
     branches: [feat/godot-semantic-authoring]
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Exact immutable D candidate SHA to certify (must equal the selected ref SHA)
+        required: true
+        type: string
 permissions:
   contents: read
   actions: read
 concurrency:
-  group: godot-authoring-${{ github.ref }}
-  cancel-in-progress: false
+  group: godot-authoring-${{ (github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[godot-certify]')) && format('certify-{0}', github.sha) || format('iterate-{0}', github.ref) }}
+  cancel-in-progress: ${{ github.event_name == 'push' && !contains(github.event.head_commit.message, '[godot-certify]') }}
 jobs:
+  scope:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      certify: ${{ steps.scope.outputs.certify }}
+      model: ${{ steps.scope.outputs.model }}
+      native: ${{ steps.scope.outputs.native }}
+      persistence: ${{ steps.scope.outputs.persistence }}
+      export: ${{ steps.scope.outputs.export }}
+      hostile: ${{ steps.scope.outputs.hostile }}
+      cross_app: ${{ steps.scope.outputs.cross_app }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Scope selector self-tests
+        run: python3 scripts/godot-authoring/test_ci_scope.py
+      - name: Select affected lanes or exact certification
+        id: scope
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_SHA: ${{ github.sha }}
+          BASE_SHA: ${{ github.event.before }}
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+          CERTIFY_REQUEST: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[godot-certify]') }}
+        run: |
+          set -euo pipefail
+          python3 scripts/godot-authoring/select_ci_scope.py \
+            --event "$EVENT_NAME" \
+            --head "$HEAD_SHA" \
+            --base "${BASE_SHA:-}" \
+            --expected-sha "${EXPECTED_SHA:-}" \
+            --certify "$CERTIFY_REQUEST" \
+            --github-output "$GITHUB_OUTPUT" \
+            --report verification/godot-authoring/scope.json
+      - name: Scope evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: godot-ci-scope-${{ github.sha }}-${{ github.run_attempt }}
+          path: verification/godot-authoring/scope.json
+          if-no-files-found: error
+          retention-days: 14
+
   godot-model:
+    needs: scope
+    if: needs.scope.outputs.model == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
@@ -20,6 +73,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
+      - name: Exact source checkout
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
         with:
           toolchain: 1.98.1
@@ -42,6 +97,8 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
   godot-native-authoring:
+    needs: scope
+    if: needs.scope.outputs.native == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 50
     env:
@@ -239,6 +296,8 @@ jobs:
           retention-days: 7
 
   godot-persistence:
+    needs: scope
+    if: needs.scope.outputs.persistence == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     env:
@@ -311,6 +370,8 @@ jobs:
           retention-days: 14
 
   godot-export:
+    needs: scope
+    if: needs.scope.outputs.export == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     env:
@@ -377,6 +438,8 @@ jobs:
           retention-days: 14
 
   godot-hostile:
+    needs: scope
+    if: needs.scope.outputs.hostile == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     env:
@@ -442,7 +505,8 @@ jobs:
           retention-days: 7
 
   godot-source-package:
-    needs: [godot-model, godot-native-authoring, godot-persistence, godot-export, godot-hostile, godot-cross-app-glb]
+    needs: [scope, godot-model, godot-native-authoring, godot-persistence, godot-export, godot-hostile, godot-cross-app-glb]
+    if: ${{ always() && needs.scope.outputs.certify == 'true' && needs.godot-model.result == 'success' && needs.godot-native-authoring.result == 'success' && needs.godot-persistence.result == 'success' && needs.godot-export.result == 'success' && needs.godot-hostile.result == 'success' && needs.godot-cross-app-glb.result == 'success' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
@@ -473,7 +537,46 @@ jobs:
       - name: Exact source package
         run: |
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$GITHUB_SHA" = "${{ inputs.expected_sha || github.sha }}"
           python3 scripts/godot-authoring/package_source.py             --source "$GITHUB_SHA"             --output verification/godot-authoring/package/semwright-godot-authoring-source.zip
+      - name: Exact candidate certification manifest
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha || github.sha }}
+          MODEL_RESULT: ${{ needs.godot-model.result }}
+          NATIVE_RESULT: ${{ needs.godot-native-authoring.result }}
+          PERSISTENCE_RESULT: ${{ needs.godot-persistence.result }}
+          EXPORT_RESULT: ${{ needs.godot-export.result }}
+          HOSTILE_RESULT: ${{ needs.godot-hostile.result }}
+          CROSS_APP_RESULT: ${{ needs.godot-cross-app-glb.result }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, pathlib
+          gates = {
+              "godot-model": os.environ["MODEL_RESULT"],
+              "godot-native-authoring": os.environ["NATIVE_RESULT"],
+              "godot-persistence": os.environ["PERSISTENCE_RESULT"],
+              "godot-export": os.environ["EXPORT_RESULT"],
+              "godot-hostile": os.environ["HOSTILE_RESULT"],
+              "godot-cross-app-glb": os.environ["CROSS_APP_RESULT"],
+          }
+          assert os.environ["GITHUB_SHA"] == os.environ["EXPECTED_SHA"]
+          assert all(value == "success" for value in gates.values()), gates
+          out = {
+              "schema_version": 1,
+              "role": "D",
+              "kind": "exact_candidate_certification",
+              "source_sha": os.environ["GITHUB_SHA"],
+              "run_id": int(os.environ["GITHUB_RUN_ID"]),
+              "run_attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]),
+              "event": os.environ["GITHUB_EVENT_NAME"],
+              "gates": gates,
+              "godot_authoring_ready": False,
+              "r16_closed": False,
+          }
+          path = pathlib.Path("verification/godot-authoring/package/certification.json")
+          path.write_text(json.dumps(out, indent=2) + "\n")
+          PY
       - name: Upload source backup
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
@@ -483,7 +586,8 @@ jobs:
           retention-days: 30
 
   godot-cross-app-glb:
-    needs: godot-native-authoring
+    needs: [scope, godot-native-authoring]
+    if: ${{ always() && needs.scope.outputs.cross_app == 'true' && needs.godot-native-authoring.result == 'success' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 12
     env:

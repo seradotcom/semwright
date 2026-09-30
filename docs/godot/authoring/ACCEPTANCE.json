@@ -241,11 +241,12 @@
       "id": "D15",
       "requirement": "Skill/install/packages",
       "state": "SKILL_AND_PACKAGES_IMPLEMENTED_EVIDENCE_PENDING",
-      "implementation": "production Skill plus exact-SHA CLI validate/inspect/bundle and deterministic reconstructable source package; delivery is gated by model/native/persistence/export/hostile/cross-app",
+      "implementation": "production Skill plus exact-SHA CLI validate/inspect/bundle and deterministic reconstructable source package. Iteration pushes run only affected lanes and emit scope evidence; delivery/package is certification-only and requires one exact candidate SHA with model/native/persistence/export/hostile/cross-app all successful",
       "tests": [
-        "six prerequisite D acceptance jobs must succeed",
+        "scope selector self-tests and per-push scope.json evidence",
+        "six prerequisite D acceptance jobs must succeed on one certification SHA",
         "semwright skill validate/inspect/bundle",
-        "package_source.py reconstruction and checksums"
+        "package_source.py reconstruction/checksums plus certification.json gate manifest"
       ],
       "tested_sha": null,
       "run_id": null,

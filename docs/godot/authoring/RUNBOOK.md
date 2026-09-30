@@ -4,15 +4,19 @@
 
 Use the D worktree for reading/editing, Git/GitHub administration, hashes and lightweight syntax checks only. Do not run Cargo build/check/test/clippy/doc, Godot, fuzzing, coverage, mutation or package builds on the workstation. Heavy work runs on GitHub-hosted Actions.
 
-## Exact-SHA diagnostics
+## Iteration scope and exact-SHA certification
 
-The owned workflow is .github/workflows/godot-authoring.yml. A source push runs independent godot-model, godot-native-authoring, godot-persistence, godot-export, godot-hostile and godot-cross-app-glb jobs. godot-source-package depends on all six acceptance lanes; skipped or failed prerequisites do not satisfy delivery.
+The owned workflow is .github/workflows/godot-authoring.yml. Normal pushes are **iteration runs**, not certification. A lightweight `scope` job compares the pushed SHA with `github.event.before`, writes `verification/godot-authoring/scope.json`, and enables only affected lanes among godot-model, godot-native-authoring, godot-persistence, godot-export, godot-hostile and godot-cross-app-glb. Cross-app selection implies native selection. Iteration pushes share a cancel-in-progress concurrency group, so a newer D push can replace obsolete diagnostics instead of filling the runner queue. Documentation-only or delivery-only edits may legitimately stop after the scope artifact.
+
+Full D certification is reserved for an exact integration candidate. Before this workflow exists on the default branch, the final candidate commit includes the literal marker `[godot-certify]` in its commit message; that push forces all six gates, uses a certification concurrency group keyed by the immutable SHA, and cannot be cancelled by later iteration pushes. Once the workflow exists on the default branch, `workflow_dispatch` may instead be used with required `expected_sha`; the selector rejects the run unless `expected_sha == github.sha` of the selected ref.
+
+`godot-source-package` is certification-only. It runs only when scope reports `certify=true` **and** all six gates, including the dependent cross-app oracle, conclude `success`. It emits `certification.json` with the exact SHA, Actions run/attempt and all gate results alongside the Skill/source package. Iteration artifacts remain useful diagnostics but are not certification evidence for integration.
 
 Inspect runs with:
     gh run list --repo seradotcom/semwright --workflow "Godot semantic authoring diagnostics" --branch feat/godot-semantic-authoring --limit 5 --json databaseId,headSha,status,conclusion,url
     gh run view RUN_ID --repo seradotcom/semwright --json headSha,status,conclusion,jobs,url
 
-For a failed job, read only that job log, identify step/test/source SHA, fix the concrete cause, commit/push a new SHA and inspect the new run. Cancel only D runs superseded by a newer D SHA.
+For a failed iteration job, read only that affected job log, identify step/test/source SHA, fix the concrete cause, and let the next push select the necessary lanes. Do not run the full matrix merely to debug an isolated model/native/persistence/export/hostile change. For the integration candidate, do not accept prior green iteration jobs from other SHAs as substitutes: the exact certification run must carry all final gates and package evidence on one SHA.
 
 ## Native product acceptance
 
