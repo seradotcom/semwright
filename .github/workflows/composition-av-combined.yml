@@ -1,9 +1,6 @@
 name: Composition AV Combined
 
 on:
-  push:
-    branches:
-      - integration/composition-av
   workflow_dispatch:
     inputs:
       candidate_sha:
