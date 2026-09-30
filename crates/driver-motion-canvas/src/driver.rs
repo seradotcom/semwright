@@ -49,10 +49,52 @@ struct CreateArgs {
     #[serde(default)]
     dry_run: bool,
 }
+// Schema-only envelope for the legacy transactional surface. Operation remains
+// the runtime decode type and rejects unknown/malformed operation bodies. The
+// catalog exposes the required discriminator without recursively expanding every
+// operation payload into every diff/apply descriptor.
+#[allow(dead_code)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+enum LegacyOperationTagSchema {
+    SettingsPatch,
+    ThemePatch,
+    VariableSet,
+    VariableRemove,
+    SceneCreate,
+    ScenePatch,
+    SceneDuplicate,
+    SceneRemove,
+    SceneReorder,
+    NodeCreate,
+    NodePatch,
+    NodeRemove,
+    NodeReparent,
+    NodeReorder,
+    AnimationAdd,
+    AnimationPatch,
+    AnimationRemove,
+    AnimationGroup,
+    CueUpsert,
+    CueRemove,
+    AudioSet,
+    AssetRemove,
+    CodeHighlight,
+    CameraFocus,
+    DiagramEdgeCreate,
+    ComponentCreate,
+    AnimationPreset,
+}
+#[allow(dead_code)]
+#[derive(Debug, Clone, JsonSchema)]
+struct LegacyOperationSchema {
+    op: LegacyOperationTagSchema,
+}
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct ApplyArgs {
     expected_fingerprint: String,
+    #[schemars(with = "Vec<LegacyOperationSchema>")]
     operations: Vec<Operation>,
     #[serde(default)]
     dry_run: bool,
@@ -1723,6 +1765,48 @@ mod tests {
                     )
                 });
         }
+    }
+
+    #[test]
+    fn legacy_apply_schema_preserves_operation_discriminator_and_runtime_strictness() {
+        let capability = MotionDriver::catalog()
+            .unwrap()
+            .into_iter()
+            .find(|capability| capability.descriptor.name == "driver.motion-canvas.project.apply")
+            .expect("project.apply capability");
+        semwright_registry::bounds::schema_budget(&capability.descriptor.input_schema, true)
+            .unwrap();
+        let validator = jsonschema::validator_for(&capability.descriptor.input_schema).unwrap();
+
+        let valid = json!({
+            "expected_fingerprint": "a".repeat(64),
+            "operations": [{"op":"settings_patch","patch":{"fps":60}}],
+            "dry_run": true
+        });
+        assert!(validator.is_valid(&valid));
+        assert!(serde_json::from_value::<ApplyArgs>(valid).is_ok());
+
+        let unknown_tag = json!({
+            "expected_fingerprint": "a".repeat(64),
+            "operations": [{"op":"shell","command":"echo unsafe"}],
+            "dry_run": true
+        });
+        assert!(!validator.is_valid(&unknown_tag));
+        assert!(serde_json::from_value::<ApplyArgs>(unknown_tag).is_err());
+
+        let malformed_known_tag = json!({
+            "expected_fingerprint": "a".repeat(64),
+            "operations": [{"op":"settings_patch","unknown":true}],
+            "dry_run": true
+        });
+        assert!(
+            validator.is_valid(&malformed_known_tag),
+            "bounded descriptor intentionally validates the operation tag, not every legacy body"
+        );
+        assert!(
+            serde_json::from_value::<ApplyArgs>(malformed_known_tag).is_err(),
+            "runtime Operation decoding must remain strict"
+        );
     }
 
     #[test]
