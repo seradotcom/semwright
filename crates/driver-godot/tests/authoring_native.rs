@@ -532,6 +532,8 @@ fn fixed_native_probe_contains_no_arbitrary_execution_surface() {
     assert!(PROBE_SOURCE.contains("track_get_key_count"));
     assert!(PROBE_SOURCE.contains("save_png_to_buffer"));
     assert!(PROBE_SOURCE.contains("ResourceLoader.get_dependencies"));
+    assert!(PROBE_SOURCE.contains("int(checkpoint) == tick"));
+    assert!(!PROBE_SOURCE.contains("_request.checkpoints.has(tick)"));
     for forbidden in [
         "OS.execute",
         "Expression.execute",

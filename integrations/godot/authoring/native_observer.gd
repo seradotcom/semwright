@@ -176,7 +176,10 @@ func _run() -> void:
             if not is_instance_valid(current_scene):
                 _fail("runtime_scene_missing")
                 break
-            if _request.checkpoints.has(tick): report.frames.append(_runtime_frame(tick))
+            for checkpoint in _request.checkpoints:
+                if int(checkpoint) == tick:
+                    report.frames.append(_runtime_frame(tick))
+                    break
             if not _failures.is_empty(): break
         report.inputs_delivered = input_index
         report.elapsed_physics_frames = Engine.get_physics_frames() - started
