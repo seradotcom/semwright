@@ -146,9 +146,11 @@ with tempfile.TemporaryDirectory(prefix="semwright-effects-",dir=os.environ["RUN
             p=data/"shared.tres"; p.write_text(p.read_text().replace("0.7","0.3"))
             p=data/"idle.tres"; p.write_text(p.read_text().replace("1.0","0.5"))
     if backend == "godot" and case == "observation-mutant":
-        text=persisted.read_text(); old="Vector3(1, 2, 3)"
-        if old not in text: raise RuntimeError("mutation target absent; no negative evidence")
-        persisted.write_text(text.replace(old,"Vector3(9, 2, 3)",1))
+        # Use a separate Godot process as the external writer. PackedScene text
+        # formatting is not an authoring contract and varies across versions.
+        mutated, _ = launch(work,args("mutant"),"mutant")
+        if mutated["projection"]["observed"]["position"][0] != 9.0:
+            raise RuntimeError("native mutation target absent; no negative evidence")
     if backend == "blender" and case == "membership-mutant":
         launch(work,args("mutant"),"mutant")
     if case == "readback-fault":

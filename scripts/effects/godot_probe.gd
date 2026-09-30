@@ -82,6 +82,16 @@ func run() -> void:
             return
         scene = packed.instantiate()
         root.add_child(scene)
+        if phase == "mutant":
+            # External ordered writer for the negative observation case. This
+            # intentionally bypasses the Semwright SaveOps under evaluation.
+            var hero: MeshInstance3D = scene.get_node("Anchor/Hero")
+            hero.position = Vector3(9,2,3)
+            var mutated := PackedScene.new()
+            if mutated.pack(scene) != OK or ResourceSaver.save(mutated,"res://data/scene.tscn",0) != OK:
+                push_error("native mutation save failed")
+                quit(1)
+                return
     var projection := project_state(ctx,scene)
     if projection.has("_error"):
         push_error(JSON.stringify(projection))
