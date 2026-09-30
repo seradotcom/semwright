@@ -62,8 +62,10 @@ jobs:
           cargo build --locked -p semwright-plugin-host --bin semwright-sandbox \
             -p semwright-mlt-video-driver --bin semwright-mlt-video-driver \
             -p semwright-mlt-video-driver --bin semwright-mlt-runtime-runner
+          MELT_REAL=$(realpath /usr/bin/melt)
+          MLT_RUNTIME_ROOT=$(dirname "$(dirname "$MELT_REAL")")
           target/debug/semwright-mlt-runtime-runner \
-            discover --runtime-root /usr --melt-sealed /usr/bin/melt \
+            discover --runtime-root "$MLT_RUNTIME_ROOT" --melt-sealed "$MELT_REAL" \
             > verification/mlt-runtime-tools/direct-discovery.json
           python3 - <<'PY'
           import json
@@ -72,7 +74,7 @@ jobs:
           assert value["schema"] == 1 and value["operation"] == "discover"
           assert value["version"] and len(value["groups"]) == 6
           PY
-          exec {MELT_FD}< /usr/bin/melt
+          exec {MELT_FD}< "$MELT_REAL"
           nested=(bwrap --die-with-parent --new-session --unshare-all --clearenv --cap-drop ALL
             --proc /proc --dev /dev --tmpfs /tmp
             --dir /home --dir /workspace --dir /plugin --dir /plugin/tools
@@ -80,7 +82,7 @@ jobs:
             --ro-bind /usr /usr
             --ro-bind target/debug/semwright-mlt-runtime-runner /plugin/bin
             --ro-bind target/debug/semwright-sandbox /plugin/sandbox
-            --ro-bind /usr /workspace/mlt-runtime
+            --ro-bind "$MLT_RUNTIME_ROOT" /workspace/mlt-runtime
             --perms 0500 --file "$MELT_FD" /plugin/tools/melt
             --setenv HOME /home --setenv PATH /usr/bin:/bin --setenv LANG C.UTF-8
             --setenv XDG_CACHE_HOME /tmp/cache --setenv XDG_CONFIG_HOME /tmp/config
