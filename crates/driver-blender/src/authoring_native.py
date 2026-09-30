@@ -704,6 +704,16 @@ class AuthoringRuntime:
             obj = self.entity(island, operation["entity"])
             check(not obj.animation_data and not obj.constraints, "animated/constrained transform requires an explicit channel edit", "Unsupported")
             self._transform(obj, operation["transform"], operation["meters_per_unit"])
+        elif kind == "material_slots":
+            self._closed(island)
+            obj = self.entity(island, operation["entity"])
+            check(obj.type == "MESH", "material slot update requires managed mesh")
+            check(obj.data.users == 1, "shared mesh requires explicit mesh_copy before material mutation", "Conflict")
+            materials = operation["materials"]
+            check(isinstance(materials, list) and len(materials) <= 16, "material slot budget")
+            obj.data.materials.clear()
+            for material in materials:
+                obj.data.materials.append(self.material(island, material))
         else:
             raise CommandError("Unsupported", "native authoring operation is not allowlisted")
         self.semantic.changed()
@@ -947,8 +957,10 @@ class AuthoringRuntime:
         snapshot["drift"] = False
         return snapshot
 
-    def measure(self, island, evaluated):
+    def measure(self, island, evaluated, pairs=None):
         _, objects = self._closed(island)
+        pairs = [] if pairs is None else pairs
+        check(isinstance(pairs, list) and len(pairs) <= 64, "measurement pair budget")
         depsgraph = None
         if evaluated:
             self.bpy.context.view_layer.update()
@@ -959,6 +971,7 @@ class AuthoringRuntime:
         for obj in objects:
             observed = obj.evaluated_get(depsgraph) if depsgraph is not None else obj
             row = {"entity": obj[ENTITY], "matrix_world": [list(r) for r in observed.matrix_world],
+                   "origin_world_meters": [float(v) for v in observed.matrix_world.translation],
                    "method": "evaluated-depsgraph" if evaluated else "source-rna",
                    "frame": self.bpy.context.scene.frame_current,
                    "mesh_self_intersections": {
@@ -1038,13 +1051,73 @@ class AuthoringRuntime:
                         else:
                             result["narrow_phase"] = "SEPARATE"
                     collision["pairs"].append(result)
+        by_entity = {row["entity"]: row for row in rows}
+        pair_rows = []
+        seen_pairs = set()
+        for pair in pairs:
+            check(
+                isinstance(pair, list) and len(pair) == 2,
+                "measurement pair must contain exactly two entity IDs",
+            )
+            first_id = local_id(pair[0]); second_id = local_id(pair[1])
+            check(first_id != second_id, "measurement pair requires two different entities")
+            key = (first_id, second_id)
+            check(key not in seen_pairs, "duplicate measurement pair")
+            seen_pairs.add(key)
+            check(first_id in by_entity and second_id in by_entity, "measurement entity missing", "NotFound")
+            first = by_entity[first_id]; second = by_entity[second_id]
+            origin_offset = [
+                second["origin_world_meters"][axis] - first["origin_world_meters"][axis]
+                for axis in range(3)
+            ]
+            row = {
+                "a": first_id,
+                "b": second_id,
+                "origin_offset_m": origin_offset,
+                "origin_distance_m": math.sqrt(sum(value * value for value in origin_offset)),
+                "bounds_available": bool(
+                    first.get("bounds_world_meters") and second.get("bounds_world_meters")
+                ),
+                "aabb_clearance_m": None,
+                "axis_clearance_m": None,
+                "center_offset_m": None,
+                "aabb_overlap": None,
+                "contact_evidence": "UNAVAILABLE",
+            }
+            if row["bounds_available"]:
+                first_bounds = first["bounds_world_meters"]
+                second_bounds = second["bounds_world_meters"]
+                gaps = []
+                first_center = []
+                second_center = []
+                for axis in range(3):
+                    a0, a1 = first_bounds[axis]
+                    b0, b1 = second_bounds[axis]
+                    gaps.append(b0 - a1 if a1 < b0 else a0 - b1 if b1 < a0 else 0.0)
+                    first_center.append((a0 + a1) / 2.0)
+                    second_center.append((b0 + b1) / 2.0)
+                row["axis_clearance_m"] = gaps
+                row["aabb_clearance_m"] = math.sqrt(sum(value * value for value in gaps))
+                row["center_offset_m"] = [
+                    second_center[axis] - first_center[axis] for axis in range(3)
+                ]
+                row["aabb_overlap"] = all(value == 0.0 for value in gaps)
+                row["contact_evidence"] = "AABB_ONLY"
+            pair_rows.append(row)
+
         return {
             "island": island,
             "native_session": self.session,
-            "method_version": 2,
+            "method_version": 3,
             "coverage": "single_frame" if evaluated else "source_only",
             "items": rows,
             "total": len(rows),
+            "pair_measurements": {
+                "method": "world-origin-and-aabb-v1",
+                "pairs": pair_rows,
+                "complete": True,
+                "contact_limit": "AABB overlap/clearance is not narrow-phase contact proof",
+            },
             "mesh_pair_intersections": collision,
         }
 
@@ -1102,7 +1175,9 @@ class AuthoringRuntime:
             ),
             "apply": lambda: self.apply(args["operation"]),
             "finish": lambda: self.finish(args["island"]),
-            "measure": lambda: self.measure(args["island"], args["evaluated"]),
+            "measure": lambda: self.measure(
+                args["island"], args["evaluated"], args.get("pairs", [])
+            ),
             "persist": lambda: self.persist(args["island"], args["path"]),
             "reopen": lambda: self.reopen(args["path"], args["sha256"], args["island"]),
         }

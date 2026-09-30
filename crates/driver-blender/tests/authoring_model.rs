@@ -127,6 +127,20 @@ fn public_plan_transport_schema_fits_registry_budget_and_preserves_strict_decode
     let decoded: AuthoringIntent = serde_json::from_value(transform["intent"].clone()).unwrap();
     assert!(matches!(decoded, AuthoringIntent::Transform { .. }));
 
+    let material_slots = serde_json::json!({
+        "intent":{
+            "kind":"material_slots",
+            "island":"managed_island",
+            "entity":"part",
+            "materials":["housing"],
+            "expected_fingerprint":digest.as_str()
+        }
+    });
+    assert!(validator.is_valid(&material_slots));
+    let decoded: AuthoringIntent =
+        serde_json::from_value(material_slots["intent"].clone()).unwrap();
+    assert!(matches!(decoded, AuthoringIntent::MaterialSlots { .. }));
+
     let mut nested_unknown = create;
     nested_unknown["intent"]["spec"]["entities"][0]["python"] = "print(1)".into();
     assert!(

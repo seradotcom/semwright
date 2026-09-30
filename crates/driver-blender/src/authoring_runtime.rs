@@ -188,7 +188,13 @@ pub(super) fn capabilities() -> Vec<Capability> {
         ),
         (
             "measure",
-            json!({"type":"object","properties":{"island":id.clone(),"evaluated":{"type":"boolean"}},"required":["island","evaluated"],"additionalProperties":false}),
+            json!({"type":"object","properties":{
+                "island":id.clone(),
+                "evaluated":{"type":"boolean"},
+                "pairs":{"type":"array","maxItems":64,"items":{
+                    "type":"array","minItems":2,"maxItems":2,"items":id.clone()
+                }}
+            },"required":["island","evaluated"],"additionalProperties":false}),
             json!({"type":"object"}),
             Risk::Mutating,
         ),
@@ -566,7 +572,8 @@ async fn inspect_page(
 fn intent_island(intent: &AuthoringIntent) -> Option<&str> {
     match intent {
         AuthoringIntent::Create { .. } => None,
-        AuthoringIntent::Transform { island, .. } => Some(island),
+        AuthoringIntent::Transform { island, .. }
+        | AuthoringIntent::MaterialSlots { island, .. } => Some(island),
     }
 }
 fn plan_island(plan: &Plan) -> Result<&str> {
@@ -581,7 +588,8 @@ fn plan_island(plan: &Plan) -> Result<&str> {
             | NativeOperation::Entity { island, .. }
             | NativeOperation::Relation { island, .. }
             | NativeOperation::Animation { island, .. }
-            | NativeOperation::Transform { island, .. } => island.as_str(),
+            | NativeOperation::Transform { island, .. }
+            | NativeOperation::MaterialSlots { island, .. } => island.as_str(),
         })
         .ok_or_else(|| Error::invalid("empty authoring plan"))
 }

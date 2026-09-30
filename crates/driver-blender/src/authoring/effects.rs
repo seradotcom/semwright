@@ -94,7 +94,8 @@ fn target_island(plan: &PreparedPlan<AuthoringIntent, NativeOperation>) -> Resul
             | NativeOperation::Entity { island, .. }
             | NativeOperation::Relation { island, .. }
             | NativeOperation::Animation { island, .. }
-            | NativeOperation::Transform { island, .. } => island.as_str(),
+            | NativeOperation::Transform { island, .. }
+            | NativeOperation::MaterialSlots { island, .. } => island.as_str(),
         })
         .ok_or_else(|| ContractError::Invalid("empty authoring plan".into()))
 }

@@ -19,6 +19,13 @@ pub enum AuthoringIntent {
         meters_per_unit: f64,
         expected_fingerprint: Digest,
     },
+    /// Incremental material-slot replacement on an owned, unshared managed mesh.
+    MaterialSlots {
+        island: String,
+        entity: String,
+        materials: Vec<String>,
+        expected_fingerprint: Digest,
+    },
 }
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
@@ -54,6 +61,11 @@ pub enum NativeOperation {
         entity: String,
         transform: Transform,
         meters_per_unit: f64,
+    },
+    MaterialSlots {
+        island: String,
+        entity: String,
+        materials: Vec<String>,
     },
 }
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -237,6 +249,49 @@ fn prepare_internal(
                 },
             ));
         }
+        AuthoringIntent::MaterialSlots {
+            island,
+            entity,
+            materials,
+            expected_fingerprint,
+        } => {
+            local_id(island)?;
+            local_id(entity)?;
+            ensure(materials.len() <= 16, "material slot budget")?;
+            for material in materials {
+                local_id(material)?;
+            }
+            ensure(
+                snapshot.island.as_deref() == Some(island) && !snapshot.drift,
+                "managed collection identity or manual-edit drift",
+            )?;
+            ensure(
+                &snapshot.fingerprint == expected_fingerprint,
+                "external edit invalidates material plan",
+            )?;
+            let rows = snapshot
+                .items
+                .iter()
+                .filter(|row| row.get("entity").and_then(Value::as_str) == Some(entity))
+                .collect::<Vec<_>>();
+            ensure(rows.len() == 1, "entity identity ambiguous or absent")?;
+            ensure(
+                rows[0].get("type").and_then(Value::as_str) == Some("MESH"),
+                "material slot update requires managed mesh",
+            )?;
+            ensure(
+                rows[0].get("data_users").and_then(Value::as_u64) == Some(1),
+                "shared mesh requires explicit mesh_copy before material mutation",
+            )?;
+            payloads.push((
+                format!("materials-{entity}"),
+                NativeOperation::MaterialSlots {
+                    island: island.clone(),
+                    entity: entity.clone(),
+                    materials: materials.clone(),
+                },
+            ));
+        }
     }
     let resource = base.0[0].key.clone();
     let mut operations = Vec::new();
@@ -245,6 +300,7 @@ fn prepare_internal(
         let effect = if matches!(
             payload,
             NativeOperation::Transform { .. }
+                | NativeOperation::MaterialSlots { .. }
                 | NativeOperation::Relation { .. }
                 | NativeOperation::Animation { .. }
         ) {
@@ -445,6 +501,18 @@ pub fn native_matches(intent: &AuthoringIntent, snapshot: &NativeSnapshot) -> bo
             meters_per_unit,
             ..
         } => row(entity).is_some_and(|r| native_transform(r, transform, *meters_per_unit)),
+        AuthoringIntent::MaterialSlots {
+            entity, materials, ..
+        } => row(entity).is_some_and(|r| {
+            !snapshot.drift
+                && r["materials"].as_array().is_some_and(|actual| {
+                    actual.len() == materials.len()
+                        && actual
+                            .iter()
+                            .zip(materials)
+                            .all(|(row, expected)| row["id"].as_str() == Some(expected.as_str()))
+                })
+        }),
         AuthoringIntent::Create { spec } => {
             if snapshot.total != spec.entities.len() {
                 return false;

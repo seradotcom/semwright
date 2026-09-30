@@ -390,7 +390,7 @@ pub fn plan_transport_input_schema() -> serde_json::Value {
                         "properties":{
                             "kind":{"const":"transform"},
                             "island":id.clone(),
-                            "entity":id,
+                            "entity":id.clone(),
                             "transform":{
                                 "type":"object",
                                 "properties":{
@@ -405,6 +405,18 @@ pub fn plan_transport_input_schema() -> serde_json::Value {
                             "expected_fingerprint":{"type":"string","pattern":"^[a-f0-9]{64}$"}
                         },
                         "required":["kind","island","entity","transform","meters_per_unit","expected_fingerprint"],
+                        "additionalProperties":false
+                    },
+                    {
+                        "type":"object",
+                        "properties":{
+                            "kind":{"const":"material_slots"},
+                            "island":id.clone(),
+                            "entity":id.clone(),
+                            "materials":{"type":"array","maxItems":16,"items":id},
+                            "expected_fingerprint":{"type":"string","pattern":"^[a-f0-9]{64}$"}
+                        },
+                        "required":["kind","island","entity","materials","expected_fingerprint"],
                         "additionalProperties":false
                     }
                 ]

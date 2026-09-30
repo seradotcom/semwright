@@ -880,6 +880,42 @@ async fn hard_surface_and_product_scene_author_through_semwright() {
                     .unwrap()["colorspace"],
                 "Non-Color"
             );
+
+            let before_material_update = fixture
+                .call("composition.inspect", json!({"island":island}))
+                .await;
+            let material_plan = fixture
+                .call(
+                    "composition.plan",
+                    json!({"intent":{
+                        "kind":"material_slots",
+                        "island":island,
+                        "entity":"insert",
+                        "materials":["housing"],
+                        "expected_fingerprint":before_material_update["fingerprint"]
+                    }}),
+                )
+                .await;
+            let material_applied = fixture
+                .call(
+                    "composition.apply",
+                    json!({"plan_ref":material_plan["plan_ref"]}),
+                )
+                .await;
+            let material_report: semwright_semantic_composition::VerificationReport =
+                serde_json::from_value(material_applied["report"].clone()).unwrap();
+            assert_eq!(
+                material_report.verdict().unwrap(),
+                semwright_semantic_composition::Verdict::Pass
+            );
+            let updated_insert = material_applied["snapshot"]["items"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|row| row["entity"] == "insert")
+                .unwrap();
+            assert_eq!(updated_insert["materials"][0]["id"], "housing");
+
             hard_surface_saved = Some(
                 fixture
                     .call(
@@ -900,6 +936,49 @@ async fn hard_surface_and_product_scene_author_through_semwright() {
                 "mesh_instance must stay shared"
             );
             assert_eq!(source["data_users"], 2);
+
+            let pair_measurement = fixture
+                .call(
+                    "composition.measure",
+                    json!({
+                        "island":island,
+                        "evaluated":true,
+                        "pairs":[["product","instance"]]
+                    }),
+                )
+                .await;
+            let pair = &pair_measurement["pair_measurements"]["pairs"][0];
+            assert_eq!(pair["a"], "product");
+            assert_eq!(pair["b"], "instance");
+            assert!((pair["origin_distance_m"].as_f64().unwrap() - 1.0).abs() < 1e-5);
+            assert!((pair["aabb_clearance_m"].as_f64().unwrap() - 0.3).abs() < 1e-5);
+            assert_eq!(pair["aabb_overlap"], false);
+            assert_eq!(pair["contact_evidence"], "AABB_ONLY");
+            let center_offset = pair["center_offset_m"].as_array().unwrap();
+            assert!((center_offset[0].as_f64().unwrap() - 1.0).abs() < 1e-5);
+            assert!(center_offset[1].as_f64().unwrap().abs() < 1e-5);
+            assert!(center_offset[2].as_f64().unwrap().abs() < 1e-5);
+
+            let shared_snapshot = fixture
+                .call("composition.inspect", json!({"island":island}))
+                .await;
+            let denied_shared_material = fixture
+                .raw(
+                    &fixture.session,
+                    "composition.plan",
+                    json!({"intent":{
+                        "kind":"material_slots",
+                        "island":island,
+                        "entity":"instance",
+                        "materials":["ceramic"],
+                        "expected_fingerprint":shared_snapshot["fingerprint"]
+                    }}),
+                )
+                .await;
+            assert!(
+                !denied_shared_material.ok,
+                "shared mesh material plan must fail before apply"
+            );
 
             // Product-scene preview reuses the public Blender capabilities through the
             // same Broker/Driver Host path. The harness only verifies the resulting PNG.
