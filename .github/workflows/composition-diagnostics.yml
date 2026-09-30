@@ -66,7 +66,7 @@ jobs:
       - name: Benchmark harness invariants
         run: python benchmarks/composition/test_run.py
       - name: Lints
-        run: cargo clippy --locked -p semwright-semantic-composition -p semwright-media-time -p semwright-motion-authoring -p semwright-av-composition --all-targets -- -D warnings
+        run: cargo clippy --locked -p semwright-semantic-composition -p semwright-media-time -p semwright-motion-authoring -p semwright-av-composition --all-targets --no-deps -- -D warnings
       - name: Generated contract schemas
         run: cargo run --locked -p semwright-semantic-composition --example schemas > verification/composition/schemas.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a

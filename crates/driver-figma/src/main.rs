@@ -2067,6 +2067,124 @@ async fn main() -> semwright_types::Result<()> {
     let driver = FigmaDriver::new().await?;
     semwright_driver_sdk::serve(driver).await
 }
+impl FigmaDriver {
+    async fn execute_native(
+        &mut self,
+        command: &str,
+        digest: &str,
+        args: Value,
+    ) -> semwright_types::Result<Value> {
+        let Some(expected_digest) = self.descriptors.get(command) else {
+            return Err(Error::new(
+                ErrorCode::Unsupported,
+                "Figma capability is not implemented",
+            ));
+        };
+        if expected_digest != digest {
+            return Err(Error::new(ErrorCode::Conflict, "descriptor digest changed"));
+        }
+
+        if command == "driver.figma.doctor" {
+            let sessions = self.hub.sessions().await;
+            return Ok(json!({
+                "healthy": true,
+                "bridge_protocol": model::BRIDGE_PROTOCOL_VERSION,
+                "listen_host": "127.0.0.1",
+                "listen_hosts": self.hub.listen_hosts(),
+                "listen_port": self.hub.port(),
+                "pairing_required": true,
+                "connected_sessions": sessions.len(),
+                "motion": "beta",
+                "plugin_api": "official"
+            }));
+        }
+        if command == "driver.figma.pairing.begin" {
+            let sessions = self.hub.sessions().await;
+            return Ok(pairing_status(
+                self.hub.port(),
+                &self.hub.pairing_code(),
+                &sessions,
+                &self.hub.listen_hosts(),
+            ));
+        }
+        if command == "driver.figma.session.list" {
+            return serde_json::to_value(self.hub.sessions().await).map_err(|_| {
+                Error::new(ErrorCode::Internal, "Could not serialize Figma sessions")
+            });
+        }
+
+        let Some(operation) = self.ops.get(command).copied() else {
+            return Err(Error::new(
+                ErrorCode::Unsupported,
+                "Figma capability is not implemented",
+            ));
+        };
+        let mut object = args
+            .as_object()
+            .cloned()
+            .ok_or_else(|| Error::invalid("Figma capability arguments must be an object"))?;
+        let operation_name = command.strip_prefix("driver.figma.").ok_or_else(|| {
+            Error::new(ErrorCode::Unsupported, "Invalid Figma capability namespace")
+        })?;
+        if operation_name.starts_with("cloud.") {
+            return self.rest.execute(operation_name, &object).await;
+        }
+        let session_id = match object.remove("session_id") {
+            Some(Value::String(value)) if !value.is_empty() && value.len() <= 128 => Some(value),
+            Some(_) => return Err(Error::invalid("session_id must be a bounded string")),
+            None => None,
+        };
+        let expected_revision = match object.remove("expected_revision") {
+            Some(Value::Number(value)) => value
+                .as_u64()
+                .ok_or_else(|| Error::invalid("expected_revision must be an unsigned integer"))
+                .map(Some)?,
+            Some(_) => {
+                return Err(Error::invalid(
+                    "expected_revision must be an unsigned integer",
+                ));
+            }
+            None => None,
+        };
+        if operation_name.starts_with("composition.") {
+            return self
+                .execute_authoring(
+                    operation_name,
+                    session_id.as_deref(),
+                    expected_revision,
+                    object,
+                )
+                .await;
+        }
+        let snapshot_mode = object
+            .get("mode")
+            .and_then(Value::as_str)
+            .map(|mode| match mode {
+                "identity" => Ok(snapshot::SnapshotMode::Identity),
+                "portable" => Ok(snapshot::SnapshotMode::Portable),
+                _ => Err(Error::invalid("snapshot mode must be identity or portable")),
+            })
+            .transpose()?
+            .unwrap_or(snapshot::SnapshotMode::Portable);
+        let mutating = operation.risk != Risk::ReadOnly;
+        let value = self
+            .hub
+            .execute(
+                session_id.as_deref(),
+                operation_name,
+                expected_revision,
+                Value::Object(object),
+            )
+            .await
+            .map_err(|error| Self::bridge_error(error, mutating))?;
+        if operation_name.starts_with("snapshot.") {
+            Ok(snapshot::canonicalize(&value, snapshot_mode))
+        } else {
+            Ok(value)
+        }
+    }
+}
+
 #[cfg(test)]
 mod catalog_tests {
     use super::*;
@@ -2209,123 +2327,5 @@ mod catalog_tests {
             .expect("artifact metadata");
         assert_eq!(artifact.name, "figma-design_system-export-css");
         artifact.validate().expect("valid fallback JobArtifact");
-    }
-}
-
-impl FigmaDriver {
-    async fn execute_native(
-        &mut self,
-        command: &str,
-        digest: &str,
-        args: Value,
-    ) -> semwright_types::Result<Value> {
-        let Some(expected_digest) = self.descriptors.get(command) else {
-            return Err(Error::new(
-                ErrorCode::Unsupported,
-                "Figma capability is not implemented",
-            ));
-        };
-        if expected_digest != digest {
-            return Err(Error::new(ErrorCode::Conflict, "descriptor digest changed"));
-        }
-
-        if command == "driver.figma.doctor" {
-            let sessions = self.hub.sessions().await;
-            return Ok(json!({
-                "healthy": true,
-                "bridge_protocol": model::BRIDGE_PROTOCOL_VERSION,
-                "listen_host": "127.0.0.1",
-                "listen_hosts": self.hub.listen_hosts(),
-                "listen_port": self.hub.port(),
-                "pairing_required": true,
-                "connected_sessions": sessions.len(),
-                "motion": "beta",
-                "plugin_api": "official"
-            }));
-        }
-        if command == "driver.figma.pairing.begin" {
-            let sessions = self.hub.sessions().await;
-            return Ok(pairing_status(
-                self.hub.port(),
-                &self.hub.pairing_code(),
-                &sessions,
-                &self.hub.listen_hosts(),
-            ));
-        }
-        if command == "driver.figma.session.list" {
-            return serde_json::to_value(self.hub.sessions().await).map_err(|_| {
-                Error::new(ErrorCode::Internal, "Could not serialize Figma sessions")
-            });
-        }
-
-        let Some(operation) = self.ops.get(command).copied() else {
-            return Err(Error::new(
-                ErrorCode::Unsupported,
-                "Figma capability is not implemented",
-            ));
-        };
-        let mut object = args
-            .as_object()
-            .cloned()
-            .ok_or_else(|| Error::invalid("Figma capability arguments must be an object"))?;
-        let operation_name = command.strip_prefix("driver.figma.").ok_or_else(|| {
-            Error::new(ErrorCode::Unsupported, "Invalid Figma capability namespace")
-        })?;
-        if operation_name.starts_with("cloud.") {
-            return self.rest.execute(operation_name, &object).await;
-        }
-        let session_id = match object.remove("session_id") {
-            Some(Value::String(value)) if !value.is_empty() && value.len() <= 128 => Some(value),
-            Some(_) => return Err(Error::invalid("session_id must be a bounded string")),
-            None => None,
-        };
-        let expected_revision = match object.remove("expected_revision") {
-            Some(Value::Number(value)) => value
-                .as_u64()
-                .ok_or_else(|| Error::invalid("expected_revision must be an unsigned integer"))
-                .map(Some)?,
-            Some(_) => {
-                return Err(Error::invalid(
-                    "expected_revision must be an unsigned integer",
-                ));
-            }
-            None => None,
-        };
-        if operation_name.starts_with("composition.") {
-            return self
-                .execute_authoring(
-                    operation_name,
-                    session_id.as_deref(),
-                    expected_revision,
-                    object,
-                )
-                .await;
-        }
-        let snapshot_mode = object
-            .get("mode")
-            .and_then(Value::as_str)
-            .map(|mode| match mode {
-                "identity" => Ok(snapshot::SnapshotMode::Identity),
-                "portable" => Ok(snapshot::SnapshotMode::Portable),
-                _ => Err(Error::invalid("snapshot mode must be identity or portable")),
-            })
-            .transpose()?
-            .unwrap_or(snapshot::SnapshotMode::Portable);
-        let mutating = operation.risk != Risk::ReadOnly;
-        let value = self
-            .hub
-            .execute(
-                session_id.as_deref(),
-                operation_name,
-                expected_revision,
-                Value::Object(object),
-            )
-            .await
-            .map_err(|error| Self::bridge_error(error, mutating))?;
-        if operation_name.starts_with("snapshot.") {
-            Ok(snapshot::canonicalize(&value, snapshot_mode))
-        } else {
-            Ok(value)
-        }
     }
 }
