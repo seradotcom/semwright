@@ -104,7 +104,7 @@ jobs:
           rc=$?
           set -e
           echo "$rc" > "verification/composition-mutants/$ID/survey-exit-code.txt"
-          test -f "verification/composition-mutants/$ID/out/outcomes.json"
+          test -f "verification/composition-mutants/$ID/out/mutants.out/outcomes.json"
       - name: Summarize broad survey and enforce critical invariants
         env:
           ID: ${{ matrix.id }}
@@ -117,7 +117,7 @@ jobs:
           target, critical_raw = sys.argv[1:3]
           critical=set(filter(None,critical_raw.split(';')))
           root=Path('verification/composition-mutants')/target
-          outcomes_path=root/'out/outcomes.json'
+          outcomes_path=root/'out/mutants.out/outcomes.json'
           if not outcomes_path.is_file():
               raise SystemExit('mutation outcomes are absent')
           data=json.loads(outcomes_path.read_text())
