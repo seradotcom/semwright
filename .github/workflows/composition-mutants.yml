@@ -29,6 +29,12 @@ on:
         description: 'Exact candidate SHA; required when certify_all=true'
         required: false
         type: string
+      area:
+        description: 'Optional targeted iteration area'
+        required: false
+        type: choice
+        default: auto
+        options: [auto, kernel, media, motion, av]
 
 permissions:
   contents: read
@@ -56,9 +62,14 @@ jobs:
         env:
           CERTIFY_ALL: ${{ inputs.certify_all }}
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          AREA: ${{ inputs.area }}
           EVENT_NAME: ${{ github.event_name }}
           HEAD_REF: ${{ github.head_ref }}
         run: |
+          if [ "$CERTIFY_ALL" != true ] && [ -n "$AREA" ] && [ "$AREA" != auto ]; then
+            echo 'mutant_ids=["'"$AREA"'"]' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           if [ "$EVENT_NAME" = pull_request ] && [ "$HEAD_REF" = feat/composition-media ]; then
             echo 'any=false' >> "$GITHUB_OUTPUT"
             echo 'mutant_ids=[]' >> "$GITHUB_OUTPUT"
