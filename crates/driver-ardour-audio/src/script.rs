@@ -933,7 +933,7 @@ local function mutate(command)
   elseif command == "group_create" then
     local group = Session:new_route_group(arg[5])
     if not group then error("route group create failed") end
-    group:set_active(true)
+    group:set_active(true, nil)
     group:add(require_route(arg[6]))
   elseif command == "group_add" then
     require_group(arg[5]):add(require_route(arg[6]))
@@ -1046,6 +1046,12 @@ mod tests {
         assert_eq!(argv[2], hostile);
         assert!(!source().contains(hostile));
         assert!(!source().contains("os.execute"));
+    }
+
+    #[test]
+    fn route_group_activation_passes_explicit_change_origin() {
+        assert!(source().contains("group:set_active(true, nil)"));
+        assert!(!source().contains("group:set_active(true)\n"));
     }
 
     #[test]
