@@ -76,42 +76,52 @@ impl App {
                 roots.insert(name.into(), Arc::new(Root::open(&path, true, writable)?));
             }
         }
-        let mut reason = "No owner-provided read-only runtime configuration mount".to_string();
-        let config = semwright_driver_sdk::workspace_mount("runtime").ok();
-        let runtime = if config.as_ref().is_some_and(|path| path.is_dir()) {
-            let config = config.as_deref().expect("checked runtime mount");
-            let attempt = (|| -> Result<Arc<Runtime>> {
-                let root = Root::open(config, true, false)?;
-                let mut file = root.read_file("runtime.json", 16384)?;
-                if file.metadata()?.mode() & 0o022 != 0 {
-                    return Err(Error::new(
-                        "PermissionDenied",
-                        "Runtime configuration must not be group/other writable",
-                    ));
-                }
-                let mut bytes = vec![];
-                file.read_to_end(&mut bytes)?;
-                Ok(Arc::new(Runtime::load(&crate::json::parse(&bytes)?)?))
-            })();
-            match attempt {
-                Ok(r) => {
-                    reason = "Pinned melt and ffprobe passed bounded bubblewrap service discovery"
-                        .into();
-                    Some(r)
-                }
-                Err(e) => {
-                    let detail: String = e
-                        .message
-                        .chars()
-                        .filter(|ch| !ch.is_control())
-                        .take(512)
-                        .collect();
-                    reason = format!("Runtime unavailable: {}: {detail}", e.code);
-                    None
-                }
-            }
+        let host_tools = std::env::var_os("SEMWRIGHT_DRIVER_HOST_TOOLS").is_some();
+        let mut reason = if host_tools {
+            "Awaiting Host-mediated MLT catalog verification".to_string()
         } else {
+            "No owner-provided read-only runtime configuration mount".to_string()
+        };
+        let runtime = if host_tools {
             None
+        } else {
+            let config = semwright_driver_sdk::workspace_mount("runtime").ok();
+            if config.as_ref().is_some_and(|path| path.is_dir()) {
+                let config = config.as_deref().expect("checked runtime mount");
+                let attempt = (|| -> Result<Arc<Runtime>> {
+                    let root = Root::open(config, true, false)?;
+                    let mut file = root.read_file("runtime.json", 16384)?;
+                    if file.metadata()?.mode() & 0o022 != 0 {
+                        return Err(Error::new(
+                            "PermissionDenied",
+                            "Runtime configuration must not be group/other writable",
+                        ));
+                    }
+                    let mut bytes = vec![];
+                    file.read_to_end(&mut bytes)?;
+                    Ok(Arc::new(Runtime::load(&crate::json::parse(&bytes)?)?))
+                })();
+                match attempt {
+                    Ok(runtime) => {
+                        reason =
+                            "Pinned melt and ffprobe passed bounded bubblewrap service discovery"
+                                .into();
+                        Some(runtime)
+                    }
+                    Err(error) => {
+                        let detail: String = error
+                            .message
+                            .chars()
+                            .filter(|ch| !ch.is_control())
+                            .take(512)
+                            .collect();
+                        reason = format!("Runtime unavailable: {}: {detail}", error.code);
+                        None
+                    }
+                }
+            } else {
+                None
+            }
         };
         let mut app = Self::new(roots, runtime)?;
         app.runtime_reason = reason;
@@ -120,7 +130,7 @@ impl App {
     pub fn doctor(&self) -> Value {
         obj([
             ("driver_version", VERSION.into()),
-            ("driver_protocol", 1u64.into()),
+            ("driver_protocol", 7u64.into()),
             (
                 "adapters",
                 array([
