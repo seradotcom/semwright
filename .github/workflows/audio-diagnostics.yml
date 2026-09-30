@@ -260,6 +260,11 @@ jobs:
       - name: Build Ardour driver and Driver Host sandbox
         run: |
           cargo build --locked -p semwright-plugin-host -p semwright-ardour-audio-driver --bins
+      - name: Direct pinned Ardour persistent automation diagnostic
+        run: |
+          cargo test --locked -p semwright-ardour-audio-driver \
+            runtime::tests::persisted_plugin_automation_native_diagnostic \
+            -- --ignored --exact --nocapture
       - name: Broker to sealed Ardour create edit save reopen export
         run: |
           export SEMWRIGHT_TEST_SANDBOX_HELPER="$GITHUB_WORKSPACE/target/debug/semwright-sandbox"
