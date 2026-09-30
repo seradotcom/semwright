@@ -1886,6 +1886,10 @@ async fn typed_transform_and_reparent_actions_round_trip_natively() {
     assert!(effect_rule_passes(&played, "godot.native_runtime.arena.v1"));
     assert_eq!(played["observation"]["inputs_delivered"], 2);
     assert_eq!(played["observation"]["failures"], json!([]));
+    assert!(
+        played["observation"]["live"].is_object(),
+        "post-play live projection missing"
+    );
 
     let live_nodes = played["observation"]["live"]["nodes"]
         .as_array()
