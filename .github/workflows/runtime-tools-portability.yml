@@ -62,6 +62,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
         with:
           toolchain: 1.98.1
+          components: clippy
       - name: Install and preflight Bubblewrap
         run: |
           if ! command -v bwrap >/dev/null; then
@@ -84,6 +85,10 @@ jobs:
             fi
           fi
           bwrap --version
+      - name: Linux runtime-tool implementation lint
+        run: |
+          cargo clippy --locked -p semwright-platform-linux-sys --all-targets --no-deps -- -D warnings
+          cargo clippy --locked -p semwright-driver-host --features test-tools --all-targets --no-deps -- -D warnings
       - name: Build sandbox helper
         run: cargo build --locked -p semwright-plugin-host --bin semwright-sandbox
       - name: Linux v5 Host-mediated runtime tool
