@@ -255,6 +255,15 @@ pub enum Modifier {
         target: String,
     },
 }
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, JsonSchema,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum ConstraintSpace {
+    World,
+    Local,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Relation {
@@ -272,6 +281,15 @@ pub enum Relation {
         subject: String,
         target: String,
         offset: bool,
+    },
+    /// Axis-selective native COPY_LOCATION relation with explicit coordinate spaces.
+    Align {
+        subject: String,
+        target: String,
+        axes: [bool; 3],
+        offset: bool,
+        owner_space: ConstraintSpace,
+        target_space: ConstraintSpace,
     },
     /// A native TRACK_TO constraint, with fixed local -Z / +Y axis convention.
     LookAt {
@@ -1033,6 +1051,18 @@ impl BlenderAuthoringSpec {
                     subject, target, ..
                 }
                 | Relation::LookAt { subject, target } => (subject, target),
+                Relation::Align {
+                    subject,
+                    target,
+                    axes,
+                    ..
+                } => {
+                    ensure(
+                        axes.iter().any(|axis| *axis),
+                        "align requires at least one axis",
+                    )?;
+                    (subject, target)
+                }
                 Relation::Skin {
                     mesh,
                     armature,

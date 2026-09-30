@@ -93,6 +93,23 @@ fn valid_product_scene() {
     s.validate().unwrap();
 }
 #[test]
+fn align_requires_at_least_one_axis() {
+    let mut s: BlenderAuthoringSpec = serde_json::from_str(include_str!(
+        "../../../fixtures/blender-authoring/product_scene.json"
+    ))
+    .unwrap();
+    let Relation::Align { axes, .. } = s
+        .relations
+        .iter_mut()
+        .find(|relation| matches!(relation, Relation::Align { .. }))
+        .expect("product fixture align relation")
+    else {
+        unreachable!("matched align relation")
+    };
+    *axes = [false, false, false];
+    assert!(s.validate().is_err());
+}
+#[test]
 fn public_plan_transport_schema_fits_registry_budget_and_preserves_strict_decode() {
     let schema = plan_transport_input_schema();
     semwright_registry::bounds::schema_budget(&schema, true).unwrap();
@@ -738,7 +755,7 @@ fn c_receipt_requires_host_owned_ids_and_admission() {
                 bytes: None,
                 projection: Some(graph::ProjectionDigest {
                     digest: before.fingerprint.clone(),
-                    method: "blender-source-projection-v3".into(),
+                    method: "blender-source-projection-v4".into(),
                     method_version: 1,
                 }),
             },

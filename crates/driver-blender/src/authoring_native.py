@@ -401,7 +401,13 @@ class AuthoringRuntime:
                         "target_name": constraint.target.name if constraint.target else None,
                         "influence": constraint.influence, "mute": constraint.mute,
                         "owner_space": constraint.owner_space, "target_space": constraint.target_space}
-            if constraint.type == "COPY_LOCATION": settings["offset"] = constraint.use_offset
+            if constraint.type == "COPY_LOCATION":
+                settings["offset"] = constraint.use_offset
+                settings["axes"] = [
+                    bool(constraint.use_x),
+                    bool(constraint.use_y),
+                    bool(constraint.use_z),
+                ]
             else: settings.update(track_axis=constraint.track_axis, up_axis=constraint.up_axis)
             value["constraints"].append(settings)
         if obj.animation_data:
@@ -488,7 +494,7 @@ class AuthoringRuntime:
         rows = [self._row(obj) for obj in self._objects(island)]
         scene = self.bpy.context.scene
         fingerprint = digest(source_projection_value({
-                              "schema": "blender-source-projection-v3", "items": rows,
+                              "schema": "blender-source-projection-v4", "items": rows,
                               "scene_units": scene.unit_settings.scale_length,
                               "fps": scene.render.fps, "fps_base": scene.render.fps_base,
                               "frame": scene.frame_current
@@ -869,12 +875,31 @@ class AuthoringRuntime:
             if kind == "bone_parent":
                 check(parent.type == "ARMATURE" and relation["bone"] in parent.data.bones, "bone target missing")
                 child.parent_type = "BONE"; child.parent_bone = relation["bone"]
-        elif kind in {"follow", "look_at"}:
+        elif kind in {"follow", "align", "look_at"}:
             subject = self.entity(island, relation["subject"]); target = self.entity(island, relation["target"])
-            constraint = subject.constraints.new("COPY_LOCATION" if kind == "follow" else "TRACK_TO")
-            constraint.target = target; constraint.owner_space = "WORLD"; constraint.target_space = "WORLD"
-            if kind == "follow": constraint.use_offset = relation["offset"]
-            else: constraint.track_axis = "TRACK_NEGATIVE_Z"; constraint.up_axis = "UP_Y"
+            constraint = subject.constraints.new("TRACK_TO" if kind == "look_at" else "COPY_LOCATION")
+            constraint.target = target
+            if kind == "look_at":
+                constraint.owner_space = "WORLD"; constraint.target_space = "WORLD"
+                constraint.track_axis = "TRACK_NEGATIVE_Z"; constraint.up_axis = "UP_Y"
+            elif kind == "follow":
+                constraint.owner_space = "WORLD"; constraint.target_space = "WORLD"
+                constraint.use_x = True; constraint.use_y = True; constraint.use_z = True
+                constraint.use_offset = relation["offset"]
+            else:
+                spaces = {"world": "WORLD", "local": "LOCAL"}
+                axes = relation["axes"]
+                check(
+                    isinstance(axes, list)
+                    and len(axes) == 3
+                    and all(isinstance(axis, bool) for axis in axes)
+                    and any(axes),
+                    "align axes",
+                )
+                constraint.use_x, constraint.use_y, constraint.use_z = axes
+                constraint.use_offset = relation["offset"]
+                constraint.owner_space = spaces[relation["owner_space"]]
+                constraint.target_space = spaces[relation["target_space"]]
         elif kind == "skin":
             mesh = self.entity(island, relation["mesh"]); rig = self.entity(island, relation["armature"])
             check(mesh.type == "MESH" and rig.type == "ARMATURE", "skin types")

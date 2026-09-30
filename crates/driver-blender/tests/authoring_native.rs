@@ -386,7 +386,7 @@ async fn broker_native_authoring_save_reopen_export_and_owner_denial() {
                 bytes: None,
                 projection: Some(graph::ProjectionDigest {
                     digest: projection,
-                    method: "blender-source-projection-v3".into(),
+                    method: "blender-source-projection-v4".into(),
                     method_version: 1,
                 }),
             },
@@ -936,6 +936,18 @@ async fn hard_surface_and_product_scene_author_through_semwright() {
                 "mesh_instance must stay shared"
             );
             assert_eq!(source["data_users"], 2);
+            let align = instance["constraints"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|constraint| {
+                    constraint["type"] == "COPY_LOCATION" && constraint["target"] == "product"
+                })
+                .expect("axis-selective align constraint");
+            assert_eq!(align["axes"], json!([false, true, true]));
+            assert_eq!(align["offset"], false);
+            assert_eq!(align["owner_space"], "WORLD");
+            assert_eq!(align["target_space"], "WORLD");
 
             let pair_measurement = fixture
                 .call(

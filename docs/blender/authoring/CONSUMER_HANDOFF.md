@@ -6,7 +6,7 @@ E consumes A C0 `26602e4b…`, C P0 `6ee52b4…`, F source through `5ed7d0f…`,
 
 Every E `PreparedPlan` pins `dependencies["effects.contract"]` to the real F `EffectContract::digest`; A's required rules are exactly F's required rules. E's compiled `EvidenceAdapter` derives owner/provider-session/generation from the authenticated execution and native post-state, then calls F `collect` and `evaluate`. Client JSON cannot construct a trusted `EvidenceBatch`.
 
-Create verifies both typed native readback and preservation of the whole-scene `blender-source-projection-v3` outside the newly managed island. v3 includes managed mesh attributes, source shading state and polygon-normal evidence, so consumers must not compare it as though it were v2. Transform/repair verifies the requested transform against independent native readback. Missing/changed evidence yields FAIL/UNKNOWN under A/F semantics rather than being normalized to PASS.
+Create verifies both typed native readback and preservation of the whole-scene `blender-source-projection-v4` outside the newly managed island. v4 includes managed mesh attributes, source shading state, polygon-normal evidence and axis-selective COPY_LOCATION constraint state; consumers must not compare it as though it were v3. Transform/repair verifies the requested transform against independent native readback. Missing/changed evidence yields FAIL/UNKNOWN under A/F semantics rather than being normalized to PASS.
 
 ## C Project Graph
 

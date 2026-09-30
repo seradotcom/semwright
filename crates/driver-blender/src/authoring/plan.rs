@@ -809,19 +809,67 @@ pub fn native_matches(intent: &AuthoringIntent, snapshot: &NativeSnapshot) -> bo
                         }
                     }
                     Relation::Follow {
-                        subject, target, ..
+                        subject,
+                        target,
+                        offset,
+                    } => {
+                        if row(subject)
+                            .and_then(|r| r["constraints"].as_array())
+                            .is_none_or(|rows| {
+                                !rows.iter().any(|r| {
+                                    r["type"] == "COPY_LOCATION"
+                                        && r["target"].as_str() == Some(target)
+                                        && r["offset"].as_bool() == Some(*offset)
+                                        && r["axes"] == serde_json::json!([true, true, true])
+                                        && r["owner_space"] == "WORLD"
+                                        && r["target_space"] == "WORLD"
+                                })
+                            })
+                        {
+                            return false;
+                        }
                     }
-                    | Relation::LookAt { subject, target } => {
-                        let kind = if matches!(relation, Relation::Follow { .. }) {
-                            "COPY_LOCATION"
-                        } else {
-                            "TRACK_TO"
+                    Relation::Align {
+                        subject,
+                        target,
+                        axes,
+                        offset,
+                        owner_space,
+                        target_space,
+                    } => {
+                        let owner_space = match owner_space {
+                            ConstraintSpace::World => "WORLD",
+                            ConstraintSpace::Local => "LOCAL",
+                        };
+                        let target_space = match target_space {
+                            ConstraintSpace::World => "WORLD",
+                            ConstraintSpace::Local => "LOCAL",
                         };
                         if row(subject)
                             .and_then(|r| r["constraints"].as_array())
                             .is_none_or(|rows| {
                                 !rows.iter().any(|r| {
-                                    r["type"] == kind && r["target"].as_str() == Some(target)
+                                    r["type"] == "COPY_LOCATION"
+                                        && r["target"].as_str() == Some(target)
+                                        && r["offset"].as_bool() == Some(*offset)
+                                        && r["axes"] == serde_json::json!(axes)
+                                        && r["owner_space"] == owner_space
+                                        && r["target_space"] == target_space
+                                })
+                            })
+                        {
+                            return false;
+                        }
+                    }
+                    Relation::LookAt { subject, target } => {
+                        if row(subject)
+                            .and_then(|r| r["constraints"].as_array())
+                            .is_none_or(|rows| {
+                                !rows.iter().any(|r| {
+                                    r["type"] == "TRACK_TO"
+                                        && r["target"].as_str() == Some(target)
+                                        && r["track_axis"] == "TRACK_NEGATIVE_Z"
+                                        && r["up_axis"] == "UP_Y"
                                 })
                             })
                         {
