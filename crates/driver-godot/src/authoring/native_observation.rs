@@ -697,7 +697,17 @@ impl NativeProjection {
             }
         }
         for resource in &mut normalized.resources {
+            let container_scoped = resource.resource.path.contains("::");
             normalize_resource(&mut resource.resource);
+            // A subresource/imported-resource source hash describes the bytes of
+            // its container file, not the semantic resource projection. A native
+            // save necessarily changes the scene container bytes/path; persistence
+            // separately compares saved/reopened scene digests and complete
+            // dependency sentinels, so retaining this value here creates a false
+            // projection mismatch after a semantically equivalent reopen.
+            if container_scoped {
+                resource.properties.remove("source_sha256");
+            }
             for value in resource.properties.values_mut() {
                 normalize_value(value);
             }

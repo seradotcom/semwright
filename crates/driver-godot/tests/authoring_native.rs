@@ -262,6 +262,54 @@ fn signed_nonzero_object_ids_are_admitted_but_zero_and_text_are_rejected() {
 }
 
 #[test]
+fn stable_projection_ignores_subresource_container_hash_but_not_external_hash() {
+    let mut before = projection("res://scenes/arena.tscn", "11", "21");
+    for resource in &mut before.resources {
+        resource.resource.path = "res://scenes/arena.tscn::SubResource_mat".into();
+        resource
+            .properties
+            .insert("source_sha256".into(), NativeValue::Text("a".repeat(64)));
+    }
+    if let NativeValue::Resource(resource) = before.nodes[0].properties.get_mut("material").unwrap()
+    {
+        resource.path = "res://scenes/arena.tscn::SubResource_mat".into();
+    }
+
+    let mut reopened = before.clone();
+    reopened.nodes[0].scene_file = "res://__sw_saved/arena.tscn".into();
+    for resource in &mut reopened.resources {
+        resource.resource.path = "res://__sw_saved/arena.tscn::SubResource_mat".into();
+        resource
+            .properties
+            .insert("source_sha256".into(), NativeValue::Text("b".repeat(64)));
+    }
+    if let NativeValue::Resource(resource) =
+        reopened.nodes[0].properties.get_mut("material").unwrap()
+    {
+        resource.path = "res://__sw_saved/arena.tscn::SubResource_mat".into();
+    }
+    assert_eq!(
+        before.stable_digest().unwrap(),
+        reopened.stable_digest().unwrap(),
+        "container bytes/path are checked by reopen/dependency evidence, not semantic projection",
+    );
+
+    let mut external_before = projection("res://scenes/arena.tscn", "31", "41");
+    external_before.resources[0]
+        .properties
+        .insert("source_sha256".into(), NativeValue::Text("c".repeat(64)));
+    let mut external_after = external_before.clone();
+    external_after.resources[0]
+        .properties
+        .insert("source_sha256".into(), NativeValue::Text("d".repeat(64)));
+    assert_ne!(
+        external_before.stable_digest().unwrap(),
+        external_after.stable_digest().unwrap(),
+        "external resource bytes remain part of stable semantic evidence",
+    );
+}
+
+#[test]
 fn native_track_cursor_is_snapshot_and_source_bound_without_truncation() {
     let mut authored = projection("res://scenes/arena.tscn", "11", "21");
     authored.animations.push(tracks(70));
