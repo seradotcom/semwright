@@ -2,6 +2,7 @@ use semwright_mlt_video::{
     app::App,
     catalog, hash,
     json::{self, Value, obj},
+    runtime::MediaInfo,
     wire,
 };
 use std::collections::{BTreeMap, BTreeSet};
@@ -123,6 +124,75 @@ fn doctor_satisfies_actual_output_schema() {
     assert!(!v.get("render_available").unwrap().boolean().unwrap());
     assert_eq!(v.uint("driver_protocol").unwrap(), 1);
 }
+#[test]
+fn host_probed_video_and_audio_are_accepted_by_asset_import_domain() {
+    let mut app = App::new(BTreeMap::new(), None).unwrap();
+    let create = app
+        .capabilities
+        .iter()
+        .find(|capability| capability.name == "driver.mlt-video.project.create")
+        .unwrap()
+        .clone();
+    let created = app.execute(&create.name, &create.digest, obj([])).unwrap();
+    let mut project = created.str("project").unwrap().to_owned();
+    let mut revision = created.str("revision").unwrap().to_owned();
+
+    let import = app
+        .capabilities
+        .iter()
+        .find(|capability| capability.name == "driver.mlt-video.asset.import")
+        .unwrap()
+        .clone();
+    for (name, path, probe) in [
+        (
+            "Video",
+            "red.mkv",
+            MediaInfo {
+                width: Some(160),
+                height: Some(90),
+                frames: None,
+                duration_num: 2,
+                duration_den: 1,
+                audio: false,
+                video: true,
+                codecs: vec!["ffv1".into()],
+            },
+        ),
+        (
+            "Audio",
+            "sine.wav",
+            MediaInfo {
+                width: None,
+                height: None,
+                frames: None,
+                duration_num: 2,
+                duration_den: 1,
+                audio: true,
+                video: false,
+                codecs: vec!["pcm_s16le".into()],
+            },
+        ),
+    ] {
+        let value = app
+            .execute_with_probe(
+                &import.name,
+                &import.digest,
+                obj([
+                    ("project", project.clone().into()),
+                    ("expected_revision", revision.clone().into()),
+                    ("kind", "file".into()),
+                    ("name", name.into()),
+                    ("root", "media".into()),
+                    ("path", path.into()),
+                ]),
+                Some(probe),
+            )
+            .unwrap();
+        project = value.str("project").unwrap().to_owned();
+        revision = value.str("resulting_revision").unwrap().to_owned();
+    }
+}
+
 #[test]
 fn wrong_descriptor_digest_rejected_before_execution() {
     let mut app = App::new(BTreeMap::new(), None).unwrap();
