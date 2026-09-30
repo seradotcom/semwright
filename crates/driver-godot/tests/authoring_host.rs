@@ -698,7 +698,7 @@ async fn empty_project_authoring_flows_through_broker_driver_host_and_provider()
         native_persistence["reader"]["process_id"]
     );
 
-    let native_play = broker_call(
+    let native_play = broker_call_with_native_diagnostic(
         &broker,
         &session,
         "driver.godot.composition.native.verify",
@@ -717,6 +717,7 @@ async fn empty_project_authoring_flows_through_broker_driver_host_and_provider()
                 "capture":false
             }
         }),
+        fixture._state.path(),
     )
     .await;
     assert_eq!(native_play["kind"], "play");
