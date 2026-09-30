@@ -16,13 +16,14 @@ MODEL_PREFIXES = (
     "fixtures/blender-authoring/",
 )
 NATIVE_PREFIXES = (
-    "crates/driver-blender/src/authoring/",
-    "crates/driver-blender/src/authoring_native.py",
-    "crates/driver-blender/src/authoring_runtime.rs",
-    "crates/driver-blender/src/bridge.py",
-    "crates/driver-blender/src/main.rs",
+    # Any first-party Blender driver source can change startup, bridge semantics,
+    # descriptors or native readback used by E. Keep this broad rather than
+    # silently skipping shared driver code.
+    "crates/driver-blender/src/",
     "crates/driver-blender/tests/authoring_native.rs",
+    "adapters/blender/semwright_blender/",
     "fixtures/blender-authoring/",
+    "schemas/commands.json",
 )
 EXPORT_PREFIXES = (
     "adapters/blender/semwright_blender/commands.py",
@@ -35,6 +36,7 @@ SECURITY_PREFIXES = (
     "crates/driver-blender/src/authoring_runtime.rs",
     "crates/driver-blender/driver.manifest.example.json",
     "scripts/dev/blender-driver-smoke.sh",
+    "scripts/dev/ci-driver-bwrap-profile.sh",
 )
 FUZZ_PREFIXES = (
     "fuzz/fuzz_targets/blender_authoring.rs",
@@ -53,6 +55,9 @@ RUST_BUILD_INPUTS = {
     "Cargo.toml",
     "Cargo.lock",
     "crates/driver-blender/Cargo.toml",
+}
+SUITE_HARNESS_INPUTS = {
+    "scripts/blender-authoring/run-suite.py",
 }
 
 
@@ -74,12 +79,91 @@ def changed_paths(base: str, head: str) -> list[str]:
     return sorted({line for line in text.splitlines() if line})
 
 
+def classify_areas(paths: list[str], certification: bool) -> dict[str, bool]:
+    areas = {
+        "model": any(matches(path, MODEL_PREFIXES) for path in paths),
+        "native": any(matches(path, NATIVE_PREFIXES) for path in paths),
+        "export": any(matches(path, EXPORT_PREFIXES) for path in paths),
+        "security": any(matches(path, SECURITY_PREFIXES) for path in paths),
+        "fuzz": any(matches(path, FUZZ_PREFIXES) for path in paths),
+        "skill": any(matches(path, SKILL_PREFIXES) for path in paths),
+        "package": any(matches(path, PACKAGE_PREFIXES) for path in paths),
+    }
+
+    if any(path in RUST_BUILD_INPUTS for path in paths):
+        areas["model"] = True
+        areas["native"] = True
+    if any(path in SUITE_HARNESS_INPUTS for path in paths):
+        areas["model"] = True
+        areas["native"] = True
+    if areas["export"]:
+        # Export iterations need a real authored GLB to feed the oracle/hostile gates.
+        areas["native"] = True
+    if areas["native"]:
+        # Native contract changes are always checked against the portable model first.
+        areas["model"] = True
+    if certification:
+        for key in areas:
+            areas[key] = True
+    return areas
+
+
+def self_test() -> None:
+    def expect(paths: list[str], true_keys: set[str]) -> None:
+        areas = classify_areas(paths, False)
+        assert {key for key, value in areas.items() if value} == true_keys, (paths, areas)
+
+    expect(["docs/blender/authoring/INTEGRATION.md"], set())
+    expect(
+        ["adapters/blender/semwright_blender/validation.py"],
+        {"model", "native"},
+    )
+    expect(
+        ["adapters/blender/semwright_blender/export_scope.py"],
+        {"model", "native", "export"},
+    )
+    expect(
+        ["crates/driver-blender/src/semantic.py"],
+        {"model", "native"},
+    )
+    expect(
+        ["schemas/commands.json"],
+        {"model", "native"},
+    )
+    expect(
+        ["scripts/blender-authoring/run-suite.py"],
+        {"model", "native"},
+    )
+    expect(
+        ["scripts/blender-authoring/verify_skill_bundle.sh"],
+        {"skill"},
+    )
+    expect(
+        ["scripts/blender-authoring/package_source.py"],
+        {"package"},
+    )
+    expect(
+        ["scripts/dev/ci-driver-bwrap-profile.sh"],
+        {"security"},
+    )
+    certified = classify_areas(["docs/blender/authoring/INTEGRATION.md"], True)
+    assert certified and all(certified.values()), certified
+    print("classifier-self-test: ok")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
+    parser.add_argument("--self-test", action="store_true")
     parser.add_argument("--base", default="")
-    parser.add_argument("--head", required=True)
-    parser.add_argument("--output", required=True)
+    parser.add_argument("--head")
+    parser.add_argument("--output")
     args = parser.parse_args()
+
+    if args.self_test:
+        self_test()
+        return
+    if not args.head or not args.output:
+        parser.error("--head and --output are required unless --self-test is used")
 
     head = git("rev-parse", args.head)
     if head != args.head:
@@ -102,30 +186,7 @@ def main() -> None:
         if request != parent:
             raise SystemExit("certification_request must equal the candidate commit parent SHA")
     paths = changed_paths(args.base, head)
-
-    areas = {
-        "model": any(matches(path, MODEL_PREFIXES) for path in paths),
-        "native": any(matches(path, NATIVE_PREFIXES) for path in paths),
-        "export": any(matches(path, EXPORT_PREFIXES) for path in paths),
-        "security": any(matches(path, SECURITY_PREFIXES) for path in paths),
-        "fuzz": any(matches(path, FUZZ_PREFIXES) for path in paths),
-        "skill": any(matches(path, SKILL_PREFIXES) for path in paths),
-        "package": any(matches(path, PACKAGE_PREFIXES) for path in paths),
-    }
-
-    if any(path in RUST_BUILD_INPUTS for path in paths):
-        areas["model"] = True
-        areas["native"] = True
-    if areas["export"]:
-        # Export iterations need a real authored GLB to feed the oracle/hostile gates.
-        areas["native"] = True
-    if areas["native"]:
-        # Native contract changes are always checked against the portable model first.
-        areas["model"] = True
-
-    if certification:
-        for key in areas:
-            areas[key] = True
+    areas = classify_areas(paths, certification)
 
     need_rust = certification or any(
         areas[key] for key in ("model", "native", "security", "fuzz", "skill")
