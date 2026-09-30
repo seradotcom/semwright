@@ -166,7 +166,7 @@ jobs:
           rc=$?
           set -e
           echo "$rc" > "verification/composition-mutants/$ID/survey-exit-code.txt"
-          test -f "verification/composition-mutants/$ID/out/outcomes.json"
+          test -f "verification/composition-mutants/$ID/out/mutants.out/outcomes.json"
       - name: Summarize broad survey and enforce critical invariants
         env:
           ID: ${{ matrix.id }}
@@ -177,7 +177,7 @@ jobs:
           target, critical_raw=sys.argv[1:3]
           critical=set(filter(None,critical_raw.split(';')))
           root=Path('verification/composition-mutants')/target
-          data=json.loads((root/'out/outcomes.json').read_text())
+          data=json.loads((root/'out/mutants.out/outcomes.json').read_text())
           rows=data.get('outcomes',[])
           if not isinstance(rows,list) or not rows:
               raise SystemExit('mutation outcomes contain no scenarios')
