@@ -1,12 +1,21 @@
 use async_trait::async_trait;
 use semwright_driver_sdk::{
     Capability, Driver, DriverExecutionContext, DriverInterfaces, RuntimeToolArg,
-    artifact_input_tag, artifact_output_tag, serve,
+    artifact_input_tag, artifact_output_tag, serve, workspace_mount,
 };
-use semwright_mlt_video::{app::App, catalog, runtime::ServiceCatalog};
+use semwright_mlt_video::{
+    app::App,
+    catalog,
+    fs::PrivateDir,
+    jobs::MAX_MEDIA_BYTES,
+    runtime::{MediaInfo, ServiceCatalog},
+};
 use semwright_types::{Error, ErrorCode, Result};
 use serde_json::Value;
-use std::collections::{BTreeMap, BTreeSet};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    io::{Read, Write},
+};
 
 struct MltVideoDriver {
     app: App,
@@ -95,6 +104,38 @@ fn host_runner_failure(bytes: &[u8]) -> Option<String> {
             !message.is_empty() && message.len() <= 1024 && !message.chars().any(char::is_control)
         })
         .map(ToOwned::to_owned)
+}
+
+fn host_media_info(bytes: &[u8]) -> Result<MediaInfo> {
+    let value: Value = serde_json::from_slice(bytes).map_err(|_| {
+        Error::new(
+            ErrorCode::PluginProtocolError,
+            "MLT runtime runner returned invalid probe JSON",
+        )
+    })?;
+    let object = value.as_object().ok_or_else(|| {
+        Error::new(
+            ErrorCode::PluginProtocolError,
+            "MLT runtime runner probe result must be an object",
+        )
+    })?;
+    if object.len() != 3
+        || object.get("schema").and_then(Value::as_u64) != Some(1)
+        || object.get("operation").and_then(Value::as_str) != Some("probe")
+    {
+        return Err(Error::new(
+            ErrorCode::PluginProtocolError,
+            "MLT runtime runner probe envelope is invalid",
+        ));
+    }
+    let media = object.get("media").ok_or_else(|| {
+        Error::new(
+            ErrorCode::PluginProtocolError,
+            "MLT runtime runner probe omitted media",
+        )
+    })?;
+    let encoded = serde_json::to_vec(media)?;
+    MediaInfo::parse(&encoded).map_err(map_error)
 }
 
 fn host_catalog(bytes: &[u8]) -> Result<ServiceCatalog> {
@@ -201,6 +242,150 @@ fn host_catalog(bytes: &[u8]) -> Result<ServiceCatalog> {
 }
 
 impl MltVideoDriver {
+    async fn host_probe_for(
+        &self,
+        command: &str,
+        args: &Value,
+        context: &DriverExecutionContext,
+    ) -> Result<Option<MediaInfo>> {
+        let needs_probe = match command {
+            "driver.mlt-video.asset.import" => {
+                args.get("kind").and_then(Value::as_str) != Some("color")
+            }
+            "driver.mlt-video.asset.relink" => true,
+            _ => false,
+        };
+        if !needs_probe {
+            return Ok(None);
+        }
+
+        let root_name = args
+            .get("root")
+            .and_then(Value::as_str)
+            .ok_or_else(|| Error::new(ErrorCode::InvalidArgument, "Media root is required"))?;
+        let path = args
+            .get("path")
+            .and_then(Value::as_str)
+            .ok_or_else(|| Error::new(ErrorCode::InvalidArgument, "Media path is required"))?;
+        if !matches!(root_name, "project" | "media" | "output") {
+            return Err(Error::new(
+                ErrorCode::PermissionDenied,
+                "Media root is not granted for probing",
+            ));
+        }
+        let root = self.app.roots.get(root_name).ok_or_else(|| {
+            Error::new(
+                ErrorCode::PermissionDenied,
+                "Media root is not mounted for probing",
+            )
+        })?;
+        let mut source = root.read_file(path, MAX_MEDIA_BYTES).map_err(map_error)?;
+
+        let scratch_root = workspace_mount("scratch")?;
+        if !scratch_root.is_dir() {
+            return Err(Error::new(
+                ErrorCode::Unavailable,
+                "MLT scratch mount is unavailable",
+            ));
+        }
+        let scratch = PrivateDir::new(&scratch_root).map_err(map_error)?;
+        let directory = scratch
+            .path()
+            .file_name()
+            .and_then(|value| value.to_str())
+            .filter(|value| !value.is_empty() && value.len() <= 128)
+            .ok_or_else(|| {
+                Error::new(ErrorCode::Internal, "MLT scratch directory name is invalid")
+            })?
+            .to_owned();
+        let mut destination = scratch.create("probe.bin").map_err(map_error)?;
+        let copied = std::io::copy(
+            &mut (&mut source).take(MAX_MEDIA_BYTES.saturating_add(1)),
+            &mut destination,
+        )
+        .map_err(|_| {
+            Error::new(
+                ErrorCode::BackendFailed,
+                "Failed to stage bounded MLT probe input",
+            )
+        })?;
+        if copied > MAX_MEDIA_BYTES {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "MLT probe input exceeds media byte budget",
+            ));
+        }
+        destination.flush().map_err(|_| {
+            Error::new(
+                ErrorCode::BackendFailed,
+                "Failed to flush bounded MLT probe input",
+            )
+        })?;
+        destination.sync_all().map_err(|_| {
+            Error::new(
+                ErrorCode::BackendFailed,
+                "Failed to sync bounded MLT probe input",
+            )
+        })?;
+        drop(destination);
+        scratch.seal("probe.bin").map_err(map_error)?;
+
+        let output = context
+            .execute_runtime_tool_args(
+                "mlt-runner",
+                vec![
+                    RuntimeToolArg::Literal {
+                        value: "probe".into(),
+                    },
+                    RuntimeToolArg::Literal {
+                        value: "--runtime-root".into(),
+                    },
+                    RuntimeToolArg::MountPath {
+                        mount: "mlt-runtime".into(),
+                        relative: String::new(),
+                    },
+                    RuntimeToolArg::Literal {
+                        value: "--ffprobe-sealed".into(),
+                    },
+                    RuntimeToolArg::ToolPath {
+                        tool: "ffprobe".into(),
+                    },
+                    RuntimeToolArg::Literal {
+                        value: "--scratch-root".into(),
+                    },
+                    RuntimeToolArg::MountPath {
+                        mount: "scratch".into(),
+                        relative: String::new(),
+                    },
+                    RuntimeToolArg::Literal {
+                        value: "--directory".into(),
+                    },
+                    RuntimeToolArg::Literal { value: directory },
+                    RuntimeToolArg::Literal {
+                        value: "--name".into(),
+                    },
+                    RuntimeToolArg::Literal {
+                        value: "probe.bin".into(),
+                    },
+                ],
+                Vec::new(),
+                std::time::Duration::from_secs(30),
+                None,
+            )
+            .await?;
+        if output.exit_code != 0 {
+            let detail = host_runner_failure(&output.stdout);
+            return Err(Error::new(
+                ErrorCode::BackendFailed,
+                match detail {
+                    Some(detail) => format!("Host-mediated MLT probe failed: {detail}"),
+                    None => "Host-mediated MLT probe failed".into(),
+                },
+            ));
+        }
+        host_media_info(&output.stdout).map(Some)
+    }
+
     async fn ensure_host_catalog(&mut self, context: &DriverExecutionContext) -> Result<()> {
         if self.host_catalog_verified || std::env::var_os("SEMWRIGHT_DRIVER_HOST_TOOLS").is_none() {
             return Ok(());
@@ -264,6 +449,9 @@ impl MltVideoDriver {
                 "Host-mediated and legacy MLT discovery catalogs diverged",
             ));
         }
+        self.app.catalog = Some(observed);
+        self.app.runtime_reason =
+            "Host-mediated MLT catalog verified against the transitional legacy runtime".into();
         self.host_catalog_verified = true;
         Ok(())
     }
@@ -312,8 +500,17 @@ impl Driver for MltVideoDriver {
         context: DriverExecutionContext,
     ) -> Result<Value> {
         context.check_cancelled()?;
+        let internal = to_internal(&args)?;
+        self.app
+            .validate_call(command, descriptor_sha256, &internal)
+            .map_err(map_error)?;
         self.ensure_host_catalog(&context).await?;
-        self.execute(command, descriptor_sha256, args).await
+        let probe = self.host_probe_for(command, &args, &context).await?;
+        let value = self
+            .app
+            .execute_with_probe(command, descriptor_sha256, internal, probe)
+            .map_err(map_error)?;
+        from_internal(value)
     }
 
     async fn health(&mut self) -> Result<Value> {

@@ -5,7 +5,7 @@ use crate::{
     hash::{random_id, sha256},
     json::{Value, array, obj},
     model::*,
-    runtime::{MediaInfo, RenderProfile, Runtime},
+    runtime::{MediaInfo, RenderProfile, Runtime, ServiceCatalog},
 };
 use std::{
     collections::{BTreeMap, BTreeSet, VecDeque},
@@ -199,7 +199,7 @@ impl Jobs {
             &revision,
             &profile,
             &output,
-            Some(&runtime),
+            Some(&runtime.catalog),
             &roots,
         )?;
         if !plan.get("runnable")?.boolean()? {
@@ -415,7 +415,7 @@ pub fn render_plan(
     revision: &str,
     profile: &RenderProfile,
     output: &str,
-    runtime: Option<&Runtime>,
+    catalog: Option<&ServiceCatalog>,
     roots: &BTreeMap<String, Arc<Root>>,
 ) -> Result<Value> {
     p.validate()?;
@@ -486,12 +486,12 @@ pub fn render_plan(
     }
     for (group, services) in &groups {
         for service in services {
-            if runtime.is_none_or(|r| !r.catalog.has(group, service)) {
+            if catalog.is_none_or(|catalog| !catalog.has(group, service)) {
                 missing.push(format!("{group}:{service}"));
             }
         }
     }
-    let available = runtime.is_some_and(|r| profile.available(&r.catalog));
+    let available = catalog.is_some_and(|catalog| profile.available(catalog));
     Ok(obj([("project_revision",revision.into()),("sequence",sequence.into()),("profile",profile.id.into()),("output_root","output".into()),("output_path",output.into()),("frames",semantic_frames.into()),("runnable",(available&&missing.is_empty()).into()),("missing_services",array(missing.into_iter().map(Into::into))),("media",array(media)),("warnings",array(["No wall-clock duration estimate; progress is state-only".into(),"Media are staged from confined FDs; output is validated before no-replace publication".into()]))]))
 }
 pub fn valid_color(s: &str) -> bool {
