@@ -463,12 +463,31 @@ local function db_milli_from_coeff(v)
   return milli
 end
 
-local function micro(v)
+local function micro_scaled(v)
   v = tonumber(v)
   if not v or v ~= v or v > 1000000000.0 or v < -1000000000.0 then
     error("native numeric value is outside bounded range")
   end
-  return round_nearest(v * 1000000.0)
+  return v * 1000000.0
+end
+
+local function micro(v)
+  return round_nearest(micro_scaled(v))
+end
+
+local function micro_lower(v)
+  return math.ceil(micro_scaled(v))
+end
+
+local function micro_upper(v)
+  return math.floor(micro_scaled(v))
+end
+
+local function clamp_micro(v, lower, upper)
+  local value = micro(v)
+  if value < lower then return lower end
+  if value > upper then return upper end
+  return value
 end
 
 local function object_id(value)
@@ -604,15 +623,32 @@ local function inspect_plugin_parameters(processor, plugin)
     local ok_nth, control_id, nth_ok =
       pcall(function() return plugin:nth_parameter(index, false) end)
     if not ok_nth or nth_ok == false then return parameters, false end
+    local numeric_value = tonumber(value)
+    local numeric_normal = tonumber(descriptor.normal)
+    local numeric_lower = tonumber(descriptor.lower)
+    local numeric_upper = tonumber(descriptor.upper)
+    if not numeric_value or not numeric_normal or not numeric_lower or not numeric_upper
+      or numeric_lower > numeric_upper
+      or numeric_value < numeric_lower or numeric_value > numeric_upper
+      or numeric_normal < numeric_lower or numeric_normal > numeric_upper then
+      return parameters, false
+    end
+    -- Ardour's ParameterDescriptor bounds are float32. Project them inward so any
+    -- advertised integer micro-unit endpoint round-trips to a writable native value.
+    local lower_microunits = micro_lower(numeric_lower)
+    local upper_microunits = micro_upper(numeric_upper)
+    if lower_microunits > upper_microunits then return parameters, false end
+    local value_microunits = clamp_micro(numeric_value, lower_microunits, upper_microunits)
+    local normal_microunits = clamp_micro(numeric_normal, lower_microunits, upper_microunits)
     local label = plugin:parameter_label(control_id)
     if not label or #tostring(label) == 0 then label = "parameter-" .. tostring(index) end
     table.insert(parameters, obj({
       field("index", tostring(index)),
       field("label", q(label)),
-      field("value_microunits", tostring(micro(value))),
-      field("lower_microunits", tostring(micro(descriptor.lower))),
-      field("upper_microunits", tostring(micro(descriptor.upper))),
-      field("normal_microunits", tostring(micro(descriptor.normal))),
+      field("value_microunits", tostring(value_microunits)),
+      field("lower_microunits", tostring(lower_microunits)),
+      field("upper_microunits", tostring(upper_microunits)),
+      field("normal_microunits", tostring(normal_microunits)),
       field("automation_points", tostring(tonumber(control_list:size()) or 0))
     }))
   end
@@ -1174,10 +1210,17 @@ mod tests {
     }
 
     #[test]
-    fn native_numeric_rounding_is_symmetric() {
+    fn native_numeric_rounding_is_symmetric_and_bounds_are_write_safe() {
         let adapter = source();
         assert!(adapter.contains("local function round_nearest(v)"));
         assert!(adapter.contains("return math.ceil(v - 0.5)"));
+        assert!(adapter.contains("local function micro_lower(v)"));
+        assert!(adapter.contains("return math.ceil(micro_scaled(v))"));
+        assert!(adapter.contains("local function micro_upper(v)"));
+        assert!(adapter.contains("return math.floor(micro_scaled(v))"));
+        assert!(adapter.contains("local function clamp_micro(v, lower, upper)"));
+        assert!(adapter.contains("local lower_microunits = micro_lower(numeric_lower)"));
+        assert!(adapter.contains("local upper_microunits = micro_upper(numeric_upper)"));
         assert!(!adapter.contains("scaled >= 0 and 0.5 or -0.5"));
         assert!(!adapter.contains("db >= 0 and 0.5 or -0.5"));
     }
