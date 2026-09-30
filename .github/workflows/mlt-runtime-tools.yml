@@ -121,7 +121,7 @@ jobs:
           rm -rf "$PROBE_ROOT"
           install -d -m 0700 "$PROBE_ROOT/job-probe"
           ffmpeg -hide_banner -loglevel error -y -f lavfi -i color=c=red:s=160x90:d=1 \
-            -an -c:v ffv1 "$PROBE_ROOT/job-probe/probe.bin"
+            -an -c:v ffv1 -f matroska "$PROBE_ROOT/job-probe/probe.bin"
           chmod 0400 "$PROBE_ROOT/job-probe/probe.bin"
           exec {MELT_FD_PROBE}< "$MELT_REAL"
           exec {FFPROBE_FD}< "$FFPROBE_REAL"
