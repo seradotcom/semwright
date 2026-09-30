@@ -96,6 +96,7 @@ def collector_role_targets():
         target_for_lane(lock, "selftest", SUITE) == SUITE
         and target_for_lane(lock, "graph", SUITE) == "c" * 40
         and target_for_lane(lock, "effects", SUITE) == "f" * 40
+        and target_for_lane(lock, "routing", SUITE) == "c" * 40
         and target_for_lane(lock, "packaging", SUITE) == "0" * 40
     )
 

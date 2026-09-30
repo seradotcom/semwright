@@ -399,7 +399,10 @@
       "implementation": [
         "rust/audio_probe.rs",
         "rust/av_probe.rs",
-        "rust/composition_probe.rs"
+        "rust/composition_probe.rs",
+        "rust/routing_probe.rs",
+        "rust/packaging_probe.rs",
+        "product.py"
       ],
       "tests": [
         "G-CODEC-001",
@@ -476,14 +479,26 @@
         "G-AV-017",
         "G-AV-018",
         "G-AV-019",
-        "G-AV-020"
+        "G-AV-020",
+        "G-ROUTE-001",
+        "G-ROUTE-002",
+        "G-ROUTE-003",
+        "G-ROUTE-004",
+        "G-ROUTE-005",
+        "G-ROUTE-006",
+        "G-ROUTE-007",
+        "G-ROUTE-008",
+        "G-ROUTE-009",
+        "G-ROUTE-010",
+        "G-ROUTE-011",
+        "G-ROUTE-012"
       ],
-      "source_sha": null,
+      "source_sha": "504ad2c6632305b580b51703a60b0a194865780d",
       "suite_sha": null,
       "run_id": null,
       "job_id": null,
       "evidence": [],
-      "blocker": "Audio/AV and Rust codec contract probes exist; live Figma/Motion/native audio/render acceptance and integrated candidate remain open.",
+      "blocker": "12 Broker routing authority/path/principal/GC cases prepared against final C 504ad2 plus 20 Skill-package loader cases against unchanged semwright-skills baseline; neither G08 lane has executed yet.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },

@@ -3966,7 +3966,7 @@
       "requirement": "G11",
       "lane": "selftest",
       "scope": "lab_selftest",
-      "description": "collector resolves graph/effects to immutable C/F targets instead of main fallback",
+      "description": "collector resolves graph/effects/routing to immutable C/F targets instead of main fallback",
       "expected": {
         "ok": true
       }
@@ -4225,6 +4225,149 @@
       "expected": {
         "collected_absent_after_reopen": true,
         "journal_preserved": true
+      }
+    },
+    {
+      "id": "G-ROUTE-001",
+      "owner": "C",
+      "requirement": "G08",
+      "lane": "routing",
+      "scope": "product_contract",
+      "description": "project service is unavailable before trusted host configuration",
+      "expected": {
+        "unconfigured_code": "Unavailable"
+      }
+    },
+    {
+      "id": "G-ROUTE-002",
+      "owner": "C",
+      "requirement": "G08",
+      "lane": "routing",
+      "scope": "product_contract",
+      "description": "public registry exposes no raw receipt/revision admission or rebuild execution route",
+      "expected": {
+        "receipt_admission_absent": true,
+        "revision_admission_absent": true,
+        "rebuild_execute_absent": true
+      }
+    },
+    {
+      "id": "G-ROUTE-003",
+      "owner": "C",
+      "requirement": "G08",
+      "lane": "routing",
+      "scope": "product_contract",
+      "description": "filesystem read grant alone cannot mutate project state",
+      "expected": {
+        "filesystem_only_code": "PolicyDenied"
+      }
+    },
+    {
+      "id": "G-ROUTE-004",
+      "owner": "C",
+      "requirement": "G08",
+      "lane": "routing",
+      "scope": "product_contract",
+      "description": "durable project store is bound to authenticated principal rather than client IDs",
+      "expected": {
+        "different_principal_code": "PolicyDenied"
+      }
+    },
+    {
+      "id": "G-ROUTE-005",
+      "owner": "C",
+      "requirement": "G08",
+      "lane": "routing",
+      "scope": "product_contract",
+      "description": "same durable principal survives client session rotation",
+      "expected": {
+        "second_session_before_revoke": true,
+        "second_session_after_revoke": true
+      }
+    },
+    {
+      "id": "G-ROUTE-006",
+      "owner": "C",
+      "requirement": "G08",
+      "lane": "routing",
+      "scope": "product_contract",
+      "description": "ungranted root cannot query an existing project",
+      "expected": {
+        "ungranted_root_code": "PolicyDenied"
+      }
+    },
+    {
+      "id": "G-ROUTE-007",
+      "owner": "C",
+      "requirement": "G08",
+      "lane": "routing",
+      "scope": "product_contract",
+      "description": "catalog availability does not imply policy authorization",
+      "expected": {
+        "available": true,
+        "availability_is_authorization": false,
+        "policy_state": "deny"
+      }
+    },
+    {
+      "id": "G-ROUTE-008",
+      "owner": "C",
+      "requirement": "G08",
+      "lane": "routing",
+      "scope": "product_contract",
+      "description": "private project state cannot overlap an application filesystem grant",
+      "expected": {
+        "overlap_rejected": true,
+        "state_not_created": true
+      }
+    },
+    {
+      "id": "G-ROUTE-009",
+      "owner": "C",
+      "requirement": "G08",
+      "lane": "routing",
+      "scope": "product_contract",
+      "description": "resolved symlink grant overlap is rejected before state creation",
+      "expected": {
+        "resolved_overlap_rejected": true,
+        "state_not_created": true
+      }
+    },
+    {
+      "id": "G-ROUTE-010",
+      "owner": "C",
+      "requirement": "G08",
+      "lane": "routing",
+      "scope": "product_contract",
+      "description": "retargeted project-root symlink invalidates the persistent boundary",
+      "expected": {
+        "retarget_code": "PolicyDenied"
+      }
+    },
+    {
+      "id": "G-ROUTE-011",
+      "owner": "C",
+      "requirement": "G08",
+      "lane": "routing",
+      "scope": "product_contract",
+      "description": "provenance route does not invent producer lineage for observed source",
+      "expected": {
+        "producer_null": true,
+        "known_derivatives": 0
+      }
+    },
+    {
+      "id": "G-ROUTE-012",
+      "owner": "C",
+      "requirement": "G08",
+      "lane": "routing",
+      "scope": "product_contract",
+      "description": "broker GC removes only private graph state and preserves user-owned files",
+      "expected": {
+        "tombstoned": true,
+        "preview_no_user_delete": true,
+        "collect_no_user_delete": true,
+        "sentinel_preserved": true
       }
     }
   ]

@@ -19,7 +19,8 @@ PACKAGES = {"composition": ("semwright-semantic-composition", "semantic-composit
             "av": ("semwright-av-composition", "av-composition", "av_probe.rs"),
             "graph": ("semwright-project-graph", "project-graph", "graph_probe.rs"),
             "effects": ("semwright-effect-conformance", "effect-conformance", "effects_probe.rs"),
-            "packaging": ("semwright-skills", "skills", "packaging_probe.rs")}
+            "packaging": ("semwright-skills", "skills", "packaging_probe.rs"),
+            "routing": ("semwright-core", "core", "routing_probe.rs")}
 PACKAGE_FEATURES = {"graph": ["store"]}
 
 def hashed(path: Path) -> str:
