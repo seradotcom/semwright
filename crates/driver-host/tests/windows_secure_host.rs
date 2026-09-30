@@ -989,6 +989,13 @@ async fn secure_windows_v8_runtime_tool_sessions_are_provider_scoped_and_reaped(
     harden_fixture(&owner_tool);
 
     let workspace = tempfile::tempdir().expect("runtime-tool session workspace");
+    let configs = tempfile::tempdir().expect("session system config directory");
+    let allowed_config = configs.path().join("runtime-config");
+    let other_config = configs.path().join("other-config");
+    std::fs::write(&allowed_config, b"delegated-config").unwrap();
+    std::fs::write(&other_config, b"driver-only-config").unwrap();
+    harden_fixture(&allowed_config);
+    harden_fixture(&other_config);
     let mut candidate = manifest(executable);
     candidate.protocol = 8;
     candidate.interfaces.host_tools = true;
@@ -997,12 +1004,22 @@ async fn secure_windows_v8_runtime_tool_sessions_are_provider_scoped_and_reaped(
         read_only: false,
         execute: false,
     }];
+    candidate.system_config = vec![
+        SystemConfigMount {
+            root: "tool-config-root".into(),
+            destination: "/etc/runtime-config".into(),
+        },
+        SystemConfigMount {
+            root: "other-config-root".into(),
+            destination: "/etc/other-config".into(),
+        },
+    ];
     candidate.tools = vec![DriverToolMount {
         root: "fixture-tool-root".into(),
         name: "probe".into(),
         sha256: digest(&owner_tool),
         mounts: vec!["tool-workspace".into()],
-        system_config: vec![],
+        system_config: vec!["tool-config-root".into()],
         dependencies: vec![],
     }];
     let roots = vec![
@@ -1017,6 +1034,18 @@ async fn secure_windows_v8_runtime_tool_sessions_are_provider_scoped_and_reaped(
             path: workspace.path().to_path_buf(),
             read: true,
             write: true,
+        },
+        FilesystemGrant {
+            name: "tool-config-root".into(),
+            path: allowed_config.clone(),
+            read: true,
+            write: false,
+        },
+        FilesystemGrant {
+            name: "other-config-root".into(),
+            path: other_config,
+            read: true,
+            write: false,
         },
     ];
 
@@ -1055,7 +1084,8 @@ async fn secure_windows_v8_runtime_tool_sessions_are_provider_scoped_and_reaped(
         serde_json::json!({
             "action":"start",
             "cwd_mount":"tool-workspace",
-            "lifecycle_marker":true
+            "lifecycle_marker":true,
+            "session_config":"table"
         }),
     )
     .await
@@ -1085,7 +1115,44 @@ async fn secure_windows_v8_runtime_tool_sessions_are_provider_scoped_and_reaped(
     .await
     .expect("another driver session may use provider-scoped Windows runtime session");
     assert_eq!(frame["state"], "frame");
-    assert_eq!(frame["payload"], "provider-scope");
+    let payload = frame["payload"].as_str().expect("session frame payload");
+    let encoded = payload
+        .strip_suffix("|provider-scope")
+        .and_then(|value| value.strip_prefix("mount-table="))
+        .expect("session mount-table prefix and payload");
+    let mounts: serde_json::Value =
+        serde_json::from_str(encoded).expect("valid session mount table");
+    let mounts = mounts.as_array().expect("session mount table array");
+    assert_eq!(
+        mounts.len(),
+        2,
+        "session receives workspace plus one config"
+    );
+    let config_mounts = mounts
+        .iter()
+        .filter(|mount| mount["class"] == "system_config")
+        .collect::<Vec<_>>();
+    assert_eq!(
+        config_mounts.len(),
+        1,
+        "only one system config is delegated"
+    );
+    assert_eq!(config_mounts[0]["logical_name"], "runtime-config");
+    assert_eq!(config_mounts[0]["read_only"], true);
+    assert_eq!(
+        PathBuf::from(
+            config_mounts[0]["path"]
+                .as_str()
+                .expect("materialized session config path")
+        ),
+        allowed_config
+    );
+    assert!(
+        mounts
+            .iter()
+            .all(|mount| mount["logical_name"] != "other-config"),
+        "driver-only config must not enter persistent tool session"
+    );
 
     let forged = run(
         "session-b",

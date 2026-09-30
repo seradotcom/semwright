@@ -30,7 +30,7 @@ fn is_appcontainer() -> bool {
     result.is_ok() && returned == std::mem::size_of::<u32>() as u32 && value != 0
 }
 
-fn session_loop() -> std::io::Result<()> {
+fn session_loop(prefix: Option<String>) -> std::io::Result<()> {
     use std::io::{ErrorKind, Read, Write};
 
     const MAX_FRAME: usize = 256 * 1024;
@@ -54,8 +54,25 @@ fn session_loop() -> std::io::Result<()> {
         }
         let mut payload = vec![0u8; length];
         input.read_exact(&mut payload)?;
-        output.write_all(&header)?;
-        output.write_all(&payload)?;
+        let response = if let Some(prefix) = &prefix {
+            let mut response = prefix.as_bytes().to_vec();
+            response.push(b'|');
+            response.extend_from_slice(&payload);
+            if response.len() > MAX_FRAME {
+                return Err(std::io::Error::new(
+                    ErrorKind::InvalidData,
+                    "session response exceeds fixture bound",
+                ));
+            }
+            response
+        } else {
+            payload
+        };
+        let response_length = u32::try_from(response.len()).map_err(|_| {
+            std::io::Error::new(ErrorKind::InvalidData, "session response length overflow")
+        })?;
+        output.write_all(&response_length.to_be_bytes())?;
+        output.write_all(&response)?;
         output.flush()?;
     }
 }
@@ -64,18 +81,39 @@ fn main() {
     let args = std::env::args().skip(1).collect::<Vec<_>>();
     if args.iter().any(|arg| arg == "--session") {
         let lifecycle_marker = args.iter().any(|arg| arg == "--lifecycle-marker");
-        if args
-            .iter()
-            .any(|arg| !matches!(arg.as_str(), "--session" | "--lifecycle-marker"))
-            || args.iter().filter(|arg| *arg == "--session").count() != 1
+        let read_system_config = args.iter().any(|arg| arg == "--session-read-system-config");
+        let print_mount_table = args.iter().any(|arg| arg == "--session-print-mount-table");
+        if args.iter().any(|arg| {
+            !matches!(
+                arg.as_str(),
+                "--session"
+                    | "--lifecycle-marker"
+                    | "--session-read-system-config"
+                    | "--session-print-mount-table"
+            )
+        }) || args.iter().filter(|arg| *arg == "--session").count() != 1
+            || (read_system_config && print_mount_table)
         {
             eprintln!("session mode received an unsupported argument");
             std::process::exit(12);
         }
+        let prefix = if read_system_config {
+            match std::fs::read_to_string("/etc/runtime-config") {
+                Ok(value) => Some(value.trim_end().to_owned()),
+                Err(_) => std::process::exit(16),
+            }
+        } else if print_mount_table {
+            match std::env::var("SEMWRIGHT_SANDBOX_MOUNTS_V1") {
+                Ok(value) => Some(format!("mount-table={value}")),
+                Err(_) => std::process::exit(17),
+            }
+        } else {
+            None
+        };
         if lifecycle_marker && std::fs::write("started.marker", b"started").is_err() {
             std::process::exit(14);
         }
-        let result = session_loop();
+        let result = session_loop(prefix);
         if lifecycle_marker
             && result.is_ok()
             && std::fs::write("finished.marker", b"finished").is_err()
