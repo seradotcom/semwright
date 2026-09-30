@@ -1,0 +1,29 @@
+name: macOS App Sandbox runtime probe
+
+on:
+  pull_request:
+    paths:
+      - 'crates/platform-macos-sys/**'
+      - 'scripts/dev/macos-app-sandbox-probe.sh'
+      - '.github/workflows/macos-app-sandbox-probe.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: macos-app-sandbox-probe-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  app-sandbox-probe:
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Public App Sandbox inheritance and path-boundary probe
+        run: scripts/dev/macos-app-sandbox-probe.sh
