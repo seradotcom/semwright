@@ -598,7 +598,13 @@ impl ArdourAudioDriver {
                 ));
             }
         }
-        let after = runtime.mutate(context, state, &mutation).await?;
+        let _immediate = runtime.mutate(context, state, &mutation).await?;
+        if let Some(context) = context {
+            context.check_cancelled()?;
+        }
+        // Persistence is authoritative: verify every deep mutation against an
+        // independent reopen, not only the in-process Lua snapshot.
+        let after = runtime.inspect(context, state).await?;
         if !native_effect_verified(&before, &after, &mutation) {
             return Err(Error::new(
                 ErrorCode::BackendFailed,
