@@ -8,6 +8,8 @@ Existing Blender capabilities retain their public names. The PR adds `driver.ble
 
 PR #154's `driver.blender.export.glb` is reused. E adds a conservative dependency preflight before that exporter. Content previously accepted solely because it was selected can now be denied when linked/override data, external parents/targets, unmanaged modifiers/constraints, unrelated action expansion, unsupported shader graphs or out-of-workspace textures make effective membership unprovable. This is intentional fail-closed behavior and requires native regression evidence.
 
+The managed source projection is now `blender-source-projection-v3`: typed custom mesh attributes, source shading state and polygon-normal evidence participate in drift/readback instead of being invisible state. This intentionally changes projection fingerprints relative to v2. It does not rename public capabilities or mutate unmanaged attributes, and `mesh_instance` remains write-protected for shared mesh state. Product-scene preview reuses existing camera/world/render capabilities and remains review evidence, not an aesthetic acceptance verdict.
+
 The driver now consumes `semantic-composition`, `media-time`, C's `project-graph` and F's `effect-conformance`. The workspace manifest adds only F's existing crate as a workspace dependency alias. Cargo.lock changes list existing workspace packages; their correctness is still subject to exact-SHA Actions with `--locked`.
 
 ## Support claim

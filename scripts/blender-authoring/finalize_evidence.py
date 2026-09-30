@@ -40,7 +40,7 @@ skill = load("skill-validate.json")
 source_package = load("source-package.json")
 
 for report, expected_suite, minimum in [
-    (model, "blender-model", 47),
+    (model, "blender-model", 49),
     (native, "blender-native-authoring", 3),
 ]:
     require(report["source_sha"] == SOURCE, f"{expected_suite} source SHA mismatch")

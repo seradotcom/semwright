@@ -51,14 +51,14 @@
       "id": "E04",
       "condition": "bounded parametric geometry/topology",
       "implementation": "box/cylinder/typed mesh arrays, explicit indices/UVs, editable POLY curve extrusion/bevel, non-destructive bevel/mirror/subdivision/array and exact-solver Boolean with managed target, native Mesh.validate rejection",
-      "test": "property/index/collapse/UV/budget tests + hard-surface native curve/boolean readback + collision narrow-phase fixture",
+      "test": "property/index/collapse/UV/budget tests + typed mesh-attribute cardinality/shared-write denial + hard-surface native attributes/normals/curve/boolean readback + collision narrow-phase fixture",
       "status": "CI_PENDING"
     },
     {
       "id": "E05",
       "condition": "transforms/relationships/units with native evaluated measurement",
       "implementation": "meter scale, XYZ transforms, parent/bone/follow/look-at, evaluated depsgraph measure",
-      "test": "native measure single-frame route",
+      "test": "native source/evaluated measurement with transforms, bounds, normals and managed attributes; product-scene camera/light/world/render preview uses public Broker capabilities",
       "status": "CI_PENDING"
     },
     {
@@ -86,7 +86,7 @@
       "id": "E09",
       "condition": "save/reopen with undeclared rewrites excluded",
       "implementation": "new libraries.write artifact only + sentinel + fresh-process reopen; hard-surface persistence re-resolves hash-pinned external texture and preserves explicit mesh_copy isolation/material node bindings",
-      "test": "authoring_native articulated fresh-process exact projection + hard-surface texture/copy-on-write fresh-process readback",
+      "test": "authoring_native articulated fresh-process exact projection + hard-surface texture/copy-on-write/managed-attribute/shading fresh-process readback",
       "status": "CI_PENDING"
     },
     {
@@ -123,7 +123,7 @@
       "id": "E14",
       "condition": "articulated/hard-surface/product fixtures through product route",
       "implementation": "three typed fixtures; native lane authors articulated plus hard-surface and product-scene through composition.plan/apply/measure",
-      "test": "authoring_model parses all + authoring_native product-route fixtures",
+      "test": "authoring_model parses all + authoring_native product-route fixtures + 64x64 technical product preview through public render/world/camera capabilities",
       "status": "CI_PENDING"
     },
     {
@@ -137,7 +137,7 @@
       "id": "E16",
       "condition": "security/fuzz/CI exact-SHA without aesthetic auto-claim",
       "implementation": "exact-SHA model+native workflow; hostile GLB closure; bounded cargo-fuzz blender_authoring target; deterministic source backup; no aesthetic PASS",
-      "test": "47-case model suite including real Registry external-schema budget + strict nested decode; explicit native-lane marker prevents generic --all-features/coverage jobs from requiring Blender; native suites + 9-case disposable-Blender hostile preflight (driver/constraint/modifier/global-action/script-node/instancer/oversize/linked/symlink) + 20s/64KiB parser fuzz + skill/source package manifests",
+      "test": "model suite including real Registry external-schema budget, strict nested decode, typed attribute cardinality and shared-instance write denial; explicit native-lane marker prevents generic --all-features/coverage jobs from requiring Blender; native suites + 9-case disposable-Blender hostile preflight (driver/constraint/modifier/global-action/script-node/instancer/oversize/linked/symlink) + 20s/64KiB parser fuzz + skill/source package manifests",
       "status": "CI_PENDING",
       "open": "final exact-SHA evidence and cross-app D roundtrip remain before readiness"
     }
