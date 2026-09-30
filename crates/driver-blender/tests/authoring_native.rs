@@ -212,12 +212,13 @@ impl NativeFixture {
             runtime_digest,
         }
     }
-    async fn raw_with_request(
+    async fn raw_with_token(
         &self,
         session: &str,
         request_id: &str,
         command: &str,
         args: Value,
+        cancellation: CancellationToken,
     ) -> semwright_types::Envelope {
         self.broker
             .clone()
@@ -230,8 +231,18 @@ impl NativeFixture {
                     dry_run: false,
                     backend: None,
                 },
-                CancellationToken::new(),
+                cancellation,
             )
+            .await
+    }
+    async fn raw_with_request(
+        &self,
+        session: &str,
+        request_id: &str,
+        command: &str,
+        args: Value,
+    ) -> semwright_types::Envelope {
+        self.raw_with_token(session, request_id, command, args, CancellationToken::new())
             .await
     }
     async fn raw(&self, session: &str, command: &str, args: Value) -> semwright_types::Envelope {
@@ -327,6 +338,23 @@ async fn broker_native_authoring_save_reopen_export_and_owner_denial() {
         before,
         fixture.call("composition.inspect", json!({})).await,
         "plan and denied apply do not author objects"
+    );
+    let cancelled_token = CancellationToken::new();
+    cancelled_token.cancel();
+    let cancelled = fixture
+        .raw_with_token(
+            &fixture.session,
+            "native-articulated-pre-cancelled",
+            "composition.apply",
+            json!({"plan_ref":plan["plan_ref"]}),
+            cancelled_token,
+        )
+        .await;
+    assert!(!cancelled.ok, "pre-cancelled apply must fail closed");
+    assert_eq!(
+        before,
+        fixture.call("composition.inspect", json!({})).await,
+        "pre-cancelled apply must not author objects or consume the plan"
     );
     let apply_request = "native-articulated-apply";
     let applied = fixture

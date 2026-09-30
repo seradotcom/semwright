@@ -29,6 +29,12 @@ const WORKSPACE_MOUNT: &str = "workspace";
 const BLENDER_RUNTIME_MOUNT: &str = "blender-runtime";
 const BLENDER_TOOL: &str = "blender";
 const SUPPORTED_BLENDER_VERSION: &str = "Blender 4.5.14 LTS";
+const BLENDER_SECURITY_ARGS: [&str; 4] = [
+    "--background",
+    "--factory-startup",
+    "--disable-autoexec",
+    "--python",
+];
 const LEGACY_DESCRIPTORS: &str = include_str!("../../../schemas/commands.json");
 const COMMANDS_PY: &str = include_str!("../../../adapters/blender/semwright_blender/commands.py");
 const COMMANDS_JSON: &str =
@@ -1524,12 +1530,7 @@ impl BlenderDriver {
         let mut command = Command::new(&blender);
         configure_blender_runtime(&mut command, &blender_runtime);
         command
-            .args([
-                "--background",
-                "--factory-startup",
-                "--disable-autoexec",
-                "--python",
-            ])
+            .args(BLENDER_SECURITY_ARGS)
             .arg(&bridge)
             .arg("--")
             .arg(&socket)
@@ -1753,6 +1754,20 @@ mod tests {
             assert_eq!(capability.descriptor.requires, [DRIVER_SCOPE]);
             assert_eq!(capability.descriptor.backends, [DRIVER_SCOPE]);
         }
+    }
+
+    #[test]
+    fn blender_launch_is_factory_clean_and_disables_autoexec() {
+        assert!(BLENDER_SECURITY_ARGS.contains(&"--background"));
+        assert!(BLENDER_SECURITY_ARGS.contains(&"--factory-startup"));
+        assert!(BLENDER_SECURITY_ARGS.contains(&"--disable-autoexec"));
+        assert!(BLENDER_SECURITY_ARGS.contains(&"--python"));
+        assert!(!BLENDER_SECURITY_ARGS.iter().any(|arg| {
+            matches!(
+                *arg,
+                "--enable-autoexec" | "--python-expr" | "--python-console" | "--python-text"
+            )
+        }));
     }
 
     #[test]
