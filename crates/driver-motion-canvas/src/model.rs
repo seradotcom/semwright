@@ -24,7 +24,11 @@ pub const MAX_FRAMES: u64 = 18_000;
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct Project {
+    // Server-owned high-level binding. Legacy Project wire decoding remains
+    // fully typed, but its public JSON Schema does not recursively embed the
+    // entire authoring IR into every low-level Project capability.
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[schemars(with = "Option<serde_json::Value>")]
     pub authoring: Option<semwright_motion_authoring::ManagedBinding>,
     pub schema_version: u32,
     pub component_version: u32,

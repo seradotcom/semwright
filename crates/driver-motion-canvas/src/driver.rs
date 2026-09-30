@@ -1035,6 +1035,12 @@ impl MotionDriver {
             }
             "driver.motion-canvas.project.create" => {
                 let input: CreateArgs = Self::parse(args)?;
+                if input.project.authoring.is_some() {
+                    return Err(Error::new(
+                        ErrorCode::Conflict,
+                        "Authoring binding is server-owned; create high-level projects through composition.plan/apply",
+                    ));
+                }
                 if matches!(
                     self.detect_project()?.mode,
                     ProjectMode::External | ProjectMode::ManagedIsland
@@ -1071,6 +1077,12 @@ impl MotionDriver {
             }
             "driver.motion-canvas.project.island.create" => {
                 let input: CreateArgs = Self::parse(args)?;
+                if input.project.authoring.is_some() {
+                    return Err(Error::new(
+                        ErrorCode::Conflict,
+                        "Authoring binding is server-owned; create high-level projects through composition.plan/apply",
+                    ));
+                }
                 let detected = self.detect_project()?;
                 if detected.mode != ProjectMode::External
                     || !detected.project_entry
@@ -1690,6 +1702,26 @@ mod tests {
     }
 
     #[test]
+    fn every_motion_capability_schema_fits_registry_budget() {
+        for capability in MotionDriver::catalog().unwrap() {
+            semwright_registry::bounds::schema_budget(&capability.descriptor.input_schema, true)
+                .unwrap_or_else(|error| {
+                    panic!(
+                        "{} input schema exceeded Registry budget: {error:?}",
+                        capability.descriptor.name
+                    )
+                });
+            semwright_registry::bounds::schema_budget(&capability.descriptor.output_schema, true)
+                .unwrap_or_else(|error| {
+                    panic!(
+                        "{} output schema exceeded Registry budget: {error:?}",
+                        capability.descriptor.name
+                    )
+                });
+        }
+    }
+
+    #[test]
     fn project_inspect_schema_is_registry_bounded_and_accepts_real_output_shape() {
         let capability = MotionDriver::catalog()
             .unwrap()
@@ -1995,6 +2027,29 @@ mod driver_tests {
         assert_eq!(out["motion_canvas_version"], MOTION_CANVAS_VERSION);
         assert_eq!(out["exact_runtime_match"], true);
         assert_eq!(out["mutation_supported"], false);
+    }
+
+    #[tokio::test]
+    async fn legacy_create_rejects_server_owned_authoring_binding() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = std::fs::canonicalize(temp.path()).unwrap();
+        let mut driver = MotionDriver::for_project_root(&root).unwrap();
+        let film: semwright_motion_authoring::Film = semwright_semantic_composition::strict_decode(
+            include_bytes!("../../../fixtures/composition/motion/technical.json"),
+        )
+        .unwrap();
+        let (project, _) = crate::authoring::project(&film, None).unwrap();
+        assert!(project.authoring.is_some());
+
+        let error = call(
+            &mut driver,
+            "driver.motion-canvas.project.create",
+            json!({"project":project,"dry_run":true}),
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(error.code, ErrorCode::Conflict);
+        assert!(!root.join(crate::store::SEMANTIC_FILE).exists());
     }
 
     #[tokio::test]
