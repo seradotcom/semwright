@@ -43,7 +43,7 @@ jobs:
           - id: media-time
             package: semwright-media-time
             files: 'crates/media-time/src/lib.rs crates/media-time/src/cue.rs'
-            critical: 'Rational::new;Rational::validate;Rational::checked_add;Rational::checked_sub;Rational::checked_mul;Rational::checked_div;Rational::round;Rate::new;Rate::validate;Rate::quantize;CueGraph::resolve;TimeMap::validate'
+            critical: 'Rational::wide;Rational::validate;Rational::checked_add;Rational::checked_sub;Rational::checked_mul;Rational::checked_div;Rational::round;Rate::validate;Rate::quantize;CueGraph::resolve;TimeMap::validate'
           - id: motion
             package: semwright-motion-authoring
             files: 'crates/motion-authoring/src/temporal.rs crates/motion-authoring/src/measurement.rs'
@@ -51,7 +51,7 @@ jobs:
           - id: av
             package: semwright-av-composition
             files: 'crates/av-composition/src/sync.rs crates/av-composition/src/coordinator.rs crates/av-composition/src/executor.rs'
-            critical: 'AvCoordinator::budget;AvCoordinator::reserve;AvCoordinator::before_dispatch;AvCoordinator::complete;AvCoordinator::validate_state_delta;AvCoordinator::accept_result;AvCoordinator::ready;AvCoordinator::cancel_before_dispatch;AvCoordinator::lost_receipt;classify_reuse;SyncSpec::validate;verify_sync;broker_error;StageCommandRunner::new;StageCommandRunner::next;StageCommandRunner::finish'
+            critical: 'AvCoordinator::budget;AvCoordinator::reserve;AvCoordinator::before_dispatch;AvCoordinator::complete;AvCoordinator::validate_state_delta;AvCoordinator::accept_result;AvCoordinator::ready;AvCoordinator::cancel_before_dispatch;AvCoordinator::lost_receipt;classify_reuse;SyncSpec::validate;verify_sync;broker_error'
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
