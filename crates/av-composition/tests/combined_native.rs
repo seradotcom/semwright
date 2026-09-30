@@ -530,7 +530,21 @@ impl Harness {
         )
         .unwrap();
         for provider in providers {
-            broker.mount_provider(provider).await.unwrap();
+            let provider_id = provider.identity().id.clone();
+            let capability_count = provider
+                .capabilities()
+                .await
+                .unwrap_or_else(|error| panic!("enumerate {provider_id}: {error:?}"))
+                .len();
+            eprintln!("combined-e2e mount provider={provider_id} capabilities={capability_count}");
+            broker
+                .mount_provider(provider)
+                .await
+                .unwrap_or_else(|error| {
+                    panic!(
+                        "mount provider={provider_id} capabilities={capability_count}: {error:?}"
+                    )
+                });
         }
         broker
     }
