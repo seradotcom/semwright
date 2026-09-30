@@ -49,10 +49,6 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: composition-fuzz-${{ github.event_name }}-${{ github.sha }}
-  cancel-in-progress: true
-
 defaults:
   run:
     shell: bash
@@ -94,6 +90,9 @@ jobs:
   fuzz:
     needs: scope
     if: ${{ needs.scope.outputs.fuzz_ids != '[]' }}
+    concurrency:
+      group: composition-fuzz-${{ github.event_name }}-${{ matrix.id }}-${{ github.head_ref || github.ref_name }}
+      cancel-in-progress: true
     strategy:
       fail-fast: false
       max-parallel: 2

@@ -19,9 +19,6 @@ on:
         type: string
 permissions:
   contents: read
-concurrency:
-  group: native-${{ github.ref }}-${{ github.event_name }}
-  cancel-in-progress: true
 env:
   CARGO_INCREMENTAL: 0
   CARGO_PROFILE_DEV_DEBUG: 0
@@ -67,6 +64,9 @@ jobs:
   chromium:
     needs: scope
     if: ${{ needs.scope.outputs.run_full == 'true' && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
+    concurrency:
+      group: native-chromium-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+      cancel-in-progress: true
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -104,6 +104,9 @@ jobs:
   driver-conformance:
     needs: scope
     if: ${{ (needs.scope.outputs.run_full == 'true' || needs.scope.outputs.driver_common == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
+    concurrency:
+      group: native-driver-conformance-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+      cancel-in-progress: true
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -202,6 +205,9 @@ jobs:
   driver-distribution:
     needs: scope
     if: ${{ (needs.scope.outputs.run_full == 'true' || needs.scope.outputs.driver_common == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
+    concurrency:
+      group: native-driver-distribution-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+      cancel-in-progress: true
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -233,6 +239,9 @@ jobs:
   libreoffice-driver:
     needs: scope
     if: ${{ needs.scope.outputs.run_full == 'true' && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
+    concurrency:
+      group: native-libreoffice-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+      cancel-in-progress: true
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -314,6 +323,9 @@ jobs:
   blender-driver:
     needs: scope
     if: ${{ needs.scope.outputs.run_full == 'true' && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
+    concurrency:
+      group: native-blender-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+      cancel-in-progress: true
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     env:
@@ -465,6 +477,9 @@ jobs:
   figma-driver:
     needs: scope
     if: ${{ (needs.scope.outputs.run_full == 'true' || needs.scope.outputs.figma == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
+    concurrency:
+      group: native-figma-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+      cancel-in-progress: true
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -564,6 +579,9 @@ jobs:
   mlt-driver-iteration:
     needs: scope
     if: ${{ needs.scope.outputs.run_full != 'true' && needs.scope.outputs.mlt == 'true' && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
+    concurrency:
+      group: native-mlt-iteration-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+      cancel-in-progress: true
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -659,6 +677,9 @@ jobs:
   kicad-mlt-drivers:
     needs: scope
     if: ${{ needs.scope.outputs.run_full == 'true' && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
+    concurrency:
+      group: native-kicad-mlt-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+      cancel-in-progress: true
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
@@ -781,6 +802,9 @@ jobs:
   pipewire-screencast:
     needs: scope
     if: ${{ needs.scope.outputs.run_full == 'true' && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
+    concurrency:
+      group: native-pipewire-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+      cancel-in-progress: true
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -810,6 +834,9 @@ jobs:
   x11-backend:
     needs: scope
     if: ${{ needs.scope.outputs.run_full == 'true' && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
+    concurrency:
+      group: native-x11-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+      cancel-in-progress: true
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -842,6 +869,9 @@ jobs:
   atspi-backend:
     needs: scope
     if: ${{ needs.scope.outputs.run_full == 'true' && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
+    concurrency:
+      group: native-atspi-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+      cancel-in-progress: true
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -888,6 +918,9 @@ jobs:
   atspi-qt-backend:
     needs: scope
     if: ${{ needs.scope.outputs.run_full == 'true' && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
+    concurrency:
+      group: native-atspi-qt-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+      cancel-in-progress: true
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -963,6 +996,9 @@ jobs:
   sway-backend:
     needs: scope
     if: ${{ needs.scope.outputs.run_full == 'true' && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
+    concurrency:
+      group: native-sway-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+      cancel-in-progress: true
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:

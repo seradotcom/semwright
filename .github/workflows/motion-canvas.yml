@@ -34,9 +34,6 @@ on:
       - 'Cargo.lock'
 permissions:
   contents: read
-concurrency:
-  group: motion-canvas-${{ github.head_ref || github.ref_name }}
-  cancel-in-progress: true
 defaults:
   run:
     shell: bash
@@ -69,6 +66,9 @@ jobs:
   domain:
     needs: scope
     if: ${{ needs.scope.outputs.motion == 'true' }}
+    concurrency:
+      group: motion-domain-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+      cancel-in-progress: true
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -110,6 +110,9 @@ jobs:
   portable-compile:
     needs: scope
     if: ${{ needs.scope.outputs.motion == 'true' }}
+    concurrency:
+      group: motion-portable-${{ github.event_name }}-${{ matrix.os }}-${{ github.head_ref || github.ref_name }}
+      cancel-in-progress: true
     strategy:
       fail-fast: false
       matrix:
@@ -132,6 +135,9 @@ jobs:
   real-render-and-host:
     needs: scope
     if: ${{ needs.scope.outputs.motion == 'true' }}
+    concurrency:
+      group: motion-native-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+      cancel-in-progress: true
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     env:
@@ -331,6 +337,9 @@ jobs:
   fuzz:
     needs: scope
     if: ${{ needs.scope.outputs.motion == 'true' }}
+    concurrency:
+      group: motion-fuzz-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+      cancel-in-progress: true
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:

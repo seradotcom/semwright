@@ -35,9 +35,6 @@ on:
         type: string
 permissions:
   contents: read
-concurrency:
-  group: composition-diagnostics-${{ github.ref }}-${{ github.event_name }}
-  cancel-in-progress: true
 defaults:
   run:
     shell: bash
@@ -73,6 +70,9 @@ jobs:
   contracts:
     needs: scope
     if: ${{ needs.scope.outputs.contracts == 'true' }}
+    concurrency:
+      group: composition-contracts-${{ github.event_name }}-${{ matrix.os }}-${{ github.head_ref || github.ref_name }}
+      cancel-in-progress: true
     strategy:
       fail-fast: false
       max-parallel: 2
@@ -116,6 +116,9 @@ jobs:
   broker-session:
     needs: scope
     if: ${{ needs.scope.outputs.broker == 'true' }}
+    concurrency:
+      group: composition-broker-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+      cancel-in-progress: true
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -140,6 +143,9 @@ jobs:
   development-package:
     needs: scope
     if: ${{ needs.scope.outputs.package == 'true' }}
+    concurrency:
+      group: composition-package-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+      cancel-in-progress: true
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -165,6 +171,9 @@ jobs:
   skill-packages:
     needs: scope
     if: ${{ needs.scope.outputs.skills == 'true' }}
+    concurrency:
+      group: composition-skills-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+      cancel-in-progress: true
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:

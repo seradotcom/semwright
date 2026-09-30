@@ -30,9 +30,6 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: figma-semantic-authoring-${{ github.ref }}
-  cancel-in-progress: true
 
 env:
   CARGO_INCREMENTAL: 0
@@ -63,6 +60,9 @@ jobs:
   authoring:
     needs: scope
     if: ${{ needs.scope.outputs.figma == 'true' }}
+    concurrency:
+      group: figma-authoring-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+      cancel-in-progress: true
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -181,6 +181,9 @@ jobs:
   fuzz:
     needs: scope
     if: ${{ needs.scope.outputs.figma == 'true' }}
+    concurrency:
+      group: figma-fuzz-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
+      cancel-in-progress: true
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
