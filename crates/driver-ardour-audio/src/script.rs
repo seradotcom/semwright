@@ -1058,7 +1058,7 @@ local function mutate(command)
     local ok_before, before = pcall(function() return automation_list:get_state() end)
     if not ok_before then error("probe_point_before_state:" .. tostring(before)) end
     local ok_add, add_error = pcall(function()
-      control_list:add(Temporal.timepos_t(frame), value, false, true)
+      control_list:add(Temporal.timepos_t(frame), value, false, false)
     end)
     if not ok_add then error("probe_point_add:" .. tostring(add_error)) end
     local ok_after, after = pcall(function() return automation_list:get_state() end)
@@ -1130,7 +1130,7 @@ local function mutate(command)
     end
     Session:begin_reversible_command("Semwright plugin automation")
     local before = automation_list:get_state()
-    control_list:add(Temporal.timepos_t(frame), value, false, true)
+    control_list:add(Temporal.timepos_t(frame), value, false, false)
     local after = automation_list:get_state()
     Session:add_command(automation_list:memento_command(before, after))
     Session:commit_reversible_command(nil)
@@ -1223,6 +1223,20 @@ mod tests {
         assert!(adapter.contains("local upper_microunits = micro_upper(numeric_upper)"));
         assert!(!adapter.contains("scaled >= 0 and 0.5 or -0.5"));
         assert!(!adapter.contains("db >= 0 and 0.5 or -0.5"));
+    }
+
+    #[test]
+    fn automation_point_add_does_not_create_an_implicit_anchor() {
+        let adapter = source();
+        assert_eq!(
+            adapter
+                .matches("control_list:add(Temporal.timepos_t(frame), value, false, false)")
+                .count(),
+            2
+        );
+        assert!(
+            !adapter.contains("control_list:add(Temporal.timepos_t(frame), value, false, true)")
+        );
     }
 
     #[test]
