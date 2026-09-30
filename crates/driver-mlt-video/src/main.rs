@@ -889,22 +889,11 @@ impl MltVideoDriver {
         if self.host_catalog_verified || std::env::var_os("SEMWRIGHT_DRIVER_HOST_TOOLS").is_none() {
             return Ok(());
         }
-        let (legacy_version, legacy_groups) = self
+        let legacy_catalog = self
             .app
             .runtime
             .as_ref()
-            .map(|runtime| {
-                (
-                    runtime.catalog.version.clone(),
-                    runtime.catalog.groups.clone(),
-                )
-            })
-            .ok_or_else(|| {
-                Error::new(
-                    ErrorCode::Unavailable,
-                    "Host-mediated MLT discovery requires the legacy runtime during migration",
-                )
-            })?;
+            .map(|runtime| runtime.catalog.clone());
         let output = context
             .execute_runtime_tool_args(
                 "mlt-runner",
@@ -942,15 +931,20 @@ impl MltVideoDriver {
             ));
         }
         let observed = host_catalog(&output.stdout)?;
-        if observed.version != legacy_version || observed.groups != legacy_groups {
+        if let Some(legacy) = legacy_catalog
+            && (observed.version != legacy.version || observed.groups != legacy.groups)
+        {
             return Err(Error::new(
                 ErrorCode::BackendFailed,
                 "Host-mediated and legacy MLT discovery catalogs diverged",
             ));
         }
         self.app.catalog = Some(observed);
-        self.app.runtime_reason =
-            "Host-mediated MLT catalog verified against the transitional legacy runtime".into();
+        self.app.runtime_reason = if self.app.runtime.is_some() {
+            "Host-mediated MLT catalog verified against the transitional legacy runtime".into()
+        } else {
+            "Host-mediated MLT catalog verified from owner-pinned runtime tools".into()
+        };
         self.host_catalog_verified = true;
         Ok(())
     }
