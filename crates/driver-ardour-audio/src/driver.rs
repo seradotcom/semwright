@@ -577,6 +577,14 @@ impl ArdourAudioDriver {
             ));
         }
         let mutation = deep_mutation(command, args, &before, runtime)?;
+        if let NativeMutation::GroupCreate { name, .. } = &mutation {
+            if before.groups.iter().any(|group| group.name == *name) {
+                return Err(Error::new(
+                    ErrorCode::Conflict,
+                    "Ardour route-group name already exists",
+                ));
+            }
+        }
         if let NativeMutation::RouteRemove { route_id } = &mutation {
             let route = before
                 .routes
@@ -2169,19 +2177,15 @@ fn native_effect_verified(
                 })
         }
         NativeMutation::GroupCreate { name, route_id } => {
-            let old_ids = before
-                .groups
-                .iter()
-                .map(|group| group.id.as_str())
-                .collect::<std::collections::BTreeSet<_>>();
-            let created = after
-                .groups
-                .iter()
-                .filter(|group| !old_ids.contains(group.id.as_str()))
-                .collect::<Vec<_>>();
-            created.len() == 1
-                && created[0].name == *name
-                && created[0].route_ids.iter().any(|member| member == route_id)
+            if before.groups.iter().any(|group| group.name == *name) {
+                false
+            } else {
+                let mut matching = after.groups.iter().filter(|group| group.name == *name);
+                match (matching.next(), matching.next()) {
+                    (Some(group), None) => group.route_ids.iter().any(|member| member == route_id),
+                    _ => false,
+                }
+            }
         }
         NativeMutation::GroupAdd { group_id, route_id } => after
             .groups

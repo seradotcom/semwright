@@ -1051,9 +1051,16 @@ mod tests {
     }
 
     #[test]
-    fn route_group_activation_passes_explicit_change_origin() {
-        assert!(source().contains("group:set_active(true, nil)"));
-        assert!(!source().contains("group:set_active(true)\n"));
+    fn route_group_mutations_use_native_defaults_and_check_status() {
+        assert!(!source().contains("group:set_active("));
+        assert!(source().contains("local status = group:add(require_route(arg[6]))"));
+        assert!(
+            source().contains("if status ~= 0 then error(\"route group member add failed\") end")
+        );
+        assert!(
+            source()
+                .contains("if status ~= 0 then error(\"route group member remove failed\") end")
+        );
     }
 
     #[test]
