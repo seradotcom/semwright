@@ -80,6 +80,18 @@ fn make_dir(root: &Path, name: &str) -> PathBuf {
 fn copy_exec(source: &Path, destination: &Path) -> PathBuf {
     fs::copy(source, destination).unwrap();
     fs::set_permissions(destination, fs::Permissions::from_mode(0o500)).unwrap();
+    let metadata = fs::metadata(destination).unwrap();
+    assert!(metadata.is_file(), "provider executable is not regular");
+    assert!(
+        metadata.len() <= 64 * 1024 * 1024,
+        "provider executable exceeds Driver Host 64 MiB budget: {} bytes",
+        metadata.len()
+    );
+    assert_eq!(
+        metadata.permissions().mode() & 0o022,
+        0,
+        "provider executable is writable by group/other"
+    );
     destination.to_path_buf()
 }
 

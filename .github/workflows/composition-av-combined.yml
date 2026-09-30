@@ -127,6 +127,22 @@ jobs:
           g++ -std=c++17 -O2 -Wall -Wextra -Werror             integrations/audio/faust-runtime/main.cpp             -lfaust -lsndfile -o "$RUNNER_TEMP/semwright-faust-interpreter"
           g++ -std=c++17 -O2 -Wall -Wextra -Werror             integrations/audio/analysis-runtime/main.cpp             -lebur128 -lsndfile -o "$RUNNER_TEMP/semwright-audio-meter"
           cargo build --locked             -p semwright-plugin-host --bin semwright-sandbox             -p semwright-driver-motion-canvas --bin semwright-motion-canvas-driver             -p semwright-faust-audio-driver --bins             -p semwright-mlt-video-driver --bin semwright-mlt-video-driver
+          strip --strip-unneeded             target/debug/semwright-sandbox             target/debug/semwright-motion-canvas-driver             target/debug/semwright-faust-audio-driver             target/debug/semwright-audio-analysis-driver             target/debug/semwright-mlt-video-driver
+          chmod 0500             target/debug/semwright-sandbox             target/debug/semwright-motion-canvas-driver             target/debug/semwright-faust-audio-driver             target/debug/semwright-audio-analysis-driver             target/debug/semwright-mlt-video-driver
+          stat -c '%s %a %n'             target/debug/semwright-sandbox             target/debug/semwright-motion-canvas-driver             target/debug/semwright-faust-audio-driver             target/debug/semwright-audio-analysis-driver             target/debug/semwright-mlt-video-driver             | tee verification/composition-av/native-binaries.stat
+          python3 - <<'PY'
+          from pathlib import Path
+          limit=64*1024*1024
+          for name in [
+              'semwright-motion-canvas-driver',
+              'semwright-faust-audio-driver',
+              'semwright-audio-analysis-driver',
+              'semwright-mlt-video-driver',
+          ]:
+              path=Path('target/debug')/name
+              if path.stat().st_size > limit:
+                  raise SystemExit(f'{name} exceeds Driver Host 64 MiB executable budget')
+          PY
           sha256sum             "$RUNNER_TEMP/semwright-faust-interpreter"             "$RUNNER_TEMP/semwright-audio-meter"             target/debug/semwright-sandbox             target/debug/semwright-motion-canvas-driver             target/debug/semwright-faust-audio-driver             target/debug/semwright-audio-analysis-driver             target/debug/semwright-mlt-video-driver             > verification/composition-av/native-binaries.sha256
       - name: Combined A+B native AV E2E
         env:
