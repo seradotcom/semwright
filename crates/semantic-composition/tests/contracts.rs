@@ -660,9 +660,10 @@ fn vault_request_ids_cannot_replay_across_repair_entries_of_one_root() {
         .issue(&owner, "repair", &repair, b, 1, Some("root"), true)
         .unwrap();
 
-    let error = vault
-        .begin(&owner, "repair", &repair, "request-shared")
-        .unwrap_err();
+    let error = match vault.begin(&owner, "repair", &repair, "request-shared") {
+        Ok(_) => panic!("cross-entry request replay unexpectedly allowed"),
+        Err(error) => error,
+    };
     assert!(matches!(error, ContractError::Denied(_)));
 }
 
@@ -700,8 +701,9 @@ fn vault_unknown_attempt_blocks_a_preissued_sibling_until_reconciled() {
         )
         .unwrap();
 
-    let error = vault
-        .begin(&owner, "repair-b", &second, "repair-b-request")
-        .unwrap_err();
+    let error = match vault.begin(&owner, "repair-b", &second, "repair-b-request") {
+        Ok(_) => panic!("sibling repair unexpectedly allowed after unknown prior attempt"),
+        Err(error) => error,
+    };
     assert!(matches!(error, ContractError::Unknown(_)));
 }

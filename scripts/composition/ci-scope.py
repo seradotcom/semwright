@@ -23,6 +23,14 @@ def classify(files: list[str], certify: bool=False) -> dict[str,bool]:
         if not p:
             continue
         workspace=p in {"Cargo.toml","Cargo.lock"}
+        semantic_src=any_prefix(p,("crates/semantic-composition/src/",))
+        semantic_tests=any_prefix(p,("crates/semantic-composition/tests/",))
+        media_src=any_prefix(p,("crates/media-time/src/",))
+        media_tests=any_prefix(p,("crates/media-time/tests/",))
+        motion_src=any_prefix(p,("crates/motion-authoring/src/",))
+        motion_tests=any_prefix(p,("crates/motion-authoring/tests/",))
+        av_src=any_prefix(p,("crates/av-composition/src/",))
+        av_tests=any_prefix(p,("crates/av-composition/tests/",))
         common=any_prefix(p,(
             "crates/semantic-composition/","crates/media-time/","crates/motion-authoring/",
             "crates/av-composition/",
@@ -49,17 +57,15 @@ def classify(files: list[str], certify: bool=False) -> dict[str,bool]:
         )):
             flags["skills"]=True
 
-        motion_common=any_prefix(p,(
-            "crates/semantic-composition/","crates/media-time/","crates/motion-authoring/",
-        ))
+        motion_common=semantic_src or media_src or motion_src
         if workspace or motion_common or any_prefix(p,(
             "crates/driver-motion-canvas/","integrations/composition/motion/",
             "integrations/motion-canvas/","scripts/motion-canvas/","fixtures/motion-canvas/",
             "demos/launch-film/","docs/motion-canvas/",
         )):
             flags["motion"]=True
-        if workspace or any_prefix(p,(
-            "crates/semantic-composition/","crates/driver-figma/","demos/figma-semantic-authoring/",
+        if workspace or semantic_src or any_prefix(p,(
+            "crates/driver-figma/","demos/figma-semantic-authoring/",
             "fuzz/fuzz_targets/figma_composition.rs",
         )):
             flags["figma"]=True
@@ -68,14 +74,22 @@ def classify(files: list[str], certify: bool=False) -> dict[str,bool]:
         )):
             flags["mlt"]=True
 
-        if any_prefix(p,("crates/semantic-composition/","fuzz/fuzz_targets/composition_contract.rs")):
-            flags["fuzz_kernel"]=flags["mutants_kernel"]=True
-        if any_prefix(p,("crates/media-time/","fuzz/fuzz_targets/media_time_contract.rs")):
-            flags["fuzz_media"]=flags["mutants_media"]=True
-        if any_prefix(p,("crates/motion-authoring/","fuzz/fuzz_targets/motion_authoring_contract.rs")):
-            flags["fuzz_motion"]=flags["mutants_motion"]=True
-        if any_prefix(p,("crates/av-composition/","fuzz/fuzz_targets/av_contract.rs")):
-            flags["fuzz_av"]=flags["mutants_av"]=True
+        if semantic_src or p == "fuzz/fuzz_targets/composition_contract.rs":
+            flags["fuzz_kernel"]=True
+        if semantic_src or semantic_tests:
+            flags["mutants_kernel"]=True
+        if media_src or p == "fuzz/fuzz_targets/media_time_contract.rs":
+            flags["fuzz_media"]=True
+        if media_src or media_tests:
+            flags["mutants_media"]=True
+        if motion_src or p == "fuzz/fuzz_targets/motion_authoring_contract.rs":
+            flags["fuzz_motion"]=True
+        if motion_src or motion_tests:
+            flags["mutants_motion"]=True
+        if av_src or p == "fuzz/fuzz_targets/av_contract.rs":
+            flags["fuzz_av"]=True
+        if av_src or av_tests:
+            flags["mutants_av"]=True
         if p == "fuzz/Cargo.toml":
             for name in ("fuzz_kernel","fuzz_media","fuzz_motion","fuzz_av"):
                 flags[name]=True

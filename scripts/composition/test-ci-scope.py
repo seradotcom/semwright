@@ -29,6 +29,14 @@ class ScopeTests(unittest.TestCase):
         f=scope.classify(["crates/semantic-composition/src/controller.rs"])
         self.assertTrue(f["contracts"]); self.assertTrue(f["figma"]); self.assertTrue(f["motion"])
         self.assertTrue(f["fuzz_kernel"]); self.assertTrue(f["mutants_kernel"])
+    def test_semantic_test_only_runs_contracts_and_kernel_mutation(self):
+        f=scope.classify(["crates/semantic-composition/tests/contracts.rs"])
+        self.assertTrue(f["contracts"]); self.assertTrue(f["mutants_kernel"])
+        self.assertFalse(f["figma"]); self.assertFalse(f["motion"]); self.assertFalse(f["fuzz_kernel"])
+    def test_media_test_only_runs_contracts_and_media_mutation(self):
+        f=scope.classify(["crates/media-time/tests/time.rs"])
+        self.assertTrue(f["contracts"]); self.assertTrue(f["mutants_media"])
+        self.assertFalse(f["motion"]); self.assertFalse(f["mlt"]); self.assertFalse(f["fuzz_media"])
     def test_workflow_yaml_alone_does_not_retest_product(self):
         f=scope.classify([
             ".github/workflows/native-integrations.yml",
