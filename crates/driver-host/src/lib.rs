@@ -2215,10 +2215,16 @@ fn spawn_v2_reader(
                                 *status = RuntimeToolJobStatus::Cancelling;
                                 entry.cancellation.cancel();
                             }
+                            let observed = status.clone();
+                            let terminal = observed.terminal();
+                            drop(status);
+                            if terminal {
+                                host_tool_jobs.lock().await.remove(&job.id);
+                            }
                             Request::ToolJobState {
                                 id: id.clone(),
                                 job,
-                                status: status.clone(),
+                                status: observed,
                             }
                         }
                         Some(_) => Request::ToolJobFailure {
