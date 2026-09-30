@@ -1606,6 +1606,10 @@ fn composition_error(error: ContractError) -> Error {
 
 fn graph_error(error: GraphError) -> Error {
     match error {
+        GraphError::Storage => Error::new(
+            ErrorCode::Unavailable,
+            "Project Graph storage unavailable; original evidence preserved",
+        ),
         GraphError::Invalid(message) => Error::invalid(message),
         GraphError::Denied => {
             Error::new(ErrorCode::PermissionDenied, "Project Graph denied receipt")

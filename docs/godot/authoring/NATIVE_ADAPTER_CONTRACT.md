@@ -6,6 +6,8 @@ Owner of these new files: D-native-observation-557ad0b. Concurrent runtime/profi
 
 Authenticated `composition.measure` / `composition.verify` authorize active native parsing/playback in a disposable managed copy. They must carry `CodeExecution` risk and explicit private-artifact effects when invoking an engine; read-only source inspection remains separate. The native helper accepts only a prepared, validated request made by the provider. No command accepts GDScript, arbitrary methods, executable paths, shell fragments or client-supplied evidence.
 
+C Project Graph provenance remains a separate authority boundary. After a native result is bound to the authenticated D plan/state, D may construct C's untrusted `RevisionCandidate` for the managed scene. The candidate reuses the stable `LogicalAssetId`, a normalized native projection fingerprint and bounded coverage, but D does not derive C's binding generation. A trusted Project Graph host supplies the current generation; only C `RevisionAdapter::admit` and `ProjectGraph::accept_revision` can allocate/promote the durable revision. There is no client-facing revision-admission capability.
+
 `NativeRequest` and `NativeObservation` live in `crates/driver-godot/src/authoring/native_observation.rs`. A fixed product-owned helper is packaged at `integrations/godot/authoring/native_observer.gd`. These are not test harness game generators. The target project is created by Semwright; the helper reads the live engine, optionally saves a declared candidate, and emits versioned native observations. Tests may inject external drift only in a separately labelled phase.
 
 ## Integrated product call
