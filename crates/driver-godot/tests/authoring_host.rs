@@ -1832,20 +1832,18 @@ async fn typed_transform_and_reparent_actions_round_trip_natively() {
                 }
             ]
         }));
-    spec["scenes"][0]["behavior"]["handlers"]
+    let physics = spec["scenes"][0]["behavior"]["handlers"]
         .as_array_mut()
         .unwrap()
         .iter_mut()
         .find(|handler| handler["event"]["kind"].as_str() == Some("physics_tick"))
-        .expect("physics handler")["actions"]
-        .as_array_mut()
-        .unwrap()
-        .push(json!({
-            "kind":"accelerate2d",
-            "entity":"player",
-            "acceleration":14,
-            "max_speed":120.0
-        }));
+        .expect("physics handler");
+    physics["actions"] = json!([{
+        "kind":"accelerate2d",
+        "entity":"player",
+        "acceleration":14,
+        "max_speed":120.0
+    }]);
 
     let plan = broker_call(
         &host.broker,
