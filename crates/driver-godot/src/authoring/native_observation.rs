@@ -495,6 +495,15 @@ impl NativeValue {
         }
     }
 }
+fn ephemeral_instance_id(value: &str) -> bool {
+    value
+        .parse::<i64>()
+        .is_ok_and(|instance_id| instance_id != 0)
+        || value
+            .parse::<u64>()
+            .is_ok_and(|instance_id| instance_id != 0)
+}
+
 impl NativeResourceRef {
     fn validate(&self) -> semwright_types::Result<()> {
         ensure(
@@ -502,8 +511,8 @@ impl NativeResourceRef {
             "Native resource identity bounds",
         )?;
         ensure(
-            self.instance_id.parse::<u64>().is_ok(),
-            "Native resource instance ID must be an integer string",
+            ephemeral_instance_id(&self.instance_id),
+            "Native resource instance ID must be a nonzero int64/uint64 decimal string",
         )?;
         ensure(
             self.uid
@@ -552,8 +561,8 @@ impl NativeProjection {
                 "Native node path/class",
             )?;
             ensure(
-                node.instance_id.parse::<u64>().is_ok(),
-                "Native node instance ID",
+                ephemeral_instance_id(&node.instance_id),
+                "Native node instance ID must be a nonzero int64/uint64 decimal string",
             )?;
             ensure(
                 node.parent
@@ -810,7 +819,7 @@ impl NativeObservation {
             ensure(
                 frame.requested_tick == *tick
                     && frame.native_frame.parse::<u64>().is_ok()
-                    && frame.scene_instance.parse::<u64>().is_ok(),
+                    && ephemeral_instance_id(&frame.scene_instance),
                 "Native frame binding mismatch",
             )?;
             ensure(

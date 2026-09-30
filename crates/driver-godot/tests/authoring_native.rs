@@ -213,6 +213,55 @@ fn tracks(count: u32) -> NativeAnimation {
 }
 
 #[test]
+fn signed_nonzero_object_ids_are_admitted_but_zero_and_text_are_rejected() {
+    let request = NativeRequest {
+        version: NATIVE_VERSION,
+        nonce: "native_signed_ids_0001".into(),
+        source_fingerprint: digest("source"),
+        mode: ProbeMode::Inspect,
+        scene: "res://scenes/arena.tscn".into(),
+        ticks: 0,
+        inputs: vec![],
+        checkpoints: vec![],
+        variables: vec![],
+        capture: false,
+    };
+    request.validate(&BTreeSet::new()).unwrap();
+
+    let mut observed = observation(
+        ProbeMode::Inspect,
+        &request.nonce,
+        "111",
+        projection("res://scenes/arena.tscn", "-9223372036854775807", "-42"),
+        digest("scene"),
+        None,
+    );
+    for resource in &mut observed.authored.resources {
+        resource.resource.instance_id = "-42".into();
+    }
+    if let NativeValue::Resource(resource) = observed.authored.nodes[0]
+        .properties
+        .get_mut("material")
+        .unwrap()
+    {
+        resource.instance_id = "-42".into();
+    }
+    decode_observation(&serde_json::to_vec(&observed).unwrap(), &request).unwrap();
+
+    let mut zero_node = observed.clone();
+    zero_node.authored.nodes[0].instance_id = "0".into();
+    assert!(decode_observation(&serde_json::to_vec(&zero_node).unwrap(), &request).is_err());
+
+    let mut zero_resource = observed.clone();
+    zero_resource.authored.resources[0].resource.instance_id = "0".into();
+    assert!(decode_observation(&serde_json::to_vec(&zero_resource).unwrap(), &request).is_err());
+
+    let mut text_resource = observed;
+    text_resource.authored.resources[0].resource.instance_id = "not-an-id".into();
+    assert!(decode_observation(&serde_json::to_vec(&text_resource).unwrap(), &request).is_err());
+}
+
+#[test]
 fn native_track_cursor_is_snapshot_and_source_bound_without_truncation() {
     let mut authored = projection("res://scenes/arena.tscn", "11", "21");
     authored.animations.push(tracks(70));
