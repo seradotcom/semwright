@@ -23,6 +23,7 @@ const SESSION_RUNNER_TOOL: &str = "blender-session-runner";
 const MAX_DRIVER_SESSIONS: usize = 2;
 const SUPPORTED_BLENDER_VERSION: [u64; 3] = [4, 5, 14];
 const LEGACY_DESCRIPTORS: &str = include_str!("../../../schemas/commands.json");
+#[cfg(test)]
 const SEMANTIC_PY: &str = include_str!("semantic.py");
 
 fn curated_capabilities() -> Result<Vec<Capability>> {

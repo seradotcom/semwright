@@ -4,7 +4,11 @@ mod linux {
     use std::{
         fs::{self, OpenOptions},
         io::{self, Read, Write},
-        os::unix::{fs::PermissionsExt, net::UnixStream, process::CommandExt},
+        os::unix::{
+            fs::{OpenOptionsExt, PermissionsExt},
+            net::UnixStream,
+            process::CommandExt,
+        },
         path::{Path, PathBuf},
         process::{Child, Command, Stdio},
         thread,
@@ -228,9 +232,7 @@ mod linux {
         }
 
         let child = command.spawn()?;
-        let pid = child
-            .id()
-            .ok_or_else(|| io::Error::other("Blender child has no PID"))?;
+        let pid = child.id();
         Ok(BlenderChild {
             child,
             pgid: pid as i32,
