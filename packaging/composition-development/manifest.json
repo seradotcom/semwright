@@ -26,6 +26,8 @@
     "scripts/composition/test-package-dev.py",
     "scripts/composition/candidate-evidence.py",
     "scripts/composition/test-candidate-evidence.py",
+    "scripts/composition/ci-scope.py",
+    "scripts/composition/test-ci-scope.py",
     "packaging/composition-development/manifest.json",
     "scripts/motion-canvas/runtime-manifest.py",
     "benchmarks/composition",

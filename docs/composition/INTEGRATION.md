@@ -26,6 +26,14 @@ A later additive AV consumer contract defines media artifact metadata, audio con
 
 Wire-semantic changes after C0 must be listed here with migration/consumer tests rather than silently edited in both branches.
 
+## CI execution policy
+
+Iteration CI follows only the newest commit delta (`HEAD^..HEAD`) through `scripts/composition/ci-scope.py`. A change in one area runs only its dependent lanes: contracts, Broker bridge, packaging, Skills, Motion, Figma, MLT, fuzz or mutation as applicable. PR workflows that historically see the whole cumulative diff use the same scope helper so unrelated historical changes do not restart expensive native jobs. Composition fuzz/mutation keep lightweight PR checks but reserve heavy duplicate work for the branch push.
+
+Full certification is separate. For the exact combined candidate SHA, dispatch the relevant workflows with `certify_all=true` and `candidate_sha=<40-char SHA>`. Each workflow fails before heavy work when the checked-out SHA differs. The final evidence manifest accepts only workflow/job evidence whose `tested_sha` equals that same combined candidate SHA. Previous green iteration runs are diagnostic history, not final PASS evidence.
+
+The full native integration workflow preserves its historical all-backend jobs for certification and non-Composition branches. On `feat/composition-media` iteration, only affected Figma/MLT/driver-common jobs execute; the MLT iteration lane is separated from the combined KiCad+MLT certification job.
+
 ## Final integration procedure
 
 1. Verify B.json/PR/branch all name the same AUDIO_READY_FOR_INTEGRATION SHA and required native audio jobs.
