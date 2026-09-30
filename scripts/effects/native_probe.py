@@ -91,7 +91,15 @@ def launch(work, native_args, phase, expect_failure=False):
         if path.exists():
             raise RuntimeError("faulted observer produced a measurement receipt")
         return {"fault_log_digest": digest(output)}, f"host-pid:{proc.pid}:started:{started}"
-    if proc.returncode or any(marker in text for marker in ("SCRIPT ERROR:", "Parse Error:", "ERROR:")):
+    # Godot probes the XDG Desktop directory during Linux startup. In this
+    # isolated mount namespace its optional popen can fail; Godot falls back to
+    # "." and continues. Ignore only that exact startup diagnostic, never a
+    # script error or a missing native receipt. See OS_LinuxBSD::get_system_dir.
+    known_godot_startup_error = 'ERROR: Cannot create pipe from command: "xdg-user-dir" "DESKTOP" 2>/dev/null.'
+    unexpected_errors = [line for line in text.splitlines()
+                         if any(marker in line for marker in ("SCRIPT ERROR:", "Parse Error:", "ERROR:"))
+                         and not (backend == "godot" and line == known_godot_startup_error)]
+    if proc.returncode or unexpected_errors:
         sys.stderr.write(text[-16000:]); raise RuntimeError("native process failed")
     if not path.is_file() or path.stat().st_size > 65536: raise RuntimeError("missing/oversized native measurement")
     result = json.loads(path.read_text())
