@@ -850,6 +850,174 @@ async fn secure_windows_runtime_tool_jobs_are_detached_session_bound_and_cancell
 }
 
 #[tokio::test]
+async fn secure_windows_v8_runtime_tool_sessions_are_provider_scoped_and_reaped() {
+    let driver_source = PathBuf::from(env!("CARGO_BIN_EXE_semwright-driver-fixture"));
+    let tool_source = PathBuf::from(env!("CARGO_BIN_EXE_semwright-tool-fixture"));
+
+    let binary_dir = tempfile::tempdir().expect("fixture directory");
+    let executable = binary_dir.path().join("driver.exe");
+    let owner_tool = binary_dir.path().join("owner-tool.exe");
+    std::fs::copy(&driver_source, &executable).expect("copy driver fixture");
+    std::fs::copy(&tool_source, &owner_tool).expect("copy tool fixture");
+    harden_fixture(&executable);
+    harden_fixture(&owner_tool);
+
+    let workspace = tempfile::tempdir().expect("runtime-tool session workspace");
+    let mut candidate = manifest(executable);
+    candidate.protocol = 8;
+    candidate.interfaces.host_tools = true;
+    candidate.mounts = vec![DriverMount {
+        root: "tool-workspace".into(),
+        read_only: false,
+        execute: false,
+    }];
+    candidate.tools = vec![DriverToolMount {
+        root: "fixture-tool-root".into(),
+        name: "probe".into(),
+        sha256: digest(&owner_tool),
+        mounts: vec!["tool-workspace".into()],
+        dependencies: vec![],
+    }];
+    let roots = vec![
+        FilesystemGrant {
+            name: "fixture-tool-root".into(),
+            path: owner_tool,
+            read: true,
+            write: false,
+        },
+        FilesystemGrant {
+            name: "tool-workspace".into(),
+            path: workspace.path().to_path_buf(),
+            read: true,
+            write: true,
+        },
+    ];
+
+    let state = tempfile::tempdir().expect("driver state");
+    let helper = std::env::current_exe().expect("current test executable");
+    let provider = DriverProvider::connect(candidate, state.path(), &helper, &roots, false)
+        .await
+        .expect("Windows v8 runtime-tool Driver Host");
+
+    let capabilities = Provider::capabilities(provider.as_ref())
+        .await
+        .expect("driver capabilities");
+    let session_capability = capabilities
+        .iter()
+        .find(|capability| capability.descriptor.name == "driver.fixture.tool_session")
+        .expect("fixture tool-session capability")
+        .descriptor
+        .clone();
+
+    let run = |session: &str, request_id: &str, args: serde_json::Value| {
+        let provider = provider.clone();
+        let capability = session_capability.clone();
+        let context = Context {
+            session: session.into(),
+            request_id: request_id.into(),
+            cancellation: CancellationToken::new(),
+        };
+        async move { Provider::execute(provider.as_ref(), &context, &capability, &args).await }
+    };
+
+    let started_marker = workspace.path().join("started.marker");
+    let finished_marker = workspace.path().join("finished.marker");
+    let started = run(
+        "session-a",
+        "windows-tool-session-start",
+        serde_json::json!({
+            "action":"start",
+            "cwd_mount":"tool-workspace",
+            "lifecycle_marker":true
+        }),
+    )
+    .await
+    .expect("start provider-scoped Windows runtime-tool session");
+    let session_id = started["session"].as_str().expect("session id").to_owned();
+    assert_eq!(started["state"], "open");
+    for _ in 0..60 {
+        if started_marker.exists() {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+    }
+    assert!(
+        started_marker.exists(),
+        "persistent Windows tool must start"
+    );
+
+    let frame = run(
+        "session-b",
+        "windows-tool-session-frame",
+        serde_json::json!({
+            "action":"request",
+            "session":session_id,
+            "payload":"provider-scope"
+        }),
+    )
+    .await
+    .expect("another driver session may use provider-scoped Windows runtime session");
+    assert_eq!(frame["state"], "frame");
+    assert_eq!(frame["payload"], "provider-scope");
+
+    let forged = run(
+        "session-b",
+        "windows-tool-session-forged",
+        serde_json::json!({
+            "action":"request",
+            "session":"tool-session-forged",
+            "payload":"denied"
+        }),
+    )
+    .await
+    .expect_err("forged Windows provider session handle must fail closed");
+    assert_eq!(forged.code, semwright_types::ErrorCode::NotFound);
+
+    let closed = run(
+        "session-b",
+        "windows-tool-session-close",
+        serde_json::json!({"action":"close","session":session_id}),
+    )
+    .await
+    .expect("another driver session may close provider-scoped Windows runtime session");
+    assert_eq!(closed["state"], "closed");
+    assert!(!finished_marker.exists());
+
+    let _ = std::fs::remove_file(&started_marker);
+    let second = run(
+        "session-c",
+        "windows-tool-session-shutdown-start",
+        serde_json::json!({
+            "action":"start",
+            "cwd_mount":"tool-workspace",
+            "lifecycle_marker":true
+        }),
+    )
+    .await
+    .expect("start Windows persistent tool for provider shutdown");
+    assert_eq!(second["state"], "open");
+    for _ in 0..60 {
+        if started_marker.exists() {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+    }
+    assert!(
+        started_marker.exists(),
+        "shutdown Windows fixture must start"
+    );
+
+    Provider::shutdown(provider.as_ref())
+        .await
+        .expect("v8 Windows runtime-tool Driver Host shutdown");
+    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    assert!(
+        !finished_marker.exists(),
+        "Windows provider shutdown must reap persistent runtime-tool session"
+    );
+}
+
+#[tokio::test]
 async fn secure_windows_driver_sealed_tool_rejects_digest_mismatch() {
     let driver_source = PathBuf::from(env!("CARGO_BIN_EXE_semwright-driver-fixture"));
     let tool_source = PathBuf::from(env!("CARGO_BIN_EXE_semwright-tool-fixture"));

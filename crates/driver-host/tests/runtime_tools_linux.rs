@@ -343,6 +343,175 @@ async fn linux_v7_runtime_tool_paths_are_mount_and_dependency_scoped() {
 
 #[tokio::test]
 #[ignore = "requires real Bubblewrap + Landlock support"]
+async fn linux_v8_runtime_tool_sessions_are_provider_scoped_and_reaped() {
+    assert!(Path::new("/usr/bin/bwrap").is_file());
+
+    let driver_source = PathBuf::from(env!("CARGO_BIN_EXE_semwright-driver-fixture"));
+    let tool_source = PathBuf::from(env!("CARGO_BIN_EXE_semwright-tool-fixture"));
+    let binary_dir = tempfile::tempdir().expect("fixture directory");
+    let driver = binary_dir.path().join("driver");
+    let tool = binary_dir.path().join("tool");
+    std::fs::copy(&driver_source, &driver).expect("copy driver fixture");
+    std::fs::copy(&tool_source, &tool).expect("copy tool fixture");
+    harden(&driver);
+    harden(&tool);
+
+    let workspace = tempfile::tempdir().expect("session workspace");
+    let other_workspace = tempfile::tempdir().expect("unused workspace");
+    let roots = vec![
+        FilesystemGrant {
+            name: "fixture-tool-root".into(),
+            path: tool.canonicalize().expect("canonical tool"),
+            read: true,
+            write: false,
+        },
+        FilesystemGrant {
+            name: "tool-workspace".into(),
+            path: workspace
+                .path()
+                .canonicalize()
+                .expect("canonical workspace"),
+            read: true,
+            write: true,
+        },
+        FilesystemGrant {
+            name: "other-workspace".into(),
+            path: other_workspace
+                .path()
+                .canonicalize()
+                .expect("canonical unused workspace"),
+            read: true,
+            write: true,
+        },
+    ];
+
+    let state = tempfile::tempdir().expect("driver state");
+    std::fs::set_permissions(state.path(), std::fs::Permissions::from_mode(0o700))
+        .expect("harden driver state");
+    let provider = DriverProvider::connect(
+        manifest(driver, digest(&tool), 8),
+        state.path(),
+        &sandbox_helper(),
+        &roots,
+        false,
+    )
+    .await
+    .expect("Linux v8 runtime-tool Driver Host");
+
+    let capabilities = Provider::capabilities(provider.as_ref())
+        .await
+        .expect("driver capabilities");
+    let session_capability = capabilities
+        .iter()
+        .find(|capability| capability.descriptor.name == "driver.fixture.tool_session")
+        .expect("fixture tool-session capability")
+        .descriptor
+        .clone();
+
+    let run = |session: &str, request_id: &str, args: serde_json::Value| {
+        let provider = provider.clone();
+        let capability = session_capability.clone();
+        let context = Context {
+            session: session.into(),
+            request_id: request_id.into(),
+            cancellation: CancellationToken::new(),
+        };
+        async move { Provider::execute(provider.as_ref(), &context, &capability, &args).await }
+    };
+
+    let started_marker = workspace.path().join("started.marker");
+    let finished_marker = workspace.path().join("finished.marker");
+    let started = run(
+        "session-a",
+        "linux-tool-session-start",
+        serde_json::json!({
+            "action":"start",
+            "cwd_mount":"tool-workspace",
+            "lifecycle_marker":true
+        }),
+    )
+    .await
+    .expect("start provider-scoped runtime-tool session");
+    let session_id = started["session"].as_str().expect("session id").to_owned();
+    assert_eq!(started["state"], "open");
+    for _ in 0..40 {
+        if started_marker.exists() {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+    }
+    assert!(started_marker.exists(), "persistent tool must start");
+
+    let frame = run(
+        "session-b",
+        "linux-tool-session-frame",
+        serde_json::json!({
+            "action":"request",
+            "session":session_id,
+            "payload":"provider-scope"
+        }),
+    )
+    .await
+    .expect("another driver session may use provider-scoped runtime session");
+    assert_eq!(frame["state"], "frame");
+    assert_eq!(frame["payload"], "provider-scope");
+
+    let forged = run(
+        "session-b",
+        "linux-tool-session-forged",
+        serde_json::json!({
+            "action":"request",
+            "session":"tool-session-forged",
+            "payload":"denied"
+        }),
+    )
+    .await
+    .expect_err("forged provider session handle must fail closed");
+    assert_eq!(forged.code, ErrorCode::NotFound);
+
+    let closed = run(
+        "session-b",
+        "linux-tool-session-close",
+        serde_json::json!({"action":"close","session":session_id}),
+    )
+    .await
+    .expect("another driver session may close provider-scoped runtime session");
+    assert_eq!(closed["state"], "closed");
+    assert!(!finished_marker.exists());
+
+    let _ = std::fs::remove_file(&started_marker);
+    let second = run(
+        "session-c",
+        "linux-tool-session-shutdown-start",
+        serde_json::json!({
+            "action":"start",
+            "cwd_mount":"tool-workspace",
+            "lifecycle_marker":true
+        }),
+    )
+    .await
+    .expect("start persistent tool for provider shutdown");
+    assert_eq!(second["state"], "open");
+    for _ in 0..40 {
+        if started_marker.exists() {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+    }
+    assert!(started_marker.exists(), "shutdown fixture must start");
+
+    Provider::shutdown(provider.as_ref())
+        .await
+        .expect("v8 runtime-tool Driver Host shutdown");
+    tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+    assert!(
+        !finished_marker.exists(),
+        "provider shutdown must reap persistent runtime-tool session"
+    );
+}
+
+#[tokio::test]
+#[ignore = "requires real Bubblewrap + Landlock support"]
 async fn linux_v6_runtime_tool_jobs_are_detached_session_bound_and_cancellable() {
     assert!(Path::new("/usr/bin/bwrap").is_file());
 
