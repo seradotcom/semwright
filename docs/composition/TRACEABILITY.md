@@ -75,16 +75,16 @@ No AV row is PASS before the exact B-ready SHA is merged and the technical E2E e
 
 | Gate | A-side implementation | Acceptance state |
 |---|---|---|
-| AV01 | Exact Rate/Rational contracts; MLT fps + 48 kHz profile | PENDING combined |
-| AV02 | Full-master flash/impulse decoder + pinned SyncSpec | PENDING combined |
-| AV03 | Cue/timing dependency invalidates Motion+Audio dependents | CONTRACT TESTED; PENDING B E2E |
-| AV04 | Audio-only change retains Motion but rebuilds/reverifies master | CONTRACT TESTED; PENDING B E2E |
-| AV05 | Visual-only change preserves independent audio | CONTRACT TESTED; PENDING B E2E |
+| AV01 | Exact Rate/Rational contracts; MLT fps + 48 kHz profile | IMPLEMENTED; PENDING exact-SHA combined-native CI |
+| AV02 | Full-master flash/impulse decoder + pinned SyncSpec | IMPLEMENTED; PENDING exact-SHA combined-native CI |
+| AV03 | Cue/timing dependency invalidates Motion+Audio dependents | CONTRACT TESTED; combined E2E implemented, CI pending |
+| AV04 | Audio-only change retains Motion but rebuilds/reverifies master | CONTRACT TESTED; combined E2E implemented, CI pending |
+| AV05 | Visual-only change preserves independent audio | CONTRACT TESTED; combined E2E implemented, CI pending |
 | AV06 | Coordinator retains prior effects and refuses ready master after failure | IMPLEMENTED; PENDING combined failure E2E |
-| AV07 | Owner/session binding on plans/artifacts/transfers | IMPLEMENTED; PENDING combined |
-| AV08 | Mux re-probes duration/rate/channels/sample count; final audio must be analyzed again | A-SIDE IMPLEMENTED; PENDING B final-audio analysis |
-| AV09 | Motion + B common receipt + artifact.handoff + MLT | A-SIDE CONNECTED; PENDING B real receipt/E2E |
-| AV10 | Clean-runner package/runtime setup | PENDING combined clean run |
+| AV07 | Owner/session binding on plans/artifacts/transfers | IMPLEMENTED; PENDING exact-SHA combined-native CI |
+| AV08 | Mux re-probes duration/rate/channels/sample count; final audio must be analyzed again | IMPLEMENTED with post-encode WAV + B analysis; CI pending |
+| AV09 | Motion + B common receipt + artifact.handoff + MLT | IMPLEMENTED with real B receipt/native combined E2E; CI pending |
+| AV10 | Clean-runner package/runtime setup | Dedicated exact-SHA workflow implemented; clean run pending |
 | AV11 | Cancellation/UNKNOWN semantics and provider cancellation | IMPLEMENTED; PENDING combined |
 | AV12 | Dependency diff/reuse and new evidence after semantic change | CONTRACT TESTED; PENDING combined |
 
@@ -98,7 +98,7 @@ No AV row is PASS before the exact B-ready SHA is merged and the technical E2E e
 | CI04 | Runtime/package/artifact manifests and hashes | IMPLEMENTED |
 | CI05 | Missing native prerequisite cannot become PASS | IMPLEMENTED |
 | CI06 | No policy/security bypass added to make tests green | IMPLEMENTED; final review pending |
-| CI07 | Full pertinent regression on one combined candidate | PENDING B |
+| CI07 | Full pertinent regression on one combined candidate | PENDING exact combined candidate certification |
 | CI08 | Bounded logs/artifacts/caches and synthetic test data | IMPLEMENTED; final hygiene evidence pending |
 
 ## Evidence rule

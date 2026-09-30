@@ -646,6 +646,7 @@ fn agent_a_native_command_inventory_claims_only_delivery_bridge_not_audio_author
         Stage::TransferMotion,
         Stage::TransferAudio,
         Stage::Mux,
+        Stage::VerifyFinalAudio,
         Stage::VerifySync,
     ] {
         let commands = agent_a_stage_commands(stage).expect("Agent-A stage mapping");
@@ -666,7 +667,6 @@ fn agent_a_native_command_inventory_claims_only_delivery_bridge_not_audio_author
         Stage::ApplyAudio,
         Stage::RenderAudio,
         Stage::VerifyAudio,
-        Stage::VerifyFinalAudio,
         Stage::PreparePublication,
         Stage::Publish,
     ] {
@@ -764,11 +764,12 @@ fn audio_handoff_hint_is_path_data_not_authority_and_binds_master_digest() {
     );
 }
 
-fn verification_report(
+fn verification_report_on_base(
     plan_digest: Digest,
     rules: BTreeSet<String>,
     source: EvidenceSource,
     artifact: Digest,
+    observed_base: BaseStateSet,
 ) -> c::VerificationReport {
     let checks = rules
         .iter()
@@ -779,7 +780,7 @@ fn verification_report(
             evidence_class: c::EvidenceClass::Deterministic,
             evidence: vec![c::ObservationRef {
                 id: format!("obs-{rule}"),
-                base: base(),
+                base: observed_base.clone(),
                 source,
                 method: "fixture-native-read".into(),
                 method_version: 1,
@@ -794,7 +795,7 @@ fn verification_report(
         execution_status: ExecutionStatus::Completed,
         validation: c::ValidationReport {
             plan_digest,
-            base: base(),
+            base: observed_base,
             required_rules: rules,
             checks,
         },
@@ -802,6 +803,14 @@ fn verification_report(
         effects_observed: vec![],
         effects_unobservable: vec![],
     }
+}
+fn verification_report(
+    plan_digest: Digest,
+    rules: BTreeSet<String>,
+    source: EvidenceSource,
+    artifact: Digest,
+) -> c::VerificationReport {
+    verification_report_on_base(plan_digest, rules, source, artifact, base())
 }
 
 fn encoded_artifact(plan: &AvPlan) -> t::MediaArtifact {
@@ -839,6 +848,36 @@ fn encoded_artifact(plan: &AvPlan) -> t::MediaArtifact {
             ("audio-artifact".into(), digest("audio-final-bytes")),
         ]),
         provenance: Some("synthetic encoded fixture".into()),
+        license: None,
+        retention: t::Retention::PrivateCandidate,
+    }
+}
+fn decoded_audio_artifact(plan: &AvPlan, encoded: &t::MediaArtifact) -> t::MediaArtifact {
+    t::MediaArtifact {
+        reference: "artifact:decoded-final-audio".into(),
+        owner: owner(),
+        sha256: digest("decoded-final-audio-bytes"),
+        bytes: 576_044,
+        media_type: "audio/wav".into(),
+        source_plan: plan.digest.clone(),
+        source_state: base(),
+        metadata: t::MediaMetadata {
+            duration: q(3, 1),
+            encoded_duration: Some(q(3, 1)),
+            video: None,
+            audio: Some(t::AudioMetadata {
+                sample_rate: 48_000,
+                channels: 2,
+                channel_layout: "stereo".into(),
+                sample_frames: 144_000,
+                priming_samples: None,
+                padding_samples: None,
+                latency_samples: None,
+                tail_samples: None,
+            }),
+        },
+        dependencies: BTreeMap::from([("encoded-master".into(), encoded.sha256.clone())]),
+        provenance: Some("synthetic post-encode decode fixture".into()),
         license: None,
         retention: t::Retention::PrivateCandidate,
     }
@@ -971,6 +1010,12 @@ fn full_synthetic_av_graph_exercises_every_result_arm_before_ready() {
         .unwrap();
 
     let encoded = encoded_artifact(&plan);
+    let decoded_audio = decoded_audio_artifact(&plan, &encoded);
+    let decoded_handoff = ArtifactHandoffHint {
+        version: 1,
+        artifact_digest: decoded_audio.sha256.clone(),
+        relative_path: "encoded-final-audio.wav".into(),
+    };
     let call = next(&mut coordinator);
     request_ids.push(call.request_id.clone());
     coordinator
@@ -978,22 +1023,32 @@ fn full_synthetic_av_graph_exercises_every_result_arm_before_ready() {
             &call,
             NativeResult::Encoded {
                 artifact: encoded.clone(),
+                decoded_audio: decoded_audio.clone(),
+                decoded_audio_handoff: decoded_handoff,
             },
         ))
         .unwrap();
 
     let call = next(&mut coordinator);
     request_ids.push(call.request_id.clone());
+    let StagePayload::VerifyFinalAudio {
+        artifact, handoff, ..
+    } = &call.payload
+    else {
+        panic!("expected final-audio verification payload");
+    };
+    assert_eq!(artifact.sha256, decoded_audio.sha256);
+    assert_eq!(handoff.artifact_digest, decoded_audio.sha256);
     coordinator
         .complete(receipt(
             &call,
             NativeResult::Verified {
-                artifact_digest: encoded.sha256.clone(),
+                artifact_digest: decoded_audio.sha256.clone(),
                 report: verification_report(
                     plan.digest.clone(),
                     plan.body.spec.required_final_audio_rules.clone(),
                     EvidenceSource::DecodedMedia,
-                    encoded.sha256.clone(),
+                    decoded_audio.sha256.clone(),
                 ),
             },
         ))
@@ -1206,4 +1261,166 @@ fn sync_spec_validates_collection_order_tolerance_and_confidence_boundaries() {
     let mut invalid = value;
     invalid.max_offset = q(1001, 1000);
     assert!(invalid.validate().is_err());
+}
+
+#[test]
+fn imported_b_audio_receipt_advances_only_audio_stages_and_updates_only_audio_base() {
+    let plan = plan();
+    let mut coordinator = AvCoordinator::new(plan.clone()).unwrap();
+
+    let delivery = next(&mut coordinator);
+    coordinator
+        .complete(receipt(
+            &delivery,
+            NativeResult::DeliveryPlanned {
+                profile_digest: c::canonical_digest(&plan.body.spec.delivery).unwrap(),
+            },
+        ))
+        .unwrap();
+
+    let apply_motion = next(&mut coordinator);
+    coordinator
+        .complete(receipt(&apply_motion, NativeResult::Applied))
+        .unwrap();
+    assert_eq!(coordinator.next_stage(), Some(Stage::ApplyAudio));
+
+    let mut observed_audio = plan.body.audio.base.clone();
+    observed_audio.0[0].revision = Revision::Counter(2);
+    let mut master = audio_artifact();
+    master.source_state = observed_audio.clone();
+    let verification = verification_report_on_base(
+        plan.body.audio.plan_digest.clone(),
+        plan.body.audio.required_rules.clone(),
+        EvidenceSource::DecodedMedia,
+        master.sha256.clone(),
+        observed_audio.clone(),
+    );
+    let imported = AudioConsumerReceipt {
+        version: 1,
+        project: plan.body.audio.clone(),
+        master: master.clone(),
+        stems: vec![],
+        verification,
+        cue_digest: plan.body.audio.cue_digest.clone(),
+        handoff: Some(ArtifactHandoffHint {
+            version: 1,
+            artifact_digest: master.sha256.clone(),
+            relative_path: "audio-final.wav".into(),
+        }),
+    };
+    coordinator.import_audio_receipt(imported).unwrap();
+    coordinator.complete_imported_audio_stage().unwrap();
+    assert_eq!(coordinator.next_stage(), Some(Stage::RenderMotion));
+    let audio_state = coordinator
+        .expected_base()
+        .0
+        .iter()
+        .find(|state| state.key.resource == "audio")
+        .unwrap();
+    assert_eq!(audio_state.revision, Revision::Counter(2));
+    for state in coordinator
+        .expected_base()
+        .0
+        .iter()
+        .filter(|state| state.key.resource != "audio")
+    {
+        assert_eq!(state.revision, Revision::Counter(1));
+    }
+    assert_eq!(
+        coordinator.ledger().last().unwrap().origin,
+        CompletionOrigin::ImportedReceipt
+    );
+    assert_eq!(
+        coordinator.ledger().last().unwrap().stage,
+        Stage::ApplyAudio
+    );
+
+    let motion = reusable_artifact(
+        "motion",
+        BTreeMap::from([("visual".into(), digest("visual-v1"))]),
+    );
+    let render_motion = next(&mut coordinator);
+    coordinator
+        .complete(receipt(
+            &render_motion,
+            NativeResult::Rendered {
+                artifact: motion.clone(),
+            },
+        ))
+        .unwrap();
+    assert_eq!(coordinator.next_stage(), Some(Stage::RenderAudio));
+    coordinator.complete_imported_audio_stage().unwrap();
+    assert_eq!(coordinator.next_stage(), Some(Stage::VerifyMotion));
+    assert_eq!(
+        coordinator.ledger().last().unwrap().origin,
+        CompletionOrigin::ImportedReceipt
+    );
+
+    let verify_motion = next(&mut coordinator);
+    coordinator
+        .complete(receipt(
+            &verify_motion,
+            NativeResult::Verified {
+                artifact_digest: motion.sha256.clone(),
+                report: verification_report(
+                    plan.body.motion.plan_digest.clone(),
+                    plan.body.motion.required_rules.clone(),
+                    EvidenceSource::RendererState,
+                    motion.sha256,
+                ),
+            },
+        ))
+        .unwrap();
+    assert_eq!(coordinator.next_stage(), Some(Stage::VerifyAudio));
+    coordinator.complete_imported_audio_stage().unwrap();
+    assert_eq!(coordinator.next_stage(), Some(Stage::TransferMotion));
+    assert_eq!(
+        coordinator
+            .ledger()
+            .iter()
+            .filter(|entry| entry.origin == CompletionOrigin::ImportedReceipt)
+            .map(|entry| entry.stage)
+            .collect::<Vec<_>>(),
+        [Stage::ApplyAudio, Stage::RenderAudio, Stage::VerifyAudio]
+    );
+}
+
+#[test]
+fn imported_b_audio_receipt_rejects_substitution_and_rebinding() {
+    let plan = plan();
+    let mut coordinator = AvCoordinator::new(plan.clone()).unwrap();
+    let mut master = audio_artifact();
+    let audio_base = plan.body.audio.base.clone();
+    master.source_state = audio_base.clone();
+    let valid = AudioConsumerReceipt {
+        version: 1,
+        project: plan.body.audio.clone(),
+        master: master.clone(),
+        stems: vec![],
+        verification: verification_report_on_base(
+            plan.body.audio.plan_digest.clone(),
+            plan.body.audio.required_rules.clone(),
+            EvidenceSource::NativeApi,
+            master.sha256.clone(),
+            audio_base,
+        ),
+        cue_digest: plan.body.audio.cue_digest.clone(),
+        handoff: Some(ArtifactHandoffHint {
+            version: 1,
+            artifact_digest: master.sha256.clone(),
+            relative_path: "audio-final.wav".into(),
+        }),
+    };
+
+    let mut wrong_plan = valid.clone();
+    wrong_plan.project.plan_digest = digest("substituted-audio-plan");
+    assert!(coordinator.import_audio_receipt(wrong_plan).is_err());
+
+    let mut wrong_handoff = valid.clone();
+    wrong_handoff.handoff.as_mut().unwrap().artifact_digest = digest("other-bytes");
+    assert!(coordinator.import_audio_receipt(wrong_handoff).is_err());
+
+    coordinator.import_audio_receipt(valid.clone()).unwrap();
+    assert!(coordinator.import_audio_receipt(valid).is_err());
+    assert!(coordinator.complete_imported_audio_stage().is_err());
 }

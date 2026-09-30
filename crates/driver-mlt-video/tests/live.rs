@@ -549,6 +549,20 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
         digest(&output.path().join("av-master.mp4"))
     );
     assert!(muxed["artifact"]["bytes"].as_u64().unwrap() > 0);
+    assert_eq!(muxed["decoded_audio"]["root"], "output");
+    assert_eq!(muxed["decoded_audio"]["path"], "av-master.decoded.wav");
+    assert_eq!(
+        muxed["decoded_audio"]["sha256"],
+        digest(&output.path().join("av-master.decoded.wav"))
+    );
+    assert!(muxed["decoded_audio"]["bytes"].as_u64().unwrap() > 0);
+    assert_eq!(muxed["decoded_audio_media"]["audio"], true);
+    assert_eq!(muxed["decoded_audio_media"]["video"], false);
+    assert!(
+        muxed["decoded_audio_sample_frames"]
+            .as_u64()
+            .is_some_and(|frames| frames > 0)
+    );
 
     let stale_mux = call(
         provider.as_ref(),
@@ -577,6 +591,7 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
     .unwrap_err();
     assert_eq!(stale_mux.code, semwright_types::ErrorCode::StaleReference);
     assert!(!output.path().join("stale-av-master.mp4").exists());
+    assert!(!output.path().join("stale-av-master.decoded.wav").exists());
 
     let created_project = call(
         provider.as_ref(),

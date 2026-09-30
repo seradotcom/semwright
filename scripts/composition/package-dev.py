@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Build or verify the deterministic Agent-A Composition development bundle.
+"""Build or verify the deterministic combined Composition/Audio development bundle.
 
-This is a source/development handoff artifact, not a Semwright release package.
+This is a source/development handoff artifact for the exact A+B integration candidate, not a Semwright release package.
 It never installs dependencies, executes drivers, changes policy, or downloads tools.
 """
 from __future__ import annotations
@@ -103,6 +103,8 @@ def load_manifest() -> dict:
         "schema_version",
         "name",
         "scope",
+        "composition_source_sha",
+        "audio_source_sha",
         "audio_integration",
         "max_file_bytes",
         "max_total_bytes",
@@ -111,8 +113,10 @@ def load_manifest() -> dict:
         raise ValueError("development package manifest has unknown/missing keys")
     if value["schema_version"] != 1 or value["name"] != PREFIX:
         raise ValueError("development package manifest identity/version mismatch")
-    if value["scope"] != "agent-a" or value["audio_integration"] != "pending-b-ready-handoff":
-        raise ValueError("Agent-A development package must not claim B integration")
+    if value["scope"] != "combined-candidate" or value["audio_integration"] != "certified-b-exact-sha":
+        raise ValueError("combined development package scope/audio integration mismatch")
+    for field in ("composition_source_sha", "audio_source_sha"):
+        source_sha(root=ROOT, explicit=value[field])
     if not isinstance(value["include"], list) or not 1 <= len(value["include"]) <= 128:
         raise ValueError("development package include list is outside bounds")
     if not isinstance(value["max_file_bytes"], int) or not 1 <= value["max_file_bytes"] <= 64 * 1024 * 1024:
@@ -190,6 +194,8 @@ def build(output: Path, root: Path, explicit_sha: str | None, explicit_epoch: in
         "schema_version": 1,
         "package": PREFIX,
         "scope": manifest["scope"],
+        "composition_source_sha": manifest["composition_source_sha"],
+        "audio_source_sha": manifest["audio_source_sha"],
         "audio_integration": manifest["audio_integration"],
         "source_sha": sha,
         "source_date_epoch": epoch,
@@ -201,7 +207,7 @@ def build(output: Path, root: Path, explicit_sha: str | None, explicit_epoch: in
         "entries": entries,
         "limitations": [
             "source/development bundle only; no executable authority or release admission",
-            "audio implementation is intentionally absent until AUDIO_READY_FOR_INTEGRATION",
+            "source/development bundle records certified A/B source SHAs but does not transfer their PASS evidence to another candidate SHA",
             "runtime.json is generated only after pinned native tools are installed in CI",
         ],
     }
@@ -258,8 +264,12 @@ def verify(archive_path: Path) -> dict:
         metadata = json.loads(archive.read(GENERATED_METADATA))
         if metadata.get("schema_version") != 1 or metadata.get("package") != PREFIX:
             raise ValueError("development package metadata identity mismatch")
-        if metadata.get("audio_integration") != "pending-b-ready-handoff":
-            raise ValueError("Agent-A package falsely claims audio integration")
+        if metadata.get("scope") != "combined-candidate" or metadata.get("audio_integration") != "certified-b-exact-sha":
+            raise ValueError("combined development package metadata scope mismatch")
+        if metadata.get("composition_source_sha") != "34b850507c699c4f67056478210aa97e89bf7548":
+            raise ValueError("combined package A source SHA mismatch")
+        if metadata.get("audio_source_sha") != "8ed2d30c8ba797ebd5b8c102d34f8ab5bb3a28b3":
+            raise ValueError("combined package B source SHA mismatch")
         entries = metadata.get("entries")
         if not isinstance(entries, list) or len(entries) + 1 != len(infos):
             raise ValueError("development package metadata entry count mismatch")

@@ -1431,7 +1431,7 @@
     "descriptor": {
       "name": "driver.mlt-video.av.mux",
       "version": "0.1.0",
-      "description": "Mux one digest-pinned video-only Motion mezzanine and one digest-pinned audio-only final mix into a bounded H.264/AAC MP4 through the pinned confined MLT runtime; no effects, gain, ducking, arbitrary argv or filter graph.",
+      "description": "Mux one digest-pinned video-only Motion mezzanine and one digest-pinned audio-only final mix into a bounded H.264/AAC MP4 through the pinned confined MLT runtime, then publish a digest-bound 48 kHz stereo PCM WAV decoded from that exact master for post-encode analysis; no effects, gain, ducking, arbitrary argv or filter graph.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -1681,10 +1681,111 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 384000000
+          },
+          "decoded_audio": {
+            "type": "object",
+            "properties": {
+              "root": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "path": {
+                "type": "string",
+                "maxLength": 4096
+              },
+              "sha256": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "bytes": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1073741824
+              }
+            },
+            "required": [
+              "root",
+              "path",
+              "sha256",
+              "bytes"
+            ],
+            "additionalProperties": false
+          },
+          "decoded_audio_media": {
+            "type": "object",
+            "properties": {
+              "width": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1,
+                "maximum": 16384
+              },
+              "height": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1,
+                "maximum": 16384
+              },
+              "frames": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 100000000
+              },
+              "duration_num": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000000000
+              },
+              "duration_den": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000000
+              },
+              "audio": {
+                "type": "boolean"
+              },
+              "video": {
+                "type": "boolean"
+              },
+              "codecs": {
+                "type": "array",
+                "maxItems": 16,
+                "items": {
+                  "type": "string",
+                  "maxLength": 128
+                }
+              }
+            },
+            "required": [
+              "width",
+              "height",
+              "frames",
+              "duration_num",
+              "duration_den",
+              "audio",
+              "video",
+              "codecs"
+            ],
+            "additionalProperties": false
+          },
+          "decoded_audio_sample_frames": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 384000000
           }
         },
         "required": [
           "artifact",
+          "decoded_audio",
+          "decoded_audio_media",
+          "decoded_audio_sample_frames",
           "profile",
           "frame_count",
           "fps_num",

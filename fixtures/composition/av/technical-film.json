@@ -1,0 +1,250 @@
+{
+  "version": 1,
+  "id": "av-sync-technical-motion",
+  "output": {
+    "width": 320,
+    "height": 180,
+    "frame_rate": {
+      "num": 30,
+      "den": 1
+    },
+    "aspect": "landscape",
+    "safe_area": {
+      "top": 0,
+      "right": 0,
+      "bottom": 0,
+      "left": 0
+    }
+  },
+  "editorial": {
+    "version": 1,
+    "font": {
+      "family": "Instrument Sans Variable",
+      "asset_digest": null,
+      "fallback": "deny",
+      "permitted_fallbacks": []
+    },
+    "mono_font": {
+      "family": "IBM Plex Mono",
+      "asset_digest": null,
+      "fallback": "deny",
+      "permitted_fallbacks": []
+    },
+    "type_scale": {
+      "body": 24,
+      "mono": 18
+    },
+    "colors": {
+      "background": "#000000",
+      "text": "#ffffff"
+    },
+    "spacing": {
+      "base": 16,
+      "block": 24
+    },
+    "stroke": 2,
+    "corner_radius": 0
+  },
+  "timing": {
+    "version": 1,
+    "duration": {
+      "num": "2",
+      "den": "1"
+    },
+    "spans": [
+      {
+        "id": "sequence-span",
+        "minimum": {
+          "num": "2",
+          "den": "1"
+        },
+        "preferred": {
+          "num": "2",
+          "den": "1"
+        },
+        "maximum": {
+          "num": "2",
+          "den": "1"
+        },
+        "anchor": {
+          "kind": "absolute",
+          "time": {
+            "num": "0",
+            "den": "1"
+          }
+        },
+        "preference_priority": 0
+      },
+      {
+        "id": "shot-span",
+        "minimum": {
+          "num": "2",
+          "den": "1"
+        },
+        "preferred": {
+          "num": "2",
+          "den": "1"
+        },
+        "maximum": {
+          "num": "2",
+          "den": "1"
+        },
+        "anchor": {
+          "kind": "absolute",
+          "time": {
+            "num": "0",
+            "den": "1"
+          }
+        },
+        "preference_priority": 0
+      },
+      {
+        "id": "flash-in-span",
+        "minimum": {
+          "num": "1",
+          "den": "30"
+        },
+        "preferred": {
+          "num": "1",
+          "den": "30"
+        },
+        "maximum": {
+          "num": "1",
+          "den": "30"
+        },
+        "anchor": {
+          "kind": "absolute",
+          "time": {
+            "num": "29",
+            "den": "30"
+          }
+        },
+        "preference_priority": 0
+      },
+      {
+        "id": "flash-out-span",
+        "minimum": {
+          "num": "1",
+          "den": "30"
+        },
+        "preferred": {
+          "num": "1",
+          "den": "30"
+        },
+        "maximum": {
+          "num": "1",
+          "den": "30"
+        },
+        "anchor": {
+          "kind": "absolute",
+          "time": {
+            "num": "1",
+            "den": "1"
+          }
+        },
+        "preference_priority": 0
+      }
+    ],
+    "constraints": []
+  },
+  "sequences": [
+    {
+      "id": "sequence",
+      "span_id": "sequence-span",
+      "beats": [
+        {
+          "id": "beat",
+          "role": "mechanism",
+          "shots": [
+            {
+              "id": "flash-shot",
+              "span_id": "shot-span",
+              "archetype": "statement",
+              "subjects": [
+                {
+                  "id": "sync-flash",
+                  "role": "primary",
+                  "parent": null,
+                  "layer": "content",
+                  "content": {
+                    "kind": "rectangle",
+                    "fill": "#ffffff",
+                    "stroke": null,
+                    "radius": 0
+                  },
+                  "layout": {
+                    "kind": "fixed",
+                    "position": {
+                      "x": 0,
+                      "y": 0
+                    },
+                    "size": {
+                      "width": 320,
+                      "height": 180
+                    }
+                  },
+                  "initially_visible": false,
+                  "clip_intentional": false
+                }
+              ],
+              "layers": [
+                {
+                  "id": "content",
+                  "order": 0,
+                  "intentional_overlay": false
+                }
+              ],
+              "annotations": [],
+              "captions": [],
+              "motion": [
+                {
+                  "id": "flash-in",
+                  "span_id": "flash-in-span",
+                  "easing": "linear",
+                  "primitive": {
+                    "kind": "fade_in",
+                    "target": "sync-flash"
+                  }
+                },
+                {
+                  "id": "flash-out",
+                  "span_id": "flash-out-span",
+                  "easing": "linear",
+                  "primitive": {
+                    "kind": "fade_out",
+                    "target": "sync-flash"
+                  }
+                }
+              ],
+              "constraints": []
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "cues": {
+    "version": 1,
+    "cues": [
+      {
+        "id": "sync-pulse",
+        "anchor": {
+          "kind": "absolute",
+          "time": {
+            "num": "1",
+            "den": "1"
+          }
+        },
+        "duration": {
+          "num": "1",
+          "den": "30"
+        },
+        "source": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "method": "combined_av_technical_sync",
+        "version": 1,
+        "confidence": 10000
+      }
+    ]
+  },
+  "assets": []
+}

@@ -7,16 +7,18 @@ This file is the source-controlled integration ledger. Fields marked PENDING mus
 - A frozen baseline: be375a12e8afa4d779f9dc0de501b0d4a262a682
 - Common C0: 26602e4b25929be869d69ef28fef4dd9713180d7
 - A branch: feat/composition-media
+- A source SHA entering integration: 34b850507c699c4f67056478210aa97e89bf7548
 - B baseline: 93f70241e9fb9d4c99ca76fab55c8517574a9f6f
 - B branch: feat/audio-completion
 - B consumed C0 through normal Git ancestry: verified locally
-- B observed working head at this checkpoint: ea144de5af1b663ff5ad821793c105b95f5f819d
-- B AUDIO_READY_FOR_INTEGRATION: false
-- Current origin/main reconciled into A: e3713e90e87f1caa8f7105c065094d5c724d144e
-- Integration branch/worktree: PENDING until B-ready handoff
-- Combined candidate SHA: PENDING
+- B certified AUDIO_READY_FOR_INTEGRATION SHA: 8ed2d30c8ba797ebd5b8c102d34f8ab5bb3a28b3
+- B exact-SHA certification run: 36744494536 (audio-gate: success)
+- Current origin/main reconciled into A before integration: e3713e90e87f1caa8f7105c065094d5c724d144e
+- A+B ancestry merge commit before combined adaptations: 91002b5fd7247ec1eeaab93fa929da6a5253edef
+- Integration branch/worktree: integration/composition-av
+- Combined candidate SHA: supplied as the exact 40-hex workflow input and recorded in verification/composition-av/run.json; not hardcoded into source.
 
-A and B remain separate until the B readiness handshake. A never edits the B worktree. The combined candidate will be created in the A-owned integration worktree, not in the canonical checkout.
+A and B were merged by normal Git ancestry in the A-owned integration worktree. The canonical main checkout remains untouched by this integration work.
 
 ## Contract history
 

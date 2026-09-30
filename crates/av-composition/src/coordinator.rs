@@ -49,6 +49,7 @@ pub enum StagePayload {
     },
     VerifyFinalAudio {
         artifact: MediaArtifact,
+        handoff: ArtifactHandoffHint,
         required_rules: std::collections::BTreeSet<String>,
     },
     VerifySync {
@@ -110,6 +111,8 @@ pub enum NativeResult {
     },
     Encoded {
         artifact: MediaArtifact,
+        decoded_audio: MediaArtifact,
+        decoded_audio_handoff: ArtifactHandoffHint,
     },
     SyncMeasured {
         probe: DecodedSyncProbe,
@@ -135,11 +138,20 @@ pub struct NativeReceipt {
     pub result: Option<NativeResult>,
     pub effects: Vec<String>,
 }
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum CompletionOrigin {
+    #[default]
+    NativeDispatch,
+    ImportedReceipt,
+}
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct LedgerEntry {
     pub request_id: String,
     pub stage: Stage,
+    #[serde(default)]
+    pub origin: CompletionOrigin,
     pub status: ExecutionStatus,
     pub effects: Vec<String>,
 }
@@ -167,6 +179,9 @@ struct Outputs {
     motion_input: Option<DeliveryInput>,
     audio_input: Option<DeliveryInput>,
     encoded: Option<MediaArtifact>,
+    decoded_final_audio: Option<MediaArtifact>,
+    decoded_final_audio_handoff: Option<ArtifactHandoffHint>,
+    imported_audio: Option<AudioConsumerReceipt>,
     final_audio: Option<VerificationReport>,
     sync: Option<SyncReport>,
     publication: Option<PublicationCandidate>,
@@ -214,6 +229,155 @@ impl AvCoordinator {
     pub fn plan(&self) -> &AvPlan {
         &self.plan
     }
+
+    pub fn import_audio_receipt(&mut self, receipt: AudioConsumerReceipt) -> Result<()> {
+        ensure(
+            matches!(self.state, AvState::Prepared | AvState::Running)
+                && self.reservation.is_none()
+                && !self.dispatched,
+            "audio receipt can only be imported between native dispatches",
+        )?;
+        ensure(
+            self.outputs.imported_audio.is_none(),
+            "audio consumer receipt is already pinned",
+        )?;
+        receipt.validate()?;
+        let b = &self.plan.body;
+        ensure(
+            receipt.project == b.audio
+                && receipt.project.owner == b.spec.owner
+                && receipt.cue_digest == b.spec.cues.digest()?,
+            "audio consumer receipt does not match the AV audio subplan",
+        )?;
+        let audio =
+            receipt.master.metadata.audio.as_ref().ok_or_else(|| {
+                Error::Invalid("audio consumer master lacks audio metadata".into())
+            })?;
+        ensure(
+            receipt.master.metadata.video.is_none()
+                && receipt.master.metadata.duration == b.spec.delivery.duration
+                && audio.sample_rate == b.spec.delivery.sample_rate
+                && audio.channels == b.spec.delivery.channels
+                && receipt.master.retention == Retention::PrivateCandidate
+                && receipt.verification.execution_status == ExecutionStatus::Completed,
+            "audio consumer receipt does not satisfy AV delivery/runtime requirements",
+        )?;
+        let handoff = receipt.handoff.as_ref().ok_or_else(|| {
+            Error::Unknown("audio consumer receipt is missing its artifact handoff hint".into())
+        })?;
+        handoff.validate()?;
+        ensure(
+            handoff.artifact_digest == receipt.master.sha256,
+            "audio consumer handoff does not bind the verified master",
+        )?;
+        let observed = &receipt.verification.validation.base;
+        observed.validate()?;
+        ensure(
+            observed.0.len() == b.audio.base.0.len() && receipt.master.source_state == *observed,
+            "audio consumer observation/base membership differs from its rendered master",
+        )?;
+        for expected in &b.audio.base.0 {
+            let actual = observed
+                .0
+                .iter()
+                .find(|state| state.key == expected.key)
+                .ok_or_else(|| Error::Stale("audio receipt omitted an AV base resource".into()))?;
+            ensure(
+                actual.document_id == expected.document_id
+                    && actual.provider_session == expected.provider_session
+                    && actual.generation == expected.generation
+                    && actual.concurrency == expected.concurrency,
+                "audio receipt changed resource identity/session/generation",
+            )?;
+        }
+        self.outputs.imported_audio = Some(receipt);
+        Ok(())
+    }
+
+    pub fn complete_imported_audio_stage(&mut self) -> Result<()> {
+        ensure(
+            matches!(self.state, AvState::Prepared | AvState::Running)
+                && self.reservation.is_none()
+                && !self.dispatched,
+            "imported audio stage conflicts with an active native dispatch",
+        )?;
+        self.budget()?;
+        let stage = self
+            .next_stage()
+            .ok_or_else(|| Error::Invalid("AV already terminal".into()))?;
+        ensure(
+            matches!(
+                stage,
+                Stage::ApplyAudio | Stage::RenderAudio | Stage::VerifyAudio
+            ),
+            "next AV stage is not satisfiable from the imported audio receipt",
+        )?;
+        let receipt = self.outputs.imported_audio.clone().ok_or_else(|| {
+            Error::Unknown("verified audio consumer receipt is not pinned".into())
+        })?;
+        match stage {
+            Stage::ApplyAudio => {
+                let observed = &receipt.verification.validation.base;
+                for actual in &observed.0 {
+                    let current = self
+                        .expected
+                        .0
+                        .iter_mut()
+                        .find(|state| state.key == actual.key)
+                        .ok_or_else(|| {
+                            Error::Stale("imported audio base resource is absent".into())
+                        })?;
+                    *current = actual.clone();
+                }
+                self.expected.validate()?;
+            }
+            Stage::RenderAudio => {
+                self.outputs.audio = Some(receipt.master.clone());
+            }
+            Stage::VerifyAudio => {
+                crate::model::require_verified(
+                    &receipt.verification,
+                    &self.plan.body.audio.required_rules,
+                    &[
+                        c::EvidenceSource::NativeApi,
+                        c::EvidenceSource::DecodedMedia,
+                    ],
+                )?;
+                ensure(
+                    receipt
+                        .verification
+                        .validation
+                        .checks
+                        .iter()
+                        .flat_map(|result| &result.evidence)
+                        .all(|evidence| evidence.artifact.as_ref() == Some(&receipt.master.sha256)),
+                    "imported audio verification is not bound to its master artifact",
+                )?;
+                self.outputs.audio_verification = Some(receipt.verification.clone());
+            }
+            _ => unreachable!(),
+        }
+        self.serial += 1;
+        self.ledger.push(LedgerEntry {
+            request_id: format!(
+                "imported-audio-{}-{}",
+                &self.plan.digest.as_str()[..16],
+                self.serial
+            ),
+            stage,
+            origin: CompletionOrigin::ImportedReceipt,
+            status: ExecutionStatus::Completed,
+            effects: vec![],
+        });
+        self.cursor += 1;
+        self.state = if self.cursor == Stage::ALL.len() {
+            AvState::Verified
+        } else {
+            AvState::Running
+        };
+        Ok(())
+    }
+
     fn budget(&mut self) -> Result<()> {
         if self.started.elapsed().as_millis() > u128::from(self.plan.body.budget.max_elapsed_ms)
             || self.serial >= u64::from(self.plan.body.budget.max_operations)
@@ -298,7 +462,8 @@ impl AvCoordinator {
                 profile: b.spec.delivery.clone(),
             },
             Stage::VerifyFinalAudio => StagePayload::VerifyFinalAudio {
-                artifact: o.encoded.clone().ok_or_else(missing)?,
+                artifact: o.decoded_final_audio.clone().ok_or_else(missing)?,
+                handoff: o.decoded_final_audio_handoff.clone().ok_or_else(missing)?,
                 required_rules: b.spec.required_final_audio_rules.clone(),
             },
             Stage::VerifySync => StagePayload::VerifySync {
@@ -369,6 +534,7 @@ impl AvCoordinator {
         self.ledger.push(LedgerEntry {
             request_id: call.request_id.clone(),
             stage: call.stage,
+            origin: CompletionOrigin::NativeDispatch,
             status: ExecutionStatus::Applying,
             effects: vec![],
         });
@@ -540,7 +706,7 @@ impl AvCoordinator {
                         ],
                     ),
                     _ => (
-                        self.outputs.encoded.as_ref(),
+                        self.outputs.decoded_final_audio.as_ref(),
                         &b.spec.required_final_audio_rules,
                         &self.plan.digest,
                         vec![c::EvidenceSource::DecodedMedia],
@@ -637,8 +803,17 @@ impl AvCoordinator {
                     self.outputs.audio_input = Some(input)
                 }
             }
-            (Stage::Mux, NativeResult::Encoded { artifact }) => {
+            (
+                Stage::Mux,
+                NativeResult::Encoded {
+                    artifact,
+                    decoded_audio,
+                    decoded_audio_handoff,
+                },
+            ) => {
                 artifact.validate()?;
+                decoded_audio.validate()?;
+                decoded_audio_handoff.validate()?;
                 ensure(
                     artifact.owner == *expected_owner
                         && artifact.source_plan == self.plan.digest
@@ -668,7 +843,32 @@ impl AvCoordinator {
                         && audio.channels == b.spec.delivery.channels,
                     "mux presentation duration or stream profile mismatch",
                 )?;
+                ensure(
+                    decoded_audio.owner == *expected_owner
+                        && decoded_audio.source_plan == self.plan.digest
+                        && decoded_audio.retention == Retention::PrivateCandidate
+                        && decoded_audio.metadata.video.is_none()
+                        && matches!(
+                            decoded_audio.media_type.as_str(),
+                            "audio/wav" | "audio/x-wav"
+                        )
+                        && decoded_audio_handoff.artifact_digest == decoded_audio.sha256,
+                    "post-encode decoded audio artifact/handoff mismatch",
+                )?;
+                let decoded_stream = decoded_audio.metadata.audio.as_ref().ok_or_else(|| {
+                    Error::Invalid("post-encode decoded WAV omitted audio metadata".into())
+                })?;
+                ensure(
+                    decoded_stream.sample_rate == b.spec.delivery.sample_rate
+                        && decoded_stream.channels == b.spec.delivery.channels
+                        && decoded_stream.sample_frames > 0
+                        && decoded_audio.dependencies.get("encoded-master")
+                            == Some(&artifact.sha256),
+                    "post-encode decoded WAV profile/provenance mismatch",
+                )?;
                 self.outputs.encoded = Some(artifact);
+                self.outputs.decoded_final_audio = Some(decoded_audio);
+                self.outputs.decoded_final_audio_handoff = Some(decoded_audio_handoff);
             }
             (Stage::VerifySync, NativeResult::SyncMeasured { probe }) => {
                 let artifact = self

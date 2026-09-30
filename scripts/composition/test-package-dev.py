@@ -16,7 +16,7 @@ SPEC.loader.exec_module(package)
 
 
 class DevelopmentPackageTests(unittest.TestCase):
-    def test_deterministic_bundle_verifies_and_keeps_audio_pending(self):
+    def test_deterministic_combined_bundle_verifies_source_lineage(self):
         with tempfile.TemporaryDirectory(prefix="composition-package-test-") as temp:
             root = Path(temp)
             first = root / "first.zip"
@@ -33,7 +33,7 @@ class DevelopmentPackageTests(unittest.TestCase):
             verified = package.verify(first)
             self.assertTrue(verified["valid"])
             self.assertEqual(verified["source_sha"], "a" * 40)
-            self.assertEqual(verified["audio_integration"], "pending-b-ready-handoff")
+            self.assertEqual(verified["audio_integration"], "certified-b-exact-sha")
 
             with zipfile.ZipFile(first) as archive:
                 metadata = json.loads(archive.read(package.GENERATED_METADATA))
@@ -41,7 +41,14 @@ class DevelopmentPackageTests(unittest.TestCase):
                 self.assertIn("docs/composition/DEMO_PRODUCTION_HANDOFF.md", paths)
                 self.assertIn("skills/semwright-video-production/SKILL.md", paths)
                 self.assertIn("skills/semwright-av-production/SKILL.md", paths)
+                self.assertIn("skills/semwright-audio-production/SKILL.md", paths)
+                self.assertIn("crates/audio-authoring/src/lib.rs", paths)
+                self.assertIn("crates/driver-faust-audio/src/driver.rs", paths)
+                self.assertIn("crates/driver-ardour-audio/src/driver.rs", paths)
                 self.assertIn("integrations/motion-canvas/runtime/package-lock.json", paths)
+                self.assertEqual(metadata["scope"], "combined-candidate")
+                self.assertEqual(metadata["composition_source_sha"], "34b850507c699c4f67056478210aa97e89bf7548")
+                self.assertEqual(metadata["audio_source_sha"], "8ed2d30c8ba797ebd5b8c102d34f8ab5bb3a28b3")
                 parts = {part for value in paths for part in Path(value).parts}
                 self.assertNotIn("target", parts)
                 self.assertNotIn("node_modules", parts)

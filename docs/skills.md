@@ -285,7 +285,8 @@ The repository ships a small curated set under `skills/`:
 - `semwright-driver-authoring`: semantic first-party driver design, security and conformance.
 - `semwright-figma-production`: first-party Figma semantic authoring loop (inspect/plan/apply/measure/validate/bounded repair/reverify), artifact tokens and limitations.
 - `semwright-video-production`: high-level Film authoring through Motion Canvas, exact temporal constraints, native render evidence, bounded repair and final-delivery handoff.
-- `semwright-av-production`: shared-cue Motion + audio coordination, verified mezzanine/mux, final decoded audio/sync verification and publication gating; it intentionally requires a public `audio + composition` capability before becoming satisfiable.
+- `semwright-audio-production`: typed audio-domain authoring with Faust, Ardour and native artifact analysis, including save/reopen and bounded repair.
+- `semwright-av-production`: shared-cue Motion + audio coordination, verified mezzanine/mux, final decoded audio/sync verification and publication gating. Audio planning uses the combined build's authority-free `semwright-audio-authoring` library; runtime requirements bind only to the real Faust/Ardour/analysis Broker capabilities.
 
 Each Skill keeps `SKILL.md` small and moves detail to `references/`. The video Skill does not claim that a Motion Canvas render is an encoded AV master; it explicitly hands final assembly and independent decode verification to the delivery layer.
 
@@ -311,7 +312,7 @@ schema examples, scaffold/export and deterministic bundles.
 On 2026-09-27 the five first-party Skills that existed at that time were checked with the open standard's
 reference `skills-ref validate` command from `agentskills/agentskills` commit
 `69ef37e9424c0a7ea9dd2293b559e43ec8176379`; those five reported `Valid skill`. This is
-static format evidence only. `semwright-video-production` and `semwright-av-production` were added later by the Composition/Media work and must obtain their own reference-validator evidence before the combined candidate is certified. The reference project describes `skills-ref` as a demonstration
+static format evidence only. `semwright-video-production`, `semwright-audio-production` and `semwright-av-production` were added after the original five-Skill validation snapshot and must obtain reference-validator evidence on the combined candidate before certification. The reference project describes `skills-ref` as a demonstration
 library, so Semwright does not elevate that result into a trust or live-client claim.
 
 The core integration suite also loads the official Workflow Distillation Skill, represents
