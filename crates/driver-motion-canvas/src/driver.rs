@@ -41,6 +41,10 @@ struct EmptyArgs {}
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct CreateArgs {
+    // The legacy wire remains deserialized into the complete Project and then
+    // passes project_valid(); the descriptor uses the bounded envelope so the
+    // Registry never recursively expands every nested authoring/node schema.
+    #[schemars(with = "ProjectInspectSchema")]
     project: Project,
     #[serde(default)]
     dry_run: bool,
