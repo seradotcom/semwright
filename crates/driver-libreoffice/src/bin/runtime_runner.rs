@@ -289,6 +289,7 @@ mod linux {
         child: Child,
         pgid: i32,
         session: PathBuf,
+        cleanup_session: bool,
     }
 
     impl OfficeChild {
@@ -298,13 +299,24 @@ mod linux {
             let _ = self.child.kill();
             let _ = self.child.wait();
         }
+
+        fn preserve_session_for_restart(&mut self) {
+            self.cleanup_session = false;
+        }
     }
 
     impl Drop for OfficeChild {
         fn drop(&mut self) {
             self.kill_and_wait();
-            let _ = fs::remove_dir_all(&self.session);
+            if self.cleanup_session {
+                let _ = fs::remove_dir_all(&self.session);
+            }
         }
+    }
+
+    enum StartupState {
+        Ready,
+        RestartRequested,
     }
 
     fn create_private_dir(path: &Path) -> io::Result<()> {
@@ -322,7 +334,7 @@ mod linux {
             .env("TMPDIR", session);
     }
 
-    fn spawn_office(runtime: &Path, soffice: &Path) -> io::Result<(OfficeChild, String)> {
+    fn create_session() -> io::Result<(PathBuf, String)> {
         if !Path::new("/etc/libreoffice").is_dir() || !Path::new("/etc/fonts").is_dir() {
             return Err(io::Error::new(
                 io::ErrorKind::PermissionDenied,
@@ -334,14 +346,22 @@ mod linux {
         for relative in ["home", "cache", "config", "data", "run", "profile"] {
             create_private_dir(&session.join(relative))?;
         }
+        Ok((session, unique_id().replace('-', "_")))
+    }
+
+    fn spawn_office_in_session(
+        runtime: &Path,
+        soffice: &Path,
+        session: &Path,
+        token: &str,
+    ) -> io::Result<OfficeChild> {
         let profile = session.join("profile");
         let log = OpenOptions::new()
-            .create_new(true)
-            .write(true)
+            .create(true)
+            .append(true)
             .mode(0o600)
             .open(session.join("soffice.log"))?;
         let log_err = log.try_clone()?;
-        let token = unique_id().replace('-', "_");
         let accept = format!("--accept=pipe,name={token};urp;StarOffice.ComponentContext");
         let profile_arg = format!("-env:UserInstallation=file://{}", profile.display());
         let program = runtime.join("program");
@@ -370,13 +390,14 @@ mod linux {
                 ),
             )
             .env("UNO_PATH", &program)
+            .env("SAL_ENABLE_FILE_LOCKING", "1")
             .env("SAL_USE_VCLPLUGIN", "svp")
             .env("FONTCONFIG_PATH", "/etc/fonts")
             .env("FONTCONFIG_FILE", "/etc/fonts/fonts.conf")
             .stdin(Stdio::null())
             .stdout(Stdio::from(log))
             .stderr(Stdio::from(log_err));
-        session_environment(&mut command, &session);
+        session_environment(&mut command, session);
         command.process_group(0);
         // SAFETY: pre_exec runs after fork; prctl uses scalar arguments only.
         unsafe {
@@ -389,14 +410,23 @@ mod linux {
         }
         let child = command.spawn()?;
         let pid = child.id();
-        Ok((
-            OfficeChild {
-                child,
-                pgid: pid as i32,
-                session,
-            },
-            token,
-        ))
+        Ok(OfficeChild {
+            child,
+            pgid: pid as i32,
+            session: session.to_path_buf(),
+            cleanup_session: true,
+        })
+    }
+
+    fn spawn_office(runtime: &Path, soffice: &Path) -> io::Result<(OfficeChild, String)> {
+        let (session, token) = create_session()?;
+        match spawn_office_in_session(runtime, soffice, &session, &token) {
+            Ok(office) => Ok((office, token)),
+            Err(error) => {
+                let _ = fs::remove_dir_all(&session);
+                Err(error)
+            }
+        }
     }
 
     fn python_env(command: &mut Command, runtime: &Path, session: &Path) {
@@ -497,10 +527,13 @@ mod linux {
         python: &Path,
         runtime: &Path,
         pipe: &str,
-    ) -> io::Result<()> {
+    ) -> io::Result<StartupState> {
         let deadline = Instant::now() + STARTUP_TIMEOUT;
         loop {
             if let Some(status) = office.child.try_wait()? {
+                if status.code() == Some(81) {
+                    return Ok(StartupState::RestartRequested);
+                }
                 let log = startup_log(&office.session);
                 return Err(io::Error::other(if log.is_empty() {
                     format!("LibreOffice exited during session startup: {status}")
@@ -515,7 +548,7 @@ mod linux {
                     .and_then(|value| value.get("ok").and_then(Value::as_bool))
                     == Some(true)
             {
-                return Ok(());
+                return Ok(StartupState::Ready);
             }
             if Instant::now() >= deadline {
                 let log = startup_log(&office.session);
@@ -581,7 +614,30 @@ mod linux {
         let soffice = runtime_soffice(&runtime, &sealed)?;
 
         let (mut office, pipe) = spawn_office(&runtime, &soffice)?;
-        wait_until_ready(&mut office, &python, &runtime, &pipe)?;
+        match wait_until_ready(&mut office, &python, &runtime, &pipe)? {
+            StartupState::Ready => {}
+            StartupState::RestartRequested => {
+                let session = office.session.clone();
+                office.preserve_session_for_restart();
+                drop(office);
+                let mut restarted =
+                    match spawn_office_in_session(&runtime, &soffice, &session, &pipe) {
+                        Ok(restarted) => restarted,
+                        Err(error) => {
+                            let _ = fs::remove_dir_all(&session);
+                            return Err(error);
+                        }
+                    };
+                match wait_until_ready(&mut restarted, &python, &runtime, &pipe)? {
+                    StartupState::Ready => office = restarted,
+                    StartupState::RestartRequested => {
+                        return Err(io::Error::other(
+                            "LibreOffice requested a second first-start restart",
+                        ));
+                    }
+                }
+            }
+        }
 
         let stdin = io::stdin();
         let stdout = io::stdout();
