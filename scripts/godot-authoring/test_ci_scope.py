@@ -7,6 +7,7 @@ from select_ci_scope import (
     certification_mode,
     host_lanes_for_changed_lines,
     select,
+    workflow_lanes_for_changed_lines,
 )
 
 
@@ -46,7 +47,7 @@ def main():
     )
     expect(
         [".github/workflows/godot-authoring.yml"],
-        set(LANES),
+        set(),
     )
     expect(
         ["crates/driver-host/src/lib.rs"],
@@ -66,6 +67,45 @@ async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {}
     assert host_lanes_for_changed_lines(host_source, {6}) == {"cross_app"}
     assert host_lanes_for_changed_lines(host_source, {1}) == set(HOST_EXTRA_LANES)
     assert host_lanes_for_changed_lines(host_source, set()) == set(HOST_EXTRA_LANES)
+
+    workflow_source = """name: test
+concurrency:
+  group: test
+jobs:
+  scope:
+    steps:
+      - name: Select scope
+        run: echo scope
+  godot-native-authoring:
+    steps:
+      - name: Native smoke
+        run: echo native
+      - name: D12 Blender replacement through Broker and Driver Host
+        run: echo d12
+  godot-persistence:
+    steps:
+      - name: Persistence
+        run: echo persistence
+"""
+    def line_of(source, needle):
+        return next(
+            line
+            for line, text in enumerate(source.splitlines(), 1)
+            if needle in text
+        )
+
+    assert workflow_lanes_for_changed_lines(
+        workflow_source, {line_of(workflow_source, "group: test")}
+    ) == set()
+    assert workflow_lanes_for_changed_lines(
+        workflow_source, {line_of(workflow_source, "run: echo native")}
+    ) == {"native"}
+    assert workflow_lanes_for_changed_lines(
+        workflow_source, {line_of(workflow_source, "run: echo d12")}
+    ) == {"native", "cross_app"}
+    assert workflow_lanes_for_changed_lines(
+        workflow_source, {line_of(workflow_source, "run: echo persistence")}
+    ) == {"persistence"}
 
     certified = select([], True)
     assert all(certified.values()), certified

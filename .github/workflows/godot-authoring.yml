@@ -156,6 +156,7 @@ jobs:
             fi
           done
       - name: Acquire pinned E Blender GLB evidence for D12
+        if: needs.scope.outputs.cross_app == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           E_SOURCE_SHA: d80471b9ceb828a2a531dfac9eaa4e970ea589a9
@@ -216,6 +217,7 @@ jobs:
               (evidence / name).write_bytes((root / name).read_bytes())
           PY2
       - name: D12 Blender replacement through Broker and Driver Host
+        if: needs.scope.outputs.cross_app == 'true'
         env:
           SEMWRIGHT_TEST_E_GLB: ${{ github.workspace }}/verification/godot-authoring/cross-app/articulated.glb
           SEMWRIGHT_TEST_D12_C_RECEIPT_OUT: ${{ github.workspace }}/verification/godot-authoring/cross-app/c-receipt.json

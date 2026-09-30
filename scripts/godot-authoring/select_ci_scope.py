@@ -13,6 +13,23 @@ from pathlib import Path
 
 LANES = ("model", "native", "persistence", "export", "hostile", "cross_app")
 HOST_FILE = "crates/driver-godot/tests/authoring_host.rs"
+WORKFLOW_FILE = ".github/workflows/godot-authoring.yml"
+WORKFLOW_JOB_LANES = {
+    "scope": frozenset(),
+    "godot-model": frozenset(("model",)),
+    "godot-native-authoring": frozenset(("native",)),
+    "godot-persistence": frozenset(("persistence",)),
+    "godot-export": frozenset(("export",)),
+    "godot-hostile": frozenset(("hostile",)),
+    "godot-cross-app-glb": frozenset(("cross_app",)),
+    "godot-source-package": frozenset(),
+}
+WORKFLOW_CROSS_APP_STEPS = frozenset(
+    (
+        "Acquire pinned E Blender GLB evidence for D12",
+        "D12 Blender replacement through Broker and Driver Host",
+    )
+)
 HOST_EXTRA_LANES = frozenset(("persistence", "export", "cross_app"))
 HOST_TEST_LANES = {
     "persistence_lane_reopens_in_fresh_process_and_preserves_dependencies": frozenset(("persistence",)),
@@ -30,9 +47,10 @@ HOST_NATIVE_ONLY_TESTS = frozenset(
 )
 RUST_FN = re.compile(r"^(?:async\s+)?fn\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(")
 HUNK = re.compile(r"^@@\s+-\d+(?:,\d+)?\s+\+(\d+)(?:,(\d+))?\s+@@")
+YAML_JOB = re.compile(r"^  ([A-Za-z0-9_-]+):\s*$")
+YAML_STEP = re.compile(r'^      - name:\s+["\']?(.+?)["\']?\s*$')
 
 ALL_PATTERNS = (
-    ".github/workflows/godot-authoring.yml",
     "Cargo.toml",
     "Cargo.lock",
     "crates/driver-godot/Cargo.toml",
@@ -162,6 +180,42 @@ def host_lanes_for_changed_lines(source: str, changed_lines: set[int]) -> set[st
     return lanes
 
 
+def yaml_named_spans(source: str, pattern: re.Pattern[str]) -> list[tuple[int, int, str]]:
+    starts: list[tuple[int, str]] = []
+    for line_number, line in enumerate(source.splitlines(), 1):
+        match = pattern.match(line)
+        if match:
+            starts.append((line_number, match.group(1)))
+    spans: list[tuple[int, int, str]] = []
+    last_line = max(1, len(source.splitlines()))
+    for index, (start, name) in enumerate(starts):
+        end = starts[index + 1][0] - 1 if index + 1 < len(starts) else last_line
+        spans.append((start, end, name))
+    return spans
+
+
+def workflow_lanes_for_changed_lines(source: str, changed_lines: set[int]) -> set[str]:
+    if not changed_lines:
+        return set(LANES)
+    job_spans = yaml_named_spans(source, YAML_JOB)
+    step_spans = yaml_named_spans(source, YAML_STEP)
+    lanes: set[str] = set()
+    for line in changed_lines:
+        job = owner_for_line(job_spans, line)
+        if job is None:
+            # Trigger/concurrency/default changes are scheduler-only; scope itself
+            # remains the executable validation for those edits.
+            continue
+        if job not in WORKFLOW_JOB_LANES:
+            return set(LANES)
+        lanes.update(WORKFLOW_JOB_LANES[job])
+        if job == "godot-native-authoring":
+            step = owner_for_line(step_spans, line)
+            if step in WORKFLOW_CROSS_APP_STEPS:
+                lanes.add("cross_app")
+    return lanes
+
+
 def changed_new_lines(base: str, head: str, path: str) -> set[int]:
     if not base or set(base) == {"0"}:
         return set()
@@ -196,8 +250,21 @@ def host_changed_lanes(base: str, head: str) -> set[str]:
     return host_lanes_for_changed_lines(source, changed_new_lines(base, head, HOST_FILE))
 
 
+def workflow_changed_lanes(base: str, head: str) -> set[str]:
+    try:
+        source = git("show", f"{head}:{WORKFLOW_FILE}")
+    except subprocess.CalledProcessError:
+        return set(LANES)
+    return workflow_lanes_for_changed_lines(
+        source, changed_new_lines(base, head, WORKFLOW_FILE)
+    )
+
+
 def select(
-    paths: list[str], certify: bool, host_extra_lanes: set[str] | None = None
+    paths: list[str],
+    certify: bool,
+    host_extra_lanes: set[str] | None = None,
+    workflow_extra_lanes: set[str] | None = None,
 ) -> dict[str, bool]:
     if certify:
         return {lane: True for lane in LANES}
@@ -212,6 +279,9 @@ def select(
 
     if HOST_FILE in paths:
         for lane in host_extra_lanes or ():
+            selected[lane] = True
+    if WORKFLOW_FILE in paths:
+        for lane in workflow_extra_lanes or ():
             selected[lane] = True
 
     # Cross-app always consumes native evidence from the same SHA.
@@ -291,7 +361,12 @@ def main() -> None:
         if not certify and HOST_FILE in paths
         else set()
     )
-    lanes = select(paths, certify, host_extra)
+    workflow_extra = (
+        workflow_changed_lanes(args.base, args.head)
+        if not certify and WORKFLOW_FILE in paths
+        else set()
+    )
+    lanes = select(paths, certify, host_extra, workflow_extra)
     report = {
         "schema_version": 1,
         "event": args.event,
@@ -301,6 +376,7 @@ def main() -> None:
         "certification_trigger": trigger,
         "changed_paths": paths,
         "host_extra_lanes": sorted(host_extra),
+        "workflow_extra_lanes": sorted(workflow_extra),
         "lanes": lanes,
     }
     report_path = Path(args.report)
