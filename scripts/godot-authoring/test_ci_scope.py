@@ -8,6 +8,7 @@ from select_ci_scope import (
     certification_mode,
     host_lanes_for_changed_lines,
     host_scenarios_for_changed_lines,
+    native_subgates,
     select,
     workflow_lanes_for_changed_lines,
 )
@@ -116,6 +117,23 @@ jobs:
     assert workflow_lanes_for_changed_lines(
         workflow_source, {line_of(workflow_source, "run: echo persistence")}
     ) == {"persistence"}
+
+    assert native_subgates(
+        ["crates/driver-godot/tests/authoring_host.rs"], False
+    ) == (False, False)
+    assert native_subgates(
+        ["integrations/godot/tests/scene_save_contract.gd"], False
+    ) == (True, False)
+    assert native_subgates(
+        ["crates/driver-godot/src/runner.rs"], False
+    ) == (False, True)
+    assert native_subgates(
+        ["crates/driver-host/src/lib.rs"], False
+    ) == (True, True)
+    assert native_subgates(
+        [".github/workflows/godot-authoring.yml"], False
+    ) == (True, True)
+    assert native_subgates([], True) == (True, True)
 
     certified = select([], True)
     assert all(certified.values()), certified

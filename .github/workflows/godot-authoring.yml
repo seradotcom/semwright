@@ -23,6 +23,8 @@ jobs:
       model: ${{ steps.scope.outputs.model }}
       native: ${{ steps.scope.outputs.native }}
       native_scenarios: ${{ steps.scope.outputs.native_scenarios }}
+      native_contracts: ${{ steps.scope.outputs.native_contracts }}
+      runner_contracts: ${{ steps.scope.outputs.runner_contracts }}
       persistence: ${{ steps.scope.outputs.persistence }}
       export: ${{ steps.scope.outputs.export }}
       hostile: ${{ steps.scope.outputs.hostile }}
@@ -272,6 +274,7 @@ jobs:
           PY2
 
       - name: "Native #171 readback and persistence contracts"
+        if: needs.scope.outputs.native_contracts == 'true'
         run: |
           set -euo pipefail
           fixture="$RUNNER_TEMP/godot-authoring-native-contracts"
@@ -289,6 +292,7 @@ jobs:
             fi
           done
       - name: Managed runner and native route contracts
+        if: needs.scope.outputs.runner_contracts == 'true'
         run: |
           cargo test --locked -p semwright-driver-godot --lib runner::tests:: -- --nocapture
           cargo test --locked -p semwright-driver-godot --test contracts             native_authoring_verification_is_code_execution_and_not_a_plain_runner -- --exact --nocapture

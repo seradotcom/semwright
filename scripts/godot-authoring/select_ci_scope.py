@@ -65,6 +65,21 @@ ALL_PATTERNS = (
     "crates/platform-linux-sys/**",
 )
 
+NATIVE_CONTRACT_PATTERNS = (
+    "integrations/godot/addons/semwright/**",
+    "integrations/godot/tests/readback_contract.gd",
+    "integrations/godot/tests/scene_save_contract.gd",
+)
+
+RUNNER_CONTRACT_PATTERNS = (
+    "crates/driver-godot/src/config.rs",
+    "crates/driver-godot/src/catalog.rs",
+    "crates/driver-godot/src/lib.rs",
+    "crates/driver-godot/src/runner.rs",
+    "crates/driver-godot/tests/contracts.rs",
+    "scripts/dev/ci-driver-bwrap-profile.sh",
+)
+
 RULES = {
     "model": (
         "crates/driver-godot/src/authoring/**",
@@ -343,6 +358,18 @@ def write_outputs(path: str, values: dict[str, str]) -> None:
             handle.write(f"{key}={value}\n")
 
 
+def native_subgates(paths: list[str], certify: bool) -> tuple[bool, bool]:
+    if certify:
+        return True, True
+    if any(matches(path, ALL_PATTERNS) for path in paths):
+        return True, True
+    if WORKFLOW_FILE in paths:
+        return True, True
+    native_contracts = any(matches(path, NATIVE_CONTRACT_PATTERNS) for path in paths)
+    runner_contracts = any(matches(path, RUNNER_CONTRACT_PATTERNS) for path in paths)
+    return native_contracts, runner_contracts
+
+
 def certification_mode(
     event: str, certify_requested: bool, expected_sha: str, head_sha: str
 ) -> tuple[bool, str | None]:
@@ -393,6 +420,10 @@ def main() -> None:
         else set()
     )
     lanes = select(paths, certify, host_extra, workflow_extra)
+    native_contracts, runner_contracts = native_subgates(paths, certify)
+    if not lanes["native"]:
+        native_contracts = False
+        runner_contracts = False
     if certify:
         native_scenarios = set(NATIVE_SCENARIOS)
     elif lanes["native"]:
@@ -427,6 +458,8 @@ def main() -> None:
         "native_scenarios": [
             scenario for scenario in NATIVE_SCENARIOS if scenario in native_scenarios
         ],
+        "native_contracts": native_contracts,
+        "runner_contracts": runner_contracts,
         "lanes": lanes,
     }
     report_path = Path(args.report)
@@ -438,6 +471,8 @@ def main() -> None:
         "native_scenarios": ",".join(
             scenario for scenario in NATIVE_SCENARIOS if scenario in native_scenarios
         ),
+        "native_contracts": str(native_contracts).lower(),
+        "runner_contracts": str(runner_contracts).lower(),
         **{lane: str(enabled).lower() for lane, enabled in lanes.items()},
     }
     write_outputs(args.github_output, values)
