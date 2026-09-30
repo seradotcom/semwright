@@ -172,6 +172,81 @@ jobs:
           assert value["media"]["streams"]
           PY
 
+          OUTER_ROOT="$RUNNER_TEMP/mlt-outer-created-scratch"
+          rm -rf "$OUTER_ROOT"
+          install -d -m 0700 "$OUTER_ROOT"
+          outer=(bwrap --die-with-parent --new-session --unshare-all --clearenv --cap-drop ALL
+            --proc /proc --dev /dev --tmpfs /tmp
+            --dir /home --dir /workspace
+            --ro-bind /usr /usr
+            --bind "$OUTER_ROOT" /workspace/scratch
+            --ro-bind "$GITHUB_WORKSPACE/crates/driver-mlt-video/fixtures/media/red.mkv" /workspace/red.mkv
+            --ro-bind "$GITHUB_WORKSPACE/crates/driver-mlt-video/fixtures/media/sine.wav" /workspace/sine.wav
+            --setenv HOME /home --setenv PATH /usr/bin:/bin --setenv LANG C.UTF-8
+            --chdir /tmp)
+          for root in /lib /lib64; do
+            [[ ! -e "$root" ]] || outer+=(--ro-bind "$root" "$root")
+          done
+          [[ ! -f /etc/ld.so.cache ]] || outer+=(--ro-bind /etc/ld.so.cache /etc/ld.so.cache)
+          [[ ! -d /etc/alternatives ]] || outer+=(--ro-bind /etc/alternatives /etc/alternatives)
+          outer+=(-- /usr/bin/bash -c '
+            set -euo pipefail
+            install -d -m 0700 /workspace/scratch/job-video /workspace/scratch/job-audio
+            cp /workspace/red.mkv /workspace/scratch/job-video/probe.bin
+            cp /workspace/sine.wav /workspace/scratch/job-audio/probe.bin
+            chmod 0400 /workspace/scratch/job-video/probe.bin /workspace/scratch/job-audio/probe.bin
+          ')
+          "${outer[@]}"
+          stat -c '%a %u:%g %n' "$OUTER_ROOT" "$OUTER_ROOT"/job-* "$OUTER_ROOT"/job-*/probe.bin \
+            | tee verification/mlt-runtime-tools/outer-created-scratch-stat.txt
+
+          run_outer_probe() {
+            local directory=$1
+            local output=$2
+            exec {OUTER_FFPROBE_FD}< "$FFPROBE_REAL"
+            local -a child=(bwrap --die-with-parent --new-session --unshare-all --clearenv --cap-drop ALL
+              --proc /proc --dev /dev --tmpfs /tmp
+              --dir /home --dir /workspace --dir /plugin --dir /plugin/tools
+              --dir /run --dir /run/secrets --dir /etc
+              --ro-bind /usr /usr
+              --ro-bind target/debug/semwright-mlt-runtime-runner /plugin/bin
+              --ro-bind target/debug/semwright-sandbox /plugin/sandbox
+              --ro-bind "$MLT_RUNTIME_ROOT" /workspace/mlt-runtime
+              --bind "$OUTER_ROOT" /workspace/scratch
+              --perms 0500 --file "$OUTER_FFPROBE_FD" /plugin/tools/ffprobe
+              --setenv HOME /home --setenv PATH /usr/bin:/bin --setenv LANG C.UTF-8
+              --setenv XDG_CACHE_HOME /tmp/cache --setenv XDG_CONFIG_HOME /tmp/config
+              --setenv XDG_DATA_HOME /tmp/data --setenv SEMWRIGHT_DRIVER_SANDBOX landlock-bwrap-v1
+              --chdir /tmp)
+            for root in /lib /lib64; do
+              [[ ! -e "$root" ]] || child+=(--ro-bind "$root" "$root")
+            done
+            [[ ! -f /etc/ld.so.cache ]] || child+=(--ro-bind /etc/ld.so.cache /etc/ld.so.cache)
+            [[ ! -d /etc/alternatives ]] || child+=(--ro-bind /etc/alternatives /etc/alternatives)
+            child+=(-- /plugin/sandbox
+              --limit-nofile 512 --limit-nproc 256 --limit-cpu 30
+              --limit-as 4294967296 --limit-fsize 1073741824
+              --read-root /workspace/scratch --write-root /workspace/scratch
+              --exec-root /workspace/mlt-runtime --exec-root /plugin/tools/ffprobe
+              -- /plugin/bin probe --runtime-root /workspace/mlt-runtime
+              --ffprobe-sealed /plugin/tools/ffprobe
+              --scratch-root /workspace/scratch
+              --directory "$directory" --name probe.bin)
+            "${child[@]}" > "$output"
+          }
+          run_outer_probe job-video verification/mlt-runtime-tools/outer-video-probe.json
+          run_outer_probe job-audio verification/mlt-runtime-tools/outer-audio-probe.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          video = json.loads(Path("verification/mlt-runtime-tools/outer-video-probe.json").read_text())
+          audio = json.loads(Path("verification/mlt-runtime-tools/outer-audio-probe.json").read_text())
+          assert video["operation"] == "probe"
+          assert video["media"]["streams"][0]["codec_type"] == "video"
+          assert audio["operation"] == "probe"
+          assert audio["media"]["streams"][0]["codec_type"] == "audio"
+          PY
+
           cargo test --locked -p semwright-mlt-video-driver real_mlt_video_driver_runs_inside_sandbox -- --ignored --nocapture \
             2>&1 | tee verification/mlt-runtime-tools/live.log
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
