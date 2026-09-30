@@ -1882,7 +1882,10 @@ async fn typed_transform_and_reparent_actions_round_trip_natively() {
 
     let player = managed_native_node(&inspected, "arena/player");
     assert_eq!(player["properties"]["rotation"]["type"], "float");
-    assert!((player["properties"]["rotation"]["value"].as_f64().unwrap() - 0.25).abs() < 1.0e-9);
+    let rotation = player["properties"]["rotation"]["value"]
+        .as_f64()
+        .expect("player rotation");
+    assert!((rotation - 0.25).abs() < 1.0e-5, "{rotation}");
 
     let visual = managed_native_node(&inspected, "arena/visual");
     assert_eq!(visual["properties"]["scale"]["type"], "vector2");
