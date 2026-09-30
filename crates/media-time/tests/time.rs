@@ -213,3 +213,187 @@ fn time_map_does_not_extrapolate() {
     assert_eq!(m.map(q(1, 1)).unwrap(), q(7, 2));
     assert!(m.map(q(2, 1)).is_err());
 }
+
+#[test]
+fn rational_checked_div_uses_reciprocal_exactly() {
+    assert_eq!(q(2, 3).checked_div(q(4, 5)).unwrap(), q(5, 6));
+    assert_eq!(q(-7, 9).checked_div(q(14, 3)).unwrap(), q(-1, 6));
+    assert!(q(1, 2).checked_div(Rational::ZERO).is_err());
+}
+
+#[test]
+fn time_map_version_size_and_axis_overlap_are_independent_constraints() {
+    let segment = || MapSegment {
+        source: Interval::new(q(0, 1), q(1, 1)).unwrap(),
+        target: Interval::new(q(10, 1), q(11, 1)).unwrap(),
+    };
+
+    let invalid_version = TimeMap {
+        version: 2,
+        segments: vec![segment()],
+    };
+    assert!(invalid_version.validate().is_err());
+
+    let empty = TimeMap {
+        version: 1,
+        segments: vec![],
+    };
+    assert!(empty.validate().is_err());
+
+    let too_many = TimeMap {
+        version: 1,
+        segments: (0..1025)
+            .map(|index| MapSegment {
+                source: Interval::new(q(index, 1), q(index + 1, 1)).unwrap(),
+                target: Interval::new(q(index + 2000, 1), q(index + 2001, 1)).unwrap(),
+            })
+            .collect(),
+    };
+    assert!(too_many.validate().is_err());
+
+    let source_overlap = TimeMap {
+        version: 1,
+        segments: vec![
+            MapSegment {
+                source: Interval::new(q(0, 1), q(2, 1)).unwrap(),
+                target: Interval::new(q(0, 1), q(1, 1)).unwrap(),
+            },
+            MapSegment {
+                source: Interval::new(q(1, 1), q(3, 1)).unwrap(),
+                target: Interval::new(q(1, 1), q(2, 1)).unwrap(),
+            },
+        ],
+    };
+    assert!(source_overlap.validate().is_err());
+
+    let target_overlap = TimeMap {
+        version: 1,
+        segments: vec![
+            MapSegment {
+                source: Interval::new(q(0, 1), q(1, 1)).unwrap(),
+                target: Interval::new(q(0, 1), q(2, 1)).unwrap(),
+            },
+            MapSegment {
+                source: Interval::new(q(1, 1), q(2, 1)).unwrap(),
+                target: Interval::new(q(1, 1), q(3, 1)).unwrap(),
+            },
+        ],
+    };
+    assert!(target_overlap.validate().is_err());
+
+    let adjacent = TimeMap {
+        version: 1,
+        segments: vec![
+            MapSegment {
+                source: Interval::new(q(0, 1), q(1, 1)).unwrap(),
+                target: Interval::new(q(10, 1), q(11, 1)).unwrap(),
+            },
+            MapSegment {
+                source: Interval::new(q(1, 1), q(2, 1)).unwrap(),
+                target: Interval::new(q(11, 1), q(12, 1)).unwrap(),
+            },
+        ],
+    };
+    adjacent.validate().unwrap();
+    assert_eq!(adjacent.map(q(1, 1)).unwrap(), q(11, 1));
+}
+
+#[test]
+fn cue_graph_version_size_and_cue_metadata_are_bounded_independently() {
+    let invalid_version = CueGraph {
+        version: 2,
+        cues: vec![cue("a", Anchor::Absolute { time: q(0, 1) })],
+    };
+    assert!(invalid_version.resolve().is_err());
+
+    let too_many = CueGraph {
+        version: 1,
+        cues: (0..513)
+            .map(|index| {
+                cue(
+                    &format!("cue-{index}"),
+                    Anchor::Absolute { time: q(index, 1) },
+                )
+            })
+            .collect(),
+    };
+    assert!(too_many.resolve().is_err());
+
+    let mut version_zero = cue("a", Anchor::Absolute { time: q(0, 1) });
+    version_zero.version = 0;
+    assert!(
+        CueGraph {
+            version: 1,
+            cues: vec![version_zero]
+        }
+        .resolve()
+        .is_err()
+    );
+
+    let mut excessive_confidence = cue("a", Anchor::Absolute { time: q(0, 1) });
+    excessive_confidence.confidence = Some(10001);
+    assert!(
+        CueGraph {
+            version: 1,
+            cues: vec![excessive_confidence]
+        }
+        .resolve()
+        .is_err()
+    );
+
+    let duplicate = CueGraph {
+        version: 1,
+        cues: vec![
+            cue("a", Anchor::Absolute { time: q(0, 1) }),
+            cue("a", Anchor::Absolute { time: q(2, 1) }),
+        ],
+    };
+    assert!(duplicate.resolve().is_err());
+}
+
+#[test]
+fn cue_after_requires_existing_reference_and_propagates_unknown_without_timestamp() {
+    let missing = CueGraph {
+        version: 1,
+        cues: vec![cue(
+            "b",
+            Anchor::After {
+                cue: "missing".into(),
+                offset: q(0, 1),
+            },
+        )],
+    };
+    assert!(missing.resolve().is_err());
+
+    let graph = CueGraph {
+        version: 1,
+        cues: vec![
+            cue(
+                "a",
+                Anchor::Unknown {
+                    reason: "unaligned".into(),
+                },
+            ),
+            cue(
+                "b",
+                Anchor::After {
+                    cue: "a".into(),
+                    offset: q(100, 1),
+                },
+            ),
+        ],
+    };
+    let resolved = graph.resolve().unwrap();
+    assert_eq!(
+        resolved["a"],
+        ResolvedCue::Unknown {
+            reason: "unaligned".into()
+        }
+    );
+    assert_eq!(
+        resolved["b"],
+        ResolvedCue::Unknown {
+            reason: "unaligned".into()
+        }
+    );
+}

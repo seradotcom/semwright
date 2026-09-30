@@ -316,3 +316,64 @@ mod tests {
         assert_eq!(rate.at(30).unwrap(), Rational::ONE);
     }
 }
+
+#[cfg(test)]
+mod error_mapping_tests {
+    use super::*;
+    use semwright_types::{Error as NativeError, ErrorCode};
+
+    #[test]
+    fn broker_error_classes_preserve_fail_closed_semantics() {
+        for code in [
+            ErrorCode::PolicyDenied,
+            ErrorCode::PermissionDenied,
+            ErrorCode::ConsentRequired,
+            ErrorCode::SandboxDenied,
+        ] {
+            assert!(matches!(
+                broker_error(NativeError::new(code, "denied")),
+                Error::Denied(_)
+            ));
+        }
+        for code in [ErrorCode::StaleReference, ErrorCode::Conflict] {
+            assert!(matches!(
+                broker_error(NativeError::new(code, "stale")),
+                Error::Stale(_)
+            ));
+        }
+        assert!(matches!(
+            broker_error(NativeError::new(ErrorCode::ResourceExhausted, "bounded")),
+            Error::Limit(_)
+        ));
+        for code in [ErrorCode::Cancelled, ErrorCode::Timeout] {
+            assert!(matches!(
+                broker_error(NativeError::new(code, "terminal")),
+                Error::Unknown(_)
+            ));
+            assert!(matches!(
+                broker_error(NativeError::new(code, "uncertain").uncertain()),
+                Error::Unknown(_)
+            ));
+        }
+        assert!(matches!(
+            broker_error(NativeError::new(ErrorCode::BackendFailed, "known failure")),
+            Error::Invalid(_)
+        ));
+        assert!(matches!(
+            broker_error(NativeError::new(ErrorCode::BackendFailed, "unknown failure").uncertain()),
+            Error::Unknown(_)
+        ));
+    }
+
+    #[test]
+    fn broker_error_sanitizes_control_characters_and_bounds_message() {
+        let raw = format!("start\n{}\tend", "x".repeat(700));
+        let mapped = broker_error(NativeError::new(ErrorCode::PolicyDenied, raw));
+        let Error::Denied(message) = mapped else {
+            panic!("policy denial must remain denied");
+        };
+        assert!(message.len() <= 512);
+        assert!(!message.chars().any(char::is_control));
+        assert!(message.starts_with("start"));
+    }
+}

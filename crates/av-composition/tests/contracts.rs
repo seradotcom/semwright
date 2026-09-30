@@ -763,3 +763,447 @@ fn audio_handoff_hint_is_path_data_not_authority_and_binds_master_digest() {
         .is_err()
     );
 }
+
+fn verification_report(
+    plan_digest: Digest,
+    rules: BTreeSet<String>,
+    source: EvidenceSource,
+    artifact: Digest,
+) -> c::VerificationReport {
+    let checks = rules
+        .iter()
+        .map(|rule| c::RuleResult {
+            rule: rule.clone(),
+            version: 1,
+            verdict: Verdict::Pass,
+            evidence_class: c::EvidenceClass::Deterministic,
+            evidence: vec![c::ObservationRef {
+                id: format!("obs-{rule}"),
+                base: base(),
+                source,
+                method: "fixture-native-read".into(),
+                method_version: 1,
+                scope: vec![],
+                artifact: Some(artifact.clone()),
+                exhaustive: true,
+            }],
+            reason: None,
+        })
+        .collect();
+    c::VerificationReport {
+        execution_status: ExecutionStatus::Completed,
+        validation: c::ValidationReport {
+            plan_digest,
+            base: base(),
+            required_rules: rules,
+            checks,
+        },
+        support_level: c::SupportLevel::Native,
+        effects_observed: vec![],
+        effects_unobservable: vec![],
+    }
+}
+
+fn encoded_artifact(plan: &AvPlan) -> t::MediaArtifact {
+    t::MediaArtifact {
+        reference: "artifact:encoded-master".into(),
+        owner: owner(),
+        sha256: digest("encoded-fixture"),
+        bytes: 1_000_000,
+        media_type: "video/mp4".into(),
+        source_plan: plan.digest.clone(),
+        source_state: base(),
+        metadata: t::MediaMetadata {
+            duration: q(3, 1),
+            encoded_duration: Some(q(3, 1)),
+            video: Some(t::VideoMetadata {
+                width: 640,
+                height: 360,
+                frame_rate: Rate::new(30, 1).unwrap(),
+                frames: 90,
+                alpha: false,
+            }),
+            audio: Some(t::AudioMetadata {
+                sample_rate: 48_000,
+                channels: 2,
+                channel_layout: "stereo".into(),
+                sample_frames: 144_000,
+                priming_samples: None,
+                padding_samples: None,
+                latency_samples: None,
+                tail_samples: None,
+            }),
+        },
+        dependencies: BTreeMap::from([
+            ("motion-artifact".into(), digest("motion-mezzanine")),
+            ("audio-artifact".into(), digest("audio-final-bytes")),
+        ]),
+        provenance: Some("synthetic encoded fixture".into()),
+        license: None,
+        retention: t::Retention::PrivateCandidate,
+    }
+}
+
+#[test]
+fn full_synthetic_av_graph_exercises_every_result_arm_before_ready() {
+    let plan = plan();
+    let motion = reusable_artifact(
+        "motion",
+        BTreeMap::from([("visual".into(), digest("visual-v1"))]),
+    );
+    let audio = audio_artifact();
+    let mut coordinator = AvCoordinator::new(plan.clone()).unwrap();
+    let mut request_ids = vec![];
+
+    let call = next(&mut coordinator);
+    request_ids.push(call.request_id.clone());
+    coordinator
+        .complete(receipt(
+            &call,
+            NativeResult::DeliveryPlanned {
+                profile_digest: c::canonical_digest(&plan.body.spec.delivery).unwrap(),
+            },
+        ))
+        .unwrap();
+    assert!(!coordinator.ready());
+
+    for result in [NativeResult::Applied, NativeResult::Applied] {
+        let call = next(&mut coordinator);
+        request_ids.push(call.request_id.clone());
+        coordinator.complete(receipt(&call, result)).unwrap();
+        assert!(!coordinator.ready());
+    }
+
+    let call = next(&mut coordinator);
+    request_ids.push(call.request_id.clone());
+    coordinator
+        .complete(receipt(
+            &call,
+            NativeResult::Rendered {
+                artifact: motion.clone(),
+            },
+        ))
+        .unwrap();
+
+    let call = next(&mut coordinator);
+    request_ids.push(call.request_id.clone());
+    coordinator
+        .complete(receipt(
+            &call,
+            NativeResult::Rendered {
+                artifact: audio.clone(),
+            },
+        ))
+        .unwrap();
+
+    let call = next(&mut coordinator);
+    request_ids.push(call.request_id.clone());
+    coordinator
+        .complete(receipt(
+            &call,
+            NativeResult::Verified {
+                artifact_digest: motion.sha256.clone(),
+                report: verification_report(
+                    plan.body.motion.plan_digest.clone(),
+                    plan.body.motion.required_rules.clone(),
+                    EvidenceSource::RendererState,
+                    motion.sha256.clone(),
+                ),
+            },
+        ))
+        .unwrap();
+
+    let call = next(&mut coordinator);
+    request_ids.push(call.request_id.clone());
+    coordinator
+        .complete(receipt(
+            &call,
+            NativeResult::Verified {
+                artifact_digest: audio.sha256.clone(),
+                report: verification_report(
+                    plan.body.audio.plan_digest.clone(),
+                    plan.body.audio.required_rules.clone(),
+                    EvidenceSource::NativeApi,
+                    audio.sha256.clone(),
+                ),
+            },
+        ))
+        .unwrap();
+
+    let motion_input = DeliveryInput {
+        token: "motion-input".into(),
+        source_digest: motion.sha256.clone(),
+        artifact_digest: digest("motion-mezzanine"),
+        owner: owner(),
+        metadata: motion.metadata.clone(),
+        operation: TransferKind::LosslessMezzanine,
+        verification: None,
+    };
+    let call = next(&mut coordinator);
+    request_ids.push(call.request_id.clone());
+    coordinator
+        .complete(receipt(
+            &call,
+            NativeResult::Transferred {
+                input: motion_input.clone(),
+            },
+        ))
+        .unwrap();
+
+    let audio_input = DeliveryInput {
+        token: "audio-input".into(),
+        source_digest: audio.sha256.clone(),
+        artifact_digest: audio.sha256.clone(),
+        owner: owner(),
+        metadata: audio.metadata.clone(),
+        operation: TransferKind::ByteCopy,
+        verification: None,
+    };
+    let call = next(&mut coordinator);
+    request_ids.push(call.request_id.clone());
+    coordinator
+        .complete(receipt(
+            &call,
+            NativeResult::Transferred {
+                input: audio_input.clone(),
+            },
+        ))
+        .unwrap();
+
+    let encoded = encoded_artifact(&plan);
+    let call = next(&mut coordinator);
+    request_ids.push(call.request_id.clone());
+    coordinator
+        .complete(receipt(
+            &call,
+            NativeResult::Encoded {
+                artifact: encoded.clone(),
+            },
+        ))
+        .unwrap();
+
+    let call = next(&mut coordinator);
+    request_ids.push(call.request_id.clone());
+    coordinator
+        .complete(receipt(
+            &call,
+            NativeResult::Verified {
+                artifact_digest: encoded.sha256.clone(),
+                report: verification_report(
+                    plan.digest.clone(),
+                    plan.body.spec.required_final_audio_rules.clone(),
+                    EvidenceSource::DecodedMedia,
+                    encoded.sha256.clone(),
+                ),
+            },
+        ))
+        .unwrap();
+
+    let call = next(&mut coordinator);
+    request_ids.push(call.request_id.clone());
+    coordinator
+        .complete(receipt(
+            &call,
+            NativeResult::SyncMeasured {
+                probe: probe(Q::ZERO),
+            },
+        ))
+        .unwrap();
+
+    let manifest = coordinator.manifest().unwrap();
+    let candidate = PublicationCandidate {
+        owner: owner(),
+        manifest_digest: c::canonical_digest(&manifest).unwrap(),
+        source_root: "candidate".into(),
+        source_path: "candidate.json".into(),
+        destination_root: "output".into(),
+        destination_path: "ready.json".into(),
+        bytes: 1024,
+    };
+    let call = next(&mut coordinator);
+    request_ids.push(call.request_id.clone());
+    coordinator
+        .complete(receipt(
+            &call,
+            NativeResult::PublicationPrepared {
+                candidate: candidate.clone(),
+            },
+        ))
+        .unwrap();
+    assert!(!coordinator.ready());
+
+    let call = next(&mut coordinator);
+    request_ids.push(call.request_id.clone());
+    coordinator
+        .complete(receipt(
+            &call,
+            NativeResult::Published {
+                manifest_digest: candidate.manifest_digest,
+                pointer: candidate.destination_path,
+            },
+        ))
+        .unwrap();
+
+    assert_eq!(coordinator.state(), AvState::Verified);
+    assert!(coordinator.ready());
+    assert_eq!(coordinator.next_stage(), None);
+    assert_eq!(request_ids.len(), Stage::ALL.len());
+    let unique = request_ids
+        .iter()
+        .collect::<std::collections::BTreeSet<_>>();
+    assert_eq!(unique.len(), Stage::ALL.len());
+    for (index, request) in request_ids.iter().enumerate() {
+        assert!(request.ends_with(&(index + 1).to_string()), "{request}");
+    }
+}
+
+#[test]
+fn native_receipt_binding_fields_are_independently_authenticated() {
+    enum Corruption {
+        Request,
+        Owner,
+        Plan,
+        Stage,
+        Proof,
+    }
+    for corruption in [
+        Corruption::Request,
+        Corruption::Owner,
+        Corruption::Plan,
+        Corruption::Stage,
+        Corruption::Proof,
+    ] {
+        let mut coordinator = AvCoordinator::new(plan()).unwrap();
+        let call = next(&mut coordinator);
+        let mut value = receipt(
+            &call,
+            NativeResult::DeliveryPlanned {
+                profile_digest: c::canonical_digest(&coordinator.plan().body.spec.delivery)
+                    .unwrap(),
+            },
+        );
+        match corruption {
+            Corruption::Request => value.request_id = "foreign-request".into(),
+            Corruption::Owner => value.owner.session = "foreign-session".into(),
+            Corruption::Plan => value.av_plan_digest = digest("foreign-plan"),
+            Corruption::Stage => value.stage = Stage::ApplyMotion,
+            Corruption::Proof => value.proof.generation += 1,
+        }
+        assert!(coordinator.complete(value).is_err());
+        assert_eq!(coordinator.state(), AvState::Unknown);
+        assert!(!coordinator.ready());
+    }
+}
+
+#[test]
+fn native_terminal_receipts_preserve_distinct_av_states() {
+    let cases = [
+        (ExecutionStatus::Denied, AvState::Denied),
+        (ExecutionStatus::Cancelled, AvState::Cancelled),
+        (ExecutionStatus::Partial, AvState::PartiallyApplied),
+        (ExecutionStatus::Unknown, AvState::Unknown),
+        (ExecutionStatus::Failed, AvState::Failed),
+    ];
+    for (status, expected) in cases {
+        let mut coordinator = AvCoordinator::new(plan()).unwrap();
+        let call = next(&mut coordinator);
+        let mut value = receipt(
+            &call,
+            NativeResult::DeliveryPlanned {
+                profile_digest: c::canonical_digest(&coordinator.plan().body.spec.delivery)
+                    .unwrap(),
+            },
+        );
+        value.status = status;
+        value.result = None;
+        assert!(coordinator.complete(value).is_err(), "{status:?}");
+        assert_eq!(coordinator.state(), expected, "{status:?}");
+        assert!(!coordinator.ready());
+    }
+}
+
+#[test]
+fn read_only_stage_cannot_change_even_its_own_provider_resource() {
+    let mut coordinator = AvCoordinator::new(plan()).unwrap();
+    let call = next(&mut coordinator);
+    let mut value = receipt(
+        &call,
+        NativeResult::DeliveryPlanned {
+            profile_digest: c::canonical_digest(&coordinator.plan().body.spec.delivery).unwrap(),
+        },
+    );
+    let delivery = value
+        .observed_base
+        .0
+        .iter_mut()
+        .find(|state| state.key.provider == "fixture:delivery")
+        .unwrap();
+    delivery.revision = Revision::Counter(2);
+    assert!(coordinator.complete(value).is_err());
+    assert_eq!(coordinator.state(), AvState::Unknown);
+}
+
+#[test]
+fn sync_boundaries_are_inclusive_and_confidence_floor_is_exact() {
+    let spec = sync();
+
+    let mut exact_offset = probe(spec.max_offset);
+    exact_offset.flashes = detections(Q::ZERO);
+    let report = verify_sync(&spec, &exact_offset).unwrap();
+    assert_eq!(report.verdict, Verdict::Pass);
+
+    let mut exact_confidence = probe(Q::ZERO);
+    for detection in exact_confidence
+        .flashes
+        .iter_mut()
+        .chain(exact_confidence.impulses.iter_mut())
+    {
+        detection.confidence = spec.confidence_floor;
+    }
+    assert_eq!(
+        verify_sync(&spec, &exact_confidence).unwrap().verdict,
+        Verdict::Pass
+    );
+
+    let mut below = exact_confidence;
+    below.impulses[0].confidence = spec.confidence_floor - 1;
+    assert_eq!(
+        verify_sync(&spec, &below).unwrap().verdict,
+        Verdict::Unknown
+    );
+}
+
+#[test]
+fn sync_spec_validates_collection_order_tolerance_and_confidence_boundaries() {
+    let mut value = sync();
+    value.confidence_floor = 10_000;
+    value.max_offset = Q::ONE;
+    value.max_drift = Q::ONE;
+    value.max_cue_error = Q::ONE;
+    value.validate().unwrap();
+
+    let mut invalid = value.clone();
+    invalid.confidence_floor = 10_001;
+    assert!(invalid.validate().is_err());
+
+    let mut invalid = value.clone();
+    invalid.cues.clear();
+    assert!(invalid.validate().is_err());
+
+    let mut invalid = value.clone();
+    invalid.cues = (0..513)
+        .map(|index| SyncCue {
+            id: format!("cue-{index}"),
+            expected_time: q(index, 1),
+        })
+        .collect();
+    assert!(invalid.validate().is_err());
+
+    let mut invalid = value.clone();
+    invalid.cues[1].expected_time = invalid.cues[0].expected_time;
+    assert!(invalid.validate().is_err());
+
+    let mut invalid = value;
+    invalid.max_offset = q(1001, 1000);
+    assert!(invalid.validate().is_err());
+}
