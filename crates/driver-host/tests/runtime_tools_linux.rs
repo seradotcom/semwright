@@ -317,6 +317,22 @@ async fn linux_v7_runtime_tool_paths_are_mount_and_dependency_scoped() {
     assert_eq!(output["read_ok"], false);
     assert_eq!(output["stdout"], "tool-ok|path=allowed|dependency=tool-ok");
 
+    let repeated = call(
+        "linux-v7-typed-success-repeat",
+        serde_json::json!({
+            "path_mount":"tool-workspace",
+            "path_relative":"",
+            "dependency":"helper"
+        }),
+    )
+    .await
+    .expect("the same sealed dependency must be reusable with a fresh file offset");
+    assert_eq!(repeated["exit_code"], 0);
+    assert_eq!(
+        repeated["stdout"],
+        "tool-ok|path=allowed|dependency=tool-ok"
+    );
+
     let mount_error = call(
         "linux-v7-typed-mount-denied",
         serde_json::json!({
