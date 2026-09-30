@@ -16,7 +16,7 @@ fn fixture() -> GodotAuthoringSpec {
 
 fn glb_json_only(value: serde_json::Value) -> Vec<u8> {
     let mut json = serde_json::to_vec(&value).unwrap();
-    while json.len() % 4 != 0 {
+    while !json.len().is_multiple_of(4) {
         json.push(b' ');
     }
     let total = 20 + json.len();
