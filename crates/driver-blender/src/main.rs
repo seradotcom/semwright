@@ -1663,6 +1663,7 @@ impl Driver for BlenderDriver {
                         | ErrorCode::ProtocolMismatch
                         | ErrorCode::Timeout
                         | ErrorCode::Cancelled
+                        | ErrorCode::NotFound
                 ) =>
             {
                 self.sessions.remove(&context.session);
