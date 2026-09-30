@@ -988,7 +988,7 @@ async fn hard_surface_and_product_scene_author_through_semwright() {
             fixture
                 .call(
                     "render.settings",
-                    json!({"width":64,"height":64,"engine":"BLENDER_EEVEE_NEXT"}),
+                    json!({"width":64,"height":64,"samples":1,"engine":"CYCLES"}),
                 )
                 .await;
             let rendered = fixture
