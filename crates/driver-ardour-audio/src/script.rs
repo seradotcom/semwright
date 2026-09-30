@@ -448,11 +448,16 @@ local function samples(v)
   return tonumber(v) or 0
 end
 
+local function round_nearest(v)
+  if v >= 0 then return math.floor(v + 0.5) end
+  return math.ceil(v - 0.5)
+end
+
 local function db_milli_from_coeff(v)
   v = tonumber(v) or 0
   if v <= 0 then return -120000 end
   local db = 20.0 * math.log(v) / math.log(10.0)
-  local milli = math.floor(db * 1000.0 + (db >= 0 and 0.5 or -0.5))
+  local milli = round_nearest(db * 1000.0)
   if milli < -120000 then milli = -120000 end
   if milli > 24000 then milli = 24000 end
   return milli
@@ -463,8 +468,7 @@ local function micro(v)
   if not v or v ~= v or v > 1000000000.0 or v < -1000000000.0 then
     error("native numeric value is outside bounded range")
   end
-  local scaled = v * 1000000.0
-  return math.floor(scaled + (scaled >= 0 and 0.5 or -0.5))
+  return round_nearest(v * 1000000.0)
 end
 
 local function object_id(value)
@@ -1156,10 +1160,17 @@ mod tests {
         assert!(
             source().contains("if status ~= 0 then error(\"route group member add failed\") end")
         );
-        assert!(
-            source()
-                .contains("if status ~= 0 then error(\"route group member remove failed\") end")
-        );
+        assert!(source()
+            .contains("if status ~= 0 then error(\"route group member remove failed\") end"));
+    }
+
+    #[test]
+    fn native_numeric_rounding_is_symmetric() {
+        let adapter = source();
+        assert!(adapter.contains("local function round_nearest(v)"));
+        assert!(adapter.contains("return math.ceil(v - 0.5)"));
+        assert!(!adapter.contains("scaled >= 0 and 0.5 or -0.5"));
+        assert!(!adapter.contains("db >= 0 and 0.5 or -0.5"));
     }
 
     #[test]
@@ -1169,39 +1180,31 @@ mod tests {
             vec!["master_create".to_string(), "2".to_string()]
         );
         assert!(NativeMutation::MasterCreate { channels: 0 }.argv().is_err());
-        assert!(
-            NativeMutation::MasterCreate { channels: 65 }
-                .argv()
-                .is_err()
-        );
+        assert!(NativeMutation::MasterCreate { channels: 65 }
+            .argv()
+            .is_err());
     }
 
     #[test]
     fn mutation_arguments_are_bounded() {
-        assert!(
-            NativeMutation::RouteRemove {
-                route_id: "../bad".into()
-            }
-            .argv()
-            .is_err()
-        );
-        assert!(
-            NativeMutation::RoutePan {
-                route_id: "r1".into(),
-                pan_milli: 1001
-            }
-            .argv()
-            .is_err()
-        );
-        assert!(
-            NativeMutation::ClipTrim {
-                region_id: "c1".into(),
-                source_start: u64::MAX,
-                length: 2
-            }
-            .argv()
-            .is_err()
-        );
+        assert!(NativeMutation::RouteRemove {
+            route_id: "../bad".into()
+        }
+        .argv()
+        .is_err());
+        assert!(NativeMutation::RoutePan {
+            route_id: "r1".into(),
+            pan_milli: 1001
+        }
+        .argv()
+        .is_err());
+        assert!(NativeMutation::ClipTrim {
+            region_id: "c1".into(),
+            source_start: u64::MAX,
+            length: 2
+        }
+        .argv()
+        .is_err());
     }
 
     #[test]
