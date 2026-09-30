@@ -1076,6 +1076,37 @@ async fn empty_project_authoring_flows_through_broker_driver_host_and_provider()
     .await;
     assert_eq!(validated3["success"], true);
 
+    let foreign = broker
+        .clone()
+        .execute(
+            unique_id(),
+            unique_id(),
+            ExecuteRequest {
+                command: "driver.godot.composition.apply".into(),
+                args: json!({"plan_id":plan_id}),
+                dry_run: false,
+                backend: None,
+            },
+            CancellationToken::new(),
+        )
+        .await;
+    assert!(!foreign.ok, "{foreign:?}");
+    assert_eq!(
+        foreign.error.unwrap().code,
+        semwright_types::ErrorCode::PermissionDenied
+    );
+
+    broker.remove_provider("driver:godot").await.unwrap();
+    Provider::shutdown(provider.as_ref()).await.unwrap();
+}
+
+#[tokio::test]
+#[ignore = "requires bubblewrap/Landlock sandbox helper and pinned Godot"]
+async fn native_animation_paging_is_snapshot_bound_and_complete() {
+    let host = hosted_authoring("godot-authoring-native-paging").await;
+    let broker = host.broker.clone();
+    let session = host.session.clone();
+
     let paging_spec: Value =
         serde_json::from_slice(include_bytes!("fixtures/authoring/paging.json")).unwrap();
     let paging_plan = broker_call(
@@ -1225,28 +1256,7 @@ async fn empty_project_authoring_flows_through_broker_driver_host_and_provider()
     assert_eq!(second_keys["page"]["keys"][5]["index"], 69);
     assert!(second_keys["page"]["next_cursor"].is_null());
 
-    let foreign = broker
-        .clone()
-        .execute(
-            unique_id(),
-            unique_id(),
-            ExecuteRequest {
-                command: "driver.godot.composition.apply".into(),
-                args: json!({"plan_id":plan_id}),
-                dry_run: false,
-                backend: None,
-            },
-            CancellationToken::new(),
-        )
-        .await;
-    assert!(!foreign.ok, "{foreign:?}");
-    assert_eq!(
-        foreign.error.unwrap().code,
-        semwright_types::ErrorCode::PermissionDenied
-    );
-
-    broker.remove_provider("driver:godot").await.unwrap();
-    Provider::shutdown(provider.as_ref()).await.unwrap();
+    shutdown_hosted(host).await;
 }
 
 #[tokio::test]

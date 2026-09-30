@@ -33,6 +33,7 @@ HOST_EXTRA_LANES = frozenset(("native", "persistence", "export", "cross_app"))
 NATIVE_SCENARIOS = (
     "driver_host_handshake_control_reaches_capabilities",
     "empty_project_authoring_flows_through_broker_driver_host_and_provider",
+    "native_animation_paging_is_snapshot_bound_and_complete",
     "animation_tree_state_machine_and_blend_space_round_trip_natively",
     "shared_and_local_to_scene_materials_are_native_and_isolated",
     "typed_transform_and_reparent_actions_round_trip_natively",
