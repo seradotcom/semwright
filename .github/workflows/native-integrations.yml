@@ -242,6 +242,7 @@ jobs:
       - name: Build LibreOffice driver surface
         run: |
           cargo build --locked -p semwright-driver-libreoffice --bin semwright-libreoffice-driver \
+            --bin semwright-libreoffice-runtime-runner \
             -p semwright-plugin-host --bin semwright-sandbox \
             -p semwright-cli --bin semwright \
             -p semwright-daemon --bin semwrightd

@@ -6,9 +6,10 @@ BIN_DIR=${BIN_DIR:-"$ROOT/target/debug"}
 DAEMON="$BIN_DIR/semwrightd"
 CTL="$BIN_DIR/semwright"
 DRIVER="$BIN_DIR/semwright-libreoffice-driver"
+RUNNER="$BIN_DIR/semwright-libreoffice-runtime-runner"
 SANDBOX="$BIN_DIR/semwright-sandbox"
 
-for file in "$DAEMON" "$CTL" "$DRIVER" "$SANDBOX"; do
+for file in "$DAEMON" "$CTL" "$DRIVER" "$RUNNER" "$SANDBOX"; do
   test -x "$file" || { echo "missing executable: $file" >&2; exit 2; }
 done
 for command in bwrap soffice python3 unzip; do
@@ -34,8 +35,15 @@ export XDG_STATE_HOME="$TMP/state"
 export HOME="$TMP/home"
 
 cp "$DRIVER" "$TMP/driver"
-chmod 700 "$TMP/driver"
+cp "$RUNNER" "$TMP/libreoffice-runtime-runner"
+chmod 700 "$TMP/driver" "$TMP/libreoffice-runtime-runner"
 sha=$(sha256sum "$TMP/driver" | awk '{print $1}')
+runner_sha=$(sha256sum "$TMP/libreoffice-runtime-runner" | awk '{print $1}')
+runtime_root=$(realpath /usr/lib/libreoffice)
+soffice_bin=$(realpath /usr/lib/libreoffice/program/soffice.bin)
+python_bin=$(realpath /usr/bin/python3)
+soffice_sha=$(sha256sum "$soffice_bin" | awk '{print $1}')
+python_sha=$(sha256sum "$python_bin" | awk '{print $1}')
 version=$(python3 - "$ROOT/Cargo.toml" <<'PY'
 import sys, tomllib
 with open(sys.argv[1], "rb") as handle:
@@ -46,7 +54,7 @@ PY
 cat > "$TMP/driver.json" <<JSON
 {
   "manifest_version": 1,
-  "protocol": 1,
+  "protocol": 8,
   "id": "libreoffice",
   "version": "$version",
   "publisher": "semwright",
@@ -59,26 +67,49 @@ cat > "$TMP/driver.json" <<JSON
   },
   "transport": "stdio_v1",
   "mounts": [
-    {"root": "workspace", "read_only": false}
+    {"root": "workspace", "read_only": false},
+    {"root": "libreoffice-runtime", "read_only": true, "execute": true}
   ],
   "system_config": [
     {"root": "libreoffice-config", "destination": "/etc/libreoffice"},
     {"root": "font-config", "destination": "/etc/fonts"}
+  ],
+  "tools": [
+    {
+      "root": "libreoffice-session-runner-tool",
+      "name": "libreoffice-session-runner",
+      "sha256": "$runner_sha",
+      "mounts": ["workspace", "libreoffice-runtime"],
+      "system_config": ["libreoffice-config", "font-config"],
+      "dependencies": ["soffice-bin", "python3"]
+    },
+    {
+      "root": "libreoffice-soffice-tool",
+      "name": "soffice-bin",
+      "sha256": "$soffice_sha"
+    },
+    {
+      "root": "libreoffice-python-tool",
+      "name": "python3",
+      "sha256": "$python_sha"
+    }
   ],
   "network": false,
   "resources": {
     "open_files": 128,
     "processes": 32,
     "cpu_seconds": 120,
+    "operation_cpu_seconds": 0,
     "address_space_bytes": 2147483648,
     "file_size_bytes": 16777216
   },
   "request_timeout_ms": 30000,
   "interfaces": {
     "dynamic_capabilities": false,
-    "cooperative_cancellation": false,
+    "cooperative_cancellation": true,
     "events": false,
-    "health": true
+    "health": true,
+    "host_tools": true
   }
 }
 JSON
@@ -97,6 +128,30 @@ name = "workspace"
 path = "$TMP/documents"
 read = true
 write = true
+
+[[policy.filesystem]]
+name = "libreoffice-runtime"
+path = "$runtime_root"
+read = true
+write = false
+
+[[policy.filesystem]]
+name = "libreoffice-session-runner-tool"
+path = "$TMP/libreoffice-runtime-runner"
+read = true
+write = false
+
+[[policy.filesystem]]
+name = "libreoffice-soffice-tool"
+path = "$soffice_bin"
+read = true
+write = false
+
+[[policy.filesystem]]
+name = "libreoffice-python-tool"
+path = "$python_bin"
+read = true
+write = false
 
 [[policy.filesystem]]
 name = "libreoffice-config"

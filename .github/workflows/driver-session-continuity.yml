@@ -203,17 +203,21 @@ jobs:
               assert data.get("loopback_port") is None, (path, "unexpected loopback bridge")
               print(f"{path}: stdio_v1 host continuity")
 
-          # LibreOffice is a first-party Driver SDK binary without a standalone
-          # manifest example in this crate. It is hosted over Driver stdio and
-          # owns a bounded local UNO subprocess/pipe internally.
+          # LibreOffice remains a first-party Driver SDK binary, but its persistent
+          # UNO runtime is now a protocol-v8 Host-owned session. The application
+          # driver must not spawn Python, soffice or a shell itself.
           libreoffice = Path("crates/driver-libreoffice/src/main.rs").read_text()
+          runner = Path("crates/driver-libreoffice/src/bin/runtime_runner.rs").read_text()
           assert "serve(driver).await" in libreoffice
-          assert "timeout(deadline, child.wait_with_output())" in libreoffice
-          assert "Command::new(SYSTEM_SHELL)" in libreoffice
-          assert ".arg(SOFFICE)" in libreoffice
-          assert ".kill_on_drop(true)" in libreoffice
-          assert "for _ in 0..120" in libreoffice
-          print("crates/driver-libreoffice: Driver SDK stdio + bounded local UNO process")
+          assert "start_runtime_tool_session_args" in libreoffice
+          assert "runtime_tool_session_request" in libreoffice
+          assert "Command::new(" not in libreoffice
+          assert "/usr/bin/python3" not in libreoffice
+          assert "/usr/bin/soffice" not in libreoffice
+          assert "/usr/bin/sh" not in libreoffice
+          assert 'Command::new(soffice)' in runner
+          assert 'Command::new(python)' in runner
+          print("crates/driver-libreoffice: Driver SDK stdio + Host-owned v8 UNO session")
           PY
       - name: Type and unit regression
         run: |
