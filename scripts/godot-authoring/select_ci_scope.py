@@ -6,7 +6,6 @@ from __future__ import annotations
 import argparse
 import fnmatch
 import json
-import os
 import re
 import subprocess
 from pathlib import Path
@@ -80,6 +79,12 @@ RUNNER_CONTRACT_PATTERNS = (
     "scripts/dev/ci-driver-bwrap-profile.sh",
 )
 
+NATIVE_SCENARIO_FREE_PATTERNS = (
+    "crates/driver-godot/tests/contracts.rs",
+    "integrations/godot/tests/readback_contract.gd",
+    "integrations/godot/tests/scene_save_contract.gd",
+)
+
 RULES = {
     "model": (
         "crates/driver-godot/src/authoring/**",
@@ -88,7 +93,6 @@ RULES = {
         "crates/driver-godot/tests/authoring.rs",
         "crates/driver-godot/tests/authoring_profile.rs",
         "crates/driver-godot/tests/authoring_store.rs",
-        "crates/driver-godot/tests/contracts.rs",
         "crates/driver-godot/tests/fixtures/authoring/**",
         "scripts/godot-authoring/ci.py",
         "scripts/godot-authoring/collector.py",
@@ -135,7 +139,6 @@ RULES = {
         "crates/driver-godot/tests/authoring_fuzz.rs",
         "crates/driver-godot/tests/authoring_native.rs",
         "crates/driver-godot/tests/authoring_store.rs",
-        "crates/driver-godot/tests/contracts.rs",
         "integrations/godot/authoring/**",
     ),
     "cross_app": (
@@ -370,6 +373,33 @@ def native_subgates(paths: list[str], certify: bool) -> tuple[bool, bool]:
     return native_contracts, runner_contracts
 
 
+def native_scenarios_for_selection(
+    paths: list[str],
+    certify: bool,
+    host_scenarios: set[str] | None = None,
+    workflow_extra_lanes: set[str] | None = None,
+) -> set[str]:
+    if certify:
+        return set(NATIVE_SCENARIOS)
+
+    workflow_extra_lanes = workflow_extra_lanes or set()
+    if WORKFLOW_FILE in paths and "native" in workflow_extra_lanes:
+        return set(NATIVE_SCENARIOS)
+
+    product_native = any(
+        path not in (HOST_FILE, WORKFLOW_FILE)
+        and not matches(path, NATIVE_SCENARIO_FREE_PATTERNS)
+        and (matches(path, ALL_PATTERNS) or matches(path, RULES["native"]))
+        for path in paths
+    )
+    if product_native:
+        return set(NATIVE_SCENARIOS)
+
+    if HOST_FILE in paths:
+        return set(host_scenarios or ())
+    return set()
+
+
 def certification_mode(
     event: str, certify_requested: bool, expected_sha: str, head_sha: str
 ) -> tuple[bool, str | None]:
@@ -424,25 +454,18 @@ def main() -> None:
     if not lanes["native"]:
         native_contracts = False
         runner_contracts = False
-    if certify:
-        native_scenarios = set(NATIVE_SCENARIOS)
-    elif lanes["native"]:
-        non_host_native = any(
-            path != HOST_FILE
-            and (
-                matches(path, ALL_PATTERNS)
-                or matches(path, RULES["native"])
-                or path == WORKFLOW_FILE
-            )
-            for path in paths
+    if lanes["native"]:
+        host_scenarios = (
+            host_changed_scenarios(args.base, args.head)
+            if not certify and HOST_FILE in paths
+            else set()
         )
-        native_scenarios = (
-            set(NATIVE_SCENARIOS)
-            if non_host_native
-            else host_changed_scenarios(args.base, args.head)
+        native_scenarios = native_scenarios_for_selection(
+            paths,
+            certify,
+            host_scenarios=host_scenarios,
+            workflow_extra_lanes=workflow_extra,
         )
-        if not native_scenarios:
-            native_scenarios = set(NATIVE_SCENARIOS)
     else:
         native_scenarios = set()
     report = {

@@ -16,7 +16,7 @@ Inspect runs with:
     gh run list --repo seradotcom/semwright --workflow "Godot semantic authoring diagnostics" --branch feat/godot-semantic-authoring --limit 5 --json databaseId,headSha,status,conclusion,url
     gh run view RUN_ID --repo seradotcom/semwright --json headSha,status,conclusion,jobs,url
 
-For a failed iteration job, read only that affected job log, identify step/test/source SHA, fix the concrete cause, and let the next push select the necessary lanes. Do not run the full matrix merely to debug an isolated model/native/persistence/export/hostile change. For the integration candidate, do not accept prior green iteration jobs from other SHAs as substitutes: the exact certification run must carry all final gates and package evidence on one SHA.
+For a failed iteration job, read only that affected job log, identify step/test/source SHA, fix the concrete cause, and let the next push select the necessary lanes. Do not run the full matrix merely to debug an isolated model/native/persistence/export/hostile change. Native itself is subscoped: a contracts-only change may run only the runner/contracts Rust subgate, a #171 fixture change may run only the direct Godot contract subgate, and an authoring_host scenario edit runs only the affected scenario; Godot install/sandbox are skipped when those subgates do not require them. For the integration candidate, do not accept prior green iteration jobs from other SHAs as substitutes: the exact certification run must carry all final gates and package evidence on one SHA.
 
 ## Native product acceptance
 
