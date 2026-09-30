@@ -27,6 +27,7 @@ semwright-backend-api.workspace = true
 semwright-core.workspace = true
 semwright-driver-host.workspace = true
 semwright-policy.workspace = true
+semwright-registry.workspace = true
 semwright-platform-common.workspace = true
 sha2.workspace = true
 tempfile.workspace = true

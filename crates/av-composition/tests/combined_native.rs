@@ -25,6 +25,7 @@ use semwright_motion_authoring::Film;
 use semwright_platform_common::{artifact::ArtifactHandoff, filesystem::Filesystem};
 use semwright_policy::{FilesystemGrant, Policy, PolicyConfig};
 use semwright_recipes::Executor;
+use semwright_registry::{Metadata, Registry};
 use semwright_semantic_composition::{
     BaseState, BaseStateSet, CapabilityBinding, Concurrency, ConvergenceBudget, Digest,
     EffectClass, ExecutionStatus, Owner, Phase, ResourceKey, Revision, SupportLevel, Verdict,
@@ -530,13 +531,29 @@ impl Harness {
         )
         .unwrap();
         for provider in providers {
-            let provider_id = provider.identity().id.clone();
-            let capability_count = provider
+            let identity = provider.identity().clone();
+            let provider_id = identity.id.clone();
+            let capabilities = provider
                 .capabilities()
                 .await
-                .unwrap_or_else(|error| panic!("enumerate {provider_id}: {error:?}"))
-                .len();
+                .unwrap_or_else(|error| panic!("enumerate {provider_id}: {error:?}"));
+            let capability_count = capabilities.len();
             eprintln!("combined-e2e mount provider={provider_id} capabilities={capability_count}");
+            for capability in &capabilities {
+                let mut registry = Registry::empty();
+                let mut metadata = Metadata::for_provider(&identity);
+                metadata.aliases = capability.aliases.clone();
+                metadata.tags = capability.tags.clone();
+                metadata.object_types = capability.object_types.clone();
+                registry
+                    .register_with_metadata(capability.descriptor.clone(), metadata)
+                    .unwrap_or_else(|error| {
+                        panic!(
+                            "registry preflight provider={provider_id} command={}: {error:?}",
+                            capability.descriptor.name
+                        )
+                    });
+            }
             broker
                 .mount_provider(provider)
                 .await
