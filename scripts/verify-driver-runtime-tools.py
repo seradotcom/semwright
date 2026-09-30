@@ -22,7 +22,6 @@ PATTERNS = (
 # Existing runtime debt. Exact counts make this a ratchet: entries may disappear
 # as drivers migrate to generic primitives, but they may never grow silently.
 LEGACY_COUNTS = {
-    ("crates/driver-blender/src/main.rs", "tool_path("): 1,
     ("crates/driver-mlt-video/src/app.rs", '"runtime.json"'): 1,
     ("crates/driver-motion-canvas/src/renderer.rs", '"runtime.json"'): 1,
 }
