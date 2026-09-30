@@ -11,7 +11,6 @@ import argparse
 import fnmatch
 import json
 import sys
-from pathlib import Path
 
 AREAS = (
     "core_rust",
