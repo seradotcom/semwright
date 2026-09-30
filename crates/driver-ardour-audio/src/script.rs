@@ -1081,7 +1081,16 @@ local function mutate(command)
       error("plugin automation is unavailable")
     end
     if value < descriptor.lower or value > descriptor.upper then
-      error("plugin automation value outside native bounds")
+      error(
+        "plugin automation value outside native bounds"
+          .. ":index=" .. tostring(index)
+          .. ":value=" .. tostring(value)
+          .. ":lower=" .. tostring(descriptor.lower)
+          .. ":upper=" .. tostring(descriptor.upper)
+          .. ":value_micro=" .. tostring(micro(value))
+          .. ":lower_micro=" .. tostring(micro(descriptor.lower))
+          .. ":upper_micro=" .. tostring(micro(descriptor.upper))
+      )
     end
     Session:begin_reversible_command("Semwright plugin automation")
     local before = automation_list:get_state()
@@ -1171,6 +1180,23 @@ mod tests {
         assert!(adapter.contains("return math.ceil(v - 0.5)"));
         assert!(!adapter.contains("scaled >= 0 and 0.5 or -0.5"));
         assert!(!adapter.contains("db >= 0 and 0.5 or -0.5"));
+    }
+
+    #[test]
+    fn automation_bounds_failure_reports_only_bounded_numeric_context() {
+        let adapter = source();
+        assert!(adapter.contains("plugin automation value outside native bounds"));
+        for field in [
+            ":index=",
+            ":value=",
+            ":lower=",
+            ":upper=",
+            ":value_micro=",
+            ":lower_micro=",
+            ":upper_micro=",
+        ] {
+            assert!(adapter.contains(field), "missing diagnostic field {field}");
+        }
     }
 
     #[test]
