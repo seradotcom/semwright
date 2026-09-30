@@ -1606,7 +1606,9 @@ async fn shared_and_local_to_scene_materials_are_native_and_isolated() {
         ["value"];
     assert_eq!(local_a_after["local_to_scene"], true);
     assert_eq!(local_b_after["local_to_scene"], true);
-    assert_ne!(local_a_after["path"], local_b_after["path"]);
+    assert_eq!(local_a_after["path"], "");
+    assert_eq!(local_b_after["path"], "");
+    assert_ne!(local_a_after["instance_id"], local_b_after["instance_id"]);
 
     shutdown_hosted(host).await;
 }
