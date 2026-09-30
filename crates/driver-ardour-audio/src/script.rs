@@ -468,9 +468,19 @@ local function micro(v)
 end
 
 local function object_id(value)
-  local stateful = value:to_stateful()
-  if not stateful or stateful:isnil() then error("native object has no stable stateful identity") end
-  return stateful:id():to_s()
+  if not value then error("native object has no stable identity") end
+  local ok_direct, direct_id = pcall(function() return value:id():to_s() end)
+  if ok_direct and direct_id and #tostring(direct_id) > 0 then
+    return tostring(direct_id)
+  end
+  local ok_stateful, stateful = pcall(function() return value:to_stateful() end)
+  if ok_stateful and stateful then
+    local ok_id, stateful_id = pcall(function() return stateful:id():to_s() end)
+    if ok_id and stateful_id and #tostring(stateful_id) > 0 then
+      return tostring(stateful_id)
+    end
+  end
+  error("native object has no stable identity")
 end
 
 local function route_id(route) return object_id(route) end
@@ -1052,8 +1062,11 @@ mod tests {
 
     #[test]
     fn route_group_mutations_use_native_defaults_and_check_status() {
-        assert!(!source().contains("group:set_active("));
-        assert!(source().contains("local status = group:add(require_route(arg[6]))"));
+        let adapter = source();
+        assert!(!adapter.contains("group:set_active("));
+        assert!(!adapter.contains("stateful:isnil()"));
+        assert!(adapter.contains("pcall(function() return value:id():to_s() end)"));
+        assert!(adapter.contains("local status = group:add(require_route(arg[6]))"));
         assert!(
             source().contains("if status ~= 0 then error(\"route group member add failed\") end")
         );
