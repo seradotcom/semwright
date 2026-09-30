@@ -511,8 +511,18 @@ async fn broker_native_authoring_save_reopen_export_and_owner_denial() {
         arm0["matrix_world"], arm12["matrix_world"],
         "bone-parented arm must have different evaluated world transform"
     );
-    assert_eq!(arm0["visible_viewport"], true);
-    assert_eq!(arm12["visible_viewport"], true);
+    let visible0 = arm0["visible_viewport"]
+        .as_bool()
+        .expect("sampled viewport visibility must be observable");
+    let visible12 = arm12["visible_viewport"]
+        .as_bool()
+        .expect("sampled viewport visibility must be observable");
+    assert_eq!(
+        visible0, visible12,
+        "sampling animation must not change viewport visibility state"
+    );
+    assert_eq!(arm0["hide_render"], false);
+    assert_eq!(arm12["hide_render"], false);
     let wrong_rate = fixture
         .raw(
             &fixture.session,
