@@ -307,6 +307,21 @@ mod linux {
         }
     }
 
+    fn create_private_dir(path: &Path) -> io::Result<()> {
+        fs::create_dir(path)?;
+        fs::set_permissions(path, fs::Permissions::from_mode(0o700))
+    }
+
+    fn session_environment(command: &mut Command, session: &Path) {
+        command
+            .env("HOME", session.join("home"))
+            .env("XDG_CACHE_HOME", session.join("cache"))
+            .env("XDG_CONFIG_HOME", session.join("config"))
+            .env("XDG_DATA_HOME", session.join("data"))
+            .env("XDG_RUNTIME_DIR", session.join("run"))
+            .env("TMPDIR", session);
+    }
+
     fn spawn_office(runtime: &Path, soffice: &Path) -> io::Result<(OfficeChild, String)> {
         if !Path::new("/etc/libreoffice").is_dir() || !Path::new("/etc/fonts").is_dir() {
             return Err(io::Error::new(
@@ -315,11 +330,11 @@ mod linux {
             ));
         }
         let session = PathBuf::from("/tmp").join(format!("semwright-lo-{}", unique_id()));
-        fs::create_dir(&session)?;
-        fs::set_permissions(&session, fs::Permissions::from_mode(0o700))?;
+        create_private_dir(&session)?;
+        for relative in ["home", "cache", "config", "data", "run", "profile"] {
+            create_private_dir(&session.join(relative))?;
+        }
         let profile = session.join("profile");
-        fs::create_dir(&profile)?;
-        fs::set_permissions(&profile, fs::Permissions::from_mode(0o700))?;
         let log = OpenOptions::new()
             .create_new(true)
             .write(true)
@@ -345,7 +360,6 @@ mod linux {
             .current_dir(&program)
             .env_clear()
             .env("PATH", "/usr/bin:/bin")
-            .env("HOME", "/home")
             .env("LANG", "C.UTF-8")
             .env("LD_LIBRARY_PATH", &program)
             .env(
@@ -359,10 +373,10 @@ mod linux {
             .env("SAL_USE_VCLPLUGIN", "svp")
             .env("FONTCONFIG_PATH", "/etc/fonts")
             .env("FONTCONFIG_FILE", "/etc/fonts/fonts.conf")
-            .env("TMPDIR", &session)
             .stdin(Stdio::null())
             .stdout(Stdio::from(log))
             .stderr(Stdio::from(log_err));
+        session_environment(&mut command, &session);
         command.process_group(0);
         // SAFETY: pre_exec runs after fork; prctl uses scalar arguments only.
         unsafe {
@@ -390,7 +404,6 @@ mod linux {
         command
             .env_clear()
             .env("PATH", "/usr/bin:/bin")
-            .env("HOME", "/home")
             .env("LANG", "C.UTF-8")
             .env("PYTHONNOUSERSITE", "1")
             .env("LD_LIBRARY_PATH", &program)
@@ -404,8 +417,8 @@ mod linux {
             .env("UNO_PATH", &program)
             .env("SEMWRIGHT_LIBREOFFICE_RUNTIME", runtime)
             .env("FONTCONFIG_PATH", "/etc/fonts")
-            .env("FONTCONFIG_FILE", "/etc/fonts/fonts.conf")
-            .env("TMPDIR", session);
+            .env("FONTCONFIG_FILE", "/etc/fonts/fonts.conf");
+        session_environment(command, session);
     }
 
     fn run_python(
