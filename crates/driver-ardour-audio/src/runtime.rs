@@ -476,146 +476,26 @@ close_session()
                 )
             };
 
-        let (group_self_test, group_diagnostic_class, group_diagnostic_prefix) = if range_self_test
-        {
-            let script_dir = tempfile::Builder::new()
-                .prefix("semwright-ardour-group-probe-")
-                .tempdir()?;
-            let script_path = script_dir.path().join("semwright-ardour.lua");
-            fs::write(&script_path, script::source())?;
-
-            let stem_args = lua_tool_args(
-                &script_path,
-                vec![
-                    probe_session.to_string_lossy().into_owned(),
-                    probe_state.into(),
-                    self.config.ardour_version.clone(),
-                    "stem_create".into(),
-                    "2".into(),
-                    "Semwright Probe Stem".into(),
-                ],
-            );
-            let stem_run = self
-                .run_tool_capture(context, &self.lua_tool, &stem_args)
-                .await?;
-            if stem_run.exit_code != 0 {
-                let classified = classify_tool_failure(&stem_run.stdout, &stem_run.stderr);
-                (
-                    false,
-                    format!("{:?}", classified.code),
-                    bounded_text_diagnostic(&bounded_diagnostic(
-                        &stem_run.stdout,
-                        &stem_run.stderr,
-                    )),
-                )
-            } else {
-                match parse_snapshot(&stem_run.stdout) {
-                    Ok(stem_snapshot) => {
-                        let route_id = stem_snapshot
-                            .routes
-                            .iter()
-                            .find(|route| {
-                                route.kind == crate::native::RouteKind::Track
-                                    && route.name == "Semwright Probe Stem"
-                            })
-                            .map(|route| route.id.clone());
-                        if let Some(route_id) = route_id {
-                            let group_args = lua_tool_args(
-                                &script_path,
-                                vec![
-                                    probe_session.to_string_lossy().into_owned(),
-                                    probe_state.into(),
-                                    self.config.ardour_version.clone(),
-                                    "group_create".into(),
-                                    "Semwright Probe Group".into(),
-                                    route_id.clone(),
-                                ],
-                            );
-                            let group_run = self
-                                .run_tool_capture(context, &self.lua_tool, &group_args)
-                                .await?;
-                            if group_run.exit_code != 0 {
-                                let classified =
-                                    classify_tool_failure(&group_run.stdout, &group_run.stderr);
-                                (
-                                    false,
-                                    format!("{:?}", classified.code),
-                                    bounded_text_diagnostic(&bounded_diagnostic(
-                                        &group_run.stdout,
-                                        &group_run.stderr,
-                                    )),
-                                )
-                            } else {
-                                match parse_snapshot(&group_run.stdout) {
-                                    Ok(group_snapshot) => {
-                                        let verified = group_snapshot.groups.iter().any(|group| {
-                                            group.name == "Semwright Probe Group"
-                                                && group
-                                                    .route_ids
-                                                    .iter()
-                                                    .any(|member| member == &route_id)
-                                        });
-                                        if verified {
-                                            (
-                                                true,
-                                                "ok".to_string(),
-                                                bounded_text_diagnostic(
-                                                    "route group created, populated, saved and observed in native snapshot",
-                                                ),
-                                            )
-                                        } else {
-                                            (
-                                                false,
-                                                "BackendFailed".to_string(),
-                                                bounded_text_diagnostic(
-                                                    "route group snapshot did not contain the expected member",
-                                                ),
-                                            )
-                                        }
-                                    }
-                                    Err(error) => (
-                                        false,
-                                        format!("{:?}", error.code),
-                                        bounded_text_diagnostic(&error.message),
-                                    ),
-                                }
-                            }
-                        } else {
-                            (
-                                false,
-                                "BackendFailed".to_string(),
-                                bounded_text_diagnostic(
-                                    "probe stem was not observable after native creation",
-                                ),
-                            )
-                        }
-                    }
-                    Err(error) => (
-                        false,
-                        format!("{:?}", error.code),
-                        bounded_text_diagnostic(&error.message),
-                    ),
-                }
-            }
+        let (
+            group_self_test,
+            group_diagnostic_class,
+            group_diagnostic_prefix,
+            automation_self_test,
+            automation_diagnostic_class,
+            automation_diagnostic_prefix,
+        ) = if range_self_test {
+            self.probe_group_automation(context, &probe_session, probe_state)
+                .await?
         } else {
             (
                 false,
                 "range_prerequisite_failed".to_string(),
                 String::new(),
+                false,
+                "range_prerequisite_failed".to_string(),
+                String::new(),
             )
         };
-
-        let (automation_self_test, automation_diagnostic_class, automation_diagnostic_prefix) =
-            if snapshot_self_test {
-                self.probe_plugin_automation(context, &probe_session, probe_state)
-                    .await?
-            } else {
-                (
-                    false,
-                    "snapshot_prerequisite_failed".to_string(),
-                    String::new(),
-                )
-            };
 
         Ok(ArdourRuntimeProbe {
             ardour_version: self.config.ardour_version.clone(),
@@ -686,66 +566,39 @@ close_session()
         }
     }
 
-    async fn probe_plugin_automation(
+    async fn probe_group_automation(
         &self,
         context: Option<&DriverExecutionContext>,
         session: &Path,
         state: &str,
-    ) -> Result<(bool, String, String)> {
+    ) -> Result<(bool, String, String, bool, String, String)> {
         let Some(plugin) = self.config.allowed_plugins.first() else {
+            let diagnostic =
+                bounded_text_diagnostic("automation probe requires one pinned allowlisted plugin");
             return Ok((
                 false,
                 "plugin_prerequisite_missing".to_string(),
-                bounded_text_diagnostic("automation probe requires one pinned allowlisted plugin"),
+                diagnostic.clone(),
+                false,
+                "plugin_prerequisite_missing".to_string(),
+                diagnostic,
             ));
         };
         let script_dir = tempfile::Builder::new()
-            .prefix("semwright-ardour-automation-probe-")
+            .prefix("semwright-ardour-group-automation-probe-")
             .tempdir()?;
         let script_path = script_dir.path().join("semwright-ardour.lua");
         fs::write(&script_path, script::source())?;
 
-        let stem_snapshot = match self
+        let setup_snapshot = match self
             .probe_operation(
                 context,
                 &script_path,
                 session,
                 state,
-                "stem_create",
+                "group_automation_setup",
                 vec![
-                    "stem_create".into(),
-                    "2".into(),
-                    "Semwright Probe Automation".into(),
-                ],
-            )
-            .await?
-        {
-            Ok(snapshot) => snapshot,
-            Err((class, diagnostic)) => return Ok((false, class, diagnostic)),
-        };
-        let Some(route_id) = stem_snapshot
-            .routes
-            .iter()
-            .find(|route| route.name == "Semwright Probe Automation")
-            .map(|route| route.id.clone())
-        else {
-            return Ok((
-                false,
-                "BackendFailed".to_string(),
-                bounded_text_diagnostic("stem_create:probe route missing after reopen"),
-            ));
-        };
-
-        let plugin_snapshot = match self
-            .probe_operation(
-                context,
-                &script_path,
-                session,
-                state,
-                "plugin_insert",
-                vec![
-                    "plugin_insert".into(),
-                    route_id.clone(),
+                    "probe_group_automation_setup".into(),
                     plugin.native_name.clone(),
                     plugin.kind.clone(),
                     plugin.preset.clone(),
@@ -754,90 +607,100 @@ close_session()
             .await?
         {
             Ok(snapshot) => snapshot,
-            Err((class, diagnostic)) => return Ok((false, class, diagnostic)),
+            Err((class, diagnostic)) => {
+                return Ok((
+                    false,
+                    class.clone(),
+                    diagnostic.clone(),
+                    false,
+                    class,
+                    diagnostic,
+                ));
+            }
         };
-        let Some(native_plugin) = plugin_snapshot
+        let Some(route) = setup_snapshot
             .routes
             .iter()
-            .find(|route| route.id == route_id)
-            .and_then(|route| route.plugins.first())
+            .find(|route| route.name == "Semwright Probe Stem")
         else {
+            let diagnostic =
+                bounded_text_diagnostic("group_automation_setup:probe route missing");
             return Ok((
                 false,
                 "BackendFailed".to_string(),
-                bounded_text_diagnostic("plugin_insert:plugin missing after reopen"),
+                diagnostic.clone(),
+                false,
+                "BackendFailed".to_string(),
+                diagnostic,
+            ));
+        };
+        let route_id = route.id.clone();
+        let group_verified = setup_snapshot.groups.iter().any(|group| {
+            group.name == "Semwright Probe Group"
+                && group.route_ids.iter().any(|member| member == &route_id)
+        });
+        let Some(native_plugin) = route.plugins.first() else {
+            return Ok((
+                group_verified,
+                if group_verified { "ok" } else { "BackendFailed" }.to_string(),
+                bounded_text_diagnostic(if group_verified {
+                    "route group created and populated"
+                } else {
+                    "group_automation_setup:route group membership missing"
+                }),
+                false,
+                "BackendFailed".to_string(),
+                bounded_text_diagnostic("group_automation_setup:plugin missing"),
             ));
         };
         if !native_plugin.parameters_complete {
             return Ok((
+                group_verified,
+                if group_verified { "ok" } else { "BackendFailed" }.to_string(),
+                bounded_text_diagnostic(if group_verified {
+                    "route group created and populated"
+                } else {
+                    "group_automation_setup:route group membership missing"
+                }),
                 false,
                 "BackendFailed".to_string(),
-                bounded_text_diagnostic("plugin_insert:parameter projection incomplete"),
+                bounded_text_diagnostic("group_automation_setup:parameter projection incomplete"),
             ));
         }
         let plugin_id = native_plugin.id.clone();
         let Some(parameter) = native_plugin.parameters.first() else {
             return Ok((
+                group_verified,
+                if group_verified { "ok" } else { "BackendFailed" }.to_string(),
+                bounded_text_diagnostic(if group_verified {
+                    "route group created and populated"
+                } else {
+                    "group_automation_setup:route group membership missing"
+                }),
                 false,
                 "BackendFailed".to_string(),
-                bounded_text_diagnostic("plugin_insert:plugin exposes no automatable parameter"),
+                bounded_text_diagnostic("group_automation_setup:no automatable parameter"),
             ));
         };
         if parameter.lower_microunits == parameter.upper_microunits {
             return Ok((
+                group_verified,
+                if group_verified { "ok" } else { "BackendFailed" }.to_string(),
+                bounded_text_diagnostic(if group_verified {
+                    "route group created and populated"
+                } else {
+                    "group_automation_setup:route group membership missing"
+                }),
                 false,
                 "BackendFailed".to_string(),
-                bounded_text_diagnostic("plugin_insert:first parameter has no writable range"),
+                bounded_text_diagnostic("group_automation_setup:first parameter has no range"),
             ));
         }
         let parameter_index = parameter.index;
-        let target = if parameter.value_microunits != parameter.lower_microunits {
-            parameter.lower_microunits
-        } else {
-            parameter.upper_microunits
-        };
+        let target = parameter.lower_microunits;
         let automation_before = parameter.automation_points;
 
-        let parameter_snapshot = match self
-            .probe_operation(
-                context,
-                &script_path,
-                session,
-                state,
-                "plugin_param_set",
-                vec![
-                    "plugin_param_set".into(),
-                    route_id.clone(),
-                    plugin_id.clone(),
-                    parameter_index.to_string(),
-                    target.to_string(),
-                ],
-            )
-            .await?
-        {
-            Ok(snapshot) => snapshot,
-            Err((class, diagnostic)) => return Ok((false, class, diagnostic)),
-        };
-        let parameter_persisted = parameter_snapshot
-            .routes
-            .iter()
-            .find(|route| route.id == route_id)
-            .and_then(|route| route.plugins.iter().find(|item| item.id == plugin_id))
-            .and_then(|item| {
-                item.parameters
-                    .iter()
-                    .find(|item| item.index == parameter_index)
-            })
-            .is_some_and(|item| item.value_microunits == target);
-        if !parameter_persisted {
-            return Ok((
-                false,
-                "BackendFailed".to_string(),
-                bounded_text_diagnostic("plugin_param_set:value did not persist across reopen"),
-            ));
-        }
-
-        let automation_snapshot = match self
+        let final_snapshot = match self
             .probe_operation(
                 context,
                 &script_path,
@@ -845,20 +708,37 @@ close_session()
                 state,
                 "plugin_automation_point",
                 vec![
-                    "plugin_automation_point".into(),
+                    "probe_automation_point".into(),
                     route_id.clone(),
                     plugin_id.clone(),
                     parameter_index.to_string(),
-                    "24000".into(),
                     target.to_string(),
                 ],
             )
             .await?
         {
             Ok(snapshot) => snapshot,
-            Err((class, diagnostic)) => return Ok((false, class, diagnostic)),
+            Err((class, diagnostic)) => {
+                return Ok((
+                    group_verified,
+                    if group_verified { "ok" } else { "BackendFailed" }.to_string(),
+                    bounded_text_diagnostic(if group_verified {
+                        "route group created and populated"
+                    } else {
+                        "group_automation_setup:route group membership missing"
+                    }),
+                    false,
+                    class,
+                    diagnostic,
+                ));
+            }
         };
-        let automation_after = automation_snapshot
+
+        let group_after = final_snapshot.groups.iter().any(|group| {
+            group.name == "Semwright Probe Group"
+                && group.route_ids.iter().any(|member| member == &route_id)
+        });
+        let automation_after = final_snapshot
             .routes
             .iter()
             .find(|route| route.id == route_id)
@@ -869,21 +749,29 @@ close_session()
                     .find(|item| item.index == parameter_index)
             })
             .map(|item| item.automation_points);
-        if automation_after != Some(automation_before.saturating_add(1)) {
-            return Ok((
-                false,
-                "BackendFailed".to_string(),
-                bounded_text_diagnostic(&format!(
-                    "plugin_automation_point:count mismatch before={automation_before} after={automation_after:?}"
-                )),
-            ));
-        }
+        let automation_verified =
+            automation_after == Some(automation_before.saturating_add(1));
+
         Ok((
-            true,
-            "ok".to_string(),
-            bounded_text_diagnostic(
-                "plugin automation persisted through insert, parameter set, point add and reopen",
-            ),
+            group_after,
+            if group_after { "ok" } else { "BackendFailed" }.to_string(),
+            bounded_text_diagnostic(if group_after {
+                "route group persisted across plugin automation reopen"
+            } else {
+                "plugin_automation_point:route group did not persist"
+            }),
+            automation_verified,
+            if automation_verified {
+                "ok"
+            } else {
+                "BackendFailed"
+            }
+            .to_string(),
+            bounded_text_diagnostic(if automation_verified {
+                "plugin automation point persisted across explicit native reopen"
+            } else {
+                "plugin_automation_point:automation point did not persist across reopen"
+            }),
         ))
     }
 

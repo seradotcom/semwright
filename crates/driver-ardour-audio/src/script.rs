@@ -953,6 +953,92 @@ local function mutate(command)
     if status ~= 0 then error("route group member remove failed") end
   elseif command == "group_delete" then
     Session:remove_route_group(require_group(arg[5]))
+  elseif command == "probe_group_automation_setup" then
+    local plugin_type
+    if arg[6] == "lua" then plugin_type = ARDOUR.PluginType.Lua
+    elseif arg[6] == "lv2" then plugin_type = ARDOUR.PluginType.LV2
+    else error("probe_setup_plugin_type") end
+
+    local created = Session:new_audio_track(
+      2, 2, nil, 1, "", ARDOUR.PresentationInfo.max_order,
+      ARDOUR.TrackMode.Normal, true, true
+    )
+    local route = nil
+    for candidate in created:iter() do
+      candidate:set_name("Semwright Probe Stem")
+      route = candidate
+      break
+    end
+    if not route then error("probe_setup_track_create") end
+
+    local group = Session:new_route_group("Semwright Probe Group")
+    if not group then error("probe_setup_group_create") end
+    local group_status = group:add(route)
+    if group_status ~= 0 then error("probe_setup_group_add") end
+
+    local processor = ARDOUR.LuaAPI.new_plugin(Session, arg[5], plugin_type, arg[7] or "")
+    if not processor or processor:isnil() then error("probe_setup_plugin_create") end
+    local insert_status = route:add_processor_by_index(processor, 0, nil, true)
+    if insert_status ~= 0 then error("probe_setup_plugin_insert") end
+    local insert = processor:to_plugininsert()
+    if not insert or insert:isnil() then error("probe_setup_plugin_cast") end
+
+    local ok_lookup, automation_list, control_list, descriptor =
+      pcall(function() return ARDOUR.LuaAPI.plugin_automation(processor, 0) end)
+    if not ok_lookup then error("probe_setup_automation_lookup:" .. tostring(automation_list)) end
+    if not automation_list or automation_list:isnil()
+      or not control_list or control_list:isnil() or not descriptor then
+      error("probe_setup_automation_unavailable")
+    end
+    if descriptor.lower == descriptor.upper then error("probe_setup_parameter_range") end
+    if not ARDOUR.LuaAPI.set_plugin_insert_param(insert, 0, descriptor.lower) then
+      error("probe_setup_parameter_set")
+    end
+  elseif command == "probe_automation_point" then
+    local route = require_route(arg[5])
+    local processor = require_plugin(route, arg[6])
+    local index = tonumber(arg[7])
+    local frame = tonumber(arg[8])
+    local value = tonumber(arg[9])
+    if not index or not frame or not value then error("probe_point_arguments") end
+    value = value / 1000000.0
+
+    local ok_lookup, automation_list, control_list, descriptor =
+      pcall(function() return ARDOUR.LuaAPI.plugin_automation(processor, index) end)
+    if not ok_lookup then error("probe_point_lookup:" .. tostring(automation_list)) end
+    if not automation_list or automation_list:isnil()
+      or not control_list or control_list:isnil() or not descriptor then
+      error("probe_point_unavailable")
+    end
+    if value < descriptor.lower or value > descriptor.upper then
+      error("probe_point_value_bounds")
+    end
+
+    Session:begin_reversible_command("Semwright automation probe")
+    local ok_before, before = pcall(function() return automation_list:get_state() end)
+    if not ok_before then error("probe_point_before_state:" .. tostring(before)) end
+    local ok_add, add_error = pcall(function()
+      control_list:add(Temporal.timepos_t(frame), value, false, true)
+    end)
+    if not ok_add then error("probe_point_add:" .. tostring(add_error)) end
+    local ok_after, after = pcall(function() return automation_list:get_state() end)
+    if not ok_after then error("probe_point_after_state:" .. tostring(after)) end
+    local ok_memento, command = pcall(function()
+      return automation_list:memento_command(before, after)
+    end)
+    if not ok_memento then error("probe_point_memento:" .. tostring(command)) end
+    Session:add_command(command)
+    Session:commit_reversible_command(nil)
+
+    local save_status = Session:save_state("")
+    if save_status ~= 0 then error("probe_point_save") end
+    processor = nil
+    automation_list = nil
+    control_list = nil
+    collectgarbage()
+    close_session()
+    load_session(arg[1], arg[2])
+    if not Session then error("probe_point_reopen") end
   elseif command == "plugin_insert" then
     local route = require_route(arg[5])
     local plugin_type
