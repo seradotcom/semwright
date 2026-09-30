@@ -717,10 +717,10 @@ pub(super) async fn execute(
                     meters_per_unit,
                     ..
                 } => (island, entity, transform, meters_per_unit),
-                AuthoringIntent::Create { .. } => {
+                AuthoringIntent::Create { .. } | AuthoringIntent::MaterialSlots { .. } => {
                     return Err(Error::new(
                         ErrorCode::Unsupported,
-                        "repair v1 never regenerates a created asset; only an explicit prior transform is repairable",
+                        "repair v1 never regenerates or rematerializes an asset; only an explicit prior transform is repairable",
                     ));
                 }
             };
