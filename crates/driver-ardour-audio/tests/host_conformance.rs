@@ -3,7 +3,7 @@ use semwright_audio_domain::{
     edit::{self, Edit},
     model::AudioProject,
 };
-use semwright_backend_api::Provider;
+use semwright_backend_api::{Context, Provider};
 use semwright_core::{Broker, NoApprover, audit::Audit};
 use semwright_driver_host::DriverProvider;
 use semwright_driver_sdk::{
@@ -52,6 +52,30 @@ async fn call_with_token(
             cancellation,
         )
         .await
+}
+
+async fn direct_host_call(
+    provider: &DriverProvider,
+    command: &str,
+    args: Value,
+) -> Result<Value, semwright_types::Error> {
+    let capabilities = Provider::capabilities(provider).await?;
+    let full_name = format!("driver.ardour-audio.{command}");
+    let capability = capabilities
+        .iter()
+        .find(|capability| capability.descriptor.name == full_name)
+        .expect("direct diagnostic capability must exist");
+    Provider::execute(
+        provider,
+        &Context {
+            session: "ardour-host-diagnostic".into(),
+            request_id: unique_id(),
+            cancellation: CancellationToken::new(),
+        },
+        &capability.descriptor,
+        &args,
+    )
+    .await
 }
 
 async fn call(broker: &Arc<Broker>, command: &str, args: Value) -> Envelope {
@@ -488,6 +512,35 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
         .as_str()
         .unwrap()
         .to_owned();
+
+    let direct_group = direct_host_call(
+        provider.as_ref(),
+        "session.deep.group.create",
+        json!({
+            "state":"Base",
+            "expected_revision":revision6,
+            "name":"Diagnostic Group",
+            "route_id":stem_id
+        }),
+    )
+    .await;
+    let revision6 = match direct_group {
+        Ok(value) => value["revision"]
+            .as_str()
+            .expect("direct group diagnostic revision")
+            .to_owned(),
+        Err(error) => {
+            let post_state = direct_host_call(
+                provider.as_ref(),
+                "session.deep.inspect",
+                json!({"state":"Base"}),
+            )
+            .await;
+            panic!(
+                "route-group Driver Host diagnostic failed: error={error:?}; post_state={post_state:?}"
+            );
+        }
+    };
 
     let group = call(
         &broker,

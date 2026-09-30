@@ -577,13 +577,13 @@ impl ArdourAudioDriver {
             ));
         }
         let mutation = deep_mutation(command, args, &before, runtime)?;
-        if let NativeMutation::GroupCreate { name, .. } = &mutation {
-            if before.groups.iter().any(|group| group.name == *name) {
-                return Err(Error::new(
-                    ErrorCode::Conflict,
-                    "Ardour route-group name already exists",
-                ));
-            }
+        if let NativeMutation::GroupCreate { name, .. } = &mutation
+            && before.groups.iter().any(|group| group.name == *name)
+        {
+            return Err(Error::new(
+                ErrorCode::Conflict,
+                "Ardour route-group name already exists",
+            ));
         }
         if let NativeMutation::RouteRemove { route_id } = &mutation {
             let route = before
