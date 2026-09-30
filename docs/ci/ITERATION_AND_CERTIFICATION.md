@@ -26,6 +26,14 @@ Required inputs:
 
 The workflow fails before certification if checked-out `HEAD` is not exactly `source_sha`, if either SHA is malformed/missing, or if `base_sha` is not an ancestor of `source_sha`.
 
+Preferred dispatch helper:
+
+```bash
+scripts/dev/certify-candidate.sh <ref> <source_sha> <base_sha>
+```
+
+The helper verifies the local ref/SHA/ancestry before asking GitHub to dispatch; the workflow independently repeats the same checks on the runner.
+
 The final candidate always runs the complete global Quality, Native application integration, Dependency/Coverage/Fuzz, Packaging, and Supply-chain workflows through their reusable `workflow_call` entry points. Specialized platform/driver workflows are additionally called when the candidate diff affects their area.
 
 Final artifacts include:
