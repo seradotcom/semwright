@@ -7,17 +7,25 @@ on:
       - 'adapters/blender/**'
       - 'fixtures/blender-authoring/**'
       - 'scripts/blender-authoring/**'
+      - 'scripts/dev/blender-driver-smoke.sh'
       - 'fuzz/fuzz_targets/blender_authoring.rs'
       - 'docs/blender/authoring/**'
       - 'skills/semwright-blender-production/**'
+      - 'schemas/commands.json'
       - '.ci/blender-authoring.json'
       - '.github/workflows/blender-authoring.yml'
+      - 'Cargo.toml'
       - 'Cargo.lock'
+
 permissions:
   contents: read
+
+# Iterations supersede older iterations, while a certification candidate lives in
+# a distinct concurrency group and cannot be cancelled by a later normal push.
 concurrency:
-  group: blender-authoring-${{ github.ref }}
-  cancel-in-progress: false
+  group: "blender-authoring-${{ github.ref }}-${{ contains(github.event.head_commit.message, 'Semwright-Certify: blender-authoring') }}"
+  cancel-in-progress: true
+
 jobs:
   authoring:
     runs-on: ubuntu-24.04
@@ -30,76 +38,93 @@ jobs:
       SEMWRIGHT_NATIVE_AUTHORING_ACCEPTANCE: '1'
       SEMWRIGHT_TEST_BLENDER_ROOT: /usr/local/blender-4.5.14-linux-x64
       SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
+
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
           fetch-depth: 0
-      - name: Validate source and enum selector
-        id: selector
+
+      - name: Classify iteration or certification
+        id: plan
+        env:
+          PUSH_BASE_SHA: ${{ github.event.before }}
         run: |
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          python3 - <<'PY'
-          import json, os
-          x = json.load(open('.ci/blender-authoring.json'))
-          assert set(x) == {'version', 'suite'} and x['version'] == 1
-          assert x['suite'] in {'blender-model', 'blender-native-authoring'}
-          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
-              f.write('suite=' + x['suite'] + '\n')
-          PY
+          mkdir -p evidence/blender-authoring
+          python3 scripts/blender-authoring/classify_iteration.py             --base "$PUSH_BASE_SHA"             --head "$GITHUB_SHA"             --output evidence/blender-authoring/iteration-plan.json
+
+      - name: Validate diagnostic harness syntax
+        run: |
+          python3 -m py_compile             scripts/blender-authoring/classify_iteration.py             scripts/blender-authoring/run-suite.py             scripts/blender-authoring/package_source.py             scripts/blender-authoring/finalize_evidence.py             crates/driver-blender/tests/authoring_hostile.py             crates/driver-blender/tests/glb_roundtrip_oracle.py
+          python3 -m json.tool .ci/blender-authoring.json >/dev/null
+
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        if: steps.plan.outputs.need_rust == 'true'
         with:
           toolchain: 1.98.1
           components: rustfmt, clippy
+
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        if: steps.plan.outputs.need_rust == 'true'
         with:
-          key: blender-authoring-linux-rust1.98.1-blender4.5.14-v1-${{ steps.selector.outputs.suite }}
+          key: blender-authoring-linux-rust1.98.1-v2-${{ steps.plan.outputs.mode }}
+
       - name: Native compile prerequisites
+        if: steps.plan.outputs.need_blender == 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y libpipewire-0.3-dev pkg-config bubblewrap fontconfig xz-utils
-      - name: Owner-pinned Blender runtime (native lane only)
-        if: steps.selector.outputs.suite == 'blender-native-authoring'
+
+      - name: Owner-pinned Blender runtime
+        if: steps.plan.outputs.need_blender == 'true'
         run: |
-          curl --fail --location --retry 2 --output /tmp/blender.tar.xz https://download.blender.org/release/Blender4.5/blender-4.5.14-linux-x64.tar.xz
-          echo '9ba871ff2ecd36526b77432745980b7e6664ecd0c7ca11c48849073dcfe06da3  /tmp/blender.tar.xz' | sha256sum --check --strict
+          curl --fail --location --retry 2 --output /tmp/blender.tar.xz             https://download.blender.org/release/Blender4.5/blender-4.5.14-linux-x64.tar.xz
+          echo '9ba871ff2ecd36526b77432745980b7e6664ecd0c7ca11c48849073dcfe06da3  /tmp/blender.tar.xz'             | sha256sum --check --strict
           sudo tar -xJf /tmp/blender.tar.xz -C /usr/local
           rm -f /tmp/blender.tar.xz
           test "$("$SEMWRIGHT_TEST_BLENDER_ROOT/blender" --version | head -1)" = "Blender 4.5.14 LTS"
           bash scripts/dev/ci-driver-bwrap-profile.sh evidence/blender-authoring/sandbox-setup.log
           cargo build --locked -p semwright-plugin-host --bin semwright-sandbox
-      - name: Exact-SHA model and selected suite
-        env:
-          SUITE: ${{ steps.selector.outputs.suite }}
-        run: |
-          if [ "$SUITE" = "blender-native-authoring" ]; then
-            python3 scripts/blender-authoring/run-suite.py --suite blender-model
-          fi
-          python3 scripts/blender-authoring/run-suite.py --suite "$SUITE"
+
+      - name: Iteration model contract
+        if: steps.plan.outputs.model == 'true'
+        run: python3 scripts/blender-authoring/run-suite.py --suite blender-model
+
+      - name: Iteration native authoring
+        if: steps.plan.outputs.native == 'true'
+        run: python3 scripts/blender-authoring/run-suite.py --suite blender-native-authoring
+
       - name: Driver startup security contract
-        if: steps.selector.outputs.suite == 'blender-native-authoring'
+        if: steps.plan.outputs.security == 'true'
         run: |
           set -o pipefail
           cargo test --locked -p semwright-driver-blender --bin semwright-blender-driver             blender_launch_is_factory_clean_and_disables_autoexec -- --test-threads=1             2>&1 | tee evidence/blender-authoring/startup-security.log
           grep -F 'test result: ok' evidence/blender-authoring/startup-security.log
+
       - name: Fresh Blender GLB semantic roundtrip oracle
-        if: steps.selector.outputs.suite == 'blender-native-authoring'
+        if: steps.plan.outputs.export == 'true'
         run: |
           set -o pipefail
           test -f evidence/blender-authoring/articulated.glb
           "$SEMWRIGHT_TEST_BLENDER_ROOT/blender"             --background --factory-startup --disable-autoexec --python-exit-code 1             --python crates/driver-blender/tests/glb_roundtrip_oracle.py --             "$GITHUB_WORKSPACE/evidence/blender-authoring/articulated.glb"             "$GITHUB_WORKSPACE/evidence/blender-authoring/glb-roundtrip-blender.json"             2>&1 | tee evidence/blender-authoring/glb-roundtrip-blender.log
+
       - name: Hostile GLB closure in disposable Blender
-        if: steps.selector.outputs.suite == 'blender-native-authoring'
+        if: steps.plan.outputs.export == 'true'
         run: |
           set -o pipefail
-          "$SEMWRIGHT_TEST_BLENDER_ROOT/blender" --background --factory-startup --disable-autoexec --python-exit-code 1             --python crates/driver-blender/tests/authoring_hostile.py 2>&1             | tee evidence/blender-authoring/hostile-export.log
+          "$SEMWRIGHT_TEST_BLENDER_ROOT/blender"             --background --factory-startup --disable-autoexec --python-exit-code 1             --python crates/driver-blender/tests/authoring_hostile.py             2>&1 | tee evidence/blender-authoring/hostile-export.log
+
       - name: Bounded authoring parser fuzz
+        if: steps.plan.outputs.fuzz == 'true'
         run: |
           rustup toolchain install nightly-2026-09-18 --profile minimal
           cargo +1.98.1 install --locked cargo-fuzz --version 0.13.2
           set -o pipefail
           cargo +nightly-2026-09-18 fuzz run blender_authoring --             -max_total_time=20 -timeout=3 -rss_limit_mb=1024 -max_len=65536             2>&1 | tee evidence/blender-authoring/fuzz-blender-authoring.log
+
       - name: Skill validate and clean bundle
+        if: steps.plan.outputs.skill == 'true'
         run: |
           set -o pipefail
           cargo build --locked -p semwright-cli --bin semwright
@@ -108,8 +133,13 @@ jobs:
           sha256sum evidence/blender-authoring/semwright-blender-production.zip             | tee evidence/blender-authoring/semwright-blender-production.zip.sha256
           test -s evidence/blender-authoring/skill-validate.json
           test -s evidence/blender-authoring/semwright-blender-production.zip
-          sha256sum --check --strict evidence/blender-authoring/semwright-blender-production.zip.sha256
+          (
+            cd evidence/blender-authoring
+            sha256sum --check --strict semwright-blender-production.zip.sha256
+          )
+
       - name: Reproducible E source backup
+        if: steps.plan.outputs.package == 'true'
         run: |
           set -o pipefail
           python3 scripts/blender-authoring/package_source.py             --source "$GITHUB_SHA"             --output evidence/blender-authoring/semwright-blender-authoring-E-source.zip             | tee evidence/blender-authoring/source-package.json
@@ -117,22 +147,35 @@ jobs:
           test -s evidence/blender-authoring/semwright-blender-authoring-E-source.zip
           test -s evidence/blender-authoring/semwright-blender-authoring-E-source.zip.sha256
           python3 -m json.tool evidence/blender-authoring/source-package.json >/dev/null
-          (cd evidence/blender-authoring &&             sha256sum --check --strict semwright-blender-authoring-E-source.zip.sha256)
+          (
+            cd evidence/blender-authoring
+            sha256sum --check --strict semwright-blender-authoring-E-source.zip.sha256
+          )
           python3 scripts/blender-authoring/package_source.py             --source "$GITHUB_SHA"             --output /tmp/semwright-blender-authoring-E-source-second.zip             >/tmp/source-package-second.json
           cmp evidence/blender-authoring/semwright-blender-authoring-E-source.zip             /tmp/semwright-blender-authoring-E-source-second.zip
-          rm -f /tmp/semwright-blender-authoring-E-source-second.zip             /tmp/semwright-blender-authoring-E-source-second.zip.sha256             /tmp/source-package-second.json
+          rm -f             /tmp/semwright-blender-authoring-E-source-second.zip             /tmp/semwright-blender-authoring-E-source-second.zip.sha256             /tmp/source-package-second.json
+
       - name: Formatting gate
+        if: steps.plan.outputs.need_rust == 'true'
         run: cargo fmt --package semwright-driver-blender -- --check
-      - name: Finalize exact-SHA acceptance evidence
+
+      # Full certification is deliberately unreachable from ordinary iteration pushes.
+      # A candidate to integrate is marked by an exact commit trailer:
+      #   Semwright-Certify: blender-authoring
+      # The classifier then forces every area gate above and only this step may emit
+      # acceptance-final.json.
+      - name: Finalize exact-SHA certification evidence
+        if: steps.plan.outputs.certification == 'true'
         run: |
           python3 scripts/blender-authoring/finalize_evidence.py             | tee evidence/blender-authoring/acceptance-final-summary.json
           test -s evidence/blender-authoring/acceptance-final.json
           python3 -m json.tool evidence/blender-authoring/acceptance-final.json >/dev/null
+
       - name: Preserve bounded diagnostics
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: blender-authoring-${{ github.sha }}-${{ steps.selector.outputs.suite }}
+          name: ${{ steps.plan.outputs.artifact_name }}
           path: evidence/blender-authoring/
           retention-days: 7
           if-no-files-found: error
