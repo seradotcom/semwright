@@ -68,10 +68,15 @@ impl Rational {
         Self::wide(i128::from(num), i128::from(den))
     }
     fn wide(mut n: i128, mut d: i128) -> Result<Self> {
-        ensure(d != 0, "zero rational denominator")?;
-        if d < 0 {
-            n = -n;
-            d = -d;
+        match d.cmp(&0) {
+            Ordering::Less => {
+                n = -n;
+                d = -d;
+            }
+            Ordering::Equal => {
+                return Err(Error::Invalid("zero rational denominator".into()));
+            }
+            Ordering::Greater => {}
         }
         let g = gcd(n.unsigned_abs(), d as u128) as i128;
         let num =
@@ -82,7 +87,11 @@ impl Rational {
     }
     pub fn validate(self) -> Result<()> {
         ensure(
-            self.den > 0 && Self::new(self.num, self.den)? == self,
+            self.den > 0,
+            "rational must be reduced with positive denominator",
+        )?;
+        ensure(
+            gcd(self.num.unsigned_abs().into(), self.den as u128) == 1,
             "rational must be reduced with positive denominator",
         )
     }

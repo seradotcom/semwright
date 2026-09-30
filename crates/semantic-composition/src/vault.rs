@@ -2,6 +2,10 @@ use crate::*;
 use serde::Serialize;
 use std::{collections::BTreeMap, time::Instant};
 
+fn expired(elapsed_ms: u128, max_elapsed_ms: u64) -> bool {
+    elapsed_ms > u128::from(max_elapsed_ms)
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct Attempt {
     pub request_id: String,
@@ -50,7 +54,7 @@ impl PlanVault {
     }
     fn reap(&mut self) {
         self.roots
-            .retain(|_, r| r.started.elapsed().as_millis() <= u128::from(r.budget.max_elapsed_ms));
+            .retain(|_, r| !expired(r.started.elapsed().as_millis(), r.budget.max_elapsed_ms));
         self.entries
             .retain(|(o, _), e| self.roots.contains_key(&(o.clone(), e.root.clone())));
     }
@@ -140,7 +144,7 @@ impl PlanVault {
             .roots
             .get(&(owner.clone(), e.root.clone()))
             .ok_or_else(|| ContractError::Stale("missing plan root".into()))?;
-        if r.started.elapsed().as_millis() > u128::from(r.budget.max_elapsed_ms) {
+        if expired(r.started.elapsed().as_millis(), r.budget.max_elapsed_ms) {
             return Err(ContractError::Stale("plan expired".into()));
         }
         if e.canonical != canonical_bytes(plan)? {
@@ -287,5 +291,71 @@ impl PlanVault {
     pub fn revoke(&mut self, owner: &Owner) {
         self.entries.retain(|(o, _), _| o != owner);
         self.roots.retain(|(o, _), _| o != owner);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn test_owner() -> Owner {
+        Owner {
+            session: "vault-unit-session".into(),
+            principal: PrincipalBinding::HostSession,
+        }
+    }
+
+    fn test_budget() -> ConvergenceBudget {
+        ConvergenceBudget {
+            max_iterations: 4,
+            max_operations: 8,
+            max_findings: 8,
+            max_observations: 8,
+            max_elapsed_ms: 100,
+        }
+    }
+
+    #[test]
+    fn expiry_boundary_is_strict_and_deterministic() {
+        assert!(!expired(0, 0));
+        assert!(!expired(100, 100));
+        assert!(expired(101, 100));
+        assert!(expired(u128::from(u64::MAX) + 1, u64::MAX));
+    }
+
+    #[test]
+    fn finish_requires_both_matching_digest_and_applying_state() {
+        let owner = test_owner();
+        let plan = json!({"kind":"unit"});
+        let mut vault = PlanVault::bounded(8, 4, 8);
+        vault
+            .issue(&owner, "root", &plan, test_budget(), 1, None, false)
+            .unwrap();
+        let permit = vault.begin(&owner, "root", &plan, "request").unwrap();
+
+        let bad_digest = BeginPermit {
+            owner: permit.owner.clone(),
+            root: permit.root.clone(),
+            index: permit.index,
+            digest: "different-plan".into(),
+        };
+        assert!(
+            vault
+                .finish(bad_digest, ExecutionStatus::Completed, vec![])
+                .is_err()
+        );
+
+        vault
+            .roots
+            .get_mut(&(permit.owner.clone(), permit.root.clone()))
+            .unwrap()
+            .attempts[permit.index]
+            .status = ExecutionStatus::Completed;
+        assert!(
+            vault
+                .finish(permit, ExecutionStatus::Completed, vec![])
+                .is_err()
+        );
     }
 }

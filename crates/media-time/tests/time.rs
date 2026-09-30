@@ -397,3 +397,41 @@ fn cue_after_requires_existing_reference_and_propagates_unknown_without_timestam
         }
     );
 }
+
+#[test]
+fn rational_validation_and_rounding_boundaries_are_exact() {
+    assert!(Rational { num: 1, den: 0 }.validate().is_err());
+    assert!(Rational { num: 2, den: 4 }.validate().is_err());
+    assert!(Rational { num: 1, den: -2 }.validate().is_err());
+    Rational { num: -1, den: 2 }.validate().unwrap();
+
+    for integer in [-2, -1, 0, 1, 2] {
+        let value = q(integer, 1);
+        assert_eq!(value.round(Round::Floor).unwrap(), integer);
+        assert_eq!(value.round(Round::Ceil).unwrap(), integer);
+        assert_eq!(value.round(Round::TowardZero).unwrap(), integer);
+        assert_eq!(value.round(Round::NearestAway).unwrap(), integer);
+    }
+
+    assert_eq!(q(3, 2).round(Round::Floor).unwrap(), 1);
+    assert_eq!(q(3, 2).round(Round::Ceil).unwrap(), 2);
+    assert_eq!(q(1, 2).round(Round::NearestAway).unwrap(), 1);
+    assert_eq!(q(-1, 2).round(Round::NearestAway).unwrap(), -1);
+    assert_eq!(q(49, 100).round(Round::NearestAway).unwrap(), 0);
+}
+
+#[test]
+fn rate_validate_rejects_noncanonical_and_out_of_bounds_struct_values() {
+    Rate { num: 30, den: 1 }.validate().unwrap();
+    assert!(Rate { num: 2, den: 2 }.validate().is_err());
+    assert!(Rate { num: 0, den: 1 }.validate().is_err());
+    assert!(Rate { num: 1, den: 0 }.validate().is_err());
+    assert!(
+        Rate {
+            num: 1_000_001,
+            den: 1
+        }
+        .validate()
+        .is_err()
+    );
+}

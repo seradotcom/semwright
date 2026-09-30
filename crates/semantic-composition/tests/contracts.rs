@@ -597,3 +597,111 @@ fn vault_revoke_is_owner_scoped() {
         .finish(permit, ExecutionStatus::Completed, vec![])
         .unwrap();
 }
+
+#[test]
+fn controller_progress_dimension_change_is_not_treated_as_improvement() {
+    let report = failed_report();
+    let mut controller = Controller::new(
+        report.plan_digest.clone(),
+        budget(),
+        report.required_rules.clone(),
+    )
+    .unwrap();
+    controller.applying(false).unwrap();
+    controller.executed(ExecutionStatus::Completed).unwrap();
+    assert_eq!(
+        controller.observed(&report, vec![10, 10], 1, 1).unwrap(),
+        Decision::PlanRepair
+    );
+    controller.bind_repair(report.plan_digest.clone()).unwrap();
+    controller.applying(true).unwrap();
+    controller.executed(ExecutionStatus::Completed).unwrap();
+    assert_eq!(
+        controller.observed(&report, vec![9], 1, 2).unwrap(),
+        Decision::Stop(StopReason::NoProgress)
+    );
+    assert_eq!(controller.state, State::Conflicted);
+}
+
+#[test]
+fn controller_bind_repair_requires_an_actual_pending_repair() {
+    let report = failed_report();
+    let mut controller = Controller::new(
+        report.plan_digest.clone(),
+        budget(),
+        report.required_rules.clone(),
+    )
+    .unwrap();
+    assert!(
+        controller
+            .bind_repair(Digest::of_bytes(b"foreign"))
+            .is_err()
+    );
+    assert_eq!(controller.state, State::Prepared);
+}
+
+#[test]
+fn vault_request_ids_cannot_replay_across_repair_entries_of_one_root() {
+    let owner = owner();
+    let root = json!({"intent":"root"});
+    let repair = json!({"intent":"repair"});
+    let b = budget();
+    let mut vault = PlanVault::bounded(10, 5, 10);
+    vault
+        .issue(&owner, "root", &root, b.clone(), 1, None, false)
+        .unwrap();
+    let permit = vault
+        .begin(&owner, "root", &root, "request-shared")
+        .unwrap();
+    vault
+        .finish(permit, ExecutionStatus::Completed, vec![])
+        .unwrap();
+    vault
+        .issue(&owner, "repair", &repair, b, 1, Some("root"), true)
+        .unwrap();
+
+    let error = vault
+        .begin(&owner, "repair", &repair, "request-shared")
+        .unwrap_err();
+    assert!(matches!(error, ContractError::Denied(_)));
+}
+
+#[test]
+fn vault_unknown_attempt_blocks_a_preissued_sibling_until_reconciled() {
+    let owner = owner();
+    let root = json!({"intent":"root"});
+    let first = json!({"intent":"repair-a"});
+    let second = json!({"intent":"repair-b"});
+    let b = budget();
+    let mut vault = PlanVault::bounded(10, 5, 10);
+    vault
+        .issue(&owner, "root", &root, b.clone(), 1, None, false)
+        .unwrap();
+    let permit = vault.begin(&owner, "root", &root, "root-request").unwrap();
+    vault
+        .finish(permit, ExecutionStatus::Completed, vec![])
+        .unwrap();
+
+    vault
+        .issue(&owner, "repair-a", &first, b.clone(), 1, Some("root"), true)
+        .unwrap();
+    vault
+        .issue(&owner, "repair-b", &second, b, 1, Some("root"), true)
+        .unwrap();
+
+    let permit = vault
+        .begin(&owner, "repair-a", &first, "repair-a-request")
+        .unwrap();
+    vault
+        .finish(
+            permit,
+            ExecutionStatus::Unknown,
+            vec!["maybe-created".into()],
+        )
+        .unwrap();
+
+    let error = vault
+        .begin(&owner, "repair-b", &second, "repair-b-request")
+        .unwrap_err();
+    assert!(matches!(error, ContractError::Unknown(_)));
+}

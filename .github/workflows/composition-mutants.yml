@@ -39,7 +39,7 @@ jobs:
           - id: kernel
             package: semwright-semantic-composition
             files: 'crates/semantic-composition/src/controller.rs crates/semantic-composition/src/vault.rs'
-            critical: 'Controller::applying;Controller::executed;Controller::observed;Controller::bind_repair;PlanVault::matches;PlanVault::begin;PlanVault::finish;PlanVault::record_observation;PlanVault::revoke'
+            critical: 'Controller::applying;Controller::executed;Controller::observed;Controller::bind_repair;expired;PlanVault::matches;PlanVault::begin;PlanVault::finish;PlanVault::record_observation;PlanVault::revoke'
           - id: media-time
             package: semwright-media-time
             files: 'crates/media-time/src/lib.rs crates/media-time/src/cue.rs'
