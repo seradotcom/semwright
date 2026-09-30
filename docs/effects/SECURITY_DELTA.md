@@ -1,22 +1,21 @@
-# Security delta — F candidate
+# Security delta — F
 
-The effect evaluator is not an authority, safety certification or authorization service. R16 remains open. The generic library evaluates data; current native examples are test harnesses, not public Broker capabilities.
+The evaluator is not authorization, a policy engine, a safety certification or a new trust root. A/Broker/Host remain authoritative. R16 remains open.
 
-## Additions
-Closed/versioned predicates avoid user eval, arbitrary methods and unchecked paths. A owns canonicalization, owner/base/plan types, verdicts, PlanVault and convergence budgets. Imported observations cannot construct an authenticated EvidenceBatch. Compiled adapters must obtain identity from the real execution channel, never from request metadata.
+## Implemented controls
+Typed/versioned predicates avoid user eval and arbitrary verifier scripts. Imported observations cannot mint authenticated EvidenceBatch.
+Binding/normalization reject wrong owner, request, operation, plan/contract digest, base, provider session/generation, method/source/version/artifact, scope and inconsistent enumeration.
+Budgets and trusted observation scope are checked before adapter calls. Required FAIL and UNKNOWN survive aggregation; a client ACK or request echo cannot become independent readback.
+The fixed post-write readback-fault cases produce UNKNOWN with zero evidence instead of false PASS.
 
-Binding and normalization reject wrong owner/request/operation/plan/contract, stale or unknown bases, wrong provider session/generation, changed channel identity, unsupported evidence class, substituted method/source/artifact, incomplete scopes and inconsistent enumeration. Observer count limits and trusted scope are checked before adapter calls. Host adapters still enforce elapsed-time, memory and OS budgets; this synchronous library cannot preempt a native getter.
-
-`validate_plan` checks consistency with A's actual PreparedPlan, including the pinned effects.contract dependency and unchanged budget. It does not reserve or execute a plan. The existing Broker/PlanVault path must admit every observer/render/open operation and every repair.
-
-## Native laboratory boundary
-The scripts use GitHub-hosted disposable roots, bubblewrap unshare-all, clean environments, no inherited GitHub credentials in app subprocesses, read-only source/runtime mounts, bounded logs/files and explicit deadlines. This configuration is implemented but native success has not yet been confirmed. It does not enclose the user's live creative application or prove general project safety.
-
-Godot test input is explicitly synthetic in-memory scene state; SaveOps performs scene-only persistence and ReadbackOps observes it. Blender authoring/export/save/open calls use the fixed product Commands adapter. Direct native writes occur only in declared fixture setup or labeled fault injection. No result is attributed to a full Broker E2E.
-
-The Rust native example trusts only its own fixed subprocess invocation and independently reads native output; it is not an API for importing arbitrary client JSON. Trusted in-process adapter implementations remain part of the TCB. A malicious registered adapter is not made trustworthy by this crate's types.
+## Native laboratory
+Run 36683875483 executed Godot 4.7.2 and Blender 4.5.14 inside disposable GitHub-hosted Linux with Bubblewrap unshare-all, clear environment, read-only source/runtime mounts under the sealed tool namespace, bounded logs/files and deadlines.
+The Godot negative observation writer is a separate native process; Blender negative membership also uses a declared external native mutation. Fault injection is separated from product authoring.
+This proves only the declared synthetic roots/workflows. It does not enclose an already-open user application or establish machine-wide noninterference.
 
 ## Residual limitations
-Post-hoc forbidden-effect detection cannot prevent a write. Bounded inventories establish only the declared synthetic root and budgets, not machine-wide noninterference. Happy-path fresh reopen does not establish fsync, atomicity or crash durability. Causality is not inferred from equal/different bytes. There is no cross-app rollback or exactly-once guarantee.
-
-Outstanding: current-SHA native/negative gates, production D/E adapter admission, owner A review, targeted mutation execution, portability, audit/license gates and independent security review.
+Post-hoc checks detect forbidden effects after execution; OS/Host enforcement is required when prevention is possible.
+Fresh reopen proves the observed persistence path, not fsync/atomic crash durability. Quality reports retain Recovery=UNKNOWN and receipts record crash_durability=NOT_TESTED.
+Attribution is isolated/ordered only where the harness establishes it; no cross-app causal or rollback guarantee is made.
+E's certified Blender consumer still needs the preservation rule classified as Forbidden and whole-scene/unmanaged projection scope represented explicitly.
+A owner approval and independent R16 review remain external gates.

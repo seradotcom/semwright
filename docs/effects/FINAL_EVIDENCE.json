@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "role": "F",
+  "state": "NATIVE_COMPLETE_INTEGRATION_REVIEW_PENDING",
+  "baseline_sha": "b736d41b61c4a4146c9e75c16796e251b025e69f",
+  "implementation_source_sha": "0afad4b4ceac59434ae938d246f96d8d4351498e",
+  "e0_sha": "dd6d22d6ec6c7c5ef378da58ed75ca18b25ba5ff",
+  "contract_sha": "26602e4b25929be869d69ef28fef4dd9713180d7",
+  "dependencies": {
+    "A_C0": "26602e4b25929be869d69ef28fef4dd9713180d7",
+    "C_P0": "6ee52b428310370d3ad438a13964086a63f48367"
+  },
+  "effect_conformance": {
+    "run_id": 36683875483,
+    "conclusion": "success",
+    "linux_job": 109791197589,
+    "windows_job": 109791197577,
+    "macos_job": 109791197598,
+    "requested_tests": 39,
+    "executed_tests": 39,
+    "skipped_tests": 0,
+    "schema_mutation_cases": 15000,
+    "targeted_mutants_killed": 3
+  },
+  "native": {
+    "godot": {
+      "runtime": "4.7.2-stable",
+      "cases": ["baseline:PASS","external-mutant:FAIL","observation-mutant:FAIL","readback-fault:UNKNOWN"]
+    },
+    "blender": {
+      "runtime": "4.5.14 LTS",
+      "cases": ["baseline:PASS","external-mutant:FAIL","membership-mutant:FAIL","readback-fault:UNKNOWN"]
+    },
+    "route": "native-product-adapter-not-broker",
+    "crash_durability": "NOT_TESTED"
+  },
+  "same_sha_gates": {
+    "quality": {"run_id": 36683883701, "conclusion": "success"},
+    "dependency_coverage_fuzz": {"run_id": 36683883572, "conclusion": "success"},
+    "packaging": {"run_id": 36683883626, "conclusion": "success"},
+    "supply_chain": {"run_id": 36683883597, "conclusion": "success", "attestation": "skipped_not_claimed"}
+  },
+  "consumers": {
+    "A": "PreparedPlan compile/binding consumer PASS; owner approval still pending",
+    "C": "P0 receipt consumer PASS",
+    "D": "production EvidenceAdapter/collect/evaluate; exact certification 655a233 / run 36742703497 PASS",
+    "E": "certified consumer 3d04d846 / run 36684985248 PASS, but preservation obligation/scope finding remains open",
+    "B": "contractual Audio compatibility only; no production B crate in frozen F graph"
+  },
+  "requirements": {
+    "F01": "BLOCKED_OWNER_A_APPROVAL",
+    "F02": "PASS",
+    "F03": "PASS",
+    "F04": "PASS",
+    "F05": "PASS",
+    "F06": "PASS",
+    "F07": "PASS",
+    "F08": "PASS",
+    "F09": "PASS",
+    "F10": "PASS",
+    "F11": "PASS",
+    "F12": "PARTIAL",
+    "F13": "PASS",
+    "F14": "PASS"
+  },
+  "backup": {
+    "path": "docs/effects/backup/semwright-effect-conformance-F-0afad4b.zip",
+    "sha256": "81dce5784b01693f1c221e65937c25d4640ecea1a4c74aa384451325bf591b8f",
+    "format": "reconstructive-source-zip"
+  },
+  "claims": {
+    "effect_ready_for_consumers": true,
+    "effect_ready_for_integration": false,
+    "native_evidence_confirmed": true,
+    "security_certified": false,
+    "r16_closed": false
+  }
+}
