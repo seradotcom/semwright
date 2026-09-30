@@ -23,32 +23,31 @@ on:
       - '.github/workflows/audio-diagnostics.yml'
       - 'Cargo.lock'
       - 'Cargo.toml'
-  pull_request:
-    paths:
-      - 'crates/audio-domain/**'
-      - 'crates/audio-authoring/**'
-      - 'crates/driver-faust-audio/**'
-      - 'crates/driver-ardour-audio/**'
-      - 'crates/semantic-composition/**'
-      - 'crates/media-time/**'
-      - 'crates/driver-sdk/**'
-      - 'crates/driver-host/**'
-      - 'crates/policy/**'
-      - 'scripts/audio/**'
-      - 'scripts/dev/ci-driver-bwrap-profile.sh'
-      - 'docs/audio/**'
-      - 'skills/semwright-audio-production/**'
-      - 'fuzz/Cargo.toml'
-      - 'fuzz/fuzz_targets/audio_*.rs'
-      - 'fuzz/corpus/audio_*/**'
-      - 'integrations/audio/**'
-      - '.github/workflows/audio-diagnostics.yml'
   workflow_dispatch:
+    inputs:
+      scope:
+        description: "Affected lane for iteration; certify runs the complete integration candidate"
+        required: true
+        default: affected
+        type: choice
+        options:
+          - affected
+          - domain
+          - faust
+          - analysis
+          - ardour
+          - fuzz
+          - portable
+          - certify
+      candidate_sha:
+        description: "Required for certify; must equal the exact checked-out candidate SHA"
+        required: false
+        type: string
 permissions:
   contents: read
 concurrency:
-  group: audio-diagnostics-${{ github.ref }}
-  cancel-in-progress: true
+  group: audio-diagnostics-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && inputs.scope == 'certify' && github.sha || 'iteration' }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' || inputs.scope != 'certify' }}
 defaults:
   run:
     shell: bash
@@ -57,7 +56,126 @@ env:
   CARGO_PROFILE_DEV_DEBUG: 0
   CARGO_PROFILE_TEST_DEBUG: 0
 jobs:
+  scope:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      domain: ${{ steps.scope.outputs.domain }}
+      faust: ${{ steps.scope.outputs.faust }}
+      analysis: ${{ steps.scope.outputs.analysis }}
+      ardour: ${{ steps.scope.outputs.ardour }}
+      fuzz: ${{ steps.scope.outputs.fuzz }}
+      portable: ${{ steps.scope.outputs.portable }}
+      certify: ${{ steps.scope.outputs.certify }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - id: scope
+        name: Select affected audio lanes
+        env:
+          REQUESTED_SCOPE: ${{ inputs.scope || 'affected' }}
+          CANDIDATE_SHA: ${{ inputs.candidate_sha || '' }}
+          EVENT_NAME: ${{ github.event_name }}
+          PUSH_BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          domain=false
+          faust=false
+          analysis=false
+          ardour=false
+          fuzz=false
+          portable=false
+          certify=false
+
+          select_manual_scope() {
+            case "$REQUESTED_SCOPE" in
+              domain) domain=true ;;
+              faust) faust=true ;;
+              analysis) analysis=true ;;
+              ardour) ardour=true ;;
+              fuzz) domain=true; fuzz=true ;;
+              portable) domain=true; portable=true ;;
+              certify)
+                domain=true
+                faust=true
+                analysis=true
+                ardour=true
+                fuzz=true
+                portable=true
+                certify=true
+                ;;
+              affected) ;;
+              *) echo "unknown scope: $REQUESTED_SCOPE" >&2; exit 2 ;;
+            esac
+          }
+
+          if [[ "$EVENT_NAME" == "workflow_dispatch" && "$REQUESTED_SCOPE" != "affected" ]]; then
+            if [[ "$REQUESTED_SCOPE" == "certify" ]]; then
+              if [[ ! "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+                echo "certify requires candidate_sha as a full lowercase 40-hex SHA" >&2
+                exit 2
+              fi
+              if [[ "$CANDIDATE_SHA" != "$GITHUB_SHA" ]]; then
+                echo "candidate_sha=$CANDIDATE_SHA does not match checked-out GITHUB_SHA=$GITHUB_SHA" >&2
+                exit 1
+              fi
+              echo "Exact candidate certified by request: $CANDIDATE_SHA" >> "$GITHUB_STEP_SUMMARY"
+            fi
+            select_manual_scope
+          else
+            base="$PUSH_BEFORE"
+            head="$GITHUB_SHA"
+            if [[ -z "$base" || "$base" =~ ^0+$ ]]; then
+              base="$(git rev-parse "$head^" 2>/dev/null || printf '%s' "$head")"
+            fi
+            git diff --name-only "$base" "$head" > "$RUNNER_TEMP/audio-changed-paths.txt"
+            cat "$RUNNER_TEMP/audio-changed-paths.txt"
+
+            while IFS= read -r path; do
+              case "$path" in
+                crates/driver-ardour-audio/*)
+                  ardour=true
+                  ;;
+                crates/driver-faust-audio/*|integrations/audio/faust-runtime/*)
+                  faust=true
+                  ;;
+                integrations/audio/analysis-runtime/*)
+                  analysis=true
+                  ;;
+                crates/audio-domain/*|crates/audio-authoring/*)
+                  domain=true
+                  ;;
+                fuzz/Cargo.toml|fuzz/fuzz_targets/audio_*|fuzz/corpus/audio_*/*)
+                  domain=true
+                  fuzz=true
+                  ;;
+                crates/semantic-composition/*|crates/media-time/*|crates/driver-sdk/*|crates/driver-host/*|crates/policy/*|scripts/audio/*|scripts/dev/ci-driver-bwrap-profile.sh|Cargo.toml|Cargo.lock)
+                  domain=true
+                  faust=true
+                  analysis=true
+                  ardour=true
+                  ;;
+                *)
+                  ;;
+              esac
+            done < "$RUNNER_TEMP/audio-changed-paths.txt"
+          fi
+
+          {
+            echo "domain=$domain"
+            echo "faust=$faust"
+            echo "analysis=$analysis"
+            echo "ardour=$ardour"
+            echo "fuzz=$fuzz"
+            echo "portable=$portable"
+            echo "certify=$certify"
+          } | tee -a "$GITHUB_OUTPUT"
+
   audio-domain:
+    needs: [scope]
+    if: needs.scope.outputs.domain == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -85,7 +203,8 @@ jobs:
           retention-days: 7
           if-no-files-found: error
   audio-portable-cross:
-    needs: [audio-domain]
+    needs: [scope, audio-domain]
+    if: needs.scope.outputs.portable == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -112,6 +231,8 @@ jobs:
           retention-days: 7
           if-no-files-found: error
   faust-native:
+    needs: [scope]
+    if: needs.scope.outputs.faust == 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -178,6 +299,8 @@ jobs:
           retention-days: 7
           if-no-files-found: error
   analysis-native:
+    needs: [scope]
+    if: needs.scope.outputs.analysis == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -216,6 +339,8 @@ jobs:
           retention-days: 7
           if-no-files-found: error
   ardour-native:
+    needs: [scope]
+    if: needs.scope.outputs.ardour == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
@@ -277,7 +402,8 @@ jobs:
           retention-days: 7
           if-no-files-found: error
   audio-fuzz:
-    needs: [audio-domain]
+    needs: [scope, audio-domain]
+    if: needs.scope.outputs.fuzz == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 12
     steps:
@@ -309,7 +435,8 @@ jobs:
           retention-days: 7
           if-no-files-found: warn
   audio-package:
-    needs: [audio-domain, faust-native, analysis-native, ardour-native]
+    needs: [scope, audio-domain, faust-native, analysis-native, ardour-native]
+    if: needs.scope.outputs.certify == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
@@ -351,14 +478,56 @@ jobs:
           path: verification/audio/packages
           retention-days: 30
           if-no-files-found: error
-  audio-gate:
-    if: always()
-    needs: [audio-domain, audio-portable-cross, faust-native, analysis-native, ardour-native, audio-fuzz, audio-package]
+  audio-iteration-gate:
+    if: always() && needs.scope.outputs.certify != 'true'
+    needs: [scope, audio-domain, audio-portable-cross, faust-native, analysis-native, ardour-native, audio-fuzz]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
-      - name: Every selected lane must run and pass
+      - name: Every selected iteration lane must pass
         env:
+          SCOPE_RESULT: ${{ needs.scope.result }}
+          DOMAIN_SELECTED: ${{ needs.scope.outputs.domain }}
+          FAUST_SELECTED: ${{ needs.scope.outputs.faust }}
+          ANALYSIS_SELECTED: ${{ needs.scope.outputs.analysis }}
+          ARDOUR_SELECTED: ${{ needs.scope.outputs.ardour }}
+          FUZZ_SELECTED: ${{ needs.scope.outputs.fuzz }}
+          PORTABLE_SELECTED: ${{ needs.scope.outputs.portable }}
+          DOMAIN_RESULT: ${{ needs.audio-domain.result }}
+          CROSS_RESULT: ${{ needs.audio-portable-cross.result }}
+          FAUST_RESULT: ${{ needs.faust-native.result }}
+          ANALYSIS_RESULT: ${{ needs.analysis-native.result }}
+          ARDOUR_RESULT: ${{ needs.ardour-native.result }}
+          FUZZ_RESULT: ${{ needs.audio-fuzz.result }}
+        run: |
+          set -euo pipefail
+          test "$SCOPE_RESULT" = success
+          check_selected() {
+            local selected="$1"
+            local result="$2"
+            local name="$3"
+            if [[ "$selected" == "true" && "$result" != "success" ]]; then
+              echo "$name was selected but finished as $result" >&2
+              exit 1
+            fi
+          }
+          check_selected "$DOMAIN_SELECTED" "$DOMAIN_RESULT" audio-domain
+          check_selected "$PORTABLE_SELECTED" "$CROSS_RESULT" audio-portable-cross
+          check_selected "$FAUST_SELECTED" "$FAUST_RESULT" faust-native
+          check_selected "$ANALYSIS_SELECTED" "$ANALYSIS_RESULT" analysis-native
+          check_selected "$ARDOUR_SELECTED" "$ARDOUR_RESULT" ardour-native
+          check_selected "$FUZZ_SELECTED" "$FUZZ_RESULT" audio-fuzz
+
+  audio-gate:
+    if: always() && needs.scope.outputs.certify == 'true'
+    needs: [scope, audio-domain, audio-portable-cross, faust-native, analysis-native, ardour-native, audio-fuzz, audio-package]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Every certification lane must run and pass
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          SCOPE_RESULT: ${{ needs.scope.result }}
           DOMAIN_RESULT: ${{ needs.audio-domain.result }}
           CROSS_RESULT: ${{ needs.audio-portable-cross.result }}
           FAUST_RESULT: ${{ needs.faust-native.result }}
@@ -366,4 +535,44 @@ jobs:
           ARDOUR_RESULT: ${{ needs.ardour-native.result }}
           FUZZ_RESULT: ${{ needs.audio-fuzz.result }}
           PACKAGE_RESULT: ${{ needs.audio-package.result }}
-        run: test "$DOMAIN_RESULT" = success && test "$CROSS_RESULT" = success && test "$FAUST_RESULT" = success && test "$ANALYSIS_RESULT" = success && test "$ARDOUR_RESULT" = success && test "$FUZZ_RESULT" = success && test "$PACKAGE_RESULT" = success
+        run: |
+          set -euo pipefail
+          test "$CANDIDATE_SHA" = "$GITHUB_SHA"
+          test "$SCOPE_RESULT" = success
+          test "$DOMAIN_RESULT" = success
+          test "$CROSS_RESULT" = success
+          test "$FAUST_RESULT" = success
+          test "$ANALYSIS_RESULT" = success
+          test "$ARDOUR_RESULT" = success
+          test "$FUZZ_RESULT" = success
+          test "$PACKAGE_RESULT" = success
+          mkdir -p verification/audio
+          python3 - <<'PY'
+          import json, os
+          payload = {
+              "schema_version": 1,
+              "status": "PASS",
+              "candidate_sha": os.environ["CANDIDATE_SHA"],
+              "github_sha": os.environ["GITHUB_SHA"],
+              "run_id": os.environ["GITHUB_RUN_ID"],
+              "run_attempt": os.environ["GITHUB_RUN_ATTEMPT"],
+              "lanes": {
+                  "audio-domain": os.environ["DOMAIN_RESULT"],
+                  "audio-portable-cross": os.environ["CROSS_RESULT"],
+                  "faust-native": os.environ["FAUST_RESULT"],
+                  "analysis-native": os.environ["ANALYSIS_RESULT"],
+                  "ardour-native": os.environ["ARDOUR_RESULT"],
+                  "audio-fuzz": os.environ["FUZZ_RESULT"],
+                  "audio-package": os.environ["PACKAGE_RESULT"],
+              },
+          }
+          with open("verification/audio/final-certification.json", "w", encoding="utf-8") as handle:
+              json.dump(payload, handle, indent=2, sort_keys=True)
+              handle.write("\n")
+          PY
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: audio-final-certification-${{ github.sha }}
+          path: verification/audio/final-certification.json
+          retention-days: 30
+          if-no-files-found: error
