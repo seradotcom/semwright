@@ -189,7 +189,8 @@ fn tool_session_capability() -> Capability {
                     "session":{"type":"string","minLength":1,"maxLength":128},
                     "payload":{"type":"string","maxLength":1024},
                     "cwd_mount":{"type":"string","minLength":1,"maxLength":64},
-                    "lifecycle_marker":{"type":"boolean"}
+                    "lifecycle_marker":{"type":"boolean"},
+                    "session_config":{"enum":["read","table"]}
                 },
                 "required":["action"],
                 "additionalProperties":false
@@ -720,7 +721,12 @@ impl Driver for Fixture {
             if args.keys().any(|key| {
                 !matches!(
                     key.as_str(),
-                    "action" | "session" | "payload" | "cwd_mount" | "lifecycle_marker"
+                    "action"
+                        | "session"
+                        | "payload"
+                        | "cwd_mount"
+                        | "lifecycle_marker"
+                        | "session_config"
                 )
             }) {
                 return Err(Error::invalid(
@@ -750,6 +756,20 @@ impl Driver for Fixture {
                             value: "--lifecycle-marker".into(),
                         });
                     }
+                    if let Some(mode) = args.get("session_config").and_then(Value::as_str) {
+                        tool_args.push(RuntimeToolArg::Literal {
+                            value: match mode {
+                                "read" => "--session-read-system-config",
+                                "table" => "--session-print-mount-table",
+                                _ => {
+                                    return Err(Error::invalid(
+                                        "fixture tool session config mode is invalid",
+                                    ));
+                                }
+                            }
+                            .into(),
+                        });
+                    }
                     let cwd =
                         args.get("cwd_mount")
                             .and_then(Value::as_str)
@@ -768,7 +788,10 @@ impl Driver for Fixture {
                     Ok(json!({"session":session.id,"state":"open"}))
                 }
                 "request" => {
-                    if args.get("cwd_mount").is_some() || args.get("lifecycle_marker").is_some() {
+                    if args.get("cwd_mount").is_some()
+                        || args.get("lifecycle_marker").is_some()
+                        || args.get("session_config").is_some()
+                    {
                         return Err(Error::invalid(
                             "fixture tool session request accepts only session and payload",
                         ));
@@ -804,6 +827,7 @@ impl Driver for Fixture {
                     if args.get("payload").is_some()
                         || args.get("cwd_mount").is_some()
                         || args.get("lifecycle_marker").is_some()
+                        || args.get("session_config").is_some()
                     {
                         return Err(Error::invalid(
                             "fixture tool session close does not accept payload",

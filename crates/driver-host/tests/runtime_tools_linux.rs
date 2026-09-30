@@ -510,6 +510,11 @@ async fn linux_v8_runtime_tool_sessions_are_provider_scoped_and_reaped() {
 
     let workspace = tempfile::tempdir().expect("session workspace");
     let other_workspace = tempfile::tempdir().expect("unused workspace");
+    let configs = tempfile::tempdir().expect("session system config sources");
+    let allowed_config = configs.path().join("runtime-config");
+    let other_config = configs.path().join("other-config");
+    std::fs::write(&allowed_config, b"delegated-config").unwrap();
+    std::fs::write(&other_config, b"driver-only-config").unwrap();
     let roots = vec![
         FilesystemGrant {
             name: "fixture-tool-root".into(),
@@ -535,13 +540,29 @@ async fn linux_v8_runtime_tool_sessions_are_provider_scoped_and_reaped() {
             read: true,
             write: true,
         },
+        FilesystemGrant {
+            name: "tool-config-root".into(),
+            path: allowed_config
+                .canonicalize()
+                .expect("canonical session config"),
+            read: true,
+            write: false,
+        },
+        FilesystemGrant {
+            name: "other-config-root".into(),
+            path: other_config
+                .canonicalize()
+                .expect("canonical other session config"),
+            read: true,
+            write: false,
+        },
     ];
 
     let state = tempfile::tempdir().expect("driver state");
     std::fs::set_permissions(state.path(), std::fs::Permissions::from_mode(0o700))
         .expect("harden driver state");
     let provider = DriverProvider::connect(
-        manifest(driver, digest(&tool), 8),
+        manifest_v8(driver, digest(&tool)),
         state.path(),
         &sandbox_helper(),
         &roots,
@@ -579,7 +600,8 @@ async fn linux_v8_runtime_tool_sessions_are_provider_scoped_and_reaped() {
         serde_json::json!({
             "action":"start",
             "cwd_mount":"tool-workspace",
-            "lifecycle_marker":true
+            "lifecycle_marker":true,
+            "session_config":"read"
         }),
     )
     .await
@@ -606,7 +628,7 @@ async fn linux_v8_runtime_tool_sessions_are_provider_scoped_and_reaped() {
     .await
     .expect("another driver session may use provider-scoped runtime session");
     assert_eq!(frame["state"], "frame");
-    assert_eq!(frame["payload"], "provider-scope");
+    assert_eq!(frame["payload"], "delegated-config|provider-scope");
 
     let forged = run(
         "session-b",
