@@ -103,6 +103,9 @@ pub struct ArdourRuntimeProbe {
     pub group_self_test: bool,
     pub group_diagnostic_class: String,
     pub group_diagnostic_prefix: String,
+    pub automation_self_test: bool,
+    pub automation_diagnostic_class: String,
+    pub automation_diagnostic_prefix: String,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -602,6 +605,94 @@ close_session()
             )
         };
 
+        let (automation_self_test, automation_diagnostic_class, automation_diagnostic_prefix) =
+            if snapshot_self_test {
+                if let Some(plugin) = self.config.allowed_plugins.first() {
+                    let script_dir = tempfile::Builder::new()
+                        .prefix("semwright-ardour-automation-probe-")
+                        .tempdir()?;
+                    let script_path = script_dir.path().join("semwright-ardour.lua");
+                    fs::write(&script_path, script::source())?;
+                    let automation_args = lua_tool_args(
+                        &script_path,
+                        vec![
+                            probe_session.to_string_lossy().into_owned(),
+                            probe_state.into(),
+                            self.config.ardour_version.clone(),
+                            "automation_self_test".into(),
+                            plugin.native_name.clone(),
+                            plugin.kind.clone(),
+                            plugin.preset.clone(),
+                        ],
+                    );
+                    let automation_run = self
+                        .run_tool_capture(context, &self.lua_tool, &automation_args)
+                        .await?;
+                    if automation_run.exit_code != 0 {
+                        let classified =
+                            classify_tool_failure(&automation_run.stdout, &automation_run.stderr);
+                        (
+                            false,
+                            format!("{:?}", classified.code),
+                            bounded_text_diagnostic(&bounded_diagnostic(
+                                &automation_run.stdout,
+                                &automation_run.stderr,
+                            )),
+                        )
+                    } else {
+                        match parse_snapshot(&automation_run.stdout) {
+                            Ok(snapshot) => {
+                                let verified = snapshot.routes.iter().any(|route| {
+                                    route.name == "Semwright Probe Automation"
+                                        && route.plugins.iter().any(|native_plugin| {
+                                            native_plugin
+                                                .parameters
+                                                .iter()
+                                                .any(|parameter| parameter.automation_points > 0)
+                                        })
+                                });
+                                if verified {
+                                    (
+                                        true,
+                                        "ok".to_string(),
+                                        bounded_text_diagnostic(
+                                            "plugin automation point added and observed in native snapshot",
+                                        ),
+                                    )
+                                } else {
+                                    (
+                                        false,
+                                        "BackendFailed".to_string(),
+                                        bounded_text_diagnostic(
+                                            "automation probe snapshot did not contain the expected point",
+                                        ),
+                                    )
+                                }
+                            }
+                            Err(error) => (
+                                false,
+                                format!("{:?}", error.code),
+                                bounded_text_diagnostic(&error.message),
+                            ),
+                        }
+                    }
+                } else {
+                    (
+                        false,
+                        "plugin_prerequisite_missing".to_string(),
+                        bounded_text_diagnostic(
+                            "automation probe requires one pinned allowlisted plugin",
+                        ),
+                    )
+                }
+            } else {
+                (
+                    false,
+                    "snapshot_prerequisite_failed".to_string(),
+                    String::new(),
+                )
+            };
+
         Ok(ArdourRuntimeProbe {
             ardour_version: self.config.ardour_version.clone(),
             lua_banner,
@@ -622,6 +713,9 @@ close_session()
             group_self_test,
             group_diagnostic_class,
             group_diagnostic_prefix,
+            automation_self_test,
+            automation_diagnostic_class,
+            automation_diagnostic_prefix,
         })
     }
 
