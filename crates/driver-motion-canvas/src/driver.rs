@@ -1738,7 +1738,7 @@ mod tests {
             .unwrap();
 
         let output = serde_json::to_value(SnapshotOutput {
-            project: fixture(),
+            project: Project::empty("inspect-schema-fixture".into()),
             fingerprint: "a".repeat(64),
             refs: vec![],
             generated: vec![],
