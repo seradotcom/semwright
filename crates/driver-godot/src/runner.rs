@@ -17,7 +17,7 @@ use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
-    io::Read,
+    io::{Read, Write},
     os::unix::process::CommandExt,
     path::{Component, Path, PathBuf},
     process::Stdio,
@@ -132,13 +132,49 @@ impl Runner {
         context: &DriverExecutionContext,
     ) -> Result<NativeVerifyResult> {
         context.check_cancelled()?;
-        self.native_verify(
-            request,
-            binding,
-            context.request_id().to_owned(),
-            Some(context.cancellation()),
-        )
-        .await
+        let result = self
+            .native_verify(
+                request,
+                binding,
+                context.request_id().to_owned(),
+                Some(context.cancellation()),
+            )
+            .await;
+        if let Err(error) = &result {
+            self.write_private_native_diagnostic(error);
+        }
+        result
+    }
+
+    fn write_private_native_diagnostic(&self, error: &Error) {
+        let Some(authoring) = self.authoring.as_ref() else {
+            return;
+        };
+        let gate = authoring.state_root.join(".enable-native-diagnostics");
+        let Ok(gate_meta) = std::fs::symlink_metadata(&gate) else {
+            return;
+        };
+        if !gate_meta.file_type().is_file() || gate_meta.len() > 32 {
+            return;
+        }
+        let path = authoring.state_root.join(".native-verify-error");
+        let mut message = error.message.replace(['\r', '\n'], " ");
+        message.truncate(2048);
+        let Ok(mut file) = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(path)
+        else {
+            return;
+        };
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = file.set_permissions(std::fs::Permissions::from_mode(0o600));
+        }
+        let _ = writeln!(file, "code={:?}", error.code);
+        let _ = writeln!(file, "message={message}");
+        let _ = file.sync_all();
     }
 
     async fn execute_inner(

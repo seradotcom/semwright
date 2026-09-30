@@ -285,6 +285,42 @@ async fn broker_call(broker: &Arc<Broker>, session: &str, command: &str, args: V
     envelope.data.unwrap()
 }
 
+async fn broker_call_with_native_diagnostic(
+    broker: &Arc<Broker>,
+    session: &str,
+    command: &str,
+    args: Value,
+    state_root: &Path,
+) -> Value {
+    let gate = state_root.join(".enable-native-diagnostics");
+    let diagnostic = state_root.join(".native-verify-error");
+    let _ = std::fs::remove_file(&diagnostic);
+    std::fs::write(&gate, b"1").unwrap();
+    std::fs::set_permissions(&gate, std::fs::Permissions::from_mode(0o600)).unwrap();
+    let envelope = broker
+        .clone()
+        .execute(
+            session.to_owned(),
+            unique_id(),
+            ExecuteRequest {
+                command: command.into(),
+                args,
+                dry_run: false,
+                backend: None,
+            },
+            CancellationToken::new(),
+        )
+        .await;
+    let _ = std::fs::remove_file(&gate);
+    if !envelope.ok {
+        let private = std::fs::read_to_string(&diagnostic)
+            .unwrap_or_else(|error| format!("<native diagnostic unavailable: {error}>"));
+        panic!("{command}: {envelope:?}; private diagnostic: {private}");
+    }
+    let _ = std::fs::remove_file(&diagnostic);
+    envelope.data.unwrap()
+}
+
 fn effect_rule_verdict<'a>(response: &'a Value, rule: &str) -> Option<&'a str> {
     response["effects"]["report"]["validation"]["checks"]
         .as_array()?
@@ -563,7 +599,7 @@ async fn empty_project_authoring_flows_through_broker_driver_host_and_provider()
     );
     assert_eq!(verified["receipt"]["coverage"]["complete"], false);
 
-    let native_inspect = broker_call(
+    let native_inspect = broker_call_with_native_diagnostic(
         &broker,
         &session,
         "driver.godot.composition.native.verify",
@@ -572,6 +608,7 @@ async fn empty_project_authoring_flows_through_broker_driver_host_and_provider()
             "scene":"arena",
             "verification":{"kind":"inspect"}
         }),
+        fixture._state.path(),
     )
     .await;
     assert_eq!(native_inspect["kind"], "inspect");
