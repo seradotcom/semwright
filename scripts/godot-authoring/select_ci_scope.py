@@ -7,10 +7,29 @@ import argparse
 import fnmatch
 import json
 import os
+import re
 import subprocess
 from pathlib import Path
 
 LANES = ("model", "native", "persistence", "export", "hostile", "cross_app")
+HOST_FILE = "crates/driver-godot/tests/authoring_host.rs"
+HOST_EXTRA_LANES = frozenset(("persistence", "export", "cross_app"))
+HOST_TEST_LANES = {
+    "persistence_lane_reopens_in_fresh_process_and_preserves_dependencies": frozenset(("persistence",)),
+    "export_lane_builds_and_launches_without_editor_or_semwright": frozenset(("export",)),
+    "blender_glb_handoff_preserves_godot_semantics_and_gameplay": frozenset(("cross_app",)),
+}
+HOST_NATIVE_ONLY_TESTS = frozenset(
+    (
+        "driver_host_handshake_control_reaches_capabilities",
+        "empty_project_authoring_flows_through_broker_driver_host_and_provider",
+        "animation_tree_state_machine_and_blend_space_round_trip_natively",
+        "shared_and_local_to_scene_materials_are_native_and_isolated",
+        "typed_transform_and_reparent_actions_round_trip_natively",
+    )
+)
+RUST_FN = re.compile(r"^(?:async\s+)?fn\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(")
+HUNK = re.compile(r"^@@\s+-\d+(?:,\d+)?\s+\+(\d+)(?:,(\d+))?\s+@@")
 
 ALL_PATTERNS = (
     ".github/workflows/godot-authoring.yml",
@@ -62,7 +81,6 @@ RULES = {
         "crates/driver-godot/src/authoring/runtime.rs",
         "crates/driver-godot/src/config.rs",
         "crates/driver-godot/src/runner.rs",
-        "crates/driver-godot/tests/authoring_host.rs",
         "crates/driver-godot/tests/authoring_native.rs",
         "crates/driver-godot/tests/authoring_store.rs",
         "integrations/godot/addons/semwright/**",
@@ -77,7 +95,6 @@ RULES = {
         "crates/driver-godot/src/authoring/store.rs",
         "crates/driver-godot/src/config.rs",
         "crates/driver-godot/src/runner.rs",
-        "crates/driver-godot/tests/authoring_host.rs",
         "crates/driver-godot/tests/fixtures/authoring/**",
         "scripts/dev/ci-driver-bwrap-profile.sh",
     ),
@@ -96,7 +113,6 @@ RULES = {
         "crates/driver-godot/src/authoring/model.rs",
         "crates/driver-godot/src/authoring/native_observation.rs",
         "crates/driver-godot/src/authoring/store.rs",
-        "crates/driver-godot/tests/authoring_host.rs",
         "crates/driver-godot/tests/fixtures/authoring/three_d.json",
         "crates/driver-godot/tests/fixtures/authoring/triangle.glb",
         "crates/platform-common/src/artifact.rs",
@@ -108,7 +124,81 @@ def matches(path: str, patterns: tuple[str, ...]) -> bool:
     return any(fnmatch.fnmatchcase(path, pattern) for pattern in patterns)
 
 
-def select(paths: list[str], certify: bool) -> dict[str, bool]:
+def rust_function_spans(source: str) -> list[tuple[int, int, str]]:
+    starts: list[tuple[int, str]] = []
+    for line_number, line in enumerate(source.splitlines(), 1):
+        match = RUST_FN.match(line)
+        if match:
+            starts.append((line_number, match.group(1)))
+    spans: list[tuple[int, int, str]] = []
+    last_line = max(1, len(source.splitlines()))
+    for index, (start, name) in enumerate(starts):
+        end = starts[index + 1][0] - 1 if index + 1 < len(starts) else last_line
+        spans.append((start, end, name))
+    return spans
+
+
+def owner_for_line(spans: list[tuple[int, int, str]], line: int) -> str | None:
+    for start, end, name in spans:
+        if start <= line <= end:
+            return name
+    return None
+
+
+def host_lanes_for_changed_lines(source: str, changed_lines: set[int]) -> set[str]:
+    if not changed_lines:
+        return set(HOST_EXTRA_LANES)
+    spans = rust_function_spans(source)
+    lanes: set[str] = set()
+    for line in changed_lines:
+        owner = owner_for_line(spans, line)
+        if owner in HOST_TEST_LANES:
+            lanes.update(HOST_TEST_LANES[owner])
+        elif owner in HOST_NATIVE_ONLY_TESTS:
+            continue
+        else:
+            # Helpers and unknown/deleted regions can affect every host-backed lane.
+            return set(HOST_EXTRA_LANES)
+    return lanes
+
+
+def changed_new_lines(base: str, head: str, path: str) -> set[int]:
+    if not base or set(base) == {"0"}:
+        return set()
+    try:
+        subprocess.check_call(
+            ["git", "cat-file", "-e", f"{base}^{{commit}}"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        output = git("diff", "--unified=0", base, head, "--", path)
+    except subprocess.CalledProcessError:
+        return set()
+    lines: set[int] = set()
+    for line in output.splitlines():
+        match = HUNK.match(line)
+        if not match:
+            continue
+        start = int(match.group(1))
+        count = int(match.group(2) or "1")
+        if count == 0:
+            lines.add(max(1, start))
+        else:
+            lines.update(range(start, start + count))
+    return lines
+
+
+def host_changed_lanes(base: str, head: str) -> set[str]:
+    try:
+        source = git("show", f"{head}:{HOST_FILE}")
+    except subprocess.CalledProcessError:
+        return set(HOST_EXTRA_LANES)
+    return host_lanes_for_changed_lines(source, changed_new_lines(base, head, HOST_FILE))
+
+
+def select(
+    paths: list[str], certify: bool, host_extra_lanes: set[str] | None = None
+) -> dict[str, bool]:
     if certify:
         return {lane: True for lane in LANES}
 
@@ -119,6 +209,10 @@ def select(paths: list[str], certify: bool) -> dict[str, bool]:
         for lane, patterns in RULES.items():
             if matches(path, patterns):
                 selected[lane] = True
+
+    if HOST_FILE in paths:
+        for lane in host_extra_lanes or ():
+            selected[lane] = True
 
     # Cross-app always consumes native evidence from the same SHA.
     if selected["cross_app"]:
@@ -192,7 +286,12 @@ def main() -> None:
     else:
         paths = changed_paths(args.base, args.head)
 
-    lanes = select(paths, certify)
+    host_extra = (
+        host_changed_lanes(args.base, args.head)
+        if not certify and HOST_FILE in paths
+        else set()
+    )
+    lanes = select(paths, certify, host_extra)
     report = {
         "schema_version": 1,
         "event": args.event,
@@ -201,6 +300,7 @@ def main() -> None:
         "certify": certify,
         "certification_trigger": trigger,
         "changed_paths": paths,
+        "host_extra_lanes": sorted(host_extra),
         "lanes": lanes,
     }
     report_path = Path(args.report)

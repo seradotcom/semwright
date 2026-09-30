@@ -1,7 +1,13 @@
 #!/usr/bin/env python3
 """Portable self-tests for affected-lane selection."""
 
-from select_ci_scope import LANES, certification_mode, select
+from select_ci_scope import (
+    HOST_EXTRA_LANES,
+    LANES,
+    certification_mode,
+    host_lanes_for_changed_lines,
+    select,
+)
 
 
 def expect(paths, expected):
@@ -46,6 +52,21 @@ def main():
         ["crates/driver-host/src/lib.rs"],
         set(LANES),
     )
+
+    host_source = """fn shared_helper() {}
+async fn driver_host_handshake_control_reaches_capabilities() {}
+async fn typed_transform_and_reparent_actions_round_trip_natively() {}
+async fn persistence_lane_reopens_in_fresh_process_and_preserves_dependencies() {}
+async fn export_lane_builds_and_launches_without_editor_or_semwright() {}
+async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {}
+"""
+    assert host_lanes_for_changed_lines(host_source, {3}) == set()
+    assert host_lanes_for_changed_lines(host_source, {4}) == {"persistence"}
+    assert host_lanes_for_changed_lines(host_source, {5}) == {"export"}
+    assert host_lanes_for_changed_lines(host_source, {6}) == {"cross_app"}
+    assert host_lanes_for_changed_lines(host_source, {1}) == set(HOST_EXTRA_LANES)
+    assert host_lanes_for_changed_lines(host_source, set()) == set(HOST_EXTRA_LANES)
+
     certified = select([], True)
     assert all(certified.values()), certified
 
