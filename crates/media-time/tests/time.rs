@@ -435,3 +435,10 @@ fn rate_validate_rejects_noncanonical_and_out_of_bounds_struct_values() {
         .is_err()
     );
 }
+
+#[test]
+fn rational_ordering_uses_cross_products_not_integer_division() {
+    assert!(q(3, 2) > q(4, 3));
+    assert!(q(-4, 3) < q(-5, 4));
+    assert_eq!(q(6, 4).cmp(&q(3, 2)), std::cmp::Ordering::Equal);
+}

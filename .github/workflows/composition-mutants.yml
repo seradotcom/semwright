@@ -43,7 +43,7 @@ jobs:
           - id: media-time
             package: semwright-media-time
             files: 'crates/media-time/src/lib.rs crates/media-time/src/cue.rs'
-            critical: 'Rational::wide;Rational::validate;Rational::checked_add;Rational::checked_sub;Rational::checked_mul;Rational::checked_div;Rational::round;Rate::validate;Rate::quantize;CueGraph::resolve;TimeMap::validate'
+            critical: 'gcd;Rational::wide;Rational::validate;Rational::checked_add;Rational::checked_sub;Rational::checked_mul;Rational::checked_div;Rational::round;<impl Ord for Rational>::cmp;Rate::validate;Rate::quantize;CueGraph::resolve;TimeMap::validate'
           - id: motion
             package: semwright-motion-authoring
             files: 'crates/motion-authoring/src/temporal.rs crates/motion-authoring/src/measurement.rs'
