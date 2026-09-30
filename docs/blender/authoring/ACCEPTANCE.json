@@ -15,7 +15,8 @@
   "source_shas": {
     "dependency_reconciliation": "995d856968a5f1bf16739d11ca122825bf2b9fc1",
     "model": "4dbee6e462275cb0b97b95f86eff605986a436ec",
-    "native_effects": "2d87f2f3df6e931090ace10bd268a211f6459ff6"
+    "native_effects": "2d87f2f3df6e931090ace10bd268a211f6459ff6",
+    "final_certification": "3d04d8465dcfa94d6cbf548fcaf343f69ac5838f"
   },
   "external_dependency_evidence": {
     "f_run_id": 36504224825,
@@ -31,70 +32,110 @@
       "condition": "real A/C/F contracts consumed without duplicate kernel",
       "implementation": "A PreparedPlan/PlanVault + F EffectContract/EvidenceAdapter + C ExecutionReceipt consumer",
       "test": "authoring_model::{prepares_common_changeset_without_second_kernel,trusted_F_adapter_can_pass_native_readback,C_receipt_requires_host_owned_ids_and_admission}",
-      "status": "CI_PENDING"
+      "status": "PASS",
+      "tested_sha": "3d04d8465dcfa94d6cbf548fcaf343f69ac5838f",
+      "run_id": 36684985248,
+      "job_id": 109788659410,
+      "evidence": "artifact:11084120677"
     },
     {
       "id": "E02",
       "condition": "existing GLB reconciled, no parallel unsafe exporter",
       "implementation": "PR #154 merged; export_scope.py preflight before existing export_glb",
       "test": "authoring_native existing driver.blender.export.glb route",
-      "status": "CI_PENDING"
+      "status": "PASS",
+      "tested_sha": "3d04d8465dcfa94d6cbf548fcaf343f69ac5838f",
+      "run_id": 36684985248,
+      "job_id": 109788659410,
+      "evidence": "artifact:11084120677"
     },
     {
       "id": "E03",
       "condition": "managed source of truth/island and external drift",
       "implementation": "native island/entity markers + fingerprint marker + plan freshness",
       "test": "model drift + native replay/inspect",
-      "status": "CI_PENDING"
+      "status": "PASS",
+      "tested_sha": "3d04d8465dcfa94d6cbf548fcaf343f69ac5838f",
+      "run_id": 36684985248,
+      "job_id": 109788659410,
+      "evidence": "artifact:11084120677"
     },
     {
       "id": "E04",
       "condition": "bounded parametric geometry/topology",
       "implementation": "box/cylinder/typed mesh arrays, explicit indices/UVs, editable POLY curve extrusion/bevel, non-destructive bevel/mirror/subdivision/array and exact-solver Boolean with managed target, native Mesh.validate rejection",
       "test": "property/index/collapse/UV/budget tests + typed mesh-attribute cardinality/shared-write denial + hard-surface native attributes/normals/curve/boolean readback + collision narrow-phase fixture",
-      "status": "CI_PENDING"
+      "status": "PASS",
+      "tested_sha": "3d04d8465dcfa94d6cbf548fcaf343f69ac5838f",
+      "run_id": 36684985248,
+      "job_id": 109788659410,
+      "evidence": "artifact:11084120677"
     },
     {
       "id": "E05",
       "condition": "transforms/relationships/units with native evaluated measurement",
       "implementation": "meter scale, XYZ transforms, parent/bone/follow/look-at plus axis-selective align with explicit local/world spaces; evaluated depsgraph measure and bounded pair measurements for spacing/contact evidence",
       "test": "native source/evaluated measurement with transforms, bounds, normals and managed attributes; product scene verifies COPY_LOCATION align axes/spaces plus pair distance/clearance; camera/light/world/render preview uses public Broker capabilities",
-      "status": "CI_PENDING"
+      "status": "PASS",
+      "tested_sha": "3d04d8465dcfa94d6cbf548fcaf343f69ac5838f",
+      "run_id": 36684985248,
+      "job_id": 109788659410,
+      "evidence": "artifact:11084120677"
     },
     {
       "id": "E06",
       "condition": "shared materials/resources preserved",
       "implementation": "mesh_instance preserves a shared mesh datablock and rejects material/modifier writes; mesh_copy performs explicit copy-on-write before independent slots/modifiers",
       "test": "model shared-write denial + hard-surface native source/copy datablock and material isolation + product-scene shared data identity",
-      "status": "CI_PENDING"
+      "status": "PASS",
+      "tested_sha": "3d04d8465dcfa94d6cbf548fcaf343f69ac5838f",
+      "run_id": 36684985248,
+      "job_id": 109788659410,
+      "evidence": "artifact:11084120677"
     },
     {
       "id": "E07",
       "condition": "native rig/actions/keyframes with complete readback/pagination",
       "implementation": "armature bones, skinning, slotted Action/F-Curves linear keys, bounded NLA tracks/strips over same-entity managed Actions, provider-owned pagination, and sampled evaluated animation bound to A media-time Rate rather than a second clock",
       "test": "authoring_native samples frame 0 and 12 at 24 fps, proves hinge/bone-parented evaluated transforms change, rejects rate mismatch, restores frame state, then validates Action+NLA readback/export and pagination/cursor drift cases",
-      "status": "CI_PENDING"
+      "status": "PASS",
+      "tested_sha": "3d04d8465dcfa94d6cbf548fcaf343f69ac5838f",
+      "run_id": 36684985248,
+      "job_id": 109788659410,
+      "evidence": "artifact:11084120677"
     },
     {
       "id": "E08",
       "condition": "bounds vs mesh evidence distinguished",
       "implementation": "source/evaluated bounds plus complete bounded pairwise mesh test: AABB broad phase only filters; world-triangle segment/coplanar narrow phase decides pair intersection; self-intersection remains UNKNOWN",
       "test": "collision_false_positive native fixture proves broad=true+narrow=SEPARATE, then typed transform produces narrow=INTERSECT; pair/object/triangle budgets return UNKNOWN instead of sampling",
-      "status": "CI_PENDING"
+      "status": "PASS",
+      "tested_sha": "3d04d8465dcfa94d6cbf548fcaf343f69ac5838f",
+      "run_id": 36684985248,
+      "job_id": 109788659410,
+      "evidence": "artifact:11084120677"
     },
     {
       "id": "E09",
       "condition": "save/reopen with undeclared rewrites excluded",
       "implementation": "new libraries.write artifact only + sentinel + fresh-process reopen; hard-surface persistence re-resolves hash-pinned external texture and preserves explicit mesh_copy isolation/material node bindings",
       "test": "authoring_native articulated fresh-process exact projection + hard-surface texture/copy-on-write/managed-attribute/shading fresh-process readback",
-      "status": "CI_PENDING"
+      "status": "PASS",
+      "tested_sha": "3d04d8465dcfa94d6cbf548fcaf343f69ac5838f",
+      "run_id": 36684985248,
+      "job_id": 109788659410,
+      "evidence": "artifact:11084120677"
     },
     {
       "id": "E10",
       "condition": "effective export membership/dependencies safe",
       "implementation": "parent/armature/boolean/modifier/constraint/material/image/action/NLA dependency preflight + global ACTIONS closure + no overwrite; existing PR154 exporter remains the only GLB writer",
       "test": "authoring_native articulated NLA export + hostile closure fixtures + existing PR154 regressions + fresh Blender GLB reimport oracle",
-      "status": "CI_PENDING"
+      "status": "PASS",
+      "tested_sha": "3d04d8465dcfa94d6cbf548fcaf343f69ac5838f",
+      "run_id": 36684985248,
+      "job_id": 109788659410,
+      "evidence": "artifact:11084120677"
     },
     {
       "id": "E11",
@@ -102,14 +143,22 @@
       "implementation": "E exports with the existing GLB capability. D now publishes the Broker-facing cross-app artifact handoff/import route, but E has no exact-SHA D PASS yet for native Godot import/readback/semantic comparison against an authentic final E artifact.",
       "test": null,
       "status": "BLOCKED_DEPENDENCY",
-      "open": "Require a D exact-SHA godot-cross-app-glb PASS over the public artifact route, including native Godot observations and C/F-bound receipts; E never substitutes private Store calls or direct Godot filesystem writes."
+      "open": "D must run its public exact-SHA Godot cross-app handoff/import/readback/semantic verification against E artifact 11084120677 / GLB 7c070046692e0561c0776646092624c60e4e73c44ebb5b5595808e2e6e0bc60e, followed by C/F-bound cross-app provenance/evidence.",
+      "tested_sha": "3d04d8465dcfa94d6cbf548fcaf343f69ac5838f",
+      "run_id": 36684985248,
+      "job_id": 109788659410,
+      "evidence": "E producer artifact 11084120677; final GLB sha256 7c070046692e0561c0776646092624c60e4e73c44ebb5b5595808e2e6e0bc60e"
     },
     {
       "id": "E12",
       "condition": "repair does not destroy art or widen authority",
       "implementation": "ordinary incremental transform and material-slot edits use fresh-fingerprint plans; composition.repair.plan/apply remains transform-only, parent PlanVault-bound and shared-budget so repair cannot expand into material/remesh/rig/bake authority.",
       "test": "native typed material_slots updates an isolated mesh and rejects shared-instance mutation; transform edit preserves identity; second-writer drift -> verify FAIL -> parent-bound repair -> PASS; model repair budget/deny cases",
-      "status": "CI_PENDING"
+      "status": "PASS",
+      "tested_sha": "3d04d8465dcfa94d6cbf548fcaf343f69ac5838f",
+      "run_id": 36684985248,
+      "job_id": 109788659410,
+      "evidence": "artifact:11084120677"
     },
     {
       "id": "E13",
@@ -117,30 +166,71 @@
       "implementation": "F trusted native EvidenceBatch/evaluation uses the real apply post-state; native E2E creates a C ExecutionReceipt candidate from host-owned logical IDs plus the real request/descriptor/runtime and C ReceiptAdapter admits it",
       "test": "model substitution/coverage cases + native apply requires F PASS and records admitted C authoring receipt digest in native-pipeline.json",
       "status": "PARTIAL",
-      "open": "cross-app C activities/receipts remain pending a successful D artifact handoff -> native import -> verification activity and subsequent C-owned admission/provenance; Blender-native C/F evidence alone is insufficient"
+      "open": "Blender-native receipts/effects are certified; remaining cross-app C activity/provenance depends on D's exact-SHA public Godot import/verification of the final E artifact.",
+      "tested_sha": "3d04d8465dcfa94d6cbf548fcaf343f69ac5838f",
+      "run_id": 36684985248,
+      "job_id": 109788659410,
+      "evidence": "Blender-native C/F evidence in artifact 11084120677"
     },
     {
       "id": "E14",
       "condition": "articulated/hard-surface/product fixtures through product route",
       "implementation": "three typed fixtures; native lane authors articulated plus hard-surface and product-scene through composition.plan/apply/measure",
       "test": "authoring_model parses all + authoring_native product-route fixtures + 64x64 technical product preview through public render/world/camera capabilities",
-      "status": "CI_PENDING"
+      "status": "PASS",
+      "tested_sha": "3d04d8465dcfa94d6cbf548fcaf343f69ac5838f",
+      "run_id": 36684985248,
+      "job_id": 109788659410,
+      "evidence": "artifact:11084120677"
     },
     {
       "id": "E15",
       "condition": "Skill/package ready for consumer",
       "implementation": "semwright-blender-production requirements include paged inspect, plan/apply/measure/validate/repair/verify/persist/reopen/export; CI validates and bundles with the real Semwright CLI",
       "test": "exact-SHA skill validate + deterministic skill bundle SHA-256 + E source backup reconstruction",
-      "status": "CI_PENDING"
+      "status": "PASS",
+      "tested_sha": "3d04d8465dcfa94d6cbf548fcaf343f69ac5838f",
+      "run_id": 36684985248,
+      "job_id": 109788659410,
+      "evidence": "artifact:11084120677"
     },
     {
       "id": "E16",
       "condition": "security/fuzz/CI exact-SHA without aesthetic auto-claim",
       "implementation": "area-directed iteration CI plus a separate exact-SHA certification mode; Blender launch is factory-clean with autoexec disabled; cancellation is checked before plan consumption and between bounded native operations; hostile GLB closure; bounded cargo-fuzz; deterministic source backup; no aesthetic PASS",
       "test": "ordinary pushes classify changed paths and run only affected model/native/export/security/fuzz/Skill/package gates; an integration candidate must carry `Semwright-Certify: blender-authoring` and bind `certification_request` to its parent SHA, which forces the 50-case model suite, native suite, startup-security unit test, pre-cancel semantics, fresh-Blender oracle, 9 hostile cases, 20s/64KiB fuzz, Skill/source package manifests and finalizer evidence on that exact SHA",
-      "status": "CI_PENDING",
-      "open": "final exact-SHA evidence and cross-app D roundtrip remain before readiness"
+      "status": "PASS",
+      "tested_sha": "3d04d8465dcfa94d6cbf548fcaf343f69ac5838f",
+      "run_id": 36684985248,
+      "job_id": 109788659410,
+      "evidence": "artifact:11084120677"
     }
   ],
-  "blender_authoring_ready": false
+  "blender_authoring_ready": false,
+  "final_certification": {
+    "source_sha": "3d04d8465dcfa94d6cbf548fcaf343f69ac5838f",
+    "run_id": 36684985248,
+    "job_id": 109788659410,
+    "artifact_id": 11084120677,
+    "artifact_name": "blender-authoring-3d04d8465dcfa94d6cbf548fcaf343f69ac5838f-blender-native-authoring",
+    "artifact_digest": "sha256:13ee52233bef10745ede86f45867d83683994bea227eed5e2aaaa42766fc97d0",
+    "model_passed": 50,
+    "native_passed": 3,
+    "startup_security": "PASS",
+    "fresh_blender_roundtrip": "PASS",
+    "hostile_export_cases": 9,
+    "fuzz": "PASS",
+    "skill": "PASS",
+    "reproducible_backup": "PASS",
+    "formatting": "PASS",
+    "acceptance_finalizer": "PASS",
+    "glb_sha256": "7c070046692e0561c0776646092624c60e4e73c44ebb5b5595808e2e6e0bc60e",
+    "composition_contracts_run_id": 36684989335,
+    "composition_contracts": {
+      "windows": "PASS",
+      "ubuntu": "PASS",
+      "macos": "PASS",
+      "contracts_gate": "PASS"
+    }
+  }
 }
