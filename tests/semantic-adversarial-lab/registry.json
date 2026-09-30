@@ -3970,6 +3970,261 @@
       "expected": {
         "ok": true
       }
+    },
+    {
+      "id": "G-GRAPH-053",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "registered adapter admits a matching synthetic native candidate but does not create producer activity",
+      "expected": {
+        "admitted": true,
+        "producer": false
+      }
+    },
+    {
+      "id": "G-GRAPH-054",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "candidate document/project substitution rejected",
+      "expected": {
+        "project_substitution_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-055",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "asset identity substitution rejected",
+      "expected": {
+        "asset_substitution_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-056",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "binding generation substitution rejected",
+      "expected": {
+        "generation_substitution_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-057",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "evidence source substitution rejected",
+      "expected": {
+        "source_substitution_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-058",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "observation method/version substitution rejected",
+      "expected": {
+        "method_substitution_rejected": true,
+        "version_substitution_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-059",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "empty scope and scope resource absent from observation base are rejected",
+      "expected": {
+        "empty_scope_rejected": true,
+        "foreign_scope_resource_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-060",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "non-exhaustive observation cannot claim complete coverage",
+      "expected": {
+        "false_complete_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-061",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "partial admitted revision remains UNKNOWN and not cache safe",
+      "expected": {
+        "label": "UNKNOWN",
+        "cache_safe": false
+      }
+    },
+    {
+      "id": "G-GRAPH-062",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "admitted revision cannot be accepted through a different owner session",
+      "expected": {
+        "owner_substitution_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-063",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "provenance derivative budget rejects zero and values above 256",
+      "expected": {
+        "zero_limit_rejected": true,
+        "oversize_limit_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-064",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "subset visibility marks provenance unknown frontier without hidden identifiers",
+      "expected": {
+        "unknown_frontier": true,
+        "hidden_id_absent": true
+      }
+    },
+    {
+      "id": "G-GRAPH-065",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "declared derivative remains possible rather than known",
+      "expected": {
+        "known": 0,
+        "possible": 1
+      }
+    },
+    {
+      "id": "G-GRAPH-066",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "provenance truncation is bounded at requested derivative limit",
+      "expected": {
+        "returned": 1,
+        "truncated": true
+      }
+    },
+    {
+      "id": "G-GRAPH-067",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "garbage preview rejects partial project visibility",
+      "expected": {
+        "partial_preview_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-068",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "garbage preview rejects zero and greater-than-256 limits",
+      "expected": {
+        "zero_limit_rejected": true,
+        "oversize_limit_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-069",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "garbage collection rejects empty and duplicate candidate lists",
+      "expected": {
+        "empty_rejected": true,
+        "duplicate_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-070",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "history-free tombstoned asset becomes collectable and no user file deletion is claimed",
+      "expected": {
+        "previewed": true,
+        "user_files_deleted": false,
+        "collected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-071",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "revision history prevents tombstoned asset collection",
+      "expected": {
+        "revision_history_blocks_collection": true
+      }
+    },
+    {
+      "id": "G-GRAPH-072",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "external intent reference prevents tombstoned asset collection",
+      "expected": {
+        "intent_reference_blocks_collection": true
+      }
+    },
+    {
+      "id": "G-GRAPH-073",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "declared edge reference prevents tombstoned asset collection",
+      "expected": {
+        "edge_reference_blocks_collection": true
+      }
+    },
+    {
+      "id": "G-GRAPH-074",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "store reopen preserves canonical journal while collected materialized state stays absent",
+      "expected": {
+        "collected_absent_after_reopen": true,
+        "journal_preserved": true
+      }
     }
   ]
 }

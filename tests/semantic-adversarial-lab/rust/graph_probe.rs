@@ -93,31 +93,131 @@ fn base() -> BaseStateSet {
         concurrency: Concurrency::BestEffortRevalidate,
     }])
 }
-fn observed(id: &LogicalAssetId, source: EvidenceSource, tag: &str) -> RevisionRecord {
-    RevisionRecord {
-        pin: RevisionPin {
-            asset: id.clone(),
-            revision: AssetRevision::new(),
-            fingerprint: Fingerprint {
-                bytes: Some(d(tag)),
-                projection: None,
-            },
-            equivalence: Equivalence::ExactBytes,
+fn revision_candidate(
+    graph: &ProjectGraph,
+    id: &LogicalAssetId,
+    source: EvidenceSource,
+    method: &str,
+    tag: &str,
+    coverage: Coverage,
+) -> RevisionCandidate {
+    let resource = resource();
+    let fingerprint = d(tag);
+    RevisionCandidate {
+        version: SCHEMA_VERSION,
+        asset: id.clone(),
+        fingerprint: Fingerprint {
+            bytes: Some(fingerprint.clone()),
+            projection: None,
         },
+        equivalence: Equivalence::ExactBytes,
         observed_unix_ms: 1,
         binding_generation: 1,
         observation: ObservationRef {
             id: format!("g-observation-{tag}"),
-            base: base(),
+            base: BaseStateSet(vec![BaseState {
+                key: resource.clone(),
+                document_id: graph.project_id().as_str().into(),
+                provider_session: "g-provider-session".into(),
+                generation: "g-generation".into(),
+                revision: Revision::Fingerprint(fingerprint.clone()),
+                concurrency: Concurrency::BestEffortRevalidate,
+            }]),
             source,
-            method: "g-native-readback".into(),
+            method: method.into(),
             method_version: 1,
-            scope: vec![address()],
-            artifact: None,
+            scope: vec![Address {
+                resource,
+                logical_id: id.as_str().into(),
+                property: "projection".into(),
+            }],
+            artifact: Some(fingerprint),
             exhaustive: true,
         },
-        coverage: Coverage::complete(),
+        coverage,
     }
+}
+fn accept_revision_observation(
+    graph: &mut ProjectGraph,
+    access: &ProjectAccess,
+    authenticated: &Owner,
+    id: &LogicalAssetId,
+    source: EvidenceSource,
+    method: &str,
+    tag: &str,
+    coverage: Coverage,
+) -> ProbeResult<RevisionRecord> {
+    let candidate = revision_candidate(graph, id, source, method, tag, coverage);
+    let generation = graph.inspect(access, id)?.binding_generation;
+    let adapter = RevisionAdapter::registered(resource(), source, method.into(), 1)?;
+    let admitted = adapter.admit(authenticated, graph.project_id(), id, generation, candidate)?;
+    let record = admitted.record().clone();
+    graph.accept_revision(access, admitted)?;
+    Ok(record)
+}
+fn execution_receipt(
+    project: ProjectId,
+    authenticated: Owner,
+    inputs: &[RevisionRecord],
+    output: &RevisionRecord,
+    tick: u64,
+) -> ExecutionReceipt {
+    let operation = OperationIdentity {
+        capability: "g.fixture.export".into(),
+        descriptor: d("g-receipt-descriptor"),
+        runtime: d("g-receipt-runtime"),
+        plan: d("g-receipt-plan"),
+        parameters: d(&format!("g-receipt-parameters-{tick}")),
+        recipe: None,
+    };
+    let report = VerificationReport {
+        execution_status: ExecutionStatus::Completed,
+        support_level: SupportLevel::Composed,
+        effects_observed: output.observation.scope.clone(),
+        effects_unobservable: vec![],
+        validation: ValidationReport {
+            plan_digest: operation.plan.clone(),
+            base: output.observation.base.clone(),
+            required_rules: ["g-output".into()].into(),
+            checks: vec![RuleResult {
+                rule: "g-output".into(),
+                version: 1,
+                verdict: Verdict::Pass,
+                evidence_class: EvidenceClass::Deterministic,
+                evidence: vec![output.observation.clone()],
+                reason: None,
+            }],
+        },
+    };
+    ExecutionReceipt {
+        version: SCHEMA_VERSION,
+        id: ReceiptId::new(),
+        derivation: DerivationId::new(),
+        project,
+        owner: authenticated,
+        request_id: format!("g-receipt-request-{tick}"),
+        operation,
+        source_base: BaseStateSet(
+            inputs
+                .iter()
+                .flat_map(|record| record.observation.base.0.clone())
+                .collect(),
+        ),
+        inputs: inputs.iter().map(|record| record.pin.clone()).collect(),
+        outputs: vec![output.pin.clone()],
+        determinants: vec![],
+        coverage: Coverage::complete(),
+        verification: report,
+        completed_unix_ms: tick,
+    }
+}
+fn admit_receipt(receipt: ExecutionReceipt) -> ProbeResult<AdmittedReceipt> {
+    let adapter = ReceiptAdapter::registered(
+        receipt.operation.capability.clone(),
+        receipt.operation.descriptor.clone(),
+        receipt.operation.runtime.clone(),
+    )?;
+    Ok(adapter.admit(&receipt.owner.clone(), &receipt.request_id.clone(), receipt)?)
 }
 fn subset(
     graph: &ProjectGraph,
@@ -230,7 +330,16 @@ fn probe(case: &str) -> ProbeResult<Value> {
                 "fixture",
                 Some(file("project", "a.txt")),
             )?;
-            graph.observe(&access, observed(&id, EvidenceSource::Fixture, "same"))?;
+            let _ = accept_revision_observation(
+                &mut graph,
+                &access,
+                &owner("g-session"),
+                &id,
+                EvidenceSource::Fixture,
+                "g-native-readback",
+                "same",
+                Coverage::complete(),
+            )?;
             let k = graph.inspect(&access, &id)?.knowledge;
             json!({"label":k.label(),"cache_safe":k.cache_safe(),"reconcile":k.requires_reconcile})
         }
@@ -266,7 +375,16 @@ fn probe(case: &str) -> ProbeResult<Value> {
                 "rebind",
                 Some(file("project", "a.txt")),
             )?;
-            graph.observe(&access, observed(&id, EvidenceSource::NativeApi, "v1"))?;
+            let _ = accept_revision_observation(
+                &mut graph,
+                &access,
+                &owner("g-session"),
+                &id,
+                EvidenceSource::NativeApi,
+                "g-native-readback",
+                "v1",
+                Coverage::complete(),
+            )?;
             graph.rebind(
                 &access,
                 &id,
@@ -547,7 +665,16 @@ fn probe(case: &str) -> ProbeResult<Value> {
         "G-GRAPH-031" => {
             let (mut graph, access) = setup()?;
             let a = register(&mut graph, &access, "a", Some(file("project", "a.txt")))?;
-            graph.observe(&access, observed(&a, EvidenceSource::NativeApi, "v1"))?;
+            let _ = accept_revision_observation(
+                &mut graph,
+                &access,
+                &owner("g-session"),
+                &a,
+                EvidenceSource::NativeApi,
+                "g-native-readback",
+                "v1",
+                Coverage::complete(),
+            )?;
             let k = graph.inspect(&access, &a)?.knowledge;
             json!({"label":k.label(),"cache_safe":k.cache_safe(),"verification":format!("{:?}",k.verification),"divergence":format!("{:?}",k.divergence)})
         }
@@ -998,6 +1125,457 @@ fn probe(case: &str) -> ProbeResult<Value> {
             )?;
             json!({"cross_principal_intent_denied":graph.external_intent(&foreign,&id).is_err()})
         }
+        "G-GRAPH-053" => {
+            let (mut graph, access) = setup()?;
+            let asset = register(&mut graph, &access, "native-admitted", None)?;
+            let candidate = revision_candidate(
+                &graph,
+                &asset,
+                EvidenceSource::NativeApi,
+                "g-native-final",
+                "053",
+                Coverage::unknown(),
+            );
+            let adapter = RevisionAdapter::registered(
+                resource(),
+                EvidenceSource::NativeApi,
+                "g-native-final".into(),
+                1,
+            )?;
+            let admitted = adapter.admit(
+                &owner("g-session"),
+                graph.project_id(),
+                &asset,
+                1,
+                candidate,
+            )?;
+            graph.accept_revision(&access, admitted)?;
+            let view = graph.inspect(&access, &asset)?;
+            let provenance = graph.provenance(&access, &asset, 256)?;
+            json!({"admitted":view.latest_revision.is_some(),"producer":provenance.producer.is_some()})
+        }
+        "G-GRAPH-054" => {
+            let (mut graph, access) = setup()?;
+            let asset = register(&mut graph, &access, "project-substitution", None)?;
+            let mut candidate = revision_candidate(
+                &graph,
+                &asset,
+                EvidenceSource::NativeApi,
+                "g-native-final",
+                "054",
+                Coverage::unknown(),
+            );
+            candidate.observation.base.0[0].document_id = ProjectId::new().as_str().into();
+            let adapter = RevisionAdapter::registered(
+                resource(),
+                EvidenceSource::NativeApi,
+                "g-native-final".into(),
+                1,
+            )?;
+            json!({"project_substitution_rejected":adapter.admit(&owner("g-session"),graph.project_id(),&asset,1,candidate).is_err()})
+        }
+        "G-GRAPH-055" => {
+            let (mut graph, access) = setup()?;
+            let asset = register(&mut graph, &access, "asset-substitution", None)?;
+            let other = register(&mut graph, &access, "other-asset", None)?;
+            let mut candidate = revision_candidate(
+                &graph,
+                &asset,
+                EvidenceSource::NativeApi,
+                "g-native-final",
+                "055",
+                Coverage::unknown(),
+            );
+            candidate.asset = other;
+            let adapter = RevisionAdapter::registered(
+                resource(),
+                EvidenceSource::NativeApi,
+                "g-native-final".into(),
+                1,
+            )?;
+            json!({"asset_substitution_rejected":adapter.admit(&owner("g-session"),graph.project_id(),&asset,1,candidate).is_err()})
+        }
+        "G-GRAPH-056" => {
+            let (mut graph, access) = setup()?;
+            let asset = register(&mut graph, &access, "generation-substitution", None)?;
+            let mut candidate = revision_candidate(
+                &graph,
+                &asset,
+                EvidenceSource::NativeApi,
+                "g-native-final",
+                "056",
+                Coverage::unknown(),
+            );
+            candidate.binding_generation = 2;
+            let adapter = RevisionAdapter::registered(
+                resource(),
+                EvidenceSource::NativeApi,
+                "g-native-final".into(),
+                1,
+            )?;
+            json!({"generation_substitution_rejected":adapter.admit(&owner("g-session"),graph.project_id(),&asset,1,candidate).is_err()})
+        }
+        "G-GRAPH-057" => {
+            let (mut graph, access) = setup()?;
+            let asset = register(&mut graph, &access, "source-substitution", None)?;
+            let candidate = revision_candidate(
+                &graph,
+                &asset,
+                EvidenceSource::FileRead,
+                "g-native-final",
+                "057",
+                Coverage::unknown(),
+            );
+            let adapter = RevisionAdapter::registered(
+                resource(),
+                EvidenceSource::NativeApi,
+                "g-native-final".into(),
+                1,
+            )?;
+            json!({"source_substitution_rejected":adapter.admit(&owner("g-session"),graph.project_id(),&asset,1,candidate).is_err()})
+        }
+        "G-GRAPH-058" => {
+            let (mut graph, access) = setup()?;
+            let asset = register(&mut graph, &access, "method-substitution", None)?;
+            let candidate = revision_candidate(
+                &graph,
+                &asset,
+                EvidenceSource::NativeApi,
+                "g-native-final",
+                "058",
+                Coverage::unknown(),
+            );
+            let adapter = RevisionAdapter::registered(
+                resource(),
+                EvidenceSource::NativeApi,
+                "g-native-final".into(),
+                1,
+            )?;
+            let mut wrong_method = candidate.clone();
+            wrong_method.observation.method = "client-method".into();
+            let method_rejected = adapter
+                .admit(
+                    &owner("g-session"),
+                    graph.project_id(),
+                    &asset,
+                    1,
+                    wrong_method,
+                )
+                .is_err();
+            let mut wrong_version = candidate;
+            wrong_version.observation.method_version = 2;
+            let version_rejected = adapter
+                .admit(
+                    &owner("g-session"),
+                    graph.project_id(),
+                    &asset,
+                    1,
+                    wrong_version,
+                )
+                .is_err();
+            json!({"method_substitution_rejected":method_rejected,"version_substitution_rejected":version_rejected})
+        }
+        "G-GRAPH-059" => {
+            let (mut graph, access) = setup()?;
+            let asset = register(&mut graph, &access, "scope-substitution", None)?;
+            let candidate = revision_candidate(
+                &graph,
+                &asset,
+                EvidenceSource::NativeApi,
+                "g-native-final",
+                "059",
+                Coverage::unknown(),
+            );
+            let mut empty = candidate.clone();
+            empty.observation.scope.clear();
+            let empty_rejected = empty.validate().is_err();
+            let mut foreign = candidate;
+            foreign.observation.scope = vec![Address {
+                resource: ResourceKey {
+                    provider: "foreign-provider".into(),
+                    resource: "foreign-resource".into(),
+                },
+                logical_id: "foreign-node".into(),
+                property: "projection".into(),
+            }];
+            let foreign_rejected = foreign.validate().is_err();
+            json!({"empty_scope_rejected":empty_rejected,"foreign_scope_resource_rejected":foreign_rejected})
+        }
+        "G-GRAPH-060" => {
+            let (mut graph, access) = setup()?;
+            let asset = register(&mut graph, &access, "false-complete", None)?;
+            let mut candidate = revision_candidate(
+                &graph,
+                &asset,
+                EvidenceSource::NativeApi,
+                "g-native-final",
+                "060",
+                Coverage::complete(),
+            );
+            candidate.observation.exhaustive = false;
+            json!({"false_complete_rejected":candidate.validate().is_err()})
+        }
+        "G-GRAPH-061" => {
+            let (mut graph, access) = setup()?;
+            let asset = register(&mut graph, &access, "partial-admission", None)?;
+            let coverage = Coverage {
+                complete: false,
+                unknown_frontier: BTreeSet::from([DependencyClass::ImportSettings]),
+            };
+            let _ = accept_revision_observation(
+                &mut graph,
+                &access,
+                &owner("g-session"),
+                &asset,
+                EvidenceSource::NativeApi,
+                "g-native-final",
+                "061",
+                coverage,
+            )?;
+            let knowledge = graph.inspect(&access, &asset)?.knowledge;
+            json!({"label":knowledge.label(),"cache_safe":knowledge.cache_safe()})
+        }
+        "G-GRAPH-062" => {
+            let (mut graph, access) = setup()?;
+            let asset = register(&mut graph, &access, "owner-bound", None)?;
+            let candidate = revision_candidate(
+                &graph,
+                &asset,
+                EvidenceSource::NativeApi,
+                "g-native-final",
+                "062",
+                Coverage::unknown(),
+            );
+            let adapter = RevisionAdapter::registered(
+                resource(),
+                EvidenceSource::NativeApi,
+                "g-native-final".into(),
+                1,
+            )?;
+            let admitted = adapter.admit(
+                &owner("g-session"),
+                graph.project_id(),
+                &asset,
+                1,
+                candidate,
+            )?;
+            let other = ProjectAccess::authorized(
+                owner("other-session"),
+                graph.project_id().clone(),
+                None,
+                true,
+                d("g-grants"),
+            )?;
+            json!({"owner_substitution_rejected":graph.accept_revision(&other,admitted).is_err()})
+        }
+        "G-GRAPH-063" => {
+            let (mut graph, access) = setup()?;
+            let source = register(&mut graph, &access, "provenance-limit", None)?;
+            json!({"zero_limit_rejected":graph.provenance(&access,&source,0).is_err(),"oversize_limit_rejected":graph.provenance(&access,&source,257).is_err()})
+        }
+        "G-GRAPH-064" => {
+            let (mut graph, access) = setup()?;
+            let source = register(&mut graph, &access, "hidden-source", None)?;
+            let end = register(&mut graph, &access, "visible-output", None)?;
+            let source_record = accept_revision_observation(
+                &mut graph,
+                &access,
+                &owner("g-session"),
+                &source,
+                EvidenceSource::NativeApi,
+                "g-native-final",
+                "064-source",
+                Coverage::complete(),
+            )?;
+            let end_record = accept_revision_observation(
+                &mut graph,
+                &access,
+                &owner("g-session"),
+                &end,
+                EvidenceSource::NativeApi,
+                "g-native-final",
+                "064-end",
+                Coverage::complete(),
+            )?;
+            let receipt = execution_receipt(
+                graph.project_id().clone(),
+                owner("g-session"),
+                std::slice::from_ref(&source_record),
+                &end_record,
+                64,
+            );
+            let receipt_id = receipt.id.clone();
+            graph.accept_receipt(&access, admit_receipt(receipt)?)?;
+            let scoped = subset(&graph, "g-session", BTreeSet::from([end.clone()]), false)?;
+            let view = graph.provenance(&scoped, &end, 256)?;
+            let wire = serde_json::to_string(&view)?;
+            json!({"unknown_frontier":view.unknown_frontier,"hidden_id_absent":!wire.contains(source.as_str())&&!wire.contains(receipt_id.as_str())})
+        }
+        "G-GRAPH-065" => {
+            let (mut graph, access) = setup()?;
+            let source = register(&mut graph, &access, "declared-source", None)?;
+            let derived = register(&mut graph, &access, "declared-derived", None)?;
+            graph.declare(
+                &access,
+                Edge {
+                    from: Vertex::Asset(derived),
+                    to: Vertex::Asset(source.clone()),
+                    relation: Relation::DerivedFrom,
+                    evidence: EdgeEvidence::Declared {
+                        declaration: ReceiptId::new(),
+                    },
+                },
+            )?;
+            let view = graph.provenance(&access, &source, 256)?;
+            json!({"known":view.known_derivatives.len(),"possible":view.possible_derivatives.len()})
+        }
+        "G-GRAPH-066" => {
+            let (mut graph, access) = setup()?;
+            let source = register(&mut graph, &access, "bounded-source", None)?;
+            for label in ["first", "second"] {
+                let derived = register(&mut graph, &access, label, None)?;
+                graph.declare(
+                    &access,
+                    Edge {
+                        from: Vertex::Asset(derived),
+                        to: Vertex::Asset(source.clone()),
+                        relation: Relation::DerivedFrom,
+                        evidence: EdgeEvidence::Declared {
+                            declaration: ReceiptId::new(),
+                        },
+                    },
+                )?;
+            }
+            let view = graph.provenance(&access, &source, 1)?;
+            json!({"returned":view.known_derivatives.len()+view.possible_derivatives.len(),"truncated":view.truncated})
+        }
+        "G-GRAPH-067" => {
+            let (mut graph, access) = setup()?;
+            let asset = register(&mut graph, &access, "partial-gc", None)?;
+            graph.tombstone(&access, &asset)?;
+            let scoped = subset(&graph, "g-session", BTreeSet::from([asset]), true)?;
+            json!({"partial_preview_rejected":graph.garbage_preview(&scoped,16).is_err()})
+        }
+        "G-GRAPH-068" => {
+            let (graph, access) = setup()?;
+            json!({"zero_limit_rejected":graph.garbage_preview(&access,0).is_err(),"oversize_limit_rejected":graph.garbage_preview(&access,257).is_err()})
+        }
+        "G-GRAPH-069" => {
+            let (mut graph, access) = setup()?;
+            let asset = register(&mut graph, &access, "duplicate-gc", None)?;
+            graph.tombstone(&access, &asset)?;
+            let empty = graph.collect_garbage(&access, vec![]).is_err();
+            let duplicate = graph
+                .collect_garbage(&access, vec![asset.clone(), asset])
+                .is_err();
+            json!({"empty_rejected":empty,"duplicate_rejected":duplicate})
+        }
+        "G-GRAPH-070" => {
+            let dir = private_dir("gc-user-file")?;
+            let native_path = dir.join("source.bin");
+            std::fs::write(&native_path, b"keep-me")?;
+            let (mut graph, access) = setup()?;
+            let asset = register(
+                &mut graph,
+                &access,
+                "history-free",
+                Some(file("workspace", "source.bin")),
+            )?;
+            graph.tombstone(&access, &asset)?;
+            let preview = graph.garbage_preview(&access, 16)?;
+            let previewed = preview.candidates.contains(&asset);
+            graph.collect_garbage(&access, vec![asset.clone()])?;
+            let collected = graph.inspect(&access, &asset).is_err();
+            let preserved = std::fs::read(&native_path)? == b"keep-me";
+            cleanup(&dir);
+            json!({"previewed":previewed,"user_files_deleted":preview.user_files_deleted||!preserved,"collected":collected})
+        }
+        "G-GRAPH-071" => {
+            let (mut graph, access) = setup()?;
+            let asset = register(&mut graph, &access, "history-block", None)?;
+            let _ = accept_revision_observation(
+                &mut graph,
+                &access,
+                &owner("g-session"),
+                &asset,
+                EvidenceSource::NativeApi,
+                "g-native-final",
+                "071",
+                Coverage::complete(),
+            )?;
+            graph.tombstone(&access, &asset)?;
+            let blocked = !graph
+                .garbage_preview(&access, 16)?
+                .candidates
+                .contains(&asset)
+                && graph.collect_garbage(&access, vec![asset]).is_err();
+            json!({"revision_history_blocks_collection":blocked})
+        }
+        "G-GRAPH-072" => {
+            let (mut graph, access) = setup()?;
+            let asset = register(&mut graph, &access, "intent-block", None)?;
+            graph.tombstone(&access, &asset)?;
+            let intent = external_intent(
+                &graph,
+                owner("g-session"),
+                vec![asset.clone()],
+                "g-request-072",
+                ExternalIntentId::new(),
+            );
+            graph.prepare_external_intent(&access, intent)?;
+            let blocked = !graph
+                .garbage_preview(&access, 16)?
+                .candidates
+                .contains(&asset)
+                && graph.collect_garbage(&access, vec![asset]).is_err();
+            json!({"intent_reference_blocks_collection":blocked})
+        }
+        "G-GRAPH-073" => {
+            let (mut graph, access) = setup()?;
+            let referenced = register(&mut graph, &access, "edge-block", None)?;
+            let referrer = register(&mut graph, &access, "referrer", None)?;
+            graph.declare(
+                &access,
+                Edge {
+                    from: Vertex::Asset(referrer),
+                    to: Vertex::Asset(referenced.clone()),
+                    relation: Relation::References,
+                    evidence: EdgeEvidence::Declared {
+                        declaration: ReceiptId::new(),
+                    },
+                },
+            )?;
+            graph.tombstone(&access, &referenced)?;
+            let blocked = !graph
+                .garbage_preview(&access, 16)?
+                .candidates
+                .contains(&referenced)
+                && graph.collect_garbage(&access, vec![referenced]).is_err();
+            json!({"edge_reference_blocks_collection":blocked})
+        }
+        "G-GRAPH-074" => {
+            let project = ProjectId::new();
+            let principal = owner("g-store").principal;
+            let access = store_access(&project, "g-store")?;
+            let dir = private_dir("gc-reopen")?;
+            let id;
+            {
+                let mut store = GraphStore::open(&dir, project.clone(), principal.clone(), false)?;
+                id = store.transact(&access, |graph| {
+                    register_graph(graph, &access, "durable-garbage", None)
+                })?;
+                store.transact(&access, |graph| graph.tombstone(&access, &id))?;
+                store.transact(&access, |graph| {
+                    graph.collect_garbage(&access, vec![id.clone()])
+                })?;
+            }
+            let reopened = GraphStore::open(&dir, project, principal, false)?;
+            let absent = reopened.graph()?.inspect(&access, &id).is_err();
+            let journal_preserved = reopened.recovery_report().journal_records >= 3;
+            drop(reopened);
+            cleanup(&dir);
+            json!({"collected_absent_after_reopen":absent,"journal_preserved":journal_preserved})
+        }
         _ => {
             eprintln!("unregistered graph selector");
             std::process::exit(2)
@@ -1005,7 +1583,7 @@ fn probe(case: &str) -> ProbeResult<Value> {
     })
 }
 fn cases() -> Vec<String> {
-    (1..=52).map(|i| format!("G-GRAPH-{i:03}")).collect()
+    (1..=74).map(|i| format!("G-GRAPH-{i:03}")).collect()
 }
 fn main() {
     let args: Vec<_> = std::env::args().skip(1).collect();
