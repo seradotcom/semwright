@@ -445,6 +445,94 @@ async fn broker_native_authoring_save_reopen_export_and_owner_denial() {
     assert_eq!(measured["total"], 3);
     assert_eq!(measured["coverage"], "single_frame");
 
+    // Sample selected native animation times through A's media-time Rate. The driver
+    // evaluates Blender at the requested frame, reports exact rational time, and
+    // restores frame/subframe before returning so observation does not create drift.
+    let sample0 = fixture
+        .call(
+            "composition.measure",
+            json!({
+                "island":island,
+                "evaluated":true,
+                "sample":{"frame":0,"rate":{"num":24,"den":1}}
+            }),
+        )
+        .await;
+    let sample12 = fixture
+        .call(
+            "composition.measure",
+            json!({
+                "island":island,
+                "evaluated":true,
+                "sample":{"frame":12,"rate":{"num":24,"den":1}}
+            }),
+        )
+        .await;
+    assert_eq!(sample0["sample_time"]["domain"], "media-time");
+    assert_eq!(sample0["sample_time"]["frame"], 0);
+    assert_eq!(sample0["sample_time"]["time"], json!({"num":"0","den":"1"}));
+    assert_eq!(sample12["sample_time"]["frame"], 12);
+    assert_eq!(
+        sample12["sample_time"]["time"],
+        json!({"num":"1","den":"2"})
+    );
+    let hinge_matrix = |sample: &Value| {
+        sample["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|row| row["entity"] == "rig")
+            .unwrap()["pose_bones"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|bone| bone["id"] == "hinge")
+            .unwrap()["matrix"]
+            .clone()
+    };
+    assert_ne!(
+        hinge_matrix(&sample0),
+        hinge_matrix(&sample12),
+        "sampled articulated pose must change at frame 12"
+    );
+    let arm0 = sample0["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["entity"] == "arm")
+        .unwrap();
+    let arm12 = sample12["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["entity"] == "arm")
+        .unwrap();
+    assert_ne!(
+        arm0["matrix_world"], arm12["matrix_world"],
+        "bone-parented arm must have different evaluated world transform"
+    );
+    assert_eq!(arm0["visible_viewport"], true);
+    assert_eq!(arm12["visible_viewport"], true);
+    let wrong_rate = fixture
+        .raw(
+            &fixture.session,
+            "composition.measure",
+            json!({
+                "island":island,
+                "evaluated":true,
+                "sample":{"frame":12,"rate":{"num":30,"den":1}}
+            }),
+        )
+        .await;
+    assert!(!wrong_rate.ok, "sample rate mismatch must fail closed");
+    let after_samples = fixture
+        .call("composition.inspect", json!({"island":island}))
+        .await;
+    assert_eq!(
+        after_samples["drift"], false,
+        "sampled measurement must restore Blender frame state"
+    );
+
     // Provider-owned pagination is bound to the native session + source fingerprint.
     let mut replay_cursor = None;
     for domain in [

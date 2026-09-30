@@ -982,9 +982,61 @@ class AuthoringRuntime:
         snapshot["drift"] = False
         return snapshot
 
-    def measure(self, island, evaluated, pairs=None):
-        _, objects = self._closed(island)
+    def measure(self, island, evaluated, pairs=None, sample=None):
         pairs = [] if pairs is None else pairs
+        if sample is None:
+            return self._measure_current(island, evaluated, pairs)
+        check(evaluated is True, "sampled frame measurement requires evaluated state")
+        check(
+            isinstance(sample, dict) and set(sample) == {"frame", "rate"},
+            "sampled frame shape",
+        )
+        frame = sample["frame"]
+        rate = sample["rate"]
+        check(
+            isinstance(frame, int)
+            and not isinstance(frame, bool)
+            and 0 <= frame <= 100_000,
+            "sample frame bounds",
+        )
+        check(
+            isinstance(rate, dict)
+            and set(rate) == {"num", "den"}
+            and isinstance(rate["num"], int)
+            and not isinstance(rate["num"], bool)
+            and isinstance(rate["den"], int)
+            and not isinstance(rate["den"], bool)
+            and 1 <= rate["num"] <= 240
+            and 1 <= rate["den"] <= 1001,
+            "sample rate bounds",
+        )
+        scene = self.bpy.context.scene
+        actual_rate = scene.render.fps / scene.render.fps_base
+        requested_rate = rate["num"] / rate["den"]
+        check(
+            abs(actual_rate - requested_rate) <= 1e-6,
+            "sample rate does not match managed scene rate",
+            "Conflict",
+        )
+        original_frame = scene.frame_current
+        original_subframe = scene.frame_subframe
+        scene.frame_set(frame, subframe=0.0)
+        self.bpy.context.view_layer.update()
+        try:
+            result = self._measure_current(island, evaluated, pairs)
+            result["sample_observed"] = {
+                "frame": int(scene.frame_current),
+                "subframe": float(scene.frame_subframe),
+                "fps": int(scene.render.fps),
+                "fps_base": float(scene.render.fps_base),
+            }
+            return result
+        finally:
+            scene.frame_set(original_frame, subframe=original_subframe)
+            self.bpy.context.view_layer.update()
+
+    def _measure_current(self, island, evaluated, pairs):
+        _, objects = self._closed(island)
         check(isinstance(pairs, list) and len(pairs) <= 64, "measurement pair budget")
         depsgraph = None
         if evaluated:
@@ -999,6 +1051,8 @@ class AuthoringRuntime:
                    "origin_world_meters": [float(v) for v in observed.matrix_world.translation],
                    "method": "evaluated-depsgraph" if evaluated else "source-rna",
                    "frame": self.bpy.context.scene.frame_current,
+                   "visible_viewport": bool(observed.visible_get(view_layer=self.bpy.context.view_layer)),
+                   "hide_render": bool(obj.hide_render),
                    "mesh_self_intersections": {
                        "verdict":"UNKNOWN",
                        "reason":"pairwise object collision does not establish self-intersection"
@@ -1034,6 +1088,16 @@ class AuthoringRuntime:
                     })
                 finally:
                     if evaluated: observed.to_mesh_clear()
+            elif obj.type == "ARMATURE":
+                pose_bones = list(observed.pose.bones)
+                check(len(pose_bones) <= 64, "evaluated pose-bone budget", "Unsupported")
+                row["pose_bones"] = [
+                    {
+                        "id": bone.name,
+                        "matrix": [list(matrix_row) for matrix_row in bone.matrix],
+                    }
+                    for bone in pose_bones
+                ]
             rows.append(row)
 
         collision = {
@@ -1201,7 +1265,10 @@ class AuthoringRuntime:
             "apply": lambda: self.apply(args["operation"]),
             "finish": lambda: self.finish(args["island"]),
             "measure": lambda: self.measure(
-                args["island"], args["evaluated"], args.get("pairs", [])
+                args["island"],
+                args["evaluated"],
+                args.get("pairs", []),
+                args.get("sample"),
             ),
             "persist": lambda: self.persist(args["island"], args["path"]),
             "reopen": lambda: self.reopen(args["path"], args["sha256"], args["island"]),

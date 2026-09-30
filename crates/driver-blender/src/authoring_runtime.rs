@@ -60,6 +60,47 @@ struct PlanOutput {
 struct RepairPlanInput {
     parent_plan_ref: String,
 }
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct MeasureSample {
+    frame: i32,
+    rate: semwright_media_time::Rate,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct MeasureInput {
+    island: String,
+    evaluated: bool,
+    #[serde(default)]
+    pairs: Vec<[String; 2]>,
+    #[serde(default)]
+    sample: Option<MeasureSample>,
+}
+impl MeasureInput {
+    fn validate(&self) -> composition::Result<()> {
+        local_id(&self.island)?;
+        composition::ensure(self.pairs.len() <= 64, "measurement pair budget")?;
+        for pair in &self.pairs {
+            local_id(&pair[0])?;
+            local_id(&pair[1])?;
+            composition::ensure(pair[0] != pair[1], "measurement pair requires distinct IDs")?;
+        }
+        if let Some(sample) = self.sample {
+            composition::ensure(
+                self.evaluated,
+                "sampled frame measurement requires evaluated=true",
+            )?;
+            composition::ensure((0..=100_000).contains(&sample.frame), "sample frame bounds")?;
+            sample.rate.validate()?;
+            composition::ensure(
+                sample.rate.num <= 240 && sample.rate.den <= 1001,
+                "sample rate outside Blender authoring range",
+            )?;
+            sample.rate.at(i64::from(sample.frame))?;
+        }
+        Ok(())
+    }
+}
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct PageInput {
@@ -188,13 +229,8 @@ pub(super) fn capabilities() -> Vec<Capability> {
         ),
         (
             "measure",
-            json!({"type":"object","properties":{
-                "island":id.clone(),
-                "evaluated":{"type":"boolean"},
-                "pairs":{"type":"array","maxItems":64,"items":{
-                    "type":"array","minItems":2,"maxItems":2,"items":id.clone()
-                }}
-            },"required":["island","evaluated"],"additionalProperties":false}),
+            serde_json::to_value(schemars::schema_for!(MeasureInput))
+                .expect("measure schema serializes"),
             json!({"type":"object"}),
             Risk::Mutating,
         ),
@@ -928,7 +964,43 @@ pub(super) async fn execute(
                 }
             }
         }
-        "measure" => native(socket, "measure", args).await,
+        "measure" => {
+            let input: MeasureInput = serde_json::from_value(args)?;
+            input.validate().map_err(common_error)?;
+            let sample = input.sample;
+            let mut output = native(socket, "measure", serde_json::to_value(&input)?).await?;
+            if let Some(sample) = sample {
+                let observed = output.get("sample_observed").ok_or_else(|| {
+                    Error::new(
+                        ErrorCode::PluginProtocolError,
+                        "sampled native measurement omitted observed frame metadata",
+                    )
+                })?;
+                if observed.get("frame").and_then(Value::as_i64) != Some(i64::from(sample.frame)) {
+                    return Err(Error::new(
+                        ErrorCode::PluginProtocolError,
+                        "sampled native measurement returned a different frame",
+                    ));
+                }
+                let exact_time = sample
+                    .rate
+                    .at(i64::from(sample.frame))
+                    .map_err(common_error)?;
+                output
+                    .as_object_mut()
+                    .ok_or_else(|| Error::new(ErrorCode::PluginProtocolError, "measure output"))?
+                    .insert(
+                        "sample_time".into(),
+                        json!({
+                            "frame": sample.frame,
+                            "rate": sample.rate,
+                            "time": exact_time,
+                            "domain": "media-time"
+                        }),
+                    );
+            }
+            Ok(output)
+        }
         "persist" => native(socket, "persist", args).await,
         "reopen" => native(socket, "reopen", args).await,
         "validate" | "verify" => {
