@@ -37,6 +37,7 @@ const MAX_TOOL_STDIN_BYTES: usize = 64 * 1024;
 const MAX_TOOL_OUTPUT_BYTES: usize = 256 * 1024;
 const MAX_TOOL_SESSION_FRAME_BYTES: usize = 256 * 1024;
 const MAX_TOOL_TIMEOUT_MS: u64 = 30_000;
+pub const MAX_TOOL_SESSION_REQUEST_TIMEOUT_MS: u64 = 300_000;
 const MAX_TOOL_JOB_TIMEOUT_MS: u64 = 3_600_000;
 
 fn runtime_mount(class: MountClass, logical_name: &str) -> Result<PathBuf> {
@@ -914,7 +915,7 @@ fn validate_runtime_tool_session_frame(payload: &[u8], timeout_ms: u64) -> Resul
             "Runtime-tool session frame exceeds bounded contract",
         ));
     }
-    if timeout_ms == 0 || timeout_ms > MAX_TOOL_TIMEOUT_MS {
+    if timeout_ms == 0 || timeout_ms > MAX_TOOL_SESSION_REQUEST_TIMEOUT_MS {
         return Err(Error::invalid(
             "Runtime-tool session request timeout exceeds bounded contract",
         ));
@@ -3407,6 +3408,20 @@ mod tests {
             validate_runtime_tool_session_frame(
                 &vec![0u8; MAX_TOOL_SESSION_FRAME_BYTES + 1],
                 1_000,
+            )
+            .is_err()
+        );
+        assert!(
+            validate_runtime_tool_session_frame(
+                b"bounded-long-operation",
+                MAX_TOOL_SESSION_REQUEST_TIMEOUT_MS,
+            )
+            .is_ok()
+        );
+        assert!(
+            validate_runtime_tool_session_frame(
+                b"too-long-operation",
+                MAX_TOOL_SESSION_REQUEST_TIMEOUT_MS + 1,
             )
             .is_err()
         );

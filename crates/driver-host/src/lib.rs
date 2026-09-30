@@ -9,10 +9,11 @@ use semwright_backend_api::{
 #[cfg(any(target_os = "linux", target_os = "windows"))]
 use semwright_driver_sdk::DriverToolMount;
 use semwright_driver_sdk::{
-    DriverInterfaces, DriverRequestContext, Manifest, Request, Response, RuntimeToolArg,
-    RuntimeToolCwd, RuntimeToolJob, RuntimeToolJobStatus, RuntimeToolSession, ToolExecutionOutput,
-    capabilities_digest, descriptor_digest, validate_runtime_tool_args,
-    validate_runtime_tool_execute_request, validate_runtime_tool_job_start,
+    DriverInterfaces, DriverRequestContext, MAX_TOOL_SESSION_REQUEST_TIMEOUT_MS, Manifest, Request,
+    Response, RuntimeToolArg, RuntimeToolCwd, RuntimeToolJob, RuntimeToolJobStatus,
+    RuntimeToolSession, ToolExecutionOutput, capabilities_digest, descriptor_digest,
+    validate_runtime_tool_args, validate_runtime_tool_execute_request,
+    validate_runtime_tool_job_start,
 };
 #[cfg(any(target_os = "linux", target_os = "windows"))]
 use semwright_platform_api::launch::{
@@ -2744,7 +2745,7 @@ fn spawn_v2_reader(
                         && interfaces.host_tools
                         && session.validate().is_ok()
                         && payload.len() <= MAX_HOST_TOOL_SESSION_FRAME_BYTES
-                        && (1..=30_000).contains(&timeout_ms)
+                        && (1..=MAX_TOOL_SESSION_REQUEST_TIMEOUT_MS).contains(&timeout_ms)
                         && parent_state.is_some();
                     let registered = if valid {
                         let mut calls = tool_calls.lock().await;
