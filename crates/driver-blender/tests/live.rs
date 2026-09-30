@@ -2,7 +2,7 @@ use semwright_backend_api::{Context, Provider};
 use semwright_driver_host::DriverProvider;
 use semwright_driver_sdk::{
     ApplicationMatch, DriverInterfaces, DriverMount, DriverResources, DriverToolMount, Manifest,
-    SystemConfigMount, Transport,
+    Transport,
 };
 use semwright_policy::FilesystemGrant;
 use serde_json::{Value, json};
@@ -55,11 +55,15 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
     }
 
     let cargo_executable = PathBuf::from(env!("CARGO_BIN_EXE_semwright-blender-driver"));
+    let cargo_runner = PathBuf::from(env!("CARGO_BIN_EXE_semwright-blender-session-runner"));
     let binary_dir = tempfile::tempdir().unwrap();
     std::fs::set_permissions(binary_dir.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
     let executable = binary_dir.path().join("semwright-blender-driver");
     std::fs::copy(&cargo_executable, &executable).unwrap();
     std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o700)).unwrap();
+    let session_runner = binary_dir.path().join("semwright-blender-session-runner");
+    std::fs::copy(&cargo_runner, &session_runner).unwrap();
+    std::fs::set_permissions(&session_runner, std::fs::Permissions::from_mode(0o700)).unwrap();
 
     let helper = PathBuf::from(
         std::env::var_os("SEMWRIGHT_TEST_SANDBOX_HELPER")
@@ -84,13 +88,14 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
     assert!(Path::new("/etc/fonts").is_dir());
 
     let workspace = tempfile::tempdir().unwrap();
+    let scratch = tempfile::tempdir().unwrap();
     let state = tempfile::tempdir().unwrap();
     std::fs::set_permissions(state.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
     let workspace_path = std::fs::canonicalize(workspace.path()).unwrap();
 
     let manifest = Manifest {
         manifest_version: 1,
-        protocol: 1,
+        protocol: 8,
         id: "blender".into(),
         version: env!("CARGO_PKG_VERSION").into(),
         publisher: "semwright-tests".into(),
@@ -113,19 +118,40 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
                 read_only: true,
                 execute: false,
             },
+            DriverMount {
+                root: "scratch".into(),
+                read_only: false,
+                execute: false,
+            },
+            DriverMount {
+                root: "font-config".into(),
+                read_only: true,
+                execute: false,
+            },
         ],
-        system_config: vec![SystemConfigMount {
-            root: "font-config".into(),
-            destination: "/etc/fonts".into(),
-        }],
+        system_config: vec![],
         secrets: vec![],
-        tools: vec![DriverToolMount {
-            root: "blender-executable".into(),
-            name: "blender".into(),
-            mounts: vec![],
-            dependencies: vec![],
-            sha256: digest(&blender_tool),
-        }],
+        tools: vec![
+            DriverToolMount {
+                root: "blender-session-runner".into(),
+                name: "blender-session-runner".into(),
+                mounts: vec![
+                    "workspace".into(),
+                    "blender-runtime".into(),
+                    "scratch".into(),
+                    "font-config".into(),
+                ],
+                dependencies: vec!["blender".into()],
+                sha256: digest(&session_runner),
+            },
+            DriverToolMount {
+                root: "blender-executable".into(),
+                name: "blender".into(),
+                mounts: vec![],
+                dependencies: vec![],
+                sha256: digest(&blender_tool),
+            },
+        ],
         network: false,
         loopback_port: None,
         resources: DriverResources {
@@ -137,7 +163,12 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
             file_size_bytes: 1_073_741_824,
         },
         request_timeout_ms: 300_000,
-        interfaces: DriverInterfaces::default(),
+        interfaces: DriverInterfaces {
+            cooperative_cancellation: true,
+            health: true,
+            host_tools: true,
+            ..DriverInterfaces::default()
+        },
     };
     let grants = vec![
         FilesystemGrant {
@@ -155,6 +186,18 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
         FilesystemGrant {
             name: "blender-runtime".into(),
             path: blender_runtime.clone(),
+            read: true,
+            write: false,
+        },
+        FilesystemGrant {
+            name: "scratch".into(),
+            path: std::fs::canonicalize(scratch.path()).unwrap(),
+            read: true,
+            write: true,
+        },
+        FilesystemGrant {
+            name: "blender-session-runner".into(),
+            path: session_runner.clone(),
             read: true,
             write: false,
         },

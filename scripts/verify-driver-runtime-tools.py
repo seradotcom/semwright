@@ -22,7 +22,6 @@ PATTERNS = (
 # Existing runtime debt. Exact counts make this a ratchet: entries may disappear
 # as drivers migrate to generic primitives, but they may never grow silently.
 LEGACY_COUNTS = {
-    ("crates/driver-blender/src/main.rs", "tool_path("): 1,
     ("crates/driver-libreoffice/src/main.rs", "/usr/bin/python3"): 1,
     ("crates/driver-libreoffice/src/main.rs", "/usr/bin/soffice"): 1,
     ("crates/driver-libreoffice/src/main.rs", "/usr/bin/sh"): 1,
