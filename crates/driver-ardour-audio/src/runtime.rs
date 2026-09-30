@@ -100,6 +100,9 @@ pub struct ArdourRuntimeProbe {
     pub range_self_test: bool,
     pub range_diagnostic_class: String,
     pub range_diagnostic_prefix: String,
+    pub group_self_test: bool,
+    pub group_diagnostic_class: String,
+    pub group_diagnostic_prefix: String,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -470,6 +473,135 @@ close_session()
                 )
             };
 
+        let (group_self_test, group_diagnostic_class, group_diagnostic_prefix) = if range_self_test
+        {
+            let script_dir = tempfile::Builder::new()
+                .prefix("semwright-ardour-group-probe-")
+                .tempdir()?;
+            let script_path = script_dir.path().join("semwright-ardour.lua");
+            fs::write(&script_path, script::source())?;
+
+            let stem_args = lua_tool_args(
+                &script_path,
+                vec![
+                    probe_session.to_string_lossy().into_owned(),
+                    probe_state.into(),
+                    self.config.ardour_version.clone(),
+                    "stem_create".into(),
+                    "2".into(),
+                    "Semwright Probe Stem".into(),
+                ],
+            );
+            let stem_run = self
+                .run_tool_capture(context, &self.lua_tool, &stem_args)
+                .await?;
+            if stem_run.exit_code != 0 {
+                let classified = classify_tool_failure(&stem_run.stdout, &stem_run.stderr);
+                (
+                    false,
+                    format!("{:?}", classified.code),
+                    bounded_text_diagnostic(&bounded_diagnostic(
+                        &stem_run.stdout,
+                        &stem_run.stderr,
+                    )),
+                )
+            } else {
+                match parse_snapshot(&stem_run.stdout) {
+                    Ok(stem_snapshot) => {
+                        let route_id = stem_snapshot
+                            .routes
+                            .iter()
+                            .find(|route| {
+                                route.kind == crate::native::RouteKind::Track
+                                    && route.name == "Semwright Probe Stem"
+                            })
+                            .map(|route| route.id.clone());
+                        if let Some(route_id) = route_id {
+                            let group_args = lua_tool_args(
+                                &script_path,
+                                vec![
+                                    probe_session.to_string_lossy().into_owned(),
+                                    probe_state.into(),
+                                    self.config.ardour_version.clone(),
+                                    "group_create".into(),
+                                    "Semwright Probe Group".into(),
+                                    route_id.clone(),
+                                ],
+                            );
+                            let group_run = self
+                                .run_tool_capture(context, &self.lua_tool, &group_args)
+                                .await?;
+                            if group_run.exit_code != 0 {
+                                let classified =
+                                    classify_tool_failure(&group_run.stdout, &group_run.stderr);
+                                (
+                                    false,
+                                    format!("{:?}", classified.code),
+                                    bounded_text_diagnostic(&bounded_diagnostic(
+                                        &group_run.stdout,
+                                        &group_run.stderr,
+                                    )),
+                                )
+                            } else {
+                                match parse_snapshot(&group_run.stdout) {
+                                    Ok(group_snapshot) => {
+                                        let verified = group_snapshot.groups.iter().any(|group| {
+                                            group.name == "Semwright Probe Group"
+                                                && group
+                                                    .route_ids
+                                                    .iter()
+                                                    .any(|member| member == &route_id)
+                                        });
+                                        if verified {
+                                            (
+                                                true,
+                                                "ok".to_string(),
+                                                bounded_text_diagnostic(
+                                                    "route group created, populated, saved and observed in native snapshot",
+                                                ),
+                                            )
+                                        } else {
+                                            (
+                                                false,
+                                                "BackendFailed".to_string(),
+                                                bounded_text_diagnostic(
+                                                    "route group snapshot did not contain the expected member",
+                                                ),
+                                            )
+                                        }
+                                    }
+                                    Err(error) => (
+                                        false,
+                                        format!("{:?}", error.code),
+                                        bounded_text_diagnostic(&error.message),
+                                    ),
+                                }
+                            }
+                        } else {
+                            (
+                                false,
+                                "BackendFailed".to_string(),
+                                bounded_text_diagnostic(
+                                    "probe stem was not observable after native creation",
+                                ),
+                            )
+                        }
+                    }
+                    Err(error) => (
+                        false,
+                        format!("{:?}", error.code),
+                        bounded_text_diagnostic(&error.message),
+                    ),
+                }
+            }
+        } else {
+            (
+                false,
+                "range_prerequisite_failed".to_string(),
+                String::new(),
+            )
+        };
+
         Ok(ArdourRuntimeProbe {
             ardour_version: self.config.ardour_version.clone(),
             lua_banner,
@@ -487,6 +619,9 @@ close_session()
             range_self_test,
             range_diagnostic_class,
             range_diagnostic_prefix,
+            group_self_test,
+            group_diagnostic_class,
+            group_diagnostic_prefix,
         })
     }
 

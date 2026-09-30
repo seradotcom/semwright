@@ -386,6 +386,14 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
         runtime_probe_data["range_diagnostic_class"], "ok",
         "{runtime_probe_data}"
     );
+    assert_eq!(
+        runtime_probe_data["group_self_test"], true,
+        "Ardour route-group self-test failed: {runtime_probe_data}"
+    );
+    assert_eq!(
+        runtime_probe_data["group_diagnostic_class"], "ok",
+        "{runtime_probe_data}"
+    );
 
     let created = call(
         &broker,
