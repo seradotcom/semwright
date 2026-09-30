@@ -123,6 +123,12 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
     let ffprobe = configured_tool("SEMWRIGHT_TEST_FFPROBE");
     let ffmpeg = configured_tool("SEMWRIGHT_TEST_FFMPEG");
     let bwrap = configured_tool("SEMWRIGHT_TEST_BWRAP");
+    let mlt_runtime_root = melt
+        .parent()
+        .and_then(Path::parent)
+        .expect("melt must live below a runtime bin directory")
+        .canonicalize()
+        .expect("canonical MLT runtime root");
 
     let project = tempfile::tempdir().unwrap();
     let media = tempfile::tempdir().unwrap();
@@ -235,6 +241,11 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
                 read_only: true,
                 execute: false,
             },
+            DriverMount {
+                root: "mlt-runtime".into(),
+                read_only: true,
+                execute: true,
+            },
         ],
         system_config: vec![],
         secrets: vec![],
@@ -243,7 +254,7 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
                 root: "mlt-runner-root".into(),
                 name: "mlt-runner".into(),
                 sha256: digest(&runtime_runner),
-                mounts: vec![],
+                mounts: vec!["mlt-runtime".into()],
                 dependencies: vec!["melt".into()],
             },
             DriverToolMount {
@@ -296,6 +307,12 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
         FilesystemGrant {
             name: "runtime".into(),
             path: runtime.path().canonicalize().unwrap(),
+            read: true,
+            write: false,
+        },
+        FilesystemGrant {
+            name: "mlt-runtime".into(),
+            path: mlt_runtime_root,
             read: true,
             write: false,
         },

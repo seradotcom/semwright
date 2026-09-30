@@ -1,7 +1,11 @@
 #![cfg(all(target_os = "linux", feature = "test-tools"))]
 
 use serde_json::Value;
-use std::{path::PathBuf, process::Command};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 fn runner() -> PathBuf {
     PathBuf::from(env!("CARGO_BIN_EXE_semwright-mlt-runtime-runner"))
@@ -11,11 +15,23 @@ fn fake_melt() -> PathBuf {
     PathBuf::from(env!("CARGO_BIN_EXE_fake-melt"))
 }
 
+fn runtime_bundle(entrypoint: &Path) -> tempfile::TempDir {
+    let root = tempfile::tempdir().expect("runtime bundle");
+    let bin = root.path().join("bin");
+    fs::create_dir(&bin).expect("runtime bin");
+    fs::copy(entrypoint, bin.join("melt")).expect("copy runtime entrypoint");
+    root
+}
+
 #[test]
 fn runtime_runner_discovers_bounded_catalog_from_explicit_dependency() {
+    let sealed = fake_melt();
+    let bundle = runtime_bundle(&sealed);
     let output = Command::new(runner())
-        .args(["discover", "--melt"])
-        .arg(fake_melt())
+        .args(["discover", "--runtime-root"])
+        .arg(bundle.path())
+        .args(["--melt-sealed"])
+        .arg(&sealed)
         .output()
         .expect("run MLT runtime runner");
     assert!(
@@ -56,8 +72,12 @@ fn runtime_runner_discovers_bounded_catalog_from_explicit_dependency() {
 
 #[test]
 fn runtime_runner_rejects_unmaterialized_relative_dependencies() {
+    let sealed = fake_melt();
+    let bundle = runtime_bundle(&sealed);
     let output = Command::new(runner())
-        .args(["discover", "--melt", "melt"])
+        .args(["discover", "--runtime-root"])
+        .arg(bundle.path())
+        .args(["--melt-sealed", "melt"])
         .output()
         .expect("run invalid dependency fixture");
     assert!(!output.status.success());
@@ -68,6 +88,28 @@ fn runtime_runner_rejects_unmaterialized_relative_dependencies() {
         value["error"]
             .as_str()
             .is_some_and(|message| message.contains("absolute Host-materialized path"))
+    );
+}
+
+#[test]
+fn runtime_runner_rejects_bundle_entrypoint_that_does_not_match_sealed_tool() {
+    let sealed = fake_melt();
+    let bundle = runtime_bundle(&sealed);
+    fs::write(bundle.path().join("bin/melt"), b"not the sealed executable").unwrap();
+    let output = Command::new(runner())
+        .args(["discover", "--runtime-root"])
+        .arg(bundle.path())
+        .args(["--melt-sealed"])
+        .arg(&sealed)
+        .output()
+        .expect("run mismatched runtime entrypoint");
+    assert!(!output.status.success());
+    let value: Value = serde_json::from_slice(&output.stdout).expect("runner error JSON");
+    assert_eq!(value["operation"], "error");
+    assert!(
+        value["error"]
+            .as_str()
+            .is_some_and(|message| message.contains("does not match the Host-sealed melt bytes"))
     );
 }
 

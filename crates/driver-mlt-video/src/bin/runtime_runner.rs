@@ -3,7 +3,10 @@
 //! The Driver Host supplies owner-pinned dependency paths through protocol-v7 typed
 //! ToolPath arguments. This helper never searches PATH or accepts shell fragments.
 
-use semwright_mlt_video::runtime::{ProcessSpec, ServiceCatalog, constrained_environment, run};
+use semwright_mlt_video::{
+    hash::reader_hash,
+    runtime::{ProcessSpec, ServiceCatalog, constrained_environment, run},
+};
 use serde_json::{Map, Value, json};
 use std::{
     ffi::OsString,
@@ -32,6 +35,36 @@ fn dependency_path(value: &str) -> Result<PathBuf, String> {
         return Err("runtime dependency must be a regular non-symlink file".into());
     }
     Ok(path)
+}
+
+fn runtime_entry(runtime_root: &Path, sealed_melt: &Path) -> Result<PathBuf, String> {
+    let root_meta = std::fs::symlink_metadata(runtime_root)
+        .map_err(|_| "MLT runtime root is unavailable".to_string())?;
+    if !runtime_root.is_absolute() || !root_meta.is_dir() || root_meta.file_type().is_symlink() {
+        return Err("MLT runtime root must be an absolute non-symlink directory".into());
+    }
+    let candidate = runtime_root.join("bin").join("melt");
+    let candidate_meta = std::fs::symlink_metadata(&candidate)
+        .map_err(|_| "MLT runtime entrypoint is unavailable".to_string())?;
+    if !candidate_meta.is_file() || candidate_meta.file_type().is_symlink() {
+        return Err("MLT runtime entrypoint must be a regular non-symlink file".into());
+    }
+    let (sealed_hash, sealed_size) = reader_hash(
+        std::fs::File::open(sealed_melt)
+            .map_err(|_| "sealed melt dependency is unreadable".to_string())?,
+        64 * 1024 * 1024,
+    )
+    .map_err(|error| format!("{}: {}", error.code, error.message))?;
+    let (runtime_hash, runtime_size) = reader_hash(
+        std::fs::File::open(&candidate)
+            .map_err(|_| "MLT runtime entrypoint is unreadable".to_string())?,
+        64 * 1024 * 1024,
+    )
+    .map_err(|error| format!("{}: {}", error.code, error.message))?;
+    if sealed_size != runtime_size || sealed_hash != runtime_hash {
+        return Err("MLT runtime entrypoint does not match the Host-sealed melt bytes".into());
+    }
+    Ok(candidate)
 }
 
 fn execute(melt: &Path, args: Vec<OsString>) -> Result<(Vec<u8>, Vec<u8>), String> {
@@ -104,17 +137,25 @@ fn parse() -> Result<Value, String> {
     if operation != "discover" {
         return Err("runtime operation is unsupported".into());
     }
-    if args.next().as_deref() != Some("--melt") {
-        return Err("discover requires --melt <Host ToolPath>".into());
+    if args.next().as_deref() != Some("--runtime-root") {
+        return Err("discover requires --runtime-root <Host MountPath>".into());
     }
-    let melt = dependency_path(
+    let runtime_root = PathBuf::from(
+        args.next()
+            .ok_or_else(|| "discover requires an MLT runtime root".to_string())?,
+    );
+    if args.next().as_deref() != Some("--melt-sealed") {
+        return Err("discover requires --melt-sealed <Host ToolPath>".into());
+    }
+    let sealed_melt = dependency_path(
         &args
             .next()
-            .ok_or_else(|| "discover requires a melt dependency".to_string())?,
+            .ok_or_else(|| "discover requires a sealed melt dependency".to_string())?,
     )?;
     if args.next().is_some() {
         return Err("runtime runner received unexpected arguments".into());
     }
+    let melt = runtime_entry(&runtime_root, &sealed_melt)?;
     discover(&melt)
 }
 
