@@ -534,6 +534,20 @@ fn fixed_native_probe_contains_no_arbitrary_execution_surface() {
     assert!(PROBE_SOURCE.contains("ResourceLoader.get_dependencies"));
     assert!(PROBE_SOURCE.contains("int(checkpoint) == tick"));
     assert!(!PROBE_SOURCE.contains("_request.checkpoints.has(tick)"));
+    let play_loop = PROBE_SOURCE.find("for tick in range(").unwrap();
+    let live_projection = PROBE_SOURCE
+        .find("report.live = _projection(_root_scene)")
+        .unwrap();
+    assert!(
+        live_projection > play_loop,
+        "live projection must describe post-play runtime state"
+    );
+    assert_eq!(
+        PROBE_SOURCE
+            .matches("report.live = _projection(_root_scene)")
+            .count(),
+        1
+    );
     for forbidden in [
         "OS.execute",
         "Expression.execute",

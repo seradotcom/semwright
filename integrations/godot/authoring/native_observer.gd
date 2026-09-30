@@ -158,7 +158,6 @@ func _run() -> void:
     if _request.mode == "play" and _failures.is_empty():
         root.add_child(_root_scene)
         current_scene = _root_scene
-        report.live = _projection(_root_scene)
         var started: int = Engine.get_physics_frames()
         var input_index: int = 0
         for tick in range(1, int(_request.ticks) + 1):
@@ -183,6 +182,7 @@ func _run() -> void:
             if not _failures.is_empty(): break
         report.inputs_delivered = input_index
         report.elapsed_physics_frames = Engine.get_physics_frames() - started
+        if _failures.is_empty(): report.live = _projection(_root_scene)
     var dependency_result: Dictionary = _dependencies(scene_path)
     report.dependencies = dependency_result.edges
     report.dependency_complete = dependency_result.complete
