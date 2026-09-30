@@ -5,6 +5,7 @@ defaults:
     shell: bash
 
 on:
+  workflow_call:
   pull_request:
     paths:
       - "crates/driver-sdk/**"

@@ -1,6 +1,7 @@
 name: Platformization and Windows
 
 on:
+  workflow_call:
   push:
     branches: [main]
   pull_request:
