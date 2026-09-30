@@ -933,12 +933,14 @@ local function mutate(command)
   elseif command == "group_create" then
     local group = Session:new_route_group(arg[5])
     if not group then error("route group create failed") end
-    group:set_active(true, nil)
-    group:add(require_route(arg[6]))
+    local status = group:add(require_route(arg[6]))
+    if status ~= 0 then error("route group member add failed") end
   elseif command == "group_add" then
-    require_group(arg[5]):add(require_route(arg[6]))
+    local status = require_group(arg[5]):add(require_route(arg[6]))
+    if status ~= 0 then error("route group member add failed") end
   elseif command == "group_remove" then
-    require_group(arg[5]):remove(require_route(arg[6]))
+    local status = require_group(arg[5]):remove(require_route(arg[6]))
+    if status ~= 0 then error("route group member remove failed") end
   elseif command == "group_delete" then
     Session:remove_route_group(require_group(arg[5]))
   elseif command == "plugin_insert" then
