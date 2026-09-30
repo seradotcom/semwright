@@ -225,12 +225,6 @@ impl App {
         probe: Option<crate::runtime::MediaInfo>,
     ) -> Result<Value> {
         self.validate_call(command, digest, &args)?;
-        let capability = self
-            .capabilities
-            .iter()
-            .find(|c| c.name == command)
-            .cloned()
-            .ok_or_else(|| Error::new("NotFound", "Capability not registered"))?;
         let operation = command
             .strip_prefix(catalog::PREFIX)
             .ok_or_else(|| Error::invalid("Driver namespace mismatch"))?;
