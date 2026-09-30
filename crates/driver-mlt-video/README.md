@@ -25,16 +25,19 @@ driver projects each curated native render profile into the shared `RenderPreset
 can share export intent without emulating MLT.
 
 The production binary uses `semwright-driver-sdk`; `fake-melt` is compiled only with the
-`test-tools` feature. A real render runtime additionally requires an owner-provided read-only
-`runtime/runtime.json` containing exact SHA-256 pins for `melt`, `ffprobe` and `bwrap`.
-Project/media roots are read-only and the output root is the only writable mount.
+`test-tools` feature. Production runtime execution is protocol-v7 Host-managed: the manifest
+declares a read-only executable `mlt-runtime` bundle, writable `scratch`, the SHA-pinned
+`mlt-runner` tool, and separately pinned `melt`/`ffprobe` dependencies. The driver does not
+discover installation paths or read a private runtime manifest. Project/media roots stay
+read-only, scratch is disposable, and the output root is the only published writable surface.
 
-When launched by `DriverProvider`, the driver reuses the already-established Bubblewrap +
-Landlock sandbox instead of attempting a nested user namespace, which Linux may reject after the
-outer sandbox has dropped capabilities. Pinned media tools are still copied byte-for-byte into
-private driver scratch, re-hashed, made non-writable, and supervised with explicit environment,
-RLIMIT, process-group, timeout, cancellation and output budgets. Standalone driver execution keeps
-the additional internal Bubblewrap layer; it is not the broker authorization boundary.
+When launched by `DriverProvider`, discovery, media probing and curated renders execute through
+the generic Host runtime-tool boundary. Driver Host owns the nested Bubblewrap + Landlock child,
+tool dependency materialization, session-bound detached render jobs, cancellation, timeout and
+process-tree containment. The MLT runner accepts only fixed `discover`, `probe` and `render`
+operations; it verifies runtime entrypoints remain inside the delegated bundle and match the exact
+Host-sealed tool bytes before execution. Legacy `Runtime` construction remains available only to
+internal library fixtures/direct-mode tests, not to the production driver entrypoint.
 
 ```sh
 cargo test -p semwright-mlt-video-driver --all-features
