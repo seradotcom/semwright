@@ -1025,6 +1025,9 @@ fn apply_repair(
             let a::VisualConstraint::MinimumVisible { subject, .. } = rule else {
                 return Err(reject());
             };
+            if finding.subject != subject {
+                return Err(reject());
+            }
             let shot = film.shots().find(|s| s.id == shot_id).ok_or_else(reject)?;
             let allowed=shot.span_id==*span||shot.motion.iter().any(|m|m.span_id==*span&&matches!(&m.primitive,a::Primitive::Hold{targets}if targets.contains(&subject)));
             if !allowed {

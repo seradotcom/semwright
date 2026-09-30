@@ -612,14 +612,16 @@ impl AgentAStageAdapter {
             .as_ref()
             .ok_or_else(|| Error::Invalid("Motion source has no video metadata".into()))?;
         ensure(
-            value.get("frame_count").and_then(Value::as_u64) == Some(video.frames)
+            bytes > 0
+                && bytes <= self.plan.body.spec.delivery.max_artifact_bytes
+                && value.get("frame_count").and_then(Value::as_u64) == Some(video.frames)
                 && value.get("width").and_then(Value::as_u64) == Some(u64::from(video.width))
                 && value.get("height").and_then(Value::as_u64) == Some(u64::from(video.height))
                 && value.get("fps_num").and_then(Value::as_u64)
                     == Some(u64::from(video.frame_rate.num))
                 && value.get("fps_den").and_then(Value::as_u64)
                     == Some(u64::from(video.frame_rate.den)),
-            "FFV1 mezzanine receipt differs from Motion frame profile",
+            "FFV1 mezzanine receipt differs from Motion frame/profile/byte budget",
         )?;
         let token = Self::token("motion-mezzanine", &digest);
         self.locators.insert(
@@ -1014,14 +1016,6 @@ impl AgentAStageAdapter {
                 })
                 .collect()
         };
-        let missing_video = value
-            .get("missing_video")
-            .and_then(Value::as_array)
-            .ok_or_else(|| Error::Invalid("sync missing_video absent".into()))?;
-        let missing_audio = value
-            .get("missing_audio")
-            .and_then(Value::as_array)
-            .ok_or_else(|| Error::Invalid("sync missing_audio absent".into()))?;
         let decoder_method = value
             .get("decoder")
             .and_then(Value::as_str)

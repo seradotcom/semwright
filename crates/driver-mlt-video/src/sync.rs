@@ -61,7 +61,7 @@ fn time_us(frame: &serde_json::Value) -> Option<u64> {
         return None;
     }
     let micros = (value * 1_000_000.0).round();
-    (micros.is_finite() && micros >= 0.0 && micros <= 600_000_000.0).then_some(micros as u64)
+    (micros.is_finite() && (0.0..=600_000_000.0).contains(&micros)).then_some(micros as u64)
 }
 
 fn rows(bytes: &[u8], tag: &str) -> Result<Vec<(u64, f64)>> {

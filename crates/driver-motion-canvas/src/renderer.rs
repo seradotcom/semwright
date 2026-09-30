@@ -27,6 +27,25 @@ const MAX_PROCESS_OUTPUT: u64 = 262_144;
 const MAX_JOBS: usize = 64;
 const NODE_RENDER_FLAGS: [&str; 2] = ["--disable-wasm-trap-handler", "--max-old-space-size=256"];
 
+fn runtime_relative_path(path: &str) -> Result<()> {
+    if path.is_empty()
+        || path.len() > 512
+        || path.split('/').count() > 12
+        || path.contains(['\\', ':', '%', '\0'])
+        || !path
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"/_-.@".contains(&byte))
+        || path
+            .split('/')
+            .any(|part| part.is_empty() || part == "." || part == ".." || part.len() > 128)
+    {
+        return Err(Error::invalid(
+            "Runtime path must be bounded, relative and free of traversal or URLs",
+        ));
+    }
+    Ok(())
+}
+
 #[derive(Debug, Clone)]
 pub struct RendererRuntime {
     pub node: PathBuf,
@@ -74,7 +93,7 @@ impl RendererRuntime {
             ));
         }
         let resolve = |tool: &Tool| -> Result<PathBuf> {
-            security::relative_path(&tool.path)?;
+            runtime_relative_path(&tool.path)?;
             if !security::digest(&tool.sha256) {
                 return Err(Error::invalid("Runtime tool digest is malformed"));
             }
@@ -905,5 +924,31 @@ impl RenderManager {
             artifact_sha256: artifact.manifest_sha256,
             plan,
         })
+    }
+}
+
+#[cfg(test)]
+mod runtime_path_tests {
+    use super::*;
+
+    #[test]
+    fn pinned_runtime_paths_allow_npm_scopes_but_not_traversal_or_urls() {
+        runtime_relative_path(".semwright-tools/node").unwrap();
+        runtime_relative_path("node_modules/@fontsource-variable/instrument-sans/index.css")
+            .unwrap();
+        runtime_relative_path(
+            "node_modules/playwright-core/.local-browsers/firefox-1532/firefox/firefox",
+        )
+        .unwrap();
+
+        for hostile in [
+            "../escape",
+            "node_modules/../escape",
+            "https://example.com/browser",
+            "node_modules/@scope/pkg%2fescape",
+            "/absolute/tool",
+        ] {
+            assert!(runtime_relative_path(hostile).is_err(), "{hostile}");
+        }
     }
 }
