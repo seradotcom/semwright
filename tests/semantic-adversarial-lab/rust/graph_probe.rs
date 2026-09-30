@@ -1333,7 +1333,7 @@ fn probe(case: &str) -> ProbeResult<Value> {
                 coverage,
             )?;
             let knowledge = graph.inspect(&access, &asset)?.knowledge;
-            json!({"label":knowledge.label(),"cache_safe":knowledge.cache_safe()})
+            json!({"verification":format!("{:?}",knowledge.verification),"coverage_cache_safe":knowledge.coverage.cache_safe(),"cache_safe":knowledge.cache_safe()})
         }
         "G-GRAPH-062" => {
             let (mut graph, access) = setup()?;

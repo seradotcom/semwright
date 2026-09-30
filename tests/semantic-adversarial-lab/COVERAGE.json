@@ -355,7 +355,7 @@
         "prior 52-case receipt d0265ed89c713f72533ab93d531ba271ff95bc73c7dd2591db692d7235548b4b",
         "prior 52-case artifact dfc806f06e1ffeddbeb58d9cc45862fe5bbad1be863ccce366b72fc25536826d"
       ],
-      "blocker": "C 673392d passed 52/52 previously. Final C 504ad2 adds revision admission, provenance and graph-private GC; 74-case exact-SHA graph retest selected, including G-GRAPH-053..074.",
+      "blocker": "Final C 504ad2 retest run 36648808802 executed 74/74 with 73 PASS and one G oracle defect: case 061 conflated presentation label with verification/cache safety. Oracle corrected to verification/coverage/cache dimensions; exact-SHA retest pending.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },

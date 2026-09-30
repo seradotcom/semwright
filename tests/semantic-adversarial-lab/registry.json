@@ -4068,9 +4068,10 @@
       "requirement": "G05",
       "lane": "graph",
       "scope": "product_contract",
-      "description": "partial admitted revision remains UNKNOWN and not cache safe",
+      "description": "partial admitted revision keeps verification UNKNOWN and is not cache safe; presentation label is non-authoritative",
       "expected": {
-        "label": "UNKNOWN",
+        "verification": "Unknown",
+        "coverage_cache_safe": false,
         "cache_safe": false
       }
     },
