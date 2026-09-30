@@ -3,8 +3,8 @@ mod linux {
     use semwright_backend_api::{Context, ProvidedCapability, Provider};
     use semwright_driver_host::DriverProvider;
     use semwright_driver_sdk::{
-        ApplicationMatch, DriverInterfaces, DriverMount, DriverResources, Manifest,
-        SystemConfigMount, Transport,
+        ApplicationMatch, DriverInterfaces, DriverMount, DriverResources, DriverToolMount,
+        Manifest, Transport,
     };
     use semwright_policy::FilesystemGrant;
     use serde_json::{Value, json};
@@ -25,6 +25,7 @@ mod linux {
         mlt_driver: PathBuf,
         sandbox_helper: PathBuf,
         motion_runtime: PathBuf,
+        motion_node: PathBuf,
         mlt_runtime: PathBuf,
         semantic: PathBuf,
         sound: PathBuf,
@@ -37,19 +38,20 @@ mod linux {
             .skip(1)
             .map(PathBuf::from)
             .collect::<Vec<_>>();
-        if values.len() != 9 {
-            return Err("usage: launch_film_orchestrator MOTION_DRIVER MLT_DRIVER SANDBOX_HELPER MOTION_RUNTIME MLT_RUNTIME SEMANTIC SOUND WORK OUTPUT".into());
+        if values.len() != 10 {
+            return Err("usage: launch_film_orchestrator MOTION_DRIVER MLT_DRIVER SANDBOX_HELPER MOTION_RUNTIME MOTION_NODE MLT_RUNTIME SEMANTIC SOUND WORK OUTPUT".into());
         }
         Ok(Args {
             motion_driver: values[0].clone(),
             mlt_driver: values[1].clone(),
             sandbox_helper: values[2].clone(),
             motion_runtime: values[3].clone(),
-            mlt_runtime: values[4].clone(),
-            semantic: values[5].clone(),
-            sound: values[6].clone(),
-            work: values[7].clone(),
-            output: values[8].clone(),
+            motion_node: values[4].clone(),
+            mlt_runtime: values[5].clone(),
+            semantic: values[6].clone(),
+            sound: values[7].clone(),
+            work: values[8].clone(),
+            output: values[9].clone(),
         })
     }
 
@@ -171,11 +173,28 @@ mod linux {
         executable: &Path,
         process: &str,
         mounts: Vec<DriverMount>,
+        motion_node: Option<&Path>,
     ) -> AnyResult<Manifest> {
-        let motion_v3 = id == "motion-canvas";
+        let motion_v7 = id == "motion-canvas";
+        let tools = if let Some(node) = motion_node {
+            vec![DriverToolMount {
+                root: "motion-node-tool".into(),
+                name: "motion-node".into(),
+                sha256: digest(node)?,
+                mounts: vec![
+                    "project".into(),
+                    "output".into(),
+                    "runtime".into(),
+                    "fontconfig".into(),
+                ],
+                dependencies: vec![],
+            }]
+        } else {
+            vec![]
+        };
         Ok(Manifest {
             manifest_version: 1,
-            protocol: if motion_v3 { 3 } else { 1 },
+            protocol: if motion_v7 { 7 } else { 1 },
             id: id.into(),
             version: env!("CARGO_PKG_VERSION").into(),
             publisher: "semwright-launch-film".into(),
@@ -190,7 +209,7 @@ mod linux {
             mounts,
             system_config: vec![],
             secrets: vec![],
-            tools: vec![],
+            tools,
             network: false,
             loopback_port: None,
             resources: DriverResources {
@@ -202,12 +221,13 @@ mod linux {
                 file_size_bytes: 1_073_741_824,
             },
             request_timeout_ms: 300_000,
-            interfaces: if motion_v3 {
+            interfaces: if motion_v7 {
                 DriverInterfaces {
                     cooperative_cancellation: true,
                     progress: true,
                     artifacts: true,
                     health: true,
+                    host_tools: true,
                     ..DriverInterfaces::default()
                 }
             } else {
@@ -230,6 +250,7 @@ mod linux {
             &a.mlt_driver,
             &a.sandbox_helper,
             &a.motion_runtime,
+            &a.motion_node,
             &a.mlt_runtime,
             &a.semantic,
             &a.sound,
@@ -244,7 +265,7 @@ mod linux {
         fs::copy(&a.semantic, motion_project.join("semwright-motion.json"))?;
 
         let mut operations = vec![];
-        let mut motion_manifest = manifest(
+        let motion_manifest = manifest(
             "motion-canvas",
             &a.motion_driver,
             "node",
@@ -264,17 +285,20 @@ mod linux {
                     read_only: true,
                     execute: true,
                 },
+                DriverMount {
+                    root: "fontconfig".into(),
+                    read_only: true,
+                    execute: false,
+                },
             ],
+            Some(&a.motion_node),
         )?;
-        motion_manifest.system_config.push(SystemConfigMount {
-            root: "fontconfig".into(),
-            destination: "/etc/fonts".into(),
-        });
         let motion_grants = vec![
             grant("project", &motion_project, true)?,
             grant("output", &motion_output, true)?,
             grant("runtime", &a.motion_runtime, false)?,
             grant("fontconfig", Path::new("/etc/fonts"), false)?,
+            grant("motion-node-tool", &a.motion_node, false)?,
         ];
         let motion = DriverProvider::connect(
             motion_manifest,
@@ -430,6 +454,7 @@ mod linux {
                     execute: false,
                 },
             ],
+            None,
         )?;
         let mlt_grants = vec![
             grant("project", &mlt_project, false)?,

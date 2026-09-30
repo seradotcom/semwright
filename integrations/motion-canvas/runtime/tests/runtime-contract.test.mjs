@@ -14,14 +14,24 @@ test('runtime dependencies use exact versions', () => {
   assert.equal(pkg.dependencies.playwright, '1.61.1');
 });
 
-test('render harness is bound to Driver Host, pinned Firefox, and local origin', () => {
+test('render harness is bound to Driver Host, runtime-bundle Firefox, and local origin', () => {
   assert.ok(render.includes('SEMWRIGHT_DRIVER_SANDBOX'));
   assert.ok(render.includes('landlock-bwrap-v1'));
   assert.ok(render.includes('buildForEditor:true'));
   assert.ok(render.includes('firefox.launchPersistentContext'));
   assert.ok(render.includes('context.pages()[0]'));
   assert.ok(!render.includes('context.newPage()'));
-  assert.ok(render.includes('executablePath:a.browser'));
+  assert.ok(render.includes('const runtimeRoot = await fs.realpath(process.cwd())'));
+  assert.ok(render.includes("process.env.PLAYWRIGHT_BROWSERS_PATH = '0'"));
+  assert.ok(render.includes("await import('playwright')"));
+  assert.ok(render.includes("containedFile(runtimeRoot, firefox.executablePath(), 'Firefox executable')"));
+  assert.ok(render.includes('executablePath:browser'));
+  assert.ok(!render.includes('a.browser'));
+  assert.ok(render.includes("'project-root'"));
+  assert.ok(render.includes("'output-root'"));
+  assert.ok(render.includes("'fontconfig-root'"));
+  assert.ok(render.includes('escapes owner-granted root'));
+  assert.ok(render.includes('escapes runtime bundle'));
   assert.ok(render.includes("MOZ_DISABLE_CONTENT_SANDBOX:'1'"));
   assert.ok(render.includes("'dom.ipc.forkserver.enable':false"));
   assert.ok(!render.includes('MOZ_FORCE_DISABLE_E10S'));

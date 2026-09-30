@@ -208,26 +208,27 @@ jobs:
           cd "$RUNNER_TEMP/motion-semantic-complete"
           "$GITHUB_WORKSPACE/integrations/motion-canvas/runtime/node_modules/.bin/tsc" --noEmit
           "$GITHUB_WORKSPACE/integrations/motion-canvas/runtime/node_modules/.bin/vite" build
-      - name: Build owner-pinned runtime manifest for Driver Host
+      - name: Stage owner-pinned Node tool for Driver Host
         working-directory: integrations/motion-canvas/runtime
         run: |
-          mkdir -p .semwright-tools
-          cp "$(command -v node)" .semwright-tools/node
-          chmod 0755 .semwright-tools/node
+          NODE_TOOL="$RUNNER_TEMP/semwright-motion-node"
+          cp "$(command -v node)" "$NODE_TOOL"
+          chmod 0700 "$NODE_TOOL"
           mapfile -t BROWSERS < <(find node_modules/playwright-core/.local-browsers -path '*/firefox-*/firefox/firefox' -type f -perm -111 -print)
           test "${#BROWSERS[@]}" -eq 1
-          BROWSER="${BROWSERS[0]}"
-          BROWSER_REL=$(realpath --relative-to="$PWD" "$BROWSER")
-          NODE_SHA=$(sha256sum .semwright-tools/node | awk '{print $1}')
-          HELPER_SHA=$(sha256sum render.mjs | awk '{print $1}')
-          BROWSER_SHA=$(sha256sum "$BROWSER" | awk '{print $1}')
-          BROWSER_REL="$BROWSER_REL" NODE_SHA="$NODE_SHA" HELPER_SHA="$HELPER_SHA" BROWSER_SHA="$BROWSER_SHA" node --input-type=module -e "import fs from 'node:fs'; fs.writeFileSync('runtime.json', JSON.stringify({node:{path:'.semwright-tools/node',sha256:process.env.NODE_SHA},helper:{path:'render.mjs',sha256:process.env.HELPER_SHA},browser:{path:process.env.BROWSER_REL,sha256:process.env.BROWSER_SHA}},null,2))"
-          cat runtime.json
+          mkdir -p "$GITHUB_WORKSPACE/verification/motion-canvas-host"
+          {
+            echo "node_sha256=$(sha256sum "$NODE_TOOL" | awk '{print $1}')"
+            echo "browser_sha256=$(sha256sum "${BROWSERS[0]}" | awk '{print $1}')"
+            echo "embedded_helper_sha256=$(sha256sum render.mjs | awk '{print $1}')"
+          } > "$GITHUB_WORKSPACE/verification/motion-canvas-host/runtime-tool-attestation.txt"
+          cat "$GITHUB_WORKSPACE/verification/motion-canvas-host/runtime-tool-attestation.txt"
       - name: Real Driver Host conformance and sandboxed render/cancellation
         env:
           SEMWRIGHT_TEST_MOTION_CANVAS: '1'
           SEMWRIGHT_TEST_MOTION_CANVAS_RENDER: '1'
           SEMWRIGHT_TEST_MOTION_RUNTIME: ${{ github.workspace }}/integrations/motion-canvas/runtime
+          SEMWRIGHT_TEST_MOTION_NODE: ${{ runner.temp }}/semwright-motion-node
           SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
           SEMWRIGHT_TEST_MOTION_EVIDENCE: ${{ github.workspace }}/verification/motion-canvas-host/artifacts
         run: |
@@ -263,7 +264,7 @@ jobs:
             ulimit -v 4194304
             export TMPDIR="$RUNNER_TEMP/motion-firefox-4g-tmp" TMP="$RUNNER_TEMP/motion-firefox-4g-tmp" TEMP="$RUNNER_TEMP/motion-firefox-4g-tmp"
             export MOZ_DISABLE_CONTENT_SANDBOX=1
-            ./.semwright-tools/node --disable-wasm-trap-handler --max-old-space-size=256 probe.mjs
+            "$RUNNER_TEMP/semwright-motion-node" --disable-wasm-trap-handler --max-old-space-size=256 probe.mjs
           ) >verification/firefox-4g-address-space.log 2>&1
           rc=$?
           set -e
