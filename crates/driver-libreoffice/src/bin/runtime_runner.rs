@@ -467,6 +467,18 @@ mod linux {
         Ok(output.stdout)
     }
 
+    fn startup_log(session: &Path) -> String {
+        let Ok(bytes) = fs::read(session.join("soffice.log")) else {
+            return String::new();
+        };
+        let start = bytes.len().saturating_sub(4096);
+        String::from_utf8_lossy(&bytes[start..])
+            .chars()
+            .map(|ch| if ch.is_control() { ' ' } else { ch })
+            .take(4096)
+            .collect()
+    }
+
     fn wait_until_ready(
         office: &mut OfficeChild,
         python: &Path,
@@ -476,9 +488,12 @@ mod linux {
         let deadline = Instant::now() + STARTUP_TIMEOUT;
         loop {
             if let Some(status) = office.child.try_wait()? {
-                return Err(io::Error::other(format!(
-                    "LibreOffice exited during session startup: {status}"
-                )));
+                let log = startup_log(&office.session);
+                return Err(io::Error::other(if log.is_empty() {
+                    format!("LibreOffice exited during session startup: {status}")
+                } else {
+                    format!("LibreOffice exited during session startup: {status}; log={log}")
+                }));
             }
             if let Ok(response) =
                 run_python(python, runtime, &office.session, pipe, "status", &json!({}))
@@ -490,9 +505,14 @@ mod linux {
                 return Ok(());
             }
             if Instant::now() >= deadline {
+                let log = startup_log(&office.session);
                 return Err(io::Error::new(
                     io::ErrorKind::TimedOut,
-                    "LibreOffice session startup timed out",
+                    if log.is_empty() {
+                        "LibreOffice session startup timed out".to_owned()
+                    } else {
+                        format!("LibreOffice session startup timed out; log={log}")
+                    },
                 ));
             }
             thread::sleep(STARTUP_DELAY);
@@ -570,7 +590,14 @@ mod linux {
 
 #[cfg(target_os = "linux")]
 fn main() {
-    if linux::run().is_err() {
+    if let Err(error) = linux::run() {
+        let message: String = error
+            .to_string()
+            .chars()
+            .map(|ch| if ch.is_control() { ' ' } else { ch })
+            .take(4096)
+            .collect();
+        eprintln!("LibreOffice runtime runner failed: {message}");
         std::process::exit(2);
     }
 }
