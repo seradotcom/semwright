@@ -22,6 +22,7 @@ jobs:
       certify: ${{ steps.scope.outputs.certify }}
       model: ${{ steps.scope.outputs.model }}
       native: ${{ steps.scope.outputs.native }}
+      native_scenarios: ${{ steps.scope.outputs.native_scenarios }}
       persistence: ${{ steps.scope.outputs.persistence }}
       export: ${{ steps.scope.outputs.export }}
       hostile: ${{ steps.scope.outputs.hostile }}
@@ -105,6 +106,7 @@ jobs:
       CARGO_INCREMENTAL: '0'
       CARGO_PROFILE_DEV_DEBUG: '0'
       CARGO_PROFILE_TEST_DEBUG: '0'
+      NATIVE_SCENARIOS: ${{ needs.scope.outputs.native_scenarios }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -146,8 +148,11 @@ jobs:
           set -euo pipefail
           export SEMWRIGHT_TEST_SANDBOX_HELPER="$CARGO_TARGET_DIR/debug/semwright-sandbox"
           : > verification/godot-authoring/authoring-host.log
-          for test_name in             driver_host_handshake_control_reaches_capabilities             empty_project_authoring_flows_through_broker_driver_host_and_provider             animation_tree_state_machine_and_blend_space_round_trip_natively             shared_and_local_to_scene_materials_are_native_and_isolated             typed_transform_and_reparent_actions_round_trip_natively
+          test -n "$NATIVE_SCENARIOS"
+          IFS=',' read -r -a native_scenarios <<< "$NATIVE_SCENARIOS"
+          for test_name in "${native_scenarios[@]}"
           do
+            test -n "$test_name"
             echo "=== $test_name ===" | tee -a verification/godot-authoring/authoring-host.log
             if [ "$test_name" = "empty_project_authoring_flows_through_broker_driver_host_and_provider" ]; then
               SEMWRIGHT_TEST_GODOT_AUTHORING_HOST=1                 cargo test --locked -p semwright-driver-godot --test authoring_host "$test_name"                 -- --ignored --exact --nocapture --test-threads=1                 2>&1 | tee -a verification/godot-authoring/authoring-host.log

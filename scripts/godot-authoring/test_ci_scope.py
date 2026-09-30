@@ -4,8 +4,10 @@
 from select_ci_scope import (
     HOST_EXTRA_LANES,
     LANES,
+    NATIVE_SCENARIOS,
     certification_mode,
     host_lanes_for_changed_lines,
+    host_scenarios_for_changed_lines,
     select,
     workflow_lanes_for_changed_lines,
 )
@@ -61,12 +63,20 @@ async fn persistence_lane_reopens_in_fresh_process_and_preserves_dependencies() 
 async fn export_lane_builds_and_launches_without_editor_or_semwright() {}
 async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {}
 """
-    assert host_lanes_for_changed_lines(host_source, {3}) == set()
+    assert host_lanes_for_changed_lines(host_source, {3}) == {"native"}
     assert host_lanes_for_changed_lines(host_source, {4}) == {"persistence"}
     assert host_lanes_for_changed_lines(host_source, {5}) == {"export"}
     assert host_lanes_for_changed_lines(host_source, {6}) == {"cross_app"}
     assert host_lanes_for_changed_lines(host_source, {1}) == set(HOST_EXTRA_LANES)
     assert host_lanes_for_changed_lines(host_source, set()) == set(HOST_EXTRA_LANES)
+    assert host_scenarios_for_changed_lines(host_source, {3}) == {
+        "typed_transform_and_reparent_actions_round_trip_natively"
+    }
+    assert host_scenarios_for_changed_lines(host_source, {4}) == set()
+    assert host_scenarios_for_changed_lines(host_source, {6}) == {
+        "driver_host_handshake_control_reaches_capabilities"
+    }
+    assert host_scenarios_for_changed_lines(host_source, {1}) == set(NATIVE_SCENARIOS)
 
     workflow_source = """name: test
 concurrency:

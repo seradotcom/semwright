@@ -30,21 +30,20 @@ WORKFLOW_CROSS_APP_STEPS = frozenset(
         "D12 Blender replacement through Broker and Driver Host",
     )
 )
-HOST_EXTRA_LANES = frozenset(("persistence", "export", "cross_app"))
+HOST_EXTRA_LANES = frozenset(("native", "persistence", "export", "cross_app"))
+NATIVE_SCENARIOS = (
+    "driver_host_handshake_control_reaches_capabilities",
+    "empty_project_authoring_flows_through_broker_driver_host_and_provider",
+    "animation_tree_state_machine_and_blend_space_round_trip_natively",
+    "shared_and_local_to_scene_materials_are_native_and_isolated",
+    "typed_transform_and_reparent_actions_round_trip_natively",
+)
 HOST_TEST_LANES = {
     "persistence_lane_reopens_in_fresh_process_and_preserves_dependencies": frozenset(("persistence",)),
     "export_lane_builds_and_launches_without_editor_or_semwright": frozenset(("export",)),
     "blender_glb_handoff_preserves_godot_semantics_and_gameplay": frozenset(("cross_app",)),
 }
-HOST_NATIVE_ONLY_TESTS = frozenset(
-    (
-        "driver_host_handshake_control_reaches_capabilities",
-        "empty_project_authoring_flows_through_broker_driver_host_and_provider",
-        "animation_tree_state_machine_and_blend_space_round_trip_natively",
-        "shared_and_local_to_scene_materials_are_native_and_isolated",
-        "typed_transform_and_reparent_actions_round_trip_natively",
-    )
-)
+HOST_NATIVE_ONLY_TESTS = frozenset(NATIVE_SCENARIOS)
 RUST_FN = re.compile(r"^(?:async\s+)?fn\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(")
 HUNK = re.compile(r"^@@\s+-\d+(?:,\d+)?\s+\+(\d+)(?:,(\d+))?\s+@@")
 YAML_JOB = re.compile(r"^  ([A-Za-z0-9_-]+):\s*$")
@@ -82,7 +81,6 @@ RULES = {
     ),
     "native": (
         "crates/driver-godot/src/**",
-        "crates/driver-godot/tests/authoring_host.rs",
         "crates/driver-godot/tests/authoring_native.rs",
         "crates/driver-godot/tests/contracts.rs",
         "crates/driver-godot/tests/fixtures/authoring/**",
@@ -173,11 +171,29 @@ def host_lanes_for_changed_lines(source: str, changed_lines: set[int]) -> set[st
         if owner in HOST_TEST_LANES:
             lanes.update(HOST_TEST_LANES[owner])
         elif owner in HOST_NATIVE_ONLY_TESTS:
-            continue
+            lanes.add("native")
         else:
             # Helpers and unknown/deleted regions can affect every host-backed lane.
             return set(HOST_EXTRA_LANES)
     return lanes
+
+
+def host_scenarios_for_changed_lines(source: str, changed_lines: set[int]) -> set[str]:
+    if not changed_lines:
+        return set(NATIVE_SCENARIOS)
+    spans = rust_function_spans(source)
+    scenarios: set[str] = set()
+    for line in changed_lines:
+        owner = owner_for_line(spans, line)
+        if owner in HOST_NATIVE_ONLY_TESTS:
+            scenarios.add(owner)
+        elif owner == "blender_glb_handoff_preserves_godot_semantics_and_gameplay":
+            scenarios.add("driver_host_handshake_control_reaches_capabilities")
+        elif owner in HOST_TEST_LANES:
+            continue
+        else:
+            return set(NATIVE_SCENARIOS)
+    return scenarios
 
 
 def yaml_named_spans(source: str, pattern: re.Pattern[str]) -> list[tuple[int, int, str]]:
@@ -248,6 +264,16 @@ def host_changed_lanes(base: str, head: str) -> set[str]:
     except subprocess.CalledProcessError:
         return set(HOST_EXTRA_LANES)
     return host_lanes_for_changed_lines(source, changed_new_lines(base, head, HOST_FILE))
+
+
+def host_changed_scenarios(base: str, head: str) -> set[str]:
+    try:
+        source = git("show", f"{head}:{HOST_FILE}")
+    except subprocess.CalledProcessError:
+        return set(NATIVE_SCENARIOS)
+    return host_scenarios_for_changed_lines(
+        source, changed_new_lines(base, head, HOST_FILE)
+    )
 
 
 def workflow_changed_lanes(base: str, head: str) -> set[str]:
@@ -367,6 +393,27 @@ def main() -> None:
         else set()
     )
     lanes = select(paths, certify, host_extra, workflow_extra)
+    if certify:
+        native_scenarios = set(NATIVE_SCENARIOS)
+    elif lanes["native"]:
+        non_host_native = any(
+            path != HOST_FILE
+            and (
+                matches(path, ALL_PATTERNS)
+                or matches(path, RULES["native"])
+                or path == WORKFLOW_FILE
+            )
+            for path in paths
+        )
+        native_scenarios = (
+            set(NATIVE_SCENARIOS)
+            if non_host_native
+            else host_changed_scenarios(args.base, args.head)
+        )
+        if not native_scenarios:
+            native_scenarios = set(NATIVE_SCENARIOS)
+    else:
+        native_scenarios = set()
     report = {
         "schema_version": 1,
         "event": args.event,
@@ -377,6 +424,9 @@ def main() -> None:
         "changed_paths": paths,
         "host_extra_lanes": sorted(host_extra),
         "workflow_extra_lanes": sorted(workflow_extra),
+        "native_scenarios": [
+            scenario for scenario in NATIVE_SCENARIOS if scenario in native_scenarios
+        ],
         "lanes": lanes,
     }
     report_path = Path(args.report)
@@ -385,6 +435,9 @@ def main() -> None:
 
     values = {
         "certify": str(certify).lower(),
+        "native_scenarios": ",".join(
+            scenario for scenario in NATIVE_SCENARIOS if scenario in native_scenarios
+        ),
         **{lane: str(enabled).lower() for lane, enabled in lanes.items()},
     }
     write_outputs(args.github_output, values)
