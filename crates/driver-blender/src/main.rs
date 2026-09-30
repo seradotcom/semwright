@@ -1495,7 +1495,7 @@ impl BlenderDriver {
         &mut self,
         context: &DriverExecutionContext,
     ) -> Result<RuntimeToolSession> {
-        if let Some(session) = self.sessions.get(&context.session) {
+        if let Some(session) = self.sessions.get(context.session()) {
             return Ok(session.clone());
         }
         if self.sessions.len() >= MAX_DRIVER_SESSIONS {
@@ -1561,9 +1561,9 @@ impl BlenderDriver {
             .unwrap_or("4.5.14 LTS")
             .to_owned();
         self.sessions
-            .insert(context.session.clone(), session.clone());
+            .insert(context.session().to_owned(), session.clone());
         self.versions
-            .insert(context.session.clone(), version_string);
+            .insert(context.session().to_owned(), version_string);
         Ok(session)
     }
 
@@ -1666,8 +1666,8 @@ impl Driver for BlenderDriver {
                         | ErrorCode::NotFound
                 ) =>
             {
-                self.sessions.remove(&context.session);
-                self.versions.remove(&context.session);
+                self.sessions.remove(context.session());
+                self.versions.remove(context.session());
                 let _ = context.close_runtime_tool_session(&session).await;
                 return Err(error);
             }
