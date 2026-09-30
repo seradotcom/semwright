@@ -55,6 +55,13 @@ jobs:
           cargo build --locked -p semwright-driver-libreoffice             --bin semwright-libreoffice-driver             --bin semwright-libreoffice-runtime-runner             -p semwright-plugin-host --bin semwright-sandbox             -p semwright-cli --bin semwright             -p semwright-daemon --bin semwrightd
           cargo test --locked -p semwright-driver-libreoffice             --bin semwright-libreoffice-driver             --bin semwright-libreoffice-runtime-runner
           cargo clippy --locked -p semwright-driver-libreoffice --all-targets --no-deps -- -D warnings
+      - name: Direct protocol-v8 runtime-runner status
+        run: |
+          set -euo pipefail
+          rm -rf "$RUNNER_TEMP/libreoffice-direct-workspace"
+          python3 crates/driver-libreoffice/tests/runtime_runner_probe.py             --runner target/debug/semwright-libreoffice-runtime-runner             --workspace "$RUNNER_TEMP/libreoffice-direct-workspace"             --evidence verification/libreoffice-v8
+          cat verification/libreoffice-v8/direct-runner-status.json
+
       - name: Real protocol-v8 DriverProvider against LibreOffice UNO
         env:
           SEMWRIGHT_TEST_LIBREOFFICE: "1"
