@@ -331,7 +331,24 @@ fn effect_rule_verdict<'a>(response: &'a Value, rule: &str) -> Option<&'a str> {
 }
 
 fn effect_rule_passes(response: &Value, rule: &str) -> bool {
-    effect_rule_verdict(response, rule) == Some("PASS")
+    let verdict = effect_rule_verdict(response, rule);
+    if verdict != Some("PASS") {
+        let check = response["effects"]["report"]["validation"]["checks"]
+            .as_array()
+            .and_then(|checks| checks.iter().find(|check| check["rule"] == rule))
+            .cloned()
+            .unwrap_or(Value::Null);
+        let reopened = if rule.contains("native_persistence") {
+            response.get("evidence").cloned().unwrap_or(Value::Null)
+        } else {
+            Value::Null
+        };
+        eprintln!(
+            "EFFECT_RULE_NOT_PASS rule={rule} check={} reopened={}",
+            check, reopened
+        );
+    }
+    verdict == Some("PASS")
 }
 
 fn managed_native_node<'a>(response: &'a Value, logical_key: &str) -> &'a Value {
