@@ -1,0 +1,1284 @@
+use crate::*;
+use composition::{Digest, ExecutionStatus, Owner, PrincipalBinding, canonical_digest};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+use std::collections::{BTreeMap, BTreeSet};
+/// Constructed by trusted Broker code after grant filtering, never deserialized.
+#[derive(Clone)]
+pub struct ProjectAccess {
+    pub(crate) owner: Owner,
+    pub(crate) project: ProjectId,
+    pub(crate) visible: Option<BTreeSet<LogicalAssetId>>,
+    pub(crate) writable: bool,
+    pub(crate) grants: Digest,
+    pub(crate) visibility: Digest,
+}
+impl ProjectAccess {
+    pub fn authorized(
+        owner: Owner,
+        project: ProjectId,
+        visible: Option<BTreeSet<LogicalAssetId>>,
+        writable: bool,
+        grants: Digest,
+    ) -> Result<Self> {
+        owner.validate()?;
+        ensure(
+            matches!(owner.principal, PrincipalBinding::Named(_)),
+            "durable principal required",
+        )?;
+        ensure(
+            visible.as_ref().is_none_or(|v| v.len() <= MAX_RESOURCES),
+            "visibility budget",
+        )?;
+        let mut scope = Vec::from(b"project-graph-visibility-v1:".as_slice());
+        match &visible {
+            None => scope.extend_from_slice(b"all"),
+            Some(ids) => {
+                scope.extend_from_slice(b"subset:");
+                for id in ids {
+                    scope.extend_from_slice(id.as_str().as_bytes());
+                    scope.push(0);
+                }
+            }
+        }
+        let visibility = Digest::of_bytes(&scope);
+        Ok(Self {
+            owner,
+            project,
+            visibility,
+            visible,
+            writable,
+            grants,
+        })
+    }
+    pub(crate) fn sees(&self, id: &LogicalAssetId) -> bool {
+        self.visible.as_ref().is_none_or(|v| v.contains(id))
+    }
+}
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AssetView {
+    pub asset: Asset,
+    pub binding_generation: u64,
+    pub latest_revision: Option<AssetRevision>,
+    pub tombstoned: bool,
+    pub knowledge: Knowledge,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct GarbageCollectionPreview {
+    pub snapshot: u64,
+    pub candidates: Vec<LogicalAssetId>,
+    pub truncated: bool,
+    pub user_files_deleted: bool,
+}
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct AssetState {
+    pub asset: Asset,
+    pub binding_generation: u64,
+    pub latest: Option<AssetRevision>,
+    pub tombstoned: bool,
+    pub probe: ProbeOutcome,
+    pub producer: Option<ReceiptId>,
+    pub gap: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub instance: Option<Digest>,
+}
+/// Canonical private log events are not public ingestion requests.
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(
+    tag = "event",
+    content = "data",
+    rename_all = "snake_case",
+    deny_unknown_fields
+)]
+pub(crate) enum GraphEvent {
+    Register(Asset),
+    BindInstance {
+        id: LogicalAssetId,
+        expected_generation: u64,
+        identity: Digest,
+    },
+    Rename {
+        id: LogicalAssetId,
+        label: String,
+    },
+    Rebind {
+        id: LogicalAssetId,
+        expected_generation: u64,
+        locator: DurableLocator,
+        reason: String,
+    },
+    Observe(RevisionRecord),
+    Probe {
+        id: LogicalAssetId,
+        outcome: ProbeOutcome,
+    },
+    Receipt(Box<ExecutionReceipt>),
+    ExternalIntentPrepared(ExternalIntent),
+    ExternalIntentApplying {
+        id: ExternalIntentId,
+    },
+    ExternalIntentResolved {
+        id: ExternalIntentId,
+        status: ExecutionStatus,
+        receipt: Option<ReceiptId>,
+    },
+    Declare(Edge),
+    Determinants(Vec<Determinant>),
+    Gap(Vec<LogicalAssetId>),
+    Tombstone(LogicalAssetId),
+    Collect(Vec<LogicalAssetId>),
+}
+#[derive(Clone)]
+pub struct ProjectGraph {
+    pub(crate) project: ProjectId,
+    pub(crate) principal: PrincipalBinding,
+    pub(crate) sequence: u64,
+    pub(crate) epoch: String,
+    pub(crate) assets: BTreeMap<LogicalAssetId, AssetState>,
+    pub(crate) revisions: BTreeMap<AssetRevision, RevisionRecord>,
+    pub(crate) receipts: BTreeMap<ReceiptId, ExecutionReceipt>,
+    pub(crate) external_intents: BTreeMap<ExternalIntentId, ExternalIntent>,
+    pub(crate) edges: BTreeMap<Digest, Edge>,
+    pub(crate) determinants: BTreeMap<(DependencyClass, String), Digest>,
+    pub(crate) reverse: BTreeMap<LogicalAssetId, BTreeSet<LogicalAssetId>>,
+    pub(crate) possible_reverse: BTreeMap<LogicalAssetId, BTreeSet<LogicalAssetId>>,
+    pub(crate) seen: BTreeSet<LogicalAssetId>,
+    pub(crate) determinants_seen: bool,
+    pub(crate) pending: Vec<GraphEvent>,
+}
+impl ProjectGraph {
+    pub fn new(project: ProjectId, principal: PrincipalBinding) -> Result<Self> {
+        ensure(
+            matches!(&principal, PrincipalBinding::Named(p) if !p.is_empty()),
+            "persistent named owner required",
+        )?;
+        Ok(Self {
+            project,
+            principal,
+            sequence: 0,
+            epoch: uuid::Uuid::new_v4().to_string(),
+            assets: BTreeMap::new(),
+            revisions: BTreeMap::new(),
+            receipts: BTreeMap::new(),
+            external_intents: BTreeMap::new(),
+            edges: BTreeMap::new(),
+            determinants: BTreeMap::new(),
+            reverse: BTreeMap::new(),
+            possible_reverse: BTreeMap::new(),
+            seen: BTreeSet::new(),
+            determinants_seen: false,
+            pending: Vec::new(),
+        })
+    }
+    pub fn observation_epoch(&self) -> &str {
+        &self.epoch
+    }
+    fn intent_visible(&self, access: &ProjectAccess, intent: &ExternalIntent) -> Result<()> {
+        self.access(access, false)?;
+        if intent.owner.principal != access.owner.principal
+            || intent.affected.iter().any(|id| !access.sees(id))
+        {
+            return Err(GraphError::Denied);
+        }
+        Ok(())
+    }
+    /// Persist before any external side effect. This records recovery state only;
+    /// callers must still enter Broker policy for the actual operation.
+    pub fn prepare_external_intent(
+        &mut self,
+        access: &ProjectAccess,
+        intent: ExternalIntent,
+    ) -> Result<()> {
+        self.access(access, true)?;
+        intent.validate()?;
+        if intent.project != self.project
+            || intent.owner != access.owner
+            || intent.observation_epoch != self.epoch
+            || intent.status != ExecutionStatus::Prepared
+            || intent.receipt.is_some()
+        {
+            return Err(GraphError::Denied);
+        }
+        for id in &intent.affected {
+            self.visible(access, id)?;
+        }
+        self.apply(GraphEvent::ExternalIntentPrepared(intent), true)
+    }
+    /// Commit this transition before invoking the external provider. A restart
+    /// after this point turns the visible status into UNKNOWN and forbids retry.
+    pub fn mark_external_intent_applying(
+        &mut self,
+        access: &ProjectAccess,
+        id: &ExternalIntentId,
+    ) -> Result<()> {
+        let intent = self.external_intents.get(id).ok_or(GraphError::Denied)?;
+        self.intent_visible(access, intent)?;
+        self.access(access, true)?;
+        if intent.owner != access.owner
+            || intent.observation_epoch != self.epoch
+            || intent.status != ExecutionStatus::Prepared
+        {
+            return Err(GraphError::Conflict);
+        }
+        self.apply(GraphEvent::ExternalIntentApplying { id: id.clone() }, true)
+    }
+    /// Record a terminal outcome. COMPLETED requires a matching receipt already
+    /// admitted into this graph, so receipt insertion and resolution can share
+    /// one GraphStore transaction. After restart only UNKNOWN may close an old
+    /// in-flight intent; redispatch is never implied.
+    pub fn resolve_external_intent(
+        &mut self,
+        access: &ProjectAccess,
+        id: &ExternalIntentId,
+        status: ExecutionStatus,
+        receipt: Option<ReceiptId>,
+    ) -> Result<()> {
+        if matches!(
+            status,
+            ExecutionStatus::Prepared | ExecutionStatus::Applying
+        ) {
+            return Err(GraphError::Invalid("terminal external intent status"));
+        }
+        let intent = self.external_intents.get(id).ok_or(GraphError::Denied)?;
+        self.intent_visible(access, intent)?;
+        self.access(access, true)?;
+        if intent.observation_epoch == self.epoch && intent.owner != access.owner {
+            return Err(GraphError::Denied);
+        }
+        if intent.observation_epoch != self.epoch
+            && (status != ExecutionStatus::Unknown || receipt.is_some())
+        {
+            return Err(GraphError::Conflict);
+        }
+        if status == ExecutionStatus::Completed && receipt.is_none() {
+            return Err(GraphError::Invalid(
+                "completed external intent requires receipt",
+            ));
+        }
+        self.apply(
+            GraphEvent::ExternalIntentResolved {
+                id: id.clone(),
+                status,
+                receipt,
+            },
+            true,
+        )
+    }
+    /// Read-only recovery view. An Applying attempt from an earlier observation
+    /// epoch is UNKNOWN even if the journal ended before a terminal event.
+    pub fn external_intent(
+        &self,
+        access: &ProjectAccess,
+        id: &ExternalIntentId,
+    ) -> Result<ExternalIntent> {
+        let intent = self.external_intents.get(id).ok_or(GraphError::Denied)?;
+        self.intent_visible(access, intent)?;
+        let mut view = intent.clone();
+        if view.status == ExecutionStatus::Applying && view.observation_epoch != self.epoch {
+            view.status = ExecutionStatus::Unknown;
+            view.receipt = None;
+        }
+        Ok(view)
+    }
+    pub fn file_scope(&self, access: &ProjectAccess, root: &str) -> Result<ProjectAccess> {
+        self.access(access, false)?;
+        let visible = self
+            .assets
+            .iter()
+            .filter(|(id, s)| {
+                access.sees(id)
+                    && match &s.asset.locator {
+                        None => true,
+                        Some(DurableLocator::ScopedFile { root: r, .. }) => r == root,
+                        Some(DurableLocator::Native { .. }) => false,
+                    }
+            })
+            .map(|(id, _)| id.clone())
+            .collect();
+        ProjectAccess::authorized(
+            access.owner.clone(),
+            access.project.clone(),
+            Some(visible),
+            access.writable,
+            access.grants.clone(),
+        )
+    }
+    pub fn bound_instance(
+        &self,
+        access: &ProjectAccess,
+        id: &LogicalAssetId,
+    ) -> Result<Option<Digest>> {
+        Ok(self.visible(access, id)?.instance.clone())
+    }
+    /// Host-only binding observation; a changed instance requires an explicit audited rebind first.
+    pub fn bind_instance(
+        &mut self,
+        access: &ProjectAccess,
+        id: &LogicalAssetId,
+        expected_generation: u64,
+        identity: Digest,
+    ) -> Result<()> {
+        self.visible(access, id)?;
+        self.access(access, true)?;
+        self.apply(
+            GraphEvent::BindInstance {
+                id: id.clone(),
+                expected_generation,
+                identity,
+            },
+            true,
+        )
+    }
+    pub fn project_id(&self) -> &ProjectId {
+        &self.project
+    }
+    pub fn snapshot_revision(&self) -> u64 {
+        self.sequence
+    }
+    pub fn restart_observation_epoch(&mut self) {
+        self.epoch = uuid::Uuid::new_v4().to_string();
+        self.seen.clear();
+        self.determinants_seen = false;
+    }
+    pub(crate) fn access(&self, access: &ProjectAccess, write: bool) -> Result<()> {
+        if access.project != self.project
+            || access.owner.principal != self.principal
+            || (write && !access.writable)
+        {
+            return Err(GraphError::Denied);
+        }
+        Ok(())
+    }
+    pub(crate) fn visible(
+        &self,
+        access: &ProjectAccess,
+        id: &LogicalAssetId,
+    ) -> Result<&AssetState> {
+        self.access(access, false)?;
+        if !access.sees(id) {
+            return Err(GraphError::Denied);
+        }
+        self.assets.get(id).ok_or(GraphError::Denied)
+    }
+    pub fn register(&mut self, access: &ProjectAccess, asset: Asset) -> Result<()> {
+        self.access(access, true)?;
+        if !access.sees(&asset.id) {
+            return Err(GraphError::Denied);
+        }
+        self.apply(GraphEvent::Register(asset), true)
+    }
+    pub fn rename(
+        &mut self,
+        access: &ProjectAccess,
+        id: &LogicalAssetId,
+        label: String,
+    ) -> Result<()> {
+        self.visible(access, id)?;
+        self.access(access, true)?;
+        self.apply(
+            GraphEvent::Rename {
+                id: id.clone(),
+                label,
+            },
+            true,
+        )
+    }
+    pub fn rebind(
+        &mut self,
+        access: &ProjectAccess,
+        id: &LogicalAssetId,
+        expected_generation: u64,
+        locator: DurableLocator,
+        reason: String,
+    ) -> Result<()> {
+        self.visible(access, id)?;
+        self.access(access, true)?;
+        self.apply(
+            GraphEvent::Rebind {
+                id: id.clone(),
+                expected_generation,
+                locator,
+                reason,
+            },
+            true,
+        )
+    }
+    /// Trusted live observation ingress. `AdmittedRevision` can only be created
+    /// by a registered RevisionAdapter; raw RevisionRecord JSON has no promotion path.
+    pub fn accept_revision(
+        &mut self,
+        access: &ProjectAccess,
+        revision: AdmittedRevision,
+    ) -> Result<()> {
+        self.access(access, true)?;
+        if revision.project != self.project || revision.owner != access.owner {
+            return Err(GraphError::Denied);
+        }
+        self.visible(access, &revision.record.pin.asset)?;
+        self.apply(GraphEvent::Observe(revision.record), true)
+    }
+    pub fn record_probe(
+        &mut self,
+        access: &ProjectAccess,
+        id: &LogicalAssetId,
+        outcome: ProbeOutcome,
+    ) -> Result<()> {
+        self.visible(access, id)?;
+        self.access(access, true)?;
+        self.apply(
+            GraphEvent::Probe {
+                id: id.clone(),
+                outcome,
+            },
+            true,
+        )
+    }
+    pub fn accept_receipt(
+        &mut self,
+        access: &ProjectAccess,
+        receipt: AdmittedReceipt,
+    ) -> Result<()> {
+        self.access(access, true)?;
+        if receipt.0.owner != access.owner {
+            return Err(GraphError::Denied);
+        }
+        for p in receipt.0.inputs.iter().chain(&receipt.0.outputs) {
+            self.visible(access, &p.asset)?;
+        }
+        self.apply(GraphEvent::Receipt(Box::new(receipt.0)), true)
+    }
+    pub fn declare(&mut self, access: &ProjectAccess, edge: Edge) -> Result<()> {
+        self.access(access, true)?;
+        for v in [&edge.from, &edge.to] {
+            match v {
+                Vertex::Asset(id) => {
+                    self.visible(access, id)?;
+                }
+                _ => {
+                    return Err(GraphError::Invalid(
+                        "declared edge endpoints must be assets",
+                    ));
+                }
+            }
+        }
+        ensure(
+            matches!(edge.evidence, EdgeEvidence::Declared { .. })
+                && !matches!(
+                    edge.relation,
+                    Relation::VerifiedBy | Relation::ProducedBy | Relation::ConsumedBy
+                ),
+            "declaration cannot certify execution",
+        )?;
+        self.apply(GraphEvent::Declare(edge), true)
+    }
+    pub fn observe_determinants(
+        &mut self,
+        access: &ProjectAccess,
+        determinants: Vec<Determinant>,
+    ) -> Result<()> {
+        self.access(access, true)?;
+        // This operation replaces a project-wide observed set. A subset grant
+        // cannot overwrite determining inputs of assets it cannot inspect.
+        if access.visible.is_some() {
+            return Err(GraphError::Denied);
+        }
+        self.apply(GraphEvent::Determinants(determinants), true)
+    }
+    pub fn invalidate_scope(
+        &mut self,
+        access: &ProjectAccess,
+        ids: Vec<LogicalAssetId>,
+    ) -> Result<()> {
+        self.access(access, true)?;
+        for id in &ids {
+            self.visible(access, id)?;
+        }
+        self.apply(GraphEvent::Gap(ids), true)
+    }
+    pub fn tombstone(&mut self, access: &ProjectAccess, id: &LogicalAssetId) -> Result<()> {
+        self.visible(access, id)?;
+        self.access(access, true)?;
+        self.apply(GraphEvent::Tombstone(id.clone()), true)
+    }
+    fn garbage_eligible(&self, id: &LogicalAssetId) -> bool {
+        let Some(state) = self.assets.get(id) else {
+            return false;
+        };
+        if !state.tombstoned || state.latest.is_some() || state.producer.is_some() {
+            return false;
+        }
+        if self
+            .revisions
+            .values()
+            .any(|revision| revision.pin.asset == *id)
+            || self.receipts.values().any(|receipt| {
+                receipt
+                    .inputs
+                    .iter()
+                    .chain(&receipt.outputs)
+                    .any(|pin| pin.asset == *id)
+            })
+            || self
+                .external_intents
+                .values()
+                .any(|intent| intent.affected.contains(id))
+            || self.edges.values().any(|edge| {
+                matches!(&edge.from, Vertex::Asset(asset) if asset == id)
+                    || matches!(&edge.to, Vertex::Asset(asset) if asset == id)
+            })
+        {
+            return false;
+        }
+        true
+    }
+    /// Preview graph-private garbage only. User files and immutable journal
+    /// history are never candidates.
+    pub fn garbage_preview(
+        &self,
+        access: &ProjectAccess,
+        limit: usize,
+    ) -> Result<GarbageCollectionPreview> {
+        self.access(access, false)?;
+        if access.visible.is_some() {
+            return Err(GraphError::Denied);
+        }
+        ensure((1..=256).contains(&limit), "garbage preview limit")?;
+        let mut candidates: Vec<_> = self
+            .assets
+            .keys()
+            .filter(|id| self.garbage_eligible(id))
+            .take(limit + 1)
+            .cloned()
+            .collect();
+        let truncated = candidates.len() > limit;
+        candidates.truncate(limit);
+        Ok(GarbageCollectionPreview {
+            snapshot: self.sequence,
+            candidates,
+            truncated,
+            user_files_deleted: false,
+        })
+    }
+    /// Collect only tombstoned, history-free materialized asset state. This
+    /// cannot unlink native files, revisions, receipts, edges or intent evidence.
+    pub fn collect_garbage(
+        &mut self,
+        access: &ProjectAccess,
+        ids: Vec<LogicalAssetId>,
+    ) -> Result<()> {
+        self.access(access, true)?;
+        if access.visible.is_some() {
+            return Err(GraphError::Denied);
+        }
+        ensure(!ids.is_empty() && ids.len() <= 256, "garbage collect limit")?;
+        let unique: BTreeSet<_> = ids.iter().cloned().collect();
+        ensure(unique.len() == ids.len(), "duplicate garbage candidate")?;
+        ensure(
+            ids.iter().all(|id| self.garbage_eligible(id)),
+            "garbage candidate retains history or references",
+        )?;
+        self.apply(GraphEvent::Collect(ids), true)
+    }
+    pub(crate) fn apply(&mut self, event: GraphEvent, live: bool) -> Result<()> {
+        composition::canonical_bytes(&event)?;
+        let next = self
+            .sequence
+            .checked_add(1)
+            .ok_or(GraphError::Limit("graph revision"))?;
+        match &event {
+            GraphEvent::Register(asset) => {
+                asset.validate()?;
+                ensure(
+                    !self.assets.contains_key(&asset.id),
+                    "asset identity already registered",
+                )?;
+                ensure(self.assets.len() < MAX_RESOURCES, "asset limit")?;
+                self.assets.insert(
+                    asset.id.clone(),
+                    AssetState {
+                        asset: asset.clone(),
+                        binding_generation: 1,
+                        latest: None,
+                        tombstoned: false,
+                        probe: ProbeOutcome::Ambiguous,
+                        producer: None,
+                        gap: true,
+                        instance: None,
+                    },
+                );
+            }
+            GraphEvent::BindInstance {
+                id,
+                expected_generation,
+                identity,
+            } => {
+                let state = self.assets.get_mut(id).ok_or(GraphError::Denied)?;
+                if state.binding_generation != *expected_generation
+                    || state.instance.as_ref().is_some_and(|old| old != identity)
+                {
+                    return Err(GraphError::Conflict);
+                }
+                if state.instance.as_ref() == Some(identity) {
+                    return Ok(());
+                }
+                state.instance = Some(identity.clone());
+            }
+            GraphEvent::Rename { id, label } => {
+                name(label)?;
+                self.assets
+                    .get_mut(id)
+                    .ok_or(GraphError::Denied)?
+                    .asset
+                    .label = label.clone();
+            }
+            GraphEvent::Rebind {
+                id,
+                expected_generation,
+                locator,
+                reason,
+            } => {
+                locator.validate()?;
+                name(reason)?;
+                let s = self.assets.get_mut(id).ok_or(GraphError::Denied)?;
+                if s.binding_generation != *expected_generation {
+                    return Err(GraphError::Conflict);
+                }
+                let generation = s
+                    .binding_generation
+                    .checked_add(1)
+                    .ok_or(GraphError::Limit("binding generation"))?;
+                s.asset.locator = Some(locator.clone());
+                s.binding_generation = generation;
+                s.instance = None;
+                s.latest = None;
+                s.producer = None;
+                s.probe = ProbeOutcome::Ambiguous;
+                s.gap = true;
+                self.seen.remove(id);
+            }
+            GraphEvent::Observe(record) => {
+                record.validate()?;
+                let s = self
+                    .assets
+                    .get(&record.pin.asset)
+                    .ok_or(GraphError::Denied)?;
+                if s.binding_generation != record.binding_generation || s.tombstoned {
+                    return Err(GraphError::Conflict);
+                }
+                if let Some(old) = self.revisions.get(&record.pin.revision) {
+                    if canonical_digest(old)? == canonical_digest(record)? {
+                        return Ok(());
+                    }
+                    return Err(GraphError::Conflict);
+                }
+                ensure(self.revisions.len() < 100_000, "revision history limit")?;
+                if let Some(old) = s.latest.as_ref().and_then(|r| self.revisions.get(r))
+                    && record.observed_unix_ms < old.observed_unix_ms
+                {
+                    return Err(GraphError::Conflict);
+                }
+                let id = record.pin.asset.clone();
+                self.revisions
+                    .insert(record.pin.revision.clone(), record.clone());
+                let s = self.assets.get_mut(&id).ok_or(GraphError::Denied)?;
+                s.latest = Some(record.pin.revision.clone());
+                s.probe = ProbeOutcome::Present;
+                s.gap = false;
+                if live {
+                    self.seen.insert(id);
+                }
+            }
+            GraphEvent::Probe { id, outcome } => {
+                let s = self.assets.get_mut(id).ok_or(GraphError::Denied)?;
+                ensure(
+                    *outcome != ProbeOutcome::Present,
+                    "present needs an actual observation",
+                )?;
+                s.probe = *outcome;
+                s.gap = !matches!(outcome, ProbeOutcome::ConclusiveNotFound);
+                if live {
+                    self.seen.insert(id.clone());
+                }
+            }
+            GraphEvent::Receipt(receipt) => {
+                if !self.insert_receipt(receipt)? {
+                    return Ok(());
+                }
+            }
+            GraphEvent::ExternalIntentPrepared(intent) => {
+                intent.validate()?;
+                ensure(
+                    intent.project == self.project
+                        && intent.owner.principal == self.principal
+                        && intent.status == ExecutionStatus::Prepared
+                        && intent.receipt.is_none(),
+                    "external intent project/owner/state",
+                )?;
+                ensure(
+                    intent
+                        .affected
+                        .iter()
+                        .all(|id| self.assets.contains_key(id)),
+                    "external intent unknown affected asset",
+                )?;
+                if let Some(old) = self.external_intents.get(&intent.id)
+                    && canonical_digest(old)? == canonical_digest(intent)?
+                {
+                    return Ok(());
+                }
+                if self.external_intents.contains_key(&intent.id) {
+                    return Err(GraphError::Conflict);
+                }
+                ensure(
+                    self.external_intents.len() < 20_000,
+                    "external intent history limit",
+                )?;
+                ensure(
+                    !self.external_intents.values().any(|old| {
+                        old.owner == intent.owner && old.request_id == intent.request_id
+                    }),
+                    "external request identity collision",
+                )?;
+                self.external_intents
+                    .insert(intent.id.clone(), intent.clone());
+            }
+            GraphEvent::ExternalIntentApplying { id } => {
+                let intent = self
+                    .external_intents
+                    .get_mut(id)
+                    .ok_or(GraphError::Denied)?;
+                ensure(
+                    intent.status == ExecutionStatus::Prepared,
+                    "external intent cannot be dispatched twice",
+                )?;
+                if live && intent.observation_epoch != self.epoch {
+                    return Err(GraphError::Conflict);
+                }
+                intent.status = ExecutionStatus::Applying;
+            }
+            GraphEvent::ExternalIntentResolved {
+                id,
+                status,
+                receipt,
+            } => {
+                ensure(
+                    !matches!(
+                        status,
+                        ExecutionStatus::Prepared | ExecutionStatus::Applying
+                    ),
+                    "external intent terminal status",
+                )?;
+                let intent = self.external_intents.get(id).ok_or(GraphError::Denied)?;
+                ensure(
+                    matches!(
+                        intent.status,
+                        ExecutionStatus::Prepared | ExecutionStatus::Applying
+                    ),
+                    "external intent already terminal",
+                )?;
+                if live && intent.observation_epoch != self.epoch {
+                    ensure(
+                        *status == ExecutionStatus::Unknown && receipt.is_none(),
+                        "restarted external intent requires UNKNOWN reconciliation",
+                    )?;
+                }
+                if *status == ExecutionStatus::Completed {
+                    ensure(
+                        intent.status == ExecutionStatus::Applying && receipt.is_some(),
+                        "completed external intent needs dispatched state and receipt",
+                    )?;
+                }
+                if let Some(receipt_id) = receipt {
+                    let recorded = self.receipts.get(receipt_id).ok_or(GraphError::Conflict)?;
+                    ensure(
+                        recorded.project == intent.project
+                            && recorded.owner == intent.owner
+                            && recorded.request_id == intent.request_id
+                            && recorded.operation == intent.operation
+                            && recorded
+                                .outputs
+                                .iter()
+                                .all(|pin| intent.affected.contains(&pin.asset)),
+                        "external intent receipt mismatch",
+                    )?;
+                }
+                let intent = self
+                    .external_intents
+                    .get_mut(id)
+                    .ok_or(GraphError::Denied)?;
+                intent.status = *status;
+                intent.receipt = receipt.clone();
+                intent.validate()?;
+            }
+            GraphEvent::Declare(edge) => {
+                ensure(
+                    matches!(edge.evidence, EdgeEvidence::Declared { .. })
+                        && !matches!(
+                            edge.relation,
+                            Relation::VerifiedBy | Relation::ProducedBy | Relation::ConsumedBy
+                        ),
+                    "declaration cannot certify execution",
+                )?;
+                let (Vertex::Asset(from), Vertex::Asset(to)) = (&edge.from, &edge.to) else {
+                    return Err(GraphError::Invalid("declaration endpoints"));
+                };
+                ensure(
+                    self.assets.contains_key(from) && self.assets.contains_key(to),
+                    "unknown edge endpoint",
+                )?;
+                if edge.relation == Relation::Contains
+                    && (from == to || self.contains_path(to, from))
+                {
+                    return Err(GraphError::Conflict);
+                }
+                let digest = canonical_digest(edge)?;
+                if self.edges.contains_key(&digest) {
+                    return Ok(());
+                }
+                ensure(self.edges.len() < MAX_EDGES, "edge limit")?;
+                self.edges.insert(digest, edge.clone());
+                if matches!(
+                    edge.relation,
+                    Relation::References
+                        | Relation::DerivedFrom
+                        | Relation::Realizes
+                        | Relation::PublishedAs
+                ) {
+                    self.possible_reverse
+                        .entry(to.clone())
+                        .or_default()
+                        .insert(from.clone());
+                }
+            }
+            GraphEvent::Determinants(values) => {
+                ensure(values.len() <= MAX_DEPENDENCIES, "determinant budget")?;
+                let mut keys = BTreeSet::new();
+                for v in values {
+                    name(&v.key)?;
+                    ensure(
+                        keys.insert((v.class, v.key.clone())),
+                        "duplicate determinant",
+                    )?;
+                }
+                self.determinants = values
+                    .iter()
+                    .map(|d| ((d.class, d.key.clone()), d.digest.clone()))
+                    .collect();
+                self.determinants_seen = live;
+            }
+            GraphEvent::Gap(ids) => {
+                ensure(ids.len() <= MAX_RESOURCES, "gap scope limit")?;
+                ensure(
+                    ids.iter().all(|id| self.assets.contains_key(id)),
+                    "gap endpoint",
+                )?;
+                for id in ids {
+                    self.assets.get_mut(id).ok_or(GraphError::Denied)?.gap = true;
+                    self.seen.remove(id);
+                }
+            }
+            GraphEvent::Tombstone(id) => {
+                let s = self.assets.get_mut(id).ok_or(GraphError::Denied)?;
+                s.tombstoned = true;
+                s.gap = true;
+                self.seen.remove(id);
+            }
+            GraphEvent::Collect(ids) => {
+                ensure(
+                    !ids.is_empty() && ids.len() <= 256,
+                    "garbage collect event limit",
+                )?;
+                let unique: BTreeSet<_> = ids.iter().cloned().collect();
+                ensure(
+                    unique.len() == ids.len(),
+                    "duplicate garbage event candidate",
+                )?;
+                ensure(
+                    ids.iter().all(|id| self.garbage_eligible(id)),
+                    "garbage event retains history or references",
+                )?;
+                for id in ids {
+                    self.assets.remove(id);
+                    self.seen.remove(id);
+                    self.reverse.remove(id);
+                    self.possible_reverse.remove(id);
+                    for values in self.reverse.values_mut() {
+                        values.remove(id);
+                    }
+                    for values in self.possible_reverse.values_mut() {
+                        values.remove(id);
+                    }
+                }
+            }
+        }
+        self.sequence = next;
+        self.pending.push(event);
+        Ok(())
+    }
+    fn contains_path(&self, start: &LogicalAssetId, target: &LogicalAssetId) -> bool {
+        let mut pending = vec![start.clone()];
+        let mut visited = BTreeSet::new();
+        while let Some(id) = pending.pop() {
+            if id == *target {
+                return true;
+            }
+            if !visited.insert(id.clone()) {
+                continue;
+            }
+            for e in self.edges.values() {
+                if e.relation == Relation::Contains
+                    && e.from == Vertex::Asset(id.clone())
+                    && let Vertex::Asset(next) = &e.to
+                {
+                    pending.push(next.clone());
+                }
+            }
+        }
+        false
+    }
+    fn insert_receipt(&mut self, r: &ExecutionReceipt) -> Result<bool> {
+        r.validate()?;
+        if r.project != self.project || r.owner.principal != self.principal {
+            return Err(GraphError::Denied);
+        }
+        if let Some(old) = self.receipts.get(&r.id) {
+            if canonical_digest(old)? == canonical_digest(r)? {
+                return Ok(false);
+            }
+            return Err(GraphError::Conflict);
+        }
+        ensure(self.receipts.len() < 20_000, "receipt history limit")?;
+        ensure(
+            !self.receipts.values().any(|old| {
+                old.derivation == r.derivation
+                    || (old.owner == r.owner && old.request_id == r.request_id)
+            }),
+            "execution identity collision",
+        )?;
+        for pin in r.inputs.iter().chain(&r.outputs) {
+            let stored = self
+                .revisions
+                .get(&pin.revision)
+                .ok_or(GraphError::Conflict)?;
+            ensure(
+                &stored.pin == pin,
+                "receipt substitutes revision or fingerprint",
+            )?;
+        }
+        // Receipt bases must describe the same actual revision observations, not only
+        // matching IDs/digests supplied alongside an unrelated source/report.
+        for (pins, base) in [
+            (&r.inputs, &r.source_base),
+            (&r.outputs, &r.verification.validation.base),
+        ] {
+            for pin in pins {
+                let stored = self
+                    .revisions
+                    .get(&pin.revision)
+                    .ok_or(GraphError::Conflict)?;
+                for expected in &stored.observation.base.0 {
+                    let actual = base
+                        .0
+                        .iter()
+                        .find(|v| v.key == expected.key)
+                        .ok_or(GraphError::Conflict)?;
+                    ensure(
+                        canonical_digest(actual)? == canonical_digest(expected)?,
+                        "receipt observation/base substitution",
+                    )?;
+                }
+            }
+        }
+        let completed = r.verification.execution_status == composition::ExecutionStatus::Completed;
+        let needed = r
+            .inputs
+            .len()
+            .checked_mul(r.outputs.len())
+            .and_then(|n| n.checked_add(r.inputs.len() + r.outputs.len()))
+            .ok_or(GraphError::Limit("receipt edge count"))?;
+        ensure(
+            !completed || needed + self.edges.len() <= MAX_EDGES,
+            "receipt edge budget",
+        )?;
+        let mut edges = Vec::new();
+        if completed {
+            for input in &r.inputs {
+                edges.push(Edge {
+                    from: Vertex::Asset(input.asset.clone()),
+                    to: Vertex::Activity(r.derivation.clone()),
+                    relation: Relation::ConsumedBy,
+                    evidence: EdgeEvidence::Executed {
+                        receipt: r.id.clone(),
+                    },
+                });
+            }
+            for output in &r.outputs {
+                edges.push(Edge {
+                    from: Vertex::Asset(output.asset.clone()),
+                    to: Vertex::Activity(r.derivation.clone()),
+                    relation: Relation::ProducedBy,
+                    evidence: EdgeEvidence::Executed {
+                        receipt: r.id.clone(),
+                    },
+                });
+                for input in &r.inputs {
+                    edges.push(Edge {
+                        from: Vertex::Asset(output.asset.clone()),
+                        to: Vertex::Asset(input.asset.clone()),
+                        relation: Relation::DerivedFrom,
+                        evidence: EdgeEvidence::Executed {
+                            receipt: r.id.clone(),
+                        },
+                    });
+                }
+            }
+        }
+        ensure(
+            edges
+                .len()
+                .checked_add(self.edges.len())
+                .is_some_and(|n| n <= MAX_EDGES),
+            "receipt edge budget",
+        )?;
+        let edges = edges
+            .into_iter()
+            .map(|edge| Ok((canonical_digest(&edge)?, edge)))
+            .collect::<Result<Vec<_>>>()?;
+        for (digest, edge) in edges {
+            self.edges.insert(digest, edge);
+        }
+        if completed {
+            for output in &r.outputs {
+                if let Some(s) = self.assets.get_mut(&output.asset)
+                    && s.latest.as_ref() == Some(&output.revision)
+                {
+                    s.producer = Some(r.id.clone());
+                }
+                for input in &r.inputs {
+                    self.reverse
+                        .entry(input.asset.clone())
+                        .or_default()
+                        .insert(output.asset.clone());
+                }
+            }
+        }
+        self.receipts.insert(r.id.clone(), r.clone());
+        Ok(true)
+    }
+    pub fn inspect(&self, access: &ProjectAccess, id: &LogicalAssetId) -> Result<AssetView> {
+        let s = self.visible(access, id)?;
+        let mut seen = BTreeSet::new();
+        let mut remaining = 10_000;
+        Ok(AssetView {
+            asset: s.asset.clone(),
+            binding_generation: s.binding_generation,
+            latest_revision: s.latest.clone(),
+            tombstoned: s.tombstoned,
+            knowledge: self.knowledge(access, id, &mut seen, &mut remaining, 0)?,
+        })
+    }
+    fn knowledge(
+        &self,
+        access: &ProjectAccess,
+        id: &LogicalAssetId,
+        visiting: &mut BTreeSet<LogicalAssetId>,
+        remaining: &mut usize,
+        depth: usize,
+    ) -> Result<Knowledge> {
+        let s = self.visible(access, id)?;
+        if *remaining == 0 || depth >= 64 || !visiting.insert(id.clone()) {
+            return Ok(Knowledge::unknown());
+        }
+        *remaining -= 1;
+        let mut k = Knowledge::unknown();
+        k.existence = s.probe.existence();
+        if s.tombstoned || s.gap || !self.seen.contains(id) {
+            k.existence = Existence::Unknown;
+            visiting.remove(id);
+            return Ok(k);
+        }
+        k.requires_reconcile = false;
+        let Some(observed) = s.latest.as_ref().and_then(|r| self.revisions.get(r)) else {
+            visiting.remove(id);
+            return Ok(k);
+        };
+        k.coverage = observed.coverage.clone();
+        k.observed_unix_ms = Some(observed.observed_unix_ms);
+        let real = !matches!(
+            observed.observation.source,
+            composition::EvidenceSource::Fixture | composition::EvidenceSource::Simulation
+        );
+        if k.existence != Existence::Present || !real {
+            if !real {
+                k.existence = Existence::Unknown;
+                k.requires_reconcile = true;
+            }
+            visiting.remove(id);
+            return Ok(k);
+        }
+        k.freshness = if observed.observation.exhaustive
+            && observed
+                .pin
+                .fingerprint
+                .equivalent(&observed.pin.fingerprint, observed.pin.equivalence)
+                == Some(true)
+        {
+            Freshness::Current
+        } else {
+            Freshness::Unknown
+        };
+        if let Some(receipt) = s.producer.as_ref().and_then(|r| self.receipts.get(r)) {
+            k.verification = receipt.verification.verdict()?;
+            if k.verification == composition::Verdict::Pass
+                && !report_covers_output(receipt, observed)
+            {
+                k.verification = composition::Verdict::Unknown;
+            }
+            k.coverage.complete &= receipt.coverage.complete;
+            k.coverage
+                .unknown_frontier
+                .extend(receipt.coverage.unknown_frontier.iter());
+            let expected_output = receipt
+                .outputs
+                .iter()
+                .find(|p| p.asset == *id)
+                .ok_or(GraphError::Corrupt)?;
+            k.divergence = match expected_output
+                .fingerprint
+                .equivalent(&observed.pin.fingerprint, expected_output.equivalence)
+            {
+                Some(true) => Divergence::Clean,
+                Some(false) => Divergence::Diverged,
+                None => Divergence::Unknown,
+            };
+            let mut freshness = if k.coverage.cache_safe() && self.determinants_seen {
+                Freshness::Current
+            } else {
+                Freshness::Unknown
+            };
+            for d in &receipt.required_determinants() {
+                let observed = self
+                    .determinants_seen
+                    .then(|| self.determinants.get(&(d.class, d.key.clone())))
+                    .flatten();
+                match observed {
+                    Some(now) if now != &d.digest => freshness = Freshness::Stale,
+                    None => {
+                        if freshness != Freshness::Stale {
+                            freshness = Freshness::Unknown;
+                        }
+                        k.coverage.complete = false;
+                        k.coverage.unknown_frontier.insert(d.class);
+                    }
+                    _ => (),
+                }
+            }
+            for input in &receipt.inputs {
+                if !access.sees(&input.asset) {
+                    if freshness != Freshness::Stale {
+                        freshness = Freshness::Unknown;
+                    }
+                    k.coverage.complete = false;
+                    k.coverage
+                        .unknown_frontier
+                        .insert(DependencyClass::External);
+                    continue;
+                }
+                let state = self.knowledge(access, &input.asset, visiting, remaining, depth + 1)?;
+                let current = self
+                    .assets
+                    .get(&input.asset)
+                    .and_then(|a| a.latest.as_ref())
+                    .and_then(|r| self.revisions.get(r));
+                let comparison = current.and_then(|now| {
+                    let expected = self.revisions.get(&input.revision)?;
+                    if expected.binding_generation != now.binding_generation {
+                        return None;
+                    }
+                    input
+                        .fingerprint
+                        .equivalent(&now.pin.fingerprint, input.equivalence)
+                });
+                if state.freshness == Freshness::Stale
+                    || (state.existence == Existence::Missing && !state.requires_reconcile)
+                    || (comparison == Some(false) && !state.requires_reconcile)
+                {
+                    freshness = Freshness::Stale;
+                } else if (state.freshness != Freshness::Current
+                    || state.existence != Existence::Present
+                    || state.divergence == Divergence::Diverged
+                    || state.requires_reconcile
+                    || comparison != Some(true))
+                    && freshness != Freshness::Stale
+                {
+                    freshness = Freshness::Unknown;
+                }
+                k.coverage.complete &= state.coverage.complete;
+                k.coverage
+                    .unknown_frontier
+                    .extend(state.coverage.unknown_frontier);
+            }
+            if !k.coverage.cache_safe() && freshness == Freshness::Current {
+                freshness = Freshness::Unknown;
+            }
+            k.freshness = freshness;
+        }
+        visiting.remove(id);
+        Ok(k)
+    }
+    pub fn revisions(
+        &self,
+        access: &ProjectAccess,
+        id: &LogicalAssetId,
+        after: Option<&AssetRevision>,
+        limit: usize,
+    ) -> Result<Vec<RevisionRecord>> {
+        self.visible(access, id)?;
+        if access.visible.is_some() {
+            return Err(GraphError::Denied);
+        }
+        ensure((1..=256).contains(&limit), "revision page limit")?;
+        Ok(self
+            .revisions
+            .values()
+            .filter(|r| r.pin.asset == *id && after.is_none_or(|a| r.pin.revision > *a))
+            .take(limit)
+            .cloned()
+            .collect())
+    }
+    pub fn receipt(&self, access: &ProjectAccess, id: &ReceiptId) -> Result<ExecutionReceipt> {
+        self.access(access, false)?;
+        if access.visible.is_some() {
+            return Err(GraphError::Denied);
+        }
+        let r = self.receipts.get(id).ok_or(GraphError::Denied)?;
+        for pin in r.inputs.iter().chain(&r.outputs) {
+            self.visible(access, &pin.asset)?;
+        }
+        Ok(r.clone())
+    }
+}
+
+/// Correlate evidence with this output identity; this does not reevaluate A/F quality rules.
+fn report_covers_output(receipt: &ExecutionReceipt, observed: &RevisionRecord) -> bool {
+    receipt.verification.validation.checks.iter().any(|check| {
+        receipt
+            .verification
+            .validation
+            .required_rules
+            .contains(&check.rule)
+            && check.verdict == composition::Verdict::Pass
+            && check.evidence.iter().any(|evidence| {
+                evidence.exhaustive
+                    && evidence.scope.iter().any(|address| {
+                        observed.observation.scope.iter().any(|expected| {
+                            address.resource == expected.resource
+                                && address.logical_id == expected.logical_id
+                        })
+                    })
+            })
+    })
+}

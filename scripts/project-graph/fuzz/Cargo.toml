@@ -1,0 +1,33 @@
+[package]
+name = "semwright-project-graph-fuzz"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "MIT OR Apache-2.0"
+[package.metadata]
+cargo-fuzz = true
+[workspace]
+[dependencies]
+libfuzzer-sys = "=0.4.13"
+semwright-project-graph = { path = "../../../crates/project-graph", features = ["store"] }
+tempfile = "=3.27.0"
+[[bin]]
+name = "manifest"
+path = "fuzz_targets/manifest.rs"
+test = false
+doc = false
+[[bin]]
+name = "receipt"
+path = "fuzz_targets/receipt.rs"
+test = false
+doc = false
+[[bin]]
+name = "traversal"
+path = "fuzz_targets/traversal.rs"
+test = false
+doc = false
+[[bin]]
+name = "store"
+path = "fuzz_targets/store.rs"
+test = false
+doc = false

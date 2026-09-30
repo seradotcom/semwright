@@ -2,6 +2,7 @@
 pub mod audit;
 mod catalog;
 mod jobs;
+mod project_graph;
 mod providers;
 mod workflows;
 use async_trait::async_trait;
@@ -70,6 +71,7 @@ pub struct Broker {
     job_tasks: tokio_util::task::TaskTracker,
     jobs: StdMutex<jobs::JobStore>,
     workflows: StdMutex<semwright_workflow::WorkflowManager>,
+    project_graphs: StdMutex<Option<project_graph::ProjectGraphs>>,
     events: StdMutex<Events>,
     broadcast: broadcast::Sender<Event>,
     environment: Value,
@@ -123,6 +125,7 @@ impl Broker {
             job_tasks: tokio_util::task::TaskTracker::new(),
             jobs: StdMutex::new(jobs::JobStore::default()),
             workflows: StdMutex::new(semwright_workflow::WorkflowManager::default()),
+            project_graphs: StdMutex::new(None),
             events: StdMutex::new(Events {
                 sequence: 0,
                 history: VecDeque::new(),
@@ -152,6 +155,11 @@ impl Broker {
         }
         if let Ok(mut workflows) = self.workflows.lock() {
             workflows.revoke_session(session);
+        }
+        if let Ok(mut project_graphs) = self.project_graphs.lock()
+            && let Some(project_graphs) = project_graphs.as_mut()
+        {
+            project_graphs.revoke_session(session);
         }
     }
     pub fn subscribe(&self) -> broadcast::Receiver<Event> {
@@ -1023,13 +1031,7 @@ impl Broker {
             let mut output = if request.command == "ui.find" {
                 self.find(session, selected, &context, &args).await?
             } else if selected == "core" {
-                self.core(
-                    session,
-                    &request.command,
-                    &args,
-                    context.cancellation.clone(),
-                )
-                .await?
+                self.core(&context, &request.command, &args).await?
             } else if selected == "plugin" {
                 self.plugins
                     .as_ref()
@@ -1175,11 +1177,11 @@ impl Broker {
     }
     async fn core(
         self: &Arc<Self>,
-        session: &str,
+        context: &Context,
         command: &str,
         args: &Value,
-        _cancellation: CancellationToken,
     ) -> Result<Value> {
+        let session = context.session.as_str();
         match command {
             "doctor" => Ok(
                 json!({"project":"Semwright","version":env!("CARGO_PKG_VERSION"),"protocol":PROTOCOL_VERSION,"fake":self.fake,"environment":self.environment,"features":self.probe().await,"providers":self.provider_status()?,"policy":{"profile":self.policy.config().profile,"granted":self.policy.capabilities(),"apps":self.policy.config().apps,"shell":false,"external_confirmation":"foreground operator only; unavailable in user service"},"uptime_seconds":self.started.elapsed().as_secs(),"verification":"Runtime capability probes are not a live desktop acceptance certificate","unimplemented":[]}),
@@ -1246,7 +1248,7 @@ impl Broker {
                     session,
                     arg_str(args, "proposal_id")?,
                     args.get("inputs").cloned().unwrap_or_else(|| json!({})),
-                    _cancellation.clone(),
+                    context.cancellation.clone(),
                 )
                 .await
             }
@@ -1294,6 +1296,10 @@ impl Broker {
             }
             "workflow.promotions.list" => self.workflow_promotions(),
             "workflow.demote" => self.workflow_demote(arg_str(args, "slug")?),
+            command if command.starts_with("project.") => {
+                self.project_graph_command(context.clone(), command.into(), args.clone())
+                    .await
+            }
             "recipe.list" => Ok(
                 json!({"recipes":["fake-export","fake-edit","blender-inspect","workspace-write"],"source":"Recipe files ship with the repository; clients load and submit their declarative contents"}),
             ),

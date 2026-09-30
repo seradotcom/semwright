@@ -6,7 +6,14 @@ rust-version.workspace = true
 license.workspace = true
 description = "Evidence-scoped persistent project identity, provenance and impact queries"
 
+[features]
+default = []
+store = ["dep:rusqlite", "dep:semwright-platform-services", "dep:libc"]
+
 [dependencies]
+rusqlite = { version = "=0.40.2", features = ["bundled", "backup"], optional = true }
+semwright-platform-services = { workspace = true, optional = true }
+libc = { workspace = true, optional = true }
 serde.workspace = true
 serde_json.workspace = true
 schemars.workspace = true
@@ -15,6 +22,9 @@ uuid.workspace = true
 semwright-semantic-composition.workspace = true
 
 [dev-dependencies]
+semwright-skills.workspace = true
+semwright-registry.workspace = true
+tempfile.workspace = true
 proptest.workspace = true
 
 [lints]

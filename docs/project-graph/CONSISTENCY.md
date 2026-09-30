@@ -1,0 +1,28 @@
+# Consistency, persistence and bounded knowledge
+
+## Commit boundaries
+GraphStore stages mutations on a candidate graph, begins a SQLite IMMEDIATE transaction, compares the journal sequence with the loaded snapshot, appends canonical events and updates touched materialized asset rows. Only a successful database commit installs the candidate in memory. A concurrent writer produces conflict; a commit with uncertain acknowledgment poisons the handle until reopen. No automatic destructive reset is performed.
+
+The journal hashes canonical event bytes, the previous digest and sequence. Reopen verifies the application/schema identity, SQLite integrity, owner/project header, contiguous journal/hash chain and reconstructed materialized indexes. Index mismatch fails unless explicit repair is requested; repair never accepts a broken canonical journal. These checks detect corruption, not cryptographic authorization against someone who can rewrite the whole private database.
+
+Fault-injection tests exercise before journal, after journal, after index, before commit and after commit. They are local transaction-boundary tests, not exhaustive process-kill, filesystem or power-failure certification. A successful graph commit is not an atomic write to Blender, Godot, an exported file or an AV publication. C now persists a bounded `ExternalIntent` ledger: PREPARED must commit before dispatch, APPLYING must commit before the first external side effect, and COMPLETED requires a matching admitted receipt already in the same graph transaction. Reopening an APPLYING intent from an older observation epoch exposes UNKNOWN and forbids redispatch; explicit reconcile may persist UNKNOWN. Wiring those transitions around real Broker/provider calls remains open integration work.
+
+## Knowledge epochs and identity
+Logical asset IDs do not derive from names, paths or bytes. Revisions and execution history are immutable; bindings have independent generations. An explicit rebind preserves history but invalidates the prior current binding and instance proof. Historical receipts cannot acquire fresh permission or reuse old session references after restart.
+
+Live observation state is intentionally not restored from storage. A new observation epoch and newly validated determinants are required. Native file instance matching is only a re-resolution aid; the Linux method is documented best-effort read/revalidation, not cross-process CAS. Denied/offline/ambiguous/unsupported observations remain UNKNOWN. Watch registration, gaps, overflow and reorder require a bounded new rescan, while exact duplicate events are idempotent.
+
+Freshness is relative to observed exact inputs, determining runtime/descriptor/parameters/Recipe and other declared dependencies. A known changed input can leave an unchanged output STALE. Byte/projection equivalence is explicitly selected and projection methods are versioned. Missing coverage or changed binding generation prevents cache-safe reuse. A required verification result for an unrelated output does not certify this realization.
+
+## Queries and proposals
+Impact uses active production receipts for known affected assets and declared references for possible impact. Historical receipt edges remain history, not active rebuild inputs. Legitimate reference cycles are allowed. Production SCCs block an invented topological order. Unknown frontier, node/edge/depth/result exhaustion and cancellation remain explicit.
+
+Queries bind owner/session, actual visibility, grants, query digest, snapshot revision and observation epoch. Mutation invalidates a cursor; hidden resources are excluded before result counts. Raw nested provenance and full backups require full-project visibility. Rebuild proposals reserve through A PlanVault, validate current catalog/runtime fingerprints and require replan after changed state; they are not serialized commands or an alternate scheduler.
+
+## Budgets
+Graph: 20,000 assets, 100,000 edges, 100,000 revisions and 20,000 receipts. Receipt inputs/outputs/determinants: each at most 1,024, with cross-product edge preflight. Store: 64 MiB database, at most 100,000 journal events, 4,096 events/16 MiB per transaction, rollback journal instead of unbounded WAL. SQLite busy timeout is one second. One non-overwriting bounded backup slot uses 128-page steps and a five-second operation budget.
+
+Queries: page size 256, per-page scan 2,048, at most 512 cursors with five-minute lifetime. Recursive knowledge uses 10,000 visits/depth 64. Impact budgets explicitly bound nodes, edges, depth and returned results. Portable manifests are at most 256 assets/1,024 edges within A's bounded payload. Watch scope is at most 1,024 assets. Limits produce conflict/resource exhaustion/truncation, never a false complete result.
+
+## Portability and deletion
+Portable manifests omit locator/owner/evidence authority and reallocate local IDs on import. Import is a staged all-or-nothing declaration operation, including parent-cycle rejection. Tombstone affects graph state only. Explicit GC can collect only tombstoned materialized records with no revisions, receipts, edges or external intents; the canonical journal remains intact and the GC API accepts no user-file deletion paths. This local cleanup makes no claim of global ownership over a native resource shared by other projects: it removes only this project's materialized record, so cross-project/native reference accounting is not used as authority to delete anything external. No destructive source/output GC is implemented. Backups are private owner state, not a cross-owner grant or a portable manifest. Restore requires matching integrity metadata and an unused destination directory; older or corrupted state is preserved for inspection.

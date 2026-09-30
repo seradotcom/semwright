@@ -1,0 +1,9 @@
+{
+  "capability": "project.asset.provenance",
+  "input": {
+    "root": "workspace",
+    "project": "prj_00000000000000000000000000000001",
+    "asset": "asset_00000000000000000000000000000001",
+    "limit": 64
+  }
+}

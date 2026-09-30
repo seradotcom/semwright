@@ -4,10 +4,22 @@ on:
     branches: [feat/project-graph]
     paths:
       - 'crates/project-graph/**'
+      - 'crates/core/Cargo.toml'
+      - 'crates/core/src/lib.rs'
+      - 'crates/core/src/project_graph.rs'
+      - 'crates/core/tests/project_graph.rs'
+      - 'crates/daemon/src/semwrightd.rs'
+      - 'crates/platform-services/src/lib.rs'
       - 'scripts/project-graph/**'
       - '.github/workflows/project-graph.yml'
       - 'Cargo.lock'
       - 'Cargo.toml'
+      - 'schemas/commands.json'
+      - 'schemas/builtin-provenance.json'
+      - 'skills/semwright-project-continuity/**'
+      - 'tests/python/test_contracts.py'
+      - 'crates/platform-api/src/filesystem.rs'
+      - 'crates/platform-linux-sys/src/filesystem.rs'
   workflow_dispatch:
     inputs:
       expected_sha:
@@ -43,20 +55,31 @@ jobs:
         with:
           toolchain: 1.88.0
           components: rustfmt, clippy
-      - name: Rust formatting
-        run: cargo fmt -p semwright-project-graph -- --check
-      - name: Project Graph typed P0 inventory and tests
+      - name: Read bounded suite selector
+        id: suite
+        run: |
+          python3 - <<'PYSELECT'
+          import json, os
+          value = json.load(open('scripts/project-graph/lane.json'))
+          assert set(value) == {'suite'} and value['suite'] in {'contracts','store','lockfile','fuzz-lock','full'}
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
+              out.write('suite=' + value['suite'] + '\n')
+          PYSELECT
+      - name: Install Linux media development libraries
+        if: steps.suite.outputs.suite == 'full'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpipewire-0.3-dev
+      - name: Pinned fuzz toolchains and engine
+        if: steps.suite.outputs.suite == 'full'
+        run: |
+          rustup toolchain install 1.98.1 nightly-2026-09-18 --profile minimal
+          cargo +1.98.1 install --locked cargo-fuzz --version 0.13.2
+      - name: Allowlisted exact-SHA lane
         env:
           EXPECTED_SHA: ${{ inputs.expected_sha || github.sha }}
-        run: python3 scripts/project-graph/run-suite.py contracts
-      - name: Clippy
-        run: cargo clippy --locked -p semwright-project-graph --all-targets -- -D warnings
-      - name: Wire schemas
-        run: cargo run --locked -p semwright-project-graph --example schemas > verification/project-graph/schemas.json
-      - name: Rustdoc
-        run: cargo doc --locked -p semwright-project-graph --no-deps
-        env:
           RUSTDOCFLAGS: -D warnings
+        run: python3 scripts/project-graph/run-suite.py auto
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:

@@ -1,0 +1,330 @@
+{
+  "schema_version": 1,
+  "role": "C",
+  "project_graph_ready": false,
+  "requirements": [
+    {
+      "requirement": "C01",
+      "condition": "P0 published with consumer fixtures",
+      "status": "PASS",
+      "implementation": [
+        "crates/project-graph/src/{identity,knowledge,model}.rs",
+        "docs/project-graph/P0_HANDOFF.md"
+      ],
+      "tests": [
+        "tests/p0.rs"
+      ],
+      "tested_sha": "6ee52b428310370d3ad438a13964086a63f48367",
+      "run_id": 36502360629,
+      "job_id": 109195916146,
+      "evidence": "P0 exact-SHA lane: 13/13 tests plus fmt, strict clippy, schemas and rustdoc succeeded."
+    },
+    {
+      "requirement": "C02",
+      "condition": "Logical identity distinct from path/digest/ref",
+      "status": "PASS",
+      "implementation": [
+        "crates/project-graph/src/identity.rs",
+        "crates/project-graph/src/graph.rs"
+      ],
+      "tests": [
+        "identity_is_neither_content_path_nor_other_namespace",
+        "replacing_locator_never_changes_or_discovers_logical_identity",
+        "same_bytes_after_explicit_rebind_do_not_validate_old_derivation",
+        "instance_identity_survives_in_place_edit_but_not_same_path_replacement"
+      ],
+      "tested_sha": "d7a8b0cb38f385f0699523614fe8de099f11b09f",
+      "run_id": 36600659015,
+      "job_id": 109516876942,
+      "evidence": "Exact-SHA d7a8b0c full lane PASS: 62/62 Project Graph tests, zero failed/ignored, strict clippy/schemas/rustdoc, 8/8 Broker integration tests, durable-principal regression, daemon check and bounded fuzz. This requirement is covered by that source unless separately noted; RevisionAdapter additions in fb15f52 remain pending their own exact-SHA rerun."
+    },
+    {
+      "requirement": "C03",
+      "condition": "Immutable revisions and exact derivations",
+      "status": "PASS",
+      "implementation": [
+        "crates/project-graph/src/model.rs",
+        "crates/project-graph/src/graph.rs",
+        "crates/project-graph/src/store.rs"
+      ],
+      "tests": [
+        "receipt_idempotency_rejects_content_and_owner_substitution",
+        "receipt_cannot_substitute_source_base_while_retaining_valid_revision_pins",
+        "reopen_preserves_history_and_does_not_reuse_observation_epoch"
+      ],
+      "tested_sha": "d7a8b0cb38f385f0699523614fe8de099f11b09f",
+      "run_id": 36600659015,
+      "job_id": 109516876942,
+      "evidence": "Exact-SHA d7a8b0c full lane PASS: 62/62 Project Graph tests, zero failed/ignored, strict clippy/schemas/rustdoc, 8/8 Broker integration tests, durable-principal regression, daemon check and bounded fuzz. This requirement is covered by that source unless separately noted; RevisionAdapter additions in fb15f52 remain pending their own exact-SHA rerun."
+    },
+    {
+      "requirement": "C04",
+      "condition": "Independent knowledge dimensions",
+      "status": "PASS",
+      "implementation": [
+        "crates/project-graph/src/knowledge.rs",
+        "crates/project-graph/src/graph.rs"
+      ],
+      "tests": [
+        "required_unknown_and_known_stale_are_independent",
+        "external_output_change_is_diverged_and_downstream_stale",
+        "report_pass_for_another_output_does_not_certify_this_output"
+      ],
+      "tested_sha": "d7a8b0cb38f385f0699523614fe8de099f11b09f",
+      "run_id": 36600659015,
+      "job_id": 109516876942,
+      "evidence": "Exact-SHA d7a8b0c full lane PASS: 62/62 Project Graph tests, zero failed/ignored, strict clippy/schemas/rustdoc, 8/8 Broker integration tests, durable-principal regression, daemon check and bounded fuzz. This requirement is covered by that source unless separately noted; RevisionAdapter additions in fb15f52 remain pending their own exact-SHA rerun."
+    },
+    {
+      "requirement": "C05",
+      "condition": "UNKNOWN not MISSING on deny/offline",
+      "status": "PASS",
+      "implementation": [
+        "crates/project-graph/src/knowledge.rs",
+        "crates/project-graph/src/graph.rs"
+      ],
+      "tests": [
+        "denied_offline_and_ambiguous_are_not_missing",
+        "denied_and_missing_remain_distinct_and_required_dependency_is_not_current",
+        "native_missing_budget_and_read_denial_have_distinct_protocol_errors"
+      ],
+      "tested_sha": "d7a8b0cb38f385f0699523614fe8de099f11b09f",
+      "run_id": 36600659015,
+      "job_id": 109516876942,
+      "evidence": "Exact-SHA d7a8b0c full lane PASS: 62/62 Project Graph tests, zero failed/ignored, strict clippy/schemas/rustdoc, 8/8 Broker integration tests, durable-principal regression, daemon check and bounded fuzz. This requirement is covered by that source unless separately noted; RevisionAdapter additions in fb15f52 remain pending their own exact-SHA rerun."
+    },
+    {
+      "requirement": "C06",
+      "condition": "Transitive invalidation and unknown frontier",
+      "status": "PENDING_CI",
+      "implementation": [
+        "crates/project-graph/src/graph.rs",
+        "crates/project-graph/src/query.rs",
+        "crates/project-graph/src/query.rs ProvenanceView/provenance bounded direct-derivative query",
+        "crates/core/src/project_graph.rs project.asset.provenance"
+      ],
+      "tests": [
+        "transitive_stale_preserves_unchanged_output_and_exact_revert",
+        "incremental_receipt_index_matches_independent_full_fixed_point",
+        "bounded_impact_reports_truncation_and_cancelled_scope",
+        "provenance_explains_active_dependencies_direct_derivatives_and_stale_reason",
+        "partial_scope_provenance_hides_receipt_membership_and_hidden_counts",
+        "declared_derivatives_remain_possible_and_provenance_is_bounded"
+      ],
+      "tested_sha": "d7a8b0cb38f385f0699523614fe8de099f11b09f",
+      "run_id": 36600659015,
+      "job_id": 109516876942,
+      "evidence": "Prior incremental/full recompute path passed at d7a8b0c run 36600659015. Additive bounded provenance route is prepared locally and must pass a new exact-SHA lane before this row returns to PASS."
+    },
+    {
+      "requirement": "C07",
+      "condition": "Watcher gaps/reorder/duplicates reconciled",
+      "status": "PASS",
+      "implementation": [
+        "crates/project-graph/src/watch.rs",
+        "crates/project-graph/src/graph.rs"
+      ],
+      "tests": [
+        "watcher_loss_reorder_duplicate_and_rescan_are_explicit",
+        "watcher_registration_and_restart_never_reuse_old_rescan_evidence",
+        "restart_and_watcher_gap_require_new_observation"
+      ],
+      "tested_sha": "d7a8b0cb38f385f0699523614fe8de099f11b09f",
+      "run_id": 36600659015,
+      "job_id": 109516876942,
+      "evidence": "Exact-SHA d7a8b0c full lane PASS: 62/62 Project Graph tests, zero failed/ignored, strict clippy/schemas/rustdoc, 8/8 Broker integration tests, durable-principal regression, daemon check and bounded fuzz. This requirement is covered by that source unless separately noted; RevisionAdapter additions in fb15f52 remain pending their own exact-SHA rerun."
+    },
+    {
+      "requirement": "C08",
+      "condition": "Scoped snapshot pagination",
+      "status": "PASS",
+      "implementation": [
+        "crates/project-graph/src/query.rs"
+      ],
+      "tests": [
+        "snapshot_cursor_rejects_changed_graph_query_grants_and_owner",
+        "scope_filter_never_reveals_hidden_names_or_counts",
+        "cursor_binds_actual_visibility_even_when_grant_digest_is_reused"
+      ],
+      "tested_sha": "d7a8b0cb38f385f0699523614fe8de099f11b09f",
+      "run_id": 36600659015,
+      "job_id": 109516876942,
+      "evidence": "Exact-SHA d7a8b0c full lane PASS: 62/62 Project Graph tests, zero failed/ignored, strict clippy/schemas/rustdoc, 8/8 Broker integration tests, durable-principal regression, daemon check and bounded fuzz. This requirement is covered by that source unless separately noted; RevisionAdapter additions in fb15f52 remain pending their own exact-SHA rerun."
+    },
+    {
+      "requirement": "C09",
+      "condition": "Typed rebuild through Broker",
+      "status": "BLOCKED",
+      "implementation": [
+        "crates/project-graph/src/rebuild.rs",
+        "crates/project-graph/src/{model,graph}.rs ExternalIntent recovery boundary",
+        "crates/core/src/project_graph.rs graph-state Broker adapter",
+        "crates/core/src/lib.rs existing Broker core dispatch",
+        "docs/project-graph/P1_REBUILD_HANDOFF.md"
+      ],
+      "tests": [
+        "altered_reservation_cannot_be_promoted_even_with_a_recomputed_digest",
+        "reservation_binds_session_grants_snapshot_and_restart_epoch",
+        "changed_runtime_or_cancelled_attempt_does_not_enter_the_controller",
+        "project_routes_reenter_broker_policy_and_survive_session_rotation",
+        "filesystem_read_grant_alone_cannot_mutate_project_state"
+      ],
+      "tested_sha": "d7a8b0cb38f385f0699523614fe8de099f11b09f",
+      "run_id": 36600659015,
+      "job_id": 109516876942,
+      "evidence": "Graph-state project.* routing passed 8/8 Broker regressions plus daemon/principal wiring at d7a8b0c. Typed rebuild dispatch remains blocked: Registry Metadata has no registered production-capability -> prepare-capability relation, so C refuses name inference, provider substitution or a second scheduler. There is intentionally no project.rebuild.execute route."
+    },
+    {
+      "requirement": "C10",
+      "condition": "Cache reuse only under valid complete dependencies",
+      "status": "PASS",
+      "implementation": [
+        "crates/project-graph/src/knowledge.rs",
+        "crates/project-graph/src/rebuild.rs"
+      ],
+      "tests": [
+        "partial_dependencies_prevent_cache_safe",
+        "complete_current_outputs_are_reused_but_unknowns_are_not",
+        "unavailable_catalog_is_a_blocker_not_provider_substitution",
+        "diverged_output_is_not_silently_overwritten_by_rebuild"
+      ],
+      "tested_sha": "d7a8b0cb38f385f0699523614fe8de099f11b09f",
+      "run_id": 36600659015,
+      "job_id": 109516876942,
+      "evidence": "Exact-SHA d7a8b0c full lane PASS: 62/62 Project Graph tests, zero failed/ignored, strict clippy/schemas/rustdoc, 8/8 Broker integration tests, durable-principal regression, daemon check and bounded fuzz. This requirement is covered by that source unless separately noted; RevisionAdapter additions in fb15f52 remain pending their own exact-SHA rerun."
+    },
+    {
+      "requirement": "C11",
+      "condition": "Crash-safe private local store",
+      "status": "PASS",
+      "implementation": [
+        "crates/project-graph/src/store.rs",
+        "crates/project-graph/src/store_tests.rs",
+        "crates/project-graph/src/{identity,model,graph}.rs ExternalIntent ledger",
+        "docs/project-graph/CONSISTENCY.md"
+      ],
+      "tests": [
+        "every_transaction_fault_boundary_is_atomic_on_reopen",
+        "corrupt_indexes_require_explicit_rebuild_and_canonical_log_is_untouched",
+        "corrupted_canonical_payload_is_preserved_and_not_repaired_as_an_index",
+        "backup_verifies_hash_owner_version_and_preserves_live_history",
+        "second_writer_cannot_commit_against_a_stale_snapshot",
+        "external_applying_intent_reopens_unknown_and_cannot_be_redispatched",
+        "external_intent_requires_dispatch_and_matching_persisted_receipt"
+      ],
+      "tested_sha": "d7a8b0cb38f385f0699523614fe8de099f11b09f",
+      "run_id": 36600659015,
+      "job_id": 109516876942,
+      "evidence": "Exact-SHA d7a8b0c full lane PASS: 62/62 Project Graph tests, zero failed/ignored, strict clippy/schemas/rustdoc, 8/8 Broker integration tests, durable-principal regression, daemon check and bounded fuzz. This requirement is covered by that source unless separately noted; RevisionAdapter additions in fb15f52 remain pending their own exact-SHA rerun."
+    },
+    {
+      "requirement": "C12",
+      "condition": "Portable untrusted manifests and safe GC",
+      "status": "PENDING_CI",
+      "implementation": [
+        "crates/project-graph/src/manifest.rs",
+        "crates/project-graph/src/graph.rs GarbageCollectionPreview/collect_garbage",
+        "crates/core/src/project_graph.rs project.gc.preview/project.gc.collect"
+      ],
+      "tests": [
+        "imported_manifest_never_inherits_identity_locator_receipts_or_current",
+        "malformed_manifest_and_parent_cycle_leave_target_unchanged",
+        "garbage_collection_only_removes_history_free_graph_state_and_never_user_files",
+        "garbage_collection_refuses_history_references_and_partial_visibility",
+        "garbage_preview_is_bounded_and_reports_truncation_without_hidden_counts",
+        "garbage_collection_replays_without_deleting_canonical_journal_history",
+        "project_gc_collects_only_private_history_free_state_and_keeps_user_files"
+      ],
+      "tested_sha": null,
+      "run_id": null,
+      "job_id": null,
+      "evidence": "Portable manifest/import safety is previously green. New bounded graph-private GC removes only tombstoned assets with no revisions, receipts, edges or external intents, preserves canonical journal history and never receives/deletes user file paths. Exact-SHA graph/store/Broker tests are pending before PASS."
+    },
+    {
+      "requirement": "C13",
+      "condition": "Native Blender GLB Godot pipeline",
+      "status": "BLOCKED",
+      "implementation": [
+        "C RevisionAdapter/AdmittedRevision published in fb15f52 + 7efa0f0 for read-only native observations",
+        "E PR #175 exact source d80471b9ceb828a2a531dfac9eaa4e970ea589a9",
+        "D PR #176 native source observed at 0db56b88010b7b14b877006eae11a9c56091404b and later heads"
+      ],
+      "tests": [
+        "registered_revision_adapter_assigns_revision_without_creating_activity",
+        "revision_adapter_rejects_method_project_generation_and_source_substitution",
+        "admitted_partial_native_revision_remains_unknown_not_cache_safe",
+        "admitted_revision_is_owner_bound_and_nonexhaustive_complete_claim_is_rejected"
+      ],
+      "tested_sha": null,
+      "run_id": null,
+      "job_id": null,
+      "evidence": "E native Blender run 36543391358 is SUCCESS. D run 36586509462 has model/hostile/native-authoring/export PASS, but godot-cross-app-glb job 109468167916 fails because the Godot provider exits before protocol Hello. Combined Blender\u2192GLB\u2192Godot C evidence is therefore still absent."
+    },
+    {
+      "requirement": "C14",
+      "condition": "Native motion/AV/audio integration",
+      "status": "BLOCKED",
+      "implementation": [
+        "A PR #168 composition-media source 1278a3aa73c3b6d40a30085b19a7dedd13fba8d2 inspected",
+        "B PR #183 audio-completion source 2e16161e3abc3ebb6e2d2eb7a6b750f0793625fd inspected"
+      ],
+      "tests": [],
+      "tested_sha": null,
+      "run_id": null,
+      "job_id": null,
+      "evidence": "A AUDIO_AV_CONTRACT explicitly states B has not consumed C1 and the combined Broker/Host/Motion/Audio/MLT/decoder E2E is absent. B exposes audio artifacts/receipts but no integrated C ExecutionReceipt/reconcile boundary on one tested SHA. C does not create a competing publication pointer or fabricate that bridge."
+    },
+    {
+      "requirement": "C15",
+      "condition": "Usable continuity Skill with real requirements",
+      "status": "PENDING_CI",
+      "implementation": [
+        "skills/semwright-project-continuity",
+        "crates/project-graph/tests/skill_package.rs",
+        "schemas/commands.json registered project.* descriptors",
+        "crates/core/tests/project_graph.rs Broker route tests"
+      ],
+      "tests": [
+        "continuity_skill_uses_real_catalog_and_bundler_without_claiming_runtime_execution",
+        "project_routes_reenter_broker_policy_and_survive_session_rotation",
+        "project_catalog_preview_exposes_availability_without_granting_management"
+      ],
+      "tested_sha": "d7a8b0cb38f385f0699523614fe8de099f11b09f",
+      "run_id": 36600659015,
+      "job_id": 109516876942,
+      "evidence": "The real continuity Skill/package and project.* Broker routes passed at d7a8b0c run 36600659015. Local additive project.asset.provenance requirement/example is prepared and must pass exact-SHA package/conformance before final PASS."
+    },
+    {
+      "requirement": "C16",
+      "condition": "Scale/fuzz/hostile/packaging exact SHA",
+      "status": "PENDING_CI",
+      "implementation": [
+        "crates/project-graph/tests/scale.rs",
+        "scripts/project-graph/fuzz",
+        "scripts/project-graph/fuzz-lane.py",
+        ".github/workflows/project-graph.yml"
+      ],
+      "tests": [
+        "ten_thousand_resources_fifty_thousand_edges_under_declared_budgets",
+        "four bounded fuzz targets: manifest, receipt, traversal, store",
+        "hostile identity/manifest/cursor/store cases across test suite"
+      ],
+      "tested_sha": "d7a8b0cb38f385f0699523614fe8de099f11b09f",
+      "run_id": 36600659015,
+      "job_id": 109516876942,
+      "evidence": "d7a8b0c run 36600659015 passed 62/62 graph tests, 8/8 Broker tests, principal/daemon wiring, scale and four fuzz targets. RevisionAdapter and Windows path fixes are on later SHAs with current exact-SHA Windows/Quality/Project Graph gates pending; final package must use the final single tested SHA."
+    }
+  ],
+  "last_full_pass": {
+    "source_sha": "673392d683fc4e6d355440f0d9d86f1bfc040f21",
+    "run_id": 36522866949,
+    "job_id": 109259374416,
+    "requested_tests": 62,
+    "executed_tests": 62,
+    "failed_tests": 0,
+    "ignored_tests": 0,
+    "outcome": "PASS",
+    "scope": "portable-model-not-native"
+  },
+  "candidate_sha": "fb15f528c917668713f1e80d423ffd8a9bd9a848"
+}

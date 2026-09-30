@@ -18860,5 +18860,1214 @@
     "backends": [
       "chromium"
     ]
+  },
+  {
+    "name": "project.create",
+    "version": "1.0",
+    "description": "Create private persistent Project Graph state bound to an explicitly granted source root.",
+    "input_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "root": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        }
+      },
+      "required": [
+        "root"
+      ]
+    },
+    "output_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "project",
+        "graph_schema",
+        "result"
+      ],
+      "properties": {
+        "project": {
+          "type": "string",
+          "pattern": "^prj_[0-9a-f]{32}$"
+        },
+        "graph_schema": {
+          "const": 1
+        },
+        "result": {
+          "type": "object"
+        }
+      }
+    },
+    "requires": [
+      "filesystem.read:root",
+      "project.manage"
+    ],
+    "risk": "mutating",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 10000,
+    "dry_run": false,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "project.asset.register",
+    "version": "1.0",
+    "description": "Register one logical file asset and immediately reconcile its bounded current observation.",
+    "input_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "root": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "project": {
+          "type": "string",
+          "pattern": "^prj_[0-9a-f]{32}$"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "resource_type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "max_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4194304
+        }
+      },
+      "required": [
+        "root",
+        "project",
+        "label",
+        "resource_type",
+        "path"
+      ]
+    },
+    "output_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "project",
+        "graph_schema",
+        "result"
+      ],
+      "properties": {
+        "project": {
+          "type": "string",
+          "pattern": "^prj_[0-9a-f]{32}$"
+        },
+        "graph_schema": {
+          "const": 1
+        },
+        "result": {
+          "type": "object"
+        }
+      }
+    },
+    "requires": [
+      "filesystem.read:root",
+      "project.manage"
+    ],
+    "risk": "mutating",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 20000,
+    "dry_run": false,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "project.asset.inspect",
+    "version": "1.0",
+    "description": "Inspect one visible logical asset with independent existence, freshness, divergence and evidence coverage.",
+    "input_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "root": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "project": {
+          "type": "string",
+          "pattern": "^prj_[0-9a-f]{32}$"
+        },
+        "asset": {
+          "type": "string",
+          "pattern": "^asset_[0-9a-f]{32}$"
+        }
+      },
+      "required": [
+        "root",
+        "project",
+        "asset"
+      ]
+    },
+    "output_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "project",
+        "graph_schema",
+        "result"
+      ],
+      "properties": {
+        "project": {
+          "type": "string",
+          "pattern": "^prj_[0-9a-f]{32}$"
+        },
+        "graph_schema": {
+          "const": 1
+        },
+        "result": {
+          "type": "object"
+        }
+      }
+    },
+    "requires": [
+      "filesystem.read:root"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "project.asset.rename",
+    "version": "1.0",
+    "description": "Rename graph metadata for one logical asset without renaming or rewriting the native resource.",
+    "input_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "root": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "project": {
+          "type": "string",
+          "pattern": "^prj_[0-9a-f]{32}$"
+        },
+        "asset": {
+          "type": "string",
+          "pattern": "^asset_[0-9a-f]{32}$"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        }
+      },
+      "required": [
+        "root",
+        "project",
+        "asset",
+        "label"
+      ]
+    },
+    "output_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "project",
+        "graph_schema",
+        "result"
+      ],
+      "properties": {
+        "project": {
+          "type": "string",
+          "pattern": "^prj_[0-9a-f]{32}$"
+        },
+        "graph_schema": {
+          "const": 1
+        },
+        "result": {
+          "type": "object"
+        }
+      }
+    },
+    "requires": [
+      "filesystem.read:root",
+      "project.manage"
+    ],
+    "risk": "mutating",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 10000,
+    "dry_run": false,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "project.asset.reconcile",
+    "version": "1.0",
+    "description": "Re-observe one scoped file asset under its current binding without treating denial/offline as absence.",
+    "input_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "root": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "project": {
+          "type": "string",
+          "pattern": "^prj_[0-9a-f]{32}$"
+        },
+        "asset": {
+          "type": "string",
+          "pattern": "^asset_[0-9a-f]{32}$"
+        },
+        "max_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4194304
+        }
+      },
+      "required": [
+        "root",
+        "project",
+        "asset"
+      ]
+    },
+    "output_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "project",
+        "graph_schema",
+        "result"
+      ],
+      "properties": {
+        "project": {
+          "type": "string",
+          "pattern": "^prj_[0-9a-f]{32}$"
+        },
+        "graph_schema": {
+          "const": 1
+        },
+        "result": {
+          "type": "object"
+        }
+      }
+    },
+    "requires": [
+      "filesystem.read:root",
+      "project.manage"
+    ],
+    "risk": "mutating",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 20000,
+    "dry_run": false,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "project.asset.rebind",
+    "version": "1.0",
+    "description": "Explicitly bind an existing logical asset to a replacement scoped file generation and reconcile it.",
+    "input_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "root": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "project": {
+          "type": "string",
+          "pattern": "^prj_[0-9a-f]{32}$"
+        },
+        "asset": {
+          "type": "string",
+          "pattern": "^asset_[0-9a-f]{32}$"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "expected_generation": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "max_bytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4194304
+        }
+      },
+      "required": [
+        "root",
+        "project",
+        "asset",
+        "path",
+        "expected_generation",
+        "reason"
+      ]
+    },
+    "output_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "project",
+        "graph_schema",
+        "result"
+      ],
+      "properties": {
+        "project": {
+          "type": "string",
+          "pattern": "^prj_[0-9a-f]{32}$"
+        },
+        "graph_schema": {
+          "const": 1
+        },
+        "result": {
+          "type": "object"
+        }
+      }
+    },
+    "requires": [
+      "filesystem.read:root",
+      "project.manage"
+    ],
+    "risk": "mutating",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 20000,
+    "dry_run": false,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "project.asset.tombstone",
+    "version": "1.0",
+    "description": "Tombstone graph state for one logical asset without deleting the user file.",
+    "input_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "root": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "project": {
+          "type": "string",
+          "pattern": "^prj_[0-9a-f]{32}$"
+        },
+        "asset": {
+          "type": "string",
+          "pattern": "^asset_[0-9a-f]{32}$"
+        }
+      },
+      "required": [
+        "root",
+        "project",
+        "asset"
+      ]
+    },
+    "output_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "project",
+        "graph_schema",
+        "result"
+      ],
+      "properties": {
+        "project": {
+          "type": "string",
+          "pattern": "^prj_[0-9a-f]{32}$"
+        },
+        "graph_schema": {
+          "const": 1
+        },
+        "result": {
+          "type": "object"
+        }
+      }
+    },
+    "requires": [
+      "filesystem.read:root",
+      "project.manage"
+    ],
+    "risk": "mutating",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 10000,
+    "dry_run": false,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "project.query",
+    "version": "1.0",
+    "description": "Page visible project assets against an immutable graph snapshot and grant-bound cursor.",
+    "input_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "root": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "project": {
+          "type": "string",
+          "pattern": "^prj_[0-9a-f]{32}$"
+        },
+        "query": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "resource_type": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 256
+            },
+            "status": {
+              "enum": [
+                "CURRENT",
+                "STALE",
+                "UNKNOWN",
+                "MISSING",
+                "DIVERGED"
+              ]
+            },
+            "include_tombstones": {
+              "type": "boolean"
+            }
+          }
+        },
+        "cursor": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 256
+        }
+      },
+      "required": [
+        "root",
+        "project"
+      ]
+    },
+    "output_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "project",
+        "graph_schema",
+        "result"
+      ],
+      "properties": {
+        "project": {
+          "type": "string",
+          "pattern": "^prj_[0-9a-f]{32}$"
+        },
+        "graph_schema": {
+          "const": 1
+        },
+        "result": {
+          "type": "object"
+        }
+      }
+    },
+    "requires": [
+      "filesystem.read:root"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "project.impact",
+    "version": "1.0",
+    "description": "Explain known and possible downstream impact with explicit traversal budgets and unknown frontier.",
+    "input_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "root": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "project": {
+          "type": "string",
+          "pattern": "^prj_[0-9a-f]{32}$"
+        },
+        "asset": {
+          "type": "string",
+          "pattern": "^asset_[0-9a-f]{32}$"
+        },
+        "budget": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "nodes",
+            "edges",
+            "depth",
+            "results"
+          ],
+          "properties": {
+            "nodes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 20000
+            },
+            "edges": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000
+            },
+            "depth": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 256
+            },
+            "results": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 10000
+            }
+          }
+        }
+      },
+      "required": [
+        "root",
+        "project",
+        "asset"
+      ]
+    },
+    "output_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "project",
+        "graph_schema",
+        "result"
+      ],
+      "properties": {
+        "project": {
+          "type": "string",
+          "pattern": "^prj_[0-9a-f]{32}$"
+        },
+        "graph_schema": {
+          "const": 1
+        },
+        "result": {
+          "type": "object"
+        }
+      }
+    },
+    "requires": [
+      "filesystem.read:root"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 20000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "project.revisions",
+    "version": "1.0",
+    "description": "Read bounded immutable revision summaries for one visible logical asset.",
+    "input_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "root": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "project": {
+          "type": "string",
+          "pattern": "^prj_[0-9a-f]{32}$"
+        },
+        "asset": {
+          "type": "string",
+          "pattern": "^asset_[0-9a-f]{32}$"
+        },
+        "after": {
+          "type": "string",
+          "pattern": "^rev_[0-9a-f]{32}$"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 256
+        }
+      },
+      "required": [
+        "root",
+        "project",
+        "asset"
+      ]
+    },
+    "output_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "project",
+        "graph_schema",
+        "result"
+      ],
+      "properties": {
+        "project": {
+          "type": "string",
+          "pattern": "^prj_[0-9a-f]{32}$"
+        },
+        "graph_schema": {
+          "const": 1
+        },
+        "result": {
+          "type": "object"
+        }
+      }
+    },
+    "requires": [
+      "filesystem.read:root"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "project.edge.declare",
+    "version": "1.0",
+    "description": "Record a bounded declarative asset relation without certifying execution or verification.",
+    "input_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "root": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "project": {
+          "type": "string",
+          "pattern": "^prj_[0-9a-f]{32}$"
+        },
+        "from": {
+          "type": "string",
+          "pattern": "^asset_[0-9a-f]{32}$"
+        },
+        "to": {
+          "type": "string",
+          "pattern": "^asset_[0-9a-f]{32}$"
+        },
+        "relation": {
+          "enum": [
+            "contains",
+            "references",
+            "derived_from",
+            "realizes",
+            "published_as"
+          ]
+        }
+      },
+      "required": [
+        "root",
+        "project",
+        "from",
+        "to",
+        "relation"
+      ]
+    },
+    "output_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "project",
+        "graph_schema",
+        "result"
+      ],
+      "properties": {
+        "project": {
+          "type": "string",
+          "pattern": "^prj_[0-9a-f]{32}$"
+        },
+        "graph_schema": {
+          "const": 1
+        },
+        "result": {
+          "type": "object"
+        }
+      }
+    },
+    "requires": [
+      "filesystem.read:root",
+      "project.manage"
+    ],
+    "risk": "mutating",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 10000,
+    "dry_run": false,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "project.manifest.export",
+    "version": "1.0",
+    "description": "Export a portable declaration-only manifest for explicitly visible assets.",
+    "input_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "root": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "project": {
+          "type": "string",
+          "pattern": "^prj_[0-9a-f]{32}$"
+        },
+        "assets": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "items": {
+            "type": "string",
+            "pattern": "^asset_[0-9a-f]{32}$"
+          }
+        }
+      },
+      "required": [
+        "root",
+        "project"
+      ]
+    },
+    "output_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "project",
+        "graph_schema",
+        "result"
+      ],
+      "properties": {
+        "project": {
+          "type": "string",
+          "pattern": "^prj_[0-9a-f]{32}$"
+        },
+        "graph_schema": {
+          "const": 1
+        },
+        "result": {
+          "type": "object"
+        }
+      }
+    },
+    "requires": [
+      "filesystem.read:root"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "project.manifest.import",
+    "version": "1.0",
+    "description": "Import a bounded declaration-only manifest using fresh local logical identities.",
+    "input_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "root": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "project": {
+          "type": "string",
+          "pattern": "^prj_[0-9a-f]{32}$"
+        },
+        "manifest": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "version",
+            "source_project",
+            "source_snapshot",
+            "assets",
+            "declarations",
+            "coverage_complete"
+          ],
+          "properties": {
+            "version": {
+              "const": 1
+            },
+            "source_project": {
+              "type": "string",
+              "pattern": "^prj_[0-9a-f]{32}$"
+            },
+            "source_snapshot": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "assets": {
+              "type": "array",
+              "maxItems": 256,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "source_id",
+                  "label",
+                  "resource_type"
+                ],
+                "properties": {
+                  "source_id": {
+                    "type": "string",
+                    "pattern": "^asset_[0-9a-f]{32}$"
+                  },
+                  "label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  },
+                  "resource_type": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 256
+                  }
+                }
+              }
+            },
+            "declarations": {
+              "type": "array",
+              "maxItems": 1024,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "from",
+                  "to",
+                  "relation"
+                ],
+                "properties": {
+                  "from": {
+                    "type": "string",
+                    "pattern": "^asset_[0-9a-f]{32}$"
+                  },
+                  "to": {
+                    "type": "string",
+                    "pattern": "^asset_[0-9a-f]{32}$"
+                  },
+                  "relation": {
+                    "enum": [
+                      "contains",
+                      "references",
+                      "derived_from",
+                      "realizes",
+                      "published_as"
+                    ]
+                  }
+                }
+              }
+            },
+            "coverage_complete": {
+              "type": "boolean"
+            }
+          }
+        }
+      },
+      "required": [
+        "root",
+        "project",
+        "manifest"
+      ]
+    },
+    "output_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "project",
+        "graph_schema",
+        "result"
+      ],
+      "properties": {
+        "project": {
+          "type": "string",
+          "pattern": "^prj_[0-9a-f]{32}$"
+        },
+        "graph_schema": {
+          "const": 1
+        },
+        "result": {
+          "type": "object"
+        }
+      }
+    },
+    "requires": [
+      "filesystem.read:root",
+      "project.manage"
+    ],
+    "risk": "mutating",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 20000,
+    "dry_run": false,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "project.asset.provenance",
+    "version": "1.0",
+    "description": "Explain the active producer, visible dependencies, bounded known/possible direct derivatives and typed stale/unknown reasons without leaking hidden receipt membership.",
+    "input_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "root": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "project": {
+          "type": "string",
+          "pattern": "^prj_[0-9a-f]{32}$"
+        },
+        "asset": {
+          "type": "string",
+          "pattern": "^asset_[0-9a-f]{32}$"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 256
+        }
+      },
+      "required": [
+        "root",
+        "project",
+        "asset"
+      ]
+    },
+    "output_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "project",
+        "graph_schema",
+        "result"
+      ],
+      "properties": {
+        "project": {
+          "type": "string",
+          "pattern": "^prj_[0-9a-f]{32}$"
+        },
+        "graph_schema": {
+          "const": 1
+        },
+        "result": {
+          "type": "object"
+        }
+      }
+    },
+    "requires": [
+      "filesystem.read:root"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "project.gc.preview",
+    "version": "1.0",
+    "description": "Preview bounded Project Graph-private garbage candidates. Only tombstoned assets with no revisions, receipts, edges or external intents are eligible; user files are never candidates.",
+    "input_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "root": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "project": {
+          "type": "string",
+          "pattern": "^prj_[0-9a-f]{32}$"
+        },
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 256
+        }
+      },
+      "required": [
+        "root",
+        "project"
+      ]
+    },
+    "output_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "project",
+        "graph_schema",
+        "result"
+      ],
+      "properties": {
+        "project": {
+          "type": "string",
+          "pattern": "^prj_[0-9a-f]{32}$"
+        },
+        "graph_schema": {
+          "const": 1
+        },
+        "result": {
+          "type": "object"
+        }
+      }
+    },
+    "requires": [
+      "filesystem.read:root"
+    ],
+    "risk": "read_only",
+    "idempotency": "read_only",
+    "timeout_ms": 10000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "project.gc.collect",
+    "version": "1.0",
+    "description": "Collect explicitly selected history-free tombstoned records from Project Graph materialized state while preserving the canonical journal and all user files.",
+    "input_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "root": {
+          "type": "string",
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "project": {
+          "type": "string",
+          "pattern": "^prj_[0-9a-f]{32}$"
+        },
+        "assets": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^asset_[0-9a-f]{32}$"
+          }
+        }
+      },
+      "required": [
+        "root",
+        "project",
+        "assets"
+      ]
+    },
+    "output_schema": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "project",
+        "graph_schema",
+        "result"
+      ],
+      "properties": {
+        "project": {
+          "type": "string",
+          "pattern": "^prj_[0-9a-f]{32}$"
+        },
+        "graph_schema": {
+          "const": 1
+        },
+        "result": {
+          "type": "object"
+        }
+      }
+    },
+    "requires": [
+      "filesystem.read:root",
+      "project.manage"
+    ],
+    "risk": "mutating",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 10000,
+    "dry_run": false,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
   }
 ]

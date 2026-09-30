@@ -21,6 +21,9 @@ semwright-recipes.workspace = true
 semwright-workflow.workspace = true
 semwright-plugin-sdk.workspace = true
 semwright-plugin-host.workspace = true
+semwright-project-graph = { workspace = true, features = ["store"] }
+semwright-platform-api.workspace = true
+semwright-platform-services.workspace = true
 async-trait.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true

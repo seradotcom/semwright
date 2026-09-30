@@ -44,3 +44,4 @@ identity!(LogicalAssetId, "asset_");
 identity!(AssetRevision, "rev_");
 identity!(DerivationId, "drv_");
 identity!(ReceiptId, "receipt_");
+identity!(ExternalIntentId, "intent_");

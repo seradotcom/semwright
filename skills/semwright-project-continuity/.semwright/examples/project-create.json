@@ -1,0 +1,6 @@
+{
+  "capability": "project.create",
+  "input": {
+    "root": "workspace"
+  }
+}

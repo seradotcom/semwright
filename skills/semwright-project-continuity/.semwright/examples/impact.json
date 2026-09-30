@@ -1,0 +1,14 @@
+{
+  "capability": "project.impact",
+  "input": {
+    "root": "workspace",
+    "project": "prj_00000000000000000000000000000001",
+    "asset": "asset_00000000000000000000000000000001",
+    "budget": {
+      "nodes": 1000,
+      "edges": 5000,
+      "depth": 32,
+      "results": 256
+    }
+  }
+}
