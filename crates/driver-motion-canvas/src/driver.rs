@@ -1006,16 +1006,10 @@ impl MotionDriver {
                     ));
                 }
                 RenderState::Failed => {
-                    let code = self
-                        .renderer
-                        .failure_code(&job_ref)
-                        .await
-                        .unwrap_or(ErrorCode::BackendFailed);
-                    return Err(Error::new(
-                        code,
-                        view.error
-                            .unwrap_or_else(|| "Motion Canvas render failed".into()),
-                    ));
+                    // A terminal renderer failure is still an observed JobView outcome.
+                    // Returning the declared output preserves the allowlisted failure
+                    // class without exposing renderer stderr or untrusted messages.
+                    return Ok(view);
                 }
                 RenderState::Queued | RenderState::Starting | RenderState::Rendering => {}
             }

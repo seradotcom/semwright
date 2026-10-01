@@ -205,6 +205,104 @@ pub enum RenderState {
     Cancelled,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum RenderFailureClass {
+    Arguments,
+    FontEvidence,
+    ProjectStage,
+    ViteBuild,
+    FrameExport,
+    BrowserLaunch,
+    PageLoad,
+    RenderWait,
+    RenderWaitTimeout,
+    RendererStateFrameClock,
+    RendererStateAuthoringProtocol,
+    RendererLogAuthoringProtocol,
+    RendererStatePlaybackProtocol,
+    RendererLogPlaybackProtocol,
+    RendererLogExporterMissing,
+    RendererLogAsyncProperty,
+    RendererStateWebglUnavailable,
+    RendererLogWebglUnavailable,
+    RendererStateModelInvariant,
+    RendererLogModelInvariant,
+    RendererStateAuthoringModel,
+    RendererLogAuthoringModel,
+    RendererStateInvalidScene,
+    RendererLogInvalidScene,
+    RendererStateRangeError,
+    RendererLogRangeError,
+    RendererStateTypeError,
+    RendererLogTypeError,
+    RendererStateSemwrightNative,
+    RendererStateSemwrightExporter,
+    RendererStateMotionCore,
+    #[serde(rename = "renderer_state_motion_2d")]
+    RendererStateMotion2d,
+    RendererStateBeforeFirstFrame,
+    RendererStateAfterFirstFrame,
+    RendererStateError,
+    RendererLogError,
+    RenderResultAborted,
+    RenderResultError,
+    RenderResultUnknown,
+    RenderNonzero,
+    Observation,
+    Finalize,
+    Startup,
+}
+
+impl RenderFailureClass {
+    fn code(self) -> ErrorCode {
+        match self {
+            Self::ViteBuild | Self::RendererStateTypeError | Self::RendererLogTypeError => {
+                ErrorCode::PluginProtocolError
+            }
+            Self::FontEvidence
+            | Self::FrameExport
+            | Self::Observation
+            | Self::Finalize
+            | Self::RendererStateFrameClock
+            | Self::RendererStateAuthoringProtocol
+            | Self::RendererLogAuthoringProtocol
+            | Self::RendererStatePlaybackProtocol
+            | Self::RendererLogPlaybackProtocol
+            | Self::RendererLogExporterMissing
+            | Self::RendererLogAsyncProperty
+            | Self::RendererStateSemwrightExporter
+            | Self::RendererStateBeforeFirstFrame
+            | Self::RenderResultUnknown
+            | Self::RenderNonzero => ErrorCode::ProtocolMismatch,
+            Self::BrowserLaunch
+            | Self::PageLoad
+            | Self::ProjectStage
+            | Self::RendererStateWebglUnavailable
+            | Self::RendererLogWebglUnavailable => ErrorCode::Unavailable,
+            Self::Arguments
+            | Self::RendererStateModelInvariant
+            | Self::RendererLogModelInvariant
+            | Self::RendererStateAuthoringModel
+            | Self::RendererLogAuthoringModel
+            | Self::RendererStateInvalidScene
+            | Self::RendererLogInvalidScene
+            | Self::RendererStateRangeError
+            | Self::RendererLogRangeError
+            | Self::RendererStateSemwrightNative => ErrorCode::InvalidArgument,
+            Self::RenderWait | Self::RenderWaitTimeout => ErrorCode::Timeout,
+            Self::RenderResultAborted => ErrorCode::Cancelled,
+            Self::RendererStateMotion2d
+            | Self::RendererStateAfterFirstFrame
+            | Self::RenderResultError
+            | Self::Startup => ErrorCode::BackendFailed,
+            Self::RendererStateMotionCore | Self::RendererStateError | Self::RendererLogError => {
+                ErrorCode::Internal
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ArtifactSummary {
@@ -222,6 +320,8 @@ pub struct ArtifactSummary {
 pub struct JobView {
     pub job_ref: String,
     pub state: RenderState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failure_class: Option<RenderFailureClass>,
     pub error: Option<String>,
     pub artifact: Option<ArtifactSummary>,
 }
@@ -310,6 +410,7 @@ impl RenderManager {
         let view = JobView {
             job_ref: job_ref.clone(),
             state: RenderState::Queued,
+            failure_class: None,
             error: None,
             artifact: None,
         };
@@ -358,12 +459,12 @@ impl RenderManager {
                     Err(error) if error.code == ErrorCode::Cancelled => {
                         job.view.state = RenderState::Cancelled;
                         job.failure_code = Some(error.code);
-                        job.view.error = Some(error.message);
+                        job.view.error = Some("Motion Canvas render cancelled".into());
                     }
                     Err(error) => {
                         job.view.state = RenderState::Failed;
                         job.failure_code = Some(error.code);
-                        job.view.error = Some(error.message);
+                        job.view.error = Some("Motion Canvas render failed".into());
                     }
                 }
             }
@@ -421,68 +522,30 @@ async fn set_state(jobs: &Arc<Mutex<BTreeMap<String, Job>>>, key: &str, state: R
     }
 }
 
-fn renderer_failure_code(stdout: &[u8]) -> ErrorCode {
-    let Ok(text) = std::str::from_utf8(stdout) else {
-        return ErrorCode::BackendFailed;
-    };
-    let Some(line) = text.lines().rev().find(|line| line.starts_with('{')) else {
-        return ErrorCode::BackendFailed;
-    };
-    let Ok(value) = serde_json::from_str::<serde_json::Value>(line) else {
-        return ErrorCode::BackendFailed;
-    };
+async fn set_failure_class(
+    jobs: &Arc<Mutex<BTreeMap<String, Job>>>,
+    key: &str,
+    failure_class: RenderFailureClass,
+) {
+    if let Some(job) = jobs.lock().await.get_mut(key) {
+        job.view.failure_class = Some(failure_class);
+    }
+}
+
+fn renderer_failure_class(stdout: &[u8]) -> Option<RenderFailureClass> {
+    let text = std::str::from_utf8(stdout).ok()?;
+    let line = text.lines().rev().find(|line| line.starts_with('{'))?;
+    let value = serde_json::from_str::<serde_json::Value>(line).ok()?;
     if value.get("ok") != Some(&serde_json::Value::Bool(false)) {
-        return ErrorCode::BackendFailed;
+        return None;
     }
-    match value.get("errorClass").and_then(serde_json::Value::as_str) {
-        Some("vite_build") => ErrorCode::PluginProtocolError,
-        Some("font_evidence" | "frame_export" | "observation") => ErrorCode::ProtocolMismatch,
-        Some("browser_launch" | "page_load") => ErrorCode::Unavailable,
-        Some("arguments") => ErrorCode::InvalidArgument,
-        Some("project_stage") => ErrorCode::Unavailable,
-        Some("finalize") => ErrorCode::ProtocolMismatch,
-        Some("render_wait_timeout") => ErrorCode::Timeout,
-        Some(
-            "renderer_state_frame_clock"
-            | "renderer_state_authoring_protocol"
-            | "renderer_log_authoring_protocol"
-            | "renderer_state_playback_protocol"
-            | "renderer_log_playback_protocol"
-            | "renderer_log_exporter_missing"
-            | "renderer_log_async_property",
-        ) => ErrorCode::ProtocolMismatch,
-        Some("renderer_state_webgl_unavailable" | "renderer_log_webgl_unavailable") => {
-            ErrorCode::Unavailable
-        }
-        Some(
-            "renderer_state_model_invariant"
-            | "renderer_log_model_invariant"
-            | "renderer_state_authoring_model"
-            | "renderer_log_authoring_model"
-            | "renderer_state_invalid_scene"
-            | "renderer_log_invalid_scene"
-            | "renderer_state_range_error"
-            | "renderer_log_range_error",
-        ) => ErrorCode::InvalidArgument,
-        Some("renderer_state_type_error" | "renderer_log_type_error") => {
-            ErrorCode::PluginProtocolError
-        }
-        Some("renderer_state_semwright_native") => ErrorCode::InvalidArgument,
-        Some("renderer_state_semwright_exporter" | "renderer_state_before_first_frame") => {
-            ErrorCode::ProtocolMismatch
-        }
-        Some("renderer_state_motion_core" | "renderer_state_error" | "renderer_log_error") => {
-            ErrorCode::Internal
-        }
-        Some("renderer_state_motion_2d" | "renderer_state_after_first_frame") => {
-            ErrorCode::BackendFailed
-        }
-        Some("render_result_aborted") => ErrorCode::Cancelled,
-        Some("render_result_error") => ErrorCode::BackendFailed,
-        Some("render_wait") => ErrorCode::Timeout,
-        Some("render_result_unknown" | "render_nonzero") => ErrorCode::ProtocolMismatch,
-        _ => ErrorCode::BackendFailed,
-    }
+    serde_json::from_value(value.get("errorClass")?.clone()).ok()
+}
+
+fn renderer_failure_code(stdout: &[u8]) -> ErrorCode {
+    renderer_failure_class(stdout)
+        .map(RenderFailureClass::code)
+        .unwrap_or(ErrorCode::BackendFailed)
 }
 
 fn renderer_process_failure_code(status: &std::process::ExitStatus, stdout: &[u8]) -> ErrorCode {
@@ -693,12 +756,16 @@ async fn run_render(
     }
     if !status.success() {
         let _ = fs::remove_dir_all(&output);
-        let code = renderer_process_failure_code(&status, &stdout);
+        let failure_class = renderer_failure_class(&stdout);
+        if let Some(failure_class) = failure_class {
+            set_failure_class(jobs, job_ref, failure_class).await;
+        }
+        let code = failure_class
+            .map(RenderFailureClass::code)
+            .unwrap_or_else(|| renderer_process_failure_code(&status, &stdout));
         return Err(Error::new(
             code,
-            format!(
-                "Pinned Motion Canvas renderer exited without a validated success receipt ({code:?})"
-            ),
+            "Pinned Motion Canvas renderer exited without a validated success receipt",
         ));
     }
     let stdout = String::from_utf8(stdout).map_err(|_| {
@@ -1252,7 +1319,8 @@ mod runtime_path_tests {
         let public = JobView {
             job_ref: job_ref.clone(),
             state: RenderState::Failed,
-            error: Some("redacted-in-protocol".into()),
+            failure_class: Some(RenderFailureClass::RendererStateMotionCore),
+            error: Some("Motion Canvas render failed".into()),
             artifact: None,
         };
         manager.jobs.lock().await.insert(
@@ -1269,6 +1337,11 @@ mod runtime_path_tests {
             Some(ErrorCode::ResourceExhausted)
         );
         let wire = serde_json::to_value(public).unwrap();
+        assert_eq!(
+            wire.get("failure_class")
+                .and_then(serde_json::Value::as_str),
+            Some("renderer_state_motion_core")
+        );
         assert!(wire.get("failure_code").is_none());
     }
 }

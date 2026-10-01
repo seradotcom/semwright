@@ -441,10 +441,22 @@ impl AgentAStageAdapter {
             )
             .await?;
         runner.finish()?;
-        ensure(
-            rendered.get("state").and_then(Value::as_str) == Some("succeeded"),
-            "Motion native render did not succeed",
-        )?;
+        if rendered.get("state").and_then(Value::as_str) != Some("succeeded") {
+            let failure_class = rendered
+                .get("failure_class")
+                .and_then(Value::as_str)
+                .unwrap_or("unclassified");
+            ensure(
+                failure_class
+                    .bytes()
+                    .all(|byte| byte.is_ascii_lowercase() || byte == b'_' || byte.is_ascii_digit())
+                    && failure_class.len() <= 64,
+                "Motion renderer returned an invalid failure classification",
+            )?;
+            return Err(Error::Unknown(format!(
+                "Motion native render failed ({failure_class})"
+            )));
+        }
         let job_ref = rendered
             .get("job_ref")
             .and_then(Value::as_str)
