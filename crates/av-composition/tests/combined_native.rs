@@ -850,15 +850,12 @@ async fn audio_consumer_receipt(
         "bit_depth": 16,
         "output_file": "sync-final.wav"
     });
-    let direct = harness.direct_faust_sample_render(render_args.clone()).await;
+    let direct = harness
+        .direct_faust_sample_render(render_args.clone())
+        .await;
     eprintln!("combined-e2e direct Faust sample.render diagnostic={direct:?}");
     direct.expect("raw Driver Host Faust sample.render must succeed before Broker dispatch");
-    let render = call(
-        executor,
-        "driver.faust-audio.sample.render",
-        render_args,
-    )
-    .await;
+    let render = call(executor, "driver.faust-audio.sample.render", render_args).await;
     session
         .finish_apply(candidate.permit, ExecutionStatus::Completed)
         .unwrap();
