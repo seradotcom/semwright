@@ -456,10 +456,46 @@ fn renderer_failure_code(stdout: &[u8]) -> ErrorCode {
             | "renderer_log_error",
         ) => ErrorCode::Internal,
         Some("render_result_aborted") => ErrorCode::Cancelled,
-        Some(
-            "render_result_error" | "render_result_unknown" | "render_nonzero" | "render_wait",
-        ) => ErrorCode::BackendFailed,
+        Some("render_result_error" | "render_wait") => ErrorCode::Internal,
+        Some("render_result_unknown" | "render_nonzero") => ErrorCode::ProtocolMismatch,
         _ => ErrorCode::BackendFailed,
+    }
+}
+
+fn renderer_process_failure_code(status: &std::process::ExitStatus, stdout: &[u8]) -> ErrorCode {
+    let receipt = renderer_failure_code(stdout);
+    if receipt != ErrorCode::BackendFailed {
+        return receipt;
+    }
+    // A valid structured receipt may intentionally classify a controlled
+    // renderer failure as BackendFailed. Detect receipt presence before
+    // falling back to OS exit status.
+    let structured = std::str::from_utf8(stdout)
+        .ok()
+        .and_then(|text| text.lines().rev().find(|line| line.starts_with('{')))
+        .and_then(|line| serde_json::from_str::<serde_json::Value>(line).ok())
+        .is_some_and(|value| value.get("ok") == Some(&serde_json::Value::Bool(false)));
+    if structured {
+        return ErrorCode::BackendFailed;
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::ExitStatusExt;
+        if let Some(signal) = status.signal() {
+            return match signal {
+                libc::SIGKILL | libc::SIGXCPU | libc::SIGXFSZ => ErrorCode::ResourceExhausted,
+                libc::SIGINT | libc::SIGTERM => ErrorCode::Cancelled,
+                libc::SIGABRT | libc::SIGBUS | libc::SIGILL | libc::SIGSEGV => ErrorCode::Internal,
+                _ => ErrorCode::Unavailable,
+            };
+        }
+    }
+    match status.code() {
+        Some(137 | 152 | 153) => ErrorCode::ResourceExhausted,
+        Some(130 | 143) => ErrorCode::Cancelled,
+        Some(1 | 2) => ErrorCode::PluginProtocolError,
+        Some(_) => ErrorCode::Internal,
+        None => ErrorCode::Unavailable,
     }
 }
 
@@ -633,13 +669,12 @@ async fn run_render(
         ));
     }
     if !status.success() {
-        let message = String::from_utf8_lossy(&stderr);
         let _ = fs::remove_dir_all(&output);
+        let code = renderer_process_failure_code(&status, &stdout);
         return Err(Error::new(
-            renderer_failure_code(&stdout),
+            code,
             format!(
-                "Motion Canvas renderer failed: {}",
-                message.chars().take(16_384).collect::<String>()
+                "Pinned Motion Canvas renderer exited without a validated success receipt ({code:?})"
             ),
         ));
     }
@@ -1026,7 +1061,7 @@ mod runtime_path_tests {
         );
         assert_eq!(
             renderer_failure_code(br#"{"ok":false,"errorClass":"render_wait"}"#),
-            ErrorCode::BackendFailed
+            ErrorCode::Internal
         );
         assert_eq!(
             renderer_failure_code(br#"{"ok":false,"errorClass":"render_wait_timeout"}"#),
@@ -1046,7 +1081,11 @@ mod runtime_path_tests {
         );
         assert_eq!(
             renderer_failure_code(br#"{"ok":false,"errorClass":"render_nonzero"}"#),
-            ErrorCode::BackendFailed
+            ErrorCode::ProtocolMismatch
+        );
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"render_result_error"}"#),
+            ErrorCode::Internal
         );
         assert_eq!(
             renderer_failure_code(br#"{"ok":false,"errorClass":"renderer_log_exporter_missing"}"#),
@@ -1075,6 +1114,36 @@ mod runtime_path_tests {
                 "{hostile:?}"
             );
         }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn renderer_process_exit_without_receipt_is_safely_classified() {
+        use std::os::unix::process::ExitStatusExt;
+
+        let exit_one = std::process::ExitStatus::from_raw(1 << 8);
+        assert_eq!(
+            renderer_process_failure_code(&exit_one, b""),
+            ErrorCode::PluginProtocolError
+        );
+
+        let killed = std::process::ExitStatus::from_raw(libc::SIGKILL);
+        assert_eq!(
+            renderer_process_failure_code(&killed, b""),
+            ErrorCode::ResourceExhausted
+        );
+
+        let cpu = std::process::ExitStatus::from_raw(libc::SIGXCPU);
+        assert_eq!(
+            renderer_process_failure_code(&cpu, b""),
+            ErrorCode::ResourceExhausted
+        );
+
+        let structured = br#"{"ok":false,"errorClass":"renderer_log_type_error"}"#;
+        assert_eq!(
+            renderer_process_failure_code(&exit_one, structured),
+            ErrorCode::Internal
+        );
     }
 
     #[tokio::test]
