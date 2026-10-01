@@ -21,9 +21,7 @@ PATTERNS = (
 
 # Existing runtime debt. Exact counts make this a ratchet: entries may disappear
 # as drivers migrate to generic primitives, but they may never grow silently.
-LEGACY_COUNTS = {
-    ("crates/driver-blender/src/main.rs", "tool_path("): 1,
-}
+LEGACY_COUNTS = {}
 
 issues: list[str] = []
 legacy_seen: Counter[tuple[str, str]] = Counter()

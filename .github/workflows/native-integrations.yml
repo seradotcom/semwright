@@ -341,7 +341,8 @@ jobs:
             2>&1 | tee verification/native-ci/blender-background-preflight.log
       - name: Build Blender driver surface
         run: |
-          cargo build --locked -p semwright-driver-blender --bin semwright-blender-driver \
+          cargo build --locked -p semwright-driver-blender \
+            --bin semwright-blender-driver --bin semwright-blender-session-runner \
             -p semwright-plugin-host --bin semwright-sandbox \
             -p semwright-cli --bin semwright \
             -p semwright-daemon --bin semwrightd
