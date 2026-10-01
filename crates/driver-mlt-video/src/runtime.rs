@@ -397,6 +397,18 @@ impl ServiceCatalog {
         Ok(values)
     }
 }
+pub fn constrained_environment() -> BTreeMap<String, String> {
+    BTreeMap::from([
+        ("LC_ALL".into(), "C".into()),
+        ("HOME".into(), "/home".into()),
+        ("PATH".into(), "/usr/bin:/bin".into()),
+        ("QT_QPA_PLATFORM".into(), "offscreen".into()),
+        ("XDG_CONFIG_HOME".into(), "/tmp/config".into()),
+        ("XDG_CACHE_HOME".into(), "/tmp/cache".into()),
+        ("MLT_NO_VDPAU".into(), "1".into()),
+    ])
+}
+
 pub struct Runtime {
     pub melt: Tool,
     pub ffprobe: Tool,
@@ -473,15 +485,7 @@ impl Runtime {
         Ok(runtime)
     }
     fn environment() -> BTreeMap<String, String> {
-        BTreeMap::from([
-            ("LC_ALL".into(), "C".into()),
-            ("HOME".into(), "/home".into()),
-            ("PATH".into(), "/usr/bin:/bin".into()),
-            ("QT_QPA_PLATFORM".into(), "offscreen".into()),
-            ("XDG_CONFIG_HOME".into(), "/tmp/config".into()),
-            ("XDG_CACHE_HOME".into(), "/tmp/cache".into()),
-            ("MLT_NO_VDPAU".into(), "1".into()),
-        ])
+        constrained_environment()
     }
 
     fn input_path(&self, inputs: &Path, name: &str) -> PathBuf {
@@ -725,28 +729,12 @@ impl Runtime {
         profile: &RenderProfile,
         cancel: &AtomicBool,
     ) -> Result<ProcessResult> {
-        let mut args: Vec<OsString> = vec![
+        let args = render_argv(
             self.input_path(inputs, "project.mlt").into_os_string(),
-            "-silent".into(),
-            "-consumer".into(),
-            format!(
-                "avformat:{}",
-                self.work_path(work, &format!("partial.{}", profile.extension))
-                    .to_string_lossy()
-            )
-            .into(),
-            format!("f={}", profile.container).into(),
-        ];
-        args.extend(render_processing_args(profile));
-        if let Some(codec) = profile.video_codec {
-            args.push(format!("vcodec={codec}").into());
-            if codec == "libx264" {
-                args.extend(h264_encoding_args());
-            }
-        } else {
-            args.push("vn=1".into());
-        }
-        args.push(format!("acodec={}", profile.audio_codec).into());
+            self.work_path(work, &format!("partial.{}", profile.extension))
+                .into_os_string(),
+            profile,
+        );
         run(
             &self.spec("melt", args, inputs, work, self.timeout)?,
             cancel,
@@ -767,56 +755,87 @@ impl Runtime {
             &format!("partial.{}", profile.extension),
             cancel,
         )?;
-        if profile.video_codec.is_some() {
-            if info.width != Some(expected.width) || info.height != Some(expected.height) {
-                return Err(Error::new(
-                    "BackendFailed",
-                    "Rendered dimensions do not match plan",
-                ));
-            }
-            if let Some(observed_frames) = info.frames
-                && observed_frames != frames
-            {
-                return Err(Error::new(
-                    "BackendFailed",
-                    format!(
-                        "Rendered frame count differs from plan: observed {observed_frames}, expected {frames}"
-                    ),
-                ));
-            }
-        }
-        if info.duration_num == 0 || info.duration_den == 0 {
-            return Err(Error::new(
-                "BackendFailed",
-                "Rendered artifact has no measurable duration",
-            ));
-        }
-        let actual = u128::from(info.duration_num) * u128::from(expected.fps.num);
-        let wanted =
-            u128::from(frames) * u128::from(expected.fps.den) * u128::from(info.duration_den);
-        let tolerance = u128::from(expected.fps.den) * u128::from(info.duration_den);
-        if actual.abs_diff(wanted) > tolerance {
-            return Err(Error::new(
-                "BackendFailed",
-                format!(
-                    "Rendered duration differs by more than one project frame: observed {}/{}, expected {} frames at {}/{} fps",
-                    info.duration_num,
-                    info.duration_den,
-                    frames,
-                    expected.fps.num,
-                    expected.fps.den
-                ),
-            ));
-        }
-        if !info.audio {
-            return Err(Error::new(
-                "BackendFailed",
-                "Curated render profile requires an audio stream",
-            ));
-        }
+        validate_render_media(&info, profile, expected, frames)?;
         Ok(info)
     }
 }
+
+pub fn validate_render_media(
+    info: &MediaInfo,
+    profile: &RenderProfile,
+    expected: &Profile,
+    frames: u64,
+) -> Result<()> {
+    if profile.video_codec.is_some() {
+        if info.width != Some(expected.width) || info.height != Some(expected.height) {
+            return Err(Error::new(
+                "BackendFailed",
+                "Rendered dimensions do not match plan",
+            ));
+        }
+        if let Some(observed_frames) = info.frames
+            && observed_frames != frames
+        {
+            return Err(Error::new(
+                "BackendFailed",
+                format!(
+                    "Rendered frame count differs from plan: observed {observed_frames}, expected {frames}"
+                ),
+            ));
+        }
+    }
+    if info.duration_num == 0 || info.duration_den == 0 {
+        return Err(Error::new(
+            "BackendFailed",
+            "Rendered artifact has no measurable duration",
+        ));
+    }
+    let actual = u128::from(info.duration_num) * u128::from(expected.fps.num);
+    let wanted = u128::from(frames) * u128::from(expected.fps.den) * u128::from(info.duration_den);
+    let tolerance = u128::from(expected.fps.den) * u128::from(info.duration_den);
+    if actual.abs_diff(wanted) > tolerance {
+        return Err(Error::new(
+            "BackendFailed",
+            format!(
+                "Rendered duration differs by more than one project frame: observed {}/{}, expected {} frames at {}/{} fps",
+                info.duration_num, info.duration_den, frames, expected.fps.num, expected.fps.den
+            ),
+        ));
+    }
+    if !info.audio {
+        return Err(Error::new(
+            "BackendFailed",
+            "Curated render profile requires an audio stream",
+        ));
+    }
+    Ok(())
+}
+
+pub fn render_argv(
+    project: impl Into<OsString>,
+    output: impl Into<OsString>,
+    profile: &RenderProfile,
+) -> Vec<OsString> {
+    let mut args = vec![
+        project.into(),
+        "-silent".into(),
+        "-consumer".into(),
+        format!("avformat:{}", output.into().to_string_lossy()).into(),
+        format!("f={}", profile.container).into(),
+    ];
+    args.extend(render_processing_args(profile));
+    if let Some(codec) = profile.video_codec {
+        args.push(format!("vcodec={codec}").into());
+        if codec == "libx264" {
+            args.extend(h264_encoding_args());
+        }
+    } else {
+        args.push("vn=1".into());
+    }
+    args.push(format!("acodec={}", profile.audio_codec).into());
+    args
+}
+
 fn h264_encoding_args() -> Vec<OsString> {
     // The 52-second launch-film render demonstrated that libx264 medium can exceed
     // the bounded CI wall-clock budget. Keep acceleration inside the encoder only:

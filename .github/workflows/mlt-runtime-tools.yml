@@ -1,0 +1,182 @@
+name: MLT runtime tools
+on:
+  pull_request:
+    paths:
+      - 'crates/driver-mlt-video/**'
+      - 'crates/driver-host/**'
+      - 'crates/driver-sdk/**'
+      - 'crates/platform-api/**'
+      - 'crates/platform-linux-sys/**'
+      - 'crates/platform-services/**'
+      - 'scripts/dev/ci-driver-bwrap-profile.sh'
+      - '.github/workflows/mlt-runtime-tools.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+concurrency:
+  group: mlt-runtime-tools-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_DEV_DEBUG: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+jobs:
+  live-linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: mlt-runtime-tools
+      - name: Install MLT runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap python3 melt ffmpeg
+          mkdir -p verification/mlt-runtime-tools
+          melt -version | head -5 | tee verification/mlt-runtime-tools/mlt-version.log
+          ffprobe -version | head -3 | tee verification/mlt-runtime-tools/ffprobe-version.log
+      - name: Enforce Driver Host AppArmor chain
+        run: |
+          bash scripts/dev/ci-driver-bwrap-profile.sh verification/mlt-runtime-tools/sandbox.log
+      - name: MLT unit and runner contract
+        run: |
+          cargo test --locked -p semwright-mlt-video-driver --all-features 2>&1 | tee verification/mlt-runtime-tools/tests.log
+          cargo clippy --locked -p semwright-mlt-video-driver --all-targets --all-features -- -D warnings
+      - name: Real Host-mediated MLT discovery and live driver
+        env:
+          SEMWRIGHT_TEST_MLT_VIDEO: '1'
+          SEMWRIGHT_TEST_MELT: /usr/bin/melt
+          SEMWRIGHT_TEST_FFPROBE: /usr/bin/ffprobe
+          SEMWRIGHT_TEST_FFMPEG: /usr/bin/ffmpeg
+          SEMWRIGHT_TEST_BWRAP: /usr/bin/bwrap
+          SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
+        run: |
+          cargo build --locked -p semwright-plugin-host --bin semwright-sandbox \
+            -p semwright-mlt-video-driver --bin semwright-mlt-video-driver \
+            -p semwright-mlt-video-driver --bin semwright-mlt-runtime-runner
+          MELT_REAL=$(realpath /usr/bin/melt)
+          MLT_RUNTIME_ROOT=$(dirname "$(dirname "$MELT_REAL")")
+          target/debug/semwright-mlt-runtime-runner \
+            discover --runtime-root "$MLT_RUNTIME_ROOT" --melt-sealed "$MELT_REAL" \
+            > verification/mlt-runtime-tools/direct-discovery.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          value = json.loads(Path("verification/mlt-runtime-tools/direct-discovery.json").read_text())
+          assert value["schema"] == 1 and value["operation"] == "discover"
+          assert value["version"] and len(value["groups"]) == 6
+          PY
+          exec {MELT_FD}< "$MELT_REAL"
+          nested=(bwrap --die-with-parent --new-session --unshare-all --clearenv --cap-drop ALL
+            --proc /proc --dev /dev --tmpfs /tmp
+            --dir /home --dir /workspace --dir /plugin --dir /plugin/tools
+            --dir /run --dir /run/secrets --dir /etc
+            --ro-bind /usr /usr
+            --ro-bind target/debug/semwright-mlt-runtime-runner /plugin/bin
+            --ro-bind target/debug/semwright-sandbox /plugin/sandbox
+            --ro-bind "$MLT_RUNTIME_ROOT" /workspace/mlt-runtime
+            --perms 0500 --file "$MELT_FD" /plugin/tools/melt
+            --setenv HOME /home --setenv PATH /usr/bin:/bin --setenv LANG C.UTF-8
+            --setenv XDG_CACHE_HOME /tmp/cache --setenv XDG_CONFIG_HOME /tmp/config
+            --setenv XDG_DATA_HOME /tmp/data --setenv SEMWRIGHT_DRIVER_SANDBOX landlock-bwrap-v1
+            --chdir /tmp)
+          for root in /lib /lib64; do
+            [[ ! -e "$root" ]] || nested+=(--ro-bind "$root" "$root")
+          done
+          [[ ! -f /etc/ld.so.cache ]] || nested+=(--ro-bind /etc/ld.so.cache /etc/ld.so.cache)
+          [[ ! -d /etc/alternatives ]] || nested+=(--ro-bind /etc/alternatives /etc/alternatives)
+          nested+=(-- /plugin/sandbox
+            --limit-nofile 512 --limit-nproc 256 --limit-cpu 30
+            --limit-as 4294967296 --limit-fsize 1073741824
+            --exec-root /workspace/mlt-runtime --exec-root /plugin/tools/melt
+            -- /plugin/bin discover --runtime-root /workspace/mlt-runtime
+            --melt-sealed /plugin/tools/melt)
+          set +e
+          "${nested[@]}" > verification/mlt-runtime-tools/nested-discovery.json \
+            2> verification/mlt-runtime-tools/nested-discovery.stderr
+          nested_rc=$?
+          set -e
+          echo "exit_code=$nested_rc" > verification/mlt-runtime-tools/nested-discovery.exit
+          cat verification/mlt-runtime-tools/nested-discovery.json || true
+          cat verification/mlt-runtime-tools/nested-discovery.stderr || true
+          test "$nested_rc" -eq 0
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          direct = json.loads(Path("verification/mlt-runtime-tools/direct-discovery.json").read_text())
+          nested = json.loads(Path("verification/mlt-runtime-tools/nested-discovery.json").read_text())
+          assert nested == direct
+          PY
+
+          FFPROBE_REAL=$(realpath /usr/bin/ffprobe)
+          PROBE_ROOT="$RUNNER_TEMP/mlt-probe-scratch"
+          rm -rf "$PROBE_ROOT"
+          install -d -m 0700 "$PROBE_ROOT/job-probe"
+          ffmpeg -hide_banner -loglevel error -y -f lavfi -i color=c=red:s=160x90:d=1 \
+            -an -c:v ffv1 -f matroska "$PROBE_ROOT/job-probe/probe.bin"
+          chmod 0400 "$PROBE_ROOT/job-probe/probe.bin"
+          exec {MELT_FD_PROBE}< "$MELT_REAL"
+          exec {FFPROBE_FD}< "$FFPROBE_REAL"
+          probe_nested=(bwrap --die-with-parent --new-session --unshare-all --clearenv --cap-drop ALL
+            --proc /proc --dev /dev --tmpfs /tmp
+            --dir /home --dir /workspace --dir /plugin --dir /plugin/tools
+            --dir /run --dir /run/secrets --dir /etc
+            --ro-bind /usr /usr
+            --ro-bind target/debug/semwright-mlt-runtime-runner /plugin/bin
+            --ro-bind target/debug/semwright-sandbox /plugin/sandbox
+            --ro-bind "$MLT_RUNTIME_ROOT" /workspace/mlt-runtime
+            --bind "$PROBE_ROOT" /workspace/scratch
+            --perms 0500 --file "$MELT_FD_PROBE" /plugin/tools/melt
+            --perms 0500 --file "$FFPROBE_FD" /plugin/tools/ffprobe
+            --setenv HOME /home --setenv PATH /usr/bin:/bin --setenv LANG C.UTF-8
+            --setenv XDG_CACHE_HOME /tmp/cache --setenv XDG_CONFIG_HOME /tmp/config
+            --setenv XDG_DATA_HOME /tmp/data --setenv SEMWRIGHT_DRIVER_SANDBOX landlock-bwrap-v1
+            --chdir /tmp)
+          for root in /lib /lib64; do
+            [[ ! -e "$root" ]] || probe_nested+=(--ro-bind "$root" "$root")
+          done
+          [[ ! -f /etc/ld.so.cache ]] || probe_nested+=(--ro-bind /etc/ld.so.cache /etc/ld.so.cache)
+          [[ ! -d /etc/alternatives ]] || probe_nested+=(--ro-bind /etc/alternatives /etc/alternatives)
+          probe_nested+=(-- /plugin/sandbox
+            --limit-nofile 512 --limit-nproc 256 --limit-cpu 30
+            --limit-as 4294967296 --limit-fsize 1073741824
+            --read-root /workspace/scratch --write-root /workspace/scratch
+            --exec-root /workspace/mlt-runtime
+            --exec-root /plugin/tools/melt --exec-root /plugin/tools/ffprobe
+            -- /plugin/bin probe --runtime-root /workspace/mlt-runtime
+            --ffprobe-sealed /plugin/tools/ffprobe
+            --scratch-root /workspace/scratch
+            --directory job-probe --name probe.bin)
+          set +e
+          "${probe_nested[@]}" > verification/mlt-runtime-tools/nested-probe.json \
+            2> verification/mlt-runtime-tools/nested-probe.stderr
+          probe_rc=$?
+          set -e
+          echo "exit_code=$probe_rc" > verification/mlt-runtime-tools/nested-probe.exit
+          cat verification/mlt-runtime-tools/nested-probe.json || true
+          cat verification/mlt-runtime-tools/nested-probe.stderr || true
+          test "$probe_rc" -eq 0
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          value = json.loads(Path("verification/mlt-runtime-tools/nested-probe.json").read_text())
+          assert value["schema"] == 1 and value["operation"] == "probe"
+          assert value["media"]["streams"]
+          PY
+
+          cargo test --locked -p semwright-mlt-video-driver real_mlt_video_driver_runs_inside_sandbox -- --ignored --nocapture \
+            2>&1 | tee verification/mlt-runtime-tools/live.log
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: mlt-runtime-tools-evidence
+          path: verification/mlt-runtime-tools
+          retention-days: 14
