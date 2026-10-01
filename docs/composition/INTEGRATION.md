@@ -8,7 +8,7 @@ This file is the source-controlled integration ledger. B has now published and b
 - Common C0: 26602e4b25929be869d69ef28fef4dd9713180d7
 - A branch: feat/composition-media
 - A product source SHA entering initial integration: 34b850507c699c4f67056478210aa97e89bf7548
-- Latest A branch SHA reconciled into the integration branch: ffe7e59c5ba0d28ac9193ec203307dd7969fee4f
+- Latest A branch SHA reconciled into the integration branch: 3987a5f5cceeebe439b73d185dad0b1c7fb3bad5
 - B baseline: 93f70241e9fb9d4c99ca76fab55c8517574a9f6f
 - B branch: feat/audio-completion
 - B consumed C0 through normal Git ancestry: verified locally
@@ -58,14 +58,14 @@ Unexpected conflicts inside audio-domain/Faust/Ardour are returned to B for expl
 
 ## Candidate evidence
 
-- A_HEAD_SHA: ffe7e59c5ba0d28ac9193ec203307dd7969fee4f
+- A_HEAD_SHA: 3987a5f5cceeebe439b73d185dad0b1c7fb3bad5
 - B_READY_SHA: 8ed2d30c8ba797ebd5b8c102d34f8ab5bb3a28b3
 - C0_SHA: 26602e4b25929be869d69ef28fef4dd9713180d7
 - C1_CONSUMED_SHA: PENDING
 - INTEGRATION_CANDIDATE_SHA: workflow-bound exact HEAD of `integration/composition-av`; current draft is PR #202 and any source change supersedes earlier SHA evidence
 - COMMON_CONTRACTS: PENDING
 - FIGMA_NATIVE: PENDING
-- MOTION_NATIVE: PENDING
+- MOTION_NATIVE: private CircleCI iteration PASS at `edc492583068030d1d23c28810fe57592b4d0036` (build 11 / workflow `7c60fc43-8c1e-40e4-a6c2-22ca3a51aadb`); diagnostic only, exact-SHA GitHub certification PENDING
 - AUDIO_NATIVE: PENDING
 - AV_NATIVE_MUX_DECODE_SYNC: PENDING
 - SECURITY_TARGETED: PENDING

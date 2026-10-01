@@ -1,29 +1,29 @@
 # Composition / Figma / Motion / AV traceability
 
-This file maps the Agent-A master requirements to implementation and evidence. It is not an acceptance report. IMPLEMENTED means code/tests exist; only exact-SHA CI/native evidence may change a gate to PASS. Combined A+B rows remain PENDING until B publishes its formal handoff and one combined candidate SHA exists.
+This file maps the Agent-A master requirements to implementation and evidence. It is not an acceptance report. IMPLEMENTED means code/tests exist; only exact-SHA CI/native evidence may change a gate to PASS. B published and A integrated certified audio SHA `8ed2d30c8ba797ebd5b8c102d34f8ab5bb3a28b3` (audio certification run `36744494536`). Combined A+B rows remain PENDING until one exact integration-candidate SHA passes the required combined gates.
 
 ## Agent A mission
 
 | ID | Implementation / evidence surface | Current state |
 |---|---|---|
 | A01 | Architecture/research delta, pinned-runtime notes, upstream boundaries | IMPLEMENTED; exact-SHA package gate pending |
-| A02 | C0 generic Composition/media-time; C1 AV consumer and ArtifactHandoffHint | C0 consumed by B; final C1 consumption PENDING B |
+| A02 | C0 generic Composition/media-time; C1 AV consumer and ArtifactHandoffHint | C0 consumed by B; additive AV consumer contract integrated by A without claiming B-branch C1 certification |
 | A03 | PlanVault, Controller, profiles, evidence, budgets, Broker executor | IMPLEMENTED; exact-SHA CI pending |
 | A04 | Eight Figma composition capabilities retained over common lifecycle | IMPLEMENTED; exact-SHA Figma native evidence pending |
 | A05 | Server-owned plans, freshness and cumulative repair budgets | IMPLEMENTED; exact-SHA CI pending |
 | A06 | Film/Sequence/Beat/Shot model above video-domain | IMPLEMENTED |
-| A07 | Motion inspect/plan/apply/measure/validate/repair/verify and native jobs | IMPLEMENTED; exact-SHA native evidence pending |
+| A07 | Motion inspect/plan/apply/measure/validate/repair/verify and native jobs | IMPLEMENTED; private CircleCI native iteration PASS at `edc4925...`; exact-SHA GitHub certification pending |
 | A08 | 40 typed primitives, 12 archetypes, versioned editorial system | IMPLEMENTED |
 | A09 | Native layout, Unicode/RTL text, font evidence, semantic aspect reflow | IMPLEMENTED; exact-SHA native evidence pending |
 | A10 | Temporal DAG, exact rational solver, hard/soft constraints | IMPLEMENTED |
-| A11 | Renderer observations, explicit frame coverage, speed/acceleration | IMPLEMENTED; exact-SHA native evidence pending |
+| A11 | Renderer observations, explicit frame coverage, speed/acceleration | IMPLEMENTED; private native authoring iteration PASS at `edc4925...`; exact-SHA certification pending |
 | A12 | Deterministic validation and bounded repair candidates | IMPLEMENTED; M07 hold/retime regressions added |
-| A13 | Fixed AV graph, B public receipt boundary, dependency reuse/invalidation | A-SIDE IMPLEMENTED; real B/combined E2E PENDING |
+| A13 | Fixed AV graph, B public receipt boundary, dependency reuse/invalidation | Real certified B source is integrated; exact combined E2E PENDING |
 | A14 | Motion render, FFV1 mezzanine, MLT H.264/AAC mux, full decoded sync | IMPLEMENTED; exact-SHA native evidence pending |
-| A15 | Figma, video and fail-closed AV Skills plus production runbook | IMPLEMENTED; public audio Composition requirement PENDING B |
+| A15 | Figma, video and fail-closed AV Skills plus production runbook | IMPLEMENTED; certified public audio surfaces are present in the combined branch; exact-candidate Skill/catalog gate pending |
 | A16 | Contracts, Figma, Motion, AV, security, fuzz and mutation workflows | IMPLEMENTED; exact-SHA results pending |
 | A17 | Reproducible technical benchmark harness | IMPLEMENTED; no advertising claim |
-| A18 | Exact B handoff and one combined candidate | BLOCKED BY B_READY=false |
+| A18 | Exact B handoff and one combined candidate | B READY SHA integrated by Git ancestry; exact combined-candidate native certification IN PROGRESS |
 | A19 | Code/docs/Skills/CI/package/runbook/evidence tooling | IMPLEMENTED except combined evidence/ZIP after A18 |
 
 ## General gates
@@ -31,14 +31,14 @@ This file maps the Agent-A master requirements to implementation and evidence. I
 | Gate | Mapping | Acceptance state |
 |---|---|---|
 | G01 | Frozen baselines, isolated worktrees, A.json/B.json | PENDING final combined provenance |
-| G02 | B rescue manifest/hashes | PENDING B |
-| G03 | Exact C0 shared; additive C1 handoff contract | C0 satisfied; C1 consumption PENDING B |
-| G04 | Common kernel in Figma/Motion and B audio-authoring C0 consumer | PENDING public audio Composition + combined E2E |
+| G02 | B rescue manifest/hashes | B branch certified at `8ed2d30...`; combined candidate retains B lineage; final candidate provenance pending |
+| G03 | Exact C0 shared; additive C1 handoff contract | C0 satisfied on both histories; additive A-side AV contract integrated; exact combined consumer evidence pending |
+| G04 | Common kernel in Figma/Motion and B audio-authoring C0 consumer | Production consumers are present and B audio is certified; exact combined E2E pending |
 | G05 | Plans/descriptors/Skills grant no authority; Broker rechecks | IMPLEMENTED; exact-SHA CI pending |
 | G06 | Freshness/partial/unknown/cancel/budgets | IMPLEMENTED; exact-SHA CI/native pending |
 | G07 | Inventory, mapping and evidence remain distinct | IMPLEMENTED |
 | G08 | Heavy work hosted; no heavy generated outputs committed | IMPLEMENTED; final hygiene evidence pending |
-| G09 | A+B integration on one SHA | PENDING B |
+| G09 | A+B integration on one SHA | A+B ancestry combined in PR #202; exact candidate certification pending |
 | G10 | Production runbook present; no promo video/R16 closure | IMPLEMENTED; final candidate prerequisites pending |
 
 ## Figma gates
@@ -71,7 +71,7 @@ This file maps the Agent-A master requirements to implementation and evidence. I
 
 ## AV gates
 
-No AV row is PASS before the exact B-ready SHA is merged and the technical E2E executes on one combined candidate.
+The exact B-ready SHA is merged into the A-owned integration branch. No AV row is PASS until the technical E2E executes successfully on one exact combined candidate SHA.
 
 | Gate | A-side implementation | Acceptance state |
 |---|---|---|
