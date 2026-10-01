@@ -39,6 +39,7 @@ class CandidateCertificationWorkflowTests(unittest.TestCase):
         self.assertIn("CERTIFICATION.json", text)
         self.assertIn("candidate-certification-${{ needs.verify.outputs.source_sha }}", text)
         self.assertIn("github.head_ref == 'candidate/runtime-tools-integration'", text)
+        self.assertIn("types: [ready_for_review]", text)
 
 
 if __name__ == "__main__":

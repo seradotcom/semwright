@@ -195,6 +195,10 @@ async fn linux_v5_runtime_tool_is_host_mediated_and_mount_scoped() {
         .descriptor
         .clone();
 
+    // The Host owns the verified/staged bytes after connect. Removing the owner's
+    // original source must not invalidate later Host-mediated execution.
+    std::fs::remove_file(&tool).expect("remove owner tool source after Host staging");
+
     let output = Provider::execute(
         provider.as_ref(),
         &Context {
