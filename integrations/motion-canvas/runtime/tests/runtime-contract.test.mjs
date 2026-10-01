@@ -78,9 +78,11 @@ test('native styled text preserves Motion Canvas public Txt layout contract', ()
 
 test('native observation never forces layout geometry before the native draw', () => {
   const renderIndex=nativeAuthoring.indexOf('const result=render(context);');
-  const bboxIndex=nativeAuthoring.indexOf('try{const box=n.cacheBBox();');
+  const matrixIndex=nativeAuthoring.indexOf('const matrix=context.getTransform().multiply(n.localToParent());');
+  const bboxIndex=nativeAuthoring.indexOf('const box=n.cacheBBox();');
   assert.ok(renderIndex>=0);
-  assert.ok(bboxIndex>renderIndex);
+  assert.ok(matrixIndex>renderIndex);
+  assert.ok(bboxIndex>matrixIndex);
   assert.ok(nativeAuthoring.includes('reg.rendered.add(id)'));
   assert.ok(nativeAuthoring.includes("drawn:rendered"));
   assert.ok(!nativeAuthoring.includes('local_size:n instanceof Layout&&n.width()>0'));

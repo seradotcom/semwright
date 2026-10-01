@@ -214,14 +214,17 @@ function clipAncestor(n:Node){for(let a:Node|null=n;a;a=a.parent()){if(a instanc
 function instrument(n:Node,id:string,reg:ReturnType<typeof registration>){
  const render=n.render.bind(n);
  n.render=(context:CanvasRenderingContext2D)=>{
-  const matrix=context.getTransform().multiply(n.localToParent());
   const result=render(context);
   if(n.absoluteOpacity()>0){
    reg.rendered.add(id);
-   // Layout/Txt cache bounds can require the native DOM layout pass. Never invoke
-   // that pass before Motion Canvas renders the node, and do not turn missing
-   // observation geometry into a render failure.
-   try{const box=n.cacheBBox();reg.draws.set(id,{canvas:context.canvas,matrix,bounds:{x:box.x,y:box.y,width:box.width,height:box.height},opacity:n.absoluteOpacity(),serial:reg.drawSerial++,clip:clipAncestor(n)});}catch{/* geometry remains UNKNOWN */}
+   // Layout/Txt transforms and cache bounds can require the native DOM layout
+   // pass. Observation must happen only after Motion Canvas completes its draw,
+   // and any unavailable geometry remains UNKNOWN rather than failing rendering.
+   try{
+    const matrix=context.getTransform().multiply(n.localToParent());
+    const box=n.cacheBBox();
+    reg.draws.set(id,{canvas:context.canvas,matrix,bounds:{x:box.x,y:box.y,width:box.width,height:box.height},opacity:n.absoluteOpacity(),serial:reg.drawSerial++,clip:clipAncestor(n)});
+   }catch{/* geometry remains UNKNOWN */}
   }
   return result;
  };
