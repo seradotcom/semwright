@@ -881,10 +881,12 @@ impl AvCoordinator {
                     "decoded sync probe is bound to a different encoded artifact",
                 )?;
                 let report = verify_sync(&b.spec.sync, &probe)?;
-                ensure(
-                    report.verdict == Verdict::Pass && report.missing.is_empty(),
-                    "encoded sync is missing, failed or uncertain",
-                )?;
+                if report.verdict != Verdict::Pass || !report.missing.is_empty() {
+                    return Err(Error::Invalid(format!(
+                        "encoded sync is missing, failed or uncertain: verdict={:?}, missing={:?}, exhaustive={}, observations={:?}",
+                        report.verdict, report.missing, report.exhaustive, report.observations
+                    )));
+                }
                 ensure(
                     report.observations.len() == b.spec.sync.cues.len()
                         && (!b.spec.sync.require_full_scan || report.exhaustive),
