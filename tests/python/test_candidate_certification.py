@@ -17,6 +17,9 @@ class CandidateCertificationWorkflowTests(unittest.TestCase):
             "packaging-certification.yml",
             "supply-chain.yml",
             "pre-r16.yml",
+            "runtime-tools-portability.yml",
+            "mlt-runtime-tools.yml",
+            "libreoffice-runtime-v8.yml",
         ]:
             self.assertIn(f"uses: ./.github/workflows/{workflow}", text)
 
@@ -34,7 +37,8 @@ class CandidateCertificationWorkflowTests(unittest.TestCase):
     def test_evidence_manifest_is_uploaded(self):
         text = WORKFLOW.read_text()
         self.assertIn("CERTIFICATION.json", text)
-        self.assertIn("candidate-certification-${{ inputs.source_sha }}", text)
+        self.assertIn("candidate-certification-${{ needs.verify.outputs.source_sha }}", text)
+        self.assertIn("github.head_ref == 'candidate/runtime-tools-integration'", text)
 
 
 if __name__ == "__main__":
