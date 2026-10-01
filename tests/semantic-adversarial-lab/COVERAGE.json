@@ -380,14 +380,15 @@
         "G-GODOT-009",
         "G-GODOT-010",
         "G-GODOT-011",
-        "G-GODOT-012"
+        "G-GODOT-012",
+        "G-GODOT-013"
       ],
       "source_sha": "e6bd9489d7983d275fd1454dd7ab26916d3fbb15",
       "suite_sha": null,
       "run_id": null,
       "job_id": null,
       "evidence": [],
-      "blocker": "Godot-native export blocker traced to G AppArmor path policy: nested exec permits /plugin/tools/** but prior runtime mounts used /source or /plugin/runtime. Runtime now mounted read-only at /plugin/tools/godot; export failures publish as G-GODOT-011/012 instead of erasing prior case evidence. Exact-SHA retest pending.",
+      "blocker": "Godot native exact-SHA evidence now isolates G-GODOT-006 persistence sentinel mismatch; G-GODOT-007 depends on a green persistence baseline. Export itself passes, while standalone launch false-failed only because /out exec is AppArmor-denied; launch now copies byte-identical artifact to allowed /tmp. Added G-GODOT-013 to detect D observer SCRIPT ERROR false-PASS (exit 0 + failures=[]). Retest pending.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },

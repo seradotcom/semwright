@@ -417,6 +417,13 @@ def run_godot(target: Path, source_sha: str, suite_sha: str, cases: list[dict], 
             "node00_present": "node00" in node_paths,
             "animator_present": "animator" in node_paths,
         }
+        inspect_text = (inspect_raw["stdout"] + inspect_raw["stderr"]).decode(errors="replace")
+        results_by_id["G-GODOT-013"] = {
+            "process_exit_zero": inspect_raw["exit_code"] == 0
+            and inspect_raw["termination_reason"] is None,
+            "observer_reported_failures_empty": observation.get("failures") == [],
+            "script_errors_absent": "SCRIPT ERROR:" not in inspect_text,
+        }
 
         first_raw, first_page = helper(
             enclosure,
@@ -745,8 +752,14 @@ def run_godot(target: Path, source_sha: str, suite_sha: str, cases: list[dict], 
             b"SEMWRIGHT_GODOT_PORT",
             b"GH_TOKEN",
         ]
+        launch_script = (
+            "set -eu; "
+            "cp /out/runner-artifacts/g_native.x86_64 /tmp/g_native.x86_64; "
+            "chmod 0755 /tmp/g_native.x86_64; "
+            "exec /usr/bin/timeout 5 /tmp/g_native.x86_64 --headless"
+        )
         launch_raw = enclosure.run(
-            ["/usr/bin/timeout", "5", "/out/runner-artifacts/g_native.x86_64", "--headless"],
+            ["/usr/bin/bash", "-c", launch_script],
             timeout=8,
         ) if exported else {
             "exit_code": -1, "termination_reason": "not_exported", "canaries_unchanged": True,
@@ -775,6 +788,7 @@ def run_godot(target: Path, source_sha: str, suite_sha: str, cases: list[dict], 
             "G-GODOT-010": [stale_raw],
             "G-GODOT-011": [export_raw],
             "G-GODOT-012": [export_raw, launch_raw],
+            "G-GODOT-013": [inspect_raw],
         }
         for case in cases:
             if case["id"] in blocked_cases:

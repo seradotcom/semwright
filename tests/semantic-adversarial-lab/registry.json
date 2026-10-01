@@ -4585,6 +4585,19 @@
       "expected": {
         "ok": true
       }
+    },
+    {
+      "id": "G-GODOT-013",
+      "owner": "D",
+      "requirement": "G06",
+      "lane": "godot-native",
+      "scope": "native_application",
+      "description": "native observer must not publish a clean receipt when supported mesh projection emits GDScript errors",
+      "expected": {
+        "process_exit_zero": true,
+        "observer_reported_failures_empty": true,
+        "script_errors_absent": true
+      }
     }
   ]
 }
