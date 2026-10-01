@@ -519,7 +519,7 @@ async fn run_render(
         Err(error) => {
             let _ = fs::remove_dir_all(&output);
             return Err(Error::new(
-                ErrorCode::BackendFailed,
+                ErrorCode::Unavailable,
                 format!("Failed to start pinned renderer helper: {error}"),
             ));
         }
@@ -579,10 +579,10 @@ async fn run_render(
     };
     let stdout = out_task
         .await
-        .map_err(|_| Error::new(ErrorCode::BackendFailed, "Renderer stdout task failed"))??;
+        .map_err(|_| Error::new(ErrorCode::Internal, "Renderer stdout task failed"))??;
     let stderr = err_task
         .await
-        .map_err(|_| Error::new(ErrorCode::BackendFailed, "Renderer stderr task failed"))??;
+        .map_err(|_| Error::new(ErrorCode::Internal, "Renderer stderr task failed"))??;
     if stdout.len() > MAX_PROCESS_OUTPUT as usize || stderr.len() > MAX_PROCESS_OUTPUT as usize {
         let _ = fs::remove_dir_all(&output);
         return Err(Error::new(
@@ -603,7 +603,7 @@ async fn run_render(
     }
     let stdout = String::from_utf8(stdout).map_err(|_| {
         Error::new(
-            ErrorCode::BackendFailed,
+            ErrorCode::PluginProtocolError,
             "Renderer returned non-UTF8 output",
         )
     })?;
@@ -613,20 +613,20 @@ async fn run_render(
         .find(|line| line.starts_with('{'))
         .ok_or_else(|| {
             Error::new(
-                ErrorCode::BackendFailed,
+                ErrorCode::PluginProtocolError,
                 "Renderer returned no structured result",
             )
         })?;
     let value: serde_json::Value = serde_json::from_str(result_line).map_err(|_| {
         Error::new(
-            ErrorCode::BackendFailed,
+            ErrorCode::PluginProtocolError,
             "Renderer returned malformed result",
         )
     })?;
     if value.get("ok") != Some(&serde_json::Value::Bool(true)) {
         let _ = fs::remove_dir_all(&output);
         return Err(Error::new(
-            ErrorCode::BackendFailed,
+            ErrorCode::PluginProtocolError,
             "Renderer did not report success",
         ));
     }
@@ -648,7 +648,7 @@ async fn run_render(
     .await
     .map_err(|_| {
         Error::new(
-            ErrorCode::BackendFailed,
+            ErrorCode::Internal,
             "Render artifact validation worker failed",
         )
     })?;
@@ -656,7 +656,11 @@ async fn run_render(
         Ok(artifact) => Ok(artifact),
         Err(error) => {
             let _ = fs::remove_dir_all(&output);
-            Err(error)
+            if error.code == ErrorCode::BackendFailed {
+                Err(Error::new(ErrorCode::ProtocolMismatch, error.message))
+            } else {
+                Err(error)
+            }
         }
     }
 }
