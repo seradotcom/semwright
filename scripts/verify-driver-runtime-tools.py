@@ -24,7 +24,6 @@ PATTERNS = (
 LEGACY_COUNTS = {
     ("crates/driver-blender/src/main.rs", "tool_path("): 1,
     ("crates/driver-mlt-video/src/app.rs", '"runtime.json"'): 1,
-    ("crates/driver-motion-canvas/src/renderer.rs", '"runtime.json"'): 1,
 }
 
 issues: list[str] = []

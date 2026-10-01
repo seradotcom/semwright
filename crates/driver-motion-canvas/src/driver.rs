@@ -1,11 +1,11 @@
-//! Driver Protocol v3 adapter for bounded, Semwright-managed Motion Canvas projects.
+//! Driver Protocol v7 adapter for bounded, Semwright-managed Motion Canvas projects.
 use crate::{
     Result,
     diff::SemanticDiff,
     edit::{self, Operation},
     model::*,
     refs::{self, Kind, ObjectRef, Reference},
-    renderer::{JobView, RenderManager, RenderState, RendererRuntime},
+    renderer::{JobView, RenderManager, RenderState},
     security,
     semantic::{self, NodeTypeDescriptor},
     store::{ProjectStore, Snapshot},
@@ -15,7 +15,7 @@ use async_trait::async_trait;
 use schemars::{JsonSchema, schema_for};
 use semwright_driver_sdk::{
     Capability, Driver, DriverExecutionContext, DriverInterfaces, artifact_output_tag,
-    descriptor_digest,
+    descriptor_digest, workspace_mount,
 };
 use semwright_types::{
     CommandDescriptor, Error, ErrorCode, Idempotency, JobArtifact, JobProgress, Risk,
@@ -398,47 +398,42 @@ impl MotionDriver {
     }
 
     pub fn production() -> Result<Self> {
-        let roots: BTreeMap<String, PathBuf> = [
-            ("project", "/workspace/project"),
-            ("media", "/workspace/media"),
-            ("output", "/workspace/output"),
-            ("runtime", "/workspace/runtime"),
-        ]
-        .into_iter()
-        .filter(|(_, path)| Path::new(path).is_dir())
-        .map(|(name, path)| (name.into(), PathBuf::from(path)))
-        .collect();
+        let roots: BTreeMap<String, PathBuf> =
+            ["project", "media", "output", "runtime", "fontconfig"]
+                .into_iter()
+                .filter_map(|name| {
+                    workspace_mount(name)
+                        .ok()
+                        .filter(|path| path.is_dir())
+                        .map(|path| (name.to_owned(), path))
+                })
+                .collect();
         let store = roots
             .get("project")
             .map(|root| Self::store_for_project_root(root))
             .transpose()?;
-        let (runtime, renderer_reason) = match roots.get("runtime") {
-            Some(root) => match RendererRuntime::from_root(root) {
-                Ok(runtime) => (
-                    Some(runtime),
-                    "Pinned runtime tools verified by SHA-256".into(),
-                ),
-                Err(error) => (
-                    None,
-                    format!(
-                        "Runtime unavailable: {:?}: {}",
-                        error.code,
-                        error
-                            .message
-                            .chars()
-                            .filter(|ch| !ch.is_control())
-                            .take(512)
-                            .collect::<String>()
-                    ),
-                ),
-            },
-            None => (None, "Owner-approved runtime mount is absent".into()),
+        let host_tools = std::env::var_os("SEMWRIGHT_DRIVER_HOST_TOOLS").is_some();
+        let required = ["project", "output", "runtime", "fontconfig"];
+        let missing = required
+            .into_iter()
+            .filter(|name| !roots.contains_key(*name))
+            .collect::<Vec<_>>();
+        let host_managed = host_tools && missing.is_empty();
+        let renderer_reason = if host_managed {
+            "Host-managed protocol-v7 runtime tools are available".into()
+        } else if !host_tools {
+            "Host-managed runtime-tool authority is absent".into()
+        } else {
+            format!(
+                "Host-managed runtime mounts are missing: {}",
+                missing.join(",")
+            )
         };
         let output = roots
             .get("output")
             .cloned()
-            .unwrap_or_else(|| PathBuf::from("/workspace/output"));
-        let renderer = RenderManager::new(runtime, output);
+            .unwrap_or_else(|| PathBuf::from("."));
+        let renderer = RenderManager::new(host_managed, output);
         Ok(Self {
             roots,
             store,
@@ -450,7 +445,7 @@ impl MotionDriver {
     pub fn for_project_root(root: &Path) -> Result<Self> {
         let mut roots = BTreeMap::new();
         roots.insert("project".into(), root.to_path_buf());
-        let renderer = RenderManager::new(None, root.join("test-output"));
+        let renderer = RenderManager::new(false, root.join("test-output"));
         Ok(Self {
             roots,
             store: Some(Self::store_for_project_root(root)?),
@@ -842,7 +837,7 @@ impl MotionDriver {
         Self::parse(args)
     }
 
-    async fn start_render_from_input(&self, input: RenderStartArgs) -> Result<JobView> {
+    fn prepare_render(&self, input: &RenderStartArgs) -> Result<Snapshot> {
         self.ensure_island_runtime_compatible()?;
         let mut snapshot = self.load()?;
         if input.expected_fingerprint != snapshot.source_sha256 {
@@ -853,7 +848,23 @@ impl MotionDriver {
         }
         let generated = self.store()?.materialize(&snapshot)?;
         snapshot.generated_dir = Some(generated);
-        self.renderer.start(&snapshot, input.profile).await
+        Ok(snapshot)
+    }
+
+    async fn start_render_from_input(
+        &self,
+        input: RenderStartArgs,
+        context: &DriverExecutionContext,
+    ) -> Result<JobView> {
+        context.check_cancelled()?;
+        let snapshot = self.prepare_render(&input)?;
+        let project_root = self
+            .roots
+            .get("project")
+            .ok_or_else(|| Error::new(ErrorCode::Unavailable, "Project grant is not mounted"))?;
+        self.renderer
+            .start_host(&snapshot, project_root, input.profile, context)
+            .await
     }
 
     async fn execute_render_with_context(
@@ -862,7 +873,7 @@ impl MotionDriver {
         context: &DriverExecutionContext,
     ) -> Result<JobView> {
         context.check_cancelled()?;
-        let started = self.start_render_from_input(input).await?;
+        let started = self.start_render_from_input(input, context).await?;
         let job_ref = started.job_ref.clone();
         context.report_progress(
             JobProgress {
@@ -877,12 +888,12 @@ impl MotionDriver {
         loop {
             tokio::select! {
                 _ = cancellation.cancelled() => {
-                    let _ = self.renderer.cancel(&job_ref).await;
+                    let _ = self.renderer.cancel_host(&job_ref, context).await;
                     return Err(Error::new(ErrorCode::Cancelled, "Motion Canvas render cancelled by request"));
                 }
                 _ = tokio::time::sleep(Duration::from_millis(50)) => {}
             }
-            let view = self.renderer.status(&job_ref).await?;
+            let view = self.renderer.status_host(&job_ref, context).await?;
             if last_state.as_ref() != Some(&view.state) {
                 last_state = Some(view.state.clone());
                 let message = match view.state {
@@ -1474,13 +1485,15 @@ impl MotionDriver {
             }
             "driver.motion-canvas.render.start" => {
                 let input = self.checked_render_input(args)?;
-                Ok(serde_json::to_value(
-                    self.start_render_from_input(input).await?,
-                )?)
+                let _ = self.prepare_render(&input)?;
+                Err(Error::new(
+                    ErrorCode::Unsupported,
+                    "render.start requires Host-managed runtime-tool execution context",
+                ))
             }
             "driver.motion-canvas.render.execute" => Err(Error::new(
                 ErrorCode::Unsupported,
-                "render.execute requires Driver Protocol v3 execution context",
+                "render.execute requires Host-managed runtime-tool execution context",
             )),
             "driver.motion-canvas.render.status"
             | "driver.motion-canvas.render.cancel"
@@ -1490,14 +1503,10 @@ impl MotionDriver {
                 if reference.kind != Kind::RenderJob {
                     return Err(Error::invalid("Expected a render job ref"));
                 }
-                let view = if command.ends_with(".status") {
-                    self.renderer.status(&input.job_ref).await?
-                } else if command.ends_with(".cancel") {
-                    self.renderer.cancel(&input.job_ref).await?
-                } else {
-                    self.renderer.result(&input.job_ref).await?
-                };
-                Ok(serde_json::to_value(view)?)
+                Err(Error::new(
+                    ErrorCode::Unsupported,
+                    "render job control requires Host-managed runtime-tool execution context",
+                ))
             }
             _ => Err(Error::new(
                 ErrorCode::Unsupported,
@@ -1520,6 +1529,7 @@ impl Driver for MotionDriver {
             progress: true,
             artifacts: true,
             health: true,
+            host_tools: std::env::var_os("SEMWRIGHT_DRIVER_HOST_TOOLS").is_some(),
             ..DriverInterfaces::default()
         }
     }
@@ -1568,10 +1578,26 @@ impl Driver for MotionDriver {
         context: DriverExecutionContext,
     ) -> Result<Value> {
         context.check_cancelled()?;
-        if command != "driver.motion-canvas.render.execute" {
+        let runtime_command = matches!(
+            command,
+            "driver.motion-canvas.render.start"
+                | "driver.motion-canvas.render.execute"
+                | "driver.motion-canvas.render.status"
+                | "driver.motion-canvas.render.cancel"
+                | "driver.motion-canvas.render.result"
+        );
+        if !runtime_command {
             return self.execute(command, digest, args).await;
         }
-        let capability = Self::render_execute_capability()?;
+        let capability = Self::catalog()?
+            .into_iter()
+            .find(|capability| capability.descriptor.name == command)
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorCode::Unsupported,
+                    "Unsupported Motion Canvas render capability",
+                )
+            })?;
         if descriptor_digest(&capability.descriptor)? != digest {
             return Err(Error::new(
                 ErrorCode::StaleReference,
@@ -1585,9 +1611,34 @@ impl Driver for MotionDriver {
                 "Capability arguments do not match the strict schema",
             ));
         }
-        let input = self.checked_render_input(args)?;
-        let view = self.execute_render_with_context(input, &context).await?;
-        let value = serde_json::to_value(view)?;
+        let value = match command {
+            "driver.motion-canvas.render.start" => {
+                let input = self.checked_render_input(args)?;
+                serde_json::to_value(self.start_render_from_input(input, &context).await?)?
+            }
+            "driver.motion-canvas.render.execute" => {
+                let input = self.checked_render_input(args)?;
+                serde_json::to_value(self.execute_render_with_context(input, &context).await?)?
+            }
+            "driver.motion-canvas.render.status"
+            | "driver.motion-canvas.render.cancel"
+            | "driver.motion-canvas.render.result" => {
+                let input: JobArgs = Self::parse(args)?;
+                let reference = Reference::decode(&input.job_ref)?;
+                if reference.kind != Kind::RenderJob {
+                    return Err(Error::invalid("Expected a render job ref"));
+                }
+                let view = if command.ends_with(".status") {
+                    self.renderer.status_host(&input.job_ref, &context).await?
+                } else if command.ends_with(".cancel") {
+                    self.renderer.cancel_host(&input.job_ref, &context).await?
+                } else {
+                    self.renderer.result_host(&input.job_ref, &context).await?
+                };
+                serde_json::to_value(view)?
+            }
+            _ => unreachable!("runtime_command is exhaustively matched"),
+        };
         let validator = jsonschema::validator_for(&capability.descriptor.output_schema)
             .map_err(|_| Error::new(ErrorCode::Internal, "Invalid embedded output schema"))?;
         if !validator.is_valid(&value) {
@@ -1639,7 +1690,7 @@ mod tests {
         let manifest_bytes = include_bytes!("../driver.manifest.example.json");
         assert_eq!(
             crate::security::sha256(manifest_bytes),
-            "b31318bb7a4264ea06cd62d2edec062a1e6df710ff352932e048591473d9f8f1"
+            "726d7efb97f281e793b794d6a991cf9f8704d278aa1541e1a2af40f190546d8b"
         );
         let manifest: semwright_driver_sdk::Manifest =
             serde_json::from_slice(manifest_bytes).unwrap();
@@ -1800,7 +1851,7 @@ mod driver_tests {
     }
 
     #[test]
-    fn protocol_v3_render_execute_contract_is_explicit() {
+    fn protocol_v7_host_managed_render_contract_is_explicit() {
         let temp = tempfile::tempdir().unwrap();
         let driver =
             MotionDriver::for_project_root(&std::fs::canonicalize(temp.path()).unwrap()).unwrap();
@@ -1827,12 +1878,19 @@ mod driver_tests {
 
         let manifest: semwright_driver_sdk::Manifest =
             serde_json::from_slice(include_bytes!("../driver.manifest.example.json")).unwrap();
-        assert_eq!(manifest.protocol, 3);
+        assert_eq!(manifest.protocol, 7);
         assert_eq!(manifest.request_timeout_ms, 300_000);
         assert!(manifest.interfaces.cooperative_cancellation);
         assert!(manifest.interfaces.progress);
         assert!(manifest.interfaces.artifacts);
+        assert!(manifest.interfaces.host_tools);
         assert!(!manifest.interfaces.native_refs);
+        assert_eq!(manifest.tools.len(), 1);
+        assert_eq!(manifest.tools[0].name, "motion-node");
+        assert_eq!(
+            manifest.tools[0].mounts,
+            ["project", "output", "runtime", "fontconfig"]
+        );
         manifest.validate().unwrap();
     }
 

@@ -21,7 +21,7 @@ Authoritative runtime, browser, fuzz and full-film evidence is produced by GitHu
 
 - **domain**: complete driver compile, unit/property/security tests, explicit source/codegen/catalog/manifest/render-plan goldens, bidirectional semantic-registry/API-coverage contracts, project-variable and property-introspection/stale-ref contracts, launch-film recipe validation against the real capability catalog and JSON Schemas, a bounded 500-node/100-animation/50-edge stress compile, launch-source/audio provenance verification, Clippy, rustfmt and whitespace.
 - **portable-compile**: locked Rust compile of the complete domain and Driver Protocol adapter on macOS and Windows runners.
-- **real-render-and-host**: exact Node/Motion Canvas/Firefox install on an ephemeral Linux runner, runtime contract tests, executable coverage checks against the installed 3.17.2 `.d.ts` surface, generated-project typecheck/Vite build for both the legacy fixture and `semantic-complete`, SHA-pinned runtime manifest, real Driver Host conformance, opaque render, transparent render/pixel evidence and cancellation.
+- **real-render-and-host**: exact Node/Motion Canvas/Firefox install on an ephemeral Linux runner, runtime contract tests, executable coverage checks against the installed 3.17.2 `.d.ts` surface, generated-project typecheck/Vite build for both the legacy fixture and `semantic-complete`, SHA-pinned Host-managed Node tool staging, real Driver Host protocol-v7 render jobs, opaque render, transparent render/pixel evidence and cancellation.
 - **fuzz**: bounded smoke for semantic parser, refs, animation validation, path validation, SVG boundary and codegen escaping.
 
 The render test is accepted only through the real Driver Host with `network=false`; direct unsandboxed helper rendering is intentionally not an acceptance path. The runtime job also verifies that the pinned Firefox build can initialize Canvas under the original 4 GiB virtual-address-space ceiling.
@@ -51,7 +51,7 @@ The same exact PR head produced the complete 52-second launch film successfully 
 
 Post-merge `main` at `132355b5a182349eb165460307cc8ed0ddcef940` also completed Quality (`36259427151`), dependency/coverage/fuzz (`36259427071`), Native application integration (`36259427090`), macOS (`36259427170`), packaging (`36259427105`), OBS (`36259427069`), X11 (`36259427096`) and Plasma (`36259427093`) successfully. The initial hosted Windows ARM64 UIA run reported a noninteractive occlusion/stale-reference condition; an explicit full Windows rerun (`36260204223`) then completed both x64 and ARM64 successfully on the same merged SHA.
 
-Protocol evidence is executable rather than documentary: the manifest requests Driver Protocol 3, `MotionDriver::interfaces` advertises cooperative cancellation/progress/artifacts, and `render.execute` is exercised through `DriverExecutionContext` while the legacy asynchronous render-job capabilities remain available.
+Protocol evidence is executable rather than documentary: the production manifest requests Driver Protocol 7 with `host_tools`, `MotionDriver::interfaces` advertises that interface only when Driver Host materializes it, and every `render.start/status/cancel/result/execute` operation crosses `DriverExecutionContext`. Node execution is Host-owned and session-bound; request cancellation can still send the narrow cleanup cancel needed to reap the detached Host job.
 
 ## Full film
 
