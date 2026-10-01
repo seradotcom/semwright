@@ -71,7 +71,7 @@ import project from '/src/project.ts?project';
 import {Renderer, Vector2} from '@motion-canvas/core';
 const config=${JSON.stringify(config)};
 const renderer=new Renderer(project);
-let rendererLogClass=null;
+const state={done:false,result:null,frame:config.firstFrame,error:null,errorClass:null,rendererLogClass:null,phase:'created'};
 function classifyRendererLog(payload){
   if(!payload||payload.level!=='error')return null;
   const name=typeof payload.name==='string'?payload.name:'';
@@ -83,9 +83,8 @@ function classifyRendererLog(payload){
   if(/missing subject|unknown layer|native parent graph cannot be resolved|split requires exactly two layout children|primitive target .* must belong to the shot/.test(message))return 'renderer_log_model_invariant';
   return 'renderer_log_error';
 }
-project.logger.onLogged.subscribe(payload=>{const classified=classifyRendererLog(payload);if(classified)rendererLogClass=classified;});
+project.logger.onLogged.subscribe(payload=>{const classified=classifyRendererLog(payload);if(classified)state.rendererLogClass=classified;});
 if(config.authoring){globalThis.__SEMWRIGHT_NATIVE_CONFIG__={fps_num:config.fpsNum,fps_den:config.fpsDen,render_input_digest:config.renderInputDigest,native_stage_version:'3.17.2',font_evidence:config.fontEvidence??[]};}
-const state={done:false,result:null,frame:config.firstFrame,error:null,errorClass:null,phase:'created'};
 window.__SEMWRIGHT_RENDER__={state,abort:()=>renderer.abort()};
 renderer.onFrameChanged.subscribe(frame=>{state.frame=frame;state.phase='frame';});
 renderer.onFinished.subscribe(result=>{state.result=result;});
@@ -222,7 +221,7 @@ async function main() {
     }
     if (state.result !== 0) {
       if(state.result===2)failurePhase='render_result_aborted';
-      else if(state.result===1)failurePhase=rendererLogClass??'render_result_error';
+      else if(state.result===1)failurePhase=state.rendererLogClass??'render_result_error';
       else failurePhase='render_result_unknown';
       fail(`renderer result ${state.result}; state=${JSON.stringify(state)} diagnostics=${JSON.stringify(diagnostics)}`);
     }
