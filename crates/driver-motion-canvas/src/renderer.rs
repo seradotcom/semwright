@@ -439,7 +439,7 @@ fn renderer_failure_code(stdout: &[u8]) -> ErrorCode {
         Some("font_evidence" | "frame_export" | "observation") => ErrorCode::ProtocolMismatch,
         Some("browser_launch" | "page_load") => ErrorCode::Unavailable,
         Some("arguments") => ErrorCode::InvalidArgument,
-        Some("project_stage") => ErrorCode::Internal,
+        Some("project_stage") => ErrorCode::Unavailable,
         Some("finalize") => ErrorCode::ProtocolMismatch,
         Some("render_wait_timeout") => ErrorCode::Timeout,
         Some(
@@ -462,7 +462,8 @@ fn renderer_failure_code(stdout: &[u8]) -> ErrorCode {
         }
         Some("renderer_state_error" | "renderer_log_error") => ErrorCode::Internal,
         Some("render_result_aborted") => ErrorCode::Cancelled,
-        Some("render_result_error" | "render_wait") => ErrorCode::Internal,
+        Some("render_result_error") => ErrorCode::BackendFailed,
+        Some("render_wait") => ErrorCode::Timeout,
         Some("render_result_unknown" | "render_nonzero") => ErrorCode::ProtocolMismatch,
         _ => ErrorCode::BackendFailed,
     }
@@ -1067,7 +1068,7 @@ mod runtime_path_tests {
         );
         assert_eq!(
             renderer_failure_code(br#"{"ok":false,"errorClass":"render_wait"}"#),
-            ErrorCode::Internal
+            ErrorCode::Timeout
         );
         assert_eq!(
             renderer_failure_code(br#"{"ok":false,"errorClass":"render_wait_timeout"}"#),
@@ -1105,7 +1106,11 @@ mod runtime_path_tests {
         );
         assert_eq!(
             renderer_failure_code(br#"{"ok":false,"errorClass":"render_result_error"}"#),
-            ErrorCode::Internal
+            ErrorCode::BackendFailed
+        );
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"project_stage"}"#),
+            ErrorCode::Unavailable
         );
         assert_eq!(
             renderer_failure_code(br#"{"ok":false,"errorClass":"renderer_log_exporter_missing"}"#),
