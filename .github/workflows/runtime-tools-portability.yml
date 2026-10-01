@@ -1,5 +1,6 @@
 name: Runtime tools portability
 on:
+  workflow_call:
   push:
     branches: [feat/runtime-tools-portability]
     paths:
