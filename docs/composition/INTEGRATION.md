@@ -8,7 +8,7 @@ This file is the source-controlled integration ledger. B has now published and b
 - Common C0: 26602e4b25929be869d69ef28fef4dd9713180d7
 - A branch: feat/composition-media
 - A product source SHA entering initial integration: 34b850507c699c4f67056478210aa97e89bf7548
-- Latest A branch SHA reconciled into the integration branch: 3987a5f5cceeebe439b73d185dad0b1c7fb3bad5
+- Latest A branch SHA reconciled into the integration branch: 3223bdf0367b4c9de73ef867a560b200f1ab96e1
 - B baseline: 93f70241e9fb9d4c99ca76fab55c8517574a9f6f
 - B branch: feat/audio-completion
 - B consumed C0 through normal Git ancestry: verified locally
