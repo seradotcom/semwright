@@ -249,6 +249,11 @@ pub enum RenderFailureClass {
     RenderResultError,
     RenderResultUnknown,
     RenderNonzero,
+    RuntimeModuleLoad,
+    RuntimeSyntax,
+    RuntimePermission,
+    RuntimeOom,
+    RuntimeSignal,
     Observation,
     Finalize,
     Startup,
@@ -257,9 +262,11 @@ pub enum RenderFailureClass {
 impl RenderFailureClass {
     fn code(self) -> ErrorCode {
         match self {
-            Self::ViteBuild | Self::RendererStateTypeError | Self::RendererLogTypeError => {
-                ErrorCode::PluginProtocolError
-            }
+            Self::ViteBuild
+            | Self::RendererStateTypeError
+            | Self::RendererLogTypeError
+            | Self::RuntimeModuleLoad
+            | Self::RuntimeSyntax => ErrorCode::PluginProtocolError,
             Self::FontEvidence
             | Self::FrameExport
             | Self::Observation
@@ -275,6 +282,8 @@ impl RenderFailureClass {
             | Self::RendererStateBeforeFirstFrame
             | Self::RenderResultUnknown
             | Self::RenderNonzero => ErrorCode::ProtocolMismatch,
+            Self::RuntimePermission => ErrorCode::SandboxDenied,
+            Self::RuntimeOom => ErrorCode::ResourceExhausted,
             Self::BrowserLaunch
             | Self::PageLoad
             | Self::ProjectStage
@@ -296,9 +305,10 @@ impl RenderFailureClass {
             | Self::RendererStateAfterFirstFrame
             | Self::RenderResultError
             | Self::Startup => ErrorCode::BackendFailed,
-            Self::RendererStateMotionCore | Self::RendererStateError | Self::RendererLogError => {
-                ErrorCode::Internal
-            }
+            Self::RendererStateMotionCore
+            | Self::RendererStateError
+            | Self::RendererLogError
+            | Self::RuntimeSignal => ErrorCode::Internal,
         }
     }
 }
@@ -548,6 +558,54 @@ fn renderer_failure_code(stdout: &[u8]) -> ErrorCode {
         .unwrap_or(ErrorCode::BackendFailed)
 }
 
+fn renderer_stderr_failure_class(stderr: &[u8]) -> Option<RenderFailureClass> {
+    let text = std::str::from_utf8(stderr).ok()?;
+    if text.contains("ERR_MODULE_NOT_FOUND")
+        || text.contains("MODULE_NOT_FOUND")
+        || text.contains("Cannot find package")
+        || text.contains("Cannot find module")
+        || text.contains("error while loading shared libraries")
+    {
+        return Some(RenderFailureClass::RuntimeModuleLoad);
+    }
+    if text.contains("SyntaxError") {
+        return Some(RenderFailureClass::RuntimeSyntax);
+    }
+    if text.contains("EACCES")
+        || text.contains("EPERM")
+        || text.contains("Permission denied")
+        || text.contains("Operation not permitted")
+    {
+        return Some(RenderFailureClass::RuntimePermission);
+    }
+    let lower = text.to_ascii_lowercase();
+    if lower.contains("heap out of memory")
+        || lower.contains("fatal process out of memory")
+        || lower.contains("allocation failed")
+    {
+        return Some(RenderFailureClass::RuntimeOom);
+    }
+    None
+}
+
+fn renderer_status_failure_class(status: &std::process::ExitStatus) -> Option<RenderFailureClass> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::ExitStatusExt;
+        if let Some(signal) = status.signal() {
+            return Some(match signal {
+                libc::SIGKILL | libc::SIGXCPU | libc::SIGXFSZ => RenderFailureClass::RuntimeOom,
+                _ => RenderFailureClass::RuntimeSignal,
+            });
+        }
+    }
+    match status.code() {
+        Some(137 | 152 | 153) => Some(RenderFailureClass::RuntimeOom),
+        Some(134 | 135 | 136 | 139) => Some(RenderFailureClass::RuntimeSignal),
+        _ => None,
+    }
+}
+
 fn renderer_process_failure_code(status: &std::process::ExitStatus, stdout: &[u8]) -> ErrorCode {
     let receipt = renderer_failure_code(stdout);
     if receipt != ErrorCode::BackendFailed {
@@ -766,8 +824,13 @@ async fn run_render(
     if !status.success() {
         let _ = fs::remove_dir_all(&output);
         let receipt_class = renderer_failure_class(&stdout);
-        failure_class = receipt_class.unwrap_or(RenderFailureClass::RenderNonzero);
+        let process_class = renderer_stderr_failure_class(&stderr)
+            .or_else(|| renderer_status_failure_class(&status));
+        failure_class = receipt_class
+            .or(process_class)
+            .unwrap_or(RenderFailureClass::RenderNonzero);
         let code = receipt_class
+            .or(process_class)
             .map(RenderFailureClass::code)
             .unwrap_or_else(|| renderer_process_failure_code(&status, &stdout));
         return Err(Error::new(
@@ -1328,6 +1391,30 @@ mod runtime_path_tests {
         assert_eq!(
             renderer_process_failure_code(&exit_one, structured),
             ErrorCode::PluginProtocolError
+        );
+        assert_eq!(
+            renderer_stderr_failure_class(b"Error [ERR_MODULE_NOT_FOUND]: hidden details"),
+            Some(RenderFailureClass::RuntimeModuleLoad)
+        );
+        assert_eq!(
+            renderer_stderr_failure_class(b"SyntaxError: hidden details"),
+            Some(RenderFailureClass::RuntimeSyntax)
+        );
+        assert_eq!(
+            renderer_stderr_failure_class(b"EACCES: hidden details"),
+            Some(RenderFailureClass::RuntimePermission)
+        );
+        assert_eq!(
+            renderer_stderr_failure_class(b"FATAL ERROR: JavaScript heap out of memory"),
+            Some(RenderFailureClass::RuntimeOom)
+        );
+        assert_eq!(
+            renderer_stderr_failure_class(b"secret arbitrary stderr"),
+            None
+        );
+        assert_eq!(
+            renderer_status_failure_class(&killed),
+            Some(RenderFailureClass::RuntimeOom)
         );
     }
 
