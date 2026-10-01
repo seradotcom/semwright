@@ -121,6 +121,7 @@ func _run() -> void:
     ResourceLoader.set_abort_on_missing_resources(false)
     var scene_path: String = _request.scene
     if _request.mode == "reopen_candidate": scene_path = scene_path.replace("res://scenes/", "res://__sw_saved/")
+    var dependency_root: String = scene_path
     var source_hash: String = FileAccess.get_sha256(scene_path)
     if source_hash.is_empty():
         _fail("scene_source_not_readable")
@@ -154,7 +155,9 @@ func _run() -> void:
             else:
                 var candidate_hash: String = FileAccess.get_sha256(candidate_path)
                 if candidate_hash.is_empty(): _fail("native_candidate_digest_missing")
-                else: report.candidate_sha256 = candidate_hash
+                else:
+                    report.candidate_sha256 = candidate_hash
+                    dependency_root = candidate_path
     if _request.mode == "play" and _failures.is_empty():
         root.add_child(_root_scene)
         current_scene = _root_scene
@@ -183,7 +186,7 @@ func _run() -> void:
         report.inputs_delivered = input_index
         report.elapsed_physics_frames = Engine.get_physics_frames() - started
         if _failures.is_empty(): report.live = _projection(_root_scene)
-    var dependency_result: Dictionary = _dependencies(scene_path)
+    var dependency_result: Dictionary = _dependencies(dependency_root)
     report.dependencies = dependency_result.edges
     report.dependency_complete = dependency_result.complete
     if FileAccess.get_sha256(scene_path) != source_hash: _fail("source_changed_during_native_observation")
@@ -458,8 +461,17 @@ func _resource_properties(resource: Resource, binding: String, depth: int) -> Di
         else:
             for index in range(resource.get_surface_count()):
                 values["surface_material_" + str(index)] = _value(resource.surface_get_material(index), binding + ":surface_material_" + str(index), depth)
-                values["surface_vertices_" + str(index)] = _value(resource.surface_get_array_len(index), binding + ":surface_vertices_" + str(index))
-                values["surface_indices_" + str(index)] = _value(resource.surface_get_array_index_len(index), binding + ":surface_indices_" + str(index))
+                var arrays: Array = resource.get_mesh_arrays() if resource is PrimitiveMesh else resource.surface_get_arrays(index)
+                if arrays.size() <= Mesh.ARRAY_VERTEX or arrays[Mesh.ARRAY_VERTEX] == null:
+                    _fail("mesh_surface_vertices_missing:" + binding + ":" + str(index))
+                    break
+                var vertices: Variant = arrays[Mesh.ARRAY_VERTEX]
+                values["surface_vertices_" + str(index)] = _value(vertices.size(), binding + ":surface_vertices_" + str(index))
+                var index_count: int = 0
+                if arrays.size() > Mesh.ARRAY_INDEX and arrays[Mesh.ARRAY_INDEX] != null:
+                    var indices: Variant = arrays[Mesh.ARRAY_INDEX]
+                    index_count = indices.size()
+                values["surface_indices_" + str(index)] = _value(index_count, binding + ":surface_indices_" + str(index))
         if resource.get_surface_count() > 32: _fail("mesh_property_projection_budget")
     if resource is Texture2D:
         values.width = _value(resource.get_width(), binding + ":width")

@@ -78,7 +78,7 @@ fn observation(
         live: None,
         frames: vec![],
         dependencies: vec![NativeDependency {
-            source: if mode == ProbeMode::ReopenCandidate {
+            source: if matches!(mode, ProbeMode::SaveCandidate | ProbeMode::ReopenCandidate) {
                 "res://__sw_saved/arena.tscn".into()
             } else {
                 "res://scenes/arena.tscn".into()
@@ -509,6 +509,8 @@ fn persistence_requires_fresh_process_and_unchanged_external_sentinels() {
         candidate,
         None,
     );
+    assert_eq!(writer.dependencies[0].source, "res://__sw_saved/arena.tscn");
+    assert_eq!(reader.dependencies[0].source, "res://__sw_saved/arena.tscn");
     let evidence = persistence_value(&writer, &reader).unwrap();
     assert_eq!(Predicate::Reopened.compare(&evidence).unwrap(), Some(true));
 
@@ -532,6 +534,13 @@ fn fixed_native_probe_contains_no_arbitrary_execution_surface() {
     assert!(PROBE_SOURCE.contains("track_get_key_count"));
     assert!(PROBE_SOURCE.contains("save_png_to_buffer"));
     assert!(PROBE_SOURCE.contains("ResourceLoader.get_dependencies"));
+    assert!(PROBE_SOURCE.contains("var dependency_root: String = scene_path"));
+    assert!(PROBE_SOURCE.contains("dependency_root = candidate_path"));
+    assert!(PROBE_SOURCE.contains("_dependencies(dependency_root)"));
+    assert!(!PROBE_SOURCE.contains("_dependencies(scene_path)"));
+    assert!(PROBE_SOURCE.contains("resource.get_mesh_arrays() if resource is PrimitiveMesh else resource.surface_get_arrays(index)"));
+    assert!(!PROBE_SOURCE.contains("surface_get_array_len("));
+    assert!(!PROBE_SOURCE.contains("surface_get_array_index_len("));
     assert!(PROBE_SOURCE.contains("int(checkpoint) == tick"));
     assert!(!PROBE_SOURCE.contains("_request.checkpoints.has(tick)"));
     let play_loop = PROBE_SOURCE.find("for tick in range(").unwrap();

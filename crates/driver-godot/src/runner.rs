@@ -691,8 +691,15 @@ impl Runner {
             "--output".into(),
             output_path.display().to_string(),
         ];
-        self.run(&staged.path, &argv, Duration::from_secs(90), cancellation)
+        let process = self
+            .run(&staged.path, &argv, Duration::from_secs(90), cancellation)
             .await?;
+        if native_probe_has_script_error(&process) {
+            return Err(Error::new(
+                ErrorCode::BackendFailed,
+                "Native Godot observer emitted SCRIPT ERROR",
+            ));
+        }
         staged.verify_sources()?;
         let metadata = std::fs::metadata(&output_path)?;
         if !metadata.is_file() || metadata.len() as usize > MAX_OBSERVATION_BYTES {
@@ -880,6 +887,14 @@ impl Runner {
     }
 }
 
+fn native_probe_has_script_error(output: &ProcessOutput) -> bool {
+    output
+        .stdout
+        .lines()
+        .chain(output.stderr.lines())
+        .any(|line| line.contains("SCRIPT ERROR:"))
+}
+
 struct ProcessOutput {
     exit_code: i32,
     stdout: String,
@@ -1039,5 +1054,27 @@ mod tests {
             .project_root(&json!({"managed_project":"technical_two"}))
             .unwrap_err();
         assert_eq!(error.code, ErrorCode::Conflict);
+    }
+}
+
+#[cfg(test)]
+mod native_probe_output_tests {
+    use super::{ProcessOutput, native_probe_has_script_error};
+
+    #[test]
+    fn native_probe_script_error_is_fail_closed_even_with_zero_exit() {
+        let clean = ProcessOutput {
+            exit_code: 0,
+            stdout: "Godot Engine v4.7.2\n".into(),
+            stderr: String::new(),
+        };
+        assert!(!native_probe_has_script_error(&clean));
+
+        let script_error = ProcessOutput {
+            exit_code: 0,
+            stdout: String::new(),
+            stderr: "SCRIPT ERROR: Invalid call. Nonexistent function.\n".into(),
+        };
+        assert!(native_probe_has_script_error(&script_error));
     }
 }
