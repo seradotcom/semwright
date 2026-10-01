@@ -441,11 +441,24 @@ fn renderer_failure_code(stdout: &[u8]) -> ErrorCode {
         Some("arguments" | "project_stage" | "finalize") => ErrorCode::Internal,
         Some("render_wait_timeout") => ErrorCode::Timeout,
         Some("renderer_state_frame_clock") => ErrorCode::ProtocolMismatch,
-        Some("renderer_state_model_invariant") => ErrorCode::InvalidArgument,
+        Some("renderer_state_model_invariant" | "renderer_log_model_invariant") => {
+            ErrorCode::InvalidArgument
+        }
+        Some("renderer_log_exporter_missing" | "renderer_log_async_property") => {
+            ErrorCode::ProtocolMismatch
+        }
         Some(
-            "renderer_state_type_error" | "renderer_state_range_error" | "renderer_state_error",
+            "renderer_state_type_error"
+            | "renderer_state_range_error"
+            | "renderer_state_error"
+            | "renderer_log_type_error"
+            | "renderer_log_range_error"
+            | "renderer_log_error",
         ) => ErrorCode::Internal,
-        Some("render_nonzero" | "render_wait") => ErrorCode::BackendFailed,
+        Some("render_result_aborted") => ErrorCode::Cancelled,
+        Some(
+            "render_result_error" | "render_result_unknown" | "render_nonzero" | "render_wait",
+        ) => ErrorCode::BackendFailed,
         _ => ErrorCode::BackendFailed,
     }
 }
@@ -1034,6 +1047,22 @@ mod runtime_path_tests {
         assert_eq!(
             renderer_failure_code(br#"{"ok":false,"errorClass":"render_nonzero"}"#),
             ErrorCode::BackendFailed
+        );
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"renderer_log_exporter_missing"}"#),
+            ErrorCode::ProtocolMismatch
+        );
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"renderer_log_async_property"}"#),
+            ErrorCode::ProtocolMismatch
+        );
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"renderer_log_type_error"}"#),
+            ErrorCode::Internal
+        );
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"render_result_aborted"}"#),
+            ErrorCode::Cancelled
         );
         for hostile in [
             br#"{"ok":false,"errorClass":"../../escape"}"#.as_slice(),

@@ -71,6 +71,19 @@ import project from '/src/project.ts?project';
 import {Renderer, Vector2} from '@motion-canvas/core';
 const config=${JSON.stringify(config)};
 const renderer=new Renderer(project);
+let rendererLogClass=null;
+function classifyRendererLog(payload){
+  if(!payload||payload.level!=='error')return null;
+  const name=typeof payload.name==='string'?payload.name:'';
+  const message=typeof payload.message==='string'?payload.message:'';
+  if(name==='TypeError')return 'renderer_log_type_error';
+  if(name==='RangeError')return 'renderer_log_range_error';
+  if(message.startsWith('Could not find the \"')&&message.endsWith('\" exporter.'))return 'renderer_log_exporter_missing';
+  if(message.includes('Tried to access an asynchronous property before the node was ready.'))return 'renderer_log_async_property';
+  if(/missing subject|unknown layer|native parent graph cannot be resolved|split requires exactly two layout children|primitive target .* must belong to the shot/.test(message))return 'renderer_log_model_invariant';
+  return 'renderer_log_error';
+}
+project.logger.onLogged.subscribe(payload=>{const classified=classifyRendererLog(payload);if(classified)rendererLogClass=classified;});
 if(config.authoring){globalThis.__SEMWRIGHT_NATIVE_CONFIG__={fps_num:config.fpsNum,fps_den:config.fpsDen,render_input_digest:config.renderInputDigest,native_stage_version:'3.17.2',font_evidence:config.fontEvidence??[]};}
 const state={done:false,result:null,frame:config.firstFrame,error:null,errorClass:null,phase:'created'};
 window.__SEMWRIGHT_RENDER__={state,abort:()=>renderer.abort()};
@@ -208,7 +221,9 @@ async function main() {
       fail(`renderer failed: ${state.error}`);
     }
     if (state.result !== 0) {
-      failurePhase='render_nonzero';
+      if(state.result===2)failurePhase='render_result_aborted';
+      else if(state.result===1)failurePhase=rendererLogClass??'render_result_error';
+      else failurePhase='render_result_unknown';
       fail(`renderer result ${state.result}; state=${JSON.stringify(state)} diagnostics=${JSON.stringify(diagnostics)}`);
     }
     failurePhase = 'observation';
@@ -222,7 +237,7 @@ async function main() {
   } finally { await cleanup(); }
 }
 main().catch(error => {
-  const allowed = new Set(['arguments','font_evidence','project_stage','vite_build','frame_export','browser_launch','page_load','render_wait','render_wait_timeout','renderer_state_frame_clock','renderer_state_model_invariant','renderer_state_type_error','renderer_state_range_error','renderer_state_error','render_nonzero','observation','finalize']);
+  const allowed = new Set(['arguments','font_evidence','project_stage','vite_build','frame_export','browser_launch','page_load','render_wait','render_wait_timeout','renderer_state_frame_clock','renderer_state_model_invariant','renderer_state_type_error','renderer_state_range_error','renderer_state_error','renderer_log_type_error','renderer_log_range_error','renderer_log_exporter_missing','renderer_log_async_property','renderer_log_model_invariant','renderer_log_error','render_result_error','render_result_aborted','render_result_unknown','render_nonzero','observation','finalize']);
   const errorClass = allowed.has(failurePhase) ? failurePhase : 'startup';
   process.stdout.write(JSON.stringify({ok:false,errorClass})+'\n');
   process.stderr.write(String(error?.stack || error) + '\n');
