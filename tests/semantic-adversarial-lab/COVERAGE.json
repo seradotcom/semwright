@@ -387,7 +387,7 @@
       "run_id": null,
       "job_id": null,
       "evidence": [],
-      "blocker": "Godot-native run 36811208549 reached persistence but G created a fresh PID namespace per Godot invocation, causing writer/reader to report the same namespace-local PID. Harness now runs save/reopen and save/tamper/reopen as distinct child processes inside one isolated PID namespace, and fixes the managed export path; exact-SHA retest pending.",
+      "blocker": "Godot-native run 36812075936 reached isolated save/reopen pairing but the pair did not complete; current receipt lacked per-child failure detail. G now records bounded pair exit/receipt/PID/failure diagnostics without changing product or expectations; exact-SHA diagnostic retest pending.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },

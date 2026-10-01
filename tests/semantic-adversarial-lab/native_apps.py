@@ -452,7 +452,30 @@ def run_godot(target: Path, source_sha: str, suite_sha: str, cases: list[dict], 
             or not (out / "observation-save.json").is_file()
             or not (out / "observation-reopen.json").is_file()
         ):
-            raise EvidenceError("BLOCKED: native save/reopen pair did not produce receipts")
+            diagnostic: dict[str, Any] = {
+                "exit_code": persistence_pair_raw["exit_code"],
+                "termination_reason": persistence_pair_raw["termination_reason"],
+                "save_exists": (out / "observation-save.json").is_file(),
+                "reopen_exists": (out / "observation-reopen.json").is_file(),
+                "stderr_tail": persistence_pair_raw["stderr"][-2048:].decode(errors="replace"),
+            }
+            for label, path in [
+                ("save", out / "observation-save.json"),
+                ("reopen", out / "observation-reopen.json"),
+            ]:
+                if path.is_file():
+                    try:
+                        receipt = strict_json(path.read_bytes())
+                        diagnostic[label] = {
+                            key: receipt.get(key)
+                            for key in ("mode", "process_id", "loaded_scene", "failures")
+                        }
+                    except EvidenceError:
+                        diagnostic[label] = {"receipt": "invalid_json"}
+            raise EvidenceError(
+                "BLOCKED: native save/reopen pair diagnostic: "
+                + json.dumps(diagnostic, separators=(",", ":"), sort_keys=True)
+            )
         save_obs = strict_json((out / "observation-save.json").read_bytes())
         reopen_obs = strict_json((out / "observation-reopen.json").read_bytes())
         after_save = tree_hashes(project)
