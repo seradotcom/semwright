@@ -687,6 +687,7 @@ async fn audio_consumer_receipt(
         },
     };
     let sample_sha = file_sha(&harness.audio_assets().join("sync-impulse.wav"));
+    let sample_digest = Digest::parse(sample_sha.clone()).unwrap();
     let synth = sync_sample_synth(&sample.id);
     let mut project = AudioProject::new(AudioProfile {
         sample_rate: SampleRate(48_000),
@@ -738,7 +739,7 @@ async fn audio_consumer_receipt(
                 id: "sync-clip".into(),
                 material: Material::Sample {
                     sample: sample.id.clone(),
-                    sha256: Digest::parse(sample_sha.clone()).unwrap(),
+                    sha256: sample_digest.clone(),
                 },
                 placement: Placement::Absolute {
                     start: Rational::ZERO,
@@ -754,10 +755,7 @@ async fn audio_consumer_receipt(
         cues: cues.clone(),
         dependencies: BTreeMap::from([
             ("sync-cue-source".into(), dependency),
-            (
-                sample.id.clone(),
-                Digest::parse(sample_sha.clone()).unwrap(),
-            ),
+            (sample.id.clone(), sample_digest.clone()),
         ]),
         delivery: AudioDeliveryProfile {
             id: "combined-av".into(),
@@ -777,6 +775,20 @@ async fn audio_consumer_receipt(
             max_elapsed_ms: 120_000,
         },
     };
+
+    assert_eq!(
+        intent.dependencies.get(&sample.id),
+        Some(&sample_digest),
+        "technical sample digest must be bound before audio planning"
+    );
+    let clip_digest = match &intent.tracks[0].clips[0].material {
+        Material::Sample { sample: id, sha256 } if id == &sample.id => sha256,
+        other => panic!("unexpected technical sync material: {other:?}"),
+    };
+    assert_eq!(
+        clip_digest, &sample_digest,
+        "technical clip and dependency must share the exact digest"
+    );
 
     let mut session = AudioSession::new(trusted_profile).unwrap();
     let planned = session
