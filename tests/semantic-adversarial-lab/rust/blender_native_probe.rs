@@ -486,34 +486,6 @@ async fn run() -> AnyResult<Value> {
         json!({"consumed_cursor_rejected":consumed_cursor_rejected}),
     ));
 
-    let scene = fixture
-        .call("composition.inspect", json!({"island":island}))
-        .await?;
-    let collection = scene["items"][0]["collections"][0]
-        .as_str()
-        .ok_or_else(|| boxed("managed collection missing"))?
-        .to_owned();
-    let export = fixture
-        .call(
-            "export.glb",
-            json!({"collection":collection,"path":"g-native.glb","animations":true}),
-        )
-        .await?;
-    let glb_path = workspace.join("g-native.glb");
-    let glb = fs::read(&glb_path)?;
-    let after_export = fixture
-        .call("composition.inspect", json!({"island":island}))
-        .await?;
-    cases.push(row(
-        "G-BLENDER-010",
-        json!({
-            "glb_magic":glb.starts_with(b"glTF"),
-            "sha_matches":export["sha256"]==file_sha(&glb_path)?,
-            "source_drift_false":after_export["drift"]==false,
-            "sentinel_preserved":fs::read(&sentinel)?==sentinel_bytes
-        }),
-    ));
-
     let pre_persist_a = fixture
         .call("composition.inspect", json!({"island":island}))
         .await?;
@@ -696,6 +668,37 @@ async fn run() -> AnyResult<Value> {
     cases.push(row(
         "G-BLENDER-009",
         json!({"shared_mesh_material_plan_rejected":!denied_shared.ok}),
+    ));
+
+    // Run the successful GLB export last on the clean managed island so any source-state
+    // drift caused by export cannot contaminate persistence, hostile-output or cursor cases.
+    let pre_export = active
+        .call("composition.inspect", json!({"island":island}))
+        .await?;
+    let export_collection = pre_export["items"][0]["collections"][0]
+        .as_str()
+        .ok_or_else(|| boxed("pre-export managed collection missing"))?
+        .to_owned();
+    let export = active
+        .call(
+            "export.glb",
+            json!({"collection":export_collection,"path":"g-native.glb","animations":true}),
+        )
+        .await?;
+    let glb_path = workspace.join("g-native.glb");
+    let glb = fs::read(&glb_path)?;
+    let after_export = active
+        .call("composition.inspect", json!({"island":island}))
+        .await?;
+    cases.push(row(
+        "G-BLENDER-010",
+        json!({
+            "pre_export_drift_false":pre_export["drift"]==false,
+            "glb_magic":glb.starts_with(b"glTF"),
+            "sha_matches":export["sha256"]==file_sha(&glb_path)?,
+            "source_drift_false":after_export["drift"]==false,
+            "sentinel_preserved":fs::read(&sentinel)?==sentinel_bytes
+        }),
     ));
 
     if let Some(reopened_fixture) = fresh.as_ref() {

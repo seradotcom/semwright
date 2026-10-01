@@ -4716,8 +4716,9 @@
       "requirement": "G06",
       "lane": "blender-native",
       "scope": "native_application",
-      "description": "GLB export is real, hashed, source-preserving and sentinel-safe",
+      "description": "GLB export starts from a clean managed island, is real/hashed, preserves source state and sentinel",
       "expected": {
+        "pre_export_drift_false": true,
         "glb_magic": true,
         "sha_matches": true,
         "source_drift_false": true,
