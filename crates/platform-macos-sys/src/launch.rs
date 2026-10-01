@@ -1,6 +1,4 @@
-use crate::sandbox_main::{
-    AS_ENV, CPU_ENV, CWD_ENV, EXEC_ARG, FSIZE_ENV, NOFILE_ENV, NPROC_ENV, PARENT_ARG,
-};
+use crate::sandbox_main::{AS_ENV, CPU_ENV, CWD_ENV, FSIZE_ENV, NOFILE_ENV, NPROC_ENV, PARENT_ARG};
 use async_trait::async_trait;
 use semwright_platform_api::launch::{
     ExecutableVerifier, MaterializedMount, MaterializedTool, MountClass,
@@ -432,12 +430,12 @@ impl SandboxLauncher for MacSandbox {
             entitlements(&read_only, &read_write, spec.network).as_bytes(),
             0o600,
         )?;
-        let child_entitlements = root.join("child.entitlements");
-        write_private(&child_entitlements, child_entitlements(), 0o600)?;
+        let child_entitlements_path = root.join("child.entitlements");
+        write_private(&child_entitlements_path, child_entitlements(), 0o600)?;
 
         if let Err(error) = codesign(
             &exec_helper,
-            &child_entitlements,
+            &child_entitlements_path,
             "com.semwright.runtime.sandbox.exec",
         )
         .and_then(|_| codesign(&app, &parent_entitlements, "com.semwright.runtime.sandbox"))
