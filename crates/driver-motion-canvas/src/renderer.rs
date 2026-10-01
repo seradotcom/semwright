@@ -421,6 +421,29 @@ async fn set_state(jobs: &Arc<Mutex<BTreeMap<String, Job>>>, key: &str, state: R
     }
 }
 
+fn renderer_failure_code(stdout: &[u8]) -> ErrorCode {
+    let Ok(text) = std::str::from_utf8(stdout) else {
+        return ErrorCode::BackendFailed;
+    };
+    let Some(line) = text.lines().rev().find(|line| line.starts_with('{')) else {
+        return ErrorCode::BackendFailed;
+    };
+    let Ok(value) = serde_json::from_str::<serde_json::Value>(line) else {
+        return ErrorCode::BackendFailed;
+    };
+    if value.get("ok") != Some(&serde_json::Value::Bool(false)) {
+        return ErrorCode::BackendFailed;
+    }
+    match value.get("errorClass").and_then(serde_json::Value::as_str) {
+        Some("vite_build") => ErrorCode::PluginProtocolError,
+        Some("font_evidence" | "frame_export" | "observation") => ErrorCode::ProtocolMismatch,
+        Some("browser_launch" | "page_load") => ErrorCode::Unavailable,
+        Some("arguments" | "project_stage" | "finalize") => ErrorCode::Internal,
+        Some("render_wait") => ErrorCode::BackendFailed,
+        _ => ErrorCode::BackendFailed,
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 async fn run_render(
     runtime: &RendererRuntime,
@@ -594,7 +617,7 @@ async fn run_render(
         let message = String::from_utf8_lossy(&stderr);
         let _ = fs::remove_dir_all(&output);
         return Err(Error::new(
-            ErrorCode::BackendFailed,
+            renderer_failure_code(&stdout),
             format!(
                 "Motion Canvas renderer failed: {}",
                 message.chars().take(16_384).collect::<String>()
@@ -965,6 +988,37 @@ mod runtime_path_tests {
             "/absolute/tool",
         ] {
             assert!(runtime_relative_path(hostile).is_err(), "{hostile}");
+        }
+    }
+
+    #[test]
+    fn renderer_failure_receipt_accepts_only_allowlisted_phase_classes() {
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"vite_build"}"#),
+            ErrorCode::PluginProtocolError
+        );
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"browser_launch"}"#),
+            ErrorCode::Unavailable
+        );
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"observation"}"#),
+            ErrorCode::ProtocolMismatch
+        );
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"render_wait"}"#),
+            ErrorCode::BackendFailed
+        );
+        for hostile in [
+            br#"{"ok":false,"errorClass":"../../escape"}"#.as_slice(),
+            br#"{"ok":true,"errorClass":"vite_build"}"#.as_slice(),
+            b"not-json".as_slice(),
+        ] {
+            assert_eq!(
+                renderer_failure_code(hostile),
+                ErrorCode::BackendFailed,
+                "{hostile:?}"
+            );
         }
     }
 

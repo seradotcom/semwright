@@ -107,10 +107,13 @@ function contentType(file) {
   const ext = path.extname(file).toLowerCase();
   return ({'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.woff2':'font/woff2','.woff':'font/woff','.mp4':'video/mp4','.webm':'video/webm','.wav':'audio/wav','.mp3':'audio/mpeg'})[ext] || 'application/octet-stream';
 }
+let failurePhase = 'startup';
 async function main() {
+  failurePhase = 'arguments';
   const a = args();
   const runtimeRoot = path.dirname(fileURLToPath(import.meta.url));
   const config = JSON.parse(Buffer.from(a.config, 'base64url').toString('utf8'));
+  failurePhase = 'font_evidence';
   if(config.authoring) config.fontEvidence=await pinnedFontEvidence(runtimeRoot);
   const project = path.resolve(a.project); const output = path.resolve(a.output);
   const work = await fs.mkdtemp(path.join(os.tmpdir(), 'semwright-motion-render-'));
@@ -122,6 +125,7 @@ async function main() {
   const cancel = async () => { if (cancelling) return; cancelling = true; try { await page?.evaluate(() => window.__SEMWRIGHT_RENDER__?.abort()); } catch {} await cleanup(); process.exitCode = 130; };
   process.once('SIGTERM', cancel); process.once('SIGINT', cancel);
   try {
+    failurePhase = 'project_stage';
     await fs.cp(project, work, {recursive:true,dereference:false,errorOnExist:false});
     await fs.rm(path.join(work, 'node_modules'), {recursive:true,force:true});
     await fs.symlink(path.join(runtimeRoot, 'node_modules'), path.join(work, 'node_modules'), 'dir');
@@ -129,10 +133,13 @@ async function main() {
     await fs.writeFile(path.join(work, 'semwright-entry.js'), "import 'virtual:semwright-render';\n");
     const projectEntry=path.join(work,'src/project.ts');
     const renderEntry=path.join(work,'semwright-render.html');
+    failurePhase = 'vite_build';
     await build({root:work,configFile:false,logLevel:'error',base:'/',plugins:[motionCanvas({project:projectEntry,editor:path.join(runtimeRoot,'stub-editor/main.js'),buildForEditor:true}),harnessPlugin(config,renderEntry)],build:{outDir:dist,emptyOutDir:true,rollupOptions:{input:renderEntry}}});
+    failurePhase = 'frame_export';
     await fs.mkdir(path.join(output, 'frames'), {recursive:true});
     if (process.env.SEMWRIGHT_DRIVER_SANDBOX !== 'landlock-bwrap-v1') fail('renderer requires the Semwright Driver Host sandbox');
     const profile = path.join(work, '.semwright-firefox-profile');
+    failurePhase = 'browser_launch';
     context = await firefox.launchPersistentContext(profile, {
       headless:true,
       executablePath:a.browser,
@@ -176,7 +183,9 @@ async function main() {
       try { const body = await fs.readFile(file); await route.fulfill({status:200,body,contentType:contentType(file)}); }
       catch { await route.fulfill({status:404,body:'not found',contentType:'text/plain'}); }
     });
+    failurePhase = 'page_load';
     await page.goto('http://semwright.invalid/semwright-render.html', {waitUntil:'domcontentloaded',timeout:config.timeoutMs});
+    failurePhase = 'render_wait';
     try {
       await page.waitForFunction(() => window.__SEMWRIGHT_RENDER__?.state?.done === true, undefined, {timeout:config.timeoutMs});
     } catch (error) {
@@ -186,12 +195,20 @@ async function main() {
     const state = await page.evaluate(() => window.__SEMWRIGHT_RENDER__.state);
     if (state.error) fail(`renderer failed: ${state.error}`);
     if (state.result !== 0) fail(`renderer result ${state.result}; state=${JSON.stringify(state)} diagnostics=${JSON.stringify(diagnostics)}`);
+    failurePhase = 'observation';
     if(config.authoring){
       if(observationCount!==config.endFrameExclusive-config.firstFrame)fail('native observation count incomplete');
       await fs.writeFile(path.join(output,'native-observations-receipt.json'),JSON.stringify({version:1,render_input_digest:config.renderInputDigest,font_resources_sha256:config.fontResourcesDigest,sha256:observationHash.digest('hex'),bytes:observationBytes,frames:observationCount,fps_num:config.fpsNum,fps_den:config.fpsDen}),{flag:'wx'});
     }
+    failurePhase = 'finalize';
     const files = (await fs.readdir(path.join(output,'frames'))).sort();
     process.stdout.write(JSON.stringify({ok:true,renderer:'motion-canvas-core-renderer-v3.17.2-firefox',lastFrame:state.frame,files:files.map(file=>`frames/${file}`)})+'\n');
   } finally { await cleanup(); }
 }
-main().catch(error => { process.stderr.write(String(error?.stack || error) + '\n'); process.exitCode = 1; });
+main().catch(error => {
+  const allowed = new Set(['arguments','font_evidence','project_stage','vite_build','frame_export','browser_launch','page_load','render_wait','observation','finalize']);
+  const errorClass = allowed.has(failurePhase) ? failurePhase : 'startup';
+  process.stdout.write(JSON.stringify({ok:false,errorClass})+'\n');
+  process.stderr.write(String(error?.stack || error) + '\n');
+  process.exitCode = 1;
+});
