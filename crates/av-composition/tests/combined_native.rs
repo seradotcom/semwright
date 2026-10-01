@@ -15,7 +15,7 @@ use semwright_audio_domain::{
     units::MilliDb,
 };
 use semwright_av_composition::*;
-use semwright_backend_api::{Backend, Provider};
+use semwright_backend_api::{Backend, Context, Provider};
 use semwright_core::{Broker, NoApprover, audit::Audit};
 use semwright_driver_host::DriverProvider;
 use semwright_driver_sdk::{
@@ -501,6 +501,40 @@ impl Harness {
         vec![motion, faust, analysis, mlt]
     }
 
+    async fn direct_faust_sample_render(&self, mut args: Value) -> semwright_types::Result<Value> {
+        let state = make_dir(self._root.path(), "state-faust-direct-diagnostic");
+        let provider = DriverProvider::connect(
+            faust_manifest(&self.faust_exe, &self.faust_helper, &self.faust_version),
+            &state,
+            &self.sandbox,
+            &[
+                grant("faust-libraries", &self.faust_libraries, true, false),
+                grant("audio-assets", &self.audio_assets(), true, false),
+                grant("output", &self.output, true, true),
+                grant("faust-tool", &self.faust_helper, true, false),
+            ],
+            false,
+        )
+        .await?;
+        let capabilities = Provider::capabilities(&provider).await?;
+        let descriptor = capabilities
+            .iter()
+            .find(|capability| capability.descriptor.name == "driver.faust-audio.sample.render")
+            .expect("direct Faust sample.render descriptor");
+        args["output_file"] = Value::String("sync-direct-diagnostic.wav".into());
+        Provider::execute(
+            &provider,
+            &Context {
+                session: "combined-av-direct-faust-diagnostic".into(),
+                request_id: "combined-av-direct-faust-sample-render".into(),
+                cancellation: CancellationToken::new(),
+            },
+            &descriptor.descriptor,
+            &args,
+        )
+        .await
+    }
+
     async fn broker(&self) -> Arc<Broker> {
         let providers = self.providers().await;
         let global_grants = vec![
@@ -804,20 +838,24 @@ async fn audio_consumer_receipt(
     let mut applied_base = base.clone();
     applied_base.0[0].revision = Revision::Fingerprint(applied_model.clone());
 
+    let render_args = json!({
+        "synth_json": serde_json::to_string(applied.synths.get("sync-synth").unwrap()).unwrap(),
+        "sample_json": serde_json::to_string(applied.samples.get("sync-impulse").unwrap()).unwrap(),
+        "expected_sha256": sample_sha,
+        "sample_rate": 48_000,
+        "duration_frames": 96_000,
+        "channels": 2,
+        "format": "wav",
+        "bit_depth": 16,
+        "output_file": "sync-final.wav"
+    });
+    let direct = harness.direct_faust_sample_render(render_args.clone()).await;
+    eprintln!("combined-e2e direct Faust sample.render diagnostic={direct:?}");
+    direct.expect("raw Driver Host Faust sample.render must succeed before Broker dispatch");
     let render = call(
         executor,
         "driver.faust-audio.sample.render",
-        json!({
-            "synth_json": serde_json::to_string(applied.synths.get("sync-synth").unwrap()).unwrap(),
-            "sample_json": serde_json::to_string(applied.samples.get("sync-impulse").unwrap()).unwrap(),
-            "expected_sha256": sample_sha,
-            "sample_rate": 48_000,
-            "duration_frames": 96_000,
-            "channels": 2,
-            "format": "wav",
-            "bit_depth": 16,
-            "output_file": "sync-final.wav"
-        }),
+        render_args,
     )
     .await;
     session
