@@ -41,7 +41,7 @@ jobs:
             mkdir -p verification/circleci-composition ~/.cargo/registry ~/.cargo/git ~/.npm
             python3 scripts/composition/ci-scope.py --after "$CIRCLE_SHA1"               > verification/circleci-composition/scope.json
 
-            python3 - <<'PY'
+            python3 - \<<'PY'
             import json
             import os
             from pathlib import Path
@@ -84,7 +84,7 @@ jobs:
             print(path.read_text())
             PY
 
-            cat > verification/circleci-composition/NOT_CERTIFICATION.txt <<'EOF'
+            cat > verification/circleci-composition/NOT_CERTIFICATION.txt \<<'EOF'
             This directory is private CircleCI iteration diagnostic output.
             It is not GitHub Actions evidence, release evidence, R16 evidence,
             READY_FOR_DEMO_PRODUCTION evidence, or certification evidence.
@@ -104,7 +104,7 @@ jobs:
             python3 -m py_compile               scripts/composition/ci-scope.py               scripts/composition/test-ci-scope.py               scripts/composition/run-suite.py               scripts/composition/package-dev.py               scripts/composition/test-package-dev.py               scripts/composition/candidate-evidence.py               scripts/composition/test-candidate-evidence.py
             python3 scripts/composition/test-ci-scope.py
             bash -n scripts/dev/ci-driver-bwrap-profile.sh
-            python3 - <<'PY'
+            python3 - \<<'PY'
             import json
             from pathlib import Path
             json.loads(Path("packaging/composition-development/manifest.json").read_text())
@@ -327,7 +327,7 @@ jobs:
 
             cargo test --locked -p semwright-driver-motion-canvas               composition_authoring_runs_through_broker_driver_host_and_native_renderer               -- --ignored --nocapture               2>&1 | tee verification/circleci-composition/motion/composition-authoring.log
 
-            cat > verification/circleci-composition/motion/iteration-classification.json <<EOF
+            cat > verification/circleci-composition/motion/iteration-classification.json \<<EOF
             {
               "schema_version": 1,
               "tested_sha": "$CIRCLE_SHA1",
