@@ -201,7 +201,7 @@ jobs:
           echo "$E_GLB_SHA256  $E_DIR/articulated.glb" | sha256sum -c -
           cp "$E_DIR/articulated.glb" "$OUT/articulated.glb"
           python3 - "$E_DIR" "$OUT/e-source" <<'PY2'
-          import json, os, pathlib, sys
+          import hashlib, json, os, pathlib, sys
           root = pathlib.Path(sys.argv[1])
           evidence = pathlib.Path(sys.argv[2])
           metadata = json.loads((evidence / "artifact-metadata.json").read_text())
@@ -209,6 +209,11 @@ jobs:
           suite = json.loads((root / "blender-native-authoring.json").read_text())
           oracle = json.loads((root / "glb-roundtrip-blender.json").read_text())
           native = json.loads((root / "native-pipeline.json").read_text())
+          acceptance = json.loads((root / "acceptance-final.json").read_text())
+          summary = json.loads((root / "acceptance-final-summary.json").read_text())
+          source_package = json.loads((root / "source-package.json").read_text())
+          skill_bundle = json.loads((root / "skill-bundle.json").read_text())
+          skill_validate = json.loads((root / "skill-validate.json").read_text())
           expected_sha = os.environ["E_SOURCE_SHA"]
           expected_run = os.environ["E_RUN_ID"]
           expected_name = os.environ["E_ARTIFACT_NAME"]
@@ -226,18 +231,46 @@ jobs:
           assert native["native_authoring_c_f_verified"] is True
           assert native["glb"]["sha256"] == glb_sha and native["glb"]["bytes"] == 7220
           job = next(j for j in jobs["jobs"] if j["name"] == "authoring")
-          steps = {step["name"]: step["conclusion"] for step in job["steps"]}
-          for name in [
-              "Exact-SHA model and selected suite",
-              "Fresh Blender GLB semantic roundtrip oracle",
-              "Hostile GLB closure in disposable Blender",
-              "Bounded authoring parser fuzz",
-              "Skill validate and clean bundle",
-              "Reproducible E source backup",
+          assert job["status"] == "completed" and job["conclusion"] == "success"
+          exact = acceptance["exact_evidence"]
+          assert exact["source_sha"] == expected_sha and exact["run_id"] == int(expected_run)
+          assert exact["glb_sha256"] == glb_sha
+          assert exact["model"]["passed"] == 50 and exact["native"]["passed"] == 3
+          for key in [
+              "fresh_blender_roundtrip",
+              "startup_factory_clean_autoexec_disabled",
+              "sampled_media_time_verified",
+              "incremental_material_slots_verified",
+              "axis_selective_align_verified",
+              "pre_cancelled_apply_fail_closed",
           ]:
-              assert steps[name] == "success", (name, steps[name])
-          assert steps["Formatting gate"] == "success"
-          for name in ["blender-native-authoring.json", "glb-roundtrip-blender.json", "native-pipeline.json"]:
+              assert exact[key] is True, key
+          expected_pass = {f"E{i:02d}" for i in range(1, 11)} | {"E12", "E14", "E15", "E16"}
+          assert set(summary["pass_requirements"]) == expected_pass
+          assert summary["source_sha"] == expected_sha and str(summary["run_id"]) == expected_run
+          assert summary["blocked"] == ["E11"] and summary["partial"] == ["E13"]
+          assert summary["blender_authoring_ready"] is False and acceptance["blender_authoring_ready"] is False
+          source_zip = root / "semwright-blender-authoring-E-source.zip"
+          assert source_package["source_sha"] == expected_sha
+          assert source_package["bytes"] == source_zip.stat().st_size
+          assert source_package["sha256"] == exact["source_backup_sha256"]
+          assert hashlib.sha256(source_zip.read_bytes()).hexdigest() == source_package["sha256"]
+          skill_zip = root / "semwright-blender-production.zip"
+          assert skill_bundle["sha256"] == exact["skill_zip_sha256"]
+          assert skill_bundle["bytes"] == skill_zip.stat().st_size
+          assert hashlib.sha256(skill_zip.read_bytes()).hexdigest() == skill_bundle["sha256"]
+          assert skill_validate["result"] == "valid" and skill_validate["standard_valid"] is True
+          assert skill_validate["script_execution"] == "disabled" and skill_validate["warnings"] == []
+          for name in [
+              "blender-native-authoring.json",
+              "glb-roundtrip-blender.json",
+              "native-pipeline.json",
+              "acceptance-final.json",
+              "acceptance-final-summary.json",
+              "source-package.json",
+              "skill-bundle.json",
+              "skill-validate.json",
+          ]:
               (evidence / name).write_bytes((root / name).read_bytes())
           PY2
       - name: D12 Blender replacement through Broker and Driver Host
@@ -652,7 +685,7 @@ jobs:
           unzip -q "$RUNNER_TEMP/e-artifact.zip" -d "$RUNNER_TEMP/e-cross-app"
           echo "$E_GLB_SHA256  $RUNNER_TEMP/e-cross-app/articulated.glb" | sha256sum -c -
           cmp "$NATIVE/cross-app/articulated.glb" "$RUNNER_TEMP/e-cross-app/articulated.glb"
-          for name in blender-native-authoring.json glb-roundtrip-blender.json native-pipeline.json; do
+          for name in blender-native-authoring.json glb-roundtrip-blender.json native-pipeline.json acceptance-final.json acceptance-final-summary.json source-package.json skill-bundle.json skill-validate.json; do
             test -s "$NATIVE/cross-app/e-source/$name"
             cmp "$NATIVE/cross-app/e-source/$name" "$RUNNER_TEMP/e-cross-app/$name"
           done
@@ -665,6 +698,11 @@ jobs:
           e_suite = json.loads((e_root / "blender-native-authoring.json").read_text())
           e_oracle = json.loads((e_root / "glb-roundtrip-blender.json").read_text())
           e_native = json.loads((e_root / "native-pipeline.json").read_text())
+          e_acceptance = json.loads((e_root / "acceptance-final.json").read_text())
+          e_summary = json.loads((e_root / "acceptance-final-summary.json").read_text())
+          e_source_package = json.loads((e_root / "source-package.json").read_text())
+          e_skill_bundle = json.loads((e_root / "skill-bundle.json").read_text())
+          e_skill_validate = json.loads((e_root / "skill-validate.json").read_text())
           assert d12["source_sha"] == os.environ["GITHUB_SHA"]
           assert d12["e_source_sha"] == os.environ["E_SOURCE_SHA"]
           assert d12["e_run_id"] == int(os.environ["E_RUN_ID"])
@@ -697,6 +735,18 @@ jobs:
           assert e_native["native_assertions_completed"] is True
           assert e_native["native_authoring_c_f_verified"] is True
           assert e_native["glb"]["sha256"] == os.environ["E_GLB_SHA256"]
+          e_exact = e_acceptance["exact_evidence"]
+          assert e_exact["source_sha"] == os.environ["E_SOURCE_SHA"]
+          assert e_exact["run_id"] == int(os.environ["E_RUN_ID"])
+          assert e_exact["glb_sha256"] == os.environ["E_GLB_SHA256"]
+          assert e_exact["model"]["passed"] == 50 and e_exact["native"]["passed"] == 3
+          assert e_summary["source_sha"] == os.environ["E_SOURCE_SHA"]
+          assert str(e_summary["run_id"]) == os.environ["E_RUN_ID"]
+          assert e_summary["blocked"] == ["E11"] and e_summary["partial"] == ["E13"]
+          assert e_source_package["source_sha"] == os.environ["E_SOURCE_SHA"]
+          assert e_source_package["sha256"] == e_exact["source_backup_sha256"]
+          assert e_skill_bundle["sha256"] == e_exact["skill_zip_sha256"]
+          assert e_skill_validate["result"] == "valid" and e_skill_validate["warnings"] == []
           out = {
               "schema_version": 1,
               "role": "D-cross-app-oracle",
