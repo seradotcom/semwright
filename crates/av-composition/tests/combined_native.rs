@@ -39,7 +39,7 @@ use sha2::{Digest as ShaDigest, Sha256};
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs,
-    os::unix::fs::PermissionsExt,
+    os::unix::fs::{MetadataExt, PermissionsExt},
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -535,6 +535,37 @@ impl Harness {
         .await
     }
 
+    fn direct_audio_meter_oracle(&self, file_name: &str, expected_sha256: &Digest) {
+        let path = self.output.join(file_name);
+        let metadata = fs::symlink_metadata(&path).expect("combined audio oracle metadata");
+        assert!(metadata.file_type().is_file(), "combined audio oracle input is not regular");
+        assert!(!metadata.file_type().is_symlink(), "combined audio oracle input is a symlink");
+        let actual_sha256 = file_sha(&path);
+        assert_eq!(actual_sha256, expected_sha256.as_str(), "combined audio oracle digest drift");
+        eprintln!(
+            "combined-e2e audio oracle file={} bytes={} nlink={} mode={:o} sha256={}",
+            file_name,
+            metadata.len(),
+            metadata.nlink(),
+            metadata.mode() & 0o7777,
+            actual_sha256
+        );
+        let output = std::process::Command::new(&self.meter)
+            .args(["analyze", path.to_string_lossy().as_ref(), "stereo"])
+            .env_clear()
+            .output()
+            .expect("combined audio oracle meter process");
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        eprintln!(
+            "combined-e2e audio oracle meter status={} stdout={} stderr={}",
+            output.status,
+            stdout.chars().take(4096).collect::<String>(),
+            stderr.chars().take(4096).collect::<String>()
+        );
+        assert!(output.status.success(), "raw audio meter oracle rejected the published WAV");
+    }
+
     async fn direct_audio_analysis_measure(&self, args: Value) -> semwright_types::Result<Value> {
         let state = make_dir(self._root.path(), "state-analysis-direct-diagnostic");
         let provider = DriverProvider::connect(
@@ -917,6 +948,7 @@ async fn audio_consumer_receipt(
     );
     assert_eq!(render["native_receipt"]["channels"].as_u64(), Some(2));
 
+    harness.direct_audio_meter_oracle("sync-final.wav", &artifact_digest);
     let analysis_args = json!({
         "file_name": "sync-final.wav",
         "expected_sha256": artifact_digest.as_str(),
