@@ -5,13 +5,14 @@ use semwright_godot_driver::authoring::native_observation::{
 };
 use semwright_godot_driver::{
     authoring::{GodotAuthoringSpec, store::Store},
-    config::AuthoringConfig,
+    config::{AuthoringConfig, ProjectConfig, RunnerConfig},
+    runner::Runner,
 };
 use semwright_semantic_composition::strict_decode;
 use serde_json::json;
 use std::collections::BTreeSet;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 const SOURCE: &str = env!("G_LAB_COMPILED_SOURCE_SHA");
 type AnyResult<T> = Result<T, Box<dyn std::error::Error>>;
@@ -68,6 +69,45 @@ fn write_project(spec_path: &Path, output: &Path) -> AnyResult<()> {
             "intent_digest": intent_digest,
             "source_state": receipt.source_state,
             "persistent_bindings": prepared.target.bindings.len(),
+        }))?
+    );
+    Ok(())
+}
+
+fn runner_export(project: &Path, artifacts: &Path, godot_sha256: &str) -> AnyResult<()> {
+    fs::create_dir_all(artifacts)?;
+    let runner = Runner::new(
+        RunnerConfig {
+            executable: PathBuf::from("/source"),
+            sha256: godot_sha256.into(),
+            output_root: artifacts.to_path_buf(),
+            display: None,
+        },
+        &[ProjectConfig {
+            project: "g-paired-project".into(),
+            root: project.to_path_buf(),
+            secret: "g-synthetic-not-a-secret".into(),
+        }],
+        None,
+    )?;
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()?;
+    let value = runtime.block_on(runner.execute(
+        "driver.godot.export.build",
+        &json!({
+            "project": "g-paired-project",
+            "preset": "Linux",
+            "output": "g_native.x86_64",
+            "debug": false,
+        }),
+    ))?;
+    println!(
+        "{}",
+        serde_json::to_string(&json!({
+            "schema_version": 1,
+            "source_sha": SOURCE,
+            "result": value,
         }))?
     );
     Ok(())
@@ -149,6 +189,9 @@ fn run() -> AnyResult<()> {
                     "reader_process": reader.process_id,
                 }))?
             );
+        }
+        "runner-export" if args.len() == 4 => {
+            runner_export(Path::new(&args[1]), Path::new(&args[2]), &args[3])?;
         }
         _ => return Err("invalid helper arguments".into()),
     }

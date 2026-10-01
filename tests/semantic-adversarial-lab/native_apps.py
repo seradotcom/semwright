@@ -242,8 +242,9 @@ def run_native_pair(
     )
 
 
-def helper(enclosure: Enclosure, binary: Path, args: list[str], *, expect_success: bool = True) -> tuple[dict[str, Any], Any]:
-    raw = enclosure.run(["/plugin/bin", *args], executable=binary, timeout=30)
+def helper(enclosure: Enclosure, binary: Path, args: list[str], *, expect_success: bool = True,
+           source: Path | None = None, timeout: float = 30.0) -> tuple[dict[str, Any], Any]:
+    raw = enclosure.run(["/plugin/bin", *args], executable=binary, source=source, timeout=timeout)
     value = None
     if raw["stdout"]:
         try:
@@ -683,19 +684,47 @@ def run_godot(target: Path, source_sha: str, suite_sha: str, cases: list[dict], 
         addon = project / "addons" / "g_probe"
         addon.mkdir(parents=True, exist_ok=True)
         (addon / "marker.gd").write_text("# " + marker + "\n")
-        template_copy = out / "template" / "linux_release.x86_64"
-        template_copy.parent.mkdir()
-        shutil.copyfile(template, template_copy)
-        export_script = (
-            "set -eu; "
-            "mkdir -p /tmp/data/godot/export_templates/4.7.2.stable /out/export; "
-            "cp /out/template/linux_release.x86_64 /tmp/data/godot/export_templates/4.7.2.stable/linux_release.x86_64; "
-            "chmod 0755 /tmp/data/godot/export_templates/4.7.2.stable/linux_release.x86_64; "
-            "exec /plugin/bin --headless --path /out/g_native --export-release Linux /out/export/g_native.x86_64"
+        runner_artifacts = out / "runner-artifacts"
+        template_home = (
+            runner_artifacts
+            / ".semwright-home"
+            / "data"
+            / "godot"
+            / "export_templates"
+            / "4.7.2.stable"
         )
-        export_raw = enclosure.run(["/usr/bin/bash", "-c", export_script], executable=godot, timeout=30)
-        binary = out / "export" / "g_native.x86_64"
-        exported = sound(export_raw, enclosure) and binary.is_file()
+        template_home.mkdir(parents=True)
+        template_copy = template_home / "linux_release.x86_64"
+        shutil.copyfile(template, template_copy)
+        template_copy.chmod(0o755)
+        export_raw, export_receipt = helper(
+            enclosure,
+            build.binary,
+            [
+                "runner-export",
+                "/out/g_native",
+                "/out/runner-artifacts",
+                pins["godot_binary_sha256"],
+            ],
+            source=godot,
+            timeout=30,
+        )
+        binary = runner_artifacts / "g_native.x86_64"
+        result_value = export_receipt.get("result") if isinstance(export_receipt, dict) else None
+        exported = (
+            sound(export_raw, enclosure)
+            and isinstance(result_value, dict)
+            and result_value.get("success") is True
+            and result_value.get("artifact") == "g_native.x86_64"
+            and binary.is_file()
+        )
+        mode = (binary.stat().st_mode & 0o777) if binary.is_file() else None
+        report["export_diagnostic"] = {
+            "route": "Runner::execute(driver.godot.export.build)",
+            "artifact": result_value.get("artifact") if isinstance(result_value, dict) else None,
+            "mode": mode,
+            "executable": binary.is_file() and os.access(binary, os.X_OK),
+        }
         results_by_id["G-GODOT-011"] = {"exported": exported}
         export_bytes = binary.read_bytes() if binary.is_file() else b""
         forbidden = [
@@ -706,7 +735,7 @@ def run_godot(target: Path, source_sha: str, suite_sha: str, cases: list[dict], 
             b"GH_TOKEN",
         ]
         launch_raw = enclosure.run(
-            ["/usr/bin/timeout", "5", "/out/export/g_native.x86_64", "--headless"],
+            ["/usr/bin/timeout", "5", "/out/runner-artifacts/g_native.x86_64", "--headless"],
             timeout=8,
         ) if exported else {
             "exit_code": -1, "termination_reason": "not_exported", "canaries_unchanged": True,
