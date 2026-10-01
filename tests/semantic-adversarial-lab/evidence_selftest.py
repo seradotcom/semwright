@@ -9,6 +9,7 @@ import warnings
 import zipfile
 from artifact_io import MAX_FILE, read_evidence_archive
 from collect_evidence import validate_lane, immutable_write, target_for_lane
+from product import build_target_kind
 from lab_core import EvidenceError, digest, summarize
 from oracle_identity import payload_digest
 from selftest_extra import target_only_retest, closure_rejects
@@ -100,6 +101,10 @@ def collector_role_targets():
         and target_for_lane(lock, "packaging", SUITE) == "0" * 40
     )
 
+
+def routing_build_target_is_normal_bin():
+    return build_target_kind("routing") == "bin" and build_target_kind("graph") == "example"
+
 def history_control(overwrite):
     with tempfile.TemporaryDirectory(prefix="g-synthetic-evidence-", dir="/out") as directory:
         path = Path(directory) / "receipt.json"
@@ -151,4 +156,5 @@ def evidence_cases():
         ("G-SELF-091", lambda: history_control(False)),
         ("G-SELF-092", lambda: history_control(True)),
         ("G-SELF-093", collector_role_targets),
+        ("G-SELF-094", routing_build_target_is_normal_bin),
     ]

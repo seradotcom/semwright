@@ -22,6 +22,10 @@ PACKAGES = {"composition": ("semwright-semantic-composition", "semantic-composit
             "packaging": ("semwright-skills", "skills", "packaging_probe.rs"),
             "routing": ("semwright-core", "core", "routing_probe.rs")}
 PACKAGE_FEATURES = {"graph": ["store"]}
+PACKAGE_TARGET_KIND = {"routing": "bin"}
+
+def build_target_kind(lane: str) -> str:
+    return PACKAGE_TARGET_KIND.get(lane, "example")
 
 def hashed(path: Path) -> str:
     h = hashlib.sha256()
@@ -66,13 +70,20 @@ class BuildCopy:
         archive.unlink()
         if source_manifest(self.source, self.paths) != self.original_digest:
             raise EvidenceError("build copy differs from audited source")
-        self.overlay = self.source / "crates" / self.crate / "examples" / "g_adversarial_probe.rs"
+        self.target_kind = build_target_kind(lane)
+        if self.target_kind == "bin":
+            self.overlay = self.source / "crates" / self.crate / "src" / "bin" / "g_adversarial_probe.rs"
+            self.binary = self.root / "target" / "debug" / "g_adversarial_probe"
+        elif self.target_kind == "example":
+            self.overlay = self.source / "crates" / self.crate / "examples" / "g_adversarial_probe.rs"
+            self.binary = self.root / "target" / "debug" / "examples" / "g_adversarial_probe"
+        else:
+            raise EvidenceError("unsupported G build target kind")
         if self.overlay.exists():
             raise EvidenceError("G overlay would overwrite target source")
-        self.overlay.parent.mkdir(exist_ok=True)
+        self.overlay.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(LAB / "rust" / probe_name, self.overlay)
         self.lock_digest = hashed(self.source / "Cargo.lock")
-        self.binary = self.root / "target" / "debug" / "examples" / "g_adversarial_probe"
         self.builds: list[dict] = []
         self.declared_mutation: str | None = None
         self.before_source: bytes | None = None
@@ -94,7 +105,8 @@ class BuildCopy:
         log = self.root / (label + ".log")
         started = time.monotonic()
         with log.open("wb") as output:
-            command = ["cargo", "build", "--locked", "-p", self.package, "--example", "g_adversarial_probe"]
+            selector = "--bin" if self.target_kind == "bin" else "--example"
+            command = ["cargo", "build", "--locked", "-p", self.package, selector, "g_adversarial_probe"]
             if features := PACKAGE_FEATURES.get(self.lane):
                 command += ["--features", ",".join(features)]
             command += ["--message-format=json-render-diagnostics"]

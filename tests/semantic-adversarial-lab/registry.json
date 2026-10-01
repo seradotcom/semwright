@@ -4369,6 +4369,17 @@
         "collect_no_user_delete": true,
         "sentinel_preserved": true
       }
+    },
+    {
+      "id": "G-SELF-094",
+      "owner": "G",
+      "requirement": "G11",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "routing probe builds as normal bin target so semwright-core dev-dependencies cannot expand the audited surface",
+      "expected": {
+        "ok": true
+      }
     }
   ]
 }
