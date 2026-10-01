@@ -44,7 +44,9 @@ test('renderer TypeErrors expose only allowlisted stack origins', () => {
   assert.ok(render.includes("stack.includes('semwright-authoring-native')"));
   assert.ok(render.includes("stack.includes('semwright-exporter')"));
   assert.ok(render.includes("stack.includes('@motion-canvas/core')"));
+  assert.ok(render.includes("stack.includes('@motion-canvas_core')"));
   assert.ok(render.includes("stack.includes('@motion-canvas/2d')"));
+  assert.ok(render.includes("stack.includes('@motion-canvas_2d')"));
   for (const classification of [
     'renderer_state_semwright_native',
     'renderer_state_semwright_exporter',

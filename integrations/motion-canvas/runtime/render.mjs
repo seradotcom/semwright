@@ -85,10 +85,13 @@ function classifyAuthoringMessage(message){
 }
 function classifyLogStack(payload){
   const stack=typeof payload?.stack==='string'?payload.stack:'';
-  if(stack.includes('semwright-authoring-native'))return 'semwright_native';
-  if(stack.includes('semwright-exporter'))return 'semwright_exporter';
-  if(stack.includes('@motion-canvas/core'))return 'motion_core';
-  if(stack.includes('@motion-canvas/2d'))return 'motion_2d';
+  // Vite development/build stack URLs may preserve source paths or rewrite scoped
+  // package names into dependency chunk names. Only classify to an allowlisted
+  // module family; never surface the URL, frame, line, stack, or message.
+  if(stack.includes('semwright-authoring-native')||stack.includes('/src/semwright-authoring-native'))return 'semwright_native';
+  if(stack.includes('semwright-exporter')||stack.includes('/src/semwright-exporter'))return 'semwright_exporter';
+  if(stack.includes('@motion-canvas/core')||stack.includes('@motion-canvas_core'))return 'motion_core';
+  if(stack.includes('@motion-canvas/2d')||stack.includes('@motion-canvas_2d'))return 'motion_2d';
   return null;
 }
 function classifyRendererLog(payload){
