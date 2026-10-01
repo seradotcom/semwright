@@ -215,7 +215,7 @@
       "id": "D12",
       "requirement": "Blender GLB preserved gameplay",
       "state": "HISTORICAL_CERTIFIED_CURRENT_SHA_RETEST_REQUIRED",
-      "implementation": "incremental replacement on one managed 3D game: baseline triangle.glb -> native inspect/play -> pinned E native articulated.glb artifact (E d80471b/run 36543391358/artifact 11023505708) via Broker artifact.handoff -> replan/apply same logical asset slot -> native inspect/persistence/play -> composition.verify C receipt that pins the articulated GLB LogicalAssetId/AssetRevision/bytes; the heavy route runs in the already-attested native-authoring runner and a dependent cross-app job independently revalidates receipts and E bytes",
+      "implementation": "incremental replacement on one managed 3D game: baseline triangle.glb -> native inspect/play -> pinned E native articulated.glb artifact (E e753248/run 36680849875/artifact 11082381172) via Broker artifact.handoff -> replan/apply same logical asset slot -> native inspect/persistence/play -> composition.verify C receipt that pins the articulated GLB LogicalAssetId/AssetRevision/bytes; the heavy route runs in the already-attested native-authoring runner and a dependent cross-app job independently revalidates receipts and E bytes",
       "tests": [
         "E native/oracle/hostile provenance verification",
         "baseline triangle GLB native import and gameplay",

@@ -183,14 +183,14 @@ jobs:
         if: needs.scope.outputs.cross_app == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          E_SOURCE_SHA: d80471b9ceb828a2a531dfac9eaa4e970ea589a9
-          E_RUN_ID: '36543391358'
-          E_ARTIFACT_ID: '11023505708'
-          E_ARTIFACT_NAME: blender-authoring-d80471b9ceb828a2a531dfac9eaa4e970ea589a9-blender-native-authoring
-          E_GLB_SHA256: f756e288afb978993488e2f59b07179b1c97f7801d5f4314166de0d2b6db7ca5
+          E_SOURCE_SHA: e753248ed33b345554b0e7c3c8d521e666751d6f
+          E_RUN_ID: '36680849875'
+          E_ARTIFACT_ID: '11082381172'
+          E_ARTIFACT_NAME: blender-authoring-e753248ed33b345554b0e7c3c8d521e666751d6f-blender-native-authoring
+          E_GLB_SHA256: d3a4ba15f14ad6d3fba680c2d1db6d6d7584fb5254d2df8fd1c070870e9b0fd2
         run: |
           set -euo pipefail
-          E_DIR="$RUNNER_TEMP/e-blender-d80471b"
+          E_DIR="$RUNNER_TEMP/e-blender-e753248"
           OUT=verification/godot-authoring/cross-app
           mkdir -p "$E_DIR" "$OUT/e-source"
           gh api "repos/seradotcom/semwright/actions/artifacts/$E_ARTIFACT_ID" > "$OUT/e-source/artifact-metadata.json"
@@ -245,10 +245,10 @@ jobs:
         env:
           SEMWRIGHT_TEST_E_GLB: ${{ github.workspace }}/verification/godot-authoring/cross-app/articulated.glb
           SEMWRIGHT_TEST_D12_C_RECEIPT_OUT: ${{ github.workspace }}/verification/godot-authoring/cross-app/c-receipt.json
-          E_SOURCE_SHA: d80471b9ceb828a2a531dfac9eaa4e970ea589a9
-          E_RUN_ID: '36543391358'
-          E_ARTIFACT_ID: '11023505708'
-          E_GLB_SHA256: f756e288afb978993488e2f59b07179b1c97f7801d5f4314166de0d2b6db7ca5
+          E_SOURCE_SHA: e753248ed33b345554b0e7c3c8d521e666751d6f
+          E_RUN_ID: '36680849875'
+          E_ARTIFACT_ID: '11082381172'
+          E_GLB_SHA256: d3a4ba15f14ad6d3fba680c2d1db6d6d7584fb5254d2df8fd1c070870e9b0fd2
         run: |
           set -euo pipefail
           export SEMWRIGHT_TEST_SANDBOX_HELPER="$CARGO_TARGET_DIR/debug/semwright-sandbox"
@@ -618,11 +618,11 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 12
     env:
-      E_SOURCE_SHA: d80471b9ceb828a2a531dfac9eaa4e970ea589a9
-      E_RUN_ID: '36543391358'
-      E_ARTIFACT_ID: '11023505708'
-      E_ARTIFACT_NAME: blender-authoring-d80471b9ceb828a2a531dfac9eaa4e970ea589a9-blender-native-authoring
-      E_GLB_SHA256: f756e288afb978993488e2f59b07179b1c97f7801d5f4314166de0d2b6db7ca5
+      E_SOURCE_SHA: e753248ed33b345554b0e7c3c8d521e666751d6f
+      E_RUN_ID: '36680849875'
+      E_ARTIFACT_ID: '11082381172'
+      E_ARTIFACT_NAME: blender-authoring-e753248ed33b345554b0e7c3c8d521e666751d6f-blender-native-authoring
+      E_GLB_SHA256: d3a4ba15f14ad6d3fba680c2d1db6d6d7584fb5254d2df8fd1c070870e9b0fd2
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
