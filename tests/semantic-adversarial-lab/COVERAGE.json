@@ -363,7 +363,7 @@
       "id": "G06",
       "claim": "Godot readback/persistence/behavior/export",
       "owner": "D",
-      "status": "NOT_RUN",
+      "status": "BLOCKED",
       "implementation": [
         "native_apps.py",
         "rust/godot_native_probe.rs"
@@ -384,12 +384,16 @@
         "G-GODOT-013"
       ],
       "source_sha": "e6bd9489d7983d275fd1454dd7ab26916d3fbb15",
-      "suite_sha": null,
-      "run_id": null,
-      "job_id": null,
-      "evidence": [],
-      "blocker": "Godot native exact-SHA evidence now isolates G-GODOT-006 persistence sentinel mismatch; G-GODOT-007 depends on a green persistence baseline. Export itself passes, while standalone launch false-failed only because /out exec is AppArmor-denied; launch now copies byte-identical artifact to allowed /tmp. Added G-GODOT-013 to detect D observer SCRIPT ERROR false-PASS (exit 0 + failures=[]). Retest pending.",
-      "implementation_suite_sha": null,
+      "suite_sha": "a337709ffdd2e05f40da408e3a78183651dff113",
+      "run_id": 36818122155,
+      "job_id": 110227589092,
+      "evidence": [
+        "godot-native receipt 7c4b1dadc37c97c43e9e7a29f6af8b709cb4c94d21e2b01a557303259e59ea48",
+        "godot-native artifact 3813bc488c953f32740c1b8df43bfd7f369ae8f8c5a3cf496c1074c31881fcd7",
+        "selftest 99/99 PASS artifact 08b7065ab21a7a0b06aca563c10f37811ba57d170adf2e7fb81fc556964622fd"
+      ],
+      "blocker": "Exact-SHA Godot-native run 36818122155: 10 PASS, 2 FAIL, 1 BLOCKED of 13. G-GODOT-006 is OPEN D persistence finding: fresh save/reopen receipts individually admit, but persistence_value rejects a writer-only local-material dependency sentinel. G-GODOT-013 is OPEN D observer false-PASS: BoxMesh readback emits SCRIPT ERROR while process exits 0 and failures=[]; G-GODOT-007 is BLOCKED until persistence baseline is green. Export/standalone G-GODOT-011/012 now PASS after G harness fixes.",
+      "implementation_suite_sha": "a337709ffdd2e05f40da408e3a78183651dff113",
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },
     {
