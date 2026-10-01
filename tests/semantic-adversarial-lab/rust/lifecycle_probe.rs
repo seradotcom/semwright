@@ -697,12 +697,18 @@ async fn probe(id: &str) -> ProbeResult<Value> {
             let _ = fixture.wait_job_terminal(session, &id).await?;
             let a = fixture.broker.replay_for(session, 0)?;
             let b = fixture.broker.replay_for("g-audience-b", 0)?;
-            let a_text = serde_json::to_string(&a)?;
-            let b_text = serde_json::to_string(&b)?;
+            let owner_sees_job_events = a.iter().any(|event| {
+                event.event.kind.starts_with("job.")
+                    && event.event.attributes.get("job_id") == Some(&json!(id))
+            });
+            let foreign_does_not = !b.iter().any(|event| {
+                event.event.kind.starts_with("job.")
+                    && event.event.attributes.get("job_id") == Some(&json!(id))
+            });
             let ordered = a.windows(2).all(|w| w[0].sequence < w[1].sequence);
             let observed = json!({
-                "owner_sees_job_events":a_text.contains(&id),
-                "foreign_does_not":!b_text.contains(&id),
+                "owner_sees_job_events":owner_sees_job_events,
+                "foreign_does_not":foreign_does_not,
                 "sequence_monotonic":ordered
             });
             fixture.close().await?;

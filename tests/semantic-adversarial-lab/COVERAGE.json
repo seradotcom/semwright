@@ -563,7 +563,7 @@
       "run_id": null,
       "job_id": null,
       "evidence": [],
-      "blocker": "18 independent Broker/provider lifecycle fault cases activated against A 7ed5b84: registration races, refresh/invalidation, disconnect/timeout/cancel, jobs session scope/progress/revoke, event replay/source binding and in-flight refresh. Exact-SHA execution pending; fuzz remains a separate heavy follow-up.",
+      "blocker": "Lifecycle run 36832327073 executed 18/18 with 17 PASS and one G oracle defect in LIFE-015: replay_for intentionally includes global command events; privacy applies to audience-bound job.* events. Oracle corrected to inspect job kind + job_id exactly; retest pending.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },
