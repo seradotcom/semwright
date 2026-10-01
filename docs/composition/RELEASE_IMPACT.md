@@ -16,7 +16,7 @@ The A branch adds or extends:
 - targeted Composition/driver diagnostics;
 - benchmark and production handoff documentation.
 
-Audio-domain, Faust, Ardour, audio-authoring and the audio production Skill remain owned by agent B and are not imported into A until B publishes AUDIO_READY_FOR_INTEGRATION.
+Audio-domain, Faust, Ardour, audio-authoring and the audio production Skill remain owned by agent B. The A-owned combined integration now consumes B's certified `AUDIO_READY_FOR_INTEGRATION` SHA `8ed2d30c8ba797ebd5b8c102d34f8ab5bb3a28b3` by normal Git ancestry; their native claims still require exact-candidate revalidation and are not transferred from B's branch merely by merging.
 
 ## Compatibility
 

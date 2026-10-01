@@ -51,7 +51,10 @@ jobs:
 
             path = Path("verification/circleci-composition/scope.json")
             data = json.loads(path.read_text())
-            force_motion = os.environ.get("FORCE_MOTION_NATIVE", "").lower() == "true"
+            force_motion = (
+                os.environ.get("FORCE_MOTION_NATIVE", "").lower() == "true"
+                or os.environ.get("CIRCLE_BRANCH") == "integration/composition-av"
+            )
             force_contracts = os.environ.get("FORCE_CONTRACTS", "").lower() == "true"
             if force_motion:
                 data["motion"] = True
@@ -295,6 +298,7 @@ jobs:
               exit 0
             fi
             source "$HOME/.cargo/env"
+            root="$PWD"
 
             mkdir -p verification/circleci-composition/motion
             bash scripts/dev/ci-driver-bwrap-profile.sh               verification/circleci-composition/motion/sandbox-setup.log
@@ -313,16 +317,16 @@ jobs:
             )
             test "${#browsers[@]}" -eq 1
             browser_rel="$(realpath --relative-to="$PWD" "${browsers[0]}")"
-            python3 "$CIRCLE_WORKING_DIRECTORY/scripts/motion-canvas/runtime-manifest.py"               --root "$PWD" --browser-rel "$browser_rel"
-            cd "$CIRCLE_WORKING_DIRECTORY"
+            python3 "$root/scripts/motion-canvas/runtime-manifest.py"               --root "$PWD" --browser-rel "$browser_rel"
+            cd "$root"
 
             cargo build --locked               -p semwright-plugin-host --bin semwright-sandbox               -p semwright-driver-motion-canvas --bin semwright-motion-canvas-driver
 
             export SEMWRIGHT_TEST_MOTION_CANVAS=1
             export SEMWRIGHT_TEST_MOTION_CANVAS_RENDER=1
-            export SEMWRIGHT_TEST_MOTION_RUNTIME="$CIRCLE_WORKING_DIRECTORY/integrations/motion-canvas/runtime"
-            export SEMWRIGHT_TEST_SANDBOX_HELPER="$CIRCLE_WORKING_DIRECTORY/target/debug/semwright-sandbox"
-            export SEMWRIGHT_TEST_MOTION_EVIDENCE="$CIRCLE_WORKING_DIRECTORY/verification/circleci-composition/motion/artifacts"
+            export SEMWRIGHT_TEST_MOTION_RUNTIME="$root/integrations/motion-canvas/runtime"
+            export SEMWRIGHT_TEST_SANDBOX_HELPER="$root/target/debug/semwright-sandbox"
+            export SEMWRIGHT_TEST_MOTION_EVIDENCE="$root/verification/circleci-composition/motion/artifacts"
 
             cargo test --locked -p semwright-driver-motion-canvas               motion_driver_runs_through_real_driver_host_without_network               -- --ignored --nocapture               2>&1 | tee verification/circleci-composition/motion/host-conformance.log
 

@@ -1,13 +1,14 @@
 # Composition / Audio / AV integration record
 
-This file is the source-controlled integration ledger. Fields marked PENDING must be replaced by exact evidence when B declares AUDIO_READY_FOR_INTEGRATION and the combined branch is created.
+This file is the source-controlled integration ledger. B has now published and been merged at the certified `AUDIO_READY_FOR_INTEGRATION` SHA below. Fields still marked PENDING require exact combined-candidate evidence; separate-branch PASS results are not promoted across SHAs.
 
 ## Source lineage
 
 - A frozen baseline: be375a12e8afa4d779f9dc0de501b0d4a262a682
 - Common C0: 26602e4b25929be869d69ef28fef4dd9713180d7
 - A branch: feat/composition-media
-- A source SHA entering integration: 34b850507c699c4f67056478210aa97e89bf7548
+- A product source SHA entering initial integration: 34b850507c699c4f67056478210aa97e89bf7548
+- Latest A branch SHA reconciled into the integration branch: ffe7e59c5ba0d28ac9193ec203307dd7969fee4f
 - B baseline: 93f70241e9fb9d4c99ca76fab55c8517574a9f6f
 - B branch: feat/audio-completion
 - B consumed C0 through normal Git ancestry: verified locally
@@ -57,11 +58,11 @@ Unexpected conflicts inside audio-domain/Faust/Ardour are returned to B for expl
 
 ## Candidate evidence
 
-- A_HEAD_SHA: PENDING_FINAL_A
-- B_READY_SHA: PENDING
+- A_HEAD_SHA: ffe7e59c5ba0d28ac9193ec203307dd7969fee4f
+- B_READY_SHA: 8ed2d30c8ba797ebd5b8c102d34f8ab5bb3a28b3
 - C0_SHA: 26602e4b25929be869d69ef28fef4dd9713180d7
 - C1_CONSUMED_SHA: PENDING
-- INTEGRATION_CANDIDATE_SHA: PENDING
+- INTEGRATION_CANDIDATE_SHA: workflow-bound exact HEAD of `integration/composition-av`; current draft is PR #202 and any source change supersedes earlier SHA evidence
 - COMMON_CONTRACTS: PENDING
 - FIGMA_NATIVE: PENDING
 - MOTION_NATIVE: PENDING

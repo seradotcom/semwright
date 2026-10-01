@@ -266,7 +266,7 @@ def verify(archive_path: Path) -> dict:
             raise ValueError("development package metadata identity mismatch")
         if metadata.get("scope") != "combined-candidate" or metadata.get("audio_integration") != "certified-b-exact-sha":
             raise ValueError("combined development package metadata scope mismatch")
-        if metadata.get("composition_source_sha") != "34b850507c699c4f67056478210aa97e89bf7548":
+        if metadata.get("composition_source_sha") != "ffe7e59c5ba0d28ac9193ec203307dd7969fee4f":
             raise ValueError("combined package A source SHA mismatch")
         if metadata.get("audio_source_sha") != "8ed2d30c8ba797ebd5b8c102d34f8ab5bb3a28b3":
             raise ValueError("combined package B source SHA mismatch")

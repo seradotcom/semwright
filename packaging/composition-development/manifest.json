@@ -2,7 +2,7 @@
   "schema_version": 1,
   "name": "semwright-composition-development",
   "scope": "combined-candidate",
-  "composition_source_sha": "34b850507c699c4f67056478210aa97e89bf7548",
+  "composition_source_sha": "ffe7e59c5ba0d28ac9193ec203307dd7969fee4f",
   "audio_source_sha": "8ed2d30c8ba797ebd5b8c102d34f8ab5bb3a28b3",
   "audio_integration": "certified-b-exact-sha",
   "max_file_bytes": 8388608,
