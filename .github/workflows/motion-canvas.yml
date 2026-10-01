@@ -11,6 +11,11 @@ on:
         description: 'Exact candidate SHA; required when certify_all=true'
         required: false
         type: string
+      native_only:
+        description: 'Iteration mode: run only the Linux native Driver Host/render lane'
+        required: false
+        type: boolean
+        default: false
   push:
     branches: [feat/motion-canvas-driver]
   pull_request:
@@ -48,6 +53,7 @@ jobs:
     timeout-minutes: 3
     outputs:
       motion: ${{ steps.scope.outputs.motion }}
+      native_only: ${{ steps.scope.outputs.native_only }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -57,7 +63,18 @@ jobs:
         env:
           CERTIFY_ALL: ${{ inputs.certify_all }}
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          NATIVE_ONLY: ${{ inputs.native_only }}
         run: |
+          if [ "$CERTIFY_ALL" = true ] && [ "$NATIVE_ONLY" = true ]; then
+            echo 'native_only and certify_all are mutually exclusive' >&2
+            exit 2
+          fi
+          if [ "$NATIVE_ONLY" = true ]; then
+            echo 'motion=true' >> "$GITHUB_OUTPUT"
+            echo 'native_only=true' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo 'native_only=false' >> "$GITHUB_OUTPUT"
           mode=iteration
           if [ "$CERTIFY_ALL" = true ]; then mode=certify; fi
           args=(--mode "$mode" --after "$GITHUB_SHA" --github-output "$GITHUB_OUTPUT")
@@ -65,7 +82,7 @@ jobs:
           python scripts/composition/ci-scope.py "${args[@]}"
   domain:
     needs: scope
-    if: ${{ needs.scope.outputs.motion == 'true' }}
+    if: ${{ needs.scope.outputs.motion == 'true' && needs.scope.outputs.native_only != 'true' }}
     concurrency:
       group: motion-domain-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
       cancel-in-progress: true
@@ -109,7 +126,7 @@ jobs:
 
   portable-compile:
     needs: scope
-    if: ${{ needs.scope.outputs.motion == 'true' }}
+    if: ${{ needs.scope.outputs.motion == 'true' && needs.scope.outputs.native_only != 'true' }}
     concurrency:
       group: motion-portable-${{ github.event_name }}-${{ matrix.os }}-${{ github.head_ref || github.ref_name }}
       cancel-in-progress: true
@@ -336,7 +353,7 @@ jobs:
 
   fuzz:
     needs: scope
-    if: ${{ needs.scope.outputs.motion == 'true' }}
+    if: ${{ needs.scope.outputs.motion == 'true' && needs.scope.outputs.native_only != 'true' }}
     concurrency:
       group: motion-fuzz-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
       cancel-in-progress: true
