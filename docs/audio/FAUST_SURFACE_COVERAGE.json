@@ -1,0 +1,155 @@
+{
+  "schema_version": 1,
+  "baseline": {
+    "runtime_versions": [
+      "2.37.3",
+      "2.70.3"
+    ],
+    "engine": "official_libfaust_interpreter"
+  },
+  "surfaces": [
+    {
+      "surface": "typed synthesis graph",
+      "status": "implemented",
+      "mapping": "FaustProgram generated source",
+      "evidence": "translation + native compile",
+      "context": "portable_translation_and_sealed_runtime",
+      "risk": "read_only_or_bounded_render",
+      "observability": "generated_source_hash_or_native_receipt",
+      "test": "audio-domain_or_faust-native",
+      "limitation": "support is limited to the declared mapping/runtime baseline"
+    },
+    {
+      "surface": "curated SFX presets",
+      "status": "implemented",
+      "mapping": "SfxPreset -> transparent synth graph",
+      "evidence": "distinct graph/native render tests",
+      "context": "portable_translation_and_sealed_runtime",
+      "risk": "read_only_or_bounded_render",
+      "observability": "generated_source_hash_or_native_receipt",
+      "test": "audio-domain_or_faust-native",
+      "limitation": "support is limited to the declared mapping/runtime baseline"
+    },
+    {
+      "surface": "oscillator/noise/envelope/FM/filter/mix",
+      "status": "implemented",
+      "mapping": "semantic graph",
+      "evidence": "unit + native compile/render",
+      "context": "portable_translation_and_sealed_runtime",
+      "risk": "read_only_or_bounded_render",
+      "observability": "generated_source_hash_or_native_receipt",
+      "test": "audio-domain_or_faust-native",
+      "limitation": "support is limited to the declared mapping/runtime baseline"
+    },
+    {
+      "surface": "EQ/compressor/delay/gain/distortion",
+      "status": "implemented",
+      "mapping": "declared DSP mapping",
+      "evidence": "translation/conformance",
+      "context": "portable_translation_and_sealed_runtime",
+      "risk": "read_only_or_bounded_render",
+      "observability": "generated_source_hash_or_native_receipt",
+      "test": "audio-domain_or_faust-native",
+      "limitation": "support is limited to the declared mapping/runtime baseline"
+    },
+    {
+      "surface": "limiter advanced lookahead/hold/true-peak",
+      "status": "unsupported",
+      "mapping": null,
+      "evidence": "fails closed; no hidden approximation",
+      "context": "typed_translation",
+      "risk": "unsupported_semantics",
+      "observability": "explicit_error",
+      "test": "translation_negative",
+      "limitation": "fails closed; no hidden approximation"
+    },
+    {
+      "surface": "reverb unspecified topology",
+      "status": "unsupported",
+      "mapping": null,
+      "evidence": "fails closed unless algorithm semantics are explicit",
+      "context": "typed_translation",
+      "risk": "unsupported_semantics",
+      "observability": "explicit_error",
+      "test": "translation_negative",
+      "limitation": "fails closed unless algorithm semantics are explicit"
+    },
+    {
+      "surface": "arbitrary Faust source/import/compiler flags",
+      "status": "security_excluded",
+      "mapping": null,
+      "evidence": "fixed translator/helper rejection",
+      "context": "excluded_execution_surface",
+      "risk": "forbidden_escape_hatch",
+      "observability": "rejection",
+      "test": "translation_and_host_negative",
+      "limitation": "fixed translator/helper rejection"
+    },
+    {
+      "surface": "soundfile/sample playback",
+      "status": "implemented_pending_native",
+      "mapping": "hash-pinned audio-assets Sample -> immutable scratch snapshot -> exact-rate libsndfile decode -> mono-average -> typed Faust DSP input",
+      "evidence": "sample.render native CI verifies hash mismatch denial, EOF silence, loop behavior, exact-rate/no-resample receipt and no-clobber publication",
+      "context": "sealed_interpreter_with_owner_asset_grant",
+      "risk": "read_asset_and_write_new_artifact",
+      "observability": "digest_snapshot_native_receipt_pcm",
+      "test": "faust-native",
+      "limitation": "sample.render native CI verifies hash mismatch denial, EOF silence, loop behavior, exact-rate/no-resample receipt and no-clobber publication"
+    },
+    {
+      "surface": "polyphony/MIDI voice runtime",
+      "status": "implemented_pending_native",
+      "mapping": "typed Synth + MidiPhrase -> official Faust poly-interpreter-dsp with sample-frame schedule",
+      "evidence": "instrument.render native CI; 1..64 voices; pinned upstream first-free/release-oldest/playing-oldest allocator policy; same-pitch overlap rejected; only global CC120/123 admitted",
+      "context": "sealed_poly_interpreter",
+      "risk": "bounded_native_render",
+      "observability": "schedule_hash_native_receipt_pcm",
+      "test": "faust-native",
+      "limitation": "instrument.render native CI; 1..64 voices; pinned upstream first-free/release-oldest/playing-oldest allocator policy; same-pitch overlap rejected; only global CC120/123 admitted"
+    },
+    {
+      "surface": "WAV/FLAC render",
+      "status": "implemented",
+      "mapping": "sealed interpreter + libsndfile",
+      "evidence": "native CI required",
+      "context": "sealed_interpreter",
+      "risk": "write_new_artifact",
+      "observability": "native_receipt_and_decode",
+      "test": "faust-native",
+      "limitation": "support is limited to the declared mapping/runtime baseline"
+    },
+    {
+      "surface": "sealed runtime identity probe",
+      "status": "implemented_pending_native",
+      "mapping": "fixed helper version operation",
+      "evidence": "Broker -> Driver Host native CI",
+      "context": "driver_host_sealed_tool",
+      "risk": "read_only_runtime_probe",
+      "observability": "typed_probe_receipt",
+      "test": "faust-native",
+      "limitation": "Broker -> Driver Host native CI"
+    },
+    {
+      "surface": "sample asset authority",
+      "status": "implemented_pending_native",
+      "mapping": "read-only audio-assets grant + RelativePath + expected SHA-256 + symlink-free snapshot",
+      "evidence": "no arbitrary host paths; Artifact source remains unsupported until explicit materialization",
+      "context": "sealed_interpreter_with_owner_asset_grant",
+      "risk": "read_asset_and_write_new_artifact",
+      "observability": "digest_snapshot_native_receipt_pcm",
+      "test": "faust-native",
+      "limitation": "no arbitrary host paths; Artifact source remains unsupported until explicit materialization"
+    },
+    {
+      "surface": "polyphonic tail horizon",
+      "status": "implemented_pending_native",
+      "mapping": "semantic envelope/effect tail budget plus upstream 0.5s voice-release detector common to Faust 2.37.3 and 2.70.3",
+      "evidence": "render duration must include final note-off plus bounded semantic tail",
+      "context": "sealed_poly_interpreter",
+      "risk": "bounded_native_render",
+      "observability": "schedule_hash_native_receipt_pcm",
+      "test": "faust-native",
+      "limitation": "render duration must include final note-off plus bounded semantic tail"
+    }
+  ]
+}

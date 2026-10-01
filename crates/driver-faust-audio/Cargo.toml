@@ -1,0 +1,44 @@
+[package]
+name = "semwright-faust-audio-driver"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Curated deterministic Faust synthesis and DSP backend for Semwright audio-domain"
+
+[lib]
+name = "semwright_faust_audio"
+path = "src/lib.rs"
+
+[[bin]]
+name = "semwright-faust-audio-driver"
+path = "src/main.rs"
+
+[[bin]]
+name = "semwright-audio-analysis-driver"
+path = "src/analysis_main.rs"
+
+[features]
+default = []
+live-tests = []
+
+[dependencies]
+async-trait.workspace = true
+semwright-audio-domain.workspace = true
+semwright-driver-sdk.workspace = true
+semwright-types.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+tempfile.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+
+[dev-dependencies]
+semwright-core.workspace = true
+semwright-driver-host.workspace = true
+semwright-backend-api.workspace = true
+semwright-policy.workspace = true
+
+[lints]
+workspace = true

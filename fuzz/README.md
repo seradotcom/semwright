@@ -38,3 +38,8 @@ The short budgets are intentional. No unbounded background fuzzing is started.
 - `skill_archive_path`: bundle/resource relative-path sanitizer.
 
 The hosted bounded-fuzz job runs these with the existing target set. Semwright Skill fuzzing never executes `scripts/`.
+
+Audio semantic targets:
+- audio_domain_model: strict JSON/model validation and semantic digest stability.
+- audio_domain_edit: successful arbitrary semantic edits preserve invariants and source immutability.
+- audio_wav: hostile bounded RIFF/WAVE envelopes, seeks, decode and analysis stay fail-closed.

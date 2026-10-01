@@ -1,0 +1,82 @@
+{
+  "manifest_version": 1,
+  "protocol": 4,
+  "version": "0.9.0-dev.1",
+  "publisher": "semwright-development",
+  "transport": "stdio_v1",
+  "system_config": [
+    {
+      "root": "ardour-config",
+      "destination": "/etc/ardour8"
+    }
+  ],
+  "secrets": [],
+  "network": false,
+  "loopback_port": 3819,
+  "resources": {
+    "open_files": 512,
+    "processes": 128,
+    "cpu_seconds": 120,
+    "operation_cpu_seconds": 30,
+    "address_space_bytes": 3221225472,
+    "file_size_bytes": 536870912
+  },
+  "request_timeout_ms": 30000,
+  "id": "ardour-audio",
+  "executable": "/ABSOLUTE/PATH/semwright-ardour-audio-driver",
+  "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "application": {
+    "desktop_id": null,
+    "process_names": [
+      "ardour8",
+      "luasession"
+    ],
+    "supported_versions": [
+      "8.4.0"
+    ]
+  },
+  "mounts": [
+    {
+      "root": "ardour-runtime",
+      "read_only": true,
+      "execute": false
+    },
+    {
+      "root": "ardour-project",
+      "read_only": false,
+      "execute": false
+    },
+    {
+      "root": "ardour-output",
+      "read_only": false,
+      "execute": false
+    }
+  ],
+  "tools": [
+    {
+      "root": "ardour-lua-tool",
+      "name": "ardour-lua",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "root": "ardour-create-tool",
+      "name": "ardour-new-session",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "root": "ardour-export-tool",
+      "name": "ardour-export",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ],
+  "interfaces": {
+    "dynamic_capabilities": false,
+    "cooperative_cancellation": true,
+    "events": false,
+    "progress": false,
+    "artifacts": false,
+    "health": true,
+    "native_refs": false,
+    "host_tools": false
+  }
+}

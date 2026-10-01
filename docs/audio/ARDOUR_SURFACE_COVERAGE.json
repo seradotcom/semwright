@@ -1,0 +1,318 @@
+{
+  "schema_version": 1,
+  "baseline": {
+    "version": "8.4.0",
+    "source_tag": "8.4",
+    "source_commit": "c35515e43d65bac23c89ae11cfbf2fed8c8f46b6"
+  },
+  "surfaces": [
+    {
+      "surface": "OSC strip discovery/transport",
+      "status": "implemented",
+      "route": "official OSC loopback",
+      "evidence": "strict packet/parser tests; native interactive acceptance separate",
+      "context": "live_ardour_loopback_osc",
+      "risk": "live_session_mutation_or_read",
+      "observability": "strip_query_or_explicit_unverified_result",
+      "test": "osc_contract",
+      "limitation": "limited to the declared Ardour 8.4 binding and projection semantics"
+    },
+    {
+      "surface": "OSC rename/mute/solo",
+      "status": "implemented",
+      "route": "official OSC + fresh strip readback",
+      "evidence": "verified when echoed by strip list",
+      "context": "live_ardour_loopback_osc",
+      "risk": "live_session_mutation_or_read",
+      "observability": "strip_query_or_explicit_unverified_result",
+      "test": "osc_contract",
+      "limitation": "limited to the declared Ardour 8.4 binding and projection semantics"
+    },
+    {
+      "surface": "OSC numeric gain/pan",
+      "status": "best_effort",
+      "route": "official OSC",
+      "evidence": "explicit unverified acknowledgement + reobserve",
+      "context": "live_ardour_loopback_osc",
+      "risk": "live_session_mutation_or_read",
+      "observability": "strip_query_or_explicit_unverified_result",
+      "test": "osc_contract",
+      "limitation": "explicit unverified acknowledgement + reobserve"
+    },
+    {
+      "surface": "headless session inspect",
+      "status": "implemented",
+      "route": "fixed Semwright Lua + pinned luasession",
+      "evidence": "native CI required",
+      "context": "managed_offline_ardour_session",
+      "risk": "revision_bound_mutation_or_read",
+      "observability": "native_snapshot_readback",
+      "test": "ardour-native",
+      "limitation": "limited to the declared Ardour 8.4 binding and projection semantics"
+    },
+    {
+      "surface": "new managed session",
+      "status": "implemented",
+      "route": "official ardour8-new_session Dummy backend utility; sample-rate selectable, stereo master fixed by upstream 8.4 utility",
+      "evidence": "state artifact + clean reopen required; non-stereo request is unsupported",
+      "context": "managed_offline_ardour_session",
+      "risk": "revision_bound_mutation_or_read",
+      "observability": "native_snapshot_readback",
+      "test": "ardour-native",
+      "limitation": "limited to the declared Ardour 8.4 binding and projection semantics"
+    },
+    {
+      "surface": "route create/remove/rename/mute/solo/gain/pan",
+      "status": "implemented",
+      "route": "fixed Lua typed argv",
+      "evidence": "revision-bound native readback",
+      "context": "managed_offline_ardour_session",
+      "risk": "revision_bound_mutation_or_read",
+      "observability": "native_snapshot_readback",
+      "test": "ardour-native",
+      "limitation": "limited to the declared Ardour 8.4 binding and projection semantics"
+    },
+    {
+      "surface": "clip move/trim/remove",
+      "status": "implemented",
+      "route": "fixed Lua typed argv",
+      "evidence": "revision-bound native readback; fixture media import remains separate",
+      "context": "managed_offline_ardour_session",
+      "risk": "revision_bound_mutation_or_read",
+      "observability": "native_snapshot_readback",
+      "test": "ardour-native",
+      "limitation": "limited to the declared Ardour 8.4 binding and projection semantics"
+    },
+    {
+      "surface": "session range",
+      "status": "implemented",
+      "route": "Locations:session_range_location -> Location:set",
+      "evidence": "native snapshot current_start_sample/current_end_sample readback",
+      "context": "managed_offline_ardour_session",
+      "risk": "revision_bound_mutation_or_read",
+      "observability": "native_snapshot_readback",
+      "test": "ardour-native",
+      "limitation": "limited to the declared Ardour 8.4 binding and projection semantics"
+    },
+    {
+      "surface": "save-as/reopen",
+      "status": "implemented",
+      "route": "Session:save_state(candidate) + independent reopen",
+      "evidence": "source revision preservation",
+      "context": "portable_projection_or_upstream_restriction",
+      "risk": "read_only_or_unsupported",
+      "observability": "projection_loss_or_explicit_error",
+      "test": "audio-domain_or_ardour-native",
+      "limitation": "limited to the declared Ardour 8.4 binding and projection semantics"
+    },
+    {
+      "surface": "WAV export",
+      "status": "implemented",
+      "route": "official ardour8-export",
+      "evidence": "artifact decode/hash + source preservation; exit-zero alone rejected",
+      "context": "managed_offline_ardour_session",
+      "risk": "write_new_artifact",
+      "observability": "source_revision_plus_wav_decode",
+      "test": "ardour-native",
+      "limitation": "limited to the declared Ardour 8.4 binding and projection semantics"
+    },
+    {
+      "surface": "GUI/editor-only import/relink",
+      "status": "upstream_restricted",
+      "route": null,
+      "evidence": "official shipped example uses Editor:do_import; not claimed headlessly",
+      "context": "portable_projection_or_upstream_restriction",
+      "risk": "read_only_or_unsupported",
+      "observability": "projection_loss_or_explicit_error",
+      "test": "audio-domain_or_ardour-native",
+      "limitation": "official shipped example uses Editor:do_import; not claimed headlessly"
+    },
+    {
+      "surface": "complete sends/routing graph",
+      "status": "partial_native",
+      "route": "Session:add_internal_sends + InternalSend readback; main-output topology remains incomplete",
+      "evidence": "typed send create/gain/remove has revision-bound native readback; full route-output graph is still a declared loss",
+      "context": "managed_offline_ardour_session",
+      "risk": "revision_bound_mutation_or_read",
+      "observability": "native_snapshot_readback",
+      "test": "ardour-native",
+      "limitation": "typed send create/gain/remove has revision-bound native readback; full route-output graph is still a declared loss"
+    },
+    {
+      "surface": "plugin inventory/state/automation",
+      "status": "partial_native",
+      "route": "Route:nth_plugin + PluginInsert + LuaAPI plugin parameter/automation APIs with owner allowlist",
+      "evidence": "bounded identity/parameter readback and allowlisted insert/remove/parameter/automation are native-CI gated; opaque plugin state blobs remain native-only",
+      "context": "managed_offline_ardour_session",
+      "risk": "allowlisted_native_code_surface",
+      "observability": "native_plugin_identity_parameter_readback",
+      "test": "ardour-native",
+      "limitation": "bounded identity/parameter readback and allowlisted insert/remove/parameter/automation are native-CI gated; opaque plugin state blobs remain native-only"
+    },
+    {
+      "surface": "MIDI phrase/instrument authoring",
+      "status": "pending",
+      "route": null,
+      "evidence": "not advertised",
+      "context": "portable_projection_or_upstream_restriction",
+      "risk": "read_only_or_unsupported",
+      "observability": "projection_loss_or_explicit_error",
+      "test": "audio-domain_or_ardour-native",
+      "limitation": "not advertised"
+    },
+    {
+      "surface": "experimental MCP HTTP/WebSocket",
+      "status": "not_selected",
+      "route": null,
+      "evidence": "8.4 availability/security not used; no listener enabled",
+      "context": "excluded_or_unselected_surface",
+      "risk": "forbidden_or_not_authorized",
+      "observability": "rejection_or_none",
+      "test": "catalog_negative",
+      "limitation": "8.4 availability/security not used; no listener enabled"
+    },
+    {
+      "surface": "arbitrary Lua/raw OSC/tool name",
+      "status": "security_excluded",
+      "route": null,
+      "evidence": "no public escape hatch",
+      "context": "excluded_or_unselected_surface",
+      "risk": "forbidden_or_not_authorized",
+      "observability": "rejection_or_none",
+      "test": "catalog_negative",
+      "limitation": "no public escape hatch"
+    },
+    {
+      "surface": "bus creation",
+      "status": "implemented_pending_native",
+      "route": "Session:new_audio_route(... AudioBus ...)",
+      "evidence": "revision-bound native readback in ardour-native",
+      "context": "portable_projection_or_upstream_restriction",
+      "risk": "read_only_or_unsupported",
+      "observability": "projection_loss_or_explicit_error",
+      "test": "audio-domain_or_ardour-native",
+      "limitation": "limited to the declared Ardour 8.4 binding and projection semantics"
+    },
+    {
+      "surface": "bounded send inventory",
+      "status": "implemented_pending_native",
+      "route": "Route:nth_send -> InternalSend",
+      "evidence": "native CI verifies bindings; incomplete target/process topology remains lossy",
+      "context": "managed_offline_ardour_session",
+      "risk": "revision_bound_mutation_or_read",
+      "observability": "native_snapshot_readback",
+      "test": "ardour-native",
+      "limitation": "limited to the declared Ardour 8.4 binding and projection semantics"
+    },
+    {
+      "surface": "bounded plugin inventory",
+      "status": "implemented_pending_native",
+      "route": "Route:nth_plugin -> PluginInsert -> parameter descriptors/control lists",
+      "evidence": "bounded plugin identities, enabled/latency, parameter ranges/current values and automation-point counts are verified in ardour-native",
+      "context": "managed_offline_ardour_session",
+      "risk": "allowlisted_native_code_surface",
+      "observability": "native_plugin_identity_parameter_readback",
+      "test": "ardour-native",
+      "limitation": "limited to the declared Ardour 8.4 binding and projection semantics"
+    },
+    {
+      "surface": "portable groups/order",
+      "status": "partial_native",
+      "route": "Session:route_groups/new_route_group with portable StemGroup projection; route ordering remains portable-only",
+      "evidence": "group create/add/remove/delete and projection are native-CI gated; reorder remains a declared gap",
+      "context": "managed_offline_ardour_session",
+      "risk": "revision_bound_mutation_or_read",
+      "observability": "native_snapshot_readback",
+      "test": "ardour-native",
+      "limitation": "group create/add/remove/delete and projection are native-CI gated; reorder remains a declared gap"
+    },
+    {
+      "surface": "portable tempo/meter map",
+      "status": "portable_only",
+      "route": "audio-domain tempo_changes",
+      "evidence": "Ardour v1 projection emits read-only loss",
+      "context": "portable_projection_or_upstream_restriction",
+      "risk": "read_only_or_unsupported",
+      "observability": "projection_loss_or_explicit_error",
+      "test": "audio-domain_or_ardour-native",
+      "limitation": "Ardour v1 projection emits read-only loss"
+    },
+    {
+      "surface": "portable MIDI phrases/controllers",
+      "status": "portable_only",
+      "route": "audio-domain MIDI metadata",
+      "evidence": "Ardour native MIDI authoring remains unsupported",
+      "context": "portable_projection_or_upstream_restriction",
+      "risk": "read_only_or_unsupported",
+      "observability": "projection_loss_or_explicit_error",
+      "test": "audio-domain_or_ardour-native",
+      "limitation": "Ardour native MIDI authoring remains unsupported"
+    },
+    {
+      "surface": "portable delayed feedback/sidechain sends",
+      "status": "portable_only",
+      "route": "BusSend role + delay_frames",
+      "evidence": "algebraic cycles rejected; native Ardour send mutation not yet advertised",
+      "context": "managed_offline_ardour_session",
+      "risk": "revision_bound_mutation_or_read",
+      "observability": "native_snapshot_readback",
+      "test": "ardour-native",
+      "limitation": "algebraic cycles rejected; native Ardour send mutation not yet advertised"
+    },
+    {
+      "surface": "portable clip split/slip/fades",
+      "status": "partial_native",
+      "route": "audio-domain edits; Ardour move/trim/remove/split through fixed Lua",
+      "evidence": "split has revision-bound readback; fades are write-only in 8.4 Lua and slip remains unprojected",
+      "context": "managed_offline_ardour_session",
+      "risk": "revision_bound_mutation_or_read",
+      "observability": "native_snapshot_readback",
+      "test": "ardour-native",
+      "limitation": "split has revision-bound readback; fades are write-only in 8.4 Lua and slip remains unprojected"
+    },
+    {
+      "surface": "pinned runtime identity probe",
+      "status": "implemented_pending_native",
+      "route": "-V on luasession/new_session/export with fixed runtime environment",
+      "evidence": "ardour-native before session mutation",
+      "context": "portable_projection_or_upstream_restriction",
+      "risk": "read_only_or_unsupported",
+      "observability": "projection_loss_or_explicit_error",
+      "test": "audio-domain_or_ardour-native",
+      "limitation": "limited to the declared Ardour 8.4 binding and projection semantics"
+    },
+    {
+      "surface": "allowlisted plugin mutation",
+      "status": "implemented_pending_native",
+      "route": "runtime allowlist -> LuaAPI.new_plugin / Route:remove_processor / set_plugin_insert_param / plugin_automation",
+      "evidence": "agent input selects only owner IDs; semantic plugin+parameter identity and post-readback required",
+      "context": "managed_offline_ardour_session",
+      "risk": "allowlisted_native_code_surface",
+      "observability": "native_plugin_identity_parameter_readback",
+      "test": "ardour-native",
+      "limitation": "limited to the declared Ardour 8.4 binding and projection semantics"
+    },
+    {
+      "surface": "native route groups",
+      "status": "implemented_pending_native",
+      "route": "Session:new_route_group / RouteGroup:add/remove / Session:remove_route_group",
+      "evidence": "groups project to StemGroup where members are portable audio tracks",
+      "context": "managed_offline_ardour_session",
+      "risk": "revision_bound_mutation_or_read",
+      "observability": "native_snapshot_readback",
+      "test": "ardour-native",
+      "limitation": "limited to the declared Ardour 8.4 binding and projection semantics"
+    },
+    {
+      "surface": "native clip split",
+      "status": "implemented_pending_native",
+      "route": "Playlist:split_region",
+      "evidence": "region-count and split-position postcondition under exact revision",
+      "context": "managed_offline_ardour_session",
+      "risk": "revision_bound_mutation_or_read",
+      "observability": "native_snapshot_readback",
+      "test": "ardour-native",
+      "limitation": "limited to the declared Ardour 8.4 binding and projection semantics"
+    }
+  ]
+}

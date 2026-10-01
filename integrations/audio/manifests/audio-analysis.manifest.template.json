@@ -1,0 +1,56 @@
+{
+  "manifest_version": 1,
+  "protocol": 4,
+  "version": "0.9.0-dev.1",
+  "publisher": "semwright-development",
+  "transport": "stdio_v1",
+  "system_config": [],
+  "secrets": [],
+  "network": false,
+  "loopback_port": null,
+  "resources": {
+    "open_files": 256,
+    "processes": 16,
+    "cpu_seconds": 120,
+    "operation_cpu_seconds": 30,
+    "address_space_bytes": 2147483648,
+    "file_size_bytes": 536870912
+  },
+  "request_timeout_ms": 30000,
+  "id": "audio-analysis",
+  "executable": "/ABSOLUTE/PATH/semwright-audio-analysis-driver",
+  "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "application": {
+    "desktop_id": null,
+    "process_names": [
+      "audio-meter"
+    ],
+    "supported_versions": [
+      "libebur128-1.2.6"
+    ]
+  },
+  "mounts": [
+    {
+      "root": "analysis-input",
+      "read_only": true,
+      "execute": false
+    }
+  ],
+  "tools": [
+    {
+      "root": "audio-meter-tool",
+      "name": "audio-meter",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  ],
+  "interfaces": {
+    "dynamic_capabilities": false,
+    "cooperative_cancellation": true,
+    "events": false,
+    "progress": false,
+    "artifacts": false,
+    "health": true,
+    "native_refs": false,
+    "host_tools": false
+  }
+}

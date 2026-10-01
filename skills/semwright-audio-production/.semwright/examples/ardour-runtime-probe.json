@@ -1,0 +1,4 @@
+{
+  "capability": "driver.ardour-audio.session.deep.runtime.probe",
+  "input": {}
+}
