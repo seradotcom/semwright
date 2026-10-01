@@ -4,60 +4,27 @@
 //! introspection exposes bounded RNA/operator/add-on metadata but never arbitrary Python or generic
 //! operator invocation.
 use async_trait::async_trait;
-use semwright_driver_sdk::{Capability, Driver, descriptor_digest, serve, tool_path};
-use semwright_protocol::{read_frame, write_frame};
-use semwright_types::{CommandDescriptor, Error, ErrorCode, Idempotency, Result, Risk, unique_id};
+use semwright_driver_sdk::{
+    Capability, Driver, DriverExecutionContext, DriverInterfaces, RuntimeToolArg, RuntimeToolCwd,
+    RuntimeToolSession, descriptor_digest, serve,
+};
+use semwright_types::{CommandDescriptor, Error, ErrorCode, Idempotency, Result, Risk};
 use serde_json::{Value, json};
-use std::{
-    fs,
-    os::unix::fs::PermissionsExt,
-    path::{Path, PathBuf},
-    process::Stdio,
-    time::Duration,
-};
-use tokio::{
-    net::UnixStream,
-    process::{Child, Command},
-    time::{sleep, timeout},
-};
+use std::{collections::BTreeMap, time::Duration};
 
 const DRIVER_ID: &str = "blender";
 const DRIVER_SCOPE: &str = "driver:blender";
 const WORKSPACE_MOUNT: &str = "workspace";
 const BLENDER_RUNTIME_MOUNT: &str = "blender-runtime";
+const SCRATCH_MOUNT: &str = "scratch";
+const FONT_CONFIG_MOUNT: &str = "font-config";
 const BLENDER_TOOL: &str = "blender";
-const SUPPORTED_BLENDER_VERSION: &str = "Blender 4.5.14 LTS";
+const SESSION_RUNNER_TOOL: &str = "blender-session-runner";
+const MAX_DRIVER_SESSIONS: usize = 2;
+const SUPPORTED_BLENDER_VERSION: [u64; 3] = [4, 5, 14];
 const LEGACY_DESCRIPTORS: &str = include_str!("../../../schemas/commands.json");
-const COMMANDS_PY: &str = include_str!("../../../adapters/blender/semwright_blender/commands.py");
-const COMMANDS_JSON: &str =
-    include_str!("../../../adapters/blender/semwright_blender/commands.json");
-const VALIDATION_PY: &str =
-    include_str!("../../../adapters/blender/semwright_blender/validation.py");
-const BRIDGE_PY: &str = include_str!("bridge.py");
+#[cfg(test)]
 const SEMANTIC_PY: &str = include_str!("semantic.py");
-
-fn blender_binary() -> Result<PathBuf> {
-    let path = tool_path(BLENDER_TOOL)?;
-    let metadata = fs::metadata(&path)
-        .map_err(|_| Error::unavailable("Owner-pinned Blender sealed tool is unavailable"))?;
-    if !metadata.is_file() {
-        return Err(Error::unavailable(
-            "Owner-pinned Blender sealed tool must be a regular file",
-        ));
-    }
-    Ok(path)
-}
-
-fn configure_blender_runtime(command: &mut Command, runtime: &Path) {
-    let version_root = runtime.join("4.5");
-    command
-        .env("LD_LIBRARY_PATH", runtime.join("lib"))
-        .env("BLENDER_SYSTEM_RESOURCES", &version_root)
-        .env("BLENDER_SYSTEM_SCRIPTS", version_root.join("scripts"))
-        .env("BLENDER_SYSTEM_EXTENSIONS", version_root.join("extensions"))
-        .env("BLENDER_SYSTEM_DATAFILES", version_root.join("datafiles"))
-        .env("BLENDER_SYSTEM_PYTHON", version_root.join("python"));
-}
 
 fn curated_capabilities() -> Result<Vec<Capability>> {
     let rows: Vec<CommandDescriptor> = serde_json::from_str(LEGACY_DESCRIPTORS)?;
@@ -1371,49 +1338,80 @@ fn capability(command: &str) -> Result<Capability> {
         .find(|capability| capability.descriptor.name == command)
         .ok_or_else(|| Error::new(ErrorCode::NotFound, "Blender capability is not registered"))
 }
-fn io_step(step: &str, error: std::io::Error) -> Error {
-    Error::new(
-        ErrorCode::BackendFailed,
-        format!("{step} failed ({:?})", error.kind()),
-    )
+fn bridge_error_code(value: &str) -> ErrorCode {
+    match value {
+        "NotFound" => ErrorCode::NotFound,
+        "Conflict" => ErrorCode::Conflict,
+        "InvalidArgument" => ErrorCode::InvalidArgument,
+        "PolicyDenied" => ErrorCode::PolicyDenied,
+        "Unsupported" => ErrorCode::Unsupported,
+        "Timeout" => ErrorCode::Timeout,
+        "StaleReference" => ErrorCode::StaleReference,
+        "Unavailable" => ErrorCode::Unavailable,
+        _ => ErrorCode::BackendFailed,
+    }
 }
 
-fn private_runtime() -> Result<PathBuf> {
-    let path = PathBuf::from(format!("/tmp/semwright-blender-{}", unique_id()));
-    fs::create_dir(&path).map_err(|error| io_step("Blender runtime creation", error))?;
-    fs::set_permissions(&path, fs::Permissions::from_mode(0o700))
-        .map_err(|error| io_step("Blender runtime permissions", error))?;
-    Ok(path)
+fn session_arguments() -> Vec<RuntimeToolArg> {
+    vec![
+        RuntimeToolArg::Literal {
+            value: "--blender".into(),
+        },
+        RuntimeToolArg::ToolPath {
+            tool: BLENDER_TOOL.into(),
+        },
+        RuntimeToolArg::Literal {
+            value: "--workspace".into(),
+        },
+        RuntimeToolArg::MountPath {
+            mount: WORKSPACE_MOUNT.into(),
+            relative: String::new(),
+        },
+        RuntimeToolArg::Literal {
+            value: "--runtime".into(),
+        },
+        RuntimeToolArg::MountPath {
+            mount: BLENDER_RUNTIME_MOUNT.into(),
+            relative: String::new(),
+        },
+        RuntimeToolArg::Literal {
+            value: "--scratch".into(),
+        },
+        RuntimeToolArg::MountPath {
+            mount: SCRATCH_MOUNT.into(),
+            relative: String::new(),
+        },
+        RuntimeToolArg::Literal {
+            value: "--fontconfig".into(),
+        },
+        RuntimeToolArg::MountPath {
+            mount: FONT_CONFIG_MOUNT.into(),
+            relative: String::new(),
+        },
+    ]
 }
 
-fn stage_runtime(runtime: &Path) -> Result<(PathBuf, PathBuf)> {
-    let package = runtime.join("semwright_blender_runtime");
-    fs::create_dir(&package).map_err(|error| io_step("Blender package creation", error))?;
-    fs::write(package.join("__init__.py"), b"")
-        .map_err(|error| io_step("Blender package init", error))?;
-    fs::write(package.join("commands.py"), COMMANDS_PY)
-        .map_err(|error| io_step("Blender commands staging", error))?;
-    fs::write(package.join("commands.json"), COMMANDS_JSON)
-        .map_err(|error| io_step("Blender command schemas staging", error))?;
-    fs::write(package.join("validation.py"), VALIDATION_PY)
-        .map_err(|error| io_step("Blender validation staging", error))?;
-    fs::write(package.join("semantic.py"), SEMANTIC_PY)
-        .map_err(|error| io_step("Blender semantic staging", error))?;
-    let bridge = runtime.join("bridge.py");
-    fs::write(&bridge, BRIDGE_PY).map_err(|error| io_step("Blender bridge staging", error))?;
-    Ok((bridge, runtime.join("bridge.sock")))
-}
-
-async fn request(socket: &Path, command: &str, args: Value, seconds: u64) -> Result<Value> {
-    let mut stream = UnixStream::connect(socket)
-        .await
-        .map_err(|error| io_step("Blender driver socket connection", error))?;
-    write_frame(&mut stream, &json!({"command":command,"args":args})).await?;
-    let response: Value = timeout(Duration::from_secs(seconds), read_frame(&mut stream))
-        .await
-        .map_err(|_| Error::new(ErrorCode::Timeout, "Blender operation timed out"))??;
-    if response.get("ok").and_then(Value::as_bool) == Some(true) {
-        return response
+fn decode_bridge_response(bytes: &[u8]) -> Result<Value> {
+    if bytes.is_empty() || bytes.len() > 256 * 1024 {
+        return Err(Error::new(
+            ErrorCode::ResourceExhausted,
+            "Blender session response exceeds its bounded contract",
+        ));
+    }
+    let response: Value = serde_json::from_slice(bytes).map_err(|_| {
+        Error::new(
+            ErrorCode::ProtocolMismatch,
+            "Blender session response is not valid JSON",
+        )
+    })?;
+    let object = response.as_object().ok_or_else(|| {
+        Error::new(
+            ErrorCode::ProtocolMismatch,
+            "Blender session response must be an object",
+        )
+    })?;
+    match object.get("ok").and_then(Value::as_bool) {
+        Some(true) if object.len() == 2 && object.contains_key("data") => object
             .get("data")
             .cloned()
             .filter(Value::is_object)
@@ -1422,163 +1420,189 @@ async fn request(socket: &Path, command: &str, args: Value, seconds: u64) -> Res
                     ErrorCode::ProtocolMismatch,
                     "Blender driver result must be an object",
                 )
-            });
+            }),
+        Some(false) if object.len() == 2 && object.contains_key("error") => {
+            let error = object
+                .get("error")
+                .and_then(Value::as_object)
+                .ok_or_else(|| {
+                    Error::new(
+                        ErrorCode::ProtocolMismatch,
+                        "Blender error response is malformed",
+                    )
+                })?;
+            if error.len() != 1 {
+                return Err(Error::new(
+                    ErrorCode::ProtocolMismatch,
+                    "Blender error response exceeds its fixed schema",
+                ));
+            }
+            let code = error.get("code").and_then(Value::as_str).ok_or_else(|| {
+                Error::new(
+                    ErrorCode::ProtocolMismatch,
+                    "Blender error response lacks a code",
+                )
+            })?;
+            Err(Error::new(
+                bridge_error_code(code),
+                "Blender rejected the typed operation",
+            ))
+        }
+        _ => Err(Error::new(
+            ErrorCode::ProtocolMismatch,
+            "Blender session response has an invalid envelope",
+        )),
     }
-    let code = match response.pointer("/error/code").and_then(Value::as_str) {
-        Some("NotFound") => ErrorCode::NotFound,
-        Some("Conflict") => ErrorCode::Conflict,
-        Some("InvalidArgument") => ErrorCode::InvalidArgument,
-        Some("PolicyDenied") => ErrorCode::PolicyDenied,
-        Some("Unsupported") => ErrorCode::Unsupported,
-        Some("Timeout") => ErrorCode::Timeout,
-        Some("StaleReference") => ErrorCode::StaleReference,
-        Some("Unavailable") => ErrorCode::Unavailable,
-        _ => ErrorCode::BackendFailed,
-    };
-    Err(Error::new(code, "Blender rejected the typed operation"))
 }
+
 struct BlenderDriver {
-    child: Child,
-    runtime: PathBuf,
-    socket: PathBuf,
-    version: String,
+    sessions: BTreeMap<String, RuntimeToolSession>,
+    versions: BTreeMap<String, String>,
 }
 
 impl BlenderDriver {
     async fn start() -> Result<Self> {
-        let blender = blender_binary()?;
-        let workspace_root = semwright_driver_sdk::workspace_mount(WORKSPACE_MOUNT)?;
-        let workspace = fs::metadata(&workspace_root)
-            .map_err(|_| Error::unavailable("Blender driver requires the workspace mount"))?;
-        if !workspace.is_dir() {
-            return Err(Error::unavailable(
-                "Blender workspace mount is not a directory",
+        Ok(Self {
+            sessions: BTreeMap::new(),
+            versions: BTreeMap::new(),
+        })
+    }
+
+    async fn exchange(
+        context: &DriverExecutionContext,
+        session: &RuntimeToolSession,
+        command: &str,
+        args: Value,
+        timeout_ms: u64,
+    ) -> Result<Value> {
+        let payload = serde_json::to_vec(&json!({"command":command,"args":args}))?;
+        if payload.is_empty() || payload.len() > 256 * 1024 {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Blender session request exceeds its bounded contract",
             ));
         }
+        let response = context
+            .runtime_tool_session_request(
+                session,
+                payload,
+                Duration::from_millis(timeout_ms.max(1)),
+            )
+            .await?;
+        decode_bridge_response(&response)
+    }
 
-        let blender_runtime = semwright_driver_sdk::workspace_mount(BLENDER_RUNTIME_MOUNT)?;
-        let runtime_meta = fs::metadata(&blender_runtime)
-            .map_err(|_| Error::unavailable("Blender driver requires the runtime mount"))?;
-        if !runtime_meta.is_dir() {
-            return Err(Error::unavailable(
-                "Blender runtime mount is not a directory",
+    async fn ensure_session(
+        &mut self,
+        context: &DriverExecutionContext,
+    ) -> Result<RuntimeToolSession> {
+        if let Some(session) = self.sessions.get(context.session()) {
+            return Ok(session.clone());
+        }
+        if self.sessions.len() >= MAX_DRIVER_SESSIONS {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Blender DriverProvider session capacity is exhausted",
             ));
         }
-        for relative in [
-            "lib",
-            "4.5/scripts",
-            "4.5/extensions",
-            "4.5/datafiles",
-            "4.5/python",
-        ] {
-            if !blender_runtime.join(relative).is_dir() {
-                return Err(Error::unavailable(
-                    "Blender runtime mount is incomplete for 4.5 LTS",
-                ));
-            }
-        }
+        let session = context
+            .start_runtime_tool_session_args(
+                SESSION_RUNNER_TOOL,
+                session_arguments(),
+                Duration::from_secs(3_600),
+                Some(RuntimeToolCwd {
+                    mount: SCRATCH_MOUNT.into(),
+                    relative: String::new(),
+                }),
+            )
+            .await?;
 
-        let mut version_command = Command::new(&blender);
-        configure_blender_runtime(&mut version_command, &blender_runtime);
-        let version_output = timeout(
-            Duration::from_secs(5),
-            version_command.arg("--version").output(),
+        let summary = match Self::exchange(
+            context,
+            &session,
+            "driver.blender.introspect.summary",
+            json!({}),
+            20_000,
         )
         .await
-        .map_err(|_| Error::new(ErrorCode::Timeout, "Blender version probe timed out"))??;
-        if !version_output.status.success() || version_output.stdout.len() > 4096 {
-            return Err(Error::unavailable("Blender version probe failed"));
-        }
-        let version_text = String::from_utf8_lossy(&version_output.stdout);
-        let version = version_text
-            .lines()
-            .next()
-            .unwrap_or("Blender unknown")
-            .trim()
-            .chars()
-            .take(128)
-            .collect::<String>();
+        {
+            Ok(summary) => summary,
+            Err(error) => {
+                let _ = context.close_runtime_tool_session(&session).await;
+                return Err(error);
+            }
+        };
+        let version = summary
+            .get("version")
+            .and_then(Value::as_array)
+            .filter(|values| values.len() == 3)
+            .and_then(|values| {
+                Some([
+                    values[0].as_u64()?,
+                    values[1].as_u64()?,
+                    values[2].as_u64()?,
+                ])
+            })
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorCode::ProtocolMismatch,
+                    "Blender summary omitted its bounded semantic version",
+                )
+            })?;
         if version != SUPPORTED_BLENDER_VERSION {
+            let _ = context.close_runtime_tool_session(&session).await;
             return Err(Error::unavailable(
                 "Owner-pinned Blender version is not the supported 4.5.14 LTS runtime",
             ));
         }
-
-        let runtime = private_runtime()?;
-        let (bridge, socket) = stage_runtime(&runtime)?;
-        let user_resources = runtime.join("user");
-        fs::create_dir(&user_resources)
-            .map_err(|error| io_step("Blender private user resources creation", error))?;
-
-        let mut command = Command::new(&blender);
-        configure_blender_runtime(&mut command, &blender_runtime);
-        command
-            .args([
-                "--background",
-                "--factory-startup",
-                "--disable-autoexec",
-                "--python",
-            ])
-            .arg(&bridge)
-            .arg("--")
-            .arg(&socket)
-            .arg(&workspace_root)
-            .arg(&runtime)
-            .env("PYTHONNOUSERSITE", "1")
-            .env("BLENDER_USER_RESOURCES", &user_resources)
-            .env("TMPDIR", &runtime)
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            // Normal DriverProvider execution discards the driver's stderr at the host boundary.
-            // Direct owner/CI probes may capture it, which preserves bounded Blender startup
-            // diagnostics without contaminating the framed stdout protocol.
-            .stderr(Stdio::inherit())
-            .kill_on_drop(true);
-        let mut child = command
-            .spawn()
-            .map_err(|error| io_step("Blender background launch", error))?;
-        if let Some(mut stdout) = child.stdout.take() {
-            tokio::spawn(async move {
-                let _ = tokio::io::copy(&mut stdout, &mut tokio::io::sink()).await;
-            });
-        }
-        for _ in 0..240 {
-            if child
-                .try_wait()
-                .map_err(|error| io_step("Blender process status", error))?
-                .is_some()
-            {
-                return Err(Error::unavailable(
-                    "Sandbox-owned Blender exited during startup",
-                ));
-            }
-            if socket.exists()
-                && request(&socket, "driver.blender.introspect.summary", json!({}), 2)
-                    .await
-                    .is_ok()
-            {
-                return Ok(Self {
-                    child,
-                    runtime,
-                    socket,
-                    version,
-                });
-            }
-            sleep(Duration::from_millis(50)).await;
-        }
-        let _ = child.kill().await;
-        let _ = fs::remove_dir_all(&runtime);
-        Err(Error::new(
-            ErrorCode::Timeout,
-            "Blender background bridge startup timed out",
-        ))
+        let version_string = summary
+            .get("version_string")
+            .and_then(Value::as_str)
+            .filter(|value| value.len() <= 128 && !value.chars().any(char::is_control))
+            .unwrap_or("4.5.14 LTS")
+            .to_owned();
+        self.sessions
+            .insert(context.session().to_owned(), session.clone());
+        self.versions
+            .insert(context.session().to_owned(), version_string);
+        Ok(session)
     }
-}
 
-impl Drop for BlenderDriver {
-    fn drop(&mut self) {
-        let _ = self.child.start_kill();
-        let _ = fs::remove_dir_all(&self.runtime);
+    fn validate_call(command: &str, digest: &str, args: &Value) -> Result<Capability> {
+        let capability = capability(command)?;
+        if descriptor_digest(&capability.descriptor)? != digest {
+            return Err(Error::new(
+                ErrorCode::StaleReference,
+                "Blender capability descriptor changed",
+            ));
+        }
+        let input =
+            jsonschema::validator_for(&capability.descriptor.input_schema).map_err(|_| {
+                Error::new(ErrorCode::Internal, "Invalid embedded Blender input schema")
+            })?;
+        if !input.is_valid(args) {
+            return Err(Error::invalid(
+                "Blender capability arguments do not match the strict schema",
+            ));
+        }
+        Ok(capability)
+    }
+
+    fn validate_output(capability: &Capability, value: &Value) -> Result<()> {
+        let output =
+            jsonschema::validator_for(&capability.descriptor.output_schema).map_err(|_| {
+                Error::new(
+                    ErrorCode::Internal,
+                    "Invalid embedded Blender output schema",
+                )
+            })?;
+        if output.iter_errors(value).next().is_some() {
+            return Err(Error::new(
+                ErrorCode::PluginProtocolError,
+                "Blender driver produced output outside its descriptor schema",
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -1592,66 +1616,75 @@ impl Driver for BlenderDriver {
         env!("CARGO_PKG_VERSION")
     }
 
+    fn interfaces(&self) -> DriverInterfaces {
+        DriverInterfaces {
+            cooperative_cancellation: true,
+            health: true,
+            host_tools: std::env::var_os("SEMWRIGHT_DRIVER_HOST_TOOLS").is_some(),
+            ..DriverInterfaces::default()
+        }
+    }
+
     async fn capabilities(&mut self) -> Result<Vec<Capability>> {
         capabilities()
     }
 
     async fn execute(&mut self, command: &str, digest: &str, args: Value) -> Result<Value> {
-        let capability = capability(command)?;
-        if descriptor_digest(&capability.descriptor)? != digest {
-            return Err(Error::new(
-                ErrorCode::StaleReference,
-                "Blender capability descriptor changed",
-            ));
-        }
-        let input =
-            jsonschema::validator_for(&capability.descriptor.input_schema).map_err(|_| {
-                Error::new(ErrorCode::Internal, "Invalid embedded Blender input schema")
-            })?;
-        if !input.is_valid(&args) {
-            return Err(Error::invalid(
-                "Blender capability arguments do not match the strict schema",
-            ));
-        }
-        let value = request(
-            &self.socket,
+        let _ = Self::validate_call(command, digest, &args)?;
+        Err(Error::new(
+            ErrorCode::Unsupported,
+            "Blender execution requires a protocol-v8 Host-owned runtime-tool session",
+        ))
+    }
+
+    async fn execute_with_context(
+        &mut self,
+        command: &str,
+        digest: &str,
+        args: Value,
+        context: DriverExecutionContext,
+    ) -> Result<Value> {
+        context.check_cancelled()?;
+        let capability = Self::validate_call(command, digest, &args)?;
+        let session = self.ensure_session(&context).await?;
+        let result = Self::exchange(
+            &context,
+            &session,
             command,
             args,
-            (capability.descriptor.timeout_ms / 1000).saturating_add(2),
+            capability.descriptor.timeout_ms,
         )
-        .await?;
-        let output =
-            jsonschema::validator_for(&capability.descriptor.output_schema).map_err(|_| {
-                Error::new(
-                    ErrorCode::Internal,
-                    "Invalid embedded Blender output schema",
-                )
-            })?;
-        if let Some(error) = output.iter_errors(&value).next() {
-            eprintln!(
-                "Blender output schema rejected command={} at {}: {:?}",
-                command, error.instance_path, error.kind
-            );
-            return Err(Error::new(
-                ErrorCode::PluginProtocolError,
-                "Blender driver produced output outside its descriptor schema",
-            ));
-        }
+        .await;
+        let value = match result {
+            Ok(value) => value,
+            Err(error)
+                if matches!(
+                    error.code,
+                    ErrorCode::Unavailable
+                        | ErrorCode::ProtocolMismatch
+                        | ErrorCode::Timeout
+                        | ErrorCode::Cancelled
+                        | ErrorCode::NotFound
+                ) =>
+            {
+                self.sessions.remove(context.session());
+                self.versions.remove(context.session());
+                let _ = context.close_runtime_tool_session(&session).await;
+                return Err(error);
+            }
+            Err(error) => return Err(error),
+        };
+        Self::validate_output(&capability, &value)?;
         Ok(value)
     }
 
     async fn health(&mut self) -> Result<Value> {
-        let summary = request(
-            &self.socket,
-            "driver.blender.introspect.summary",
-            json!({}),
-            5,
-        )
-        .await?;
+        let host_tools = std::env::var_os("SEMWRIGHT_DRIVER_HOST_TOOLS").is_some();
         Ok(json!({
-            "healthy":true,
-            "runtime":self.version,
-            "version":summary["version_string"],
+            "healthy":host_tools,
+            "runtime":"host-managed-v8",
+            "sessions":self.sessions.len(),
+            "version":self.versions.values().next().cloned(),
             "arbitrary_python":false,
             "generic_operator_invoke":false
         }))
@@ -1831,26 +1864,49 @@ mod tests {
     }
 
     #[test]
-    fn staged_runtime_contains_all_embedded_support_files() {
-        let runtime = tempfile::tempdir().unwrap();
-        let (bridge, socket) = stage_runtime(runtime.path()).unwrap();
-        let package = runtime.path().join("semwright_blender_runtime");
-
-        for file in [
-            "__init__.py",
-            "commands.py",
-            "commands.json",
-            "validation.py",
-            "semantic.py",
+    fn session_arguments_use_only_typed_host_refs() {
+        let args = session_arguments();
+        assert_eq!(args.len(), 10);
+        assert!(args.iter().any(|arg| {
+            matches!(
+                arg,
+                RuntimeToolArg::ToolPath { tool } if tool == BLENDER_TOOL
+            )
+        }));
+        for mount in [
+            WORKSPACE_MOUNT,
+            BLENDER_RUNTIME_MOUNT,
+            SCRATCH_MOUNT,
+            FONT_CONFIG_MOUNT,
         ] {
-            assert!(package.join(file).is_file(), "missing staged file {file}");
+            assert!(args.iter().any(|arg| {
+                matches!(
+                    arg,
+                    RuntimeToolArg::MountPath { mount: name, relative }
+                        if name == mount && relative.is_empty()
+                )
+            }));
         }
-        assert_eq!(bridge, runtime.path().join("bridge.py"));
-        assert_eq!(socket, runtime.path().join("bridge.sock"));
+        let encoded = serde_json::to_string(&args).unwrap();
+        assert!(!encoded.contains("/usr/bin"));
+        assert!(!encoded.contains("/plugin/tools"));
+    }
 
-        let schemas: Value =
-            serde_json::from_slice(&std::fs::read(package.join("commands.json")).unwrap()).unwrap();
-        assert!(schemas.get("blender.status").is_some());
-        assert!(schemas.get("blender.render").is_some());
+    #[test]
+    fn bridge_response_envelope_is_strict() {
+        let value = decode_bridge_response(br#"{"ok":true,"data":{"changed":true}}"#).unwrap();
+        assert_eq!(value["changed"], true);
+
+        let error =
+            decode_bridge_response(br#"{"ok":false,"error":{"code":"NotFound"}}"#).unwrap_err();
+        assert_eq!(error.code, ErrorCode::NotFound);
+
+        for malformed in [
+            br#"{"ok":true,"data":{},"extra":1}"#.as_slice(),
+            br#"{"ok":false,"error":{"code":"NotFound","message":"leak"}}"#.as_slice(),
+            br#"{"ok":true,"data":[]}"#.as_slice(),
+        ] {
+            assert!(decode_bridge_response(malformed).is_err());
+        }
     }
 }

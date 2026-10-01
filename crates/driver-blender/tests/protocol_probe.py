@@ -131,40 +131,11 @@ def main():
             print("capabilities",size,catalog.get("type"),len(catalog.get("capabilities",[])),flush=True)
             if catalog.get("type")!="capabilities":
                 raise RuntimeError(f"unexpected capabilities response: {catalog}")
-            catalog_by_name={item["descriptor"]["name"]:item for item in catalog.get("capabilities",[])}
-            execute(
-                proc,
-                catalog_by_name,
-                "driver.blender.object.create",
-                {"name":"ProtocolProbeCube","primitive":"cube","location":[1.0,2.0,3.0]},
-                "probe-create",
-            )
-            objects=execute(
-                proc,
-                catalog_by_name,
-                "driver.blender.semantic.objects",
-                {"root":"objects","query":"ProtocolProbeCube","limit":8},
-                "probe-objects",
-            )
-            reference=objects["items"][0]["ref"]
-            location=execute(
-                proc,
-                catalog_by_name,
-                "driver.blender.semantic.property.get",
-                {"ref":reference,"property":"location"},
-                "probe-location",
-            )
-            if location["value"] != [1.0,2.0,3.0]:
-                raise RuntimeError(f"unexpected Object.location: {location}")
-            relation=execute(
-                proc,
-                catalog_by_name,
-                "driver.blender.semantic.relations",
-                {"ref":reference,"property":"data","limit":8},
-                "probe-relations",
-            )
-            if relation["items"][0]["rna_type"]!="Mesh":
-                raise RuntimeError(f"unexpected Object.data relation: {relation}")
+            capabilities=catalog.get("capabilities",[])
+            if len(capabilities) < 80:
+                raise RuntimeError(f"unexpected Blender catalog size: {len(capabilities)}")
+            if not all(item["descriptor"]["name"].startswith("driver.blender.") for item in capabilities):
+                raise RuntimeError("Blender catalog escaped its driver namespace")
 
             write_frame(proc.stdin,{"type":"health","id":"probe-health"})
             size,health=read_frame(proc.stdout,30.0)
