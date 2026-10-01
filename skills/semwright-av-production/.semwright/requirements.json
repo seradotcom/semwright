@@ -44,6 +44,14 @@
         "required": true
       },
       {
+        "id": "driver.faust-audio.sample.render",
+        "required": true
+      },
+      {
+        "id": "driver.faust-audio.instrument.render",
+        "required": true
+      },
+      {
         "id": "driver.audio-analysis.artifact.measure",
         "required": true
       },
@@ -61,16 +69,6 @@
       },
       {
         "id": "driver.ardour-audio.session.deep.export",
-        "required": true
-      },
-      {
-        "query": {
-          "tags": [
-            "audio",
-            "composition"
-          ]
-        },
-        "minimum_matches": 1,
         "required": true
       },
       {

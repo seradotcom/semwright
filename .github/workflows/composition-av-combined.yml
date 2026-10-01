@@ -1,0 +1,201 @@
+name: Composition AV Combined
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_sha:
+        description: Exact integration candidate SHA to execute
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: composition-av-combined-${{ github.event_name == 'workflow_dispatch' && inputs.candidate_sha || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  combined-native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: '0'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.candidate_sha || github.sha }}
+          persist-credentials: false
+      - name: Bind run to exact candidate SHA
+        env:
+          CANDIDATE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.candidate_sha || github.sha }}
+        run: |
+          set -euo pipefail
+          [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          git diff --exit-code
+          git diff --cached --exit-code
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: composition-av-combined-native-v1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.22.0'
+          cache: npm
+          cache-dependency-path: integrations/motion-canvas/runtime/package-lock.json
+      - name: Install pinned native runtimes
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y             faust=2.70.3+ds-1.1build2             libsndfile1-dev             libebur128-dev=1.2.6-1build1             bubblewrap apparmor-profiles apparmor-utils             melt ffmpeg libpipewire-0.3-dev
+          mkdir -p verification/composition-av
+          {
+            dpkg-query -W faust libsndfile1-dev libebur128-dev
+            melt -version | head -5
+            ffmpeg -version | head -3
+            ffprobe -version | head -3
+            bwrap --version
+          } > verification/composition-av/native-runtime-versions.txt
+      - name: Install scoped Driver Host AppArmor profile
+        run: |
+          bash scripts/dev/ci-driver-bwrap-profile.sh             verification/composition-av/sandbox-setup.log
+      - name: Install exact Motion Canvas runtime
+        working-directory: integrations/motion-canvas/runtime
+        run: |
+          set -euo pipefail
+          npm ci --ignore-scripts
+          npx --no-install playwright install --with-deps firefox
+          npm run probe
+          mkdir -p .semwright-tools
+          cp "$(command -v node)" .semwright-tools/node
+          chmod 0755 .semwright-tools/node
+          mapfile -t BROWSERS < <(find node_modules/playwright-core/.local-browsers             -path '*/firefox-*/firefox/firefox' -type f -perm -111 -print)
+          test "${#BROWSERS[@]}" -eq 1
+          BROWSER_REL=$(realpath --relative-to="$PWD" "${BROWSERS[0]}")
+          python3 "$GITHUB_WORKSPACE/scripts/motion-canvas/runtime-manifest.py"             --root "$PWD" --browser-rel "$BROWSER_REL"
+          cat runtime.json
+      - name: Materialize pinned Faust library tree
+        run: |
+          set -euo pipefail
+          export FAUST_STAGE="$RUNNER_TEMP/faust-libraries"
+          python3 - <<'PY'
+          import hashlib, json, os, shutil
+          from pathlib import Path
+
+          src = Path('/usr/share/faust')
+          dst = Path(os.environ['FAUST_STAGE'])
+          if dst.exists():
+              shutil.rmtree(dst)
+          dst.mkdir(parents=True, mode=0o700)
+          pins = {}
+          for source in sorted(src.rglob('*.lib')):
+              if not source.is_file():
+                  continue
+              relative = source.relative_to(src)
+              target = dst / relative
+              target.parent.mkdir(parents=True, exist_ok=True)
+              shutil.copyfile(source, target, follow_symlinks=True)
+              target.chmod(0o400)
+              pins[relative.as_posix()] = hashlib.sha256(target.read_bytes()).hexdigest()
+          if 'stdfaust.lib' not in pins or len(pins) < 2:
+              raise SystemExit('Faust library inventory is incomplete')
+          manifest = {
+              'schema_version': 1,
+              'compiler_version': '2.70.3',
+              'libraries': pins,
+          }
+          runtime = dst / 'semwright-runtime.json'
+          runtime.write_text(json.dumps(manifest, separators=(',', ':'), sort_keys=True))
+          runtime.chmod(0o400)
+          for directory in sorted((p for p in dst.rglob('*') if p.is_dir()), reverse=True):
+              directory.chmod(0o500)
+          dst.chmod(0o500)
+          if any(path.is_symlink() for path in dst.rglob('*')):
+              raise SystemExit('staged Faust tree contains symlinks')
+          print(f'staged {len(pins)} Faust libraries')
+          PY
+          echo "SEMWRIGHT_TEST_FAUST_LIBRARIES=$FAUST_STAGE" >> "$GITHUB_ENV"
+      - name: Build fixed native helpers and drivers
+        run: |
+          set -euo pipefail
+          g++ -std=c++17 -O2 -Wall -Wextra -Werror             integrations/audio/faust-runtime/main.cpp             -lfaust -lsndfile -o "$RUNNER_TEMP/semwright-faust-interpreter"
+          g++ -std=c++17 -O2 -Wall -Wextra -Werror             integrations/audio/analysis-runtime/main.cpp             -lebur128 -lsndfile -o "$RUNNER_TEMP/semwright-audio-meter"
+          cargo build --locked             -p semwright-plugin-host --bin semwright-sandbox             -p semwright-driver-motion-canvas --bin semwright-motion-canvas-driver             -p semwright-faust-audio-driver --bins             -p semwright-mlt-video-driver --bin semwright-mlt-video-driver
+          strip --strip-unneeded             target/debug/semwright-sandbox             target/debug/semwright-motion-canvas-driver             target/debug/semwright-faust-audio-driver             target/debug/semwright-audio-analysis-driver             target/debug/semwright-mlt-video-driver
+          chmod 0500             target/debug/semwright-sandbox             target/debug/semwright-motion-canvas-driver             target/debug/semwright-faust-audio-driver             target/debug/semwright-audio-analysis-driver             target/debug/semwright-mlt-video-driver
+          stat -c '%s %a %n'             target/debug/semwright-sandbox             target/debug/semwright-motion-canvas-driver             target/debug/semwright-faust-audio-driver             target/debug/semwright-audio-analysis-driver             target/debug/semwright-mlt-video-driver             | tee verification/composition-av/native-binaries.stat
+          python3 - <<'PY'
+          from pathlib import Path
+          limit=64*1024*1024
+          for name in [
+              'semwright-motion-canvas-driver',
+              'semwright-faust-audio-driver',
+              'semwright-audio-analysis-driver',
+              'semwright-mlt-video-driver',
+          ]:
+              path=Path('target/debug')/name
+              if path.stat().st_size > limit:
+                  raise SystemExit(f'{name} exceeds Driver Host 64 MiB executable budget')
+          PY
+          sha256sum             "$RUNNER_TEMP/semwright-faust-interpreter"             "$RUNNER_TEMP/semwright-audio-meter"             target/debug/semwright-sandbox             target/debug/semwright-motion-canvas-driver             target/debug/semwright-faust-audio-driver             target/debug/semwright-audio-analysis-driver             target/debug/semwright-mlt-video-driver             > verification/composition-av/native-binaries.sha256
+      - name: Combined A+B native AV E2E
+        env:
+          SEMWRIGHT_TEST_COMBINED_AV: '1'
+          SEMWRIGHT_TEST_COMBINED_MOTION_DRIVER: ${{ github.workspace }}/target/debug/semwright-motion-canvas-driver
+          SEMWRIGHT_TEST_COMBINED_FAUST_DRIVER: ${{ github.workspace }}/target/debug/semwright-faust-audio-driver
+          SEMWRIGHT_TEST_COMBINED_ANALYSIS_DRIVER: ${{ github.workspace }}/target/debug/semwright-audio-analysis-driver
+          SEMWRIGHT_TEST_COMBINED_MLT_DRIVER: ${{ github.workspace }}/target/debug/semwright-mlt-video-driver
+          SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
+          SEMWRIGHT_TEST_MOTION_RUNTIME: ${{ github.workspace }}/integrations/motion-canvas/runtime
+          SEMWRIGHT_TEST_FAUST_VERSION: '2.70.3'
+          SEMWRIGHT_TEST_FAUST_HELPER: ${{ runner.temp }}/semwright-faust-interpreter
+          SEMWRIGHT_TEST_AUDIO_METER: ${{ runner.temp }}/semwright-audio-meter
+          SEMWRIGHT_TEST_MELT: /usr/bin/melt
+          SEMWRIGHT_TEST_FFPROBE: /usr/bin/ffprobe
+          SEMWRIGHT_TEST_FFMPEG: /usr/bin/ffmpeg
+          SEMWRIGHT_TEST_BWRAP: /usr/bin/bwrap
+        run: |
+          set -euo pipefail
+          cargo test --locked -p semwright-av-composition             --test combined_native             combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_sync             -- --ignored --exact --nocapture             2>&1 | tee verification/composition-av/combined-native.log
+      - name: Record exact-SHA run metadata
+        if: always()
+        env:
+          CANDIDATE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.candidate_sha || github.sha }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          p = Path('verification/composition-av/run.json')
+          p.parent.mkdir(parents=True, exist_ok=True)
+          p.write_text(json.dumps({
+              'schema_version': 1,
+              'candidate_sha': os.environ['CANDIDATE_SHA'],
+              'github_sha': os.environ.get('GITHUB_SHA'),
+              'audio_source_sha': '8ed2d30c8ba797ebd5b8c102d34f8ab5bb3a28b3',
+              'scope': 'combined-native-av-e2e',
+              'promotional_video': False,
+              'r16_closed': False,
+          }, indent=2) + '\n')
+          PY
+      - name: Capture sandbox diagnostics on failure
+        if: failure()
+        run: |
+          {
+            echo '=== aa-status ==='
+            sudo aa-status || true
+            echo '=== loaded bwrap profile ==='
+            sudo cat /etc/apparmor.d/bwrap-userns-restrict || true
+            echo '=== recent kernel/AppArmor/resource events ==='
+            sudo journalctl -k --no-pager --since '-20 min' 2>/dev/null               | grep -Ei 'apparmor|audit|denied|bwrap|firefox|faust|melt|ffmpeg|out of memory|oom|killed process|memory cgroup|sigxcpu|file size limit'               | tail -400 || true
+          } > verification/composition-av/sandbox-denials.log 2>&1
+          cat verification/composition-av/sandbox-denials.log
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: composition-av-combined-${{ github.event_name == 'workflow_dispatch' && inputs.candidate_sha || github.sha }}
+          path: verification/composition-av
+          retention-days: 14
+          if-no-files-found: error

@@ -1,10 +1,10 @@
 {
   "schema_version": 1,
   "name": "semwright-composition-development",
-  "scope": "agent-a",
-  "audio_integration": "pending-b-ready-handoff",
+  "scope": "combined-candidate",
+  "audio_integration": "certified-b-exact-sha",
   "max_file_bytes": 8388608,
-  "max_total_bytes": 67108864,
+  "max_total_bytes": 134217728,
   "include": [
     "Cargo.toml",
     "Cargo.lock",
@@ -45,6 +45,23 @@
     ".github/workflows/composition-fuzz.yml",
     ".github/workflows/composition-mutants.yml",
     ".github/workflows/figma-semantic-authoring.yml",
-    ".github/workflows/motion-canvas.yml"
-  ]
+    ".github/workflows/motion-canvas.yml",
+    "crates/audio-authoring",
+    "crates/audio-domain",
+    "crates/driver-faust-audio",
+    "crates/driver-ardour-audio",
+    "integrations/audio",
+    "scripts/audio",
+    "skills/semwright-audio-production",
+    "docs/audio",
+    "docs/audio-domain.md",
+    "fuzz/fuzz_targets/audio_domain_model.rs",
+    "fuzz/fuzz_targets/audio_domain_edit.rs",
+    "fuzz/fuzz_targets/audio_wav.rs",
+    ".github/workflows/audio-diagnostics.yml",
+    ".github/workflows/native-integrations.yml",
+    ".github/workflows/composition-av-combined.yml"
+  ],
+  "composition_source_sha": "16bc180a2cc6819787c805df5c391de9c11c985c",
+  "audio_source_sha": "8ed2d30c8ba797ebd5b8c102d34f8ab5bb3a28b3"
 }

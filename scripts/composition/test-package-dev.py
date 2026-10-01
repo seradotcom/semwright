@@ -16,7 +16,7 @@ SPEC.loader.exec_module(package)
 
 
 class DevelopmentPackageTests(unittest.TestCase):
-    def test_deterministic_bundle_verifies_and_keeps_audio_pending(self):
+    def test_deterministic_combined_bundle_verifies_source_lineage(self):
         with tempfile.TemporaryDirectory(prefix="composition-package-test-") as temp:
             root = Path(temp)
             first = root / "first.zip"
@@ -33,18 +33,35 @@ class DevelopmentPackageTests(unittest.TestCase):
             verified = package.verify(first)
             self.assertTrue(verified["valid"])
             self.assertEqual(verified["source_sha"], "a" * 40)
-            self.assertEqual(verified["audio_integration"], "pending-b-ready-handoff")
+            self.assertEqual(verified["audio_integration"], "certified-b-exact-sha")
 
             with zipfile.ZipFile(first) as archive:
                 metadata = json.loads(archive.read(package.GENERATED_METADATA))
+                self.assertEqual(metadata["scope"], "combined-candidate")
+                self.assertEqual(
+                    metadata["composition_source_sha"],
+                    "16bc180a2cc6819787c805df5c391de9c11c985c",
+                )
+                self.assertEqual(
+                    metadata["audio_source_sha"],
+                    "8ed2d30c8ba797ebd5b8c102d34f8ab5bb3a28b3",
+                )
                 paths = {entry["path"] for entry in metadata["entries"]}
-                self.assertIn("docs/composition/DEMO_PRODUCTION_HANDOFF.md", paths)
-                self.assertIn("skills/semwright-video-production/SKILL.md", paths)
-                self.assertIn("skills/semwright-av-production/SKILL.md", paths)
-                self.assertIn("integrations/motion-canvas/runtime/package-lock.json", paths)
-                self.assertIn("crates/driver-motion-canvas/src/composition.rs", paths)
-                self.assertIn("crates/driver-figma/src/composition_kernel.rs", paths)
-                self.assertIn("crates/driver-mlt-video/src/app.rs", paths)
+                for required in [
+                    "docs/composition/DEMO_PRODUCTION_HANDOFF.md",
+                    "skills/semwright-video-production/SKILL.md",
+                    "skills/semwright-av-production/SKILL.md",
+                    "skills/semwright-audio-production/SKILL.md",
+                    "integrations/motion-canvas/runtime/package-lock.json",
+                    "crates/driver-motion-canvas/src/composition.rs",
+                    "crates/driver-figma/src/composition_kernel.rs",
+                    "crates/driver-mlt-video/src/app.rs",
+                    "crates/audio-authoring/src/lib.rs",
+                    "crates/driver-faust-audio/src/driver.rs",
+                    "crates/driver-ardour-audio/src/driver.rs",
+                    ".github/workflows/composition-av-combined.yml",
+                ]:
+                    self.assertIn(required, paths)
                 parts = {part for value in paths for part in Path(value).parts}
                 self.assertNotIn("target", parts)
                 self.assertNotIn("node_modules", parts)

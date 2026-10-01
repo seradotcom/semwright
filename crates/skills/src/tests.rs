@@ -635,6 +635,7 @@ fn official_skills_validate_and_keep_progressive_disclosure_small() {
         "semwright-driver-authoring",
         "semwright-figma-production",
         "semwright-video-production",
+        "semwright-audio-production",
         "semwright-av-production",
     ] {
         let report = validate(&repo.join("skills").join(name)).unwrap();
@@ -651,7 +652,7 @@ fn official_skills_validate_and_keep_progressive_disclosure_small() {
 }
 
 #[test]
-fn av_skill_stays_blocked_until_public_audio_composition_is_advertised() {
+fn av_skill_resolves_against_real_combined_authority_surfaces() {
     let repo = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     let package = load(&repo.join("skills/semwright-av-production")).unwrap();
     let required = [
@@ -665,6 +666,8 @@ fn av_skill_stays_blocked_until_public_audio_composition_is_advertised() {
         "driver.faust-audio.backend.contract",
         "driver.faust-audio.sfx.render",
         "driver.faust-audio.synth.render",
+        "driver.faust-audio.sample.render",
+        "driver.faust-audio.instrument.render",
         "driver.audio-analysis.artifact.measure",
         "driver.ardour-audio.session.deep.inspect",
         "driver.ardour-audio.session.deep.create",
@@ -672,25 +675,25 @@ fn av_skill_stays_blocked_until_public_audio_composition_is_advertised() {
         "driver.ardour-audio.session.deep.export",
         "artifact.handoff",
     ];
-    let mut catalog = required
+    let catalog = required
         .iter()
-        .map(|name| capability(name, &[], true))
+        .map(|name| capability(name, &["audio"], true))
         .collect::<Vec<_>>();
-
-    let blocked = doctor(&package, &catalog, "0.9.0-dev.1").unwrap();
-    assert!(!blocked.semwright_compatible);
-    assert!(blocked.requirements.iter().any(|requirement| {
-        requirement.state == "missing"
-            && requirement.requirement.starts_with("query:")
-            && requirement.requirement.contains("\"audio\"")
-            && requirement.requirement.contains("\"composition\"")
-    }));
-
-    catalog.push(capability(
-        "driver.fixture.audio-composition",
-        &["audio", "composition"],
-        true,
-    ));
     let resolved = doctor(&package, &catalog, "0.9.0-dev.1").unwrap();
     assert!(resolved.semwright_compatible, "{resolved:#?}");
+
+    for missing in [
+        "driver.audio-analysis.artifact.measure",
+        "driver.faust-audio.sfx.render",
+        "driver.ardour-audio.session.deep.export",
+    ] {
+        let reduced = catalog
+            .iter()
+            .filter(|capability| capability.descriptor.name != missing)
+            .cloned()
+            .collect::<Vec<_>>();
+        let blocked = doctor(&package, &reduced, "0.9.0-dev.1").unwrap();
+        assert!(!blocked.semwright_compatible, "{missing} must be required");
+        assert!(blocked.missing.iter().any(|value| value.contains(missing)));
+    }
 }

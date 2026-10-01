@@ -11,19 +11,19 @@ This file is the source-controlled integration ledger. A private diagnostic inte
 - B branch: feat/audio-completion
 - B consumed C0 through normal Git ancestry: verified locally
 - B observed PR/worktree head at this checkpoint: 8ed2d30c8ba797ebd5b8c102d34f8ab5bb3a28b3
-- B coordination state currently declares AUDIO_READY_FOR_INTEGRATION: false
+- B formal handoff: AUDIO_READY_FOR_INTEGRATION=true at 8ed2d30c8ba797ebd5b8c102d34f8ab5bb3a28b3; full audio certification run 36744494536 PASS
 - Current origin/main reconciled into A: e3713e90e87f1caa8f7105c065094d5c724d144e
 - Integration branch/worktree exists at integration/composition-av for private diagnostics.
 - Latest observed diagnostic integration head: 5648dd2da719b4602126f3458c3c266679c67b2a
-- Formal combined candidate SHA: PENDING a current B-ready handoff
+- Formal combined candidate: integration/composition-av-formal; the exact commit is bound externally by candidate_sha and CANDIDATE_EVIDENCE so the source tree never self-certifies
 
-A never edits the B worktree. A historical/private integration candidate has exercised the combined native AV path in CircleCI, but that diagnostic does not replace B's current readiness handshake or exact-candidate certification. The formal candidate will be cut only after B.json, B PR ancestry and native evidence agree on one AUDIO_READY_FOR_INTEGRATION SHA.
+A never edits the B worktree. B.json, PR #183 ancestry and native evidence now agree on the formal B SHA above. The historical/private integration candidate remains diagnostic history only; the formal candidate is rebuilt from exact A+B ancestry and must obtain fresh exact-SHA certification.
 
 ## Contract history
 
 C0 provides generic plan/base/evidence/lifecycle and exact media-time primitives. B has C0 as an ancestor rather than a duplicate private copy.
 
-A later additive AV consumer contract defines media artifact metadata, audio consumer receipts, service proofs, staged coordination, final decoded sync and manifest publication. B is not considered to have consumed that additive contract until it publishes the exact consumed SHA/tests.
+A later additive AV consumer contract defines media artifact metadata, audio consumer receipts, service proofs, staged coordination, final decoded sync and manifest publication. B remains a provider of public audio capabilities; A owns this additive consumer contract and must prove the boundary on the exact combined candidate rather than requiring B to duplicate A-owned C1 types.
 
 Wire-semantic changes after C0 must be listed here with migration/consumer tests rather than silently edited in both branches.
 
@@ -56,10 +56,10 @@ Unexpected conflicts inside audio-domain/Faust/Ardour are returned to B for expl
 
 ## Candidate evidence
 
-- A_HEAD_SHA: PENDING_FINAL_A
-- B_READY_SHA: PENDING
+- A_HEAD_SHA: 16bc180a2cc6819787c805df5c391de9c11c985c
+- B_READY_SHA: 8ed2d30c8ba797ebd5b8c102d34f8ab5bb3a28b3
 - C0_SHA: 26602e4b25929be869d69ef28fef4dd9713180d7
-- C1_CONSUMED_SHA: PENDING
+- C1_CONSUMER_BOUNDARY: A-owned; exact combined E2E pending
 - INTEGRATION_CANDIDATE_SHA: PENDING
 - COMMON_CONTRACTS: PENDING
 - FIGMA_NATIVE: PENDING
