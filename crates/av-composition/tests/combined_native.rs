@@ -681,6 +681,7 @@ fn write_sync_impulse_wav(path: &Path) {
         bytes.extend_from_slice(&sample.to_le_bytes());
     }
     fs::write(path, bytes).unwrap();
+    fs::set_permissions(path, fs::Permissions::from_mode(0o400)).unwrap();
 }
 
 fn sync_sample_synth(sample_id: &str) -> Synth {
