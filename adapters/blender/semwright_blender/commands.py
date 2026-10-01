@@ -249,6 +249,20 @@ class Commands:
         scene = bpy.context.scene
         frame_current = scene.frame_current
         frame_subframe = scene.frame_subframe
+        # The glTF exporter evaluates animated transforms while sampling.  Source RNA TRS can
+        # legitimately differ from the value evaluated at the current frame (for example after
+        # an explicit writer restored managed source state).  Preserve that source state rather
+        # than assuming frame restoration alone is sufficient.
+        source_transforms = [
+            (
+                obj,
+                obj.rotation_mode,
+                tuple(obj.location),
+                tuple(obj.rotation_euler),
+                tuple(obj.scale),
+            )
+            for obj in objects
+        ]
         fd, temporary = tempfile.mkstemp(prefix=".semwright-export-", suffix=".glb", dir=os.path.dirname(target))
         os.close(fd)
         try:
@@ -301,3 +315,13 @@ class Commands:
             # caller's exact frame/subframe; a numeric equality shortcut can leave a managed
             # object transform observably drifted after an otherwise read-only export.
             scene.frame_set(frame_current, subframe=frame_subframe)
+            # frame_set intentionally flushes the exporter's sampled evaluation first.  Restore
+            # the exact managed source TRS afterwards so export remains observationally read-only
+            # even when source RNA did not equal the animation value at the entry frame.
+            for obj, rotation_mode, location, rotation, scale in source_transforms:
+                if bpy.data.objects.get(obj.name) is not obj:
+                    continue
+                obj.rotation_mode = rotation_mode
+                obj.location = location
+                obj.rotation_euler = rotation
+                obj.scale = scale

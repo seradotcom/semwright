@@ -1342,10 +1342,37 @@ async fn animated_object_export_restores_source_projection_after_reopen() {
         .as_str()
         .unwrap()
         .to_owned();
+    let product_name = reopened["items"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|row| row["entity"] == "product")
+        .unwrap()["name"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    // Match G-BLENDER-010's sequence: an authorized writer changes source TRS and restores it
+    // before export while the object still has an active Action.  The exporter must not replace
+    // that restored source value with the animation's value at the current frame.
+    reader
+        .call(
+            "object.transform",
+            json!({"name":product_name,"location":[0.01,0.0,0.4]}),
+        )
+        .await;
+    reader
+        .call(
+            "object.transform",
+            json!({"name":product_name,"location":[0.0,0.0,0.4]}),
+        )
+        .await;
     let before = reader
         .call("composition.inspect", json!({"island":island}))
         .await;
-    assert_eq!(before["drift"], false);
+    assert_eq!(
+        before["drift"], false,
+        "authorized write/restoration must return to the managed source fingerprint"
+    );
 
     let export = reader
         .call(
