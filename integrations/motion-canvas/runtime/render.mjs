@@ -293,6 +293,7 @@ async function main() {
       if(state.result===2)failurePhase='render_result_aborted';
       else if(state.result===1)failurePhase=state.rendererLogClass??'render_result_error';
       else failurePhase='render_result_unknown';
+      failureDetail=typeof state.typeErrorDetail==='string'?state.typeErrorDetail:null;
       fail(`renderer result ${state.result}; state=${JSON.stringify(state)} diagnostics=${JSON.stringify(diagnostics)}`);
     }
     failurePhase = 'observation';

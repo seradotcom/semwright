@@ -46,6 +46,7 @@ test('renderer TypeErrors expose only allowlisted stack origins and normalized h
   assert.ok(render.includes("'set:'+match[1]"));
   assert.ok(render.includes("'not_function:'+match[1]"));
   assert.ok(render.includes('detail:failureDetail'));
+  assert.equal((render.match(/failureDetail=typeof state\.typeErrorDetail/g) ?? []).length, 2);
   assert.ok(render.includes("stack.includes('semwright-authoring-native')"));
   assert.ok(render.includes("stack.includes('semwright-exporter')"));
   assert.ok(render.includes("stack.includes('@motion-canvas/core')"));
