@@ -387,7 +387,7 @@
       "run_id": null,
       "job_id": null,
       "evidence": [],
-      "blocker": "Godot native retest compiled the G helper successfully but was BLOCKED during pinned Godot --import before native cases. Harness now preserves the import process receipt/stderr for exact diagnosis; same D SHA retest pending.",
+      "blocker": "Instrumented Godot import proved a G enclosure defect: /etc/fonts was hidden, Fontconfig had no configuration and pinned Godot 4.7.2 crashed before product cases. Harness now mounts only /etc/fonts and /etc/xdg read-only (guarded by G-SELF-096) and provisions xdg-user-dirs; exact-SHA D retest pending.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },

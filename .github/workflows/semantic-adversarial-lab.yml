@@ -75,7 +75,7 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y libpipewire-0.3-dev pkg-config unzip
+          sudo apt-get install -y libpipewire-0.3-dev pkg-config unzip xdg-user-dirs
           GODOT_SHA=$(python3 -c 'import json; print(json.load(open("tests/semantic-adversarial-lab/targets.json"))["pins"]["godot_binary_sha256"])')
           TEMPLATE_ARCHIVE_SHA=$(python3 -c 'import json; print(json.load(open("tests/semantic-adversarial-lab/targets.json"))["pins"]["godot_template_archive_sha256"])')
           mkdir -p "$RUNNER_TEMP/g-native/godot" "$RUNNER_TEMP/g-native/templates"

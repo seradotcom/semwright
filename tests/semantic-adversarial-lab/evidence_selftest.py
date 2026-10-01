@@ -10,6 +10,7 @@ import zipfile
 from artifact_io import MAX_FILE, read_evidence_archive
 from collect_evidence import validate_lane, immutable_write, target_for_lane
 from product import build_target_kind
+from isolation import SYSTEM_CONFIG_RO
 from lab_core import EvidenceError, digest, summarize
 from oracle_identity import payload_digest
 from selftest_extra import target_only_retest, closure_rejects
@@ -116,6 +117,9 @@ def native_summary_is_scope_bound():
     contract = summarize(["G-GODOT-001"], contract_rows, SOURCE, SUITE, scope="product_contract")
     return native["native_acceptance"] is True and contract["native_acceptance"] is False
 
+def native_system_config_is_minimal():
+    return SYSTEM_CONFIG_RO == ("/etc/fonts", "/etc/xdg")
+
 def history_control(overwrite):
     with tempfile.TemporaryDirectory(prefix="g-synthetic-evidence-", dir="/out") as directory:
         path = Path(directory) / "receipt.json"
@@ -169,4 +173,5 @@ def evidence_cases():
         ("G-SELF-093", collector_role_targets),
         ("G-SELF-094", routing_build_target_is_normal_bin),
         ("G-SELF-095", native_summary_is_scope_bound),
+        ("G-SELF-096", native_system_config_is_minimal),
     ]

@@ -11,6 +11,8 @@ import time
 from typing import Any
 from lab_core import EvidenceError, digest, strict_json
 
+SYSTEM_CONFIG_RO = ("/etc/fonts", "/etc/xdg")
+
 def require_hosted() -> None:
     if os.environ.get("GITHUB_ACTIONS") != "true" or os.environ.get("RUNNER_ENVIRONMENT") != "github-hosted":
         raise EvidenceError("tests and attacks are restricted to GitHub-hosted disposable runners")
@@ -107,6 +109,9 @@ class Enclosure:
                 result += ["--ro-bind", system, system]
         if Path("/etc/ld.so.cache").exists():
             result += ["--ro-bind", "/etc/ld.so.cache", "/etc/ld.so.cache"]
+        for system_config in SYSTEM_CONFIG_RO:
+            if Path(system_config).exists():
+                result += ["--ro-bind", system_config, system_config]
         result += ["--ro-bind", str(self.lab), "/lab", "--bind", str(self.root / "out"), "/out",
                    "--ro-bind", str(self.root / "readonly"), "/canary/readonly", "--chdir", "/out"]
         if executable is not None:

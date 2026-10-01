@@ -4540,6 +4540,17 @@
         "authoring_markers_absent": true,
         "standalone_without_broker": true
       }
+    },
+    {
+      "id": "G-SELF-096",
+      "owner": "G",
+      "requirement": "G11",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "native runtime system configuration allowlist is limited to read-only font/XDG directories, never broad /etc",
+      "expected": {
+        "ok": true
+      }
     }
   ]
 }
