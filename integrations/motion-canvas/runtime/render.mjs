@@ -72,15 +72,25 @@ import {Renderer, Vector2} from '@motion-canvas/core';
 const config=${JSON.stringify(config)};
 const renderer=new Renderer(project);
 const state={done:false,result:null,frame:config.firstFrame,error:null,errorClass:null,rendererLogClass:null,phase:'created'};
+function classifyAuthoringMessage(message){
+  if(typeof message!=='string'||message.length===0)return null;
+  if(/^(invalid align|unsupported subject kind|unannounced overlap|overlay anchor unavailable|split requires exactly two layout children|unknown archetype|duplicate logical id|unknown layer|native parent graph cannot be resolved|annotation binding missing|node limit|invalid rational|unsafe color|native scene bounds|caption requires native Txt)$/.test(message))return 'authoring_model';
+  if(/^(non-finite |width requires layout|height requires layout|line start requires Line|line end requires Line|font size requires Layout|tracking requires Layout|fill requires shape|zoom requires Camera|vector operand required|unknown easing|connection requires Line|trace requires native Line|follow requires Camera|incompatible morph topology|selection requires Code|counter requires text|region requires Layout)/.test(message))return 'authoring_model';
+  if(/^missing subject /.test(message)||/^original value unavailable: /.test(message))return 'authoring_model';
+  if(message==='native signal not available'||message==='stage compositor baseline changed'||message==='native frame clock not supplied by exporter'||message==='native authoring probe unavailable'||message==='Semwright exporter binding unavailable'||message==='asset must be a generated local import')return 'authoring_protocol';
+  return null;
+}
 function classifyRendererLog(payload){
   if(!payload||payload.level!=='error')return null;
   const name=typeof payload.name==='string'?payload.name:'';
   const message=typeof payload.message==='string'?payload.message:'';
+  const authoring=classifyAuthoringMessage(message);
+  if(authoring==='authoring_model')return 'renderer_log_authoring_model';
+  if(authoring==='authoring_protocol')return 'renderer_log_authoring_protocol';
   if(name==='TypeError')return 'renderer_log_type_error';
   if(name==='RangeError')return 'renderer_log_range_error';
   if(message.startsWith('Could not find the \"')&&message.endsWith('\" exporter.'))return 'renderer_log_exporter_missing';
   if(message.includes('Tried to access an asynchronous property before the node was ready.'))return 'renderer_log_async_property';
-  if(/missing subject|unknown layer|native parent graph cannot be resolved|split requires exactly two layout children|primitive target .* must belong to the shot/.test(message))return 'renderer_log_model_invariant';
   return 'renderer_log_error';
 }
 project.logger.onLogged.subscribe(payload=>{const classified=classifyRendererLog(payload);if(classified)state.rendererLogClass=classified;});
@@ -112,8 +122,9 @@ renderer.onFinished.subscribe(result=>{state.result=result;});
   } catch(error) {
     const text=String(error?.message ?? error ?? '');
     let errorClass='renderer_state_error';
-    if(text.includes('native frame clock not supplied by exporter'))errorClass='renderer_state_frame_clock';
-    else if(/missing subject|unknown layer|native parent graph cannot be resolved|split requires exactly two layout children|primitive target .* must belong to the shot/.test(text))errorClass='renderer_state_model_invariant';
+    const authoring=classifyAuthoringMessage(text);
+    if(authoring==='authoring_model')errorClass='renderer_state_authoring_model';
+    else if(authoring==='authoring_protocol')errorClass='renderer_state_authoring_protocol';
     else if(error?.name==='TypeError')errorClass='renderer_state_type_error';
     else if(error?.name==='RangeError')errorClass='renderer_state_range_error';
     state.error=String(error);state.errorClass=errorClass;state.phase='error';state.done=true;
@@ -215,7 +226,7 @@ async function main() {
     }
     const state = await page.evaluate(() => window.__SEMWRIGHT_RENDER__.state);
     if (state.error) {
-      const allowedStateClasses=new Set(['renderer_state_frame_clock','renderer_state_model_invariant','renderer_state_type_error','renderer_state_range_error','renderer_state_error']);
+      const allowedStateClasses=new Set(['renderer_state_authoring_model','renderer_state_authoring_protocol','renderer_state_type_error','renderer_state_range_error','renderer_state_error']);
       failurePhase=allowedStateClasses.has(state.errorClass)?state.errorClass:'renderer_state_error';
       fail(`renderer failed: ${state.error}`);
     }
@@ -236,7 +247,7 @@ async function main() {
   } finally { await cleanup(); }
 }
 main().catch(error => {
-  const allowed = new Set(['arguments','font_evidence','project_stage','vite_build','frame_export','browser_launch','page_load','render_wait','render_wait_timeout','renderer_state_frame_clock','renderer_state_model_invariant','renderer_state_type_error','renderer_state_range_error','renderer_state_error','renderer_log_type_error','renderer_log_range_error','renderer_log_exporter_missing','renderer_log_async_property','renderer_log_model_invariant','renderer_log_error','render_result_error','render_result_aborted','render_result_unknown','render_nonzero','observation','finalize']);
+  const allowed = new Set(['arguments','font_evidence','project_stage','vite_build','frame_export','browser_launch','page_load','render_wait','render_wait_timeout','renderer_state_authoring_model','renderer_state_authoring_protocol','renderer_state_type_error','renderer_state_range_error','renderer_state_error','renderer_log_authoring_model','renderer_log_authoring_protocol','renderer_log_type_error','renderer_log_range_error','renderer_log_exporter_missing','renderer_log_async_property','renderer_log_error','render_result_error','render_result_aborted','render_result_unknown','render_nonzero','observation','finalize']);
   const errorClass = allowed.has(failurePhase) ? failurePhase : 'startup';
   process.stdout.write(JSON.stringify({ok:false,errorClass})+'\n');
   process.stderr.write(String(error?.stack || error) + '\n');

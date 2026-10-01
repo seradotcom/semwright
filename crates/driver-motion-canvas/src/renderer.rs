@@ -438,23 +438,29 @@ fn renderer_failure_code(stdout: &[u8]) -> ErrorCode {
         Some("vite_build") => ErrorCode::PluginProtocolError,
         Some("font_evidence" | "frame_export" | "observation") => ErrorCode::ProtocolMismatch,
         Some("browser_launch" | "page_load") => ErrorCode::Unavailable,
-        Some("arguments" | "project_stage" | "finalize") => ErrorCode::Internal,
+        Some("arguments") => ErrorCode::InvalidArgument,
+        Some("project_stage") => ErrorCode::Internal,
+        Some("finalize") => ErrorCode::ProtocolMismatch,
         Some("render_wait_timeout") => ErrorCode::Timeout,
-        Some("renderer_state_frame_clock") => ErrorCode::ProtocolMismatch,
-        Some("renderer_state_model_invariant" | "renderer_log_model_invariant") => {
-            ErrorCode::InvalidArgument
-        }
-        Some("renderer_log_exporter_missing" | "renderer_log_async_property") => {
-            ErrorCode::ProtocolMismatch
-        }
         Some(
-            "renderer_state_type_error"
+            "renderer_state_frame_clock"
+            | "renderer_state_authoring_protocol"
+            | "renderer_log_authoring_protocol"
+            | "renderer_log_exporter_missing"
+            | "renderer_log_async_property",
+        ) => ErrorCode::ProtocolMismatch,
+        Some(
+            "renderer_state_model_invariant"
+            | "renderer_log_model_invariant"
+            | "renderer_state_authoring_model"
+            | "renderer_log_authoring_model"
             | "renderer_state_range_error"
-            | "renderer_state_error"
-            | "renderer_log_type_error"
-            | "renderer_log_range_error"
-            | "renderer_log_error",
-        ) => ErrorCode::Internal,
+            | "renderer_log_range_error",
+        ) => ErrorCode::InvalidArgument,
+        Some("renderer_state_type_error" | "renderer_log_type_error") => {
+            ErrorCode::PluginProtocolError
+        }
+        Some("renderer_state_error" | "renderer_log_error") => ErrorCode::Internal,
         Some("render_result_aborted") => ErrorCode::Cancelled,
         Some("render_result_error" | "render_wait") => ErrorCode::Internal,
         Some("render_result_unknown" | "render_nonzero") => ErrorCode::ProtocolMismatch,
@@ -1077,7 +1083,21 @@ mod runtime_path_tests {
         );
         assert_eq!(
             renderer_failure_code(br#"{"ok":false,"errorClass":"renderer_state_type_error"}"#),
-            ErrorCode::Internal
+            ErrorCode::PluginProtocolError
+        );
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"renderer_state_range_error"}"#),
+            ErrorCode::InvalidArgument
+        );
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"renderer_state_authoring_model"}"#),
+            ErrorCode::InvalidArgument
+        );
+        assert_eq!(
+            renderer_failure_code(
+                br#"{"ok":false,"errorClass":"renderer_state_authoring_protocol"}"#
+            ),
+            ErrorCode::ProtocolMismatch
         );
         assert_eq!(
             renderer_failure_code(br#"{"ok":false,"errorClass":"render_nonzero"}"#),
@@ -1097,7 +1117,21 @@ mod runtime_path_tests {
         );
         assert_eq!(
             renderer_failure_code(br#"{"ok":false,"errorClass":"renderer_log_type_error"}"#),
-            ErrorCode::Internal
+            ErrorCode::PluginProtocolError
+        );
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"renderer_log_range_error"}"#),
+            ErrorCode::InvalidArgument
+        );
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"renderer_log_authoring_model"}"#),
+            ErrorCode::InvalidArgument
+        );
+        assert_eq!(
+            renderer_failure_code(
+                br#"{"ok":false,"errorClass":"renderer_log_authoring_protocol"}"#
+            ),
+            ErrorCode::ProtocolMismatch
         );
         assert_eq!(
             renderer_failure_code(br#"{"ok":false,"errorClass":"render_result_aborted"}"#),
