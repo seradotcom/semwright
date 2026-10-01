@@ -488,12 +488,50 @@ async fn real_win32_fixture_exercises_uia_without_pixel_fallback() {
             .as_array()
             .is_some_and(|actions| actions.iter().any(|action| action == "click"))
     );
-    let button_target = native_ref(button);
+    let mut button_target = native_ref(button);
 
-    let inspected = backend
-        .execute(&ctx, "ui.inspect", &json!({"_target":button_target}))
+    let inspected = match backend
+        .execute(
+            &ctx,
+            "ui.inspect",
+            &json!({"_target":button_target.clone()}),
+        )
         .await
-        .expect("exact UIA inspection");
+    {
+        Ok(inspected) => inspected,
+        Err(error) if error.code == ErrorCode::StaleReference => {
+            eprintln!(
+                "STALE_REF_REFRESH: exact UIA ref invalidated; taking one fresh semantic snapshot"
+            );
+            let refreshed = backend
+                .execute(
+                    &ctx,
+                    "ui.snapshot",
+                    &json!({"_target":window_target.clone()}),
+                )
+                .await
+                .expect("fresh scoped UIA snapshot after stale exact ref");
+            assert_eq!(refreshed["partial"], false);
+            let fresh_button = find_node(&refreshed, |node| {
+                node["role"] == "button" && node["name"] == "Invoke me"
+            });
+            assert!(
+                fresh_button["actions"]
+                    .as_array()
+                    .is_some_and(|actions| actions.iter().any(|action| action == "click"))
+            );
+            button_target = native_ref(fresh_button);
+            backend
+                .execute(
+                    &ctx,
+                    "ui.inspect",
+                    &json!({"_target":button_target.clone()}),
+                )
+                .await
+                .expect("exact UIA inspection after stale-ref refresh")
+        }
+        Err(error) => panic!("exact UIA inspection: {error:?}"),
+    };
     assert_eq!(inspected["node"]["name"], "Invoke me");
     assert_eq!(inspected["semantic_coverage"], "exact_ref");
 
