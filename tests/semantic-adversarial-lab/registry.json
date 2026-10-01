@@ -4808,6 +4808,224 @@
       "expected": {
         "ok": true
       }
+    },
+    {
+      "id": "G-FIGMA-001",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "figma",
+      "scope": "product_contract",
+      "description": "pairing proof is 256-bit and verifies only its exact binding",
+      "expected": {
+        "code_is_256_bit_hex": true,
+        "proof_verifies": true,
+        "proof_len": 64
+      }
+    },
+    {
+      "id": "G-FIGMA-002",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "figma",
+      "scope": "product_contract",
+      "description": "pairing proof rejects nonce/session/generation substitution and malformed proof",
+      "expected": {
+        "wrong_nonce_rejected": true,
+        "wrong_session_rejected": true,
+        "wrong_generation_rejected": true,
+        "malformed_proof_rejected": true
+      }
+    },
+    {
+      "id": "G-FIGMA-003",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "figma",
+      "scope": "product_contract",
+      "description": "bridge rejects message larger than protocol bound",
+      "expected": {
+        "oversized_message_rejected": true
+      }
+    },
+    {
+      "id": "G-FIGMA-004",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "figma",
+      "scope": "product_contract",
+      "description": "bridge strict decoding rejects unknown top-level and nested failure fields",
+      "expected": {
+        "top_unknown_field_rejected": true,
+        "nested_unknown_field_rejected": true
+      }
+    },
+    {
+      "id": "G-FIGMA-005",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "figma",
+      "scope": "product_contract",
+      "description": "bridge framing rejects trailing JSON and invalid UTF-8",
+      "expected": {
+        "trailing_json_rejected": true,
+        "invalid_utf8_rejected": true
+      }
+    },
+    {
+      "id": "G-FIGMA-006",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "figma",
+      "scope": "product_contract",
+      "description": "portable snapshots recursively strip volatile/native identities and round floats",
+      "expected": {
+        "root_ids_stripped": true,
+        "nested_node_id_stripped": true,
+        "volatile_stripped": true,
+        "rounded": true
+      }
+    },
+    {
+      "id": "G-FIGMA-007",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "figma",
+      "scope": "product_contract",
+      "description": "identity snapshots retain identity but strip volatile user fields and round floats",
+      "expected": {
+        "identity_ids_retained": true,
+        "volatile_user_stripped": true,
+        "rounded": true
+      }
+    },
+    {
+      "id": "G-FIGMA-008",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "figma",
+      "scope": "product_contract",
+      "description": "snapshot diff obeys hard limit with deterministic key ordering",
+      "expected": {
+        "zero_limit_empty": true,
+        "one_is_bounded": true,
+        "deterministic_first_path": true,
+        "two_is_bounded": true
+      }
+    },
+    {
+      "id": "G-FIGMA-009",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "figma",
+      "scope": "product_contract",
+      "description": "design-system variable alias cycle is rejected",
+      "expected": {
+        "alias_cycle_rejected": true
+      }
+    },
+    {
+      "id": "G-FIGMA-010",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "figma",
+      "scope": "product_contract",
+      "description": "design-system unknown alias is rejected",
+      "expected": {
+        "unknown_alias_rejected": true
+      }
+    },
+    {
+      "id": "G-FIGMA-011",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "figma",
+      "scope": "product_contract",
+      "description": "design-system collection and CSS byte budgets fail closed",
+      "expected": {
+        "collection_limit_rejected": true,
+        "css_size_limit_rejected": true
+      }
+    },
+    {
+      "id": "G-FIGMA-012",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "figma",
+      "scope": "product_contract",
+      "description": "CSS variable parser treats hostile values as static data only",
+      "expected": {
+        "only_custom_properties": true,
+        "hostile_value_retained_as_data": true,
+        "gap_static": true
+      }
+    },
+    {
+      "id": "G-FIGMA-013",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "figma",
+      "scope": "product_contract",
+      "description": "prototype validation finds dangling destinations and unreachable nodes without false unreachable start",
+      "expected": {
+        "dangling_detected": true,
+        "unreachable_detected": true,
+        "reachable_start_not_flagged": true
+      }
+    },
+    {
+      "id": "G-FIGMA-014",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "figma",
+      "scope": "product_contract",
+      "description": "motion timeline rejects nonfinite/out-of-range duration and accepts valid bounded duration",
+      "expected": {
+        "zero_duration_rejected": true,
+        "nan_duration_rejected": true,
+        "over_hour_rejected": true,
+        "valid_duration_accepted": true
+      }
+    },
+    {
+      "id": "G-FIGMA-015",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "figma",
+      "scope": "product_contract",
+      "description": "motion keyframes reject ordering/range/nonfinite/count violations",
+      "expected": {
+        "unsorted_rejected": true,
+        "negative_rejected": true,
+        "past_duration_rejected": true,
+        "nan_keyframe_rejected": true,
+        "keyframe_limit_rejected": true
+      }
+    },
+    {
+      "id": "G-FIGMA-016",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "figma",
+      "scope": "product_contract",
+      "description": "mutation/payment schemas remain closed, nested-strict and tokenless",
+      "expected": {
+        "node_move_closed": true,
+        "nested_variable_objects_closed": true,
+        "payments_tokenless_closed": true
+      }
+    },
+    {
+      "id": "G-FIGMA-017",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "figma",
+      "scope": "product_contract",
+      "description": "hostile Figma content remains literal data and cannot execute",
+      "expected": {
+        "name_literal": true,
+        "nested_literal": true,
+        "no_execution_marker": true
+      }
     }
   ]
 }

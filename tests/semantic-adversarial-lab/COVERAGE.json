@@ -423,7 +423,7 @@
         "G-BLENDER-013",
         "G-BLENDER-014"
       ],
-      "source_sha": "3d04d8465dcfa94d6cbf548fcaf343f69ac5838f",
+      "source_sha": "7ed5b848e4d2e7af235d6166e6f93e0cf0bac90d",
       "suite_sha": "982e5698cc44c2adead9491a2f8590242fd1dbf3",
       "run_id": 36827742372,
       "job_id": 110257156669,
@@ -432,7 +432,7 @@
         "blender-native artifact 5f89bf7aae9d63d5ff0011d3ce121b534632c9cbb65197c6b1dde7f3752d1d90",
         "selftest 102/102 PASS"
       ],
-      "blocker": "G-FIND-E-001 open: real GLB export starts from drift=false and produces valid hashed artifact, but immediate native inspect reports managed source drift=true. Owner E fix SHA + exact G retest required.",
+      "blocker": "Audio B 11b40fb passed 30/30; AV A 7ed5b84 passed 35/35 after correcting two G oracle counts. 17 independent Figma bridge/snapshot/design/prototype/motion/schema cases activated against A 7ed5b84, whose Figma Composition kernel differs materially from frozen main; exact-SHA execution pending. Motion Canvas on A remains next.",
       "implementation_suite_sha": "982e5698cc44c2adead9491a2f8590242fd1dbf3",
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },

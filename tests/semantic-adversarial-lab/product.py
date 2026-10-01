@@ -21,6 +21,7 @@ PACKAGES = {"composition": ("semwright-semantic-composition", "semantic-composit
             "effects": ("semwright-effect-conformance", "effect-conformance", "effects_probe.rs"),
             "packaging": ("semwright-skills", "skills", "packaging_probe.rs"),
             "routing": ("semwright-core", "core", "routing_probe.rs"),
+            "figma": ("semwright-driver-figma", "driver-figma", "figma_probe.rs"),
             "godot-native": ("semwright-driver-godot", "driver-godot", "godot_native_probe.rs"),
             "blender-native": ("semwright-driver-blender", "driver-blender", "blender_native_probe.rs")}
 PACKAGE_FEATURES = {"graph": ["store"], "blender-native": ["authoring-native"]}
