@@ -124,7 +124,6 @@ fn complete_native_frame_range_passes_and_missing_frame_is_unknown() {
     assert_eq!(coverage_check.verdict, c::Verdict::Unknown);
 }
 
-
 #[test]
 fn transition_completion_requires_a_post_interval_frame_not_the_exact_boundary() {
     let mut film = film();
