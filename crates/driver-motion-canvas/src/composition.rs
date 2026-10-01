@@ -59,10 +59,27 @@ pub struct Applied {
     pub intent_digest: c::Digest,
     pub execution_status: c::ExecutionStatus,
 }
+// This read-only inspection surface returns a Film already validated by
+// Film::validate(). Its public schema stays shallow so the legacy observation
+// command does not recursively duplicate the entire Motion authoring IR.
+#[allow(dead_code)]
+#[derive(Debug, Clone, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct InspectionFilmSchema {
+    version: u32,
+    id: String,
+    output: a::OutputProfile,
+    editorial: Value,
+    timing: Value,
+    sequences: Vec<Value>,
+    cues: Value,
+    assets: Vec<Value>,
+}
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Inspection {
     pub fingerprint: Option<String>,
+    #[schemars(with = "Option<InspectionFilmSchema>")]
     pub film: Option<a::Film>,
     pub low_level_project: bool,
     pub authoring_version: u32,
