@@ -387,7 +387,7 @@
       "run_id": null,
       "job_id": null,
       "evidence": [],
-      "blocker": "12 independent Godot native cases activated against D certified product SHA e6bd9489: fresh-process inspect/save/reopen, >64 track/key final pagination, owner/parent and shared/local resources, dependency tamper, hostile request fields/input injection, stale cursor, export marker exclusion and standalone launch.",
+      "blocker": "Godot native run 36806151778 was BLOCKED before product execution because the G helper imported the package name instead of the library crate name. Probe corrected to semwright_godot_driver; exact-SHA D retest pending.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },

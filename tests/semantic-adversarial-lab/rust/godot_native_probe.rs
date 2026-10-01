@@ -1,14 +1,14 @@
 //! G-owned helper for exact-SHA Godot native adversarial receipts.
 //! It calls only public D authoring/readback APIs; Godot itself is launched by G's Python harness.
-use semwright_driver_godot::authoring::native_observation::{
+use semwright_godot_driver::authoring::native_observation::{
     NativeObservation, NativeRequest, decode_observation, key_page, persistence_value, track_page,
 };
-use semwright_driver_godot::authoring::{GodotAuthoringSpec, compile};
+use semwright_godot_driver::authoring::{GodotAuthoringSpec, compile};
 use semwright_semantic_composition::strict_decode;
 use serde_json::json;
 use std::collections::BTreeSet;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 const SOURCE: &str = env!("G_LAB_COMPILED_SOURCE_SHA");
 type AnyResult<T> = Result<T, Box<dyn std::error::Error>>;
