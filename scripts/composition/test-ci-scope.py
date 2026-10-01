@@ -56,3 +56,9 @@ class ScopeTests(unittest.TestCase):
         f=scope.classify([],True)
         self.assertTrue(all(f.values()))
 if __name__=="__main__": unittest.main()
+
+
+def test_run_suite_boundary_change_selects_contracts_and_package():
+    got = classify(["scripts/composition/test-run-suite.py"])
+    assert got["contracts"] is True
+    assert got["package"] is True

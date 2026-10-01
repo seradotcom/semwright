@@ -157,6 +157,7 @@ jobs:
           python scripts/composition/test-package-dev.py
           python scripts/composition/test-candidate-evidence.py
           python scripts/composition/test-ci-scope.py
+          python scripts/composition/test-run-suite.py
       - name: Build and verify Agent-A source handoff
         run: |
           mkdir -p verification/composition-package
