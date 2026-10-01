@@ -1,6 +1,10 @@
 use crate::*;
 use serde::Serialize;
-use std::{collections::BTreeMap, time::Instant};
+use std::{collections::BTreeMap, sync::Arc, time::Instant};
+
+fn expired(elapsed_ms: u128, max_elapsed_ms: u64) -> bool {
+    elapsed_ms > u128::from(max_elapsed_ms)
+}
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Attempt {
@@ -9,7 +13,13 @@ pub struct Attempt {
     pub status: ExecutionStatus,
     pub effects: Vec<String>,
 }
+#[derive(Debug)]
+struct VaultIdentity;
+#[derive(Debug)]
+struct RootIdentity;
+
 struct Root {
+    identity: Arc<RootIdentity>,
     budget: ConvergenceBudget,
     started: Instant,
     operations: u32,
@@ -26,12 +36,15 @@ struct Entry {
 /// Private, non-serializable permit. Only begin() creates one, and finish consumes it.
 /// This prevents replay, not policy bypass: caller must still use the Broker.
 pub struct BeginPermit {
+    vault_identity: Arc<VaultIdentity>,
+    root_identity: Arc<RootIdentity>,
     owner: Owner,
     root: String,
     index: usize,
     digest: String,
 }
 pub struct PlanVault {
+    identity: Arc<VaultIdentity>,
     entries: BTreeMap<(Owner, String), Entry>,
     roots: BTreeMap<(Owner, String), Root>,
     max_plans: usize,
@@ -41,6 +54,7 @@ pub struct PlanVault {
 impl PlanVault {
     pub fn bounded(max_plans: usize, max_roots: usize, max_attempts: usize) -> Self {
         Self {
+            identity: Arc::new(VaultIdentity),
             entries: BTreeMap::new(),
             roots: BTreeMap::new(),
             max_plans: max_plans.clamp(1, 256),
@@ -50,7 +64,7 @@ impl PlanVault {
     }
     fn reap(&mut self) {
         self.roots
-            .retain(|_, r| r.started.elapsed().as_millis() <= u128::from(r.budget.max_elapsed_ms));
+            .retain(|_, r| !expired(r.started.elapsed().as_millis(), r.budget.max_elapsed_ms));
         self.entries
             .retain(|(o, _), e| self.roots.contains_key(&(o.clone(), e.root.clone())));
     }
@@ -109,6 +123,7 @@ impl PlanVault {
             self.roots.insert(
                 key.clone(),
                 Root {
+                    identity: Arc::new(RootIdentity),
                     budget,
                     started: Instant::now(),
                     operations: 0,
@@ -140,7 +155,7 @@ impl PlanVault {
             .roots
             .get(&(owner.clone(), e.root.clone()))
             .ok_or_else(|| ContractError::Stale("missing plan root".into()))?;
-        if r.started.elapsed().as_millis() > u128::from(r.budget.max_elapsed_ms) {
+        if expired(r.started.elapsed().as_millis(), r.budget.max_elapsed_ms) {
             return Err(ContractError::Stale("plan expired".into()));
         }
         if e.canonical != canonical_bytes(plan)? {
@@ -217,6 +232,8 @@ impl PlanVault {
             effects: vec![],
         });
         Ok(BeginPermit {
+            vault_identity: self.identity.clone(),
+            root_identity: r.identity.clone(),
             owner: owner.clone(),
             root: e.root.clone(),
             index,
@@ -236,6 +253,10 @@ impl PlanVault {
             ),
             "finish requires terminal attempt status",
         )?;
+        ensure(
+            Arc::ptr_eq(&self.identity, &permit.vault_identity),
+            "attempt permit belongs to another plan vault incarnation",
+        )?;
         ensure(effects.len() <= 4096, "effect receipt count")?;
         for effect in &effects {
             ensure(
@@ -247,6 +268,10 @@ impl PlanVault {
             .roots
             .get_mut(&(permit.owner, permit.root))
             .ok_or_else(|| ContractError::Unknown("attempt root lost".into()))?;
+        ensure(
+            Arc::ptr_eq(&r.identity, &permit.root_identity),
+            "attempt permit belongs to a stale root incarnation",
+        )?;
         let a = r
             .attempts
             .get_mut(permit.index)
@@ -287,5 +312,152 @@ impl PlanVault {
     pub fn revoke(&mut self, owner: &Owner) {
         self.entries.retain(|(o, _), _| o != owner);
         self.roots.retain(|(o, _), _| o != owner);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn test_owner() -> Owner {
+        Owner {
+            session: "vault-unit-session".into(),
+            principal: PrincipalBinding::HostSession,
+        }
+    }
+
+    fn test_budget() -> ConvergenceBudget {
+        ConvergenceBudget {
+            max_iterations: 4,
+            max_operations: 8,
+            max_findings: 8,
+            max_observations: 8,
+            max_elapsed_ms: 100,
+        }
+    }
+
+    #[test]
+    fn expiry_boundary_is_strict_and_deterministic() {
+        assert!(!expired(0, 0));
+        assert!(!expired(100, 100));
+        assert!(expired(101, 100));
+        assert!(expired(u128::from(u64::MAX) + 1, u64::MAX));
+    }
+
+    #[test]
+    fn finish_requires_both_matching_digest_and_applying_state() {
+        let owner = test_owner();
+        let plan = json!({"kind":"unit"});
+        let mut vault = PlanVault::bounded(8, 4, 8);
+        vault
+            .issue(&owner, "root", &plan, test_budget(), 1, None, false)
+            .unwrap();
+        let permit = vault.begin(&owner, "root", &plan, "request").unwrap();
+
+        let bad_digest = BeginPermit {
+            vault_identity: permit.vault_identity.clone(),
+            root_identity: permit.root_identity.clone(),
+            owner: permit.owner.clone(),
+            root: permit.root.clone(),
+            index: permit.index,
+            digest: "different-plan".into(),
+        };
+        assert!(
+            vault
+                .finish(bad_digest, ExecutionStatus::Completed, vec![])
+                .is_err()
+        );
+
+        vault
+            .roots
+            .get_mut(&(permit.owner.clone(), permit.root.clone()))
+            .unwrap()
+            .attempts[permit.index]
+            .status = ExecutionStatus::Completed;
+        assert!(
+            vault
+                .finish(permit, ExecutionStatus::Completed, vec![])
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn stale_permit_cannot_cross_revoke_and_reissue() {
+        let owner = test_owner();
+        let plan = json!({"kind":"unit"});
+        let mut vault = PlanVault::bounded(8, 4, 8);
+        vault
+            .issue(&owner, "root", &plan, test_budget(), 1, None, false)
+            .unwrap();
+        let stale = vault.begin(&owner, "root", &plan, "request-old").unwrap();
+
+        vault.revoke(&owner);
+        vault
+            .issue(&owner, "root", &plan, test_budget(), 1, None, false)
+            .unwrap();
+        let current = vault.begin(&owner, "root", &plan, "request-new").unwrap();
+
+        assert!(
+            vault
+                .finish(stale, ExecutionStatus::Completed, vec![])
+                .is_err()
+        );
+        vault
+            .finish(current, ExecutionStatus::Completed, vec![])
+            .unwrap();
+    }
+
+    #[test]
+    fn permit_cannot_cross_independent_vaults() {
+        let owner = test_owner();
+        let plan = json!({"kind":"unit"});
+        let mut first = PlanVault::bounded(8, 4, 8);
+        let mut second = PlanVault::bounded(8, 4, 8);
+        first
+            .issue(&owner, "root", &plan, test_budget(), 1, None, false)
+            .unwrap();
+        second
+            .issue(&owner, "root", &plan, test_budget(), 1, None, false)
+            .unwrap();
+
+        let foreign = first.begin(&owner, "root", &plan, "request").unwrap();
+        let current = second.begin(&owner, "root", &plan, "request").unwrap();
+        assert!(
+            second
+                .finish(foreign, ExecutionStatus::Completed, vec![])
+                .is_err()
+        );
+        second
+            .finish(current, ExecutionStatus::Completed, vec![])
+            .unwrap();
+    }
+
+    #[test]
+    fn stale_permit_cannot_cross_expiry_and_reissue() {
+        let owner = test_owner();
+        let plan = json!({"kind":"unit"});
+        let mut expiring = test_budget();
+        expiring.max_elapsed_ms = 5;
+        let mut vault = PlanVault::bounded(8, 4, 8);
+        vault
+            .issue(&owner, "root", &plan, expiring, 1, None, false)
+            .unwrap();
+        let stale = vault.begin(&owner, "root", &plan, "request-old").unwrap();
+
+        std::thread::sleep(std::time::Duration::from_millis(10));
+        vault
+            .issue(&owner, "root", &plan, test_budget(), 1, None, false)
+            .unwrap();
+        let current = vault.begin(&owner, "root", &plan, "request-new").unwrap();
+
+        assert!(
+            vault
+                .finish(stale, ExecutionStatus::Completed, vec![])
+                .is_err()
+        );
+        vault
+            .finish(current, ExecutionStatus::Completed, vec![])
+            .unwrap();
     }
 }
