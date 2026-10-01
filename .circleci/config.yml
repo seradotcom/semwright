@@ -1,6 +1,7 @@
 version: 2.1
 
 # A-side iteration on feat/composition-media; exact-SHA candidate certification on integration/composition-av.
+# Trigger note: this branch is the connected CircleCI certification ref.
 # Candidate certification remains a product gate, not release/R16 authority.
 parameters:
   force-motion-native:
