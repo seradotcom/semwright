@@ -71,7 +71,7 @@ import project from '/src/project.ts?project';
 import {Renderer, Vector2} from '@motion-canvas/core';
 const config=${JSON.stringify(config)};
 const renderer=new Renderer(project);
-const state={done:false,result:null,frame:config.firstFrame,error:null,errorClass:null,rendererLogClass:null,phase:'created'};
+const state={done:false,result:null,frame:config.firstFrame,error:null,errorClass:null,rendererLogClass:null,typeErrorDetail:null,phase:'created'};
 function classifyAuthoringMessage(message){
   if(typeof message!=='string'||message.length===0)return null;
   if(/^(invalid align|unsupported subject kind|unannounced overlap|overlay anchor unavailable|split requires exactly two layout children|unknown archetype|duplicate logical id|unknown layer|native parent graph cannot be resolved|annotation binding missing|node limit|invalid rational|unsafe color|native scene bounds|caption requires native Txt)$/.test(message))return 'authoring_model';
@@ -94,6 +94,18 @@ function classifyLogStack(payload){
   if(stack.includes('@motion-canvas/2d')||stack.includes('@motion-canvas_2d'))return 'motion_2d';
   return null;
 }
+function classifyTypeErrorDetail(message){
+  if(typeof message!=='string')return null;
+  let match=/^Cannot read properties of (?:undefined|null) \(reading '([A-Za-z_$][A-Za-z0-9_$]{0,63})'\)$/.exec(message);
+  if(match)return 'read:'+match[1];
+  match=/^Cannot set properties of (?:undefined|null) \(setting '([A-Za-z_$][A-Za-z0-9_$]{0,63})'\)$/.exec(message);
+  if(match)return 'set:'+match[1];
+  match=/^([A-Za-z_$][A-Za-z0-9_$]{0,63}) is not a function$/.exec(message);
+  if(match)return 'not_function:'+match[1];
+  if(message.includes(' is not iterable'))return 'not_iterable';
+  if(message==='Cannot convert undefined or null to object')return 'null_object';
+  return 'other';
+}
 function classifyRendererLog(payload){
   if(!payload||payload.level!=='error')return null;
   const name=typeof payload.name==='string'?payload.name:'';
@@ -105,6 +117,7 @@ function classifyRendererLog(payload){
   if(authoring==='playback_protocol')return 'renderer_log_playback_protocol';
   if(authoring==='invalid_scene')return 'renderer_log_invalid_scene';
   if(name==='TypeError'){
+    state.typeErrorDetail=classifyTypeErrorDetail(message);
     const origin=classifyLogStack(payload);
     if(origin==='semwright_native')return 'renderer_state_semwright_native';
     if(origin==='semwright_exporter')return 'renderer_state_semwright_exporter';
@@ -160,7 +173,7 @@ renderer.onFinished.subscribe(result=>{state.result=result;});
     else if(authoring==='webgl_unavailable')errorClass='renderer_state_webgl_unavailable';
     else if(authoring==='playback_protocol')errorClass='renderer_state_playback_protocol';
     else if(authoring==='invalid_scene')errorClass='renderer_state_invalid_scene';
-    else if(error?.name==='TypeError')errorClass='renderer_state_type_error';
+    else if(error?.name==='TypeError'){state.typeErrorDetail=classifyTypeErrorDetail(text);errorClass='renderer_state_type_error';}
     else if(error?.name==='RangeError')errorClass='renderer_state_range_error';
     else {
       const stackClass=classifyRendererStack(error);
@@ -180,6 +193,7 @@ function contentType(file) {
   return ({'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.woff2':'font/woff2','.woff':'font/woff','.mp4':'video/mp4','.webm':'video/webm','.wav':'audio/wav','.mp3':'audio/mpeg'})[ext] || 'application/octet-stream';
 }
 let failurePhase = 'startup';
+let failureDetail = null;
 async function main() {
   failurePhase = 'arguments';
   const a = args();
@@ -272,6 +286,7 @@ async function main() {
       const stateClass=allowedStateClasses.has(state.errorClass)?state.errorClass:'renderer_state_error';
       const logClass=allowedLogClasses.has(state.rendererLogClass)?state.rendererLogClass:null;
       failurePhase=stateClass==='renderer_state_error'&&logClass?logClass:stateClass;
+      failureDetail=typeof state.typeErrorDetail==='string'?state.typeErrorDetail:null;
       fail(`renderer failed: ${state.error}`);
     }
     if (state.result !== 0) {
@@ -293,7 +308,7 @@ async function main() {
 main().catch(error => {
   const allowed = new Set(['arguments','font_evidence','project_stage','vite_build','frame_export','browser_launch','page_load','render_wait','render_wait_timeout','renderer_state_authoring_model','renderer_state_authoring_protocol','renderer_state_webgl_unavailable','renderer_state_playback_protocol','renderer_state_invalid_scene','renderer_state_type_error','renderer_state_range_error','renderer_state_semwright_native','renderer_state_semwright_exporter','renderer_state_motion_core','renderer_state_motion_2d','renderer_state_before_first_frame','renderer_state_after_first_frame','renderer_state_error','renderer_log_authoring_model','renderer_log_authoring_protocol','renderer_log_webgl_unavailable','renderer_log_playback_protocol','renderer_log_invalid_scene','renderer_log_type_error','renderer_log_range_error','renderer_log_exporter_missing','renderer_log_async_property','renderer_log_error','render_result_error','render_result_aborted','render_result_unknown','render_nonzero','observation','finalize']);
   const errorClass = allowed.has(failurePhase) ? failurePhase : 'startup';
-  process.stdout.write(JSON.stringify({ok:false,errorClass})+'\n');
+  process.stdout.write(JSON.stringify({ok:false,errorClass,detail:failureDetail})+'\n');
   process.stderr.write(String(error?.stack || error) + '\n');
   process.exitCode = 1;
 });

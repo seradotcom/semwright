@@ -39,8 +39,13 @@ test('render harness reports bounded state when browser rendering stalls', () =>
   assert.ok(render.includes('diagnostics.length < 32'));
 });
 
-test('renderer TypeErrors expose only allowlisted stack origins', () => {
+test('renderer TypeErrors expose only allowlisted stack origins and normalized hints', () => {
   assert.ok(render.includes('function classifyLogStack(payload)'));
+  assert.ok(render.includes('function classifyTypeErrorDetail(message)'));
+  assert.ok(render.includes("'read:'+match[1]"));
+  assert.ok(render.includes("'set:'+match[1]"));
+  assert.ok(render.includes("'not_function:'+match[1]"));
+  assert.ok(render.includes('detail:failureDetail'));
   assert.ok(render.includes("stack.includes('semwright-authoring-native')"));
   assert.ok(render.includes("stack.includes('semwright-exporter')"));
   assert.ok(render.includes("stack.includes('@motion-canvas/core')"));

@@ -35,7 +35,10 @@ jobs:
             set -euo pipefail
             test "$CIRCLECI" = true
             test -z "${GITHUB_ACTIONS:-}"
-            test "$CIRCLE_BRANCH" = "feat/composition-media"
+            case "$CIRCLE_BRANCH" in
+              feat/composition-media|integration/composition-av) ;;
+              *) echo "unsupported A iteration branch: $CIRCLE_BRANCH" >&2; exit 1 ;;
+            esac
             test "$(git rev-parse HEAD)" = "$CIRCLE_SHA1"
 
             mkdir -p verification/circleci-composition ~/.cargo/registry ~/.cargo/git ~/.npm
@@ -375,4 +378,6 @@ workflows:
       - a-linux-iteration:
           filters:
             branches:
-              only: feat/composition-media
+              only:
+                - feat/composition-media
+                - integration/composition-av

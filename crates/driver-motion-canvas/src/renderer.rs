@@ -483,7 +483,17 @@ impl RenderManager {
                     Err(error) => {
                         job.view.state = RenderState::Failed;
                         job.failure_code = Some(error.code);
-                        job.view.error = Some("Motion Canvas render failed".into());
+                        const DETAIL_PREFIX: &str = "Pinned Motion Canvas renderer exited without a validated success receipt; detail=";
+                        job.view.error = Some(
+                            error
+                                .message
+                                .strip_prefix(DETAIL_PREFIX)
+                                .filter(|detail| safe_renderer_detail(detail))
+                                .map_or_else(
+                                    || "Motion Canvas render failed".to_owned(),
+                                    |detail| format!("Motion Canvas render failed ({detail})"),
+                                ),
+                        );
                     }
                 }
             }
@@ -560,6 +570,34 @@ fn renderer_failure_class(stdout: &[u8]) -> Option<RenderFailureClass> {
         return None;
     }
     serde_json::from_value(value.get("errorClass")?.clone()).ok()
+}
+
+fn safe_renderer_detail(detail: &str) -> bool {
+    if matches!(detail, "not_iterable" | "null_object" | "other") {
+        return true;
+    }
+    ["read:", "set:", "not_function:"].iter().any(|prefix| {
+        detail.strip_prefix(prefix).is_some_and(|name| {
+            !name.is_empty()
+                && name.len() <= 64
+                && name.bytes().enumerate().all(|(index, byte)| {
+                    byte == b'_'
+                        || byte == b'$'
+                        || byte.is_ascii_alphanumeric() && (index > 0 || !byte.is_ascii_digit())
+                })
+        })
+    })
+}
+
+fn renderer_failure_detail(stdout: &[u8]) -> Option<String> {
+    let text = std::str::from_utf8(stdout).ok()?;
+    let line = text.lines().rev().find(|line| line.starts_with('{'))?;
+    let value = serde_json::from_str::<serde_json::Value>(line).ok()?;
+    if value.get("ok") != Some(&serde_json::Value::Bool(false)) {
+        return None;
+    }
+    let detail = value.get("detail")?.as_str()?;
+    safe_renderer_detail(detail).then(|| detail.to_owned())
 }
 
 fn renderer_failure_code(stdout: &[u8]) -> ErrorCode {
@@ -847,10 +885,15 @@ async fn run_render(
             .or(process_class)
             .map(RenderFailureClass::code)
             .unwrap_or_else(|| renderer_process_failure_code(&status, &stdout));
-        return Err(Error::new(
-            code,
-            "Pinned Motion Canvas renderer exited without a validated success receipt",
-        ));
+        let message = renderer_failure_detail(&stdout).map_or_else(
+            || "Pinned Motion Canvas renderer exited without a validated success receipt".to_owned(),
+            |detail| {
+                format!(
+                    "Pinned Motion Canvas renderer exited without a validated success receipt; detail={detail}"
+                )
+            },
+        );
+        return Err(Error::new(code, message));
     }
     failure_class = RenderFailureClass::RenderResultUnknown;
     let stdout = String::from_utf8(stdout).map_err(|_| {
@@ -1393,6 +1436,30 @@ mod runtime_path_tests {
                 ErrorCode::BackendFailed,
                 "{hostile:?}"
             );
+        }
+    }
+
+    #[test]
+    fn renderer_failure_detail_accepts_only_bounded_normalized_hints() {
+        assert_eq!(
+            renderer_failure_detail(
+                br#"{"ok":false,"errorClass":"renderer_log_type_error","detail":"read:element"}"#
+            ),
+            Some("read:element".to_owned())
+        );
+        assert_eq!(
+            renderer_failure_detail(
+                br#"{"ok":false,"errorClass":"renderer_log_type_error","detail":"not_function:map"}"#
+            ),
+            Some("not_function:map".to_owned())
+        );
+        for hostile in [
+            br#"{"ok":false,"detail":"../../secret"}"#.as_slice(),
+            br#"{"ok":false,"detail":"read:/home/runner/private"}"#.as_slice(),
+            br#"{"ok":false,"detail":"read:9starts_with_digit"}"#.as_slice(),
+            br#"{"ok":true,"detail":"read:element"}"#.as_slice(),
+        ] {
+            assert_eq!(renderer_failure_detail(hostile), None, "{hostile:?}");
         }
     }
 
