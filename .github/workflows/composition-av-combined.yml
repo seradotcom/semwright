@@ -188,8 +188,8 @@ jobs:
             sudo aa-status || true
             echo '=== loaded bwrap profile ==='
             sudo cat /etc/apparmor.d/bwrap-userns-restrict || true
-            echo '=== recent kernel/AppArmor ==='
-            sudo journalctl -k --no-pager --since '-20 min' 2>/dev/null               | grep -Ei 'apparmor|audit|denied|bwrap|firefox|faust|melt|ffmpeg'               | tail -400 || true
+            echo '=== recent kernel/AppArmor/resource events ==='
+            sudo journalctl -k --no-pager --since '-20 min' 2>/dev/null               | grep -Ei 'apparmor|audit|denied|bwrap|firefox|faust|melt|ffmpeg|out of memory|oom|killed process|memory cgroup|sigxcpu|file size limit'               | tail -400 || true
           } > verification/composition-av/sandbox-denials.log 2>&1
           cat verification/composition-av/sandbox-denials.log
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a

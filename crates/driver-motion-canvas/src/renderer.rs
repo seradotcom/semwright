@@ -253,6 +253,9 @@ pub enum RenderFailureClass {
     RuntimeSyntax,
     RuntimePermission,
     RuntimeOom,
+    RuntimeKilled,
+    RuntimeCpuLimit,
+    RuntimeFileSizeLimit,
     RuntimeSignal,
     Observation,
     Finalize,
@@ -283,7 +286,10 @@ impl RenderFailureClass {
             | Self::RenderResultUnknown
             | Self::RenderNonzero => ErrorCode::ProtocolMismatch,
             Self::RuntimePermission => ErrorCode::SandboxDenied,
-            Self::RuntimeOom => ErrorCode::ResourceExhausted,
+            Self::RuntimeOom
+            | Self::RuntimeKilled
+            | Self::RuntimeCpuLimit
+            | Self::RuntimeFileSizeLimit => ErrorCode::ResourceExhausted,
             Self::BrowserLaunch
             | Self::PageLoad
             | Self::ProjectStage
@@ -594,13 +600,17 @@ fn renderer_status_failure_class(status: &std::process::ExitStatus) -> Option<Re
         use std::os::unix::process::ExitStatusExt;
         if let Some(signal) = status.signal() {
             return Some(match signal {
-                libc::SIGKILL | libc::SIGXCPU | libc::SIGXFSZ => RenderFailureClass::RuntimeOom,
+                libc::SIGKILL => RenderFailureClass::RuntimeKilled,
+                libc::SIGXCPU => RenderFailureClass::RuntimeCpuLimit,
+                libc::SIGXFSZ => RenderFailureClass::RuntimeFileSizeLimit,
                 _ => RenderFailureClass::RuntimeSignal,
             });
         }
     }
     match status.code() {
-        Some(137 | 152 | 153) => Some(RenderFailureClass::RuntimeOom),
+        Some(137) => Some(RenderFailureClass::RuntimeKilled),
+        Some(152) => Some(RenderFailureClass::RuntimeCpuLimit),
+        Some(153) => Some(RenderFailureClass::RuntimeFileSizeLimit),
         Some(134 | 135 | 136 | 139) => Some(RenderFailureClass::RuntimeSignal),
         _ => None,
     }
@@ -1414,7 +1424,16 @@ mod runtime_path_tests {
         );
         assert_eq!(
             renderer_status_failure_class(&killed),
-            Some(RenderFailureClass::RuntimeOom)
+            Some(RenderFailureClass::RuntimeKilled)
+        );
+        assert_eq!(
+            renderer_status_failure_class(&cpu),
+            Some(RenderFailureClass::RuntimeCpuLimit)
+        );
+        let file_size = std::process::ExitStatus::from_raw(libc::SIGXFSZ);
+        assert_eq!(
+            renderer_status_failure_class(&file_size),
+            Some(RenderFailureClass::RuntimeFileSizeLimit)
         );
     }
 
