@@ -6,11 +6,12 @@ use semwright_audio_authoring::{
 };
 use semwright_audio_domain::{
     analysis::LoudnessAnalysis,
-    model::{AudioProfile, AudioProject, Effect, Signal, SignalNodeKind},
-    presets::{self, SfxPreset},
+    model::{
+        AudioProfile, AudioProject, Sample, SampleOrigin, SampleSource, Signal, SignalNodeKind, Synth,
+    },
     signal_analysis::SignalStatistics,
     time::SampleRate,
-    units::{MilliDb, Permille},
+    units::MilliDb,
 };
 use semwright_av_composition::*;
 use semwright_backend_api::{Backend, Provider};
@@ -357,7 +358,8 @@ impl Harness {
         let state_faust = make_dir(root.path(), "state-faust");
         let state_analysis = make_dir(root.path(), "state-analysis");
         let state_mlt = make_dir(root.path(), "state-mlt");
-        let _assets = make_dir(root.path(), "audio-assets");
+        let assets = make_dir(root.path(), "audio-assets");
+        write_sync_impulse_wav(&assets.join("sync-impulse.wav"));
 
         let motion_exe = copy_exec(
             &required_file("SEMWRIGHT_TEST_COMBINED_MOTION_DRIVER"),
@@ -621,38 +623,70 @@ fn service_proof(
     }
 }
 
-fn delayed_sync_synth() -> semwright_audio_domain::model::Synth {
-    let mut synth = presets::synth_for(
-        SfxPreset::Click,
-        "sync-synth",
-        SampleRate(48_000),
-        96_000,
-        7,
-    )
-    .unwrap();
-    let input = synth.output.clone();
-    let output = "sync-delay".to_owned();
-    synth.signals.push(Signal {
-        id: output.clone(),
-        inputs: vec![input],
-        node: SignalNodeKind::Effect {
-            effect: Effect::Delay {
-                delay_ms: 1_000,
-                feedback: Permille(0),
-                mix: Permille(1_000),
+fn write_sync_impulse_wav(path: &Path) {
+    const SAMPLE_RATE: u32 = 48_000;
+    const FRAMES: u32 = 96_000;
+    const IMPULSE_FRAME: u32 = 48_000;
+    let data_bytes = FRAMES * 2;
+    let mut bytes = Vec::with_capacity(44 + data_bytes as usize);
+    bytes.extend_from_slice(b"RIFF");
+    bytes.extend_from_slice(&(36 + data_bytes).to_le_bytes());
+    bytes.extend_from_slice(b"WAVEfmt ");
+    bytes.extend_from_slice(&16u32.to_le_bytes());
+    bytes.extend_from_slice(&1u16.to_le_bytes());
+    bytes.extend_from_slice(&1u16.to_le_bytes());
+    bytes.extend_from_slice(&SAMPLE_RATE.to_le_bytes());
+    bytes.extend_from_slice(&(SAMPLE_RATE * 2).to_le_bytes());
+    bytes.extend_from_slice(&2u16.to_le_bytes());
+    bytes.extend_from_slice(&16u16.to_le_bytes());
+    bytes.extend_from_slice(b"data");
+    bytes.extend_from_slice(&data_bytes.to_le_bytes());
+    for frame in 0..FRAMES {
+        let sample = if frame == IMPULSE_FRAME { i16::MAX } else { 0 };
+        bytes.extend_from_slice(&sample.to_le_bytes());
+    }
+    fs::write(path, bytes).unwrap();
+}
+
+fn sync_sample_synth(sample_id: &str) -> Synth {
+    Synth {
+        id: "sync-synth".into(),
+        name: "Technical sync impulse".into(),
+        polyphony: 1,
+        signals: vec![Signal {
+            id: "sync-sample".into(),
+            inputs: vec![],
+            node: SignalNodeKind::SamplePlayer {
+                sample: sample_id.into(),
+                looped: false,
             },
-        },
-    });
-    synth.output = output;
-    synth
+        }],
+        output: "sync-sample".into(),
+    }
 }
 
 async fn audio_consumer_receipt(
     executor: &dyn Executor,
     owner: &Owner,
     cues: &semwright_media_time::CueGraph,
+    harness: &Harness,
 ) -> AudioConsumerReceipt {
-    let synth = delayed_sync_synth();
+    let sample = Sample {
+        id: "sync-impulse".into(),
+        name: "Technical one-sample sync impulse".into(),
+        channels: 1,
+        sample_rate: SampleRate(48_000),
+        frames: 96_000,
+        source: SampleSource::RelativePath {
+            path: "sync-impulse.wav".into(),
+        },
+        origin: SampleOrigin::Deterministic {
+            generator: "combined-av-sync-impulse-v1".into(),
+            seed: 0,
+        },
+    };
+    let sample_sha = file_sha(&harness.audio_assets().join("sync-impulse.wav"));
+    let synth = sync_sample_synth(&sample.id);
     let mut project = AudioProject::new(AudioProfile {
         sample_rate: SampleRate(48_000),
         channels: 2,
@@ -662,6 +696,7 @@ async fn audio_consumer_receipt(
     })
     .unwrap();
     project.id = "combined-audio".into();
+    project.samples.insert(sample.id.clone(), sample.clone());
     project.synths.insert(synth.id.clone(), synth.clone());
     project.validate().unwrap();
 
@@ -674,7 +709,7 @@ async fn audio_consumer_receipt(
     )
     .unwrap();
     let render_descriptor = executor
-        .describe("driver.faust-audio.synth.render")
+        .describe("driver.faust-audio.sample.render")
         .unwrap();
     let trusted_profile = profile(vec![CapabilityBinding {
         phase: Phase::Apply,
@@ -700,10 +735,9 @@ async fn audio_consumer_receipt(
             effects: semwright_audio_domain::model::EffectChain::default(),
             clips: vec![ClipIntent {
                 id: "sync-clip".into(),
-                material: Material::Synth {
-                    synth: synth.id.clone(),
-                    midi_note: 69,
-                    velocity_permille: 1_000,
+                material: Material::Sample {
+                    sample: sample.id.clone(),
+                    sha256: Digest::parse(sample_sha.clone()).unwrap(),
                 },
                 placement: Placement::Absolute {
                     start: Rational::ZERO,
@@ -753,10 +787,11 @@ async fn audio_consumer_receipt(
 
     let render = call(
         executor,
-        "driver.faust-audio.synth.render",
+        "driver.faust-audio.sample.render",
         json!({
             "synth_json": serde_json::to_string(applied.synths.get("sync-synth").unwrap()).unwrap(),
-            "seed": 7,
+            "sample_json": serde_json::to_string(applied.samples.get("sync-impulse").unwrap()).unwrap(),
+            "expected_sha256": sample_sha,
             "sample_rate": 48_000,
             "duration_frames": 96_000,
             "channels": 2,
@@ -1037,8 +1072,8 @@ fn combined_av_plan(
             audio_provider,
             audio_runtime,
             &[
-                (Stage::ApplyAudio, &["driver.faust-audio.synth.render"]),
-                (Stage::RenderAudio, &["driver.faust-audio.synth.render"]),
+                (Stage::ApplyAudio, &["driver.faust-audio.sample.render"]),
+                (Stage::RenderAudio, &["driver.faust-audio.sample.render"]),
                 (
                     Stage::VerifyAudio,
                     &["driver.audio-analysis.artifact.measure"],
@@ -1206,7 +1241,7 @@ async fn combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_s
     assert_eq!(film.cues.cues[0].id, "sync-pulse");
 
     let (owner, motion) = motion_subplan(&executor, &film).await;
-    let audio = audio_consumer_receipt(&executor, &owner, &film.cues).await;
+    let audio = audio_consumer_receipt(&executor, &owner, &film.cues, &harness).await;
     assert_eq!(audio.verification.verdict().unwrap(), Verdict::Pass);
     let pre_encode_audio_digest = audio.master.sha256.clone();
 
