@@ -387,7 +387,7 @@
       "run_id": null,
       "job_id": null,
       "evidence": [],
-      "blocker": "Godot native run 36806151778 was BLOCKED before product execution because the G helper imported the package name instead of the library crate name. Probe corrected to semwright_godot_driver; exact-SHA D retest pending.",
+      "blocker": "Godot native retest compiled the G helper successfully but was BLOCKED during pinned Godot --import before native cases. Harness now preserves the import process receipt/stderr for exact diagnosis; same D SHA retest pending.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },

@@ -305,8 +305,12 @@ def run_godot(target: Path, source_sha: str, suite_sha: str, cases: list[dict], 
             executable=godot,
             timeout=30,
         )
+        report.setdefault("setup_processes", {})["import"] = process_receipt(import_raw)
         if not sound(import_raw, enclosure):
-            raise EvidenceError("BLOCKED: pinned Godot could not import G compiled fixture")
+            raise EvidenceError(
+                "BLOCKED: pinned Godot could not import G compiled fixture: "
+                + import_raw["stderr"][-4096:].decode(errors="replace")
+            )
 
         inspect_request = request("inspect", source_fingerprint, "g_native_inspect_0001")
         write_json(out / "request-inspect.json", inspect_request)
