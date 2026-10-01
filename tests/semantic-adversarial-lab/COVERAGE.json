@@ -543,7 +543,7 @@
       "run_id": null,
       "job_id": null,
       "evidence": [],
-      "blocker": "Broker routing 12/12 and Skill packaging 20/20 are already green. Audio 30 + AV 35 frozen-snapshot cases are now activated against explicit A/B targets; Figma/Motion independent native/live cases remain to be implemented and executed afterward.",
+      "blocker": "Audio frozen B snapshot run 36828527634 passed 30/30. AV executed 35/35 with 33 PASS and two G oracle count defects only: Stage::ALL requires prior_completed=2 before ApplyAudio and 4 before RenderAudio, matching product behavior. Oracle corrected; exact-SHA AV-only retest pending. Figma/Motion remain to implement.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },

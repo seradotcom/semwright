@@ -14,7 +14,6 @@
   },
   "selected_lanes": [
     "selftest",
-    "audio",
     "av"
   ],
   "pins": {

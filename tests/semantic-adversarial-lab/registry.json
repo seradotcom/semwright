@@ -2452,7 +2452,7 @@
         "ready": false,
         "state_unknown": true,
         "manifest_unavailable": true,
-        "prior_completed": 4
+        "prior_completed": 2
       }
     },
     {
@@ -2467,7 +2467,7 @@
         "ready": false,
         "state_unknown": true,
         "manifest_unavailable": true,
-        "prior_completed": 5
+        "prior_completed": 4
       }
     },
     {
