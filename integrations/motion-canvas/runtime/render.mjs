@@ -236,7 +236,10 @@ async function main() {
     const state = await page.evaluate(() => window.__SEMWRIGHT_RENDER__.state);
     if (state.error) {
       const allowedStateClasses=new Set(['renderer_state_authoring_model','renderer_state_authoring_protocol','renderer_state_webgl_unavailable','renderer_state_playback_protocol','renderer_state_invalid_scene','renderer_state_type_error','renderer_state_range_error','renderer_state_error']);
-      failurePhase=allowedStateClasses.has(state.errorClass)?state.errorClass:'renderer_state_error';
+      const allowedLogClasses=new Set(['renderer_log_authoring_model','renderer_log_authoring_protocol','renderer_log_webgl_unavailable','renderer_log_playback_protocol','renderer_log_invalid_scene','renderer_log_type_error','renderer_log_range_error','renderer_log_exporter_missing','renderer_log_async_property','renderer_log_error']);
+      const stateClass=allowedStateClasses.has(state.errorClass)?state.errorClass:'renderer_state_error';
+      const logClass=allowedLogClasses.has(state.rendererLogClass)?state.rendererLogClass:null;
+      failurePhase=stateClass==='renderer_state_error'&&logClass?logClass:stateClass;
       fail(`renderer failed: ${state.error}`);
     }
     if (state.result !== 0) {
