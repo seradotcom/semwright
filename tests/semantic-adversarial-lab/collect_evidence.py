@@ -18,7 +18,7 @@ from lab_core import EvidenceError, compare_observation, digest, full_sha, stric
 
 REPO = "seradotcom/semwright"
 LAB = Path(__file__).resolve().parent
-ROLES = {"composition": "A", "av": "A", "motion": "A", "figma": "A", "audio": "B", "graph": "C", "effects": "F", "routing": "C", "godot-native": "D", "blender-native": "E"}
+ROLES = {"composition": "A", "av": "A", "motion": "A", "figma": "A", "audio": "B", "graph": "C", "effects": "F", "routing": "C", "godot-native": "D", "blender-native": "E", "lifecycle": "A"}
 
 def target_for_lane(lock: dict, lane: str, suite: str) -> str:
     return suite if lane == "selftest" else lock["targets"][ROLES.get(lane, "main")]

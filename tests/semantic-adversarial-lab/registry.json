@@ -5296,6 +5296,254 @@
         "duplicate_id_rejected": true,
         "unknown_parent_rejected": true
       }
+    },
+    {
+      "id": "G-SELF-103",
+      "owner": "G",
+      "requirement": "G11",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "lifecycle probe builds as normal core bin so dev-dependencies cannot expand the audited surface",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-LIFE-001",
+      "owner": "A",
+      "requirement": "G09",
+      "lane": "lifecycle",
+      "scope": "product_contract",
+      "description": "simultaneous provider registration publishes exactly one owner generation",
+      "expected": {
+        "exactly_one_mount": true,
+        "single_revision_advance": true,
+        "single_provider": true
+      }
+    },
+    {
+      "id": "G-LIFE-002",
+      "owner": "A",
+      "requirement": "G09",
+      "lane": "lifecycle",
+      "scope": "product_contract",
+      "description": "valid provider refresh advances generation atomically and future calls use new descriptor",
+      "expected": {
+        "revision_advanced": true,
+        "new_descriptor_visible": true,
+        "future_call_succeeds": true
+      }
+    },
+    {
+      "id": "G-LIFE-003",
+      "owner": "A",
+      "requirement": "G09",
+      "lane": "lifecycle",
+      "scope": "product_contract",
+      "description": "invalid refresh preserves old descriptor metadata but revokes execution",
+      "expected": {
+        "invalid_refresh_rejected": true,
+        "old_descriptor_preserved": true,
+        "execution_revoked": true
+      }
+    },
+    {
+      "id": "G-LIFE-004",
+      "owner": "A",
+      "requirement": "G09",
+      "lane": "lifecycle",
+      "scope": "product_contract",
+      "description": "terminal provider disconnect cannot be revived by refresh or dispatched again",
+      "expected": {
+        "terminal_disconnect_inactive": true,
+        "refresh_cannot_revive": true,
+        "provider_not_dispatched": true
+      }
+    },
+    {
+      "id": "G-LIFE-005",
+      "owner": "A",
+      "requirement": "G09",
+      "lane": "lifecycle",
+      "scope": "product_contract",
+      "description": "transport closure during in-flight call cancels provider and returns UNKNOWN unavailable without retry",
+      "expected": {
+        "inflight_returns_unavailable": true,
+        "outcome_unknown": true,
+        "provider_cancelled": true,
+        "no_retry": true
+      }
+    },
+    {
+      "id": "G-LIFE-006",
+      "owner": "A",
+      "requirement": "G09",
+      "lane": "lifecycle",
+      "scope": "product_contract",
+      "description": "explicit cancellation reaches provider once and returns uncertain Cancelled without retry",
+      "expected": {
+        "cancelled": true,
+        "outcome_unknown": true,
+        "provider_cancelled": true,
+        "no_retry": true
+      }
+    },
+    {
+      "id": "G-LIFE-007",
+      "owner": "A",
+      "requirement": "G09",
+      "lane": "lifecycle",
+      "scope": "product_contract",
+      "description": "descriptor timeout cancels provider once and returns uncertain Timeout",
+      "expected": {
+        "timed_out": true,
+        "outcome_unknown": true,
+        "provider_cancelled": true,
+        "no_retry": true
+      }
+    },
+    {
+      "id": "G-LIFE-008",
+      "owner": "A",
+      "requirement": "G09",
+      "lane": "lifecycle",
+      "scope": "product_contract",
+      "description": "malformed provider output is rejected by broker output schema",
+      "expected": {
+        "schema_failure": true,
+        "no_data": true,
+        "one_dispatch": true
+      }
+    },
+    {
+      "id": "G-LIFE-009",
+      "owner": "A",
+      "requirement": "G09",
+      "lane": "lifecycle",
+      "scope": "product_contract",
+      "description": "jobs are session-scoped and foreign job lookup is hidden",
+      "expected": {
+        "job_started": true,
+        "foreign_lookup_not_found": true
+      }
+    },
+    {
+      "id": "G-LIFE-010",
+      "owner": "A",
+      "requirement": "G09",
+      "lane": "lifecycle",
+      "scope": "product_contract",
+      "description": "job cancellation is idempotent, emits one cancel event and reaches provider",
+      "expected": {
+        "first_requests_cancel": true,
+        "second_is_idempotent": true,
+        "terminal_cancelled": true,
+        "single_cancel_event": true,
+        "provider_cancelled": true
+      }
+    },
+    {
+      "id": "G-LIFE-011",
+      "owner": "A",
+      "requirement": "G09",
+      "lane": "lifecycle",
+      "scope": "product_contract",
+      "description": "provider progress and artifacts are correlated into owner job snapshot only",
+      "expected": {
+        "succeeded": true,
+        "progress_complete": true,
+        "one_artifact": true,
+        "artifact_bound": true,
+        "foreign_hidden": true
+      }
+    },
+    {
+      "id": "G-LIFE-012",
+      "owner": "A",
+      "requirement": "G09",
+      "lane": "lifecycle",
+      "scope": "product_contract",
+      "description": "session revocation cancels provider work and forgets only that job authority",
+      "expected": {
+        "provider_cancelled": true,
+        "job_forgotten": true
+      }
+    },
+    {
+      "id": "G-LIFE-013",
+      "owner": "A",
+      "requirement": "G09",
+      "lane": "lifecycle",
+      "scope": "product_contract",
+      "description": "job-control commands cannot recursively become jobs",
+      "expected": {
+        "nested_job_control_rejected": true
+      }
+    },
+    {
+      "id": "G-LIFE-014",
+      "owner": "A",
+      "requirement": "G09",
+      "lane": "lifecycle",
+      "scope": "product_contract",
+      "description": "event replay rejects a cursor from a future broker generation",
+      "expected": {
+        "future_cursor_rejected": true
+      }
+    },
+    {
+      "id": "G-LIFE-015",
+      "owner": "A",
+      "requirement": "G09",
+      "lane": "lifecycle",
+      "scope": "product_contract",
+      "description": "session event replay exposes owner job history only with monotonic sequence",
+      "expected": {
+        "owner_sees_job_events": true,
+        "foreign_does_not": true,
+        "sequence_monotonic": true
+      }
+    },
+    {
+      "id": "G-LIFE-016",
+      "owner": "A",
+      "requirement": "G09",
+      "lane": "lifecycle",
+      "scope": "product_contract",
+      "description": "provider signals refresh capabilities and bind event authority to provider while preserving payload as untrusted data",
+      "expected": {
+        "signal_refresh_advanced": true,
+        "refreshed_descriptor_visible": true,
+        "source_bound_to_provider": true,
+        "payload_marked_untrusted": true,
+        "forged_payload_preserved_as_data": true
+      }
+    },
+    {
+      "id": "G-LIFE-017",
+      "owner": "A",
+      "requirement": "G09",
+      "lane": "lifecycle",
+      "scope": "product_contract",
+      "description": "explicit provider invalidation advances catalog and rejects stale catalog revision/execution",
+      "expected": {
+        "revision_advanced": true,
+        "stale_catalog_rejected": true,
+        "invalidated_execution_unavailable": true
+      }
+    },
+    {
+      "id": "G-LIFE-018",
+      "owner": "A",
+      "requirement": "G09",
+      "lane": "lifecycle",
+      "scope": "product_contract",
+      "description": "successful capability refresh does not cancel an already dispatched pinned call",
+      "expected": {
+        "refresh_advanced": true,
+        "inflight_not_cancelled": true,
+        "single_dispatch": true
+      }
     }
   ]
 }

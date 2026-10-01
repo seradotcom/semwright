@@ -99,6 +99,7 @@ def collector_role_targets():
         and target_for_lane(lock, "graph", SUITE) == "c" * 40
         and target_for_lane(lock, "effects", SUITE) == "f" * 40
         and target_for_lane(lock, "routing", SUITE) == "c" * 40
+        and target_for_lane(lock, "lifecycle", SUITE) == "a" * 40
         and target_for_lane(lock, "godot-native", SUITE) == "d" * 40
         and target_for_lane(lock, "blender-native", SUITE) == "e" * 40
         and target_for_lane(lock, "packaging", SUITE) == "0" * 40
@@ -107,6 +108,10 @@ def collector_role_targets():
 
 def routing_build_target_is_normal_bin():
     return build_target_kind("routing") == "bin" and build_target_kind("graph") == "example"
+
+
+def lifecycle_build_target_is_normal_bin():
+    return build_target_kind("lifecycle") == "bin" and build_target_kind("composition") == "example"
 
 
 def native_summary_is_scope_bound():
@@ -246,4 +251,5 @@ def evidence_cases():
         ("G-SELF-100", blender_state_tmpdir_is_exec_allowlisted),
         ("G-SELF-101", blender_outer_limits_do_not_undercut_product_sandbox),
         ("G-SELF-102", blender_case_scoped_block_is_not_pass),
+        ("G-SELF-103", lifecycle_build_target_is_normal_bin),
     ]

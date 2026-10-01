@@ -21,12 +21,13 @@ PACKAGES = {"composition": ("semwright-semantic-composition", "semantic-composit
             "effects": ("semwright-effect-conformance", "effect-conformance", "effects_probe.rs"),
             "packaging": ("semwright-skills", "skills", "packaging_probe.rs"),
             "routing": ("semwright-core", "core", "routing_probe.rs"),
+            "lifecycle": ("semwright-core", "core", "lifecycle_probe.rs"),
             "figma": ("semwright-driver-figma", "driver-figma", "figma_probe.rs"),
             "motion": ("semwright-driver-motion-canvas", "driver-motion-canvas", "motion_probe.rs"),
             "godot-native": ("semwright-driver-godot", "driver-godot", "godot_native_probe.rs"),
             "blender-native": ("semwright-driver-blender", "driver-blender", "blender_native_probe.rs")}
 PACKAGE_FEATURES = {"graph": ["store"], "blender-native": ["authoring-native"]}
-PACKAGE_TARGET_KIND = {"routing": "bin", "godot-native": "bin"}
+PACKAGE_TARGET_KIND = {"routing": "bin", "lifecycle": "bin", "godot-native": "bin"}
 
 def build_target_kind(lane: str) -> str:
     return PACKAGE_TARGET_KIND.get(lane, "example")
