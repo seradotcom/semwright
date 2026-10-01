@@ -99,7 +99,7 @@
       "run_id": null,
       "job_id": null,
       "evidence": [],
-      "blocker": "70 Composition-family cases are now the active exact-SHA experiment against A 7ed5b84; all prior Composition attempts were infrastructure/harness BLOCKED and are not accepted as product evidence.",
+      "blocker": "Composition run 36884906772 executed 70/70: 64 PASS, three confirmed A BeginPermit authority failures (G-PLAN-022..024), and three G oracle defects (G-VERIFY-009..011) delegated by architecture to F. G-FIND-A-001 reported on PR #168; corrected exact-SHA rerun pending.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },
@@ -257,7 +257,7 @@
         "effects receipt c017ea7c3543318d3967f16653607f0dd5e03213bc001dfd0eaf6694f454a1c4",
         "effects artifact a4ce1e9852c4bf98455d2301fcc951b3e8b87e555d8f503c9b87ba050108305c"
       ],
-      "blocker": "F effects sub-scope is closed 40/40. A Composition false-PASS/session/budget/replay scope is now activated separately against A 7ed5b84; exact-SHA result pending.",
+      "blocker": "F effects guards are clean 40/40. Composition G-MUT-001/002 were KILLED in run 36884906772. VERIFY-009..011 were reclassified as A/F boundary semantics, not product findings; corrected exact-SHA rerun pending while G-FIND-A-001 remains open.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },

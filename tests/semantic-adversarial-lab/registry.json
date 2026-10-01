@@ -1618,9 +1618,9 @@
       "requirement": "G04",
       "lane": "composition",
       "scope": "product_contract",
-      "description": "invalid measurement method version",
+      "description": "A bare ValidationReport does not authenticate observation method version; F owns that trusted binding before aggregation",
       "expected": {
-        "invalid_method_can_pass": false
+        "bare_aggregator_passes_without_method_binding": true
       }
     },
     {
@@ -1629,9 +1629,9 @@
       "requirement": "G04",
       "lane": "composition",
       "scope": "product_contract",
-      "description": "foreign observation scope",
+      "description": "A bare ValidationReport does not authenticate effect observation scope; F owns trusted invocation/scope binding before aggregation",
       "expected": {
-        "foreign_scope_can_pass": false
+        "bare_aggregator_passes_without_scope_binding": true
       }
     },
     {
@@ -1640,9 +1640,9 @@
       "requirement": "G04",
       "lane": "composition",
       "scope": "product_contract",
-      "description": "unobservable relevant effects",
+      "description": "A VerificationReport effects_unobservable is coverage metadata; F makes required unobservable rules UNKNOWN before constructing the report",
       "expected": {
-        "unobservable_required_effect_can_pass": false
+        "bare_report_passes_with_unobservable_metadata": true
       }
     },
     {
