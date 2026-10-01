@@ -56,6 +56,28 @@ jobs:
         run: cargo test --locked -p semwright-platform-macos-sys
       - run: cargo clippy --locked -p semwright-driver-sdk --all-targets --no-deps -- -D warnings
 
+  macos-app-sandbox-host:
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+          components: clippy
+      - name: Build Semwright sandbox helper
+        run: cargo build --locked -p semwright-plugin-host --bin semwright-sandbox
+      - name: macOS App Sandbox pinned-payload spawn
+        env:
+          SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
+        run: |
+          cargo test --locked -p semwright-platform-macos-sys \
+            --test app_sandbox_spawn \
+            app_sandbox_spawn_preserves_mount_boundaries_for_pinned_payload \
+            -- --ignored --exact --nocapture
+      - name: macOS sandbox implementation lint
+        run: cargo clippy --locked -p semwright-platform-macos-sys --all-targets --no-deps -- -D warnings
+
   linux-v5-host:
     runs-on: ubuntu-24.04
     timeout-minutes: 20

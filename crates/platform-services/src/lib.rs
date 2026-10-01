@@ -164,8 +164,7 @@ pub fn sandbox_main() {
 }
 #[cfg(target_os = "macos")]
 pub fn sandbox_main() {
-    eprintln!("SandboxDenied: no macOS arbitrary-child sandbox");
-    std::process::exit(5);
+    semwright_platform_macos_sys::sandbox_main::main()
 }
 #[cfg(target_os = "windows")]
 pub fn sandbox_main() {

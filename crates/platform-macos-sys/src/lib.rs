@@ -4,5 +4,5 @@ pub mod launch;
 pub mod macho;
 #[cfg(target_os = "macos")]
 pub mod paths;
-#[cfg(target_os = "macos")]
+#[cfg(unix)]
 pub mod sandbox_main;

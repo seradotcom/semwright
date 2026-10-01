@@ -20,38 +20,31 @@ fn parsed_limit(name: &str) -> Result<libc::rlim_t, String> {
         .parse::<libc::rlim_t>()
         .map_err(|_| format!("invalid {name}"))
 }
-fn set_limit(resource: libc::c_int, value: libc::rlim_t) -> Result<(), String> {
+fn set_limit(resource: i32, value: libc::rlim_t) -> Result<(), String> {
     let limit = libc::rlimit {
         rlim_cur: value,
         rlim_max: value,
     };
     // SAFETY: resource is a fixed RLIMIT_* constant and limit points to initialized scalars.
-    if unsafe { libc::setrlimit(resource, &limit) } != 0 {
+    if unsafe { libc::setrlimit(resource as _, &limit) } != 0 {
         return Err(std::io::Error::last_os_error().to_string());
     }
     Ok(())
 }
 
 fn apply_limits() -> Result<(), String> {
-    set_limit(libc::RLIMIT_NOFILE, parsed_limit(NOFILE_ENV)?)?;
-    set_limit(libc::RLIMIT_NPROC, parsed_limit(NPROC_ENV)?)?;
-    set_limit(libc::RLIMIT_CPU, parsed_limit(CPU_ENV)?)?;
-    set_limit(libc::RLIMIT_AS, parsed_limit(AS_ENV)?)?;
-    set_limit(libc::RLIMIT_FSIZE, parsed_limit(FSIZE_ENV)?)?;
+    set_limit(libc::RLIMIT_NOFILE as i32, parsed_limit(NOFILE_ENV)?)?;
+    set_limit(libc::RLIMIT_NPROC as i32, parsed_limit(NPROC_ENV)?)?;
+    set_limit(libc::RLIMIT_CPU as i32, parsed_limit(CPU_ENV)?)?;
+    set_limit(libc::RLIMIT_AS as i32, parsed_limit(AS_ENV)?)?;
+    set_limit(libc::RLIMIT_FSIZE as i32, parsed_limit(FSIZE_ENV)?)?;
     Ok(())
 }
 
 fn internal_environment(name: &OsStr) -> bool {
-    [
-        CWD_ENV,
-        NOFILE_ENV,
-        NPROC_ENV,
-        CPU_ENV,
-        AS_ENV,
-        FSIZE_ENV,
-    ]
-    .iter()
-    .any(|candidate| name == OsStr::new(candidate))
+    [CWD_ENV, NOFILE_ENV, NPROC_ENV, CPU_ENV, AS_ENV, FSIZE_ENV]
+        .iter()
+        .any(|candidate| name == OsStr::new(candidate))
 }
 fn run_parent(mut args: impl Iterator<Item = OsString>) -> i32 {
     let Some(wrapper) = args.next() else {

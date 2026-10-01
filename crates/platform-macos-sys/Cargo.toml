@@ -10,6 +10,7 @@ publish = false
 workspace = true
 
 [dependencies]
+async-trait.workspace = true
 semwright-platform-api.workspace = true
 semwright-types.workspace = true
 sha2.workspace = true
