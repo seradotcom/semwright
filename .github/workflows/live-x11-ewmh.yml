@@ -3,9 +3,24 @@ defaults:
   run:
     shell: bash
 on:
+  workflow_call:
   push:
     branches: [main]
+    paths:
+      - 'crates/backends/**'
+      - 'crates/platform-linux/**'
+      - 'crates/platform-linux-sys/**'
+      - 'crates/platform-api/**'
+      - 'crates/platform-services/**'
+      - '.github/workflows/live-x11-ewmh.yml'
   pull_request:
+    paths:
+      - 'crates/backends/**'
+      - 'crates/platform-linux/**'
+      - 'crates/platform-linux-sys/**'
+      - 'crates/platform-api/**'
+      - 'crates/platform-services/**'
+      - '.github/workflows/live-x11-ewmh.yml'
   workflow_dispatch:
 permissions:
   contents: read

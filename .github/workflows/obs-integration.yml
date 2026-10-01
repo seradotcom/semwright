@@ -3,6 +3,7 @@ defaults:
   run:
     shell: bash
 on:
+  workflow_call:
   push:
     branches: [main]
     paths:
