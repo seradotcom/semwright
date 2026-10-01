@@ -467,7 +467,16 @@ fn renderer_failure_code(stdout: &[u8]) -> ErrorCode {
         Some("renderer_state_type_error" | "renderer_log_type_error") => {
             ErrorCode::PluginProtocolError
         }
-        Some("renderer_state_error" | "renderer_log_error") => ErrorCode::Internal,
+        Some("renderer_state_semwright_native") => ErrorCode::InvalidArgument,
+        Some("renderer_state_semwright_exporter" | "renderer_state_before_first_frame") => {
+            ErrorCode::ProtocolMismatch
+        }
+        Some("renderer_state_motion_core" | "renderer_state_error" | "renderer_log_error") => {
+            ErrorCode::Internal
+        }
+        Some("renderer_state_motion_2d" | "renderer_state_after_first_frame") => {
+            ErrorCode::BackendFailed
+        }
         Some("render_result_aborted") => ErrorCode::Cancelled,
         Some("render_result_error") => ErrorCode::BackendFailed,
         Some("render_wait") => ErrorCode::Timeout,
@@ -1158,6 +1167,38 @@ mod runtime_path_tests {
             ErrorCode::InvalidArgument
         );
         assert_eq!(
+            renderer_failure_code(
+                br#"{"ok":false,"errorClass":"renderer_state_semwright_native"}"#
+            ),
+            ErrorCode::InvalidArgument
+        );
+        assert_eq!(
+            renderer_failure_code(
+                br#"{"ok":false,"errorClass":"renderer_state_semwright_exporter"}"#
+            ),
+            ErrorCode::ProtocolMismatch
+        );
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"renderer_state_motion_core"}"#),
+            ErrorCode::Internal
+        );
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"renderer_state_motion_2d"}"#),
+            ErrorCode::BackendFailed
+        );
+        assert_eq!(
+            renderer_failure_code(
+                br#"{"ok":false,"errorClass":"renderer_state_before_first_frame"}"#
+            ),
+            ErrorCode::ProtocolMismatch
+        );
+        assert_eq!(
+            renderer_failure_code(
+                br#"{"ok":false,"errorClass":"renderer_state_after_first_frame"}"#
+            ),
+            ErrorCode::BackendFailed
+        );
+        assert_eq!(
             renderer_failure_code(br#"{"ok":false,"errorClass":"render_result_aborted"}"#),
             ErrorCode::Cancelled
         );
@@ -1200,7 +1241,7 @@ mod runtime_path_tests {
         let structured = br#"{"ok":false,"errorClass":"renderer_log_type_error"}"#;
         assert_eq!(
             renderer_process_failure_code(&exit_one, structured),
-            ErrorCode::Internal
+            ErrorCode::PluginProtocolError
         );
     }
 

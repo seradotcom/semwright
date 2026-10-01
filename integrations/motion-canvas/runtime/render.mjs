@@ -99,6 +99,14 @@ function classifyRendererLog(payload){
   if(message.includes('Tried to access an asynchronous property before the node was ready.'))return 'renderer_log_async_property';
   return 'renderer_log_error';
 }
+function classifyRendererStack(error){
+  const stack=typeof error?.stack==='string'?error.stack:'';
+  if(stack.includes('semwright-authoring-native'))return 'renderer_state_semwright_native';
+  if(stack.includes('semwright-exporter'))return 'renderer_state_semwright_exporter';
+  if(stack.includes('@motion-canvas/core'))return 'renderer_state_motion_core';
+  if(stack.includes('@motion-canvas/2d'))return 'renderer_state_motion_2d';
+  return null;
+}
 project.logger.onLogged.subscribe(payload=>{const classified=classifyRendererLog(payload);if(classified)state.rendererLogClass=classified;});
 if(config.authoring){globalThis.__SEMWRIGHT_NATIVE_CONFIG__={fps_num:config.fpsNum,fps_den:config.fpsDen,render_input_digest:config.renderInputDigest,native_stage_version:'3.17.2',font_evidence:config.fontEvidence??[]};}
 window.__SEMWRIGHT_RENDER__={state,abort:()=>renderer.abort()};
@@ -136,6 +144,12 @@ renderer.onFinished.subscribe(result=>{state.result=result;});
     else if(authoring==='invalid_scene')errorClass='renderer_state_invalid_scene';
     else if(error?.name==='TypeError')errorClass='renderer_state_type_error';
     else if(error?.name==='RangeError')errorClass='renderer_state_range_error';
+    else {
+      const stackClass=classifyRendererStack(error);
+      if(stackClass)errorClass=stackClass;
+      else if(state.frame<=config.firstFrame)errorClass='renderer_state_before_first_frame';
+      else errorClass='renderer_state_after_first_frame';
+    }
     state.error=String(error);state.errorClass=errorClass;state.phase='error';state.done=true;
   }
 })();
@@ -235,7 +249,7 @@ async function main() {
     }
     const state = await page.evaluate(() => window.__SEMWRIGHT_RENDER__.state);
     if (state.error) {
-      const allowedStateClasses=new Set(['renderer_state_authoring_model','renderer_state_authoring_protocol','renderer_state_webgl_unavailable','renderer_state_playback_protocol','renderer_state_invalid_scene','renderer_state_type_error','renderer_state_range_error','renderer_state_error']);
+      const allowedStateClasses=new Set(['renderer_state_authoring_model','renderer_state_authoring_protocol','renderer_state_webgl_unavailable','renderer_state_playback_protocol','renderer_state_invalid_scene','renderer_state_type_error','renderer_state_range_error','renderer_state_semwright_native','renderer_state_semwright_exporter','renderer_state_motion_core','renderer_state_motion_2d','renderer_state_before_first_frame','renderer_state_after_first_frame','renderer_state_error']);
       const allowedLogClasses=new Set(['renderer_log_authoring_model','renderer_log_authoring_protocol','renderer_log_webgl_unavailable','renderer_log_playback_protocol','renderer_log_invalid_scene','renderer_log_type_error','renderer_log_range_error','renderer_log_exporter_missing','renderer_log_async_property','renderer_log_error']);
       const stateClass=allowedStateClasses.has(state.errorClass)?state.errorClass:'renderer_state_error';
       const logClass=allowedLogClasses.has(state.rendererLogClass)?state.rendererLogClass:null;
@@ -259,7 +273,7 @@ async function main() {
   } finally { await cleanup(); }
 }
 main().catch(error => {
-  const allowed = new Set(['arguments','font_evidence','project_stage','vite_build','frame_export','browser_launch','page_load','render_wait','render_wait_timeout','renderer_state_authoring_model','renderer_state_authoring_protocol','renderer_state_webgl_unavailable','renderer_state_playback_protocol','renderer_state_invalid_scene','renderer_state_type_error','renderer_state_range_error','renderer_state_error','renderer_log_authoring_model','renderer_log_authoring_protocol','renderer_log_webgl_unavailable','renderer_log_playback_protocol','renderer_log_invalid_scene','renderer_log_type_error','renderer_log_range_error','renderer_log_exporter_missing','renderer_log_async_property','renderer_log_error','render_result_error','render_result_aborted','render_result_unknown','render_nonzero','observation','finalize']);
+  const allowed = new Set(['arguments','font_evidence','project_stage','vite_build','frame_export','browser_launch','page_load','render_wait','render_wait_timeout','renderer_state_authoring_model','renderer_state_authoring_protocol','renderer_state_webgl_unavailable','renderer_state_playback_protocol','renderer_state_invalid_scene','renderer_state_type_error','renderer_state_range_error','renderer_state_semwright_native','renderer_state_semwright_exporter','renderer_state_motion_core','renderer_state_motion_2d','renderer_state_before_first_frame','renderer_state_after_first_frame','renderer_state_error','renderer_log_authoring_model','renderer_log_authoring_protocol','renderer_log_webgl_unavailable','renderer_log_playback_protocol','renderer_log_invalid_scene','renderer_log_type_error','renderer_log_range_error','renderer_log_exporter_missing','renderer_log_async_property','renderer_log_error','render_result_error','render_result_aborted','render_result_unknown','render_nonzero','observation','finalize']);
   const errorClass = allowed.has(failurePhase) ? failurePhase : 'startup';
   process.stdout.write(JSON.stringify({ok:false,errorClass})+'\n');
   process.stderr.write(String(error?.stack || error) + '\n');
