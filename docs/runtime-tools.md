@@ -8,6 +8,8 @@ Portable runtimes may also require a read-only runtime directory for libraries/r
 
 Protocol v5 adds an optional per-tool workspace allowlist and a logical working directory. The working directory is the root of one declared workspace mount; nested relative paths are deliberately rejected until every platform can resolve them without symlink/reparse races. On Windows, Driver Host constructs a short-lived AppContainer child with only the workspace mounts named by that tool and keeps the resolved working-directory path host-only.
 
+macOS exposes the same digest/ownership/native-architecture verification entry point for secondary tools, with a distinct 256 MiB tool budget, but arbitrary driver/plugin sandbox execution remains fail-closed. Verification alone is not runtime-tool acceptance on macOS.
+
 Linux protocol v4 keeps the compatibility path that materializes sealed tools inside the driver sandbox. Protocol v5 switches Linux to Host-mediated invocation: Driver Host stages the verified tool separately, launches a short-lived nested sandbox, and grants only the workspace mounts listed for that tool. Windows v5 provides the same logical per-tool mount contract through Host-mediated AppContainer execution. macOS executable verification exists, but arbitrary driver/plugin sandbox execution remains fail-closed, so this document does not claim macOS runtime-tool acceptance.
 
 Godot is the first production consumer of the v5 one-shot boundary: its runner requests the logical `godot` tool through Driver Host and production configuration resolves project/output/secret authority by logical grant names. This demonstrates the generic path without implying that real Godot acceptance has been certified on every host OS.
