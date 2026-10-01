@@ -535,6 +535,39 @@ impl Harness {
         .await
     }
 
+    async fn direct_audio_analysis_measure(&self, args: Value) -> semwright_types::Result<Value> {
+        let state = make_dir(self._root.path(), "state-analysis-direct-diagnostic");
+        let provider = DriverProvider::connect(
+            analysis_manifest(&self.analysis_exe, &self.meter),
+            &state,
+            &self.sandbox,
+            &[
+                grant("analysis-input", &self.output, true, false),
+                grant("audio-meter-tool", &self.meter, true, false),
+            ],
+            false,
+        )
+        .await?;
+        let capabilities = Provider::capabilities(provider.as_ref()).await?;
+        let descriptor = capabilities
+            .iter()
+            .find(|capability| {
+                capability.descriptor.name == "driver.audio-analysis.artifact.measure"
+            })
+            .expect("direct audio analysis descriptor");
+        Provider::execute(
+            provider.as_ref(),
+            &Context {
+                session: "combined-av-direct-analysis-diagnostic".into(),
+                request_id: "combined-av-direct-analysis-measure".into(),
+                cancellation: CancellationToken::new(),
+            },
+            &descriptor.descriptor,
+            &args,
+        )
+        .await
+    }
+
     async fn broker(&self) -> Arc<Broker> {
         let providers = self.providers().await;
         let global_grants = vec![
@@ -884,14 +917,21 @@ async fn audio_consumer_receipt(
     );
     assert_eq!(render["native_receipt"]["channels"].as_u64(), Some(2));
 
+    let analysis_args = json!({
+        "file_name": "sync-final.wav",
+        "expected_sha256": artifact_digest.as_str(),
+        "layout": "stereo"
+    });
+    let direct_analysis = harness
+        .direct_audio_analysis_measure(analysis_args.clone())
+        .await;
+    eprintln!("combined-e2e direct audio-analysis diagnostic={direct_analysis:?}");
+    direct_analysis
+        .expect("raw Driver Host audio analysis must succeed before Broker dispatch");
     let measured = call(
         executor,
         "driver.audio-analysis.artifact.measure",
-        json!({
-            "file_name": "sync-final.wav",
-            "expected_sha256": artifact_digest.as_str(),
-            "layout": "stereo"
-        }),
+        analysis_args,
     )
     .await;
     let statistics: SignalStatistics =
