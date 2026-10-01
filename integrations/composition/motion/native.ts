@@ -254,7 +254,7 @@ async function probeScene(reg:ReturnType<typeof registration>,canvas:HTMLCanvasE
    let lineCount:Known<number>=unknown('native line rectangles unavailable');
    let direction:Known<string>=unknown('native DOM text direction unavailable');
    if(meaningful){
-    const computed=getComputedStyle(el);const range=document.createRange();range.selectNodeContents(el);const rects=[...range.getClientRects()].filter(r=>r.width>0&&r.height>0);
+    const computed=getComputedStyle(el);const range=document.createRange();range.selectNodeContents(el);const rects=Array.from(range.getClientRects()).filter(r=>r.width>0&&r.height>0);
     const tops=new Set(rects.map(r=>Math.round(r.top*100)/100));
     clipped=known(el.scrollWidth>el.clientWidth+0.5||el.scrollHeight>el.clientHeight+0.5);lineCount=known(tops.size);direction=known(computed.direction);
    }

@@ -85,3 +85,8 @@ test('native observation never forces layout geometry before the native draw', (
   assert.ok(nativeAuthoring.includes("drawn:rendered"));
   assert.ok(!nativeAuthoring.includes('local_size:n instanceof Layout&&n.width()>0'));
 });
+
+test('native text probe normalizes DOMRectList before iteration', () => {
+  assert.ok(nativeAuthoring.includes('Array.from(range.getClientRects())'));
+  assert.ok(!nativeAuthoring.includes('[...range.getClientRects()]'));
+});
