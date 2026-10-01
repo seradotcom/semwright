@@ -39,7 +39,7 @@ use sha2::{Digest as ShaDigest, Sha256};
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs,
-    os::unix::fs::{MetadataExt, PermissionsExt},
+    os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -535,70 +535,6 @@ impl Harness {
         .await
     }
 
-    fn direct_audio_meter_oracle(&self, file_name: &str, expected_sha256: &Digest) {
-        let path = self.output.join(file_name);
-        let metadata = fs::symlink_metadata(&path).expect("combined audio oracle metadata");
-        assert!(metadata.file_type().is_file(), "combined audio oracle input is not regular");
-        assert!(!metadata.file_type().is_symlink(), "combined audio oracle input is a symlink");
-        let actual_sha256 = file_sha(&path);
-        assert_eq!(actual_sha256, expected_sha256.as_str(), "combined audio oracle digest drift");
-        eprintln!(
-            "combined-e2e audio oracle file={} bytes={} nlink={} mode={:o} sha256={}",
-            file_name,
-            metadata.len(),
-            metadata.nlink(),
-            metadata.mode() & 0o7777,
-            actual_sha256
-        );
-        let output = std::process::Command::new(&self.meter)
-            .args(["analyze", path.to_string_lossy().as_ref(), "stereo"])
-            .env_clear()
-            .output()
-            .expect("combined audio oracle meter process");
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        eprintln!(
-            "combined-e2e audio oracle meter status={} stdout={} stderr={}",
-            output.status,
-            stdout.chars().take(4096).collect::<String>(),
-            stderr.chars().take(4096).collect::<String>()
-        );
-        assert!(output.status.success(), "raw audio meter oracle rejected the published WAV");
-    }
-
-    async fn direct_audio_analysis_measure(&self, args: Value) -> semwright_types::Result<Value> {
-        let state = make_dir(self._root.path(), "state-analysis-direct-diagnostic");
-        let provider = DriverProvider::connect(
-            analysis_manifest(&self.analysis_exe, &self.meter),
-            &state,
-            &self.sandbox,
-            &[
-                grant("analysis-input", &self.output, true, false),
-                grant("audio-meter-tool", &self.meter, true, false),
-            ],
-            false,
-        )
-        .await?;
-        let capabilities = Provider::capabilities(provider.as_ref()).await?;
-        let descriptor = capabilities
-            .iter()
-            .find(|capability| {
-                capability.descriptor.name == "driver.audio-analysis.artifact.measure"
-            })
-            .expect("direct audio analysis descriptor");
-        Provider::execute(
-            provider.as_ref(),
-            &Context {
-                session: "combined-av-direct-analysis-diagnostic".into(),
-                request_id: "combined-av-direct-analysis-measure".into(),
-                cancellation: CancellationToken::new(),
-            },
-            &descriptor.descriptor,
-            &args,
-        )
-        .await
-    }
-
     async fn broker(&self) -> Arc<Broker> {
         let providers = self.providers().await;
         let global_grants = vec![
@@ -948,22 +884,14 @@ async fn audio_consumer_receipt(
     );
     assert_eq!(render["native_receipt"]["channels"].as_u64(), Some(2));
 
-    harness.direct_audio_meter_oracle("sync-final.wav", &artifact_digest);
-    let analysis_args = json!({
-        "file_name": "sync-final.wav",
-        "expected_sha256": artifact_digest.as_str(),
-        "layout": "stereo"
-    });
-    let direct_analysis = harness
-        .direct_audio_analysis_measure(analysis_args.clone())
-        .await;
-    eprintln!("combined-e2e direct audio-analysis diagnostic={direct_analysis:?}");
-    direct_analysis
-        .expect("raw Driver Host audio analysis must succeed before Broker dispatch");
     let measured = call(
         executor,
         "driver.audio-analysis.artifact.measure",
-        analysis_args,
+        json!({
+            "file_name": "sync-final.wav",
+            "expected_sha256": artifact_digest.as_str(),
+            "layout": "stereo"
+        }),
     )
     .await;
     let statistics: SignalStatistics =
@@ -975,6 +903,12 @@ async fn audio_consumer_receipt(
     assert_eq!(loudness.frames, 96_000);
     assert_eq!(loudness.sample_rate, 48_000);
     assert_eq!(loudness.channels, 2);
+    assert_eq!(loudness.layout, "stereo");
+    assert_eq!(loudness.momentary_lufs_milli, None);
+    assert_eq!(
+        loudness.unknown_reason.as_deref(),
+        Some("one_or_more_windows_have_insufficient_frames")
+    );
 
     let measurement = MeasuredAudio {
         artifact: artifact_digest.clone(),
