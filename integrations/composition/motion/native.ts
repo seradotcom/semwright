@@ -208,18 +208,25 @@ function* executeInstruction(i:Instruction,nodes:Map<string,Node>,initial:Map<st
   case 'local_region':{const target=node(op.target);const overlay=node(op.overlay);requireValue(overlay instanceof Layout,'region requires Layout');overlay.absolutePosition(()=>vec(op.center).transformAsPoint(target.localToWorld()));overlay.size([op.size.width,op.size.height]);break;}
  }
 }
-const sceneRegistrations=new Map<string,{data:NativeSceneData;nodes:Map<string,Node>;draws:Map<string,DrawRecord>;canvas:HTMLCanvasElement|null;drawSerial:number;finished:Set<string>;captionActive:Map<string,boolean>}>();
+const sceneRegistrations=new Map<string,{data:NativeSceneData;nodes:Map<string,Node>;draws:Map<string,DrawRecord>;rendered:Set<string>;canvas:HTMLCanvasElement|null;drawSerial:number;finished:Set<string>;captionActive:Map<string,boolean>}>();
 type DrawRecord={canvas:HTMLCanvasElement;matrix:DOMMatrix;bounds:{x:number;y:number;width:number;height:number};opacity:number;serial:number;clip:boolean};
 function clipAncestor(n:Node){for(let a:Node|null=n;a;a=a.parent()){if(a instanceof Layout&&a.clip())return true;}return false;}
 function instrument(n:Node,id:string,reg:ReturnType<typeof registration>){
  const render=n.render.bind(n);
  n.render=(context:CanvasRenderingContext2D)=>{
-  const matrix=context.getTransform().multiply(n.localToParent());const box=n.cacheBBox();
-  if(n.absoluteOpacity()>0){reg.draws.set(id,{canvas:context.canvas,matrix,bounds:{x:box.x,y:box.y,width:box.width,height:box.height},opacity:n.absoluteOpacity(),serial:reg.drawSerial++,clip:clipAncestor(n)});}
-  return render(context);
+  const matrix=context.getTransform().multiply(n.localToParent());
+  const result=render(context);
+  if(n.absoluteOpacity()>0){
+   reg.rendered.add(id);
+   // Layout/Txt cache bounds can require the native DOM layout pass. Never invoke
+   // that pass before Motion Canvas renders the node, and do not turn missing
+   // observation geometry into a render failure.
+   try{const box=n.cacheBBox();reg.draws.set(id,{canvas:context.canvas,matrix,bounds:{x:box.x,y:box.y,width:box.width,height:box.height},opacity:n.absoluteOpacity(),serial:reg.drawSerial++,clip:clipAncestor(n)});}catch{/* geometry remains UNKNOWN */}
+  }
+  return result;
  };
 }
-function registration(data:NativeSceneData,nodes:Map<string,Node>){return {data,nodes,draws:new Map<string,DrawRecord>(),canvas:null as HTMLCanvasElement|null,drawSerial:0,finished:new Set<string>(),captionActive:new Map<string,boolean>()};}
+function registration(data:NativeSceneData,nodes:Map<string,Node>){return {data,nodes,draws:new Map<string,DrawRecord>(),rendered:new Set<string>(),canvas:null as HTMLCanvasElement|null,drawSerial:0,finished:new Set<string>(),captionActive:new Map<string,boolean>()};}
 function transformed(box:DrawRecord['bounds'],m:DOMMatrix){const p=[[box.x,box.y],[box.x+box.width,box.y],[box.x,box.y+box.height],[box.x+box.width,box.y+box.height]].map(([x,y])=>m.transformPoint({x,y}));const x=Math.min(...p.map(x=>x.x)),y=Math.min(...p.map(x=>x.y));return{x,y,width:Math.max(...p.map(x=>x.x))-x,height:Math.max(...p.map(x=>x.y))-y};}
 async function textHash(text:string){const bytes=new TextEncoder().encode(text);const hash=await crypto.subtle.digest('SHA-256',bytes);return [...new Uint8Array(hash)].map(b=>b.toString(16).padStart(2,'0')).join('');}
 function hasGlyph(face:FontEvidence,cp:number){return face.codepoints.some(([a,b])=>a<=cp&&cp<=b);}
@@ -242,13 +249,18 @@ async function probeScene(reg:ReturnType<typeof registration>,canvas:HTMLCanvasE
   let text:unknown=null;const c=subject.content;
   if(c.kind==='text'&&n instanceof Txt){
    const observed=n.text();const expected=c.runs.map(r=>r.text).join('');
-   const el=n.element;const computed=getComputedStyle(el);const range=document.createRange();range.selectNodeContents(el);const rects=[...range.getClientRects()].filter(r=>r.width>0&&r.height>0);
-   const tops=new Set(rects.map(r=>Math.round(r.top*100)/100));
-   const clipped=(el.scrollWidth>el.clientWidth+0.5||el.scrollHeight>el.clientHeight+0.5);
-   const meaningful=el.isConnected&&el.clientWidth>0&&el.clientHeight>0;
+   const el=n.element;const meaningful=el instanceof HTMLElement&&el.isConnected&&el.clientWidth>0&&el.clientHeight>0;
+   let clipped:Known<boolean>=unknown('native DOM text metrics unavailable');
+   let lineCount:Known<number>=unknown('native line rectangles unavailable');
+   let direction:Known<string>=unknown('native DOM text direction unavailable');
+   if(meaningful){
+    const computed=getComputedStyle(el);const range=document.createRange();range.selectNodeContents(el);const rects=[...range.getClientRects()].filter(r=>r.width>0&&r.height>0);
+    const tops=new Set(rects.map(r=>Math.round(r.top*100)/100));
+    clipped=known(el.scrollWidth>el.clientWidth+0.5||el.scrollHeight>el.clientHeight+0.5);lineCount=known(tops.size);direction=known(computed.direction);
+   }
    const perRun=c.runs.map(r=>fontMeasurement(reg.data.editorial.font,r.text,r.weight,binding.font_evidence));
    const font=perRun.find(f=>f.font_ready.status==='unknown'||!f.font_ready.value)??perRun.find(f=>f.fallback_used.status==='known'&&f.fallback_used.value)??perRun[0];
-   text={logical_text_digest:await textHash(expected),observed_text_digest:await textHash(observed),truncated:meaningful?known(clipped):unknown('native DOM text metrics unavailable'),lines:meaningful?known(tops.size):unknown('native line rectangles unavailable'),...font,direction:known(computed.direction)};
+   text={logical_text_digest:await textHash(expected),observed_text_digest:await textHash(observed),truncated:clipped,lines:lineCount,...font,direction};
   }
   if(c.kind==='code'&&n instanceof Code){
    const observed=n.parsed();const boxes=n.getSelectionBBox(lines(0,Math.max(0,observed.split('\n').length-1)));
@@ -256,9 +268,10 @@ async function probeScene(reg:ReturnType<typeof registration>,canvas:HTMLCanvasE
    const clipped=n.clip()&&boxes.some(b=>b.x < -width/2-0.5||b.y < -height/2-0.5||b.x+b.width>width/2+0.5||b.y+b.height>height/2+0.5);
    text={logical_text_digest:await textHash(c.source),observed_text_digest:await textHash(observed),truncated:known(clipped),lines:known(observed.split('\n').length),...fontMeasurement(reg.data.editorial.mono_font,observed,400,binding.font_evidence),direction:known('ltr')};
   }
+  const rendered=reg.rendered.has(subject.id);
   let asset_ready:Known<boolean>=known(true);
-  if(c.kind==='image'||c.kind==='video')asset_ready=draw?known(true):unknown('asset was not observed in a completed native draw');
-  output.push({id:subject.id,local_size:n instanceof Layout&&n.width()>0&&n.height()>0?known({width:n.width(),height:n.height()}):unknown('native layout size unavailable'),bounds:coordinateKnown?known(transformed(draw!.bounds,draw!.matrix)):unknown('not drawn in the native scene buffer or unmodeled cache transform'),transform:coordinateKnown?known([draw!.matrix.a,draw!.matrix.b,draw!.matrix.c,draw!.matrix.d,draw!.matrix.e,draw!.matrix.f]):unknown('output transform unavailable'),opacity:known(n.absoluteOpacity()),drawn:!!draw,z_order:draw?known(draw.serial):unknown('no native draw order'),clip_active:known(clipAncestor(n)),pixel_visibility:unknown('draw and alpha do not prove pixel contribution after overlap'),text,asset_ready});
+  if(c.kind==='image'||c.kind==='video')asset_ready=rendered?known(true):unknown('asset was not observed in a completed native draw');
+  output.push({id:subject.id,local_size:draw?known({width:draw.bounds.width,height:draw.bounds.height}):unknown('native layout size unavailable'),bounds:coordinateKnown?known(transformed(draw!.bounds,draw!.matrix)):unknown('not drawn in the native scene buffer or unmodeled cache transform'),transform:coordinateKnown?known([draw!.matrix.a,draw!.matrix.b,draw!.matrix.c,draw!.matrix.d,draw!.matrix.e,draw!.matrix.f]):unknown('output transform unavailable'),opacity:known(n.absoluteOpacity()),drawn:rendered,z_order:draw?known(draw.serial):unknown('no native draw order'),clip_active:known(clipAncestor(n)),pixel_visibility:unknown('draw and alpha do not prove pixel contribution after overlap'),text,asset_ready});
  }
  const transitions=[...new Set(reg.data.instructions.map(i=>i.invocation))].map(id=>({invocation_id:id,finished:known(reg.finished.has(id))}));
  const captions=reg.data.shots.flatMap(s=>s.captions.map(c=>{const cue=reg.data.cues[c.cue_id];return{id:c.id,active:known((reg.captionActive.get(c.id)??false)&&reg.draws.has(c.subject)&&reg.nodes.get(c.subject)!.absoluteOpacity()>0&&(reg.nodes.get(c.subject) as Txt).text()===c.text),cue_start:cue?.status==='resolved'?known(cue.start):unknown('unresolved cue'),cue_end:cue?.status==='resolved'?known(cue.end):unknown('unresolved cue')};}));
@@ -270,7 +283,7 @@ export function createAuthoringScene(data:NativeSceneData,urls:AssetUrls){
   const nodes=new Map<string,Node>();const reg=registration(data,nodes);sceneRegistrations.set(data.id,reg);
   for(const shot of data.shots)view.add(createShot(shot,data,urls,nodes));
   const originalRender=view.render.bind(view);
-  view.render=(ctx:CanvasRenderingContext2D)=>{reg.canvas=ctx.canvas;reg.draws.clear();reg.drawSerial=0;return originalRender(ctx);};
+  view.render=(ctx:CanvasRenderingContext2D)=>{reg.canvas=ctx.canvas;reg.draws.clear();reg.rendered.clear();reg.drawSerial=0;return originalRender(ctx);};
   for(const [id,n] of nodes)instrument(n,id,reg);
   // Native dependency resolution participates in renderer startup; fonts and
   // media are awaited by native promises, never set ready from the desired model.
