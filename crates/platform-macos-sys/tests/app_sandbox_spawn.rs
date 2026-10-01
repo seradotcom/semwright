@@ -18,7 +18,7 @@ async fn app_sandbox_spawn_preserves_mount_boundaries_for_pinned_payload() {
     let helper = PathBuf::from(
         std::env::var("SEMWRIGHT_TEST_SANDBOX_HELPER").expect("SEMWRIGHT_TEST_SANDBOX_HELPER"),
     );
-    let fixture = PathBuf::from(env!("CARGO_BIN_EXE_semwright-macos-sandbox-fixture"));
+    let fixture = PathBuf::from(env!("CARGO_BIN_EXE_macos_sandbox_fixture"));
     harden(&fixture);
 
     let root = tempfile::tempdir().expect("sandbox fixture root");
