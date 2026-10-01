@@ -46,8 +46,11 @@ class DevelopmentPackageTests(unittest.TestCase):
                 self.assertIn("crates/driver-faust-audio/src/driver.rs", paths)
                 self.assertIn("crates/driver-ardour-audio/src/driver.rs", paths)
                 self.assertIn("integrations/motion-canvas/runtime/package-lock.json", paths)
+                self.assertIn("crates/driver-motion-canvas/src/composition.rs", paths)
+                self.assertIn("crates/driver-figma/src/composition_kernel.rs", paths)
+                self.assertIn("crates/driver-mlt-video/src/app.rs", paths)
                 self.assertEqual(metadata["scope"], "combined-candidate")
-                self.assertEqual(metadata["composition_source_sha"], "ffe7e59c5ba0d28ac9193ec203307dd7969fee4f")
+                self.assertEqual(metadata["composition_source_sha"], "7ab43f99f4cc62be2a9b0ce9ce1155283a429768")
                 self.assertEqual(metadata["audio_source_sha"], "8ed2d30c8ba797ebd5b8c102d34f8ab5bb3a28b3")
                 parts = {part for value in paths for part in Path(value).parts}
                 self.assertNotIn("target", parts)

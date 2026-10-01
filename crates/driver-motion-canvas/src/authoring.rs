@@ -418,5 +418,14 @@ mod tests {
         fallback.editorial.font.fallback = a::FontFallback::AllowAndReport;
         fallback.editorial.font.permitted_fallbacks = vec!["Unpinned Fallback".into()];
         assert!(project(&fallback, None).is_err());
+
+        let mut pinned_fallback = film();
+        pinned_fallback.editorial.font.fallback = a::FontFallback::AllowAndReport;
+        pinned_fallback.editorial.font.permitted_fallbacks = vec!["IBM Plex Mono".into()];
+        assert!(project(&pinned_fallback, None).is_ok());
+
+        let mut denied_fallback = film();
+        denied_fallback.editorial.font.permitted_fallbacks = vec!["IBM Plex Mono".into()];
+        assert!(project(&denied_fallback, None).is_err());
     }
 }

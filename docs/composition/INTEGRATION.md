@@ -8,7 +8,7 @@ This file is the source-controlled integration ledger. B has now published and b
 - Common C0: 26602e4b25929be869d69ef28fef4dd9713180d7
 - A branch: feat/composition-media
 - A product source SHA entering initial integration: 34b850507c699c4f67056478210aa97e89bf7548
-- Latest A branch SHA reconciled into the integration branch: 3223bdf0367b4c9de73ef867a560b200f1ab96e1
+- Latest A branch SHA reconciled into the integration branch: 7ab43f99f4cc62be2a9b0ce9ce1155283a429768
 - B baseline: 93f70241e9fb9d4c99ca76fab55c8517574a9f6f
 - B branch: feat/audio-completion
 - B consumed C0 through normal Git ancestry: verified locally
@@ -24,6 +24,8 @@ A and B were merged by normal Git ancestry in the A-owned integration worktree. 
 ## Contract history
 
 C0 provides generic plan/base/evidence/lifecycle and exact media-time primitives. B has C0 as an ancestor rather than a duplicate private copy.
+
+Effect-conformance E0 at `dd6d22d6ec6c7c5ef378da58ed75ca18b25ba5ff` was reviewed by Role A and its ownership/authority boundary is approved: F consumes A Composition types/evidence while PlanVault, canonicalization, lifecycle aggregation and Broker/policy authority remain A/runtime-owned. The approval is recorded on PR #172. F12 remains a later integration gate because effect-conformance is not yet part of this A+B candidate; no private worktree/path dependency is introduced.
 
 A later additive AV consumer contract defines media artifact metadata, audio consumer receipts, service proofs, staged coordination, final decoded sync and manifest publication. B is not considered to have consumed that additive contract until it publishes the exact consumed SHA/tests.
 

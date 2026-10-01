@@ -18,8 +18,8 @@ This file maps the Agent-A master requirements to implementation and evidence. I
 | A10 | Temporal DAG, exact rational solver, hard/soft constraints | IMPLEMENTED |
 | A11 | Renderer observations, explicit frame coverage, speed/acceleration | IMPLEMENTED; private native authoring iteration PASS at `edc4925...`; exact-SHA certification pending |
 | A12 | Deterministic validation and bounded repair candidates | IMPLEMENTED; M07 hold/retime regressions added |
-| A13 | Fixed AV graph, B public receipt boundary, dependency reuse/invalidation | Real certified B source is integrated; exact combined E2E PENDING |
-| A14 | Motion render, FFV1 mezzanine, MLT H.264/AAC mux, full decoded sync | IMPLEMENTED; exact-SHA native evidence pending |
+| A13 | Fixed AV graph, B public receipt boundary, dependency reuse/invalidation | Real certified B source is integrated; private combined native E2E has passed on predecessor diagnostics; exact latest-candidate E2E PENDING |
+| A14 | Motion render, FFV1 mezzanine, MLT H.264/AAC mux, post-encode audio decode/analysis, full decoded sync | IMPLEMENTED; A-side backport and predecessor combined native path passed private CircleCI iterations; exact latest-candidate certification pending |
 | A15 | Figma, video and fail-closed AV Skills plus production runbook | IMPLEMENTED; certified public audio surfaces are present in the combined branch; exact-candidate Skill/catalog gate pending |
 | A16 | Contracts, Figma, Motion, AV, security, fuzz and mutation workflows | IMPLEMENTED; exact-SHA results pending |
 | A17 | Reproducible technical benchmark harness | IMPLEMENTED; no advertising claim |
@@ -34,8 +34,8 @@ This file maps the Agent-A master requirements to implementation and evidence. I
 | G02 | B rescue manifest/hashes | B branch certified at `8ed2d30...`; combined candidate retains B lineage; final candidate provenance pending |
 | G03 | Exact C0 shared; additive C1 handoff contract | C0 satisfied on both histories; additive A-side AV contract integrated; exact combined consumer evidence pending |
 | G04 | Common kernel in Figma/Motion and B audio-authoring C0 consumer | Production consumers are present and B audio is certified; exact combined E2E pending |
-| G05 | Plans/descriptors/Skills grant no authority; Broker rechecks | IMPLEMENTED; exact-SHA CI pending |
-| G06 | Freshness/partial/unknown/cancel/budgets | IMPLEMENTED; exact-SHA CI/native pending |
+| G05 | Plans/descriptors/Skills grant no authority; Broker rechecks | IMPLEMENTED; stale BeginPermit incarnation fix `e58886d50057e85c3fc9d3a14f1483de1c36270d` passed A CircleCI and was handed to G; independent G-FIND-A-001 retest pending |
+| G06 | Freshness/partial/unknown/cancel/budgets | IMPLEMENTED; revoke/expiry/cross-vault permit regressions added; exact-SHA G/native evidence pending |
 | G07 | Inventory, mapping and evidence remain distinct | IMPLEMENTED |
 | G08 | Heavy work hosted; no heavy generated outputs committed | IMPLEMENTED; final hygiene evidence pending |
 | G09 | A+B integration on one SHA | A+B ancestry combined in PR #202; exact candidate certification pending |
