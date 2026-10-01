@@ -3121,6 +3121,7 @@ dependencies = [
  "semwright-motion-authoring",
  "semwright-policy",
  "semwright-recipes",
+ "semwright-registry",
  "semwright-semantic-composition",
  "semwright-types",
  "serde",

@@ -71,8 +71,82 @@ import project from '/src/project.ts?project';
 import {Renderer, Vector2} from '@motion-canvas/core';
 const config=${JSON.stringify(config)};
 const renderer=new Renderer(project);
+const state={done:false,result:null,frame:config.firstFrame,error:null,errorClass:null,rendererLogClass:null,typeErrorDetail:null,phase:'created'};
+function classifyAuthoringMessage(message){
+  if(typeof message!=='string'||message.length===0)return null;
+  if(/^(invalid align|unsupported subject kind|unannounced overlap|overlay anchor unavailable|split requires exactly two layout children|unknown archetype|duplicate logical id|unknown layer|native parent graph cannot be resolved|annotation binding missing|node limit|invalid rational|unsafe color|native scene bounds|caption requires native Txt)$/.test(message))return 'authoring_model';
+  if(/^(non-finite |width requires layout|height requires layout|line start requires Line|line end requires Line|font size requires Layout|tracking requires Layout|fill requires shape|zoom requires Camera|vector operand required|unknown easing|connection requires Line|trace requires native Line|follow requires Camera|incompatible morph topology|selection requires Code|counter requires text|region requires Layout)/.test(message))return 'authoring_model';
+  if(/^missing subject /.test(message)||/^original value unavailable: /.test(message))return 'authoring_model';
+  if(message==='native signal not available'||message==='stage compositor baseline changed'||message==='native frame clock not supplied by exporter'||message==='native authoring probe unavailable'||message==='native text digest binding unavailable'||message==='native text digest binding returned invalid hash'||message==='Semwright exporter binding unavailable'||message==='asset must be a generated local import')return 'authoring_protocol';
+  if(message==='Failed to initialize WebGL.'||message==='Failed to initialize the shader program.'||message==='Unknown shader compilation error.')return 'webgl_unavailable';
+  if(message==='PlaybackManager has not been properly initialized')return 'playback_protocol';
+  if(message==='Invalid scene.')return 'invalid_scene';
+  return null;
+}
+function classifyLogStack(payload){
+  const stack=typeof payload?.stack==='string'?payload.stack:'';
+  // Vite development/build stack URLs may preserve source paths or rewrite scoped
+  // package names into dependency chunk names. Only classify to an allowlisted
+  // module family; never surface the URL, frame, line, stack, or message.
+  if(stack.includes('semwright-authoring-native')||stack.includes('/src/semwright-authoring-native'))return 'semwright_native';
+  if(stack.includes('semwright-exporter')||stack.includes('/src/semwright-exporter'))return 'semwright_exporter';
+  if(stack.includes('@motion-canvas/core')||stack.includes('@motion-canvas_core'))return 'motion_core';
+  if(stack.includes('@motion-canvas/2d')||stack.includes('@motion-canvas_2d'))return 'motion_2d';
+  return null;
+}
+function classifyTypeErrorDetail(message){
+  if(typeof message!=='string')return null;
+  if(message.length>512)return 'other';
+  let match=/^Cannot read properties of (?:undefined|null) \(reading '([A-Za-z_$][A-Za-z0-9_$]{0,63})'\)$/.exec(message);
+  if(match)return 'read:'+match[1];
+  match=/^Cannot set properties of (?:undefined|null) \(setting '([A-Za-z_$][A-Za-z0-9_$]{0,63})'\)$/.exec(message);
+  if(match)return 'set:'+match[1];
+  match=/^(?:can't|Can't) access property ["']([A-Za-z_$][A-Za-z0-9_$]{0,63})["'], .+ is (?:undefined|null)$/.exec(message);
+  if(match)return 'read:'+match[1];
+  match=/^(?:can't|Can't) assign to property ["']([A-Za-z_$][A-Za-z0-9_$]{0,63})["'] on .*(?:undefined|null).*$/.exec(message);
+  if(match)return 'set:'+match[1];
+  match=/^([A-Za-z_$][A-Za-z0-9_$]{0,63}) is not a function$/.exec(message);
+  if(match)return 'not_function:'+match[1];
+  match=/\.([A-Za-z_$][A-Za-z0-9_$]{0,63}) is not a function$/.exec(message);
+  if(match)return 'not_function:'+match[1];
+  if(message.includes(' is not iterable'))return 'not_iterable';
+  if(message==='Cannot convert undefined or null to object')return 'null_object';
+  return 'other';
+}
+function classifyRendererLog(payload){
+  if(!payload||payload.level!=='error')return null;
+  const name=typeof payload.name==='string'?payload.name:'';
+  const message=typeof payload.message==='string'?payload.message:'';
+  const authoring=classifyAuthoringMessage(message);
+  if(authoring==='authoring_model')return 'renderer_log_authoring_model';
+  if(authoring==='authoring_protocol')return 'renderer_log_authoring_protocol';
+  if(authoring==='webgl_unavailable')return 'renderer_log_webgl_unavailable';
+  if(authoring==='playback_protocol')return 'renderer_log_playback_protocol';
+  if(authoring==='invalid_scene')return 'renderer_log_invalid_scene';
+  if(name==='TypeError'){
+    state.typeErrorDetail=classifyTypeErrorDetail(message);
+    const origin=classifyLogStack(payload);
+    if(origin==='semwright_native')return 'renderer_state_semwright_native';
+    if(origin==='semwright_exporter')return 'renderer_state_semwright_exporter';
+    if(origin==='motion_core')return 'renderer_state_motion_core';
+    if(origin==='motion_2d')return 'renderer_state_motion_2d';
+    return 'renderer_log_type_error';
+  }
+  if(name==='RangeError')return 'renderer_log_range_error';
+  if(message.startsWith('Could not find the \"')&&message.endsWith('\" exporter.'))return 'renderer_log_exporter_missing';
+  if(message.includes('Tried to access an asynchronous property before the node was ready.'))return 'renderer_log_async_property';
+  return 'renderer_log_error';
+}
+function classifyRendererStack(error){
+  const stack=typeof error?.stack==='string'?error.stack:'';
+  if(stack.includes('semwright-authoring-native'))return 'renderer_state_semwright_native';
+  if(stack.includes('semwright-exporter'))return 'renderer_state_semwright_exporter';
+  if(stack.includes('@motion-canvas/core'))return 'renderer_state_motion_core';
+  if(stack.includes('@motion-canvas/2d'))return 'renderer_state_motion_2d';
+  return null;
+}
+project.logger.onLogged.subscribe(payload=>{const classified=classifyRendererLog(payload);if(classified)state.rendererLogClass=classified;});
 if(config.authoring){globalThis.__SEMWRIGHT_NATIVE_CONFIG__={fps_num:config.fpsNum,fps_den:config.fpsDen,render_input_digest:config.renderInputDigest,native_stage_version:'3.17.2',font_evidence:config.fontEvidence??[]};}
-const state={done:false,result:null,frame:config.firstFrame,error:null,phase:'created'};
 window.__SEMWRIGHT_RENDER__={state,abort:()=>renderer.abort()};
 renderer.onFrameChanged.subscribe(frame=>{state.frame=frame;state.phase='frame';});
 renderer.onFinished.subscribe(result=>{state.result=result;});
@@ -97,7 +171,25 @@ renderer.onFinished.subscribe(result=>{state.result=result;});
     });
     state.phase='finished';
     state.done=true;
-  } catch(error) { state.error=String(error); state.phase='error'; state.done=true; }
+  } catch(error) {
+    const text=String(error?.message ?? error ?? '');
+    let errorClass='renderer_state_error';
+    const authoring=classifyAuthoringMessage(text);
+    if(authoring==='authoring_model')errorClass='renderer_state_authoring_model';
+    else if(authoring==='authoring_protocol')errorClass='renderer_state_authoring_protocol';
+    else if(authoring==='webgl_unavailable')errorClass='renderer_state_webgl_unavailable';
+    else if(authoring==='playback_protocol')errorClass='renderer_state_playback_protocol';
+    else if(authoring==='invalid_scene')errorClass='renderer_state_invalid_scene';
+    else if(error?.name==='TypeError'){state.typeErrorDetail=classifyTypeErrorDetail(text);errorClass='renderer_state_type_error';}
+    else if(error?.name==='RangeError')errorClass='renderer_state_range_error';
+    else {
+      const stackClass=classifyRendererStack(error);
+      if(stackClass)errorClass=stackClass;
+      else if(state.frame<=config.firstFrame)errorClass='renderer_state_before_first_frame';
+      else errorClass='renderer_state_after_first_frame';
+    }
+    state.error=String(error);state.errorClass=errorClass;state.phase='error';state.done=true;
+  }
 })();
 `;
     },
@@ -107,10 +199,14 @@ function contentType(file) {
   const ext = path.extname(file).toLowerCase();
   return ({'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.woff2':'font/woff2','.woff':'font/woff','.mp4':'video/mp4','.webm':'video/webm','.wav':'audio/wav','.mp3':'audio/mpeg'})[ext] || 'application/octet-stream';
 }
+let failurePhase = 'startup';
+let failureDetail = null;
 async function main() {
+  failurePhase = 'arguments';
   const a = args();
   const runtimeRoot = path.dirname(fileURLToPath(import.meta.url));
   const config = JSON.parse(Buffer.from(a.config, 'base64url').toString('utf8'));
+  failurePhase = 'font_evidence';
   if(config.authoring) config.fontEvidence=await pinnedFontEvidence(runtimeRoot);
   const project = path.resolve(a.project); const output = path.resolve(a.output);
   const work = await fs.mkdtemp(path.join(os.tmpdir(), 'semwright-motion-render-'));
@@ -122,6 +218,7 @@ async function main() {
   const cancel = async () => { if (cancelling) return; cancelling = true; try { await page?.evaluate(() => window.__SEMWRIGHT_RENDER__?.abort()); } catch {} await cleanup(); process.exitCode = 130; };
   process.once('SIGTERM', cancel); process.once('SIGINT', cancel);
   try {
+    failurePhase = 'project_stage';
     await fs.cp(project, work, {recursive:true,dereference:false,errorOnExist:false});
     await fs.rm(path.join(work, 'node_modules'), {recursive:true,force:true});
     await fs.symlink(path.join(runtimeRoot, 'node_modules'), path.join(work, 'node_modules'), 'dir');
@@ -129,10 +226,13 @@ async function main() {
     await fs.writeFile(path.join(work, 'semwright-entry.js'), "import 'virtual:semwright-render';\n");
     const projectEntry=path.join(work,'src/project.ts');
     const renderEntry=path.join(work,'semwright-render.html');
+    failurePhase = 'vite_build';
     await build({root:work,configFile:false,logLevel:'error',base:'/',plugins:[motionCanvas({project:projectEntry,editor:path.join(runtimeRoot,'stub-editor/main.js'),buildForEditor:true}),harnessPlugin(config,renderEntry)],build:{outDir:dist,emptyOutDir:true,rollupOptions:{input:renderEntry}}});
+    failurePhase = 'frame_export';
     await fs.mkdir(path.join(output, 'frames'), {recursive:true});
     if (process.env.SEMWRIGHT_DRIVER_SANDBOX !== 'landlock-bwrap-v1') fail('renderer requires the Semwright Driver Host sandbox');
     const profile = path.join(work, '.semwright-firefox-profile');
+    failurePhase = 'browser_launch';
     context = await firefox.launchPersistentContext(profile, {
       headless:true,
       executablePath:a.browser,
@@ -150,6 +250,10 @@ async function main() {
     const observationHash=createHash('sha256');
     let observationCount=0;
     if(config.authoring) await fs.writeFile(path.join(output,'native-observations.ndjson'),'',{flag:'wx'});
+    await page.exposeBinding('__SEMWRIGHT_TEXT_DIGEST__', async (_source, text) => {
+      if (typeof text !== 'string' || Buffer.byteLength(text, 'utf8') > 65_536) fail('invalid text digest payload');
+      return createHash('sha256').update(Buffer.from(text, 'utf8')).digest('hex');
+    });
     await page.exposeBinding('__SEMWRIGHT_EXPORT_FRAME__', async (_source, payload) => {
       if (!payload || !Number.isSafeInteger(payload.frame) || payload.frame < config.firstFrame || payload.frame >= config.endFrameExclusive || typeof payload.data !== 'string' || !payload.data.startsWith('data:image/png;base64,')) fail('invalid frame payload');
       if (written.has(payload.frame)) fail('duplicate frame payload');
@@ -176,22 +280,47 @@ async function main() {
       try { const body = await fs.readFile(file); await route.fulfill({status:200,body,contentType:contentType(file)}); }
       catch { await route.fulfill({status:404,body:'not found',contentType:'text/plain'}); }
     });
+    failurePhase = 'page_load';
     await page.goto('http://semwright.invalid/semwright-render.html', {waitUntil:'domcontentloaded',timeout:config.timeoutMs});
+    failurePhase = 'render_wait';
     try {
       await page.waitForFunction(() => window.__SEMWRIGHT_RENDER__?.state?.done === true, undefined, {timeout:config.timeoutMs});
     } catch (error) {
       const state = await page.evaluate(() => window.__SEMWRIGHT_RENDER__?.state ?? null).catch(()=>null);
+      failurePhase='render_wait_timeout';
       fail(`render wait failed: ${error}; state=${JSON.stringify(state)} diagnostics=${JSON.stringify(diagnostics)}`);
     }
     const state = await page.evaluate(() => window.__SEMWRIGHT_RENDER__.state);
-    if (state.error) fail(`renderer failed: ${state.error}`);
-    if (state.result !== 0) fail(`renderer result ${state.result}; state=${JSON.stringify(state)} diagnostics=${JSON.stringify(diagnostics)}`);
+    if (state.error) {
+      const allowedStateClasses=new Set(['renderer_state_authoring_model','renderer_state_authoring_protocol','renderer_state_webgl_unavailable','renderer_state_playback_protocol','renderer_state_invalid_scene','renderer_state_type_error','renderer_state_range_error','renderer_state_semwright_native','renderer_state_semwright_exporter','renderer_state_motion_core','renderer_state_motion_2d','renderer_state_before_first_frame','renderer_state_after_first_frame','renderer_state_error']);
+      const allowedLogClasses=new Set(['renderer_log_authoring_model','renderer_log_authoring_protocol','renderer_log_webgl_unavailable','renderer_log_playback_protocol','renderer_log_invalid_scene','renderer_log_type_error','renderer_state_semwright_native','renderer_state_semwright_exporter','renderer_state_motion_core','renderer_state_motion_2d','renderer_log_range_error','renderer_log_exporter_missing','renderer_log_async_property','renderer_log_error']);
+      const stateClass=allowedStateClasses.has(state.errorClass)?state.errorClass:'renderer_state_error';
+      const logClass=allowedLogClasses.has(state.rendererLogClass)?state.rendererLogClass:null;
+      failurePhase=stateClass==='renderer_state_error'&&logClass?logClass:stateClass;
+      failureDetail=typeof state.typeErrorDetail==='string'?state.typeErrorDetail:null;
+      fail(`renderer failed: ${state.error}`);
+    }
+    if (state.result !== 0) {
+      if(state.result===2)failurePhase='render_result_aborted';
+      else if(state.result===1)failurePhase=state.rendererLogClass??'render_result_error';
+      else failurePhase='render_result_unknown';
+      failureDetail=typeof state.typeErrorDetail==='string'?state.typeErrorDetail:null;
+      fail(`renderer result ${state.result}; state=${JSON.stringify(state)} diagnostics=${JSON.stringify(diagnostics)}`);
+    }
+    failurePhase = 'observation';
     if(config.authoring){
       if(observationCount!==config.endFrameExclusive-config.firstFrame)fail('native observation count incomplete');
       await fs.writeFile(path.join(output,'native-observations-receipt.json'),JSON.stringify({version:1,render_input_digest:config.renderInputDigest,font_resources_sha256:config.fontResourcesDigest,sha256:observationHash.digest('hex'),bytes:observationBytes,frames:observationCount,fps_num:config.fpsNum,fps_den:config.fpsDen}),{flag:'wx'});
     }
+    failurePhase = 'finalize';
     const files = (await fs.readdir(path.join(output,'frames'))).sort();
     process.stdout.write(JSON.stringify({ok:true,renderer:'motion-canvas-core-renderer-v3.17.2-firefox',lastFrame:state.frame,files:files.map(file=>`frames/${file}`)})+'\n');
   } finally { await cleanup(); }
 }
-main().catch(error => { process.stderr.write(String(error?.stack || error) + '\n'); process.exitCode = 1; });
+main().catch(error => {
+  const allowed = new Set(['arguments','font_evidence','project_stage','vite_build','frame_export','browser_launch','page_load','render_wait','render_wait_timeout','renderer_state_authoring_model','renderer_state_authoring_protocol','renderer_state_webgl_unavailable','renderer_state_playback_protocol','renderer_state_invalid_scene','renderer_state_type_error','renderer_state_range_error','renderer_state_semwright_native','renderer_state_semwright_exporter','renderer_state_motion_core','renderer_state_motion_2d','renderer_state_before_first_frame','renderer_state_after_first_frame','renderer_state_error','renderer_log_authoring_model','renderer_log_authoring_protocol','renderer_log_webgl_unavailable','renderer_log_playback_protocol','renderer_log_invalid_scene','renderer_log_type_error','renderer_log_range_error','renderer_log_exporter_missing','renderer_log_async_property','renderer_log_error','render_result_error','render_result_aborted','render_result_unknown','render_nonzero','observation','finalize']);
+  const errorClass = allowed.has(failurePhase) ? failurePhase : 'startup';
+  process.stdout.write(JSON.stringify({ok:false,errorClass,detail:failureDetail})+'\n');
+  process.stderr.write(String(error?.stack || error) + '\n');
+  process.exitCode = 1;
+});

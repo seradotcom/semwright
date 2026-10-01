@@ -14,9 +14,23 @@ import subprocess
 import sys
 
 SUITES = {
-    "av": (["semwright-av-composition"], 38),
-    "motion": (["semwright-motion-authoring"], 20),
-    "contracts": (["semwright-semantic-composition", "semwright-media-time"], 43),
+    # AV native integration is a separate exact-SHA gate. The portable suite
+    # must not execute or count its intentionally ignored runtime E2E.
+    "av": {
+        "packages": ["semwright-av-composition"],
+        "targets": ["--lib", "--test", "contracts"],
+        "minimum": 54,
+    },
+    "motion": {
+        "packages": ["semwright-motion-authoring"],
+        "targets": ["--all-targets"],
+        "minimum": 29,
+    },
+    "contracts": {
+        "packages": ["semwright-semantic-composition", "semwright-media-time"],
+        "targets": ["--all-targets"],
+        "minimum": 65,
+    },
 }
 
 def main():
@@ -54,11 +68,14 @@ def main():
         root = Path("verification/circleci-composition")
         evidence_authority = "circleci-private-iteration"
         certification_eligible = False
-    packages, minimum = SUITES[args.suite]
+    suite = SUITES[args.suite]
+    packages = suite["packages"]
+    minimum = suite["minimum"]
     cmd = ["cargo", "test", "--locked"]
     for package in packages:
         cmd.extend(["-p", package])
-    cmd.extend(["--all-targets", "--", "--nocapture"])
+    cmd.extend(suite["targets"])
+    cmd.extend(["--", "--nocapture"])
     root.mkdir(parents=True, exist_ok=True)
     log_path = root / (args.suite + ".log")
     with log_path.open("w") as log:

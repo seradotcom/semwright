@@ -37,6 +37,7 @@ def classify(files: list[str], certify: bool=False) -> dict[str,bool]:
         ))
         if common or workspace or any_prefix(p,(
             "fixtures/composition/","benchmarks/composition/","scripts/composition/run-suite.py",
+            "scripts/composition/test-run-suite.py",
         )):
             flags["contracts"]=True
         if any_prefix(p,(
@@ -48,7 +49,7 @@ def classify(files: list[str], certify: bool=False) -> dict[str,bool]:
             "packaging/composition-development/","scripts/composition/package-dev.py",
             "scripts/composition/test-package-dev.py","scripts/composition/candidate-evidence.py",
             "scripts/composition/test-candidate-evidence.py","scripts/composition/ci-scope.py",
-            "scripts/composition/test-ci-scope.py","docs/composition/CANDIDATE_EVIDENCE",
+            "scripts/composition/test-ci-scope.py","scripts/composition/test-run-suite.py","docs/composition/CANDIDATE_EVIDENCE",
         )):
             flags["package"]=True
         if any_prefix(p,(

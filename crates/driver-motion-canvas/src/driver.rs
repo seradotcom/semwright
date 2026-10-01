@@ -41,14 +41,60 @@ struct EmptyArgs {}
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct CreateArgs {
+    // The legacy wire remains deserialized into the complete Project and then
+    // passes project_valid(); the descriptor uses the bounded envelope so the
+    // Registry never recursively expands every nested authoring/node schema.
+    #[schemars(with = "ProjectInspectSchema")]
     project: Project,
     #[serde(default)]
     dry_run: bool,
+}
+// Schema-only envelope for the legacy transactional surface. Operation remains
+// the runtime decode type and rejects unknown/malformed operation bodies. The
+// catalog exposes the required discriminator without recursively expanding every
+// operation payload into every diff/apply descriptor.
+#[allow(dead_code)]
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+enum LegacyOperationTagSchema {
+    SettingsPatch,
+    ThemePatch,
+    VariableSet,
+    VariableRemove,
+    SceneCreate,
+    ScenePatch,
+    SceneDuplicate,
+    SceneRemove,
+    SceneReorder,
+    NodeCreate,
+    NodePatch,
+    NodeRemove,
+    NodeReparent,
+    NodeReorder,
+    AnimationAdd,
+    AnimationPatch,
+    AnimationRemove,
+    AnimationGroup,
+    CueUpsert,
+    CueRemove,
+    AudioSet,
+    AssetRemove,
+    CodeHighlight,
+    CameraFocus,
+    DiagramEdgeCreate,
+    ComponentCreate,
+    AnimationPreset,
+}
+#[allow(dead_code)]
+#[derive(Debug, Clone, JsonSchema)]
+struct LegacyOperationSchema {
+    op: LegacyOperationTagSchema,
 }
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct ApplyArgs {
     expected_fingerprint: String,
+    #[schemars(with = "Vec<LegacyOperationSchema>")]
     operations: Vec<Operation>,
     #[serde(default)]
     dry_run: bool,
@@ -140,9 +186,39 @@ struct DoctorOutput {
     active_jobs: usize,
     capability_count: usize,
 }
+// Schema-only view for the legacy deep-inspection response. Runtime Project
+// validation remains complete; this avoids recursively embedding Motion authoring IR.
+#[allow(dead_code)]
+#[derive(Debug, Clone, JsonSchema)]
+struct ProjectInspectSceneSchema {
+    id: String,
+    name: String,
+    duration_ms: u64,
+    nodes: Vec<Value>,
+    animations: Vec<Value>,
+    cues: Vec<Value>,
+    transition: Option<Value>,
+}
+#[allow(dead_code)]
+#[derive(Debug, Clone, JsonSchema)]
+struct ProjectInspectSchema {
+    authoring: Option<Value>,
+    schema_version: u32,
+    component_version: u32,
+    id: String,
+    generation: String,
+    revision: u64,
+    settings: Settings,
+    theme: Theme,
+    variables: BTreeMap<String, Value>,
+    scenes: Vec<ProjectInspectSceneSchema>,
+    assets: Vec<Asset>,
+    audio: Vec<AudioTrack>,
+}
 #[derive(Debug, Clone, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct SnapshotOutput {
+    #[schemars(with = "ProjectInspectSchema")]
     project: Project,
     fingerprint: String,
     refs: Vec<ObjectRef>,
@@ -930,11 +1006,10 @@ impl MotionDriver {
                     ));
                 }
                 RenderState::Failed => {
-                    return Err(Error::new(
-                        ErrorCode::BackendFailed,
-                        view.error
-                            .unwrap_or_else(|| "Motion Canvas render failed".into()),
-                    ));
+                    // A terminal renderer failure is still an observed JobView outcome.
+                    // Returning the declared output preserves the allowlisted failure
+                    // class without exposing renderer stderr or untrusted messages.
+                    return Ok(view);
                 }
                 RenderState::Queued | RenderState::Starting | RenderState::Rendering => {}
             }
@@ -1005,6 +1080,12 @@ impl MotionDriver {
             }
             "driver.motion-canvas.project.create" => {
                 let input: CreateArgs = Self::parse(args)?;
+                if input.project.authoring.is_some() {
+                    return Err(Error::new(
+                        ErrorCode::Conflict,
+                        "Authoring binding is server-owned; create high-level projects through composition.plan/apply",
+                    ));
+                }
                 if matches!(
                     self.detect_project()?.mode,
                     ProjectMode::External | ProjectMode::ManagedIsland
@@ -1041,6 +1122,12 @@ impl MotionDriver {
             }
             "driver.motion-canvas.project.island.create" => {
                 let input: CreateArgs = Self::parse(args)?;
+                if input.project.authoring.is_some() {
+                    return Err(Error::new(
+                        ErrorCode::Conflict,
+                        "Authoring binding is server-owned; create high-level projects through composition.plan/apply",
+                    ));
+                }
                 let detected = self.detect_project()?;
                 if detected.mode != ProjectMode::External
                     || !detected.project_entry
@@ -1660,12 +1747,100 @@ mod tests {
     }
 
     #[test]
+    fn every_motion_capability_schema_fits_registry_budget() {
+        for capability in MotionDriver::catalog().unwrap() {
+            semwright_registry::bounds::schema_budget(&capability.descriptor.input_schema, true)
+                .unwrap_or_else(|error| {
+                    panic!(
+                        "{} input schema exceeded Registry budget: {error:?}",
+                        capability.descriptor.name
+                    )
+                });
+            semwright_registry::bounds::schema_budget(&capability.descriptor.output_schema, true)
+                .unwrap_or_else(|error| {
+                    panic!(
+                        "{} output schema exceeded Registry budget: {error:?}",
+                        capability.descriptor.name
+                    )
+                });
+        }
+    }
+
+    #[test]
+    fn legacy_apply_schema_preserves_operation_discriminator_and_runtime_strictness() {
+        let capability = MotionDriver::catalog()
+            .unwrap()
+            .into_iter()
+            .find(|capability| capability.descriptor.name == "driver.motion-canvas.project.apply")
+            .expect("project.apply capability");
+        semwright_registry::bounds::schema_budget(&capability.descriptor.input_schema, true)
+            .unwrap();
+        let validator = jsonschema::validator_for(&capability.descriptor.input_schema).unwrap();
+
+        let valid = json!({
+            "expected_fingerprint": "a".repeat(64),
+            "operations": [{"op":"settings_patch","patch":{"fps":60}}],
+            "dry_run": true
+        });
+        assert!(validator.is_valid(&valid));
+        assert!(serde_json::from_value::<ApplyArgs>(valid).is_ok());
+
+        let unknown_tag = json!({
+            "expected_fingerprint": "a".repeat(64),
+            "operations": [{"op":"shell","command":"echo unsafe"}],
+            "dry_run": true
+        });
+        assert!(!validator.is_valid(&unknown_tag));
+        assert!(serde_json::from_value::<ApplyArgs>(unknown_tag).is_err());
+
+        let malformed_known_tag = json!({
+            "expected_fingerprint": "a".repeat(64),
+            "operations": [{"op":"settings_patch","unknown":true}],
+            "dry_run": true
+        });
+        assert!(
+            validator.is_valid(&malformed_known_tag),
+            "bounded descriptor intentionally validates the operation tag, not every legacy body"
+        );
+        assert!(
+            serde_json::from_value::<ApplyArgs>(malformed_known_tag).is_err(),
+            "runtime Operation decoding must remain strict"
+        );
+    }
+
+    #[test]
+    fn project_inspect_schema_is_registry_bounded_and_accepts_real_output_shape() {
+        let capability = MotionDriver::catalog()
+            .unwrap()
+            .into_iter()
+            .find(|capability| capability.descriptor.name == "driver.motion-canvas.project.inspect")
+            .expect("project.inspect capability");
+        semwright_registry::bounds::schema_budget(&capability.descriptor.input_schema, true)
+            .unwrap();
+        semwright_registry::bounds::schema_budget(&capability.descriptor.output_schema, true)
+            .unwrap();
+
+        let output = serde_json::to_value(SnapshotOutput {
+            project: Project::empty("inspect-schema-fixture".into()),
+            fingerprint: "a".repeat(64),
+            refs: vec![],
+            generated: vec![],
+        })
+        .unwrap();
+        let validator = jsonschema::validator_for(&capability.descriptor.output_schema).unwrap();
+        assert!(
+            validator.is_valid(&output),
+            "compact project.inspect schema rejected the driver's own validated output"
+        );
+    }
+
+    #[test]
     fn capability_catalog_and_manifest_are_stable_goldens() {
         let catalog = MotionDriver::catalog().unwrap();
         let digest = semwright_driver_sdk::capabilities_digest(&catalog).unwrap();
         assert_eq!(
             digest,
-            "6ffaad28295f809f11a89338e9ab2dc588b545463e138e4f039353098bbfbab8"
+            "d7a1bc53c1cc25bfb839edbb99b81c03bf720441f050e86144fd6c9aa672a5a5"
         );
 
         let manifest_bytes = include_bytes!("../driver.manifest.example.json");
@@ -1939,6 +2114,29 @@ mod driver_tests {
         assert_eq!(out["motion_canvas_version"], MOTION_CANVAS_VERSION);
         assert_eq!(out["exact_runtime_match"], true);
         assert_eq!(out["mutation_supported"], false);
+    }
+
+    #[tokio::test]
+    async fn legacy_create_rejects_server_owned_authoring_binding() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = std::fs::canonicalize(temp.path()).unwrap();
+        let mut driver = MotionDriver::for_project_root(&root).unwrap();
+        let film: semwright_motion_authoring::Film = semwright_semantic_composition::strict_decode(
+            include_bytes!("../../../fixtures/composition/motion/technical.json"),
+        )
+        .unwrap();
+        let (project, _) = crate::authoring::project(&film, None).unwrap();
+        assert!(project.authoring.is_some());
+
+        let error = call(
+            &mut driver,
+            "driver.motion-canvas.project.create",
+            json!({"project":project,"dry_run":true}),
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(error.code, ErrorCode::Conflict);
+        assert!(!root.join(crate::store::SEMANTIC_FILE).exists());
     }
 
     #[tokio::test]
