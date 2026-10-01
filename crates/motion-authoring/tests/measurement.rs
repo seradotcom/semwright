@@ -124,6 +124,75 @@ fn complete_native_frame_range_passes_and_missing_frame_is_unknown() {
     assert_eq!(coverage_check.verdict, c::Verdict::Unknown);
 }
 
+
+#[test]
+fn transition_completion_requires_a_post_interval_frame_not_the_exact_boundary() {
+    let mut film = film();
+    film.sequences[0].beats[0].shots[0].motion = vec![Invocation {
+        id: "motion".into(),
+        span_id: "motion-span".into(),
+        easing: MotionEasing::Linear,
+        primitive: Primitive::FadeIn {
+            target: "box_a".into(),
+        },
+    }];
+
+    let boundary = TransitionObservation {
+        invocation_id: "motion".into(),
+        finished: Known::Known { value: false },
+    };
+    let completed = TransitionObservation {
+        invocation_id: "motion".into(),
+        finished: Known::Known { value: true },
+    };
+    let mut f0 = frame(0);
+    f0.transitions = vec![boundary.clone()];
+    let mut f1 = frame(1);
+    // Frame 1 is exactly the end of motion-span [0, 1). Motion Canvas may
+    // not have committed the generator completion receipt until evaluation
+    // continues past this frame, so false here is not a failure.
+    f1.transitions = vec![boundary];
+    let mut f2 = frame(2);
+    f2.transitions = vec![completed];
+
+    let result = measured(&film, vec![f0, f1, f2]);
+    let transition = result
+        .validation
+        .checks
+        .iter()
+        .find(|check| check.rule == "transition-completion")
+        .unwrap();
+    assert_eq!(transition.verdict, c::Verdict::Pass);
+}
+
+#[test]
+fn transition_completion_without_post_interval_evidence_is_unknown() {
+    let mut film = film();
+    film.sequences[0].beats[0].shots[0].motion = vec![Invocation {
+        id: "motion".into(),
+        span_id: "shot-span".into(),
+        easing: MotionEasing::Linear,
+        primitive: Primitive::FadeIn {
+            target: "box_a".into(),
+        },
+    }];
+    let mut frames = vec![frame(0), frame(1), frame(2)];
+    for value in &mut frames {
+        value.transitions = vec![TransitionObservation {
+            invocation_id: "motion".into(),
+            finished: Known::Known { value: false },
+        }];
+    }
+    let result = measured(&film, frames);
+    let transition = result
+        .validation
+        .checks
+        .iter()
+        .find(|check| check.rule == "transition-completion")
+        .unwrap();
+    assert_eq!(transition.verdict, c::Verdict::Unknown);
+}
+
 #[test]
 fn native_frame_order_range_and_identity_are_fail_closed() {
     let film = film();

@@ -312,7 +312,13 @@ where
     let mut exhaustive = true;
     let mut cue_failure = false;
     let mut caption_failure = false;
+    let transition_required = film
+        .shots()
+        .flat_map(|shot| shot.motion.iter().map(|invocation| invocation.id.clone()))
+        .collect::<BTreeSet<_>>();
+    let mut transition_observed = BTreeSet::new();
     let mut transition_failure = false;
+    let mut transition_unknown = false;
     let cues = film.cues.resolve()?;
     for result in frames {
         let frame = result?;
@@ -531,19 +537,31 @@ where
             }
             for invocation in &shot.motion {
                 let end = realized.schedule.interval(&invocation.span_id)?.end;
-                if now >= end {
-                    transition_failure |= frame
+                // Motion Canvas generators can finish while evaluating the frame
+                // exactly at the half-open interval boundary. That frame proves
+                // terminal visual state, but not yet that the generator's
+                // continuation set the completion receipt. Require the first
+                // observed frame strictly after the interval end.
+                if now > end {
+                    match frame
                         .transitions
                         .iter()
                         .find(|t| t.invocation_id == invocation.id)
                         .and_then(|t| t.finished.value())
-                        != Some(&true);
+                    {
+                        Some(true) => {
+                            transition_observed.insert(invocation.id.clone());
+                        }
+                        Some(false) => transition_failure = true,
+                        None => transition_unknown = true,
+                    }
                 }
             }
         }
     }
     exhaustive &= observed == coverage.end_frame_exclusive - coverage.first_frame
         && previous == Some(coverage.end_frame_exclusive - 1);
+    transition_unknown |= !transition_required.is_subset(&transition_observed);
     // Full-Film rules cannot PASS from a partial range even when that range is exhaustive.
     let full = coverage.first_frame == 0
         && coverage.end_frame_exclusive == realized.schedule.frame_count(&film.output)?;
@@ -627,11 +645,6 @@ where
             !caption_failure,
             "caption state differs from resolved cue",
         ),
-        (
-            "transition-completion",
-            !transition_failure,
-            "transition not observed complete after its interval",
-        ),
     ] {
         required.insert(name.into());
         checks.push(c::RuleResult {
@@ -649,6 +662,27 @@ where
             reason: if passed { None } else { Some(reason.into()) },
         });
     }
+    required.insert("transition-completion".into());
+    checks.push(c::RuleResult {
+        rule: "transition-completion".into(),
+        version: 1,
+        verdict: if transition_failure {
+            Verdict::Fail
+        } else if transition_unknown {
+            Verdict::Unknown
+        } else {
+            Verdict::Pass
+        },
+        evidence_class: c::EvidenceClass::Deterministic,
+        evidence: vec![observation.clone()],
+        reason: if transition_failure {
+            Some("transition observed incomplete after its half-open interval".into())
+        } else if transition_unknown {
+            Some("no post-interval native frame proved transition completion".into())
+        } else {
+            None
+        },
+    });
     let validation = c::ValidationReport {
         plan_digest,
         base,
