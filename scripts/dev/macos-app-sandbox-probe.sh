@@ -12,7 +12,12 @@ RO="$ROOT/ro"
 RW="$ROOT/rw"
 BUILD="$ROOT/build"
 mkdir -p "$RO" "$RW" "$BUILD" "$DENIED_ROOT"
-trap 'kill "${SERVER_PID:-}" 2>/dev/null || true; rm -rf "$ROOT" "$DENIED_ROOT"' EXIT
+cleanup() {
+  kill "${SERVER_PID:-}" 2>/dev/null || true
+  chmod -R u+w "$ROOT" "$DENIED_ROOT" 2>/dev/null || true
+  rm -rf "$ROOT" "$DENIED_ROOT"
+}
+trap cleanup EXIT
 
 printf 'allowed-ro' > "$RO/input.txt"
 printf 'denied' > "$DENIED_ROOT/secret.txt"
@@ -51,6 +56,9 @@ codesign --force --sign - --options runtime   --entitlements "$BUILD/child.entit
 
 codesign --verify --strict --verbose=2 "$BUILD/parent"
 codesign --verify --strict --verbose=2 "$BUILD/child"
+
+echo "running sandboxed parent smoke before child inheritance/path checks"
+"$BUILD/parent" --smoke
 
 python3 -m http.server 18765 --bind 127.0.0.1 --directory "$BUILD"   >"$BUILD/http.log" 2>&1 &
 SERVER_PID=$!

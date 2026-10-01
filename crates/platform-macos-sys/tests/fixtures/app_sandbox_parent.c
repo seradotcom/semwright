@@ -2,11 +2,16 @@
 #include <spawn.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/wait.h>
 
 extern char **environ;
 
 int main(int argc, char **argv) {
+    if (argc == 2 && strcmp(argv[1], "--smoke") == 0) {
+        puts("sandbox-parent-smoke: PASS");
+        return 0;
+    }
     if (argc != 6) {
         fprintf(stderr, "usage: parent CHILD RO RW DENIED PORT\n");
         return 64;
