@@ -598,6 +598,8 @@ async fn run_render(
     job_ref: &str,
 ) -> Result<ArtifactSummary> {
     set_state(jobs, job_ref, RenderState::Starting).await;
+    let mut failure_class = RenderFailureClass::Startup;
+    let result: Result<ArtifactSummary> = async {
     if std::env::var("SEMWRIGHT_DRIVER_SANDBOX").as_deref() != Ok("landlock-bwrap-v1") {
         return Err(Error::new(
             ErrorCode::SandboxDenied,
@@ -610,6 +612,7 @@ async fn run_render(
             "Render cancelled before start",
         ));
     }
+    failure_class = RenderFailureClass::ProjectStage;
     fs::create_dir_all(output_root)?;
     let output = output_root.join(id);
     fs::create_dir(&output)?;
@@ -639,6 +642,7 @@ async fn run_render(
         "alpha": plan.alpha,
         "timeoutMs": plan.timeout_ms,
     });
+    failure_class = RenderFailureClass::Arguments;
     let encoded = URL_SAFE_NO_PAD.encode(serde_json::to_vec(&config)?);
 
     // The narrow Node helper owns the pinned Firefox process. Both inherit the
@@ -678,6 +682,7 @@ async fn run_render(
         use std::os::unix::process::CommandExt;
         command.as_std_mut().process_group(0);
     }
+    failure_class = RenderFailureClass::Startup;
     let mut child = match command.spawn() {
         Ok(child) => child,
         Err(error) => {
@@ -727,15 +732,18 @@ async fn run_render(
             .await
             .map(|_| bytes)
     });
+    failure_class = RenderFailureClass::RenderWait;
     set_state(jobs, job_ref, RenderState::Rendering).await;
     let status = tokio::select! {
         status = child.wait() => status?,
         _ = cancel.cancelled() => {
+            failure_class = RenderFailureClass::RenderResultAborted;
             terminate_tree(pid, &mut child).await;
             let _ = fs::remove_dir_all(&output);
             return Err(Error::new(ErrorCode::Cancelled, "Render cancelled"));
         }
         _ = tokio::time::sleep(Duration::from_millis(plan.timeout_ms)) => {
+            failure_class = RenderFailureClass::RenderWaitTimeout;
             terminate_tree(pid, &mut child).await;
             let _ = fs::remove_dir_all(&output);
             return Err(Error::new(ErrorCode::Timeout, "Render exceeded timeout"));
@@ -748,6 +756,7 @@ async fn run_render(
         .await
         .map_err(|_| Error::new(ErrorCode::Internal, "Renderer stderr task failed"))??;
     if stdout.len() > MAX_PROCESS_OUTPUT as usize || stderr.len() > MAX_PROCESS_OUTPUT as usize {
+        failure_class = RenderFailureClass::RenderNonzero;
         let _ = fs::remove_dir_all(&output);
         return Err(Error::new(
             ErrorCode::ResourceExhausted,
@@ -756,11 +765,9 @@ async fn run_render(
     }
     if !status.success() {
         let _ = fs::remove_dir_all(&output);
-        let failure_class = renderer_failure_class(&stdout);
-        if let Some(failure_class) = failure_class {
-            set_failure_class(jobs, job_ref, failure_class).await;
-        }
-        let code = failure_class
+        let receipt_class = renderer_failure_class(&stdout);
+        failure_class = receipt_class.unwrap_or(RenderFailureClass::RenderNonzero);
+        let code = receipt_class
             .map(RenderFailureClass::code)
             .unwrap_or_else(|| renderer_process_failure_code(&status, &stdout));
         return Err(Error::new(
@@ -768,6 +775,7 @@ async fn run_render(
             "Pinned Motion Canvas renderer exited without a validated success receipt",
         ));
     }
+    failure_class = RenderFailureClass::RenderResultUnknown;
     let stdout = String::from_utf8(stdout).map_err(|_| {
         Error::new(
             ErrorCode::PluginProtocolError,
@@ -800,6 +808,11 @@ async fn run_render(
     // Full-film validation decodes and hashes every rendered PNG. Keep that bounded
     // synchronous work off the current-thread protocol runtime so render.status and
     // cancellation requests remain responsive while large artifacts are certified.
+    failure_class = if project.authoring.is_some() {
+        RenderFailureClass::Observation
+    } else {
+        RenderFailureClass::Finalize
+    };
     let validation_output = output.clone();
     let validation_plan = plan.clone();
     let validation_authoring = project.authoring.is_some();
@@ -830,6 +843,12 @@ async fn run_render(
             }
         }
     }
+    }
+    .await;
+    if result.is_err() {
+        set_failure_class(jobs, job_ref, failure_class).await;
+    }
+    result
 }
 
 #[cfg(unix)]
