@@ -752,7 +752,13 @@ async fn audio_consumer_receipt(
         }],
         ducking: vec![],
         cues: cues.clone(),
-        dependencies: BTreeMap::from([("sync-cue-source".into(), dependency)]),
+        dependencies: BTreeMap::from([
+            ("sync-cue-source".into(), dependency),
+            (
+                sample.id.clone(),
+                Digest::parse(sample_sha.clone()).unwrap(),
+            ),
+        ]),
         delivery: AudioDeliveryProfile {
             id: "combined-av".into(),
             peak_ceiling_millidbfs: 0,
