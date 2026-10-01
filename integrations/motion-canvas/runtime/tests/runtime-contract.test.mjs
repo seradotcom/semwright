@@ -45,6 +45,8 @@ test('renderer TypeErrors expose only allowlisted stack origins and normalized h
   assert.ok(render.includes("'read:'+match[1]"));
   assert.ok(render.includes("'set:'+match[1]"));
   assert.ok(render.includes("'not_function:'+match[1]"));
+  assert.ok(render.includes("(?:can't|Can't) access property"));
+  assert.ok(render.includes('message.length>512'));
   assert.ok(render.includes('detail:failureDetail'));
   assert.equal((render.match(/failureDetail=typeof state\.typeErrorDetail/g) ?? []).length, 2);
   assert.ok(render.includes("stack.includes('semwright-authoring-native')"));

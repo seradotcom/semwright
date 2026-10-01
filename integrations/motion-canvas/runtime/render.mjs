@@ -96,11 +96,18 @@ function classifyLogStack(payload){
 }
 function classifyTypeErrorDetail(message){
   if(typeof message!=='string')return null;
+  if(message.length>512)return 'other';
   let match=/^Cannot read properties of (?:undefined|null) \(reading '([A-Za-z_$][A-Za-z0-9_$]{0,63})'\)$/.exec(message);
   if(match)return 'read:'+match[1];
   match=/^Cannot set properties of (?:undefined|null) \(setting '([A-Za-z_$][A-Za-z0-9_$]{0,63})'\)$/.exec(message);
   if(match)return 'set:'+match[1];
+  match=/^(?:can't|Can't) access property ["']([A-Za-z_$][A-Za-z0-9_$]{0,63})["'], .+ is (?:undefined|null)$/.exec(message);
+  if(match)return 'read:'+match[1];
+  match=/^(?:can't|Can't) assign to property ["']([A-Za-z_$][A-Za-z0-9_$]{0,63})["'] on .*(?:undefined|null).*$/.exec(message);
+  if(match)return 'set:'+match[1];
   match=/^([A-Za-z_$][A-Za-z0-9_$]{0,63}) is not a function$/.exec(message);
+  if(match)return 'not_function:'+match[1];
+  match=/\.([A-Za-z_$][A-Za-z0-9_$]{0,63}) is not a function$/.exec(message);
   if(match)return 'not_function:'+match[1];
   if(message.includes(' is not iterable'))return 'not_iterable';
   if(message==='Cannot convert undefined or null to object')return 'null_object';
