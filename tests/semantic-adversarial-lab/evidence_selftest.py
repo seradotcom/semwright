@@ -135,6 +135,15 @@ def secondary_runtime_mount_is_scoped():
     )
 
 
+def blender_state_tmpdir_is_exec_allowlisted():
+    native = (Path(__file__).resolve().parent / "native_apps.py").read_text()
+    profile = (Path(__file__).resolve().parents[2] / "scripts/dev/ci-driver-bwrap-profile.sh").read_text()
+    return (
+        '"TMPDIR": "/tmp"' in native
+        and "allow ix /tmp/**," in profile
+    )
+
+
 def native_file_size_budget_is_bounded():
     lock = strict_json((Path(__file__).resolve().parent / "targets.json").read_bytes())
     limits = lock["limits"]
@@ -202,4 +211,5 @@ def evidence_cases():
         ("G-SELF-097", native_address_space_budget_is_bounded),
         ("G-SELF-098", native_file_size_budget_is_bounded),
         ("G-SELF-099", secondary_runtime_mount_is_scoped),
+        ("G-SELF-100", blender_state_tmpdir_is_exec_allowlisted),
     ]

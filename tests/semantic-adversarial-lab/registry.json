@@ -4773,6 +4773,17 @@
       "expected": {
         "policy_denied": true
       }
+    },
+    {
+      "id": "G-SELF-100",
+      "owner": "G",
+      "requirement": "G11",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "Blender DriverProvider private state uses AppArmor-executable /tmp staging rather than runner workspace TMPDIR",
+      "expected": {
+        "ok": true
+      }
     }
   ]
 }

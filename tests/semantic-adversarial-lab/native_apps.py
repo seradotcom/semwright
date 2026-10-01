@@ -879,7 +879,7 @@ def run_blender(target: Path, source_sha: str, suite_sha: str,
         env = {
             "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
             "HOME": str(home),
-            "TMPDIR": str(scratch_root),
+            "TMPDIR": "/tmp",
             "LANG": "C.UTF-8",
             "LC_ALL": "C.UTF-8",
             "PYTHONDONTWRITEBYTECODE": "1",

@@ -392,7 +392,7 @@
         "godot-native artifact 3813bc488c953f32740c1b8df43bfd7f369ae8f8c5a3cf496c1074c31881fcd7",
         "selftest 99/99 PASS artifact 08b7065ab21a7a0b06aca563c10f37811ba57d170adf2e7fb81fc556964622fd"
       ],
-      "blocker": "Godot D target e6bd948 produced two open native findings (G-FIND-D-001 persistence dependency stability; G-FIND-D-002 observer false-PASS) reported to D. Independent Blender-native lane now registers 14 Broker/DriverHost/Blender cases against E 3d04d84; exact-SHA execution pending.",
+      "blocker": "Godot native has two open D findings (persistence sentinel stability and observer false-PASS). Initial Blender-native run 36820818201 was G BLOCKED before Hello because probe overrode TMPDIR into runner workspace while AppArmor nested exec permits /tmp/**. Harness now restores /tmp staging and G-SELF-100 guards it; exact-SHA Blender retest pending.",
       "implementation_suite_sha": "a337709ffdd2e05f40da408e3a78183651dff113",
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },
