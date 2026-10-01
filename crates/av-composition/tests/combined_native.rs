@@ -516,14 +516,14 @@ impl Harness {
             false,
         )
         .await?;
-        let capabilities = Provider::capabilities(&provider).await?;
+        let capabilities = Provider::capabilities(provider.as_ref()).await?;
         let descriptor = capabilities
             .iter()
             .find(|capability| capability.descriptor.name == "driver.faust-audio.sample.render")
             .expect("direct Faust sample.render descriptor");
         args["output_file"] = Value::String("sync-direct-diagnostic.wav".into());
         Provider::execute(
-            &provider,
+            provider.as_ref(),
             &Context {
                 session: "combined-av-direct-faust-diagnostic".into(),
                 request_id: "combined-av-direct-faust-sample-render".into(),
