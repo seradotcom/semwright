@@ -7,7 +7,8 @@ use semwright_audio_authoring::{
 use semwright_audio_domain::{
     analysis::LoudnessAnalysis,
     model::{
-        AudioProfile, AudioProject, Sample, SampleOrigin, SampleSource, Signal, SignalNodeKind, Synth,
+        AudioProfile, AudioProject, Sample, SampleOrigin, SampleSource, Signal, SignalNodeKind,
+        Synth,
     },
     signal_analysis::SignalStatistics,
     time::SampleRate,
