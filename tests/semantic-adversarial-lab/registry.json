@@ -4480,7 +4480,8 @@
       "scope": "native_application",
       "description": "external dependency mutation after save invalidates persistence evidence",
       "expected": {
-        "dependency_tamper_rejected": true
+        "dependency_tamper_rejected": true,
+        "reason_seen": true
       }
     },
     {

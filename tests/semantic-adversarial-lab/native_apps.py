@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import shutil
 import re
+import shlex
 from typing import Any
 
 from isolation import Enclosure, require_hosted
@@ -211,6 +212,36 @@ def run_native_process(
     )
 
 
+def native_process_command(request_path: str, output_path: str) -> str:
+    argv = [
+        "/plugin/bin", "--headless", "--path", "/out/g_native",
+        "--script", "/out/native_observer.gd", "--",
+        "--request", request_path, "--output", output_path,
+    ]
+    return " ".join(shlex.quote(value) for value in argv)
+
+
+def run_native_pair(
+    enclosure: Enclosure,
+    godot: Path,
+    first_request: str,
+    first_output: str,
+    second_request: str,
+    second_output: str,
+    *,
+    between: str | None = None,
+) -> dict[str, Any]:
+    commands = [native_process_command(first_request, first_output)]
+    if between is not None:
+        commands.append(between)
+    commands.append(native_process_command(second_request, second_output))
+    return enclosure.run(
+        ["/bin/sh", "-c", "set -eu; " + "; ".join(commands)],
+        executable=godot,
+        timeout=60,
+    )
+
+
 def helper(enclosure: Enclosure, binary: Path, args: list[str], *, expect_success: bool = True) -> tuple[dict[str, Any], Any]:
     raw = enclosure.run(["/plugin/bin", *args], executable=binary, timeout=30)
     value = None
@@ -403,32 +434,45 @@ def run_godot(target: Path, source_sha: str, suite_sha: str, cases: list[dict], 
 
         before_save = tree_hashes(project)
         save_request = request("save_candidate", source_fingerprint, "g_native_save_000001")
+        reopen_request = request("reopen_candidate", source_fingerprint, "g_native_reopen_0001")
         write_json(out / "request-save.json", save_request)
-        save_raw = run_native_process(enclosure, godot, "/out/request-save.json", "/out/observation-save.json")
-        if not sound(save_raw, enclosure) or not (out / "observation-save.json").is_file():
-            raise EvidenceError("BLOCKED: native save candidate did not produce a receipt")
+        write_json(out / "request-reopen.json", reopen_request)
+        persistence_pair_raw = run_native_pair(
+            enclosure,
+            godot,
+            "/out/request-save.json",
+            "/out/observation-save.json",
+            "/out/request-reopen.json",
+            "/out/observation-reopen.json",
+        )
+        save_raw = persistence_pair_raw
+        reopen_raw = persistence_pair_raw
+        if (
+            not sound(persistence_pair_raw, enclosure)
+            or not (out / "observation-save.json").is_file()
+            or not (out / "observation-reopen.json").is_file()
+        ):
+            raise EvidenceError("BLOCKED: native save/reopen pair did not produce receipts")
         save_obs = strict_json((out / "observation-save.json").read_bytes())
+        reopen_obs = strict_json((out / "observation-reopen.json").read_bytes())
         after_save = tree_hashes(project)
         candidate = project / "__sw_saved" / "arena.tscn"
         results_by_id["G-GODOT-005"] = {
             "source_unchanged": sha256_file(scene) == source_fingerprint,
             "authored_files_unchanged": before_save == after_save,
-            "candidate_created": candidate.is_file() and save_obs.get("candidate_sha256") == sha256_file(candidate),
+            "candidate_created": candidate.is_file()
+            and save_obs.get("candidate_sha256") == sha256_file(candidate),
         }
 
-        reopen_request = request("reopen_candidate", source_fingerprint, "g_native_reopen_0001")
-        write_json(out / "request-reopen.json", reopen_request)
-        reopen_raw = run_native_process(
-            enclosure, godot, "/out/request-reopen.json", "/out/observation-reopen.json"
-        )
-        if not sound(reopen_raw, enclosure) or not (out / "observation-reopen.json").is_file():
-            raise EvidenceError("BLOCKED: native fresh-process reopen did not produce a receipt")
         persist_raw, persist = helper(
             enclosure,
             build.binary,
             [
-                "persistence", "/out/request-save.json", "/out/observation-save.json",
-                "/out/request-reopen.json", "/out/observation-reopen.json",
+                "persistence",
+                "/out/request-save.json",
+                "/out/observation-save.json",
+                "/out/request-reopen.json",
+                "/out/observation-reopen.json",
             ],
         )
         results_by_id["G-GODOT-006"] = {
@@ -451,25 +495,56 @@ def run_godot(target: Path, source_sha: str, suite_sha: str, cases: list[dict], 
             raise EvidenceError("BLOCKED: native dependency sentinel set unexpectedly empty")
         external_path = project / external["path"][6:]
         external_before = external_path.read_bytes()
-        external_path.write_bytes(external_before + b"\n# g-synthetic-dependency-tamper\n")
-        tamper_request = request("reopen_candidate", source_fingerprint, "g_native_reopen_0002")
-        write_json(out / "request-reopen-tamper.json", tamper_request)
-        tamper_raw = run_native_process(
-            enclosure, godot, "/out/request-reopen-tamper.json", "/out/observation-reopen-tamper.json"
+        if candidate.is_file():
+            candidate.unlink()
+        tamper_save_request = request(
+            "save_candidate", source_fingerprint, "g_native_save_tamper_01"
         )
-        if not sound(tamper_raw, enclosure):
-            raise EvidenceError("BLOCKED: tampered dependency made native reader unavailable instead of observable")
+        tamper_request = request(
+            "reopen_candidate", source_fingerprint, "g_native_reopen_0002"
+        )
+        write_json(out / "request-save-tamper.json", tamper_save_request)
+        write_json(out / "request-reopen-tamper.json", tamper_request)
+        external_enclosure_path = "/out/" + external_path.relative_to(out).as_posix()
+        tamper_command = (
+            "printf %s "
+            + shlex.quote("\n# g-synthetic-dependency-tamper\n")
+            + " >> "
+            + shlex.quote(external_enclosure_path)
+        )
+        tamper_raw = run_native_pair(
+            enclosure,
+            godot,
+            "/out/request-save-tamper.json",
+            "/out/observation-save-tamper.json",
+            "/out/request-reopen-tamper.json",
+            "/out/observation-reopen-tamper.json",
+            between=tamper_command,
+        )
+        if (
+            not sound(tamper_raw, enclosure)
+            or not (out / "observation-save-tamper.json").is_file()
+            or not (out / "observation-reopen-tamper.json").is_file()
+        ):
+            raise EvidenceError(
+                "BLOCKED: tampered dependency pair did not produce native receipts"
+            )
         reject_raw, _ = helper(
             enclosure,
             build.binary,
             [
-                "persistence", "/out/request-save.json", "/out/observation-save.json",
-                "/out/request-reopen-tamper.json", "/out/observation-reopen-tamper.json",
+                "persistence",
+                "/out/request-save-tamper.json",
+                "/out/observation-save-tamper.json",
+                "/out/request-reopen-tamper.json",
+                "/out/observation-reopen-tamper.json",
             ],
             expect_success=False,
         )
         results_by_id["G-GODOT-007"] = {
             "dependency_tamper_rejected": sound(reject_raw, enclosure, exits={1}),
+            "reason_seen": b"External native dependency sentinel changed"
+            in reject_raw["stderr"],
         }
         external_path.write_bytes(external_before)
 
@@ -528,7 +603,7 @@ def run_godot(target: Path, source_sha: str, suite_sha: str, cases: list[dict], 
             "mkdir -p /tmp/data/godot/export_templates/4.7.2.stable /out/export; "
             "cp /out/template/linux_release.x86_64 /tmp/data/godot/export_templates/4.7.2.stable/linux_release.x86_64; "
             "chmod 0755 /tmp/data/godot/export_templates/4.7.2.stable/linux_release.x86_64; "
-            "exec /plugin/bin --headless --path /out/project --export-release Linux /out/export/g_native.x86_64"
+            "exec /plugin/bin --headless --path /out/g_native --export-release Linux /out/export/g_native.x86_64"
         )
         export_raw = enclosure.run(["/bin/sh", "-c", export_script], executable=godot, timeout=30)
         binary = out / "export" / "g_native.x86_64"
@@ -564,8 +639,8 @@ def run_godot(target: Path, source_sha: str, suite_sha: str, cases: list[dict], 
             "G-GODOT-002": [first_raw, second_raw],
             "G-GODOT-003": [key_first_raw, key_second_raw],
             "G-GODOT-004": [inspect_raw],
-            "G-GODOT-005": [save_raw],
-            "G-GODOT-006": [save_raw, reopen_raw, persist_raw],
+            "G-GODOT-005": [persistence_pair_raw],
+            "G-GODOT-006": [persistence_pair_raw, persist_raw],
             "G-GODOT-007": [tamper_raw, reject_raw],
             "G-GODOT-008": [bad_nonplay_raw],
             "G-GODOT-009": [bad_unknown_raw],

@@ -387,7 +387,7 @@
       "run_id": null,
       "job_id": null,
       "evidence": [],
-      "blocker": "Godot-native run 36809911833 reached real import and helper build but blocked before cases because G materialized raw compiler output without D managed-store identity binding. Harness now uses Store::prepare/apply and exact project slug; exact-SHA retest pending.",
+      "blocker": "Godot-native run 36811208549 reached persistence but G created a fresh PID namespace per Godot invocation, causing writer/reader to report the same namespace-local PID. Harness now runs save/reopen and save/tamper/reopen as distinct child processes inside one isolated PID namespace, and fixes the managed export path; exact-SHA retest pending.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },
