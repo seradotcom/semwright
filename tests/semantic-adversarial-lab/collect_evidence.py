@@ -18,7 +18,7 @@ from lab_core import EvidenceError, compare_observation, digest, full_sha, stric
 
 REPO = "seradotcom/semwright"
 LAB = Path(__file__).resolve().parent
-ROLES = {"composition": "A", "av": "A", "motion": "A", "figma": "A", "audio": "B", "graph": "C", "effects": "F", "routing": "C"}
+ROLES = {"composition": "A", "av": "A", "motion": "A", "figma": "A", "audio": "B", "graph": "C", "effects": "F", "routing": "C", "godot-native": "D", "blender-native": "E"}
 
 def target_for_lane(lock: dict, lane: str, suite: str) -> str:
     return suite if lane == "selftest" else lock["targets"][ROLES.get(lane, "main")]
@@ -102,8 +102,8 @@ def validate_lane(report: dict, lane: str, cases: list[dict], lock: dict, suite:
     blocked = bool(report.get("infrastructure_blockers")) or report.get("cleanup_verified") is not True
     if declared.get("status") != calculated["status"] and not (blocked and declared.get("status") == "BLOCKED"):
         raise EvidenceError("reported verdict differs from independent recomputation")
-    if declared.get("native_acceptance") is not False:
-        raise EvidenceError("contract/selftest report cannot assert native acceptance")
+    if declared.get("native_acceptance") is not calculated["native_acceptance"]:
+        raise EvidenceError("reported native acceptance differs from independently recomputed scope/result")
     if blocked:
         calculated["status"] = "BLOCKED"
     return calculated

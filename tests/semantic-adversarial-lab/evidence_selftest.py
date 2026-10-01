@@ -92,18 +92,29 @@ def identity_control(change, equal):
 
 
 def collector_role_targets():
-    lock = {"targets": {"main": "0" * 40, "A": "a" * 40, "B": "b" * 40, "C": "c" * 40, "F": "f" * 40}}
+    lock = {"targets": {"main": "0" * 40, "A": "a" * 40, "B": "b" * 40, "C": "c" * 40, "D": "d" * 40, "E": "e" * 40, "F": "f" * 40}}
     return (
         target_for_lane(lock, "selftest", SUITE) == SUITE
         and target_for_lane(lock, "graph", SUITE) == "c" * 40
         and target_for_lane(lock, "effects", SUITE) == "f" * 40
         and target_for_lane(lock, "routing", SUITE) == "c" * 40
+        and target_for_lane(lock, "godot-native", SUITE) == "d" * 40
+        and target_for_lane(lock, "blender-native", SUITE) == "e" * 40
         and target_for_lane(lock, "packaging", SUITE) == "0" * 40
     )
 
 
 def routing_build_target_is_normal_bin():
     return build_target_kind("routing") == "bin" and build_target_kind("graph") == "example"
+
+
+def native_summary_is_scope_bound():
+    rows = [{"case_id":"G-GODOT-001","source_sha":SOURCE,"suite_sha":SUITE,
+             "scope":"native_application","outcome":"PASS","isolation_verified":True}]
+    native = summarize(["G-GODOT-001"], rows, SOURCE, SUITE, scope="native_application")
+    contract_rows = [dict(rows[0], scope="product_contract")]
+    contract = summarize(["G-GODOT-001"], contract_rows, SOURCE, SUITE, scope="product_contract")
+    return native["native_acceptance"] is True and contract["native_acceptance"] is False
 
 def history_control(overwrite):
     with tempfile.TemporaryDirectory(prefix="g-synthetic-evidence-", dir="/out") as directory:
@@ -157,4 +168,5 @@ def evidence_cases():
         ("G-SELF-092", lambda: history_control(True)),
         ("G-SELF-093", collector_role_targets),
         ("G-SELF-094", routing_build_target_is_normal_bin),
+        ("G-SELF-095", native_summary_is_scope_bound),
     ]

@@ -8,11 +8,13 @@
     "B": "11b40fb0c59473bc0f007a879bf44c732d22b700",
     "main": "b736d41b61c4a4146c9e75c16796e251b025e69f",
     "C": "504ad2c6632305b580b51703a60b0a194865780d",
-    "F": "b30d693c24d7dc0527834b7830823655be5216ce"
+    "F": "b30d693c24d7dc0527834b7830823655be5216ce",
+    "D": "e6bd9489d7983d275fd1454dd7ab26916d3fbb15",
+    "E": "3d04d8465dcfa94d6cbf548fcaf343f69ac5838f"
   },
   "selected_lanes": [
     "selftest",
-    "packaging"
+    "godot-native"
   ],
   "pins": {
     "os": "ubuntu-24.04",
@@ -20,7 +22,8 @@
     "godot_version": "4.7.2-stable",
     "godot_binary_sha256": "8d106cbe6144c2dc7e881d61d2429c1a8a76e6b22ef48bd5e48dcf934953f71e",
     "blender_version": "4.5.14",
-    "blender_archive_sha256": "9ba871ff2ecd36526b77432745980b7e6664ecd0c7ca11c48849073dcfe06da3"
+    "blender_archive_sha256": "9ba871ff2ecd36526b77432745980b7e6664ecd0c7ca11c48849073dcfe06da3",
+    "godot_template_archive_sha256": "f298490b8d44d934be425a5a65a51bf15f422428b229a06a6e11d9ffea248011"
   },
   "limits": {
     "local_source_bytes": 268435456,

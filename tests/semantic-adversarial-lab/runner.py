@@ -15,7 +15,7 @@ from oracle_identity import from_git as oracle_identity
 from lab_core import EvidenceError, LANES, digest, full_sha, strict_json, summarize, write_json
 
 LAB = Path(__file__).resolve().parent
-OWNERS = {"composition": "A", "av": "A", "motion": "A", "figma": "A", "audio": "B", "graph": "C", "effects": "F", "routing": "C"}
+OWNERS = {"composition": "A", "av": "A", "motion": "A", "figma": "A", "audio": "B", "graph": "C", "effects": "F", "routing": "C", "godot-native": "D", "blender-native": "E"}
 
 def git(root: Path, *args: str) -> str:
     return subprocess.check_output(["git", "-C", str(root), *args], text=True).strip()
@@ -132,8 +132,12 @@ def main():
                 raise EvidenceError("target SHA mismatch")
             if git(args.target_checkout, "status", "--porcelain", "--untracked-files=no"):
                 raise EvidenceError("target has tracked modifications")
-            from product import run_product
-            results = run_product(args.lane, args.target_checkout.resolve(), source_sha, suite_sha, cases, report)
+            if args.lane in {"godot-native", "blender-native"}:
+                from native_apps import run_native
+                results = run_native(args.lane, args.target_checkout.resolve(), source_sha, suite_sha, cases, report)
+            else:
+                from product import run_product
+                results = run_product(args.lane, args.target_checkout.resolve(), source_sha, suite_sha, cases, report)
         report["results"] = results
         report["summary"] = summarize(requested, results, source_sha, suite_sha, scope=scope)
         if report.get("cleanup_verified") is not True:

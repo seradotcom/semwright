@@ -70,6 +70,36 @@ jobs:
         uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
         with:
           toolchain: 1.98.1
+      - name: Provision pinned Godot native runtime
+        if: matrix.lane == 'godot-native'
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y libpipewire-0.3-dev pkg-config unzip
+          GODOT_SHA=$(python3 -c 'import json; print(json.load(open("tests/semantic-adversarial-lab/targets.json"))["pins"]["godot_binary_sha256"])')
+          TEMPLATE_ARCHIVE_SHA=$(python3 -c 'import json; print(json.load(open("tests/semantic-adversarial-lab/targets.json"))["pins"]["godot_template_archive_sha256"])')
+          mkdir -p "$RUNNER_TEMP/g-native/godot" "$RUNNER_TEMP/g-native/templates"
+          curl -fL --retry 4 --retry-delay 2 \
+            "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip" \
+            -o "$RUNNER_TEMP/g-native/godot.zip"
+          unzip -q "$RUNNER_TEMP/g-native/godot.zip" -d "$RUNNER_TEMP/g-native/godot"
+          GODOT="$RUNNER_TEMP/g-native/godot/Godot_v4.7.2-stable_linux.x86_64"
+          echo "$GODOT_SHA  $GODOT" | sha256sum -c -
+          test "$($GODOT --version | cut -d. -f1-4)" = "4.7.2.stable"
+          curl -fL --retry 4 --retry-delay 2 \
+            "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_export_templates.tpz" \
+            -o "$RUNNER_TEMP/g-native/templates.tpz"
+          echo "$TEMPLATE_ARCHIVE_SHA  $RUNNER_TEMP/g-native/templates.tpz" | sha256sum -c -
+          unzip -j -q "$RUNNER_TEMP/g-native/templates.tpz" \
+            "templates/linux_release.x86_64" -d "$RUNNER_TEMP/g-native/templates"
+          TEMPLATE="$RUNNER_TEMP/g-native/templates/linux_release.x86_64"
+          chmod 0755 "$TEMPLATE"
+          TEMPLATE_SHA=$(sha256sum "$TEMPLATE" | cut -d' ' -f1)
+          {
+            echo "G_GODOT_BIN=$GODOT"
+            echo "G_GODOT_TEMPLATE=$TEMPLATE"
+            echo "G_GODOT_TEMPLATE_SHA256=$TEMPLATE_SHA"
+          } >> "$GITHUB_ENV"
       - name: Execute independent exact-SHA boundary
         env:
           LANE: ${{ matrix.lane }}

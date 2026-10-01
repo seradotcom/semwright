@@ -20,9 +20,10 @@ PACKAGES = {"composition": ("semwright-semantic-composition", "semantic-composit
             "graph": ("semwright-project-graph", "project-graph", "graph_probe.rs"),
             "effects": ("semwright-effect-conformance", "effect-conformance", "effects_probe.rs"),
             "packaging": ("semwright-skills", "skills", "packaging_probe.rs"),
-            "routing": ("semwright-core", "core", "routing_probe.rs")}
+            "routing": ("semwright-core", "core", "routing_probe.rs"),
+            "godot-native": ("semwright-driver-godot", "driver-godot", "godot_native_probe.rs")}
 PACKAGE_FEATURES = {"graph": ["store"]}
-PACKAGE_TARGET_KIND = {"routing": "bin"}
+PACKAGE_TARGET_KIND = {"routing": "bin", "godot-native": "bin"}
 
 def build_target_kind(lane: str) -> str:
     return PACKAGE_TARGET_KIND.get(lane, "example")

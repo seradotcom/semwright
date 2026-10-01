@@ -4380,6 +4380,166 @@
       "expected": {
         "ok": true
       }
+    },
+    {
+      "id": "G-SELF-095",
+      "owner": "G",
+      "requirement": "G11",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "native acceptance can only arise from a clean native_application scope and never a contract scope",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-GODOT-001",
+      "owner": "D",
+      "requirement": "G06",
+      "lane": "godot-native",
+      "scope": "native_application",
+      "description": "fresh native inspect admits D observer output and exposes managed nodes",
+      "expected": {
+        "no_failures": true,
+        "dependency_complete": true,
+        "node00_present": true,
+        "animator_present": true
+      }
+    },
+    {
+      "id": "G-GODOT-002",
+      "owner": "D",
+      "requirement": "G06",
+      "lane": "godot-native",
+      "scope": "native_application",
+      "description": "long native animation track pagination reaches the final page",
+      "expected": {
+        "total": 70,
+        "first": 64,
+        "last": 6,
+        "final_cursor_none": true
+      }
+    },
+    {
+      "id": "G-GODOT-003",
+      "owner": "D",
+      "requirement": "G06",
+      "lane": "godot-native",
+      "scope": "native_application",
+      "description": "long native key pagination reaches the final page",
+      "expected": {
+        "total": 70,
+        "first": 64,
+        "last": 6,
+        "final_cursor_none": true
+      }
+    },
+    {
+      "id": "G-GODOT-004",
+      "owner": "D",
+      "requirement": "G06",
+      "lane": "godot-native",
+      "scope": "native_application",
+      "description": "native readback distinguishes hierarchy ownership and shared/local material resources",
+      "expected": {
+        "parent_points_to_node00": true,
+        "parent_owner_distinct": true,
+        "shared_and_local_materials": true
+      }
+    },
+    {
+      "id": "G-GODOT-005",
+      "owner": "D",
+      "requirement": "G06",
+      "lane": "godot-native",
+      "scope": "native_application",
+      "description": "save candidate preserves every authored source/dependency and creates only the candidate",
+      "expected": {
+        "source_unchanged": true,
+        "authored_files_unchanged": true,
+        "candidate_created": true
+      }
+    },
+    {
+      "id": "G-GODOT-006",
+      "owner": "D",
+      "requirement": "G06",
+      "lane": "godot-native",
+      "scope": "native_application",
+      "description": "persistence requires and succeeds through a fresh Godot process reopen",
+      "expected": {
+        "fresh_process": true,
+        "persistence_verified": true
+      }
+    },
+    {
+      "id": "G-GODOT-007",
+      "owner": "D",
+      "requirement": "G06",
+      "lane": "godot-native",
+      "scope": "native_application",
+      "description": "external dependency mutation after save invalidates persistence evidence",
+      "expected": {
+        "dependency_tamper_rejected": true
+      }
+    },
+    {
+      "id": "G-GODOT-008",
+      "owner": "D",
+      "requirement": "G06",
+      "lane": "godot-native",
+      "scope": "native_application",
+      "description": "native observer rejects input injection on a non-play request",
+      "expected": {
+        "rejected": true,
+        "reason_seen": true
+      }
+    },
+    {
+      "id": "G-GODOT-009",
+      "owner": "D",
+      "requirement": "G06",
+      "lane": "godot-native",
+      "scope": "native_application",
+      "description": "native observer rejects unknown authority fields",
+      "expected": {
+        "rejected": true,
+        "reason_seen": true
+      }
+    },
+    {
+      "id": "G-GODOT-010",
+      "owner": "D",
+      "requirement": "G06",
+      "lane": "godot-native",
+      "scope": "native_application",
+      "description": "native track cursor is bound to the observed semantic snapshot",
+      "expected": {
+        "stale_cursor_rejected": true
+      }
+    },
+    {
+      "id": "G-GODOT-011",
+      "owner": "D",
+      "requirement": "G06",
+      "lane": "godot-native",
+      "scope": "native_application",
+      "description": "product-generated Godot export preset produces a standalone Linux artifact",
+      "expected": {
+        "exported": true
+      }
+    },
+    {
+      "id": "G-GODOT-012",
+      "owner": "D",
+      "requirement": "G06",
+      "lane": "godot-native",
+      "scope": "native_application",
+      "description": "standalone export excludes authoring/privileged markers and launches without Broker",
+      "expected": {
+        "authoring_markers_absent": true,
+        "standalone_without_broker": true
+      }
     }
   ]
 }
