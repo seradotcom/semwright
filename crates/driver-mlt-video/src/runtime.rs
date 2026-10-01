@@ -1027,6 +1027,66 @@ impl Runtime {
         Ok(info)
     }
 
+    pub fn extract_audio(
+        &self,
+        inputs: &Path,
+        work: &Path,
+        name: &str,
+        sample_rate: u32,
+        channels: u16,
+        cancel: &AtomicBool,
+    ) -> Result<MediaInfo> {
+        crate::fs::validate_relative(name)?;
+        if name.contains('/')
+            || sample_rate != 48_000
+            || channels != 2
+            || cancel.load(Ordering::Acquire)
+        {
+            return Err(Error::invalid(
+                "Final AV audio extraction requires one bounded 48 kHz stereo input",
+            ));
+        }
+        let input = self.input_path(inputs, name);
+        let output = self.work_path(work, "decoded-audio.wav");
+        let args = vec![
+            "-v".into(),
+            "error".into(),
+            "-nostdin".into(),
+            "-i".into(),
+            input.into_os_string(),
+            "-map".into(),
+            "0:a:0".into(),
+            "-vn".into(),
+            "-ac".into(),
+            channels.to_string().into(),
+            "-ar".into(),
+            sample_rate.to_string().into(),
+            "-c:a".into(),
+            "pcm_s16le".into(),
+            "-f".into(),
+            "wav".into(),
+            output.into_os_string(),
+        ];
+        run(
+            &self.spec("ffmpeg", args, inputs, work, self.timeout)?,
+            cancel,
+        )?
+        .checked()?;
+        let info = self.probe(work, work, "decoded-audio.wav", cancel)?;
+        if !info.audio
+            || info.video
+            || info.sample_rate != Some(sample_rate)
+            || info.channels != Some(channels)
+            || info.audio_sample_frames.is_none()
+        {
+            return Err(Error::new(
+                "BackendFailed",
+                "Decoded final audio WAV does not match the certified delivery layout",
+            ));
+        }
+        Ok(info)
+    }
+
     pub fn render(
         &self,
         inputs: &Path,

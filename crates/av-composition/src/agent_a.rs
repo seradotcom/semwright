@@ -1,15 +1,15 @@
 //! Concrete Agent-A stage realization through descriptor-pinned Broker commands.
 //! Audio authoring/final-audio analysis remain delegated to Agent B's public provider.
 use crate::{
-    AvPlan, DeliveryCodec, DeliveryInput, Error, NativeResult, Result, Stage, StageCall,
-    StageCommandRunner, StagePayload, TransferKind,
+    ArtifactHandoffHint, AvPlan, DeliveryCodec, DeliveryInput, Error, NativeResult, Result, Stage,
+    StageCall, StageCommandRunner, StagePayload, TransferKind,
 };
 use semwright_media_time::{
     AudioMetadata, MediaArtifact, MediaMetadata, Rational, Retention, Round, VideoMetadata,
 };
 use semwright_recipes::Executor;
 use semwright_semantic_composition::{
-    Digest, EvidenceSource, VerificationReport, canonical_digest, ensure,
+    self as c, Digest, EvidenceSource, VerificationReport, canonical_digest, ensure,
 };
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
@@ -55,6 +55,7 @@ pub fn agent_a_stage_commands(stage: Stage) -> Option<&'static [&'static str]> {
         Stage::TransferMotion => &["driver.mlt-video.frames.encode"],
         Stage::TransferAudio => &["artifact.handoff"],
         Stage::Mux => &["driver.mlt-video.av.mux"],
+        Stage::VerifyFinalAudio => &["driver.audio-analysis.artifact.measure"],
         Stage::VerifySync => &["driver.mlt-video.sync.probe"],
         _ => return None,
     })
@@ -151,6 +152,15 @@ impl AgentAStageAdapter {
                 .to_owned(),
         )
         .map_err(|error| Error::Invalid(error.to_string()))
+    }
+
+    fn optional_u64_default(value: &Value, field: &str, default: u64) -> Result<u64> {
+        match value.get(field) {
+            None => Ok(default),
+            Some(value) => value
+                .as_u64()
+                .ok_or_else(|| Error::Invalid(format!("provider returned invalid {field}"))),
+        }
     }
 
     fn relative(path: &str) -> Result<()> {
@@ -294,11 +304,9 @@ impl AgentAStageAdapter {
             Stage::TransferMotion => self.transfer_motion(call, executor, cancellation).await,
             Stage::TransferAudio => self.transfer_audio(call, executor, cancellation).await,
             Stage::Mux => self.mux(call, executor, cancellation).await,
+            Stage::VerifyFinalAudio => self.verify_final_audio(call, executor, cancellation).await,
             Stage::VerifySync => self.verify_sync(call, executor, cancellation).await,
-            Stage::ApplyAudio
-            | Stage::RenderAudio
-            | Stage::VerifyAudio
-            | Stage::VerifyFinalAudio => Err(Error::Unknown(
+            Stage::ApplyAudio | Stage::RenderAudio | Stage::VerifyAudio => Err(Error::Unknown(
                 "audio authoring/verification stage requires Agent B's verified public provider handoff".into(),
             )),
             Stage::PreparePublication | Stage::Publish => Err(Error::Invalid(
@@ -413,14 +421,14 @@ impl AgentAStageAdapter {
         let planned = runner
             .next(json!({"profile":profile.clone()}), cancellation.clone())
             .await?;
+        let planned_fps_denominator = Self::optional_u64_default(&planned, "fps_denominator", 1)?;
         ensure(
             planned.get("width").and_then(Value::as_u64) == Some(u64::from(delivery.width))
                 && planned.get("height").and_then(Value::as_u64)
                     == Some(u64::from(delivery.height))
                 && planned.get("fps").and_then(Value::as_u64)
                     == Some(u64::from(delivery.frame_rate.num))
-                && planned.get("fps_denominator").and_then(Value::as_u64)
-                    == Some(u64::from(delivery.frame_rate.den))
+                && planned_fps_denominator == u64::from(delivery.frame_rate.den)
                 && planned.get("first_frame").and_then(Value::as_u64) == Some(0)
                 && planned.get("end_frame_exclusive").and_then(Value::as_u64) == Some(frames),
             "Motion render plan differs from AV delivery profile",
@@ -433,10 +441,22 @@ impl AgentAStageAdapter {
             )
             .await?;
         runner.finish()?;
-        ensure(
-            rendered.get("state").and_then(Value::as_str) == Some("succeeded"),
-            "Motion native render did not succeed",
-        )?;
+        if rendered.get("state").and_then(Value::as_str) != Some("succeeded") {
+            let failure_class = rendered
+                .get("failure_class")
+                .and_then(Value::as_str)
+                .unwrap_or("unclassified");
+            ensure(
+                failure_class
+                    .bytes()
+                    .all(|byte| byte.is_ascii_lowercase() || byte == b'_' || byte.is_ascii_digit())
+                    && failure_class.len() <= 64,
+                "Motion renderer returned an invalid failure classification",
+            )?;
+            return Err(Error::Unknown(format!(
+                "Motion native render failed ({failure_class})"
+            )));
+        }
         let job_ref = rendered
             .get("job_ref")
             .and_then(Value::as_str)
@@ -880,24 +900,343 @@ impl AgentAStageAdapter {
                 sha256: digest.clone(),
             },
         );
-        Ok(NativeResult::Encoded {
-            artifact: MediaArtifact {
-                reference,
-                owner: self.plan.body.spec.owner.clone(),
-                sha256: digest,
-                bytes,
-                media_type: "video/mp4".into(),
-                source_plan: self.plan.digest.clone(),
-                source_state: call.expected_base.clone(),
-                metadata,
-                dependencies: BTreeMap::from([
-                    ("motion-artifact".into(), motion.artifact_digest.clone()),
-                    ("audio-artifact".into(), audio.artifact_digest.clone()),
-                ]),
-                provenance: Some("mlt-native-av-mux-v1".into()),
-                license: None,
-                retention: Retention::PrivateCandidate,
+        let encoded_artifact = MediaArtifact {
+            reference,
+            owner: self.plan.body.spec.owner.clone(),
+            sha256: digest.clone(),
+            bytes,
+            media_type: "video/mp4".into(),
+            source_plan: self.plan.digest.clone(),
+            source_state: call.expected_base.clone(),
+            metadata,
+            dependencies: BTreeMap::from([
+                ("motion-artifact".into(), motion.artifact_digest.clone()),
+                ("audio-artifact".into(), audio.artifact_digest.clone()),
+            ]),
+            provenance: Some("mlt-native-av-mux-v1".into()),
+            license: None,
+            retention: Retention::PrivateCandidate,
+        };
+
+        let decoded = value
+            .get("decoded_audio")
+            .and_then(Value::as_object)
+            .ok_or_else(|| Error::Invalid("AV mux omitted decoded final audio artifact".into()))?;
+        let decoded_root = decoded
+            .get("root")
+            .and_then(Value::as_str)
+            .ok_or_else(|| Error::Invalid("decoded final audio root missing".into()))?;
+        let decoded_path = decoded
+            .get("path")
+            .and_then(Value::as_str)
+            .ok_or_else(|| Error::Invalid("decoded final audio path missing".into()))?;
+        Self::relative(decoded_path)?;
+        ensure(
+            decoded_root == root,
+            "decoded final audio was published outside the AV output root",
+        )?;
+        let decoded_digest = Digest::parse(
+            decoded
+                .get("sha256")
+                .and_then(Value::as_str)
+                .ok_or_else(|| Error::Invalid("decoded final audio digest missing".into()))?
+                .to_owned(),
+        )
+        .map_err(|error| Error::Invalid(error.to_string()))?;
+        let decoded_bytes = decoded
+            .get("bytes")
+            .and_then(Value::as_u64)
+            .ok_or_else(|| Error::Invalid("decoded final audio byte count missing".into()))?;
+        ensure(
+            decoded_bytes > 0 && decoded_bytes <= profile.max_artifact_bytes,
+            "decoded final audio exceeds AV artifact budget",
+        )?;
+        let decoded_media = value
+            .get("decoded_audio_media")
+            .and_then(Value::as_object)
+            .ok_or_else(|| Error::Invalid("decoded final audio media probe missing".into()))?;
+        ensure(
+            decoded_media.get("audio").and_then(Value::as_bool) == Some(true)
+                && decoded_media.get("video").and_then(Value::as_bool) == Some(false),
+            "decoded final audio probe is not audio-only",
+        )?;
+        let decoded_frames = value
+            .get("decoded_audio_sample_frames")
+            .and_then(Value::as_u64)
+            .ok_or_else(|| Error::Invalid("decoded final audio sample count missing".into()))?;
+        let decoded_duration_num = i64::try_from(
+            decoded_media
+                .get("duration_num")
+                .and_then(Value::as_u64)
+                .ok_or_else(|| {
+                    Error::Invalid("decoded final audio duration numerator missing".into())
+                })?,
+        )
+        .map_err(|_| Error::Limit("decoded final audio duration numerator overflow".into()))?;
+        let decoded_duration_den = i64::try_from(
+            decoded_media
+                .get("duration_den")
+                .and_then(Value::as_u64)
+                .ok_or_else(|| {
+                    Error::Invalid("decoded final audio duration denominator missing".into())
+                })?,
+        )
+        .map_err(|_| Error::Limit("decoded final audio duration denominator overflow".into()))?;
+        let decoded_duration = Rational::new(decoded_duration_num, decoded_duration_den)?;
+        let decoded_reference = Self::token("decoded-final-audio", &decoded_digest);
+        self.locators.insert(
+            decoded_reference.clone(),
+            Locator {
+                root: decoded_root.into(),
+                path: decoded_path.into(),
+                sha256: decoded_digest.clone(),
             },
+        );
+        let decoded_audio = MediaArtifact {
+            reference: decoded_reference,
+            owner: self.plan.body.spec.owner.clone(),
+            sha256: decoded_digest.clone(),
+            bytes: decoded_bytes,
+            media_type: "audio/wav".into(),
+            source_plan: self.plan.digest.clone(),
+            source_state: call.expected_base.clone(),
+            metadata: MediaMetadata {
+                duration: decoded_duration,
+                encoded_duration: Some(decoded_duration),
+                video: None,
+                audio: Some(AudioMetadata {
+                    sample_rate: profile.sample_rate,
+                    channels: profile.channels,
+                    channel_layout: "stereo".into(),
+                    sample_frames: decoded_frames,
+                    priming_samples: None,
+                    padding_samples: None,
+                    latency_samples: None,
+                    tail_samples: None,
+                }),
+            },
+            dependencies: BTreeMap::from([("encoded-master".into(), digest)]),
+            provenance: Some("mlt-post-encode-audio-decode-v1".into()),
+            license: None,
+            retention: Retention::PrivateCandidate,
+        };
+        let decoded_audio_handoff = ArtifactHandoffHint {
+            version: 1,
+            artifact_digest: decoded_digest,
+            relative_path: decoded_path.into(),
+        };
+        decoded_audio_handoff.validate()?;
+        Ok(NativeResult::Encoded {
+            artifact: encoded_artifact,
+            decoded_audio: Box::new(decoded_audio),
+            decoded_audio_handoff,
+        })
+    }
+
+    async fn verify_final_audio(
+        &self,
+        call: &StageCall,
+        executor: &dyn Executor,
+        cancellation: CancellationToken,
+    ) -> Result<NativeResult> {
+        Self::commands(call, &["driver.audio-analysis.artifact.measure"])?;
+        let StagePayload::VerifyFinalAudio {
+            artifact,
+            handoff,
+            required_rules,
+        } = &call.payload
+        else {
+            return Err(Error::Invalid("VerifyFinalAudio payload mismatch".into()));
+        };
+        artifact.validate()?;
+        handoff.validate()?;
+        ensure(
+            handoff.artifact_digest == artifact.sha256,
+            "final audio handoff digest mismatch",
+        )?;
+        let locator = self.locator(&artifact.reference, &artifact.sha256)?;
+        ensure(
+            locator.path == handoff.relative_path,
+            "final audio handoff path differs from the pinned decoded artifact",
+        )?;
+        ensure(
+            !handoff.relative_path.contains('/'),
+            "audio-analysis consumes a single file in its fixed analysis-input root",
+        )?;
+        let audio =
+            artifact.metadata.audio.as_ref().ok_or_else(|| {
+                Error::Invalid("final decoded artifact has no audio metadata".into())
+            })?;
+        ensure(
+            artifact.metadata.video.is_none()
+                && audio.sample_rate == self.plan.body.spec.delivery.sample_rate
+                && audio.channels == self.plan.body.spec.delivery.channels,
+            "final decoded artifact stream profile differs from AV delivery",
+        )?;
+
+        let mut runner = StageCommandRunner::new(executor, call)?;
+        let value = runner
+            .next(
+                json!({
+                    "file_name": handoff.relative_path,
+                    "expected_sha256": artifact.sha256.as_str(),
+                    "layout": if audio.channels == 1 { "mono" } else { "stereo" }
+                }),
+                cancellation,
+            )
+            .await?;
+        runner.finish()?;
+
+        let measured_artifact = value
+            .get("artifact")
+            .and_then(Value::as_object)
+            .ok_or_else(|| Error::Invalid("audio-analysis omitted artifact receipt".into()))?;
+        ensure(
+            measured_artifact.get("sha256").and_then(Value::as_str)
+                == Some(artifact.sha256.as_str())
+                && measured_artifact.get("bytes").and_then(Value::as_u64) == Some(artifact.bytes)
+                && value.get("exhaustive").and_then(Value::as_bool) == Some(true),
+            "audio-analysis measured another artifact or returned non-exhaustive evidence",
+        )?;
+
+        let pcm = value
+            .get("pcm_statistics")
+            .and_then(Value::as_object)
+            .ok_or_else(|| Error::Unknown("final WAV PCM statistics are unavailable".into()))?;
+        let actual_frames = pcm
+            .get("frames")
+            .and_then(Value::as_u64)
+            .ok_or_else(|| Error::Invalid("final WAV PCM frame count missing".into()))?;
+        let measured_rate = pcm
+            .get("sample_rate")
+            .and_then(Value::as_u64)
+            .and_then(|value| u32::try_from(value).ok())
+            .ok_or_else(|| Error::Invalid("final WAV PCM sample rate missing".into()))?;
+        let measured_channels = pcm
+            .get("channels")
+            .and_then(Value::as_array)
+            .map(Vec::len)
+            .and_then(|value| u16::try_from(value).ok())
+            .ok_or_else(|| Error::Invalid("final WAV PCM channel statistics missing".into()))?;
+        let nonfinite = pcm
+            .get("nonfinite_samples")
+            .and_then(Value::as_u64)
+            .ok_or_else(|| Error::Invalid("final WAV nonfinite count missing".into()))?;
+        let out_of_range = pcm
+            .get("out_of_range_samples")
+            .and_then(Value::as_u64)
+            .ok_or_else(|| Error::Invalid("final WAV out-of-range count missing".into()))?;
+        let entirely_silent = pcm
+            .get("entirely_silent")
+            .and_then(Value::as_bool)
+            .ok_or_else(|| Error::Invalid("final WAV silence status missing".into()))?;
+        let peak = pcm.get("peak_millidbfs").and_then(Value::as_i64);
+
+        ensure(
+            measured_rate == audio.sample_rate
+                && measured_channels == audio.channels
+                && actual_frames == audio.sample_frames,
+            "audio-analysis disagrees with MLT decoded-WAV probe metadata",
+        )?;
+        if let Some(loudness) = value.get("loudness").and_then(Value::as_object) {
+            ensure(
+                loudness.get("method").and_then(Value::as_str) == Some("libebur128")
+                    && loudness.get("version").and_then(Value::as_str) == Some("1.2.6")
+                    && loudness.get("frames").and_then(Value::as_u64) == Some(actual_frames)
+                    && loudness.get("sample_rate").and_then(Value::as_u64)
+                        == Some(u64::from(measured_rate))
+                    && loudness.get("channels").and_then(Value::as_u64)
+                        == Some(u64::from(measured_channels)),
+                "libebur128 receipt disagrees with the independent decoded PCM receipt",
+            )?;
+        }
+
+        let expected = self
+            .plan
+            .body
+            .spec
+            .delivery
+            .duration
+            .mul_i64(i64::from(measured_rate))?;
+        ensure(
+            expected.den == 1 && expected.num > 0,
+            "AV delivery duration is not an exact final-audio sample boundary",
+        )?;
+        let expected_frames = u64::try_from(expected.num)
+            .map_err(|_| Error::Limit("expected final-audio sample count overflow".into()))?;
+        // AAC-LC encoders operate in 1024-sample frames. Two frames bound encoder
+        // delay/padding without observing this candidate first; this tolerance is
+        // fixed by codec semantics, not tuned from the output.
+        const AAC_PADDING_TOLERANCE_SAMPLES: u64 = 2_048;
+        let duration_pass =
+            actual_frames.abs_diff(expected_frames) <= AAC_PADDING_TOLERANCE_SAMPLES;
+        let peak_pass = nonfinite == 0
+            && out_of_range == 0
+            && !entirely_silent
+            && peak.is_some_and(|value| value <= 0);
+
+        let observation = c::ObservationRef {
+            id: format!("final-audio-{}", &artifact.sha256.as_str()[..16]),
+            base: artifact.source_state.clone(),
+            source: EvidenceSource::DecodedMedia,
+            method: "libebur128+independent-wav-pcm".into(),
+            method_version: 1,
+            scope: vec![],
+            artifact: Some(artifact.sha256.clone()),
+            exhaustive: true,
+        };
+        let mut checks = Vec::with_capacity(required_rules.len());
+        for rule in required_rules {
+            let (verdict, reason) = match rule.as_str() {
+                "decoded-audio-duration" => (
+                    if duration_pass {
+                        c::Verdict::Pass
+                    } else {
+                        c::Verdict::Fail
+                    },
+                    format!(
+                        "decoded WAV frames={actual_frames}, planned={expected_frames}, fixed AAC padding tolerance={AAC_PADDING_TOLERANCE_SAMPLES}"
+                    ),
+                ),
+                "decoded-audio-peak" => (
+                    if peak_pass {
+                        c::Verdict::Pass
+                    } else {
+                        c::Verdict::Fail
+                    },
+                    format!(
+                        "decoded WAV peak={peak:?} millidBFS, nonfinite={nonfinite}, out_of_range={out_of_range}, silent={entirely_silent}"
+                    ),
+                ),
+                _ => (
+                    c::Verdict::Unknown,
+                    "final-audio rule has no evidence-backed verifier in this adapter".into(),
+                ),
+            };
+            checks.push(c::RuleResult {
+                rule: rule.clone(),
+                version: 1,
+                verdict,
+                evidence_class: c::EvidenceClass::Deterministic,
+                evidence: vec![observation.clone()],
+                reason: Some(reason),
+            });
+        }
+        let report = VerificationReport {
+            execution_status: c::ExecutionStatus::Completed,
+            validation: c::ValidationReport {
+                plan_digest: self.plan.digest.clone(),
+                base: artifact.source_state.clone(),
+                required_rules: required_rules.clone(),
+                checks,
+            },
+            support_level: c::SupportLevel::Composed,
+            effects_observed: vec![],
+            effects_unobservable: vec![],
+        };
+        Ok(NativeResult::Verified {
+            artifact_digest: artifact.sha256.clone(),
+            report,
         })
     }
 
@@ -1035,5 +1374,36 @@ impl AgentAStageAdapter {
                 impulses: decode(value.get("impulses").and_then(Value::as_array))?,
             },
         })
+    }
+}
+
+#[cfg(test)]
+mod wire_default_tests {
+    use super::*;
+
+    #[test]
+    fn omitted_motion_fps_denominator_uses_documented_wire_default_only() {
+        let omitted = json!({"fps": 30});
+        assert_eq!(
+            AgentAStageAdapter::optional_u64_default(&omitted, "fps_denominator", 1).unwrap(),
+            1
+        );
+
+        let explicit = json!({"fps_denominator": 1001});
+        assert_eq!(
+            AgentAStageAdapter::optional_u64_default(&explicit, "fps_denominator", 1).unwrap(),
+            1001
+        );
+
+        for malformed in [
+            json!({"fps_denominator": null}),
+            json!({"fps_denominator": "1"}),
+            json!({"fps_denominator": -1}),
+            json!({"fps_denominator": 1.5}),
+        ] {
+            assert!(
+                AgentAStageAdapter::optional_u64_default(&malformed, "fps_denominator", 1).is_err()
+            );
+        }
     }
 }

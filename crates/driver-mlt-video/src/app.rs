@@ -1519,8 +1519,74 @@ impl App {
                 "Encoded AV master failed post-mux stream/profile verification",
             ));
         }
+        let output_root = self
+            .roots
+            .get("output")
+            .ok_or_else(|| Error::new("PermissionDenied", "AV output root absent"))?;
+        let mut master = output_root.read_file(output_path, max_bytes)?;
+        let decode_inputs = PrivateDir::new(Path::new("/tmp"))?;
+        let decode_work = PrivateDir::new(Path::new("/tmp"))?;
+        let mut staged = decode_inputs.create("master.mp4")?;
+        let mut staged_hash = Sha256::new();
+        let mut staged_bytes = 0u64;
+        let mut buffer = [0u8; 65_536];
+        loop {
+            let count = master.read(&mut buffer)?;
+            if count == 0 {
+                break;
+            }
+            staged_bytes = staged_bytes
+                .checked_add(count as u64)
+                .filter(|size| *size <= max_bytes)
+                .ok_or_else(|| Error::limit("AV master decode snapshot exceeds byte budget"))?;
+            staged_hash.update(&buffer[..count]);
+            staged.write_all(&buffer[..count])?;
+        }
+        staged.flush()?;
+        staged.sync_all()?;
+        drop(staged);
+        if staged_hash.finish() != artifact.sha256 {
+            return Err(Error::new(
+                "StaleReference",
+                "Published AV master changed before final-audio decode",
+            ));
+        }
+        decode_inputs.seal("master.mp4")?;
+        let decoded_media = runtime.extract_audio(
+            decode_inputs.path(),
+            decode_work.path(),
+            "master.mp4",
+            sample_rate,
+            channels,
+            &cancel,
+        )?;
+        let decoded_path = format!(
+            "{}.decoded.wav",
+            output_path
+                .strip_suffix(".mp4")
+                .ok_or_else(|| Error::invalid("AV master path lost .mp4 suffix"))?
+        );
+        let decoded_source = Root::open(decode_work.path(), true, false)?
+            .read_file("decoded-audio.wav", max_bytes)?;
+        let decoded_artifact =
+            output_root.publish("output", &decoded_path, decoded_source, max_bytes)?;
+
         Ok(obj([
             ("artifact", artifact.json()),
+            ("decoded_audio", decoded_artifact.json()),
+            ("decoded_audio_media", decoded_media.json()),
+            (
+                "decoded_audio_sample_frames",
+                decoded_media
+                    .audio_sample_frames
+                    .ok_or_else(|| {
+                        Error::new(
+                            "BackendFailed",
+                            "Decoded final audio WAV sample count missing",
+                        )
+                    })?
+                    .into(),
+            ),
             ("profile", "h264-aac-mp4".into()),
             ("frame_count", frame_count.into()),
             ("fps_num", u64::from(rate.num).into()),
