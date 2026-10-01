@@ -9,12 +9,12 @@
     "main": "b736d41b61c4a4146c9e75c16796e251b025e69f",
     "C": "504ad2c6632305b580b51703a60b0a194865780d",
     "F": "b30d693c24d7dc0527834b7830823655be5216ce",
-    "D": "e6bd9489d7983d275fd1454dd7ab26916d3fbb15",
+    "D": "70bd7857e9700b6f03547a706ff0e6496ffd838e",
     "E": "3d04d8465dcfa94d6cbf548fcaf343f69ac5838f"
   },
   "selected_lanes": [
     "selftest",
-    "composition"
+    "godot-native"
   ],
   "pins": {
     "os": "ubuntu-24.04",
