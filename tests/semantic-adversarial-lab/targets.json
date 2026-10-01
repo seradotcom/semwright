@@ -14,7 +14,7 @@
   },
   "selected_lanes": [
     "selftest",
-    "figma"
+    "motion"
   ],
   "pins": {
     "os": "ubuntu-24.04",

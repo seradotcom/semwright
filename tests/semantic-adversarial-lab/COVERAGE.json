@@ -432,7 +432,7 @@
         "blender-native artifact 5f89bf7aae9d63d5ff0011d3ce121b534632c9cbb65197c6b1dde7f3752d1d90",
         "selftest 102/102 PASS"
       ],
-      "blocker": "Audio B 11b40fb passed 30/30; AV A 7ed5b84 passed 35/35 after correcting two G oracle counts. 17 independent Figma bridge/snapshot/design/prototype/motion/schema cases activated against A 7ed5b84, whose Figma Composition kernel differs materially from frozen main; exact-SHA execution pending. Motion Canvas on A remains next.",
+      "blocker": "Audio B 11b40fb passed 30/30; AV A 7ed5b84 passed 35/35; Figma A 7ed5b84 passed 17/17. 20 independent Motion Canvas strict-parse/compiler/ref/diff/render/security/store cases activated against A 7ed5b84; exact-SHA execution pending.",
       "implementation_suite_sha": "982e5698cc44c2adead9491a2f8590242fd1dbf3",
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },

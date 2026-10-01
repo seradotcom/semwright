@@ -5026,6 +5026,276 @@
         "nested_literal": true,
         "no_execution_marker": true
       }
+    },
+    {
+      "id": "G-MOTION-001",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "motion",
+      "scope": "product_contract",
+      "description": "strict Motion project fixture parses and validates with bounded identity",
+      "expected": {
+        "valid": true,
+        "schema_version": 1,
+        "revision": 1,
+        "generation_len": 32,
+        "scene_count": 1
+      }
+    },
+    {
+      "id": "G-MOTION-002",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "motion",
+      "scope": "product_contract",
+      "description": "unknown executable field is rejected while hostile display content remains inert data",
+      "expected": {
+        "unknown_field_rejected": true,
+        "hostile_display_is_data": true,
+        "no_execution_marker": true
+      }
+    },
+    {
+      "id": "G-MOTION-003",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "motion",
+      "scope": "product_contract",
+      "description": "compiler output, fingerprint and inventory are deterministic",
+      "expected": {
+        "files_deterministic": true,
+        "fingerprint_deterministic": true,
+        "inventory_unique": true,
+        "project_source_present": true,
+        "lock_present": true
+      }
+    },
+    {
+      "id": "G-MOTION-004",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "motion",
+      "scope": "product_contract",
+      "description": "typed node reference round-trips and validates exact project binding",
+      "expected": {
+        "roundtrip": true,
+        "check_passes": true,
+        "canonical_prefix": true
+      }
+    },
+    {
+      "id": "G-MOTION-005",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "motion",
+      "scope": "product_contract",
+      "description": "reference rejects revision, generation and source-fingerprint drift",
+      "expected": {
+        "revision_stale": true,
+        "generation_stale": true,
+        "fingerprint_stale": true
+      }
+    },
+    {
+      "id": "G-MOTION-006",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "motion",
+      "scope": "product_contract",
+      "description": "reference rejects removed object and wrong object kind",
+      "expected": {
+        "removed_node_stale": true,
+        "wrong_kind_rejected": true
+      }
+    },
+    {
+      "id": "G-MOTION-007",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "motion",
+      "scope": "product_contract",
+      "description": "reference decoder rejects noncanonical revision/kind/project/non-ASCII forms",
+      "expected": {
+        "zero_revision_rejected": true,
+        "unknown_kind_rejected": true,
+        "project_identity_mismatch_rejected": true,
+        "non_ascii_rejected": true
+      }
+    },
+    {
+      "id": "G-MOTION-008",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "motion",
+      "scope": "product_contract",
+      "description": "semantic diff ignores revision noise and identifies exact text property change",
+      "expected": {
+        "revision_noise_ignored": true,
+        "one_property_change": true,
+        "text_property_named": true
+      }
+    },
+    {
+      "id": "G-MOTION-009",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "motion",
+      "scope": "product_contract",
+      "description": "render plan uses half-open frame range and exact bounded output",
+      "expected": {
+        "half_open_one_frame": true,
+        "width": 640,
+        "height": 360,
+        "alpha": true,
+        "fps": 30
+      }
+    },
+    {
+      "id": "G-MOTION-010",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "motion",
+      "scope": "product_contract",
+      "description": "render plan rejects empty/out-of-duration ranges and too-short timeout",
+      "expected": {
+        "empty_range_rejected": true,
+        "past_duration_rejected": true,
+        "short_timeout_rejected": true
+      }
+    },
+    {
+      "id": "G-MOTION-011",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "motion",
+      "scope": "product_contract",
+      "description": "frame conversion is integer-bound and rejects invalid FPS",
+      "expected": {
+        "sixteen_ms_zero": true,
+        "seventeen_ms_one": true,
+        "invalid_zero_fps": true,
+        "invalid_high_fps": true,
+        "seconds_exact": true
+      }
+    },
+    {
+      "id": "G-MOTION-012",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "motion",
+      "scope": "product_contract",
+      "description": "managed relative paths reject traversal, absolute, backslash, URL and encoding tricks",
+      "expected": {
+        "parent_rejected": true,
+        "absolute_rejected": true,
+        "backslash_rejected": true,
+        "url_colon_rejected": true,
+        "percent_rejected": true,
+        "portable_positive": true
+      }
+    },
+    {
+      "id": "G-MOTION-013",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "motion",
+      "scope": "product_contract",
+      "description": "SVG subset accepts structural geometry and rejects active/external content",
+      "expected": {
+        "safe_structural_svg": true,
+        "script_rejected": true,
+        "event_handler_rejected": true,
+        "external_href_rejected": true
+      }
+    },
+    {
+      "id": "G-MOTION-014",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "motion",
+      "scope": "product_contract",
+      "description": "LaTeX vocabulary is bounded and rejects unknown commands and oversized text",
+      "expected": {
+        "bounded_math_accepted": true,
+        "unknown_command_rejected": true,
+        "oversize_rejected": true
+      }
+    },
+    {
+      "id": "G-MOTION-015",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "motion",
+      "scope": "product_contract",
+      "description": "project store enforces source-hash CAS and commits only exact inspected revision",
+      "expected": {
+        "create_revision": 1,
+        "stale_cas_rejected": true,
+        "correct_cas_committed": true,
+        "source_changed": true
+      }
+    },
+    {
+      "id": "G-MOTION-016",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "motion",
+      "scope": "product_contract",
+      "description": "project store rejects symlink root and asset traversal without outside write",
+      "expected": {
+        "symlink_root_rejected": true,
+        "asset_traversal_rejected": true,
+        "outside_absent": true
+      }
+    },
+    {
+      "id": "G-MOTION-017",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "motion",
+      "scope": "product_contract",
+      "description": "asset rollback rejects wrong digest, preserves bytes, and removes exact match",
+      "expected": {
+        "wrong_hash_rejected": true,
+        "wrong_hash_preserves": true,
+        "correct_hash_removes": true
+      }
+    },
+    {
+      "id": "G-MOTION-018",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "motion",
+      "scope": "product_contract",
+      "description": "materializer detects tampered deterministic generated tree",
+      "expected": {
+        "tampered_generated_rejected": true
+      }
+    },
+    {
+      "id": "G-MOTION-019",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "motion",
+      "scope": "product_contract",
+      "description": "hostile text remains generated data without executing payload",
+      "expected": {
+        "payload_retained_as_data": true,
+        "no_execution_marker": true
+      }
+    },
+    {
+      "id": "G-MOTION-020",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "motion",
+      "scope": "product_contract",
+      "description": "duration overflow, duplicate identities and unknown parent fail closed",
+      "expected": {
+        "duration_overflow_rejected": true,
+        "duplicate_id_rejected": true,
+        "unknown_parent_rejected": true
+      }
     }
   ]
 }
