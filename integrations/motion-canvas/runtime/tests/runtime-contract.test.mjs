@@ -4,6 +4,7 @@ import test from 'node:test';
 
 const pkg = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url)));
 const render = fs.readFileSync(new URL('../render.mjs', import.meta.url), 'utf8');
+const nativeAuthoring = fs.readFileSync(new URL('../../../composition/motion/native.ts', import.meta.url), 'utf8');
 
 test('runtime dependencies use exact versions', () => {
   for (const [name, version] of Object.entries({...pkg.dependencies, ...pkg.devDependencies})) {
@@ -65,4 +66,10 @@ test('authoring font evidence is derived from pinned Fontsource resources and br
   assert.ok(render.includes('document.fonts.check'));
   assert.ok(render.includes('font_resources_sha256'));
   assert.ok(!render.includes('font_ready:known(true)'));
+});
+
+test('native styled text runs use TxtLeaf rather than nested layout Txt nodes', () => {
+  assert.ok(nativeAuthoring.includes('Txt,TxtLeaf,Code'));
+  assert.ok(nativeAuthoring.includes('new TxtLeaf({text:r.text'));
+  assert.ok(!nativeAuthoring.includes('new Txt({text:r.text'));
 });
