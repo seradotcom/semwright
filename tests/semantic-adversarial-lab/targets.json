@@ -10,11 +10,11 @@
     "C": "504ad2c6632305b580b51703a60b0a194865780d",
     "F": "b30d693c24d7dc0527834b7830823655be5216ce",
     "D": "70bd7857e9700b6f03547a706ff0e6496ffd838e",
-    "E": "3d04d8465dcfa94d6cbf548fcaf343f69ac5838f"
+    "E": "44780d977735ccc9417ec2992427833abffd0f3c"
   },
   "selected_lanes": [
     "selftest",
-    "godot-native"
+    "blender-native"
   ],
   "pins": {
     "os": "ubuntu-24.04",
