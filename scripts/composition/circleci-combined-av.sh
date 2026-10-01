@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if [[ "${CIRCLECI:-}" != "true" || "${CIRCLE_BRANCH:-}" != "integration/composition-av" ]]; then
-  echo "Combined AV private iteration requires CircleCI integration/composition-av." >&2
+  echo "Combined AV execution requires CircleCI integration/composition-av." >&2
   exit 1
 fi
 
@@ -77,12 +77,13 @@ python3 - <<'PY'
 import json, os
 from pathlib import Path
 path=Path('verification/circleci-composition/combined-av/iteration-classification.json')
+cert=os.environ.get('SEMWRIGHT_CIRCLECI_CANDIDATE_CERTIFICATION')=='true'
 path.write_text(json.dumps({
     'schema_version':1,
     'tested_sha':os.environ['CIRCLE_SHA1'],
     'ci_provider':'circleci',
-    'classification':'PRIVATE_ITERATION_DIAGNOSTIC',
-    'certification_eligible':False,
+    'classification':'CANDIDATE_CERTIFICATION' if cert else 'PRIVATE_ITERATION_DIAGNOSTIC',
+    'certification_eligible':cert,
     'scope':'combined-native-av-e2e',
 },indent=2)+"\n")
 PY

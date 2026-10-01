@@ -19,7 +19,8 @@ def sha(value,label):
 
 def validate(value:dict)->dict:
     need(isinstance(value,dict),"candidate evidence root must be an object")
-    need(value.get("schema_version")==1,"schema_version must be 1")
+    version=value.get("schema_version")
+    need(version in {1,2},"schema_version must be 1 or 2")
     for field in ("candidate_sha","a_sha","b_sha","c0_sha"): sha(value.get(field),field)
     need(value.get("c0_sha")=="26602e4b25929be869d69ef28fef4dd9713180d7","unexpected C0 contract SHA")
     for field in ("combined_candidate","b_audio_ready_for_integration","ready_for_demo_production",
@@ -35,13 +36,26 @@ def validate(value:dict)->dict:
     need(all(state in STATES for state in gates.values()),"invalid required gate state")
     evidence=value.get("workflow_evidence")
     need(isinstance(evidence,list) and len(evidence)<=128,"workflow_evidence must be bounded list")
+    legacy_fields={"workflow","run_id","job_ids","tested_sha","status","artifacts","limitations"}
+    v2_fields=legacy_fields|{"provider","classification"}
     for index,row in enumerate(evidence):
         need(isinstance(row,dict),f"workflow_evidence[{index}] must be object")
-        need(set(row)=={"workflow","run_id","job_ids","tested_sha","status","artifacts","limitations"},
-             f"workflow_evidence[{index}] fields mismatch")
+        expected=legacy_fields if version==1 else v2_fields
+        need(set(row)==expected,f"workflow_evidence[{index}] fields mismatch")
         need(isinstance(row["workflow"],str) and 0<len(row["workflow"])<=128,"workflow name invalid")
-        need(isinstance(row["run_id"],int) and row["run_id"]>0,"run_id invalid")
-        need(isinstance(row["job_ids"],list) and len(row["job_ids"])<=128 and all(isinstance(x,int) and x>0 for x in row["job_ids"]),"job_ids invalid")
+        if version==1:
+            need(isinstance(row["run_id"],int) and row["run_id"]>0,"run_id invalid")
+            need(isinstance(row["job_ids"],list) and len(row["job_ids"])<=128 and all(isinstance(x,int) and x>0 for x in row["job_ids"]),"job_ids invalid")
+        else:
+            need(row["provider"] in {"github","circleci"},"workflow evidence provider invalid")
+            need(row["classification"]=="CANDIDATE_CERTIFICATION","v2 evidence must be candidate certification")
+            if row["provider"]=="github":
+                need(isinstance(row["run_id"],int) and row["run_id"]>0,"GitHub run_id invalid")
+                need(isinstance(row["job_ids"],list) and len(row["job_ids"])<=128 and all(isinstance(x,int) and x>0 for x in row["job_ids"]),"GitHub job_ids invalid")
+            else:
+                need(isinstance(row["run_id"],str) and 1<=len(row["run_id"])<=128,"CircleCI run_id invalid")
+                need(isinstance(row["job_ids"],list) and 1<=len(row["job_ids"])<=128,"CircleCI job_ids invalid")
+                need(all((isinstance(x,int) and x>0) or (isinstance(x,str) and 1<=len(x)<=128) for x in row["job_ids"]),"CircleCI job_ids invalid")
         sha(row["tested_sha"],f"workflow_evidence[{index}].tested_sha")
         need(row["tested_sha"]==value["candidate_sha"],"workflow evidence mixes candidate SHAs")
         need(row["status"] in STATES,"workflow evidence status invalid")

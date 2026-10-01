@@ -1,7 +1,7 @@
 version: 2.1
 
-# Private A-side iteration accelerator only.
-# CircleCI output is diagnostic and MUST NOT be used as release/certification evidence.
+# A-side iteration on feat/composition-media; exact-SHA candidate certification on integration/composition-av.
+# Candidate certification remains a product gate, not release/R16 authority.
 parameters:
   force-motion-native:
     type: boolean
@@ -41,7 +41,7 @@ jobs:
             esac
             test "$(git rev-parse HEAD)" = "$CIRCLE_SHA1"
 
-            mkdir -p verification/circleci-composition ~/.cargo/registry ~/.cargo/git ~/.npm
+            mkdir -p verification/circleci-composition verification/circleci-certification verification/audio ~/.cargo/registry ~/.cargo/git ~/.npm
             python3 scripts/composition/ci-scope.py --after "$CIRCLE_SHA1"               > verification/circleci-composition/scope.json
 
             python3 - \<<'PY'
@@ -56,10 +56,14 @@ jobs:
                 or os.environ.get("CIRCLE_BRANCH") == "integration/composition-av"
             )
             force_contracts = os.environ.get("FORCE_CONTRACTS", "").lower() == "true"
+            candidate = os.environ.get("CIRCLE_BRANCH") == "integration/composition-av"
             if force_motion:
                 data["motion"] = True
             if force_contracts:
                 data["contracts"] = True
+            if candidate:
+                for key in ("contracts","broker","package","skills","motion","figma","mlt","native_driver_common"):
+                    data[key] = True
             bool_keys = [
                 "contracts", "broker", "package", "skills", "motion", "figma", "mlt",
                 "fuzz_kernel", "fuzz_media", "fuzz_motion", "fuzz_av",
@@ -68,8 +72,8 @@ jobs:
             ]
             data["any"] = any(bool(data.get(key)) for key in bool_keys)
             data["circleci"] = {
-                "classification": "PRIVATE_ITERATION_DIAGNOSTIC",
-                "certification_eligible": False,
+                "classification": "CANDIDATE_CERTIFICATION" if candidate else "PRIVATE_ITERATION_DIAGNOSTIC",
+                "certification_eligible": candidate,
                 "force_motion_native": force_motion,
                 "force_contracts": force_contracts,
             }
@@ -87,15 +91,22 @@ jobs:
                 out.write(
                     f'export SW_FORCE_CONTRACTS={"1" if force_contracts else "0"}\n'
                 )
+                out.write(
+                    f'export SEMWRIGHT_CIRCLECI_CANDIDATE_CERTIFICATION={"true" if candidate else "false"}\n'
+                )
             print(path.read_text())
             PY
 
-            cat > verification/circleci-composition/NOT_CERTIFICATION.txt \<<'EOF'
-            This directory is private CircleCI iteration diagnostic output.
-            It is not GitHub Actions evidence, release evidence, R16 evidence,
-            READY_FOR_DEMO_PRODUCTION evidence, or certification evidence.
-            GitHub Actions remains the final authority for exact-SHA certification.
+            if [ "$CIRCLE_BRANCH" = integration/composition-av ]; then
+              cat > verification/circleci-composition/CANDIDATE_CERTIFICATION.txt \<<'EOF'
+            Exact-SHA product candidate certification. This does not close R16,
+            merge main, certify release readiness, or replace independent G/F/I review.
             EOF
+            else
+              cat > verification/circleci-composition/NOT_CERTIFICATION.txt \<<'EOF'
+            Private CircleCI iteration diagnostic output; not certification evidence.
+            EOF
+            fi
 
       - run:
           name: Lightweight hygiene
@@ -112,6 +123,8 @@ jobs:
             python3 scripts/composition/test-run-suite.py
             bash -n scripts/dev/ci-driver-bwrap-profile.sh
             bash -n scripts/composition/circleci-combined-av.sh
+            bash -n scripts/composition/circleci-candidate-audio.sh
+            python3 -m py_compile scripts/composition/circleci-candidate-finalize.py
             python3 - \<<'PY'
             import json
             from pathlib import Path
@@ -239,10 +252,12 @@ jobs:
             fi
             source "$HOME/.cargo/env"
 
-            # The common contracts are tightly coupled. When this area is selected,
-            # run the three portable suites but never label CircleCI output as certification.
+            mode=circleci-iteration
+            if [ "${SEMWRIGHT_CIRCLECI_CANDIDATE_CERTIFICATION:-false}" = true ]; then
+              mode=circleci-certification
+            fi
             for suite in contracts motion av; do
-              python3 scripts/composition/run-suite.py "$suite"                 --evidence-mode circleci-iteration
+              python3 scripts/composition/run-suite.py "$suite" --evidence-mode "$mode"
             done
 
       - run:
@@ -298,7 +313,19 @@ jobs:
             npm --version
 
       - run:
-          name: Motion Canvas private native iteration
+          name: Figma plugin exact-SHA candidate regression
+          command: |
+            set -euo pipefail
+            if [ "${SEMWRIGHT_CIRCLECI_CANDIDATE_CERTIFICATION:-false}" != true ]; then exit 0; fi
+            mkdir -p verification/circleci-certification
+            cd crates/driver-figma/plugin
+            npm ci --ignore-scripts --cache "$HOME/.npm"
+            { npm test; npm run typecheck; npm run build; } 2>&1 \
+              | tee "$OLDPWD/verification/circleci-certification/figma-plugin.log"
+            cd "$OLDPWD"
+
+      - run:
+          name: Motion Canvas native exact-SHA execution
           command: |
             set -euo pipefail
             if [ "${SW_SCOPE_MOTION:-0}" != 1 ] && [ "${SW_FORCE_MOTION_NATIVE:-0}" != 1 ]; then
@@ -342,16 +369,15 @@ jobs:
 
             cargo test --locked -p semwright-driver-motion-canvas               composition_authoring_runs_through_broker_driver_host_and_native_renderer               -- --ignored --nocapture               2>&1 | tee verification/circleci-composition/motion/composition-authoring.log
 
-            cat > verification/circleci-composition/motion/iteration-classification.json \<<EOF
-            {
-              "schema_version": 1,
-              "tested_sha": "$CIRCLE_SHA1",
-              "ci_provider": "circleci",
-              "classification": "PRIVATE_ITERATION_DIAGNOSTIC",
-              "certification_eligible": false,
-              "scope": "motion-canvas-native"
-            }
-            EOF
+            python3 - <<'PY'
+            import json, os
+            from pathlib import Path
+            cert=os.environ.get("SEMWRIGHT_CIRCLECI_CANDIDATE_CERTIFICATION")=="true"
+            Path("verification/circleci-composition/motion/iteration-classification.json").write_text(json.dumps({
+              "schema_version":1,"tested_sha":os.environ["CIRCLE_SHA1"],"ci_provider":"circleci",
+              "classification":"CANDIDATE_CERTIFICATION" if cert else "PRIVATE_ITERATION_DIAGNOSTIC",
+              "certification_eligible":cert,"scope":"motion-canvas-native"},indent=2)+"\n")
+            PY
 
       - run:
           name: Combined AV private native iteration
@@ -361,6 +387,33 @@ jobs:
             else
               echo "Combined AV iteration is integration-branch only."
             fi
+
+      - run:
+          name: Candidate exact-SHA audio certification
+          command: |
+            set -euo pipefail
+            if [ "${SEMWRIGHT_CIRCLECI_CANDIDATE_CERTIFICATION:-false}" != true ]; then exit 0; fi
+            bash scripts/composition/circleci-candidate-audio.sh
+
+      - run:
+          name: Candidate authority package and evidence certification
+          command: |
+            set -euo pipefail
+            if [ "${SEMWRIGHT_CIRCLECI_CANDIDATE_CERTIFICATION:-false}" != true ]; then exit 0; fi
+            source "$HOME/.cargo/env"
+            mkdir -p verification/circleci-certification
+            cargo test --locked -p semwright-semantic-composition permit_cannot_cross -- --nocapture \
+              2>&1 | tee verification/circleci-certification/security-authority.log
+            python3 scripts/composition/test-package-dev.py
+            python3 scripts/composition/package-dev.py build \
+              --output verification/circleci-certification/candidate.zip \
+              --source-sha "$CIRCLE_SHA1" > verification/circleci-certification/package-build.json
+            python3 scripts/composition/package-dev.py verify \
+              verification/circleci-certification/candidate.zip \
+              > verification/circleci-certification/candidate-package.json
+            python3 scripts/composition/circleci-candidate-finalize.py
+            python3 scripts/composition/candidate-evidence.py \
+              verification/circleci-certification/candidate-evidence.json
 
       - run:
           name: Capture Motion sandbox diagnostics on failure
@@ -392,6 +445,12 @@ jobs:
       - store_artifacts:
           path: verification/circleci-composition
           destination: semwright-a-circleci-iteration
+      - store_artifacts:
+          path: verification/circleci-certification
+          destination: semwright-a-candidate-certification
+      - store_artifacts:
+          path: verification/audio
+          destination: semwright-a-candidate-audio
 
 workflows:
   a-private-iteration:
