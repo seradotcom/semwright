@@ -1,6 +1,6 @@
 # Composition / Audio / AV integration record
 
-This file is the source-controlled integration ledger. Fields marked PENDING must be replaced by exact evidence when B declares AUDIO_READY_FOR_INTEGRATION and the combined branch is created.
+This file is the source-controlled integration ledger. A private diagnostic integration branch may exist before readiness; fields marked PENDING are replaced only when B declares AUDIO_READY_FOR_INTEGRATION and one formal combined candidate is cut and tested.
 
 ## Source lineage
 
@@ -10,13 +10,14 @@ This file is the source-controlled integration ledger. Fields marked PENDING mus
 - B baseline: 93f70241e9fb9d4c99ca76fab55c8517574a9f6f
 - B branch: feat/audio-completion
 - B consumed C0 through normal Git ancestry: verified locally
-- B observed working head at this checkpoint: ea144de5af1b663ff5ad821793c105b95f5f819d
-- B AUDIO_READY_FOR_INTEGRATION: false
+- B observed PR/worktree head at this checkpoint: 8ed2d30c8ba797ebd5b8c102d34f8ab5bb3a28b3
+- B coordination state currently declares AUDIO_READY_FOR_INTEGRATION: false
 - Current origin/main reconciled into A: e3713e90e87f1caa8f7105c065094d5c724d144e
-- Integration branch/worktree: PENDING until B-ready handoff
-- Combined candidate SHA: PENDING
+- Integration branch/worktree exists at integration/composition-av for private diagnostics.
+- Latest observed diagnostic integration head: 5648dd2da719b4602126f3458c3c266679c67b2a
+- Formal combined candidate SHA: PENDING a current B-ready handoff
 
-A and B remain separate until the B readiness handshake. A never edits the B worktree. The combined candidate will be created in the A-owned integration worktree, not in the canonical checkout.
+A never edits the B worktree. A historical/private integration candidate has exercised the combined native AV path in CircleCI, but that diagnostic does not replace B's current readiness handshake or exact-candidate certification. The formal candidate will be cut only after B.json, B PR ancestry and native evidence agree on one AUDIO_READY_FOR_INTEGRATION SHA.
 
 ## Contract history
 

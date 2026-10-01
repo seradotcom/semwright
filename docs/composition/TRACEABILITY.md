@@ -18,8 +18,8 @@ This file maps the Agent-A master requirements to implementation and evidence. I
 | A10 | Temporal DAG, exact rational solver, hard/soft constraints | IMPLEMENTED |
 | A11 | Renderer observations, explicit frame coverage, speed/acceleration | IMPLEMENTED; exact-SHA native evidence pending |
 | A12 | Deterministic validation and bounded repair candidates | IMPLEMENTED; M07 hold/retime regressions added |
-| A13 | Fixed AV graph, B public receipt boundary, dependency reuse/invalidation | A-SIDE IMPLEMENTED; real B/combined E2E PENDING |
-| A14 | Motion render, FFV1 mezzanine, MLT H.264/AAC mux, full decoded sync | IMPLEMENTED; exact-SHA native evidence pending |
+| A13 | Fixed AV graph, B public receipt boundary, dependency reuse/invalidation | A-SIDE IMPLEMENTED; private combined native E2E observed PASS on a diagnostic integration SHA; formal current B-ready candidate PENDING |
+| A14 | Motion render, FFV1 mezzanine, MLT H.264/AAC mux, post-encode audio decode/analysis, full decoded sync | IMPLEMENTED; A-side backport passed CircleCI private exact-SHA iteration; final candidate certification pending |
 | A15 | Figma, video and fail-closed AV Skills plus production runbook | IMPLEMENTED; public audio Composition requirement PENDING B |
 | A16 | Contracts, Figma, Motion, AV, security, fuzz and mutation workflows | IMPLEMENTED; exact-SHA results pending |
 | A17 | Reproducible technical benchmark harness | IMPLEMENTED; no advertising claim |
