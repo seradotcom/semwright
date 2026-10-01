@@ -42,6 +42,14 @@ cat > "$BUILD/parent.entitlements" <<PLIST
 </dict></plist>
 PLIST
 
+cat > "$BUILD/parent.sandbox-only.entitlements" <<'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>com.apple.security.app-sandbox</key><true/>
+</dict></plist>
+PLIST
+
 cat > "$BUILD/child.entitlements" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -51,14 +59,47 @@ cat > "$BUILD/child.entitlements" <<'PLIST'
 </dict></plist>
 PLIST
 
-codesign --force --sign - --options runtime   --entitlements "$BUILD/parent.entitlements"   -i com.semwright.tests.app-sandbox-parent "$BUILD/parent"
-codesign --force --sign - --options runtime   --entitlements "$BUILD/child.entitlements"   -i com.semwright.tests.app-sandbox-child "$BUILD/child"
+run_parent_smoke() {
+  local phase="$1"
+  local rc=0
+  set +e
+  "$BUILD/parent" --smoke
+  rc=$?
+  set -e
+  echo "sandbox-parent-smoke phase=$phase rc=$rc"
+  return "$rc"
+}
 
+codesign --force --sign - --options runtime   -i com.semwright.tests.app-sandbox-parent "$BUILD/parent"
 codesign --verify --strict --verbose=2 "$BUILD/parent"
+BASE_RC=0
+run_parent_smoke adhoc-no-entitlements || BASE_RC=$?
+
+codesign --force --sign - --options runtime   --entitlements "$BUILD/parent.sandbox-only.entitlements"   -i com.semwright.tests.app-sandbox-parent "$BUILD/parent"
+codesign --verify --strict --verbose=2 "$BUILD/parent"
+SANDBOX_RC=0
+run_parent_smoke app-sandbox-only || SANDBOX_RC=$?
+
+codesign --force --sign - --options runtime   --entitlements "$BUILD/parent.entitlements"   -i com.semwright.tests.app-sandbox-parent "$BUILD/parent"
+codesign --verify --strict --verbose=2 "$BUILD/parent"
+PATH_RC=0
+run_parent_smoke app-sandbox-with-path-exceptions || PATH_RC=$?
+
+codesign --force --sign - --options runtime   --entitlements "$BUILD/child.entitlements"   -i com.semwright.tests.app-sandbox-child "$BUILD/child"
 codesign --verify --strict --verbose=2 "$BUILD/child"
 
-echo "running sandboxed parent smoke before child inheritance/path checks"
-"$BUILD/parent" --smoke
+if (( BASE_RC != 0 )); then
+  echo "ad-hoc signed parent cannot launch; App Sandbox probe is inconclusive" >&2
+  exit 70
+fi
+if (( SANDBOX_RC != 0 )); then
+  echo "app-sandbox entitlement aborts the ad-hoc signed parent before child inheritance" >&2
+  exit 71
+fi
+if (( PATH_RC != 0 )); then
+  echo "absolute-path temporary exceptions abort the otherwise sandboxed parent" >&2
+  exit 72
+fi
 
 python3 -m http.server 18765 --bind 127.0.0.1 --directory "$BUILD"   >"$BUILD/http.log" 2>&1 &
 SERVER_PID=$!
