@@ -6,9 +6,10 @@ BIN_DIR=${BIN_DIR:-"$ROOT/target/debug"}
 DAEMON="$BIN_DIR/semwrightd"
 CTL="$BIN_DIR/semwright"
 DRIVER="$BIN_DIR/semwright-blender-driver"
+SESSION_RUNNER="$BIN_DIR/semwright-blender-session-runner"
 SANDBOX="$BIN_DIR/semwright-sandbox"
 
-for file in "$DAEMON" "$CTL" "$DRIVER" "$SANDBOX"; do
+for file in "$DAEMON" "$CTL" "$DRIVER" "$SESSION_RUNNER" "$SANDBOX"; do
   test -x "$file" || { echo "missing executable: $file" >&2; exit 2; }
 done
 command -v bwrap >/dev/null
@@ -29,6 +30,7 @@ for required in lib 4.5/scripts 4.5/extensions 4.5/datafiles 4.5/python; do
   test -d "$BLENDER_ROOT/$required" || { echo "Blender runtime missing $required" >&2; exit 5; }
 done
 BLENDER_SHA=$(sha256sum "$BLENDER_BIN" | awk '{print $1}')
+SESSION_RUNNER_SHA=$(sha256sum "$SESSION_RUNNER" | awk '{print $1}')
 test -d /etc/fonts
 
 TMP=$(mktemp -d)
@@ -42,8 +44,8 @@ cleanup() {
 }
 trap cleanup EXIT
 chmod 700 "$TMP"
-mkdir "$TMP/runtime" "$TMP/state" "$TMP/home" "$TMP/workspace"
-chmod 700 "$TMP/runtime" "$TMP/state" "$TMP/home" "$TMP/workspace"
+mkdir "$TMP/runtime" "$TMP/state" "$TMP/home" "$TMP/workspace" "$TMP/scratch"
+chmod 700 "$TMP/runtime" "$TMP/state" "$TMP/home" "$TMP/workspace" "$TMP/scratch"
 export XDG_RUNTIME_DIR="$TMP/runtime"
 export XDG_STATE_HOME="$TMP/state"
 export HOME="$TMP/home"
@@ -61,7 +63,7 @@ PY
 cat > "$TMP/driver.json" <<JSON
 {
   "manifest_version": 1,
-  "protocol": 1,
+  "protocol": 8,
   "id": "blender",
   "version": "$version",
   "publisher": "semwright",
@@ -75,28 +77,46 @@ cat > "$TMP/driver.json" <<JSON
   "transport": "stdio_v1",
   "mounts": [
     {"root": "workspace", "read_only": false},
-    {"root": "blender-runtime", "read_only": true}
+    {"root": "blender-runtime", "read_only": true},
+    {"root": "scratch", "read_only": false},
+    {"root": "font-config", "read_only": true}
   ],
-  "system_config": [
-    {"root": "font-config", "destination": "/etc/fonts"}
-  ],
+  "system_config": [],
   "tools": [
-    {"root": "blender-executable", "name": "blender", "sha256": "$BLENDER_SHA"}
+    {
+      "root": "blender-session-runner",
+      "name": "blender-session-runner",
+      "sha256": "$SESSION_RUNNER_SHA",
+      "mounts": ["workspace", "blender-runtime", "scratch", "font-config"],
+      "dependencies": ["blender"]
+    },
+    {
+      "root": "blender-executable",
+      "name": "blender",
+      "sha256": "$BLENDER_SHA",
+      "mounts": [],
+      "dependencies": []
+    }
   ],
   "network": false,
   "resources": {
     "open_files": 256,
     "processes": 64,
     "cpu_seconds": 300,
+    "operation_cpu_seconds": 0,
     "address_space_bytes": 4294967296,
     "file_size_bytes": 1073741824
   },
   "request_timeout_ms": 300000,
   "interfaces": {
     "dynamic_capabilities": false,
-    "cooperative_cancellation": false,
+    "cooperative_cancellation": true,
     "events": false,
-    "health": true
+    "health": true,
+    "progress": false,
+    "artifacts": false,
+    "native_refs": false,
+    "host_tools": true
   }
 }
 JSON
@@ -125,6 +145,18 @@ write = false
 [[policy.filesystem]]
 name = "blender-runtime"
 path = "$BLENDER_ROOT"
+read = true
+write = false
+
+[[policy.filesystem]]
+name = "scratch"
+path = "$TMP/scratch"
+read = true
+write = true
+
+[[policy.filesystem]]
+name = "blender-session-runner"
+path = "$SESSION_RUNNER"
 read = true
 write = false
 
