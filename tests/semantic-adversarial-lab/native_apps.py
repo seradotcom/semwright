@@ -236,7 +236,7 @@ def run_native_pair(
         commands.append(between)
     commands.append(native_process_command(second_request, second_output))
     return enclosure.run(
-        ["/bin/sh", "-c", "set -eu; " + "; ".join(commands)],
+        ["/usr/bin/bash", "-c", "set -eu; " + "; ".join(commands)],
         executable=godot,
         timeout=60,
     )
@@ -628,7 +628,7 @@ def run_godot(target: Path, source_sha: str, suite_sha: str, cases: list[dict], 
             "chmod 0755 /tmp/data/godot/export_templates/4.7.2.stable/linux_release.x86_64; "
             "exec /plugin/bin --headless --path /out/g_native --export-release Linux /out/export/g_native.x86_64"
         )
-        export_raw = enclosure.run(["/bin/sh", "-c", export_script], executable=godot, timeout=30)
+        export_raw = enclosure.run(["/usr/bin/bash", "-c", export_script], executable=godot, timeout=30)
         binary = out / "export" / "g_native.x86_64"
         exported = sound(export_raw, enclosure) and binary.is_file()
         results_by_id["G-GODOT-011"] = {"exported": exported}

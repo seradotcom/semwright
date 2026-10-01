@@ -387,7 +387,7 @@
       "run_id": null,
       "job_id": null,
       "evidence": [],
-      "blocker": "Godot-native run 36812075936 reached isolated save/reopen pairing but the pair did not complete; current receipt lacked per-child failure detail. G now records bounded pair exit/receipt/PID/failure diagnostics without changing product or expectations; exact-SHA diagnostic retest pending.",
+      "blocker": "Godot-native diagnostic run 36812550613 proved the save/reopen blocker was G AppArmor orchestration: /bin/sh is outside the scoped bwrap exec allowlist (stderr: bwrap execvp /bin/sh Permission denied). Persistence/export wrappers now use allowed read-only /usr/bin/bash; exact-SHA retest pending.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },
