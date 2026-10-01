@@ -1840,7 +1840,7 @@ mod tests {
         let digest = semwright_driver_sdk::capabilities_digest(&catalog).unwrap();
         assert_eq!(
             digest,
-            "b50b2c7fc1ebbc5e5a734d25491bf3d065e2d496386e14a9d54f3c92268ff2f4"
+            "d7a1bc53c1cc25bfb839edbb99b81c03bf720441f050e86144fd6c9aa672a5a5"
         );
 
         let manifest_bytes = include_bytes!("../driver.manifest.example.json");

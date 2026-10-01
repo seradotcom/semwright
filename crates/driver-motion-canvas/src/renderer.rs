@@ -25,7 +25,10 @@ use tokio_util::sync::CancellationToken;
 
 const MAX_PROCESS_OUTPUT: u64 = 262_144;
 const MAX_JOBS: usize = 64;
-const NODE_RENDER_FLAGS: [&str; 2] = ["--disable-wasm-trap-handler", "--max-old-space-size=256"];
+// High-level authoring adds the fixed semantic runtime to Vite's module graph.
+// Keep V8 bounded well below the Driver Host's 4 GiB RLIMIT_AS while allowing
+// that closed first-party graph to build without the legacy 256 MiB heap cap.
+const NODE_RENDER_FLAGS: [&str; 2] = ["--disable-wasm-trap-handler", "--max-old-space-size=512"];
 
 fn runtime_relative_path(path: &str) -> Result<()> {
     if path.is_empty()
@@ -497,6 +500,7 @@ impl RenderManager {
             .ok_or_else(|| Error::new(ErrorCode::NotFound, "Unknown render job"))
     }
 
+    #[cfg(test)]
     pub(crate) async fn failure_code(&self, job_ref: &str) -> Option<ErrorCode> {
         self.jobs
             .lock()
@@ -1205,6 +1209,24 @@ impl RenderManager {
 #[cfg(test)]
 mod runtime_path_tests {
     use super::*;
+
+    #[test]
+    fn production_node_heap_remains_bounded_but_supports_authoring_bundle() {
+        assert_eq!(
+            NODE_RENDER_FLAGS,
+            ["--disable-wasm-trap-handler", "--max-old-space-size=512"]
+        );
+        let heap_mib = NODE_RENDER_FLAGS[1]
+            .strip_prefix("--max-old-space-size=")
+            .unwrap()
+            .parse::<u64>()
+            .unwrap();
+        assert!((256..=512).contains(&heap_mib));
+        assert!(
+            heap_mib * 1024 * 1024 < 4_294_967_296,
+            "V8 heap ceiling must remain strictly below Driver Host RLIMIT_AS"
+        );
+    }
 
     #[test]
     fn pinned_runtime_paths_allow_npm_scopes_but_not_traversal_or_urls() {
