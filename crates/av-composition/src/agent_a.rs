@@ -154,6 +154,15 @@ impl AgentAStageAdapter {
         .map_err(|error| Error::Invalid(error.to_string()))
     }
 
+    fn optional_u64_default(value: &Value, field: &str, default: u64) -> Result<u64> {
+        match value.get(field) {
+            None => Ok(default),
+            Some(value) => value
+                .as_u64()
+                .ok_or_else(|| Error::Invalid(format!("provider returned invalid {field}"))),
+        }
+    }
+
     fn relative(path: &str) -> Result<()> {
         ensure(
             !path.is_empty()
@@ -412,14 +421,14 @@ impl AgentAStageAdapter {
         let planned = runner
             .next(json!({"profile":profile.clone()}), cancellation.clone())
             .await?;
+        let planned_fps_denominator = Self::optional_u64_default(&planned, "fps_denominator", 1)?;
         ensure(
             planned.get("width").and_then(Value::as_u64) == Some(u64::from(delivery.width))
                 && planned.get("height").and_then(Value::as_u64)
                     == Some(u64::from(delivery.height))
                 && planned.get("fps").and_then(Value::as_u64)
                     == Some(u64::from(delivery.frame_rate.num))
-                && planned.get("fps_denominator").and_then(Value::as_u64)
-                    == Some(u64::from(delivery.frame_rate.den))
+                && planned_fps_denominator == u64::from(delivery.frame_rate.den)
                 && planned.get("first_frame").and_then(Value::as_u64) == Some(0)
                 && planned.get("end_frame_exclusive").and_then(Value::as_u64) == Some(frames),
             "Motion render plan differs from AV delivery profile",
@@ -1353,5 +1362,36 @@ impl AgentAStageAdapter {
                 impulses: decode(value.get("impulses").and_then(Value::as_array))?,
             },
         })
+    }
+}
+
+#[cfg(test)]
+mod wire_default_tests {
+    use super::*;
+
+    #[test]
+    fn omitted_motion_fps_denominator_uses_documented_wire_default_only() {
+        let omitted = json!({"fps": 30});
+        assert_eq!(
+            AgentAStageAdapter::optional_u64_default(&omitted, "fps_denominator", 1).unwrap(),
+            1
+        );
+
+        let explicit = json!({"fps_denominator": 1001});
+        assert_eq!(
+            AgentAStageAdapter::optional_u64_default(&explicit, "fps_denominator", 1).unwrap(),
+            1001
+        );
+
+        for malformed in [
+            json!({"fps_denominator": null}),
+            json!({"fps_denominator": "1"}),
+            json!({"fps_denominator": -1}),
+            json!({"fps_denominator": 1.5}),
+        ] {
+            assert!(
+                AgentAStageAdapter::optional_u64_default(&malformed, "fps_denominator", 1).is_err()
+            );
+        }
     }
 }
