@@ -12,7 +12,7 @@
   },
   "selected_lanes": [
     "selftest",
-    "graph"
+    "routing"
   ],
   "pins": {
     "os": "ubuntu-24.04",

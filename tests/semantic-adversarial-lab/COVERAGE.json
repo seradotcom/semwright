@@ -355,7 +355,7 @@
         "prior 52-case receipt d0265ed89c713f72533ab93d531ba271ff95bc73c7dd2591db692d7235548b4b",
         "prior 52-case artifact dfc806f06e1ffeddbeb58d9cc45862fe5bbad1be863ccce366b72fc25536826d"
       ],
-      "blocker": "Final C 504ad2 retest run 36648808802 executed 74/74 with 73 PASS and one G oracle defect: case 061 conflated presentation label with verification/cache safety. Oracle corrected to verification/coverage/cache dimensions; exact-SHA retest pending.",
+      "blocker": "Final C 504ad2 exact-SHA G retest run 36651072628: 74/74 Project Graph cases PASS, 0 FAIL/BLOCKED/NOT_RUN. G-GRAPH-061 prior mismatch was a G oracle defect and was corrected without product changes.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },
@@ -498,7 +498,7 @@
       "run_id": null,
       "job_id": null,
       "evidence": [],
-      "blocker": "12 Broker routing authority/path/principal/GC cases prepared against final C 504ad2 plus 20 Skill-package loader cases against unchanged semwright-skills baseline; neither G08 lane has executed yet.",
+      "blocker": "12 Broker routing authority/path/principal/provenance/GC cases activated against final C 504ad2; exact-SHA G execution pending. Packaging remains a separate baseline experiment.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },
