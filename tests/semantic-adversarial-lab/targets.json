@@ -14,7 +14,8 @@
   },
   "selected_lanes": [
     "selftest",
-    "blender-native"
+    "audio",
+    "av"
   ],
   "pins": {
     "os": "ubuntu-24.04",
