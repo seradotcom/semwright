@@ -137,29 +137,35 @@ jobs:
               echo "No product area selected; skipping Rust setup."
               exit 0
             fi
-            if ! command -v rustup >/dev/null 2>&1; then
-              curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs                 | sh -s -- -y --profile minimal
-            fi
-            source "$HOME/.cargo/env"
-            rustup toolchain install 1.98.1 --profile minimal --component rustfmt --component clippy
-            rustup default 1.98.1
+            mkdir -p verification/circleci-composition/setup
             {
-              echo 'export PATH="$HOME/.cargo/bin:$PATH"'
-              echo 'export RUSTUP_TOOLCHAIN=1.98.1'
-            } >> "$BASH_ENV"
-            rustc --version
-            cargo --version
+              if ! command -v rustup >/dev/null 2>&1; then
+                curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs                   | sh -s -- -y --profile minimal
+              fi
+              source "$HOME/.cargo/env"
+              rustup toolchain install 1.98.1 --profile minimal --component rustfmt --component clippy
+              rustup default 1.98.1
+              {
+                echo 'export PATH="$HOME/.cargo/bin:$PATH"'
+                echo 'export RUSTUP_TOOLCHAIN=1.98.1'
+              } >> "$BASH_ENV"
+              rustc --version
+              cargo --version
+            } 2>&1 | tee verification/circleci-composition/setup/rust.log
 
       - run:
           name: Install Linux build prerequisites only when needed
           command: |
             set -euo pipefail
-            if [ "${SW_SCOPE_BROKER:-0}" = 1 ] || [ "${SW_SCOPE_MOTION:-0}" = 1 ]; then
-              sudo apt-get update
-              sudo apt-get install -y pkg-config build-essential libpipewire-0.3-dev
-            else
-              echo "No Broker/Motion native prerequisites needed."
-            fi
+            mkdir -p verification/circleci-composition/setup
+            {
+              if [ "${SW_SCOPE_BROKER:-0}" = 1 ] || [ "${SW_SCOPE_MOTION:-0}" = 1 ]; then
+                sudo apt-get update
+                sudo apt-get install -y pkg-config build-essential libpipewire-0.3-dev
+              else
+                echo "No Broker/Motion native prerequisites needed."
+              fi
+            } 2>&1 | tee verification/circleci-composition/setup/apt.log
 
       - run:
           name: Affected-area format and lints
