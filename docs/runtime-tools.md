@@ -20,16 +20,18 @@ Protocol v8 adds per-tool system-config allowlists. A tool may name only roots a
 
 Protocol v8 also adds provider-scoped persistent runtime-tool sessions for application runtimes that must survive across multiple Execute requests. Start is authorized by an active request, but the resulting opaque handle belongs to that DriverProvider rather than to the caller's user-session string; a later request through the same provider may exchange a bounded frame or close the session. This is intentionally different from protocol-v6 jobs, which remain user-session scoped. Driver Host owns the process, permits at most two persistent sessions per provider, bounds frames to 256 KiB and lifetime to one hour, reaps a session on framing/timeout failure, and reaps every remaining session when the provider disconnects. Session close remains available as cleanup after request cancellation. The current protocol uses a length-prefixed stdin/stdout channel intended for a Semwright-owned runtime wrapper; native application IPC can remain behind that wrapper. Linux and Windows receive native conformance coverage; macOS remains fail-closed for execution until a supported platform isolation primitive exists. Aggregate per-operation CPU accounting remains unsupported for persistent sessions rather than being approximated.
 
-## Remaining runtime migration classes
+## Migrated runtime classes
 
-| Driver/runtime | Lifetime / shape | Current legacy resolver | Generic primitive required |
-| --- | --- | --- | --- |
-| Blender | Persistent background application session | `tool_path("blender")` | Host-managed persistent runtime session |
-| LibreOffice | Persistent soffice + UNO/Python bridge | fixed `/usr/bin/python3`, `/usr/bin/soffice`, `/usr/bin/sh` | Host-managed runtime bundle + persistent session |
-| MLT | Render/probe work may outlive the initiating request | generic v7 Host tool/job boundary; no production `runtime.json` | migrated in the stacked MLT runtime-tool work |
-| Motion Canvas | Async render job with Node helper + browser | private `runtime.json` | Host-owned detached runtime job + multi-tool bundle |
-| Godot runner | Request-scoped one-shot tool | generic v5 runtime-tool boundary | migrated in the stacked runtime-tool work |
+| Driver/runtime | Lifetime / shape | Production execution path |
+| --- | --- | --- |
+| Godot runner | Request-scoped one-shot tool | protocol-v5 Host-mediated logical tool + mount authority |
+| Motion Canvas | Async render job with Node helper + browser | protocol-v7 typed arguments + protocol-v6 Host-owned detached job |
+| MLT | Discovery/probe plus render work that may outlive the initiating request | protocol-v7 typed tool dependencies + Host-owned probe/render jobs; no production `runtime.json` |
+| Blender | Persistent background application session | protocol-v8 provider-scoped Host-owned session; the Blender process/socket bridge is encapsulated inside a Semwright-owned session runner |
+| LibreOffice | Persistent soffice + UNO/Python bridge | protocol-v8 provider-scoped Host-owned session with per-tool system-config authority; soffice/Python execution is encapsulated inside the session runner |
 
-Persistent sessions and detached jobs are intentionally not emulated with request-scoped `execute_runtime_tool`: doing so would change cancellation and lifetime semantics. Protocol v6 provides session-bound detached jobs; protocol v8 now provides provider-scoped persistent sessions. Both reuse the same logical tool/mount/dependency authority rather than adding per-driver path resolvers.
+Persistent sessions and detached jobs are intentionally not emulated with request-scoped `execute_runtime_tool`: doing so would change cancellation and lifetime semantics. Protocol v6 provides session-bound detached jobs; protocol v8 provides provider-scoped persistent sessions. Both reuse the same logical tool/mount/dependency authority rather than adding per-driver path resolvers.
 
-`scripts/verify-driver-runtime-tools.py` is a ratchet. It rejects new production driver code that embeds common OS installation paths, calls `tool_path()` directly, reads a private `runtime.json`, or names `/plugin/tools/`. The exact remaining historical exceptions are counted; they may disappear as migrations land but cannot grow silently. Test fixtures and developer scripts remain outside that production-source guard.
+A Semwright-owned runtime runner may internally launch the application executable it supervises. That does not restore driver-owned discovery: the runner itself is a SHA-256-pinned Host tool, executable dependencies are declared in `Manifest.tools`, paths are materialized by Driver Host, and lifecycle/reaping remains Host-owned. Production driver adapters must not call ambient installation paths, `tool_path()`, private `runtime.json` resolvers, or `/plugin/tools/` directly.
+
+`scripts/verify-driver-runtime-tools.py` is a zero-debt ratchet. It rejects production driver code that embeds common OS installation paths, calls `tool_path()` directly, reads a private `runtime.json`, or names `/plugin/tools/`. The converged baseline contains no historical production exceptions. Test fixtures, compatibility-only direct backends, and Semwright-owned runtime runners remain outside that production-driver resolver boundary.
