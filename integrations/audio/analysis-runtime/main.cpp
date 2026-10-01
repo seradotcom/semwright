@@ -16,9 +16,17 @@
 namespace {
 struct SoundDelete { void operator()(SNDFILE* f) const { if (f) sf_close(f); } };
 struct MeterDelete { void operator()(ebur128_state* p) const { if (p) ebur128_destroy(&p); } };
-std::string milli(double value) {
-    if (!std::isfinite(value) || std::abs(value) > 1000000.0) return "null";
+std::string level_milli(double value) {
+    // Keep the native helper aligned with LoudnessAnalysis' explicit level
+    // contract. libebur128 can return finite but non-meaningful values far below
+    // its useful floor for near-silence windows; those are unavailable, not a
+    // clamped measurement and not a reason to widen the public wire range.
+    if (!std::isfinite(value) || value < -200.0 || value > 24.0) return "null";
     return std::to_string(static_cast<std::int64_t>(std::llround(value * 1000.0)));
+}
+std::string range_milli(double value) {
+    if (!std::isfinite(value) || value < 0.0 || value > 200.0) return "null";
+    return std::to_string(static_cast<std::uint64_t>(std::llround(value * 1000.0)));
 }
 void ok(int result) {
     if (result != EBUR128_SUCCESS) throw std::runtime_error("loudness analysis failed");
@@ -91,12 +99,12 @@ int analyze(int argc, char** argv) {
     std::cout << "{\"schema_version\":1,\"method\":\"libebur128\",\"version\":\"1.2.6\","
               << "\"frames\":" << frames << ",\"sample_rate\":" << info.samplerate
               << ",\"channels\":" << info.channels << ",\"layout\":\"" << layout << "\","
-              << "\"nonfinite_samples\":" << nonfinite << ",\"integrated_lufs_milli\":" << milli(integrated)
-              << ",\"momentary_lufs_milli\":" << milli(momentary)
-              << ",\"short_term_lufs_milli\":" << milli(short_term)
-              << ",\"loudness_range_milli\":" << milli(range)
-              << ",\"true_peak_millidbtp\":" << milli(peak_db)
-              << ",\"sample_peak_millidbfs\":" << milli(sample_peak > 0 ? 20 * std::log10(sample_peak) : -INFINITY);
+              << "\"nonfinite_samples\":" << nonfinite << ",\"integrated_lufs_milli\":" << level_milli(integrated)
+              << ",\"momentary_lufs_milli\":" << level_milli(momentary)
+              << ",\"short_term_lufs_milli\":" << level_milli(short_term)
+              << ",\"loudness_range_milli\":" << range_milli(range)
+              << ",\"true_peak_millidbtp\":" << level_milli(peak_db)
+              << ",\"sample_peak_millidbfs\":" << level_milli(sample_peak > 0 ? 20 * std::log10(sample_peak) : -INFINITY);
     std::cout << ",\"true_peak_oversample\":"
               << (info.samplerate < 96000 ? 4 : info.samplerate < 192000 ? 2 : 1)
               << ",\"momentary_window_ms\":400,\"short_term_window_ms\":3000,"
