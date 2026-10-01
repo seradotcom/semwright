@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Allowlisted GitHub-hosted diagnostic suites; zero tests never satisfy a gate."""
+"""Allowlisted Composition suites with explicit evidence authority.
+
+GitHub-hosted mode remains certification-eligible evidence. CircleCI mode is
+private iteration diagnostics only. Zero tests never satisfy either mode.
+"""
 import argparse
 import hashlib
 import json
@@ -18,15 +22,43 @@ SUITES = {
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("suite", choices=sorted(SUITES))
+    parser.add_argument(
+        "--evidence-mode",
+        choices=("github-certification", "circleci-iteration"),
+        default="github-certification",
+        help=(
+            "github-certification preserves the existing GitHub-hosted evidence gate; "
+            "circleci-iteration is private diagnostic evidence and is never certification-eligible"
+        ),
+    )
     args = parser.parse_args()
-    if os.environ.get("GITHUB_ACTIONS") != "true" or os.environ.get("RUNNER_ENVIRONMENT") != "github-hosted":
-        parser.error("Compilation is restricted to GitHub-hosted Actions, not the workstation")
+    if args.evidence_mode == "github-certification":
+        if (
+            os.environ.get("GITHUB_ACTIONS") != "true"
+            or os.environ.get("RUNNER_ENVIRONMENT") != "github-hosted"
+        ):
+            parser.error(
+                "GitHub certification mode is restricted to GitHub-hosted Actions"
+            )
+        root = Path("verification/composition")
+        evidence_authority = "github-hosted-certification"
+        certification_eligible = True
+    else:
+        if os.environ.get("CIRCLECI") != "true":
+            parser.error(
+                "CircleCI iteration mode requires the real CircleCI environment; "
+                "do not fake CI provider variables"
+            )
+        if os.environ.get("GITHUB_ACTIONS") == "true":
+            parser.error("CircleCI iteration mode cannot run inside GitHub Actions")
+        root = Path("verification/circleci-composition")
+        evidence_authority = "circleci-private-iteration"
+        certification_eligible = False
     packages, minimum = SUITES[args.suite]
     cmd = ["cargo", "test", "--locked"]
     for package in packages:
         cmd.extend(["-p", package])
     cmd.extend(["--all-targets", "--", "--nocapture"])
-    root = Path("verification/composition")
     root.mkdir(parents=True, exist_ok=True)
     log_path = root / (args.suite + ".log")
     with log_path.open("w") as log:
@@ -42,18 +74,31 @@ def main():
         "schema_version": 1,
         "suite": args.suite,
         "tested_sha": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
+        "evidence_mode": args.evidence_mode,
+        "evidence_authority": evidence_authority,
+        "certification_eligible": certification_eligible,
         "github_sha": os.environ.get("GITHUB_SHA"),
-        "run_id": os.environ.get("GITHUB_RUN_ID"),
+        "run_id": os.environ.get("GITHUB_RUN_ID") or os.environ.get("CIRCLE_WORKFLOW_ID"),
         "run_attempt": os.environ.get("GITHUB_RUN_ATTEMPT"),
-        "job": os.environ.get("GITHUB_JOB"),
-        "runner": os.environ.get("RUNNER_OS"),
+        "job": os.environ.get("GITHUB_JOB") or os.environ.get("CIRCLE_JOB"),
+        "runner": os.environ.get("RUNNER_OS") or "Linux/CircleCI",
+        "github_run_id": os.environ.get("GITHUB_RUN_ID"),
+        "github_run_attempt": os.environ.get("GITHUB_RUN_ATTEMPT"),
+        "github_job": os.environ.get("GITHUB_JOB"),
+        "circle_sha1": os.environ.get("CIRCLE_SHA1"),
+        "circle_workflow_id": os.environ.get("CIRCLE_WORKFLOW_ID"),
+        "circle_job": os.environ.get("CIRCLE_JOB"),
         "rustc": subprocess.check_output(["rustc", "--version"], text=True).strip(),
         "lock_sha256": hashlib.sha256(Path("Cargo.lock").read_bytes()).hexdigest(),
         "exit_code": result.returncode,
         "expected_minimum": minimum,
         "passed": passed, "failed": failed, "ignored": ignored,
         "status": "PASS" if ok else "FAIL",
-        "evidence_scope": "portable unit/contract tests, not native application acceptance",
+        "evidence_scope": (
+            "portable unit/contract tests, not native application acceptance"
+            if certification_eligible
+            else "private CircleCI iteration diagnostic; not certification evidence"
+        ),
     }
     (root / (args.suite + ".json")).write_text(json.dumps(report, indent=2) + "\n")
     if not ok:

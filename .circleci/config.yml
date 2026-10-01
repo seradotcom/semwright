@@ -1,0 +1,378 @@
+version: 2.1
+
+# Private A-side iteration accelerator only.
+# CircleCI output is diagnostic and MUST NOT be used as release/certification evidence.
+parameters:
+  force-motion-native:
+    type: boolean
+    default: false
+  force-contracts:
+    type: boolean
+    default: false
+
+jobs:
+  a-linux-iteration:
+    machine:
+      image: ubuntu-2404:current
+    resource_class: medium
+    working_directory: ~/project
+    retention:
+      caches: 7d
+    environment:
+      CARGO_INCREMENTAL: "0"
+      PLAYWRIGHT_BROWSERS_PATH: "0"
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
+      SEMWRIGHT_CIRCLECI_ITERATION: "true"
+      FORCE_MOTION_NATIVE: "<< pipeline.parameters.force-motion-native >>"
+      FORCE_CONTRACTS: "<< pipeline.parameters.force-contracts >>"
+    steps:
+      - checkout
+
+      - run:
+          name: Bind to A branch and compute affected scope
+          command: |
+            set -euo pipefail
+            test "$CIRCLECI" = true
+            test -z "${GITHUB_ACTIONS:-}"
+            test "$CIRCLE_BRANCH" = "feat/composition-media"
+            test "$(git rev-parse HEAD)" = "$CIRCLE_SHA1"
+
+            mkdir -p verification/circleci-composition ~/.cargo/registry ~/.cargo/git ~/.npm
+            python3 scripts/composition/ci-scope.py --after "$CIRCLE_SHA1"               > verification/circleci-composition/scope.json
+
+            python3 - <<'PY'
+            import json
+            import os
+            from pathlib import Path
+
+            path = Path("verification/circleci-composition/scope.json")
+            data = json.loads(path.read_text())
+            force_motion = os.environ.get("FORCE_MOTION_NATIVE", "").lower() == "true"
+            force_contracts = os.environ.get("FORCE_CONTRACTS", "").lower() == "true"
+            if force_motion:
+                data["motion"] = True
+            if force_contracts:
+                data["contracts"] = True
+            bool_keys = [
+                "contracts", "broker", "package", "skills", "motion", "figma", "mlt",
+                "fuzz_kernel", "fuzz_media", "fuzz_motion", "fuzz_av",
+                "mutants_kernel", "mutants_media", "mutants_motion", "mutants_av",
+                "native_driver_common",
+            ]
+            data["any"] = any(bool(data.get(key)) for key in bool_keys)
+            data["circleci"] = {
+                "classification": "PRIVATE_ITERATION_DIAGNOSTIC",
+                "certification_eligible": False,
+                "force_motion_native": force_motion,
+                "force_contracts": force_contracts,
+            }
+            path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n")
+
+            bash_env = Path(os.environ["BASH_ENV"])
+            with bash_env.open("a") as out:
+                for key in bool_keys + ["any"]:
+                    out.write(
+                        f'export SW_SCOPE_{key.upper()}={"1" if data.get(key) else "0"}\n'
+                    )
+                out.write(
+                    f'export SW_FORCE_MOTION_NATIVE={"1" if force_motion else "0"}\n'
+                )
+                out.write(
+                    f'export SW_FORCE_CONTRACTS={"1" if force_contracts else "0"}\n'
+                )
+            print(path.read_text())
+            PY
+
+            cat > verification/circleci-composition/NOT_CERTIFICATION.txt <<'EOF'
+            This directory is private CircleCI iteration diagnostic output.
+            It is not GitHub Actions evidence, release evidence, R16 evidence,
+            READY_FOR_DEMO_PRODUCTION evidence, or certification evidence.
+            GitHub Actions remains the final authority for exact-SHA certification.
+            EOF
+
+      - run:
+          name: Lightweight hygiene
+          command: |
+            set -euo pipefail
+            base="$(git rev-parse HEAD^ 2>/dev/null || true)"
+            if [ -n "$base" ]; then
+              git diff --check "$base" HEAD
+            else
+              git diff --check
+            fi
+            python3 -m py_compile               scripts/composition/ci-scope.py               scripts/composition/test-ci-scope.py               scripts/composition/run-suite.py               scripts/composition/package-dev.py               scripts/composition/test-package-dev.py               scripts/composition/candidate-evidence.py               scripts/composition/test-candidate-evidence.py
+            python3 scripts/composition/test-ci-scope.py
+            bash -n scripts/dev/ci-driver-bwrap-profile.sh
+            python3 - <<'PY'
+            import json
+            from pathlib import Path
+            json.loads(Path("packaging/composition-development/manifest.json").read_text())
+            print("circleci-hygiene-ok")
+            PY
+
+      - restore_cache:
+          keys:
+            - a-circle-cargo-v2-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - a-circle-cargo-v2-{{ arch }}-
+
+      - restore_cache:
+          keys:
+            - a-circle-npm-v2-{{ arch }}-{{ checksum "integrations/motion-canvas/runtime/package-lock.json" }}
+            - a-circle-npm-v2-{{ arch }}-
+
+      - run:
+          name: Install pinned Rust only when product work is selected
+          command: |
+            set -euo pipefail
+            if [ "${SW_SCOPE_ANY:-0}" != 1 ]; then
+              echo "No product area selected; skipping Rust setup."
+              exit 0
+            fi
+            if ! command -v rustup >/dev/null 2>&1; then
+              curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs                 | sh -s -- -y --profile minimal
+            fi
+            source "$HOME/.cargo/env"
+            rustup toolchain install 1.98.1 --profile minimal --component rustfmt --component clippy
+            rustup default 1.98.1
+            {
+              echo 'export PATH="$HOME/.cargo/bin:$PATH"'
+              echo 'export RUSTUP_TOOLCHAIN=1.98.1'
+            } >> "$BASH_ENV"
+            rustc --version
+            cargo --version
+
+      - run:
+          name: Install Linux build prerequisites only when needed
+          command: |
+            set -euo pipefail
+            if [ "${SW_SCOPE_BROKER:-0}" = 1 ] || [ "${SW_SCOPE_MOTION:-0}" = 1 ]; then
+              sudo apt-get update
+              sudo apt-get install -y pkg-config build-essential libpipewire-0.3-dev
+            else
+              echo "No Broker/Motion native prerequisites needed."
+            fi
+
+      - run:
+          name: Affected-area format and lints
+          command: |
+            set -euo pipefail
+            if [ "${SW_SCOPE_ANY:-0}" != 1 ]; then
+              echo "No Rust/product area selected."
+              exit 0
+            fi
+            source "$HOME/.cargo/env"
+
+            pkgs=()
+            if [ "${SW_SCOPE_FUZZ_KERNEL:-0}" = 1 ] || [ "${SW_SCOPE_MUTANTS_KERNEL:-0}" = 1 ]; then
+              pkgs+=(semwright-semantic-composition)
+            fi
+            if [ "${SW_SCOPE_FUZZ_MEDIA:-0}" = 1 ] || [ "${SW_SCOPE_MUTANTS_MEDIA:-0}" = 1 ]; then
+              pkgs+=(semwright-media-time)
+            fi
+            if [ "${SW_SCOPE_FUZZ_MOTION:-0}" = 1 ] || [ "${SW_SCOPE_MUTANTS_MOTION:-0}" = 1 ]; then
+              pkgs+=(semwright-motion-authoring)
+            fi
+            if [ "${SW_SCOPE_FUZZ_AV:-0}" = 1 ] || [ "${SW_SCOPE_MUTANTS_AV:-0}" = 1 ]; then
+              pkgs+=(semwright-av-composition)
+            fi
+            if [ "${SW_SCOPE_MOTION:-0}" = 1 ]; then
+              pkgs+=(semwright-driver-motion-canvas)
+            fi
+            if [ "${SW_SCOPE_FIGMA:-0}" = 1 ]; then
+              pkgs+=(semwright-driver-figma)
+            fi
+            if [ "${SW_SCOPE_MLT:-0}" = 1 ]; then
+              pkgs+=(semwright-mlt-video-driver)
+            fi
+            if [ "${SW_SCOPE_BROKER:-0}" = 1 ]; then
+              pkgs+=(semwright-core)
+            fi
+            if [ "${SW_SCOPE_SKILLS:-0}" = 1 ]; then
+              pkgs+=(semwright-skills)
+            fi
+
+            if [ "${#pkgs[@]}" -eq 0 ] && [ "${SW_SCOPE_CONTRACTS:-0}" = 1 ]; then
+              pkgs=(
+                semwright-semantic-composition
+                semwright-media-time
+                semwright-motion-authoring
+                semwright-av-composition
+              )
+            fi
+            if [ "${#pkgs[@]}" -eq 0 ]; then
+              echo "No Cargo packages selected for lint."
+              exit 0
+            fi
+
+            mapfile -t pkgs < <(printf '%s\n' "${pkgs[@]}" | sort -u)
+            fmt=()
+            clippy=()
+            for pkg in "${pkgs[@]}"; do
+              fmt+=(-p "$pkg")
+              clippy+=(-p "$pkg")
+            done
+            cargo fmt "${fmt[@]}" -- --check
+            cargo clippy --locked "${clippy[@]}" --all-targets --no-deps -- -D warnings               2>&1 | tee verification/circleci-composition/clippy.log
+
+      - run:
+          name: Portable affected contracts
+          command: |
+            set -euo pipefail
+            if [ "${SW_SCOPE_CONTRACTS:-0}" != 1 ] && [ "${SW_FORCE_CONTRACTS:-0}" != 1 ]; then
+              echo "Contracts not affected."
+              exit 0
+            fi
+            source "$HOME/.cargo/env"
+
+            # The common contracts are tightly coupled. When this area is selected,
+            # run the three portable suites but never label CircleCI output as certification.
+            for suite in contracts motion av; do
+              python3 scripts/composition/run-suite.py "$suite"                 --evidence-mode circleci-iteration
+            done
+
+      - run:
+          name: Affected targeted portable checks
+          command: |
+            set -euo pipefail
+            if [ "${SW_SCOPE_ANY:-0}" != 1 ]; then
+              exit 0
+            fi
+            source "$HOME/.cargo/env"
+
+            if [ "${SW_SCOPE_BROKER:-0}" = 1 ]; then
+              cargo test --locked -p semwright-core --test provider_runtime                 session_executor_preserves_broker_policy_before_provider_execution                 -- --exact --nocapture                 2>&1 | tee verification/circleci-composition/broker-session.log
+            fi
+            if [ "${SW_SCOPE_SKILLS:-0}" = 1 ]; then
+              cargo test --locked -p semwright-skills                 official_skills_validate_and_keep_progressive_disclosure_small                 -- --exact --nocapture                 2>&1 | tee verification/circleci-composition/skills.log
+            fi
+            if [ "${SW_SCOPE_PACKAGE:-0}" = 1 ]; then
+              python3 scripts/composition/test-package-dev.py
+              python3 scripts/composition/test-candidate-evidence.py
+            fi
+            if [ "${SW_SCOPE_FIGMA:-0}" = 1 ]; then
+              cargo test --locked -p semwright-driver-figma                 --lib --bin semwright-figma-driver                 2>&1 | tee verification/circleci-composition/figma-portable.log
+            fi
+            if [ "${SW_SCOPE_MLT:-0}" = 1 ]; then
+              cargo test --locked -p semwright-mlt-video-driver --lib                 2>&1 | tee verification/circleci-composition/mlt-portable.log
+            fi
+
+      - run:
+          name: Install exact Node for Motion only when needed
+          command: |
+            set -euo pipefail
+            if [ "${SW_SCOPE_MOTION:-0}" != 1 ] && [ "${SW_FORCE_MOTION_NATIVE:-0}" != 1 ]; then
+              echo "Motion not selected."
+              exit 0
+            fi
+
+            version=22.22.0
+            node_root="$HOME/.local/node-v$version"
+            if [ ! -x "$node_root/bin/node" ]; then
+              tmp="$(mktemp -d)"
+              cd "$tmp"
+              base="node-v$version-linux-x64"
+              curl --proto '=https' --tlsv1.2 -fsSLO                 "https://nodejs.org/dist/v$version/$base.tar.xz"
+              curl --proto '=https' --tlsv1.2 -fsSLO                 "https://nodejs.org/dist/v$version/SHASUMS256.txt"
+              grep " $base.tar.xz$" SHASUMS256.txt | sha256sum -c -
+              mkdir -p "$node_root"
+              tar -xJf "$base.tar.xz" --strip-components=1 -C "$node_root"
+            fi
+            export PATH="$node_root/bin:$PATH"
+            echo "export PATH="$node_root/bin:\$PATH"" >> "$BASH_ENV"
+            node --version
+            npm --version
+
+      - run:
+          name: Motion Canvas private native iteration
+          command: |
+            set -euo pipefail
+            if [ "${SW_SCOPE_MOTION:-0}" != 1 ] && [ "${SW_FORCE_MOTION_NATIVE:-0}" != 1 ]; then
+              echo "Motion not selected; no browser/sandbox work."
+              exit 0
+            fi
+            source "$HOME/.cargo/env"
+
+            mkdir -p verification/circleci-composition/motion
+            bash scripts/dev/ci-driver-bwrap-profile.sh               verification/circleci-composition/motion/sandbox-setup.log
+
+            cd integrations/motion-canvas/runtime
+            npm ci --ignore-scripts --cache "$HOME/.npm"
+            npm test
+            npx --no-install playwright install --with-deps firefox
+            npm run probe
+
+            mkdir -p .semwright-tools
+            cp "$(command -v node)" .semwright-tools/node
+            chmod 0755 .semwright-tools/node
+            mapfile -t browsers < <(
+              find node_modules/playwright-core/.local-browsers                 -path '*/firefox-*/firefox/firefox' -type f -perm -111 -print
+            )
+            test "${#browsers[@]}" -eq 1
+            browser_rel="$(realpath --relative-to="$PWD" "${browsers[0]}")"
+            python3 "$CIRCLE_WORKING_DIRECTORY/scripts/motion-canvas/runtime-manifest.py"               --root "$PWD" --browser-rel "$browser_rel"
+            cd "$CIRCLE_WORKING_DIRECTORY"
+
+            cargo build --locked               -p semwright-plugin-host --bin semwright-sandbox               -p semwright-driver-motion-canvas --bin semwright-motion-canvas-driver
+
+            export SEMWRIGHT_TEST_MOTION_CANVAS=1
+            export SEMWRIGHT_TEST_MOTION_CANVAS_RENDER=1
+            export SEMWRIGHT_TEST_MOTION_RUNTIME="$CIRCLE_WORKING_DIRECTORY/integrations/motion-canvas/runtime"
+            export SEMWRIGHT_TEST_SANDBOX_HELPER="$CIRCLE_WORKING_DIRECTORY/target/debug/semwright-sandbox"
+            export SEMWRIGHT_TEST_MOTION_EVIDENCE="$CIRCLE_WORKING_DIRECTORY/verification/circleci-composition/motion/artifacts"
+
+            cargo test --locked -p semwright-driver-motion-canvas               motion_driver_runs_through_real_driver_host_without_network               -- --ignored --nocapture               2>&1 | tee verification/circleci-composition/motion/host-conformance.log
+
+            cargo test --locked -p semwright-driver-motion-canvas               real_motion_canvas_render_runs_inside_sandbox               -- --ignored --nocapture               2>&1 | tee verification/circleci-composition/motion/render.log
+
+            cargo test --locked -p semwright-driver-motion-canvas               composition_authoring_runs_through_broker_driver_host_and_native_renderer               -- --ignored --nocapture               2>&1 | tee verification/circleci-composition/motion/composition-authoring.log
+
+            cat > verification/circleci-composition/motion/iteration-classification.json <<EOF
+            {
+              "schema_version": 1,
+              "tested_sha": "$CIRCLE_SHA1",
+              "ci_provider": "circleci",
+              "classification": "PRIVATE_ITERATION_DIAGNOSTIC",
+              "certification_eligible": false,
+              "scope": "motion-canvas-native"
+            }
+            EOF
+
+      - run:
+          name: Capture Motion sandbox diagnostics on failure
+          when: on_fail
+          command: |
+            set +e
+            mkdir -p verification/circleci-composition/motion
+            {
+              echo '=== aa-status ==='
+              sudo aa-status
+              echo '=== loaded bwrap profile ==='
+              sudo cat /etc/apparmor.d/bwrap-userns-restrict
+              echo '=== recent kernel AppArmor/audit ==='
+              sudo journalctl -k --no-pager --since '-20 min'                 | grep -Ei 'apparmor|audit|denied|bwrap|firefox|chrome'                 | tail -400
+            } > verification/circleci-composition/motion/sandbox-denials.log 2>&1
+            cat verification/circleci-composition/motion/sandbox-denials.log
+
+      - save_cache:
+          key: a-circle-cargo-v2-{{ arch }}-{{ checksum "Cargo.lock" }}
+          paths:
+            - ~/.cargo/registry
+            - ~/.cargo/git
+
+      - save_cache:
+          key: a-circle-npm-v2-{{ arch }}-{{ checksum "integrations/motion-canvas/runtime/package-lock.json" }}
+          paths:
+            - ~/.npm
+
+      - store_artifacts:
+          path: verification/circleci-composition
+          destination: semwright-a-circleci-iteration
+
+workflows:
+  a-private-iteration:
+    jobs:
+      - a-linux-iteration:
+          filters:
+            branches:
+              only: feat/composition-media
