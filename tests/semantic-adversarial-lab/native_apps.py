@@ -715,6 +715,7 @@ def run_godot(target: Path, source_sha: str, suite_sha: str, cases: list[dict], 
             ],
             runtime=godot,
             timeout=30,
+            expect_success=False,
         )
         binary = runner_artifacts / "g_native.x86_64"
         result_value = export_receipt.get("result") if isinstance(export_receipt, dict) else None
@@ -731,6 +732,9 @@ def run_godot(target: Path, source_sha: str, suite_sha: str, cases: list[dict], 
             "artifact": result_value.get("artifact") if isinstance(result_value, dict) else None,
             "mode": mode,
             "executable": binary.is_file() and os.access(binary, os.X_OK),
+            "helper_exit_code": export_raw["exit_code"],
+            "helper_termination_reason": export_raw["termination_reason"],
+            "helper_stderr_tail": export_raw["stderr"][-2048:].decode(errors="replace"),
         }
         results_by_id["G-GODOT-011"] = {"exported": exported}
         export_bytes = binary.read_bytes() if binary.is_file() else b""

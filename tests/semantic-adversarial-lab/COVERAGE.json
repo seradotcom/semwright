@@ -387,7 +387,7 @@
       "run_id": null,
       "job_id": null,
       "evidence": [],
-      "blocker": "Godot Runner export retest d169a0a blocked before case classification because G mounted the pinned executable at /source, which is reserved for read-only source/history fixtures and was not executable through Runner. G adds a separate read-only /plugin/runtime mount guarded by G-SELF-099; exact-SHA retest pending. D persistence finding G-FIND-D-001 remains open.",
+      "blocker": "Godot-native export blocker traced to G AppArmor path policy: nested exec permits /plugin/tools/** but prior runtime mounts used /source or /plugin/runtime. Runtime now mounted read-only at /plugin/tools/godot; export failures publish as G-GODOT-011/012 instead of erasing prior case evidence. Exact-SHA retest pending.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },

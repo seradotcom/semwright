@@ -113,7 +113,7 @@ class Enclosure:
                 source: Path | None = None, runtime: Path | None = None) -> list[str]:
         result = [self.bwrap, "--die-with-parent", "--new-session", "--unshare-all", "--clearenv",
                   "--cap-drop", "ALL", "--proc", "/proc", "--dev", "/dev", "--tmpfs", "/tmp",
-                  "--dir", "/home", "--dir", "/home/lab", "--dir", "/plugin", "--dir", "/etc",
+                  "--dir", "/home", "--dir", "/home/lab", "--dir", "/plugin", "--dir", "/plugin/tools", "--dir", "/etc",
                   "--dir", "/canary"]
         for system in ("/usr", "/lib", "/lib64", "/bin"):
             if Path(system).exists():
@@ -130,7 +130,7 @@ class Enclosure:
         if source is not None:
             result += ["--ro-bind", str(source.resolve()), "/source"]
         if runtime is not None:
-            result += ["--ro-bind", str(runtime.resolve()), "/plugin/runtime"]
+            result += ["--ro-bind", str(runtime.resolve()), "/plugin/tools/godot"]
         fixed = {"HOME": "/home/lab", "TMPDIR": "/tmp", "XDG_CONFIG_HOME": "/tmp/config",
                  "XDG_CACHE_HOME": "/tmp/cache", "XDG_DATA_HOME": "/tmp/data", "PATH": "/usr/bin:/bin",
                  "LANG": "C.UTF-8", "LC_ALL": "C.UTF-8", "PYTHONDONTWRITEBYTECODE": "1",

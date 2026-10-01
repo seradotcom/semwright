@@ -127,10 +127,13 @@ def native_address_space_budget_is_bounded():
 
 def secondary_runtime_mount_is_scoped():
     text = (Path(__file__).resolve().parent / "isolation.py").read_text()
+    profile = (Path(__file__).resolve().parents[2] / "scripts/dev/ci-driver-bwrap-profile.sh").read_text()
     return (
-        '"/plugin/runtime"' in text
-        and '"--ro-bind", str(runtime.resolve()), "/plugin/runtime"' in text
+        '"/plugin/tools"' in text
+        and '"--ro-bind", str(runtime.resolve()), "/plugin/tools/godot"' in text
         and 'runtime: Path | None = None' in text
+        and "allow ix /plugin/tools/**," in profile
+        and "/plugin/runtime" not in text
     )
 
 
