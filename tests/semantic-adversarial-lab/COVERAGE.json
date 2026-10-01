@@ -99,7 +99,7 @@
       "run_id": null,
       "job_id": null,
       "evidence": [],
-      "blocker": "70 Composition-family cases registered, not accepted before exact-SHA execution and owner triage.",
+      "blocker": "70 Composition-family cases are now the active exact-SHA experiment against A 7ed5b84; all prior Composition attempts were infrastructure/harness BLOCKED and are not accepted as product evidence.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },
@@ -257,7 +257,7 @@
         "effects receipt c017ea7c3543318d3967f16653607f0dd5e03213bc001dfd0eaf6694f454a1c4",
         "effects artifact a4ce1e9852c4bf98455d2301fcc951b3e8b87e555d8f503c9b87ba050108305c"
       ],
-      "blocker": "F sub-scope closed: 40/40 exact-SHA effect cases PASS with relevant G guard mutants killed in run 36646986065 against b30d693. G04 remains open for unexecuted A/composition verification scope.",
+      "blocker": "F effects sub-scope is closed 40/40. A Composition false-PASS/session/budget/replay scope is now activated separately against A 7ed5b84; exact-SHA result pending.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },
@@ -559,11 +559,14 @@
       ],
       "tests": [],
       "source_sha": "7ed5b848e4d2e7af235d6166e6f93e0cf0bac90d",
-      "suite_sha": null,
-      "run_id": null,
-      "job_id": null,
-      "evidence": [],
-      "blocker": "Lifecycle run 36832327073 executed 18/18 with 17 PASS and one G oracle defect in LIFE-015: replay_for intentionally includes global command events; privacy applies to audience-bound job.* events. Oracle corrected to inspect job kind + job_id exactly; retest pending.",
+      "suite_sha": "3f99d23a1a8f61df4750134ca80a63a8b725702f",
+      "run_id": 36883999237,
+      "job_id": 110442632483,
+      "evidence": [
+        "lifecycle receipt 9ae4eec88d66c2f7bea4df234c4b5a490a7a09ef39bbe33bcd16fd734bd8f01c",
+        "lifecycle artifact 589ab235a52a50085d16b6de5d641e0ec5b0795bbaba391c42143222b3fa79bc"
+      ],
+      "blocker": "Lifecycle/cancellation/resources exact-SHA retest is clean: 18/18 PASS in run 36883999237 after correcting the G LIFE-015 audience oracle; no product finding remains in this tested scope.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },

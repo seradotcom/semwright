@@ -14,7 +14,7 @@
   },
   "selected_lanes": [
     "selftest",
-    "lifecycle"
+    "composition"
   ],
   "pins": {
     "os": "ubuntu-24.04",
