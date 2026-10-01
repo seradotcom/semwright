@@ -77,7 +77,7 @@ function classifyAuthoringMessage(message){
   if(/^(invalid align|unsupported subject kind|unannounced overlap|overlay anchor unavailable|split requires exactly two layout children|unknown archetype|duplicate logical id|unknown layer|native parent graph cannot be resolved|annotation binding missing|node limit|invalid rational|unsafe color|native scene bounds|caption requires native Txt)$/.test(message))return 'authoring_model';
   if(/^(non-finite |width requires layout|height requires layout|line start requires Line|line end requires Line|font size requires Layout|tracking requires Layout|fill requires shape|zoom requires Camera|vector operand required|unknown easing|connection requires Line|trace requires native Line|follow requires Camera|incompatible morph topology|selection requires Code|counter requires text|region requires Layout)/.test(message))return 'authoring_model';
   if(/^missing subject /.test(message)||/^original value unavailable: /.test(message))return 'authoring_model';
-  if(message==='native signal not available'||message==='stage compositor baseline changed'||message==='native frame clock not supplied by exporter'||message==='native authoring probe unavailable'||message==='Semwright exporter binding unavailable'||message==='asset must be a generated local import')return 'authoring_protocol';
+  if(message==='native signal not available'||message==='stage compositor baseline changed'||message==='native frame clock not supplied by exporter'||message==='native authoring probe unavailable'||message==='native text digest binding unavailable'||message==='native text digest binding returned invalid hash'||message==='Semwright exporter binding unavailable'||message==='asset must be a generated local import')return 'authoring_protocol';
   if(message==='Failed to initialize WebGL.'||message==='Failed to initialize the shader program.'||message==='Unknown shader compilation error.')return 'webgl_unavailable';
   if(message==='PlaybackManager has not been properly initialized')return 'playback_protocol';
   if(message==='Invalid scene.')return 'invalid_scene';
@@ -250,6 +250,10 @@ async function main() {
     const observationHash=createHash('sha256');
     let observationCount=0;
     if(config.authoring) await fs.writeFile(path.join(output,'native-observations.ndjson'),'',{flag:'wx'});
+    await page.exposeBinding('__SEMWRIGHT_TEXT_DIGEST__', async (_source, text) => {
+      if (typeof text !== 'string' || Buffer.byteLength(text, 'utf8') > 65_536) fail('invalid text digest payload');
+      return createHash('sha256').update(Buffer.from(text, 'utf8')).digest('hex');
+    });
     await page.exposeBinding('__SEMWRIGHT_EXPORT_FRAME__', async (_source, payload) => {
       if (!payload || !Number.isSafeInteger(payload.frame) || payload.frame < config.firstFrame || payload.frame >= config.endFrameExclusive || typeof payload.data !== 'string' || !payload.data.startsWith('data:image/png;base64,')) fail('invalid frame payload');
       if (written.has(payload.frame)) fail('duplicate frame payload');

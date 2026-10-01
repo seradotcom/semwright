@@ -45,6 +45,7 @@ export type NativeProbe={frame:number;subjects:unknown[];transitions:unknown[];c
 declare global {
  var __SEMWRIGHT_NATIVE_PROBE__: undefined|((canvas:HTMLCanvasElement,frame:number,binding:FrameBinding)=>Promise<NativeProbe>);
  var __SEMWRIGHT_NATIVE_FRAME_CLOCK__: undefined|{frame:number;fps_num:number;fps_den:number};
+ var __SEMWRIGHT_TEXT_DIGEST__: undefined|((text:string)=>Promise<string>);
 }
 const known=<T>(value:T):Known<T>=>({status:'known',value});
 const unknown=<T>(reason:string):Known<T>=>({status:'unknown',reason});
@@ -231,7 +232,7 @@ function instrument(n:Node,id:string,reg:ReturnType<typeof registration>){
 }
 function registration(data:NativeSceneData,nodes:Map<string,Node>){return {data,nodes,draws:new Map<string,DrawRecord>(),rendered:new Set<string>(),canvas:null as HTMLCanvasElement|null,drawSerial:0,finished:new Set<string>(),captionActive:new Map<string,boolean>()};}
 function transformed(box:DrawRecord['bounds'],m:DOMMatrix){const p=[[box.x,box.y],[box.x+box.width,box.y],[box.x,box.y+box.height],[box.x+box.width,box.y+box.height]].map(([x,y])=>m.transformPoint({x,y}));const x=Math.min(...p.map(x=>x.x)),y=Math.min(...p.map(x=>x.y));return{x,y,width:Math.max(...p.map(x=>x.x))-x,height:Math.max(...p.map(x=>x.y))-y};}
-async function textHash(text:string){const bytes=new TextEncoder().encode(text);const hash=await crypto.subtle.digest('SHA-256',bytes);return [...new Uint8Array(hash)].map(b=>b.toString(16).padStart(2,'0')).join('');}
+async function textHash(text:string){const digest=globalThis.__SEMWRIGHT_TEXT_DIGEST__;requireValue(typeof digest==='function','native text digest binding unavailable');const hash=await digest(text);requireValue(/^[0-9a-f]{64}$/.test(hash),'native text digest binding returned invalid hash');return hash;}
 function hasGlyph(face:FontEvidence,cp:number){return face.codepoints.some(([a,b])=>a<=cp&&cp<=b);}
 function fontMeasurement(spec:FontSpec,text:string,weight:number,evidence:FontEvidence[]){
  const primary=evidence.find(f=>f.family===spec.family&&(!spec.asset_digest||f.sha256===spec.asset_digest)&&f.face_loaded&&f.weights.includes(weight));

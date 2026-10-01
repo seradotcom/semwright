@@ -100,3 +100,12 @@ test('native text probe normalizes DOMRectList before iteration', () => {
   assert.ok(nativeAuthoring.includes('Array.from(range.getClientRects())'));
   assert.ok(!nativeAuthoring.includes('[...range.getClientRects()]'));
 });
+
+test('native text digests use the bounded Node harness binding, not browser WebCrypto', () => {
+  assert.ok(render.includes("page.exposeBinding('__SEMWRIGHT_TEXT_DIGEST__'"));
+  assert.ok(render.includes("Buffer.byteLength(text, 'utf8') > 65_536"));
+  assert.ok(render.includes("createHash('sha256').update(Buffer.from(text, 'utf8')).digest('hex')"));
+  assert.ok(nativeAuthoring.includes('globalThis.__SEMWRIGHT_TEXT_DIGEST__'));
+  assert.ok(nativeAuthoring.includes('native text digest binding unavailable'));
+  assert.ok(!nativeAuthoring.includes('crypto.subtle.digest'));
+});
