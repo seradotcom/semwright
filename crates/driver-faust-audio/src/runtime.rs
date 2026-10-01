@@ -1349,13 +1349,8 @@ mod library_inventory_tests {
         fs::write(&source, b"bounded-sample-fixture").unwrap();
         let expected = format!("{:x}", Sha256::digest(fs::read(&source).unwrap()));
 
-        let staged = snapshot_sample_asset(
-            root.path(),
-            "sample.wav",
-            &expected,
-            scratch.path(),
-        )
-        .unwrap();
+        let staged =
+            snapshot_sample_asset(root.path(), "sample.wav", &expected, scratch.path()).unwrap();
         assert_eq!(
             fs::metadata(staged).unwrap().permissions().mode() & 0o777,
             0o400
