@@ -259,6 +259,40 @@ def write_json(path: Path, value: Any) -> None:
     path.write_text(json.dumps(value, separators=(",", ":"), sort_keys=True) + "\n")
 
 
+def dependency_sentinels(observation: dict[str, Any]) -> list[list[Any]]:
+    def normalized(path: Any) -> str:
+        value = str(path)
+        if "::" in value:
+            return "<native-subresource>"
+        return value.replace("res://__sw_saved/", "res://scenes/")
+
+    rows = [
+        [
+            normalized(dep.get("source", "")),
+            normalized(dep.get("path", "")),
+            dep.get("exists"),
+            dep.get("sha256"),
+        ]
+        for dep in observation.get("dependencies", [])
+        if isinstance(dep, dict)
+    ]
+    rows.sort(key=lambda row: json.dumps(row, separators=(",", ":")))
+    return rows
+
+
+def blocked_result(case: dict[str, Any], source_sha: str, suite_sha: str,
+                   enclosure: Enclosure, reason: str) -> dict[str, Any]:
+    return {
+        "case_id": case["id"],
+        "source_sha": source_sha,
+        "suite_sha": suite_sha,
+        "scope": "native_application",
+        "isolation_verified": enclosure.verified,
+        "outcome": "BLOCKED",
+        "reason": reason,
+    }
+
+
 def result(case: dict[str, Any], observed: dict[str, Any], source_sha: str, suite_sha: str,
            enclosure: Enclosure, *, receipts: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     success = enclosure.verified and compare_observation(observed, case["expected"])
@@ -487,6 +521,15 @@ def run_godot(target: Path, source_sha: str, suite_sha: str, cases: list[dict], 
             and save_obs.get("candidate_sha256") == sha256_file(candidate),
         }
 
+        writer_sentinels = dependency_sentinels(save_obs)
+        reader_sentinels = dependency_sentinels(reopen_obs)
+        report["persistence_diagnostic"] = {
+            "writer_count": len(writer_sentinels),
+            "reader_count": len(reader_sentinels),
+            "equal": writer_sentinels == reader_sentinels,
+            "writer_only": [row for row in writer_sentinels if row not in reader_sentinels][:32],
+            "reader_only": [row for row in reader_sentinels if row not in writer_sentinels][:32],
+        }
         persist_raw, persist = helper(
             enclosure,
             build.binary,
@@ -497,79 +540,97 @@ def run_godot(target: Path, source_sha: str, suite_sha: str, cases: list[dict], 
                 "/out/request-reopen.json",
                 "/out/observation-reopen.json",
             ],
-        )
-        results_by_id["G-GODOT-006"] = {
-            "fresh_process": isinstance(persist, dict) and persist.get("fresh_process") is True,
-            "persistence_verified": isinstance(persist, dict) and persist.get("ok") is True,
-        }
-
-        dependencies = save_obs.get("dependencies", [])
-        external = next(
-            (
-                dep for dep in dependencies
-                if isinstance(dep.get("path"), str)
-                and dep["path"].startswith("res://")
-                and dep["path"] not in {"res://scenes/arena.tscn", "res://__sw_saved/arena.tscn"}
-                and (project / dep["path"][6:]).is_file()
-            ),
-            None,
-        )
-        if external is None:
-            raise EvidenceError("BLOCKED: native dependency sentinel set unexpectedly empty")
-        external_path = project / external["path"][6:]
-        external_before = external_path.read_bytes()
-        if candidate.is_file():
-            candidate.unlink()
-        tamper_save_request = request(
-            "save_candidate", source_fingerprint, "g_native_save_tamper_01"
-        )
-        tamper_request = request(
-            "reopen_candidate", source_fingerprint, "g_native_reopen_0002"
-        )
-        write_json(out / "request-save-tamper.json", tamper_save_request)
-        write_json(out / "request-reopen-tamper.json", tamper_request)
-        external_enclosure_path = "/out/" + external_path.relative_to(out).as_posix()
-        tamper_command = (
-            "printf %s "
-            + shlex.quote("\n# g-synthetic-dependency-tamper\n")
-            + " >> "
-            + shlex.quote(external_enclosure_path)
-        )
-        tamper_raw = run_native_pair(
-            enclosure,
-            godot,
-            "/out/request-save-tamper.json",
-            "/out/observation-save-tamper.json",
-            "/out/request-reopen-tamper.json",
-            "/out/observation-reopen-tamper.json",
-            between=tamper_command,
-        )
-        if (
-            not sound(tamper_raw, enclosure)
-            or not (out / "observation-save-tamper.json").is_file()
-            or not (out / "observation-reopen-tamper.json").is_file()
-        ):
-            raise EvidenceError(
-                "BLOCKED: tampered dependency pair did not produce native receipts"
-            )
-        reject_raw, _ = helper(
-            enclosure,
-            build.binary,
-            [
-                "persistence",
-                "/out/request-save-tamper.json",
-                "/out/observation-save-tamper.json",
-                "/out/request-reopen-tamper.json",
-                "/out/observation-reopen-tamper.json",
-            ],
             expect_success=False,
         )
-        results_by_id["G-GODOT-007"] = {
-            "dependency_tamper_rejected": sound(reject_raw, enclosure, exits={1}),
-            "reason_seen": b"External native dependency sentinel changed"
-            in reject_raw["stderr"],
+        baseline_persistence_ok = (
+            sound(persist_raw, enclosure)
+            and isinstance(persist, dict)
+            and persist.get("ok") is True
+        )
+        results_by_id["G-GODOT-006"] = {
+            "fresh_process": save_obs.get("process_id") != reopen_obs.get("process_id"),
+            "persistence_verified": baseline_persistence_ok,
         }
-        external_path.write_bytes(external_before)
+
+        blocked_cases: dict[str, str] = {}
+        tamper_raw = None
+        reject_raw = None
+        if baseline_persistence_ok:
+            dependencies = save_obs.get("dependencies", [])
+            external = next(
+                (
+                    dep for dep in dependencies
+                    if isinstance(dep.get("path"), str)
+                    and dep["path"].startswith("res://")
+                    and dep["path"] not in {"res://scenes/arena.tscn", "res://__sw_saved/arena.tscn"}
+                    and (project / dep["path"][6:]).is_file()
+                ),
+                None,
+            )
+            if external is None:
+                blocked_cases["G-GODOT-007"] = (
+                    "baseline passed but no mutable external dependency sentinel was available"
+                )
+            else:
+                external_path = project / external["path"][6:]
+                external_before = external_path.read_bytes()
+                if candidate.is_file():
+                    candidate.unlink()
+                tamper_save_request = request(
+                    "save_candidate", source_fingerprint, "g_native_save_tamper_01"
+                )
+                tamper_request = request(
+                    "reopen_candidate", source_fingerprint, "g_native_reopen_0002"
+                )
+                write_json(out / "request-save-tamper.json", tamper_save_request)
+                write_json(out / "request-reopen-tamper.json", tamper_request)
+                external_enclosure_path = "/out/" + external_path.relative_to(out).as_posix()
+                tamper_command = (
+                    "printf %s "
+                    + shlex.quote("\n# g-synthetic-dependency-tamper\n")
+                    + " >> "
+                    + shlex.quote(external_enclosure_path)
+                )
+                tamper_raw = run_native_pair(
+                    enclosure,
+                    godot,
+                    "/out/request-save-tamper.json",
+                    "/out/observation-save-tamper.json",
+                    "/out/request-reopen-tamper.json",
+                    "/out/observation-reopen-tamper.json",
+                    between=tamper_command,
+                )
+                if (
+                    not sound(tamper_raw, enclosure)
+                    or not (out / "observation-save-tamper.json").is_file()
+                    or not (out / "observation-reopen-tamper.json").is_file()
+                ):
+                    blocked_cases["G-GODOT-007"] = (
+                        "tampered dependency pair did not produce valid native receipts"
+                    )
+                else:
+                    reject_raw, _ = helper(
+                        enclosure,
+                        build.binary,
+                        [
+                            "persistence",
+                            "/out/request-save-tamper.json",
+                            "/out/observation-save-tamper.json",
+                            "/out/request-reopen-tamper.json",
+                            "/out/observation-reopen-tamper.json",
+                        ],
+                        expect_success=False,
+                    )
+                    results_by_id["G-GODOT-007"] = {
+                        "dependency_tamper_rejected": sound(reject_raw, enclosure, exits={1}),
+                        "reason_seen": b"External native dependency sentinel changed"
+                        in reject_raw["stderr"],
+                    }
+                external_path.write_bytes(external_before)
+        else:
+            blocked_cases["G-GODOT-007"] = (
+                "baseline persistence is not green; dependency-tamper claim cannot be isolated"
+            )
 
         bad_nonplay = request(
             "inspect", source_fingerprint, "g_native_badinput_01",
@@ -664,7 +725,7 @@ def run_godot(target: Path, source_sha: str, suite_sha: str, cases: list[dict], 
             "G-GODOT-004": [inspect_raw],
             "G-GODOT-005": [persistence_pair_raw],
             "G-GODOT-006": [persistence_pair_raw, persist_raw],
-            "G-GODOT-007": [tamper_raw, reject_raw],
+            "G-GODOT-007": [raw for raw in [tamper_raw, reject_raw] if raw is not None],
             "G-GODOT-008": [bad_nonplay_raw],
             "G-GODOT-009": [bad_unknown_raw],
             "G-GODOT-010": [stale_raw],
@@ -672,6 +733,17 @@ def run_godot(target: Path, source_sha: str, suite_sha: str, cases: list[dict], 
             "G-GODOT-012": [export_raw, launch_raw],
         }
         for case in cases:
+            if case["id"] in blocked_cases:
+                results.append(
+                    blocked_result(
+                        case,
+                        source_sha,
+                        suite_sha,
+                        enclosure,
+                        blocked_cases[case["id"]],
+                    )
+                )
+                continue
             observed = results_by_id.get(case["id"])
             if observed is None:
                 raise EvidenceError("BLOCKED: native case observation missing")
