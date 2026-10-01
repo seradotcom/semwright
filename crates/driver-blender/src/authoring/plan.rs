@@ -344,6 +344,14 @@ fn prepare_internal(
         max_elapsed_ms: 300_000,
     };
     let dependencies = BTreeMap::from([("effects.contract".into(), contract.digest()?)]);
+    let observation_scope = changes
+        .operations
+        .iter()
+        .flat_map(|operation| operation.writes.iter().cloned())
+        .chain(contract.rules.iter().map(|rule| rule.address.clone()))
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect();
     let plan = PreparedPlan::prepare(
         PlanBody {
             contract_version: CONTRACT_VERSION,
@@ -353,11 +361,7 @@ fn prepare_internal(
             intent_digest: canonical_digest(&intent)?,
             intent,
             dependencies,
-            observation_scope: changes
-                .operations
-                .iter()
-                .flat_map(|operation| operation.writes.clone())
-                .collect(),
+            observation_scope,
             changes,
             required_rules,
             budget,

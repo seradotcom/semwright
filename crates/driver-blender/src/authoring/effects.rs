@@ -58,9 +58,16 @@ pub fn effect_contract(
         rules.push(effects::EffectRule {
             id: PRESERVATION_RULE.into(),
             version: 1,
-            obligation: effects::Obligation::Required,
+            // The forbidden effect is changing unmanaged source state.  The positive
+            // Preserved predicate is the native evidence proving that forbidden effect
+            // did not occur; F still treats Forbidden as a required normative rule.
+            obligation: effects::Obligation::Forbidden,
             operation_id: last.id.clone(),
-            address,
+            address: Address {
+                resource: address.resource.clone(),
+                logical_id: "unmanaged-scene".into(),
+                property: "source-projection".into(),
+            },
             predicate: effects::Predicate::Preserved,
             method: effects::ObservationMethod {
                 name: "blender-unmanaged-source-projection".into(),

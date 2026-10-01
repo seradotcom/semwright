@@ -628,6 +628,50 @@ fn transform_prepared(before: &NativeSnapshot) -> PreparedAuthoring {
     )
     .unwrap()
 }
+
+
+#[test]
+fn create_preservation_rule_forbids_unmanaged_change_and_uses_whole_scene_scope() {
+    let prepared = prepare(
+        owner(),
+        AuthoringIntent::Create { spec: spec() },
+        &snap(),
+        "native_island".into(),
+        bindings(),
+    )
+    .unwrap();
+    let rule = prepared
+        .contract
+        .rules
+        .iter()
+        .find(|rule| rule.id == PRESERVATION_RULE)
+        .expect("create contract must require unmanaged preservation");
+    assert_eq!(
+        rule.obligation,
+        semwright_effect_conformance::Obligation::Forbidden
+    );
+    assert_eq!(rule.address.resource.provider, "driver:blender");
+    assert_eq!(rule.address.resource.resource, "authoring-workspace");
+    assert_eq!(rule.address.logical_id, "unmanaged-scene");
+    assert_eq!(rule.address.property, "source-projection");
+    assert!(
+        prepared.plan.body.observation_scope.contains(&rule.address),
+        "whole-scene preservation address must be part of A's trusted observation scope"
+    );
+    let final_write = prepared
+        .plan
+        .body
+        .changes
+        .operations
+        .last()
+        .and_then(|operation| operation.writes.first())
+        .expect("final operation write");
+    assert_ne!(
+        &rule.address, final_write,
+        "whole-scene preservation cannot masquerade as the final target write"
+    );
+}
+
 #[test]
 fn trusted_f_adapter_can_pass_native_readback() {
     let before = transform_snapshot();
