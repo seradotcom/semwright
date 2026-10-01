@@ -1023,7 +1023,7 @@ fn full_synthetic_av_graph_exercises_every_result_arm_before_ready() {
             &call,
             NativeResult::Encoded {
                 artifact: encoded.clone(),
-                decoded_audio: decoded_audio.clone(),
+                decoded_audio: Box::new(decoded_audio.clone()),
                 decoded_audio_handoff: decoded_handoff,
             },
         ))

@@ -1028,7 +1028,7 @@ impl AgentAStageAdapter {
         decoded_audio_handoff.validate()?;
         Ok(NativeResult::Encoded {
             artifact: encoded_artifact,
-            decoded_audio,
+            decoded_audio: Box::new(decoded_audio),
             decoded_audio_handoff,
         })
     }

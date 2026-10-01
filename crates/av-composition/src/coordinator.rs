@@ -111,7 +111,7 @@ pub enum NativeResult {
     },
     Encoded {
         artifact: MediaArtifact,
-        decoded_audio: MediaArtifact,
+        decoded_audio: Box<MediaArtifact>,
         decoded_audio_handoff: ArtifactHandoffHint,
     },
     SyncMeasured {
@@ -867,7 +867,7 @@ impl AvCoordinator {
                     "post-encode decoded WAV profile/provenance mismatch",
                 )?;
                 self.outputs.encoded = Some(artifact);
-                self.outputs.decoded_final_audio = Some(decoded_audio);
+                self.outputs.decoded_final_audio = Some(*decoded_audio);
                 self.outputs.decoded_final_audio_handoff = Some(decoded_audio_handoff);
             }
             (Stage::VerifySync, NativeResult::SyncMeasured { probe }) => {
