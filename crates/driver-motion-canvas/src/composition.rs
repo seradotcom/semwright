@@ -15,6 +15,7 @@ fn host_owner(context: &DriverExecutionContext) -> c::Owner {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct PlanArgs {
+    #[schemars(with = "FilmEnvelopeSchema")]
     pub film: a::Film,
     pub budget: c::ConvergenceBudget,
 }
@@ -40,10 +41,35 @@ pub enum MotionMutation {
     },
 }
 type Plan = c::PreparedPlan<a::Film, MotionMutation>;
+#[allow(dead_code)]
+#[derive(Debug, Clone, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct MotionPlanBodySchema {
+    contract_version: u32,
+    profile: c::ProfileIdentity,
+    owner: c::Owner,
+    base: c::BaseStateSet,
+    intent: FilmEnvelopeSchema,
+    intent_digest: c::Digest,
+    dependencies: BTreeMap<String, c::Digest>,
+    changes: c::ChangeSet<MotionMutation>,
+    required_rules: BTreeSet<String>,
+    observation_scope: Vec<c::Address>,
+    budget: c::ConvergenceBudget,
+    require_compare_and_swap: bool,
+}
+#[allow(dead_code)]
+#[derive(Debug, Clone, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct PreparedMotionPlanSchema {
+    body: MotionPlanBodySchema,
+    digest: c::Digest,
+}
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Planned {
     pub plan_ref: String,
+    #[schemars(with = "PreparedMotionPlanSchema")]
     pub plan: Plan,
     pub resulting_fingerprint: String,
     pub changes: u32,
@@ -65,7 +91,7 @@ pub struct Applied {
 #[allow(dead_code)]
 #[derive(Debug, Clone, JsonSchema)]
 #[serde(deny_unknown_fields)]
-struct InspectionFilmSchema {
+struct FilmEnvelopeSchema {
     version: u32,
     id: String,
     output: a::OutputProfile,
@@ -79,7 +105,7 @@ struct InspectionFilmSchema {
 #[serde(deny_unknown_fields)]
 pub struct Inspection {
     pub fingerprint: Option<String>,
-    #[schemars(with = "Option<InspectionFilmSchema>")]
+    #[schemars(with = "Option<FilmEnvelopeSchema>")]
     pub film: Option<a::Film>,
     pub low_level_project: bool,
     pub authoring_version: u32,
