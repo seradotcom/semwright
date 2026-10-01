@@ -53,6 +53,8 @@ jobs:
           cargo test --locked -p semwright-driver-sdk tests::v7_runtime_tool_path_refs_are_typed_bounded_and_dependency_scoped -- --exact
           cargo test --locked -p semwright-driver-sdk tests::v8_runtime_tool_system_config_is_declared_and_version_gated -- --exact
           cargo test --locked -p semwright-driver-sdk tests::runtime_tool_session_roundtrip_is_bounded_and_cleanup_survives_cancel -- --exact
+      - if: runner.os == 'macOS'
+        run: cargo test --locked -p semwright-platform-macos-sys
       - run: cargo clippy --locked -p semwright-driver-sdk --all-targets --no-deps -- -D warnings
 
   linux-v5-host:
