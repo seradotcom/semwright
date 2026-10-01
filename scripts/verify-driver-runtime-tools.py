@@ -23,7 +23,6 @@ PATTERNS = (
 # as drivers migrate to generic primitives, but they may never grow silently.
 LEGACY_COUNTS = {
     ("crates/driver-blender/src/main.rs", "tool_path("): 1,
-    ("crates/driver-mlt-video/src/app.rs", '"runtime.json"'): 1,
 }
 
 issues: list[str] = []

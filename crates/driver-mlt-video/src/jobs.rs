@@ -5,7 +5,7 @@ use crate::{
     hash::{random_id, sha256},
     json::{Value, array, obj},
     model::*,
-    runtime::{MediaInfo, RenderProfile, Runtime},
+    runtime::{MediaInfo, RenderProfile, Runtime, ServiceCatalog},
 };
 use std::{
     collections::{BTreeMap, BTreeSet, VecDeque},
@@ -199,7 +199,7 @@ impl Jobs {
             &revision,
             &profile,
             &output,
-            Some(&runtime),
+            Some(&runtime.catalog),
             &roots,
         )?;
         if !plan.get("runnable")?.boolean()? {
@@ -313,7 +313,7 @@ impl Drop for Jobs {
         self.shutdown();
     }
 }
-fn required(
+pub fn required(
     p: &Project,
     s: &Sequence,
 ) -> Result<(BTreeSet<String>, BTreeMap<String, BTreeSet<String>>)> {
@@ -384,6 +384,75 @@ fn required(
     }
     Ok((assets, groups))
 }
+pub fn validate_staged_asset(
+    project: &Project,
+    sequence: &Sequence,
+    asset_id: &str,
+    info: &MediaInfo,
+) -> Result<()> {
+    let asset = project
+        .assets
+        .get(asset_id)
+        .ok_or_else(|| Error::invalid("Missing staged asset"))?;
+    if !info.video && !info.audio {
+        return Err(Error::unsupported(
+            "Staged file is not recognized audio/video/image media",
+        ));
+    }
+    if asset.kind != "image" {
+        let capacity = info
+            .frame_capacity(project.profile.fps)?
+            .ok_or_else(|| Error::unsupported("Staged media has no measurable duration"))?;
+        let required_end = sequence
+            .tracks
+            .iter()
+            .flat_map(|track| &track.lanes)
+            .flat_map(|lane| &lane.clips)
+            .filter(|clip| clip.asset == asset_id)
+            .map(|clip| clip.source.end.0)
+            .max()
+            .unwrap_or(0);
+        if required_end > capacity {
+            return Err(Error::new(
+                "Conflict",
+                "Staged media is shorter than the planned source range",
+            ));
+        }
+    }
+    Ok(())
+}
+
+#[derive(Clone, Debug)]
+pub struct PreparedRenderDocument {
+    pub xml: String,
+    pub expected_profile: Profile,
+    pub frames: u64,
+}
+
+pub fn prepare_render_document(
+    mut project: Project,
+    sequence_id: &str,
+    profile: &RenderProfile,
+    staged: &BTreeMap<String, String>,
+) -> Result<PreparedRenderDocument> {
+    let sequence = project.sequence(sequence_id)?.clone();
+    let (asset_ids, _) = required(&project, &sequence)?;
+    project.sequences = vec![sequence.clone()];
+    project.assets.retain(|id, _| asset_ids.contains(id));
+    if let Some(width) = profile.width {
+        project.profile.width = width;
+    }
+    if let Some(height) = profile.height {
+        project.profile.height = height;
+    }
+    let xml = crate::xml::serialize(&adapters::write_normal_form(&project, Some(staged))?)?;
+    Ok(PreparedRenderDocument {
+        xml,
+        expected_profile: project.profile,
+        frames: sequence.duration(),
+    })
+}
+
 pub fn media_location(p: &Project, a: &MediaAsset) -> Result<(String, String)> {
     let (root, path) = match &a.resource {
         Resource::Scoped { root, path } => (root.clone(), path.clone()),
@@ -415,7 +484,7 @@ pub fn render_plan(
     revision: &str,
     profile: &RenderProfile,
     output: &str,
-    runtime: Option<&Runtime>,
+    catalog: Option<&ServiceCatalog>,
     roots: &BTreeMap<String, Arc<Root>>,
 ) -> Result<Value> {
     p.validate()?;
@@ -486,12 +555,12 @@ pub fn render_plan(
     }
     for (group, services) in &groups {
         for service in services {
-            if runtime.is_none_or(|r| !r.catalog.has(group, service)) {
+            if catalog.is_none_or(|catalog| !catalog.has(group, service)) {
                 missing.push(format!("{group}:{service}"));
             }
         }
     }
-    let available = runtime.is_some_and(|r| profile.available(&r.catalog));
+    let available = catalog.is_some_and(|catalog| profile.available(catalog));
     Ok(obj([("project_revision",revision.into()),("sequence",sequence.into()),("profile",profile.id.into()),("output_root","output".into()),("output_path",output.into()),("frames",semantic_frames.into()),("runnable",(available&&missing.is_empty()).into()),("missing_services",array(missing.into_iter().map(Into::into))),("media",array(media)),("warnings",array(["No wall-clock duration estimate; progress is state-only".into(),"Media are staged from confined FDs; output is validated before no-replace publication".into()]))]))
 }
 pub fn valid_color(s: &str) -> bool {

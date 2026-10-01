@@ -15,8 +15,17 @@ name = "semwright-mlt-video-driver"
 path = "src/main.rs"
 
 [[bin]]
+name = "semwright-mlt-runtime-runner"
+path = "src/bin/runtime_runner.rs"
+
+[[bin]]
 name = "fake-melt"
 path = "src/bin/fake_melt.rs"
+required-features = ["test-tools"]
+
+[[bin]]
+name = "fake-ffprobe"
+path = "src/bin/fake_ffprobe.rs"
 required-features = ["test-tools"]
 
 [features]
