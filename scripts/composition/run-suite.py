@@ -19,7 +19,7 @@ SUITES = {
     "av": {
         "packages": ["semwright-av-composition"],
         "targets": ["--lib", "--test", "contracts"],
-        "minimum": 54,
+        "minimum": 50,
     },
     "motion": {
         "packages": ["semwright-motion-authoring"],
@@ -32,6 +32,21 @@ SUITES = {
         "minimum": 65,
     },
 }
+
+def suite_minimum(name: str, root: Path = Path(".")) -> int:
+    """Return the expected portable inventory for the checked-out product topology."""
+    minimum = SUITES[name]["minimum"]
+    if (
+        name == "av"
+        and (root / "crates/audio-authoring").is_dir()
+        and (root / "crates/audio-domain").is_dir()
+    ):
+        # The certified audio integration adds two AV lib tests and two public
+        # audio-receipt contract tests. Standalone Agent A must not require B,
+        # while a combined workspace must not silently lose those four tests.
+        minimum = max(minimum, 54)
+    return minimum
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -70,7 +85,7 @@ def main():
         certification_eligible = False
     suite = SUITES[args.suite]
     packages = suite["packages"]
-    minimum = suite["minimum"]
+    minimum = suite_minimum(args.suite)
     cmd = ["cargo", "test", "--locked"]
     for package in packages:
         cmd.extend(["-p", package])
