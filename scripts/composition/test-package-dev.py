@@ -42,6 +42,9 @@ class DevelopmentPackageTests(unittest.TestCase):
                 self.assertIn("skills/semwright-video-production/SKILL.md", paths)
                 self.assertIn("skills/semwright-av-production/SKILL.md", paths)
                 self.assertIn("integrations/motion-canvas/runtime/package-lock.json", paths)
+                self.assertIn("crates/driver-motion-canvas/src/composition.rs", paths)
+                self.assertIn("crates/driver-figma/src/composition_kernel.rs", paths)
+                self.assertIn("crates/driver-mlt-video/src/app.rs", paths)
                 parts = {part for value in paths for part in Path(value).parts}
                 self.assertNotIn("target", parts)
                 self.assertNotIn("node_modules", parts)
