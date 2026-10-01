@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use semwright_driver_sdk::{
-    Capability, Driver, DriverExecutionContext, DriverInterfaces, descriptor_digest, secret_mount,
+    Capability, Driver, DriverExecutionContext, DriverInterfaces, RuntimeToolArg, RuntimeToolCwd,
+    RuntimeToolJob, RuntimeToolJobStatus, RuntimeToolSession, descriptor_digest, secret_mount,
     serve, system_config_mount, tool_path, workspace_mount,
 };
 use semwright_types::{
@@ -87,7 +88,18 @@ fn tool_capability() -> Capability {
             name: "driver.fixture.tool_probe".into(),
             version: "1".into(),
             description: "Execute one Host-sealed fixture tool and probe mutation authority".into(),
-            input_schema: json!({"type":"object","additionalProperties":false}),
+            input_schema: json!({
+                "type":"object",
+                "properties":{
+                    "cwd_mount":{"type":"string","minLength":1,"maxLength":64},
+                    "cwd_relative":{"type":"string","maxLength":1024},
+                    "path_mount":{"type":"string","minLength":1,"maxLength":64},
+                    "path_relative":{"type":"string","maxLength":0},
+                    "dependency":{"type":"string","minLength":1,"maxLength":64},
+                    "system_config":{"enum":["allowed","other","table"]}
+                },
+                "additionalProperties":false
+            }),
             output_schema: json!({
                 "type":"object",
                 "properties":{
@@ -118,6 +130,129 @@ fn tool_capability() -> Capability {
         tags: vec!["fixture".into(), "conformance".into(), "tool".into()],
         object_types: vec![],
     }
+}
+
+fn tool_job_capability() -> Capability {
+    Capability {
+        descriptor: CommandDescriptor {
+            name: "driver.fixture.tool_job".into(),
+            version: "1".into(),
+            description: "Exercise detached Host-owned runtime-tool job lifecycle".into(),
+            input_schema: json!({
+                "type":"object",
+                "properties":{
+                    "action":{"enum":["start","status","cancel"]},
+                    "job":{"type":"string","minLength":1,"maxLength":128},
+                    "sleep_ms":{"type":"integer","minimum":1,"maximum":5000},
+                    "cwd_mount":{"type":"string","minLength":1,"maxLength":64},
+                    "lifecycle_marker":{"type":"boolean"}
+                },
+                "required":["action"],
+                "additionalProperties":false
+            }),
+            output_schema: json!({
+                "type":"object",
+                "properties":{
+                    "job":{"type":"string"},
+                    "state":{"enum":["running","cancelling","succeeded","failed","cancelled"]},
+                    "exit_code":{"type":"integer"},
+                    "stdout":{"type":"string"},
+                    "error_code":{"type":"string"}
+                },
+                "required":["job","state"],
+                "additionalProperties":false
+            }),
+            requires: vec!["driver:fixture".into()],
+            risk: Risk::ReadOnly,
+            idempotency: Idempotency::NonIdempotent,
+            timeout_ms: 5_000,
+            dry_run: false,
+            interactive_consent: false,
+            backends: vec!["driver:fixture".into()],
+        },
+        aliases: vec!["tool_job".into()],
+        tags: vec!["fixture".into(), "conformance".into(), "tool-job".into()],
+        object_types: vec![],
+    }
+}
+
+fn tool_session_capability() -> Capability {
+    Capability {
+        descriptor: CommandDescriptor {
+            name: "driver.fixture.tool_session".into(),
+            version: "1".into(),
+            description: "Exercise provider-scoped persistent Host runtime-tool sessions".into(),
+            input_schema: json!({
+                "type":"object",
+                "properties":{
+                    "action":{"enum":["start","request","close"]},
+                    "session":{"type":"string","minLength":1,"maxLength":128},
+                    "payload":{"type":"string","maxLength":1024},
+                    "cwd_mount":{"type":"string","minLength":1,"maxLength":64},
+                    "lifecycle_marker":{"type":"boolean"},
+                    "session_config":{"enum":["read","table"]}
+                },
+                "required":["action"],
+                "additionalProperties":false
+            }),
+            output_schema: json!({
+                "type":"object",
+                "properties":{
+                    "session":{"type":"string"},
+                    "state":{"enum":["open","frame","closed"]},
+                    "payload":{"type":"string"}
+                },
+                "required":["session","state"],
+                "additionalProperties":false
+            }),
+            requires: vec!["driver:fixture".into()],
+            risk: Risk::ReadOnly,
+            idempotency: Idempotency::NonIdempotent,
+            timeout_ms: 5_000,
+            dry_run: false,
+            interactive_consent: false,
+            backends: vec!["driver:fixture".into()],
+        },
+        aliases: vec!["tool_session".into()],
+        tags: vec![
+            "fixture".into(),
+            "conformance".into(),
+            "tool-session".into(),
+        ],
+        object_types: vec![],
+    }
+}
+
+fn tool_job_result(job: &RuntimeToolJob, status: RuntimeToolJobStatus) -> Result<Value> {
+    let mut value = serde_json::Map::new();
+    value.insert("job".into(), job.id.clone().into());
+    match status {
+        RuntimeToolJobStatus::Running => {
+            value.insert("state".into(), "running".into());
+        }
+        RuntimeToolJobStatus::Cancelling => {
+            value.insert("state".into(), "cancelling".into());
+        }
+        RuntimeToolJobStatus::Succeeded { output } => {
+            let stdout = String::from_utf8(output.stdout).map_err(|_| {
+                Error::new(
+                    ErrorCode::BackendFailed,
+                    "fixture detached tool output was not UTF-8",
+                )
+            })?;
+            value.insert("state".into(), "succeeded".into());
+            value.insert("exit_code".into(), output.exit_code.into());
+            value.insert("stdout".into(), stdout.into());
+        }
+        RuntimeToolJobStatus::Failed { error } => {
+            value.insert("state".into(), "failed".into());
+            value.insert("error_code".into(), format!("{:?}", error.code).into());
+        }
+        RuntimeToolJobStatus::Cancelled => {
+            value.insert("state".into(), "cancelled".into());
+        }
+    }
+    Ok(Value::Object(value))
 }
 
 fn config_capability() -> Capability {
@@ -303,6 +438,8 @@ impl Driver for Fixture {
             capability(),
             mount_capability(),
             tool_capability(),
+            tool_job_capability(),
+            tool_session_capability(),
             config_capability(),
             secret_capability(),
             network_capability(),
@@ -315,6 +452,8 @@ impl Driver for Fixture {
             "driver.fixture.ping" => capability(),
             "driver.fixture.mount_probe" => mount_capability(),
             "driver.fixture.tool_probe" => tool_capability(),
+            "driver.fixture.tool_job" => tool_job_capability(),
+            "driver.fixture.tool_session" => tool_session_capability(),
             "driver.fixture.config_probe" => config_capability(),
             "driver.fixture.secret_probe" => secret_capability(),
             "driver.fixture.network_probe" => network_capability(),
@@ -330,6 +469,15 @@ impl Driver for Fixture {
             return Err(Error::new(
                 ErrorCode::StaleReference,
                 "Driver descriptor is not the pinned capability",
+            ));
+        }
+        if matches!(
+            command,
+            "driver.fixture.tool_job" | "driver.fixture.tool_session"
+        ) {
+            return Err(Error::new(
+                ErrorCode::Unsupported,
+                "fixture runtime-tool lifecycle requires DriverExecutionContext",
             ));
         }
         if command == "driver.fixture.mount_probe" {
@@ -557,6 +705,241 @@ impl Driver for Fixture {
         args: Value,
         context: DriverExecutionContext,
     ) -> Result<Value> {
+        if command == "driver.fixture.tool_session"
+            && std::env::var_os("SEMWRIGHT_DRIVER_HOST_TOOLS").is_some()
+        {
+            let capability = tool_session_capability();
+            if descriptor_digest(&capability.descriptor)? != pinned_digest {
+                return Err(Error::new(
+                    ErrorCode::StaleReference,
+                    "Driver descriptor is not the pinned capability",
+                ));
+            }
+            let args = args
+                .as_object()
+                .ok_or_else(|| Error::invalid("fixture tool session accepts an object"))?;
+            if args.keys().any(|key| {
+                !matches!(
+                    key.as_str(),
+                    "action"
+                        | "session"
+                        | "payload"
+                        | "cwd_mount"
+                        | "lifecycle_marker"
+                        | "session_config"
+                )
+            }) {
+                return Err(Error::invalid(
+                    "fixture tool session received an unknown argument",
+                ));
+            }
+            let action = args
+                .get("action")
+                .and_then(Value::as_str)
+                .ok_or_else(|| Error::invalid("fixture tool session action is required"))?;
+            return match action {
+                "start" => {
+                    if args.get("session").is_some() || args.get("payload").is_some() {
+                        return Err(Error::invalid(
+                            "fixture tool session start does not accept session or payload",
+                        ));
+                    }
+                    let mut tool_args = vec![RuntimeToolArg::Literal {
+                        value: "--session".into(),
+                    }];
+                    if args
+                        .get("lifecycle_marker")
+                        .and_then(Value::as_bool)
+                        .unwrap_or(false)
+                    {
+                        tool_args.push(RuntimeToolArg::Literal {
+                            value: "--lifecycle-marker".into(),
+                        });
+                    }
+                    if let Some(mode) = args.get("session_config").and_then(Value::as_str) {
+                        tool_args.push(RuntimeToolArg::Literal {
+                            value: match mode {
+                                "read" => "--session-read-system-config",
+                                "table" => "--session-print-mount-table",
+                                _ => {
+                                    return Err(Error::invalid(
+                                        "fixture tool session config mode is invalid",
+                                    ));
+                                }
+                            }
+                            .into(),
+                        });
+                    }
+                    let cwd =
+                        args.get("cwd_mount")
+                            .and_then(Value::as_str)
+                            .map(|mount| RuntimeToolCwd {
+                                mount: mount.to_owned(),
+                                relative: String::new(),
+                            });
+                    let session = context
+                        .start_runtime_tool_session_args(
+                            "probe",
+                            tool_args,
+                            std::time::Duration::from_secs(60),
+                            cwd,
+                        )
+                        .await?;
+                    Ok(json!({"session":session.id,"state":"open"}))
+                }
+                "request" => {
+                    if args.get("cwd_mount").is_some()
+                        || args.get("lifecycle_marker").is_some()
+                        || args.get("session_config").is_some()
+                    {
+                        return Err(Error::invalid(
+                            "fixture tool session request accepts only session and payload",
+                        ));
+                    }
+                    let session = RuntimeToolSession {
+                        id: args
+                            .get("session")
+                            .and_then(Value::as_str)
+                            .ok_or_else(|| Error::invalid("fixture session id is required"))?
+                            .to_owned(),
+                    };
+                    let payload = args
+                        .get("payload")
+                        .and_then(Value::as_str)
+                        .filter(|payload| payload.len() <= 1024)
+                        .ok_or_else(|| Error::invalid("fixture session payload is invalid"))?;
+                    let response = context
+                        .runtime_tool_session_request(
+                            &session,
+                            payload.as_bytes().to_vec(),
+                            std::time::Duration::from_secs(2),
+                        )
+                        .await?;
+                    let response = String::from_utf8(response).map_err(|_| {
+                        Error::new(
+                            ErrorCode::BackendFailed,
+                            "fixture session response is not UTF-8",
+                        )
+                    })?;
+                    Ok(json!({"session":session.id,"state":"frame","payload":response}))
+                }
+                "close" => {
+                    if args.get("payload").is_some()
+                        || args.get("cwd_mount").is_some()
+                        || args.get("lifecycle_marker").is_some()
+                        || args.get("session_config").is_some()
+                    {
+                        return Err(Error::invalid(
+                            "fixture tool session close does not accept payload",
+                        ));
+                    }
+                    let session = RuntimeToolSession {
+                        id: args
+                            .get("session")
+                            .and_then(Value::as_str)
+                            .ok_or_else(|| Error::invalid("fixture session id is required"))?
+                            .to_owned(),
+                    };
+                    context.close_runtime_tool_session(&session).await?;
+                    Ok(json!({"session":session.id,"state":"closed"}))
+                }
+                _ => Err(Error::invalid("fixture tool session action is invalid")),
+            };
+        }
+
+        if command == "driver.fixture.tool_job"
+            && std::env::var_os("SEMWRIGHT_DRIVER_HOST_TOOLS").is_some()
+        {
+            let capability = tool_job_capability();
+            if descriptor_digest(&capability.descriptor)? != pinned_digest {
+                return Err(Error::new(
+                    ErrorCode::StaleReference,
+                    "Driver descriptor is not the pinned capability",
+                ));
+            }
+            let args = args
+                .as_object()
+                .ok_or_else(|| Error::invalid("fixture tool job accepts an object"))?;
+            if args.keys().any(|key| {
+                !matches!(
+                    key.as_str(),
+                    "action" | "job" | "sleep_ms" | "cwd_mount" | "lifecycle_marker"
+                )
+            }) {
+                return Err(Error::invalid(
+                    "fixture tool job received an unknown argument",
+                ));
+            }
+            let action = args
+                .get("action")
+                .and_then(Value::as_str)
+                .ok_or_else(|| Error::invalid("fixture tool job action is required"))?;
+            return match action {
+                "start" => {
+                    if args.get("job").is_some() {
+                        return Err(Error::invalid(
+                            "fixture tool job start does not accept a job id",
+                        ));
+                    }
+                    let sleep_ms = args.get("sleep_ms").and_then(Value::as_u64).unwrap_or(500);
+                    if !(1..=5_000).contains(&sleep_ms) {
+                        return Err(Error::invalid(
+                            "fixture tool job sleep_ms exceeds test bounds",
+                        ));
+                    }
+                    let mut tool_args = vec!["--sleep-ms".into(), sleep_ms.to_string()];
+                    if args
+                        .get("lifecycle_marker")
+                        .and_then(Value::as_bool)
+                        .unwrap_or(false)
+                    {
+                        tool_args.push("--lifecycle-marker".into());
+                    }
+                    let cwd =
+                        args.get("cwd_mount")
+                            .and_then(Value::as_str)
+                            .map(|mount| RuntimeToolCwd {
+                                mount: mount.to_owned(),
+                                relative: String::new(),
+                            });
+                    let job = context
+                        .start_runtime_tool_job(
+                            "probe",
+                            tool_args,
+                            Vec::new(),
+                            std::time::Duration::from_secs(10),
+                            cwd,
+                        )
+                        .await?;
+                    Ok(json!({"job":job.id,"state":"running"}))
+                }
+                "status" | "cancel" => {
+                    if args.get("sleep_ms").is_some()
+                        || args.get("cwd_mount").is_some()
+                        || args.get("lifecycle_marker").is_some()
+                    {
+                        return Err(Error::invalid(
+                            "fixture tool job status/cancel accepts only action and job",
+                        ));
+                    }
+                    let job = RuntimeToolJob {
+                        id: args
+                            .get("job")
+                            .and_then(Value::as_str)
+                            .ok_or_else(|| Error::invalid("fixture tool job id is required"))?
+                            .to_owned(),
+                    };
+                    let status = if action == "status" {
+                        context.runtime_tool_job_status(&job).await?
+                    } else {
+                        context.cancel_runtime_tool_job(&job).await?
+                    };
+                    tool_job_result(&job, status)
+                }
+                _ => Err(Error::invalid("fixture tool job action is invalid")),
+            };
+        }
+
         if command == "driver.fixture.tool_probe"
             && std::env::var_os("SEMWRIGHT_DRIVER_HOST_TOOLS").is_some()
         {
@@ -567,9 +950,68 @@ impl Driver for Fixture {
                     "Driver descriptor is not the pinned capability",
                 ));
             }
-            if args.as_object().is_none_or(|args| !args.is_empty()) {
-                return Err(Error::invalid("fixture tool probe accepts an empty object"));
+            let args = args
+                .as_object()
+                .ok_or_else(|| Error::invalid("fixture tool probe accepts an object"))?;
+            if args.keys().any(|key| {
+                !matches!(
+                    key.as_str(),
+                    "cwd_mount"
+                        | "cwd_relative"
+                        | "path_mount"
+                        | "path_relative"
+                        | "dependency"
+                        | "system_config"
+                )
+            }) {
+                return Err(Error::invalid(
+                    "fixture tool probe received an unknown argument",
+                ));
             }
+            let cwd = match (
+                args.get("cwd_mount").and_then(Value::as_str),
+                args.get("cwd_relative").and_then(Value::as_str),
+            ) {
+                (None, None) => None,
+                (Some(mount), Some(relative)) => Some(RuntimeToolCwd {
+                    mount: mount.into(),
+                    relative: relative.into(),
+                }),
+                _ => {
+                    return Err(Error::invalid(
+                        "fixture tool probe requires cwd_mount and cwd_relative together",
+                    ));
+                }
+            };
+
+            let path_ref = match (
+                args.get("path_mount").and_then(Value::as_str),
+                args.get("path_relative").and_then(Value::as_str),
+            ) {
+                (None, None) => None,
+                (Some(mount), Some(relative)) => Some(RuntimeToolArg::MountPath {
+                    mount: mount.to_owned(),
+                    relative: relative.to_owned(),
+                }),
+                _ => {
+                    return Err(Error::invalid(
+                        "fixture tool probe requires path_mount and path_relative together",
+                    ));
+                }
+            };
+            let dependency = args.get("dependency").and_then(Value::as_str).map(|tool| {
+                RuntimeToolArg::ToolPath {
+                    tool: tool.to_owned(),
+                }
+            });
+            let system_config_arg = match args.get("system_config").and_then(Value::as_str) {
+                None => None,
+                Some("allowed") => Some("--read-system-config"),
+                Some("other") => Some("--read-other-system-config"),
+                Some("table") => Some("--print-mount-table"),
+                Some(_) => return Err(Error::invalid("fixture system_config mode is invalid")),
+            };
+            let typed = path_ref.is_some() || dependency.is_some();
 
             let direct_path_visible = tool_path("probe").is_ok();
             #[cfg(windows)]
@@ -589,14 +1031,73 @@ impl Driver for Fixture {
             #[cfg(not(windows))]
             let (self_spawn_ok, self_spawn_errno) = (false, -1);
 
-            let output = context
-                .execute_tool(
-                    "probe",
-                    Vec::new(),
-                    Vec::new(),
-                    std::time::Duration::from_millis(1_500),
-                )
-                .await?;
+            let output = if typed {
+                let mut runtime_args = Vec::new();
+                if let Some(path_ref) = path_ref {
+                    runtime_args.push(RuntimeToolArg::Literal {
+                        value: "--probe-path".into(),
+                    });
+                    runtime_args.push(path_ref);
+                }
+                if let Some(dependency) = dependency {
+                    runtime_args.push(RuntimeToolArg::Literal {
+                        value: if cfg!(windows) {
+                            "--probe-dependency-path".into()
+                        } else {
+                            "--run-dependency".into()
+                        },
+                    });
+                    runtime_args.push(dependency);
+                }
+                if let Some(system_config_arg) = system_config_arg {
+                    runtime_args.push(RuntimeToolArg::Literal {
+                        value: system_config_arg.into(),
+                    });
+                }
+                if cwd.is_some() {
+                    runtime_args.push(RuntimeToolArg::Literal {
+                        value: "--print-cwd".into(),
+                    });
+                }
+                context
+                    .execute_runtime_tool_args(
+                        "probe",
+                        runtime_args,
+                        Vec::new(),
+                        std::time::Duration::from_millis(1_500),
+                        cwd,
+                    )
+                    .await?
+            } else {
+                let mut raw_args = Vec::new();
+                if let Some(system_config_arg) = system_config_arg {
+                    raw_args.push(system_config_arg.into());
+                }
+                match cwd {
+                    Some(cwd) => {
+                        raw_args.push("--print-cwd".into());
+                        context
+                            .execute_runtime_tool_with_cwd(
+                                "probe",
+                                raw_args,
+                                Vec::new(),
+                                std::time::Duration::from_millis(1_500),
+                                cwd,
+                            )
+                            .await?
+                    }
+                    None => {
+                        context
+                            .execute_tool(
+                                "probe",
+                                raw_args,
+                                Vec::new(),
+                                std::time::Duration::from_millis(1_500),
+                            )
+                            .await?
+                    }
+                }
+            };
             let stdout = String::from_utf8(output.stdout).map_err(|_| {
                 Error::new(
                     ErrorCode::BackendFailed,

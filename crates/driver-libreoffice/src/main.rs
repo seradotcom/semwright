@@ -1,28 +1,24 @@
 //! First-party LibreOffice driver using the native UNO object model.
 //! The agent receives typed capabilities; no arbitrary Python or macro surface is exposed.
 use async_trait::async_trait;
-use semwright_driver_sdk::{Capability, Driver, artifact_output_tag, descriptor_digest, serve};
-use semwright_types::{
-    CommandDescriptor, Error, ErrorCode, Idempotency, MAX_FRAME, Result, Risk, unique_id,
+use semwright_driver_sdk::{
+    Capability, Driver, DriverExecutionContext, DriverInterfaces, RuntimeToolArg,
+    RuntimeToolSession, artifact_output_tag, descriptor_digest, serve,
 };
+use semwright_types::{CommandDescriptor, Error, ErrorCode, Idempotency, MAX_FRAME, Result, Risk};
 use serde_json::{Value, json};
 use std::{
+    collections::BTreeMap,
     path::{Component, Path, PathBuf},
-    process::Stdio,
     time::Duration,
-};
-use tokio::{
-    process::{Child, Command},
-    time::{sleep, timeout},
 };
 
 const DRIVER_ID: &str = "libreoffice";
 const DRIVER_SCOPE: &str = "driver:libreoffice";
 const WORKSPACE_MOUNT: &str = "workspace";
-const PYTHON: &str = "/usr/bin/python3";
-const SOFFICE: &str = "/usr/bin/soffice";
-const SYSTEM_SHELL: &str = "/usr/bin/sh";
-const UNO_SCRIPT: &str = include_str!("uno_bridge.py");
+const RUNTIME_MOUNT: &str = "libreoffice-runtime";
+const SESSION_RUNNER_TOOL: &str = "libreoffice-session-runner";
+const MAX_DRIVER_SESSIONS: usize = 2;
 
 fn descriptor(
     name: &str,
@@ -356,38 +352,74 @@ fn valid_cell(cell: &str) -> bool {
         && digits.bytes().all(|byte| byte.is_ascii_digit())
 }
 
-async fn run_bridge(pipe: &str, operation: &str, args: Value, deadline: Duration) -> Result<Value> {
-    let payload = serde_json::to_string(&args)?;
-    let mut command = Command::new(PYTHON);
-    command
-        .arg("-c")
-        .arg(UNO_SCRIPT)
-        .arg(pipe)
-        .arg(operation)
-        .arg(payload)
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .kill_on_drop(true);
-    let child = command.spawn()?;
-    let output = timeout(deadline, child.wait_with_output())
-        .await
-        .map_err(|_| Error::new(ErrorCode::Timeout, "LibreOffice UNO helper timed out"))??;
-    if !output.status.success() || output.stdout.len() > MAX_FRAME {
+fn session_arguments() -> Vec<RuntimeToolArg> {
+    vec![
+        RuntimeToolArg::Literal {
+            value: "--workspace".into(),
+        },
+        RuntimeToolArg::MountPath {
+            mount: WORKSPACE_MOUNT.into(),
+            relative: String::new(),
+        },
+        RuntimeToolArg::Literal {
+            value: "--runtime".into(),
+        },
+        RuntimeToolArg::MountPath {
+            mount: RUNTIME_MOUNT.into(),
+            relative: String::new(),
+        },
+        RuntimeToolArg::Literal {
+            value: "--soffice-sealed".into(),
+        },
+        RuntimeToolArg::ToolPath {
+            tool: "soffice-bin".into(),
+        },
+        RuntimeToolArg::Literal {
+            value: "--python".into(),
+        },
+        RuntimeToolArg::ToolPath {
+            tool: "python3".into(),
+        },
+    ]
+}
+
+fn decode_uno_response(bytes: &[u8]) -> Result<Value> {
+    if bytes.is_empty() || bytes.len() > MAX_FRAME {
         return Err(Error::new(
-            ErrorCode::BackendFailed,
-            "LibreOffice UNO helper failed",
+            ErrorCode::PluginProtocolError,
+            "LibreOffice session response exceeds its bounded contract",
         ));
     }
-    let response: Value = serde_json::from_slice(&output.stdout)?;
+    let response: Value = serde_json::from_slice(bytes)?;
+    let object = response.as_object().ok_or_else(|| {
+        Error::new(
+            ErrorCode::PluginProtocolError,
+            "LibreOffice session response must be an object",
+        )
+    })?;
     if response.get("ok").and_then(Value::as_bool) == Some(true) {
+        if object.len() != 2 || !object.contains_key("data") {
+            return Err(Error::new(
+                ErrorCode::PluginProtocolError,
+                "LibreOffice success response exceeds its fixed envelope",
+            ));
+        }
         return response
             .get("data")
             .cloned()
             .filter(Value::is_object)
             .ok_or_else(|| {
-                Error::new(ErrorCode::ProtocolMismatch, "UNO result must be an object")
+                Error::new(
+                    ErrorCode::PluginProtocolError,
+                    "LibreOffice UNO result must be an object",
+                )
             });
+    }
+    if response.get("ok").and_then(Value::as_bool) != Some(false) {
+        return Err(Error::new(
+            ErrorCode::PluginProtocolError,
+            "LibreOffice session response has an invalid envelope",
+        ));
     }
     let code = match response.get("code").and_then(Value::as_str) {
         Some("NotFound") => ErrorCode::NotFound,
@@ -402,30 +434,13 @@ async fn run_bridge(pipe: &str, operation: &str, args: Value, deadline: Duration
     ))
 }
 
-fn io_step(step: &str, error: std::io::Error) -> Error {
-    Error::new(
-        ErrorCode::BackendFailed,
-        format!("{step} failed ({:?})", error.kind()),
-    )
-}
-
 struct LibreOffice {
-    office: Child,
-    pipe: String,
-    profile: PathBuf,
-    version: String,
+    sessions: BTreeMap<String, RuntimeToolSession>,
+    versions: BTreeMap<String, String>,
 }
 
 impl LibreOffice {
     async fn start() -> Result<Self> {
-        if !Path::new(SOFFICE).is_file()
-            || !Path::new(SYSTEM_SHELL).is_file()
-            || !Path::new(PYTHON).is_file()
-        {
-            return Err(Error::unavailable(
-                "LibreOffice and the system Python UNO bridge are required",
-            ));
-        }
         let workspace_root = semwright_driver_sdk::workspace_mount(WORKSPACE_MOUNT)?;
         let workspace = std::fs::metadata(&workspace_root)
             .map_err(|_| Error::unavailable("LibreOffice driver requires the workspace mount"))?;
@@ -434,81 +449,103 @@ impl LibreOffice {
                 "LibreOffice workspace mount is not a directory",
             ));
         }
-        let token = unique_id().replace('-', "_");
-        let pipe = format!("semwright_lo_{token}");
-        let profile = PathBuf::from(format!("/tmp/semwright-libreoffice-{token}"));
-        std::fs::create_dir(&profile)
-            .map_err(|error| io_step("LibreOffice profile creation", error))?;
-        let profile_arg = format!("-env:UserInstallation=file://{}", profile.display());
-        let accept = format!("--accept=pipe,name={pipe};urp;StarOffice.ComponentContext");
-        let mut command = Command::new(SYSTEM_SHELL);
-        command
-            .arg(SOFFICE)
-            .args([
-                "--headless",
-                "--nologo",
-                "--nodefault",
-                "--nofirststartwizard",
-                "--norestore",
-                &profile_arg,
-                &accept,
-            ])
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .kill_on_drop(true);
-        let mut office = command
-            .spawn()
-            .map_err(|error| io_step("LibreOffice process launch", error))?;
-        drop(office.stdin.take());
-        if let Some(mut stdout) = office.stdout.take() {
-            tokio::spawn(async move {
-                let _ = tokio::io::copy(&mut stdout, &mut tokio::io::sink()).await;
-            });
-        }
-        if let Some(mut stderr) = office.stderr.take() {
-            tokio::spawn(async move {
-                let _ = tokio::io::copy(&mut stderr, &mut tokio::io::sink()).await;
-            });
-        }
-        for _ in 0..120 {
-            if office
-                .try_wait()
-                .map_err(|error| io_step("LibreOffice process status", error))?
-                .is_some()
-            {
-                return Err(Error::unavailable(
-                    "Sandbox-owned LibreOffice exited during startup",
-                ));
-            }
-            if let Ok(status) = run_bridge(&pipe, "status", json!({}), Duration::from_secs(2)).await
-                && let Some(version) = status.get("version").and_then(Value::as_str)
-            {
-                return Ok(Self {
-                    office,
-                    pipe,
-                    profile,
-                    version: version.into(),
-                });
-            }
-            sleep(Duration::from_millis(50)).await;
-        }
-        let _ = office.kill().await;
-        Err(Error::new(
-            ErrorCode::Timeout,
-            "LibreOffice UNO startup timed out",
-        ))
+        Ok(Self {
+            sessions: BTreeMap::new(),
+            versions: BTreeMap::new(),
+        })
     }
 
-    async fn uno(&self, operation: &str, args: Value, seconds: u64) -> Result<Value> {
-        run_bridge(&self.pipe, operation, args, Duration::from_secs(seconds)).await
+    fn validate_call(command: &str, pinned_digest: &str) -> Result<Capability> {
+        let capability = capability(command)?;
+        if descriptor_digest(&capability.descriptor)? != pinned_digest {
+            return Err(Error::new(
+                ErrorCode::StaleReference,
+                "LibreOffice capability descriptor changed",
+            ));
+        }
+        Ok(capability)
     }
-}
 
-impl Drop for LibreOffice {
-    fn drop(&mut self) {
-        let _ = self.office.start_kill();
-        let _ = std::fs::remove_dir_all(&self.profile);
+    async fn exchange(
+        context: &DriverExecutionContext,
+        session: &RuntimeToolSession,
+        operation: &str,
+        args: Value,
+        timeout_ms: u64,
+    ) -> Result<Value> {
+        let payload = serde_json::to_vec(&json!({"operation":operation,"args":args}))?;
+        if payload.is_empty() || payload.len() > MAX_FRAME {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "LibreOffice session request exceeds its bounded contract",
+            ));
+        }
+        let response = context
+            .runtime_tool_session_request(
+                session,
+                payload,
+                Duration::from_millis(timeout_ms.max(1)),
+            )
+            .await?;
+        decode_uno_response(&response)
+    }
+
+    async fn ensure_session(
+        &mut self,
+        context: &DriverExecutionContext,
+    ) -> Result<RuntimeToolSession> {
+        if let Some(session) = self.sessions.get(context.session()) {
+            return Ok(session.clone());
+        }
+        if self.sessions.len() >= MAX_DRIVER_SESSIONS {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "LibreOffice DriverProvider session capacity is exhausted",
+            ));
+        }
+        let session = context
+            .start_runtime_tool_session_args(
+                SESSION_RUNNER_TOOL,
+                session_arguments(),
+                Duration::from_secs(3_600),
+                None,
+            )
+            .await?;
+
+        let status = match Self::exchange(context, &session, "status", json!({}), 20_000).await {
+            Ok(status) => status,
+            Err(error) => {
+                let _ = context.close_runtime_tool_session(&session).await;
+                return Err(error);
+            }
+        };
+        let version = status
+            .get("version")
+            .and_then(Value::as_str)
+            .filter(|value| {
+                !value.is_empty() && value.len() <= 64 && !value.chars().any(char::is_control)
+            })
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorCode::PluginProtocolError,
+                    "LibreOffice status omitted its bounded product version",
+                )
+            })?
+            .to_owned();
+        self.sessions
+            .insert(context.session().to_owned(), session.clone());
+        self.versions.insert(context.session().to_owned(), version);
+        Ok(session)
+    }
+
+    async fn uno(
+        context: &DriverExecutionContext,
+        session: &RuntimeToolSession,
+        operation: &str,
+        args: Value,
+        timeout_ms: u64,
+    ) -> Result<Value> {
+        Self::exchange(context, session, operation, args, timeout_ms).await
     }
 }
 
@@ -522,48 +559,85 @@ impl Driver for LibreOffice {
         env!("CARGO_PKG_VERSION")
     }
 
+    fn interfaces(&self) -> DriverInterfaces {
+        DriverInterfaces {
+            cooperative_cancellation: true,
+            health: true,
+            host_tools: std::env::var_os("SEMWRIGHT_DRIVER_HOST_TOOLS").is_some(),
+            ..DriverInterfaces::default()
+        }
+    }
+
     async fn capabilities(&mut self) -> Result<Vec<Capability>> {
         capabilities()
     }
 
     async fn health(&mut self) -> Result<Value> {
+        let host_tools = std::env::var_os("SEMWRIGHT_DRIVER_HOST_TOOLS").is_some();
         Ok(json!({
-            "healthy":true,
+            "healthy":host_tools,
             "product":"LibreOffice",
-            "version":self.version
+            "runtime":"host-managed-v8",
+            "sessions":self.sessions.len(),
+            "version":self.versions.values().next().cloned()
         }))
     }
 
-    async fn execute(&mut self, command: &str, pinned_digest: &str, args: Value) -> Result<Value> {
-        let capability = capability(command)?;
-        if descriptor_digest(&capability.descriptor)? != pinned_digest {
-            return Err(Error::new(
-                ErrorCode::StaleReference,
-                "LibreOffice capability descriptor changed",
-            ));
-        }
-        match command {
-            "driver.libreoffice.status" => Ok(json!({
-                "connected":true,
-                "product":"LibreOffice",
-                "version":self.version
-            })),
+    async fn execute(&mut self, command: &str, pinned_digest: &str, _args: Value) -> Result<Value> {
+        let _ = Self::validate_call(command, pinned_digest)?;
+        Err(Error::new(
+            ErrorCode::Unsupported,
+            "LibreOffice execution requires a protocol-v8 Host-owned runtime-tool session",
+        ))
+    }
+
+    async fn execute_with_context(
+        &mut self,
+        command: &str,
+        pinned_digest: &str,
+        args: Value,
+        context: DriverExecutionContext,
+    ) -> Result<Value> {
+        context.check_cancelled()?;
+        let capability = Self::validate_call(command, pinned_digest)?;
+        let session = self.ensure_session(&context).await?;
+        let result = match command {
+            "driver.libreoffice.status" => {
+                Self::uno(
+                    &context,
+                    &session,
+                    "status",
+                    json!({}),
+                    capability.descriptor.timeout_ms,
+                )
+                .await
+            }
             "driver.libreoffice.writer.create" => {
                 let (relative, absolute) = relative_path(&args, "path", &["odt"])?;
                 ensure_new_target(&absolute)?;
                 let text = text_arg(&args, "text", 65_536)?;
-                self.uno("writer_create", json!({"path":absolute,"text":text}), 12)
-                    .await?;
+                Self::uno(
+                    &context,
+                    &session,
+                    "writer_create",
+                    json!({"path":relative,"text":text}),
+                    capability.descriptor.timeout_ms,
+                )
+                .await?;
                 Ok(json!({"created":true,"path":relative}))
             }
             "driver.libreoffice.writer.read" => {
                 let (relative, absolute) = relative_path(&args, "path", &["odt"])?;
                 ensure_source(&absolute)?;
-                let data = self.uno("writer_read", json!({"path":absolute}), 8).await?;
-                Ok(json!({
-                    "path":relative,
-                    "text":data["text"]
-                }))
+                let data = Self::uno(
+                    &context,
+                    &session,
+                    "writer_read",
+                    json!({"path":relative}),
+                    capability.descriptor.timeout_ms,
+                )
+                .await?;
+                Ok(json!({"path":relative,"text":data["text"]}))
             }
             "driver.libreoffice.calc.create" => {
                 let (relative, absolute) = relative_path(&args, "path", &["ods"])?;
@@ -576,9 +650,14 @@ impl Driver for LibreOffice {
                 if !cells.keys().all(|cell| valid_cell(cell)) {
                     return Err(Error::invalid("LibreOffice cell reference is invalid"));
                 }
-                let data = self
-                    .uno("calc_create", json!({"path":absolute,"cells":cells}), 12)
-                    .await?;
+                let data = Self::uno(
+                    &context,
+                    &session,
+                    "calc_create",
+                    json!({"path":relative,"cells":cells}),
+                    capability.descriptor.timeout_ms,
+                )
+                .await?;
                 Ok(json!({
                     "created":true,
                     "path":relative,
@@ -592,9 +671,14 @@ impl Driver for LibreOffice {
                 if !valid_cell(cell) {
                     return Err(Error::invalid("LibreOffice cell reference is invalid"));
                 }
-                let data = self
-                    .uno("calc_get", json!({"path":absolute,"cell":cell}), 8)
-                    .await?;
+                let data = Self::uno(
+                    &context,
+                    &session,
+                    "calc_get",
+                    json!({"path":relative,"cell":cell}),
+                    capability.descriptor.timeout_ms,
+                )
+                .await?;
                 Ok(json!({
                     "path":relative,
                     "cell":cell,
@@ -614,34 +698,56 @@ impl Driver for LibreOffice {
                     .cloned()
                     .filter(|value| value.is_string() || value.is_number())
                     .ok_or_else(|| Error::invalid("LibreOffice cell value is invalid"))?;
-                self.uno(
+                Self::uno(
+                    &context,
+                    &session,
                     "calc_set",
-                    json!({"path":absolute,"cell":cell,"value":value}),
-                    12,
+                    json!({"path":relative,"cell":cell,"value":value}),
+                    capability.descriptor.timeout_ms,
                 )
                 .await?;
-                Ok(json!({
-                    "updated":true,
-                    "path":relative,
-                    "cell":cell
-                }))
+                Ok(json!({"updated":true,"path":relative,"cell":cell}))
             }
             "driver.libreoffice.export.pdf" => {
-                let (_source_relative, source) = relative_path(&args, "path", &["odt", "ods"])?;
+                let (source_relative, source) = relative_path(&args, "path", &["odt", "ods"])?;
                 ensure_source(&source)?;
                 let (output_relative, output) = relative_path(&args, "output", &["pdf"])?;
                 ensure_new_target(&output)?;
-                self.uno("export_pdf", json!({"path":source,"output":output}), 18)
-                    .await?;
-                Ok(json!({
-                    "exported":true,
-                    "path":output_relative
-                }))
+                Self::uno(
+                    &context,
+                    &session,
+                    "export_pdf",
+                    json!({"path":source_relative,"output":output_relative}),
+                    capability.descriptor.timeout_ms,
+                )
+                .await?;
+                Ok(json!({"exported":true,"path":output_relative}))
             }
             _ => Err(Error::new(
                 ErrorCode::NotFound,
                 "LibreOffice capability is not registered",
             )),
+        };
+
+        match result {
+            Ok(value) => Ok(value),
+            Err(error)
+                if matches!(
+                    error.code,
+                    ErrorCode::Unavailable
+                        | ErrorCode::ProtocolMismatch
+                        | ErrorCode::PluginProtocolError
+                        | ErrorCode::Timeout
+                        | ErrorCode::Cancelled
+                        | ErrorCode::NotFound
+                ) =>
+            {
+                self.sessions.remove(context.session());
+                self.versions.remove(context.session());
+                let _ = context.close_runtime_tool_session(&session).await;
+                Err(error)
+            }
+            Err(error) => Err(error),
         }
     }
 }

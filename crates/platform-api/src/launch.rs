@@ -80,6 +80,13 @@ pub const SANDBOX_MOUNTS_ENV: &str = "SEMWRIGHT_SANDBOX_MOUNTS_V1";
 /// Internal host-only marker for a short-lived sealed tool child. Platform launchers may
 /// consume this for compatibility policy, but must not forward it into the child environment.
 pub const SANDBOX_HOST_TOOL_CHILD_ENV: &str = "SEMWRIGHT_HOST_TOOL_CHILD";
+/// Internal host-only absolute working directory for a Host-mediated tool child.
+/// It is derived from an already-authorized logical mount and never forwarded to the child.
+pub const SANDBOX_HOST_TOOL_CWD_ENV: &str = "SEMWRIGHT_HOST_TOOL_CWD";
+/// Internal marker enabling v7 typed argument resolution inside the platform launcher.
+/// The marker and encoded placeholders are Host-generated and never forwarded to the child.
+pub const SANDBOX_HOST_TOOL_TYPED_ARGS_ENV: &str = "SEMWRIGHT_HOST_TOOL_TYPED_ARGS";
+pub const HOST_TOOL_ARG_PREFIX: &str = "__SEMWRIGHT_INTERNAL_TOOL_ARG_V1__";
 const MAX_MATERIALIZED_MOUNTS: usize = 32;
 const MAX_MOUNT_ENV_BYTES: usize = 16 * 1024;
 
@@ -263,6 +270,144 @@ pub fn decode_materialized_tools(encoded: &str) -> Result<Vec<MaterializedTool>>
     Ok(tools)
 }
 
+/// Host-only v7 reference embedded temporarily in SandboxSpec.args.
+/// Platform launchers resolve it after their mount/tool materialization is known.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum HostToolArgRef {
+    MountPath {
+        mount: String,
+        #[serde(default, skip_serializing_if = "String::is_empty")]
+        relative: String,
+    },
+    ToolPath {
+        tool: String,
+    },
+}
+
+impl HostToolArgRef {
+    pub fn validate(&self) -> Result<()> {
+        match self {
+            Self::MountPath { mount, relative } => {
+                super::filesystem::validate_relative_path(Path::new(mount))?;
+                if mount.len() > 255 || !relative.is_empty() {
+                    return Err(Error::new(
+                        ErrorCode::Unsupported,
+                        "Host runtime-tool mount paths are root-only until portable handle-relative resolution exists",
+                    ));
+                }
+            }
+            Self::ToolPath { tool } if valid_tool_name(tool) => {}
+            Self::ToolPath { .. } => {
+                return Err(Error::invalid(
+                    "Invalid Host runtime-tool dependency argument",
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+pub fn encode_host_tool_arg_ref(value: &HostToolArgRef) -> Result<String> {
+    value.validate()?;
+    let encoded = serde_json::to_string(value)?;
+    let token = format!("{HOST_TOOL_ARG_PREFIX}{encoded}");
+    if token.len() > 4096 {
+        return Err(Error::new(
+            ErrorCode::ResourceExhausted,
+            "Host runtime-tool path argument exceeds sandbox argument budget",
+        ));
+    }
+    Ok(token)
+}
+
+pub fn decode_host_tool_arg_ref(value: &str) -> Result<Option<HostToolArgRef>> {
+    let Some(encoded) = value.strip_prefix(HOST_TOOL_ARG_PREFIX) else {
+        return Ok(None);
+    };
+    let decoded: HostToolArgRef = serde_json::from_str(encoded)?;
+    decoded.validate()?;
+    Ok(Some(decoded))
+}
+
+/// Resolve Host-generated v7 path placeholders against paths already materialized for a child.
+///
+/// When typed mode is false, the reserved prefix is rejected so a legacy/raw caller can never
+/// smuggle an internal placeholder into a platform launcher. When typed mode is true, every
+/// referenced mount/tool must exist in the exact materialization selected for this child.
+pub fn resolve_host_tool_args(
+    args: &[String],
+    mounts: &[MaterializedMount],
+    tools: &[MaterializedTool],
+    typed: bool,
+) -> Result<Vec<String>> {
+    for mount in mounts {
+        mount.validate()?;
+    }
+    for tool in tools {
+        tool.validate()?;
+    }
+
+    let mut resolved = Vec::with_capacity(args.len());
+    for argument in args {
+        let reference = decode_host_tool_arg_ref(argument)?;
+        if !typed {
+            if reference.is_some() || argument.starts_with(HOST_TOOL_ARG_PREFIX) {
+                return Err(Error::new(
+                    ErrorCode::PolicyDenied,
+                    "Typed Host-tool argument requires the v7 internal marker",
+                ));
+            }
+            resolved.push(argument.clone());
+            continue;
+        }
+
+        match reference {
+            None => resolved.push(argument.clone()),
+            Some(HostToolArgRef::MountPath { mount, relative }) => {
+                let materialized = mounts
+                    .iter()
+                    .find(|candidate| {
+                        candidate.class == MountClass::Workspace && candidate.logical_name == mount
+                    })
+                    .ok_or_else(|| {
+                        Error::new(
+                            ErrorCode::PolicyDenied,
+                            "Runtime-tool argument references an unmaterialized workspace mount",
+                        )
+                    })?;
+                let mut path = PathBuf::from(&materialized.path);
+                if !relative.is_empty() {
+                    path.push(relative);
+                }
+                let value = path.to_str().ok_or_else(|| {
+                    Error::invalid("Materialized runtime-tool mount path must be Unicode")
+                })?;
+                if value.len() > 4096 || value.contains('\0') {
+                    return Err(Error::new(
+                        ErrorCode::ResourceExhausted,
+                        "Resolved runtime-tool mount path exceeds argument bounds",
+                    ));
+                }
+                resolved.push(value.to_owned());
+            }
+            Some(HostToolArgRef::ToolPath { tool }) => {
+                let materialized = tools
+                    .iter()
+                    .find(|candidate| candidate.name == tool)
+                    .ok_or_else(|| {
+                        Error::new(
+                            ErrorCode::PolicyDenied,
+                            "Runtime-tool argument references an unmaterialized tool dependency",
+                        )
+                    })?;
+                resolved.push(materialized.path.clone());
+            }
+        }
+    }
+    Ok(resolved)
+}
+
 #[derive(Clone, Debug)]
 pub struct ResourceLimits {
     pub open_files: u64,
@@ -348,6 +493,55 @@ impl SandboxSpec {
                 || !environment_names.insert(name)
             {
                 return Err(Error::invalid("Sandbox environment entry is invalid"));
+            }
+        }
+        let host_tool_child = self
+            .environment
+            .iter()
+            .find(|(name, _)| name == SANDBOX_HOST_TOOL_CHILD_ENV)
+            .map(|(_, value)| value.as_str());
+        let has_host_tool_cwd = environment_names
+            .iter()
+            .any(|name| name.as_str() == SANDBOX_HOST_TOOL_CWD_ENV);
+        let typed_args = self
+            .environment
+            .iter()
+            .find(|(name, _)| name == SANDBOX_HOST_TOOL_TYPED_ARGS_ENV)
+            .map(|(_, value)| value.as_str());
+        if host_tool_child.is_some_and(|value| value != "1")
+            || typed_args.is_some_and(|value| value != "1")
+        {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Host-tool internal markers must use the canonical value",
+            ));
+        }
+        if has_host_tool_cwd && host_tool_child != Some("1") {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Host-tool working directory marker requires a Host-tool child",
+            ));
+        }
+        if typed_args.is_some() && host_tool_child != Some("1") {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Typed Host-tool arguments require a Host-tool child",
+            ));
+        }
+        if typed_args.is_none()
+            && self
+                .args
+                .iter()
+                .any(|argument| argument.starts_with(HOST_TOOL_ARG_PREFIX))
+        {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Reserved Host-tool argument prefix requires typed argument mode",
+            ));
+        }
+        if typed_args.is_some() {
+            for argument in &self.args {
+                let _ = decode_host_tool_arg_ref(argument)?;
             }
         }
         if matches!(self.kind, SandboxKind::Driver | SandboxKind::ExternalMcp)
@@ -607,6 +801,96 @@ mod tests {
             vec![tool.clone()]
         );
         assert!(encode_materialized_tools(&[tool.clone(), tool]).is_err());
+    }
+
+    #[test]
+    fn typed_host_tool_args_resolve_only_against_selected_materialization() {
+        #[cfg(unix)]
+        let mount_path = "/workspace/project";
+        #[cfg(windows)]
+        let mount_path = r"C:\Sandbox\project";
+        #[cfg(unix)]
+        let tool_path = "/plugin/tools/helper";
+        #[cfg(windows)]
+        let tool_path = r"C:\Sandbox\tools\helper.exe";
+
+        let mounts = vec![materialized("project", mount_path)];
+        let tools = vec![MaterializedTool {
+            name: "helper".into(),
+            path: tool_path.into(),
+        }];
+        let args = vec![
+            "--project".into(),
+            encode_host_tool_arg_ref(&HostToolArgRef::MountPath {
+                mount: "project".into(),
+                relative: String::new(),
+            })
+            .unwrap(),
+            encode_host_tool_arg_ref(&HostToolArgRef::ToolPath {
+                tool: "helper".into(),
+            })
+            .unwrap(),
+        ];
+
+        assert!(resolve_host_tool_args(&args, &mounts, &tools, false).is_err());
+        let resolved = resolve_host_tool_args(&args, &mounts, &tools, true).unwrap();
+        assert_eq!(resolved[0], "--project");
+        assert_eq!(PathBuf::from(&resolved[1]), PathBuf::from(mount_path));
+        assert_eq!(resolved[2], tool_path);
+
+        let missing_mount = vec![
+            encode_host_tool_arg_ref(&HostToolArgRef::MountPath {
+                mount: "missing".into(),
+                relative: String::new(),
+            })
+            .unwrap(),
+        ];
+        assert!(resolve_host_tool_args(&missing_mount, &mounts, &tools, true).is_err());
+
+        let missing_tool = vec![
+            encode_host_tool_arg_ref(&HostToolArgRef::ToolPath {
+                tool: "missing".into(),
+            })
+            .unwrap(),
+        ];
+        assert!(resolve_host_tool_args(&missing_tool, &mounts, &tools, true).is_err());
+    }
+
+    #[test]
+    fn host_tool_cwd_marker_requires_host_tool_child_marker() {
+        #[cfg(windows)]
+        let executable = PathBuf::from(r"C:\Semwright\driver.exe");
+        #[cfg(not(windows))]
+        let executable = PathBuf::from("/tmp/driver");
+        #[cfg(windows)]
+        let helper = PathBuf::from(r"C:\Semwright\sandbox.exe");
+        #[cfg(not(windows))]
+        let helper = PathBuf::from("/tmp/sandbox");
+
+        let base = SandboxSpec {
+            kind: SandboxKind::Driver,
+            staged_executable: executable,
+            helper,
+            mounts: vec![],
+            args: vec![],
+            environment: vec![(SANDBOX_HOST_TOOL_CWD_ENV.into(), "host-only".into())],
+            sealed_tools: vec![],
+            network: false,
+            limits: Some(ResourceLimits {
+                open_files: 32,
+                processes: 8,
+                cpu_seconds: 5,
+                address_space_bytes: 134_217_728,
+                file_size_bytes: 1_048_576,
+            }),
+        };
+        assert!(base.validate().is_err());
+
+        let mut valid = base;
+        valid
+            .environment
+            .push((SANDBOX_HOST_TOOL_CHILD_ENV.into(), "1".into()));
+        assert!(valid.validate().is_ok());
     }
 
     #[test]

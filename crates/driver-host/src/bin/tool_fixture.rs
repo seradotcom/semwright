@@ -30,7 +30,215 @@ fn is_appcontainer() -> bool {
     result.is_ok() && returned == std::mem::size_of::<u32>() as u32 && value != 0
 }
 
+fn session_loop(prefix: Option<String>) -> std::io::Result<()> {
+    use std::io::{ErrorKind, Read, Write};
+
+    const MAX_FRAME: usize = 256 * 1024;
+    let stdin = std::io::stdin();
+    let stdout = std::io::stdout();
+    let mut input = stdin.lock();
+    let mut output = stdout.lock();
+    loop {
+        let mut header = [0u8; 4];
+        match input.read_exact(&mut header) {
+            Ok(()) => {}
+            Err(error) if error.kind() == ErrorKind::UnexpectedEof => return Ok(()),
+            Err(error) => return Err(error),
+        }
+        let length = u32::from_be_bytes(header) as usize;
+        if length > MAX_FRAME {
+            return Err(std::io::Error::new(
+                ErrorKind::InvalidData,
+                "session frame exceeds fixture bound",
+            ));
+        }
+        let mut payload = vec![0u8; length];
+        input.read_exact(&mut payload)?;
+        let response = if let Some(prefix) = &prefix {
+            let mut response = prefix.as_bytes().to_vec();
+            response.push(b'|');
+            response.extend_from_slice(&payload);
+            if response.len() > MAX_FRAME {
+                return Err(std::io::Error::new(
+                    ErrorKind::InvalidData,
+                    "session response exceeds fixture bound",
+                ));
+            }
+            response
+        } else {
+            payload
+        };
+        let response_length = u32::try_from(response.len()).map_err(|_| {
+            std::io::Error::new(ErrorKind::InvalidData, "session response length overflow")
+        })?;
+        output.write_all(&response_length.to_be_bytes())?;
+        output.write_all(&response)?;
+        output.flush()?;
+    }
+}
+
 fn main() {
+    let args = std::env::args().skip(1).collect::<Vec<_>>();
+    if args.iter().any(|arg| arg == "--session") {
+        let lifecycle_marker = args.iter().any(|arg| arg == "--lifecycle-marker");
+        let read_system_config = args.iter().any(|arg| arg == "--session-read-system-config");
+        let print_mount_table = args.iter().any(|arg| arg == "--session-print-mount-table");
+        if args.iter().any(|arg| {
+            !matches!(
+                arg.as_str(),
+                "--session"
+                    | "--lifecycle-marker"
+                    | "--session-read-system-config"
+                    | "--session-print-mount-table"
+            )
+        }) || args.iter().filter(|arg| *arg == "--session").count() != 1
+            || (read_system_config && print_mount_table)
+        {
+            eprintln!("session mode received an unsupported argument");
+            std::process::exit(12);
+        }
+        let prefix = if read_system_config {
+            match std::fs::read_to_string("/etc/runtime-config") {
+                Ok(value) => Some(value.trim_end().to_owned()),
+                Err(_) => std::process::exit(16),
+            }
+        } else if print_mount_table {
+            match std::env::var("SEMWRIGHT_SANDBOX_MOUNTS_V1") {
+                Ok(value) => Some(format!("mount-table={value}")),
+                Err(_) => std::process::exit(17),
+            }
+        } else {
+            None
+        };
+        if lifecycle_marker && std::fs::write("started.marker", b"started").is_err() {
+            std::process::exit(14);
+        }
+        let result = session_loop(prefix);
+        if lifecycle_marker
+            && result.is_ok()
+            && std::fs::write("finished.marker", b"finished").is_err()
+        {
+            std::process::exit(15);
+        }
+        if result.is_err() {
+            std::process::exit(13);
+        }
+        return;
+    }
+    let print_cwd = args.iter().any(|arg| arg == "--print-cwd");
+    let print_mount_table = args.iter().any(|arg| arg == "--print-mount-table");
+    let lifecycle_marker = args.iter().any(|arg| arg == "--lifecycle-marker");
+    if lifecycle_marker && std::fs::write("started.marker", b"started").is_err() {
+        eprintln!("failed to write started.marker");
+        std::process::exit(3);
+    }
+    if let Some(index) = args.iter().position(|arg| arg == "--sleep-ms") {
+        let sleep_ms = args
+            .get(index + 1)
+            .and_then(|value| value.parse::<u64>().ok())
+            .filter(|value| (1..=10_000).contains(value))
+            .unwrap_or_else(|| {
+                eprintln!("invalid --sleep-ms");
+                std::process::exit(2);
+            });
+        std::thread::sleep(std::time::Duration::from_millis(sleep_ms));
+    }
+    if lifecycle_marker && std::fs::write("finished.marker", b"finished").is_err() {
+        eprintln!("failed to write finished.marker");
+        std::process::exit(4);
+    }
+    let probe_path = args
+        .iter()
+        .position(|arg| arg == "--probe-path")
+        .and_then(|index| args.get(index + 1))
+        .cloned();
+    let dependency_path = args
+        .iter()
+        .position(|arg| arg == "--run-dependency")
+        .and_then(|index| args.get(index + 1))
+        .cloned();
+    let dependency_probe_path = args
+        .iter()
+        .position(|arg| arg == "--probe-dependency-path")
+        .and_then(|index| args.get(index + 1))
+        .cloned();
+    let probed = match probe_path {
+        Some(path) => {
+            let path = std::path::PathBuf::from(path);
+            let target = if path.is_dir() {
+                path.join("allowed.txt")
+            } else {
+                path
+            };
+            match std::fs::read_to_string(target) {
+                Ok(value) => Some(value),
+                Err(error) => {
+                    eprintln!("failed to read typed mount path: {error}");
+                    std::process::exit(5);
+                }
+            }
+        }
+        None => None,
+    };
+    let system_config_path = if args.iter().any(|arg| arg == "--read-system-config") {
+        Some("/etc/runtime-config")
+    } else if args.iter().any(|arg| arg == "--read-other-system-config") {
+        Some("/etc/other-config")
+    } else {
+        None
+    };
+    let system_config_output = match system_config_path {
+        Some(path) => match std::fs::read_to_string(path) {
+            Ok(value) => Some(value),
+            Err(error) => {
+                eprintln!("failed to read delegated system config: {error}");
+                std::process::exit(12);
+            }
+        },
+        None => None,
+    };
+    let dependency_output = match (dependency_path, dependency_probe_path) {
+        (Some(_), Some(_)) => {
+            eprintln!("dependency path may be consumed by only one fixture mode");
+            std::process::exit(6);
+        }
+        (Some(path), None) => match std::process::Command::new(path).output() {
+            Ok(output) if output.status.success() => match String::from_utf8(output.stdout) {
+                Ok(value) => Some(value),
+                Err(_) => {
+                    eprintln!("dependency output is not UTF-8");
+                    std::process::exit(7);
+                }
+            },
+            Ok(output) => {
+                eprintln!(
+                    "dependency exited unsuccessfully: {:?}",
+                    output.status.code()
+                );
+                std::process::exit(8);
+            }
+            Err(error) => {
+                eprintln!("failed to launch typed dependency: {error}");
+                std::process::exit(9);
+            }
+        },
+        (None, Some(path)) => {
+            let mut file = match std::fs::File::open(path) {
+                Ok(file) => file,
+                Err(error) => {
+                    eprintln!("failed to open typed dependency path: {error}");
+                    std::process::exit(10);
+                }
+            };
+            let mut magic = [0u8; 2];
+            if std::io::Read::read_exact(&mut file, &mut magic).is_err() || magic != *b"MZ" {
+                eprintln!("typed Windows dependency path is not a readable PE image");
+                std::process::exit(11);
+            }
+            Some("readable-pe".into())
+        }
+        (None, None) => None,
+    };
     #[cfg(windows)]
     {
         print!("tool-ok|appcontainer={}", u8::from(is_appcontainer()));
@@ -38,5 +246,29 @@ fn main() {
     #[cfg(not(windows))]
     {
         print!("tool-ok");
+    }
+    if let Some(value) = probed {
+        print!("|path={value}");
+    }
+    if let Some(value) = dependency_output {
+        print!("|dependency={}", value.trim_end());
+    }
+    if let Some(value) = system_config_output {
+        print!("|system-config={}", value.trim_end());
+    }
+    if print_mount_table {
+        match std::env::var("SEMWRIGHT_SANDBOX_MOUNTS_V1") {
+            Ok(value) => print!("|mount-table={value}"),
+            Err(_) => {
+                eprintln!("materialized mount table is unavailable");
+                std::process::exit(13);
+            }
+        }
+    }
+    if print_cwd {
+        match std::env::current_dir() {
+            Ok(path) => print!("|cwd={}", path.display()),
+            Err(_) => print!("|cwd=<unavailable>"),
+        }
     }
 }

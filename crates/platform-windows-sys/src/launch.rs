@@ -11,9 +11,11 @@ use crate::{
 use async_trait::async_trait;
 use semwright_platform_api::launch::{
     ExecutableVerifier, MaterializedMount, MaterializedTool, Mount, MountClass,
-    SANDBOX_HOST_TOOL_CHILD_ENV, SANDBOX_MOUNTS_ENV, SANDBOX_TOOLS_ENV, SandboxChildControl,
-    SandboxCpuAccounting, SandboxLauncher, SandboxProcess, SandboxSpec, SealedToolSource,
-    encode_materialized_mounts, encode_materialized_tools,
+    SANDBOX_HOST_TOOL_CHILD_ENV, SANDBOX_HOST_TOOL_CWD_ENV, SANDBOX_HOST_TOOL_TYPED_ARGS_ENV,
+    SANDBOX_MOUNTS_ENV, SANDBOX_TOOLS_ENV, SandboxChildControl, SandboxCpuAccounting,
+    SandboxLauncher, SandboxProcess, SandboxSpec, SealedToolSource, decode_materialized_mounts,
+    decode_materialized_tools, encode_materialized_mounts, encode_materialized_tools,
+    resolve_host_tool_args,
 };
 use semwright_types::{Error, ErrorCode, Result, unique_id};
 use sha2::{Digest, Sha256};
@@ -1810,10 +1812,11 @@ fn prepare_windows_tools(
             ));
         }
 
-        // Re-attest the Host-staged source, copy only verified bytes into the unique
-        // AppContainer profile, sync them, and then re-attest the exact executable that the
-        // LPAC child will receive. The owner source and Host staging directory stay inaccessible.
-        let bytes = WindowsVerifier.verify(path, sha256)?;
+        // Re-attest the Host-staged sealed-tool source, copy only verified bytes into
+        // the unique AppContainer profile, sync them, and then re-attest the exact executable
+        // that the LPAC child will receive. Sealed-tool verification deliberately permits the
+        // supported x64-on-ARM64 compatibility case; primary driver processes remain native-only.
+        let bytes = verify_sealed_tool_executable(path, sha256)?;
         let materialized_path = profile_tool_root.join(format!("{}.exe", tool.name));
         let mut output = std::fs::OpenOptions::new()
             .write(true)
@@ -1994,10 +1997,10 @@ fn push_quoted_arg(out: &mut Vec<u16>, arg: &OsStr) {
     out.push(34);
 }
 
-fn command_line(spec: &SandboxSpec) -> Result<Vec<u16>> {
+fn command_line(spec: &SandboxSpec, args: &[String]) -> Result<Vec<u16>> {
     let mut out = Vec::new();
     push_quoted_arg(&mut out, spec.staged_executable.as_os_str());
-    for arg in &spec.args {
+    for arg in args {
         out.push(32);
         push_quoted_arg(&mut out, OsStr::new(arg));
     }
@@ -2019,7 +2022,11 @@ fn environment_block(
     let mut entries = spec
         .environment
         .iter()
-        .filter(|(name, _)| name != SANDBOX_HOST_TOOL_CHILD_ENV)
+        .filter(|(name, _)| {
+            name != SANDBOX_HOST_TOOL_CHILD_ENV
+                && name != SANDBOX_HOST_TOOL_CWD_ENV
+                && name != SANDBOX_HOST_TOOL_TYPED_ARGS_ENV
+        })
         .cloned()
         .collect::<Vec<_>>();
     if entries
@@ -2312,20 +2319,58 @@ fn host_tool_cross_arch(spec: &SandboxSpec) -> Result<bool> {
     if markers.is_empty() {
         return Ok(false);
     }
+    let cwd_markers = spec
+        .environment
+        .iter()
+        .filter(|(name, _)| name == SANDBOX_HOST_TOOL_CWD_ENV)
+        .collect::<Vec<_>>();
+    let typed_markers = spec
+        .environment
+        .iter()
+        .filter(|(name, _)| name == SANDBOX_HOST_TOOL_TYPED_ARGS_ENV)
+        .collect::<Vec<_>>();
+    let environment_is_internal = spec.environment.iter().all(|(name, _)| {
+        matches!(
+            name.as_str(),
+            SANDBOX_HOST_TOOL_CHILD_ENV
+                | SANDBOX_HOST_TOOL_CWD_ENV
+                | SANDBOX_HOST_TOOL_TYPED_ARGS_ENV
+        )
+    });
     if markers.len() != 1
         || markers[0].1 != "1"
+        || cwd_markers.len() > 1
+        || typed_markers.len() > 1
+        || typed_markers.first().is_some_and(|marker| marker.1 != "1")
+        || !environment_is_internal
         || spec.kind != semwright_platform_api::launch::SandboxKind::Driver
-        || !spec.mounts.is_empty()
-        || !spec.sealed_tools.is_empty()
+        || (!spec.sealed_tools.is_empty() && typed_markers.len() != 1)
         || spec.network
-        || spec.environment.len() != 1
     {
         return Err(Error::new(
             ErrorCode::SandboxDenied,
-            "Windows sealed-tool compatibility marker is only valid for isolated Host-mediated tool children",
+            "Windows Host-tool marker is only valid for isolated Host-mediated tool children",
         ));
     }
     let architecture = architecture_file(&spec.staged_executable)?;
+    let dependency_cross_arch = if std::env::consts::ARCH == "aarch64" {
+        spec.sealed_tools
+            .iter()
+            .try_fold(false, |cross_arch, tool| {
+                let path = match &tool.source {
+                    SealedToolSource::VerifiedFile { path, .. } => path,
+                    SealedToolSource::UnixFd(_) => {
+                        return Err(Error::new(
+                            ErrorCode::SandboxDenied,
+                            "Windows typed tool dependencies require Host-staged files",
+                        ));
+                    }
+                };
+                Ok(cross_arch || architecture_file(path)? == PeArchitecture::Amd64)
+            })?
+    } else {
+        false
+    };
     match (std::env::consts::ARCH, architecture) {
         ("aarch64", PeArchitecture::Amd64) => {
             // Windows 11 ARM64 transparently emulates x64 user-mode binaries. Verify support
@@ -2333,7 +2378,13 @@ fn host_tool_cross_arch(spec: &SandboxSpec) -> Result<bool> {
             require_x64_user_mode_support()?;
             Ok(true)
         }
-        ("aarch64", PeArchitecture::Arm64) | ("x86_64", PeArchitecture::Amd64) => Ok(false),
+        ("aarch64", PeArchitecture::Arm64) => {
+            if dependency_cross_arch {
+                require_x64_user_mode_support()?;
+            }
+            Ok(dependency_cross_arch)
+        }
+        ("x86_64", PeArchitecture::Amd64) => Ok(false),
         _ => Err(Error::new(
             ErrorCode::Unsupported,
             "Windows sealed-tool architecture is not supported by this host",
@@ -2357,10 +2408,14 @@ impl SandboxLauncher for WindowsSandbox {
     fn spawn(&self, spec: &SandboxSpec) -> Result<SandboxProcess> {
         spec.validate()?;
         let cross_arch_host_tool = host_tool_cross_arch(spec)?;
-        if !spec.sealed_tools.is_empty() {
+        let typed_host_tool = spec
+            .environment
+            .iter()
+            .any(|(name, value)| name == SANDBOX_HOST_TOOL_TYPED_ARGS_ENV && value == "1");
+        if !spec.sealed_tools.is_empty() && !typed_host_tool {
             return Err(Error::new(
                 ErrorCode::SandboxDenied,
-                "Windows sealed tools require Host-mediated driver protocol v4 execution",
+                "Windows nested sealed-tool dependencies require a typed Host-tool child",
             ));
         }
         let network_sid = spec
@@ -2396,6 +2451,22 @@ impl SandboxLauncher for WindowsSandbox {
         let (mut mount_grants, mount_table) = prepare_windows_mounts(spec, &profile)?;
         let (tool_grants, tool_table) = prepare_windows_tools(spec, &profile)?;
         mount_grants.extend(tool_grants);
+        let materialized_mounts = mount_table
+            .as_deref()
+            .map(decode_materialized_mounts)
+            .transpose()?
+            .unwrap_or_default();
+        let materialized_tools = tool_table
+            .as_deref()
+            .map(decode_materialized_tools)
+            .transpose()?
+            .unwrap_or_default();
+        let resolved_args = resolve_host_tool_args(
+            &spec.args,
+            &materialized_mounts,
+            &materialized_tools,
+            typed_host_tool,
+        )?;
         let (child_stdin, parent_stdin) = inheritable_pipe()?;
         let (parent_stdout, child_stdout) = inheritable_pipe()?;
         clear_inheritance(parent_stdin.raw())?;
@@ -2464,8 +2535,8 @@ impl SandboxLauncher for WindowsSandbox {
                 if cross_arch_host_tool {
                     // x64-on-ARM64 emulation may require one runtime-support process. This
                     // extra Job slot is platform overhead, not delegated driver authority:
-                    // the LPAC child remains without mounts/network and the compatibility
-                    // probe still requires ordinary descendant spawn attempts to fail.
+                    // the LPAC child remains network-denied and sees only Host-selected
+                    // per-tool mounts; ordinary descendant spawn attempts must still fail.
                     limit.saturating_add(1)
                 } else {
                     limit
@@ -2484,8 +2555,21 @@ impl SandboxLauncher for WindowsSandbox {
         let job = Arc::new(ProcessJob::new(process_limit, memory_limit, cpu_seconds)?);
 
         let application = wide_null(spec.staged_executable.as_os_str())?;
-        let current_directory = wide_null(OsStr::new(&profile.local_app_data))?;
-        let mut command = command_line(spec)?;
+        let requested_directory = spec
+            .environment
+            .iter()
+            .find(|(name, _)| name == SANDBOX_HOST_TOOL_CWD_ENV)
+            .map(|(_, value)| value.as_str())
+            .unwrap_or(&profile.local_app_data);
+        let requested_directory_path = Path::new(requested_directory);
+        if !requested_directory_path.is_absolute() || !requested_directory_path.is_dir() {
+            return Err(Error::new(
+                ErrorCode::SandboxDenied,
+                "Windows sandbox working directory must be an existing absolute directory",
+            ));
+        }
+        let current_directory = wide_null(requested_directory_path.as_os_str())?;
+        let mut command = command_line(spec, &resolved_args)?;
         let environment = environment_block(
             spec,
             &profile,
@@ -2585,7 +2669,7 @@ impl SandboxLauncher for WindowsSandbox {
             "filesystem_mounts": "driver_appcontainer_sid_acl_v1",
             "plugin_mcp_mounts": "fail_closed_pending_portable_mount_lookup",
             "network": "internetClient_capability_only_when_requested",
-            "sealed_tools": "host_mediated_driver_protocol_v4_only",
+            "sealed_tools": "host_mediated_driver_protocol_v4_plus",
             "driver_child_process_creation": "denied",
             "resource_limits": ["processes", "cpu_seconds", "process_memory"],
         })

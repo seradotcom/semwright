@@ -1,6 +1,6 @@
 {
   "manifest_version": 1,
-  "protocol": 3,
+  "protocol": 5,
   "id": "godot",
   "version": "0.9.0-dev.1",
   "publisher": "semwright",
@@ -25,7 +25,8 @@
     {
       "root": "godot-runtime",
       "name": "godot",
-      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "mounts": ["godot-project", "godot-output"]
     }
   ],
   "network": false,
@@ -45,6 +46,7 @@
     "progress": true,
     "artifacts": true,
     "health": true,
-    "native_refs": true
+    "native_refs": true,
+    "host_tools": true
   }
 }
