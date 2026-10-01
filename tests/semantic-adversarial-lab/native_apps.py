@@ -920,6 +920,7 @@ def run_blender(target: Path, source_sha: str, suite_sha: str,
             "route",
             "sandbox_network_disabled",
             "sentinel_unchanged",
+            "diagnostics",
             "cases",
         }
         if not isinstance(receipt, dict) or set(receipt) != expected_fields:
@@ -947,6 +948,7 @@ def run_blender(target: Path, source_sha: str, suite_sha: str,
             "synthetic_sentinel_unchanged": receipt.get("sentinel_unchanged"),
             "outer_process_group_gone": raw["outer_process_group_gone"],
         }
+        report["native_diagnostics"] = receipt["diagnostics"]
         rows = receipt["cases"]
         if not isinstance(rows, list):
             raise EvidenceError("BLOCKED: Blender native cases receipt is not an array")
@@ -958,9 +960,27 @@ def run_blender(target: Path, source_sha: str, suite_sha: str,
             raise EvidenceError("BLOCKED: Blender native case set/count/order mismatch")
         by_id = {case["id"]: case for case in cases}
         for row_value in rows:
-            if not isinstance(row_value, dict) or set(row_value) != {"case_id", "observed"}:
+            if not isinstance(row_value, dict) or not isinstance(row_value.get("case_id"), str):
                 raise EvidenceError("BLOCKED: malformed Blender native case receipt")
             case = by_id[row_value["case_id"]]
+            if set(row_value) == {"case_id", "blocked_reason"}:
+                reason = row_value["blocked_reason"]
+                if not isinstance(reason, str) or not reason:
+                    raise EvidenceError("BLOCKED: malformed Blender native blocked reason")
+                results.append(
+                    {
+                        "case_id": case["id"],
+                        "source_sha": source_sha,
+                        "suite_sha": suite_sha,
+                        "scope": "native_application",
+                        "isolation_verified": isolation_ok,
+                        "outcome": "BLOCKED",
+                        "reason": reason,
+                    }
+                )
+                continue
+            if set(row_value) != {"case_id", "observed"}:
+                raise EvidenceError("BLOCKED: malformed Blender native case receipt")
             observed = row_value["observed"]
             success = isolation_ok and compare_observation(observed, case["expected"])
             results.append(

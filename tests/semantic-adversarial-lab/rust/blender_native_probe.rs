@@ -312,6 +312,10 @@ fn row(case_id: &str, observed: Value) -> Value {
     json!({"case_id":case_id,"observed":observed})
 }
 
+fn blocked_row(case_id: &str, reason: &str) -> Value {
+    json!({"case_id":case_id,"blocked_reason":reason})
+}
+
 async fn run() -> AnyResult<Value> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     if args.len() != 5 {
@@ -510,58 +514,102 @@ async fn run() -> AnyResult<Value> {
         }),
     ));
 
-    let saved = fixture
-        .call(
-            "composition.persist",
-            json!({"island":island,"path":"g-native.blend"}),
-        )
+    let pre_persist_a = fixture
+        .call("composition.inspect", json!({"island":island}))
         .await?;
-    let blend_path = workspace.join("g-native.blend");
-    let duplicate = fixture
+    let pre_persist_b = fixture
+        .call("composition.inspect", json!({"island":island}))
+        .await?;
+    let persist = fixture
         .raw(
             &fixture.session,
             "composition.persist",
             json!({"island":island,"path":"g-native.blend"}),
         )
         .await;
-    cases.push(row(
-        "G-BLENDER-012",
-        json!({
-            "persisted":blend_path.is_file(),
-            "sha_matches":saved["sha256"]==file_sha(&blend_path)?,
-            "duplicate_rejected":!duplicate.ok
-        }),
-    ));
+    let blend_path = workspace.join("g-native.blend");
+    let pre_persist_stable = pre_persist_a["drift"] == false
+        && pre_persist_b["drift"] == false
+        && pre_persist_a["fingerprint"] == pre_persist_b["fingerprint"];
+    let mut persist_diagnostic = json!({
+        "pre_persist_stable":pre_persist_stable,
+        "first_drift":pre_persist_a["drift"],
+        "second_drift":pre_persist_b["drift"],
+        "same_fingerprint":pre_persist_a["fingerprint"]==pre_persist_b["fingerprint"],
+        "persist_ok":persist.ok,
+        "persist_error_code":persist.error.as_ref().map(|error| format!("{:?}", error.code)),
+    });
 
-    let writer_session = applied["snapshot"]["native_session"].clone();
-    let saved_fingerprint = saved["source_fingerprint"].clone();
-    fixture.shutdown().await?;
-    drop(fixture);
+    let mut fresh: Option<NativeFixture> = None;
+    if persist.ok {
+        let saved = persist
+            .data
+            .clone()
+            .ok_or_else(|| boxed("persist result data missing"))?;
+        let duplicate = fixture
+            .raw(
+                &fixture.session,
+                "composition.persist",
+                json!({"island":island,"path":"g-native.blend"}),
+            )
+            .await;
+        cases.push(row(
+            "G-BLENDER-012",
+            json!({
+                "persisted":blend_path.is_file(),
+                "sha_matches":saved["sha256"]==file_sha(&blend_path)?,
+                "duplicate_rejected":!duplicate.ok
+            }),
+        ));
 
-    let fresh = NativeFixture::start(&workspace, &blender_root, &driver, &sandbox, true).await?;
-    let reopened = fresh
-        .call(
-            "composition.reopen",
-            json!({"island":island,"path":"g-native.blend","sha256":saved["sha256"]}),
-        )
+        let writer_session = applied["snapshot"]["native_session"].clone();
+        let saved_fingerprint = saved["source_fingerprint"].clone();
+        let reopened_fixture =
+            NativeFixture::start(&workspace, &blender_root, &driver, &sandbox, true).await?;
+        let reopened = reopened_fixture
+            .call(
+                "composition.reopen",
+                json!({"island":island,"path":"g-native.blend","sha256":saved["sha256"]}),
+            )
+            .await?;
+        let native: NativeSnapshot = serde_json::from_value(reopened.clone())?;
+        cases.push(row(
+            "G-BLENDER-013",
+            json!({
+                "fresh_native_session":writer_session!=reopened["native_session"],
+                "fingerprint_matches":native.fingerprint.as_str()==saved_fingerprint.as_str().unwrap_or(""),
+                "drift_false":!native.drift,
+                "sentinel_preserved":fs::read(&sentinel)?==sentinel_bytes
+            }),
+        ));
+        persist_diagnostic["reopen_ok"] = true.into();
+        fresh = Some(reopened_fixture);
+    } else {
+        cases.push(row(
+            "G-BLENDER-012",
+            json!({
+                "persisted":false,
+                "sha_matches":false,
+                "duplicate_rejected":false
+            }),
+        ));
+        cases.push(blocked_row(
+            "G-BLENDER-013",
+            "clean persistence baseline failed; fresh-process reopen cannot be isolated",
+        ));
+        persist_diagnostic["reopen_ok"] = false.into();
+    }
+
+    let active = fresh.as_ref().unwrap_or(&fixture);
+    let active_snapshot = active
+        .call("composition.inspect", json!({"island":island}))
         .await?;
-    let native: NativeSnapshot = serde_json::from_value(reopened.clone())?;
-    cases.push(row(
-        "G-BLENDER-013",
-        json!({
-            "fresh_native_session":writer_session!=reopened["native_session"],
-            "fingerprint_matches":native.fingerprint.as_str()==saved_fingerprint.as_str().unwrap_or(""),
-            "drift_false":!native.drift,
-            "sentinel_preserved":fs::read(&sentinel)?==sentinel_bytes
-        }),
-    ));
-
+    let reopened_collection = active_snapshot["items"][0]["collections"][0]
+        .as_str()
+        .ok_or_else(|| boxed("active managed collection missing"))?
+        .to_owned();
     // Hostile output rejection is isolated after the clean persistence/reopen proof so a
     // rejected export can never invalidate the persistence baseline for another case.
-    let reopened_collection = reopened["items"][0]["collections"][0]
-        .as_str()
-        .ok_or_else(|| boxed("reopened managed collection missing"))?
-        .to_owned();
     let outside = workspace
         .parent()
         .ok_or_else(|| boxed("workspace parent missing"))?
@@ -570,14 +618,14 @@ async fn run() -> AnyResult<Value> {
     let _ = fs::remove_file(&outside);
     let _ = fs::remove_file(&symlink_path);
     symlink(&outside, &symlink_path)?;
-    let symlink_export = fresh
+    let symlink_export = active
         .raw(
-            &fresh.session,
+            &active.session,
             "export.glb",
             json!({"collection":reopened_collection,"path":"g-symbol.glb","animations":true}),
         )
         .await;
-    let after_symlink = fresh
+    let after_symlink = active
         .call("composition.inspect", json!({"island":island}))
         .await?;
     cases.push(row(
@@ -592,7 +640,7 @@ async fn run() -> AnyResult<Value> {
 
     // Cursor staleness is intentionally destructive to the native session's revision history.
     // Exercise it only after persistence/reopen has been independently established.
-    let first_properties = fresh
+    let first_properties = active
         .call(
             "composition.inspect.page",
             json!({"island":island,"domain":"properties","limit":1}),
@@ -602,26 +650,26 @@ async fn run() -> AnyResult<Value> {
         .as_str()
         .ok_or_else(|| boxed("properties cursor missing"))?
         .to_owned();
-    fresh
+    active
         .call(
             "object.transform",
             json!({"name":product_name,"location":[0.01,0.0,0.4]}),
         )
         .await?;
-    let stale = fresh
+    let stale = active
         .raw(
-            &fresh.session,
+            &active.session,
             "composition.inspect.page",
             json!({"island":island,"domain":"properties","limit":1,"cursor":stale_cursor}),
         )
         .await;
-    fresh
+    active
         .call(
             "object.transform",
             json!({"name":product_name,"location":[0.0,0.0,0.4]}),
         )
         .await?;
-    let restored = fresh
+    let restored = active
         .call("composition.inspect", json!({"island":island}))
         .await?;
     cases.push(row(
@@ -629,12 +677,12 @@ async fn run() -> AnyResult<Value> {
         json!({"stale_cursor_rejected":!stale.ok,"restored_drift_false":restored["drift"]==false}),
     ));
 
-    let shared_snapshot = fresh
+    let shared_snapshot = active
         .call("composition.inspect", json!({"island":island}))
         .await?;
-    let denied_shared = fresh
+    let denied_shared = active
         .raw(
-            &fresh.session,
+            &active.session,
             "composition.plan",
             json!({"intent":{
                 "kind":"material_slots",
@@ -650,8 +698,10 @@ async fn run() -> AnyResult<Value> {
         json!({"shared_mesh_material_plan_rejected":!denied_shared.ok}),
     ));
 
-    fresh.shutdown().await?;
-    drop(fresh);
+    if let Some(reopened_fixture) = fresh.as_ref() {
+        reopened_fixture.shutdown().await?;
+    }
+    fixture.shutdown().await?;
 
     let denied_fixture =
         NativeFixture::start(&workspace, &blender_root, &driver, &sandbox, false).await?;
@@ -679,6 +729,7 @@ async fn run() -> AnyResult<Value> {
         "route":"Broker -> policy -> Driver Host -> Blender",
         "sandbox_network_disabled":true,
         "sentinel_unchanged":fs::read(&sentinel)?==sentinel_bytes,
+        "diagnostics":{"persistence":persist_diagnostic},
         "cases":cases
     }))
 }

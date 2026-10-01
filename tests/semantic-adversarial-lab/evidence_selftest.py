@@ -165,6 +165,27 @@ def native_file_size_budget_is_bounded():
         and limits["native_file_size_bytes"] == MAX_FILE_SIZE_BYTES
     )
 
+
+
+def blender_case_scoped_block_is_not_pass():
+    blocked = {
+        "case_id": "G-BLENDER-013",
+        "source_sha": SOURCE,
+        "suite_sha": SUITE,
+        "scope": "native_application",
+        "isolation_verified": True,
+        "outcome": "BLOCKED",
+        "reason": "synthetic dependency",
+    }
+    summary = summarize(
+        ["G-BLENDER-013"], [blocked], SOURCE, SUITE, scope="native_application"
+    )
+    return (
+        summary["status"] == "BLOCKED"
+        and summary["counts"]["BLOCKED"] == 1
+        and summary["native_acceptance"] is False
+    )
+
 def history_control(overwrite):
     with tempfile.TemporaryDirectory(prefix="g-synthetic-evidence-", dir="/out") as directory:
         path = Path(directory) / "receipt.json"
@@ -224,4 +245,5 @@ def evidence_cases():
         ("G-SELF-099", secondary_runtime_mount_is_scoped),
         ("G-SELF-100", blender_state_tmpdir_is_exec_allowlisted),
         ("G-SELF-101", blender_outer_limits_do_not_undercut_product_sandbox),
+        ("G-SELF-102", blender_case_scoped_block_is_not_pass),
     ]

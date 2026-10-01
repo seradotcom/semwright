@@ -4796,6 +4796,17 @@
       "expected": {
         "ok": true
       }
+    },
+    {
+      "id": "G-SELF-102",
+      "owner": "G",
+      "requirement": "G11",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "Blender dependent BLOCKED case remains BLOCKED and cannot mint native acceptance",
+      "expected": {
+        "ok": true
+      }
     }
   ]
 }
