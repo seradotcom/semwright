@@ -5,11 +5,13 @@ pub mod filesystem;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-/// Owner-selected fixed argv. Not an agent-supplied executable command channel.
+/// Owner-selected digest-pinned executable plus fixed argv. Not an agent-supplied command channel.
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Application {
     pub executable: PathBuf,
+    #[serde(default)]
+    pub sha256: String,
     #[serde(default)]
     pub args: Vec<String>,
     pub cwd: Option<PathBuf>,

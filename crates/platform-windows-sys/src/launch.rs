@@ -100,6 +100,7 @@ use windows::Win32::{
 use windows::core::{BOOL, PCWSTR, PWSTR};
 
 const MAX_EXECUTABLE: u64 = 64 * 1024 * 1024;
+const MAX_APPLICATION_EXECUTABLE: u64 = 512 * 1024 * 1024;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum AuthenticodeStatus {
@@ -624,7 +625,12 @@ pub fn verify_private_data_file(path: &Path, max_bytes: u64) -> Result<()> {
     Ok(())
 }
 
-fn verify_windows_executable(path: &Path, digest: &str, sealed_tool: bool) -> Result<Vec<u8>> {
+fn verify_windows_executable(
+    path: &Path,
+    digest: &str,
+    sealed_tool: bool,
+    max_bytes: u64,
+) -> Result<Vec<u8>> {
     if !path.is_absolute() {
         return Err(Error::invalid(
             "Pinned Windows executable path must be absolute",
@@ -649,7 +655,7 @@ fn verify_windows_executable(path: &Path, digest: &str, sealed_tool: bool) -> Re
     if before.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0
         || before.nNumberOfLinks != 1
         || before.nFileSizeHigh != 0
-        || before.nFileSizeLow as u64 > MAX_EXECUTABLE
+        || before.nFileSizeLow as u64 > max_bytes
     {
         return Err(Error::new(
             ErrorCode::PermissionDenied,
@@ -657,10 +663,8 @@ fn verify_windows_executable(path: &Path, digest: &str, sealed_tool: bool) -> Re
         ));
     }
     let mut bytes = Vec::with_capacity(before.nFileSizeLow as usize);
-    file.by_ref()
-        .take(MAX_EXECUTABLE + 1)
-        .read_to_end(&mut bytes)?;
-    if bytes.len() as u64 > MAX_EXECUTABLE {
+    file.by_ref().take(max_bytes + 1).read_to_end(&mut bytes)?;
+    if bytes.len() as u64 > max_bytes {
         return Err(Error::new(
             ErrorCode::ResourceExhausted,
             "Windows executable exceeds size budget",
@@ -694,13 +698,17 @@ fn verify_windows_executable(path: &Path, digest: &str, sealed_tool: bool) -> Re
 }
 
 pub fn verify_sealed_tool_executable(path: &Path, digest: &str) -> Result<Vec<u8>> {
-    verify_windows_executable(path, digest, true)
+    verify_windows_executable(path, digest, true, MAX_EXECUTABLE)
+}
+
+pub fn verify_application_executable(path: &Path, digest: &str) -> Result<()> {
+    verify_windows_executable(path, digest, false, MAX_APPLICATION_EXECUTABLE).map(|_| ())
 }
 
 pub struct WindowsVerifier;
 impl ExecutableVerifier for WindowsVerifier {
     fn verify(&self, path: &Path, digest: &str) -> Result<Vec<u8>> {
-        verify_windows_executable(path, digest, false)
+        verify_windows_executable(path, digest, false, MAX_EXECUTABLE)
     }
 }
 

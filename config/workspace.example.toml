@@ -3,6 +3,13 @@
 # blender_socket = "/run/user/1000/semwright-blender/bridge.sock"
 # plugins = ["/home/YOUR_USER/.config/semwright/stats.json"]
 
+# Linux application launch targets are explicit owner pins, never PATH discovery.
+# [applications.editor]
+# executable = "/absolute/canonical/path/to/application"
+# sha256 = "<64 lowercase hexadecimal characters>"
+# args = []
+# cwd = "/absolute/owner/working-directory"
+
 [policy]
 profile = "workspace"
 allow = ["blender.observe", "blender.modify", "browser.observe", "browser.modify"]
@@ -23,6 +30,9 @@ write = true
 # write = true
 
 [browser]
-executable = "/usr/bin/chromium"
+# Browser launch is disabled by default. To enable the Linux built-in Chromium backend,
+# uncomment both fields and pin the exact canonical executable selected by the owner.
+# executable = "/absolute/canonical/path/to/chromium-family-executable"
+# sha256 = "<64 lowercase hexadecimal characters>"
 allowed_origins = ["http://127.0.0.1:8000"]
 allow_downloads = false

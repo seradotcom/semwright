@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Reject new application-driver runtime discovery and private resolver patterns."""
+"""Reject ambient runtime discovery in production drivers and built-in adapters."""
 
 from __future__ import annotations
 
@@ -25,7 +25,9 @@ LEGACY_COUNTS = {}
 
 issues: list[str] = []
 legacy_seen: Counter[tuple[str, str]] = Counter()
-for path in sorted((ROOT / "crates").glob("driver-*/src/**/*.rs")):
+production_paths = set((ROOT / "crates").glob("driver-*/src/**/*.rs"))
+production_paths.update((ROOT / "crates" / "adapters" / "src").glob("**/*.rs"))
+for path in sorted(production_paths):
     rel = str(path.relative_to(ROOT))
     if rel.startswith("crates/driver-host/") or rel.startswith("crates/driver-sdk/"):
         continue
@@ -39,7 +41,7 @@ for path in sorted((ROOT / "crates").glob("driver-*/src/**/*.rs")):
                     legacy_seen[key] += 1
                 else:
                     issues.append(
-                        f"{rel}:{line_no}: driver-owned runtime resolution is not allowed: {token}"
+                        f"{rel}:{line_no}: ambient runtime resolution is not allowed: {token}"
                     )
 
 for key, expected in sorted(LEGACY_COUNTS.items()):

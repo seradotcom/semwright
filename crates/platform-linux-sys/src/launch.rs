@@ -22,6 +22,7 @@ use tokio::process::{Child, Command};
 
 const MAX_PROVIDER_EXECUTABLE_BYTES: u64 = 64 * 1024 * 1024;
 const MAX_SEALED_TOOL_EXECUTABLE_BYTES: u64 = 256 * 1024 * 1024;
+const MAX_APPLICATION_EXECUTABLE_BYTES: u64 = 512 * 1024 * 1024;
 const SANDBOX_BWRAP_INFO_FD_ENV: &str = "SEMWRIGHT_INTERNAL_BWRAP_INFO_FD";
 const MAX_BWRAP_INFO_BYTES: usize = 16 * 1024;
 const BWRAP_INFO_TIMEOUT: Duration = Duration::from_secs(5);
@@ -332,6 +333,88 @@ impl ExecutableVerifier for LinuxVerifier {
 
 pub fn verify_sealed_tool_executable(path: &Path, digest: &str) -> Result<Vec<u8>> {
     verify_executable_bounded(path, digest, MAX_SEALED_TOOL_EXECUTABLE_BYTES)
+}
+
+pub fn verify_application_executable(path: &Path, digest: &str) -> Result<()> {
+    let mut file = std::fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK | libc::O_CLOEXEC)
+        .open(path)?;
+    let before = file.metadata()?;
+    // SAFETY: getuid has no pointer arguments or preconditions.
+    let uid = unsafe { libc::getuid() };
+    if !before.is_file()
+        || before.nlink() != 1
+        || before.len() < 4
+        || before.len() > MAX_APPLICATION_EXECUTABLE_BYTES
+        || before.mode() & 0o022 != 0
+        || !(before.uid() == uid || before.uid() == 0)
+    {
+        return Err(Error::new(
+            ErrorCode::PermissionDenied,
+            "Application executable must be owned/root, regular, single-link, bounded, and not writable by others",
+        ));
+    }
+    let expected = digest.trim();
+    if expected.len() != 64
+        || !expected
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    {
+        return Err(Error::invalid(
+            "Application executable digest must be canonical lowercase SHA-256",
+        ));
+    }
+    let mut hasher = Sha256::new();
+    let mut buffer = [0u8; 64 * 1024];
+    let mut prefix = [0u8; 4];
+    let mut prefix_len = 0usize;
+    let mut total = 0u64;
+    loop {
+        let count = file.read(&mut buffer)?;
+        if count == 0 {
+            break;
+        }
+        let copy = (4 - prefix_len).min(count);
+        if copy > 0 {
+            prefix[prefix_len..prefix_len + copy].copy_from_slice(&buffer[..copy]);
+            prefix_len += copy;
+        }
+        total = total.saturating_add(count as u64);
+        if total > MAX_APPLICATION_EXECUTABLE_BYTES {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Application executable exceeds verification budget",
+            ));
+        }
+        hasher.update(&buffer[..count]);
+    }
+    let after = file.metadata()?;
+    if before.dev() != after.dev()
+        || before.ino() != after.ino()
+        || before.len() != after.len()
+        || before.mtime() != after.mtime()
+        || before.mtime_nsec() != after.mtime_nsec()
+        || total != before.len()
+    {
+        return Err(Error::new(
+            ErrorCode::Conflict,
+            "Application executable changed while being verified",
+        ));
+    }
+    if prefix != *b"\x7fELF" {
+        return Err(Error::new(
+            ErrorCode::Unsupported,
+            "Pinned ELF application executable required",
+        ));
+    }
+    if format!("{:x}", hasher.finalize()) != expected {
+        return Err(Error::new(
+            ErrorCode::PermissionDenied,
+            "Application executable digest mismatch",
+        ));
+    }
+    Ok(())
 }
 fn materialized_destination(mount: &Mount) -> Result<String> {
     mount.validate()?;
@@ -758,5 +841,6 @@ mod tests {
     fn sealed_tool_budget_is_distinct_from_provider_budget() {
         assert_eq!(MAX_PROVIDER_EXECUTABLE_BYTES, 64 * 1024 * 1024);
         assert_eq!(MAX_SEALED_TOOL_EXECUTABLE_BYTES, 256 * 1024 * 1024);
+        assert_eq!(MAX_APPLICATION_EXECUTABLE_BYTES, 512 * 1024 * 1024);
     }
 }

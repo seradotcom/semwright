@@ -100,9 +100,8 @@ def classify(paths: list[str], full: bool = False) -> dict[str, bool]:
             out["security_fuzz"] = True
 
         if common_host or matches(path, (
-            "crates/platform-linux-sys/**",
-            "crates/platform-windows-sys/**",
-            "crates/platform-macos-sys/**",
+            "crates/platform-*/**",
+            "crates/adapters/**",
             ".github/workflows/runtime-tools-portability.yml",
             "docs/runtime-tools.md",
             "scripts/verify-driver-runtime-tools.py",

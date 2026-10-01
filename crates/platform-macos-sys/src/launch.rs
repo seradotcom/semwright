@@ -10,6 +10,7 @@ use tokio::process::Command;
 
 const MAX_PROVIDER_EXECUTABLE_BYTES: u64 = 64 * 1024 * 1024;
 const MAX_SEALED_TOOL_EXECUTABLE_BYTES: u64 = 256 * 1024 * 1024;
+const MAX_APPLICATION_EXECUTABLE_BYTES: u64 = 512 * 1024 * 1024;
 
 fn verify_executable_bounded(path: &Path, digest: &str, max_bytes: u64) -> Result<Vec<u8>> {
     let mut f = std::fs::OpenOptions::new()
@@ -72,6 +73,10 @@ impl ExecutableVerifier for MacVerifier {
 pub fn verify_sealed_tool_executable(path: &Path, digest: &str) -> Result<Vec<u8>> {
     verify_executable_bounded(path, digest, MAX_SEALED_TOOL_EXECUTABLE_BYTES)
 }
+
+pub fn verify_application_executable(path: &Path, digest: &str) -> Result<()> {
+    verify_executable_bounded(path, digest, MAX_APPLICATION_EXECUTABLE_BYTES).map(|_| ())
+}
 /// Even a valid Developer ID signature does not establish filesystem/network confinement.
 pub struct MacSandbox;
 impl SandboxLauncher for MacSandbox {
@@ -130,6 +135,7 @@ mod tests {
     fn secondary_tool_budget_is_distinct_but_sandbox_stays_fail_closed() {
         assert_eq!(MAX_PROVIDER_EXECUTABLE_BYTES, 64 * 1024 * 1024);
         assert_eq!(MAX_SEALED_TOOL_EXECUTABLE_BYTES, 256 * 1024 * 1024);
+        assert_eq!(MAX_APPLICATION_EXECUTABLE_BYTES, 512 * 1024 * 1024);
         let spec = SandboxSpec {
             kind: semwright_platform_api::launch::SandboxKind::Driver,
             staged_executable: "/tmp/driver".into(),

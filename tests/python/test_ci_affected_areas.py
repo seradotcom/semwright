@@ -31,6 +31,12 @@ class CiAffectedAreasTests(unittest.TestCase):
         self.assertTrue(areas["platform_windows"])
         self.assertTrue(areas["platform_macos"])
 
+    def test_builtin_chromium_adapter_runs_native_and_runtime_boundary_gates(self):
+        areas = MODULE.classify(["crates/adapters/src/chromium.rs"])
+        self.assertTrue(areas["native_chromium"])
+        self.assertTrue(areas["runtime_tools"])
+        self.assertFalse(areas["native_blender"])
+
     def test_lockfile_change_runs_dependency_and_core_gates(self):
         areas = MODULE.classify(["Cargo.lock"])
         self.assertTrue(areas["core_rust"])

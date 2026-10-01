@@ -7,6 +7,7 @@ on:
       - 'crates/driver-sdk/**'
       - 'crates/driver-host/**'
       - 'crates/platform-*/**'
+      - 'crates/adapters/**'
       - 'scripts/verify-driver-runtime-tools.py'
       - '.github/workflows/runtime-tools-portability.yml'
       - 'Cargo.toml'
@@ -16,6 +17,7 @@ on:
       - 'crates/driver-sdk/**'
       - 'crates/driver-host/**'
       - 'crates/platform-*/**'
+      - 'crates/adapters/**'
       - 'scripts/verify-driver-runtime-tools.py'
 concurrency:
   group: runtime-tools-portability-${{ github.head_ref || github.ref_name }}

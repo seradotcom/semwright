@@ -14,10 +14,14 @@ read = true
 write = false
 
 [browser]
-executable = "/usr/bin/chromium"
+# Browser launch is disabled unless both values are configured by the owner.
+# executable = "/absolute/canonical/path/to/chromium-family-executable"
+# sha256 = "<64 lowercase hexadecimal characters>"
 allowed_origins = ["http://127.0.0.1:8000"]
 allow_downloads = false
 ```
+
+The built-in Chromium backend is currently registered only by the Linux platform host. It never discovers Chromium from `PATH` or assumes an OS installation location. When enabled, the executable path must already be absolute and canonical and its bytes must match the owner-supplied SHA-256; Semwright checks file type, ownership, link count, mode, size and digest before accepting the backend and re-verifies immediately before launch. macOS and Windows do not silently reinterpret this setting as native browser support.
 
 `allowed_origins` is exact owner configuration. The default grants no network origin; `about:blank` remains available. The allowlist controls Semwright's top-level navigation and semantic authority for frames. It is not a general network firewall: normal page JavaScript and subresource loading still follow Chromium's own browser/network rules.
 

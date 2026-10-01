@@ -370,7 +370,7 @@ Idempotency: `read_only`. Dry run: `true`.
 
 ## `app.launch`
 
-Launch only an administrator-configured application key, never arbitrary argv.
+Launch only an administrator-configured, digest-pinned application key, never arbitrary argv. The current native application-launch backend is Linux-only; unsupported hosts fail closed rather than interpreting the key as an ambient executable.
 
 Idempotency: `non_idempotent`. Dry run: `true`.
 
