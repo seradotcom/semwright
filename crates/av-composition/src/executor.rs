@@ -8,13 +8,18 @@ use serde_json::Value;
 use tokio_util::sync::CancellationToken;
 
 fn broker_error(error: semwright_types::Error) -> Error {
-    let message = error
+    let code = error.code;
+    let payload = error
         .message
         .chars()
         .filter(|character| !character.is_control())
+        .take(448)
+        .collect::<String>();
+    let message = format!("{code:?}: {payload}")
+        .chars()
         .take(512)
         .collect::<String>();
-    match error.code {
+    match code {
         ErrorCode::PolicyDenied
         | ErrorCode::PermissionDenied
         | ErrorCode::ConsentRequired
@@ -397,7 +402,7 @@ mod error_mapping_tests {
         };
         assert!(message.len() <= 512);
         assert!(!message.chars().any(char::is_control));
-        assert!(message.starts_with("start"));
+        assert!(message.starts_with("PolicyDenied: start"));
     }
 }
 
@@ -421,7 +426,9 @@ mod command_context_tests {
         let Error::Unknown(message) = mapped else {
             panic!("uncertain backend failure must remain unknown");
         };
-        assert!(message.starts_with("driver.motion-canvas.render.execute: redacted-"));
+        assert!(
+            message.starts_with("driver.motion-canvas.render.execute: BackendFailed: redacted-")
+        );
         assert!(message.len() <= 512);
         assert!(!message.chars().any(char::is_control));
     }

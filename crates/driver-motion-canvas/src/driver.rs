@@ -1006,8 +1006,13 @@ impl MotionDriver {
                     ));
                 }
                 RenderState::Failed => {
+                    let code = self
+                        .renderer
+                        .failure_code(&job_ref)
+                        .await
+                        .unwrap_or(ErrorCode::BackendFailed);
                     return Err(Error::new(
-                        ErrorCode::BackendFailed,
+                        code,
                         view.error
                             .unwrap_or_else(|| "Motion Canvas render failed".into()),
                     ));

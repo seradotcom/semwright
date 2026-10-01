@@ -229,6 +229,7 @@ pub struct JobView {
 struct Job {
     source_sha256: String,
     view: JobView,
+    failure_code: Option<ErrorCode>,
     cancel: CancellationToken,
 }
 
@@ -318,6 +319,7 @@ impl RenderManager {
             Job {
                 source_sha256: snapshot.source_sha256.clone(),
                 view: view.clone(),
+                failure_code: None,
                 cancel: cancel.clone(),
             },
         );
@@ -355,10 +357,12 @@ impl RenderManager {
                     }
                     Err(error) if error.code == ErrorCode::Cancelled => {
                         job.view.state = RenderState::Cancelled;
+                        job.failure_code = Some(error.code);
                         job.view.error = Some(error.message);
                     }
                     Err(error) => {
                         job.view.state = RenderState::Failed;
+                        job.failure_code = Some(error.code);
                         job.view.error = Some(error.message);
                     }
                 }
@@ -374,6 +378,14 @@ impl RenderManager {
             .get(job_ref)
             .map(|job| job.view.clone())
             .ok_or_else(|| Error::new(ErrorCode::NotFound, "Unknown render job"))
+    }
+
+    pub(crate) async fn failure_code(&self, job_ref: &str) -> Option<ErrorCode> {
+        self.jobs
+            .lock()
+            .await
+            .get(job_ref)
+            .and_then(|job| job.failure_code)
     }
 
     pub async fn cancel(&self, job_ref: &str) -> Result<JobView> {
@@ -950,5 +962,32 @@ mod runtime_path_tests {
         ] {
             assert!(runtime_relative_path(hostile).is_err(), "{hostile}");
         }
+    }
+
+    #[tokio::test]
+    async fn render_failure_code_stays_private_but_is_preserved_for_execute_context() {
+        let manager = RenderManager::new(None, PathBuf::from("/tmp/not-used"));
+        let job_ref = "job:test".to_owned();
+        let public = JobView {
+            job_ref: job_ref.clone(),
+            state: RenderState::Failed,
+            error: Some("redacted-in-protocol".into()),
+            artifact: None,
+        };
+        manager.jobs.lock().await.insert(
+            job_ref.clone(),
+            Job {
+                source_sha256: "a".repeat(64),
+                view: public.clone(),
+                failure_code: Some(ErrorCode::ResourceExhausted),
+                cancel: CancellationToken::new(),
+            },
+        );
+        assert_eq!(
+            manager.failure_code(&job_ref).await,
+            Some(ErrorCode::ResourceExhausted)
+        );
+        let wire = serde_json::to_value(public).unwrap();
+        assert!(wire.get("failure_code").is_none());
     }
 }
