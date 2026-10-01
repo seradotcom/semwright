@@ -187,6 +187,7 @@ mod linux {
                     "runtime".into(),
                     "fontconfig".into(),
                 ],
+                system_config: vec![],
                 dependencies: vec![],
             }]
         } else {

@@ -1,6 +1,7 @@
 name: Motion Canvas driver
 on:
   workflow_call:
+  workflow_dispatch:
   push:
     branches: [feat/motion-canvas-driver]
   pull_request:
