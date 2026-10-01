@@ -21,21 +21,29 @@ def require_hosted() -> None:
     if os.name != "posix" or os.uname().sysname != "Linux":
         raise EvidenceError("BLOCKED: this enclosure has only been implemented for Linux")
 
-def _limits(address_space_bytes: int, file_size_bytes: int) -> None:
+def _limits(address_space_bytes: int, file_size_bytes: int,
+            open_files: int = 128, cpu_seconds: int = 30) -> None:
     import resource
+    if not (32 <= open_files <= 1024):
+        raise ValueError("open-files limit outside G hard bounds")
+    if not (5 <= cpu_seconds <= 900):
+        raise ValueError("CPU limit outside G hard bounds")
     resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
-    resource.setrlimit(resource.RLIMIT_NOFILE, (128, 128))
+    resource.setrlimit(resource.RLIMIT_NOFILE, (open_files, open_files))
     resource.setrlimit(resource.RLIMIT_FSIZE, (file_size_bytes, file_size_bytes))
-    resource.setrlimit(resource.RLIMIT_CPU, (30, 30))
+    resource.setrlimit(resource.RLIMIT_CPU, (cpu_seconds, cpu_seconds))
     resource.setrlimit(resource.RLIMIT_AS, (address_space_bytes, address_space_bytes))
 
 def captured(argv: list[str], *, env: dict[str, str], timeout: float = 30.0,
              maximum: int = 262144, address_space_bytes: int = 1024 * 1024 * 1024,
-             file_size_bytes: int = DEFAULT_FILE_SIZE_BYTES) -> dict[str, Any]:
+             file_size_bytes: int = DEFAULT_FILE_SIZE_BYTES,
+             open_files: int = 128, cpu_seconds: int = 30) -> dict[str, Any]:
     started = time.monotonic()
     process = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE, env=env, start_new_session=True,
-                               preexec_fn=lambda: _limits(address_space_bytes, file_size_bytes))
+                               preexec_fn=lambda: _limits(
+                                   address_space_bytes, file_size_bytes, open_files, cpu_seconds
+                               ))
     selector = selectors.DefaultSelector()
     assert process.stdout is not None and process.stderr is not None
     selector.register(process.stdout, selectors.EVENT_READ, "stdout")

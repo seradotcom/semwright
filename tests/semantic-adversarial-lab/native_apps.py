@@ -896,7 +896,9 @@ def run_blender(target: Path, source_sha: str, suite_sha: str,
             env=env,
             timeout=300,
             address_space_bytes=lock["limits"]["native_address_space_bytes"],
-            file_size_bytes=lock["limits"]["native_file_size_bytes"],
+            file_size_bytes=lock["limits"]["blender_host_file_size_bytes"],
+            open_files=lock["limits"]["blender_host_open_files"],
+            cpu_seconds=lock["limits"]["blender_host_cpu_seconds"],
         )
         report["execution"] = {
             key: value for key, value in raw.items() if key not in {"stdout", "stderr"}

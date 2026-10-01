@@ -4784,6 +4784,17 @@
       "expected": {
         "ok": true
       }
+    },
+    {
+      "id": "G-SELF-101",
+      "owner": "G",
+      "requirement": "G11",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "outer Blender G process limits do not undercut E Driver Host sandbox hard limits",
+      "expected": {
+        "ok": true
+      }
     }
   ]
 }
