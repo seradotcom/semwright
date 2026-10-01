@@ -38,6 +38,24 @@ test('render harness reports bounded state when browser rendering stalls', () =>
   assert.ok(render.includes('diagnostics.length < 32'));
 });
 
+test('renderer TypeErrors expose only allowlisted stack origins', () => {
+  assert.ok(render.includes('function classifyLogStack(payload)'));
+  assert.ok(render.includes("stack.includes('semwright-authoring-native')"));
+  assert.ok(render.includes("stack.includes('semwright-exporter')"));
+  assert.ok(render.includes("stack.includes('@motion-canvas/core')"));
+  assert.ok(render.includes("stack.includes('@motion-canvas/2d')"));
+  for (const classification of [
+    'renderer_state_semwright_native',
+    'renderer_state_semwright_exporter',
+    'renderer_state_motion_core',
+    'renderer_state_motion_2d',
+  ]) {
+    assert.ok(render.includes(classification));
+  }
+  assert.ok(!render.includes('renderer_log_type_error_semwright_native'));
+  assert.ok(!render.includes('renderer_log_type_error_motion_core'));
+});
+
 test('authoring font evidence is derived from pinned Fontsource resources and browser readiness', () => {
   assert.equal(pkg.dependencies['@fontsource-variable/instrument-sans'], '5.3.0');
   assert.equal(pkg.dependencies['@fontsource/ibm-plex-mono'], '5.3.0');

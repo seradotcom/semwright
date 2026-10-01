@@ -83,6 +83,14 @@ function classifyAuthoringMessage(message){
   if(message==='Invalid scene.')return 'invalid_scene';
   return null;
 }
+function classifyLogStack(payload){
+  const stack=typeof payload?.stack==='string'?payload.stack:'';
+  if(stack.includes('semwright-authoring-native'))return 'semwright_native';
+  if(stack.includes('semwright-exporter'))return 'semwright_exporter';
+  if(stack.includes('@motion-canvas/core'))return 'motion_core';
+  if(stack.includes('@motion-canvas/2d'))return 'motion_2d';
+  return null;
+}
 function classifyRendererLog(payload){
   if(!payload||payload.level!=='error')return null;
   const name=typeof payload.name==='string'?payload.name:'';
@@ -93,7 +101,14 @@ function classifyRendererLog(payload){
   if(authoring==='webgl_unavailable')return 'renderer_log_webgl_unavailable';
   if(authoring==='playback_protocol')return 'renderer_log_playback_protocol';
   if(authoring==='invalid_scene')return 'renderer_log_invalid_scene';
-  if(name==='TypeError')return 'renderer_log_type_error';
+  if(name==='TypeError'){
+    const origin=classifyLogStack(payload);
+    if(origin==='semwright_native')return 'renderer_state_semwright_native';
+    if(origin==='semwright_exporter')return 'renderer_state_semwright_exporter';
+    if(origin==='motion_core')return 'renderer_state_motion_core';
+    if(origin==='motion_2d')return 'renderer_state_motion_2d';
+    return 'renderer_log_type_error';
+  }
   if(name==='RangeError')return 'renderer_log_range_error';
   if(message.startsWith('Could not find the \"')&&message.endsWith('\" exporter.'))return 'renderer_log_exporter_missing';
   if(message.includes('Tried to access an asynchronous property before the node was ready.'))return 'renderer_log_async_property';
@@ -250,7 +265,7 @@ async function main() {
     const state = await page.evaluate(() => window.__SEMWRIGHT_RENDER__.state);
     if (state.error) {
       const allowedStateClasses=new Set(['renderer_state_authoring_model','renderer_state_authoring_protocol','renderer_state_webgl_unavailable','renderer_state_playback_protocol','renderer_state_invalid_scene','renderer_state_type_error','renderer_state_range_error','renderer_state_semwright_native','renderer_state_semwright_exporter','renderer_state_motion_core','renderer_state_motion_2d','renderer_state_before_first_frame','renderer_state_after_first_frame','renderer_state_error']);
-      const allowedLogClasses=new Set(['renderer_log_authoring_model','renderer_log_authoring_protocol','renderer_log_webgl_unavailable','renderer_log_playback_protocol','renderer_log_invalid_scene','renderer_log_type_error','renderer_log_range_error','renderer_log_exporter_missing','renderer_log_async_property','renderer_log_error']);
+      const allowedLogClasses=new Set(['renderer_log_authoring_model','renderer_log_authoring_protocol','renderer_log_webgl_unavailable','renderer_log_playback_protocol','renderer_log_invalid_scene','renderer_log_type_error','renderer_state_semwright_native','renderer_state_semwright_exporter','renderer_state_motion_core','renderer_state_motion_2d','renderer_log_range_error','renderer_log_exporter_missing','renderer_log_async_property','renderer_log_error']);
       const stateClass=allowedStateClasses.has(state.errorClass)?state.errorClass:'renderer_state_error';
       const logClass=allowedLogClasses.has(state.rendererLogClass)?state.rendererLogClass:null;
       failurePhase=stateClass==='renderer_state_error'&&logClass?logClass:stateClass;
