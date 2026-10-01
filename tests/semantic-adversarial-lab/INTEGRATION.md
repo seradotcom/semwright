@@ -24,9 +24,13 @@ The dedicated gate requires selected jobs to succeed. Contract failure, missing 
 
 Review the raw structured receipts with the read-only collector, not a substring search for PASS. Product failures remain untriaged until the owner and G distinguish an actual contract violation from a test/setup defect. A closure needs before/fix/after, identical oracle code/expectations/runtime/limit pins, the full affected family, observed job IDs and content-addressed evidence. No change to assertions merely to match observed output is acceptable.
 
-## Open consumers
+## Current tested and open consumers
 
-Project Graph, F's E0 adapter, native Godot/Blender, live Figma collaboration, native Motion/audio/AV, complete lifecycle faults and product package installation are not covered by the currently implemented contract lanes. Their absence remains visible in `COVERAGE.json`; no generic wrapper or healthy synthetic receipt substitutes for those tests.
+Exact-SHA G evidence now covers final Project Graph 74/74, F effect contracts 40/40, Broker routing 12/12, package/Skill hostility 20/20, Audio 30/30, AV 35/35, Figma contracts 17/17, Motion contracts 20/20, lifecycle faults 18/18 and clean-room driver distribution 12/12. These are independent experiments on their frozen product SHAs, not a synthetic combined certification.
+
+Pinned native Godot and Blender were also exercised through real product routes. They are not green: G-FIND-D-001, G-FIND-D-002 and G-FIND-E-001 remain owner-open. Composition likewise retains G-FIND-A-001 at 67/70 on the frozen A target. G will retest only an explicit owner fix SHA and will not patch those product branches.
+
+No explicit I candidate has been supplied. An observed integration branch/certification is retained as context only and is not adopted into combined_candidate_sha. Full-wave candidate testing therefore remains BLOCKED.
 
 ## Retests across target-only commits
 

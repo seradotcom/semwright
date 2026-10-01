@@ -58,3 +58,7 @@ Earlier Blender runs blocked before case publication because G staged Driver Hos
 state outside the AppArmor executable allowlist and initially used outer resource
 limits narrower than E's declared sandbox limits. Those G defects were corrected
 without product changes. The final isolated run above has no infrastructure blocker.
+
+## Owner status
+
+Current E PR #175 remains on the attacked certified product SHA 3d04d8465dcfa94d6cbf548fcaf343f69ac5838f. No product fix SHA for G-FIND-E-001 has been published to G, so no retest or closure is claimed.

@@ -7,7 +7,7 @@
       "id": "G01",
       "claim": "Independent lab/threat model",
       "owner": "G",
-      "status": "NOT_RUN",
+      "status": "PASS",
       "implementation": [
         "AUDIT_PLAN.md",
         "ownership.py",
@@ -15,11 +15,14 @@
       ],
       "tests": [],
       "source_sha": null,
-      "suite_sha": null,
-      "run_id": null,
-      "job_id": null,
-      "evidence": [],
-      "blocker": "Documents and ownership gate implemented; full independent execution/readiness evidence pending.",
+      "suite_sha": "fc9e218046c32619d5212217a931cfdad71b98b4",
+      "run_id": 36888045183,
+      "job_id": 110456380047,
+      "evidence": [
+        "selftest 104/104 PASS receipt 285ab07dfc12584f0a776a97a61aae39fa6ce872f92a4fe2a30705265778adc1",
+        "selftest artifact c94a57f1f31340b920b6537bead75290082201dba05b2902ee7b0039515d8990"
+      ],
+      "blocker": "Independent G ownership, immutable target selection, oracle identity and evidence ingestion controls are hosted-executed. This does not certify product readiness.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },
@@ -27,7 +30,7 @@
       "id": "G02",
       "claim": "Disposable canary isolation",
       "owner": "G",
-      "status": "NOT_RUN",
+      "status": "PASS",
       "implementation": [
         "isolation.py",
         "isolation_probe.py",
@@ -35,11 +38,14 @@
       ],
       "tests": [],
       "source_sha": null,
-      "suite_sha": null,
-      "run_id": null,
-      "job_id": null,
-      "evidence": [],
-      "blocker": "Enclosure and canary controls implemented; actual hosted preflight required. No native/other-OS acceptance.",
+      "suite_sha": "fc9e218046c32619d5212217a931cfdad71b98b4",
+      "run_id": 36888045183,
+      "job_id": 110456380047,
+      "evidence": [
+        "hosted selftest 104/104 PASS",
+        "native Godot and Blender experiments used disposable GitHub-hosted runners with synthetic canaries and fail-closed isolation"
+      ],
+      "blocker": "Linux/GitHub-hosted isolation controls passed in tested scope. Windows/macOS G enclosure acceptance is outside this lab.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },
@@ -47,7 +53,7 @@
       "id": "G03",
       "claim": "Plan/session/budgets/replay",
       "owner": "A",
-      "status": "NOT_RUN",
+      "status": "BLOCKED",
       "implementation": [
         "rust/composition_probe.rs",
         "product.py"
@@ -94,12 +100,16 @@
         "G-PLAN-039",
         "G-PLAN-040"
       ],
-      "source_sha": null,
-      "suite_sha": null,
-      "run_id": null,
-      "job_id": null,
-      "evidence": [],
-      "blocker": "Composition run 36884906772 executed 70/70: 64 PASS, three confirmed A BeginPermit authority failures (G-PLAN-022..024), and three G oracle defects (G-VERIFY-009..011) delegated by architecture to F. G-FIND-A-001 reported on PR #168; corrected exact-SHA rerun pending.",
+      "source_sha": "7ed5b848e4d2e7af235d6166e6f93e0cf0bac90d",
+      "suite_sha": "d75688e6c309d67085829e36553777281faceeda",
+      "run_id": 36886274785,
+      "job_id": 110450371775,
+      "evidence": [
+        "composition receipt f0afb96af67204e8337d6e964071c581196426e256eb94553e658ac0b60a5187",
+        "composition artifact 6b57e6e2187df8912ef761979ef015f68ece4d4cc19c662865119f99162c2d76",
+        "67/70 PASS; G-PLAN-022..024 reproduce G-FIND-A-001"
+      ],
+      "blocker": "G-FIND-A-001 remains open: stale BeginPermit authority crosses revoke/reissue, independent vaults and expiry/reissue. A current head 3223bdf still retains owner/root/index/digest permit identity without vault/root incarnation, so no fix retest is justified.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },
@@ -107,7 +117,7 @@
       "id": "G04",
       "claim": "False PASS/oracle controls/mutation",
       "owner": "A/F/G",
-      "status": "NOT_RUN",
+      "status": "PASS",
       "implementation": [
         "lab_core.py",
         "selftest.py",
@@ -254,10 +264,11 @@
       "run_id": 36646986065,
       "job_id": 109673577117,
       "evidence": [
-        "effects receipt c017ea7c3543318d3967f16653607f0dd5e03213bc001dfd0eaf6694f454a1c4",
-        "effects artifact a4ce1e9852c4bf98455d2301fcc951b3e8b87e555d8f503c9b87ba050108305c"
+        "effects 40/40 PASS receipt c017ea7c3543318d3967f16653607f0dd5e03213bc001dfd0eaf6694f454a1c4",
+        "effects artifact a4ce1e9852c4bf98455d2301fcc951b3e8b87e555d8f503c9b87ba050108305c",
+        "Composition guard mutants G-MUT-001/002 killed; latest hosted selftest 104/104 PASS"
       ],
-      "blocker": "F effects guards are clean 40/40. Composition G-MUT-001/002 were KILLED in run 36884906772. VERIFY-009..011 were reclassified as A/F boundary semantics, not product findings; corrected exact-SHA rerun pending while G-FIND-A-001 remains open.",
+      "blocker": "False-PASS/evidence-oracle controls are clean in tested contract scope. Separate native product findings remain tracked under G06/G07.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },
@@ -265,7 +276,7 @@
       "id": "G05",
       "claim": "Graph drift/privacy/crash",
       "owner": "C",
-      "status": "NOT_RUN",
+      "status": "PASS",
       "implementation": [
         "rust/graph_probe.rs",
         "product.py",
@@ -348,14 +359,14 @@
         "G-GRAPH-074"
       ],
       "source_sha": "504ad2c6632305b580b51703a60b0a194865780d",
-      "suite_sha": null,
-      "run_id": null,
-      "job_id": null,
+      "suite_sha": "977f00351d4595e6eb7f49e3904e2e64d6821540",
+      "run_id": 36651072628,
+      "job_id": 109686167059,
       "evidence": [
-        "prior 52-case receipt d0265ed89c713f72533ab93d531ba271ff95bc73c7dd2591db692d7235548b4b",
-        "prior 52-case artifact dfc806f06e1ffeddbeb58d9cc45862fe5bbad1be863ccce366b72fc25536826d"
+        "Project Graph 74/74 PASS receipt ade39f8530472b545734f70ea4db3e49c1405211ae44d0f985d3aa6208898566",
+        "Project Graph artifact e0e7b7936b8a51310d00138929abde9f2bb23aea9522832cae19b82dba07b9ed"
       ],
-      "blocker": "Final C 504ad2 exact-SHA G retest run 36651072628: 74/74 Project Graph cases PASS, 0 FAIL/BLOCKED/NOT_RUN. G-GRAPH-061 prior mismatch was a G oracle defect and was corrected without product changes.",
+      "blocker": "Final C exact-SHA Project Graph adversarial scope is clean. G-GRAPH-061 was a G oracle defect corrected without product changes.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },
@@ -383,16 +394,16 @@
         "G-GODOT-012",
         "G-GODOT-013"
       ],
-      "source_sha": "3d04d8465dcfa94d6cbf548fcaf343f69ac5838f",
+      "source_sha": "e6bd9489d7983d275fd1454dd7ab26916d3fbb15",
       "suite_sha": "a337709ffdd2e05f40da408e3a78183651dff113",
       "run_id": 36818122155,
       "job_id": 110227589092,
       "evidence": [
-        "godot-native receipt 7c4b1dadc37c97c43e9e7a29f6af8b709cb4c94d21e2b01a557303259e59ea48",
-        "godot-native artifact 3813bc488c953f32740c1b8df43bfd7f369ae8f8c5a3cf496c1074c31881fcd7",
-        "selftest 99/99 PASS artifact 08b7065ab21a7a0b06aca563c10f37811ba57d170adf2e7fb81fc556964622fd"
+        "Godot native 10 PASS / 2 FAIL / 1 BLOCKED of 13",
+        "receipt 7c4b1dadc37c97c43e9e7a29f6af8b709cb4c94d21e2b01a557303259e59ea48",
+        "artifact 3813bc488c953f32740c1b8df43bfd7f369ae8f8c5a3cf496c1074c31881fcd7"
       ],
-      "blocker": "Godot findings D-001/D-002 remain owner-open. Blender run 36826309938 showed valid GLB bytes/hash but post-export drift, with downstream persist contaminated. Harness reordered clean persistence/reopen + hostile/cursor checks before successful export and strengthened case 010 with explicit pre-export drift=false; exact-SHA isolation retest pending.",
+      "blocker": "G-FIND-D-001 native persistence dependency stability and G-FIND-D-002 observer false-PASS remain owner-open. D head 7eaf8de changes tests/certification but not the two finding surfaces, so no G fix retest is justified.",
       "implementation_suite_sha": "a337709ffdd2e05f40da408e3a78183651dff113",
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },
@@ -423,16 +434,16 @@
         "G-BLENDER-013",
         "G-BLENDER-014"
       ],
-      "source_sha": "7ed5b848e4d2e7af235d6166e6f93e0cf0bac90d",
+      "source_sha": "3d04d8465dcfa94d6cbf548fcaf343f69ac5838f",
       "suite_sha": "982e5698cc44c2adead9491a2f8590242fd1dbf3",
       "run_id": 36827742372,
       "job_id": 110257156669,
       "evidence": [
-        "blender-native receipt 6bffdc74f0134dc68795652372366fd6c81a928b71987e69530b0031751d1c9e",
-        "blender-native artifact 5f89bf7aae9d63d5ff0011d3ce121b534632c9cbb65197c6b1dde7f3752d1d90",
-        "selftest 102/102 PASS"
+        "Blender native 13/14 PASS; G-BLENDER-010 FAIL",
+        "receipt 6bffdc74f0134dc68795652372366fd6c81a928b71987e69530b0031751d1c9e",
+        "artifact 5f89bf7aae9d63d5ff0011d3ce121b534632c9cbb65197c6b1dde7f3752d1d90"
       ],
-      "blocker": "Audio B 11b40fb 30/30 PASS; AV A 7ed5b84 35/35 PASS; Figma A 7ed5b84 17/17 PASS; Motion A 7ed5b84 20/20 PASS. G07 contract scope is clean; no live/native claim is inferred beyond separately audited native lanes.",
+      "blocker": "G-FIND-E-001 remains open: real GLB export produces valid hashed GLB and preserves sentinel, but source readback reports drift after export. E remains frozen at the attacked SHA, so no fix retest exists.",
       "implementation_suite_sha": "982e5698cc44c2adead9491a2f8590242fd1dbf3",
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },
@@ -440,7 +451,7 @@
       "id": "G08",
       "claim": "Figma/Motion/Audio/AV",
       "owner": "A/B",
-      "status": "NOT_RUN",
+      "status": "PASS",
       "implementation": [
         "rust/audio_probe.rs",
         "rust/av_probe.rs",
@@ -538,12 +549,17 @@
         "G-ROUTE-011",
         "G-ROUTE-012"
       ],
-      "source_sha": "504ad2c6632305b580b51703a60b0a194865780d",
-      "suite_sha": null,
-      "run_id": null,
-      "job_id": null,
-      "evidence": [],
-      "blocker": "Audio frozen B snapshot run 36828527634 passed 30/30. AV executed 35/35 with 33 PASS and two G oracle count defects only: Stage::ALL requires prior_completed=2 before ApplyAudio and 4 before RenderAudio, matching product behavior. Oracle corrected; exact-SHA AV-only retest pending. Figma/Motion remain to implement.",
+      "source_sha": null,
+      "suite_sha": "67d6412b82ba2a253b9f2b8f179e08d3fa30d710",
+      "run_id": 36831453438,
+      "job_id": 110268834255,
+      "evidence": [
+        "Audio B 30/30 PASS run 36828527634 receipt 8645feaf7832d87568be589fb6f6547b6858b1119ce698cebf8dd81922d761a2 artifact 14c377db47cf7f816039169c112d0ae4554fd15c3fcf120ed9b36c28a19dc838",
+        "AV A 35/35 PASS run 36829254994 receipt 2fd7d1b97d6071fccd2ef006ceacf73ae99c2b2e8ed5b2b0a2fe99258eee7a26 artifact b66d64e3bec8a8317b4a4b80519da3d6df61c9926f83e08732855aa7e7687e17",
+        "Figma A 17/17 PASS run 36830114832 receipt eaa8fbea28dff95cfcfccdee648da0c1bc75195cf227d8e5d509a286018f1417 artifact 48d5b14ad60c4b315cc5d2d74bfa7d03a61a8a03595dfc167b74a17341f7386a",
+        "Motion A 20/20 PASS run 36831453438 receipt dd78711fb4c1e9be3f20e558add091eea83ce9e3e3c14b37631d763934bb5520 artifact 8f7bedb807502043114d82cde4d38e2de040bf71d5e9bcafa25330fc486dccc3"
+      ],
+      "blocker": "Frozen A/B contract snapshots are clean for Audio/AV/Figma/Motion. These are separate exact-SHA experiments and do not certify a combined candidate or untested live/native surfaces.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },
@@ -551,7 +567,7 @@
       "id": "G09",
       "claim": "Lifecycle/cancellation/resources",
       "owner": "A-F",
-      "status": "NOT_RUN",
+      "status": "PASS",
       "implementation": [
         "isolation.py",
         "rust/composition_probe.rs",
@@ -563,10 +579,10 @@
       "run_id": 36883999237,
       "job_id": 110442632483,
       "evidence": [
-        "lifecycle receipt 9ae4eec88d66c2f7bea4df234c4b5a490a7a09ef39bbe33bcd16fd734bd8f01c",
+        "lifecycle 18/18 PASS receipt 9ae4eec88d66c2f7bea4df234c4b5a490a7a09ef39bbe33bcd16fd734bd8f01c",
         "lifecycle artifact 589ab235a52a50085d16b6de5d641e0ec5b0795bbaba391c42143222b3fa79bc"
       ],
-      "blocker": "Lifecycle/cancellation/resources exact-SHA retest is clean: 18/18 PASS in run 36883999237 after correcting the G LIFE-015 audience oracle; no product finding remains in this tested scope.",
+      "blocker": "Lifecycle/cancellation/resource fault scope is clean after correcting the G LIFE-015 audience oracle.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },
@@ -574,7 +590,7 @@
       "id": "G10",
       "claim": "CI/package/supply chain",
       "owner": "G/A-F",
-      "status": "NOT_RUN",
+      "status": "PASS",
       "implementation": [
         "artifact_io.py",
         "collect_evidence.py",
@@ -616,12 +632,16 @@
         "G-PACK-019",
         "G-PACK-020"
       ],
-      "source_sha": null,
-      "suite_sha": null,
-      "run_id": null,
-      "job_id": null,
-      "evidence": [],
-      "blocker": "Clean-room distribution run 36887394770 passed 12/12 against frozen baseline, receipt 87898d5b..., but same-suite selftest was BLOCKED only by G-SELF-103/104 ordering mismatch. Ordering fixed; exact same-scope retest pending before G10 closure.",
+      "source_sha": "b736d41b61c4a4146c9e75c16796e251b025e69f",
+      "suite_sha": "fc9e218046c32619d5212217a931cfdad71b98b4",
+      "run_id": 36888045183,
+      "job_id": 110456379870,
+      "evidence": [
+        "packaging 20/20 PASS run 36804545580 receipt b32cbffd68953eeb440500e16d963eeb1f07ca2c1fa80ffa52100ac1ad70e4a9 artifact 10d98591a00c3fee7f1b90378544498966f4b86e2436d2543e27a6978751e21b",
+        "clean-room distribution 12/12 PASS receipt d5318ee11e264882d40e5f651a407e53bc03c0ece1e0f690379d626504cf9bad artifact 5c3e2d136f75d626dc305df888e7f68843889e54be65b6c056dabb7cbd639313",
+        "same-suite selftest 104/104 PASS"
+      ],
+      "blocker": "Packaging and clean-room driver distribution are clean in frozen-baseline scope. This is not a release attestation for a future combined candidate.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },
@@ -629,7 +649,7 @@
       "id": "G11",
       "claim": "Owner findings and exact-fix retests",
       "owner": "G/A-F",
-      "status": "NOT_RUN",
+      "status": "BLOCKED",
       "implementation": [
         "lab_core.py",
         "collect_evidence.py",
@@ -648,11 +668,17 @@
         "G-SELF-092"
       ],
       "source_sha": null,
-      "suite_sha": null,
-      "run_id": null,
-      "job_id": null,
-      "evidence": [],
-      "blocker": "Own-lab before/fix controls implemented; product failures require actual observations, owner impact review and an explicit FIX_SHA retest. No finding auto-closed.",
+      "suite_sha": "fc9e218046c32619d5212217a931cfdad71b98b4",
+      "run_id": 36888045183,
+      "job_id": 110456380047,
+      "evidence": [
+        "G-FIND-C-001 closed by exact fix retest",
+        "G-FIND-A-001 owner-open",
+        "G-FIND-D-001 owner-open",
+        "G-FIND-D-002 owner-open",
+        "G-FIND-E-001 owner-open"
+      ],
+      "blocker": "Before/fix/after machinery is hosted-tested, but A/D/E findings have no qualifying owner FIX_SHA yet. G does not auto-close or patch owner product branches.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },
@@ -660,7 +686,7 @@
       "id": "G12",
       "claim": "Readiness/residual risks/no R16",
       "owner": "G",
-      "status": "NOT_RUN",
+      "status": "BLOCKED",
       "implementation": [
         "SECURITY_DELTA.md",
         "RELEASE_IMPACT.md",
@@ -669,16 +695,19 @@
       ],
       "tests": [],
       "source_sha": null,
-      "suite_sha": null,
-      "run_id": null,
-      "job_id": null,
-      "evidence": [],
-      "blocker": "Reports explicitly exclude R16/demo/security guarantee; full-wave candidate readiness remains BLOCKED.",
+      "suite_sha": "fc9e218046c32619d5212217a931cfdad71b98b4",
+      "run_id": 36888045183,
+      "job_id": 110456380047,
+      "evidence": [
+        "479 cases registered across 14 lanes; latest lab selftest 104/104 PASS",
+        "combined_candidate_sha remains null"
+      ],
+      "blocker": "No explicit I combined-candidate handoff exists, and G-FIND-A-001, G-FIND-D-001, G-FIND-D-002 and G-FIND-E-001 remain open. R16/demo/security guarantee remain explicitly out of scope.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     }
   ],
-  "registered_cases": 227,
+  "registered_cases": 479,
   "implementation_suite_sha": null,
   "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit; no tested commit is inferred",
   "historical_submissions": [
@@ -689,5 +718,5 @@
       "last_observed": "queued"
     }
   ],
-  "updated_at": "2026-09-29T01:23:46.320143+00:00"
+  "updated_at": "2026-10-01T16:39:59.321071+00:00"
 }

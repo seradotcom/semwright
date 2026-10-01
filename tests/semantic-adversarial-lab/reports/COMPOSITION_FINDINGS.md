@@ -34,6 +34,6 @@ Independent reproductions:
 
 This conflicts with A's handoff statement that restart/expiry/revocation invalidates pending plans. It also allows stale completion authority to cross a root incarnation while the API comment says the private permit prevents replay.
 
-Current PR #168 head ffe7e59c5ba0d28ac9193ec203307dd7969fee4f was inspected after the finding: BeginPermit and finish() retain the same identity fields/check, so this finding is not already fixed by that head.
+Current PR #168 head 3223bdf0367b4c9de73ef867a560b200f1ab96e1 was inspected after the finding. BeginPermit and finish() still retain the same owner/root/index/digest authority without a vault/root incarnation binding. The newer vault changes cover expiry arithmetic, state guards and sibling Unknown reconciliation, but do not fix this finding.
 
 G will not patch A. Owner A should bind permits to a non-reusable vault/root incarnation (or equivalent unforgeable generation authority), add revoke/expiry/cross-vault completion regressions, publish an explicit FIX_SHA, and hand it to G for exact-SHA retest.

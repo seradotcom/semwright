@@ -2,7 +2,7 @@
 
 ## Scope and current truth
 
-This is an internal adversarial laboratory, not an independent R16 closeout. No product vulnerability is confirmed solely from source hypotheses or an unexecuted test. See exact-SHA Actions receipts for actual execution. All native domains and the combined candidate retain explicit open coverage.
+This is an internal adversarial laboratory, not an independent R16 closeout. No product vulnerability is confirmed solely from source hypotheses or an unexecuted test. See exact-SHA Actions receipts for actual execution. Contract, lifecycle, package/distribution and pinned Godot/Blender native experiments have now executed; the combined candidate remains absent and owner-open findings keep readiness BLOCKED.
 
 G corrected two defects in its own evidence oracle. These are laboratory reliability findings, not product security bugs. Their fixes are authored by G and must not be called independent review of G's own code. Severity below concerns the laboratory's evidence trust boundary; no host exploit or native application compromise has been demonstrated.
 
@@ -26,13 +26,20 @@ Hosted controls: G-SELF-054 retains the before/fix contrast; G-SELF-042–048/05
 
 The read-only collector binds run/attempt/job to the explicit suite and frozen targets. It independently recomputes counts and verdicts and requires an authenticated artifact digest. Its archive reader uses exact member names, byte/entry budgets, rejects symlinks/traversal/duplicates, and reads bounded bytes without extraction. G-SELF-055–082 are hosted positive/negative controls for this lab boundary. They are not tests of the product's package installer.
 
-## Residual risks and blocked coverage
+## Current product findings and residual risks
 
-Contract fixtures can falsify specific library guarantees, but cannot establish authenticated Broker reachability, native save/reopen, sandbox confinement of an external application, complete cross-project privacy, whole-video coverage, intelligibility, or rollback across apps. The tested-subprocess enclosure is not the product sandbox. Declared NativeApi/DecodedMedia enum values in synthetic fixtures are not independent native observations.
+Confirmed owner findings from executed exact-SHA families remain open:
 
-An additional target-source inspection was blocked by the remote tool during continuation. No alternative access route was used to bypass that block. The existing target locks were retained. New C/F and native adapters were not fabricated from illustrative APIs.
+- G-FIND-A-001: stale BeginPermit authority can complete a different root/vault incarnation. Composition is 67/70 on frozen A. The current A head still lacks a vault/root incarnation binding, so no fix retest has been claimed.
+- G-FIND-D-001: Godot save/reopen dependency sentinel stability fails on real native receipts.
+- G-FIND-D-002: Godot native observer can emit a structured false-PASS after a BoxMesh script error.
+- G-FIND-E-001: Blender real GLB export produces valid hashed output but leaves source readback drifted.
 
-Unfixed sensitive product findings, should they be established, remain private with their owner until coordinated disclosure. Severity is assigned only after reachability and impact review. The public test package contains no real credentials, user documents, native projects from private sessions, recordings, or public network listeners.
+Godot and Blender findings were reached through pinned real native runtimes and product routes; G does not patch their owner branches. A future owner fix requires an explicit FIX_SHA and exact affected-family retest.
+
+Clean contract fixtures still do not establish every live collaboration, OS, device, media-intelligibility or cross-app property. The G enclosure is Linux/GitHub-hosted only and is not itself the product sandbox. Separate A/B/C/D/E/F exact-SHA results cannot be combined into an I certification. No explicit combined candidate has been handed to G.
+
+The public test package contains no real credentials, user documents, private native projects, recordings or public network listeners. Residual risk and severity remain bounded by the tested evidence rather than inferred from green author branches.
 
 ## Continuation safeguards
 

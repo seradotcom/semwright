@@ -16,8 +16,12 @@ No product source or shared workflow is changed. Compiler test overlays, product
 
 ## Continuation checkpoint
 
-PR #174 contains the independent lab, not product changes. Suite `fe78c7b048d1e88f6646f28d7ac28d3b9f84c119` registers **217 cases**: 82 oracle/ingestion controls, 70 Composition/codec cases, 30 PCM/WAVE cases and 35 AV/sync cases. Registered is not executed. The latest machine-readable experiment index records observed counts and blockers; no number here asserts PASS.
+PR #174 remains an independent tests-only lab. The current suite registers 479 cases across 14 lanes, including 104 hosted lab selftests. Registered case count is not itself acceptance; exact product/source SHA, suite SHA, run/job identity, receipt hash and artifact hash remain the evidence boundary.
 
-Read `SECURITY_DELTA.md`, `INTEGRATION.md`, `RELEASE_IMPACT.md` and `RUNBOOK.md` for source/fix attribution, native limitations and exact-SHA collection. The archive-reader controls concern the lab's evidence ingestion, not production package installation. `COVERAGE.json` keeps all untested mandatory domains open.
+Executed clean scopes include Project Graph 74/74, Effects 40/40, Broker routing 12/12, Skill/package attacks 20/20, Audio 30/30, AV 35/35, Figma 17/17, Motion 20/20, lifecycle 18/18 and clean-room driver distribution 12/12. Native Godot and Blender were also exercised on pinned real runtimes, but they retain owner-open findings documented in the reports directory.
 
-The next source revision adds immutable evidence history and content-addressed oracle identity for target-only retests: **227 registered cases**, including 92 lab controls. Source identity, expectations, runtime/limit pins and evidence history are distinct from reported PASS. `COVERAGE.json` is an open implementation matrix; generated experiment receipts carry tested SHAs and actual case outcomes.
+Composition remains 67/70 on frozen A because G-FIND-A-001 reproduces stale BeginPermit authority across root/vault incarnations. Godot retains G-FIND-D-001 and G-FIND-D-002; Blender retains G-FIND-E-001. No qualifying owner fix SHA has been handed to G for those findings.
+
+There is still no explicit combined I candidate in targets.json; an observed integration branch is not silently adopted. Consequently full-wave readiness and R16 remain BLOCKED even though many individual exact-SHA families are clean.
+
+Read SECURITY_DELTA.md, INTEGRATION.md, RELEASE_IMPACT.md, RUNBOOK.md and COVERAGE.json for the exact tested/blocked split. Source identity, expectations, runtime/limit pins, oracle identity and immutable evidence history remain distinct from reported PASS.
