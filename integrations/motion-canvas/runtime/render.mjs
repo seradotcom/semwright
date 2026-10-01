@@ -72,7 +72,7 @@ import {Renderer, Vector2} from '@motion-canvas/core';
 const config=${JSON.stringify(config)};
 const renderer=new Renderer(project);
 if(config.authoring){globalThis.__SEMWRIGHT_NATIVE_CONFIG__={fps_num:config.fpsNum,fps_den:config.fpsDen,render_input_digest:config.renderInputDigest,native_stage_version:'3.17.2',font_evidence:config.fontEvidence??[]};}
-const state={done:false,result:null,frame:config.firstFrame,error:null,phase:'created'};
+const state={done:false,result:null,frame:config.firstFrame,error:null,errorClass:null,phase:'created'};
 window.__SEMWRIGHT_RENDER__={state,abort:()=>renderer.abort()};
 renderer.onFrameChanged.subscribe(frame=>{state.frame=frame;state.phase='frame';});
 renderer.onFinished.subscribe(result=>{state.result=result;});
@@ -97,7 +97,15 @@ renderer.onFinished.subscribe(result=>{state.result=result;});
     });
     state.phase='finished';
     state.done=true;
-  } catch(error) { state.error=String(error); state.phase='error'; state.done=true; }
+  } catch(error) {
+    const text=String(error?.message ?? error ?? '');
+    let errorClass='renderer_state_error';
+    if(text.includes('native frame clock not supplied by exporter'))errorClass='renderer_state_frame_clock';
+    else if(/missing subject|unknown layer|native parent graph cannot be resolved|split requires exactly two layout children|primitive target .* must belong to the shot/.test(text))errorClass='renderer_state_model_invariant';
+    else if(error?.name==='TypeError')errorClass='renderer_state_type_error';
+    else if(error?.name==='RangeError')errorClass='renderer_state_range_error';
+    state.error=String(error);state.errorClass=errorClass;state.phase='error';state.done=true;
+  }
 })();
 `;
     },
@@ -190,11 +198,19 @@ async function main() {
       await page.waitForFunction(() => window.__SEMWRIGHT_RENDER__?.state?.done === true, undefined, {timeout:config.timeoutMs});
     } catch (error) {
       const state = await page.evaluate(() => window.__SEMWRIGHT_RENDER__?.state ?? null).catch(()=>null);
+      failurePhase='render_wait_timeout';
       fail(`render wait failed: ${error}; state=${JSON.stringify(state)} diagnostics=${JSON.stringify(diagnostics)}`);
     }
     const state = await page.evaluate(() => window.__SEMWRIGHT_RENDER__.state);
-    if (state.error) fail(`renderer failed: ${state.error}`);
-    if (state.result !== 0) fail(`renderer result ${state.result}; state=${JSON.stringify(state)} diagnostics=${JSON.stringify(diagnostics)}`);
+    if (state.error) {
+      const allowedStateClasses=new Set(['renderer_state_frame_clock','renderer_state_model_invariant','renderer_state_type_error','renderer_state_range_error','renderer_state_error']);
+      failurePhase=allowedStateClasses.has(state.errorClass)?state.errorClass:'renderer_state_error';
+      fail(`renderer failed: ${state.error}`);
+    }
+    if (state.result !== 0) {
+      failurePhase='render_nonzero';
+      fail(`renderer result ${state.result}; state=${JSON.stringify(state)} diagnostics=${JSON.stringify(diagnostics)}`);
+    }
     failurePhase = 'observation';
     if(config.authoring){
       if(observationCount!==config.endFrameExclusive-config.firstFrame)fail('native observation count incomplete');
@@ -206,7 +222,7 @@ async function main() {
   } finally { await cleanup(); }
 }
 main().catch(error => {
-  const allowed = new Set(['arguments','font_evidence','project_stage','vite_build','frame_export','browser_launch','page_load','render_wait','observation','finalize']);
+  const allowed = new Set(['arguments','font_evidence','project_stage','vite_build','frame_export','browser_launch','page_load','render_wait','render_wait_timeout','renderer_state_frame_clock','renderer_state_model_invariant','renderer_state_type_error','renderer_state_range_error','renderer_state_error','render_nonzero','observation','finalize']);
   const errorClass = allowed.has(failurePhase) ? failurePhase : 'startup';
   process.stdout.write(JSON.stringify({ok:false,errorClass})+'\n');
   process.stderr.write(String(error?.stack || error) + '\n');

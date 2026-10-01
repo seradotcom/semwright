@@ -439,7 +439,13 @@ fn renderer_failure_code(stdout: &[u8]) -> ErrorCode {
         Some("font_evidence" | "frame_export" | "observation") => ErrorCode::ProtocolMismatch,
         Some("browser_launch" | "page_load") => ErrorCode::Unavailable,
         Some("arguments" | "project_stage" | "finalize") => ErrorCode::Internal,
-        Some("render_wait") => ErrorCode::BackendFailed,
+        Some("render_wait_timeout") => ErrorCode::Timeout,
+        Some("renderer_state_frame_clock") => ErrorCode::ProtocolMismatch,
+        Some("renderer_state_model_invariant") => ErrorCode::InvalidArgument,
+        Some(
+            "renderer_state_type_error" | "renderer_state_range_error" | "renderer_state_error",
+        ) => ErrorCode::Internal,
+        Some("render_nonzero" | "render_wait") => ErrorCode::BackendFailed,
         _ => ErrorCode::BackendFailed,
     }
 }
@@ -1007,6 +1013,26 @@ mod runtime_path_tests {
         );
         assert_eq!(
             renderer_failure_code(br#"{"ok":false,"errorClass":"render_wait"}"#),
+            ErrorCode::BackendFailed
+        );
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"render_wait_timeout"}"#),
+            ErrorCode::Timeout
+        );
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"renderer_state_frame_clock"}"#),
+            ErrorCode::ProtocolMismatch
+        );
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"renderer_state_model_invariant"}"#),
+            ErrorCode::InvalidArgument
+        );
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"renderer_state_type_error"}"#),
+            ErrorCode::Internal
+        );
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"render_nonzero"}"#),
             ErrorCode::BackendFailed
         );
         for hostile in [
