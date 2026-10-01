@@ -4730,10 +4730,11 @@
       "requirement": "G06",
       "lane": "blender-native",
       "scope": "native_application",
-      "description": "GLB export rejects symlink output escape",
+      "description": "symlink export escape is rejected, outside path remains absent, and rejected export preserves native source state",
       "expected": {
         "symlink_output_rejected": true,
-        "outside_absent": true
+        "outside_absent": true,
+        "source_drift_false": true
       }
     },
     {

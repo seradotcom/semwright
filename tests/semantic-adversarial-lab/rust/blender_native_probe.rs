@@ -482,64 +482,6 @@ async fn run() -> AnyResult<Value> {
         json!({"consumed_cursor_rejected":consumed_cursor_rejected}),
     ));
 
-    let first_properties = fixture
-        .call(
-            "composition.inspect.page",
-            json!({"island":island,"domain":"properties","limit":1}),
-        )
-        .await?;
-    let stale_cursor = first_properties["next_cursor"]
-        .as_str()
-        .ok_or_else(|| boxed("properties cursor missing"))?
-        .to_owned();
-    fixture
-        .call(
-            "object.transform",
-            json!({"name":product_name,"location":[0.01,0.0,0.4]}),
-        )
-        .await?;
-    let stale = fixture
-        .raw(
-            &fixture.session,
-            "composition.inspect.page",
-            json!({"island":island,"domain":"properties","limit":1,"cursor":stale_cursor}),
-        )
-        .await;
-    fixture
-        .call(
-            "object.transform",
-            json!({"name":product_name,"location":[0.0,0.0,0.4]}),
-        )
-        .await?;
-    let restored = fixture
-        .call("composition.inspect", json!({"island":island}))
-        .await?;
-    cases.push(row(
-        "G-BLENDER-008",
-        json!({"stale_cursor_rejected":!stale.ok,"restored_drift_false":restored["drift"]==false}),
-    ));
-
-    let shared_snapshot = fixture
-        .call("composition.inspect", json!({"island":island}))
-        .await?;
-    let denied_shared = fixture
-        .raw(
-            &fixture.session,
-            "composition.plan",
-            json!({"intent":{
-                "kind":"material_slots",
-                "island":island,
-                "entity":"instance",
-                "materials":["surface"],
-                "expected_fingerprint":shared_snapshot["fingerprint"]
-            }}),
-        )
-        .await;
-    cases.push(row(
-        "G-BLENDER-009",
-        json!({"shared_mesh_material_plan_rejected":!denied_shared.ok}),
-    ));
-
     let scene = fixture
         .call("composition.inspect", json!({"island":island}))
         .await?;
@@ -567,27 +509,6 @@ async fn run() -> AnyResult<Value> {
             "sentinel_preserved":fs::read(&sentinel)?==sentinel_bytes
         }),
     ));
-
-    let outside = workspace
-        .parent()
-        .ok_or_else(|| boxed("workspace parent missing"))?
-        .join("g-blender-outside.glb");
-    let symlink_path = workspace.join("g-symbol.glb");
-    let _ = fs::remove_file(&outside);
-    let _ = fs::remove_file(&symlink_path);
-    symlink(&outside, &symlink_path)?;
-    let symlink_export = fixture
-        .raw(
-            &fixture.session,
-            "export.glb",
-            json!({"collection":collection,"path":"g-symbol.glb","animations":true}),
-        )
-        .await;
-    cases.push(row(
-        "G-BLENDER-011",
-        json!({"symlink_output_rejected":!symlink_export.ok,"outside_absent":!outside.exists()}),
-    ));
-    let _ = fs::remove_file(&symlink_path);
 
     let saved = fixture
         .call(
@@ -634,6 +555,101 @@ async fn run() -> AnyResult<Value> {
             "sentinel_preserved":fs::read(&sentinel)?==sentinel_bytes
         }),
     ));
+
+    // Hostile output rejection is isolated after the clean persistence/reopen proof so a
+    // rejected export can never invalidate the persistence baseline for another case.
+    let reopened_collection = reopened["items"][0]["collections"][0]
+        .as_str()
+        .ok_or_else(|| boxed("reopened managed collection missing"))?
+        .to_owned();
+    let outside = workspace
+        .parent()
+        .ok_or_else(|| boxed("workspace parent missing"))?
+        .join("g-blender-outside.glb");
+    let symlink_path = workspace.join("g-symbol.glb");
+    let _ = fs::remove_file(&outside);
+    let _ = fs::remove_file(&symlink_path);
+    symlink(&outside, &symlink_path)?;
+    let symlink_export = fresh
+        .raw(
+            &fresh.session,
+            "export.glb",
+            json!({"collection":reopened_collection,"path":"g-symbol.glb","animations":true}),
+        )
+        .await;
+    let after_symlink = fresh
+        .call("composition.inspect", json!({"island":island}))
+        .await?;
+    cases.push(row(
+        "G-BLENDER-011",
+        json!({
+            "symlink_output_rejected":!symlink_export.ok,
+            "outside_absent":!outside.exists(),
+            "source_drift_false":after_symlink["drift"]==false
+        }),
+    ));
+    let _ = fs::remove_file(&symlink_path);
+
+    // Cursor staleness is intentionally destructive to the native session's revision history.
+    // Exercise it only after persistence/reopen has been independently established.
+    let first_properties = fresh
+        .call(
+            "composition.inspect.page",
+            json!({"island":island,"domain":"properties","limit":1}),
+        )
+        .await?;
+    let stale_cursor = first_properties["next_cursor"]
+        .as_str()
+        .ok_or_else(|| boxed("properties cursor missing"))?
+        .to_owned();
+    fresh
+        .call(
+            "object.transform",
+            json!({"name":product_name,"location":[0.01,0.0,0.4]}),
+        )
+        .await?;
+    let stale = fresh
+        .raw(
+            &fresh.session,
+            "composition.inspect.page",
+            json!({"island":island,"domain":"properties","limit":1,"cursor":stale_cursor}),
+        )
+        .await;
+    fresh
+        .call(
+            "object.transform",
+            json!({"name":product_name,"location":[0.0,0.0,0.4]}),
+        )
+        .await?;
+    let restored = fresh
+        .call("composition.inspect", json!({"island":island}))
+        .await?;
+    cases.push(row(
+        "G-BLENDER-008",
+        json!({"stale_cursor_rejected":!stale.ok,"restored_drift_false":restored["drift"]==false}),
+    ));
+
+    let shared_snapshot = fresh
+        .call("composition.inspect", json!({"island":island}))
+        .await?;
+    let denied_shared = fresh
+        .raw(
+            &fresh.session,
+            "composition.plan",
+            json!({"intent":{
+                "kind":"material_slots",
+                "island":island,
+                "entity":"instance",
+                "materials":["surface"],
+                "expected_fingerprint":shared_snapshot["fingerprint"]
+            }}),
+        )
+        .await;
+    cases.push(row(
+        "G-BLENDER-009",
+        json!({"shared_mesh_material_plan_rejected":!denied_shared.ok}),
+    ));
+
     fresh.shutdown().await?;
     drop(fresh);
 
