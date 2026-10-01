@@ -4,7 +4,7 @@
   "contract_sha": "7ed5b848e4d2e7af235d6166e6f93e0cf0bac90d",
   "combined_candidate_sha": null,
   "targets": {
-    "A": "7ed5b848e4d2e7af235d6166e6f93e0cf0bac90d",
+    "A": "7ab43f99f4cc62be2a9b0ce9ce1155283a429768",
     "B": "11b40fb0c59473bc0f007a879bf44c732d22b700",
     "main": "b736d41b61c4a4146c9e75c16796e251b025e69f",
     "C": "504ad2c6632305b580b51703a60b0a194865780d",
@@ -14,7 +14,7 @@
   },
   "selected_lanes": [
     "selftest",
-    "distribution"
+    "composition"
   ],
   "pins": {
     "os": "ubuntu-24.04",
