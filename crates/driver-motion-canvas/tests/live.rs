@@ -374,6 +374,94 @@ async fn real_motion_canvas_render_runs_inside_sandbox() {
     Provider::shutdown(provider.as_ref()).await.unwrap();
 }
 
+async fn render_authoring_variant(
+    broker: &Arc<Broker>,
+    template: &Value,
+    name: &str,
+    subject_ids: &[&str],
+) -> Value {
+    let mut film = template.clone();
+    film["id"] = json!(format!("technical-motion-{name}"));
+    film["sequences"][0]["beats"][0]["shots"][0]["constraints"] = json!([]);
+    film["output"]["width"] = json!(320);
+    film["output"]["height"] = json!(180);
+    film["output"]["aspect"] = json!("landscape");
+    let keep = subject_ids
+        .iter()
+        .copied()
+        .collect::<std::collections::BTreeSet<_>>();
+    let subjects = film["sequences"][0]["beats"][0]["shots"][0]["subjects"]
+        .as_array_mut()
+        .expect("technical subjects");
+    subjects.retain(|subject| subject["id"].as_str().is_some_and(|id| keep.contains(id)));
+    assert_eq!(
+        subjects.len(),
+        subject_ids.len(),
+        "diagnostic variant {name} did not resolve every requested subject"
+    );
+
+    let planned = broker_call(
+        broker,
+        "driver.motion-canvas.composition.plan",
+        json!({
+            "film": film,
+            "budget": {
+                "max_iterations": 2,
+                "max_operations": 32,
+                "max_findings": 32,
+                "max_observations": 4,
+                "max_elapsed_ms": 60000
+            }
+        }),
+    )
+    .await;
+    let plan_ref = planned["plan_ref"]
+        .as_str()
+        .expect("diagnostic plan ref")
+        .to_owned();
+    let applied = broker_call(
+        broker,
+        "driver.motion-canvas.composition.apply",
+        json!({"plan_ref": plan_ref, "dry_run": false}),
+    )
+    .await;
+    let fingerprint = applied["fingerprint"]
+        .as_str()
+        .expect("diagnostic fingerprint")
+        .to_owned();
+    let started = broker_call(
+        broker,
+        "driver.motion-canvas.render.start",
+        json!({
+            "expected_fingerprint": fingerprint,
+            "profile": {
+                "first_frame": 0,
+                "end_frame_exclusive": 2,
+                "scale": "full",
+                "transparent": false,
+                "timeout_ms": 60000
+            }
+        }),
+    )
+    .await;
+    let job_ref = started["job_ref"]
+        .as_str()
+        .expect("diagnostic render job")
+        .to_owned();
+    loop {
+        let status = broker_call(
+            broker,
+            "driver.motion-canvas.render.status",
+            json!({"job_ref": job_ref}),
+        )
+        .await;
+        match status["state"].as_str().expect("diagnostic render state") {
+            "succeeded" | "failed" | "cancelled" => return status,
+            _ => tokio::time::sleep(Duration::from_millis(100)).await,
+        }
+    }
+}
+
 #[tokio::test]
 #[ignore = "requires pinned Motion Canvas runtime plus production Broker and Driver Host"]
 async fn composition_authoring_runs_through_broker_driver_host_and_native_renderer() {
@@ -428,10 +516,35 @@ async fn composition_authoring_runs_through_broker_driver_host_and_native_render
     assert_eq!(empty["film"], Value::Null);
     assert_eq!(empty["low_level_project"], false);
 
-    let mut film: Value = serde_json::from_slice(include_bytes!(
+    let template: Value = serde_json::from_slice(include_bytes!(
         "../../../fixtures/composition/motion/technical.json"
     ))
     .unwrap();
+    let variants: &[(&str, &[&str])] = &[
+        ("rect-only", &["box_a"]),
+        ("rects", &["box_a", "box_b", "overlay"]),
+        ("text", &["box_a", "box_b", "overlay", "label"]),
+        ("path", &["box_a", "box_b", "overlay", "label", "path"]),
+        (
+            "code",
+            &["box_a", "box_b", "overlay", "label", "path", "code"],
+        ),
+        (
+            "camera",
+            &[
+                "box_a", "box_b", "overlay", "label", "path", "code", "camera",
+            ],
+        ),
+    ];
+    for &(name, subjects) in variants {
+        let terminal = render_authoring_variant(&broker, &template, name, subjects).await;
+        assert_eq!(
+            terminal["state"], "succeeded",
+            "authoring diagnostic variant {name} failed: {terminal:#}"
+        );
+    }
+
+    let mut film = template;
     // Native pipeline proof is intentionally taste-neutral: keep lifecycle/cue/
     // transition checks and omit the fixture's optional geometry rule.
     film["sequences"][0]["beats"][0]["shots"][0]["constraints"] = json!([]);
