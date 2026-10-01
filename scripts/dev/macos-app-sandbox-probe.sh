@@ -11,7 +11,10 @@ DENIED_ROOT="$HOME/semwright-app-sandbox-denied-$$"
 RO="$ROOT/ro"
 RW="$ROOT/rw"
 BUILD="$ROOT/build"
-mkdir -p "$RO" "$RW" "$BUILD" "$DENIED_ROOT"
+APP="$BUILD/SemwrightSandboxProbe.app"
+APP_EXEC="$APP/Contents/MacOS/SemwrightSandboxProbe"
+HELPER="$APP/Contents/Helpers/semwright-sandbox-child"
+mkdir -p "$RO" "$RW" "$BUILD" "$DENIED_ROOT" "$APP/Contents/MacOS" "$APP/Contents/Helpers"
 cleanup() {
   kill "${SERVER_PID:-}" 2>/dev/null || true
   chmod -R u+w "$ROOT" "$DENIED_ROOT" 2>/dev/null || true
@@ -24,8 +27,21 @@ printf 'denied' > "$DENIED_ROOT/secret.txt"
 chmod 0555 "$RO"
 chmod 0700 "$RW" "$DENIED_ROOT"
 
-cc -std=c17 -Wall -Wextra -Werror   crates/platform-macos-sys/tests/fixtures/app_sandbox_parent.c   -o "$BUILD/parent"
-cc -std=c17 -Wall -Wextra -Werror   crates/platform-macos-sys/tests/fixtures/app_sandbox_child.c   -o "$BUILD/child"
+cc -std=c17 -Wall -Wextra -Werror \
+  crates/platform-macos-sys/tests/fixtures/app_sandbox_parent.c -o "$APP_EXEC"
+cc -std=c17 -Wall -Wextra -Werror \
+  crates/platform-macos-sys/tests/fixtures/app_sandbox_child.c -o "$HELPER"
+
+cat > "$APP/Contents/Info.plist" <<'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>CFBundleIdentifier</key><string>com.semwright.tests.app-sandbox-parent</string>
+  <key>CFBundleExecutable</key><string>SemwrightSandboxProbe</string>
+  <key>CFBundleName</key><string>SemwrightSandboxProbe</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+</dict></plist>
+PLIST
 
 cat > "$BUILD/parent.entitlements" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -33,10 +49,7 @@ cat > "$BUILD/parent.entitlements" <<PLIST
 <plist version="1.0"><dict>
   <key>com.apple.security.app-sandbox</key><true/>
   <key>com.apple.security.temporary-exception.files.absolute-path.read-only</key>
-  <array>
-    <string>${RO}/</string>
-    <string>${BUILD}/</string>
-  </array>
+  <array><string>${RO}/</string></array>
   <key>com.apple.security.temporary-exception.files.absolute-path.read-write</key>
   <array><string>${RW}/</string></array>
 </dict></plist>
@@ -63,30 +76,37 @@ run_parent_smoke() {
   local phase="$1"
   local rc=0
   set +e
-  "$BUILD/parent" --smoke
+  "$APP_EXEC" --smoke
   rc=$?
   set -e
   echo "sandbox-parent-smoke phase=$phase rc=$rc"
   return "$rc"
 }
 
-codesign --force --sign - --options runtime   -i com.semwright.tests.app-sandbox-parent "$BUILD/parent"
-codesign --verify --strict --verbose=2 "$BUILD/parent"
+codesign --force --sign - --options runtime \
+  --entitlements "$BUILD/child.entitlements" \
+  -i com.semwright.tests.app-sandbox-child "$HELPER"
+codesign --verify --strict --verbose=2 "$HELPER"
+
+codesign --force --sign - --options runtime \
+  -i com.semwright.tests.app-sandbox-parent "$APP"
+codesign --verify --strict --verbose=2 "$APP"
 BASE_RC=0
 run_parent_smoke adhoc-no-entitlements || BASE_RC=$?
 
-codesign --force --sign - --options runtime   --entitlements "$BUILD/parent.sandbox-only.entitlements"   -i com.semwright.tests.app-sandbox-parent "$BUILD/parent"
-codesign --verify --strict --verbose=2 "$BUILD/parent"
+codesign --force --sign - --options runtime \
+  --entitlements "$BUILD/parent.sandbox-only.entitlements" \
+  -i com.semwright.tests.app-sandbox-parent "$APP"
+codesign --verify --strict --verbose=2 "$APP"
 SANDBOX_RC=0
 run_parent_smoke app-sandbox-only || SANDBOX_RC=$?
 
-codesign --force --sign - --options runtime   --entitlements "$BUILD/parent.entitlements"   -i com.semwright.tests.app-sandbox-parent "$BUILD/parent"
-codesign --verify --strict --verbose=2 "$BUILD/parent"
+codesign --force --sign - --options runtime \
+  --entitlements "$BUILD/parent.entitlements" \
+  -i com.semwright.tests.app-sandbox-parent "$APP"
+codesign --verify --strict --verbose=2 "$APP"
 PATH_RC=0
 run_parent_smoke app-sandbox-with-path-exceptions || PATH_RC=$?
-
-codesign --force --sign - --options runtime   --entitlements "$BUILD/child.entitlements"   -i com.semwright.tests.app-sandbox-child "$BUILD/child"
-codesign --verify --strict --verbose=2 "$BUILD/child"
 
 if (( BASE_RC != 0 )); then
   echo "ad-hoc signed parent cannot launch; App Sandbox probe is inconclusive" >&2
@@ -111,13 +131,13 @@ for _ in {1..50}; do
 done
 curl --fail --silent --max-time 1 http://127.0.0.1:18765/ >/dev/null
 
-"$BUILD/parent" "$BUILD/child" "$RO" "$RW" "$DENIED_ROOT" 18765
+"$APP_EXEC" "$HELPER" "$RO" "$RW" "$DENIED_ROOT" 18765
 
 test "$(cat "$RW/output.txt")" = "written"
 test ! -e "$RO/blocked.txt"
 
-codesign -d --entitlements :- "$BUILD/parent" >"$BUILD/parent.entitlements.actual" 2>&1
-codesign -d --entitlements :- "$BUILD/child" >"$BUILD/child.entitlements.actual" 2>&1
+codesign -d --entitlements :- "$APP" >"$BUILD/parent.entitlements.actual" 2>&1
+codesign -d --entitlements :- "$HELPER" >"$BUILD/child.entitlements.actual" 2>&1
 grep -q 'com.apple.security.app-sandbox' "$BUILD/parent.entitlements.actual"
 grep -q 'com.apple.security.inherit' "$BUILD/child.entitlements.actual"
 
