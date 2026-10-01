@@ -16,6 +16,9 @@ class CandidateCertificationWorkflowTests(unittest.TestCase):
             "security.yml",
             "packaging-certification.yml",
             "supply-chain.yml",
+            "runtime-tools-portability.yml",
+            "mlt-runtime-tools.yml",
+            "libreoffice-runtime-v8.yml",
             "pre-r16.yml",
         ]:
             self.assertIn(f"uses: ./.github/workflows/{workflow}", text)

@@ -1,5 +1,6 @@
 name: MLT runtime tools
 on:
+  workflow_call:
   pull_request:
     paths:
       - 'crates/driver-mlt-video/**'

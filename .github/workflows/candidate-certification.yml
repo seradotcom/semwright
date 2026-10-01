@@ -43,6 +43,9 @@ jobs:
       platform_macos: ${{ steps.scope.outputs.platform_macos }}
       native_x11: ${{ steps.scope.outputs.native_x11 }}
       native_sway: ${{ steps.scope.outputs.native_sway }}
+      runtime_tools: ${{ steps.scope.outputs.runtime_tools }}
+      mlt: ${{ steps.scope.outputs.mlt }}
+      libreoffice: ${{ steps.scope.outputs.native_libreoffice }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -103,6 +106,21 @@ jobs:
   supply_chain:
     needs: verify
     uses: ./.github/workflows/supply-chain.yml
+
+  runtime_tools:
+    needs: verify
+    if: ${{ needs.verify.outputs.runtime_tools == 'true' }}
+    uses: ./.github/workflows/runtime-tools-portability.yml
+
+  mlt_runtime:
+    needs: verify
+    if: ${{ needs.verify.outputs.mlt == 'true' }}
+    uses: ./.github/workflows/mlt-runtime-tools.yml
+
+  libreoffice_runtime:
+    needs: verify
+    if: ${{ needs.verify.outputs.libreoffice == 'true' }}
+    uses: ./.github/workflows/libreoffice-runtime-v8.yml
 
   secret_precheck:
     needs: verify
@@ -169,6 +187,9 @@ jobs:
       - security
       - packaging
       - supply_chain
+      - runtime_tools
+      - mlt_runtime
+      - libreoffice_runtime
       - secret_precheck
       - godot
       - motion
@@ -196,6 +217,9 @@ jobs:
           SECURITY: ${{ needs.security.result }}
           PACKAGING: ${{ needs.packaging.result }}
           SUPPLY_CHAIN: ${{ needs.supply_chain.result }}
+          RUNTIME_TOOLS: ${{ needs.runtime_tools.result }}
+          MLT_RUNTIME: ${{ needs.mlt_runtime.result }}
+          LIBREOFFICE_RUNTIME: ${{ needs.libreoffice_runtime.result }}
           SECRET_PRECHECK: ${{ needs.secret_precheck.result }}
           GODOT: ${{ needs.godot.result }}
           MOTION: ${{ needs.motion.result }}
@@ -214,11 +238,15 @@ jobs:
           import json, os
           names = [
               "verify", "quality", "native", "security", "packaging", "supply_chain",
-              "secret_precheck", "godot", "motion", "obs", "blender", "figma", "driver_session",
+              "runtime_tools", "mlt_runtime", "libreoffice_runtime", "secret_precheck",
+              "godot", "motion", "obs", "blender", "figma", "driver_session",
               "windows", "macos", "x11_live", "plasma_live",
           ]
           env_names = {
               "supply_chain": "SUPPLY_CHAIN",
+              "runtime_tools": "RUNTIME_TOOLS",
+              "mlt_runtime": "MLT_RUNTIME",
+              "libreoffice_runtime": "LIBREOFFICE_RUNTIME",
               "secret_precheck": "SECRET_PRECHECK",
               "driver_session": "DRIVER_SESSION",
               "x11_live": "X11_LIVE",
