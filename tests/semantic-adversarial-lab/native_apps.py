@@ -202,7 +202,7 @@ def run_native_process(
 ) -> dict[str, Any]:
     return enclosure.run(
         [
-            "/plugin/bin", "--headless", "--path", "/out/project",
+            "/plugin/bin", "--headless", "--path", "/out/g_native",
             "--script", "/out/native_observer.gd", "--",
             "--request", request_path, "--output", output_path,
         ],
@@ -292,19 +292,19 @@ def run_godot(target: Path, source_sha: str, suite_sha: str, cases: list[dict], 
         compile_raw, compile_receipt = helper(
             enclosure,
             build.binary,
-            ["compile", "/out/spec.json", "/out/project"],
+            ["compile", "/out/spec.json", "/out/g_native"],
         )
         if not isinstance(compile_receipt, dict) or compile_receipt.get("source_sha") != source_sha:
             raise EvidenceError("BLOCKED: G compile helper receipt invalid")
 
-        project = out / "project"
+        project = out / "g_native"
         scene = project / "scenes" / "arena.tscn"
         if not scene.is_file():
             raise EvidenceError("BLOCKED: product compiler did not materialize the managed scene")
         source_fingerprint = sha256_file(scene)
 
         import_raw = enclosure.run(
-            ["/plugin/bin", "--headless", "--path", "/out/project", "--import"],
+            ["/plugin/bin", "--headless", "--path", "/out/g_native", "--import"],
             executable=godot,
             timeout=30,
         )

@@ -387,7 +387,7 @@
       "run_id": null,
       "job_id": null,
       "evidence": [],
-      "blocker": "Godot native run 36808915771 still crashed before cases after Fontconfig repair. Preserved stderr shows allocation failure under G global RLIMIT_AS=1 GiB. Harness now keeps ordinary probes at 1 GiB but grants native lanes a separately bounded 4 GiB budget (G-SELF-097); exact-SHA D retest pending.",
+      "blocker": "Godot-native run 36809911833 reached real import and helper build but blocked before cases because G materialized raw compiler output without D managed-store identity binding. Harness now uses Store::prepare/apply and exact project slug; exact-SHA retest pending.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },

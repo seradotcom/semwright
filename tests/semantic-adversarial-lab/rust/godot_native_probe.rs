@@ -3,7 +3,10 @@
 use semwright_godot_driver::authoring::native_observation::{
     NativeObservation, NativeRequest, decode_observation, key_page, persistence_value, track_page,
 };
-use semwright_godot_driver::authoring::{GodotAuthoringSpec, compile};
+use semwright_godot_driver::{
+    authoring::{GodotAuthoringSpec, store::Store},
+    config::AuthoringConfig,
+};
 use semwright_semantic_composition::strict_decode;
 use serde_json::json;
 use std::collections::BTreeSet;
@@ -29,25 +32,42 @@ fn admitted(
 
 fn write_project(spec_path: &Path, output: &Path) -> AnyResult<()> {
     let spec: GodotAuthoringSpec = read(spec_path)?;
-    let compiled = compile(&spec)?;
     if output.exists() {
         return Err("output already exists".into());
     }
-    fs::create_dir(output)?;
-    for (relative, text) in &compiled.files {
-        let path = output.join(relative);
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent)?;
-        }
-        fs::write(path, text.as_bytes())?;
+    let parent = output.parent().ok_or("managed output parent required")?;
+    if parent.join(&spec.project) != output {
+        return Err("managed output path must match project slug".into());
     }
+    let state_root =
+        std::env::temp_dir().join(format!("g-godot-authoring-state-{}", std::process::id()));
+    if state_root.exists() {
+        return Err("managed state already exists".into());
+    }
+    fs::create_dir(&state_root)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&state_root, fs::Permissions::from_mode(0o700))?;
+    }
+    let store = Store::new(AuthoringConfig {
+        output_root: parent.to_path_buf(),
+        state_root,
+        input_root: None,
+    })?;
+    let prepared = store.prepare(&spec, false, false)?;
+    let files = prepared.target.files.len();
+    let intent_digest = prepared.target.intent_digest.clone();
+    let receipt = store.apply(&prepared, || Ok(()))?;
     println!(
         "{}",
         serde_json::to_string(&json!({
             "schema_version": 1,
             "source_sha": SOURCE,
-            "files": compiled.files.len(),
-            "intent_digest": compiled.intent_digest,
+            "files": files,
+            "intent_digest": intent_digest,
+            "source_state": receipt.source_state,
+            "persistent_bindings": prepared.target.bindings.len(),
         }))?
     );
     Ok(())
