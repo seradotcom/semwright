@@ -14,6 +14,8 @@ BUILD="$ROOT/build"
 APP="$BUILD/SemwrightSandboxProbe.app"
 APP_EXEC="$APP/Contents/MacOS/SemwrightSandboxProbe"
 HELPER="$APP/Contents/Helpers/semwright-sandbox-child"
+EXEC_WRAPPER="$APP/Contents/Helpers/semwright-sandbox-exec"
+PAYLOAD="$BUILD/pinned-payload"
 mkdir -p "$RO" "$RW" "$BUILD" "$DENIED_ROOT" "$APP/Contents/MacOS" "$APP/Contents/Helpers"
 cleanup() {
   kill "${SERVER_PID:-}" 2>/dev/null || true
@@ -31,6 +33,11 @@ cc -std=c17 -Wall -Wextra -Werror \
   crates/platform-macos-sys/tests/fixtures/app_sandbox_parent.c -o "$APP_EXEC"
 cc -std=c17 -Wall -Wextra -Werror \
   crates/platform-macos-sys/tests/fixtures/app_sandbox_child.c -o "$HELPER"
+cc -std=c17 -Wall -Wextra -Werror \
+  crates/platform-macos-sys/tests/fixtures/app_sandbox_exec_wrapper.c -o "$EXEC_WRAPPER"
+cc -std=c17 -Wall -Wextra -Werror \
+  crates/platform-macos-sys/tests/fixtures/app_sandbox_child.c -o "$PAYLOAD"
+PAYLOAD_SHA_BEFORE="$(shasum -a 256 "$PAYLOAD" | awk '{print $1}')"
 
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -49,7 +56,10 @@ cat > "$BUILD/parent.entitlements" <<PLIST
 <plist version="1.0"><dict>
   <key>com.apple.security.app-sandbox</key><true/>
   <key>com.apple.security.temporary-exception.files.absolute-path.read-only</key>
-  <array><string>${RO}/</string></array>
+  <array>
+    <string>${RO}/</string>
+    <string>${PAYLOAD}</string>
+  </array>
   <key>com.apple.security.temporary-exception.files.absolute-path.read-write</key>
   <array><string>${RW}/</string></array>
 </dict></plist>
@@ -87,6 +97,10 @@ codesign --force --sign - --options runtime \
   --entitlements "$BUILD/child.entitlements" \
   -i com.semwright.tests.app-sandbox-child "$HELPER"
 codesign --verify --strict --verbose=2 "$HELPER"
+codesign --force --sign - --options runtime \
+  --entitlements "$BUILD/child.entitlements" \
+  -i com.semwright.tests.app-sandbox-exec "$EXEC_WRAPPER"
+codesign --verify --strict --verbose=2 "$EXEC_WRAPPER"
 
 codesign --force --sign - --options runtime \
   -i com.semwright.tests.app-sandbox-parent "$APP"
@@ -132,9 +146,16 @@ done
 curl --fail --silent --max-time 1 http://127.0.0.1:18765/ >/dev/null
 
 "$APP_EXEC" "$HELPER" "$RO" "$RW" "$DENIED_ROOT" 18765
-
 test "$(cat "$RW/output.txt")" = "written"
 test ! -e "$RO/blocked.txt"
+
+rm "$RW/output.txt"
+"$APP_EXEC" "$EXEC_WRAPPER" "$PAYLOAD" "$RO" "$RW" "$DENIED_ROOT" 18765
+test "$(cat "$RW/output.txt")" = "written"
+test ! -e "$RO/blocked.txt"
+PAYLOAD_SHA_AFTER="$(shasum -a 256 "$PAYLOAD" | awk '{print $1}')"
+test "$PAYLOAD_SHA_AFTER" = "$PAYLOAD_SHA_BEFORE"
+echo "macOS App Sandbox exec-pinned-payload probe: PASS sha256=$PAYLOAD_SHA_AFTER"
 
 codesign -d --entitlements :- "$APP" >"$BUILD/parent.entitlements.actual" 2>&1
 codesign -d --entitlements :- "$HELPER" >"$BUILD/child.entitlements.actual" 2>&1

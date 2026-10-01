@@ -12,11 +12,13 @@ int main(int argc, char **argv) {
         puts("sandbox-parent-smoke: PASS");
         return 0;
     }
-    if (argc != 6) {
-        fprintf(stderr, "usage: parent CHILD RO RW DENIED PORT\n");
+    if (argc != 6 && argc != 7) {
+        fprintf(stderr, "usage: parent CHILD [PAYLOAD] RO RW DENIED PORT\n");
         return 64;
     }
-    char *child_argv[] = {argv[1], argv[2], argv[3], argv[4], argv[5], NULL};
+    char *direct_argv[] = {argv[1], argv[2], argv[3], argv[4], argv[5], NULL};
+    char *exec_argv[] = {argv[1], argv[2], argv[3], argv[4], argv[5], argv[6], NULL};
+    char **child_argv = argc == 7 ? exec_argv : direct_argv;
     pid_t pid = -1;
     int rc = posix_spawn(&pid, argv[1], NULL, NULL, child_argv, environ);
     if (rc != 0) {
