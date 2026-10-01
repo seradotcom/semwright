@@ -15,6 +15,7 @@ use serde_json::{Value, json};
 use std::collections::BTreeMap;
 use tokio::sync::mpsc;
 
+mod composition_kernel;
 mod semantic_admin_ops;
 mod semantic_authoring_ops;
 mod semantic_more_ops;
@@ -1606,6 +1607,7 @@ fn artifact_from_result(command: &str, value: &Value) -> Option<JobArtifact> {
 }
 
 struct FigmaDriver {
+    composition_runtime: composition_kernel::FigmaCompositionRuntime,
     descriptors: BTreeMap<String, String>,
     ops: BTreeMap<String, Op>,
     hub: BridgeHub,
@@ -1629,6 +1631,7 @@ impl FigmaDriver {
             .map_err(|_| Error::unavailable("Figma loopback bridge could not start"))?;
         let rest = RestClient::new()?;
         Ok(Self {
+            composition_runtime: Default::default(),
             descriptors,
             ops,
             hub,
@@ -2008,6 +2011,69 @@ impl Driver for FigmaDriver {
         digest: &str,
         args: Value,
     ) -> semwright_types::Result<Value> {
+        if command.starts_with("driver.figma.composition.") {
+            return Err(Error::new(
+                ErrorCode::ProtocolMismatch,
+                "Composition requires Driver Protocol v2+ host context; use the Driver Host",
+            ));
+        }
+        self.execute_native(command, digest, args).await
+    }
+
+    async fn execute_with_context(
+        &mut self,
+        command: &str,
+        digest: &str,
+        args: Value,
+        context: DriverExecutionContext,
+    ) -> semwright_types::Result<Value> {
+        context.check_cancelled()?;
+        let value = if command.starts_with("driver.figma.composition.") {
+            self.execute_composition_with_context(command, digest, args, &context)
+                .await?
+        } else {
+            self.execute_native(command, digest, args).await?
+        };
+        if let Some(artifact) = artifact_from_result(command, &value) {
+            context.report_progress(
+                JobProgress {
+                    completed: 1,
+                    total: Some(1),
+                    message: Some("Figma artifact ready".into()),
+                },
+                vec![artifact],
+            )?;
+        }
+        Ok(value)
+    }
+
+    async fn health(&mut self) -> semwright_types::Result<Value> {
+        let sessions = self.hub.sessions().await;
+        Ok(json!({
+            "healthy": true,
+            "bridge_protocol": model::BRIDGE_PROTOCOL_VERSION,
+            "listen_host": "127.0.0.1",
+            "listen_hosts": self.hub.listen_hosts(),
+            "listen_port": self.hub.port(),
+            "connected_sessions": sessions.len(),
+            "motion": "beta",
+            "plugin_api": "official"
+        }))
+    }
+}
+
+#[tokio::main]
+async fn main() -> semwright_types::Result<()> {
+    let driver = FigmaDriver::new().await?;
+    semwright_driver_sdk::serve(driver).await
+}
+impl FigmaDriver {
+    async fn execute_native(
+        &mut self,
+        command: &str,
+        digest: &str,
+        args: Value,
+    ) -> semwright_types::Result<Value> {
         let Some(expected_digest) = self.descriptors.get(command) else {
             return Err(Error::new(
                 ErrorCode::Unsupported,
@@ -2117,49 +2183,8 @@ impl Driver for FigmaDriver {
             Ok(value)
         }
     }
-
-    async fn execute_with_context(
-        &mut self,
-        command: &str,
-        digest: &str,
-        args: Value,
-        context: DriverExecutionContext,
-    ) -> semwright_types::Result<Value> {
-        context.check_cancelled()?;
-        let value = self.execute(command, digest, args).await?;
-        if let Some(artifact) = artifact_from_result(command, &value) {
-            context.report_progress(
-                JobProgress {
-                    completed: 1,
-                    total: Some(1),
-                    message: Some("Figma artifact ready".into()),
-                },
-                vec![artifact],
-            )?;
-        }
-        Ok(value)
-    }
-
-    async fn health(&mut self) -> semwright_types::Result<Value> {
-        let sessions = self.hub.sessions().await;
-        Ok(json!({
-            "healthy": true,
-            "bridge_protocol": model::BRIDGE_PROTOCOL_VERSION,
-            "listen_host": "127.0.0.1",
-            "listen_hosts": self.hub.listen_hosts(),
-            "listen_port": self.hub.port(),
-            "connected_sessions": sessions.len(),
-            "motion": "beta",
-            "plugin_api": "official"
-        }))
-    }
 }
 
-#[tokio::main]
-async fn main() -> semwright_types::Result<()> {
-    let driver = FigmaDriver::new().await?;
-    semwright_driver_sdk::serve(driver).await
-}
 #[cfg(test)]
 mod catalog_tests {
     use super::*;

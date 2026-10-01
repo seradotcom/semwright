@@ -6,6 +6,7 @@ use crate::{
     hash::{reader_hash, valid_digest},
     json::{self, Value, array, obj},
     model::Profile,
+    sync::{self, CueWindow, ProbeResult},
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -89,6 +90,8 @@ impl ProcessResult {
 fn capture(
     mut reader: impl Read + Send + 'static,
     overflow: Arc<AtomicBool>,
+    retained_limit: usize,
+    total_limit: usize,
 ) -> thread::JoinHandle<Vec<u8>> {
     thread::spawn(move || {
         let mut retained = Vec::new();
@@ -99,9 +102,9 @@ fn capture(
                 Ok(0) => break,
                 Ok(n) => {
                     bytes = bytes.saturating_add(n);
-                    let keep = n.min(RETAIN_LOG.saturating_sub(retained.len()));
+                    let keep = n.min(retained_limit.saturating_sub(retained.len()));
                     retained.extend_from_slice(&buf[..keep]);
-                    if bytes > TOTAL_LOG {
+                    if bytes > total_limit {
                         overflow.store(true, Ordering::Release);
                     }
                 }
@@ -141,6 +144,18 @@ impl Drop for ChildGuard {
 }
 /// Testable supervisor. Only Runtime builds production specs; no public capability accepts argv.
 pub fn run(spec: &ProcessSpec, cancel: &AtomicBool) -> Result<ProcessResult> {
+    run_with_output_limits(spec, cancel, RETAIN_LOG, TOTAL_LOG)
+}
+
+fn run_with_output_limits(
+    spec: &ProcessSpec,
+    cancel: &AtomicBool,
+    retained_limit: usize,
+    total_limit: usize,
+) -> Result<ProcessResult> {
+    if retained_limit == 0 || retained_limit > total_limit || total_limit > 8 * 1024 * 1024 {
+        return Err(Error::limit("Process output capture budget is invalid"));
+    }
     if !spec.executable.is_absolute()
         || !spec.cwd.is_absolute()
         || spec.timeout.is_zero()
@@ -217,8 +232,8 @@ pub fn run(spec: &ProcessSpec, cancel: &AtomicBool) -> Result<ProcessResult> {
         .take()
         .ok_or_else(|| Error::new("Internal", "stderr pipe missing"))?;
     let overflow = Arc::new(AtomicBool::new(false));
-    let a = capture(stdout, overflow.clone());
-    let b = capture(stderr, overflow.clone());
+    let a = capture(stdout, overflow.clone(), retained_limit, total_limit);
+    let b = capture(stderr, overflow.clone(), retained_limit, total_limit);
     let start = Instant::now();
     let mut cancelled = false;
     let mut timed_out = false;
@@ -400,6 +415,7 @@ impl ServiceCatalog {
 pub struct Runtime {
     pub melt: Tool,
     pub ffprobe: Tool,
+    pub ffmpeg: Tool,
     pub bubblewrap: Tool,
     pub timeout: Duration,
     pub catalog: ServiceCatalog,
@@ -409,14 +425,29 @@ pub struct Runtime {
 impl Runtime {
     pub fn load(v: &Value) -> Result<Self> {
         v.strict(
-            &["schema", "melt", "ffprobe", "bubblewrap", "timeout_seconds"],
-            &["schema", "melt", "ffprobe", "bubblewrap", "timeout_seconds"],
+            &[
+                "schema",
+                "melt",
+                "ffprobe",
+                "ffmpeg",
+                "bubblewrap",
+                "timeout_seconds",
+            ],
+            &[
+                "schema",
+                "melt",
+                "ffprobe",
+                "ffmpeg",
+                "bubblewrap",
+                "timeout_seconds",
+            ],
         )?;
         if v.uint("schema")? != 1 {
             return Err(Error::unsupported("Runtime configuration schema"));
         }
         let melt = Tool::parse(v.get("melt")?)?;
         let ffprobe = Tool::parse(v.get("ffprobe")?)?;
+        let ffmpeg = Tool::parse(v.get("ffmpeg")?)?;
         let bubblewrap = Tool::parse(v.get("bubblewrap")?)?;
         let timeout = v.uint("timeout_seconds")?;
         if !(1..=3600).contains(&timeout) {
@@ -427,7 +458,7 @@ impl Runtime {
         // bytes we verified. Bubblewrap is different: Linux/AppArmor installations can
         // grant user-namespace permission specifically to its canonical system path.
         // Keep that root-owned, non-writable path and re-verify its digest before use.
-        for (name, tool) in [("melt", &melt), ("ffprobe", &ffprobe)] {
+        for (name, tool) in [("melt", &melt), ("ffprobe", &ffprobe), ("ffmpeg", &ffmpeg)] {
             let mut source = tool.verify()?;
             let mut destination = tools.create(name)?;
             let mut hash = crate::hash::Sha256::new();
@@ -460,6 +491,7 @@ impl Runtime {
         let mut runtime = Self {
             melt,
             ffprobe,
+            ffmpeg,
             bubblewrap,
             timeout: Duration::from_secs(timeout),
             catalog: ServiceCatalog::default(),
@@ -521,6 +553,7 @@ impl Runtime {
             let pinned = match tool {
                 "melt" => &self.melt,
                 "ffprobe" => &self.ffprobe,
+                "ffmpeg" => &self.ffmpeg,
                 _ => return Err(Error::invalid("Unknown pinned runtime tool")),
             };
             pinned.verify()?;
@@ -529,7 +562,8 @@ impl Runtime {
                 // at the same 4 GiB / 300 CPU-second ceilings. These are limits,
                 // not reservations; ffprobe keeps the smaller probe budget.
                 "melt" => (300, 4_294_967_296),
-                "ffprobe" => (30, 1_073_741_824),
+                "ffprobe" => (timeout.as_secs().clamp(30, 120), 1_073_741_824),
+                "ffmpeg" => (300, 4_294_967_296),
                 _ => return Err(Error::invalid("Unknown pinned runtime tool")),
             };
             return Ok(ProcessSpec {
@@ -606,7 +640,8 @@ impl Runtime {
         argv.extend(args);
         let (cpu_seconds, address_space_bytes) = match tool {
             "melt" => (300, 4_294_967_296),
-            "ffprobe" => (30, 1_073_741_824),
+            "ffprobe" => (timeout.as_secs().clamp(30, 120), 1_073_741_824),
+            "ffmpeg" => (300, 4_294_967_296),
             _ => return Err(Error::invalid("Unknown pinned runtime tool")),
         };
         Ok(ProcessSpec {
@@ -718,6 +753,340 @@ impl Runtime {
         .checked()?;
         MediaInfo::parse(&r.stdout)
     }
+    pub fn sync_probe(
+        &self,
+        inputs: &Path,
+        work: &Path,
+        name: &str,
+        cues: &[CueWindow],
+        window_us: u64,
+        full_scan: bool,
+        cancel: &AtomicBool,
+    ) -> Result<ProbeResult> {
+        crate::fs::validate_relative(name)?;
+        if name.contains('/')
+            || cues.is_empty()
+            || cues.len() > sync::MAX_SYNC_CUES
+            || !(sync::MIN_WINDOW_US..=sync::MAX_WINDOW_US).contains(&window_us)
+        {
+            return Err(Error::invalid("Invalid bounded sync probe request"));
+        }
+        let input = self.input_path(inputs, name);
+        let input_text = input.to_string_lossy();
+        if !input_text
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'/' | b'_' | b'-' | b'.'))
+        {
+            return Err(Error::new(
+                "Internal",
+                "Private sync probe path is not safely representable",
+            ));
+        }
+        let seconds = |micros: u64| format!("{}.{:06}", micros / 1_000_000, micros % 1_000_000);
+        let run_probe = |filter: String, tag: &str, retain_full_scan: bool| -> Result<Vec<u8>> {
+            let entries = format!("frame=best_effort_timestamp_time,pts_time:frame_tags={tag}");
+            let args = vec![
+                "-v".into(),
+                "error".into(),
+                "-f".into(),
+                "lavfi".into(),
+                "-i".into(),
+                filter.into(),
+                "-show_frames".into(),
+                "-show_entries".into(),
+                entries.into(),
+                "-of".into(),
+                "json".into(),
+            ];
+            let spec = self.spec(
+                "ffprobe",
+                args,
+                inputs,
+                work,
+                if retain_full_scan {
+                    Duration::from_secs(120)
+                } else {
+                    Duration::from_secs(10)
+                },
+            )?;
+            let result = if retain_full_scan {
+                run_with_output_limits(
+                    &spec,
+                    cancel,
+                    sync::MAX_SYNC_METADATA_BYTES,
+                    sync::MAX_SYNC_METADATA_BYTES,
+                )?
+            } else {
+                run(&spec, cancel)?
+            }
+            .checked()?;
+            let limit = if retain_full_scan {
+                sync::MAX_SYNC_METADATA_BYTES
+            } else {
+                RETAIN_LOG
+            };
+            if result.stdout.is_empty() || result.stdout.len() >= limit {
+                return Err(Error::limit(
+                    "Sync probe metadata was empty or reached the retained-output budget",
+                ));
+            }
+            Ok(result.stdout)
+        };
+
+        let (full_video, full_audio) = if full_scan {
+            let info = self.probe(inputs, work, name, cancel)?;
+            if !info.video || !info.audio || info.duration_num == 0 || info.duration_den == 0 {
+                return Err(Error::unsupported(
+                    "Full sync scan requires measurable audio and video streams",
+                ));
+            }
+            let duration_us = u128::from(info.duration_num) * 1_000_000;
+            let max_us = u128::from(sync::MAX_FULL_SCAN_US) * u128::from(info.duration_den);
+            if duration_us > max_us {
+                return Err(Error::limit(
+                    "Full sync scan is bounded to sixty seconds of decoded media",
+                ));
+            }
+            (
+                Some(run_probe(
+                    format!("movie=filename='{}',signalstats", input_text),
+                    "lavfi.signalstats.YAVG",
+                    true,
+                )?),
+                Some(run_probe(
+                    format!(
+                        "amovie=filename='{}',asetnsamples=n=512:p=0,astats=metadata=1:reset=1",
+                        input_text
+                    ),
+                    "lavfi.astats.Overall.Peak_level",
+                    true,
+                )?),
+            )
+        } else {
+            (None, None)
+        };
+
+        let mut flashes = Vec::new();
+        let mut impulses = Vec::new();
+        let mut missing_video = Vec::new();
+        let mut missing_audio = Vec::new();
+        for cue in cues {
+            if !sync::valid_cue_id(&cue.id) || cue.expected_us > 600_000_000 {
+                return Err(Error::invalid("Invalid sync cue"));
+            }
+            if cancel.load(Ordering::Acquire) {
+                return Err(Error::new("Cancelled", "Sync probe cancelled"));
+            }
+            let start = cue.expected_us.saturating_sub(window_us);
+            let end = cue
+                .expected_us
+                .checked_add(window_us)
+                .ok_or_else(|| Error::limit("Sync cue window overflow"))?
+                .min(600_000_000);
+            if end <= start {
+                return Err(Error::invalid("Sync cue window is empty"));
+            }
+            let video_window;
+            let video = if let Some(video) = &full_video {
+                video.as_slice()
+            } else {
+                let video_filter = format!(
+                    "movie=filename='{}',trim=start={}:end={},signalstats",
+                    input_text,
+                    seconds(start),
+                    seconds(end)
+                );
+                video_window = run_probe(video_filter, "lavfi.signalstats.YAVG", false)?;
+                video_window.as_slice()
+            };
+            match sync::flash(cue, video, window_us)? {
+                Some(value) => flashes.push(value),
+                None => missing_video.push(cue.id.clone()),
+            }
+
+            let audio_window;
+            let audio = if let Some(audio) = &full_audio {
+                audio.as_slice()
+            } else {
+                let audio_filter = format!(
+                    "amovie=filename='{}',atrim=start={}:end={},asetnsamples=n=512:p=0,astats=metadata=1:reset=1",
+                    input_text,
+                    seconds(start),
+                    seconds(end)
+                );
+                audio_window = run_probe(audio_filter, "lavfi.astats.Overall.Peak_level", false)?;
+                audio_window.as_slice()
+            };
+            match sync::impulse(cue, audio, window_us)? {
+                Some(value) => impulses.push(value),
+                None => missing_audio.push(cue.id.clone()),
+            }
+        }
+        Ok(ProbeResult {
+            flashes,
+            impulses,
+            missing_video,
+            missing_audio,
+            exhaustive_video: full_scan,
+            exhaustive_audio: full_scan,
+        })
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn encode_frames(
+        &self,
+        inputs: &Path,
+        work: &Path,
+        first_frame: u64,
+        frame_count: u64,
+        fps_num: u32,
+        fps_den: u32,
+        width: u32,
+        height: u32,
+        cancel: &AtomicBool,
+    ) -> Result<MediaInfo> {
+        if frame_count == 0
+            || frame_count > 36_000
+            || fps_num == 0
+            || fps_den == 0
+            || fps_num > 120_000
+            || fps_den > 1001
+            || width == 0
+            || height == 0
+            || width > 4096
+            || height > 4096
+            || u64::from(width) * u64::from(height) > 8_847_360
+        {
+            return Err(Error::invalid(
+                "Invalid bounded Motion frame encode profile",
+            ));
+        }
+        if cancel.load(Ordering::Acquire) {
+            return Err(Error::new(
+                "Cancelled",
+                "Frame encode cancelled before start",
+            ));
+        }
+        let pattern = self.input_path(inputs, "%06d.png");
+        let output = self.work_path(work, "mezzanine.mkv");
+        let args = vec![
+            "-v".into(),
+            "error".into(),
+            "-nostdin".into(),
+            "-framerate".into(),
+            format!("{fps_num}/{fps_den}").into(),
+            "-start_number".into(),
+            first_frame.to_string().into(),
+            "-i".into(),
+            pattern.into_os_string(),
+            "-frames:v".into(),
+            frame_count.to_string().into(),
+            "-an".into(),
+            "-c:v".into(),
+            "ffv1".into(),
+            "-level".into(),
+            "3".into(),
+            "-g".into(),
+            "1".into(),
+            "-pix_fmt".into(),
+            "yuv444p".into(),
+            "-threads".into(),
+            "2".into(),
+            "-f".into(),
+            "matroska".into(),
+            output.into_os_string(),
+        ];
+        run(
+            &self.spec("ffmpeg", args, inputs, work, self.timeout)?,
+            cancel,
+        )?
+        .checked()?;
+        let info = self.probe(work, work, "mezzanine.mkv", cancel)?;
+        if !info.video
+            || info.audio
+            || info.width != Some(width)
+            || info.height != Some(height)
+            || info.frames.is_some_and(|frames| frames != frame_count)
+            || info.duration_num == 0
+            || info.duration_den == 0
+        {
+            return Err(Error::new(
+                "BackendFailed",
+                "FFV1 mezzanine does not match the verified Motion frame plan",
+            ));
+        }
+        let actual = u128::from(info.duration_num) * u128::from(fps_num);
+        let wanted = u128::from(frame_count) * u128::from(fps_den) * u128::from(info.duration_den);
+        let tolerance = u128::from(fps_den) * u128::from(info.duration_den);
+        if actual.abs_diff(wanted) > tolerance {
+            return Err(Error::new(
+                "BackendFailed",
+                "FFV1 mezzanine duration differs by more than one source frame",
+            ));
+        }
+        Ok(info)
+    }
+
+    pub fn extract_audio(
+        &self,
+        inputs: &Path,
+        work: &Path,
+        name: &str,
+        sample_rate: u32,
+        channels: u16,
+        cancel: &AtomicBool,
+    ) -> Result<MediaInfo> {
+        crate::fs::validate_relative(name)?;
+        if name.contains('/')
+            || sample_rate != 48_000
+            || channels != 2
+            || cancel.load(Ordering::Acquire)
+        {
+            return Err(Error::invalid(
+                "Final AV audio extraction requires one bounded 48 kHz stereo input",
+            ));
+        }
+        let input = self.input_path(inputs, name);
+        let output = self.work_path(work, "decoded-audio.wav");
+        let args = vec![
+            "-v".into(),
+            "error".into(),
+            "-nostdin".into(),
+            "-i".into(),
+            input.into_os_string(),
+            "-map".into(),
+            "0:a:0".into(),
+            "-vn".into(),
+            "-ac".into(),
+            channels.to_string().into(),
+            "-ar".into(),
+            sample_rate.to_string().into(),
+            "-c:a".into(),
+            "pcm_s16le".into(),
+            "-f".into(),
+            "wav".into(),
+            output.into_os_string(),
+        ];
+        run(
+            &self.spec("ffmpeg", args, inputs, work, self.timeout)?,
+            cancel,
+        )?
+        .checked()?;
+        let info = self.probe(work, work, "decoded-audio.wav", cancel)?;
+        if !info.audio
+            || info.video
+            || info.sample_rate != Some(sample_rate)
+            || info.channels != Some(channels)
+            || info.audio_sample_frames.is_none()
+        {
+            return Err(Error::new(
+                "BackendFailed",
+                "Decoded final audio WAV does not match the certified delivery layout",
+            ));
+        }
+        Ok(info)
+    }
+
     pub fn render(
         &self,
         inputs: &Path,
@@ -962,6 +1331,9 @@ pub struct MediaInfo {
     pub duration_den: u64,
     pub audio: bool,
     pub video: bool,
+    pub sample_rate: Option<u32>,
+    pub channels: Option<u16>,
+    pub audio_sample_frames: Option<u64>,
     pub codecs: Vec<String>,
 }
 impl MediaInfo {
@@ -1010,6 +1382,30 @@ impl MediaInfo {
             }
             if kind == "audio" {
                 info.audio = true;
+                if info.sample_rate.is_none() {
+                    info.sample_rate = s
+                        .opt("sample_rate")
+                        .and_then(|value| value.string().ok())
+                        .and_then(|value| value.parse::<u32>().ok());
+                }
+                if info.channels.is_none() {
+                    info.channels = s
+                        .opt("channels")
+                        .and_then(|value| value.u64().ok())
+                        .and_then(|value| u16::try_from(value).ok());
+                }
+                if info.audio_sample_frames.is_none()
+                    && let (Some(sample_rate), Some(duration_ts), Some(time_base)) = (
+                        info.sample_rate,
+                        s.opt("duration_ts").and_then(|value| value.u64().ok()),
+                        s.opt("time_base").and_then(|value| value.string().ok()),
+                    )
+                    && let Some((numerator, denominator)) = time_base.split_once('/')
+                    && numerator == "1"
+                    && denominator.parse::<u32>().ok() == Some(sample_rate)
+                {
+                    info.audio_sample_frames = Some(duration_ts);
+                }
             }
             if info.duration_num == 0 {
                 if let (Some(ts), Some(tb)) = (

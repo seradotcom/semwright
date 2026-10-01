@@ -1429,6 +1429,405 @@
   },
   {
     "descriptor": {
+      "name": "driver.mlt-video.av.mux",
+      "version": "0.1.0",
+      "description": "Mux one digest-pinned video-only Motion mezzanine and one digest-pinned audio-only final mix into a bounded H.264/AAC MP4 through the pinned confined MLT runtime, then publish a digest-bound 48 kHz stereo PCM WAV decoded from that exact master for post-encode analysis; no effects, gain, ducking, arbitrary argv or filter graph.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "video_root": {
+            "type": "string",
+            "enum": [
+              "project",
+              "media",
+              "output"
+            ]
+          },
+          "video_path": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "video_sha256": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "audio_root": {
+            "type": "string",
+            "enum": [
+              "project",
+              "media",
+              "output"
+            ]
+          },
+          "audio_path": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "audio_sha256": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "width": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 4096
+          },
+          "height": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 4096
+          },
+          "fps_num": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 240000
+          },
+          "fps_den": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000
+          },
+          "frame_count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 36000
+          },
+          "sample_rate": {
+            "type": "integer",
+            "enum": [
+              48000
+            ]
+          },
+          "channels": {
+            "type": "integer",
+            "enum": [
+              2
+            ]
+          },
+          "profile": {
+            "type": "string",
+            "enum": [
+              "h264-aac-mp4"
+            ]
+          },
+          "output_path": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "max_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1073741824
+          }
+        },
+        "required": [
+          "video_root",
+          "video_path",
+          "video_sha256",
+          "audio_root",
+          "audio_path",
+          "audio_sha256",
+          "width",
+          "height",
+          "fps_num",
+          "fps_den",
+          "frame_count",
+          "sample_rate",
+          "channels",
+          "profile",
+          "output_path",
+          "max_bytes"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "artifact": {
+            "type": "object",
+            "properties": {
+              "root": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "path": {
+                "type": "string",
+                "maxLength": 4096
+              },
+              "sha256": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "bytes": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1073741824
+              }
+            },
+            "required": [
+              "root",
+              "path",
+              "sha256",
+              "bytes"
+            ],
+            "additionalProperties": false
+          },
+          "profile": {
+            "type": "string",
+            "enum": [
+              "h264-aac-mp4"
+            ]
+          },
+          "frame_count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 36000
+          },
+          "fps_num": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 240000
+          },
+          "fps_den": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000
+          },
+          "sample_rate": {
+            "type": "integer",
+            "enum": [
+              48000
+            ]
+          },
+          "channels": {
+            "type": "integer",
+            "enum": [
+              2
+            ]
+          },
+          "media": {
+            "type": "object",
+            "properties": {
+              "width": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1,
+                "maximum": 16384
+              },
+              "height": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1,
+                "maximum": 16384
+              },
+              "frames": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 100000000
+              },
+              "duration_num": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000000000
+              },
+              "duration_den": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000000
+              },
+              "audio": {
+                "type": "boolean"
+              },
+              "video": {
+                "type": "boolean"
+              },
+              "codecs": {
+                "type": "array",
+                "maxItems": 16,
+                "items": {
+                  "type": "string",
+                  "maxLength": 128
+                }
+              }
+            },
+            "required": [
+              "width",
+              "height",
+              "frames",
+              "duration_num",
+              "duration_den",
+              "audio",
+              "video",
+              "codecs"
+            ],
+            "additionalProperties": false
+          },
+          "video_sha256": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "audio_sha256": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "audio_sample_frames": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 384000000
+          },
+          "decoded_audio": {
+            "type": "object",
+            "properties": {
+              "root": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "path": {
+                "type": "string",
+                "maxLength": 4096
+              },
+              "sha256": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "bytes": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1073741824
+              }
+            },
+            "required": [
+              "root",
+              "path",
+              "sha256",
+              "bytes"
+            ],
+            "additionalProperties": false
+          },
+          "decoded_audio_media": {
+            "type": "object",
+            "properties": {
+              "width": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1,
+                "maximum": 16384
+              },
+              "height": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1,
+                "maximum": 16384
+              },
+              "frames": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 100000000
+              },
+              "duration_num": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000000000
+              },
+              "duration_den": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000000
+              },
+              "audio": {
+                "type": "boolean"
+              },
+              "video": {
+                "type": "boolean"
+              },
+              "codecs": {
+                "type": "array",
+                "maxItems": 16,
+                "items": {
+                  "type": "string",
+                  "maxLength": 128
+                }
+              }
+            },
+            "required": [
+              "width",
+              "height",
+              "frames",
+              "duration_num",
+              "duration_den",
+              "audio",
+              "video",
+              "codecs"
+            ],
+            "additionalProperties": false
+          },
+          "decoded_audio_sample_frames": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 384000000
+          }
+        },
+        "required": [
+          "artifact",
+          "decoded_audio",
+          "decoded_audio_media",
+          "decoded_audio_sample_frames",
+          "profile",
+          "frame_count",
+          "fps_num",
+          "fps_den",
+          "sample_rate",
+          "channels",
+          "audio_sample_frames",
+          "media",
+          "video_sha256",
+          "audio_sha256"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:mlt-video"
+      ],
+      "risk": "mutating",
+      "idempotency": "non_idempotent",
+      "timeout_ms": 300000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:mlt-video"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "video",
+      "audio",
+      "av",
+      "offline",
+      "mlt",
+      "artifact-in:video/mezzanine",
+      "artifact-in:audio/final-mix",
+      "artifact-out:video/master"
+    ],
+    "object_types": [
+      "video-artifact"
+    ]
+  },
+  {
+    "descriptor": {
       "name": "driver.mlt-video.clip.duplicate",
       "version": "0.1.0",
       "description": "Offline semantic clip.duplicate. Application data is untrusted; inspect format-level availability.",
@@ -4318,6 +4717,225 @@
     ],
     "object_types": [
       "video-project"
+    ]
+  },
+  {
+    "descriptor": {
+      "name": "driver.mlt-video.frames.encode",
+      "version": "0.1.0",
+      "description": "Verify a Motion Canvas artifact manifest and its PNG hashes, then encode a bounded video-only FFV1 Matroska mezzanine with the pinned confined ffmpeg runtime.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "root": {
+            "type": "string",
+            "enum": [
+              "project",
+              "media",
+              "output"
+            ]
+          },
+          "manifest_path": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "expected_manifest_sha256": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "output_path": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "max_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1073741824
+          }
+        },
+        "required": [
+          "root",
+          "manifest_path",
+          "expected_manifest_sha256",
+          "output_path",
+          "max_bytes"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "artifact": {
+            "type": "object",
+            "properties": {
+              "root": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "path": {
+                "type": "string",
+                "maxLength": 4096
+              },
+              "sha256": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "bytes": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1073741824
+              }
+            },
+            "required": [
+              "root",
+              "path",
+              "sha256",
+              "bytes"
+            ],
+            "additionalProperties": false
+          },
+          "source_manifest_sha256": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "codec": {
+            "type": "string",
+            "enum": [
+              "ffv1"
+            ]
+          },
+          "container": {
+            "type": "string",
+            "enum": [
+              "matroska"
+            ]
+          },
+          "frame_count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 36000
+          },
+          "width": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4096
+          },
+          "height": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 4096
+          },
+          "fps_num": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 120000
+          },
+          "fps_den": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1001
+          },
+          "media": {
+            "type": "object",
+            "properties": {
+              "width": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1,
+                "maximum": 16384
+              },
+              "height": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1,
+                "maximum": 16384
+              },
+              "frames": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 0,
+                "maximum": 100000000
+              },
+              "duration_num": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000000000
+              },
+              "duration_den": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 1000000000
+              },
+              "audio": {
+                "type": "boolean"
+              },
+              "video": {
+                "type": "boolean"
+              },
+              "codecs": {
+                "type": "array",
+                "maxItems": 16,
+                "items": {
+                  "type": "string",
+                  "maxLength": 128
+                }
+              }
+            },
+            "required": [
+              "width",
+              "height",
+              "frames",
+              "duration_num",
+              "duration_den",
+              "audio",
+              "video",
+              "codecs"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "artifact",
+          "source_manifest_sha256",
+          "codec",
+          "container",
+          "frame_count",
+          "width",
+          "height",
+          "fps_num",
+          "fps_den",
+          "media"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:mlt-video"
+      ],
+      "risk": "mutating",
+      "idempotency": "non_idempotent",
+      "timeout_ms": 300000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:mlt-video"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "video",
+      "offline",
+      "mlt",
+      "artifact-in:motion/frame-sequence",
+      "artifact-out:video/mezzanine"
+    ],
+    "object_types": [
+      "video-artifact"
     ]
   },
   {
@@ -8744,6 +9362,230 @@
     ],
     "object_types": [
       "video-project"
+    ]
+  },
+  {
+    "descriptor": {
+      "name": "driver.mlt-video.sync.probe",
+      "version": "0.1.0",
+      "description": "Decode bounded technical flash/impulse sync markers with the pinned confined ffprobe runtime; optionally scan the complete master up to 60 seconds. No caller-supplied filter graph or argv.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "root": {
+            "type": "string",
+            "enum": [
+              "project",
+              "media",
+              "output"
+            ]
+          },
+          "path": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "expected_sha256": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "window_us": {
+            "type": "integer",
+            "minimum": 10000,
+            "maximum": 500000
+          },
+          "cues": {
+            "type": "array",
+            "maxItems": 16,
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "maxLength": 96
+                },
+                "expected_us": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 600000000
+                }
+              },
+              "required": [
+                "id",
+                "expected_us"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "full_scan": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "root",
+          "path",
+          "expected_sha256",
+          "window_us",
+          "cues"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "artifact_sha256": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "decoder": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "decoder_sha256": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "coverage": {
+            "type": "string",
+            "enum": [
+              "cue_windows",
+              "full_scan"
+            ]
+          },
+          "window_us": {
+            "type": "integer",
+            "minimum": 10000,
+            "maximum": 500000
+          },
+          "flashes": {
+            "type": "array",
+            "maxItems": 16,
+            "items": {
+              "type": "object",
+              "properties": {
+                "cue_id": {
+                  "type": "string",
+                  "maxLength": 96
+                },
+                "presentation_time_us": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 600000000
+                },
+                "uncertainty_us": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 500000
+                },
+                "confidence": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 10000
+                }
+              },
+              "required": [
+                "cue_id",
+                "presentation_time_us",
+                "uncertainty_us",
+                "confidence"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "impulses": {
+            "type": "array",
+            "maxItems": 16,
+            "items": {
+              "type": "object",
+              "properties": {
+                "cue_id": {
+                  "type": "string",
+                  "maxLength": 96
+                },
+                "presentation_time_us": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 600000000
+                },
+                "uncertainty_us": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 500000
+                },
+                "confidence": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 10000
+                }
+              },
+              "required": [
+                "cue_id",
+                "presentation_time_us",
+                "uncertainty_us",
+                "confidence"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "missing_video": {
+            "type": "array",
+            "maxItems": 16,
+            "items": {
+              "type": "string",
+              "maxLength": 96
+            }
+          },
+          "missing_audio": {
+            "type": "array",
+            "maxItems": 16,
+            "items": {
+              "type": "string",
+              "maxLength": 96
+            }
+          },
+          "exhaustive_video": {
+            "type": "boolean"
+          },
+          "exhaustive_audio": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "artifact_sha256",
+          "decoder",
+          "decoder_sha256",
+          "coverage",
+          "exhaustive_video",
+          "exhaustive_audio",
+          "window_us",
+          "flashes",
+          "impulses",
+          "missing_video",
+          "missing_audio"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:mlt-video"
+      ],
+      "risk": "read_only",
+      "idempotency": "read_only",
+      "timeout_ms": 180000,
+      "dry_run": true,
+      "interactive_consent": false,
+      "backends": [
+        "driver:mlt-video"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "video",
+      "audio",
+      "sync",
+      "offline",
+      "ffprobe"
+    ],
+    "object_types": [
+      "video-artifact"
     ]
   },
   {

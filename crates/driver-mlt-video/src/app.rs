@@ -4,7 +4,7 @@ use crate::{
     catalog::{self, Capability},
     edit::{self, Edit},
     fs::{PrivateDir, Root},
-    hash::{random_id, reader_hash, sha256},
+    hash::{Sha256, random_id, reader_hash, sha256, valid_digest},
     jobs::{self, Jobs},
     json::{Value, array, display, obj},
     model::*,
@@ -275,6 +275,9 @@ impl App {
                     }),
                 );
             }
+            "frames.encode" => return self.frames_encode(a),
+            "av.mux" => return self.av_mux(a),
+            "sync.probe" => return self.sync_probe(a),
             "render.profiles" => {
                 return Ok(obj([
                     (
@@ -1247,6 +1250,719 @@ impl App {
             opaque: false,
         })
     }
+
+    fn av_mux(&self, a: &Value) -> Result<Value> {
+        a.strict(
+            &[
+                "video_root",
+                "video_path",
+                "video_sha256",
+                "audio_root",
+                "audio_path",
+                "audio_sha256",
+                "width",
+                "height",
+                "fps_num",
+                "fps_den",
+                "frame_count",
+                "sample_rate",
+                "channels",
+                "profile",
+                "output_path",
+                "max_bytes",
+            ],
+            &[
+                "video_root",
+                "video_path",
+                "video_sha256",
+                "audio_root",
+                "audio_path",
+                "audio_sha256",
+                "width",
+                "height",
+                "fps_num",
+                "fps_den",
+                "frame_count",
+                "sample_rate",
+                "channels",
+                "profile",
+                "output_path",
+                "max_bytes",
+            ],
+        )?;
+        let video_root = a.str("video_root")?;
+        let video_path = a.str("video_path")?;
+        let video_sha256 = a.str("video_sha256")?;
+        let audio_root = a.str("audio_root")?;
+        let audio_path = a.str("audio_path")?;
+        let audio_sha256 = a.str("audio_sha256")?;
+        for root in [video_root, audio_root] {
+            if !matches!(root, "project" | "media" | "output") {
+                return Err(Error::new(
+                    "PermissionDenied",
+                    "AV media root is not owner-granted",
+                ));
+            }
+        }
+        for path in [video_path, audio_path] {
+            crate::fs::validate_relative(path)?;
+        }
+        if !valid_digest(video_sha256) || !valid_digest(audio_sha256) {
+            return Err(Error::invalid("AV media SHA-256 is malformed"));
+        }
+        if video_root == audio_root && video_path == audio_path {
+            return Err(Error::invalid(
+                "AV video and audio must be distinct verified artifacts",
+            ));
+        }
+
+        let width = u32::try_from(a.uint("width")?).map_err(|_| Error::limit("AV width"))?;
+        let height = u32::try_from(a.uint("height")?).map_err(|_| Error::limit("AV height"))?;
+        let fps_num =
+            u32::try_from(a.uint("fps_num")?).map_err(|_| Error::limit("AV fps numerator"))?;
+        let fps_den =
+            u32::try_from(a.uint("fps_den")?).map_err(|_| Error::limit("AV fps denominator"))?;
+        let rate = FrameRate::new(fps_num, fps_den)?;
+        let frame_count = a.uint("frame_count")?;
+        if frame_count == 0 || frame_count > 36_000 {
+            return Err(Error::limit("AV frame count"));
+        }
+        let sample_rate =
+            u32::try_from(a.uint("sample_rate")?).map_err(|_| Error::limit("AV sample rate"))?;
+        let channels =
+            u16::try_from(a.uint("channels")?).map_err(|_| Error::limit("AV channel count"))?;
+        if sample_rate != 48_000 || channels != 2 {
+            return Err(Error::unsupported(
+                "MLT AV mux currently certifies only 48 kHz stereo final masters",
+            ));
+        }
+        if a.str("profile")? != "h264-aac-mp4" {
+            return Err(Error::unsupported(
+                "MLT AV mux currently certifies only the h264-aac-mp4 delivery profile",
+            ));
+        }
+        let output_path = a.str("output_path")?;
+        crate::fs::validate_relative(output_path)?;
+        if !output_path.ends_with(".mp4") {
+            return Err(Error::invalid("H.264/AAC AV output must use .mp4"));
+        }
+        let max_bytes = a.uint("max_bytes")?;
+        if max_bytes == 0 || max_bytes > jobs::MAX_ARTIFACT_BYTES {
+            return Err(Error::limit("AV mux artifact byte budget"));
+        }
+
+        let video_info = self.probe_resource(video_root, video_path)?;
+        let audio_info = self.probe_resource(audio_root, audio_path)?;
+        if !video_info.video
+            || video_info.audio
+            || video_info.width != Some(width)
+            || video_info.height != Some(height)
+            || video_info
+                .frames
+                .is_some_and(|frames| frames != frame_count)
+            || media_frames(&video_info, rate)? != frame_count
+        {
+            return Err(Error::new(
+                "Conflict",
+                "Verified Motion mezzanine does not match the AV delivery profile",
+            ));
+        }
+        if !audio_info.audio
+            || audio_info.video
+            || audio_info.sample_rate != Some(sample_rate)
+            || audio_info.channels != Some(channels)
+            || media_frames(&audio_info, rate)? != frame_count
+        {
+            return Err(Error::new(
+                "Conflict",
+                "Verified audio master does not match 48 kHz stereo AV duration",
+            ));
+        }
+
+        let runtime = self.runtime.as_ref().ok_or_else(|| {
+            Error::new(
+                "Unavailable",
+                "AV mux requires the pinned confined MLT/ffprobe/ffmpeg runtime",
+            )
+        })?;
+        let mut project = Project::new(Profile {
+            width,
+            height,
+            fps: rate,
+            progressive: true,
+            sample_aspect: (1, 1),
+            display_aspect: (width, height),
+            colorspace: 709,
+            audio_channels: u32::from(channels),
+        })?;
+        let range = FrameRange::new(0, frame_count)?;
+        project.assets.insert(
+            "av-video".into(),
+            MediaAsset {
+                id: "av-video".into(),
+                name: "Verified Motion mezzanine".into(),
+                kind: "video".into(),
+                resource: Resource::Scoped {
+                    root: video_root.into(),
+                    path: video_path.into(),
+                },
+                frames: Some(frame_count),
+                service: "avformat".into(),
+                original: None,
+                proxy: None,
+                opaque: false,
+            },
+        );
+        project.assets.insert(
+            "av-audio".into(),
+            MediaAsset {
+                id: "av-audio".into(),
+                name: "Verified final audio master".into(),
+                kind: "audio".into(),
+                resource: Resource::Scoped {
+                    root: audio_root.into(),
+                    path: audio_path.into(),
+                },
+                frames: Some(frame_count),
+                service: "avformat".into(),
+                original: None,
+                proxy: None,
+                opaque: false,
+            },
+        );
+        project.sequences[0].tracks = vec![
+            Track {
+                id: "av-video-track".into(),
+                name: "Video".into(),
+                kind: "video".into(),
+                muted: false,
+                hidden: false,
+                lanes: vec![Timeline {
+                    id: "av-video-lane".into(),
+                    clips: vec![Clip {
+                        id: "av-video-clip".into(),
+                        name: "Verified Motion".into(),
+                        asset: "av-video".into(),
+                        start: 0,
+                        source: range,
+                        effects: vec![],
+                        binding: None,
+                        speed: (1, 1),
+                    }],
+                }],
+                effects: vec![],
+                opaque: false,
+            },
+            Track {
+                id: "av-audio-track".into(),
+                name: "Audio".into(),
+                kind: "audio".into(),
+                muted: false,
+                hidden: false,
+                lanes: vec![Timeline {
+                    id: "av-audio-lane".into(),
+                    clips: vec![Clip {
+                        id: "av-audio-clip".into(),
+                        name: "Verified final mix".into(),
+                        asset: "av-audio".into(),
+                        start: 0,
+                        source: range,
+                        effects: vec![],
+                        binding: None,
+                        speed: (1, 1),
+                    }],
+                }],
+                effects: vec![],
+                opaque: false,
+            },
+        ];
+        project.validate()?;
+        let render_profile = RenderProfile {
+            id: "av-h264-aac",
+            width: Some(width),
+            height: Some(height),
+            video_codec: Some("libx264"),
+            audio_codec: "aac",
+            container: "mp4",
+            extension: "mp4",
+        };
+        let pins = BTreeMap::from([
+            ("av-video".into(), video_sha256.into()),
+            ("av-audio".into(), audio_sha256.into()),
+        ]);
+        let cancel = AtomicBool::new(false);
+        let (artifact, media) = jobs::render_sync_pinned(
+            runtime,
+            project,
+            "sequence0",
+            &render_profile,
+            output_path,
+            self.roots.as_ref(),
+            &cancel,
+            &pins,
+            max_bytes,
+        )?;
+        if !media.video
+            || !media.audio
+            || media.width != Some(width)
+            || media.height != Some(height)
+            || media.frames.is_some_and(|frames| frames != frame_count)
+            || media.sample_rate != Some(sample_rate)
+            || media.channels != Some(channels)
+            || media.audio_sample_frames.is_none()
+            || media_frames(&media, rate)? != frame_count
+            || !media.codecs.iter().any(|codec| codec == "h264")
+            || !media.codecs.iter().any(|codec| codec == "aac")
+        {
+            return Err(Error::new(
+                "BackendFailed",
+                "Encoded AV master failed post-mux stream/profile verification",
+            ));
+        }
+        let output_root = self
+            .roots
+            .get("output")
+            .ok_or_else(|| Error::new("PermissionDenied", "AV output root absent"))?;
+        let mut master = output_root.read_file(output_path, max_bytes)?;
+        let decode_inputs = PrivateDir::new(Path::new("/tmp"))?;
+        let decode_work = PrivateDir::new(Path::new("/tmp"))?;
+        let mut staged = decode_inputs.create("master.mp4")?;
+        let mut staged_hash = Sha256::new();
+        let mut staged_bytes = 0u64;
+        let mut buffer = [0u8; 65_536];
+        loop {
+            let count = master.read(&mut buffer)?;
+            if count == 0 {
+                break;
+            }
+            staged_bytes = staged_bytes
+                .checked_add(count as u64)
+                .filter(|size| *size <= max_bytes)
+                .ok_or_else(|| Error::limit("AV master decode snapshot exceeds byte budget"))?;
+            staged_hash.update(&buffer[..count]);
+            staged.write_all(&buffer[..count])?;
+        }
+        staged.flush()?;
+        staged.sync_all()?;
+        drop(staged);
+        if staged_hash.finish() != artifact.sha256 {
+            return Err(Error::new(
+                "StaleReference",
+                "Published AV master changed before final-audio decode",
+            ));
+        }
+        decode_inputs.seal("master.mp4")?;
+        let decoded_media = runtime.extract_audio(
+            decode_inputs.path(),
+            decode_work.path(),
+            "master.mp4",
+            sample_rate,
+            channels,
+            &cancel,
+        )?;
+        let decoded_path = format!(
+            "{}.decoded.wav",
+            output_path
+                .strip_suffix(".mp4")
+                .ok_or_else(|| Error::invalid("AV master path lost .mp4 suffix"))?
+        );
+        let decoded_source = Root::open(decode_work.path(), true, false)?
+            .read_file("decoded-audio.wav", max_bytes)?;
+        let decoded_artifact =
+            output_root.publish("output", &decoded_path, decoded_source, max_bytes)?;
+
+        Ok(obj([
+            ("artifact", artifact.json()),
+            ("decoded_audio", decoded_artifact.json()),
+            ("decoded_audio_media", decoded_media.json()),
+            (
+                "decoded_audio_sample_frames",
+                decoded_media
+                    .audio_sample_frames
+                    .ok_or_else(|| {
+                        Error::new(
+                            "BackendFailed",
+                            "Decoded final audio WAV sample count missing",
+                        )
+                    })?
+                    .into(),
+            ),
+            ("profile", "h264-aac-mp4".into()),
+            ("frame_count", frame_count.into()),
+            ("fps_num", u64::from(rate.num).into()),
+            ("fps_den", u64::from(rate.den).into()),
+            ("sample_rate", u64::from(sample_rate).into()),
+            ("channels", u64::from(channels).into()),
+            (
+                "audio_sample_frames",
+                media
+                    .audio_sample_frames
+                    .ok_or_else(|| Error::new("BackendFailed", "Final audio sample count missing"))?
+                    .into(),
+            ),
+            ("media", media.json()),
+            ("video_sha256", video_sha256.into()),
+            ("audio_sha256", audio_sha256.into()),
+        ]))
+    }
+
+    fn frames_encode(&self, a: &Value) -> Result<Value> {
+        a.strict(
+            &[
+                "root",
+                "manifest_path",
+                "expected_manifest_sha256",
+                "output_path",
+                "max_bytes",
+            ],
+            &[
+                "root",
+                "manifest_path",
+                "expected_manifest_sha256",
+                "output_path",
+                "max_bytes",
+            ],
+        )?;
+        let root_name = a.str("root")?;
+        if !matches!(root_name, "project" | "media" | "output") {
+            return Err(Error::new(
+                "PermissionDenied",
+                "Motion frame manifest root is not granted",
+            ));
+        }
+        let manifest_path = a.str("manifest_path")?;
+        crate::fs::validate_relative(manifest_path)?;
+        let expected_manifest_sha256 = a.str("expected_manifest_sha256")?;
+        if !valid_digest(expected_manifest_sha256) {
+            return Err(Error::invalid("Motion frame manifest digest is malformed"));
+        }
+        let output_path = a.str("output_path")?;
+        crate::fs::validate_relative(output_path)?;
+        if !output_path.ends_with(".mkv") {
+            return Err(Error::invalid("Motion mezzanine output must use .mkv"));
+        }
+        let max_bytes = a.uint("max_bytes")?;
+        if max_bytes == 0 || max_bytes > jobs::MAX_ARTIFACT_BYTES {
+            return Err(Error::limit("Motion mezzanine output byte budget"));
+        }
+        let runtime = self.runtime.as_ref().ok_or_else(|| {
+            Error::new(
+                "Unavailable",
+                "Frame encoding requires the pinned confined ffmpeg runtime",
+            )
+        })?;
+        let mount = self
+            .roots
+            .get(root_name)
+            .ok_or_else(|| Error::new("PermissionDenied", "Motion frame root absent"))?;
+        let manifest_bytes = mount.read(manifest_path, 8 * 1024 * 1024)?;
+        if sha256(&manifest_bytes) != expected_manifest_sha256 {
+            return Err(Error::new(
+                "StaleReference",
+                "Motion frame manifest digest changed before encoding",
+            ));
+        }
+        let manifest: serde_json::Value = serde_json::from_slice(&manifest_bytes)
+            .map_err(|_| Error::invalid("Motion frame manifest is malformed"))?;
+        let plan = manifest
+            .get("plan")
+            .and_then(serde_json::Value::as_object)
+            .ok_or_else(|| Error::invalid("Motion frame manifest omitted render plan"))?;
+        let required_u64 = |name: &str| -> Result<u64> {
+            plan.get(name)
+                .and_then(serde_json::Value::as_u64)
+                .ok_or_else(|| Error::invalid(format!("Motion render plan omitted {name}")))
+        };
+        let width = u32::try_from(required_u64("width")?)
+            .map_err(|_| Error::limit("Motion render width"))?;
+        let height = u32::try_from(required_u64("height")?)
+            .map_err(|_| Error::limit("Motion render height"))?;
+        let fps_num = u32::try_from(required_u64("fps")?)
+            .map_err(|_| Error::limit("Motion render fps numerator"))?;
+        let fps_den = u32::try_from(
+            plan.get("fps_denominator")
+                .and_then(serde_json::Value::as_u64)
+                .unwrap_or(1),
+        )
+        .map_err(|_| Error::limit("Motion render fps denominator"))?;
+        let first_frame = required_u64("first_frame")?;
+        let frame_count = required_u64("frame_count")?;
+        if frame_count == 0
+            || frame_count > 36_000
+            || first_frame
+                .checked_add(frame_count)
+                .is_none_or(|end| end > 100_000_000)
+        {
+            return Err(Error::limit("Motion frame manifest count/range"));
+        }
+        let frames = manifest
+            .get("frames")
+            .and_then(serde_json::Value::as_array)
+            .ok_or_else(|| Error::invalid("Motion frame manifest omitted frames"))?;
+        if frames.len() as u64 != frame_count {
+            return Err(Error::new(
+                "Conflict",
+                "Motion frame manifest count does not match its render plan",
+            ));
+        }
+        let parent = manifest_path
+            .rsplit_once('/')
+            .map(|(parent, _)| parent)
+            .unwrap_or("");
+        let inputs = PrivateDir::new(Path::new("/tmp"))?;
+        let work = PrivateDir::new(Path::new("/tmp"))?;
+        let mut total = 0u64;
+        for (index, frame) in frames.iter().enumerate() {
+            let index_u64 = index as u64;
+            if frame.get("index").and_then(serde_json::Value::as_u64) != Some(index_u64) {
+                return Err(Error::invalid(
+                    "Motion frame manifest index is not contiguous",
+                ));
+            }
+            let number = first_frame
+                .checked_add(index_u64)
+                .ok_or_else(|| Error::limit("Motion frame number overflow"))?;
+            let expected_file = format!("frames/{number:06}.png");
+            let file = frame
+                .get("file")
+                .and_then(serde_json::Value::as_str)
+                .ok_or_else(|| Error::invalid("Motion frame manifest omitted file"))?;
+            if file != expected_file {
+                return Err(Error::invalid(
+                    "Motion frame manifest contains an unexpected basename",
+                ));
+            }
+            let expected_bytes = frame
+                .get("bytes")
+                .and_then(serde_json::Value::as_u64)
+                .filter(|bytes| *bytes > 8 && *bytes <= 32 * 1024 * 1024)
+                .ok_or_else(|| Error::limit("Motion PNG byte budget"))?;
+            let expected_sha256 = frame
+                .get("sha256")
+                .and_then(serde_json::Value::as_str)
+                .filter(|digest| valid_digest(digest))
+                .ok_or_else(|| Error::invalid("Motion PNG digest is malformed"))?;
+            let source_path = if parent.is_empty() {
+                file.to_owned()
+            } else {
+                format!("{parent}/{file}")
+            };
+            crate::fs::validate_relative(&source_path)?;
+            let mut source = mount.read_file(&source_path, expected_bytes)?;
+            let destination_name = format!("{number:06}.png");
+            let mut destination = inputs.create(&destination_name)?;
+            let mut hasher = Sha256::new();
+            let mut size = 0u64;
+            let mut signature = Vec::with_capacity(8);
+            let mut buffer = [0u8; 65_536];
+            loop {
+                let count = source.read(&mut buffer)?;
+                if count == 0 {
+                    break;
+                }
+                if signature.len() < 8 {
+                    let needed = 8 - signature.len();
+                    signature.extend_from_slice(&buffer[..count.min(needed)]);
+                }
+                size = size
+                    .checked_add(count as u64)
+                    .ok_or_else(|| Error::limit("Motion PNG size overflow"))?;
+                total = total
+                    .checked_add(count as u64)
+                    .ok_or_else(|| Error::limit("Motion frame-set size overflow"))?;
+                if size > expected_bytes || total > jobs::MAX_JOB_INPUT_BYTES {
+                    return Err(Error::limit("Motion frame-set staging budget"));
+                }
+                hasher.update(&buffer[..count]);
+                destination.write_all(&buffer[..count])?;
+            }
+            destination.sync_all()?;
+            drop(destination);
+            if size != expected_bytes
+                || hasher.finish() != expected_sha256
+                || signature.as_slice() != b"\x89PNG\r\n\x1a\n"
+            {
+                return Err(Error::new(
+                    "StaleReference",
+                    "Motion PNG bytes no longer match the verified render manifest",
+                ));
+            }
+            inputs.seal(&destination_name)?;
+        }
+        let media = runtime.encode_frames(
+            inputs.path(),
+            work.path(),
+            first_frame,
+            frame_count,
+            fps_num,
+            fps_den,
+            width,
+            height,
+            &AtomicBool::new(false),
+        )?;
+        let output = self
+            .roots
+            .get("output")
+            .ok_or_else(|| Error::new("Unavailable", "Output mount is absent"))?;
+        let source = Root::open(work.path(), true, false)?.read_file("mezzanine.mkv", max_bytes)?;
+        let artifact = output.publish("output", output_path, source, max_bytes)?;
+        Ok(obj([
+            ("artifact", artifact.json()),
+            ("source_manifest_sha256", expected_manifest_sha256.into()),
+            ("codec", "ffv1".into()),
+            ("container", "matroska".into()),
+            ("frame_count", frame_count.into()),
+            ("width", u64::from(width).into()),
+            ("height", u64::from(height).into()),
+            ("fps_num", u64::from(fps_num).into()),
+            ("fps_den", u64::from(fps_den).into()),
+            ("media", media.json()),
+        ]))
+    }
+
+    fn sync_probe(&self, a: &Value) -> Result<Value> {
+        a.strict(
+            &[
+                "root",
+                "path",
+                "expected_sha256",
+                "window_us",
+                "cues",
+                "full_scan",
+            ],
+            &["root", "path", "expected_sha256", "window_us", "cues"],
+        )?;
+        let root_name = a.str("root")?;
+        if !matches!(root_name, "project" | "media" | "output") {
+            return Err(Error::new(
+                "PermissionDenied",
+                "Sync media root not granted",
+            ));
+        }
+        let path = a.str("path")?;
+        let expected_sha256 = a.str("expected_sha256")?;
+        if !valid_digest(expected_sha256) {
+            return Err(Error::invalid("Sync artifact SHA-256 is malformed"));
+        }
+        let window_us = a.uint("window_us")?;
+        let full_scan = a.flag("full_scan", false)?;
+        if !(crate::sync::MIN_WINDOW_US..=crate::sync::MAX_WINDOW_US).contains(&window_us) {
+            return Err(Error::invalid(
+                "Sync cue window is outside supported bounds",
+            ));
+        }
+        let cue_values = a.get("cues")?.as_array()?;
+        if cue_values.is_empty() || cue_values.len() > crate::sync::MAX_SYNC_CUES {
+            return Err(Error::limit("Sync cue count must be 1..16"));
+        }
+        let mut seen = std::collections::BTreeSet::new();
+        let mut cues = Vec::with_capacity(cue_values.len());
+        for cue in cue_values {
+            cue.strict(&["id", "expected_us"], &["id", "expected_us"])?;
+            let id = cue.str("id")?;
+            let expected_us = cue.uint("expected_us")?;
+            if !crate::sync::valid_cue_id(id)
+                || expected_us > 600_000_000
+                || !seen.insert(id.to_owned())
+            {
+                return Err(Error::invalid("Sync cue ID/time is invalid or duplicated"));
+            }
+            cues.push(crate::sync::CueWindow {
+                id: id.to_owned(),
+                expected_us,
+            });
+        }
+        let runtime = self.runtime.as_ref().ok_or_else(|| {
+            Error::new(
+                "Unavailable",
+                "Sync probing requires the pinned confined ffprobe runtime",
+            )
+        })?;
+        let mount = self
+            .roots
+            .get(root_name)
+            .ok_or_else(|| Error::new("PermissionDenied", "Sync media mount absent"))?;
+        let mut source = mount.read_file(path, jobs::MAX_MEDIA_BYTES)?;
+        let inputs = PrivateDir::new(Path::new("/tmp"))?;
+        let work = PrivateDir::new(Path::new("/tmp"))?;
+        let mut destination = inputs.create("sync-media.bin")?;
+        let mut hasher = Sha256::new();
+        let mut copied = 0u64;
+        let mut buffer = [0u8; 65_536];
+        loop {
+            let count = source.read(&mut buffer)?;
+            if count == 0 {
+                break;
+            }
+            copied = copied
+                .checked_add(count as u64)
+                .ok_or_else(|| Error::limit("Sync media size overflow"))?;
+            if copied > jobs::MAX_MEDIA_BYTES {
+                return Err(Error::limit("Sync media exceeds staging budget"));
+            }
+            hasher.update(&buffer[..count]);
+            destination.write_all(&buffer[..count])?;
+        }
+        destination.flush()?;
+        destination.sync_all()?;
+        drop(destination);
+        let actual_sha256 = hasher.finish();
+        if actual_sha256 != expected_sha256 {
+            return Err(Error::new(
+                "StaleReference",
+                "Sync media digest changed before decode",
+            ));
+        }
+        inputs.seal("sync-media.bin")?;
+        let result = runtime.sync_probe(
+            inputs.path(),
+            work.path(),
+            "sync-media.bin",
+            &cues,
+            window_us,
+            full_scan,
+            &AtomicBool::new(false),
+        )?;
+        let detection = |value: crate::sync::Detection| {
+            obj([
+                ("cue_id", value.cue_id.into()),
+                ("presentation_time_us", value.presentation_time_us.into()),
+                ("uncertainty_us", value.uncertainty_us.into()),
+                ("confidence", u64::from(value.confidence).into()),
+            ])
+        };
+        Ok(obj([
+            ("artifact_sha256", actual_sha256.into()),
+            ("decoder", "ffprobe-lavfi-sync-v1".into()),
+            ("decoder_sha256", runtime.ffprobe.sha256.clone().into()),
+            (
+                "coverage",
+                if result.exhaustive_video && result.exhaustive_audio {
+                    "full_scan"
+                } else {
+                    "cue_windows"
+                }
+                .into(),
+            ),
+            ("exhaustive_video", result.exhaustive_video.into()),
+            ("exhaustive_audio", result.exhaustive_audio.into()),
+            ("window_us", window_us.into()),
+            ("flashes", array(result.flashes.into_iter().map(detection))),
+            (
+                "impulses",
+                array(result.impulses.into_iter().map(detection)),
+            ),
+            (
+                "missing_video",
+                array(result.missing_video.into_iter().map(Into::into)),
+            ),
+            (
+                "missing_audio",
+                array(result.missing_audio.into_iter().map(Into::into)),
+            ),
+        ]))
+    }
+
     fn probe_resource(&self, root: &str, path: &str) -> Result<crate::runtime::MediaInfo> {
         if !matches!(root, "project" | "media" | "output") {
             return Err(Error::new("PermissionDenied", "Media root not granted"));

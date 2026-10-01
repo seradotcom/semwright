@@ -266,6 +266,12 @@ pub fn prepare(
 /// persistence. `prepare` is the normal pre-commit/dry-run entry point.
 pub fn apply(original: &Project, fingerprint: &str, operations: &[Operation]) -> Result<Project> {
     validate::project_valid(original)?;
+    if original.authoring.is_some() && !operations.is_empty() {
+        return Err(Error::new(
+            crate::ErrorCode::Conflict,
+            "Authoring source is sealed; edit Film through composition.plan instead of the derived projection",
+        ));
+    }
     if !security::digest(fingerprint)
         || operations.len() > MAX_TRANSACTION_OPERATIONS
         || serde_json::to_vec(operations)?.len() > MAX_PROJECT_BYTES

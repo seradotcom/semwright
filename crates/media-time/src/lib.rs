@@ -53,13 +53,18 @@ impl<'de> Deserialize<'de> for Rational {
         Ok(q)
     }
 }
-fn gcd(mut a: u128, mut b: u128) -> u128 {
-    while b != 0 {
+fn gcd(mut a: u128, mut b: u128) -> Result<u128> {
+    for _ in 0..256 {
+        if b == 0 {
+            return Ok(a);
+        }
         let r = a % b;
         a = b;
         b = r;
     }
-    a
+    Err(Error::Limit(
+        "rational gcd iteration budget exhausted".into(),
+    ))
 }
 impl Rational {
     pub const ZERO: Self = Self { num: 0, den: 1 };
@@ -68,12 +73,17 @@ impl Rational {
         Self::wide(i128::from(num), i128::from(den))
     }
     fn wide(mut n: i128, mut d: i128) -> Result<Self> {
-        ensure(d != 0, "zero rational denominator")?;
-        if d < 0 {
-            n = -n;
-            d = -d;
+        match d.cmp(&0) {
+            Ordering::Less => {
+                n = -n;
+                d = -d;
+            }
+            Ordering::Equal => {
+                return Err(Error::Invalid("zero rational denominator".into()));
+            }
+            Ordering::Greater => {}
         }
-        let g = gcd(n.unsigned_abs(), d as u128) as i128;
+        let g = gcd(n.unsigned_abs(), d as u128)? as i128;
         let num =
             i64::try_from(n / g).map_err(|_| Error::Limit("rational numerator overflow".into()))?;
         let den = i64::try_from(d / g)
@@ -82,7 +92,11 @@ impl Rational {
     }
     pub fn validate(self) -> Result<()> {
         ensure(
-            self.den > 0 && Self::new(self.num, self.den)? == self,
+            self.den > 0,
+            "rational must be reduced with positive denominator",
+        )?;
+        ensure(
+            gcd(self.num.unsigned_abs().into(), self.den as u128)? == 1,
             "rational must be reduced with positive denominator",
         )
     }
@@ -176,7 +190,7 @@ impl Rate {
             num > 0 && den > 0 && num <= 1_000_000 && den <= 100_000,
             "media rate bounds",
         )?;
-        let g = gcd(num.into(), den.into()) as u32;
+        let g = gcd(num.into(), den.into())? as u32;
         Ok(Self {
             num: num / g,
             den: den / g,
@@ -297,3 +311,6 @@ impl TimeMap {
         )
     }
 }
+
+pub mod artifact;
+pub use artifact::*;

@@ -30,7 +30,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: godot-${{ github.ref }}
+  group: godot-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 env:
   CARGO_INCREMENTAL: 0
@@ -39,6 +39,7 @@ env:
 
 jobs:
   conformance:
+    if: ${{ !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -78,6 +79,7 @@ jobs:
           retention-days: 14
 
   real-godot:
+    if: ${{ !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:

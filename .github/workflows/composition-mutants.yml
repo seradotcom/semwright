@@ -1,0 +1,275 @@
+name: Composition mutation testing
+
+on:
+  push:
+    branches: [feat/composition-media]
+    paths:
+      - 'crates/semantic-composition/**'
+      - 'crates/media-time/**'
+      - 'crates/motion-authoring/**'
+      - 'crates/av-composition/**'
+      - 'scripts/composition/ci-scope.py'
+      - '.github/workflows/composition-mutants.yml'
+  pull_request:
+    paths:
+      - 'crates/semantic-composition/**'
+      - 'crates/media-time/**'
+      - 'crates/motion-authoring/**'
+      - 'crates/av-composition/**'
+      - 'scripts/composition/ci-scope.py'
+      - '.github/workflows/composition-mutants.yml'
+  workflow_dispatch:
+    inputs:
+      certify_all:
+        description: 'Run all critical mutation lanes for exact candidate certification'
+        required: false
+        type: boolean
+        default: false
+      candidate_sha:
+        description: 'Exact candidate SHA; required when certify_all=true'
+        required: false
+        type: string
+      area:
+        description: 'Optional targeted iteration area'
+        required: false
+        type: choice
+        default: auto
+        options: [auto, kernel, media, motion, av]
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  scope:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    outputs:
+      mutant_ids: ${{ steps.scope.outputs.mutant_ids }}
+      mode: ${{ steps.scope.outputs.mode }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - id: scope
+        env:
+          CERTIFY_ALL: ${{ inputs.certify_all }}
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          AREA: ${{ inputs.area }}
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          if [ "$CERTIFY_ALL" != true ] && [ -n "$AREA" ] && [ "$AREA" != auto ]; then
+            echo 'mutant_ids=["'"$AREA"'"]' >> "$GITHUB_OUTPUT"
+            echo 'mode=iteration' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "$EVENT_NAME" = pull_request ] && [ "$HEAD_REF" = feat/composition-media ]; then
+            echo 'any=false' >> "$GITHUB_OUTPUT"
+            echo 'mutant_ids=[]' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          mode=iteration
+          if [ "$CERTIFY_ALL" = true ]; then mode=certify; fi
+          args=(--mode "$mode" --after "$GITHUB_SHA" --github-output "$GITHUB_OUTPUT")
+          if [ "$mode" = certify ]; then args+=(--candidate-sha "$CANDIDATE_SHA"); fi
+          python scripts/composition/ci-scope.py "${args[@]}"
+  mutants:
+    needs: scope
+    if: ${{ needs.scope.outputs.mutant_ids != '[]' }}
+    concurrency:
+      group: composition-mutants-${{ github.event_name }}-${{ matrix.id }}-${{ github.head_ref || github.ref_name }}
+      cancel-in-progress: true
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        id: ${{ fromJSON(needs.scope.outputs.mutant_ids) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: composition-mutants-${{ matrix.id }}-v2
+      - name: Configure selected mutation area
+        env:
+          ID: ${{ matrix.id }}
+        run: |
+          case "$ID" in
+            kernel)
+              echo 'PACKAGE=semwright-semantic-composition' >> "$GITHUB_ENV"
+              echo 'FILES=crates/semantic-composition/src/controller.rs crates/semantic-composition/src/vault.rs' >> "$GITHUB_ENV"
+              echo 'CRITICAL=Controller::applying;Controller::executed;Controller::observed;Controller::bind_repair;expired;PlanVault::matches;PlanVault::begin;PlanVault::finish;PlanVault::record_observation;PlanVault::revoke' >> "$GITHUB_ENV"
+              ;;
+            media)
+              echo 'PACKAGE=semwright-media-time' >> "$GITHUB_ENV"
+              echo 'FILES=crates/media-time/src/lib.rs crates/media-time/src/cue.rs' >> "$GITHUB_ENV"
+              echo 'CRITICAL=gcd;Rational::wide;Rational::validate;Rational::checked_add;Rational::checked_sub;Rational::checked_mul;Rational::checked_div;Rational::round;<impl Ord for Rational>::cmp;Rate::validate;Rate::quantize;CueGraph::resolve;TimeMap::validate' >> "$GITHUB_ENV"
+              ;;
+            motion)
+              echo 'PACKAGE=semwright-motion-authoring' >> "$GITHUB_ENV"
+              echo 'FILES=crates/motion-authoring/src/temporal.rs crates/motion-authoring/src/measurement.rs' >> "$GITHUB_ENV"
+              echo 'CRITICAL=TemporalGraph::solve;Known<T>::value;Bounds::validate;FrameObservation::validate;combine;rule_subject;rectangle;axis_aligned;measure' >> "$GITHUB_ENV"
+              ;;
+            av)
+              echo 'PACKAGE=semwright-av-composition' >> "$GITHUB_ENV"
+              echo 'FILES=crates/av-composition/src/sync.rs crates/av-composition/src/coordinator.rs crates/av-composition/src/executor.rs' >> "$GITHUB_ENV"
+              echo 'CRITICAL=AvCoordinator::budget;AvCoordinator::reserve;AvCoordinator::before_dispatch;AvCoordinator::complete;AvCoordinator::validate_state_delta;AvCoordinator::accept_result;AvCoordinator::ready;AvCoordinator::cancel_before_dispatch;AvCoordinator::lost_receipt;classify_reuse;SyncSpec::validate;verify_sync;broker_error' >> "$GITHUB_ENV"
+              ;;
+            *) echo "unexpected mutation area: $ID" >&2; exit 2 ;;
+          esac
+      - name: Select iteration mutation scope
+        env:
+          MODE: ${{ needs.scope.outputs.mode }}
+        run: |
+          if [ "$MODE" = certify ]; then
+            echo 'MUTATION_REGEX=' >> "$GITHUB_ENV"
+            exit 0
+          fi
+          regex=$(python3 - "$CRITICAL" <<'PY'
+          import re,sys
+          names=[value for value in sys.argv[1].split(';') if value]
+          if not names:
+              raise SystemExit('critical mutation symbol list is empty')
+          print('('+'|'.join(re.escape(value) for value in names)+')')
+          PY
+          )
+          printf 'MUTATION_REGEX=%s\n' "$regex" >> "$GITHUB_ENV"
+      - name: Install pinned cargo-mutants
+        run: cargo install --locked cargo-mutants --version 27.1.0
+      - name: Validate non-empty mutation selection
+        env:
+          ID: ${{ matrix.id }}
+        run: |
+          set -euo pipefail
+          mkdir -p "verification/composition-mutants/$ID"
+          args=()
+          for file in $FILES; do args+=(--file "$file"); done
+          if [ -n "$MUTATION_REGEX" ]; then args+=(--re "$MUTATION_REGEX"); fi
+          cargo mutants --no-config --package "$PACKAGE" "${args[@]}" --list --json             > "verification/composition-mutants/$ID/mutants.json"
+          python3 - "$ID" "$CRITICAL" <<'PY'
+          import json, sys
+          from pathlib import Path
+          target, critical_raw=sys.argv[1:3]
+          path=Path('verification/composition-mutants')/target/'mutants.json'
+          data=json.loads(path.read_text())
+          mutants=data if isinstance(data,list) else data.get('mutants',[])
+          if not mutants:
+              raise SystemExit('mutation selector produced zero mutants')
+          rendered=[json.dumps(item,sort_keys=True) for item in mutants]
+          critical=[value for value in critical_raw.split(';') if value]
+          missing=[name for name in critical if not any(name in item for item in rendered)]
+          if missing:
+              raise SystemExit('critical functions produced no selected mutants: '+', '.join(missing))
+          print(f'selected_mutants={len(mutants)} critical_functions={len(critical)}')
+          PY
+      - name: Run selected mutation survey
+        env:
+          ID: ${{ matrix.id }}
+        run: |
+          set -euo pipefail
+          args=()
+          for file in $FILES; do args+=(--file "$file"); done
+          if [ -n "$MUTATION_REGEX" ]; then args+=(--re "$MUTATION_REGEX"); fi
+          set +e
+          cargo mutants --no-config --package "$PACKAGE" "${args[@]}"             --output "verification/composition-mutants/$ID/out"             --timeout 90 --jobs 2 --colors=never --no-times
+          rc=$?
+          set -e
+          echo "$rc" > "verification/composition-mutants/$ID/survey-exit-code.txt"
+          test -f "verification/composition-mutants/$ID/out/mutants.out/outcomes.json"
+      - name: Summarize mutation evidence and enforce critical invariants
+        env:
+          ID: ${{ matrix.id }}
+          MODE: ${{ needs.scope.outputs.mode }}
+        run: |
+          python3 - "$ID" "$CRITICAL" <<'PY'
+          import collections, json, os, sys
+          from pathlib import Path
+          target, critical_raw=sys.argv[1:3]
+          critical=set(filter(None,critical_raw.split(';')))
+          root=Path('verification/composition-mutants')/target
+          data=json.loads((root/'out/mutants.out/outcomes.json').read_text())
+          rows=data.get('outcomes',[])
+          if not isinstance(rows,list) or not rows:
+              raise SystemExit('mutation outcomes contain no scenarios')
+          counts=collections.Counter(row.get('summary','unknown') for row in rows)
+          critical_rows=[]; critical_failures=[]; broad_survivors=[]
+          for row in rows:
+              scenario=row.get('scenario')
+              if not isinstance(scenario,dict) or 'Mutant' not in scenario:
+                  continue
+              mutant=scenario['Mutant']
+              function=(mutant.get('function') or {}).get('function_name','')
+              summary=row.get('summary')
+              record={'function':function,'summary':summary,'name':mutant.get('name',''),'file':mutant.get('file','')}
+              if function in critical:
+                  critical_rows.append(record)
+                  if summary in {'MissedMutant','Timeout'}:
+                      critical_failures.append(record)
+              elif summary in {'MissedMutant','Timeout'}:
+                  broad_survivors.append(record)
+          missing=sorted(critical-{row['function'] for row in critical_rows})
+          if missing:
+              raise SystemExit(f'critical mutation selectors produced no mutants for: {missing}')
+          if not critical_rows:
+              raise SystemExit('critical mutation gate selected zero mutants')
+          summary={
+              'schema_version':1,
+              'tested_sha':os.environ['GITHUB_SHA'],
+              'run_id':os.environ['GITHUB_RUN_ID'],
+              'run_attempt':os.environ['GITHUB_RUN_ATTEMPT'],
+              'target':target,
+              'claim_scope':(
+                  'full area survey plus blocking critical-function gate'
+                  if os.environ['MODE']=='certify'
+                  else 'critical-function targeted iteration'
+              ),
+              'survey_exit_code':int((root/'survey-exit-code.txt').read_text().strip()),
+              'totals':dict(counts),
+              'critical_functions':sorted(critical),
+              'critical_mutants':len(critical_rows),
+              'critical_failures':critical_failures,
+              'broad_noncritical_survivors':broad_survivors,
+          }
+          (root/'summary.json').write_text(json.dumps(summary,indent=2)+'\n')
+          for survivor in broad_survivors[:100]:
+              print(f"::warning::{target} noncritical mutation survivor: {survivor['name']}")
+          if critical_failures:
+              for failure in critical_failures:
+                  print(f"::error::{target} critical mutation survivor: {failure['name']}")
+              raise SystemExit(f'{target}: {len(critical_failures)} critical mutation survivors/timeouts')
+          print(f'{target}: critical_mutants={len(critical_rows)} broad_survivors={len(broad_survivors)}')
+          PY
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: composition-mutants-${{ matrix.id }}-${{ github.sha }}
+          path: verification/composition-mutants/${{ matrix.id }}
+          retention-days: 7
+          if-no-files-found: error
+  mutants-gate:
+    if: always()
+    needs: [scope, mutants]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Selected mutation areas must pass
+        env:
+          SELECTED: ${{ needs.scope.outputs.mutant_ids }}
+          RESULT: ${{ needs.mutants.result }}
+        run: |
+          if [ "$SELECTED" = '[]' ]; then
+            test "$RESULT" = skipped
+          else
+            test "$RESULT" = success
+          fi

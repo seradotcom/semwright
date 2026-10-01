@@ -10,7 +10,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: plasma-live-${{ github.ref }}
+  group: plasma-live-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 env:
   CARGO_INCREMENTAL: 0
@@ -20,6 +20,7 @@ env:
 
 jobs:
   plasma-wayland:
+    if: ${{ !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:

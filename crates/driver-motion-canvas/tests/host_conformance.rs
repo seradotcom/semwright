@@ -142,11 +142,21 @@ async fn motion_driver_runs_through_real_driver_host_without_network() {
         .await
         .unwrap();
     let caps = Provider::capabilities(provider.as_ref()).await.unwrap();
-    assert_eq!(caps.len(), 25);
     assert!(
         caps.iter()
             .all(|c| c.descriptor.name.starts_with("driver.motion-canvas."))
     );
+    for required in [
+        "driver.motion-canvas.composition.plan",
+        "driver.motion-canvas.composition.apply",
+        "driver.motion-canvas.composition.verify",
+        "driver.motion-canvas.render.execute",
+    ] {
+        assert!(
+            caps.iter().any(|c| c.descriptor.name == required),
+            "missing {required}"
+        );
+    }
     let inspected = call(
         provider.as_ref(),
         &caps,

@@ -25,13 +25,37 @@ use tokio_util::sync::CancellationToken;
 
 const MAX_PROCESS_OUTPUT: u64 = 262_144;
 const MAX_JOBS: usize = 64;
-const NODE_RENDER_FLAGS: [&str; 2] = ["--disable-wasm-trap-handler", "--max-old-space-size=256"];
+// High-level authoring adds the fixed semantic runtime to Vite's module graph.
+// Keep V8 bounded well below the Driver Host's 4 GiB RLIMIT_AS while allowing
+// that closed first-party graph to build without the legacy 256 MiB heap cap.
+const NODE_RENDER_FLAGS: [&str; 2] = ["--disable-wasm-trap-handler", "--max-old-space-size=512"];
+
+fn runtime_relative_path(path: &str) -> Result<()> {
+    if path.is_empty()
+        || path.len() > 512
+        || path.split('/').count() > 12
+        || path.contains(['\\', ':', '%', '\0'])
+        || !path
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"/_-.@".contains(&byte))
+        || path
+            .split('/')
+            .any(|part| part.is_empty() || part == "." || part == ".." || part.len() > 128)
+    {
+        return Err(Error::invalid(
+            "Runtime path must be bounded, relative and free of traversal or URLs",
+        ));
+    }
+    Ok(())
+}
 
 #[derive(Debug, Clone)]
 pub struct RendererRuntime {
     pub node: PathBuf,
     pub helper: PathBuf,
     pub browser: PathBuf,
+    pub dependency_lock_sha256: String,
+    pub font_resources_sha256: String,
 }
 
 impl RendererRuntime {
@@ -60,6 +84,8 @@ impl RendererRuntime {
             node: Tool,
             helper: Tool,
             browser: Tool,
+            dependency_lock: Tool,
+            font_resources: Vec<Tool>,
         }
         let config: Config = serde_json::from_slice(&bytes)?;
         let canonical_root = fs::canonicalize(root)?;
@@ -70,7 +96,7 @@ impl RendererRuntime {
             ));
         }
         let resolve = |tool: &Tool| -> Result<PathBuf> {
-            security::relative_path(&tool.path)?;
+            runtime_relative_path(&tool.path)?;
             if !security::digest(&tool.sha256) {
                 return Err(Error::invalid("Runtime tool digest is malformed"));
             }
@@ -108,10 +134,65 @@ impl RendererRuntime {
             }
             Ok(canonical)
         };
+        if config.dependency_lock.path != "package-lock.json" {
+            return Err(Error::invalid(
+                "Motion Canvas runtime dependency lock must be package-lock.json",
+            ));
+        }
+        let dependency_lock = resolve(&config.dependency_lock)?;
+        if fs::metadata(&dependency_lock)?.len() > 4 * 1024 * 1024 {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Motion Canvas dependency lock exceeds 4 MiB",
+            ));
+        }
+        if config.font_resources.is_empty() || config.font_resources.len() > 128 {
+            return Err(Error::invalid(
+                "Motion Canvas runtime must pin a bounded font resource set",
+            ));
+        }
+        let mut font_resources = BTreeMap::new();
+        for resource in &config.font_resources {
+            let allowed = resource.path
+                == "node_modules/@fontsource-variable/instrument-sans/index.css"
+                || resource.path == "node_modules/@fontsource/ibm-plex-mono/400.css"
+                || resource
+                    .path
+                    .starts_with("node_modules/@fontsource-variable/instrument-sans/files/")
+                || resource
+                    .path
+                    .starts_with("node_modules/@fontsource/ibm-plex-mono/files/");
+            if !allowed
+                || !(resource.path.ends_with(".css") || resource.path.ends_with(".woff2"))
+                || font_resources
+                    .insert(resource.path.clone(), resource.sha256.clone())
+                    .is_some()
+            {
+                return Err(Error::invalid(
+                    "Unexpected or duplicate pinned font resource",
+                ));
+            }
+            let path = resolve(resource)?;
+            if fs::metadata(path)?.len() > 16 * 1024 * 1024 {
+                return Err(Error::new(
+                    ErrorCode::ResourceExhausted,
+                    "Pinned font resource exceeds 16 MiB",
+                ));
+            }
+        }
+        let mut font_hasher = Sha256::new();
+        for (path, digest) in &font_resources {
+            font_hasher.update(path.as_bytes());
+            font_hasher.update([0]);
+            font_hasher.update(digest.as_bytes());
+            font_hasher.update([0]);
+        }
         Ok(Self {
             node: resolve(&config.node)?,
             helper: resolve(&config.helper)?,
             browser: resolve(&config.browser)?,
+            dependency_lock_sha256: config.dependency_lock.sha256,
+            font_resources_sha256: format!("{:x}", font_hasher.finalize()),
         })
     }
 }
@@ -127,6 +208,120 @@ pub enum RenderState {
     Cancelled,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum RenderFailureClass {
+    Arguments,
+    FontEvidence,
+    ProjectStage,
+    ViteBuild,
+    FrameExport,
+    BrowserLaunch,
+    PageLoad,
+    RenderWait,
+    RenderWaitTimeout,
+    RendererStateFrameClock,
+    RendererStateAuthoringProtocol,
+    RendererLogAuthoringProtocol,
+    RendererStatePlaybackProtocol,
+    RendererLogPlaybackProtocol,
+    RendererLogExporterMissing,
+    RendererLogAsyncProperty,
+    RendererStateWebglUnavailable,
+    RendererLogWebglUnavailable,
+    RendererStateModelInvariant,
+    RendererLogModelInvariant,
+    RendererStateAuthoringModel,
+    RendererLogAuthoringModel,
+    RendererStateInvalidScene,
+    RendererLogInvalidScene,
+    RendererStateRangeError,
+    RendererLogRangeError,
+    RendererStateTypeError,
+    RendererLogTypeError,
+    RendererStateSemwrightNative,
+    RendererStateSemwrightExporter,
+    RendererStateMotionCore,
+    #[serde(rename = "renderer_state_motion_2d")]
+    RendererStateMotion2d,
+    RendererStateBeforeFirstFrame,
+    RendererStateAfterFirstFrame,
+    RendererStateError,
+    RendererLogError,
+    RenderResultAborted,
+    RenderResultError,
+    RenderResultUnknown,
+    RenderNonzero,
+    RuntimeModuleLoad,
+    RuntimeSyntax,
+    RuntimePermission,
+    RuntimeOom,
+    RuntimeKilled,
+    RuntimeCpuLimit,
+    RuntimeFileSizeLimit,
+    RuntimeSignal,
+    Observation,
+    Finalize,
+    Startup,
+}
+
+impl RenderFailureClass {
+    fn code(self) -> ErrorCode {
+        match self {
+            Self::ViteBuild
+            | Self::RendererStateTypeError
+            | Self::RendererLogTypeError
+            | Self::RuntimeModuleLoad
+            | Self::RuntimeSyntax => ErrorCode::PluginProtocolError,
+            Self::FontEvidence
+            | Self::FrameExport
+            | Self::Observation
+            | Self::Finalize
+            | Self::RendererStateFrameClock
+            | Self::RendererStateAuthoringProtocol
+            | Self::RendererLogAuthoringProtocol
+            | Self::RendererStatePlaybackProtocol
+            | Self::RendererLogPlaybackProtocol
+            | Self::RendererLogExporterMissing
+            | Self::RendererLogAsyncProperty
+            | Self::RendererStateSemwrightExporter
+            | Self::RendererStateBeforeFirstFrame
+            | Self::RenderResultUnknown
+            | Self::RenderNonzero => ErrorCode::ProtocolMismatch,
+            Self::RuntimePermission => ErrorCode::SandboxDenied,
+            Self::RuntimeOom
+            | Self::RuntimeKilled
+            | Self::RuntimeCpuLimit
+            | Self::RuntimeFileSizeLimit => ErrorCode::ResourceExhausted,
+            Self::BrowserLaunch
+            | Self::PageLoad
+            | Self::ProjectStage
+            | Self::RendererStateWebglUnavailable
+            | Self::RendererLogWebglUnavailable => ErrorCode::Unavailable,
+            Self::Arguments
+            | Self::RendererStateModelInvariant
+            | Self::RendererLogModelInvariant
+            | Self::RendererStateAuthoringModel
+            | Self::RendererLogAuthoringModel
+            | Self::RendererStateInvalidScene
+            | Self::RendererLogInvalidScene
+            | Self::RendererStateRangeError
+            | Self::RendererLogRangeError
+            | Self::RendererStateSemwrightNative => ErrorCode::InvalidArgument,
+            Self::RenderWait | Self::RenderWaitTimeout => ErrorCode::Timeout,
+            Self::RenderResultAborted => ErrorCode::Cancelled,
+            Self::RendererStateMotion2d
+            | Self::RendererStateAfterFirstFrame
+            | Self::RenderResultError
+            | Self::Startup => ErrorCode::BackendFailed,
+            Self::RendererStateMotionCore
+            | Self::RendererStateError
+            | Self::RendererLogError
+            | Self::RuntimeSignal => ErrorCode::Internal,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct ArtifactSummary {
@@ -136,6 +331,7 @@ pub struct ArtifactSummary {
     pub first_png: String,
     pub last_png: String,
     pub manifest_sha256: String,
+    pub manifest_bytes: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
@@ -143,12 +339,16 @@ pub struct ArtifactSummary {
 pub struct JobView {
     pub job_ref: String,
     pub state: RenderState,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failure_class: Option<RenderFailureClass>,
     pub error: Option<String>,
     pub artifact: Option<ArtifactSummary>,
 }
 
 struct Job {
+    source_sha256: String,
     view: JobView,
+    failure_code: Option<ErrorCode>,
     cancel: CancellationToken,
 }
 
@@ -229,6 +429,7 @@ impl RenderManager {
         let view = JobView {
             job_ref: job_ref.clone(),
             state: RenderState::Queued,
+            failure_class: None,
             error: None,
             artifact: None,
         };
@@ -236,7 +437,9 @@ impl RenderManager {
         guard.insert(
             job_ref.clone(),
             Job {
+                source_sha256: snapshot.source_sha256.clone(),
                 view: view.clone(),
+                failure_code: None,
                 cancel: cancel.clone(),
             },
         );
@@ -274,11 +477,23 @@ impl RenderManager {
                     }
                     Err(error) if error.code == ErrorCode::Cancelled => {
                         job.view.state = RenderState::Cancelled;
-                        job.view.error = Some(error.message);
+                        job.failure_code = Some(error.code);
+                        job.view.error = Some("Motion Canvas render cancelled".into());
                     }
                     Err(error) => {
                         job.view.state = RenderState::Failed;
-                        job.view.error = Some(error.message);
+                        job.failure_code = Some(error.code);
+                        const DETAIL_PREFIX: &str = "Pinned Motion Canvas renderer exited without a validated success receipt; detail=";
+                        job.view.error = Some(
+                            error
+                                .message
+                                .strip_prefix(DETAIL_PREFIX)
+                                .filter(|detail| safe_renderer_detail(detail))
+                                .map_or_else(
+                                    || "Motion Canvas render failed".to_owned(),
+                                    |detail| format!("Motion Canvas render failed ({detail})"),
+                                ),
+                        );
                     }
                 }
             }
@@ -293,6 +508,15 @@ impl RenderManager {
             .get(job_ref)
             .map(|job| job.view.clone())
             .ok_or_else(|| Error::new(ErrorCode::NotFound, "Unknown render job"))
+    }
+
+    #[cfg(test)]
+    pub(crate) async fn failure_code(&self, job_ref: &str) -> Option<ErrorCode> {
+        self.jobs
+            .lock()
+            .await
+            .get(job_ref)
+            .and_then(|job| job.failure_code)
     }
 
     pub async fn cancel(&self, job_ref: &str) -> Result<JobView> {
@@ -328,6 +552,149 @@ async fn set_state(jobs: &Arc<Mutex<BTreeMap<String, Job>>>, key: &str, state: R
     }
 }
 
+async fn set_failure_class(
+    jobs: &Arc<Mutex<BTreeMap<String, Job>>>,
+    key: &str,
+    failure_class: RenderFailureClass,
+) {
+    if let Some(job) = jobs.lock().await.get_mut(key) {
+        job.view.failure_class = Some(failure_class);
+    }
+}
+
+fn renderer_failure_class(stdout: &[u8]) -> Option<RenderFailureClass> {
+    let text = std::str::from_utf8(stdout).ok()?;
+    let line = text.lines().rev().find(|line| line.starts_with('{'))?;
+    let value = serde_json::from_str::<serde_json::Value>(line).ok()?;
+    if value.get("ok") != Some(&serde_json::Value::Bool(false)) {
+        return None;
+    }
+    serde_json::from_value(value.get("errorClass")?.clone()).ok()
+}
+
+fn safe_renderer_detail(detail: &str) -> bool {
+    if matches!(detail, "not_iterable" | "null_object" | "other") {
+        return true;
+    }
+    ["read:", "set:", "not_function:"].iter().any(|prefix| {
+        detail.strip_prefix(prefix).is_some_and(|name| {
+            !name.is_empty()
+                && name.len() <= 64
+                && name.bytes().enumerate().all(|(index, byte)| {
+                    byte == b'_'
+                        || byte == b'$'
+                        || byte.is_ascii_alphanumeric() && (index > 0 || !byte.is_ascii_digit())
+                })
+        })
+    })
+}
+
+fn renderer_failure_detail(stdout: &[u8]) -> Option<String> {
+    let text = std::str::from_utf8(stdout).ok()?;
+    let line = text.lines().rev().find(|line| line.starts_with('{'))?;
+    let value = serde_json::from_str::<serde_json::Value>(line).ok()?;
+    if value.get("ok") != Some(&serde_json::Value::Bool(false)) {
+        return None;
+    }
+    let detail = value.get("detail")?.as_str()?;
+    safe_renderer_detail(detail).then(|| detail.to_owned())
+}
+
+fn renderer_failure_code(stdout: &[u8]) -> ErrorCode {
+    renderer_failure_class(stdout)
+        .map(RenderFailureClass::code)
+        .unwrap_or(ErrorCode::BackendFailed)
+}
+
+fn renderer_stderr_failure_class(stderr: &[u8]) -> Option<RenderFailureClass> {
+    let text = std::str::from_utf8(stderr).ok()?;
+    if text.contains("ERR_MODULE_NOT_FOUND")
+        || text.contains("MODULE_NOT_FOUND")
+        || text.contains("Cannot find package")
+        || text.contains("Cannot find module")
+        || text.contains("error while loading shared libraries")
+    {
+        return Some(RenderFailureClass::RuntimeModuleLoad);
+    }
+    if text.contains("SyntaxError") {
+        return Some(RenderFailureClass::RuntimeSyntax);
+    }
+    if text.contains("EACCES")
+        || text.contains("EPERM")
+        || text.contains("Permission denied")
+        || text.contains("Operation not permitted")
+    {
+        return Some(RenderFailureClass::RuntimePermission);
+    }
+    let lower = text.to_ascii_lowercase();
+    if lower.contains("heap out of memory")
+        || lower.contains("fatal process out of memory")
+        || lower.contains("allocation failed")
+    {
+        return Some(RenderFailureClass::RuntimeOom);
+    }
+    None
+}
+
+fn renderer_status_failure_class(status: &std::process::ExitStatus) -> Option<RenderFailureClass> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::ExitStatusExt;
+        if let Some(signal) = status.signal() {
+            return Some(match signal {
+                libc::SIGKILL => RenderFailureClass::RuntimeKilled,
+                libc::SIGXCPU => RenderFailureClass::RuntimeCpuLimit,
+                libc::SIGXFSZ => RenderFailureClass::RuntimeFileSizeLimit,
+                _ => RenderFailureClass::RuntimeSignal,
+            });
+        }
+    }
+    match status.code() {
+        Some(137) => Some(RenderFailureClass::RuntimeKilled),
+        Some(152) => Some(RenderFailureClass::RuntimeCpuLimit),
+        Some(153) => Some(RenderFailureClass::RuntimeFileSizeLimit),
+        Some(134 | 135 | 136 | 139) => Some(RenderFailureClass::RuntimeSignal),
+        _ => None,
+    }
+}
+
+fn renderer_process_failure_code(status: &std::process::ExitStatus, stdout: &[u8]) -> ErrorCode {
+    let receipt = renderer_failure_code(stdout);
+    if receipt != ErrorCode::BackendFailed {
+        return receipt;
+    }
+    // A valid structured receipt may intentionally classify a controlled
+    // renderer failure as BackendFailed. Detect receipt presence before
+    // falling back to OS exit status.
+    let structured = std::str::from_utf8(stdout)
+        .ok()
+        .and_then(|text| text.lines().rev().find(|line| line.starts_with('{')))
+        .and_then(|line| serde_json::from_str::<serde_json::Value>(line).ok())
+        .is_some_and(|value| value.get("ok") == Some(&serde_json::Value::Bool(false)));
+    if structured {
+        return ErrorCode::BackendFailed;
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::ExitStatusExt;
+        if let Some(signal) = status.signal() {
+            return match signal {
+                libc::SIGKILL | libc::SIGXCPU | libc::SIGXFSZ => ErrorCode::ResourceExhausted,
+                libc::SIGINT | libc::SIGTERM => ErrorCode::Cancelled,
+                libc::SIGABRT | libc::SIGBUS | libc::SIGILL | libc::SIGSEGV => ErrorCode::Internal,
+                _ => ErrorCode::Unavailable,
+            };
+        }
+    }
+    match status.code() {
+        Some(137 | 152 | 153) => ErrorCode::ResourceExhausted,
+        Some(130 | 143) => ErrorCode::Cancelled,
+        Some(1 | 2) => ErrorCode::PluginProtocolError,
+        Some(_) => ErrorCode::Internal,
+        None => ErrorCode::Unavailable,
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 async fn run_render(
     runtime: &RendererRuntime,
@@ -341,6 +708,8 @@ async fn run_render(
     job_ref: &str,
 ) -> Result<ArtifactSummary> {
     set_state(jobs, job_ref, RenderState::Starting).await;
+    let mut failure_class = RenderFailureClass::Startup;
+    let result: Result<ArtifactSummary> = async {
     if std::env::var("SEMWRIGHT_DRIVER_SANDBOX").as_deref() != Ok("landlock-bwrap-v1") {
         return Err(Error::new(
             ErrorCode::SandboxDenied,
@@ -353,14 +722,29 @@ async fn run_render(
             "Render cancelled before start",
         ));
     }
+    failure_class = RenderFailureClass::ProjectStage;
     fs::create_dir_all(output_root)?;
     let output = output_root.join(id);
     fs::create_dir(&output)?;
+    let render_input_digest = semwright_semantic_composition::canonical_digest(&(
+        project,
+        plan,
+        crate::authoring::COMPILER_EXTENSION_VERSION,
+        security::sha256(&fs::read(&runtime.helper)?),
+        &runtime.dependency_lock_sha256,
+        &runtime.font_resources_sha256,
+    ))
+    .map_err(|e| Error::invalid(e.to_string()))?;
     let config = json!({
+        "authoring": project.authoring.is_some(),
+        "renderInputDigest":render_input_digest.as_str(),
+        "fontResourcesDigest":runtime.font_resources_sha256,
         "name": "frames",
         "width": plan.width,
         "height": plan.height,
-        "fps": plan.fps,
+        "fps": f64::from(plan.fps) / f64::from(plan.fps_denominator),
+        "fpsNum": plan.fps,
+        "fpsDen": plan.fps_denominator,
         "firstFrame": plan.first_frame,
         "endFrameExclusive": plan.end_frame_exclusive,
         "colorSpace": match plan.color_space { ColorSpace::Srgb => "srgb", ColorSpace::DisplayP3 => "display-p3" },
@@ -368,6 +752,7 @@ async fn run_render(
         "alpha": plan.alpha,
         "timeoutMs": plan.timeout_ms,
     });
+    failure_class = RenderFailureClass::Arguments;
     let encoded = URL_SAFE_NO_PAD.encode(serde_json::to_vec(&config)?);
 
     // The narrow Node helper owns the pinned Firefox process. Both inherit the
@@ -407,12 +792,13 @@ async fn run_render(
         use std::os::unix::process::CommandExt;
         command.as_std_mut().process_group(0);
     }
+    failure_class = RenderFailureClass::Startup;
     let mut child = match command.spawn() {
         Ok(child) => child,
         Err(error) => {
             let _ = fs::remove_dir_all(&output);
             return Err(Error::new(
-                ErrorCode::BackendFailed,
+                ErrorCode::Unavailable,
                 format!("Failed to start pinned renderer helper: {error}"),
             ));
         }
@@ -456,15 +842,18 @@ async fn run_render(
             .await
             .map(|_| bytes)
     });
+    failure_class = RenderFailureClass::RenderWait;
     set_state(jobs, job_ref, RenderState::Rendering).await;
     let status = tokio::select! {
         status = child.wait() => status?,
         _ = cancel.cancelled() => {
+            failure_class = RenderFailureClass::RenderResultAborted;
             terminate_tree(pid, &mut child).await;
             let _ = fs::remove_dir_all(&output);
             return Err(Error::new(ErrorCode::Cancelled, "Render cancelled"));
         }
         _ = tokio::time::sleep(Duration::from_millis(plan.timeout_ms)) => {
+            failure_class = RenderFailureClass::RenderWaitTimeout;
             terminate_tree(pid, &mut child).await;
             let _ = fs::remove_dir_all(&output);
             return Err(Error::new(ErrorCode::Timeout, "Render exceeded timeout"));
@@ -472,11 +861,12 @@ async fn run_render(
     };
     let stdout = out_task
         .await
-        .map_err(|_| Error::new(ErrorCode::BackendFailed, "Renderer stdout task failed"))??;
+        .map_err(|_| Error::new(ErrorCode::Internal, "Renderer stdout task failed"))??;
     let stderr = err_task
         .await
-        .map_err(|_| Error::new(ErrorCode::BackendFailed, "Renderer stderr task failed"))??;
+        .map_err(|_| Error::new(ErrorCode::Internal, "Renderer stderr task failed"))??;
     if stdout.len() > MAX_PROCESS_OUTPUT as usize || stderr.len() > MAX_PROCESS_OUTPUT as usize {
+        failure_class = RenderFailureClass::RenderNonzero;
         let _ = fs::remove_dir_all(&output);
         return Err(Error::new(
             ErrorCode::ResourceExhausted,
@@ -484,19 +874,31 @@ async fn run_render(
         ));
     }
     if !status.success() {
-        let message = String::from_utf8_lossy(&stderr);
         let _ = fs::remove_dir_all(&output);
-        return Err(Error::new(
-            ErrorCode::BackendFailed,
-            format!(
-                "Motion Canvas renderer failed: {}",
-                message.chars().take(16_384).collect::<String>()
-            ),
-        ));
+        let receipt_class = renderer_failure_class(&stdout);
+        let process_class = renderer_stderr_failure_class(&stderr)
+            .or_else(|| renderer_status_failure_class(&status));
+        failure_class = receipt_class
+            .or(process_class)
+            .unwrap_or(RenderFailureClass::RenderNonzero);
+        let code = receipt_class
+            .or(process_class)
+            .map(RenderFailureClass::code)
+            .unwrap_or_else(|| renderer_process_failure_code(&status, &stdout));
+        let message = renderer_failure_detail(&stdout).map_or_else(
+            || "Pinned Motion Canvas renderer exited without a validated success receipt".to_owned(),
+            |detail| {
+                format!(
+                    "Pinned Motion Canvas renderer exited without a validated success receipt; detail={detail}"
+                )
+            },
+        );
+        return Err(Error::new(code, message));
     }
+    failure_class = RenderFailureClass::RenderResultUnknown;
     let stdout = String::from_utf8(stdout).map_err(|_| {
         Error::new(
-            ErrorCode::BackendFailed,
+            ErrorCode::PluginProtocolError,
             "Renderer returned non-UTF8 output",
         )
     })?;
@@ -506,35 +908,47 @@ async fn run_render(
         .find(|line| line.starts_with('{'))
         .ok_or_else(|| {
             Error::new(
-                ErrorCode::BackendFailed,
+                ErrorCode::PluginProtocolError,
                 "Renderer returned no structured result",
             )
         })?;
     let value: serde_json::Value = serde_json::from_str(result_line).map_err(|_| {
         Error::new(
-            ErrorCode::BackendFailed,
+            ErrorCode::PluginProtocolError,
             "Renderer returned malformed result",
         )
     })?;
     if value.get("ok") != Some(&serde_json::Value::Bool(true)) {
         let _ = fs::remove_dir_all(&output);
         return Err(Error::new(
-            ErrorCode::BackendFailed,
+            ErrorCode::PluginProtocolError,
             "Renderer did not report success",
         ));
     }
     // Full-film validation decodes and hashes every rendered PNG. Keep that bounded
     // synchronous work off the current-thread protocol runtime so render.status and
     // cancellation requests remain responsive while large artifacts are certified.
+    failure_class = if project.authoring.is_some() {
+        RenderFailureClass::Observation
+    } else {
+        RenderFailureClass::Finalize
+    };
     let validation_output = output.clone();
     let validation_plan = plan.clone();
+    let validation_authoring = project.authoring.is_some();
+    let validation_input_digest = render_input_digest.as_str().to_owned();
     let validation = tokio::task::spawn_blocking(move || {
-        validate_artifacts(&validation_output, &validation_plan)
+        validate_artifacts(
+            &validation_output,
+            &validation_plan,
+            validation_authoring,
+            &validation_input_digest,
+        )
     })
     .await
     .map_err(|_| {
         Error::new(
-            ErrorCode::BackendFailed,
+            ErrorCode::Internal,
             "Render artifact validation worker failed",
         )
     })?;
@@ -542,9 +956,19 @@ async fn run_render(
         Ok(artifact) => Ok(artifact),
         Err(error) => {
             let _ = fs::remove_dir_all(&output);
-            Err(error)
+            if error.code == ErrorCode::BackendFailed {
+                Err(Error::new(ErrorCode::ProtocolMismatch, error.message))
+            } else {
+                Err(error)
+            }
         }
     }
+    }
+    .await;
+    if result.is_err() {
+        set_failure_class(jobs, job_ref, failure_class).await;
+    }
+    result
 }
 
 #[cfg(unix)]
@@ -571,7 +995,12 @@ async fn terminate_tree(_pid: Option<u32>, child: &mut tokio::process::Child) {
     let _ = child.wait().await;
 }
 
-fn validate_artifacts(output: &Path, plan: &RenderPlan) -> Result<ArtifactSummary> {
+fn validate_artifacts(
+    output: &Path,
+    plan: &RenderPlan,
+    authoring: bool,
+    render_input_digest: &str,
+) -> Result<ArtifactSummary> {
     let frames = output.join("frames");
     let meta = fs::symlink_metadata(&frames)?;
     if !meta.is_dir() || meta.file_type().is_symlink() {
@@ -660,7 +1089,39 @@ fn validate_artifacts(output: &Path, plan: &RenderPlan) -> Result<ArtifactSummar
             "Transparent render produced no transparent pixels",
         ));
     }
+    let native_observations = if authoring {
+        let receipt_bytes =
+            crate::store::read_granted_file(output, "native-observations-receipt.json", 4096)?;
+        let receipt: serde_json::Value = serde_json::from_slice(&receipt_bytes)?;
+        let data = crate::store::read_granted_file(
+            output,
+            "native-observations.ndjson",
+            64 * 1024 * 1024,
+        )?;
+        if receipt
+            .get("render_input_digest")
+            .and_then(serde_json::Value::as_str)
+            != Some(render_input_digest)
+            || receipt.get("sha256").and_then(serde_json::Value::as_str)
+                != Some(security::sha256(&data).as_str())
+            || receipt.get("bytes").and_then(serde_json::Value::as_u64) != Some(data.len() as u64)
+            || receipt.get("frames").and_then(serde_json::Value::as_u64) != Some(plan.frame_count)
+            || !receipt
+                .get("font_resources_sha256")
+                .and_then(serde_json::Value::as_str)
+                .is_some_and(security::digest)
+        {
+            return Err(Error::new(
+                ErrorCode::BackendFailed,
+                "native observation receipt mismatch",
+            ));
+        }
+        Some(receipt)
+    } else {
+        None
+    };
     let manifest_bytes = serde_json::to_vec_pretty(&json!({
+        "native_observations":native_observations,
         "renderer": "motion-canvas-core-renderer-v3.17.2",
         "plan": plan,
         "pixel_validation": {
@@ -692,5 +1153,409 @@ fn validate_artifacts(output: &Path, plan: &RenderPlan) -> Result<ArtifactSummar
         first_png: format!("{directory}/frames/{first}"),
         last_png: format!("{directory}/frames/{last}"),
         manifest_sha256: security::sha256(&manifest_bytes),
+        manifest_bytes: u64::try_from(manifest_bytes.len()).map_err(|_| {
+            Error::new(ErrorCode::ResourceExhausted, "manifest byte count overflow")
+        })?,
     })
+}
+
+/// Returned only for a completed, source-bound job. Paths never originate in capability args.
+pub struct NativeObservationBundle {
+    pub bytes: Vec<u8>,
+    pub observation_sha256: String,
+    pub render_input_digest: String,
+    pub font_resources_sha256: String,
+    pub artifact_sha256: String,
+    pub plan: RenderPlan,
+}
+impl RenderManager {
+    pub async fn native_observations(
+        &self,
+        job_ref: &str,
+        expected_source: &str,
+    ) -> Result<NativeObservationBundle> {
+        let guard = self.jobs.lock().await;
+        let job = guard
+            .get(job_ref)
+            .ok_or_else(|| Error::new(ErrorCode::NotFound, "render job not found"))?;
+        if job.source_sha256 != expected_source || job.view.state != RenderState::Succeeded {
+            return Err(Error::new(
+                ErrorCode::StaleReference,
+                "render is not completed for the current project source",
+            ));
+        }
+        let artifact = job
+            .view
+            .artifact
+            .clone()
+            .ok_or_else(|| Error::new(ErrorCode::BackendFailed, "render artifact absent"))?;
+        drop(guard);
+        let bytes = crate::store::read_granted_file(
+            &self.output_root,
+            &artifact.manifest,
+            8 * 1024 * 1024,
+        )?;
+        if security::sha256(&bytes) != artifact.manifest_sha256 {
+            return Err(Error::new(
+                ErrorCode::BackendFailed,
+                "render manifest changed",
+            ));
+        }
+        let manifest: serde_json::Value = serde_json::from_slice(&bytes)?;
+        let receipt = manifest
+            .get("native_observations")
+            .ok_or_else(|| Error::invalid("not an instrumented authoring render"))?;
+        let observation_sha256 = receipt
+            .get("sha256")
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| Error::invalid("native observation digest absent"))?
+            .to_owned();
+        let render_input_digest = receipt
+            .get("render_input_digest")
+            .and_then(serde_json::Value::as_str)
+            .ok_or_else(|| Error::invalid("native render input binding absent"))?
+            .to_owned();
+        let font_resources_sha256 = receipt
+            .get("font_resources_sha256")
+            .and_then(serde_json::Value::as_str)
+            .filter(|value| security::digest(value))
+            .ok_or_else(|| Error::invalid("native font evidence binding absent"))?
+            .to_owned();
+        let bytes = crate::store::read_granted_file(
+            &self.output_root,
+            &format!("{}/native-observations.ndjson", artifact.directory),
+            64 * 1024 * 1024,
+        )?;
+        if security::sha256(&bytes) != observation_sha256 {
+            return Err(Error::new(
+                ErrorCode::BackendFailed,
+                "native observation stream changed",
+            ));
+        }
+        let plan = serde_json::from_value(
+            manifest
+                .get("plan")
+                .cloned()
+                .ok_or_else(|| Error::invalid("render plan missing"))?,
+        )?;
+        Ok(NativeObservationBundle {
+            bytes,
+            observation_sha256,
+            render_input_digest,
+            font_resources_sha256,
+            artifact_sha256: artifact.manifest_sha256,
+            plan,
+        })
+    }
+}
+
+#[cfg(test)]
+mod runtime_path_tests {
+    use super::*;
+
+    #[test]
+    fn production_node_heap_remains_bounded_but_supports_authoring_bundle() {
+        assert_eq!(
+            NODE_RENDER_FLAGS,
+            ["--disable-wasm-trap-handler", "--max-old-space-size=512"]
+        );
+        let heap_mib = NODE_RENDER_FLAGS[1]
+            .strip_prefix("--max-old-space-size=")
+            .unwrap()
+            .parse::<u64>()
+            .unwrap();
+        assert!((256..=512).contains(&heap_mib));
+        assert!(
+            heap_mib * 1024 * 1024 < 4_294_967_296,
+            "V8 heap ceiling must remain strictly below Driver Host RLIMIT_AS"
+        );
+    }
+
+    #[test]
+    fn pinned_runtime_paths_allow_npm_scopes_but_not_traversal_or_urls() {
+        runtime_relative_path(".semwright-tools/node").unwrap();
+        runtime_relative_path("node_modules/@fontsource-variable/instrument-sans/index.css")
+            .unwrap();
+        runtime_relative_path(
+            "node_modules/playwright-core/.local-browsers/firefox-1532/firefox/firefox",
+        )
+        .unwrap();
+
+        for hostile in [
+            "../escape",
+            "node_modules/../escape",
+            "https://example.com/browser",
+            "node_modules/@scope/pkg%2fescape",
+            "/absolute/tool",
+        ] {
+            assert!(runtime_relative_path(hostile).is_err(), "{hostile}");
+        }
+    }
+
+    #[test]
+    fn renderer_failure_receipt_accepts_only_allowlisted_phase_classes() {
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"vite_build"}"#),
+            ErrorCode::PluginProtocolError
+        );
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"browser_launch"}"#),
+            ErrorCode::Unavailable
+        );
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"observation"}"#),
+            ErrorCode::ProtocolMismatch
+        );
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"render_wait"}"#),
+            ErrorCode::Timeout
+        );
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"render_wait_timeout"}"#),
+            ErrorCode::Timeout
+        );
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"renderer_state_frame_clock"}"#),
+            ErrorCode::ProtocolMismatch
+        );
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"renderer_state_model_invariant"}"#),
+            ErrorCode::InvalidArgument
+        );
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"renderer_state_type_error"}"#),
+            ErrorCode::PluginProtocolError
+        );
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"renderer_state_range_error"}"#),
+            ErrorCode::InvalidArgument
+        );
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"renderer_state_authoring_model"}"#),
+            ErrorCode::InvalidArgument
+        );
+        assert_eq!(
+            renderer_failure_code(
+                br#"{"ok":false,"errorClass":"renderer_state_authoring_protocol"}"#
+            ),
+            ErrorCode::ProtocolMismatch
+        );
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"render_nonzero"}"#),
+            ErrorCode::ProtocolMismatch
+        );
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"render_result_error"}"#),
+            ErrorCode::BackendFailed
+        );
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"project_stage"}"#),
+            ErrorCode::Unavailable
+        );
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"renderer_log_exporter_missing"}"#),
+            ErrorCode::ProtocolMismatch
+        );
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"renderer_log_async_property"}"#),
+            ErrorCode::ProtocolMismatch
+        );
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"renderer_log_type_error"}"#),
+            ErrorCode::PluginProtocolError
+        );
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"renderer_log_range_error"}"#),
+            ErrorCode::InvalidArgument
+        );
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"renderer_log_authoring_model"}"#),
+            ErrorCode::InvalidArgument
+        );
+        assert_eq!(
+            renderer_failure_code(
+                br#"{"ok":false,"errorClass":"renderer_log_authoring_protocol"}"#
+            ),
+            ErrorCode::ProtocolMismatch
+        );
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"renderer_log_webgl_unavailable"}"#),
+            ErrorCode::Unavailable
+        );
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"renderer_log_playback_protocol"}"#),
+            ErrorCode::ProtocolMismatch
+        );
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"renderer_log_invalid_scene"}"#),
+            ErrorCode::InvalidArgument
+        );
+        assert_eq!(
+            renderer_failure_code(
+                br#"{"ok":false,"errorClass":"renderer_state_semwright_native"}"#
+            ),
+            ErrorCode::InvalidArgument
+        );
+        assert_eq!(
+            renderer_failure_code(
+                br#"{"ok":false,"errorClass":"renderer_state_semwright_exporter"}"#
+            ),
+            ErrorCode::ProtocolMismatch
+        );
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"renderer_state_motion_core"}"#),
+            ErrorCode::Internal
+        );
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"renderer_state_motion_2d"}"#),
+            ErrorCode::BackendFailed
+        );
+        assert_eq!(
+            renderer_failure_code(
+                br#"{"ok":false,"errorClass":"renderer_state_before_first_frame"}"#
+            ),
+            ErrorCode::ProtocolMismatch
+        );
+        assert_eq!(
+            renderer_failure_code(
+                br#"{"ok":false,"errorClass":"renderer_state_after_first_frame"}"#
+            ),
+            ErrorCode::BackendFailed
+        );
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"render_result_aborted"}"#),
+            ErrorCode::Cancelled
+        );
+        for hostile in [
+            br#"{"ok":false,"errorClass":"../../escape"}"#.as_slice(),
+            br#"{"ok":true,"errorClass":"vite_build"}"#.as_slice(),
+            b"not-json".as_slice(),
+        ] {
+            assert_eq!(
+                renderer_failure_code(hostile),
+                ErrorCode::BackendFailed,
+                "{hostile:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn renderer_failure_detail_accepts_only_bounded_normalized_hints() {
+        assert_eq!(
+            renderer_failure_detail(
+                br#"{"ok":false,"errorClass":"renderer_log_type_error","detail":"read:element"}"#
+            ),
+            Some("read:element".to_owned())
+        );
+        assert_eq!(
+            renderer_failure_detail(
+                br#"{"ok":false,"errorClass":"renderer_log_type_error","detail":"not_function:map"}"#
+            ),
+            Some("not_function:map".to_owned())
+        );
+        for hostile in [
+            br#"{"ok":false,"detail":"../../secret"}"#.as_slice(),
+            br#"{"ok":false,"detail":"read:/home/runner/private"}"#.as_slice(),
+            br#"{"ok":false,"detail":"read:9starts_with_digit"}"#.as_slice(),
+            br#"{"ok":true,"detail":"read:element"}"#.as_slice(),
+        ] {
+            assert_eq!(renderer_failure_detail(hostile), None, "{hostile:?}");
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn renderer_process_exit_without_receipt_is_safely_classified() {
+        use std::os::unix::process::ExitStatusExt;
+
+        let exit_one = std::process::ExitStatus::from_raw(1 << 8);
+        assert_eq!(
+            renderer_process_failure_code(&exit_one, b""),
+            ErrorCode::PluginProtocolError
+        );
+
+        let killed = std::process::ExitStatus::from_raw(libc::SIGKILL);
+        assert_eq!(
+            renderer_process_failure_code(&killed, b""),
+            ErrorCode::ResourceExhausted
+        );
+
+        let cpu = std::process::ExitStatus::from_raw(libc::SIGXCPU);
+        assert_eq!(
+            renderer_process_failure_code(&cpu, b""),
+            ErrorCode::ResourceExhausted
+        );
+
+        let structured = br#"{"ok":false,"errorClass":"renderer_log_type_error"}"#;
+        assert_eq!(
+            renderer_process_failure_code(&exit_one, structured),
+            ErrorCode::PluginProtocolError
+        );
+        assert_eq!(
+            renderer_stderr_failure_class(b"Error [ERR_MODULE_NOT_FOUND]: hidden details"),
+            Some(RenderFailureClass::RuntimeModuleLoad)
+        );
+        assert_eq!(
+            renderer_stderr_failure_class(b"SyntaxError: hidden details"),
+            Some(RenderFailureClass::RuntimeSyntax)
+        );
+        assert_eq!(
+            renderer_stderr_failure_class(b"EACCES: hidden details"),
+            Some(RenderFailureClass::RuntimePermission)
+        );
+        assert_eq!(
+            renderer_stderr_failure_class(b"FATAL ERROR: JavaScript heap out of memory"),
+            Some(RenderFailureClass::RuntimeOom)
+        );
+        assert_eq!(
+            renderer_stderr_failure_class(b"secret arbitrary stderr"),
+            None
+        );
+        assert_eq!(
+            renderer_status_failure_class(&killed),
+            Some(RenderFailureClass::RuntimeKilled)
+        );
+        assert_eq!(
+            renderer_status_failure_class(&cpu),
+            Some(RenderFailureClass::RuntimeCpuLimit)
+        );
+        let file_size = std::process::ExitStatus::from_raw(libc::SIGXFSZ);
+        assert_eq!(
+            renderer_status_failure_class(&file_size),
+            Some(RenderFailureClass::RuntimeFileSizeLimit)
+        );
+    }
+
+    #[tokio::test]
+    async fn render_failure_code_stays_private_but_is_preserved_for_execute_context() {
+        let manager = RenderManager::new(None, PathBuf::from("/tmp/not-used"));
+        let job_ref = "job:test".to_owned();
+        let public = JobView {
+            job_ref: job_ref.clone(),
+            state: RenderState::Failed,
+            failure_class: Some(RenderFailureClass::RendererStateMotionCore),
+            error: Some("Motion Canvas render failed".into()),
+            artifact: None,
+        };
+        manager.jobs.lock().await.insert(
+            job_ref.clone(),
+            Job {
+                source_sha256: "a".repeat(64),
+                view: public.clone(),
+                failure_code: Some(ErrorCode::ResourceExhausted),
+                cancel: CancellationToken::new(),
+            },
+        );
+        assert_eq!(
+            manager.failure_code(&job_ref).await,
+            Some(ErrorCode::ResourceExhausted)
+        );
+        let wire = serde_json::to_value(public).unwrap();
+        assert_eq!(
+            wire.get("failure_class")
+                .and_then(serde_json::Value::as_str),
+            Some("renderer_state_motion_core")
+        );
+        assert!(wire.get("failure_code").is_none());
+    }
 }

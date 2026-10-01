@@ -643,3 +643,38 @@ fn layout_mode_preserves_legacy_enabled_default_and_exposes_inherit() {
     inherit.mode = LayoutMode::Inherit;
     assert_eq!(serde_json::to_value(inherit).unwrap()["mode"], "inherit");
 }
+
+#[test]
+fn authoring_render_range_requires_replay_from_frame_zero() {
+    let film: semwright_motion_authoring::Film = semwright_semantic_composition::strict_decode(
+        include_bytes!("../../../fixtures/composition/motion/technical.json"),
+    )
+    .unwrap();
+    let (authoring, _) = crate::authoring::project(&film, None).unwrap();
+    let partial = RenderProfile {
+        first_frame: 1,
+        end_frame_exclusive: 2,
+        scale: RenderScale::Full,
+        transparent: false,
+        timeout_ms: 10_000,
+    };
+    let error = validate::render_plan(&authoring, &partial).unwrap_err();
+    assert_eq!(error.code, ErrorCode::InvalidArgument);
+    assert!(error.message.contains("replay from frame zero"));
+
+    let prefix = validate::render_plan(
+        &authoring,
+        &RenderProfile {
+            first_frame: 0,
+            end_frame_exclusive: 2,
+            ..partial
+        },
+    )
+    .unwrap();
+    assert_eq!(prefix.first_frame, 0);
+    assert_eq!(prefix.frame_count, 2);
+
+    let legacy = fixture();
+    let legacy_partial = validate::render_plan(&legacy, &partial).unwrap();
+    assert_eq!(legacy_partial.first_frame, 1);
+}

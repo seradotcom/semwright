@@ -1,0 +1,179 @@
+name: Composition fuzz
+
+on:
+  push:
+    branches: [feat/composition-media]
+    paths:
+      - 'crates/semantic-composition/**'
+      - 'crates/media-time/**'
+      - 'crates/motion-authoring/**'
+      - 'crates/av-composition/**'
+      - 'fuzz/Cargo.toml'
+      - 'fuzz/fuzz_targets/composition_contract.rs'
+      - 'fuzz/fuzz_targets/media_time_contract.rs'
+      - 'fuzz/fuzz_targets/motion_authoring_contract.rs'
+      - 'fuzz/fuzz_targets/av_contract.rs'
+      - 'scripts/composition/ci-scope.py'
+      - '.github/workflows/composition-fuzz.yml'
+  pull_request:
+    paths:
+      - 'crates/semantic-composition/**'
+      - 'crates/media-time/**'
+      - 'crates/motion-authoring/**'
+      - 'crates/av-composition/**'
+      - 'fuzz/Cargo.toml'
+      - 'fuzz/fuzz_targets/composition_contract.rs'
+      - 'fuzz/fuzz_targets/media_time_contract.rs'
+      - 'fuzz/fuzz_targets/motion_authoring_contract.rs'
+      - 'fuzz/fuzz_targets/av_contract.rs'
+      - 'scripts/composition/ci-scope.py'
+      - '.github/workflows/composition-fuzz.yml'
+  workflow_dispatch:
+    inputs:
+      certify_all:
+        description: 'Run all four Composition fuzz targets for exact candidate certification'
+        required: false
+        type: boolean
+        default: false
+      candidate_sha:
+        description: 'Exact candidate SHA; required when certify_all=true'
+        required: false
+        type: string
+      area:
+        description: 'Optional targeted iteration area'
+        required: false
+        type: choice
+        default: auto
+        options: [auto, kernel, media, motion, av]
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  scope:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    outputs:
+      fuzz_ids: ${{ steps.scope.outputs.fuzz_ids }}
+      any: ${{ steps.scope.outputs.any }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - id: scope
+        env:
+          CERTIFY_ALL: ${{ inputs.certify_all }}
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          AREA: ${{ inputs.area }}
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          if [ "$CERTIFY_ALL" != true ] && [ -n "$AREA" ] && [ "$AREA" != auto ]; then
+            echo 'fuzz_ids=["'"$AREA"'"]' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "$EVENT_NAME" = pull_request ] && [ "$HEAD_REF" = feat/composition-media ]; then
+            echo 'any=false' >> "$GITHUB_OUTPUT"
+            echo 'fuzz_ids=[]' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          mode=iteration
+          if [ "$CERTIFY_ALL" = true ]; then mode=certify; fi
+          args=(--mode "$mode" --after "$GITHUB_SHA" --github-output "$GITHUB_OUTPUT")
+          if [ "$mode" = certify ]; then args+=(--candidate-sha "$CANDIDATE_SHA"); fi
+          python scripts/composition/ci-scope.py "${args[@]}"
+  fuzz:
+    needs: scope
+    if: ${{ needs.scope.outputs.fuzz_ids != '[]' }}
+    concurrency:
+      group: composition-fuzz-${{ github.event_name }}-${{ matrix.id }}-${{ github.head_ref || github.ref_name }}
+      cancel-in-progress: true
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        id: ${{ fromJSON(needs.scope.outputs.fuzz_ids) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: nightly-2026-09-18
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: composition-fuzz-${{ matrix.id }}-v2
+          workspaces: fuzz
+      - name: Install pinned cargo-fuzz
+        run: |
+          rustup toolchain install 1.98.1 --profile minimal
+          cargo +1.98.1 install --locked cargo-fuzz --version 0.13.2
+      - name: Resolve target and run bounded fuzz smoke
+        env:
+          AREA: ${{ matrix.id }}
+        run: |
+          set -euo pipefail
+          case "$AREA" in
+            kernel) target=composition_contract ;;
+            media) target=media_time_contract ;;
+            motion) target=motion_authoring_contract ;;
+            av) target=av_contract ;;
+            *) echo "unexpected fuzz area: $AREA" >&2; exit 2 ;;
+          esac
+          root="verification/composition-fuzz/$AREA"
+          mkdir -p "$root"
+          cargo +nightly-2026-09-18 fuzz list | sort > "$root/targets.txt"
+          grep -Fx -- "$target" "$root/targets.txt" >/dev/null
+          cargo +nightly-2026-09-18 fuzz run "$target" --             -max_total_time=20             -timeout=3             -rss_limit_mb=1024             -max_len=65536             2>&1 | tee "$root/$target.log"
+          python3 - "$root" "$target" <<'PY'
+          import json, os, sys
+          from pathlib import Path
+          root=Path(sys.argv[1]); target=sys.argv[2]
+          path=root/f"{target}.log"
+          text=path.read_text(errors="replace")
+          if "ERROR: libFuzzer" in text or "SUMMARY: libFuzzer" in text:
+              raise SystemExit(f"fuzz target failed: {target}")
+          result={
+              "schema_version":1,
+              "tested_sha":os.environ["GITHUB_SHA"],
+              "run_id":os.environ["GITHUB_RUN_ID"],
+              "run_attempt":os.environ["GITHUB_RUN_ATTEMPT"],
+              "runner":os.environ["RUNNER_OS"],
+              "target":target,
+              "log_bytes":path.stat().st_size,
+              "claim_scope":"bounded area-specific fuzz smoke; absence of crashes is not proof of absence of defects",
+          }
+          (root/"summary.json").write_text(json.dumps(result,indent=2)+"\n")
+          PY
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: composition-fuzz-${{ matrix.id }}-${{ github.sha }}
+          path: |
+            verification/composition-fuzz/${{ matrix.id }}
+            fuzz/artifacts
+          retention-days: 7
+          if-no-files-found: error
+  fuzz-gate:
+    if: always()
+    needs: [scope, fuzz]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Selected fuzz areas must pass
+        env:
+          SELECTED: ${{ needs.scope.outputs.fuzz_ids }}
+          RESULT: ${{ needs.fuzz.result }}
+        run: |
+          if [ "$SELECTED" = '[]' ]; then
+            test "$RESULT" = skipped
+          else
+            test "$RESULT" = success
+          fi

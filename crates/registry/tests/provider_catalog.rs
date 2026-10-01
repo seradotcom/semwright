@@ -297,6 +297,28 @@ fn schema_data_keys_do_not_get_interpreted_as_schema_instructions() {
     assert!(bounds::schema_budget(&json!({"$defs":{"number":{"type":"integer"}},"properties":{"n":{"$ref":"#/$defs/number"}}}),true).is_ok());
 }
 #[test]
+fn bounded_large_tagged_enums_are_supported_but_excessive_combinators_are_rejected() {
+    let supported = json!({
+        "oneOf": (0..40)
+            .map(|index| json!({
+                "type":"object",
+                "properties":{"kind":{"const":format!("primitive-{index}")}},
+                "required":["kind"],
+                "additionalProperties":false
+            }))
+            .collect::<Vec<_>>()
+    });
+    assert!(bounds::schema_budget(&supported, true).is_ok());
+
+    let excessive = json!({
+        "oneOf": (0..65)
+            .map(|index| json!({"type":"object","properties":{"kind":{"const":index}}}))
+            .collect::<Vec<_>>()
+    });
+    assert!(bounds::schema_budget(&excessive, true).is_err());
+}
+
+#[test]
 fn expanded_schema_graph_and_regex_sizes_are_bounded() {
     let mut defs = serde_json::Map::new();
     defs.insert("n0".into(), json!({"type":"integer"}));

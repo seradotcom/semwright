@@ -247,3 +247,15 @@ fn probe_without_duration_is_not_a_source_handle_guarantee() {
     let rate = semwright_mlt_video::time::FrameRate::new(25, 1).unwrap();
     assert_eq!(info.frame_capacity(rate).unwrap(), None);
 }
+
+#[test]
+fn media_probe_observes_audio_rate_and_channels() {
+    let value = br#"{"streams":[{"codec_type":"audio","codec_name":"pcm_s16le","sample_rate":"48000","channels":2,"duration_ts":96000,"time_base":"1/48000"}],"format":{}}"#;
+    let media = MediaInfo::parse(value).unwrap();
+    assert!(media.audio);
+    assert!(!media.video);
+    assert_eq!(media.sample_rate, Some(48_000));
+    assert_eq!(media.channels, Some(2));
+    assert_eq!(media.audio_sample_frames, Some(96_000));
+    assert_eq!((media.duration_num, media.duration_den), (96_000, 48_000));
+}

@@ -295,3 +295,415 @@ fn domains_remain_distinct_payloads() {
     assert_ne!(m, a);
     assert!(strict_decode::<FigmaIntent>(br#"{"samples":48000}"#).is_err());
 }
+
+#[test]
+fn controller_terminal_receipts_map_to_distinct_fail_closed_states() {
+    let cases = [
+        (
+            ExecutionStatus::Partial,
+            State::PartiallyApplied,
+            StopReason::UnknownOutcome,
+        ),
+        (
+            ExecutionStatus::Unknown,
+            State::Unknown,
+            StopReason::UnknownOutcome,
+        ),
+        (ExecutionStatus::Denied, State::Denied, StopReason::Denied),
+        (
+            ExecutionStatus::Cancelled,
+            State::Cancelled,
+            StopReason::Cancelled,
+        ),
+        (
+            ExecutionStatus::Failed,
+            State::Failed,
+            StopReason::UnknownOutcome,
+        ),
+    ];
+    for (status, state, reason) in cases {
+        let r = report();
+        let mut controller = Controller::new(r.plan_digest, budget(), r.required_rules).unwrap();
+        controller.applying(false).unwrap();
+        assert_eq!(
+            controller.executed(status).unwrap(),
+            Decision::Stop(reason),
+            "{status:?}"
+        );
+        assert_eq!(controller.state, state, "{status:?}");
+        assert_eq!(controller.stop, Some(reason), "{status:?}");
+        assert!(controller.applying(false).is_err(), "{status:?}");
+    }
+}
+
+fn failed_report() -> ValidationReport {
+    let mut value = report();
+    value.checks[0].verdict = Verdict::Fail;
+    value
+}
+
+#[test]
+fn controller_observation_budget_boundary_is_inclusive_then_exhausts() {
+    let report = failed_report();
+    let mut b = budget();
+    b.max_iterations = 1;
+    b.max_elapsed_ms = 10;
+    let mut controller =
+        Controller::new(report.plan_digest.clone(), b, report.required_rules.clone()).unwrap();
+    controller.applying(false).unwrap();
+    assert_eq!(
+        controller.executed(ExecutionStatus::Completed).unwrap(),
+        Decision::Observe
+    );
+    assert_eq!(
+        controller.observed(&report, vec![10], 1, 10).unwrap(),
+        Decision::PlanRepair
+    );
+    assert_eq!(controller.state, State::RepairPlanned);
+
+    controller.bind_repair(report.plan_digest.clone()).unwrap();
+    controller.applying(true).unwrap();
+    controller.executed(ExecutionStatus::Completed).unwrap();
+    assert_eq!(
+        controller.observed(&report, vec![9], 1, 10).unwrap(),
+        Decision::Stop(StopReason::BudgetExhausted)
+    );
+    assert_eq!(controller.state, State::Exhausted);
+}
+
+#[test]
+fn controller_elapsed_budget_exhausts_only_after_the_boundary() {
+    let report = failed_report();
+    let mut b = budget();
+    b.max_elapsed_ms = 10;
+    let mut controller =
+        Controller::new(report.plan_digest.clone(), b, report.required_rules.clone()).unwrap();
+    controller.applying(false).unwrap();
+    controller.executed(ExecutionStatus::Completed).unwrap();
+    assert_eq!(
+        controller.observed(&report, vec![10], 1, 11).unwrap(),
+        Decision::Stop(StopReason::BudgetExhausted)
+    );
+    assert_eq!(controller.state, State::Exhausted);
+}
+
+#[test]
+fn controller_rejects_scope_progress_and_candidate_substitution() {
+    let report = failed_report();
+
+    let mut wrong_plan = report.clone();
+    wrong_plan.plan_digest = Digest::of_bytes(b"other-plan");
+    let mut controller = Controller::new(
+        report.plan_digest.clone(),
+        budget(),
+        report.required_rules.clone(),
+    )
+    .unwrap();
+    controller.applying(false).unwrap();
+    controller.executed(ExecutionStatus::Completed).unwrap();
+    assert!(controller.observed(&wrong_plan, vec![1], 1, 1).is_err());
+
+    let mut wrong_rules = report.clone();
+    wrong_rules.required_rules.insert("extra".into());
+    let mut controller = Controller::new(
+        report.plan_digest.clone(),
+        budget(),
+        report.required_rules.clone(),
+    )
+    .unwrap();
+    controller.applying(false).unwrap();
+    controller.executed(ExecutionStatus::Completed).unwrap();
+    assert!(controller.observed(&wrong_rules, vec![1], 1, 1).is_err());
+
+    for progress in [vec![], vec![1; 33]] {
+        let mut controller = Controller::new(
+            report.plan_digest.clone(),
+            budget(),
+            report.required_rules.clone(),
+        )
+        .unwrap();
+        controller.applying(false).unwrap();
+        controller.executed(ExecutionStatus::Completed).unwrap();
+        assert!(controller.observed(&report, progress, 1, 1).is_err());
+    }
+
+    for candidates in [0, 2] {
+        let mut controller = Controller::new(
+            report.plan_digest.clone(),
+            budget(),
+            report.required_rules.clone(),
+        )
+        .unwrap();
+        controller.applying(false).unwrap();
+        controller.executed(ExecutionStatus::Completed).unwrap();
+        assert_eq!(
+            controller
+                .observed(&report, vec![10], candidates, 1)
+                .unwrap(),
+            Decision::Stop(StopReason::Ambiguous)
+        );
+        assert_eq!(controller.state, State::Conflicted);
+    }
+}
+
+#[test]
+fn controller_detects_cycle_and_non_improving_progress() {
+    let report = failed_report();
+
+    let mut cycle = Controller::new(
+        report.plan_digest.clone(),
+        budget(),
+        report.required_rules.clone(),
+    )
+    .unwrap();
+    cycle.applying(false).unwrap();
+    cycle.executed(ExecutionStatus::Completed).unwrap();
+    assert_eq!(
+        cycle.observed(&report, vec![10], 1, 1).unwrap(),
+        Decision::PlanRepair
+    );
+    cycle.bind_repair(report.plan_digest.clone()).unwrap();
+    cycle.applying(true).unwrap();
+    cycle.executed(ExecutionStatus::Completed).unwrap();
+    assert_eq!(
+        cycle.observed(&report, vec![10], 1, 2).unwrap(),
+        Decision::Stop(StopReason::Cycle)
+    );
+
+    let mut no_progress = Controller::new(
+        report.plan_digest.clone(),
+        budget(),
+        report.required_rules.clone(),
+    )
+    .unwrap();
+    no_progress.applying(false).unwrap();
+    no_progress.executed(ExecutionStatus::Completed).unwrap();
+    no_progress.observed(&report, vec![10], 1, 1).unwrap();
+    no_progress.bind_repair(report.plan_digest.clone()).unwrap();
+    no_progress.applying(true).unwrap();
+    no_progress.executed(ExecutionStatus::Completed).unwrap();
+    assert_eq!(
+        no_progress.observed(&report, vec![11], 1, 2).unwrap(),
+        Decision::Stop(StopReason::NoProgress)
+    );
+}
+
+#[test]
+fn vault_exact_operation_and_iteration_boundaries_are_enforced() {
+    let owner = owner();
+    let p = json!({"intent":"root"});
+    let mut b = budget();
+    b.max_operations = 2;
+    b.max_iterations = 1;
+    let mut vault = PlanVault::bounded(10, 5, 10);
+    vault
+        .issue(&owner, "root", &p, b.clone(), 2, None, false)
+        .unwrap();
+    let permit = vault.begin(&owner, "root", &p, "request-one").unwrap();
+    vault
+        .finish(permit, ExecutionStatus::Completed, vec![])
+        .unwrap();
+
+    vault
+        .issue(
+            &owner,
+            "repair",
+            &json!({"intent":"repair"}),
+            b,
+            0,
+            Some("root"),
+            true,
+        )
+        .unwrap();
+    assert!(
+        vault
+            .begin(&owner, "repair", &json!({"intent":"repair"}), "request-two")
+            .is_err(),
+        "second iteration must not cross max_iterations"
+    );
+}
+
+#[test]
+fn vault_observation_budget_counts_exactly_and_never_refunds() {
+    let owner = owner();
+    let p = json!({});
+    let mut b = budget();
+    b.max_findings = 1;
+    b.max_observations = 2;
+    let mut vault = PlanVault::bounded(10, 5, 10);
+    vault.issue(&owner, "root", &p, b, 1, None, false).unwrap();
+
+    vault.record_observation(&owner, "root", 1).unwrap();
+    vault.record_observation(&owner, "root", 0).unwrap();
+    assert!(vault.record_observation(&owner, "root", 0).is_err());
+    assert!(vault.record_observation(&owner, "root", 2).is_err());
+}
+
+#[test]
+fn vault_finish_rejects_nonterminal_status_and_invalid_effect_receipts() {
+    for status in [ExecutionStatus::Prepared, ExecutionStatus::Applying] {
+        let owner = owner();
+        let p = json!({});
+        let mut vault = PlanVault::bounded(10, 5, 10);
+        vault
+            .issue(&owner, "root", &p, budget(), 1, None, false)
+            .unwrap();
+        let permit = vault.begin(&owner, "root", &p, "request").unwrap();
+        assert!(vault.finish(permit, status, vec![]).is_err());
+    }
+
+    let owner = owner();
+    let p = json!({});
+    let mut vault = PlanVault::bounded(10, 5, 10);
+    vault
+        .issue(&owner, "root", &p, budget(), 1, None, false)
+        .unwrap();
+    let permit = vault.begin(&owner, "root", &p, "request").unwrap();
+    assert!(
+        vault
+            .finish(
+                permit,
+                ExecutionStatus::Completed,
+                vec![
+                    "bad
+receipt"
+                        .into()
+                ]
+            )
+            .is_err()
+    );
+}
+
+#[test]
+fn vault_revoke_is_owner_scoped() {
+    let first = owner();
+    let mut second = owner();
+    second.session = "session-b".into();
+    let p = json!({});
+    let mut vault = PlanVault::bounded(10, 5, 10);
+    vault
+        .issue(&first, "first", &p, budget(), 1, None, false)
+        .unwrap();
+    vault
+        .issue(&second, "second", &p, budget(), 1, None, false)
+        .unwrap();
+
+    vault.revoke(&first);
+    assert!(vault.begin(&first, "first", &p, "request-a").is_err());
+    let permit = vault
+        .begin(&second, "second", &p, "request-b")
+        .expect("revoking first owner must not remove second");
+    vault
+        .finish(permit, ExecutionStatus::Completed, vec![])
+        .unwrap();
+}
+
+#[test]
+fn controller_progress_dimension_change_is_not_treated_as_improvement() {
+    let report = failed_report();
+    let mut controller = Controller::new(
+        report.plan_digest.clone(),
+        budget(),
+        report.required_rules.clone(),
+    )
+    .unwrap();
+    controller.applying(false).unwrap();
+    controller.executed(ExecutionStatus::Completed).unwrap();
+    assert_eq!(
+        controller.observed(&report, vec![10, 10], 1, 1).unwrap(),
+        Decision::PlanRepair
+    );
+    controller.bind_repair(report.plan_digest.clone()).unwrap();
+    controller.applying(true).unwrap();
+    controller.executed(ExecutionStatus::Completed).unwrap();
+    assert_eq!(
+        controller.observed(&report, vec![9], 1, 2).unwrap(),
+        Decision::Stop(StopReason::NoProgress)
+    );
+    assert_eq!(controller.state, State::Conflicted);
+}
+
+#[test]
+fn controller_bind_repair_requires_an_actual_pending_repair() {
+    let report = failed_report();
+    let mut controller = Controller::new(
+        report.plan_digest.clone(),
+        budget(),
+        report.required_rules.clone(),
+    )
+    .unwrap();
+    assert!(
+        controller
+            .bind_repair(Digest::of_bytes(b"foreign"))
+            .is_err()
+    );
+    assert_eq!(controller.state, State::Prepared);
+}
+
+#[test]
+fn vault_request_ids_cannot_replay_across_repair_entries_of_one_root() {
+    let owner = owner();
+    let root = json!({"intent":"root"});
+    let repair = json!({"intent":"repair"});
+    let b = budget();
+    let mut vault = PlanVault::bounded(10, 5, 10);
+    vault
+        .issue(&owner, "root", &root, b.clone(), 1, None, false)
+        .unwrap();
+    let permit = vault
+        .begin(&owner, "root", &root, "request-shared")
+        .unwrap();
+    vault
+        .finish(permit, ExecutionStatus::Completed, vec![])
+        .unwrap();
+    vault
+        .issue(&owner, "repair", &repair, b, 1, Some("root"), true)
+        .unwrap();
+
+    let error = match vault.begin(&owner, "repair", &repair, "request-shared") {
+        Ok(_) => panic!("cross-entry request replay unexpectedly allowed"),
+        Err(error) => error,
+    };
+    assert!(matches!(error, ContractError::Denied(_)));
+}
+
+#[test]
+fn vault_unknown_attempt_blocks_a_preissued_sibling_until_reconciled() {
+    let owner = owner();
+    let root = json!({"intent":"root"});
+    let first = json!({"intent":"repair-a"});
+    let second = json!({"intent":"repair-b"});
+    let b = budget();
+    let mut vault = PlanVault::bounded(10, 5, 10);
+    vault
+        .issue(&owner, "root", &root, b.clone(), 1, None, false)
+        .unwrap();
+    let permit = vault.begin(&owner, "root", &root, "root-request").unwrap();
+    vault
+        .finish(permit, ExecutionStatus::Completed, vec![])
+        .unwrap();
+
+    vault
+        .issue(&owner, "repair-a", &first, b.clone(), 1, Some("root"), true)
+        .unwrap();
+    vault
+        .issue(&owner, "repair-b", &second, b, 1, Some("root"), true)
+        .unwrap();
+
+    let permit = vault
+        .begin(&owner, "repair-a", &first, "repair-a-request")
+        .unwrap();
+    vault
+        .finish(
+            permit,
+            ExecutionStatus::Unknown,
+            vec!["maybe-created".into()],
+        )
+        .unwrap();
+
+    let error = match vault.begin(&owner, "repair-b", &second, "repair-b-request") {
+        Ok(_) => panic!("sibling repair unexpectedly allowed after unknown prior attempt"),
+        Err(error) => error,
+    };
+    assert!(matches!(error, ContractError::Unknown(_)));
+}

@@ -27,6 +27,10 @@ semwright-video-domain = { path = "../crates/video-domain" }
 semwright-figma-driver = { package = "semwright-driver-figma", path = "../crates/driver-figma" }
 semwright-godot-driver = { package = "semwright-driver-godot", path = "../crates/driver-godot" }
 semwright-driver-motion-canvas = { package = "semwright-driver-motion-canvas", path = "../crates/driver-motion-canvas" }
+semwright-semantic-composition = { path = "../crates/semantic-composition" }
+semwright-media-time = { path = "../crates/media-time" }
+semwright-motion-authoring = { path = "../crates/motion-authoring" }
+semwright-av-composition = { path = "../crates/av-composition" }
 
 [[bin]]
 name = "protocol"
@@ -296,6 +300,34 @@ bench = false
 [[bin]]
 name = "skill_archive_path"
 path = "fuzz_targets/skill_archive_path.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "composition_contract"
+path = "fuzz_targets/composition_contract.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "media_time_contract"
+path = "fuzz_targets/media_time_contract.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "motion_authoring_contract"
+path = "fuzz_targets/motion_authoring_contract.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "av_contract"
+path = "fuzz_targets/av_contract.rs"
 test = false
 doc = false
 bench = false

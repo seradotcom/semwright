@@ -11,6 +11,7 @@ enum Position {
     Data,
 }
 const MAX_SCHEMA_NODES: usize = 4096;
+const MAX_COMBINATOR_BRANCHES: usize = 64;
 const MAX_VALUE_NODES: usize = 16384;
 
 /// External schemas support bounded, acyclic local definitions. Dynamic resolution is not enabled.
@@ -113,7 +114,7 @@ pub fn schema_budget(root: &Value, external: bool) -> Result<()> {
                                 if map
                                     .get(key)
                                     .and_then(Value::as_array)
-                                    .is_some_and(|a| a.len() > 16)
+                                    .is_some_and(|a| a.len() > MAX_COMBINATOR_BRANCHES)
                                 {
                                     return Err(Error::invalid(
                                         "Schema has too many combinator branches",

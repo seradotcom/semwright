@@ -1,0 +1,29 @@
+# C1 audio / audiovisual consumer contract
+
+C0 is commit 26602e4b25929be869d69ef28fef4dd9713180d7. C1 is an additive source contract revision in this PR: media artifact metadata, audio consumer receipts, fixed-stage AV coordination, final decoded sync verification and Broker-only manifest publication. C1 does not claim that the audio agent has consumed it.
+
+## Public boundary for B
+
+Consume `semwright-media-time::{MediaArtifact, MediaMetadata, AudioMetadata, CueGraph, Rate, Rational}` and `semwright-av-composition::{Subplan, AudioConsumerReceipt}`. Audio intents and DSP/Ardour operations remain B-owned typed schemas. Do not add a parallel Finding, time clock or provider identity. `Subplan.service` is audio; base resources are native project/provider resources, not a fabricated global revision. `plan_ref` belongs to B's public server-issued plan API.
+
+A receipt contains a final master, optional stems, common verification, shared cue digest and exact source-plan/owner dependencies. For AV delivery it may also carry `ArtifactHandoffHint { version, artifact_digest, relative_path }`; this is path data only, never authority or a Broker root, and its digest must equal the master. The host supplies the readable Broker root separately. Undefined loudness, codec priming/padding, latency and tail observations must remain unknown when not measured. Audio sample frames are distinct from channel-interleaved samples. A provider token is not a path. Assets retain digest, byte count, media type, source state, license/provenance when known and retention. Still-image metadata supports Figma assets; encoded media retains distinct content and encoded duration.
+
+AV will not call private Faust/Ardour helpers or rewrite their project files. B must provide public plan/apply/render/analyze/verify capabilities through the existing Broker. A provider artifact reference remains path-free. For delivery, the integration host may bind the verified B artifact to a separate owner-configured filesystem-grant locator; `TransferAudio` then uses the existing descriptor-pinned `artifact.handoff` with the exact SHA and a 64 MiB current platform limit, and stores only the resulting MLT-root locator privately. An incorrect root alias cannot certify delivery because MLT reopens and hashes the expected bytes. Final encoded audio is analyzed again: pre-encode PASS does not certify mux padding, peak or duration. A mixed master is treated as final; MLT does not silently reapply ducking or normalization.
+
+## Fixed AV lifecycle
+
+The coordinator validates a plan and five explicit service proofs (Motion, Audio, Delivery, Artifacts, Decode). Missing/denied services fail closed, without backend substitution. Fourteen fixed stages plan delivery, apply both subplans, render and verify intermediates, transfer, mux, verify final decoded audio and sync, prepare a manifest, then publish it. A private reservation is compared before dispatch; every native operation still requires Broker policy. An actual session-bound executor must implement the native stage adapters. The coordinator itself is not a new public capability or general workflow engine.
+
+Receipts bind request ID, owner, AV digest, service generation/catalog/runtime, stage and observed base state. Failed/cancelled/unknown stages retain prior effects and never create a ready master. Lost non-idempotent receipts cannot be retried automatically. Intermediates may be reused only with complete unchanged dependency sets. Final encode verification is always new.
+
+The sync verifier consumes decoded presentation timestamps with uncertainty and confidence, and re-evaluates the originally pinned cue/tolerance specification. `driver.mlt-video.sync.probe` has two explicit coverage modes: bounded `cue_windows`, which is never full-scan evidence, and `full_scan`, which decodes the complete audio/video master up to 60 seconds with bounded metadata/row budgets before evaluating each cue window. A `require_full_scan` specification may PASS only from the latter. Missing impulses, sampled/window-only coverage and simulation cannot become native PASS. Common audio/video shifts are checked against planned cue positions; they cannot cancel out merely because relative offset is zero.
+
+## Publication
+
+`BrokerPublisher` pins and rechecks the existing `filesystem.read`, `filesystem.write` and `artifact.handoff` descriptors. It creates a content-addressed private manifest, verifies readback, and publishes the pointer only after all required native reports exist. Root IDs and pointer targets are owner configuration, not plan-granted paths. Pointer replacement requires explicit configuration. The pre-copy existence check is best-effort; no new CAS or distributed rollback is claimed.
+
+## Evidence boundary / remaining integration
+
+Agent A now has concrete descriptor-pinned adapters for delivery negotiation, Motion apply/render/verify, Motion frame-sequence → FFV1 mezzanine, MLT H.264/AAC mux and decoded sync probe. `TransferMotion` is a Delivery operation (not a byte-copy artifact operation), and its receipt is explicitly `lossless_mezzanine`. The MLT mux supports only 48 kHz stereo H.264/AAC in this revision and re-probes sample rate, channel count, duration and observed sample-frame count. The Agent-A adapter requests `full_scan` whenever the pinned `SyncSpec` requires it; otherwise it preserves the narrower `cue_windows` evidence boundary.
+
+Synthetic coordinator tests exercise contracts and hostile receipts; they do not demonstrate native audio or a complete live AV run. B has not published AUDIO_READY_FOR_INTEGRATION or a consumed C1 SHA. Audio stages, final encoded-audio analysis, the combined Broker/Host/Motion/Audio/MLT/decoder E2E and publication candidate must be verified on one combined commit before READY_FOR_DEMO_PRODUCTION. No R16 closure or promotional video is part of this contract.

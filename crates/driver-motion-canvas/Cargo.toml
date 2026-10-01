@@ -10,6 +10,9 @@ name = "semwright-motion-canvas-driver"
 path = "src/main.rs"
 
 [dependencies]
+semwright-motion-authoring.workspace = true
+semwright-media-time.workspace = true
+semwright-semantic-composition.workspace = true
 async-trait.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -34,9 +37,11 @@ libc.workspace = true
 proptest.workspace = true
 tempfile.workspace = true
 semwright-recipes.workspace = true
+semwright-registry.workspace = true
 
 [target.'cfg(target_os = "linux")'.dev-dependencies]
 semwright-backend-api.workspace = true
+semwright-core.workspace = true
 semwright-driver-host.workspace = true
 semwright-policy.workspace = true
 

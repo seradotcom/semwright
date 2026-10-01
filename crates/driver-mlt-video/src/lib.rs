@@ -20,6 +20,7 @@ pub mod json;
 pub mod model;
 pub mod refs;
 pub mod runtime;
+pub mod sync;
 pub mod time;
 pub mod wire;
 pub mod xml;

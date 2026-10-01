@@ -12,10 +12,23 @@ for file in "$DAEMON" "$CTL" "$DRIVER" "$SANDBOX"; do
   test -x "$file" || { echo "missing executable: $file" >&2; exit 2; }
 done
 command -v bwrap >/dev/null
-if [[ ! -x /usr/local/bin/blender && ! -x /usr/bin/blender ]]; then
-  echo "Blender binary is missing" >&2
-  exit 5
+BLENDER_ROOT=${SEMWRIGHT_TEST_BLENDER_ROOT:-}
+if [[ -z "$BLENDER_ROOT" ]]; then
+  blender_on_path=$(command -v blender || true)
+  if [[ -z "$blender_on_path" ]]; then
+    echo "Blender binary is missing; set SEMWRIGHT_TEST_BLENDER_ROOT" >&2
+    exit 5
+  fi
+  blender_real=$(readlink -f "$blender_on_path")
+  BLENDER_ROOT=$(dirname "$blender_real")
 fi
+BLENDER_BIN="$BLENDER_ROOT/blender"
+test -x "$BLENDER_BIN" || { echo "Blender runtime is missing $BLENDER_BIN" >&2; exit 5; }
+test "$("$BLENDER_BIN" --version | head -1)" = "Blender 4.5.14 LTS"
+for required in lib 4.5/scripts 4.5/extensions 4.5/datafiles 4.5/python; do
+  test -d "$BLENDER_ROOT/$required" || { echo "Blender runtime missing $required" >&2; exit 5; }
+done
+BLENDER_SHA=$(sha256sum "$BLENDER_BIN" | awk '{print $1}')
 test -d /etc/fonts
 
 TMP=$(mktemp -d)
@@ -61,10 +74,14 @@ cat > "$TMP/driver.json" <<JSON
   },
   "transport": "stdio_v1",
   "mounts": [
-    {"root": "workspace", "read_only": false}
+    {"root": "workspace", "read_only": false},
+    {"root": "blender-runtime", "read_only": true}
   ],
   "system_config": [
     {"root": "font-config", "destination": "/etc/fonts"}
+  ],
+  "tools": [
+    {"root": "blender-executable", "name": "blender", "sha256": "$BLENDER_SHA"}
   ],
   "network": false,
   "resources": {
@@ -74,7 +91,7 @@ cat > "$TMP/driver.json" <<JSON
     "address_space_bytes": 4294967296,
     "file_size_bytes": 1073741824
   },
-  "request_timeout_ms": 120000,
+  "request_timeout_ms": 300000,
   "interfaces": {
     "dynamic_capabilities": false,
     "cooperative_cancellation": false,
@@ -102,6 +119,18 @@ write = true
 [[policy.filesystem]]
 name = "font-config"
 path = "/etc/fonts"
+read = true
+write = false
+
+[[policy.filesystem]]
+name = "blender-runtime"
+path = "$BLENDER_ROOT"
+read = true
+write = false
+
+[[policy.filesystem]]
+name = "blender-executable"
+path = "$BLENDER_BIN"
 read = true
 write = false
 TOML
@@ -168,6 +197,7 @@ scene_file="$TMP/blender-scene.json"
 create_file="$TMP/blender-create.json"
 material_file="$TMP/blender-material.json"
 assign_file="$TMP/blender-assign.json"
+export_file="$TMP/blender-export-glb.json"
 settings_file="$TMP/blender-settings.json"
 render_file="$TMP/blender-render.json"
 
@@ -177,22 +207,26 @@ run execute driver.blender.introspect.operators --args-json '{"query":"primitive
 run execute driver.blender.introspect.types --args-json '{"query":"Mesh","limit":32}' > "$types_file"
 run execute driver.blender.scene.inspect > "$scene_file"
 run execute driver.blender.object.create --args-json '{"name":"BrokerCube","primitive":"cube","location":[1,2,3]}' > "$create_file"
+run execute driver.blender.collection.create --args-json '{"name":"BrokerExport"}' >/dev/null
+run execute driver.blender.collection.link --args-json '{"object":"BrokerCube","collection":"BrokerExport"}' >/dev/null
 run execute driver.blender.material.create --args-json '{"name":"BrokerMaterial","color":[0.3,0.5,0.9,1],"roughness":0.4,"metallic":0.05}' > "$material_file"
 run execute driver.blender.material.assign --args-json '{"object":"BrokerCube","material":"BrokerMaterial"}' > "$assign_file"
+run execute driver.blender.export.glb --args-json '{"collection":"BrokerExport","path":"broker-model.glb","animations":false}' > "$export_file"
 run execute driver.blender.render.settings --args-json '{"width":64,"height":64,"engine":"CYCLES","samples":1}' > "$settings_file"
 run execute driver.blender.render --args-json '{"path":"broker-preview.png"}' > "$render_file"
 
-python3 - "$search_file" "$status_file" "$summary_file" "$operators_file" "$types_file" "$scene_file" "$create_file" "$material_file" "$assign_file" "$settings_file" "$render_file" <<'PY'
+python3 - "$search_file" "$status_file" "$summary_file" "$operators_file" "$types_file" "$scene_file" "$create_file" "$material_file" "$assign_file" "$export_file" "$settings_file" "$render_file" <<'PY'
 import json, pathlib, sys
 (
     search, status, summary, operators, types, scene, create,
-    material, assign, settings, render,
+    material, assign, exported, settings, render,
 ) = [json.loads(pathlib.Path(path).read_text()) for path in sys.argv[1:]]
 rows = search["data"]["capabilities"]
 ids = {row["id"] for row in rows}
 expected = {
     "driver.blender.status",
     "driver.blender.object.create",
+    "driver.blender.export.glb",
     "driver.blender.render",
     "driver.blender.introspect.summary",
     "driver.blender.introspect.operators",
@@ -216,6 +250,12 @@ assert scene["ok"] is True
 assert create["data"]["object"]["name"] == "BrokerCube"
 assert material["data"]["name"] == "BrokerMaterial"
 assert assign["data"]["changed"] is True
+assert exported["data"]["changed"] is True
+assert exported["data"]["path"] == "broker-model.glb"
+assert exported["data"]["format"] == "glb"
+assert len(exported["data"]["sha256"]) == 64
+assert exported["data"]["bytes"] > 20
+assert exported["data"]["objects"] == 1
 assert settings["data"]["engine"] == "CYCLES"
 assert render["data"]["path"] == "broker-preview.png"
 print(json.dumps({
@@ -226,14 +266,21 @@ print(json.dumps({
     "operators": summary["data"]["operators"],
     "object_create": True,
     "material_assign": True,
+    "glb_export": True,
     "render": True,
 }, sort_keys=True))
 PY
 
-python3 - "$TMP/workspace/broker-preview.png" <<'PY'
-import pathlib, sys
-data = pathlib.Path(sys.argv[1]).read_bytes()
-assert data.startswith(b"\x89PNG\r\n\x1a\n")
+python3 - "$TMP/workspace/broker-preview.png" "$TMP/workspace/broker-model.glb" <<'PY'
+import pathlib, struct, sys
+png = pathlib.Path(sys.argv[1]).read_bytes()
+assert png.startswith(b"\x89PNG\r\n\x1a\n")
+glb = pathlib.Path(sys.argv[2]).read_bytes()
+assert len(glb) > 20
+magic, version, length = struct.unpack("<4sII", glb[:12])
+assert magic == b"glTF"
+assert version == 2
+assert length == len(glb)
 PY
 
 echo "Blender driver broker E2E: PASS"

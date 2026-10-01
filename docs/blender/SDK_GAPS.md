@@ -10,7 +10,16 @@ A future transport pass may add v3 progress/artifact/cancellation semantics behi
 
 ## Distribution
 
-The driver expects the owner/distribution layer to provide a pinned Blender runtime. CI pins Blender 4.5.14 LTS by URL and SHA-256. A generic Semwright multi-tool runtime package format would simplify installation but is not required for semantic correctness.
+The driver now requires two explicit owner authorities for Blender 4.5.14 LTS:
+
+- a read-only `blender-runtime` directory mount containing the portable runtime resources and libraries; and
+- a `blender-executable` tool grant for the exact `blender` file, verified by SHA-256 and materialized by Driver Host as `/plugin/tools/blender`.
+
+The driver does not search `PATH`, `/usr/bin` or `/usr/local/bin`. CI downloads the official 4.5.14 LTS archive, verifies its published archive SHA-256, and then proves that the driver starts when the portable runtime is mounted only through these authorities.
+
+The executable currently uses the existing direct sealed-tool materialization supported by Driver Host. Protocol v4 Host-mediated `ToolExecute` is not required because Blender is a persistent supervised child of the Blender driver rather than a short-lived per-request tool invocation.
+
+A generic Semwright multi-tool runtime package format could make installation/distribution more ergonomic in the future, but it is no longer required to remove ambient executable discovery from this driver.
 
 ## Operator-only lifecycle
 

@@ -168,7 +168,7 @@ impl Broker {
             && build
                 .candidate
                 .recipe
-                .validate(&RecipeBridge {
+                .validate(&BrokerSessionExecutor {
                     broker: self.clone(),
                     session: session.into(),
                 })
@@ -347,7 +347,7 @@ impl Broker {
             if build
                 .candidate
                 .recipe
-                .validate(&RecipeBridge {
+                .validate(&BrokerSessionExecutor {
                     broker: self.clone(),
                     session: session.into(),
                 })
@@ -411,7 +411,7 @@ impl Broker {
             .candidate
             .recipe
             .run(
-                &RecipeBridge {
+                &BrokerSessionExecutor {
                     broker: self.clone(),
                     session: session.into(),
                 },
@@ -538,7 +538,7 @@ impl Broker {
     pub(super) fn workflow_verify(self: &Arc<Self>, session: &str, id: &str) -> Result<Value> {
         let candidate = self.workflow_candidate(id)?;
         let drift = verify_drift(&candidate, self.as_ref())?;
-        let validation = candidate.recipe.validate(&RecipeBridge {
+        let validation = candidate.recipe.validate(&BrokerSessionExecutor {
             broker: self.clone(),
             session: session.into(),
         })?;
@@ -571,14 +571,14 @@ impl Broker {
                 "Workflow candidate must pass workflow.verify before a live replay",
             ));
         }
-        candidate.recipe.validate(&RecipeBridge {
+        candidate.recipe.validate(&BrokerSessionExecutor {
             broker: self.clone(),
             session: session.into(),
         })?;
         let output = candidate
             .recipe
             .run(
-                &RecipeBridge {
+                &BrokerSessionExecutor {
                     broker: self.clone(),
                     session: session.into(),
                 },
@@ -698,7 +698,7 @@ impl Broker {
             .candidate
             .recipe
             .run(
-                &RecipeBridge {
+                &BrokerSessionExecutor {
                     broker: self.clone(),
                     session: session.into(),
                 },

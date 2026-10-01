@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "name": "composition-authoring-equivalence-v1",
+  "rules": {
+    "winner": false,
+    "same_input_required": true,
+    "same_assets_required": true,
+    "same_output_profile_required": true,
+    "native_editability_required_when_task_requires_it": true,
+    "visual_quality_requires_human_review": true,
+    "setup_and_repeat_cost_separate": true
+  },
+  "tasks": [
+    {
+      "id": "structured-layout-edit",
+      "domain": "figma",
+      "requires_native_editability": true,
+      "checks": [
+        "logical_identity_preserved",
+        "requested_copy_exact",
+        "native_layout_present",
+        "fresh_verification"
+      ]
+    },
+    {
+      "id": "timed-motion-edit",
+      "domain": "motion",
+      "requires_native_editability": true,
+      "checks": [
+        "logical_identity_preserved",
+        "cue_timing_preserved",
+        "render_artifact_bound",
+        "fresh_verification"
+      ]
+    },
+    {
+      "id": "single-semantic-change",
+      "domain": "cross_domain",
+      "requires_native_editability": true,
+      "checks": [
+        "unrelated_dependencies_reused_or_explicitly_invalidated",
+        "requested_change_exact",
+        "fresh_verification"
+      ]
+    }
+  ],
+  "arms": ["low_level", "high_level"]
+}
