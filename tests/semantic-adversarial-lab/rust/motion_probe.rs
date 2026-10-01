@@ -298,9 +298,8 @@ fn probe(id: &str) -> ProbeResult<Value> {
             duration.scenes[0].duration_ms = u64::MAX;
             duration.scenes.push(duration.scenes[0].clone());
             let mut duplicate = fixture()?;
-            duplicate.scenes[0]
-                .nodes
-                .push(duplicate.scenes[0].nodes[0].clone());
+            let duplicate_node = duplicate.scenes[0].nodes[0].clone();
+            duplicate.scenes[0].nodes.push(duplicate_node);
             let mut parent = fixture()?;
             parent.scenes[0].nodes[0].parent = Some("missing".into());
             json!({
