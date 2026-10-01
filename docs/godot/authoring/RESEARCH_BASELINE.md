@@ -2,7 +2,7 @@
 
 Role D, 2026-09-28. Product base `b736d41b61c4a4146c9e75c16796e251b025e69f`; A contract `26602e4b25929be869d69ef28fef4dd9713180d7` merged normally, without the media implementation. A C1 audio/AV contract inspected; no new AV type is needed by this compiler.
 
-The existing native lane pins Godot **4.7.2-stable**, Linux x86_64, binary SHA-256 `8d106cbe6144c2dc7e881d61d2429c1a8a76e6b22ef48bd5e48dcf934953f71e`. Runtime acceptance remains pending until this branch actually runs it. Rust toolchain for CI is 1.98.1.
+The existing native lane pins Godot **4.7.2-stable**, Linux x86_64, binary SHA-256 `8d106cbe6144c2dc7e881d61d2429c1a8a76e6b22ef48bd5e48dcf934953f71e`. Runtime acceptance is exact-SHA green at `a3c2180c6406f3664e9e8c4870438cfeb20655dd` / run `36824957800` on the pinned Linux Godot lane; this does not imply Windows/macOS native acceptance. Rust toolchain for CI is 1.98.1.
 
 | Source | Observation and decision |
 |---|---|

@@ -20,4 +20,4 @@ Save/reopen is two actual native processes; cache bypass inside one process is n
 
 ## Status
 
-The bounded wire, fixed Godot observer source, full animation enumeration, signal/dependency inspection, runtime checkpoints, cross-process content-bound track/key paging and save/reopen sentinel comparison are implemented as source on D. Native engine execution for this source SHA is still pending, so this does not establish native acceptance merely by compiling. Product-route E2E, hostile isolation and standalone export remain required gates.
+The bounded wire, fixed Godot observer source, full animation enumeration, signal/dependency inspection, runtime checkpoints, cross-process content-bound track/key paging and save/reopen sentinel comparison are implemented as source on D. Native engine execution, product-route E2E, hostile isolation and standalone export are exact-SHA certified at `a3c2180c6406f3664e9e8c4870438cfeb20655dd` / run `36824957800`. This acceptance is evidence-bound and does not turn native JSON into permission or close D11/R16.
