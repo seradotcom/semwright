@@ -446,14 +446,21 @@ fn renderer_failure_code(stdout: &[u8]) -> ErrorCode {
             "renderer_state_frame_clock"
             | "renderer_state_authoring_protocol"
             | "renderer_log_authoring_protocol"
+            | "renderer_state_playback_protocol"
+            | "renderer_log_playback_protocol"
             | "renderer_log_exporter_missing"
             | "renderer_log_async_property",
         ) => ErrorCode::ProtocolMismatch,
+        Some("renderer_state_webgl_unavailable" | "renderer_log_webgl_unavailable") => {
+            ErrorCode::Unavailable
+        }
         Some(
             "renderer_state_model_invariant"
             | "renderer_log_model_invariant"
             | "renderer_state_authoring_model"
             | "renderer_log_authoring_model"
+            | "renderer_state_invalid_scene"
+            | "renderer_log_invalid_scene"
             | "renderer_state_range_error"
             | "renderer_log_range_error",
         ) => ErrorCode::InvalidArgument,
@@ -1137,6 +1144,18 @@ mod runtime_path_tests {
                 br#"{"ok":false,"errorClass":"renderer_log_authoring_protocol"}"#
             ),
             ErrorCode::ProtocolMismatch
+        );
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"renderer_log_webgl_unavailable"}"#),
+            ErrorCode::Unavailable
+        );
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"renderer_log_playback_protocol"}"#),
+            ErrorCode::ProtocolMismatch
+        );
+        assert_eq!(
+            renderer_failure_code(br#"{"ok":false,"errorClass":"renderer_log_invalid_scene"}"#),
+            ErrorCode::InvalidArgument
         );
         assert_eq!(
             renderer_failure_code(br#"{"ok":false,"errorClass":"render_result_aborted"}"#),

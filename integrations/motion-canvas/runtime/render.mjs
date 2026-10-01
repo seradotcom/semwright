@@ -78,6 +78,9 @@ function classifyAuthoringMessage(message){
   if(/^(non-finite |width requires layout|height requires layout|line start requires Line|line end requires Line|font size requires Layout|tracking requires Layout|fill requires shape|zoom requires Camera|vector operand required|unknown easing|connection requires Line|trace requires native Line|follow requires Camera|incompatible morph topology|selection requires Code|counter requires text|region requires Layout)/.test(message))return 'authoring_model';
   if(/^missing subject /.test(message)||/^original value unavailable: /.test(message))return 'authoring_model';
   if(message==='native signal not available'||message==='stage compositor baseline changed'||message==='native frame clock not supplied by exporter'||message==='native authoring probe unavailable'||message==='Semwright exporter binding unavailable'||message==='asset must be a generated local import')return 'authoring_protocol';
+  if(message==='Failed to initialize WebGL.'||message==='Failed to initialize the shader program.'||message==='Unknown shader compilation error.')return 'webgl_unavailable';
+  if(message==='PlaybackManager has not been properly initialized')return 'playback_protocol';
+  if(message==='Invalid scene.')return 'invalid_scene';
   return null;
 }
 function classifyRendererLog(payload){
@@ -87,6 +90,9 @@ function classifyRendererLog(payload){
   const authoring=classifyAuthoringMessage(message);
   if(authoring==='authoring_model')return 'renderer_log_authoring_model';
   if(authoring==='authoring_protocol')return 'renderer_log_authoring_protocol';
+  if(authoring==='webgl_unavailable')return 'renderer_log_webgl_unavailable';
+  if(authoring==='playback_protocol')return 'renderer_log_playback_protocol';
+  if(authoring==='invalid_scene')return 'renderer_log_invalid_scene';
   if(name==='TypeError')return 'renderer_log_type_error';
   if(name==='RangeError')return 'renderer_log_range_error';
   if(message.startsWith('Could not find the \"')&&message.endsWith('\" exporter.'))return 'renderer_log_exporter_missing';
@@ -125,6 +131,9 @@ renderer.onFinished.subscribe(result=>{state.result=result;});
     const authoring=classifyAuthoringMessage(text);
     if(authoring==='authoring_model')errorClass='renderer_state_authoring_model';
     else if(authoring==='authoring_protocol')errorClass='renderer_state_authoring_protocol';
+    else if(authoring==='webgl_unavailable')errorClass='renderer_state_webgl_unavailable';
+    else if(authoring==='playback_protocol')errorClass='renderer_state_playback_protocol';
+    else if(authoring==='invalid_scene')errorClass='renderer_state_invalid_scene';
     else if(error?.name==='TypeError')errorClass='renderer_state_type_error';
     else if(error?.name==='RangeError')errorClass='renderer_state_range_error';
     state.error=String(error);state.errorClass=errorClass;state.phase='error';state.done=true;
@@ -226,7 +235,7 @@ async function main() {
     }
     const state = await page.evaluate(() => window.__SEMWRIGHT_RENDER__.state);
     if (state.error) {
-      const allowedStateClasses=new Set(['renderer_state_authoring_model','renderer_state_authoring_protocol','renderer_state_type_error','renderer_state_range_error','renderer_state_error']);
+      const allowedStateClasses=new Set(['renderer_state_authoring_model','renderer_state_authoring_protocol','renderer_state_webgl_unavailable','renderer_state_playback_protocol','renderer_state_invalid_scene','renderer_state_type_error','renderer_state_range_error','renderer_state_error']);
       failurePhase=allowedStateClasses.has(state.errorClass)?state.errorClass:'renderer_state_error';
       fail(`renderer failed: ${state.error}`);
     }
@@ -247,7 +256,7 @@ async function main() {
   } finally { await cleanup(); }
 }
 main().catch(error => {
-  const allowed = new Set(['arguments','font_evidence','project_stage','vite_build','frame_export','browser_launch','page_load','render_wait','render_wait_timeout','renderer_state_authoring_model','renderer_state_authoring_protocol','renderer_state_type_error','renderer_state_range_error','renderer_state_error','renderer_log_authoring_model','renderer_log_authoring_protocol','renderer_log_type_error','renderer_log_range_error','renderer_log_exporter_missing','renderer_log_async_property','renderer_log_error','render_result_error','render_result_aborted','render_result_unknown','render_nonzero','observation','finalize']);
+  const allowed = new Set(['arguments','font_evidence','project_stage','vite_build','frame_export','browser_launch','page_load','render_wait','render_wait_timeout','renderer_state_authoring_model','renderer_state_authoring_protocol','renderer_state_webgl_unavailable','renderer_state_playback_protocol','renderer_state_invalid_scene','renderer_state_type_error','renderer_state_range_error','renderer_state_error','renderer_log_authoring_model','renderer_log_authoring_protocol','renderer_log_webgl_unavailable','renderer_log_playback_protocol','renderer_log_invalid_scene','renderer_log_type_error','renderer_log_range_error','renderer_log_exporter_missing','renderer_log_async_property','renderer_log_error','render_result_error','render_result_aborted','render_result_unknown','render_nonzero','observation','finalize']);
   const errorClass = allowed.has(failurePhase) ? failurePhase : 'startup';
   process.stdout.write(JSON.stringify({ok:false,errorClass})+'\n');
   process.stderr.write(String(error?.stack || error) + '\n');
