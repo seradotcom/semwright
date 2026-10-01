@@ -30,6 +30,29 @@ fn broker_error(error: semwright_types::Error) -> Error {
     }
 }
 
+fn command_context(error: Error, command: &str) -> Error {
+    let command = command
+        .chars()
+        .filter(|character| !character.is_control())
+        .take(192)
+        .collect::<String>();
+    let prefix = format!("{command}: ");
+    let decorate = |message: String| {
+        prefix
+            .chars()
+            .chain(message.chars())
+            .take(512)
+            .collect::<String>()
+    };
+    match error {
+        Error::Denied(message) => Error::Denied(decorate(message)),
+        Error::Stale(message) => Error::Stale(decorate(message)),
+        Error::Limit(message) => Error::Limit(decorate(message)),
+        Error::Unknown(message) => Error::Unknown(decorate(message)),
+        Error::Invalid(message) => Error::Invalid(decorate(message)),
+    }
+}
+
 /// A single reserved AV stage consumes exactly the ordered descriptor bindings
 /// captured in its ServiceProof. It cannot select another command or backend.
 pub struct StageCommandRunner<'a> {
@@ -99,7 +122,7 @@ impl<'a> StageCommandRunner<'a> {
             }
             Err(error) => {
                 self.failed = true;
-                Err(broker_error(error))
+                Err(command_context(broker_error(error), &binding.command))
             }
         }
     }
@@ -375,5 +398,31 @@ mod error_mapping_tests {
         assert!(message.len() <= 512);
         assert!(!message.chars().any(char::is_control));
         assert!(message.starts_with("start"));
+    }
+}
+
+#[cfg(test)]
+mod command_context_tests {
+    use super::*;
+    use semwright_types::{Error as NativeError, ErrorCode};
+
+    #[test]
+    fn trusted_command_context_preserves_class_and_redacted_message_budget() {
+        let mapped = command_context(
+            broker_error(
+                NativeError::new(
+                    ErrorCode::BackendFailed,
+                    format!("redacted-{}", "x".repeat(700)),
+                )
+                .uncertain(),
+            ),
+            "driver.motion-canvas.render.execute",
+        );
+        let Error::Unknown(message) = mapped else {
+            panic!("uncertain backend failure must remain unknown");
+        };
+        assert!(message.starts_with("driver.motion-canvas.render.execute: redacted-"));
+        assert!(message.len() <= 512);
+        assert!(!message.chars().any(char::is_control));
     }
 }
