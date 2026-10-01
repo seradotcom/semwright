@@ -2,7 +2,7 @@
  * API baseline: @motion-canvas/{core,2d} 3.17.2. Generated data is validated by
  * semwright-motion-authoring before it enters this module; runtime guards remain.
  */
-import {Node,Layout,Rect,Circle,Line,Txt,TxtLeaf,Code,Img,Video,Camera,makeScene2D,lines,LezerHighlighter} from '@motion-canvas/2d';
+import {Node,Layout,Rect,Circle,Line,Txt,Code,Img,Video,Camera,makeScene2D,lines,LezerHighlighter} from '@motion-canvas/2d';
 import {Vector2,all,delay,waitFor,tween,linear,easeInCubic,easeOutCubic,easeInOutCubic,easeOutBack,easeOutExpo,easeInOutSine,easeOutElastic,useTime} from '@motion-canvas/core';
 import type {ThreadGenerator,TimingFunction} from '@motion-canvas/core';
 import {parser as jsParser} from '@lezer/javascript';
@@ -77,9 +77,9 @@ function newSubject(s:Subject,d:NativeSceneData,urls:AssetUrls):Node {
   case 'group':n=new Layout({});break;
   case 'text':{
    const props={fontFamily:e.font.family,fontSize:e.type_scale[c.style],textDirection:c.direction==='auto'?'inherit':c.direction,textWrap:c.wrap,fill:color(textColor)} as const;
-   // TxtLeaf is Motion Canvas' native inline run type. The parent Txt owns wrapping,
-   // shaping and direction while each leaf preserves weight/color/emphasis.
-   n=new Txt({...props,children:c.runs.map(r=>new TxtLeaf({text:r.text,fontWeight:r.weight,fill:color(r.color??textColor),fontStyle:r.emphasis?'italic':'normal'}))});break;
+   // Public nested Txt nodes are Motion Canvas' supported API for styled complex text.
+   // Keep the parent layout-enabled so its DOM tree can shape/wrap the inline runs.
+   n=new Txt({...props,children:c.runs.map(r=>new Txt({text:r.text,fontWeight:r.weight,fill:color(r.color??textColor),fontStyle:r.emphasis?'italic':'normal'}))});break;
   }
   case 'rectangle':n=new Rect({fill:color(c.fill),stroke:c.stroke?color(c.stroke):null,lineWidth:e.stroke,radius:c.radius});break;
   case 'circle':n=new Circle({fill:color(c.fill),stroke:c.stroke?color(c.stroke):null,lineWidth:e.stroke});break;
@@ -106,7 +106,7 @@ function layoutSubject(n:Layout,s:Subject,d:NativeSceneData){
  const l=s.layout;
  switch(l.kind){
   case 'flow':n.layout(true);n.grow(l.grow);n.alignSelf(align(l.align));break;
-  case 'fixed':n.layout(false);n.position(vec(l.position));n.size([l.size.width,l.size.height]);break;
+  case 'fixed':if(!(n instanceof Txt))n.layout(false);n.position(vec(l.position));n.size([l.size.width,l.size.height]);break;
   case 'stack':n.layout(true);n.direction(l.axis==='horizontal'?'row':'column');n.gap(l.gap);n.padding([l.padding.top,l.padding.right,l.padding.bottom,l.padding.left]);n.alignItems(align(l.align));break;
   case 'split':n.layout(true);n.direction(d.aspect==='portrait'?(l.portrait_axis==='horizontal'?'row':'column'):'row');n.gap(l.gap);break;
   case 'grid':n.layout(true);n.direction('row');n.wrap('wrap');n.gap(l.gap);break;

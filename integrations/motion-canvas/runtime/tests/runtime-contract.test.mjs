@@ -68,8 +68,8 @@ test('authoring font evidence is derived from pinned Fontsource resources and br
   assert.ok(!render.includes('font_ready:known(true)'));
 });
 
-test('native styled text runs use TxtLeaf rather than nested layout Txt nodes', () => {
-  assert.ok(nativeAuthoring.includes('Txt,TxtLeaf,Code'));
-  assert.ok(nativeAuthoring.includes('new TxtLeaf({text:r.text'));
-  assert.ok(!nativeAuthoring.includes('new Txt({text:r.text'));
+test('native styled text preserves Motion Canvas public Txt layout contract', () => {
+  assert.ok(nativeAuthoring.includes('new Txt({text:r.text'));
+  assert.ok(!nativeAuthoring.includes('TxtLeaf'));
+  assert.ok(nativeAuthoring.includes("case 'fixed':if(!(n instanceof Txt))n.layout(false)"));
 });
