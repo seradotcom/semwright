@@ -44,6 +44,19 @@ jobs:
           CERTIFY_ALL: ${{ inputs.certify_all }}
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
         run: |
+          mode=iteration
+          if [ "$CERTIFY_ALL" = true ]; then mode=certify; fi
+
+          if [ "$mode" = certify ]; then
+            python scripts/composition/ci-scope.py \
+              --mode certify \
+              --after "$GITHUB_SHA" \
+              --candidate-sha "$CANDIDATE_SHA" \
+              --github-output "$GITHUB_OUTPUT"
+            echo "run_full=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           if [ "$HEAD_REF" != "feat/composition-media" ] && [ "$REF_NAME" != "feat/composition-media" ]; then
             echo "run_full=true" >> "$GITHUB_OUTPUT"
             echo "figma=true" >> "$GITHUB_OUTPUT"
@@ -51,16 +64,12 @@ jobs:
             echo "native_driver_common=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          mode=iteration
-          if [ "$CERTIFY_ALL" = true ]; then mode=certify; fi
-          args=(--mode "$mode" --after "$GITHUB_SHA" --github-output "$GITHUB_OUTPUT")
-          if [ "$mode" = certify ]; then args+=(--candidate-sha "$CANDIDATE_SHA"); fi
-          python scripts/composition/ci-scope.py "${args[@]}"
-          if [ "$mode" = certify ]; then
-            echo "run_full=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "run_full=false" >> "$GITHUB_OUTPUT"
-          fi
+
+          python scripts/composition/ci-scope.py \
+            --mode iteration \
+            --after "$GITHUB_SHA" \
+            --github-output "$GITHUB_OUTPUT"
+          echo "run_full=false" >> "$GITHUB_OUTPUT"
   chromium:
     needs: scope
     if: ${{ needs.scope.outputs.run_full == 'true' && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
