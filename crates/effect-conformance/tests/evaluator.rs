@@ -175,6 +175,37 @@ fn optional_failure_is_visible_without_erasing_required_pass() {
     assert!(!out.coverage[1].reasons.is_empty());
 }
 #[test]
+fn forbidden_obligation_requires_the_positive_condition_without_inversion() {
+    let (mut contract, mut context) = fixture();
+    contract.rules[1].obligation = Obligation::Forbidden;
+    context.contract_digest = contract.digest().unwrap();
+
+    assert!(contract.rules[1].obligation.required());
+    assert!(contract.required_rules().contains("external-material"));
+
+    let passing = collect(&contract, &context, &mut ModelAdapter::default()).unwrap();
+    let passing = evaluate(&contract, &context, &passing).unwrap();
+    assert_eq!(passing.verdict().unwrap(), Verdict::Pass);
+    assert_eq!(passing.report.validation.checks[1].verdict, Verdict::Pass);
+
+    let mut changed = ModelAdapter {
+        mutate: |rule, observation| {
+            if rule.id == "external-material" {
+                observation.value = Some(ObservedValue::Preservation {
+                    before: Digest::of_bytes(b"before"),
+                    after: Digest::of_bytes(b"after"),
+                });
+            }
+        },
+        ..Default::default()
+    };
+    let failing = collect(&contract, &context, &mut changed).unwrap();
+    let failing = evaluate(&contract, &context, &failing).unwrap();
+    assert_eq!(failing.verdict().unwrap(), Verdict::Fail);
+    assert_eq!(failing.report.validation.checks[1].verdict, Verdict::Fail);
+}
+
+#[test]
 fn causal_ambiguity_is_not_hidden_by_equal_values() {
     let (mut c, mut ctx) = fixture();
     c.rules[0].require_causal_attribution = true;
