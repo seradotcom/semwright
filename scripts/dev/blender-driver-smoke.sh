@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT=$(cd "$(dirname "$0")/../.." && pwd)
+ROOT=$(cd "$(dirname "$0")/../.." && pwd -P)
 BIN_DIR=${BIN_DIR:-"$ROOT/target/debug"}
 DAEMON="$BIN_DIR/semwrightd"
 CTL="$BIN_DIR/semwright"
@@ -12,6 +12,11 @@ SANDBOX="$BIN_DIR/semwright-sandbox"
 for file in "$DAEMON" "$CTL" "$DRIVER" "$SESSION_RUNNER" "$SANDBOX"; do
   test -x "$file" || { echo "missing executable: $file" >&2; exit 2; }
 done
+DAEMON=$(realpath -e "$DAEMON")
+CTL=$(realpath -e "$CTL")
+DRIVER=$(realpath -e "$DRIVER")
+SESSION_RUNNER=$(realpath -e "$SESSION_RUNNER")
+SANDBOX=$(realpath -e "$SANDBOX")
 command -v bwrap >/dev/null
 BLENDER_ROOT=${SEMWRIGHT_TEST_BLENDER_ROOT:-}
 if [[ -z "$BLENDER_ROOT" ]]; then
@@ -23,15 +28,26 @@ if [[ -z "$BLENDER_ROOT" ]]; then
   blender_real=$(readlink -f "$blender_on_path")
   BLENDER_ROOT=$(dirname "$blender_real")
 fi
-BLENDER_BIN="$BLENDER_ROOT/blender"
+BLENDER_ROOT=$(realpath -e "$BLENDER_ROOT")
+BLENDER_BIN=$(realpath -e "$BLENDER_ROOT/blender")
+case "$BLENDER_BIN" in
+  "$BLENDER_ROOT"/*) ;;
+  *) echo "Blender executable escaped its canonical runtime root" >&2; exit 5 ;;
+esac
 test -x "$BLENDER_BIN" || { echo "Blender runtime is missing $BLENDER_BIN" >&2; exit 5; }
 test "$("$BLENDER_BIN" --version | head -1)" = "Blender 4.5.14 LTS"
 for required in lib 4.5/scripts 4.5/extensions 4.5/datafiles 4.5/python; do
-  test -d "$BLENDER_ROOT/$required" || { echo "Blender runtime missing $required" >&2; exit 5; }
+  required_path=$(realpath -e "$BLENDER_ROOT/$required")
+  case "$required_path" in
+    "$BLENDER_ROOT"/*) ;;
+    *) echo "Blender runtime component escaped root: $required" >&2; exit 5 ;;
+  esac
+  test -d "$required_path" || { echo "Blender runtime missing $required" >&2; exit 5; }
 done
 BLENDER_SHA=$(sha256sum "$BLENDER_BIN" | awk '{print $1}')
 SESSION_RUNNER_SHA=$(sha256sum "$SESSION_RUNNER" | awk '{print $1}')
-test -d /etc/fonts
+FONT_CONFIG_ROOT=$(realpath -e /etc/fonts)
+test -d "$FONT_CONFIG_ROOT"
 
 TMP=$(mktemp -d)
 DAEMON_PID=""
@@ -138,7 +154,7 @@ write = true
 
 [[policy.filesystem]]
 name = "font-config"
-path = "/etc/fonts"
+path = "$FONT_CONFIG_ROOT"
 read = true
 write = false
 
