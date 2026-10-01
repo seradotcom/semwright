@@ -100,6 +100,26 @@ jobs:
             echo "G_GODOT_TEMPLATE=$TEMPLATE"
             echo "G_GODOT_TEMPLATE_SHA256=$TEMPLATE_SHA"
           } >> "$GITHUB_ENV"
+      - name: Provision pinned Blender native runtime
+        if: matrix.lane == 'blender-native'
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y fontconfig xz-utils libpipewire-0.3-dev
+          BLENDER_SHA=$(python3 -c 'import json; print(json.load(open("tests/semantic-adversarial-lab/targets.json"))["pins"]["blender_archive_sha256"])')
+          ARCHIVE="$RUNNER_TEMP/g-native/blender-4.5.14-linux-x64.tar.xz"
+          mkdir -p "$RUNNER_TEMP/g-native"
+          curl --fail --location --retry 3             --output "$ARCHIVE"             "https://download.blender.org/release/Blender4.5/blender-4.5.14-linux-x64.tar.xz"
+          echo "$BLENDER_SHA  $ARCHIVE" | sha256sum -c -
+          tar -xJf "$ARCHIVE" -C "$RUNNER_TEMP/g-native"
+          rm -f "$ARCHIVE"
+          BLENDER_ROOT="$RUNNER_TEMP/g-native/blender-4.5.14-linux-x64"
+          test -x "$BLENDER_ROOT/blender"
+          test "$("$BLENDER_ROOT/blender" --version | head -1)" = "Blender 4.5.14 LTS"
+          {
+            echo "G_BLENDER_ROOT=$BLENDER_ROOT"
+            echo "G_BLENDER_BINARY_SHA256=$(sha256sum "$BLENDER_ROOT/blender" | cut -d' ' -f1)"
+          } >> "$GITHUB_ENV"
       - name: Execute independent exact-SHA boundary
         env:
           LANE: ${{ matrix.lane }}

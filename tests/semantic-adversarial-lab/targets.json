@@ -14,7 +14,7 @@
   },
   "selected_lanes": [
     "selftest",
-    "godot-native"
+    "blender-native"
   ],
   "pins": {
     "os": "ubuntu-24.04",

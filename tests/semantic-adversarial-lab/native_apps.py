@@ -7,10 +7,11 @@ import os
 from pathlib import Path
 import shutil
 import re
+import tempfile
 import shlex
 from typing import Any
 
-from isolation import Enclosure, require_hosted
+from isolation import Enclosure, captured, require_hosted
 from lab_core import EvidenceError, compare_observation, digest, strict_json
 from product import BuildCopy
 
@@ -823,8 +824,174 @@ def run_godot(target: Path, source_sha: str, suite_sha: str, cases: list[dict], 
         report["target_checkout_unchanged"] = build_clean
 
 
+
+def run_blender(target: Path, source_sha: str, suite_sha: str,
+                cases: list[dict], report: dict) -> list[dict]:
+    require_hosted()
+    root = Path(os.environ.get("G_BLENDER_ROOT", ""))
+    blender = root / "blender"
+    lock = strict_json((LAB / "targets.json").read_bytes())
+    pins = lock["pins"]
+    if not root.is_dir() or not blender.is_file():
+        raise EvidenceError("BLOCKED: pinned Blender runtime unavailable")
+    if pins.get("blender_version") != "4.5.14":
+        raise EvidenceError("BLOCKED: unexpected Blender version pin")
+
+    build: BuildCopy | None = None
+    scratch: tempfile.TemporaryDirectory[str] | None = None
+    results: list[dict[str, Any]] = []
+    report["results"] = results
+    report["native_runtime"] = {
+        "application": "Blender",
+        "version_pin": "4.5.14 LTS",
+        "archive_sha256": pins["blender_archive_sha256"],
+        "binary_sha256": sha256_file(blender),
+        "route": "Broker -> policy -> Driver Host -> Blender",
+        "network_during_attacks": "disabled by Driver Host manifest",
+    }
+    try:
+        build = BuildCopy(target, source_sha, "blender-native")
+        report["builds"] = build.builds
+        build.build("blender-native-probe")
+        driver, _ = build.build_named_binary(
+            "semwright-driver-blender",
+            "semwright-blender-driver",
+            "blender-driver",
+            features=["authoring-native"],
+        )
+        sandbox, _ = build.build_named_binary(
+            "semwright-plugin-host",
+            "semwright-sandbox",
+            "blender-sandbox",
+        )
+
+        scratch = tempfile.TemporaryDirectory(
+            prefix="g-blender-native-", dir=os.environ["RUNNER_TEMP"]
+        )
+        scratch_root = Path(scratch.name)
+        workspace = scratch_root / "workspace"
+        home = scratch_root / "home"
+        workspace.mkdir()
+        home.mkdir()
+        workspace.chmod(0o700)
+        home.chmod(0o700)
+
+        env = {
+            "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+            "HOME": str(home),
+            "TMPDIR": str(scratch_root),
+            "LANG": "C.UTF-8",
+            "LC_ALL": "C.UTF-8",
+            "PYTHONDONTWRITEBYTECODE": "1",
+        }
+        raw = captured(
+            [
+                str(build.binary),
+                str(driver),
+                str(sandbox),
+                str(root),
+                str(workspace),
+                str(LAB / "fixtures" / "blender_native.json"),
+            ],
+            env=env,
+            timeout=300,
+            address_space_bytes=lock["limits"]["native_address_space_bytes"],
+            file_size_bytes=lock["limits"]["native_file_size_bytes"],
+        )
+        report["execution"] = {
+            key: value for key, value in raw.items() if key not in {"stdout", "stderr"}
+        }
+        report["execution"]["stdout_sha256"] = digest(raw["stdout"])
+        report["execution"]["stderr_sha256"] = digest(raw["stderr"])
+        report["execution"]["stderr_tail"] = raw["stderr"][-4096:].decode(errors="replace")
+
+        receipt = None
+        try:
+            receipt = strict_json(raw["stdout"])
+        except EvidenceError as error:
+            raise EvidenceError(
+                "BLOCKED: Blender native G receipt invalid: " + str(error)
+            ) from error
+        expected_fields = {
+            "schema_version",
+            "source_sha",
+            "route",
+            "sandbox_network_disabled",
+            "sentinel_unchanged",
+            "cases",
+        }
+        if not isinstance(receipt, dict) or set(receipt) != expected_fields:
+            raise EvidenceError("BLOCKED: Blender native G receipt field mismatch")
+        if (
+            raw["exit_code"] != 0
+            or raw["termination_reason"] is not None
+            or not raw["outer_process_group_gone"]
+        ):
+            raise EvidenceError(
+                "BLOCKED: Blender native probe process failed: "
+                + raw["stderr"][-4096:].decode(errors="replace")
+            )
+        isolation_ok = (
+            receipt["schema_version"] == 1
+            and receipt["source_sha"] == source_sha
+            and receipt["route"] == "Broker -> policy -> Driver Host -> Blender"
+            and receipt["sandbox_network_disabled"] is True
+            and receipt["sentinel_unchanged"] is True
+        )
+        report["isolation"] = {
+            "validated": isolation_ok,
+            "scope": "product Driver Host sandbox on GitHub-hosted disposable runner",
+            "network_disabled": receipt.get("sandbox_network_disabled"),
+            "synthetic_sentinel_unchanged": receipt.get("sentinel_unchanged"),
+            "outer_process_group_gone": raw["outer_process_group_gone"],
+        }
+        rows = receipt["cases"]
+        if not isinstance(rows, list):
+            raise EvidenceError("BLOCKED: Blender native cases receipt is not an array")
+        expected_ids = [case["id"] for case in cases]
+        received_ids = [
+            row.get("case_id") if isinstance(row, dict) else None for row in rows
+        ]
+        if received_ids != expected_ids:
+            raise EvidenceError("BLOCKED: Blender native case set/count/order mismatch")
+        by_id = {case["id"]: case for case in cases}
+        for row_value in rows:
+            if not isinstance(row_value, dict) or set(row_value) != {"case_id", "observed"}:
+                raise EvidenceError("BLOCKED: malformed Blender native case receipt")
+            case = by_id[row_value["case_id"]]
+            observed = row_value["observed"]
+            success = isolation_ok and compare_observation(observed, case["expected"])
+            results.append(
+                {
+                    "case_id": case["id"],
+                    "source_sha": source_sha,
+                    "suite_sha": suite_sha,
+                    "scope": "native_application",
+                    "isolation_verified": isolation_ok,
+                    "outcome": "PASS" if success else "FAIL",
+                    "expected": case["expected"],
+                    "observed": observed,
+                    "classification": None
+                    if success
+                    else "REQUIRES_TRIAGE_NATIVE_PRODUCT_OR_G_ORACLE",
+                }
+            )
+        return results
+    finally:
+        scratch_clean = True
+        if scratch is not None:
+            path = Path(scratch.name)
+            scratch.cleanup()
+            scratch_clean = not path.exists()
+        build_clean = True if build is None else build.close()
+        report["cleanup_verified"] = scratch_clean and build_clean
+        report["target_checkout_unchanged"] = build_clean
+
+
 def run_native(lane: str, target: Path, source_sha: str, suite_sha: str,
                cases: list[dict], report: dict) -> list[dict]:
     if lane == "godot-native":
         return run_godot(target, source_sha, suite_sha, cases, report)
+    if lane == "blender-native":
+        return run_blender(target, source_sha, suite_sha, cases, report)
     raise EvidenceError("BLOCKED: independent native lane not yet implemented")

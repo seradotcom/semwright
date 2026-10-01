@@ -383,7 +383,7 @@
         "G-GODOT-012",
         "G-GODOT-013"
       ],
-      "source_sha": "e6bd9489d7983d275fd1454dd7ab26916d3fbb15",
+      "source_sha": "3d04d8465dcfa94d6cbf548fcaf343f69ac5838f",
       "suite_sha": "a337709ffdd2e05f40da408e3a78183651dff113",
       "run_id": 36818122155,
       "job_id": 110227589092,
@@ -392,7 +392,7 @@
         "godot-native artifact 3813bc488c953f32740c1b8df43bfd7f369ae8f8c5a3cf496c1074c31881fcd7",
         "selftest 99/99 PASS artifact 08b7065ab21a7a0b06aca563c10f37811ba57d170adf2e7fb81fc556964622fd"
       ],
-      "blocker": "Exact-SHA Godot-native run 36818122155: 10 PASS, 2 FAIL, 1 BLOCKED of 13. G-GODOT-006 is OPEN D persistence finding: fresh save/reopen receipts individually admit, but persistence_value rejects a writer-only local-material dependency sentinel. G-GODOT-013 is OPEN D observer false-PASS: BoxMesh readback emits SCRIPT ERROR while process exits 0 and failures=[]; G-GODOT-007 is BLOCKED until persistence baseline is green. Export/standalone G-GODOT-011/012 now PASS after G harness fixes.",
+      "blocker": "Godot D target e6bd948 produced two open native findings (G-FIND-D-001 persistence dependency stability; G-FIND-D-002 observer false-PASS) reported to D. Independent Blender-native lane now registers 14 Broker/DriverHost/Blender cases against E 3d04d84; exact-SHA execution pending.",
       "implementation_suite_sha": "a337709ffdd2e05f40da408e3a78183651dff113",
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },

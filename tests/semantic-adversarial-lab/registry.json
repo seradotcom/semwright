@@ -4598,6 +4598,181 @@
         "observer_reported_failures_empty": true,
         "script_errors_absent": true
       }
+    },
+    {
+      "id": "G-BLENDER-001",
+      "owner": "E",
+      "requirement": "G06",
+      "lane": "blender-native",
+      "scope": "native_application",
+      "description": "planning is non-mutating and returns a plan ref",
+      "expected": {
+        "plan_ref_present": true,
+        "plan_nonmutating": true
+      }
+    },
+    {
+      "id": "G-BLENDER-002",
+      "owner": "E",
+      "requirement": "G06",
+      "lane": "blender-native",
+      "scope": "native_application",
+      "description": "foreign authenticated owner cannot apply another session plan",
+      "expected": {
+        "foreign_owner_denied": true,
+        "state_unchanged": true
+      }
+    },
+    {
+      "id": "G-BLENDER-003",
+      "owner": "E",
+      "requirement": "G06",
+      "lane": "blender-native",
+      "scope": "native_application",
+      "description": "pre-cancelled apply fails closed without native mutation",
+      "expected": {
+        "pre_cancelled_denied": true,
+        "state_unchanged": true
+      }
+    },
+    {
+      "id": "G-BLENDER-004",
+      "owner": "E",
+      "requirement": "G06",
+      "lane": "blender-native",
+      "scope": "native_application",
+      "description": "native apply verifies and preserves shared mesh identity",
+      "expected": {
+        "total": 4,
+        "verification_pass": true,
+        "shared_data_name": true,
+        "shared_data_users": 2
+      }
+    },
+    {
+      "id": "G-BLENDER-005",
+      "owner": "E",
+      "requirement": "G06",
+      "lane": "blender-native",
+      "scope": "native_application",
+      "description": "consumed authoring plan cannot be replayed",
+      "expected": {
+        "consumed_plan_rejected": true
+      }
+    },
+    {
+      "id": "G-BLENDER-006",
+      "owner": "E",
+      "requirement": "G06",
+      "lane": "blender-native",
+      "scope": "native_application",
+      "description": "all six native enumeration domains paginate exhaustively without duplicates",
+      "expected": {
+        "domains": 6,
+        "all_nonempty": true,
+        "all_exhaustive": true,
+        "stable_totals": true,
+        "no_duplicates": true,
+        "all_final_pages": true
+      }
+    },
+    {
+      "id": "G-BLENDER-007",
+      "owner": "E",
+      "requirement": "G06",
+      "lane": "blender-native",
+      "scope": "native_application",
+      "description": "provider cursor is single-use and rejects replay",
+      "expected": {
+        "consumed_cursor_rejected": true
+      }
+    },
+    {
+      "id": "G-BLENDER-008",
+      "owner": "E",
+      "requirement": "G06",
+      "lane": "blender-native",
+      "scope": "native_application",
+      "description": "native mutation invalidates old cursor and explicit restoration clears drift",
+      "expected": {
+        "stale_cursor_rejected": true,
+        "restored_drift_false": true
+      }
+    },
+    {
+      "id": "G-BLENDER-009",
+      "owner": "E",
+      "requirement": "G06",
+      "lane": "blender-native",
+      "scope": "native_application",
+      "description": "shared mesh instance rejects shading writes that would mutate shared data",
+      "expected": {
+        "shared_mesh_material_plan_rejected": true
+      }
+    },
+    {
+      "id": "G-BLENDER-010",
+      "owner": "E",
+      "requirement": "G06",
+      "lane": "blender-native",
+      "scope": "native_application",
+      "description": "GLB export is real, hashed, source-preserving and sentinel-safe",
+      "expected": {
+        "glb_magic": true,
+        "sha_matches": true,
+        "source_drift_false": true,
+        "sentinel_preserved": true
+      }
+    },
+    {
+      "id": "G-BLENDER-011",
+      "owner": "E",
+      "requirement": "G06",
+      "lane": "blender-native",
+      "scope": "native_application",
+      "description": "GLB export rejects symlink output escape",
+      "expected": {
+        "symlink_output_rejected": true,
+        "outside_absent": true
+      }
+    },
+    {
+      "id": "G-BLENDER-012",
+      "owner": "E",
+      "requirement": "G06",
+      "lane": "blender-native",
+      "scope": "native_application",
+      "description": "blend persistence is content-addressed and refuses overwrite",
+      "expected": {
+        "persisted": true,
+        "sha_matches": true,
+        "duplicate_rejected": true
+      }
+    },
+    {
+      "id": "G-BLENDER-013",
+      "owner": "E",
+      "requirement": "G06",
+      "lane": "blender-native",
+      "scope": "native_application",
+      "description": "fresh-process reopen preserves fingerprint and native state",
+      "expected": {
+        "fresh_native_session": true,
+        "fingerprint_matches": true,
+        "drift_false": true,
+        "sentinel_preserved": true
+      }
+    },
+    {
+      "id": "G-BLENDER-014",
+      "owner": "E",
+      "requirement": "G06",
+      "lane": "blender-native",
+      "scope": "native_application",
+      "description": "Broker policy denial blocks native inspection when driver grant is absent",
+      "expected": {
+        "policy_denied": true
+      }
     }
   ]
 }

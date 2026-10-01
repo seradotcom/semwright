@@ -21,8 +21,9 @@ PACKAGES = {"composition": ("semwright-semantic-composition", "semantic-composit
             "effects": ("semwright-effect-conformance", "effect-conformance", "effects_probe.rs"),
             "packaging": ("semwright-skills", "skills", "packaging_probe.rs"),
             "routing": ("semwright-core", "core", "routing_probe.rs"),
-            "godot-native": ("semwright-driver-godot", "driver-godot", "godot_native_probe.rs")}
-PACKAGE_FEATURES = {"graph": ["store"]}
+            "godot-native": ("semwright-driver-godot", "driver-godot", "godot_native_probe.rs"),
+            "blender-native": ("semwright-driver-blender", "driver-blender", "blender_native_probe.rs")}
+PACKAGE_FEATURES = {"graph": ["store"], "blender-native": ["authoring-native"]}
 PACKAGE_TARGET_KIND = {"routing": "bin", "godot-native": "bin"}
 
 def build_target_kind(lane: str) -> str:
@@ -154,6 +155,82 @@ class BuildCopy:
             raise EvidenceError("locked dependencies changed during G build")
         receipt.update(binary_sha256=hashed(self.binary), binary_source="Cargo compiler-artifact exact build-copy path")
         return receipt
+
+    def build_named_binary(self, package: str, binary_name: str, label: str,
+                           features: list[str] | None = None) -> tuple[Path, dict]:
+        require_hosted()
+        if self.declared_mutation is not None:
+            raise EvidenceError("auxiliary product build prohibited while mutant is active")
+        if source_manifest(self.source, self.paths) != self.original_digest:
+            raise EvidenceError("undeclared product edit in auxiliary build copy")
+        log = self.root / (label + ".log")
+        started = time.monotonic()
+        command = ["cargo", "build", "--locked", "-p", package, "--bin", binary_name]
+        if features:
+            command += ["--features", ",".join(features)]
+        command += ["--message-format=json-render-diagnostics"]
+        with log.open("wb") as output:
+            process = subprocess.Popen(
+                command,
+                cwd=self.source,
+                env=self.env,
+                stdin=subprocess.DEVNULL,
+                stdout=output,
+                stderr=subprocess.STDOUT,
+                start_new_session=True,
+            )
+            reason = None
+            while process.poll() is None:
+                if time.monotonic() - started > 900 or log.stat().st_size > 8 * 1024 * 1024:
+                    reason = "build_wall_or_log_budget"
+                    import signal
+                    os.killpg(process.pid, signal.SIGKILL)
+                    break
+                time.sleep(0.2)
+            exit_code = process.wait(timeout=10)
+        raw = log.read_bytes()
+        receipt = {
+            "label": label,
+            "source_sha": self.sha,
+            "mutant_digest": None,
+            "exit_code": exit_code,
+            "termination_reason": reason,
+            "duration_seconds": round(time.monotonic() - started, 3),
+            "log_sha256": digest(raw),
+            "lock_sha256": self.lock_digest,
+            "probe_source_sha256": hashed(self.overlay),
+            "source_manifest_sha256": self.original_digest,
+            "rustc": subprocess.check_output(["rustc", "--version"], env=self.env, text=True).strip(),
+            "binary_sha256": None,
+            "binary_source": None,
+            "auxiliary_package": package,
+            "auxiliary_binary": binary_name,
+        }
+        self.builds.append(receipt)
+        if exit_code or reason:
+            receipt["diagnostic_tail"] = raw[-32768:].decode(errors="replace")
+            raise EvidenceError("BLOCKED: G auxiliary binary build did not complete; inspect build receipt")
+        found: list[Path] = []
+        for line in raw.splitlines():
+            try:
+                item = json.loads(line)
+            except (ValueError, UnicodeError):
+                continue
+            if (
+                item.get("reason") == "compiler-artifact"
+                and item.get("target", {}).get("name") == binary_name
+                and item.get("executable")
+            ):
+                found.append(Path(item["executable"]).resolve())
+        if len(found) != 1 or not found[0].is_file():
+            raise EvidenceError("BLOCKED: auxiliary build lacks exact declared executable artifact")
+        if hashed(self.source / "Cargo.lock") != self.lock_digest:
+            raise EvidenceError("locked dependencies changed during auxiliary G build")
+        receipt.update(
+            binary_sha256=hashed(found[0]),
+            binary_source="Cargo compiler-artifact exact build-copy path",
+        )
+        return found[0], receipt
 
     def mutate(self, definition: dict) -> dict:
         if self.declared_mutation is not None:
