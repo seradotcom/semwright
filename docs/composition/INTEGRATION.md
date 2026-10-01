@@ -23,6 +23,8 @@ A never edits the B worktree. A historical/private integration candidate has exe
 
 C0 provides generic plan/base/evidence/lifecycle and exact media-time primitives. B has C0 as an ancestor rather than a duplicate private copy.
 
+Effect-conformance E0 at `dd6d22d6ec6c7c5ef378da58ed75ca18b25ba5ff` was reviewed by Role A and its ownership/authority boundary is approved: F consumes A Composition types and evidence, while PlanVault, canonicalization, lifecycle aggregation and Broker/policy authority remain A/runtime-owned. The approval is recorded on PR #172 and closes only F01's A-review dependency. F12 remains an integration gate: `crates/effect-conformance` is not present in A's current base, so A will not add a private worktree/path dependency. B has been asked on PR #183 to publish the production audio consumer and exact consumed F SHA; A will wire that public consumer when the formal combined candidate is assembled.
+
 A later additive AV consumer contract defines media artifact metadata, audio consumer receipts, service proofs, staged coordination, final decoded sync and manifest publication. B is not considered to have consumed that additive contract until it publishes the exact consumed SHA/tests.
 
 Wire-semantic changes after C0 must be listed here with migration/consumer tests rather than silently edited in both branches.

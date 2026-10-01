@@ -34,8 +34,8 @@ This file maps the Agent-A master requirements to implementation and evidence. I
 | G02 | B rescue manifest/hashes | PENDING B |
 | G03 | Exact C0 shared; additive C1 handoff contract | C0 satisfied; C1 consumption PENDING B |
 | G04 | Common kernel in Figma/Motion and B audio-authoring C0 consumer | PENDING public audio Composition + combined E2E |
-| G05 | Plans/descriptors/Skills grant no authority; Broker rechecks | IMPLEMENTED; exact-SHA CI pending |
-| G06 | Freshness/partial/unknown/cancel/budgets | IMPLEMENTED; exact-SHA CI/native pending |
+| G05 | Plans/descriptors/Skills grant no authority; Broker rechecks | IMPLEMENTED; stale BeginPermit incarnation fix `e58886d50057e85c3fc9d3a14f1483de1c36270d` published; independent G-FIND-A-001 retest pending |
+| G06 | Freshness/partial/unknown/cancel/budgets | IMPLEMENTED; revoke/expiry/cross-vault permit regressions added; exact-SHA G/native evidence pending |
 | G07 | Inventory, mapping and evidence remain distinct | IMPLEMENTED |
 | G08 | Heavy work hosted; no heavy generated outputs committed | IMPLEMENTED; final hygiene evidence pending |
 | G09 | A+B integration on one SHA | PENDING B |

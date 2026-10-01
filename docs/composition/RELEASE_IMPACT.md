@@ -20,7 +20,7 @@ Audio-domain, Faust, Ardour, audio-authoring and the audio production Skill rema
 
 ## Compatibility
 
-Figma retains the existing eight public Composition capability names and domain payloads. Internal authorization/budget handling is stricter; a caller that previously relied on a client-recomputed plan digest or over-budget repair now fails closed.
+Figma retains the existing eight public Composition capability names and domain payloads. Internal authorization/budget handling is stricter; a caller that previously relied on a client-recomputed plan digest or over-budget repair now fails closed. The private in-memory `BeginPermit` also becomes incarnation-bound: permits minted before revoke/expiry/root recreation, or by another PlanVault instance, are rejected without changing any public wire schema.
 
 Legacy semwright-motion.json projects keep the old generated-source shape when no authoring binding exists. New authoring metadata and rational fps denominator fields are optional on the legacy model. High-level authoring projects intentionally reject direct edits to the derived projection.
 

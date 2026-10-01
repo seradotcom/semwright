@@ -8,7 +8,7 @@ The common kernel is data and state-machine logic. It has no native application,
 
 Native effects still flow through the existing Broker → policy → provider/Driver Host path. Figma and Motion adapters bind server-issued plans to the Driver Host session and revalidate freshness before mutation. AV coordination is intentionally not a new privileged workflow engine: each native stage must be dispatched through the existing Broker execution channel.
 
-A SHA-256 proves integrity, not authorization. PlanVault stores the complete canonical plan bytes, owner/session binding and cumulative budgets. Recomputed client digests do not authorize changed bytes or targets.
+A SHA-256 proves integrity, not authorization. PlanVault stores the complete canonical plan bytes, owner/session binding and cumulative budgets. Recomputed client digests do not authorize changed bytes or targets. `BeginPermit` is additionally bound to private, non-serializable identities for both the concrete PlanVault instance and the current root incarnation; revoke/reissue, expiry/reissue, or another PlanVault cannot complete the current attempt with an older permit even when owner/root/index/digest collide.
 
 ## New parsing and state surfaces
 
@@ -57,6 +57,7 @@ The final candidate must exercise at least:
 
 - client-recomputed changed plan bytes;
 - cross-session plan/replay;
+- stale `BeginPermit` across revoke/reissue, expiry/reissue and independent PlanVault instances;
 - stale document/project generation and provider generation;
 - cumulative repair budget exhaustion;
 - malformed/oversized authoring and cue graphs;
