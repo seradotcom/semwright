@@ -145,23 +145,29 @@ fn read_bwrap_child_pid(read_fd: &OwnedFd, monitor: &mut Child) -> Result<u32> {
     }
 }
 
-fn open_pidfd(pid: u32) -> Result<OwnedFd> {
+fn open_pidfd(pid: u32) -> Result<Option<OwnedFd>> {
     // SAFETY: pidfd_open takes a numeric PID and flags only.
     let fd = unsafe { libc::syscall(libc::SYS_pidfd_open, pid, 0) };
     if fd < 0 {
+        let error = std::io::Error::last_os_error();
+        if error.raw_os_error() == Some(libc::ESRCH) {
+            // Bubblewrap may report a very short-lived child that exits before Host opens
+            // its pidfd. Treat that as an already-terminal child, not a sandbox denial.
+            return Ok(None);
+        }
         return Err(Error::new(
             ErrorCode::SandboxDenied,
             "pidfd_open is required for Linux sandbox child lifecycle safety",
         ));
     }
     // SAFETY: successful pidfd_open returns a newly-owned descriptor.
-    Ok(unsafe { OwnedFd::from_raw_fd(fd as i32) })
+    Ok(Some(unsafe { OwnedFd::from_raw_fd(fd as i32) }))
 }
 
 struct LinuxSandboxChild {
     monitor: Child,
     child_pid: u32,
-    child_pidfd: OwnedFd,
+    child_pidfd: Option<OwnedFd>,
     exit_code: Option<i32>,
 }
 
@@ -172,22 +178,24 @@ impl SandboxChildControl for LinuxSandboxChild {
     }
 
     async fn kill(&mut self) -> Result<()> {
-        // Kill the exact Bubblewrap child first. This keeps Host-owned stdio open while the
-        // runtime is terminated, so a persistent child cannot interpret pipe EOF as a clean exit.
-        // SAFETY: pidfd pins the exact sandbox child and no user pointers are passed.
-        let signalled = unsafe {
-            libc::syscall(
-                libc::SYS_pidfd_send_signal,
-                self.child_pidfd.as_raw_fd(),
-                libc::SIGKILL,
-                std::ptr::null::<libc::siginfo_t>(),
-                0,
-            )
-        };
-        if signalled != 0 {
-            let error = std::io::Error::last_os_error();
-            if error.raw_os_error() != Some(libc::ESRCH) {
-                return Err(error.into());
+        if let Some(child_pidfd) = &self.child_pidfd {
+            // Kill the exact Bubblewrap child first. This keeps Host-owned stdio open while the
+            // runtime is terminated, so a persistent child cannot interpret pipe EOF as a clean exit.
+            // SAFETY: pidfd pins the exact sandbox child and no user pointers are passed.
+            let signalled = unsafe {
+                libc::syscall(
+                    libc::SYS_pidfd_send_signal,
+                    child_pidfd.as_raw_fd(),
+                    libc::SIGKILL,
+                    std::ptr::null::<libc::siginfo_t>(),
+                    0,
+                )
+            };
+            if signalled != 0 {
+                let error = std::io::Error::last_os_error();
+                if error.raw_os_error() != Some(libc::ESRCH) {
+                    return Err(error.into());
+                }
             }
         }
 
@@ -586,10 +594,6 @@ impl SandboxLauncher for LinuxSandbox {
         let child_pidfd = match open_pidfd(child_pid) {
             Ok(pidfd) => pidfd,
             Err(error) => {
-                // child_pid was just reported by the still-owned Bubblewrap monitor, so it cannot
-                // have been recycled without the monitor first observing that exit.
-                // SAFETY: kill takes a numeric PID/signal only; errors are best-effort cleanup here.
-                let _ = unsafe { libc::kill(child_pid as i32, libc::SIGKILL) };
                 let _ = monitor.start_kill();
                 return Err(error);
             }
@@ -628,6 +632,12 @@ impl SandboxLauncher for LinuxSandbox {
 mod tests {
     use super::*;
     use std::os::unix::fs::PermissionsExt;
+
+    #[test]
+    fn already_exited_child_does_not_become_a_sandbox_denial() {
+        let pidfd = open_pidfd(i32::MAX as u32).expect("missing child PID is terminal");
+        assert!(pidfd.is_none());
+    }
 
     #[test]
     fn bounded_executable_verifier_honors_requested_limit() {
