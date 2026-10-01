@@ -317,6 +317,7 @@ def run_godot(target: Path, source_sha: str, suite_sha: str, cases: list[dict], 
     lock = strict_json((LAB / "targets.json").read_bytes())
     pins = lock["pins"]
     native_address_space = lock["limits"]["native_address_space_bytes"]
+    native_file_size = lock["limits"]["native_file_size_bytes"]
     if not godot.is_file() or sha256_file(godot) != pins["godot_binary_sha256"]:
         raise EvidenceError("BLOCKED: pinned Godot binary unavailable or digest mismatch")
     template_sha = sha256_file(template) if template.is_file() else None
@@ -329,7 +330,9 @@ def run_godot(target: Path, source_sha: str, suite_sha: str, cases: list[dict], 
     ):
         raise EvidenceError("BLOCKED: extracted Godot export template provenance mismatch")
 
-    enclosure = Enclosure(LAB, source_sha, address_space_bytes=native_address_space)
+    enclosure = Enclosure(
+        LAB, source_sha, address_space_bytes=native_address_space, file_size_bytes=native_file_size
+    )
     build: BuildCopy | None = None
     results: list[dict] = []
     report["results"] = results
@@ -341,6 +344,7 @@ def run_godot(target: Path, source_sha: str, suite_sha: str, cases: list[dict], 
         "template_sha256": template_sha,
         "network_during_attacks": "isolated by G enclosure",
         "address_space_bytes": native_address_space,
+        "file_size_bytes": native_file_size,
     }
     try:
         report["isolation"] = enclosure.preflight()

@@ -10,7 +10,7 @@ import zipfile
 from artifact_io import MAX_FILE, read_evidence_archive
 from collect_evidence import validate_lane, immutable_write, target_for_lane
 from product import build_target_kind
-from isolation import SYSTEM_CONFIG_RO
+from isolation import SYSTEM_CONFIG_RO, DEFAULT_FILE_SIZE_BYTES, MAX_FILE_SIZE_BYTES
 from lab_core import EvidenceError, digest, summarize, strict_json
 from oracle_identity import payload_digest
 from selftest_extra import target_only_retest, closure_rejects
@@ -125,6 +125,16 @@ def native_address_space_budget_is_bounded():
     limits = lock["limits"]
     return limits["address_space_bytes"] == 1024 * 1024 * 1024 and limits["native_address_space_bytes"] == 4 * 1024 * 1024 * 1024
 
+def native_file_size_budget_is_bounded():
+    lock = strict_json((Path(__file__).resolve().parent / "targets.json").read_bytes())
+    limits = lock["limits"]
+    return (
+        DEFAULT_FILE_SIZE_BYTES == 8 * 1024 * 1024
+        and MAX_FILE_SIZE_BYTES == 256 * 1024 * 1024
+        and limits["file_size_bytes"] == DEFAULT_FILE_SIZE_BYTES
+        and limits["native_file_size_bytes"] == MAX_FILE_SIZE_BYTES
+    )
+
 def history_control(overwrite):
     with tempfile.TemporaryDirectory(prefix="g-synthetic-evidence-", dir="/out") as directory:
         path = Path(directory) / "receipt.json"
@@ -180,4 +190,5 @@ def evidence_cases():
         ("G-SELF-095", native_summary_is_scope_bound),
         ("G-SELF-096", native_system_config_is_minimal),
         ("G-SELF-097", native_address_space_budget_is_bounded),
+        ("G-SELF-098", native_file_size_budget_is_bounded),
     ]

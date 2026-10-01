@@ -33,7 +33,9 @@
     "address_space_bytes": 1073741824,
     "open_files": 128,
     "maximum_fixture_fanout": 2,
-    "native_address_space_bytes": 4294967296
+    "native_address_space_bytes": 4294967296,
+    "file_size_bytes": 8388608,
+    "native_file_size_bytes": 268435456
   },
   "harness_history": {
     "suite_sha": "8ec7a74c3518216feb02ba1b9c55cf3183a0da2a",

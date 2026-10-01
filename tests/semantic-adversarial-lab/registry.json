@@ -4563,6 +4563,17 @@
       "expected": {
         "ok": true
       }
+    },
+    {
+      "id": "G-SELF-098",
+      "owner": "G",
+      "requirement": "G11",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "ordinary enclosure file-size budget remains 8 MiB while native runtime file writes are explicitly bounded at 256 MiB",
+      "expected": {
+        "ok": true
+      }
     }
   ]
 }

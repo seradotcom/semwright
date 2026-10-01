@@ -387,7 +387,7 @@
       "run_id": null,
       "job_id": null,
       "evidence": [],
-      "blocker": "Godot native save/reopen receipts are individually valid but D persistence_value rejects their dependency sentinels. G now records bounded writer/reader sentinel diffs, classifies case 006 as executed FAIL if rejection persists, blocks tamper case 007 when baseline is red, and continues independent cases 008-012. Exact-SHA retest pending.",
+      "blocker": "Godot-native run 36814266291 executed 11/12: 8 PASS, persistence case 006 FAIL, dependent tamper case 007 BLOCKED, export cases 011/012 were G infrastructure failures because the enclosure 8 MiB RLIMIT_FSIZE could not copy the pinned Godot template. Native-only bounded file budget raised to 256 MiB with G-SELF-098; exact-SHA retest pending.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },
