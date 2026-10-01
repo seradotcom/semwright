@@ -189,15 +189,40 @@ SESSION="$TMP/runtime/cli.session"
 LOG="$TMP/daemon.log"
 "$DAEMON" --config "$TMP/daemon.toml" --socket "$SOCKET" >"$LOG" 2>&1 &
 DAEMON_PID=$!
-for _ in $(seq 1 300); do
-  [[ -S "$SOCKET" ]] && break
+
+daemon_startup_diagnostics() {
+  echo "--- semwrightd startup diagnostics ---" >&2
+  ps -o pid=,ppid=,stat=,etime=,cmd= -p "$DAEMON_PID" >&2 2>/dev/null || true
+  ps -o pid=,ppid=,stat=,etime=,cmd= --ppid "$DAEMON_PID" >&2 2>/dev/null || true
+  if [[ -r "/proc/$DAEMON_PID/wchan" ]]; then
+    printf 'wchan=' >&2
+    head -c 128 "/proc/$DAEMON_PID/wchan" >&2 || true
+    printf '\n' >&2
+  fi
+  if [[ -f "$LOG" ]]; then
+    echo "--- semwrightd log tail ---" >&2
+    tail -c 16384 "$LOG" >&2 || true
+    printf '\n' >&2
+  fi
+}
+
+ready=0
+for _ in $(seq 1 1200); do
+  if [[ -S "$SOCKET" ]]; then
+    ready=1
+    break
+  fi
   if ! kill -0 "$DAEMON_PID" 2>/dev/null; then
-    cat "$LOG" >&2
+    daemon_startup_diagnostics
     exit 1
   fi
   sleep 0.05
 done
-[[ -S "$SOCKET" ]] || { cat "$LOG" >&2; exit 1; }
+if [[ "$ready" != "1" ]]; then
+  echo "semwrightd did not publish its broker socket within 60 seconds" >&2
+  daemon_startup_diagnostics
+  exit 1
+fi
 
 run() {
   "$CTL" --socket "$SOCKET" --session-file "$SESSION" --json "$@"
