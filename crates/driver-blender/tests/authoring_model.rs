@@ -629,7 +629,6 @@ fn transform_prepared(before: &NativeSnapshot) -> PreparedAuthoring {
     .unwrap()
 }
 
-
 #[test]
 fn create_preservation_rule_forbids_unmanaged_change_and_uses_whole_scene_scope() {
     let prepared = prepare(
