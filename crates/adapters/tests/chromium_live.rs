@@ -952,16 +952,20 @@ fn kill_owned_browser_processes(storage: &Path) -> TestResult<usize> {
     if pids.is_empty() {
         return Err("owned Chromium process was not found".into());
     }
-    let mut command = Command::new("/bin/kill");
-    command.arg("-KILL");
+    let mut killed_or_already_gone = 0usize;
     for pid in &pids {
-        command.arg(pid.to_string());
+        let process_dir = PathBuf::from(format!("/proc/{pid}"));
+        let status = Command::new("/bin/kill")
+            .arg("-KILL")
+            .arg(pid.to_string())
+            .status()?;
+        if status.success() || !process_dir.exists() {
+            killed_or_already_gone += 1;
+            continue;
+        }
+        return Err(format!("failed to kill still-live owned Chromium process {pid}").into());
     }
-    let status = command.status()?;
-    if !status.success() {
-        return Err("failed to kill owned Chromium process set".into());
-    }
-    Ok(pids.len())
+    Ok(killed_or_already_gone)
 }
 
 async fn wait_until_not_running(browser: &Chromium, ctx: &Context) -> TestResult {
