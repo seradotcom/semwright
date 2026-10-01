@@ -883,8 +883,13 @@ impl AvCoordinator {
                 let report = verify_sync(&b.spec.sync, &probe)?;
                 if report.verdict != Verdict::Pass || !report.missing.is_empty() {
                     return Err(Error::Invalid(format!(
-                        "encoded sync is missing, failed or uncertain: verdict={:?}, missing={:?}, exhaustive={}, observations={:?}",
-                        report.verdict, report.missing, report.exhaustive, report.observations
+                        "encoded sync is missing, failed or uncertain: verdict={:?}, missing={:?}, exhaustive={}, observations={:?}, flashes={:?}, impulses={:?}",
+                        report.verdict,
+                        report.missing,
+                        report.exhaustive,
+                        report.observations,
+                        probe.flashes,
+                        probe.impulses
                     )));
                 }
                 ensure(
