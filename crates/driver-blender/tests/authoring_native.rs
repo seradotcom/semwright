@@ -1296,6 +1296,90 @@ async fn hard_surface_and_product_scene_author_through_semwright() {
 }
 
 #[tokio::test]
+async fn animated_object_export_restores_source_projection_after_reopen() {
+    let Some(root) = native_lane_root() else {
+        return;
+    };
+    let workspace = tempfile::tempdir().unwrap();
+    let spec: Value = serde_json::from_str(include_str!(
+        "../../../fixtures/blender-authoring/export_source_stability.json"
+    ))
+    .unwrap();
+
+    let writer = NativeFixture::start(workspace.path(), &root, true).await;
+    let plan = writer
+        .call(
+            "composition.plan",
+            json!({"intent":{"kind":"create","spec":spec}}),
+        )
+        .await;
+    let applied = writer
+        .call("composition.apply", json!({"plan_ref":plan["plan_ref"]}))
+        .await;
+    let island = applied["island"].as_str().unwrap().to_owned();
+    let saved = writer
+        .call(
+            "composition.persist",
+            json!({"island":island,"path":"export-stability.blend"}),
+        )
+        .await;
+    writer.provider.shutdown().await.unwrap();
+    drop(writer);
+
+    let reader = NativeFixture::start(workspace.path(), &root, true).await;
+    let reopened = reader
+        .call(
+            "composition.reopen",
+            json!({
+                "island":island,
+                "path":"export-stability.blend",
+                "sha256":saved["sha256"]
+            }),
+        )
+        .await;
+    assert_eq!(reopened["drift"], false);
+    let collection = reopened["items"][0]["collections"][0]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let before = reader
+        .call("composition.inspect", json!({"island":island}))
+        .await;
+    assert_eq!(before["drift"], false);
+
+    let export = reader
+        .call(
+            "export.glb",
+            json!({
+                "collection":collection,
+                "path":"export-stability.glb",
+                "animations":true
+            }),
+        )
+        .await;
+    let bytes = fs::read(workspace.path().join("export-stability.glb")).unwrap();
+    assert_eq!(&bytes[0..4], b"glTF");
+    assert_eq!(export["sha256"], format!("{:x}", Sha256::digest(&bytes)));
+
+    let after = reader
+        .call("composition.inspect", json!({"island":island}))
+        .await;
+    if before["fingerprint"] != after["fingerprint"] || after["drift"] != false {
+        eprintln!(
+            "ANIMATED_EXPORT_SOURCE_BEFORE={}\nANIMATED_EXPORT_SOURCE_AFTER={}",
+            serde_json::to_string_pretty(&before).unwrap(),
+            serde_json::to_string_pretty(&after).unwrap()
+        );
+    }
+    assert_eq!(
+        after["fingerprint"], before["fingerprint"],
+        "successful animated GLB export must restore the exact managed source projection"
+    );
+    assert_eq!(after["drift"], false);
+    reader.provider.shutdown().await.unwrap();
+}
+
+#[tokio::test]
 async fn aabb_overlap_requires_narrow_phase_before_collision_claim() {
     let Some(root) = native_lane_root() else {
         return;

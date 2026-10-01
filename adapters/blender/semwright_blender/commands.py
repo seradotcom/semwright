@@ -295,5 +295,9 @@ class Commands:
                 if bpy.data.objects.get(obj.name) is obj:
                     obj.select_set(True)
             bpy.context.view_layer.objects.active = active
-            if scene.frame_current != frame_current or abs(scene.frame_subframe - frame_subframe) > 1e-9:
-                scene.frame_set(frame_current, subframe=frame_subframe)
+            # The glTF animation exporter samples multiple frames.  Its frame counter may
+            # already equal the entry frame when it returns while evaluated object TRS still
+            # reflects the last sampled action.  Always force one final evaluation at the
+            # caller's exact frame/subframe; a numeric equality shortcut can leave a managed
+            # object transform observably drifted after an otherwise read-only export.
+            scene.frame_set(frame_current, subframe=frame_subframe)

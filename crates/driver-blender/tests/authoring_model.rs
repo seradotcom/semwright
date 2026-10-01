@@ -93,6 +93,14 @@ fn valid_product_scene() {
     s.validate().unwrap();
 }
 #[test]
+fn valid_export_source_stability_fixture() {
+    let s: BlenderAuthoringSpec = serde_json::from_str(include_str!(
+        "../../../fixtures/blender-authoring/export_source_stability.json"
+    ))
+    .unwrap();
+    s.validate().unwrap();
+}
+#[test]
 fn align_requires_at_least_one_axis() {
     let mut s: BlenderAuthoringSpec = serde_json::from_str(include_str!(
         "../../../fixtures/blender-authoring/product_scene.json"
