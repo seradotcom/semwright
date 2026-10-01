@@ -5,7 +5,7 @@
 | Managed project schema | 1 |
 | Component library | 1 |
 | Driver Manifest | 1 |
-| Driver Protocol | 1 / `stdio_v1` |
+| Driver Protocol | 7 / `stdio_v1` |
 | Motion Canvas core/2d/vite-plugin/ui | 3.17.2 |
 | Node | 22.22.0 |
 | Playwright | 1.61.1 |
@@ -14,7 +14,7 @@
 | TypeScript | 5.9.3 |
 | Fonts | Instrument Sans Variable 5.3.0; IBM Plex Mono 5.3.0 |
 
-Linux is the live rendering/conformance target. The production path uses the repository Driver Host Bubblewrap + Landlock sandbox and a SHA-256-pinned Firefox executable installed by Playwright 1.61.1 and supplied through the owner-approved read-only executable runtime mount. On Ubuntu 24.04, Bubblewrap also needs a scoped AppArmor user-namespace profile; CI keeps the system-wide user-namespace restriction enabled.
+Linux is the live rendering/conformance target. The production path uses the repository Driver Host Bubblewrap + Landlock sandbox, a SHA-256-pinned Node Host tool and an owner-approved read-only executable runtime bundle containing Playwright 1.61.1 / Firefox 151.0. The helper canonicalizes Firefox and rejects any path outside that bundle; the complete bundle is not yet claimed as an immutable Host-attested artifact. On Ubuntu 24.04, Bubblewrap also needs a scoped AppArmor user-namespace profile; CI keeps the system-wide user-namespace restriction enabled.
 
 The Rust semantic/compiler logic is designed to remain portable. Dedicated Motion Canvas CI compiles the complete domain and Driver Protocol adapter on macOS and Windows after final integration with the Windows platform-services implementation from `main`. These are portability checks only: live Motion Canvas rendering is certified on Linux, not Windows or macOS.
 
