@@ -104,6 +104,7 @@ fn manifest(executable: PathBuf, node_sha256: String) -> Manifest {
                 "runtime".into(),
                 "fontconfig".into(),
             ],
+            system_config: vec![],
             dependencies: vec![],
         }],
         network: false,
