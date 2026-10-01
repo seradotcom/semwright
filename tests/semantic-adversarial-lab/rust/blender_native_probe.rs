@@ -664,6 +664,15 @@ async fn run() -> AnyResult<Value> {
     ));
     denied_fixture.shutdown().await?;
 
+    // Execution ordering is intentionally chosen to isolate destructive hostile cases from
+    // persistence. Evidence ordering remains canonical and registry-bound.
+    cases.sort_by(|left, right| {
+        left["case_id"]
+            .as_str()
+            .unwrap_or("")
+            .cmp(right["case_id"].as_str().unwrap_or(""))
+    });
+
     Ok(json!({
         "schema_version":1,
         "source_sha":SOURCE,

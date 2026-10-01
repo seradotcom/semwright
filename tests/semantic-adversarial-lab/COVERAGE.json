@@ -392,7 +392,7 @@
         "godot-native artifact 3813bc488c953f32740c1b8df43bfd7f369ae8f8c5a3cf496c1074c31881fcd7",
         "selftest 99/99 PASS artifact 08b7065ab21a7a0b06aca563c10f37811ba57d170adf2e7fb81fc556964622fd"
       ],
-      "blocker": "Godot native has two open D findings. Blender exit-125 harness blocker is closed by outer-limit alignment (selftest 101/101 PASS). Run 36823070484 reached real Blender but G cross-case ordering let destructive cursor/symlink attacks precede persistence and composition.persist returned StaleReference. Probe reordered so persistence/reopen is established first; rejected symlink now also must preserve drift=false. Exact-SHA Blender retest pending.",
+      "blocker": "Godot native has two open D findings. Blender exit-125 harness blocker is closed (selftest 101/101). Persistence/reopen is isolated before destructive cursor/symlink cases; G receipt rows are canonically sorted by case_id after execution so hostile execution order cannot spoof registry binding. Exact-SHA Blender retest pending.",
       "implementation_suite_sha": "a337709ffdd2e05f40da408e3a78183651dff113",
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },
