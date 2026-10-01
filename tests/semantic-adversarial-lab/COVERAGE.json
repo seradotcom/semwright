@@ -498,7 +498,7 @@
       "run_id": null,
       "job_id": null,
       "evidence": [],
-      "blocker": "First routing run 36803323177 was BLOCKED before cases: G used a semwright-core example target, which pulled dev-dependency PipeWire absent from the runner. Harness now uses a normal bin target and G-SELF-094 guards the boundary; exact-SHA rerun pending.",
+      "blocker": "Broker routing final C 504ad2 passed 12/12 in G run 36804104518. Packaging/Skill loader remains separate: 20 hostile path/YAML/link/executable/authority cases activated against frozen baseline b736d41 where crates/skills is unchanged.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },
