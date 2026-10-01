@@ -20,7 +20,7 @@ PR #174 remains an independent tests-only lab. The current suite registers 479 c
 
 Executed clean scopes include Project Graph 74/74, Effects 40/40, Broker routing 12/12, Skill/package attacks 20/20, Audio 30/30, AV 35/35, Figma 17/17, Motion 20/20, lifecycle 18/18 and clean-room driver distribution 12/12. Native Godot and Blender were also exercised on pinned real runtimes, but they retain owner-open findings documented in the reports directory.
 
-Composition remains 67/70 on frozen A because G-FIND-A-001 reproduces stale BeginPermit authority across root/vault incarnations. Godot retains G-FIND-D-001 and G-FIND-D-002; Blender retains G-FIND-E-001. No qualifying owner fix SHA has been handed to G for those findings.
+Composition is now 70/70 PASS on A FIX_SHA 7ab43f99f4cc62be2a9b0ce9ce1155283a429768; G-FIND-A-001 is closed by exact-SHA retest. Godot retains G-FIND-D-001 and G-FIND-D-002; Blender retains G-FIND-E-001. No qualifying owner fix SHA has been handed to G for those remaining findings.
 
 There is still no explicit combined I candidate in targets.json; an observed integration branch is not silently adopted. Consequently full-wave readiness and R16 remain BLOCKED even though many individual exact-SHA families are clean.
 

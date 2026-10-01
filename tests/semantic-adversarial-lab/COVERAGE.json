@@ -53,7 +53,7 @@
       "id": "G03",
       "claim": "Plan/session/budgets/replay",
       "owner": "A",
-      "status": "BLOCKED",
+      "status": "PASS",
       "implementation": [
         "rust/composition_probe.rs",
         "product.py"
@@ -100,16 +100,17 @@
         "G-PLAN-039",
         "G-PLAN-040"
       ],
-      "source_sha": "7ed5b848e4d2e7af235d6166e6f93e0cf0bac90d",
-      "suite_sha": "d75688e6c309d67085829e36553777281faceeda",
-      "run_id": 36886274785,
-      "job_id": 110450371775,
+      "source_sha": "7ab43f99f4cc62be2a9b0ce9ce1155283a429768",
+      "suite_sha": "bf5a70f2e0f0ec6894b8f43e1a8322f9e1ed9e9f",
+      "run_id": 36938854785,
+      "job_id": 110625787176,
       "evidence": [
-        "composition receipt f0afb96af67204e8337d6e964071c581196426e256eb94553e658ac0b60a5187",
-        "composition artifact 6b57e6e2187df8912ef761979ef015f68ece4d4cc19c662865119f99162c2d76",
-        "67/70 PASS; G-PLAN-022..024 reproduce G-FIND-A-001"
+        "Composition FIX_SHA retest 70/70 PASS",
+        "receipt 8623175f1bcc1e4a7f9764698cf2ffa6d5b41fd7e90a932127cb719c07597884",
+        "artifact 9cdd503ce6e5de968577e9e0ce26d08e2aa9edb13e1bcd0acae2bd4201bcc3aa",
+        "G-PLAN-022/023/024 all PASS on A FIX_SHA"
       ],
-      "blocker": "G-FIND-A-001 remains open: stale BeginPermit authority crosses revoke/reissue, independent vaults and expiry/reissue. A current head 3223bdf still retains owner/root/index/digest permit identity without vault/root incarnation, so no fix retest is justified.",
+      "blocker": "G-FIND-A-001 is CLOSED_RETEST_PASS. A bound BeginPermit to private vault/root identities; revoke/reissue, foreign-vault and expiry/reissue attacks now fail closed. No open Composition finding remains in this tested family.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },
@@ -673,12 +674,12 @@
       "job_id": 110456380047,
       "evidence": [
         "G-FIND-C-001 closed by exact fix retest",
-        "G-FIND-A-001 owner-open",
+        "G-FIND-A-001 closed by exact fix retest on 7ab43f99",
         "G-FIND-D-001 owner-open",
         "G-FIND-D-002 owner-open",
         "G-FIND-E-001 owner-open"
       ],
-      "blocker": "Before/fix/after machinery is hosted-tested, but A/D/E findings have no qualifying owner FIX_SHA yet. G does not auto-close or patch owner product branches.",
+      "blocker": "Before/fix/after machinery is hosted-tested. A-001 and C-001 are closed by exact fix retest; D-001, D-002 and E-001 still have no qualifying owner FIX_SHA.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },
@@ -699,10 +700,10 @@
       "run_id": 36888045183,
       "job_id": 110456380047,
       "evidence": [
-        "479 cases registered across 14 lanes; latest lab selftest 104/104 PASS",
+        "479 cases registered across 14 lanes; latest A-fix suite selftest 104/104 PASS",
         "combined_candidate_sha remains null"
       ],
-      "blocker": "No explicit I combined-candidate handoff exists, and G-FIND-A-001, G-FIND-D-001, G-FIND-D-002 and G-FIND-E-001 remain open. R16/demo/security guarantee remain explicitly out of scope.",
+      "blocker": "No explicit I combined-candidate handoff exists, and G-FIND-D-001, G-FIND-D-002 and G-FIND-E-001 remain open. R16/demo/security guarantee remain explicitly out of scope.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     }
@@ -718,5 +719,5 @@
       "last_observed": "queued"
     }
   ],
-  "updated_at": "2026-10-01T16:39:59.321071+00:00"
+  "updated_at": "2026-10-01T23:14:56.599749+00:00"
 }

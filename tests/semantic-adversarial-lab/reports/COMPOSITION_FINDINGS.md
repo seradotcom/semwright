@@ -37,3 +37,7 @@ This conflicts with A's handoff statement that restart/expiry/revocation invalid
 Current PR #168 head 3223bdf0367b4c9de73ef867a560b200f1ab96e1 was inspected after the finding. BeginPermit and finish() still retain the same owner/root/index/digest authority without a vault/root incarnation binding. The newer vault changes cover expiry arithmetic, state guards and sibling Unknown reconciliation, but do not fix this finding.
 
 G will not patch A. Owner A should bind permits to a non-reusable vault/root incarnation (or equivalent unforgeable generation authority), add revoke/expiry/cross-vault completion regressions, publish an explicit FIX_SHA, and hand it to G for exact-SHA retest.
+
+## Closure retest
+
+Owner A published FIX_SHA 7ab43f99f4cc62be2a9b0ce9ce1155283a429768. The fix adds private vault and root incarnation identities to BeginPermit and verifies them in PlanVault::finish. G retested the unchanged 70-case Composition family on suite bf5a70f2e0f0ec6894b8f43e1a8322f9e1ed9e9f, run 36938854785, job 110625787176. Result: 70/70 PASS, 0 FAIL/BLOCKED/NOT_RUN. G-PLAN-022, G-PLAN-023 and G-PLAN-024 all PASS. Receipt SHA-256: 8623175f1bcc1e4a7f9764698cf2ffa6d5b41fd7e90a932127cb719c07597884. Artifact SHA-256: 9cdd503ce6e5de968577e9e0ce26d08e2aa9edb13e1bcd0acae2bd4201bcc3aa. Status: CLOSED_RETEST_PASS.

@@ -30,7 +30,7 @@ The read-only collector binds run/attempt/job to the explicit suite and frozen t
 
 Confirmed owner findings from executed exact-SHA families remain open:
 
-- G-FIND-A-001: stale BeginPermit authority can complete a different root/vault incarnation. Composition is 67/70 on frozen A. The current A head still lacks a vault/root incarnation binding, so no fix retest has been claimed.
+- G-FIND-A-001 is CLOSED_RETEST_PASS: A FIX_SHA 7ab43f99f4cc62be2a9b0ce9ce1155283a429768 binds permits to private vault/root identities; G retest run 36938854785 passed 70/70 Composition including G-PLAN-022/023/024.
 - G-FIND-D-001: Godot save/reopen dependency sentinel stability fails on real native receipts.
 - G-FIND-D-002: Godot native observer can emit a structured false-PASS after a BoxMesh script error.
 - G-FIND-E-001: Blender real GLB export produces valid hashed output but leaves source readback drifted.
