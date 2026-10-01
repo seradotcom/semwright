@@ -17,6 +17,7 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[2]
 PATCH_BASE = "c14f79f9a59115a56967b53d6abcf8a027d7a132"
 A_C0 = "26602e4b25929be869d69ef28fef4dd9713180d7"
+A_FINAL = "7ab43f99f4cc62be2a9b0ce9ce1155283a429768"
 C_P0 = "6ee52b428310370d3ad438a13964086a63f48367"
 C_FINAL = "504ad2c6632305b580b51703a60b0a194865780d"
 F_SOURCE = "b30d693c24d7dc0527834b7830823655be5216ce"
@@ -85,13 +86,13 @@ def zip_entry(archive, name, data, executable=False):
 def build(source, output):
     if os.environ.get("GITHUB_ACTIONS") != "true" or os.environ.get("RUNNER_ENVIRONMENT") != "github-hosted":
         raise ValueError("D packaging is restricted to GitHub-hosted Actions")
-    for commit in [source, PATCH_BASE, A_C0, C_P0, C_FINAL, F_SOURCE]:
+    for commit in [source, PATCH_BASE, A_C0, A_FINAL, C_P0, C_FINAL, F_SOURCE]:
         if not re.fullmatch(r"[a-f0-9]{40}", commit):
             raise ValueError("dependency IDs must be full immutable commit SHAs")
         run_git("cat-file", "-e", commit + "^{commit}")
     if git("rev-parse", "HEAD").decode().strip() != source or os.environ.get("GITHUB_SHA") != source:
         raise ValueError("package source must equal exact Actions checkout")
-    if tree(source, "crates/semantic-composition") != tree(A_C0, "crates/semantic-composition"):
+    if tree(source, "crates/semantic-composition") != tree(A_FINAL, "crates/semantic-composition"):
         raise ValueError("A Composition tree changed")
     if tree(source, "crates/project-graph") != tree(C_FINAL, "crates/project-graph"):
         raise ValueError("C final Project Graph tree changed")
@@ -162,6 +163,7 @@ def build(source, output):
         "patch_base_sha": PATCH_BASE,
         "dependencies": {
             "a_c0": A_C0,
+            "a_final": A_FINAL,
             "c_p0": C_P0,
             "c_final": C_FINAL,
             "f_source": F_SOURCE,

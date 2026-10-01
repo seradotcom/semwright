@@ -185,7 +185,7 @@
       "id": "D11",
       "requirement": "authorized repair/no overwrite",
       "state": "PARTIAL_REPAIR_CERTIFIED_A_RECONCILIATION_BLOCKED",
-      "implementation": "owner-bound one-shot apply, bounded missing-source repair and DIVERGED no-overwrite are implemented. Store has fail-closed partial-publication state, but authorized Partial/Unknown reconciliation cannot be exposed without an A PlanVault reconciliation transition: current C0 and A head reject further begin/child repair after a non-Completed attempt.",
+      "implementation": "authorized missing-managed-source repair remains budget/lineage-bound; D now consumes A final 7ab43f99, including vault/root-incarnation-bound permits, but A final still has no explicit Partial/Unknown reconciliation transition after a non-Completed attempt, so D keeps partial-publication recovery internal/fail-closed",
       "tests": [
         "owner-bound one-shot apply",
         "bounded missing-source repair with original intent/budget",
@@ -301,5 +301,5 @@
   ],
   "candidate_sha": "a3c2180c6406f3664e9e8c4870438cfeb20655dd",
   "current_run_id": 36824957800,
-  "status_note": "Exact D certification run 36824957800 is green for a3c2180c6406f3664e9e8c4870438cfeb20655dd: D01-D10 and D12-D16 PASS. D11 remains PARTIAL only because A PlanVault exposes no explicit Partial/Unknown reconciliation transition after a non-Completed attempt; D does not synthesize retry authority. GODOT_AUTHORING_READY and R16 therefore remain false."
+  "status_note": "D consumes A final 7ab43f99 plus final C/F/E handoffs. D01-D10 and D12-D16 were previously exact-certified; current-head certification must be re-issued after the G finding fixes/A-final merge. D11 remains PARTIAL solely because A final exposes no explicit Partial/Unknown reconciliation transition; GODOT_AUTHORING_READY and R16 remain false."
 }
