@@ -110,7 +110,7 @@ class Enclosure:
         self.proof: dict[str, Any] = {}
 
     def command(self, args: list[str], executable: Path | None = None,
-                source: Path | None = None) -> list[str]:
+                source: Path | None = None, runtime: Path | None = None) -> list[str]:
         result = [self.bwrap, "--die-with-parent", "--new-session", "--unshare-all", "--clearenv",
                   "--cap-drop", "ALL", "--proc", "/proc", "--dev", "/dev", "--tmpfs", "/tmp",
                   "--dir", "/home", "--dir", "/home/lab", "--dir", "/plugin", "--dir", "/etc",
@@ -129,6 +129,8 @@ class Enclosure:
             result += ["--ro-bind", str(executable.resolve()), "/plugin/bin"]
         if source is not None:
             result += ["--ro-bind", str(source.resolve()), "/source"]
+        if runtime is not None:
+            result += ["--ro-bind", str(runtime.resolve()), "/plugin/runtime"]
         fixed = {"HOME": "/home/lab", "TMPDIR": "/tmp", "XDG_CONFIG_HOME": "/tmp/config",
                  "XDG_CACHE_HOME": "/tmp/cache", "XDG_DATA_HOME": "/tmp/data", "PATH": "/usr/bin:/bin",
                  "LANG": "C.UTF-8", "LC_ALL": "C.UTF-8", "PYTHONDONTWRITEBYTECODE": "1",
@@ -140,9 +142,10 @@ class Enclosure:
         return result + ["--"] + args
 
     def run(self, args: list[str], *, executable: Path | None = None,
-            source: Path | None = None, timeout: float = 30.0) -> dict[str, Any]:
+            source: Path | None = None, runtime: Path | None = None,
+            timeout: float = 30.0) -> dict[str, Any]:
         require_hosted()
-        output = captured(self.command(args, executable, source),
+        output = captured(self.command(args, executable, source, runtime),
                           env={"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8", "G_SYNTHETIC_HOST_MARKER": "synthetic-not-a-secret"},
                           timeout=timeout, address_space_bytes=self.address_space_bytes,
                           file_size_bytes=self.file_size_bytes)

@@ -243,8 +243,15 @@ def run_native_pair(
 
 
 def helper(enclosure: Enclosure, binary: Path, args: list[str], *, expect_success: bool = True,
-           source: Path | None = None, timeout: float = 30.0) -> tuple[dict[str, Any], Any]:
-    raw = enclosure.run(["/plugin/bin", *args], executable=binary, source=source, timeout=timeout)
+           source: Path | None = None, runtime: Path | None = None,
+           timeout: float = 30.0) -> tuple[dict[str, Any], Any]:
+    raw = enclosure.run(
+        ["/plugin/bin", *args],
+        executable=binary,
+        source=source,
+        runtime=runtime,
+        timeout=timeout,
+    )
     value = None
     if raw["stdout"]:
         try:
@@ -706,7 +713,7 @@ def run_godot(target: Path, source_sha: str, suite_sha: str, cases: list[dict], 
                 "/out/runner-artifacts",
                 pins["godot_binary_sha256"],
             ],
-            source=godot,
+            runtime=godot,
             timeout=30,
         )
         binary = runner_artifacts / "g_native.x86_64"

@@ -78,7 +78,7 @@ fn runner_export(project: &Path, artifacts: &Path, godot_sha256: &str) -> AnyRes
     fs::create_dir_all(artifacts)?;
     let runner = Runner::new(
         RunnerConfig {
-            executable: PathBuf::from("/source"),
+            executable: PathBuf::from("/plugin/runtime"),
             sha256: godot_sha256.into(),
             output_root: artifacts.to_path_buf(),
             display: None,

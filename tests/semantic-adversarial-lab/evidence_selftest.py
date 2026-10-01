@@ -125,6 +125,15 @@ def native_address_space_budget_is_bounded():
     limits = lock["limits"]
     return limits["address_space_bytes"] == 1024 * 1024 * 1024 and limits["native_address_space_bytes"] == 4 * 1024 * 1024 * 1024
 
+def secondary_runtime_mount_is_scoped():
+    text = (Path(__file__).resolve().parent / "isolation.py").read_text()
+    return (
+        '"/plugin/runtime"' in text
+        and '"--ro-bind", str(runtime.resolve()), "/plugin/runtime"' in text
+        and 'runtime: Path | None = None' in text
+    )
+
+
 def native_file_size_budget_is_bounded():
     lock = strict_json((Path(__file__).resolve().parent / "targets.json").read_bytes())
     limits = lock["limits"]
@@ -191,4 +200,5 @@ def evidence_cases():
         ("G-SELF-096", native_system_config_is_minimal),
         ("G-SELF-097", native_address_space_budget_is_bounded),
         ("G-SELF-098", native_file_size_budget_is_bounded),
+        ("G-SELF-099", secondary_runtime_mount_is_scoped),
     ]

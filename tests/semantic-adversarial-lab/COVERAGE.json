@@ -387,7 +387,7 @@
       "run_id": null,
       "job_id": null,
       "evidence": [],
-      "blocker": "Godot native case 006 remains an owner finding and case 007 depends on it. Export case 011 passed after G file-budget fix; case 012 direct-CLI launch hit permission mismatch. G now routes 011/012 through public D Runner::execute(driver.godot.export.build) with pinned Godot mounted read-only, matching product acceptance; exact-SHA retest pending.",
+      "blocker": "Godot Runner export retest d169a0a blocked before case classification because G mounted the pinned executable at /source, which is reserved for read-only source/history fixtures and was not executable through Runner. G adds a separate read-only /plugin/runtime mount guarded by G-SELF-099; exact-SHA retest pending. D persistence finding G-FIND-D-001 remains open.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },

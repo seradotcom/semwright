@@ -4574,6 +4574,17 @@
       "expected": {
         "ok": true
       }
+    },
+    {
+      "id": "G-SELF-099",
+      "owner": "G",
+      "requirement": "G11",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "secondary native runtime is exposed read-only only at /plugin/runtime without repurposing /source history controls",
+      "expected": {
+        "ok": true
+      }
     }
   ]
 }
