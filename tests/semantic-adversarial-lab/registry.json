@@ -5544,6 +5544,170 @@
         "inflight_not_cancelled": true,
         "single_dispatch": true
       }
+    },
+    {
+      "id": "G-SELF-104",
+      "owner": "G",
+      "requirement": "G11",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "collector maps clean-room distribution lane to frozen main baseline target",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-DIST-001",
+      "owner": "main",
+      "requirement": "G10",
+      "lane": "distribution",
+      "scope": "product_contract",
+      "description": "verified package installs without executing payload and receipt binds package/executable bytes",
+      "expected": {
+        "package_attested": true,
+        "executable_attested": true,
+        "installed_mode": 448,
+        "payload_not_executed": true,
+        "manifest_published": true,
+        "metadata_version": 2
+      }
+    },
+    {
+      "id": "G-DIST-002",
+      "owner": "main",
+      "requirement": "G10",
+      "lane": "distribution",
+      "scope": "product_contract",
+      "description": "package byte tampering is rejected before any install publication",
+      "expected": {
+        "package_tamper_rejected": true,
+        "target_absent": true,
+        "manifest_absent": true
+      }
+    },
+    {
+      "id": "G-DIST-003",
+      "owner": "main",
+      "requirement": "G10",
+      "lane": "distribution",
+      "scope": "product_contract",
+      "description": "index publisher substitution cannot install a mismatched package",
+      "expected": {
+        "publisher_substitution_rejected": true,
+        "install_absent": true
+      }
+    },
+    {
+      "id": "G-DIST-004",
+      "owner": "main",
+      "requirement": "G10",
+      "lane": "distribution",
+      "scope": "product_contract",
+      "description": "application-version constrained package rejects missing and wrong application versions",
+      "expected": {
+        "missing_version_rejected": true,
+        "wrong_version_rejected": true,
+        "install_absent": true
+      }
+    },
+    {
+      "id": "G-DIST-005",
+      "owner": "main",
+      "requirement": "G10",
+      "lane": "distribution",
+      "scope": "product_contract",
+      "description": "symlink package cannot escape the selected static index directory",
+      "expected": {
+        "symlink_package_rejected": true,
+        "install_absent": true
+      }
+    },
+    {
+      "id": "G-DIST-006",
+      "owner": "main",
+      "requirement": "G10",
+      "lane": "distribution",
+      "scope": "product_contract",
+      "description": "companion traversal path is rejected before package creation",
+      "expected": {
+        "companion_traversal_rejected": true,
+        "package_absent": true
+      }
+    },
+    {
+      "id": "G-DIST-007",
+      "owner": "main",
+      "requirement": "G10",
+      "lane": "distribution",
+      "scope": "product_contract",
+      "description": "duplicate companion destination is rejected before package creation",
+      "expected": {
+        "duplicate_companion_rejected": true,
+        "package_absent": true
+      }
+    },
+    {
+      "id": "G-DIST-008",
+      "owner": "main",
+      "requirement": "G10",
+      "lane": "distribution",
+      "scope": "product_contract",
+      "description": "symlink companion source is rejected by strict package ingestion",
+      "expected": {
+        "symlink_companion_source_rejected": true,
+        "package_absent": true
+      }
+    },
+    {
+      "id": "G-DIST-009",
+      "owner": "main",
+      "requirement": "G10",
+      "lane": "distribution",
+      "scope": "product_contract",
+      "description": "executable-looking companion installs private and is never activated or executed",
+      "expected": {
+        "companion_installed": true,
+        "companion_mode": 384,
+        "hook_not_executed": true,
+        "not_activated_at_version_root": true,
+        "receipt_companions": 1
+      }
+    },
+    {
+      "id": "G-DIST-010",
+      "owner": "main",
+      "requirement": "G10",
+      "lane": "distribution",
+      "scope": "product_contract",
+      "description": "failed active-manifest publication rolls back version staging transaction",
+      "expected": {
+        "publication_failure_rejected": true,
+        "version_rolled_back": true,
+        "staging_leftovers": 0
+      }
+    },
+    {
+      "id": "G-DIST-011",
+      "owner": "main",
+      "requirement": "G10",
+      "lane": "distribution",
+      "scope": "product_contract",
+      "description": "remove path escape is rejected before touching outside store",
+      "expected": {
+        "remove_escape_rejected": true,
+        "outside_absent": true
+      }
+    },
+    {
+      "id": "G-DIST-012",
+      "owner": "main",
+      "requirement": "G10",
+      "lane": "distribution",
+      "scope": "product_contract",
+      "description": "duplicate driver id/version in static index is rejected",
+      "expected": {
+        "duplicate_id_version_rejected": true
+      }
     }
   ]
 }

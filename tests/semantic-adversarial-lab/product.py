@@ -20,6 +20,7 @@ PACKAGES = {"composition": ("semwright-semantic-composition", "semantic-composit
             "graph": ("semwright-project-graph", "project-graph", "graph_probe.rs"),
             "effects": ("semwright-effect-conformance", "effect-conformance", "effects_probe.rs"),
             "packaging": ("semwright-skills", "skills", "packaging_probe.rs"),
+            "distribution": ("semwright-driver-registry", "driver-registry", "distribution_probe.rs"),
             "routing": ("semwright-core", "core", "routing_probe.rs"),
             "lifecycle": ("semwright-core", "core", "lifecycle_probe.rs"),
             "figma": ("semwright-driver-figma", "driver-figma", "figma_probe.rs"),

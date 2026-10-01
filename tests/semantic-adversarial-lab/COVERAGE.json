@@ -621,7 +621,7 @@
       "run_id": null,
       "job_id": null,
       "evidence": [],
-      "blocker": "Evidence-ingestion controls plus 20 Skill package/load hostile cases are registered; plugin binary attestation and clean-room installation remain separate untested scope.",
+      "blocker": "20 hostile Skill loader/package cases already passed. 12 clean-room driver distribution/install cases are now registered and activated against frozen main baseline: package/executable attestation, no payload/install-hook execution, compatibility/tamper/symlink defenses, private companions, rollback and removal confinement. Exact-SHA execution pending.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },

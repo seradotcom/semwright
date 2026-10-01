@@ -15,7 +15,7 @@ from oracle_identity import from_git as oracle_identity
 from lab_core import EvidenceError, LANES, digest, full_sha, strict_json, summarize, write_json
 
 LAB = Path(__file__).resolve().parent
-OWNERS = {"composition": "A", "av": "A", "motion": "A", "figma": "A", "audio": "B", "graph": "C", "effects": "F", "routing": "C", "godot-native": "D", "blender-native": "E", "lifecycle": "A"}
+OWNERS = {"composition": "A", "av": "A", "motion": "A", "figma": "A", "audio": "B", "graph": "C", "effects": "F", "routing": "C", "godot-native": "D", "blender-native": "E", "lifecycle": "A", "distribution": "main"}
 
 def git(root: Path, *args: str) -> str:
     return subprocess.check_output(["git", "-C", str(root), *args], text=True).strip()
