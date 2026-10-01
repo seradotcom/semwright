@@ -252,6 +252,6 @@ def evidence_cases():
         ("G-SELF-100", blender_state_tmpdir_is_exec_allowlisted),
         ("G-SELF-101", blender_outer_limits_do_not_undercut_product_sandbox),
         ("G-SELF-102", blender_case_scoped_block_is_not_pass),
-        ("G-SELF-104", collector_role_targets),
         ("G-SELF-103", lifecycle_build_target_is_normal_bin),
+        ("G-SELF-104", collector_role_targets),
     ]
