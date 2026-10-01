@@ -154,11 +154,12 @@
     {
       "requirement": "C09",
       "condition": "Typed rebuild through Broker",
-      "status": "BLOCKED",
+      "status": "PENDING_CI",
       "implementation": [
         "crates/project-graph/src/rebuild.rs",
         "crates/project-graph/src/{model,graph}.rs ExternalIntent recovery boundary",
-        "crates/core/src/project_graph.rs graph-state Broker adapter",
+        "crates/registry/src/{lib,catalog,dynamic}.rs trusted preparation relationships",
+        "crates/core/src/project_graph.rs RebuildCatalogSnapshot + execute_rebuild_preparation host adapter",
         "crates/core/src/lib.rs existing Broker core dispatch",
         "docs/project-graph/P1_REBUILD_HANDOFF.md"
       ],
@@ -166,13 +167,15 @@
         "altered_reservation_cannot_be_promoted_even_with_a_recomputed_digest",
         "reservation_binds_session_grants_snapshot_and_restart_epoch",
         "changed_runtime_or_cancelled_attempt_does_not_enter_the_controller",
+        "rebuild_preparation_relation_reenters_broker_and_invalidates_on_refresh",
+        "preparation_relationship_is_host_owned_pinned_and_provider_bound",
         "project_routes_reenter_broker_policy_and_survive_session_rotation",
         "filesystem_read_grant_alone_cannot_mutate_project_state"
       ],
-      "tested_sha": "d7a8b0cb38f385f0699523614fe8de099f11b09f",
-      "run_id": 36600659015,
-      "job_id": 109516876942,
-      "evidence": "Graph-state project.* routing passed 8/8 Broker regressions plus daemon/principal wiring at d7a8b0c. Typed rebuild dispatch remains blocked: Registry Metadata has no registered production-capability -> prepare-capability relation, so C refuses name inference, provider substitution or a second scheduler. There is intentionally no project.rebuild.execute route."
+      "tested_sha": null,
+      "run_id": null,
+      "job_id": null,
+      "evidence": "Typed host-owned production->preparation registration and current runtime binding are implemented. Provider refresh removes the trusted relation, host re-registration produces a different runtime binding, stale dispatch conflicts before execution, and the preparation call re-enters ordinary Broker policy/audit. Exact-SHA Project Graph full lane is pending; there remains intentionally no project.rebuild.execute route or scheduler."
     },
     {
       "requirement": "C10",
@@ -243,36 +246,36 @@
     {
       "requirement": "C13",
       "condition": "Native Blender GLB Godot pipeline",
-      "status": "BLOCKED",
+      "status": "PASS",
       "implementation": [
-        "C RevisionAdapter/AdmittedRevision published in fb15f52 + 7efa0f0 for read-only native observations",
-        "E PR #175 exact source d80471b9ceb828a2a531dfac9eaa4e970ea589a9",
-        "D PR #176 native source observed at 0db56b88010b7b14b877006eae11a9c56091404b and later heads"
+        "C RevisionAdapter/AdmittedRevision and ReceiptAdapter on source 504ad2c6632305b580b51703a60b0a194865780d",
+        "E final source e753248ed33b345554b0e7c3c8d521e666751d6f run 36680849875 artifact 11082381172",
+        "D final source 7eaf8de059bb871d525dd5a72b617a9bc6f1d0f6 run 36829474317 cross-app artifact 11146548136"
       ],
       "tests": [
         "registered_revision_adapter_assigns_revision_without_creating_activity",
         "revision_adapter_rejects_method_project_generation_and_source_substitution",
         "admitted_partial_native_revision_remains_unknown_not_cache_safe",
-        "admitted_revision_is_owner_bound_and_nonexhaustive_complete_claim_is_rejected"
+        "D godot-cross-app-glb exact oracle PASS with matching C apply receipt"
       ],
-      "tested_sha": null,
-      "run_id": null,
-      "job_id": null,
-      "evidence": "E native Blender run 36543391358 is SUCCESS. D run 36586509462 has model/hostile/native-authoring/export PASS, but godot-cross-app-glb job 109468167916 fails because the Godot provider exits before protocol Hello. Combined Blender\u2192GLB\u2192Godot C evidence is therefore still absent."
+      "tested_sha": "7eaf8de059bb871d525dd5a72b617a9bc6f1d0f6",
+      "run_id": 36829474317,
+      "job_id": 110266033953,
+      "evidence": "D exact certification 36829474317 PASS at 7eaf8de with E final e753248 artifact 11082381172/GLB d3a4ba15f14ad6d3fba680c2d1db6d6d7584fb5254d2df8fd1c070870e9b0fd2. Cross-app artifact 11146548136 contains oracle PASS and matching C receipt receipt_bfc4f193c59c4e839582bc1e443665bf for driver.godot.composition.apply; logical bindings, behavior bytes, gameplay collision mapping, skeleton/skin/materials/animation and exact GLB bytes are verified. coverage_complete remains false rather than being promoted to certainty."
     },
     {
       "requirement": "C14",
       "condition": "Native motion/AV/audio integration",
       "status": "BLOCKED",
       "implementation": [
-        "A PR #168 composition-media source 1278a3aa73c3b6d40a30085b19a7dedd13fba8d2 inspected",
-        "B PR #183 audio-completion source 2e16161e3abc3ebb6e2d2eb7a6b750f0793625fd inspected"
+        "A PR #168 composition-media source 7ab43f99f4cc62be2a9b0ce9ce1155283a429768 inspected",
+        "B PR #183 certified audio source 8ed2d30c8ba797ebd5b8c102d34f8ab5bb3a28b3 run 36744494536"
       ],
       "tests": [],
       "tested_sha": null,
       "run_id": null,
       "job_id": null,
-      "evidence": "A AUDIO_AV_CONTRACT explicitly states B has not consumed C1 and the combined Broker/Host/Motion/Audio/MLT/decoder E2E is absent. B exposes audio artifacts/receipts but no integrated C ExecutionReceipt/reconcile boundary on one tested SHA. C does not create a competing publication pointer or fabricate that bridge."
+      "evidence": "B audio candidate 8ed2d30 is certified, but its PR explicitly requires A to consume that exact B SHA and rerun relevant AV/audio/final gates on one combined integration SHA. A current 7ab43f9 still states B has not consumed/been consumed for the combined AV candidate and exposes no tested A/B -> C ExecutionReceipt/reconcile bridge. C does not transplant B evidence to A or create a competing publication pointer."
     },
     {
       "requirement": "C15",

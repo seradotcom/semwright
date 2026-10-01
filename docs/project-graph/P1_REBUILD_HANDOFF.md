@@ -16,7 +16,7 @@ Production SCCs are computed iteratively and reported explicitly; a cycle yields
 
 ## Catalog adapter
 
-`RebuildCatalog::lookup` is implemented by trusted host code reading the current registered catalog. It must bind the production capability, current descriptor/runtime and a specifically registered preparation capability/descriptor. Never expose adapter registration or treat a client-supplied `RebuildBinding` as catalog evidence. A changed runtime may lead to a new proposal; it does not authorize execution of a saved historical request or selection of another provider after deny.
+`RebuildCatalog::lookup` is implemented by trusted host code reading a `RebuildCatalogSnapshot` produced by Core. Registry preparation relations are registered only through the host API, never provider aliases/tags/object types, and pin both descriptor digests under one provider/version. Core binds the active provider generation/connection into the current runtime digest. Provider refresh drops the relation; explicit host re-registration is required and yields a new runtime binding. Never treat client JSON or a saved `RebuildBinding` as catalog evidence.
 
 ## Reservation and preparation
 
@@ -26,7 +26,7 @@ Production SCCs are computed iteratively and reported explicitly; a cycle yields
 
 This permit is NOT a policy grant. It only bounds entry to native preparation via the existing Broker/controller. It does not apply the reconstruction, execute an old native plan, authorize exports, clear uncertain effects, or prove external files did not change between observations. Native preparation must reacquire references and current base states. Every actual app operation must re-enter Broker policy; the controller records partial/cancelled/unknown outcomes in A's vault and produces trusted C receipts afterward. The reservation's operation count is preparation calls, not a claim of N native suboperations or N Broker approvals.
 
-There is no scheduler or background process in this module. Replanning after conflict is explicit. C now provides a separate durable ExternalIntent ledger for host integration: PREPARED and APPLYING are store transitions, interrupted APPLYING becomes UNKNOWN after restart, and COMPLETED requires a matching admitted receipt. That ledger still has to be wired around the real Broker/provider call; it does not make the rebuild proposal executable or privileged. Broker-native re-entry and both native integration paths remain separate acceptance gates until actual runtime evidence exists.
+There is no scheduler or background process in this module. Replanning after conflict is explicit. C provides a durable ExternalIntent ledger for host integration: PREPARED and APPLYING are store transitions, interrupted APPLYING becomes UNKNOWN after restart, and COMPLETED requires a matching admitted receipt. Core's host-only `execute_rebuild_preparation` revalidates the current relation and then enters the ordinary Broker; it does not make the proposal a permission and it does not dispatch a sequence on its own. The host/controller still owns PREPARED→APPLYING→terminal transitions and receipt persistence around each actual external operation.
 
 ## Contract tests and CI
 
@@ -38,4 +38,4 @@ These tests use synthetic host-side model observations and are NOT Blender/Godot
 
 ## Runtime integration boundary
 
-The candidate now derives `ProjectAccess` from daemon-owned OS identity plus current Broker session/grants for registered graph-state routes. Rebuild proposal/reservation remains intentionally unexposed: a trusted `RebuildCatalog` still needs native-owner capability-to-preparation bindings, and any actual application step must use A's vault/controller then re-enter Broker policy. Do not add a generic execute-plan command or second engine to close that gap. Blender-to-GLB-to-Godot and motion/AV/audio still require their own source-SHA-bound native receipts and a combined candidate.
+The candidate derives `ProjectAccess` from daemon-owned OS identity plus current Broker session/grants for registered graph-state routes. Rebuild proposal/reservation remains intentionally unexposed. Native owners/integrators explicitly register their production→preparation relationship with Core, use C's snapshot as the `RebuildCatalog`, consume A's vault permit, and dispatch the one preparation capability through `execute_rebuild_preparation`. The helper revalidates the binding immediately before ordinary Broker execution; it is not a generic execute-plan command or second engine. Blender→GLB→Godot is externally certified at D `7eaf8de...`; motion/AV/audio still requires one A+B combined SHA.

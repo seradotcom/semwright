@@ -5,7 +5,7 @@ use std::{collections::BTreeMap, sync::Arc};
 pub mod bounds;
 pub mod catalog;
 mod dynamic;
-pub use catalog::{CatalogQuery, Metadata, SourceKind};
+pub use catalog::{CatalogQuery, Metadata, PreparationRelation, SourceKind};
 pub use dynamic::CapabilitySnapshot;
 
 pub const BUILTIN_COMMANDS: &str = include_str!("../../../schemas/commands.json");
@@ -13,6 +13,7 @@ pub const BUILTIN_COMMANDS: &str = include_str!("../../../schemas/commands.json"
 pub struct Registry {
     commands: BTreeMap<String, CommandDescriptor>,
     metadata: BTreeMap<String, Metadata>,
+    preparation_relations: BTreeMap<String, PreparationRelation>,
     validators: BTreeMap<String, (Arc<jsonschema::Validator>, Arc<jsonschema::Validator>)>,
     revision: u64,
     descriptor_bytes: usize,
@@ -40,6 +41,7 @@ impl Registry {
         Self {
             commands: BTreeMap::new(),
             metadata: BTreeMap::new(),
+            preparation_relations: BTreeMap::new(),
             validators: BTreeMap::new(),
             revision: 0,
             descriptor_bytes: 0,
@@ -55,6 +57,85 @@ impl Registry {
                 "Capability provenance is not registered",
             )
         })
+    }
+    /// Register a host-owned production -> preparation relationship.
+    ///
+    /// Dynamic providers cannot publish this through aliases, tags or object types.
+    /// Both endpoints must currently belong to the same provider/version and the
+    /// descriptor digests are pinned until an explicit host re-registration.
+    pub fn register_preparation_relation(
+        &mut self,
+        production: &str,
+        preparation: &str,
+    ) -> Result<u64> {
+        if production == preparation {
+            return Err(Error::invalid(
+                "Production and preparation capabilities must be distinct",
+            ));
+        }
+        self.describe(production)?;
+        self.describe(preparation)?;
+        let production_metadata = self.metadata(production)?.clone();
+        let preparation_metadata = self.metadata(preparation)?.clone();
+        if production_metadata.provider != preparation_metadata.provider
+            || production_metadata.source != preparation_metadata.source
+            || production_metadata.source_version != preparation_metadata.source_version
+        {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Preparation relationship cannot substitute a capability provider",
+            ));
+        }
+        let relation = PreparationRelation {
+            production: production.into(),
+            preparation: preparation.into(),
+            provider: production_metadata.provider,
+            production_descriptor_sha256: production_metadata.descriptor_sha256,
+            preparation_descriptor_sha256: preparation_metadata.descriptor_sha256,
+        };
+        if let Some(existing) = self.preparation_relations.get(production) {
+            if existing == &relation {
+                return Ok(self.revision);
+            }
+            return Err(Error::new(
+                ErrorCode::Conflict,
+                "Production capability already has a different preparation relationship",
+            ));
+        }
+        if self.preparation_relations.len() >= 4096 {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Preparation relationship catalog is full",
+            ));
+        }
+        let next = self.revision.checked_add(1).ok_or_else(|| {
+            Error::new(ErrorCode::ResourceExhausted, "Catalog revision exhausted")
+        })?;
+        self.preparation_relations
+            .insert(production.into(), relation);
+        self.revision = next;
+        Ok(next)
+    }
+    pub fn preparation_relation(&self, production: &str) -> Result<Option<&PreparationRelation>> {
+        let Some(relation) = self.preparation_relations.get(production) else {
+            return Ok(None);
+        };
+        let production_metadata = self.metadata(&relation.production)?;
+        let preparation_metadata = self.metadata(&relation.preparation)?;
+        if production_metadata.provider != relation.provider
+            || preparation_metadata.provider != relation.provider
+            || production_metadata.descriptor_sha256 != relation.production_descriptor_sha256
+            || preparation_metadata.descriptor_sha256 != relation.preparation_descriptor_sha256
+        {
+            return Err(Error::new(
+                ErrorCode::Conflict,
+                "Preparation relationship endpoints changed; host re-registration required",
+            ));
+        }
+        Ok(Some(relation))
+    }
+    pub fn preparation_relations(&self) -> impl Iterator<Item = &PreparationRelation> {
+        self.preparation_relations.values()
     }
     pub fn register(&mut self, descriptor: CommandDescriptor) -> Result<()> {
         let metadata = Metadata::builtin(&descriptor)?;
@@ -277,5 +358,45 @@ mod tests {
         let r = Registry::builtin().unwrap();
         assert_eq!(r.search("", 2).len(), 2);
         assert!(!r.search("blender material", 100).is_empty());
+    }
+
+    #[test]
+    fn preparation_relationship_is_host_owned_pinned_and_provider_bound() {
+        let mut r = Registry::builtin().unwrap();
+        let before = r.revision();
+        let revision = r
+            .register_preparation_relation("blender.render", "blender.render.settings")
+            .unwrap();
+        assert!(revision > before);
+        let relation = r.preparation_relation("blender.render").unwrap().unwrap();
+        assert_eq!(relation.provider, "blender-native");
+        assert_eq!(
+            relation.production_descriptor_sha256,
+            r.metadata("blender.render").unwrap().descriptor_sha256
+        );
+        assert_eq!(
+            relation.preparation_descriptor_sha256,
+            r.metadata("blender.render.settings")
+                .unwrap()
+                .descriptor_sha256
+        );
+        assert_eq!(
+            r.register_preparation_relation("blender.render", "blender.render.settings")
+                .unwrap(),
+            revision,
+            "identical trusted registration should be idempotent"
+        );
+        assert_eq!(
+            r.register_preparation_relation("blender.render", "blender.status")
+                .unwrap_err()
+                .code,
+            ErrorCode::Conflict
+        );
+        assert_eq!(
+            r.register_preparation_relation("blender.object.create", "browser.navigate")
+                .unwrap_err()
+                .code,
+            ErrorCode::PolicyDenied
+        );
     }
 }

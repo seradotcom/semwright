@@ -6,7 +6,10 @@ use super::*;
 use g::composition::{self as c, Digest, Owner, PrincipalBinding};
 use semwright_platform_api::filesystem::ScopedFilesystem;
 use semwright_project_graph as g;
-use std::path::{Path, PathBuf};
+use std::{
+    collections::BTreeMap,
+    path::{Path, PathBuf},
+};
 const MAX_OPEN_PROJECTS: usize = 8;
 const MAX_STORED_PROJECTS: usize = 32;
 #[derive(Serialize, Deserialize)]
@@ -74,6 +77,56 @@ impl g::CancellationCheck for Cancel {
     fn cancelled(&self) -> bool {
         self.0.is_cancelled()
     }
+}
+
+/// Immutable host-side view of trusted production -> preparation relationships.
+/// It is data-only and grants no execution authority.
+#[derive(Clone, Default)]
+pub struct RebuildCatalogSnapshot {
+    bindings: BTreeMap<String, g::RebuildBinding>,
+}
+impl g::RebuildCatalog for RebuildCatalogSnapshot {
+    fn lookup(&self, production: &g::OperationIdentity) -> g::Result<Option<g::RebuildBinding>> {
+        Ok(self.bindings.get(&production.capability).cloned())
+    }
+}
+fn rebuild_binding(
+    catalog: &ProviderCatalog,
+    relation: &semwright_registry::PreparationRelation,
+) -> Result<Option<g::RebuildBinding>> {
+    catalog.preparation_relation(&relation.production)?;
+    let production = catalog.metadata(&relation.production)?;
+    if production.provider != relation.provider {
+        return Err(Error::new(
+            ErrorCode::Conflict,
+            "Trusted rebuild provider relationship changed",
+        ));
+    }
+    let Some(lease) = catalog.providers.values().find(|lease| {
+        lease.identity.id == relation.provider
+            && lease.identity.version == production.source_version
+            && lease.active()
+    }) else {
+        return Ok(None);
+    };
+    let runtime = c::Digest::of_bytes(
+        format!(
+            "semwright-provider-runtime-v1\0{}\0{}\0{}\0{}",
+            lease.identity.id, lease.identity.version, lease.generation, lease.connection
+        )
+        .as_bytes(),
+    );
+    Ok(Some(g::RebuildBinding {
+        capability: relation.production.clone(),
+        descriptor: c::Digest::parse(relation.production_descriptor_sha256.clone())
+            .map_err(|_| Error::new(ErrorCode::Internal, "Invalid production descriptor digest"))?,
+        runtime,
+        prepare_capability: relation.preparation.clone(),
+        prepare_descriptor: c::Digest::parse(relation.preparation_descriptor_sha256.clone())
+            .map_err(|_| {
+                Error::new(ErrorCode::Internal, "Invalid preparation descriptor digest")
+            })?,
+    }))
 }
 impl ProjectGraphs {
     fn new(home: &Path, principal: String) -> Result<Self> {
@@ -626,6 +679,87 @@ fn prospective_canonical_directory(directory: &Path) -> Result<PathBuf> {
     }
 }
 impl Broker {
+    /// Trusted host registration only. This creates no command route and grants no authority.
+    pub fn register_rebuild_preparation_relation(
+        &self,
+        production: &str,
+        preparation: &str,
+    ) -> Result<u64> {
+        let revision = {
+            let mut catalog = self
+                .registry
+                .write()
+                .map_err(|_| Error::new(ErrorCode::Internal, "Catalog lock poisoned"))?;
+            catalog.register_preparation_relation(production, preparation)?
+        };
+        self.event(
+            self.core_event("registry_changed")
+                .with_attribute("reason", json!("rebuild_preparation_relation"))
+                .with_attribute("production", json!(production))
+                .with_attribute("preparation", json!(preparation)),
+        );
+        Ok(revision)
+    }
+
+    /// Snapshot only current, explicitly host-registered preparation relationships.
+    pub fn rebuild_catalog_snapshot(&self) -> Result<RebuildCatalogSnapshot> {
+        let catalog = self
+            .registry
+            .read()
+            .map_err(|_| Error::new(ErrorCode::Internal, "Catalog lock poisoned"))?;
+        let mut bindings = BTreeMap::new();
+        for relation in catalog.preparation_relations() {
+            if let Some(binding) = rebuild_binding(&catalog, relation)? {
+                bindings.insert(relation.production.clone(), binding);
+            }
+        }
+        Ok(RebuildCatalogSnapshot { bindings })
+    }
+
+    fn current_rebuild_binding(&self, production: &str) -> Result<Option<g::RebuildBinding>> {
+        let catalog = self
+            .registry
+            .read()
+            .map_err(|_| Error::new(ErrorCode::Internal, "Catalog lock poisoned"))?;
+        let Some(relation) = catalog.preparation_relation(production)? else {
+            return Ok(None);
+        };
+        rebuild_binding(&catalog, relation)
+    }
+
+    /// Revalidate the trusted relationship immediately before dispatch, then enter
+    /// the ordinary Broker path. Schema, policy, audit, cancellation and provider
+    /// generation handling are therefore identical to any other capability call.
+    pub async fn execute_rebuild_preparation(
+        self: &Arc<Self>,
+        session: String,
+        request_id: String,
+        binding: &g::RebuildBinding,
+        args: Value,
+        cancellation: CancellationToken,
+    ) -> Result<Envelope> {
+        if self.current_rebuild_binding(&binding.capability)?.as_ref() != Some(binding) {
+            return Err(Error::new(
+                ErrorCode::Conflict,
+                "Rebuild preparation binding changed; replan before dispatch",
+            ));
+        }
+        Ok(self
+            .clone()
+            .execute(
+                session,
+                request_id,
+                ExecuteRequest {
+                    command: binding.prepare_capability.clone(),
+                    args,
+                    dry_run: false,
+                    backend: None,
+                },
+                cancellation,
+            )
+            .await)
+    }
+
     /// Trusted host initialization. `authenticated_principal` must come from OS/server
     /// authentication, never from a command argument, project manifest or stored session ref.
     pub fn configure_project_graphs(

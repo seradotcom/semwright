@@ -3,6 +3,7 @@ pub mod audit;
 mod catalog;
 mod jobs;
 mod project_graph;
+pub use project_graph::RebuildCatalogSnapshot;
 mod providers;
 mod workflows;
 use async_trait::async_trait;

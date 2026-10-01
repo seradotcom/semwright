@@ -75,6 +75,7 @@ try:
                 [
                     "cargo", "fmt",
                     "-p", "semwright-core",
+                    "-p", "semwright-registry",
                     "-p", "semwright-platform-services",
                     "-p", "semwright-daemon",
                     "--", "--check",
@@ -109,6 +110,72 @@ try:
                 or broker_passed != broker_expected
             ):
                 raise RuntimeError("Broker Project Graph tests failed or were skipped")
+            registry_rebuild = run(
+                "registry-rebuild-test",
+                [
+                    "cargo", "test", "--locked",
+                    "-p", "semwright-registry",
+                    "tests::preparation_relationship_is_host_owned_pinned_and_provider_bound",
+                    "--", "--exact",
+                ],
+                check=False,
+            )
+            registry_summaries = re.findall(
+                r"^test result: (?:ok|FAILED)\. (\d+) passed; (\d+) failed; (\d+) ignored;",
+                registry_rebuild,
+                re.MULTILINE,
+            )
+            registry_passed = sum(int(row[0]) for row in registry_summaries)
+            registry_failed = sum(int(row[1]) for row in registry_summaries)
+            registry_ignored = sum(int(row[2]) for row in registry_summaries)
+            if (
+                report["steps"][-1]["exit_code"]
+                or registry_failed
+                or registry_ignored
+                or registry_passed != 1
+            ):
+                raise RuntimeError("trusted rebuild Registry regression did not pass exactly once")
+            report["registry_rebuild_tests"] = registry_passed
+            rebuild_broker = run(
+                "rebuild-broker-test",
+                [
+                    "cargo", "test", "--locked",
+                    "-p", "semwright-core",
+                    "--test", "provider_runtime",
+                    "rebuild_preparation_relation_reenters_broker_and_invalidates_on_refresh",
+                    "--", "--exact",
+                ],
+                check=False,
+            )
+            rebuild_summaries = re.findall(
+                r"^test result: (?:ok|FAILED)\. (\d+) passed; (\d+) failed; (\d+) ignored;",
+                rebuild_broker,
+                re.MULTILINE,
+            )
+            rebuild_passed = sum(int(row[0]) for row in rebuild_summaries)
+            rebuild_failed = sum(int(row[1]) for row in rebuild_summaries)
+            rebuild_ignored = sum(int(row[2]) for row in rebuild_summaries)
+            if (
+                report["steps"][-1]["exit_code"]
+                or rebuild_failed
+                or rebuild_ignored
+                or rebuild_passed != 1
+            ):
+                raise RuntimeError("typed rebuild Broker regression did not pass exactly once")
+            report["rebuild_broker_tests"] = rebuild_passed
+            run(
+                "integration-clippy-registry",
+                ["cargo", "clippy", "--locked", "-p", "semwright-registry", "--lib", "--", "-D", "warnings"],
+            )
+            run(
+                "integration-clippy-core-rebuild",
+                [
+                    "cargo", "clippy", "--locked",
+                    "-p", "semwright-core",
+                    "--test", "provider_runtime",
+                    "--", "-D", "warnings",
+                ],
+            )
             principal_tests = run(
                 "principal-tests",
                 [
