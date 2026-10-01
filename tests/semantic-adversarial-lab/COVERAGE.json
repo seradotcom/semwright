@@ -387,7 +387,7 @@
       "run_id": null,
       "job_id": null,
       "evidence": [],
-      "blocker": "Instrumented Godot import proved a G enclosure defect: /etc/fonts was hidden, Fontconfig had no configuration and pinned Godot 4.7.2 crashed before product cases. Harness now mounts only /etc/fonts and /etc/xdg read-only (guarded by G-SELF-096) and provisions xdg-user-dirs; exact-SHA D retest pending.",
+      "blocker": "Godot native run 36808915771 still crashed before cases after Fontconfig repair. Preserved stderr shows allocation failure under G global RLIMIT_AS=1 GiB. Harness now keeps ordinary probes at 1 GiB but grants native lanes a separately bounded 4 GiB budget (G-SELF-097); exact-SHA D retest pending.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },

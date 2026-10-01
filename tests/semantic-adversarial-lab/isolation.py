@@ -19,19 +19,19 @@ def require_hosted() -> None:
     if os.name != "posix" or os.uname().sysname != "Linux":
         raise EvidenceError("BLOCKED: this enclosure has only been implemented for Linux")
 
-def _limits() -> None:
+def _limits(address_space_bytes: int) -> None:
     import resource
     resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
     resource.setrlimit(resource.RLIMIT_NOFILE, (128, 128))
     resource.setrlimit(resource.RLIMIT_FSIZE, (8 * 1024 * 1024, 8 * 1024 * 1024))
     resource.setrlimit(resource.RLIMIT_CPU, (30, 30))
-    resource.setrlimit(resource.RLIMIT_AS, (1024 * 1024 * 1024, 1024 * 1024 * 1024))
+    resource.setrlimit(resource.RLIMIT_AS, (address_space_bytes, address_space_bytes))
 
 def captured(argv: list[str], *, env: dict[str, str], timeout: float = 30.0,
-             maximum: int = 262144) -> dict[str, Any]:
+             maximum: int = 262144, address_space_bytes: int = 1024 * 1024 * 1024) -> dict[str, Any]:
     started = time.monotonic()
     process = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
-                               stderr=subprocess.PIPE, env=env, start_new_session=True, preexec_fn=_limits)
+                               stderr=subprocess.PIPE, env=env, start_new_session=True, preexec_fn=lambda: _limits(address_space_bytes))
     selector = selectors.DefaultSelector()
     assert process.stdout is not None and process.stderr is not None
     selector.register(process.stdout, selectors.EVENT_READ, "stdout")
@@ -80,8 +80,11 @@ def captured(argv: list[str], *, env: dict[str, str], timeout: float = 30.0,
             "outer_process_group_gone": group_gone, "duration_seconds": round(time.monotonic() - started, 6)}
 
 class Enclosure:
-    def __init__(self, lab: Path, source_sha: str):
+    def __init__(self, lab: Path, source_sha: str, *, address_space_bytes: int = 1024 * 1024 * 1024):
         require_hosted()
+        if not (256 * 1024 * 1024 <= address_space_bytes <= 4 * 1024 * 1024 * 1024):
+            raise EvidenceError("BLOCKED: enclosure address-space budget outside allowlist")
+        self.address_space_bytes = address_space_bytes
         binary = shutil.which("bwrap")
         if binary is None:
             raise EvidenceError("BLOCKED: bubblewrap unavailable")
@@ -133,7 +136,7 @@ class Enclosure:
         require_hosted()
         output = captured(self.command(args, executable, source),
                           env={"PATH": "/usr/bin:/bin", "LANG": "C.UTF-8", "G_SYNTHETIC_HOST_MARKER": "synthetic-not-a-secret"},
-                          timeout=timeout)
+                          timeout=timeout, address_space_bytes=self.address_space_bytes)
         output["canaries_unchanged"] = (
             (self.root / "readonly").read_text() == "synthetic-read-only-canary\n"
             and (self.root / "private" / "sentinel").read_text() == "synthetic-unmounted-canary\n")

@@ -4551,6 +4551,17 @@
       "expected": {
         "ok": true
       }
+    },
+    {
+      "id": "G-SELF-097",
+      "owner": "G",
+      "requirement": "G11",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "native runtime address-space budget is explicitly bounded at 4 GiB while ordinary probes remain at 1 GiB",
+      "expected": {
+        "ok": true
+      }
     }
   ]
 }
