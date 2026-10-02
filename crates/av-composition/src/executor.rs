@@ -8,13 +8,18 @@ use serde_json::Value;
 use tokio_util::sync::CancellationToken;
 
 fn broker_error(error: semwright_types::Error) -> Error {
-    let message = error
+    let code = error.code;
+    let payload = error
         .message
         .chars()
         .filter(|character| !character.is_control())
+        .take(448)
+        .collect::<String>();
+    let message = format!("{code:?}: {payload}")
+        .chars()
         .take(512)
         .collect::<String>();
-    match error.code {
+    match code {
         ErrorCode::PolicyDenied
         | ErrorCode::PermissionDenied
         | ErrorCode::ConsentRequired
@@ -27,6 +32,29 @@ fn broker_error(error: semwright_types::Error) -> Error {
         ErrorCode::Cancelled | ErrorCode::Timeout => Error::Unknown(message),
         _ if !error.outcome_known => Error::Unknown(message),
         _ => Error::Invalid(message),
+    }
+}
+
+fn command_context(error: Error, command: &str) -> Error {
+    let command = command
+        .chars()
+        .filter(|character| !character.is_control())
+        .take(192)
+        .collect::<String>();
+    let prefix = format!("{command}: ");
+    let decorate = |message: String| {
+        prefix
+            .chars()
+            .chain(message.chars())
+            .take(512)
+            .collect::<String>()
+    };
+    match error {
+        Error::Denied(message) => Error::Denied(decorate(message)),
+        Error::Stale(message) => Error::Stale(decorate(message)),
+        Error::Limit(message) => Error::Limit(decorate(message)),
+        Error::Unknown(message) => Error::Unknown(decorate(message)),
+        Error::Invalid(message) => Error::Invalid(decorate(message)),
     }
 }
 
@@ -99,7 +127,7 @@ impl<'a> StageCommandRunner<'a> {
             }
             Err(error) => {
                 self.failed = true;
-                Err(broker_error(error))
+                Err(command_context(broker_error(error), &binding.command))
             }
         }
     }
@@ -374,6 +402,34 @@ mod error_mapping_tests {
         };
         assert!(message.len() <= 512);
         assert!(!message.chars().any(char::is_control));
-        assert!(message.starts_with("start"));
+        assert!(message.starts_with("PolicyDenied: start"));
+    }
+}
+
+#[cfg(test)]
+mod command_context_tests {
+    use super::*;
+    use semwright_types::{Error as NativeError, ErrorCode};
+
+    #[test]
+    fn trusted_command_context_preserves_class_and_redacted_message_budget() {
+        let mapped = command_context(
+            broker_error(
+                NativeError::new(
+                    ErrorCode::BackendFailed,
+                    format!("redacted-{}", "x".repeat(700)),
+                )
+                .uncertain(),
+            ),
+            "driver.motion-canvas.render.execute",
+        );
+        let Error::Unknown(message) = mapped else {
+            panic!("uncertain backend failure must remain unknown");
+        };
+        assert!(
+            message.starts_with("driver.motion-canvas.render.execute: BackendFailed: redacted-")
+        );
+        assert!(message.len() <= 512);
+        assert!(!message.chars().any(char::is_control));
     }
 }
