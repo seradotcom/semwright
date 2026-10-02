@@ -1,125 +1,13 @@
-name: Semantic creation integration diagnostics (I)
+name: I Linux Host control regressions
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
 defaults:
   run:
     shell: bash
-
-on:
-  push:
-    branches: [integration/semantic-creation-i-20261001]
-    paths:
-      - crates/semantic-composition/**
-      - crates/driver-godot/src/authoring/**
-      - crates/driver-godot/tests/authoring_profile.rs
-      - crates/driver-godot/tests/authoring_host.rs
-      - crates/driver-faust-audio/**
-      - crates/driver-ardour-audio/**
-      - crates/driver-blender/**
-      - crates/driver-motion-canvas/**
-      - crates/driver-mlt-video/**
-      - crates/driver-sdk/**
-      - crates/driver-host/**
-      - Cargo.lock
-      - crates/audio-authoring/**
-      - crates/effect-conformance/**
-      - scripts/semantic-creation/**
-      - .github/workflows/semantic-creation-integration.yml
-  workflow_dispatch:
-    inputs:
-      candidate_sha:
-        description: Immutable integration SHA for owner contracts and transport compile checks
-        required: true
-        type: string
-      native_godot_probe:
-        description: Run two native Godot integration diagnostics after source contracts (not full D certification)
-        required: false
-        type: boolean
-        default: false
-permissions:
-  contents: read
-concurrency:
-  group: semantic-creation-i-${{ inputs.candidate_sha || github.sha }}
-  cancel-in-progress: false
 jobs:
-  reconciliation:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 35
-    env:
-      CARGO_INCREMENTAL: '0'
-      CARGO_PROFILE_DEV_DEBUG: '0'
-      CARGO_PROFILE_TEST_DEBUG: '0'
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: ${{ inputs.candidate_sha || github.sha }}
-          persist-credentials: false
-      - name: Bind exact source
-        env:
-          CANDIDATE_SHA: ${{ inputs.candidate_sha || github.sha }}
-        run: |
-          set -euo pipefail
-          [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
-          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
-          git diff --exit-code
-          git diff --cached --exit-code
-      - name: Runtime-tool source boundaries
-        run: |
-          python3 scripts/verify-driver-runtime-tools.py
-          python3 -m unittest discover -s tests/python -p test_runtime_tool_guard.py -v
-      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
-        with:
-          toolchain: 1.98.1
-          components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
-        with:
-          shared-key: godot-authoring-v1
-      - name: Native compile prerequisites
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libpipewire-0.3-dev pkg-config
-      - name: Lockfile source diagnostic
-        run: |
-          mkdir -p verification/semantic-creation
-          cp Cargo.lock verification/semantic-creation/Cargo.lock.before
-          if ! cargo metadata --locked --format-version 1 > verification/semantic-creation/metadata.json; then
-            cargo metadata --format-version 1 > verification/semantic-creation/metadata.resolved.json
-            cp Cargo.lock verification/semantic-creation/Cargo.lock.resolved
-            exit 1
-          fi
-      - name: Source formatting
-        run: cargo fmt -p semwright-semantic-composition -p semwright-driver-godot -p semwright-audio-authoring -p semwright-effect-conformance -p semwright-driver-sdk -p semwright-driver-blender -p semwright-driver-motion-canvas -p semwright-mlt-video-driver -p semwright-faust-audio-driver -p semwright-ardour-audio-driver -p semwright-av-composition -- --check
-      - name: Combined runtime transport compilation
-        run: cargo check --locked --all-targets -p semwright-driver-godot -p semwright-driver-blender -p semwright-driver-motion-canvas -p semwright-mlt-video-driver -p semwright-faust-audio-driver -p semwright-ardour-audio-driver -p semwright-av-composition --features semwright-driver-blender/authoring-native
-      - name: Host job wait and cancellation contracts
-        run: cargo test --locked -p semwright-driver-sdk --lib -- --nocapture
-      - name: Scoped pinned font reader boundaries
-        run: |
-          cargo test --locked -p semwright-driver-motion-canvas --lib store::tests::pinned_font_reader -- --nocapture 2>&1 | tee verification/semantic-creation/pinned-font-reader.log
-          grep -F 'test result: ok. 2 passed; 0 failed; 0 ignored;' verification/semantic-creation/pinned-font-reader.log
-      - name: MLT executable ownership boundary
-        run: cargo test --locked -p semwright-mlt-video-driver --lib owner_policy_allows_only_explicit_trust_cases -- --nocapture
-      - name: AV native artifact and compiled context admission
-        run: cargo test --locked -p semwright-av-composition --lib --test contracts
-      - name: A contracts and D reconciliation source regressions
-        run: python3 scripts/semantic-creation/reconciliation_diagnostic.py
-      - name: Godot native wire and process-incarnation contracts
-        run: cargo test --locked -p semwright-driver-godot --lib --test authoring_native -- --nocapture
-      - name: Strict A/D lints
-        run: cargo clippy --locked -p semwright-semantic-composition -p semwright-driver-godot -p semwright-audio-authoring -p semwright-effect-conformance -p semwright-driver-sdk -p semwright-driver-blender -p semwright-driver-motion-canvas -p semwright-mlt-video-driver -p semwright-faust-audio-driver -p semwright-ardour-audio-driver -p semwright-av-composition --all-targets --no-deps --features semwright-driver-blender/authoring-native -- -D warnings
-      - name: Preserve exact-source identity after checks
-        run: |
-          git diff --exit-code
-          git diff --cached --exit-code
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        if: always()
-        with:
-          name: semantic-creation-i-reconciliation-${{ inputs.candidate_sha || github.sha }}
-          path: verification/semantic-creation
-          if-no-files-found: error
-          retention-days: 14
-
-  godot-native-probe:
-    needs: reconciliation
-    if: ${{ inputs.native_godot_probe == true && needs.reconciliation.result == 'success' }}
+  host-controls:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     env:
@@ -129,65 +17,120 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: ${{ inputs.candidate_sha }}
           persist-credentials: false
-      - name: Bind diagnostic to exact source
-        env:
-          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          ref: cd518748f742025a251b78028613aa1b16919e73
+      - name: Bind exact product source
         run: |
-          set -euo pipefail
-          [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
-          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
-          test "$GITHUB_SHA" = "$CANDIDATE_SHA"
-          mkdir -p verification/godot-integration-probe
-          printf '%s\n' "$CANDIDATE_SHA" > verification/godot-integration-probe/SOURCE_SHA
-          printf '%s\n' 'NATIVE_INTEGRATION_DIAGNOSTIC_ONLY_NOT_FULL_D_CERTIFICATION' > verification/godot-integration-probe/SCOPE
-          echo "CARGO_TARGET_DIR=$RUNNER_TEMP/godot-probe-target" >> "$GITHUB_ENV"
+          test "$(git rev-parse HEAD)" = "cd518748f742025a251b78028613aa1b16919e73"
+          mkdir -p verification/host-controls
+          git rev-parse HEAD > verification/host-controls/product-source-sha.txt
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
         with:
           toolchain: 1.98.1
-      - name: Provision isolated pinned Godot and export template
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          shared-key: godot-authoring-v1
+      - name: Isolated Host prerequisites
         run: |
-          set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y bubblewrap apparmor-profiles apparmor-utils libpipewire-0.3-dev unzip
-          bash scripts/dev/ci-driver-bwrap-profile.sh verification/godot-integration-probe/sandbox-setup.log
-          mkdir -p "$RUNNER_TEMP/godot-probe" "$RUNNER_TEMP/godot-probe-templates"
-          curl -fL --retry 4 --retry-delay 2 \
-            https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip \
-            -o "$RUNNER_TEMP/godot-probe.zip"
-          unzip -q "$RUNNER_TEMP/godot-probe.zip" -d "$RUNNER_TEMP/godot-probe"
-          GODOT="$RUNNER_TEMP/godot-probe/Godot_v4.7.2-stable_linux.x86_64"
-          echo "8d106cbe6144c2dc7e881d61d2429c1a8a76e6b22ef48bd5e48dcf934953f71e  $GODOT" | sha256sum -c -
-          "$GODOT" --version > verification/godot-integration-probe/godot-version.txt
-          curl -fL --retry 4 --retry-delay 2 \
-            https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_export_templates.tpz \
-            -o "$RUNNER_TEMP/godot-probe-templates.tpz"
-          echo "f298490b8d44d934be425a5a65a51bf15f422428b229a06a6e11d9ffea248011  $RUNNER_TEMP/godot-probe-templates.tpz" | sha256sum -c -
-          unzip -j -q "$RUNNER_TEMP/godot-probe-templates.tpz" \
-            templates/linux_release.x86_64 -d "$RUNNER_TEMP/godot-probe-templates"
-          chmod 0755 "$RUNNER_TEMP/godot-probe-templates/linux_release.x86_64"
-          echo "GODOT_BIN=$GODOT" >> "$GITHUB_ENV"
-          echo "SEMWRIGHT_TEST_GODOT_EXPORT_TEMPLATES=$RUNNER_TEMP/godot-probe-templates" >> "$GITHUB_ENV"
-      - name: Build bounded driver and sandbox helper
-        run: cargo build --locked -p semwright-driver-godot --bin semwright-godot-driver -p semwright-plugin-host --bin semwright-sandbox
-      - name: Real Host persistence and export diagnostics
+          sudo apt-get install -y bubblewrap apparmor-profiles apparmor-utils libpipewire-0.3-dev
+          bash scripts/dev/ci-driver-bwrap-profile.sh verification/host-controls/sandbox-setup.log
+      - name: Host formatting and strict lints
+        run: |
+          cargo fmt -p semwright-driver-host -- --check
+          cargo clippy --locked -p semwright-driver-host --features test-tools --all-targets --no-deps -- -D warnings
+      - name: Host and SDK source contracts
         run: |
           set -euo pipefail
-          export SEMWRIGHT_TEST_SANDBOX_HELPER="$CARGO_TARGET_DIR/debug/semwright-sandbox"
-          for test_name in export_lane_builds_and_launches_without_editor_or_semwright empty_project_authoring_flows_through_broker_driver_host_and_provider
-          do
-            SEMWRIGHT_TEST_GODOT_AUTHORING_HOST=1 \
-              cargo test --locked -p semwright-driver-godot --test authoring_host "$test_name" \
-              -- --ignored --exact --nocapture --test-threads=1 \
-              2>&1 | tee "verification/godot-integration-probe/$test_name.log"
-            grep -F 'test result: ok. 1 passed; 0 failed; 0 ignored;' "verification/godot-integration-probe/$test_name.log"
-          done
+          cargo test --locked -p semwright-driver-host --lib 2>&1 | tee verification/host-controls/host-unit.log
+          cargo test --locked -p semwright-driver-sdk --lib 2>&1 | tee verification/host-controls/sdk-unit.log
+      - name: Build owned sandbox helper
+        run: cargo build --locked -p semwright-plugin-host --bin semwright-sandbox
+      - name: Native Linux v5-v8 Host controls
+        env:
+          SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
+        run: |
+          set -euo pipefail
+          cargo test --locked -p semwright-driver-host --features test-tools --test runtime_tools_linux \
+            -- --ignored --nocapture 2>&1 | tee verification/host-controls/native-host-controls.log
+          grep -F 'test result: ok. 5 passed; 0 failed; 0 ignored;' verification/host-controls/native-host-controls.log
           git diff --exit-code
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
-          name: godot-integration-probe-${{ inputs.candidate_sha }}
-          path: verification/godot-integration-probe
+          name: host-controls
+          path: verification/host-controls/
           if-no-files-found: error
           retention-days: 14
+  godot-export:
+    needs: host-controls
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_PROFILE_DEV_DEBUG: '0'
+      CARGO_PROFILE_TEST_DEBUG: '0'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          ref: cd518748f742025a251b78028613aa1b16919e73
+      - name: Exact source checkout
+        run: test "$(git rev-parse HEAD)" = "cd518748f742025a251b78028613aa1b16919e73"
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          shared-key: godot-authoring-export-v1
+      - name: Install isolated native prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap apparmor-profiles apparmor-utils libpipewire-0.3-dev
+          mkdir -p verification/godot-export
+          bash scripts/dev/ci-driver-bwrap-profile.sh verification/godot-export/sandbox-setup.log
+      - name: Install pinned Godot 4.7.2 and Linux release template
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/godot" "$RUNNER_TEMP/export-templates"
+          curl -fL --retry 4 --retry-delay 2 \
+            "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip" \
+            -o "$RUNNER_TEMP/godot.zip"
+          unzip -q "$RUNNER_TEMP/godot.zip" -d "$RUNNER_TEMP/godot"
+          GODOT="$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64"
+          echo "8d106cbe6144c2dc7e881d61d2429c1a8a76e6b22ef48bd5e48dcf934953f71e  $GODOT" | sha256sum -c -
+          "$GODOT" --version | tee verification/godot-export/godot-version.txt
+          curl -fL --retry 4 --retry-delay 2 \
+            "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_export_templates.tpz" \
+            -o "$RUNNER_TEMP/export-templates.tpz"
+          echo "f298490b8d44d934be425a5a65a51bf15f422428b229a06a6e11d9ffea248011  $RUNNER_TEMP/export-templates.tpz" | sha256sum -c -
+          unzip -j -q "$RUNNER_TEMP/export-templates.tpz" \
+            "templates/linux_release.x86_64" -d "$RUNNER_TEMP/export-templates"
+          rm "$RUNNER_TEMP/export-templates.tpz"
+          chmod 0755 "$RUNNER_TEMP/export-templates/linux_release.x86_64"
+          echo "GODOT_BIN=$GODOT" >> "$GITHUB_ENV"
+          echo "SEMWRIGHT_TEST_GODOT_EXPORT_TEMPLATES=$RUNNER_TEMP/export-templates" >> "$GITHUB_ENV"
+      - name: Build sandbox helper
+        run: cargo build --locked -p semwright-plugin-host --bin semwright-sandbox
+      - name: Broker standalone export and launch
+        env:
+          SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD > verification/godot-export/product-source-sha.txt
+          for control_iteration in 1 2; do
+            cargo test --locked -p semwright-driver-godot --test authoring_host \
+              export_lane_builds_and_launches_without_editor_or_semwright \
+              -- --ignored --exact --nocapture \
+              2>&1 | tee "verification/godot-export/export-host-$control_iteration.log"
+          done
+      - name: Export evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: godot-export
+          path: verification/godot-export/
+          if-no-files-found: error
+          retention-days: 14
+
