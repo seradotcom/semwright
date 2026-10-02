@@ -190,7 +190,19 @@ impl AudioSession {
         let measured = entry.measurements.get(measurement_id).ok_or_else(|| {
             ContractError::Denied("measurement was not issued by this session".into())
         })?;
-        let validation = validate(&entry.planned, project, measured)?;
+        let mut validation = validate(&entry.planned, project, measured)?;
+        let attempt = self.vault.ledger(owner, plan_id)?.last().ok_or_else(|| {
+            ContractError::Denied("audio verification needs an attempted plan".into())
+        })?;
+        validation.report = crate::effects::evaluate_measurement(
+            &entry.planned,
+            &self.profile,
+            project,
+            measured,
+            attempt,
+        )?
+        .report
+        .validation;
         self.vault
             .record_observation(owner, plan_id, validation.findings.len() as u32)?;
         let count = usize::from(
@@ -261,7 +273,10 @@ impl AudioSession {
             operation.clone(),
             "audio-repair-gain",
         ))?;
-        body.observation_scope = vec![location.clone()];
+        body.observation_scope = vec![
+            location.clone(),
+            address(&body.base, &repair.master_bus, "decoded_master")?,
+        ];
         body.changes = ChangeSet {
             atomicity: Atomicity::InMemoryTransaction,
             operations: vec![TypedOperation {
@@ -274,11 +289,21 @@ impl AudioSession {
                 postconditions: body.required_rules.clone(),
             }],
         };
+        let resulting_model_digest = Digest::parse(domain(outcome.result.semantic_digest())?)?;
+        let contract = crate::effects::contract(
+            &body.base,
+            &repair.master_bus,
+            &body.intent.delivery,
+            &resulting_model_digest,
+            &body.changes.operations,
+        )?;
+        body.dependencies
+            .insert("effects.contract".into(), contract.digest()?);
         let planned = PlannedAudio {
             plan: PreparedPlan::prepare(body, &self.profile)?,
             logical_bindings: entry.planned.logical_bindings.clone(),
             quantization_errors: entry.planned.quantization_errors.clone(),
-            resulting_model_digest: Digest::parse(domain(outcome.result.semantic_digest())?)?,
+            resulting_model_digest,
             affected: [repair.master_bus.clone()].into(),
         };
         let started = entry.started;
@@ -326,31 +351,26 @@ impl AudioSession {
         measurement_id: &str,
         project: &AudioProject,
     ) -> Result<VerificationReport> {
-        let validation = self.validate_measurement(owner, id, measurement_id, project)?;
+        self.validate_measurement(owner, id, measurement_id, project)?;
         let entry = self
             .entries
             .get(&(owner.clone(), id.to_owned()))
             .ok_or_else(|| ContractError::Denied("unknown audio plan".into()))?;
-        let status = self
-            .vault
-            .ledger(owner, id)?
-            .last()
-            .map(|attempt| attempt.status)
-            .unwrap_or(ExecutionStatus::Prepared);
-        let observed = status == ExecutionStatus::Completed
-            && validation
-                .report
-                .checks
-                .iter()
-                .any(|c| c.rule == "audio.model" && c.verdict == Verdict::Pass);
-        let scope = entry.planned.plan.body.observation_scope.clone();
-        Ok(VerificationReport {
-            execution_status: status,
-            validation: validation.report,
-            support_level: SupportLevel::Composed,
-            effects_observed: if observed { scope.clone() } else { vec![] },
-            effects_unobservable: if observed { vec![] } else { scope },
-        })
+        let measured = entry
+            .measurements
+            .get(measurement_id)
+            .ok_or_else(|| ContractError::Denied("unknown admitted audio measurement".into()))?;
+        let attempt = self.vault.ledger(owner, id)?.last().ok_or_else(|| {
+            ContractError::Denied("audio verification needs an attempted plan".into())
+        })?;
+        Ok(crate::effects::evaluate_measurement(
+            &entry.planned,
+            &self.profile,
+            project,
+            measured,
+            attempt,
+        )?
+        .report)
     }
     pub fn status(&self, owner: &Owner, id: &str) -> Result<(State, Option<StopReason>)> {
         self.get(owner, id)?;

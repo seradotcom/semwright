@@ -2936,6 +2936,7 @@ dependencies = [
  "proptest",
  "schemars",
  "semwright-audio-domain",
+ "semwright-effect-conformance",
  "semwright-media-time",
  "semwright-semantic-composition",
  "serde",

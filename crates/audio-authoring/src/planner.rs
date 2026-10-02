@@ -397,11 +397,29 @@ pub fn plan(
         )?;
     }
     let result_digest = Digest::parse(domain(builder.project.semantic_digest())?)?;
-    let scope = builder
+    ensure(
+        !intent.dependencies.contains_key("effects.contract"),
+        "client may not select the effect verification contract",
+    )?;
+    let contract = crate::effects::contract(
+        &base,
+        &builder.project.master_bus,
+        &intent.delivery,
+        &result_digest,
+        &builder.operations,
+    )?;
+    let mut dependencies = intent.dependencies.clone();
+    dependencies.insert("effects.contract".into(), contract.digest()?);
+    let mut scope: Vec<Address> = builder
         .operations
         .iter()
         .flat_map(|op| op.writes.clone())
         .collect();
+    scope.push(address(
+        &base,
+        &builder.project.master_bus,
+        "decoded_master",
+    )?);
     let prepared = PreparedPlan::prepare(
         PlanBody {
             contract_version: CONTRACT_VERSION,
@@ -409,7 +427,7 @@ pub fn plan(
             owner,
             base: base.clone(),
             intent_digest: canonical_digest(&intent)?,
-            dependencies: intent.dependencies.clone(),
+            dependencies,
             required_rules: profile.required_rules.clone(),
             budget: intent.budget.clone(),
             intent,

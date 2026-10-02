@@ -1,4 +1,5 @@
 //! Audio-specific planning and measured constraints; common lifecycle remains in C0.
+pub mod effects;
 pub mod intent;
 pub mod planner;
 pub mod session;

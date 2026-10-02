@@ -20,6 +20,13 @@ EXPECTED_D = {
     "uncertain_publication_reconciles_to_a_fresh_owner_bound_repair",
     "uncertain_publication_reconciliation_never_overwrites_a_human_edit",
 }
+EXPECTED_AUDIO = {
+    "effect_contract_is_compiled_and_client_override_is_denied",
+    "effect_consumer_preserves_decoder_provenance_and_never_claims_mutation_readback",
+    "effect_consumer_leaves_unavailable_loudness_and_incomplete_decode_unknown",
+    "effect_consumer_denies_foreign_channel_measurement_and_unapplied_verification",
+    "gain_repair_keeps_the_shared_lifecycle_and_reverifies_new_pcm",
+}
 
 
 def run(name, command, expected):
@@ -58,6 +65,8 @@ def main():
     try:
         report["suites"]["a-contracts"] = run("a-contracts", ["cargo", "test", "--locked", "-p", "semwright-semantic-composition", "--all-targets"], EXPECTED_RECONCILIATION)
         report["suites"]["d-profile"] = run("d-profile", ["cargo", "test", "--locked", "-p", "semwright-driver-godot", "--test", "authoring_profile"], EXPECTED_D)
+        report["suites"]["audio-consumer"] = run("audio-consumer", ["cargo", "test", "--locked", "-p", "semwright-audio-authoring", "--all-targets"], EXPECTED_AUDIO)
+        report["suites"]["effect-contracts"] = run("effect-contracts", ["cargo", "test", "--locked", "-p", "semwright-effect-conformance", "--all-targets"], set())
         report["outcome"] = "PASS" if all(s["outcome"] == "PASS" for s in report["suites"].values()) else "FAIL"
     finally:
         (OUT / "reconciliation.json").write_text(json.dumps(report, indent=2) + "\n")

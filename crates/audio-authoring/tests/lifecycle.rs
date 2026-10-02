@@ -353,6 +353,186 @@ fn measurement(p: &AudioProject, amplitude: f64) -> MeasuredAudio {
         exhaustive: true,
     }
 }
+
+#[test]
+fn effect_contract_is_compiled_and_client_override_is_denied() {
+    let p = project();
+    let base = base_for(
+        &p,
+        "driver:faust-audio",
+        &owner(),
+        "generation-1",
+        Concurrency::CompareAndSwap,
+    )
+    .unwrap();
+    let planned = plan(&p, base.clone(), owner(), intent(&p), &descriptor()).unwrap();
+    let contract = effects::contract(
+        &base,
+        &p.master_bus,
+        &planned.plan.body.intent.delivery,
+        &planned.resulting_model_digest,
+        &planned.plan.body.changes.operations,
+    )
+    .unwrap();
+    assert_eq!(
+        planned.plan.body.dependencies["effects.contract"],
+        contract.digest().unwrap()
+    );
+    assert_eq!(contract.required_rules(), required_rules());
+    assert!(
+        contract.rules.iter().all(|rule| planned
+            .plan
+            .body
+            .observation_scope
+            .contains(&rule.address))
+    );
+    let mut hostile = intent(&p);
+    hostile.dependencies.insert(
+        "effects.contract".into(),
+        Digest::of_bytes(b"client-selected-verifier"),
+    );
+    assert!(plan(&p, base, owner(), hostile, &descriptor()).is_err());
+}
+
+#[test]
+fn effect_consumer_preserves_decoder_provenance_and_never_claims_mutation_readback() {
+    let p = project();
+    let mut session = AudioSession::new(descriptor()).unwrap();
+    let base = base_for(
+        &p,
+        "driver:faust-audio",
+        &owner(),
+        "generation-1",
+        Concurrency::CompareAndSwap,
+    )
+    .unwrap();
+    let planned = session
+        .prepare(owner(), base.clone(), &p, intent(&p))
+        .unwrap();
+    let applied = session
+        .begin_apply(&owner(), &planned, &p, &base, "effect-apply")
+        .unwrap();
+    let result = applied.model;
+    session
+        .finish_apply(applied.permit, ExecutionStatus::Completed)
+        .unwrap();
+    let measured = measurement(&result, 0.1);
+    let raw_artifact = measured.artifact.clone();
+    let raw_method = measured.decoder.clone();
+    let id = session
+        .record_measurement(&owner(), planned.plan.digest.as_str(), measured)
+        .unwrap();
+    let verified = session
+        .verify(&owner(), planned.plan.digest.as_str(), &id, &result)
+        .unwrap();
+    assert_eq!(verified.verdict().unwrap(), Verdict::Pass);
+    assert_eq!(verified.effects_observed.len(), 1);
+    assert_eq!(verified.effects_observed[0].property, "decoded_master");
+    assert_eq!(verified.validation.checks.len(), 7);
+    for check in &verified.validation.checks {
+        assert!(
+            check
+                .evidence
+                .iter()
+                .any(|e| e.method == "audio-decoded-constraints")
+        );
+        assert!(
+            check
+                .evidence
+                .iter()
+                .any(|e| e.artifact.as_ref() == Some(&raw_artifact) && e.method == raw_method)
+        );
+    }
+}
+
+#[test]
+fn effect_consumer_leaves_unavailable_loudness_and_incomplete_decode_unknown() {
+    for exhaustive in [true, false] {
+        let p = project();
+        let mut session = AudioSession::new(descriptor()).unwrap();
+        let base = base_for(
+            &p,
+            "driver:faust-audio",
+            &owner(),
+            "generation-1",
+            Concurrency::CompareAndSwap,
+        )
+        .unwrap();
+        let mut spec = intent(&p);
+        spec.delivery.integrated_lufs_milli = Some(-16000);
+        let planned = session.prepare(owner(), base.clone(), &p, spec).unwrap();
+        let applied = session
+            .begin_apply(&owner(), &planned, &p, &base, "unknown-effect-apply")
+            .unwrap();
+        let result = applied.model;
+        session
+            .finish_apply(applied.permit, ExecutionStatus::Completed)
+            .unwrap();
+        let mut measured = measurement(&result, 0.1);
+        measured.exhaustive = exhaustive;
+        let id = session
+            .record_measurement(&owner(), planned.plan.digest.as_str(), measured)
+            .unwrap();
+        let verified = session
+            .verify(&owner(), planned.plan.digest.as_str(), &id, &result)
+            .unwrap();
+        assert_eq!(verified.verdict().unwrap(), Verdict::Unknown);
+        assert_eq!(
+            verified
+                .validation
+                .checks
+                .iter()
+                .find(|c| c.rule == "audio.loudness")
+                .unwrap()
+                .verdict,
+            Verdict::Unknown
+        );
+        if !exhaustive {
+            assert!(
+                verified
+                    .validation
+                    .checks
+                    .iter()
+                    .all(|c| c.verdict == Verdict::Unknown)
+            );
+        }
+    }
+}
+
+#[test]
+fn effect_consumer_denies_foreign_channel_measurement_and_unapplied_verification() {
+    let p = project();
+    let mut session = AudioSession::new(descriptor()).unwrap();
+    let base = base_for(
+        &p,
+        "driver:faust-audio",
+        &owner(),
+        "generation-1",
+        Concurrency::CompareAndSwap,
+    )
+    .unwrap();
+    let planned = session.prepare(owner(), base, &p, intent(&p)).unwrap();
+    let result = replay(&p, &planned, &descriptor()).unwrap();
+    let mut foreign = measurement(&result, 0.1);
+    foreign.base.0[0].provider_session = "another-channel".into();
+    assert!(
+        session
+            .record_measurement(&owner(), planned.plan.digest.as_str(), foreign)
+            .is_err()
+    );
+    let id = session
+        .record_measurement(
+            &owner(),
+            planned.plan.digest.as_str(),
+            measurement(&result, 0.1),
+        )
+        .unwrap();
+    assert!(
+        session
+            .verify(&owner(), planned.plan.digest.as_str(), &id, &result)
+            .is_err()
+    );
+}
 #[test]
 fn required_loudness_is_unknown_when_not_measured() {
     let p = project();
@@ -415,6 +595,22 @@ fn gain_repair_keeps_the_shared_lifecycle_and_reverifies_new_pcm() {
     let candidate = session
         .begin_apply(&owner(), &repair, &result, &current_base, "repair-1")
         .unwrap();
+    let repair_contract = effects::contract(
+        &repair.plan.body.base,
+        &result.master_bus,
+        &repair.plan.body.intent.delivery,
+        &repair.resulting_model_digest,
+        &repair.plan.body.changes.operations,
+    )
+    .unwrap();
+    assert_eq!(
+        repair.plan.body.dependencies["effects.contract"],
+        repair_contract.digest().unwrap()
+    );
+    assert_ne!(
+        repair.plan.body.dependencies["effects.contract"],
+        planned.plan.body.dependencies["effects.contract"]
+    );
     let repaired = candidate.model;
     session
         .finish_apply(candidate.permit, ExecutionStatus::Completed)
