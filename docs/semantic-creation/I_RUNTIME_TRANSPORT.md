@@ -55,3 +55,9 @@ Historical owner SHAs remain separately labelled as ancestry; they are not
 reported as the source of rebuilt integrated binaries. The harness applies the
 Host's existing 64 MiB provider and 256 MiB sealed-tool executable limits.
 Prepared driver binaries are staged apart from Cargo's mutable build directory.
+
+MLT AV execution compares each delegated runtime entry with its Host-sealed
+dependency, then executes the sealed ToolPath bytes. It preserves the existing
+Tool owner policy, digest checks and single-file execution grant; an unmapped
+owner on the runtime mount alias does not become new executable authority.
+The fresh-output diagnostic is CI-only and cannot certify the failed Host effect.

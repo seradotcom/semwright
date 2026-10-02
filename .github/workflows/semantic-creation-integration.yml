@@ -86,6 +86,8 @@ jobs:
         run: |
           cargo test --locked -p semwright-driver-motion-canvas --lib store::tests::pinned_font_reader -- --nocapture 2>&1 | tee verification/semantic-creation/pinned-font-reader.log
           grep -F 'test result: ok. 2 passed; 0 failed; 0 ignored;' verification/semantic-creation/pinned-font-reader.log
+      - name: MLT executable ownership boundary
+        run: cargo test --locked -p semwright-mlt-video-driver --lib owner_policy_allows_only_explicit_trust_cases -- --nocapture
       - name: AV native artifact and compiled context admission
         run: cargo test --locked -p semwright-av-composition --lib --test contracts
       - name: A contracts and D reconciliation source regressions

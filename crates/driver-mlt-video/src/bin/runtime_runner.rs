@@ -366,7 +366,12 @@ fn av_operation(
     }
     let mut tools = Vec::new();
     for (name, sealed) in ["melt", "ffprobe", "ffmpeg"].into_iter().zip(sealed) {
-        let path = runtime_entry(runtime_root, sealed, name)?;
+        // Compare the delegated runtime entry with the Host-sealed dependency,
+        // then execute the sealed bytes. The read-only runtime alias can expose
+        // an unmapped owner UID inside the namespace; it is not the executable
+        // identity delivered by ToolPath. Do not broaden Tool's owner policy.
+        runtime_entry(runtime_root, sealed, name)?;
+        let path = sealed.to_path_buf();
         let (sha256, _) = reader_hash(
             std::fs::File::open(&path).map_err(|_| "AV dependency unreadable")?,
             64 * 1024 * 1024,
