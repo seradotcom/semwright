@@ -830,8 +830,8 @@ impl Runner {
                     format!(
                         "Godot Host tool exit {}: {} {}",
                         output.exit_code,
-                        String::from_utf8_lossy(&output.stderr),
-                        String::from_utf8_lossy(&output.stdout)
+                        private_diagnostic_tail(&output.stderr, 768),
+                        private_diagnostic_tail(&output.stdout, 1024)
                     ),
                 ));
                 return Err(Error::new(
@@ -1006,6 +1006,16 @@ fn native_probe_has_script_error(output: &ProcessOutput) -> bool {
         .any(|line| line.contains("SCRIPT ERROR:"))
 }
 
+#[cfg(target_os = "linux")]
+fn private_diagnostic_tail(bytes: &[u8], limit: usize) -> String {
+    let text = String::from_utf8_lossy(bytes);
+    let mut start = text.len().saturating_sub(limit);
+    while !text.is_char_boundary(start) {
+        start += 1;
+    }
+    text[start..].to_owned()
+}
+
 struct ProcessOutput {
     #[cfg(target_os = "linux")]
     host_job: Option<RuntimeToolJob>,
@@ -1175,6 +1185,17 @@ mod tests {
 #[cfg(test)]
 mod native_probe_output_tests {
     use super::{ProcessOutput, native_probe_has_script_error};
+
+    #[test]
+    #[cfg(target_os = "linux")]
+    fn private_diagnostic_keeps_final_errors_with_a_utf8_safe_byte_bound() {
+        let log = format!("{}final export error", "progress ".repeat(1000));
+        let tail = super::private_diagnostic_tail(log.as_bytes(), 40);
+        assert!(tail.ends_with("final export error"));
+        assert!(tail.len() <= 40);
+        assert_eq!(super::private_diagnostic_tail("abcé".as_bytes(), 1), "");
+        assert_eq!(super::private_diagnostic_tail(b"short", 40), "short");
+    }
 
     #[test]
     fn native_probe_script_error_is_fail_closed_even_with_zero_exit() {

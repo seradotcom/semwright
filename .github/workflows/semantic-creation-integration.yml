@@ -137,6 +137,7 @@ jobs:
           test "$GITHUB_SHA" = "$CANDIDATE_SHA"
           mkdir -p verification/godot-integration-probe
           printf '%s\n' "$CANDIDATE_SHA" > verification/godot-integration-probe/SOURCE_SHA
+          printf '%s\n' 'NATIVE_INTEGRATION_DIAGNOSTIC_ONLY_NOT_FULL_D_CERTIFICATION' > verification/godot-integration-probe/SCOPE
           echo "CARGO_TARGET_DIR=$RUNNER_TEMP/godot-probe-target" >> "$GITHUB_ENV"
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
         with:
@@ -170,7 +171,7 @@ jobs:
         run: |
           set -euo pipefail
           export SEMWRIGHT_TEST_SANDBOX_HELPER="$CARGO_TARGET_DIR/debug/semwright-sandbox"
-          for test_name in empty_project_authoring_flows_through_broker_driver_host_and_provider export_lane_builds_and_launches_without_editor_or_semwright
+          for test_name in export_lane_builds_and_launches_without_editor_or_semwright empty_project_authoring_flows_through_broker_driver_host_and_provider
           do
             SEMWRIGHT_TEST_GODOT_AUTHORING_HOST=1 \
               cargo test --locked -p semwright-driver-godot --test authoring_host "$test_name" \
@@ -179,7 +180,6 @@ jobs:
             grep -F 'test result: ok. 1 passed; 0 failed; 0 ignored;' "verification/godot-integration-probe/$test_name.log"
           done
           git diff --exit-code
-          printf '%s\n' 'NATIVE_INTEGRATION_DIAGNOSTIC_ONLY_NOT_FULL_D_CERTIFICATION' > verification/godot-integration-probe/SCOPE
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
