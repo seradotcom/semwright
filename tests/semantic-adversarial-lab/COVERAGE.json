@@ -375,7 +375,7 @@
       "id": "G06",
       "claim": "Godot readback/persistence/behavior/export",
       "owner": "D",
-      "status": "BLOCKED",
+      "status": "PASS",
       "implementation": [
         "native_apps.py",
         "rust/godot_native_probe.rs"
@@ -395,16 +395,17 @@
         "G-GODOT-012",
         "G-GODOT-013"
       ],
-      "source_sha": "e6bd9489d7983d275fd1454dd7ab26916d3fbb15",
-      "suite_sha": "a337709ffdd2e05f40da408e3a78183651dff113",
-      "run_id": 36818122155,
-      "job_id": 110227589092,
+      "source_sha": "70bd7857e9700b6f03547a706ff0e6496ffd838e",
+      "suite_sha": "366772a088c786f8e9e1f4a1602d0b14778453d4",
+      "run_id": 36940490321,
+      "job_id": 110636591865,
       "evidence": [
-        "Godot native 10 PASS / 2 FAIL / 1 BLOCKED of 13",
-        "receipt 7c4b1dadc37c97c43e9e7a29f6af8b709cb4c94d21e2b01a557303259e59ea48",
-        "artifact 3813bc488c953f32740c1b8df43bfd7f369ae8f8c5a3cf496c1074c31881fcd7"
+        "Godot native 13/13 PASS on D FIX_SHA",
+        "receipt 521da5cbe0c65bc84e38c9ab67f088385809f6bcb9f867a98d32c44900b4ddbb",
+        "artifact 183d8686c45d774d1b0061eed28e892417f4dcf414831945c7f90a4b52e23dd6",
+        "G-GODOT-006/007/013 all PASS"
       ],
-      "blocker": "G-FIND-D-001 native persistence dependency stability and G-FIND-D-002 observer false-PASS remain owner-open. D head 7eaf8de changes tests/certification but not the two finding surfaces, so no G fix retest is justified.",
+      "blocker": "G-FIND-D-001 and G-FIND-D-002 are CLOSED_RETEST_PASS on D FIX_SHA 70bd7857. The aggregate selected-gate was cancelled only after both boundaries and immutable artifacts completed, to release G branch concurrency; case evidence remains complete.",
       "implementation_suite_sha": "a337709ffdd2e05f40da408e3a78183651dff113",
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },
@@ -435,16 +436,17 @@
         "G-BLENDER-013",
         "G-BLENDER-014"
       ],
-      "source_sha": "3d04d8465dcfa94d6cbf548fcaf343f69ac5838f",
-      "suite_sha": "982e5698cc44c2adead9491a2f8590242fd1dbf3",
-      "run_id": 36827742372,
-      "job_id": 110257156669,
+      "source_sha": "44780d977735ccc9417ec2992427833abffd0f3c",
+      "suite_sha": "ee512ea79840d880998045d1d373cfab94d4093b",
+      "run_id": 36944138504,
+      "job_id": 110646109790,
       "evidence": [
-        "Blender native 13/14 PASS; G-BLENDER-010 FAIL",
-        "receipt 6bffdc74f0134dc68795652372366fd6c81a928b71987e69530b0031751d1c9e",
-        "artifact 5f89bf7aae9d63d5ff0011d3ce121b534632c9cbb65197c6b1dde7f3752d1d90"
+        "Blender native 13/14 PASS; only G-BLENDER-010 FAIL",
+        "receipt ca6edce0893bf6355534aca8b39978e8e25449701972f4d0e77ddf5f6591cb73",
+        "artifact d59de226b39ea086a230d184e70474a17488291eb676b38f37b2dcb750596609",
+        "pre-export drift false, GLB magic/hash/sentinel clean, post-export drift true"
       ],
-      "blocker": "G-FIND-E-001 remains open: real GLB export produces valid hashed GLB and preserves sentinel, but source readback reports drift after export. E remains frozen at the attacked SHA, so no fix retest exists.",
+      "blocker": "E fix 44780d97 is insufficient. Its regression covers reopen then immediate export, but G still reproduces source drift after fresh reopen plus valid hostile/cursor/shared-mesh operations with a clean pre-export snapshot. G-FIND-E-001 remains OPEN_OWNER_TRIAGE.",
       "implementation_suite_sha": "982e5698cc44c2adead9491a2f8590242fd1dbf3",
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },
@@ -674,12 +676,12 @@
       "job_id": 110456380047,
       "evidence": [
         "G-FIND-C-001 closed by exact fix retest",
-        "G-FIND-A-001 closed by exact fix retest on 7ab43f99",
-        "G-FIND-D-001 owner-open",
-        "G-FIND-D-002 owner-open",
-        "G-FIND-E-001 owner-open"
+        "G-FIND-A-001 closed by exact fix retest",
+        "G-FIND-D-001 closed by exact fix retest",
+        "G-FIND-D-002 closed by exact fix retest",
+        "G-FIND-E-001 remains open after failed owner-fix retest"
       ],
-      "blocker": "Before/fix/after machinery is hosted-tested. A-001 and C-001 are closed by exact fix retest; D-001, D-002 and E-001 still have no qualifying owner FIX_SHA.",
+      "blocker": "C/A/D findings are closed by exact-SHA retests. E-001 remains open: E 44780d97 retest reproduced G-BLENDER-010, so another explicit owner FIX_SHA is required.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },
@@ -703,7 +705,7 @@
         "479 cases registered across 14 lanes; latest A-fix suite selftest 104/104 PASS",
         "combined_candidate_sha remains null"
       ],
-      "blocker": "No explicit I combined-candidate handoff exists, and G-FIND-D-001, G-FIND-D-002 and G-FIND-E-001 remain open. R16/demo/security guarantee remain explicitly out of scope.",
+      "blocker": "No explicit I combined-candidate handoff exists, and G-FIND-E-001 remains open after failed fix retest. R16/demo/security guarantee remain explicitly out of scope.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     }
@@ -719,5 +721,5 @@
       "last_observed": "queued"
     }
   ],
-  "updated_at": "2026-10-01T23:14:56.599749+00:00"
+  "updated_at": "2026-10-02T00:27:30.672725+00:00"
 }

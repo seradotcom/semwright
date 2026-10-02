@@ -31,9 +31,8 @@ The read-only collector binds run/attempt/job to the explicit suite and frozen t
 Confirmed owner findings from executed exact-SHA families remain open:
 
 - G-FIND-A-001 is CLOSED_RETEST_PASS: A FIX_SHA 7ab43f99f4cc62be2a9b0ce9ce1155283a429768 binds permits to private vault/root identities; G retest run 36938854785 passed 70/70 Composition including G-PLAN-022/023/024.
-- G-FIND-D-001: Godot save/reopen dependency sentinel stability fails on real native receipts.
-- G-FIND-D-002: Godot native observer can emit a structured false-PASS after a BoxMesh script error.
-- G-FIND-E-001: Blender real GLB export produces valid hashed output but leaves source readback drifted.
+- G-FIND-D-001 and G-FIND-D-002 are CLOSED_RETEST_PASS on D FIX_SHA 70bd7857: Godot native 13/13 PASS.
+- G-FIND-E-001 remains open after E FIX_SHA 44780d97: Blender real GLB export still produces valid hashed output but leaves source readback drifted in the G adversarial sequence.
 
 Godot and Blender findings were reached through pinned real native runtimes and product routes; G does not patch their owner branches. A future owner fix requires an explicit FIX_SHA and exact affected-family retest.
 

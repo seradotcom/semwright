@@ -28,7 +28,7 @@ Review the raw structured receipts with the read-only collector, not a substring
 
 Exact-SHA G evidence now covers final Project Graph 74/74, F effect contracts 40/40, Broker routing 12/12, package/Skill hostility 20/20, Audio 30/30, AV 35/35, Figma contracts 17/17, Motion contracts 20/20, lifecycle faults 18/18 and clean-room driver distribution 12/12. These are independent experiments on their frozen product SHAs, not a synthetic combined certification.
 
-Pinned native Godot and Blender were also exercised through real product routes. They are not green: G-FIND-D-001, G-FIND-D-002 and G-FIND-E-001 remain owner-open. Composition has been retested on A FIX_SHA 7ab43f99 and is now 70/70 PASS; G-FIND-A-001 is closed. G will retest remaining findings only on explicit owner fix SHAs and will not patch those product branches.
+Pinned native Godot and Blender were also exercised through real product routes. Godot is now green on D FIX_SHA 70bd7857; Blender remains red because G-FIND-E-001 still reproduces on E FIX_SHA 44780d97. Composition has been retested on A FIX_SHA 7ab43f99 and is now 70/70 PASS; G-FIND-A-001 is closed. G will retest remaining findings only on explicit owner fix SHAs and will not patch those product branches.
 
 No explicit I candidate has been supplied. An observed integration branch/certification is retained as context only and is not adopted into combined_candidate_sha. Full-wave candidate testing therefore remains BLOCKED.
 

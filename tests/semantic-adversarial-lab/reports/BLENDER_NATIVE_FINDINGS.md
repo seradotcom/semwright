@@ -62,3 +62,7 @@ without product changes. The final isolated run above has no infrastructure bloc
 ## Owner status
 
 Current E PR #175 remains on the attacked certified product SHA 3d04d8465dcfa94d6cbf548fcaf343f69ac5838f. No product fix SHA for G-FIND-E-001 has been published to G, so no retest or closure is claimed.
+
+## Failed fix retest
+
+E FIX_SHA 44780d977735ccc9417ec2992427833abffd0f3c was retested by G on suite ee512ea79840d880998045d1d373cfab94d4093b, run 36944138504, Blender-native job 110646109790. Result: 13/14 PASS; only G-BLENDER-010 still fails. Pre-export drift is false, the GLB has valid magic and matching SHA-256, and the external sentinel is preserved; the immediate post-export composition readback still reports drift=true. Receipt SHA-256: ca6edce0893bf6355534aca8b39978e8e25449701972f4d0e77ddf5f6591cb73. Artifact SHA-256: d59de226b39ea086a230d184e70474a17488291eb676b38f37b2dcb750596609. Status remains OPEN_OWNER_TRIAGE; another E FIX_SHA is required.
