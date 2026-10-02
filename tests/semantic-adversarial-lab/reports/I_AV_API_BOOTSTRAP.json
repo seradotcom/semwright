@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "previous_suite_sha": "ce26f75fee88aa1559574a7530e9c2515d04dbb4",
+  "diagnostic_run_id": 37031369266,
+  "combined_candidate_sha": "f0f4805d5e4dce51e5f91c8c86fef6f83bc94631",
+  "blocked_cases": 35,
+  "reason": "AV probe public API incompatibility; no product finding or passing evidence",
+  "changed_executable": "rust/av_probe.rs",
+  "unchanged_oracle_components": {
+    "registry.json": "824c26788cba8813ea1270792ff9bc759246891672b401a498b1240055406ac5",
+    "mutants.json": "0c3c36296ce72245d45fa97a8e2508baca5c81a689aa9cc55905de3662750287",
+    "lab_core.py": "fe76be669dff45bab3c16382ab8d20436a7bc6d2b23857045457f7d87768a9ba",
+    "runner.py": "9932dfc58f0bdb6c2854fc75f0bc9eb478fefa344fee3abbdff340e3256a4560",
+    "oracle_identity.py": "84cd3baf9521be43f7de3840a8668f2e3ebd2afd77befd756aeafc1322d1be26"
+  },
+  "requires_new_full_campaign": true,
+  "native_acceptance": false,
+  "r16_closed": false
+}
