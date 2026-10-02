@@ -4,22 +4,16 @@ use semwright_audio_domain::{
     model::{AudioProject, Sample, SampleSource},
     render::{AudioFormat, BitDepth, DitherPolicy, RenderIntent},
 };
-use semwright_driver_sdk::{DriverExecutionContext, tool_path, workspace_mount};
+use semwright_driver_sdk::{DriverExecutionContext, workspace_mount};
 use semwright_types::{Error, ErrorCode, Result};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-#[cfg(unix)]
-use std::os::unix::process::ExitStatusExt;
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs::{self, File, OpenOptions},
     io::{Read, Write},
     path::{Path, PathBuf},
     time::Duration,
-};
-use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
-    process::Command,
 };
 
 pub const HELPER_NAME: &str = "faust-interpreter";
@@ -226,9 +220,8 @@ impl Runtime {
             library_digest,
         };
         result.verify_libraries()?;
-        // The Host independently verifies the executable and seals it for execution.
-        // File presence is availability only, never an attestation of authority.
-        regular(&tool_path(HELPER_NAME)?, 64 * 1024 * 1024)?;
+        // Executable authority and availability are checked by the shared SDK/Host
+        // when the fixed logical tool is invoked, never by a private path resolver.
         Ok(Some(result))
     }
     pub fn version(&self) -> &str {
@@ -1138,17 +1131,6 @@ fn classify_tool_exit(stderr: &[u8]) -> Error {
     }
 }
 
-async fn bounded_output<R: tokio::io::AsyncRead + Unpin>(reader: R) -> Result<Vec<u8>> {
-    let mut result = Vec::new();
-    reader.take(262145).read_to_end(&mut result).await?;
-    if result.len() > 262144 {
-        return Err(Error::new(
-            ErrorCode::ResourceExhausted,
-            "Native tool output exceeded limit",
-        ));
-    }
-    Ok(result)
-}
 async fn run_sealed_tool(
     context: &DriverExecutionContext,
     args: Vec<String>,
@@ -1157,123 +1139,26 @@ async fn run_sealed_tool(
     if !cfg!(target_os = "linux") {
         return Err(Error::new(
             ErrorCode::Unsupported,
-            "Audio runtime grants are not implemented for this platform's tool broker",
+            "Audio runtime grants are not implemented for this platform",
         ));
     }
     context.check_cancelled()?;
-    // Fixed tool identity, materialized and made immutable by the real Driver Host.
-    // No input field can select an executable, environment, shell or script.
-    let library_env = args.get(1).cloned();
     let operation = args.first().map(String::as_str).unwrap_or_default();
     let wall_timeout = if matches!(operation, "render" | "render-sample" | "render-poly") {
         Duration::from_secs(180)
     } else {
         Duration::from_secs(30)
     };
-    let private_home = tempfile::Builder::new()
-        .prefix("semwright-faust-home-")
-        .tempdir()?;
-    for relative in [".cache", ".config", ".local/share"] {
-        fs::create_dir_all(private_home.path().join(relative))?;
+    let output = context
+        .execute_runtime_tool(HELPER_NAME, args, source.to_vec(), wall_timeout)
+        .await?;
+    if output.stdout.len() > 262144 || output.stderr.len() > 262144 {
+        return Err(Error::new(
+            ErrorCode::ResourceExhausted,
+            "Native tool output exceeded limit",
+        ));
     }
-    let mut command = Command::new(tool_path(HELPER_NAME)?);
-    command
-        .args(args)
-        .current_dir(&private_home)
-        .env_clear()
-        .env("HOME", private_home.path())
-        .env("XDG_CACHE_HOME", private_home.path().join(".cache"))
-        .env("XDG_CONFIG_HOME", private_home.path().join(".config"))
-        .env("XDG_DATA_HOME", private_home.path().join(".local/share"))
-        .env("PATH", "/usr/bin:/bin")
-        .env("LANG", "C.UTF-8")
-        .env("LC_ALL", "C.UTF-8")
-        .env("TMPDIR", "/tmp");
-    if let Some(library_root) = library_env {
-        command.env("FAUST_LIB_PATH", library_root);
-    }
-    let mut child = command
-        .stdin(std::process::Stdio::piped())
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .kill_on_drop(true)
-        .spawn()
-        .map_err(|error| match error.kind() {
-            std::io::ErrorKind::PermissionDenied => Error::new(
-                ErrorCode::SandboxDenied,
-                "Sandbox denied the pinned Faust helper execution",
-            ),
-            std::io::ErrorKind::NotFound => Error::new(
-                ErrorCode::Unavailable,
-                "Pinned Faust helper or its loader is unavailable",
-            ),
-            _ => Error::new(
-                ErrorCode::BackendFailed,
-                "Could not start the pinned Faust helper",
-            ),
-        })?;
-    let mut input = child
-        .stdin
-        .take()
-        .ok_or_else(|| Error::unavailable("tool stdin"))?;
-    let stdout = child
-        .stdout
-        .take()
-        .ok_or_else(|| Error::unavailable("tool stdout"))?;
-    let stderr = child
-        .stderr
-        .take()
-        .ok_or_else(|| Error::unavailable("tool stderr"))?;
-    let cancellation = context.cancellation();
-    let result = {
-        let execution = async {
-            let write_input = async {
-                input.write_all(source).await?;
-                input.shutdown().await?;
-                drop(input);
-                Ok::<(), Error>(())
-            };
-            let wait = async { child.wait().await.map_err(Error::from) };
-            let (_, stdout, mut stderr, status) = tokio::try_join!(
-                write_input,
-                bounded_output(stdout),
-                bounded_output(stderr),
-                wait
-            )?;
-            let exit_code = if let Some(code) = status.code() {
-                code
-            } else {
-                #[cfg(unix)]
-                {
-                    let signal = status.signal().unwrap_or(0);
-                    let diagnostic = format!("sealed_helper_signal={signal}\n");
-                    if stderr.len().saturating_add(diagnostic.len()) <= 262_144 {
-                        stderr.extend_from_slice(diagnostic.as_bytes());
-                    }
-                    128_i32.saturating_add(signal)
-                }
-                #[cfg(not(unix))]
-                {
-                    -1
-                }
-            };
-            Ok(semwright_driver_sdk::ToolExecutionOutput {
-                exit_code,
-                stdout,
-                stderr,
-            })
-        };
-        tokio::select! {
-            _ = cancellation.cancelled() => Err(Error::new(ErrorCode::Cancelled, "Native tool cancelled")),
-            result = tokio::time::timeout(wall_timeout, execution) =>
-                result.unwrap_or_else(|_| Err(Error::new(ErrorCode::Timeout, "Native tool timed out"))),
-        }
-    };
-    if result.is_err() {
-        let _ = child.kill().await;
-        let _ = child.wait().await;
-    }
-    result
+    Ok(output)
 }
 
 #[cfg(test)]

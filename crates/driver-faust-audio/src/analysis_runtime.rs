@@ -1,18 +1,16 @@
 use semwright_audio_domain::{
     analysis::LoudnessAnalysis, signal_analysis::SignalStatistics, wav::WaveReader,
 };
-use semwright_driver_sdk::{DriverExecutionContext, tool_path, workspace_mount};
+use semwright_driver_sdk::{DriverExecutionContext, workspace_mount};
 use semwright_types::{Error, ErrorCode, Result};
 use sha2::{Digest, Sha256};
 use std::{
     fs::{self, File, OpenOptions},
     io::{Read, Write},
     path::{Path, PathBuf},
-    process::Stdio,
     time::Duration,
 };
 use tempfile::TempDir;
-use tokio::{io::AsyncReadExt, process::Command};
 
 pub const METER_NAME: &str = "audio-meter";
 const MAX_INPUT_BYTES: u64 = 512 * 1024 * 1024;
@@ -21,7 +19,6 @@ const MAX_OUTPUT_BYTES: usize = 128 * 1024;
 #[derive(Debug)]
 pub struct AnalysisRuntime {
     input_root: PathBuf,
-    meter: PathBuf,
 }
 #[derive(Debug)]
 pub struct AnalysisReceipt {
@@ -44,9 +41,7 @@ impl AnalysisRuntime {
                 "Audio analysis input grant must be a real directory",
             ));
         }
-        let meter = tool_path(METER_NAME)?;
-        regular(&meter, 64 * 1024 * 1024)?;
-        Ok(Some(Self { input_root, meter }))
+        Ok(Some(Self { input_root }))
     }
 
     pub async fn measure(
@@ -116,78 +111,44 @@ impl AnalysisRuntime {
         staged: &Path,
         layout: &str,
     ) -> Result<LoudnessAnalysis> {
-        let mut child = Command::new(&self.meter)
-            .args(["analyze", staged.to_string_lossy().as_ref(), layout])
-            .env_clear()
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .kill_on_drop(true)
-            .spawn()?;
-        let stdout = child
-            .stdout
-            .take()
-            .ok_or_else(|| Error::unavailable("meter stdout"))?;
-        let stderr = child
-            .stderr
-            .take()
-            .ok_or_else(|| Error::unavailable("meter stderr"))?;
-        let cancellation = context.map(DriverExecutionContext::cancellation);
-        let work = async {
-            let (stdout, stderr, status) =
-                tokio::try_join!(bounded(stdout), bounded(stderr), async {
-                    child.wait().await.map_err(Error::from)
-                })?;
-            if !status.success() {
-                return Err(Error::new(
-                    ErrorCode::BackendFailed,
-                    format!(
-                        "Pinned audio meter failed with {} stderr bytes",
-                        stderr.len()
-                    ),
-                ));
-            }
-            let value: LoudnessAnalysis = serde_json::from_slice(&stdout)?;
-            value.validate().map_err(domain_error)?;
-            Ok(value)
-        };
-        let result = if let Some(cancel) = cancellation {
-            tokio::select! {
-                _ = cancel.cancelled() => Err(Error::new(ErrorCode::Cancelled, "Audio analysis cancelled")),
-                value = tokio::time::timeout(Duration::from_secs(30), work) =>
-                    value.unwrap_or_else(|_| Err(Error::new(ErrorCode::Timeout, "Audio analysis exceeded runtime budget"))),
-            }
-        } else {
-            tokio::time::timeout(Duration::from_secs(30), work)
-                .await
-                .unwrap_or_else(|_| {
-                    Err(Error::new(
-                        ErrorCode::Timeout,
-                        "Audio analysis exceeded runtime budget",
-                    ))
-                })
-        };
-        if result.is_err() {
-            let _ = child.kill().await;
-            let _ = child.wait().await;
+        let context = context.ok_or_else(|| {
+            Error::new(
+                ErrorCode::Unsupported,
+                "Audio analysis requires an authenticated Driver execution context",
+            )
+        })?;
+        context.check_cancelled()?;
+        let output = context
+            .execute_runtime_tool(
+                METER_NAME,
+                vec![
+                    "analyze".into(),
+                    staged.to_string_lossy().into_owned(),
+                    layout.into(),
+                ],
+                Vec::new(),
+                Duration::from_secs(30),
+            )
+            .await?;
+        if output.stdout.len() > MAX_OUTPUT_BYTES || output.stderr.len() > MAX_OUTPUT_BYTES {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Audio meter output exceeded limit",
+            ));
         }
-        result
+        if output.exit_code != 0 {
+            return Err(Error::new(
+                ErrorCode::BackendFailed,
+                format!(
+                    "Pinned audio meter failed with {} stderr bytes",
+                    output.stderr.len()
+                ),
+            ));
+        }
+        let value: LoudnessAnalysis = serde_json::from_slice(&output.stdout)?;
+        value.validate().map_err(domain_error)?;
+        Ok(value)
     }
-}
-
-async fn bounded<R: tokio::io::AsyncRead + Unpin>(reader: R) -> Result<Vec<u8>> {
-    let mut data = Vec::new();
-    reader
-        .take((MAX_OUTPUT_BYTES + 1) as u64)
-        .read_to_end(&mut data)
-        .await?;
-    if data.len() > MAX_OUTPUT_BYTES {
-        return Err(Error::new(
-            ErrorCode::ResourceExhausted,
-            "Audio meter output exceeded limit",
-        ));
-    }
-    Ok(data)
 }
 
 fn snapshot_input(source: &Path, file_name: &str) -> Result<(TempDir, PathBuf, String, u64)> {

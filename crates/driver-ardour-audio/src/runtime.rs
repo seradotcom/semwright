@@ -3,7 +3,9 @@ use crate::{
     script::{self, NativeMutation, RESULT_PREFIX},
 };
 use semwright_audio_domain::wav::WaveReader;
-use semwright_driver_sdk::{DriverExecutionContext, tool_path, workspace_mount};
+use semwright_driver_sdk::{
+    DriverExecutionContext, RuntimeToolArg, RuntimeToolCwd, workspace_mount,
+};
 use semwright_types::{Error, ErrorCode, Result};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -76,6 +78,7 @@ pub struct DeepRuntime {
     config: RuntimeConfig,
     session_root: PathBuf,
     output_root: PathBuf,
+    host_managed: bool,
     lua_tool: PathBuf,
     create_tool: PathBuf,
     export_tool: PathBuf,
@@ -143,9 +146,10 @@ impl DeepRuntime {
             config,
             workspace_mount("ardour-project")?,
             workspace_mount("ardour-output")?,
-            tool_path(LUA_TOOL)?,
-            tool_path(CREATE_TOOL)?,
-            tool_path(EXPORT_TOOL)?,
+            PathBuf::from(LUA_TOOL),
+            PathBuf::from(CREATE_TOOL),
+            PathBuf::from(EXPORT_TOOL),
+            true,
         )
         .map(Some)
     }
@@ -162,6 +166,7 @@ impl DeepRuntime {
         lua_tool: PathBuf,
         create_tool: PathBuf,
         export_tool: PathBuf,
+        host_managed: bool,
     ) -> Result<Self> {
         if config.schema_version != 1
             || config.ardour_version != "8.4.0"
@@ -191,13 +196,16 @@ impl DeepRuntime {
         }
         directory(&session_root, "Ardour project")?;
         directory(&output_root, "Ardour output")?;
-        for tool in [&lua_tool, &create_tool, &export_tool] {
-            regular(tool, MAX_TOOL_BYTES)?;
+        if !host_managed {
+            for tool in [&lua_tool, &create_tool, &export_tool] {
+                regular(tool, MAX_TOOL_BYTES)?;
+            }
         }
         Ok(Self {
             config,
             session_root,
             output_root,
+            host_managed,
             lua_tool,
             create_tool,
             export_tool,
@@ -255,7 +263,7 @@ impl DeepRuntime {
         }
         let probe_root = tempfile::Builder::new()
             .prefix("semwright-ardour-create-probe-")
-            .tempdir()?;
+            .tempdir_in(&self.output_root)?;
         let probe_state = "Probe";
         let probe_session = probe_root.path().join("managed-session");
         let probe_args = vec![
@@ -296,7 +304,7 @@ impl DeepRuntime {
             if create_self_test {
                 let script_dir = tempfile::Builder::new()
                     .prefix("semwright-ardour-reopen-probe-")
-                    .tempdir()?;
+                    .tempdir_in(&self.output_root)?;
                 let script = script_dir.path().join("probe.lua");
                 fs::write(
                     &script,
@@ -354,7 +362,7 @@ close_session()
             if reopen_self_test {
                 let script_dir = tempfile::Builder::new()
                     .prefix("semwright-ardour-snapshot-probe-")
-                    .tempdir()?;
+                    .tempdir_in(&self.output_root)?;
                 let script_path = script_dir.path().join("semwright-ardour.lua");
                 fs::write(&script_path, script::source())?;
                 let snapshot_args = lua_tool_args(
@@ -407,7 +415,7 @@ close_session()
             if snapshot_self_test {
                 let script_dir = tempfile::Builder::new()
                     .prefix("semwright-ardour-range-probe-")
-                    .tempdir()?;
+                    .tempdir_in(&self.output_root)?;
                 let script_path = script_dir.path().join("semwright-ardour.lua");
                 fs::write(&script_path, script::source())?;
                 let range_args = lua_tool_args(
@@ -681,7 +689,9 @@ close_session()
         if operation_args.is_empty() || operation_args.len() > 8 {
             return Err(Error::invalid("Invalid Ardour adapter argument count"));
         }
-        let temp = TempDir::new()?;
+        let temp = tempfile::Builder::new()
+            .prefix("ardour-script-")
+            .tempdir_in(&self.output_root)?;
         let script_path = temp.path().join("semwright-ardour.lua");
         fs::write(&script_path, script::source())?;
         let args = lua_tool_args(
@@ -721,6 +731,65 @@ close_session()
     ) -> Result<ToolRun> {
         if let Some(context) = context {
             context.check_cancelled()?;
+        }
+        if self.host_managed {
+            let context = context.ok_or_else(|| {
+                Error::new(
+                    ErrorCode::Unsupported,
+                    "Ardour requires an authenticated Host runtime request",
+                )
+            })?;
+            let name = tool
+                .to_str()
+                .filter(|name| [LUA_TOOL, CREATE_TOOL, EXPORT_TOOL].contains(name))
+                .ok_or_else(|| {
+                    Error::new(ErrorCode::PermissionDenied, "Ardour tool identity changed")
+                })?;
+            let payload = serde_json::to_vec(&serde_json::json!({
+                "args": args, "project_root": self.session_root, "output_root": self.output_root
+            }))?;
+            let output = context
+                .execute_runtime_tool_args(
+                    "ardour-runtime-runner",
+                    vec![
+                        RuntimeToolArg::Literal {
+                            value: "--tool".into(),
+                        },
+                        RuntimeToolArg::ToolPath { tool: name.into() },
+                        RuntimeToolArg::Literal {
+                            value: "--project-root".into(),
+                        },
+                        RuntimeToolArg::MountPath {
+                            mount: "ardour-project".into(),
+                            relative: String::new(),
+                        },
+                        RuntimeToolArg::Literal {
+                            value: "--output-root".into(),
+                        },
+                        RuntimeToolArg::MountPath {
+                            mount: "ardour-output".into(),
+                            relative: String::new(),
+                        },
+                    ],
+                    payload,
+                    Duration::from_secs(180),
+                    Some(RuntimeToolCwd {
+                        mount: "ardour-output".into(),
+                        relative: String::new(),
+                    }),
+                )
+                .await?;
+            if output.stdout.len() > MAX_STDOUT_BYTES || output.stderr.len() > MAX_STDERR_BYTES {
+                return Err(Error::new(
+                    ErrorCode::ResourceExhausted,
+                    "Ardour tool output exceeded budget",
+                ));
+            }
+            return Ok(ToolRun {
+                exit_code: output.exit_code,
+                stdout: output.stdout,
+                stderr: output.stderr,
+            });
         }
         let temp_home = TempDir::new()?;
         let private_data_root = provision_static_template(temp_home.path())?;
@@ -995,7 +1064,7 @@ fn version_banner(stdout: &[u8], prefix: &str) -> Result<String> {
     Ok(line.to_owned())
 }
 
-fn provision_static_template(private_home: &Path) -> Result<PathBuf> {
+pub fn provision_static_template(private_home: &Path) -> Result<PathBuf> {
     let data_root = private_home.join("semwright-ardour-data");
     let template_dir = data_root.join("templates").join(ARDOUR_TEMPLATE_NAME);
     fs::create_dir_all(&template_dir)?;
@@ -1212,6 +1281,7 @@ mod tests {
             tool("SEMWRIGHT_TEST_ARDOUR_LUA"),
             tool("SEMWRIGHT_TEST_ARDOUR_CREATE"),
             tool("SEMWRIGHT_TEST_ARDOUR_EXPORT"),
+            false,
         )
         .unwrap();
 

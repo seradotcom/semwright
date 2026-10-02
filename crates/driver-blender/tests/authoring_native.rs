@@ -84,16 +84,27 @@ impl NativeFixture {
         fs::set_permissions(&executable, fs::Permissions::from_mode(0o700)).unwrap();
         let digest = |p: &Path| format!("{:x}", Sha256::digest(fs::read(p).unwrap()));
         let runtime_sha = digest(&executable);
+        let runner = package.join("blender-session-runner");
+        fs::copy(
+            env!("CARGO_BIN_EXE_semwright-blender-session-runner"),
+            &runner,
+        )
+        .unwrap();
+        fs::set_permissions(&runner, fs::Permissions::from_mode(0o700)).unwrap();
+        let scratch = state.path().join("scratch");
+        fs::create_dir(&scratch).unwrap();
+        fs::set_permissions(&scratch, fs::Permissions::from_mode(0o700)).unwrap();
         let blender = root.join("blender");
         let interfaces = DriverInterfaces {
             cooperative_cancellation: true,
             progress: true,
             health: true,
+            host_tools: true,
             ..Default::default()
         };
         let manifest = Manifest {
             manifest_version: 1,
-            protocol: 3,
+            protocol: 8,
             transport: Transport::StdioV1,
             id: "blender".into(),
             version: env!("CARGO_PKG_VERSION").into(),
@@ -106,6 +117,11 @@ impl NativeFixture {
                 supported_versions: vec!["4.5.14".into()],
             },
             mounts: vec![
+                DriverMount {
+                    root: "scratch".into(),
+                    read_only: false,
+                    execute: false,
+                },
                 DriverMount {
                     root: "workspace".into(),
                     read_only: false,
@@ -121,15 +137,29 @@ impl NativeFixture {
                 root: "font-config".into(),
                 destination: "/etc/fonts".into(),
             }],
-            tools: vec![DriverToolMount {
-                name: "blender".into(),
-                root: "blender-executable".into(),
-                sha256: digest(&blender),
+            tools: vec![
+                DriverToolMount {
+                    name: "blender-session-runner".into(),
+                    root: "blender-session-runner-executable".into(),
+                    sha256: digest(&runner),
+                    mounts: vec![
+                        "workspace".into(),
+                        "blender-runtime".into(),
+                        "scratch".into(),
+                    ],
+                    system_config: vec!["font-config".into()],
+                    dependencies: vec!["blender".into()],
+                },
+                DriverToolMount {
+                    name: "blender".into(),
+                    root: "blender-executable".into(),
+                    sha256: digest(&blender),
 
-                mounts: vec![],
-                system_config: vec![],
-                dependencies: vec![],
-            }],
+                    mounts: vec![],
+                    system_config: vec![],
+                    dependencies: vec![],
+                },
+            ],
             secrets: vec![],
             network: false,
             loopback_port: None,
@@ -145,6 +175,18 @@ impl NativeFixture {
             interfaces,
         };
         let grants = vec![
+            FilesystemGrant {
+                name: "scratch".into(),
+                path: scratch.canonicalize().unwrap(),
+                read: true,
+                write: true,
+            },
+            FilesystemGrant {
+                name: "blender-session-runner-executable".into(),
+                path: runner.canonicalize().unwrap(),
+                read: true,
+                write: false,
+            },
             FilesystemGrant {
                 name: "workspace".into(),
                 path: fs::canonicalize(workspace).unwrap(),

@@ -103,9 +103,7 @@ fn fixture() -> Fixture {
             "development_mode": false,
             "projects": [],
             "runner": {
-                "executable": "/plugin/tools/godot",
-                "sha256": runtime_sha256,
-                "output_root": "/workspace/godot-authoring-artifacts",
+                "output_mount": "godot-authoring-artifacts",
                 "display": null
             },
             "authoring": {
@@ -217,7 +215,7 @@ fn manifest(executable: PathBuf, runtime_sha256: String) -> Manifest {
             name: "godot".into(),
             sha256: runtime_sha256,
 
-            mounts: vec![],
+            mounts: vec!["godot-authoring-artifacts".into()],
             system_config: vec![],
             dependencies: vec![],
         }],
@@ -239,6 +237,7 @@ fn manifest(executable: PathBuf, runtime_sha256: String) -> Manifest {
             artifacts: true,
             health: true,
             native_refs: true,
+            host_tools: true,
             ..DriverInterfaces::default()
         },
     }
@@ -1953,6 +1952,21 @@ async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {
         return;
     }
 
+    let e_sha = std::env::var("E_SOURCE_SHA")
+        .unwrap_or_else(|_| "e753248ed33b345554b0e7c3c8d521e666751d6f".into());
+    assert!(
+        e_sha.len() == 40
+            && e_sha
+                .bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+    );
+    let e_run: u64 = std::env::var("E_RUN_ID")
+        .unwrap_or_else(|_| "36680849875".into())
+        .parse()
+        .unwrap();
+    let e_digest =
+        std::env::var("E_GLB_SHA256").unwrap_or_else(|_| E_ARTICULATED_GLB_SHA256.into());
+    semwright_semantic_composition::Digest::parse(e_digest.clone()).unwrap();
     // Reuse the exact provider/Broker bootstrap that is independently green in
     // native, persistence and export acceptance. Cross-app transport gets its
     // own Broker so no artifact filesystem authority is added to the Godot
@@ -1969,7 +1983,7 @@ async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {
         e_glb.file_name().and_then(|name| name.to_str()),
         Some("articulated.glb")
     );
-    assert_eq!(digest(&e_glb), E_ARTICULATED_GLB_SHA256);
+    assert_eq!(digest(&e_glb), e_digest);
     let e_root = e_glb.parent().unwrap().canonicalize().unwrap();
 
     let handoff_grants = vec![
@@ -2004,9 +2018,9 @@ async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {
         None,
         json!({
             "test":"godot-cross-app-artifact-handoff",
-            "e_source_sha":"e753248ed33b345554b0e7c3c8d521e666751d6f",
-            "e_run_id":36680849875u64,
-            "e_glb_sha256":E_ARTICULATED_GLB_SHA256
+            "e_source_sha":e_sha,
+            "e_run_id":e_run,
+            "e_glb_sha256":e_digest
         }),
         false,
     )
@@ -2124,7 +2138,7 @@ async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {
             "source_path":"articulated.glb",
             "destination_root":"godot-authoring-input",
             "destination_path":"articulated.glb",
-            "expected_sha256":E_ARTICULATED_GLB_SHA256,
+            "expected_sha256":e_digest,
             "max_bytes":16_777_216,
             "semantic_type":"model/3d",
             "media_type":"model/gltf-binary"
@@ -2133,15 +2147,12 @@ async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {
     .await;
     assert_eq!(handoff["copied"], true);
     assert_eq!(handoff["atomic"], true);
-    assert_eq!(handoff["sha256"], E_ARTICULATED_GLB_SHA256);
-    assert_eq!(
-        digest(&godot_input.join("articulated.glb")),
-        E_ARTICULATED_GLB_SHA256
-    );
+    assert_eq!(handoff["sha256"], e_digest);
+    assert_eq!(digest(&godot_input.join("articulated.glb")), e_digest);
 
     let mut replacement_spec = baseline_spec.clone();
     replacement_spec["assets"][0]["file"] = json!("articulated.glb");
-    replacement_spec["assets"][0]["sha256"] = json!(E_ARTICULATED_GLB_SHA256);
+    replacement_spec["assets"][0]["sha256"] = json!(e_digest);
 
     let replacement_plan = broker_call(
         &host.broker,
@@ -2183,7 +2194,7 @@ async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {
     assert_eq!(digest(&triangle_path), baseline_triangle_sha);
     assert_eq!(
         digest(&product_project.join("assets/articulated.glb")),
-        E_ARTICULATED_GLB_SHA256
+        e_digest
     );
 
     let replacement_snapshot = broker_call(
@@ -2225,7 +2236,7 @@ async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {
                 .as_str()
                 .is_some_and(|path| path.ends_with("assets/articulated.glb"))
                 && dependency["exists"] == true
-                && dependency["sha256"] == E_ARTICULATED_GLB_SHA256
+                && dependency["sha256"] == e_digest
         }),
         "native dependency closure did not pin E articulated.glb"
     );
@@ -2398,10 +2409,7 @@ async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {
         })
         .expect("cross-app C receipt output pin");
     assert_eq!(receipt_output["revision"], articulated_revision);
-    assert_eq!(
-        receipt_output["fingerprint"]["bytes"],
-        E_ARTICULATED_GLB_SHA256
-    );
+    assert_eq!(receipt_output["fingerprint"]["bytes"], e_digest);
     assert_eq!(receipt["coverage"]["complete"], false);
 
     if let Some(path) = std::env::var_os("SEMWRIGHT_TEST_D12_C_RECEIPT_OUT") {
@@ -2418,7 +2426,7 @@ async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {
                 "project":receipt["project"].clone(),
                 "asset":articulated_asset,
                 "revision":articulated_revision,
-                "sha256":E_ARTICULATED_GLB_SHA256,
+                "sha256":e_digest,
                 "coverage_complete":receipt["coverage"]["complete"].clone()
             }))
             .unwrap(),

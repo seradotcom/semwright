@@ -6,6 +6,9 @@ on:
       - crates/semantic-composition/**
       - crates/driver-godot/src/authoring/**
       - crates/driver-godot/tests/authoring_profile.rs
+      - crates/driver-godot/tests/authoring_host.rs
+      - crates/driver-faust-audio/**
+      - crates/driver-ardour-audio/**
       - crates/driver-blender/**
       - crates/driver-motion-canvas/**
       - crates/driver-mlt-video/**
@@ -72,7 +75,7 @@ jobs:
       - name: Source formatting
         run: cargo fmt -p semwright-semantic-composition -p semwright-driver-godot -p semwright-audio-authoring -p semwright-effect-conformance -- --check
       - name: Combined runtime transport compilation
-        run: cargo check --locked --all-targets -p semwright-driver-blender -p semwright-driver-motion-canvas -p semwright-driver-mlt-video -p semwright-driver-faust-audio -p semwright-driver-ardour-audio
+        run: cargo check --locked --all-targets -p semwright-driver-godot -p semwright-driver-blender -p semwright-driver-motion-canvas -p semwright-driver-mlt-video -p semwright-faust-audio-driver -p semwright-ardour-audio-driver
       - name: A contracts and D reconciliation source regressions
         run: python3 scripts/semantic-creation/reconciliation_diagnostic.py
       - name: Strict A/D lints
