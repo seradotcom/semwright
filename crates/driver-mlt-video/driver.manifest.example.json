@@ -46,11 +46,15 @@
       "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
       "mounts": [
         "mlt-runtime",
-        "scratch"
+        "scratch",
+        "project",
+        "media",
+        "output"
       ],
       "dependencies": [
         "melt",
-        "ffprobe"
+        "ffprobe",
+        "ffmpeg"
       ]
     },
     {
@@ -63,6 +67,13 @@
     {
       "root": "ffprobe-root",
       "name": "ffprobe",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "mounts": [],
+      "dependencies": []
+    },
+    {
+      "root": "ffmpeg-root",
+      "name": "ffmpeg",
       "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
       "mounts": [],
       "dependencies": []

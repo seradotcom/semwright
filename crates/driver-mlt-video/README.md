@@ -1,6 +1,6 @@
 # Semwright MLT video driver
 
-This Linux-only persistent Driver SDK provider exposes 68 bounded capabilities for offline
+This Linux-only persistent Driver SDK provider exposes 71 bounded capabilities for offline
 video-project inspection, semantic timeline editing, safe save-as publication, render planning
 and owned render jobs. It uses the normal `driver:mlt-video` policy scope and never accepts an
 executable, shell command, environment or raw XML operation from capability arguments.
@@ -27,14 +27,14 @@ can share export intent without emulating MLT.
 The production binary uses `semwright-driver-sdk`; `fake-melt` is compiled only with the
 `test-tools` feature. Production runtime execution is protocol-v7 Host-managed: the manifest
 declares a read-only executable `mlt-runtime` bundle, writable `scratch`, the SHA-pinned
-`mlt-runner` tool, and separately pinned `melt`/`ffprobe` dependencies. The driver does not
+`mlt-runner` tool, and separately pinned `melt`/`ffprobe`/`ffmpeg` dependencies. The driver does not
 discover installation paths or read a private runtime manifest. Project/media roots stay
 read-only, scratch is disposable, and the output root is the only published writable surface.
 
 When launched by `DriverProvider`, discovery, media probing and curated renders execute through
 the generic Host runtime-tool boundary. Driver Host owns the nested Bubblewrap + Landlock child,
 tool dependency materialization, session-bound detached render jobs, cancellation, timeout and
-process-tree containment. The MLT runner accepts only fixed `discover`, `probe` and `render`
+process-tree containment. The MLT runner accepts only fixed `discover`, `probe`, `render` and `av-operation`
 operations; it verifies runtime entrypoints remain inside the delegated bundle and match the exact
 Host-sealed tool bytes before execution. Legacy `Runtime` construction remains available only to
 internal library fixtures/direct-mode tests, not to the production driver entrypoint.
@@ -60,3 +60,10 @@ Native/application warnings no longer enter the portable semantic `Project`. The
 structured `ProjectionReport` losses, alongside read-only losses for opaque native assets,
 tracks, effects, sequences and transitions. This keeps MLT round-trip metadata in the MLT layer
 while preserving an adapter-neutral semantic core for future video backends.
+
+The closed AV operation implements `frames.encode`, `av.mux` and `sync.probe`
+through the Host. It retains the composition owner's frame/media digests,
+bounded staging, native decoder checks and safe output publication. The runner
+receives project/media roots read-only and the output root writable through typed
+Host arguments. It never accepts arbitrary executables, environment or shell
+commands. Compatibility fixture `Runtime` paths do not select production tools.
