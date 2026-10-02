@@ -11,6 +11,11 @@ on:
       - 'tests/python/test_pre_r16_secret_scan.py'
       - 'verification/pre-r16/**'
   workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Exact immutable source for the independent review packet
+        required: true
+        type: string
 permissions:
   contents: read
 defaults:
@@ -27,6 +32,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
+          ref: ${{ inputs.source_sha || github.sha }}
           fetch-depth: 0
           persist-credentials: false
       - name: Install checksum-pinned scanner in disposable runner
@@ -53,3 +59,43 @@ jobs:
           path: ${{ runner.temp }}/pre-r16-secret-evidence/summary.json
           if-no-files-found: error
           retention-days: 14
+
+  review-packet:
+    needs: history-and-tree
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.source_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Generate immutable unreviewed packet on the hosted runner
+        env:
+          SOURCE_SHA: ${{ inputs.source_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          git diff --exit-code
+          git diff --cached --exit-code
+          bash scripts/dev/security-review-bundle.sh "$SOURCE_SHA" "$RUNNER_TEMP/independent-review-packet"
+          cd "$RUNNER_TEMP/independent-review-packet"
+          sha256sum -c SHA256SUMS
+          python3 - <<'PYVERIFY'
+          import json, os
+          from pathlib import Path
+          manifest = json.loads(Path('manifest.json').read_text())
+          assert manifest['baseline_sha'] == os.environ['SOURCE_SHA']
+          assert manifest['status'] == 'UNREVIEWED'
+          assert manifest['independent_review_required'] is True
+          assert manifest['self_attestation'] is False
+          PYVERIFY
+      - name: Retain full source and reviewer template without claiming review completion
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: independent-review-packet-${{ inputs.source_sha }}
+          path: ${{ runner.temp }}/independent-review-packet
+          if-no-files-found: error
+          retention-days: 90
