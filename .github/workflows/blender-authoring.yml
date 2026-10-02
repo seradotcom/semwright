@@ -1,7 +1,7 @@
 name: Blender authoring diagnostics
 on:
   push:
-    branches: [feat/blender-semantic-authoring]
+    branches: [feat/blender-semantic-authoring, integration/semantic-creation-i-20261001]
     paths:
       - 'crates/driver-blender/**'
       - 'adapters/blender/**'
