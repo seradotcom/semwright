@@ -31,7 +31,6 @@ jobs:
         worker: [clean-1, clean-2]
     env:
       SEMWRIGHT_TEST_SOURCE_SHA: ${{ inputs.candidate_sha }}
-      SEMWRIGHT_TEST_BLENDER_PREVIEW: ${{ runner.temp }}/i-joint-input/product-preview.png
       PLAYWRIGHT_BROWSERS_PATH: '0'
       CARGO_PROFILE_DEV_DEBUG: '0'
       CARGO_PROFILE_TEST_DEBUG: '0'
@@ -54,7 +53,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          test "${{ inputs.candidate_sha }}" = af109cadb00a8642e38f7e1ca3cd47c0f6d7aa03
+          test "$SEMWRIGHT_TEST_SOURCE_SHA" = af109cadb00a8642e38f7e1ca3cd47c0f6d7aa03
           mkdir -p "$RUNNER_TEMP/i-joint-input" verification/composition-av
           gh api repos/seradotcom/semwright/actions/artifacts/11241050061 > "$RUNNER_TEMP/i-joint-input/e-meta.json"
           gh api repos/seradotcom/semwright/actions/artifacts/11241050061/zip > "$RUNNER_TEMP/i-joint-input/e.zip"
@@ -75,6 +74,7 @@ jobs:
           e=zipfile.ZipFile(io.BytesIO(e_bytes))
           native=json.loads(e.read('blender-native-authoring.json'))
           assert native['source_sha']==source and native['outcome']=='PASS' and native['passed']==4
+          assert e.getinfo('product-preview.png').file_size<16*1024*1024
           preview=e.read('product-preview.png')
           digest=hashlib.sha256(preview).hexdigest()
           assert digest=='bcee77e110a5d9e9f9e0d6964a1cfee4f073d0a6b0128a6bed94dfd685b927cf'
@@ -221,6 +221,7 @@ jobs:
           sha256sum "$RUNNER_TEMP/composition-av-binaries/"* > verification/composition-av/prepared-binaries.sha256
       - name: Combined A+B native AV E2E
         env:
+          SEMWRIGHT_TEST_BLENDER_PREVIEW: ${{ runner.temp }}/i-joint-input/product-preview.png
           SEMWRIGHT_TEST_COMBINED_AV: '1'
           SEMWRIGHT_TEST_COMBINED_MOTION_DRIVER: ${{ runner.temp }}/composition-av-binaries/semwright-motion-canvas-driver
           SEMWRIGHT_TEST_COMBINED_FAUST_DRIVER: ${{ runner.temp }}/composition-av-binaries/semwright-faust-audio-driver
