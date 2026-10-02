@@ -174,7 +174,7 @@ jobs:
               'schema_version': 1,
               'candidate_sha': os.environ['CANDIDATE_SHA'],
               'github_sha': os.environ.get('GITHUB_SHA'),
-              'audio_source_sha': '8ed2d30c8ba797ebd5b8c102d34f8ab5bb3a28b3',
+              'audio_source_sha': 'df2654bed6d2ac57d547846b69d16ea48b4a9ee3',
               'scope': 'combined-native-av-e2e',
               'promotional_video': False,
               'r16_closed': False,

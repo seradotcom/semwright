@@ -49,7 +49,7 @@ use tempfile::TempDir;
 use tokio_util::sync::CancellationToken;
 
 const SESSION: &str = "combined-av-native-e2e";
-const B_AUDIO_SHA: &str = "8ed2d30c8ba797ebd5b8c102d34f8ab5bb3a28b3";
+const B_AUDIO_SHA: &str = "df2654bed6d2ac57d547846b69d16ea48b4a9ee3";
 
 fn file_sha(path: &Path) -> String {
     format!("{:x}", Sha256::digest(fs::read(path).unwrap()))
