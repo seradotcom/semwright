@@ -1749,11 +1749,12 @@ async fn export_lane_builds_and_launches_without_editor_or_semwright() {
     )
     .await;
     assert_eq!(validated["success"], true);
-    let runtime = broker_call(
+    let runtime = broker_call_with_native_diagnostic(
         &host.broker,
         &host.session,
         "driver.godot.project.run_test",
         json!({"managed_project":project,"frames":10}),
+        host.fixture._state.path(),
     )
     .await;
     assert_eq!(runtime["success"], true);

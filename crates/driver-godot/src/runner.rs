@@ -849,8 +849,21 @@ impl Runner {
             } else {
                 let job = context
                     .start_runtime_tool_job("godot", argv.to_vec(), Vec::new(), timeout, Some(cwd))
-                    .await?;
-                let output = context.wait_runtime_tool_job(&job).await?;
+                    .await
+                    .map_err(|error| {
+                        self.write_private_native_diagnostic(&Error::new(
+                            error.code,
+                            format!("diagnostic job start: {}", error.message),
+                        ));
+                        error
+                    })?;
+                let output = context.wait_runtime_tool_job(&job).await.map_err(|error| {
+                    self.write_private_native_diagnostic(&Error::new(
+                        error.code,
+                        format!("diagnostic job wait: {}", error.message),
+                    ));
+                    error
+                })?;
                 (output, Some(job))
             };
             if output.stdout.len() > MAX_LOG || output.stderr.len() > MAX_LOG {
