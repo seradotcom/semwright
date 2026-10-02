@@ -528,6 +528,68 @@ fn persistence_requires_fresh_process_and_unchanged_external_sentinels() {
 }
 
 #[test]
+fn persistence_uses_host_execution_incarnations_across_reused_namespace_pids() {
+    let candidate = digest("saved-scene");
+    let mut writer = observation(
+        ProbeMode::SaveCandidate,
+        "native_save_000001",
+        "2",
+        projection("res://scenes/arena.tscn", "11", "21"),
+        digest("source-scene"),
+        Some(candidate.clone()),
+    );
+    let mut reader = observation(
+        ProbeMode::ReopenCandidate,
+        "native_reopen_0001",
+        "2",
+        projection("res://__sw_saved/arena.tscn", "99", "42"),
+        candidate,
+        None,
+    );
+    assert!(persistence_value(&writer, &reader).is_err());
+    writer.process_id = "host-job:writer-execution:2".into();
+    reader.process_id = "host-job:reader-execution:2".into();
+    let evidence = persistence_value(&writer, &reader).unwrap();
+    assert_eq!(Predicate::Reopened.compare(&evidence).unwrap(), Some(true));
+    reader.process_id = "host-job:writer-execution:3".into();
+    assert!(persistence_value(&writer, &reader).is_err());
+    reader.process_id = "3".into();
+    assert!(persistence_value(&writer, &reader).is_err());
+    for invalid in ["host-job::2", "host-job:foreign/job:2", "host-job:reader:0"] {
+        reader.process_id = invalid.into();
+        assert!(persistence_value(&writer, &reader).is_err());
+    }
+}
+
+#[test]
+fn observer_wire_cannot_supply_a_host_execution_incarnation() {
+    let request = NativeRequest {
+        version: NATIVE_VERSION,
+        nonce: "native_inspect_0001".into(),
+        source_fingerprint: digest("source"),
+        mode: ProbeMode::Inspect,
+        scene: "res://scenes/arena.tscn".into(),
+        ticks: 0,
+        inputs: vec![],
+        checkpoints: vec![],
+        variables: vec![],
+        capture: false,
+    };
+    let mut observed = observation(
+        ProbeMode::Inspect,
+        &request.nonce,
+        "2",
+        projection("res://scenes/arena.tscn", "11", "21"),
+        digest("source-scene"),
+        None,
+    );
+    observed.source_fingerprint = request.source_fingerprint.clone();
+    decode_observation(&serde_json::to_vec(&observed).unwrap(), &request).unwrap();
+    observed.process_id = "host-job:wire-forged-execution:2".into();
+    assert!(decode_observation(&serde_json::to_vec(&observed).unwrap(), &request).is_err());
+}
+
+#[test]
 fn fixed_native_probe_contains_no_arbitrary_execution_surface() {
     assert!(PROBE_SOURCE.contains("ResourceLoader.CACHE_MODE_IGNORE_DEEP"));
     assert!(PROBE_SOURCE.contains("get_signal_connection_list"));

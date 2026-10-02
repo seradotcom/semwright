@@ -61,3 +61,10 @@ dependency, then executes the sealed ToolPath bytes. It preserves the existing
 Tool owner policy, digest checks and single-file execution grant; an unmapped
 owner on the runtime mount alias does not become new executable authority.
 The fresh-output diagnostic is CI-only and cannot certify the failed Host effect.
+
+
+## Namespaced Godot process identity integration
+
+Full quality (37020036802), E (37022482122) and C (37024353852) passed on d0bbe063a0a233f3502c0a585ffe157f9f7328d1. D37024087559 failed native persistence because isolated Host tool executions can reuse a namespace-local PID; export also failed and requires a separate diagnostic. No final combined acceptance follows from those partial results.
+
+The provider first decodes a strictly numeric observer PID, then qualifies it with the authenticated Host job returned for that completed native execution. Persistence compares distinct Host job incarnations, retains nonce/source/dependency/projection checks, and rejects mixed execution origins, malformed identities and a wire-supplied Host qualifier. The native integration diagnostic is optional, hosted-only and explicitly separate from full D certification. Export error output is retained only in the existing owner-controlled private diagnostic channel; public error redaction remains in force.

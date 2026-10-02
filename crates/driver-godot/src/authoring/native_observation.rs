@@ -1300,7 +1300,7 @@ pub fn persistence_value(
         "Persistence requires native save and a fresh-process reopen",
     )?;
     ensure(
-        writer.process_id != reader.process_id
+        fresh_process_executions(&writer.process_id, &reader.process_id)?
             && writer.nonce != reader.nonce
             && writer.source_fingerprint == reader.source_fingerprint,
         "Persistence process/source binding mismatch",
@@ -1320,5 +1320,43 @@ pub fn persistence_value(
         after_projection: reader.authored.stable_digest()?,
         saved_digest: saved,
         reopened_digest: reader.loaded_scene_sha256.clone(),
+    })
+}
+
+// Numeric PIDs identify direct fixture launches. Host-managed launches are
+// qualified by the authenticated, fresh Host job incarnation after wire decode.
+// The observer still emits only a positive numeric PID; decode_observation
+// rejects a wire-supplied Host qualifier.
+fn fresh_process_executions(writer: &str, reader: &str) -> semwright_types::Result<bool> {
+    fn identity(value: &str) -> semwright_types::Result<(Option<&str>, u32)> {
+        let (job, pid) = if let Some(qualified) = value.strip_prefix("host-job:") {
+            let (job, pid) = qualified
+                .split_once(':')
+                .ok_or_else(|| invalid("Malformed native Host process identity"))?;
+            ensure(
+                !job.is_empty()
+                    && job.len() <= 128
+                    && job
+                        .bytes()
+                        .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-'),
+                "Malformed native Host job identity",
+            )?;
+            (Some(job), pid)
+        } else {
+            (None, value)
+        };
+        let pid = pid
+            .parse::<u32>()
+            .ok()
+            .filter(|pid| *pid > 0)
+            .ok_or_else(|| invalid("Malformed native process PID"))?;
+        Ok((job, pid))
+    }
+    let writer = identity(writer)?;
+    let reader = identity(reader)?;
+    Ok(match (writer.0, reader.0) {
+        (Some(writer), Some(reader)) => writer != reader,
+        (None, None) => writer.1 != reader.1,
+        _ => false,
     })
 }

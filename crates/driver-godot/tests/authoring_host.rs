@@ -769,7 +769,7 @@ async fn empty_project_authoring_flows_through_broker_driver_host_and_provider()
         std::env::var_os("SEMWRIGHT_TEST_GODOT_EXPORT_TEMPLATES").is_some(),
         "standalone export acceptance requires pinned export templates"
     );
-    let exported = broker_call(
+    let exported = broker_call_with_native_diagnostic(
         &broker,
         &session,
         "driver.godot.export.build",
@@ -779,6 +779,7 @@ async fn empty_project_authoring_flows_through_broker_driver_host_and_provider()
             "output":"technical_two.x86_64",
             "debug":false
         }),
+        fixture._state.path(),
     )
     .await;
     assert_eq!(exported["success"], true);
@@ -1739,7 +1740,7 @@ async fn export_lane_builds_and_launches_without_editor_or_semwright() {
     .await;
     assert_eq!(runtime["success"], true);
 
-    let exported = broker_call(
+    let exported = broker_call_with_native_diagnostic(
         &host.broker,
         &host.session,
         "driver.godot.export.build",
@@ -1749,6 +1750,7 @@ async fn export_lane_builds_and_launches_without_editor_or_semwright() {
             "output":"persistence_export_lane.x86_64",
             "debug":false
         }),
+        host.fixture._state.path(),
     )
     .await;
     assert_eq!(exported["success"], true);

@@ -10,6 +10,8 @@ use crate::authoring::{
     validate,
 };
 use crate::config::{AuthoringConfig, ProjectConfig, RunnerConfig};
+#[cfg(target_os = "linux")]
+use semwright_driver_sdk::RuntimeToolJob;
 use semwright_driver_sdk::{DriverExecutionContext, RuntimeToolCwd};
 #[cfg(target_os = "linux")]
 use semwright_types::unique_id;
@@ -179,7 +181,11 @@ impl Runner {
         }
         let path = authoring.state_root.join(".native-verify-error");
         let mut message = error.message.replace(['\r', '\n'], " ");
-        message.truncate(2048);
+        let mut end = message.len().min(2048);
+        while !message.is_char_boundary(end) {
+            end -= 1;
+        }
+        message.truncate(end);
         let Ok(mut file) = std::fs::OpenOptions::new()
             .write(true)
             .create_new(true)
@@ -703,7 +709,21 @@ impl Runner {
             ));
         }
         let bytes = std::fs::read(&output_path)?;
-        decode_observation(&bytes, request)
+        let mut observation = decode_observation(&bytes, request)?;
+        if self.config.executable.is_none() {
+            let job = process.host_job.as_ref().ok_or_else(|| {
+                Error::new(
+                    ErrorCode::Internal,
+                    "Native Godot Host job identity is missing",
+                )
+            })?;
+            job.validate()?;
+            // A fresh PID namespace can reuse the same local PID. Only the
+            // authenticated Host job returned for this completed launch may
+            // qualify the already validated observer PID; wire data cannot.
+            observation.process_id = format!("host-job:{}:{}", job.id, observation.process_id);
+        }
+        Ok(observation)
     }
 
     fn artifacts_from_result(&self, value: &Value) -> Result<Vec<JobArtifact>> {
@@ -785,15 +805,17 @@ impl Runner {
                 mount: cwd_mount.to_owned(),
                 relative: String::new(),
             };
-            let output = if timeout <= Duration::from_secs(30) {
-                context
+            let (output, host_job) = if timeout <= Duration::from_secs(30) {
+                let output = context
                     .execute_runtime_tool_with_cwd("godot", argv.to_vec(), Vec::new(), timeout, cwd)
-                    .await?
+                    .await?;
+                (output, None)
             } else {
                 let job = context
                     .start_runtime_tool_job("godot", argv.to_vec(), Vec::new(), timeout, Some(cwd))
                     .await?;
-                context.wait_runtime_tool_job(&job).await?
+                let output = context.wait_runtime_tool_job(&job).await?;
+                (output, Some(job))
             };
             if output.stdout.len() > MAX_LOG || output.stderr.len() > MAX_LOG {
                 return Err(Error::new(
@@ -802,12 +824,26 @@ impl Runner {
                 ));
             }
             if output.exit_code != 0 {
+                #[cfg(target_os = "linux")]
+                self.write_private_native_diagnostic(&Error::new(
+                    ErrorCode::BackendFailed,
+                    format!(
+                        "Godot Host tool exit {}: {} {}",
+                        output.exit_code,
+                        String::from_utf8_lossy(&output.stderr),
+                        String::from_utf8_lossy(&output.stdout)
+                    ),
+                ));
                 return Err(Error::new(
                     ErrorCode::BackendFailed,
                     "Godot runner exited with non-zero status",
                 ));
             }
+            #[cfg(not(target_os = "linux"))]
+            let _ = host_job;
             return Ok(ProcessOutput {
+                #[cfg(target_os = "linux")]
+                host_job,
                 exit_code: output.exit_code,
                 stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
                 stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
@@ -921,6 +957,8 @@ impl Runner {
             ));
         }
         Ok(ProcessOutput {
+            #[cfg(target_os = "linux")]
+            host_job: None,
             exit_code: status.code().unwrap_or(0),
             stdout,
             stderr,
@@ -969,6 +1007,8 @@ fn native_probe_has_script_error(output: &ProcessOutput) -> bool {
 }
 
 struct ProcessOutput {
+    #[cfg(target_os = "linux")]
+    host_job: Option<RuntimeToolJob>,
     exit_code: i32,
     stdout: String,
     stderr: String,
@@ -1139,6 +1179,8 @@ mod native_probe_output_tests {
     #[test]
     fn native_probe_script_error_is_fail_closed_even_with_zero_exit() {
         let clean = ProcessOutput {
+            #[cfg(target_os = "linux")]
+            host_job: None,
             exit_code: 0,
             stdout: "Godot Engine v4.7.2\n".into(),
             stderr: String::new(),
@@ -1146,6 +1188,8 @@ mod native_probe_output_tests {
         assert!(!native_probe_has_script_error(&clean));
 
         let script_error = ProcessOutput {
+            #[cfg(target_os = "linux")]
+            host_job: None,
             exit_code: 0,
             stdout: String::new(),
             stderr: "SCRIPT ERROR: Invalid call. Nonexistent function.\n".into(),
