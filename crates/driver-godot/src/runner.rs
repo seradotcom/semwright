@@ -1046,7 +1046,8 @@ fn validate_res(value: &str, suffix: &str) -> Result<()> {
     Ok(())
 }
 
-#[cfg(all(test, target_os = "linux"))]
+#[cfg(test)]
+#[cfg(target_os = "linux")]
 mod tests {
     use super::*;
     use std::os::unix::fs::PermissionsExt;

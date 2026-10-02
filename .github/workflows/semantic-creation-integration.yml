@@ -1,4 +1,8 @@
 name: Semantic creation integration diagnostics (I)
+defaults:
+  run:
+    shell: bash
+
 on:
   push:
     branches: [integration/semantic-creation-i-20261001]

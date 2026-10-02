@@ -133,8 +133,8 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
   godot-native-authoring:
-    needs: scope
-    if: needs.scope.outputs.native == 'true'
+    needs: [scope, godot-model]
+    if: always() && !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.native == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 50
     env:
@@ -392,8 +392,8 @@ jobs:
           retention-days: 7
 
   godot-persistence:
-    needs: scope
-    if: needs.scope.outputs.persistence == 'true'
+    needs: [scope, godot-native-authoring]
+    if: always() && !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.persistence == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     env:
@@ -466,8 +466,8 @@ jobs:
           retention-days: 14
 
   godot-export:
-    needs: scope
-    if: needs.scope.outputs.export == 'true'
+    needs: [scope, godot-persistence]
+    if: always() && !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.export == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     env:
@@ -534,8 +534,8 @@ jobs:
           retention-days: 14
 
   godot-hostile:
-    needs: scope
-    if: needs.scope.outputs.hostile == 'true'
+    needs: [scope, godot-export]
+    if: always() && !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.hostile == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     env:
@@ -682,7 +682,7 @@ jobs:
           retention-days: 30
 
   godot-cross-app-glb:
-    needs: [scope, godot-native-authoring]
+    needs: [scope, godot-native-authoring, godot-hostile]
     if: ${{ always() && needs.scope.outputs.cross_app == 'true' && needs.godot-native-authoring.result == 'success' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 12

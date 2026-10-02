@@ -1,5 +1,9 @@
 name: Composition AV Combined
 
+defaults:
+  run:
+    shell: bash
+
 on:
   workflow_dispatch:
     inputs:

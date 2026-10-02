@@ -203,10 +203,11 @@ jobs:
           retention-days: 7
           if-no-files-found: error
   audio-portable-cross:
-    needs: [scope, audio-domain]
-    if: needs.scope.outputs.portable == 'true'
+    needs: [scope, audio-domain, ardour-native]
+    if: always() && !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.portable == 'true'
     strategy:
       fail-fast: false
+      max-parallel: 1
       matrix:
         os: [windows-2022, macos-15]
     runs-on: ${{ matrix.os }}
@@ -231,10 +232,11 @@ jobs:
           retention-days: 7
           if-no-files-found: error
   faust-native:
-    needs: [scope]
-    if: needs.scope.outputs.faust == 'true'
+    needs: [scope, audio-domain]
+    if: always() && !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.faust == 'true'
     strategy:
       fail-fast: false
+      max-parallel: 1
       matrix:
         include:
           - os: ubuntu-22.04
@@ -299,8 +301,8 @@ jobs:
           retention-days: 7
           if-no-files-found: error
   analysis-native:
-    needs: [scope]
-    if: needs.scope.outputs.analysis == 'true'
+    needs: [scope, faust-native]
+    if: always() && !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.analysis == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -339,8 +341,8 @@ jobs:
           retention-days: 7
           if-no-files-found: error
   ardour-native:
-    needs: [scope]
-    if: needs.scope.outputs.ardour == 'true'
+    needs: [scope, analysis-native]
+    if: always() && !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.ardour == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
@@ -407,8 +409,8 @@ jobs:
           retention-days: 7
           if-no-files-found: error
   audio-fuzz:
-    needs: [scope, audio-domain]
-    if: needs.scope.outputs.fuzz == 'true'
+    needs: [scope, audio-domain, audio-portable-cross]
+    if: always() && !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.fuzz == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 12
     steps:
@@ -440,7 +442,7 @@ jobs:
           retention-days: 7
           if-no-files-found: warn
   audio-package:
-    needs: [scope, audio-domain, faust-native, analysis-native, ardour-native]
+    needs: [scope, audio-domain, faust-native, analysis-native, ardour-native, audio-portable-cross, audio-fuzz]
     if: needs.scope.outputs.certify == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 25
