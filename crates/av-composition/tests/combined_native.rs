@@ -1495,7 +1495,7 @@ fn c14_observe(
     let observation = ObservationRef {
         id: format!("c14-observation-{tick}"),
         base,
-        source: source.clone(),
+        source,
         method: method.into(),
         method_version: 1,
         scope: vec![Address {
