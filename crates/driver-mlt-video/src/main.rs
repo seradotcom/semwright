@@ -238,8 +238,7 @@ fn host_runner_failure(bytes: &[u8]) -> Option<String> {
 // envelope. Preserve stale-input classification; never infer completed effects
 // from the helper's error text or accept a caller-supplied outcome flag.
 fn host_av_operation_failure(bytes: &[u8]) -> Error {
-    let message = host_runner_failure(bytes)
-        .unwrap_or_else(|| "Host AV operation failed".into());
+    let message = host_runner_failure(bytes).unwrap_or_else(|| "Host AV operation failed".into());
     let code = match message.strip_prefix("StaleReference: ") {
         Some(detail) if !detail.trim().is_empty() => ErrorCode::StaleReference,
         _ => ErrorCode::BackendFailed,
