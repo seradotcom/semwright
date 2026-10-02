@@ -33,6 +33,25 @@ fn write_startup_diagnostic(error: &semwright_types::Error) {
 
 #[tokio::main]
 async fn main() {
+    #[cfg(target_os = "linux")]
+    {
+        let entry_args = std::env::args_os().skip(1).collect::<Vec<_>>();
+        if entry_args
+            .first()
+            .is_some_and(|flag| flag == "--host-export-runtime")
+        {
+            if let Err(error) =
+                semwright_godot_driver::host_export_runtime::execute(&entry_args[1..])
+            {
+                println!(
+                    "Godot export runtime rejected invocation: {:?}: {}",
+                    error.code, error.message
+                );
+                std::process::exit(1);
+            }
+            return;
+        }
+    }
     let mut args = std::env::args_os().skip(1);
     let path: semwright_types::Result<std::path::PathBuf> =
         match (args.next(), args.next(), args.next()) {

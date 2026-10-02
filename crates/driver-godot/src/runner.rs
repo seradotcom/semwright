@@ -12,7 +12,7 @@ use crate::authoring::{
 use crate::config::{AuthoringConfig, ProjectConfig, RunnerConfig};
 #[cfg(target_os = "linux")]
 use semwright_driver_sdk::RuntimeToolJob;
-use semwright_driver_sdk::{DriverExecutionContext, RuntimeToolCwd};
+use semwright_driver_sdk::{DriverExecutionContext, RuntimeToolArg, RuntimeToolCwd};
 #[cfg(target_os = "linux")]
 use semwright_types::unique_id;
 use semwright_types::{Error, ErrorCode, JobArtifact, JobProgress, Result};
@@ -805,7 +805,43 @@ impl Runner {
                 mount: cwd_mount.to_owned(),
                 relative: String::new(),
             };
-            let (output, host_job) = if timeout <= Duration::from_secs(30) {
+            let export = argv.len() == 6
+                && matches!(
+                    argv[3].as_str(),
+                    "--export-release" | "--export-debug" | "--export-pack"
+                );
+            let (output, host_job) = if export {
+                let mut args = vec![
+                    RuntimeToolArg::Literal {
+                        value: "--host-export-runtime".into(),
+                    },
+                    RuntimeToolArg::ToolPath {
+                        tool: "godot".into(),
+                    },
+                    RuntimeToolArg::Literal {
+                        value: output_mount.to_owned(),
+                    },
+                    RuntimeToolArg::Literal {
+                        value: cwd.mount.clone(),
+                    },
+                ];
+                args.extend(
+                    argv.iter()
+                        .cloned()
+                        .map(|value| RuntimeToolArg::Literal { value }),
+                );
+                let job = context
+                    .start_runtime_tool_job_args(
+                        "godot-export",
+                        args,
+                        Vec::new(),
+                        timeout,
+                        Some(cwd),
+                    )
+                    .await?;
+                let output = context.wait_runtime_tool_job(&job).await?;
+                (output, Some(job))
+            } else if timeout <= Duration::from_secs(30) {
                 let output = context
                     .execute_runtime_tool_with_cwd("godot", argv.to_vec(), Vec::new(), timeout, cwd)
                     .await?;

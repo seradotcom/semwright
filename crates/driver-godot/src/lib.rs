@@ -2,6 +2,8 @@ pub mod authoring;
 pub mod bridge;
 pub mod catalog;
 pub mod config;
+#[cfg(target_os = "linux")]
+pub mod host_export_runtime;
 pub mod model;
 pub mod runner;
 

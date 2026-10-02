@@ -154,6 +154,14 @@ fn fixture() -> Fixture {
             read: true,
             write: false,
         },
+        FilesystemGrant {
+            name: "godot-export-runtime".into(),
+            path: PathBuf::from(env!("CARGO_BIN_EXE_semwright-godot-driver"))
+                .canonicalize()
+                .unwrap(),
+            read: true,
+            write: false,
+        },
     ];
     Fixture {
         _config: config,
@@ -210,15 +218,25 @@ fn manifest(executable: PathBuf, runtime_sha256: String) -> Manifest {
         ],
         system_config: vec![],
         secrets: vec![],
-        tools: vec![DriverToolMount {
-            root: "godot-authoring-runtime".into(),
-            name: "godot".into(),
-            sha256: runtime_sha256,
+        tools: vec![
+            DriverToolMount {
+                root: "godot-authoring-runtime".into(),
+                name: "godot".into(),
+                sha256: runtime_sha256,
 
-            mounts: vec!["godot-authoring-artifacts".into()],
-            system_config: vec![],
-            dependencies: vec![],
-        }],
+                mounts: vec!["godot-authoring-artifacts".into()],
+                system_config: vec![],
+                dependencies: vec![],
+            },
+            DriverToolMount {
+                root: "godot-export-runtime".into(),
+                name: "godot-export".into(),
+                sha256: digest(&executable),
+                mounts: vec!["godot-authoring-artifacts".into()],
+                system_config: vec![],
+                dependencies: vec!["godot".into()],
+            },
+        ],
         network: false,
         loopback_port: None,
         resources: DriverResources {
