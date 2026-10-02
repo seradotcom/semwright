@@ -51,16 +51,4 @@ class Tests(unittest.TestCase):
         v["workflow_evidence"]=[{"workflow":"combined","run_id":1,"job_ids":[2],"tested_sha":"a"*40,
           "status":"PASS","artifacts":[],"limitations":[]}]
         with self.assertRaises(mod.Invalid):mod.validate(v)
-    def test_v2_circleci_candidate_evidence_is_supported(self):
-        v=base();v["schema_version"]=2
-        v["workflow_evidence"]=[{"provider":"circleci","classification":"CANDIDATE_CERTIFICATION",
-          "workflow":"a-candidate-certification","run_id":"workflow-uuid","job_ids":[42],
-          "tested_sha":"a"*40,"status":"PASS","artifacts":["candidate.json"],"limitations":[]}]
-        out=mod.validate(v);self.assertEqual(out["workflow_evidence_rows"],1)
-    def test_v2_circleci_diagnostic_cannot_masquerade_as_certification(self):
-        v=base();v["schema_version"]=2
-        v["workflow_evidence"]=[{"provider":"circleci","classification":"PRIVATE_ITERATION_DIAGNOSTIC",
-          "workflow":"a-linux-iteration","run_id":"workflow-uuid","job_ids":[42],
-          "tested_sha":"a"*40,"status":"PASS","artifacts":[],"limitations":[]}]
-        with self.assertRaises(mod.Invalid):mod.validate(v)
 if __name__=="__main__":unittest.main()

@@ -36,19 +36,9 @@ def main():
     sha = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
     extra = ["--ignored"] if args.suite in {"faust", "faust-host", "analysis-host", "ardour-host"} else []
     command = ["cargo", "test", "--locked", *SUITES[args.suite]]
-    circle_cert = (
-        os.getenv("CIRCLECI") == "true"
-        and os.getenv("CIRCLE_BRANCH") == "integration/composition-av-formal"
-        and os.getenv("SEMWRIGHT_CIRCLECI_CANDIDATE_CERTIFICATION") == "true"
-        and os.getenv("CIRCLE_SHA1") == sha
-    )
     receipt = {"schema_version": 1, "tested_sha": sha, "github_sha": os.getenv("GITHUB_SHA"),
-               "run_id": os.getenv("GITHUB_RUN_ID") or os.getenv("CIRCLE_WORKFLOW_ID"),
-               "run_attempt": os.getenv("GITHUB_RUN_ATTEMPT"),
-               "job": os.getenv("GITHUB_JOB") or os.getenv("CIRCLE_JOB"),
-               "ci_provider": "circleci" if os.getenv("CIRCLECI") == "true" else "github",
-               "certification_eligible": circle_cert,
-               "suite": args.suite, "status": "FAIL",
+               "run_id": os.getenv("GITHUB_RUN_ID"), "run_attempt": os.getenv("GITHUB_RUN_ATTEMPT"),
+               "job": os.getenv("GITHUB_JOB"), "suite": args.suite, "status": "FAIL",
                "lock_sha256": hashlib.sha256((ROOT / "Cargo.lock").read_bytes()).hexdigest(),
                "expected_tests": 0, "passed": 0, "failed": 0, "ignored": 0}
     try:

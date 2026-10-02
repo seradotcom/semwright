@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Allowlisted Composition suites with explicit evidence authority.
 
-GitHub-hosted and dedicated CircleCI candidate modes are certification-eligible.
-Ordinary CircleCI iteration remains private diagnostics only. Zero tests never
-satisfy any mode.
+GitHub-hosted mode remains certification-eligible evidence. CircleCI mode is
+private iteration diagnostics only. Zero tests never satisfy either mode.
 """
 import argparse
 import hashlib
@@ -54,12 +53,11 @@ def main():
     parser.add_argument("suite", choices=sorted(SUITES))
     parser.add_argument(
         "--evidence-mode",
-        choices=("github-certification", "circleci-iteration", "circleci-certification"),
+        choices=("github-certification", "circleci-iteration"),
         default="github-certification",
         help=(
-            "github-certification preserves the GitHub-hosted evidence gate; "
-            "circleci-iteration is private diagnostic evidence; "
-            "circleci-certification is restricted to the exact integration candidate"
+            "github-certification preserves the existing GitHub-hosted evidence gate; "
+            "circleci-iteration is private diagnostic evidence and is never certification-eligible"
         ),
     )
     args = parser.parse_args()
@@ -77,29 +75,14 @@ def main():
     else:
         if os.environ.get("CIRCLECI") != "true":
             parser.error(
-                "CircleCI evidence mode requires the real CircleCI environment; "
+                "CircleCI iteration mode requires the real CircleCI environment; "
                 "do not fake CI provider variables"
             )
         if os.environ.get("GITHUB_ACTIONS") == "true":
-            parser.error("CircleCI evidence mode cannot run inside GitHub Actions")
-        if args.evidence_mode == "circleci-certification":
-            head = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
-            if (
-                os.environ.get("CIRCLE_BRANCH") != "integration/composition-av-formal"
-                or os.environ.get("SEMWRIGHT_CIRCLECI_CANDIDATE_CERTIFICATION") != "true"
-                or os.environ.get("CIRCLE_SHA1") != head
-            ):
-                parser.error(
-                    "CircleCI certification requires the exact integration/composition-av-formal "
-                    "candidate and explicit certification mode"
-                )
-            root = Path("verification/circleci-certification")
-            evidence_authority = "circleci-hosted-candidate-certification"
-            certification_eligible = True
-        else:
-            root = Path("verification/circleci-composition")
-            evidence_authority = "circleci-private-iteration"
-            certification_eligible = False
+            parser.error("CircleCI iteration mode cannot run inside GitHub Actions")
+        root = Path("verification/circleci-composition")
+        evidence_authority = "circleci-private-iteration"
+        certification_eligible = False
     suite = SUITES[args.suite]
     packages = suite["packages"]
     minimum = suite_minimum(args.suite)
