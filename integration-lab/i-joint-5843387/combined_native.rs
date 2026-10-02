@@ -645,7 +645,8 @@ impl Harness {
             .iter()
             .find(|capability| capability.descriptor.name == "driver.faust-audio.sample.render")
             .expect("direct Faust sample.render descriptor");
-        args["output_file"] = Value::String("sync-direct-diagnostic.wav".into());
+        let diagnostic_output = if args["output_file"] == "sync-final.wav" { "sync-direct-diagnostic.wav" } else { "sync-direct-revision-diagnostic.wav" };
+        args["output_file"] = Value::String(diagnostic_output.into());
         Provider::execute(
             provider.as_ref(),
             &Context {

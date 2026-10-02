@@ -52,7 +52,7 @@ const SESSION: &str = "combined-av-native-e2e";
 const B_AUDIO_OWNER_SHA: &str = "df2654bed6d2ac57d547846b69d16ea48b4a9ee3";
 
 fn integration_source_sha() -> String {
-    let sha = std::env::var("SEMWRIGHT_TEST_SOURCE_SHA").expect("exact native integration source SHA");
+    let sha = std::env::var("GITHUB_SHA").expect("exact native integration source SHA");
     assert!(
         sha.len() == 40
             && sha
@@ -172,11 +172,6 @@ fn motion_manifest(executable: &Path, node: &Path) -> Manifest {
                 root: "runtime".into(),
                 read_only: true,
                 execute: true,
-            },
-            DriverMount {
-                root: "media".into(),
-                read_only: true,
-                execute: false,
             },
             DriverMount {
                 root: "fontconfig".into(),
@@ -566,7 +561,6 @@ impl Harness {
                 grant("project", &self.project, true, true),
                 grant("output", &self.output, true, true),
                 grant("runtime", &self.motion_runtime, true, false),
-                grant("media", &self.media, true, false),
                 grant("fontconfig", Path::new("/etc/fonts"), true, false),
                 grant("motion-node-tool", &self.node, true, false),
             ],
@@ -645,8 +639,7 @@ impl Harness {
             .iter()
             .find(|capability| capability.descriptor.name == "driver.faust-audio.sample.render")
             .expect("direct Faust sample.render descriptor");
-        let diagnostic_output = if args["output_file"] == "sync-final.wav" { "sync-direct-diagnostic.wav" } else { "sync-direct-revision-diagnostic.wav" };
-        args["output_file"] = Value::String(diagnostic_output.into());
+        args["output_file"] = Value::String("sync-direct-diagnostic.wav".into());
         Provider::execute(
             provider.as_ref(),
             &Context {
@@ -827,18 +820,10 @@ fn sync_sample_synth(sample_id: &str) -> Synth {
 }
 
 async fn audio_consumer_receipt(
-    executor: &dyn Executor, owner: &Owner,
-    cues: &semwright_media_time::CueGraph, harness: &Harness,
-) -> AudioConsumerReceipt {
-    audio_consumer_receipt_gain(executor, owner, cues, harness, 0).await
-}
-
-async fn audio_consumer_receipt_gain(
     executor: &dyn Executor,
     owner: &Owner,
     cues: &semwright_media_time::CueGraph,
     harness: &Harness,
-    gain_millidb: i32,
 ) -> AudioConsumerReceipt {
     let sample = Sample {
         id: "sync-impulse".into(),
@@ -856,16 +841,7 @@ async fn audio_consumer_receipt_gain(
     };
     let sample_sha = file_sha(&harness.audio_assets().join("sync-impulse.wav"));
     let sample_digest = Digest::parse(sample_sha.clone()).unwrap();
-    let mut synth = sync_sample_synth(&sample.id);
-    if gain_millidb != 0 {
-        synth.signals.push(Signal {
-            id: "revision-gain".into(),
-            inputs: vec![synth.output.clone()],
-            node: SignalNodeKind::Gain { gain: MilliDb(gain_millidb) },
-        });
-        synth.output = "revision-gain".into();
-    }
-    let output_file = if gain_millidb == 0 { "sync-final.wav" } else { "sync-revised.wav" };
+    let synth = sync_sample_synth(&sample.id);
     let mut project = AudioProject::new(AudioProfile {
         sample_rate: SampleRate(48_000),
         channels: 2,
@@ -973,7 +949,7 @@ async fn audio_consumer_receipt_gain(
         .unwrap();
     let plan_id = planned.plan.digest.as_str().to_owned();
     let candidate = session
-        .begin_apply(owner, &planned, &project, &base, if gain_millidb == 0 { "combined-audio-apply" } else { "joint-audio-revision-apply" })
+        .begin_apply(owner, &planned, &project, &base, "combined-audio-apply")
         .unwrap();
     let applied = candidate.model;
     let applied_model = Digest::parse(applied.semantic_digest().unwrap()).unwrap();
@@ -990,7 +966,7 @@ async fn audio_consumer_receipt_gain(
         "channels": 2,
         "format": "wav",
         "bit_depth": 16,
-        "output_file": output_file
+        "output_file": "sync-final.wav"
     });
     let direct = harness
         .direct_faust_sample_render(render_args.clone())
@@ -1017,7 +993,7 @@ async fn audio_consumer_receipt_gain(
     let artifact_bytes = artifact.get("bytes").and_then(Value::as_u64).unwrap();
     assert_eq!(
         artifact.get("file").and_then(Value::as_str),
-        Some(output_file)
+        Some("sync-final.wav")
     );
     assert_eq!(render["native_receipt"]["frames"].as_u64(), Some(96_000));
     assert_eq!(
@@ -1030,7 +1006,7 @@ async fn audio_consumer_receipt_gain(
         executor,
         "driver.audio-analysis.artifact.measure",
         json!({
-            "file_name": output_file,
+            "file_name": "sync-final.wav",
             "expected_sha256": artifact_digest.as_str(),
             "layout": "stereo"
         }),
@@ -1140,7 +1116,7 @@ async fn audio_consumer_receipt_gain(
         handoff: Some(ArtifactHandoffHint {
             version: 1,
             artifact_digest,
-            relative_path: output_file.into(),
+            relative_path: "sync-final.wav".into(),
         }),
     };
     receipt.validate().unwrap();
@@ -1543,54 +1519,10 @@ async fn execute_native_stage(
         .unwrap();
 }
 
-async fn joint_capture_native_stage(
-    coordinator: &mut AvCoordinator,
-    adapter: &mut AgentAStageAdapter,
-    executor: &dyn Executor,
-    harness: &Harness,
-) -> Option<MediaArtifact> {
-    let stage = coordinator.next_stage().expect("next AV stage");
-    let proof = proof_for(coordinator.plan(), stage);
-    let owner = coordinator.plan().body.spec.owner.clone();
-    let fresh = coordinator.expected_base().clone();
-    let call = coordinator.reserve(&owner, &proof, &fresh).unwrap();
-    coordinator
-        .before_dispatch(&call, &owner, &proof, &fresh)
-        .unwrap();
-    let result = adapter
-        .execute(&call, executor, CancellationToken::new())
-        .await
-        .unwrap_or_else(|error| {
-            if stage == Stage::TransferMotion {
-                diagnose_frames_encode(harness, &call, &proof);
-            }
-            panic!("{stage:?} failed: {error:?}")
-        });
-    let rendered = match &result {
-        NativeResult::Rendered { artifact } if stage == Stage::RenderMotion => Some(artifact.clone()),
-        _ => None,
-    };
-    coordinator
-        .complete(NativeReceipt {
-            request_id: call.request_id,
-            av_plan_digest: call.av_plan_digest,
-            owner: call.owner,
-            stage,
-            proof,
-            observed_base: fresh,
-            status: ExecutionStatus::Completed,
-            result: Some(result),
-            effects: vec![],
-        })
-        .unwrap();
-    rendered
-}
-
 async fn execute_publication_stages(
     coordinator: &mut AvCoordinator,
     executor: &dyn Executor,
     owner: &Owner,
-    pointer: &str,
 ) -> PublicationCandidate {
     let publisher = BrokerPublisher::new(
         executor,
@@ -1598,7 +1530,7 @@ async fn execute_publication_stages(
         PublicationTargets {
             candidate_root: "candidate".into(),
             output_root: "published".into(),
-            pointer_path: pointer.into(),
+            pointer_path: "verified-av.json".into(),
             allow_pointer_replacement: false,
         },
     )
@@ -1769,127 +1701,6 @@ fn c14_byte_verification(
     }
 }
 
-
-fn joint_file(harness: &Harness, digest: &Digest, maximum: u64) -> PathBuf {
-    let mut pending = vec![harness.output.clone()];
-    let mut visited = 0;
-    let mut found = None;
-    while let Some(directory) = pending.pop() {
-        for entry in fs::read_dir(directory).unwrap() {
-            visited += 1;
-            assert!(visited <= 2048, "bounded fixture inventory");
-            let path = entry.unwrap().path();
-            let metadata = fs::symlink_metadata(&path).unwrap();
-            if metadata.is_dir() && !metadata.file_type().is_symlink() {
-                pending.push(path);
-            } else if metadata.is_file() && metadata.len() <= maximum && file_sha(&path) == digest.as_str() {
-                assert!(found.replace(path).is_none(), "ambiguous native artifact");
-            }
-        }
-    }
-    found.expect("exact native artifact remains in owned output")
-}
-
-fn joint_pixels(harness: &Harness, artifact: &MediaArtifact) -> Vec<String> {
-    let path = joint_file(harness, &artifact.sha256, 8 * 1024 * 1024);
-    let document: Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
-    assert_eq!(document["pixel_validation"]["mode"], "all");
-    let frames = document["frames"].as_array().unwrap();
-    assert_eq!(frames.len(), 60);
-    frames.iter().map(|frame| {
-        let relative = frame["file"].as_str().unwrap();
-        assert!(relative.starts_with("frames/") && !relative.contains(".."));
-        assert_eq!(file_sha(&path.parent().unwrap().join(relative)), frame["sha256"].as_str().unwrap());
-        frame["pixel_sha256"].as_str().expect("all pixels validated by native renderer").to_owned()
-    }).collect()
-}
-
-async fn joint_visual(executor: &dyn Executor) -> Digest {
-    let inspected = call(executor, "driver.motion-canvas.project.inspect", json!({})).await;
-    assert!(inspected["project"]["scenes"].is_array());
-    // Low-level nodes intentionally omit high-level layout. Include the sealed
-    // authoring binding and every native project field; exclude only the revision
-    // counter so an audio-only conservative re-render can prove visual identity.
-    let mut visual = inspected["project"].as_object().unwrap().clone();
-    assert!(visual["authoring"]["intent"]["sequences"].is_array());
-    visual.remove("revision");
-    canonical_digest(&visual).unwrap()
-}
-
-async fn joint_native_revision(
-    executor: &dyn Executor, harness: &Harness, film: &Film,
-    audio: &AudioConsumerReceipt, pointer: &str,
-) -> (PublicationManifest, MediaArtifact) {
-    let (owner, motion) = motion_subplan(executor, film).await;
-    assert_eq!(owner, audio.project.owner);
-    let plan = combined_av_plan(executor, harness, film, motion, audio);
-    let mut coordinator = AvCoordinator::new(plan.clone()).unwrap();
-    coordinator.import_audio_receipt(audio.clone()).unwrap();
-    let routes = AgentAArtifactRoutes {
-        audio_source_root: "audio-output".into(), handoff_destination_root: "av-delivery".into(),
-        mlt_media_root: "media".into(),
-    };
-    let mut adapter = AgentAStageAdapter::with_artifact_routes(plan, Some(routes)).unwrap();
-    adapter.bind_audio_consumer_receipt(audio).unwrap();
-    let mut motion_artifact = None;
-    while coordinator.next_stage() != Some(Stage::PreparePublication) {
-        match coordinator.next_stage().unwrap() {
-            Stage::ApplyAudio | Stage::RenderAudio | Stage::VerifyAudio => {
-                coordinator.complete_imported_audio_stage().unwrap();
-            }
-            Stage::RenderMotion => {
-                motion_artifact = joint_capture_native_stage(&mut coordinator, &mut adapter, executor, harness).await;
-            }
-            _ => execute_native_stage(&mut coordinator, &mut adapter, executor, harness).await,
-        }
-    }
-    let manifest = coordinator.manifest().unwrap();
-    assert_eq!(manifest.audio_verification.verdict().unwrap(), Verdict::Pass);
-    assert_eq!(manifest.final_audio_verification.verdict().unwrap(), Verdict::Pass);
-    assert_eq!(manifest.sync.verdict, Verdict::Pass);
-    assert!(manifest.sync.exhaustive);
-    let mp4 = joint_file(harness, &manifest.final_artifact.sha256, 64 * 1024 * 1024);
-    assert_eq!(file_sha(&mp4), manifest.final_artifact.sha256.as_str());
-    let publication = execute_publication_stages(&mut coordinator, executor, &owner, pointer).await;
-    assert!(coordinator.ready());
-    let published = harness.media.join(publication.destination_path);
-    assert_eq!(Digest::of_bytes(&fs::read(published).unwrap()), canonical_digest(&manifest).unwrap());
-    (manifest, motion_artifact.unwrap())
-}
-
-fn joint_rebind_mux(
-    graph: &mut pg::ProjectGraph, access: &pg::ProjectAccess, owner: &Owner,
-    template: &pg::ExecutionReceipt, adapter: &pg::ReceiptAdapter,
-    manifest: &PublicationManifest, inputs: &[pg::RevisionRecord],
-    output: &pg::RevisionRecord, request: &str, tick: u64,
-) -> pg::ExecutionReceipt {
-    let mut receipt = template.clone();
-    receipt.id = pg::ReceiptId::new();
-    receipt.derivation = pg::DerivationId::new();
-    receipt.request_id = request.into();
-    receipt.operation.plan = manifest.av_plan_digest.clone();
-    receipt.operation.parameters = canonical_digest(&manifest.delivery).unwrap();
-    receipt.source_base = BaseStateSet(inputs.iter().flat_map(|r| r.observation.base.0.clone()).collect());
-    receipt.inputs = inputs.iter().map(|r| r.pin.clone()).collect();
-    receipt.outputs = vec![output.pin.clone()];
-    receipt.verification = c14_byte_verification(manifest.av_plan_digest.clone(), output, "joint-native-master-byte-readback");
-    for determinant in &mut receipt.determinants {
-        determinant.digest = match determinant.key.as_str() {
-            "c14-mux-motion-verification" => canonical_digest(&manifest.motion_verification).unwrap(),
-            "c14-mux-audio-verification" => canonical_digest(&manifest.audio_verification).unwrap(),
-            "c14-mux-final-audio-verification" => canonical_digest(&manifest.final_audio_verification).unwrap(),
-            "c14-mux-sync-report" => canonical_digest(&manifest.sync).unwrap(),
-            _ => determinant.digest.clone(),
-        };
-    }
-    receipt.completed_unix_ms = tick;
-    graph.accept_receipt(access, adapter.admit(owner, request, receipt.clone()).unwrap()).unwrap();
-    graph.observe_determinants(access, receipt.required_determinants()).unwrap();
-    assert_eq!(graph.inspect(access, &output.pin.asset).unwrap().knowledge.divergence, pg::Divergence::Clean);
-    assert!(!graph.inspect(access, &output.pin.asset).unwrap().knowledge.coverage.cache_safe());
-    receipt
-}
-
 #[tokio::test]
 #[ignore = "requires pinned Motion Canvas, Faust, libebur128, MLT/FFmpeg and production Driver Host"]
 async fn combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_sync() {
@@ -1900,7 +1711,7 @@ async fn combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_s
     let harness = Harness::new();
     let broker = harness.broker().await;
     let executor = broker.session_executor(SESSION);
-    let mut film: Film = serde_json::from_slice(include_bytes!(
+    let film: Film = serde_json::from_slice(include_bytes!(
         "../../../fixtures/composition/av/technical-film.json"
     ))
     .unwrap();
@@ -1908,57 +1719,6 @@ async fn combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_s
     assert_eq!(film.timing.duration, Rational::new(2, 1).unwrap());
     assert_eq!(film.cues.cues.len(), 1);
     assert_eq!(film.cues.cues[0].id, "sync-pulse");
-
-    let producer = required_file("SEMWRIGHT_TEST_BLENDER_PREVIEW");
-    let preview_digest = Digest::of_bytes(&fs::read(&producer).unwrap());
-    assert_eq!(preview_digest.as_str(), "223f4f50215e52a9993330629dc39490d03d33bfbdad2301367189022cbd878b");
-    fs::copy(&producer, harness.media.join("product-preview.png")).unwrap();
-    let bootstrap = call(
-        &executor,
-        "driver.motion-canvas.project.create",
-        json!({
-            "project": {
-                "schema_version": 1, "component_version": 1,
-                "id": film.id, "generation": "00000000000000000000000000000001",
-                "revision": 1,
-                "settings": {"width":320,"height":180,"fps":30,"fps_denominator":1,
-                    "background":"#000000","color_space":"srgb"},
-                "theme": {"font_family":"Instrument Sans Variable","mono_family":"IBM Plex Mono",
-                    "font_size":24.0,"font_weight":500,"spacing":16.0,"line_width":2.0,
-                    "radius":0.0,"colors":{"ink":"#ffffff","surface":"#000000"}},
-                "variables": {}, "scenes": [], "assets": [], "audio": []
-            },
-            "dry_run": false
-        }),
-    ).await;
-    assert_eq!(bootstrap["applied"], true);
-    let inspected = call(&executor, "driver.motion-canvas.project.inspect", json!({})).await;
-    let imported = call(
-        &executor,
-        "driver.motion-canvas.asset.import",
-        json!({"expected_fingerprint":inspected["fingerprint"],"id":"blender-preview",
-            "kind":"image","source":"product-preview.png","dry_run":false,
-            "provenance":"Blender Broker/Host native product scene, run37052144357",
-            "license":"generated-technical-test-input"}),
-    ).await;
-    assert_eq!(imported["applied"], true);
-    assert_eq!(file_sha(&harness.project.join("assets/blender-preview.png")), preview_digest.as_str());
-    film.assets.push(serde_json::from_value(json!({
-        "id":"blender-preview","sha256":preview_digest,"media_type":"image/png",
-        "provenance":"Native E product scene","license":"generated-technical-test-input"
-    })).unwrap());
-    let shot = &mut film.sequences[0].beats[0].shots[0];
-    shot.layers.push(serde_json::from_value(json!({
-        "id":"reference","order":-1,"intentional_overlay":true
-    })).unwrap());
-    shot.subjects.push(serde_json::from_value(json!({
-        "id":"blender-reference","role":"reference","parent":null,"layer":"reference",
-        "content":{"kind":"image","asset_id":"blender-preview","fit":"contain","ratio":1.0},
-        "layout":{"kind":"fixed","position":{"x":-100.0,"y":-50.0},
-            "size":{"width":64.0,"height":64.0}},
-        "initially_visible":true,"clip_intentional":false
-    })).unwrap());
-    film.validate().unwrap();
 
     let (owner, motion) = motion_subplan(&executor, &film).await;
     let audio = audio_consumer_receipt(&executor, &owner, &film.cues, &harness).await;
@@ -1986,8 +1746,7 @@ async fn combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_s
     assert_eq!(coordinator.next_stage(), Some(Stage::ApplyAudio));
     coordinator.complete_imported_audio_stage().unwrap();
     assert_eq!(coordinator.next_stage(), Some(Stage::RenderMotion));
-    let baseline_motion = joint_capture_native_stage(&mut coordinator, &mut adapter, &executor, &harness)
-        .await.expect("native baseline Motion frame artifact");
+    execute_native_stage(&mut coordinator, &mut adapter, &executor, &harness).await;
 
     assert_eq!(coordinator.next_stage(), Some(Stage::RenderAudio));
     coordinator.complete_imported_audio_stage().unwrap();
@@ -2105,7 +1864,7 @@ async fn combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_s
         post_encode_audio_digest
     );
 
-    let publication = execute_publication_stages(&mut coordinator, &executor, &owner, "verified-av.json").await;
+    let publication = execute_publication_stages(&mut coordinator, &executor, &owner).await;
     let manifest_digest = canonical_digest(&manifest).unwrap();
     assert_eq!(publication.manifest_digest, manifest_digest);
     let candidate_manifest = harness.output.join(&publication.source_path);
@@ -2189,20 +1948,6 @@ async fn combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_s
         4,
     );
 
-    let preview_asset = c14_asset(&mut graph, &graph_access, "image", "blender-product-preview");
-    let preview_revision = c14_observe(
-        &mut graph, &graph_access, &graph_owner, &preview_asset, preview_digest.clone(),
-        EvidenceSource::FileRead, "joint_blender_preview_handoff", 4,
-    );
-    let baseline_visual = joint_visual(&executor).await;
-    let baseline_pixels = joint_pixels(&harness, &baseline_motion);
-    let motion_asset = c14_asset(&mut graph, &graph_access, "motion", "native-visual-projection");
-    let motion_revision = c14_observe(&mut graph, &graph_access, &graph_owner, &motion_asset,
-        baseline_visual.clone(), EvidenceSource::NativeApi, "joint_motion_visual_projection", 4);
-    let mut mux_source = audio_revision.observation.base.0.clone();
-    mux_source.extend(preview_revision.observation.base.0.clone());
-    mux_source.extend(motion_revision.observation.base.0.clone());
-
     let mux_descriptor = Digest::parse(
         descriptor_digest(&executor.describe("driver.mlt-video.av.mux").unwrap()).unwrap(),
     )
@@ -2223,8 +1968,8 @@ async fn combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_s
             parameters: canonical_digest(&manifest.delivery).unwrap(),
             recipe: None,
         },
-        source_base: BaseStateSet(mux_source),
-        inputs: vec![audio_revision.pin.clone(), preview_revision.pin.clone(), motion_revision.pin.clone()],
+        source_base: audio_revision.observation.base.clone(),
+        inputs: vec![audio_revision.pin.clone()],
         outputs: vec![master_revision.pin.clone()],
         determinants: vec![
             pg::Determinant {
@@ -2362,38 +2107,6 @@ async fn combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_s
         pg::Divergence::Clean
     );
 
-    // Injected graph observations test dependency invalidation only. These are
-    // model faults, not live FileRead/DecodedMedia of changed native inputs.
-    // Source inputs have no producer receipt; their divergence remains Unknown.
-    let original_audio = audio_revision.pin.fingerprint.bytes.clone().unwrap();
-    let unaffected_audio = graph.inspect(&graph_access, &audio_asset).unwrap();
-    assert_eq!(unaffected_audio.knowledge.divergence, pg::Divergence::Unknown);
-    c14_observe(&mut graph, &graph_access, &graph_owner, &preview_asset,
-        Digest::of_bytes(b"deliberate visual-only external revision"),
-        EvidenceSource::FileRead, "joint_blender_preview_handoff", 9);
-    assert_eq!(graph.inspect(&graph_access, &final_master_asset).unwrap().knowledge.freshness, pg::Freshness::Stale);
-    let audio_after_visual_fault = graph.inspect(&graph_access, &audio_asset).unwrap();
-    assert_eq!(audio_after_visual_fault.latest_revision, unaffected_audio.latest_revision);
-    assert_eq!(audio_after_visual_fault.knowledge.divergence, pg::Divergence::Unknown);
-    assert_eq!(file_sha(&harness.project.join("assets/blender-preview.png")), preview_digest.as_str());
-    c14_observe(&mut graph, &graph_access, &graph_owner, &preview_asset, preview_digest.clone(),
-        EvidenceSource::FileRead, "joint_blender_preview_handoff", 10);
-    let unaffected_preview = graph.inspect(&graph_access, &preview_asset).unwrap();
-    assert_eq!(unaffected_preview.knowledge.divergence, pg::Divergence::Unknown);
-    c14_observe(&mut graph, &graph_access, &graph_owner, &audio_asset,
-        Digest::of_bytes(b"deliberate audio-only external revision"),
-        EvidenceSource::DecodedMedia, "combined_av_audio_master", 11);
-    assert_eq!(graph.inspect(&graph_access, &final_master_asset).unwrap().knowledge.freshness, pg::Freshness::Stale);
-    let preview_after_audio_fault = graph.inspect(&graph_access, &preview_asset).unwrap();
-    assert_eq!(preview_after_audio_fault.latest_revision, unaffected_preview.latest_revision);
-    assert_eq!(preview_after_audio_fault.knowledge.divergence, pg::Divergence::Unknown);
-    c14_observe(&mut graph, &graph_access, &graph_owner, &audio_asset, original_audio,
-        EvidenceSource::DecodedMedia, "combined_av_audio_master", 12);
-    graph.invalidate_scope(&graph_access, vec![preview_asset.clone()]).unwrap();
-    assert_eq!(graph.inspect(&graph_access, &final_master_asset).unwrap().knowledge.freshness, pg::Freshness::Unknown);
-    c14_observe(&mut graph, &graph_access, &graph_owner, &preview_asset, preview_digest.clone(),
-        EvidenceSource::FileRead, "joint_blender_preview_handoff", 13);
-
     // Deliberate harness fault: edit A's published pointer after successful publication.
     // C observes/reconciles it; C never owns or rewrites the publication protocol.
     fs::write(&published_manifest, br#"{"external_edit":true}"#).unwrap();
@@ -2446,17 +2159,8 @@ async fn combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_s
         &c14_evidence,
         serde_json::to_vec_pretty(&json!({
             "schema_version": 1,
-            "classification": "I_JOINT_BLENDER_AV_GRAPH_FIXTURE",
-            "test_suite_sha": std::env::var("GITHUB_SHA").ok(),
-            "blender_preview_sha256": preview_digest,
-            "blender_preview_product_import": true,
-            "input_fault_evidence": "INJECTED_GRAPH_OBSERVATIONS_NOT_NATIVE_READBACK",
-            "visual_only_graph_invalidation": true,
-            "audio_only_graph_invalidation": true,
-            "unknown_scope_fail_closed": true,
-            "native_visual_repair_or_audio_remix_verified": false,
-            "godot_frame_capture_verified": false,
-            "source_sha": Some(integration_source_sha()),
+            "classification": "C14_PROJECT_GRAPH_AV_AUDIO_INTEGRATION",
+            "source_sha": std::env::var("GITHUB_SHA").ok(),
             "project_graph_source_sha": integration_source_sha(),
             "project_graph_owner_sha": "77b34d8abad50f242c4c8494e280fe82d5cbcf55",
             "audio_source_sha": integration_source_sha(),
@@ -2489,7 +2193,7 @@ async fn combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_s
         serde_json::to_vec_pretty(&json!({
             "schema_version": 1,
             "classification": "COMBINED_A_B_NATIVE_AV_CANDIDATE",
-            "source_sha": Some(integration_source_sha()),
+            "source_sha": std::env::var("GITHUB_SHA").ok(),
             "composition_source_sha": integration_source_sha(),
             "composition_owner_sha": "7ab43f99f4cc62be2a9b0ce9ce1155283a429768",
             "audio_source_sha": integration_source_sha(),
@@ -2516,72 +2220,6 @@ async fn combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_s
         .unwrap(),
     )
     .unwrap();
-
-
-    // Actual product revisions on the existing managed project. The original
-    // injected graph tests above remain explicitly separate model faults.
-    let mut visual_json = serde_json::to_value(&film).unwrap();
-    let subjects = visual_json["sequences"][0]["beats"][0]["shots"][0]["subjects"].as_array_mut().unwrap();
-    let subject = subjects.iter_mut().find(|s| s["id"] == "blender-reference").unwrap();
-    subject["layout"]["position"]["x"] = json!(-68.0);
-    let visual_film: Film = serde_json::from_value(visual_json).unwrap();
-    visual_film.validate().unwrap();
-    let prior_audio_pin = graph.inspect(&graph_access, &audio_asset).unwrap().latest_revision;
-    let (visual_manifest, visual_frames) = joint_native_revision(&executor, &harness, &visual_film, &audio, "visual-revision.json").await;
-    let visual_projection = joint_visual(&executor).await;
-    let visual_pixels = joint_pixels(&harness, &visual_frames);
-    assert_ne!(visual_projection, baseline_visual);
-    assert_ne!(visual_pixels, baseline_pixels);
-    assert_eq!(visual_manifest.final_artifact.dependencies["audio-artifact"], pre_encode_audio_digest);
-    assert_eq!(file_sha(&harness.output.join("sync-final.wav")), pre_encode_audio_digest.as_str());
-    let visual_revision = c14_observe(&mut graph, &graph_access, &graph_owner, &motion_asset,
-        visual_projection.clone(), EvidenceSource::NativeApi, "joint_motion_visual_projection", 20);
-    assert_eq!(graph.inspect(&graph_access, &final_master_asset).unwrap().knowledge.freshness, pg::Freshness::Stale);
-    assert_eq!(graph.inspect(&graph_access, &audio_asset).unwrap().latest_revision, prior_audio_pin);
-    let preview_now = c14_observe(&mut graph, &graph_access, &graph_owner, &preview_asset,
-        preview_digest.clone(), EvidenceSource::FileRead, "joint_blender_preview_handoff", 21);
-    let audio_now = c14_observe(&mut graph, &graph_access, &graph_owner, &audio_asset,
-        pre_encode_audio_digest.clone(), EvidenceSource::DecodedMedia, "combined_av_audio_master", 21);
-    let visual_master = c14_observe(&mut graph, &graph_access, &graph_owner, &final_master_asset,
-        visual_manifest.final_artifact.sha256.clone(), EvidenceSource::FileRead, "combined_av_final_master", 22);
-    let visual_receipt = joint_rebind_mux(&mut graph, &graph_access, &graph_owner, &mux_receipt, &mux_adapter,
-        &visual_manifest, &[preview_now.clone(), visual_revision, audio_now], &visual_master, "joint-visual-revision-mux", 23);
-
-    let revised_audio = audio_consumer_receipt_gain(&executor, &owner, &visual_film.cues, &harness, -6000).await;
-    assert_ne!(revised_audio.master.sha256, pre_encode_audio_digest);
-    let revised_audio_observation = c14_observe(&mut graph, &graph_access, &graph_owner, &audio_asset,
-        revised_audio.master.sha256.clone(), EvidenceSource::DecodedMedia, "combined_av_audio_master", 24);
-    assert_eq!(graph.inspect(&graph_access, &final_master_asset).unwrap().knowledge.freshness, pg::Freshness::Stale);
-    // Coverage is incomplete: conservatively re-render visual frames, then prove
-    // identical pixels. This is not a claim of safe cache reuse.
-    let (audio_manifest, audio_frames) = joint_native_revision(&executor, &harness, &visual_film, &revised_audio, "audio-revision.json").await;
-    assert_eq!(joint_visual(&executor).await, visual_projection);
-    assert_eq!(joint_pixels(&harness, &audio_frames), visual_pixels);
-    assert_ne!(audio_manifest.final_artifact.sha256, visual_manifest.final_artifact.sha256);
-    let unchanged_visual = c14_observe(&mut graph, &graph_access, &graph_owner, &motion_asset,
-        visual_projection, EvidenceSource::NativeApi, "joint_motion_visual_projection", 25);
-    let audio_master = c14_observe(&mut graph, &graph_access, &graph_owner, &final_master_asset,
-        audio_manifest.final_artifact.sha256.clone(), EvidenceSource::FileRead, "combined_av_final_master", 26);
-    let audio_receipt = joint_rebind_mux(&mut graph, &graph_access, &graph_owner, &mux_receipt, &mux_adapter,
-        &audio_manifest, &[preview_now, unchanged_visual, revised_audio_observation], &audio_master, "joint-audio-revision-mux", 27);
-    assert_eq!(fs::read(&published_manifest).unwrap(), published_bytes);
-    fs::write(evidence_root.join("joint-native-revisions.json"), serde_json::to_vec_pretty(&json!({
-        "source_sha": integration_source_sha(), "suite_sha": std::env::var("GITHUB_SHA").unwrap(),
-        "route": "Broker -> policy -> Driver Host -> native Motion/Faust/analysis/MLT -> C receipts",
-        "existing_managed_project": true, "visual_revision_changes_pixels": true,
-        "visual_revision_preserves_audio_digest": true, "audio_revision_changes_pcm": true,
-        "audio_revision_visual_pixels_identical_after_conservative_rerender": true,
-        "post_encode_audio_and_exhaustive_sync_both_revisions": true,
-        "new_owned_publication_pointers": true, "original_publication_preserved": true,
-        "visual_mux_receipt": visual_receipt.id.as_str(), "audio_mux_receipt": audio_receipt.id.as_str(),
-        "baseline_master_sha256": manifest.final_artifact.sha256,
-        "visual_master_sha256": visual_manifest.final_artifact.sha256,
-        "audio_master_sha256": audio_manifest.final_artifact.sha256,
-        "original_audio_sha256": pre_encode_audio_digest,
-        "revised_audio_sha256": revised_audio.master.sha256,
-        "coverage_complete": false, "safe_cache_reuse_claimed": false,
-        "godot_frame_capture_verified": false, "r16_closed": false
-    })).unwrap()).unwrap();
 
     broker.shutdown().await;
 }
