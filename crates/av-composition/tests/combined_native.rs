@@ -26,11 +26,13 @@ use semwright_media_time::{MediaArtifact, MediaMetadata, Rate, Rational, Retenti
 use semwright_motion_authoring::Film;
 use semwright_platform_common::{artifact::ArtifactHandoff, filesystem::Filesystem};
 use semwright_policy::{FilesystemGrant, Policy, PolicyConfig};
+use semwright_project_graph as pg;
 use semwright_recipes::Executor;
 use semwright_registry::{Metadata, Registry};
 use semwright_semantic_composition::{
-    BaseState, BaseStateSet, CapabilityBinding, Concurrency, ConvergenceBudget, Digest,
-    EffectClass, ExecutionStatus, Owner, Phase, ResourceKey, Revision, SupportLevel, Verdict,
+    Address, BaseState, BaseStateSet, CapabilityBinding, Concurrency, ConvergenceBudget, Digest,
+    EffectClass, EvidenceClass, EvidenceSource, ExecutionStatus, ObservationRef, Owner, Phase,
+    ResourceKey, Revision, RuleResult, SupportLevel, ValidationReport, Verdict, VerificationReport,
     canonical_digest,
 };
 use semwright_types::ExecuteRequest;
@@ -1282,6 +1284,188 @@ async fn execute_native_stage(
         .unwrap();
 }
 
+async fn execute_publication_stages(
+    coordinator: &mut AvCoordinator,
+    executor: &dyn Executor,
+    owner: &Owner,
+) -> PublicationCandidate {
+    let publisher = BrokerPublisher::new(
+        executor,
+        owner.clone(),
+        PublicationTargets {
+            candidate_root: "candidate".into(),
+            output_root: "published".into(),
+            pointer_path: "verified-av.json".into(),
+            allow_pointer_replacement: false,
+        },
+    )
+    .unwrap();
+
+    let proof = proof_for(coordinator.plan(), Stage::PreparePublication);
+    let fresh = coordinator.expected_base().clone();
+    let call = coordinator.reserve(owner, &proof, &fresh).unwrap();
+    coordinator
+        .before_dispatch(&call, owner, &proof, &fresh)
+        .unwrap();
+    let candidate = publisher
+        .prepare(coordinator, CancellationToken::new())
+        .await
+        .unwrap();
+    coordinator
+        .complete(NativeReceipt {
+            request_id: call.request_id,
+            av_plan_digest: call.av_plan_digest,
+            owner: call.owner,
+            stage: Stage::PreparePublication,
+            proof,
+            observed_base: fresh,
+            status: ExecutionStatus::Completed,
+            result: Some(NativeResult::PublicationPrepared {
+                candidate: candidate.clone(),
+            }),
+            effects: vec![],
+        })
+        .unwrap();
+
+    assert_eq!(coordinator.next_stage(), Some(Stage::Publish));
+    let proof = proof_for(coordinator.plan(), Stage::Publish);
+    let fresh = coordinator.expected_base().clone();
+    let call = coordinator.reserve(owner, &proof, &fresh).unwrap();
+    coordinator
+        .before_dispatch(&call, owner, &proof, &fresh)
+        .unwrap();
+    let result = publisher
+        .publish(coordinator, &candidate, CancellationToken::new())
+        .await
+        .unwrap();
+    coordinator
+        .complete(NativeReceipt {
+            request_id: call.request_id,
+            av_plan_digest: call.av_plan_digest,
+            owner: call.owner,
+            stage: Stage::Publish,
+            proof,
+            observed_base: fresh,
+            status: ExecutionStatus::Completed,
+            result: Some(result),
+            effects: vec![],
+        })
+        .unwrap();
+    assert!(coordinator.ready());
+    candidate
+}
+
+fn c14_asset(
+    graph: &mut pg::ProjectGraph,
+    access: &pg::ProjectAccess,
+    resource_type: &str,
+    label: &str,
+) -> pg::LogicalAssetId {
+    let id = pg::LogicalAssetId::new();
+    graph
+        .register(
+            access,
+            pg::Asset {
+                id: id.clone(),
+                resource_type: resource_type.into(),
+                label: label.into(),
+                locator: None,
+            },
+        )
+        .unwrap();
+    id
+}
+
+fn c14_observe(
+    graph: &mut pg::ProjectGraph,
+    access: &pg::ProjectAccess,
+    owner: &Owner,
+    asset: &pg::LogicalAssetId,
+    digest: Digest,
+    source: EvidenceSource,
+    method: &str,
+    tick: u64,
+) -> pg::RevisionRecord {
+    let resource = ResourceKey {
+        provider: "composition-av-c14".into(),
+        resource: asset.as_str().into(),
+    };
+    let base = BaseStateSet(vec![BaseState {
+        key: resource.clone(),
+        document_id: graph.project_id().as_str().into(),
+        provider_session: owner.session.clone(),
+        generation: "1".into(),
+        revision: Revision::Fingerprint(digest.clone()),
+        concurrency: Concurrency::BestEffortRevalidate,
+    }]);
+    let observation = ObservationRef {
+        id: format!("c14-observation-{tick}"),
+        base,
+        source: source.clone(),
+        method: method.into(),
+        method_version: 1,
+        scope: vec![Address {
+            resource: resource.clone(),
+            logical_id: asset.as_str().into(),
+            property: "bytes".into(),
+        }],
+        artifact: Some(digest.clone()),
+        exhaustive: true,
+    };
+    let generation = graph.inspect(access, asset).unwrap().binding_generation;
+    let adapter = pg::RevisionAdapter::registered(resource, source, method.into(), 1).unwrap();
+    let admitted = adapter
+        .admit(
+            owner,
+            graph.project_id(),
+            asset,
+            generation,
+            pg::RevisionCandidate {
+                version: pg::SCHEMA_VERSION,
+                asset: asset.clone(),
+                fingerprint: pg::Fingerprint {
+                    bytes: Some(digest),
+                    projection: None,
+                },
+                equivalence: pg::Equivalence::ExactBytes,
+                observed_unix_ms: tick,
+                binding_generation: generation,
+                observation,
+                coverage: pg::Coverage::complete(),
+            },
+        )
+        .unwrap();
+    let record = admitted.record().clone();
+    graph.accept_revision(access, admitted).unwrap();
+    record
+}
+
+fn c14_byte_verification(
+    plan: Digest,
+    revision: &pg::RevisionRecord,
+    rule: &str,
+) -> VerificationReport {
+    VerificationReport {
+        execution_status: ExecutionStatus::Completed,
+        support_level: SupportLevel::Composed,
+        effects_observed: revision.observation.scope.clone(),
+        effects_unobservable: vec![],
+        validation: ValidationReport {
+            plan_digest: plan,
+            base: revision.observation.base.clone(),
+            required_rules: BTreeSet::from([rule.into()]),
+            checks: vec![RuleResult {
+                rule: rule.into(),
+                version: 1,
+                verdict: Verdict::Pass,
+                evidence_class: EvidenceClass::Deterministic,
+                evidence: vec![revision.observation.clone()],
+                reason: None,
+            }],
+        },
+    }
+}
+
 #[tokio::test]
 #[ignore = "requires pinned Motion Canvas, Faust, libebur128, MLT/FFmpeg and production Driver Host"]
 async fn combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_sync() {
@@ -1445,6 +1629,309 @@ async fn combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_s
         post_encode_audio_digest
     );
 
+    let publication = execute_publication_stages(&mut coordinator, &executor, &owner).await;
+    let manifest_digest = canonical_digest(&manifest).unwrap();
+    assert_eq!(publication.manifest_digest, manifest_digest);
+    let candidate_manifest = harness.output.join(&publication.source_path);
+    let published_manifest = harness.media.join(&publication.destination_path);
+    let candidate_bytes = fs::read(&candidate_manifest).unwrap();
+    let published_bytes = fs::read(&published_manifest).unwrap();
+    assert_eq!(Digest::of_bytes(&candidate_bytes), manifest_digest);
+    assert_eq!(Digest::of_bytes(&published_bytes), manifest_digest);
+    assert_eq!(candidate_bytes, published_bytes);
+
+    let graph_project = pg::ProjectId::new();
+    let graph_access = pg::ProjectAccess::authorized(
+        owner.clone(),
+        graph_project.clone(),
+        None,
+        true,
+        Digest::of_bytes(b"combined-av-c14-grants"),
+    )
+    .unwrap();
+    let mut graph = pg::ProjectGraph::new(graph_project.clone(), owner.principal.clone()).unwrap();
+    let audio_asset = c14_asset(&mut graph, &graph_access, "audio", "audio-master");
+    let final_master_asset =
+        c14_asset(&mut graph, &graph_access, "av-master", "verified-av-master");
+    let candidate_manifest_asset =
+        c14_asset(&mut graph, &graph_access, "manifest", "private-av-manifest");
+    let published_manifest_asset = c14_asset(
+        &mut graph,
+        &graph_access,
+        "manifest",
+        "published-av-manifest",
+    );
+
+    let audio_revision = c14_observe(
+        &mut graph,
+        &graph_access,
+        &owner,
+        &audio_asset,
+        audio.master.sha256.clone(),
+        EvidenceSource::DecodedMedia,
+        "combined_av_audio_master",
+        1,
+    );
+    let master_revision = c14_observe(
+        &mut graph,
+        &graph_access,
+        &owner,
+        &final_master_asset,
+        manifest.final_artifact.sha256.clone(),
+        EvidenceSource::DecodedMedia,
+        "combined_av_final_master",
+        2,
+    );
+    let candidate_revision = c14_observe(
+        &mut graph,
+        &graph_access,
+        &owner,
+        &candidate_manifest_asset,
+        manifest_digest.clone(),
+        EvidenceSource::FileRead,
+        "combined_av_private_manifest",
+        3,
+    );
+    let published_revision = c14_observe(
+        &mut graph,
+        &graph_access,
+        &owner,
+        &published_manifest_asset,
+        manifest_digest.clone(),
+        EvidenceSource::FileRead,
+        "combined_av_published_manifest",
+        4,
+    );
+
+    let mux_descriptor = Digest::parse(
+        descriptor_digest(&executor.describe("driver.mlt-video.av.mux").unwrap()).unwrap(),
+    )
+    .unwrap();
+    let mux_runtime = runtime_digest(&harness.mlt_exe);
+    let mux_receipt = pg::ExecutionReceipt {
+        version: pg::SCHEMA_VERSION,
+        id: pg::ReceiptId::new(),
+        derivation: pg::DerivationId::new(),
+        project: graph_project.clone(),
+        owner: owner.clone(),
+        request_id: "c14-mux".into(),
+        operation: pg::OperationIdentity {
+            capability: "driver.mlt-video.av.mux".into(),
+            descriptor: mux_descriptor.clone(),
+            runtime: mux_runtime.clone(),
+            plan: manifest.av_plan_digest.clone(),
+            parameters: canonical_digest(&manifest.delivery).unwrap(),
+            recipe: None,
+        },
+        source_base: audio_revision.observation.base.clone(),
+        inputs: vec![audio_revision.pin.clone()],
+        outputs: vec![master_revision.pin.clone()],
+        determinants: vec![
+            pg::Determinant {
+                class: pg::DependencyClass::Contract,
+                key: "c14-mux-motion-verification".into(),
+                digest: canonical_digest(&manifest.motion_verification).unwrap(),
+            },
+            pg::Determinant {
+                class: pg::DependencyClass::Contract,
+                key: "c14-mux-audio-verification".into(),
+                digest: canonical_digest(&manifest.audio_verification).unwrap(),
+            },
+            pg::Determinant {
+                class: pg::DependencyClass::Contract,
+                key: "c14-mux-final-audio-verification".into(),
+                digest: canonical_digest(&manifest.final_audio_verification).unwrap(),
+            },
+            pg::Determinant {
+                class: pg::DependencyClass::Contract,
+                key: "c14-mux-sync-report".into(),
+                digest: canonical_digest(&manifest.sync).unwrap(),
+            },
+            pg::Determinant {
+                class: pg::DependencyClass::External,
+                key: "c14-mux-agent-b-source".into(),
+                digest: Digest::of_bytes(B_AUDIO_SHA.as_bytes()),
+            },
+        ],
+        coverage: pg::Coverage::unknown(),
+        verification: c14_byte_verification(
+            manifest.av_plan_digest.clone(),
+            &master_revision,
+            "c14-final-master-byte-readback",
+        ),
+        completed_unix_ms: 5,
+    };
+    let mux_adapter = pg::ReceiptAdapter::registered(
+        mux_receipt.operation.capability.clone(),
+        mux_descriptor,
+        mux_runtime,
+    )
+    .unwrap();
+    graph
+        .accept_receipt(
+            &graph_access,
+            mux_adapter
+                .admit(&owner, &mux_receipt.request_id.clone(), mux_receipt.clone())
+                .unwrap(),
+        )
+        .unwrap();
+
+    let handoff_descriptor =
+        Digest::parse(descriptor_digest(&executor.describe("artifact.handoff").unwrap()).unwrap())
+            .unwrap();
+    let handoff_runtime = Digest::of_bytes(b"semwright-artifact-handoff-filesystem-v1");
+    let mut publication_source = candidate_revision.observation.base.0.clone();
+    publication_source.extend(master_revision.observation.base.0.clone());
+    let publication_receipt = pg::ExecutionReceipt {
+        version: pg::SCHEMA_VERSION,
+        id: pg::ReceiptId::new(),
+        derivation: pg::DerivationId::new(),
+        project: graph_project.clone(),
+        owner: owner.clone(),
+        request_id: "c14-publication".into(),
+        operation: pg::OperationIdentity {
+            capability: "artifact.handoff".into(),
+            descriptor: handoff_descriptor.clone(),
+            runtime: handoff_runtime.clone(),
+            plan: manifest.av_plan_digest.clone(),
+            parameters: canonical_digest(&publication).unwrap(),
+            recipe: None,
+        },
+        source_base: BaseStateSet(publication_source),
+        inputs: vec![candidate_revision.pin.clone(), master_revision.pin.clone()],
+        outputs: vec![published_revision.pin.clone()],
+        determinants: vec![
+            pg::Determinant {
+                class: pg::DependencyClass::Contract,
+                key: "c14-publish-manifest".into(),
+                digest: manifest_digest.clone(),
+            },
+            pg::Determinant {
+                class: pg::DependencyClass::Bytes,
+                key: "c14-publish-final-master".into(),
+                digest: manifest.final_artifact.sha256.clone(),
+            },
+            pg::Determinant {
+                class: pg::DependencyClass::Contract,
+                key: "c14-publish-cue".into(),
+                digest: manifest.cue_digest.clone(),
+            },
+        ],
+        coverage: pg::Coverage::unknown(),
+        verification: c14_byte_verification(
+            manifest.av_plan_digest.clone(),
+            &published_revision,
+            "c14-published-manifest-byte-readback",
+        ),
+        completed_unix_ms: 6,
+    };
+    let publication_adapter = pg::ReceiptAdapter::registered(
+        publication_receipt.operation.capability.clone(),
+        handoff_descriptor,
+        handoff_runtime,
+    )
+    .unwrap();
+    graph
+        .accept_receipt(
+            &graph_access,
+            publication_adapter
+                .admit(
+                    &owner,
+                    &publication_receipt.request_id.clone(),
+                    publication_receipt.clone(),
+                )
+                .unwrap(),
+        )
+        .unwrap();
+
+    let mut determinants = mux_receipt.required_determinants();
+    determinants.extend(publication_receipt.required_determinants());
+    graph
+        .observe_determinants(&graph_access, determinants)
+        .unwrap();
+    assert_eq!(
+        graph
+            .inspect(&graph_access, &published_manifest_asset)
+            .unwrap()
+            .knowledge
+            .divergence,
+        pg::Divergence::Clean
+    );
+
+    // Deliberate harness fault: edit A's published pointer after successful publication.
+    // C observes/reconciles it; C never owns or rewrites the publication protocol.
+    fs::write(&published_manifest, br#"{"external_edit":true}"#).unwrap();
+    let external_bytes = fs::read(&published_manifest).unwrap();
+    c14_observe(
+        &mut graph,
+        &graph_access,
+        &owner,
+        &published_manifest_asset,
+        Digest::of_bytes(&external_bytes),
+        EvidenceSource::FileRead,
+        "combined_av_published_manifest",
+        7,
+    );
+    assert_eq!(
+        graph
+            .inspect(&graph_access, &published_manifest_asset)
+            .unwrap()
+            .knowledge
+            .divergence,
+        pg::Divergence::Diverged
+    );
+    fs::write(&published_manifest, &published_bytes).unwrap();
+    c14_observe(
+        &mut graph,
+        &graph_access,
+        &owner,
+        &published_manifest_asset,
+        manifest_digest.clone(),
+        EvidenceSource::FileRead,
+        "combined_av_published_manifest",
+        8,
+    );
+    assert_eq!(
+        graph
+            .inspect(&graph_access, &published_manifest_asset)
+            .unwrap()
+            .knowledge
+            .divergence,
+        pg::Divergence::Clean
+    );
+
+    let c14_evidence = PathBuf::from("verification/composition-av/c14-project-graph.json");
+    fs::create_dir_all(c14_evidence.parent().unwrap()).unwrap();
+    fs::write(
+        &c14_evidence,
+        serde_json::to_vec_pretty(&json!({
+            "schema_version": 1,
+            "classification": "C14_PROJECT_GRAPH_AV_AUDIO_INTEGRATION",
+            "source_sha": std::env::var("GITHUB_SHA").ok(),
+            "project_graph_source_sha": "77b34d8abad50f242c4c8494e280fe82d5cbcf55",
+            "audio_source_sha": B_AUDIO_SHA,
+            "project": graph_project.as_str(),
+            "mux_receipt": mux_receipt.id.as_str(),
+            "publication_receipt": publication_receipt.id.as_str(),
+            "audio_asset": audio_asset.as_str(),
+            "final_master_asset": final_master_asset.as_str(),
+            "published_manifest_asset": published_manifest_asset.as_str(),
+            "pre_encode_audio_sha256": pre_encode_audio_digest.as_str(),
+            "post_encode_audio_sha256": post_encode_audio_digest.as_str(),
+            "master_mp4_sha256": manifest.final_artifact.sha256.as_str(),
+            "publication_manifest_sha256": manifest_digest.as_str(),
+            "publication_pointer": publication.destination_path,
+            "broker_publication": true,
+            "external_edit_diverged": true,
+            "exact_restore_clean": true,
+            "coverage_complete": false,
+            "project_graph_ready": false,
+            "r16_closed": false
+        }))
+        .unwrap(),
+    )
+    .unwrap();
+
     let evidence = PathBuf::from("verification/composition-av/combined-native.json");
     fs::create_dir_all(evidence.parent().unwrap()).unwrap();
     fs::write(
@@ -1453,7 +1940,7 @@ async fn combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_s
             "schema_version": 1,
             "classification": "COMBINED_A_B_NATIVE_AV_CANDIDATE",
             "source_sha": std::env::var("GITHUB_SHA").ok(),
-            "composition_source_sha": "34b850507c699c4f67056478210aa97e89bf7548",
+            "composition_source_sha": "7ab43f99f4cc62be2a9b0ce9ce1155283a429768",
             "audio_source_sha": B_AUDIO_SHA,
             "av_plan_sha256": manifest.av_plan_digest.as_str(),
             "pre_encode_audio_sha256": pre_encode_audio_digest.as_str(),
