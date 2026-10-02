@@ -35,7 +35,7 @@ permissions:
 # a distinct concurrency group and cannot be cancelled by a later normal push.
 concurrency:
   group: "blender-authoring-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && inputs.candidate_sha || contains(github.event.head_commit.message, 'Semwright-Certify: blender-authoring') && github.sha || 'iteration' }}"
-  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' && !contains(github.event.head_commit.message, 'Semwright-Certify: blender-authoring') }}
+  cancel-in-progress: "${{ github.event_name != 'workflow_dispatch' && !contains(github.event.head_commit.message, 'Semwright-Certify: blender-authoring') }}"
 
 jobs:
   authoring:
