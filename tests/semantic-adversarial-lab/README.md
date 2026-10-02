@@ -16,7 +16,7 @@ No product source or shared workflow is changed. Compiler test overlays, product
 
 ## Continuation checkpoint
 
-PR #174 remains an independent tests-only lab. The current suite registers 479 cases across 14 lanes, including 104 hosted lab selftests. Registered case count is not itself acceptance; exact product/source SHA, suite SHA, run/job identity, receipt hash and artifact hash remain the evidence boundary.
+PR #174 remains an independent tests-only lab. The current suite registers 480 cases across 14 lanes, including 105 hosted lab selftests. Registered case count is not itself acceptance; exact product/source SHA, suite SHA, run/job identity, receipt hash and artifact hash remain the evidence boundary.
 
 Executed clean scopes include Project Graph 74/74, Effects 40/40, Broker routing 12/12, Skill/package attacks 20/20, Audio 30/30, AV 35/35, Figma 17/17, Motion 20/20, lifecycle 18/18 and clean-room driver distribution 12/12. Native Godot and Blender were also exercised on pinned real runtimes. Their confirmed findings are now closed by exact-SHA owner fix retests; the reports directory preserves the before/fix/after evidence.
 

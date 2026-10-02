@@ -15,12 +15,12 @@
       ],
       "tests": [],
       "source_sha": null,
-      "suite_sha": "fc9e218046c32619d5212217a931cfdad71b98b4",
-      "run_id": 36888045183,
-      "job_id": 110456380047,
+      "suite_sha": "81a743d0285bfd8267deff6676d77e074d49a78e",
+      "run_id": 36949632755,
+      "job_id": 110659848019,
       "evidence": [
-        "selftest 104/104 PASS receipt 285ab07dfc12584f0a776a97a61aae39fa6ce872f92a4fe2a30705265778adc1",
-        "selftest artifact c94a57f1f31340b920b6537bead75290082201dba05b2902ee7b0039515d8990"
+        "current harness selftest 105/105 PASS receipt e0f263ab7b1540a165ac4d320298013fe15b4fa7656b55a61e5660f53c48953f",
+        "current harness artifact 2cd0d8a4050c539bb555e056d389cb21368529e7694db0d07b867102059dd384"
       ],
       "blocker": "Independent G ownership, immutable target selection, oracle identity and evidence ingestion controls are hosted-executed. This does not certify product readiness.",
       "implementation_suite_sha": null,
@@ -38,11 +38,11 @@
       ],
       "tests": [],
       "source_sha": null,
-      "suite_sha": "fc9e218046c32619d5212217a931cfdad71b98b4",
-      "run_id": 36888045183,
-      "job_id": 110456380047,
+      "suite_sha": "81a743d0285bfd8267deff6676d77e074d49a78e",
+      "run_id": 36949632755,
+      "job_id": 110659848019,
       "evidence": [
-        "hosted selftest 104/104 PASS",
+        "current hosted selftest 105/105 PASS",
         "native Godot and Blender experiments used disposable GitHub-hosted runners with synthetic canaries and fail-closed isolation"
       ],
       "blocker": "Linux/GitHub-hosted isolation controls passed in tested scope. Windows/macOS G enclosure acceptance is outside this lab.",
@@ -267,7 +267,7 @@
       "evidence": [
         "effects 40/40 PASS receipt c017ea7c3543318d3967f16653607f0dd5e03213bc001dfd0eaf6694f454a1c4",
         "effects artifact a4ce1e9852c4bf98455d2301fcc951b3e8b87e555d8f503c9b87ba050108305c",
-        "Composition guard mutants G-MUT-001/002 killed; latest hosted selftest 104/104 PASS"
+        "latest hosted selftest 105/105 PASS on suite 81a743d"
       ],
       "blocker": "False-PASS/evidence-oracle controls are clean in tested contract scope. Separate native product findings remain tracked under G06/G07.",
       "implementation_suite_sha": null,
@@ -698,21 +698,21 @@
       ],
       "tests": [],
       "source_sha": null,
-      "suite_sha": "c913a26badc218b9e53756e68eb22398c52f5550",
-      "run_id": 36946146627,
-      "job_id": 110652860701,
+      "suite_sha": "81a743d0285bfd8267deff6676d77e074d49a78e",
+      "run_id": 36949632755,
+      "job_id": 110659848019,
       "evidence": [
-        "479 cases registered across 14 lanes",
-        "current E-fix suite selftest 104/104 PASS",
+        "480 cases registered across 14 lanes",
+        "joint-candidate routing selftest 105/105 PASS",
         "all known owner findings are CLOSED_RETEST_PASS",
         "combined_candidate_sha remains null"
       ],
-      "blocker": "No explicit I combined-candidate handoff exists. Individual exact-SHA owner scopes are clean after fixes, but separate results cannot certify an integrated candidate. R16/demo/security guarantee remain out of scope.",
+      "blocker": "No explicit I combined-candidate handoff exists. G is prepared to route the joint SHA through every product lane, but separate owner results cannot certify an integrated candidate. R16/demo/security guarantee remain out of scope.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     }
   ],
-  "registered_cases": 479,
+  "registered_cases": 480,
   "implementation_suite_sha": null,
   "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit; no tested commit is inferred",
   "historical_submissions": [
@@ -723,5 +723,5 @@
       "last_observed": "queued"
     }
   ],
-  "updated_at": "2026-10-02T00:55:29.349063+00:00"
+  "updated_at": "2026-10-02T01:19:10.755072+00:00"
 }

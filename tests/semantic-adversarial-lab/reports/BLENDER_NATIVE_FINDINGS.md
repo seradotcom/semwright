@@ -61,7 +61,7 @@ without product changes. The final isolated run above has no infrastructure bloc
 
 ## Owner status
 
-Current E PR #175 remains on the attacked certified product SHA 3d04d8465dcfa94d6cbf548fcaf343f69ac5838f. No product fix SHA for G-FIND-E-001 has been published to G, so no retest or closure is claimed.
+E published two successive fixes. The first FIX_SHA 44780d977735ccc9417ec2992427833abffd0f3c still reproduced G-BLENDER-010; second FIX_SHA f492f13a028f781d9ca55631764578f5b327eb1b closed the finding in the retest documented below.
 
 ## Failed fix retest
 

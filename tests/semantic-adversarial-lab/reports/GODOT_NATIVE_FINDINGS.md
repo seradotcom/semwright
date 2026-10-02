@@ -65,7 +65,7 @@ G-GODOT-011 export and G-GODOT-012 standalone launch both PASS in the final run,
 
 ## Owner status
 
-Current D PR #176 head is 7eaf8de059bb871d525dd5a72b617a9bc6f1d0f6. Relative to the attacked e6bd9489d7983d275fd1454dd7ab26916d3fbb15 target, the relevant native-observation implementation files for G-FIND-D-001 and G-FIND-D-002 are unchanged; the observed delta is certification/test work. G therefore keeps both findings OPEN_OWNER_TRIAGE and does not infer a fix from D readiness status.
+D published FIX_SHA 70bd7857e9700b6f03547a706ff0e6496ffd838e specifically addressing both G native findings. The closure retest below supersedes the earlier owner-open status.
 
 ## Closure retest
 
