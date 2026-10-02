@@ -1149,9 +1149,16 @@ async fn run_sealed_tool(
     } else {
         Duration::from_secs(30)
     };
-    let output = context
-        .execute_runtime_tool(HELPER_NAME, args, source.to_vec(), wall_timeout)
-        .await?;
+    let output = if wall_timeout <= Duration::from_secs(30) {
+        context
+            .execute_runtime_tool(HELPER_NAME, args, source.to_vec(), wall_timeout)
+            .await?
+    } else {
+        let job = context
+            .start_runtime_tool_job(HELPER_NAME, args, source.to_vec(), wall_timeout, None)
+            .await?;
+        context.wait_runtime_tool_job(&job).await?
+    };
     if output.stdout.len() > 262144 || output.stderr.len() > 262144 {
         return Err(Error::new(
             ErrorCode::ResourceExhausted,

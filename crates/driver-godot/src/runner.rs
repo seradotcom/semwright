@@ -781,18 +781,20 @@ impl Runner {
                         )
                     })?
             };
-            let output = context
-                .execute_runtime_tool_with_cwd(
-                    "godot",
-                    argv.to_vec(),
-                    Vec::new(),
-                    timeout,
-                    RuntimeToolCwd {
-                        mount: cwd_mount.to_owned(),
-                        relative: String::new(),
-                    },
-                )
-                .await?;
+            let cwd = RuntimeToolCwd {
+                mount: cwd_mount.to_owned(),
+                relative: String::new(),
+            };
+            let output = if timeout <= Duration::from_secs(30) {
+                context
+                    .execute_runtime_tool_with_cwd("godot", argv.to_vec(), Vec::new(), timeout, cwd)
+                    .await?
+            } else {
+                let job = context
+                    .start_runtime_tool_job("godot", argv.to_vec(), Vec::new(), timeout, Some(cwd))
+                    .await?;
+                context.wait_runtime_tool_job(&job).await?
+            };
             if output.stdout.len() > MAX_LOG || output.stderr.len() > MAX_LOG {
                 return Err(Error::new(
                     ErrorCode::ResourceExhausted,

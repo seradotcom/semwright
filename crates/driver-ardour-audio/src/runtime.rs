@@ -748,8 +748,8 @@ close_session()
             let payload = serde_json::to_vec(&serde_json::json!({
                 "args": args, "project_root": self.session_root, "output_root": self.output_root
             }))?;
-            let output = context
-                .execute_runtime_tool_args(
+            let job = context
+                .start_runtime_tool_job_args(
                     "ardour-runtime-runner",
                     vec![
                         RuntimeToolArg::Literal {
@@ -779,6 +779,7 @@ close_session()
                     }),
                 )
                 .await?;
+            let output = context.wait_runtime_tool_job(&job).await?;
             if output.stdout.len() > MAX_STDOUT_BYTES || output.stderr.len() > MAX_STDERR_BYTES {
                 return Err(Error::new(
                     ErrorCode::ResourceExhausted,

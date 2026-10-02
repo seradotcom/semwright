@@ -1825,6 +1825,59 @@ impl DriverExecutionContext {
         }
     }
 
+    /// Await a Host-owned job within the initiating request. Cancellation first
+    /// cancels and reaps that job; uncertain cleanup never reports a known outcome.
+    pub async fn wait_runtime_tool_job(&self, job: &RuntimeToolJob) -> Result<ToolExecutionOutput> {
+        loop {
+            match self.runtime_tool_job_status(job).await {
+                Ok(RuntimeToolJobStatus::Succeeded { output }) => return Ok(output),
+                Ok(RuntimeToolJobStatus::Failed { error }) => return Err(error),
+                Ok(RuntimeToolJobStatus::Cancelled) => {
+                    return Err(Error::new(
+                        ErrorCode::Cancelled,
+                        "Host runtime-tool job was cancelled",
+                    ));
+                }
+                Ok(RuntimeToolJobStatus::Running | RuntimeToolJobStatus::Cancelling) => {}
+                Err(mut error) => {
+                    if self.cancel_and_reap_runtime_tool_job(job).await.is_err() {
+                        error.outcome_known = false;
+                    }
+                    return Err(error);
+                }
+            }
+            tokio::select! {
+                biased;
+                _ = self.cancellation.cancelled() => {
+                    let cleanup = self.cancel_and_reap_runtime_tool_job(job).await;
+                    let mut error = Error::new(ErrorCode::Cancelled,
+                        "Runtime-tool job wait cancelled by request");
+                    error.outcome_known = cleanup.is_ok();
+                    return Err(error);
+                }
+                _ = tokio::time::sleep(std::time::Duration::from_millis(100)) => {}
+            }
+        }
+    }
+
+    async fn cancel_and_reap_runtime_tool_job(&self, job: &RuntimeToolJob) -> Result<()> {
+        let started = std::time::Instant::now();
+        loop {
+            if self.cancel_runtime_tool_job(job).await?.terminal() {
+                return Ok(());
+            }
+            if started.elapsed() >= std::time::Duration::from_secs(15) {
+                let mut error = Error::new(
+                    ErrorCode::Timeout,
+                    "Runtime-tool job cleanup was not confirmed",
+                );
+                error.outcome_known = false;
+                return Err(error);
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        }
+    }
+
     pub async fn runtime_tool_job_status(
         &self,
         job: &RuntimeToolJob,
