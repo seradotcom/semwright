@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "role": "F",
+  "implementation_source_sha": "b27271f17cdc11a9ec8931728df880e6bdc64870",
+  "state": "NATIVE_PENDING_NOT_READY_FOR_INTEGRATION",
+  "baseline_sha": "b736d41b61c4a4146c9e75c16796e251b025e69f",
+  "a_contract_sha": "26602e4b25929be869d69ef28fef4dd9713180d7",
+  "c_p0_sha": "6ee52b428310370d3ad438a13964086a63f48367",
+  "e0_sha": "dd6d22d6ec6c7c5ef378da58ed75ca18b25ba5ff",
+  "pr_number": 172,
+  "branch": "feat/effect-conformance",
+  "contract_evidence": {
+    "source_sha": "42204ac6a6f3c66ba66de5adfe689d8633bb7c74",
+    "run_id": 36504224825,
+    "job_id": 109201878358,
+    "executed_tests": 34,
+    "skipped": 0,
+    "contract_result": "PASS",
+    "job_result": "FAIL",
+    "job_failure": "non-snake-case test names; corrected in a00bc6a without changing assertions"
+  },
+  "current_source_run": {
+    "run_id": 36506086003,
+    "source_sha": "b27271f17cdc11a9ec8931728df880e6bdc64870",
+    "last_observed_status": "pending",
+    "conclusion": null
+  },
+  "native_evidence_confirmed": false,
+  "targeted_mutations_confirmed": false,
+  "portable_matrix_confirmed": false,
+  "backup": {
+    "path": "docs/effects/backup/semwright-effect-conformance-b27271f.zip",
+    "files": 42,
+    "bytes": 52191,
+    "sha256": "6945c4a789ad8fd3631adb506b077d5a10d271617c8841001416fb5aedd47fbd",
+    "kind": "reconstructive source patch ZIP",
+    "reconstruction": "PASS; all source files and Cargo.lock compared byte-for-byte",
+    "determinism": "two independent runs produced identical ZIP bytes",
+    "build_or_native_execution": false
+  },
+  "open": [
+    "Owner A review",
+    "Production D/E adapters and final A/B/C integration receipts",
+    "Current-SHA native and negative conformance",
+    "Targeted mutation execution",
+    "Sequential portable matrix execution",
+    "Audit/license and clean installation",
+    "Final integrated acceptance; R16 remains open"
+  ],
+  "claims_excluded": [
+    "native Broker E2E from adapter probes",
+    "global noninterference",
+    "crash durability",
+    "cross-app rollback",
+    "security certification",
+    "R16 closure"
+  ]
+}

@@ -1,7 +1,7 @@
 use semwright_driver_sdk::{Driver, descriptor_digest};
 use semwright_godot_driver::{
     GodotDriver,
-    catalog::Catalog,
+    catalog::{Catalog, Route},
     config::{Config, ProjectConfig},
     model::semantic_diff,
 };
@@ -41,14 +41,22 @@ fn all_driver_schemas_fit_external_registry_budget() {
 #[test]
 fn catalog_declares_generic_artifact_ports() {
     let catalog = Catalog::load().unwrap();
-    let rescan = catalog.get("driver.godot.assets.rescan").unwrap();
-    for expected in [
-        "artifact-in:model/3d",
-        "artifact-in:image/raster",
-        "artifact-in:image/vector",
-        "artifact-in:audio/sample",
+    for command in [
+        "driver.godot.assets.rescan",
+        "driver.godot.composition.plan",
     ] {
-        assert!(rescan.capability.tags.iter().any(|tag| tag == expected));
+        let capability = catalog.get(command).unwrap();
+        for expected in [
+            "artifact-in:model/3d",
+            "artifact-in:image/raster",
+            "artifact-in:image/vector",
+            "artifact-in:audio/sample",
+        ] {
+            assert!(
+                capability.capability.tags.iter().any(|tag| tag == expected),
+                "{command} missing {expected}"
+            );
+        }
     }
 
     for (name, expected) in [
@@ -94,6 +102,7 @@ async fn local_driver_routes_work() {
             secret: "b".repeat(64),
         }],
         runner: None,
+        authoring: None,
     };
     let mut driver = GodotDriver::new(config).await.unwrap();
     let catalog = Catalog::load().unwrap();
@@ -323,12 +332,13 @@ fn catalog_plugin_routes_have_editor_handlers() {
 
 #[test]
 fn catalog_routes_partition_the_full_surface() {
-    use semwright_godot_driver::catalog::Route;
     let catalog = Catalog::load().unwrap();
     assert_eq!(catalog.names_for(Route::Local).len(), 3);
     assert_eq!(catalog.names_for(Route::Plugin).len(), 179);
     assert_eq!(catalog.names_for(Route::Runner).len(), 6);
-    assert_eq!(catalog.capabilities().len(), 188);
+    assert_eq!(catalog.names_for(Route::Authoring).len(), 8);
+    assert_eq!(catalog.names_for(Route::AuthoringRunner).len(), 4);
+    assert_eq!(catalog.capabilities().len(), 200);
 }
 
 #[test]
@@ -700,4 +710,168 @@ fn scene_save_external_resource_policy_is_explicit_and_typed() {
     let mut out_of_scope = base.clone();
     out_of_scope["path"] = json!("res://another.tscn");
     assert!(save.validate_input(&out_of_scope).is_err());
+}
+
+#[test]
+fn runner_capabilities_accept_owned_managed_projects_without_accepting_paths() {
+    let catalog = Catalog::load().unwrap();
+    for name in [
+        "driver.godot.project.validate",
+        "driver.godot.project.run_test",
+        "driver.godot.export.pack",
+        "driver.godot.export.build",
+        "driver.godot.movie.capture",
+    ] {
+        let entry = catalog.get(name).unwrap();
+        let mut input = match name {
+            "driver.godot.export.pack" => {
+                json!({"managed_project":"technical_two","preset":"Linux","output":"game.pck"})
+            }
+            "driver.godot.export.build" => {
+                json!({"managed_project":"technical_two","preset":"Linux","output":"game.x86_64","debug":false})
+            }
+            "driver.godot.movie.capture" => {
+                json!({"managed_project":"technical_two","output":"game.avi","frames":30,"fps":30})
+            }
+            _ => json!({"managed_project":"technical_two"}),
+        };
+        entry.validate_input(&input).unwrap();
+
+        input["project"] = json!("a".repeat(64));
+        assert!(
+            entry.validate_input(&input).is_err(),
+            "{name} must reject simultaneous paired and managed selectors"
+        );
+
+        input.as_object_mut().unwrap().remove("project");
+        input["managed_project"] = json!("../escape");
+        assert!(
+            entry.validate_input(&input).is_err(),
+            "{name} must reject path-shaped managed project selectors"
+        );
+    }
+}
+
+#[test]
+fn native_authoring_verification_is_code_execution_and_not_a_plain_runner() {
+    let catalog = Catalog::load().unwrap();
+    for name in [
+        "driver.godot.composition.native.verify",
+        "driver.godot.composition.native.query",
+        "driver.godot.composition.native.tracks.page",
+        "driver.godot.composition.native.keys.page",
+    ] {
+        let entry = catalog.get(name).unwrap();
+        assert_eq!(entry.route, Route::AuthoringRunner);
+        assert_eq!(
+            entry.capability.descriptor.risk,
+            semwright_types::Risk::CodeExecution
+        );
+        assert!(entry.capability.descriptor.interactive_consent);
+        assert!(
+            !catalog
+                .capabilities_for_runtime(true, false)
+                .iter()
+                .any(|capability| capability.descriptor.name == name)
+        );
+        assert!(
+            !catalog
+                .capabilities_for_runtime(false, true)
+                .iter()
+                .any(|capability| capability.descriptor.name == name)
+        );
+        assert!(
+            catalog
+                .capabilities_for_runtime(true, true)
+                .iter()
+                .any(|capability| capability.descriptor.name == name)
+        );
+    }
+
+    let query = catalog
+        .get("driver.godot.composition.native.query")
+        .unwrap();
+    let node_query = json!({
+        "plan_id":"godot_plan_1234",
+        "scene":"arena",
+        "target":{"kind":"node","logical_key":"arena/player"},
+        "properties":["velocity","script"]
+    });
+    query.validate_input(&node_query).unwrap();
+    let resource_query = json!({
+        "plan_id":"godot_plan_1234",
+        "scene":"arena",
+        "target":{"kind":"resource","path":"res://resources/material.tres"},
+        "properties":["roughness"]
+    });
+    query.validate_input(&resource_query).unwrap();
+    for invalid in [
+        json!({
+            "plan_id":"godot_plan_1234",
+            "scene":"arena",
+            "target":{"kind":"node","logical_key":"arena/player"},
+            "properties":["velocity","velocity"]
+        }),
+        json!({
+            "plan_id":"godot_plan_1234",
+            "scene":"arena",
+            "target":{"kind":"resource","path":"../material.tres"},
+            "properties":[]
+        }),
+        json!({
+            "plan_id":"godot_plan_1234",
+            "scene":"arena",
+            "target":{"kind":"node","logical_key":"arena/player"},
+            "properties":["bad/property"]
+        }),
+    ] {
+        assert!(query.validate_input(&invalid).is_err(), "{invalid}");
+    }
+
+    let page = catalog
+        .get("driver.godot.composition.native.tracks.page")
+        .unwrap();
+    let valid = json!({
+        "plan_id":"godot_plan_1234",
+        "scene":"arena",
+        "cursor":null,
+        "limit":64
+    });
+    page.validate_input(&valid).unwrap();
+    for (field, value) in [
+        ("limit", json!(0)),
+        ("limit", json!(65)),
+        ("cursor", json!("gtr1.not-a-digest.64")),
+        ("scene", json!("../arena")),
+    ] {
+        let mut invalid = valid.clone();
+        invalid[field] = value;
+        assert!(page.validate_input(&invalid).is_err(), "{field}");
+    }
+
+    let keys = catalog
+        .get("driver.godot.composition.native.keys.page")
+        .unwrap();
+    let valid_keys = json!({
+        "plan_id":"godot_plan_1234",
+        "scene":"arena",
+        "player":".",
+        "library":"",
+        "animation":"paged_tracks",
+        "track_index":0,
+        "cursor":null,
+        "limit":64
+    });
+    keys.validate_input(&valid_keys).unwrap();
+    for (field, value) in [
+        ("limit", json!(0)),
+        ("limit", json!(65)),
+        ("track_index", json!(2048)),
+        ("cursor", json!("gky1.not-a-digest.64")),
+        ("animation", json!("")),
+    ] {
+        let mut invalid = valid_keys.clone();
+        invalid[field] = value;
+        assert!(keys.validate_input(&invalid).is_err(), "{field}");
+    }
 }

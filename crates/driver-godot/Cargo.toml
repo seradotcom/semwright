@@ -21,6 +21,10 @@ futures-util.workspace = true
 jsonschema.workspace = true
 libc.workspace = true
 semwright-driver-sdk.workspace = true
+semwright-semantic-composition.workspace = true
+semwright-project-graph.workspace = true
+semwright-effect-conformance.workspace = true
+schemars.workspace = true
 semwright-types.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -35,9 +39,11 @@ zeroize = "1"
 
 [dev-dependencies]
 proptest.workspace = true
+semwright-core.workspace = true
 semwright-backend-api.workspace = true
 semwright-driver-host.workspace = true
 semwright-policy.workspace = true
+semwright-platform-common.workspace = true
 semwright-registry.workspace = true
 tempfile.workspace = true
 

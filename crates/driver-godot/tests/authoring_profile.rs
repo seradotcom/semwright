@@ -1,0 +1,426 @@
+#![cfg(target_os = "linux")]
+use semwright_godot_driver::{
+    authoring::{
+        native_observation::{
+            NATIVE_VERSION, NativeEvidenceBinding, NativeNode, NativeObservation, NativeProjection,
+            NativeVerifyResult, ProbeMode,
+        },
+        profile::{RepairMode, RepairPlanRequest},
+        runtime::AuthoringRuntime,
+        *,
+    },
+    catalog::{Catalog, Route},
+    config::AuthoringConfig,
+};
+use semwright_project_graph::{
+    Asset, Equivalence, ProjectAccess, ProjectGraph, ProjectId, RevisionAdapter,
+};
+use semwright_semantic_composition::{
+    Digest, EvidenceSource, Owner, PrincipalBinding, State, Verdict,
+};
+use semwright_types::ErrorCode;
+use std::{collections::BTreeMap, fs, os::unix::fs::PermissionsExt};
+
+fn fixture() -> GodotAuthoringSpec {
+    validate::decode(include_bytes!("fixtures/authoring/two_d.json")).unwrap()
+}
+
+fn environment() -> (tempfile::TempDir, AuthoringConfig) {
+    let root = tempfile::tempdir().unwrap();
+    for name in ["output", "state", "input"] {
+        fs::create_dir(root.path().join(name)).unwrap();
+    }
+    fs::write(
+        root.path().join("input/start_cue.wav"),
+        include_bytes!("fixtures/authoring/start_cue.wav"),
+    )
+    .unwrap();
+    fs::set_permissions(root.path().join("state"), fs::Permissions::from_mode(0o700)).unwrap();
+    let config = AuthoringConfig {
+        output_root: root.path().join("output"),
+        state_root: root.path().join("state"),
+        input_root: Some(root.path().join("input")),
+    };
+    (root, config)
+}
+
+fn owner(session: &str) -> Owner {
+    Owner {
+        session: session.into(),
+        principal: PrincipalBinding::HostSession,
+    }
+}
+
+fn runtime(config: AuthoringConfig) -> AuthoringRuntime {
+    let catalog = Catalog::load().unwrap();
+    AuthoringRuntime::new(config, catalog.authoring_profile().unwrap()).unwrap()
+}
+
+#[test]
+fn catalog_exposes_exact_composition_surface_and_strict_schemas() {
+    let catalog = Catalog::load().unwrap();
+    let names = catalog.names_for(Route::Authoring);
+    assert_eq!(names.len(), 8);
+    for name in [
+        "driver.godot.composition.inspect",
+        "driver.godot.composition.plan",
+        "driver.godot.composition.apply",
+        "driver.godot.composition.measure",
+        "driver.godot.composition.validate",
+        "driver.godot.composition.repair.plan",
+        "driver.godot.composition.repair.apply",
+        "driver.godot.composition.verify",
+    ] {
+        assert!(names.contains(&name.to_owned()), "{name}");
+    }
+    let profile = catalog.authoring_profile().unwrap();
+    assert_eq!(profile.capabilities.len(), 8);
+    assert_eq!(profile.required_rules.len(), 2);
+    assert!(
+        catalog
+            .get("driver.godot.composition.inspect")
+            .unwrap()
+            .validate_input(&serde_json::json!({"project":"arena","unexpected":true}))
+            .is_err()
+    );
+}
+
+#[test]
+fn empty_root_plan_apply_validate_verify_uses_a_c_f_contracts() {
+    let (_root, config) = environment();
+    let mut runtime = runtime(config.clone());
+    let owner = owner("host-session-a");
+    let spec = fixture();
+
+    let plan = runtime.plan(&owner, spec.clone()).unwrap();
+    assert!(!config.output_root.join(&spec.project).exists());
+    assert!(!plan.plan_id.is_empty());
+    assert_eq!(plan.base.0[0].provider_session, owner.session);
+
+    let applied = runtime
+        .apply(&owner, &plan.plan_id, false, "req-apply-1", || Ok(()))
+        .unwrap();
+    assert_eq!(applied.controller_state, State::Observing);
+    assert_eq!(applied.source_state, "IN_SYNC");
+    assert!(
+        config
+            .output_root
+            .join(&spec.project)
+            .join("project.godot")
+            .is_file()
+    );
+
+    let measured = runtime.measure(&owner, &plan.plan_id).unwrap();
+    assert_eq!(measured.snapshot.status, "IN_SYNC");
+    assert!(measured.observation.exhaustive);
+    let managed_script = measured
+        .snapshot
+        .files
+        .iter()
+        .find(|file| file.path == "scripts/arena.gd")
+        .expect("managed behavior file");
+    assert!(
+        managed_script
+            .asset
+            .as_deref()
+            .is_some_and(|asset| asset.starts_with("asset_"))
+    );
+    assert!(
+        managed_script
+            .revision
+            .as_deref()
+            .is_some_and(|revision| revision.starts_with("rev_"))
+    );
+    assert_eq!(managed_script.kind.as_deref(), Some("behavior"));
+    assert_eq!(managed_script.logical_key.as_deref(), Some("arena"));
+    assert_eq!(managed_script.active, Some(true));
+
+    let validated = runtime.validate(&owner, &plan.plan_id).unwrap();
+    assert_eq!(validated.report.verdict().unwrap(), Verdict::Pass);
+    assert_eq!(validated.controller_state, State::Verified);
+    assert_eq!(validated.report.checks.len(), 5);
+    let required = validated
+        .report
+        .checks
+        .iter()
+        .filter(|check| validated.report.required_rules.contains(&check.rule))
+        .collect::<Vec<_>>();
+    assert_eq!(required.len(), 2);
+    assert!(required.iter().all(|check| {
+        check.verdict == Verdict::Pass
+            && check.evidence.len() == 1
+            && matches!(
+                check.evidence[0].method.as_str(),
+                "godot_managed_source_hash" | "godot_derivation_manifest"
+            )
+    }));
+    let native_preferences = validated
+        .report
+        .checks
+        .iter()
+        .filter(|check| !validated.report.required_rules.contains(&check.rule))
+        .collect::<Vec<_>>();
+    assert_eq!(native_preferences.len(), 3);
+    assert!(
+        native_preferences
+            .iter()
+            .all(|check| { check.verdict == Verdict::Unknown && check.evidence.is_empty() })
+    );
+
+    let verified = runtime.verify(&owner, &plan.plan_id).unwrap();
+    assert_eq!(verified.report.verdict().unwrap(), Verdict::Pass);
+    assert_eq!(verified.report.effects_observed.len(), 2);
+    assert_eq!(verified.report.effects_unobservable.len(), 3);
+    assert_eq!(verified.receipt.owner, owner);
+    assert_eq!(
+        verified.receipt.operation.capability,
+        "driver.godot.composition.apply"
+    );
+    assert!(!verified.receipt.coverage.complete);
+    verified.receipt.validate().unwrap();
+}
+
+#[test]
+fn plan_authority_is_owner_bound_and_single_attempt() {
+    let (_root, config) = environment();
+    let mut runtime = runtime(config);
+    let alice = owner("host-session-a");
+    let bob = owner("host-session-b");
+    let plan = runtime.plan(&alice, fixture()).unwrap();
+
+    let error = runtime
+        .apply(&bob, &plan.plan_id, false, "req-bob", || Ok(()))
+        .unwrap_err();
+    assert_eq!(error.code, ErrorCode::PermissionDenied);
+
+    runtime
+        .apply(&alice, &plan.plan_id, false, "req-alice", || Ok(()))
+        .unwrap();
+    let replay = runtime
+        .apply(&alice, &plan.plan_id, false, "req-replay", || Ok(()))
+        .unwrap_err();
+    assert_eq!(replay.code, ErrorCode::Conflict);
+}
+
+#[test]
+fn missing_managed_source_has_bounded_repair_but_diverged_source_does_not() {
+    let (_root, config) = environment();
+    let mut runtime = runtime(config.clone());
+    let owner = owner("host-session-a");
+    let spec = fixture();
+    let plan = runtime.plan(&owner, spec.clone()).unwrap();
+    runtime
+        .apply(&owner, &plan.plan_id, false, "req-initial", || Ok(()))
+        .unwrap();
+
+    let generated = config
+        .output_root
+        .join(&spec.project)
+        .join("scripts/arena.gd");
+    fs::remove_file(&generated).unwrap();
+
+    let failed = runtime.validate(&owner, &plan.plan_id).unwrap();
+    assert_eq!(failed.report.verdict().unwrap(), Verdict::Fail);
+    assert_eq!(failed.controller_state, State::RepairPlanned);
+
+    let repair = runtime
+        .repair_plan(
+            &owner,
+            RepairPlanRequest {
+                parent_plan_id: plan.plan_id.clone(),
+                mode: RepairMode::MissingManagedSource,
+            },
+        )
+        .unwrap();
+    assert!(repair.repair);
+    assert!(repair.writes.contains(&"scripts/arena.gd".into()));
+    runtime
+        .apply(&owner, &repair.plan_id, true, "req-repair", || Ok(()))
+        .unwrap();
+    let repaired = runtime.validate(&owner, &repair.plan_id).unwrap();
+    assert_eq!(repaired.report.verdict().unwrap(), Verdict::Pass);
+    assert_eq!(repaired.controller_state, State::Verified);
+
+    fs::write(&generated, b"# human edit\n").unwrap();
+    let conflict = runtime.plan(&owner, spec).unwrap_err();
+    assert_eq!(conflict.code, ErrorCode::Conflict);
+}
+
+#[test]
+fn native_revision_candidate_requires_c_generation_and_c_admits_it() {
+    let (_root, config) = environment();
+    let mut runtime = runtime(config);
+    let driver_owner = owner("driver-host-session");
+    let spec = fixture();
+    let scene = spec.main_scene.clone();
+    let plan = runtime.plan(&driver_owner, spec.clone()).unwrap();
+    runtime
+        .apply(
+            &driver_owner,
+            &plan.plan_id,
+            false,
+            "req-native-revision-apply",
+            || Ok(()),
+        )
+        .unwrap();
+
+    let snapshot = runtime.inspect(&spec.project).unwrap();
+    let project_id = ProjectId::parse(snapshot.project_id.clone().unwrap()).unwrap();
+    let scene_asset = semwright_project_graph::LogicalAssetId::parse(
+        snapshot.bindings[&format!("scene:{scene}")].clone(),
+    )
+    .unwrap();
+    let projection = NativeProjection {
+        nodes: vec![NativeNode {
+            path: ".".into(),
+            class: "Node2D".into(),
+            instance_id: "101".into(),
+            parent: None,
+            owner: None,
+            scene_file: format!("res://scenes/{scene}.tscn"),
+            logical_id: Some(scene_asset.as_str().into()),
+            logical_key: Some(scene.clone()),
+            groups: vec![],
+            properties: BTreeMap::new(),
+        }],
+        resources: vec![],
+        animations: vec![],
+        connections: vec![],
+        unknown: vec![],
+    };
+    let result = NativeVerifyResult::Inspect {
+        binding: NativeEvidenceBinding {
+            owner: driver_owner.clone(),
+            request_id: "req-native-revision".into(),
+            project: project_id.clone(),
+            slug: spec.project.clone(),
+            scene: scene.clone(),
+            plan_digest: plan.plan_digest.clone(),
+            intent_digest: plan.intent_digest.clone(),
+            source_fingerprint: snapshot.fingerprint.clone(),
+        },
+        observation: NativeObservation {
+            version: NATIVE_VERSION,
+            nonce: "native_revision_0001".into(),
+            source_fingerprint: snapshot.fingerprint.clone(),
+            mode: ProbeMode::Inspect,
+            engine_version: "4.7.2.stable.test".into(),
+            process_id: "101".into(),
+            loaded_scene: format!("res://scenes/{scene}.tscn"),
+            loaded_scene_sha256: Digest::of_bytes(b"native-scene"),
+            candidate_sha256: None,
+            authored: projection,
+            live: None,
+            frames: vec![],
+            dependencies: vec![],
+            dependency_complete: true,
+            inputs_delivered: 0,
+            elapsed_physics_frames: 0,
+            failures: vec![],
+        },
+    };
+
+    assert!(
+        runtime
+            .native_revision_candidate(
+                &driver_owner,
+                &plan.plan_id,
+                "req-native-revision",
+                &scene,
+                0,
+                &result,
+            )
+            .is_err()
+    );
+
+    let graph_owner = Owner {
+        session: "project-graph-host-session".into(),
+        principal: PrincipalBinding::Named("os-user-v1:test-owner".into()),
+    };
+    let access = ProjectAccess::authorized(
+        graph_owner.clone(),
+        project_id.clone(),
+        None,
+        true,
+        Digest::of_bytes(b"project-grants"),
+    )
+    .unwrap();
+    let mut graph = ProjectGraph::new(project_id.clone(), graph_owner.principal.clone()).unwrap();
+    graph
+        .register(
+            &access,
+            Asset {
+                id: scene_asset.clone(),
+                resource_type: "godot_scene".into(),
+                label: scene.clone(),
+                locator: None,
+            },
+        )
+        .unwrap();
+    let generation = graph
+        .inspect(&access, &scene_asset)
+        .unwrap()
+        .binding_generation;
+    let candidate = runtime
+        .native_revision_candidate(
+            &driver_owner,
+            &plan.plan_id,
+            "req-native-revision",
+            &scene,
+            generation,
+            &result,
+        )
+        .unwrap();
+    assert_eq!(candidate.asset, scene_asset);
+    assert_eq!(candidate.binding_generation, generation);
+    assert!(candidate.coverage.complete);
+    assert_eq!(candidate.equivalence, Equivalence::Projection);
+    assert_eq!(candidate.observation.source, EvidenceSource::NativeApi);
+    assert_eq!(
+        candidate.observation.method,
+        "godot_native_project_observation"
+    );
+    assert_eq!(candidate.observation.scope.len(), 1);
+
+    let resource = candidate.observation.scope[0].resource.clone();
+    let adapter = RevisionAdapter::registered(
+        resource,
+        EvidenceSource::NativeApi,
+        "godot_native_project_observation".into(),
+        1,
+    )
+    .unwrap();
+    let admitted = adapter
+        .admit(
+            &graph_owner,
+            &project_id,
+            &scene_asset,
+            generation,
+            candidate,
+        )
+        .unwrap();
+    graph.accept_revision(&access, admitted).unwrap();
+    assert_eq!(
+        graph
+            .revisions(&access, &scene_asset, None, 8)
+            .unwrap()
+            .len(),
+        1
+    );
+
+    let stale = runtime
+        .native_revision_candidate(
+            &driver_owner,
+            &plan.plan_id,
+            "req-native-revision",
+            &scene,
+            generation + 1,
+            &result,
+        )
+        .unwrap();
+    assert!(
+        adapter
+            .admit(&graph_owner, &project_id, &scene_asset, generation, stale,)
+            .is_err()
+    );
+}

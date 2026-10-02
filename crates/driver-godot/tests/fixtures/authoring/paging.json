@@ -1,0 +1,5476 @@
+{
+  "version": 1,
+  "project": "technical_paging",
+  "title": "Semwright Native Track Paging Fixture",
+  "main_scene": "arena",
+  "settings": {
+    "width": 640,
+    "height": 360,
+    "physics_ticks": 60
+  },
+  "inputs": [
+    {
+      "id": "left",
+      "key": "left"
+    },
+    {
+      "id": "right",
+      "key": "right"
+    },
+    {
+      "id": "start",
+      "key": "enter"
+    },
+    {
+      "id": "restart",
+      "key": "r"
+    }
+  ],
+  "assets": [],
+  "scenes": [
+    {
+      "id": "arena",
+      "dimension": "two",
+      "entities": [
+        {
+          "id": "player",
+          "parent": null,
+          "position": [
+            64,
+            160,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "groups": [],
+          "node": {
+            "kind": "body2d",
+            "shape": {
+              "kind": "rectangle",
+              "size": [
+                16,
+                16
+              ]
+            },
+            "layer": 1,
+            "mask": 2
+          }
+        },
+        {
+          "id": "visual",
+          "parent": "player",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "groups": [],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              16,
+              16
+            ],
+            "color": [
+              0.2,
+              0.8,
+              0.6,
+              1
+            ]
+          }
+        },
+        {
+          "id": "collectible",
+          "parent": null,
+          "position": [
+            190,
+            160,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "groups": [],
+          "node": {
+            "kind": "area2d",
+            "shape": {
+              "kind": "circle",
+              "radius": 14
+            },
+            "layer": 2,
+            "mask": 1
+          }
+        },
+        {
+          "id": "collectible_visual",
+          "parent": "collectible",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "groups": [],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              20,
+              20
+            ],
+            "color": [
+              1,
+              0.8,
+              0.2,
+              1
+            ]
+          }
+        },
+        {
+          "id": "obstacle",
+          "parent": null,
+          "position": [
+            300,
+            160,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "groups": [],
+          "node": {
+            "kind": "area2d",
+            "shape": {
+              "kind": "rectangle",
+              "size": [
+                24,
+                60
+              ]
+            },
+            "layer": 4,
+            "mask": 1
+          }
+        },
+        {
+          "id": "obstacle_visual",
+          "parent": "obstacle",
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "groups": [],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              24,
+              60
+            ],
+            "color": [
+              1,
+              0.2,
+              0.3,
+              1
+            ]
+          }
+        },
+        {
+          "id": "hud",
+          "parent": null,
+          "position": [
+            16,
+            16,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "groups": [],
+          "node": {
+            "kind": "label",
+            "text": "Enter to start. R to restart.",
+            "size": 24
+          }
+        },
+        {
+          "id": "animator",
+          "parent": null,
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ],
+          "groups": [],
+          "node": {
+            "kind": "animator"
+          }
+        },
+        {
+          "id": "page_00",
+          "parent": null,
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_01",
+          "parent": null,
+          "position": [
+            6.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_02",
+          "parent": null,
+          "position": [
+            12.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_03",
+          "parent": null,
+          "position": [
+            18.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_04",
+          "parent": null,
+          "position": [
+            24.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_05",
+          "parent": null,
+          "position": [
+            30.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_06",
+          "parent": null,
+          "position": [
+            36.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_07",
+          "parent": null,
+          "position": [
+            42.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_08",
+          "parent": null,
+          "position": [
+            48.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_09",
+          "parent": null,
+          "position": [
+            54.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_10",
+          "parent": null,
+          "position": [
+            0.0,
+            6.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_11",
+          "parent": null,
+          "position": [
+            6.0,
+            6.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_12",
+          "parent": null,
+          "position": [
+            12.0,
+            6.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_13",
+          "parent": null,
+          "position": [
+            18.0,
+            6.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_14",
+          "parent": null,
+          "position": [
+            24.0,
+            6.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_15",
+          "parent": null,
+          "position": [
+            30.0,
+            6.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_16",
+          "parent": null,
+          "position": [
+            36.0,
+            6.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_17",
+          "parent": null,
+          "position": [
+            42.0,
+            6.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_18",
+          "parent": null,
+          "position": [
+            48.0,
+            6.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_19",
+          "parent": null,
+          "position": [
+            54.0,
+            6.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_20",
+          "parent": null,
+          "position": [
+            0.0,
+            12.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_21",
+          "parent": null,
+          "position": [
+            6.0,
+            12.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_22",
+          "parent": null,
+          "position": [
+            12.0,
+            12.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_23",
+          "parent": null,
+          "position": [
+            18.0,
+            12.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_24",
+          "parent": null,
+          "position": [
+            24.0,
+            12.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_25",
+          "parent": null,
+          "position": [
+            30.0,
+            12.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_26",
+          "parent": null,
+          "position": [
+            36.0,
+            12.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_27",
+          "parent": null,
+          "position": [
+            42.0,
+            12.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_28",
+          "parent": null,
+          "position": [
+            48.0,
+            12.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_29",
+          "parent": null,
+          "position": [
+            54.0,
+            12.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_30",
+          "parent": null,
+          "position": [
+            0.0,
+            18.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_31",
+          "parent": null,
+          "position": [
+            6.0,
+            18.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_32",
+          "parent": null,
+          "position": [
+            12.0,
+            18.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_33",
+          "parent": null,
+          "position": [
+            18.0,
+            18.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_34",
+          "parent": null,
+          "position": [
+            24.0,
+            18.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_35",
+          "parent": null,
+          "position": [
+            30.0,
+            18.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_36",
+          "parent": null,
+          "position": [
+            36.0,
+            18.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_37",
+          "parent": null,
+          "position": [
+            42.0,
+            18.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_38",
+          "parent": null,
+          "position": [
+            48.0,
+            18.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_39",
+          "parent": null,
+          "position": [
+            54.0,
+            18.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_40",
+          "parent": null,
+          "position": [
+            0.0,
+            24.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_41",
+          "parent": null,
+          "position": [
+            6.0,
+            24.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_42",
+          "parent": null,
+          "position": [
+            12.0,
+            24.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_43",
+          "parent": null,
+          "position": [
+            18.0,
+            24.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_44",
+          "parent": null,
+          "position": [
+            24.0,
+            24.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_45",
+          "parent": null,
+          "position": [
+            30.0,
+            24.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_46",
+          "parent": null,
+          "position": [
+            36.0,
+            24.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_47",
+          "parent": null,
+          "position": [
+            42.0,
+            24.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_48",
+          "parent": null,
+          "position": [
+            48.0,
+            24.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_49",
+          "parent": null,
+          "position": [
+            54.0,
+            24.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_50",
+          "parent": null,
+          "position": [
+            0.0,
+            30.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_51",
+          "parent": null,
+          "position": [
+            6.0,
+            30.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_52",
+          "parent": null,
+          "position": [
+            12.0,
+            30.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_53",
+          "parent": null,
+          "position": [
+            18.0,
+            30.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_54",
+          "parent": null,
+          "position": [
+            24.0,
+            30.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_55",
+          "parent": null,
+          "position": [
+            30.0,
+            30.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_56",
+          "parent": null,
+          "position": [
+            36.0,
+            30.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_57",
+          "parent": null,
+          "position": [
+            42.0,
+            30.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_58",
+          "parent": null,
+          "position": [
+            48.0,
+            30.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_59",
+          "parent": null,
+          "position": [
+            54.0,
+            30.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_60",
+          "parent": null,
+          "position": [
+            0.0,
+            36.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_61",
+          "parent": null,
+          "position": [
+            6.0,
+            36.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_62",
+          "parent": null,
+          "position": [
+            12.0,
+            36.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_63",
+          "parent": null,
+          "position": [
+            18.0,
+            36.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_64",
+          "parent": null,
+          "position": [
+            24.0,
+            36.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_65",
+          "parent": null,
+          "position": [
+            30.0,
+            36.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_66",
+          "parent": null,
+          "position": [
+            36.0,
+            36.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_67",
+          "parent": null,
+          "position": [
+            42.0,
+            36.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_68",
+          "parent": null,
+          "position": [
+            48.0,
+            36.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        },
+        {
+          "id": "page_69",
+          "parent": null,
+          "position": [
+            54.0,
+            36.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "groups": [
+            "paging_fixture"
+          ],
+          "node": {
+            "kind": "visual2d",
+            "size": [
+              4.0,
+              4.0
+            ],
+            "color": [
+              0.3,
+              0.6,
+              0.9,
+              1.0
+            ]
+          }
+        }
+      ],
+      "animations": [
+        {
+          "id": "paged_tracks",
+          "animator": "animator",
+          "length": 2.0,
+          "looping": true,
+          "tracks": [
+            {
+              "entity": "page_00",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 0.028985507246376812,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.001,
+                      1.001
+                    ]
+                  }
+                },
+                {
+                  "time": 0.057971014492753624,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.002,
+                      1.002
+                    ]
+                  }
+                },
+                {
+                  "time": 0.08695652173913043,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.003,
+                      1.003
+                    ]
+                  }
+                },
+                {
+                  "time": 0.11594202898550725,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.004,
+                      1.004
+                    ]
+                  }
+                },
+                {
+                  "time": 0.14492753623188406,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.005,
+                      1.005
+                    ]
+                  }
+                },
+                {
+                  "time": 0.17391304347826086,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.006,
+                      1.006
+                    ]
+                  }
+                },
+                {
+                  "time": 0.2028985507246377,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.007,
+                      1.007
+                    ]
+                  }
+                },
+                {
+                  "time": 0.2318840579710145,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.008,
+                      1.008
+                    ]
+                  }
+                },
+                {
+                  "time": 0.2608695652173913,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.009,
+                      1.009
+                    ]
+                  }
+                },
+                {
+                  "time": 0.2898550724637681,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.01,
+                      1.01
+                    ]
+                  }
+                },
+                {
+                  "time": 0.3188405797101449,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.011,
+                      1.011
+                    ]
+                  }
+                },
+                {
+                  "time": 0.34782608695652173,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.012,
+                      1.012
+                    ]
+                  }
+                },
+                {
+                  "time": 0.37681159420289856,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.013,
+                      1.013
+                    ]
+                  }
+                },
+                {
+                  "time": 0.4057971014492754,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.014,
+                      1.014
+                    ]
+                  }
+                },
+                {
+                  "time": 0.43478260869565216,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.015,
+                      1.015
+                    ]
+                  }
+                },
+                {
+                  "time": 0.463768115942029,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.016,
+                      1.016
+                    ]
+                  }
+                },
+                {
+                  "time": 0.4927536231884058,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.017,
+                      1.017
+                    ]
+                  }
+                },
+                {
+                  "time": 0.5217391304347826,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.018,
+                      1.018
+                    ]
+                  }
+                },
+                {
+                  "time": 0.5507246376811594,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.019,
+                      1.019
+                    ]
+                  }
+                },
+                {
+                  "time": 0.5797101449275363,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.02,
+                      1.02
+                    ]
+                  }
+                },
+                {
+                  "time": 0.6086956521739131,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.021,
+                      1.021
+                    ]
+                  }
+                },
+                {
+                  "time": 0.6376811594202898,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.022,
+                      1.022
+                    ]
+                  }
+                },
+                {
+                  "time": 0.6666666666666666,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.023,
+                      1.023
+                    ]
+                  }
+                },
+                {
+                  "time": 0.6956521739130435,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.024,
+                      1.024
+                    ]
+                  }
+                },
+                {
+                  "time": 0.7246376811594203,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.025,
+                      1.025
+                    ]
+                  }
+                },
+                {
+                  "time": 0.7536231884057971,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.026,
+                      1.026
+                    ]
+                  }
+                },
+                {
+                  "time": 0.782608695652174,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.027,
+                      1.027
+                    ]
+                  }
+                },
+                {
+                  "time": 0.8115942028985508,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.028,
+                      1.028
+                    ]
+                  }
+                },
+                {
+                  "time": 0.8405797101449275,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.029,
+                      1.029
+                    ]
+                  }
+                },
+                {
+                  "time": 0.8695652173913043,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.03,
+                      1.03
+                    ]
+                  }
+                },
+                {
+                  "time": 0.8985507246376812,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.031,
+                      1.031
+                    ]
+                  }
+                },
+                {
+                  "time": 0.927536231884058,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.032,
+                      1.032
+                    ]
+                  }
+                },
+                {
+                  "time": 0.9565217391304348,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.033,
+                      1.033
+                    ]
+                  }
+                },
+                {
+                  "time": 0.9855072463768116,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.034,
+                      1.034
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0144927536231885,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.035,
+                      1.035
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0434782608695652,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.036,
+                      1.036
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0724637681159421,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.037,
+                      1.037
+                    ]
+                  }
+                },
+                {
+                  "time": 1.1014492753623188,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.038,
+                      1.038
+                    ]
+                  }
+                },
+                {
+                  "time": 1.1304347826086956,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.039,
+                      1.039
+                    ]
+                  }
+                },
+                {
+                  "time": 1.1594202898550725,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.04,
+                      1.04
+                    ]
+                  }
+                },
+                {
+                  "time": 1.1884057971014492,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.041,
+                      1.041
+                    ]
+                  }
+                },
+                {
+                  "time": 1.2173913043478262,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.042,
+                      1.042
+                    ]
+                  }
+                },
+                {
+                  "time": 1.2463768115942029,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.043,
+                      1.043
+                    ]
+                  }
+                },
+                {
+                  "time": 1.2753623188405796,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.044,
+                      1.044
+                    ]
+                  }
+                },
+                {
+                  "time": 1.3043478260869565,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.045,
+                      1.045
+                    ]
+                  }
+                },
+                {
+                  "time": 1.3333333333333333,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.046,
+                      1.046
+                    ]
+                  }
+                },
+                {
+                  "time": 1.3623188405797102,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.047,
+                      1.047
+                    ]
+                  }
+                },
+                {
+                  "time": 1.391304347826087,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.048,
+                      1.048
+                    ]
+                  }
+                },
+                {
+                  "time": 1.4202898550724639,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.049,
+                      1.049
+                    ]
+                  }
+                },
+                {
+                  "time": 1.4492753623188406,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.05,
+                      1.05
+                    ]
+                  }
+                },
+                {
+                  "time": 1.4782608695652173,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.051,
+                      1.051
+                    ]
+                  }
+                },
+                {
+                  "time": 1.5072463768115942,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.052,
+                      1.052
+                    ]
+                  }
+                },
+                {
+                  "time": 1.536231884057971,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.053,
+                      1.053
+                    ]
+                  }
+                },
+                {
+                  "time": 1.565217391304348,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.054,
+                      1.054
+                    ]
+                  }
+                },
+                {
+                  "time": 1.5942028985507246,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.055,
+                      1.055
+                    ]
+                  }
+                },
+                {
+                  "time": 1.6231884057971016,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.056,
+                      1.056
+                    ]
+                  }
+                },
+                {
+                  "time": 1.6521739130434783,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.057,
+                      1.057
+                    ]
+                  }
+                },
+                {
+                  "time": 1.681159420289855,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.058,
+                      1.058
+                    ]
+                  }
+                },
+                {
+                  "time": 1.710144927536232,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.059,
+                      1.059
+                    ]
+                  }
+                },
+                {
+                  "time": 1.7391304347826086,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.06,
+                      1.06
+                    ]
+                  }
+                },
+                {
+                  "time": 1.7681159420289856,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.061,
+                      1.061
+                    ]
+                  }
+                },
+                {
+                  "time": 1.7971014492753623,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.062,
+                      1.062
+                    ]
+                  }
+                },
+                {
+                  "time": 1.826086956521739,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.063,
+                      1.063
+                    ]
+                  }
+                },
+                {
+                  "time": 1.855072463768116,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.064,
+                      1.064
+                    ]
+                  }
+                },
+                {
+                  "time": 1.8840579710144927,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.065,
+                      1.065
+                    ]
+                  }
+                },
+                {
+                  "time": 1.9130434782608696,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.066,
+                      1.066
+                    ]
+                  }
+                },
+                {
+                  "time": 1.9420289855072463,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.067,
+                      1.067
+                    ]
+                  }
+                },
+                {
+                  "time": 1.9710144927536233,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.068,
+                      1.068
+                    ]
+                  }
+                },
+                {
+                  "time": 2.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.069,
+                      1.069
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_01",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_02",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_03",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_04",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_05",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_06",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_07",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_08",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_09",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_10",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_11",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_12",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_13",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_14",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_15",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_16",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_17",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_18",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_19",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_20",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_21",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_22",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_23",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_24",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_25",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_26",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_27",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_28",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_29",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_30",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_31",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_32",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_33",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_34",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_35",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_36",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_37",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_38",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_39",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_40",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_41",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_42",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_43",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_44",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_45",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_46",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_47",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_48",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_49",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_50",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_51",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_52",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_53",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_54",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_55",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_56",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_57",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_58",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_59",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_60",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_61",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_62",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_63",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_64",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_65",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_66",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_67",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_68",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "entity": "page_69",
+              "property": "scale",
+              "keys": [
+                {
+                  "time": 0.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.0,
+                      1.0
+                    ]
+                  }
+                },
+                {
+                  "time": 1.0,
+                  "value": {
+                    "kind": "vector2",
+                    "value": [
+                      1.1,
+                      1.1
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "behavior": {
+        "states": [
+          "start",
+          "play",
+          "win",
+          "lose"
+        ],
+        "initial_state": "start",
+        "variables": [
+          {
+            "id": "score",
+            "initial": {
+              "kind": "int",
+              "value": 0
+            }
+          }
+        ],
+        "expressions": [
+          {
+            "kind": "literal",
+            "value": {
+              "kind": "scalar",
+              "value": 0.0
+            }
+          },
+          {
+            "kind": "axis",
+            "negative": "left",
+            "positive": "right"
+          },
+          {
+            "kind": "literal",
+            "value": {
+              "kind": "scalar",
+              "value": 120.0
+            }
+          },
+          {
+            "kind": "binary",
+            "op": "multiply",
+            "left": 1,
+            "right": 2
+          },
+          {
+            "kind": "vector2",
+            "x": 3,
+            "y": 0
+          },
+          {
+            "kind": "read",
+            "variable": "score"
+          },
+          {
+            "kind": "literal",
+            "value": {
+              "kind": "int",
+              "value": 1
+            }
+          },
+          {
+            "kind": "binary",
+            "op": "add",
+            "left": 5,
+            "right": 6
+          },
+          {
+            "kind": "literal",
+            "value": {
+              "kind": "int",
+              "value": 1
+            }
+          },
+          {
+            "kind": "binary",
+            "op": "equal",
+            "left": 5,
+            "right": 8
+          }
+        ],
+        "timers": [
+          {
+            "id": "deadline",
+            "ticks": 1200,
+            "repeat": false
+          }
+        ],
+        "signals": [],
+        "handlers": [
+          {
+            "id": "begin",
+            "event": {
+              "kind": "input",
+              "action": "start"
+            },
+            "state": "start",
+            "condition": null,
+            "repeat": 1,
+            "actions": [
+              {
+                "kind": "transition",
+                "state": "play"
+              },
+              {
+                "kind": "start_timer",
+                "timer": "deadline"
+              }
+            ]
+          },
+          {
+            "id": "motion",
+            "event": {
+              "kind": "physics_tick"
+            },
+            "state": "play",
+            "condition": null,
+            "repeat": 1,
+            "actions": [
+              {
+                "kind": "move2d",
+                "entity": "player",
+                "velocity": 4,
+                "max_speed": 180.0
+              }
+            ]
+          },
+          {
+            "id": "collect",
+            "event": {
+              "kind": "area_entered",
+              "area": "collectible",
+              "body": "player"
+            },
+            "state": "play",
+            "condition": null,
+            "repeat": 1,
+            "actions": [
+              {
+                "kind": "set",
+                "variable": "score",
+                "value": 7
+              },
+              {
+                "kind": "label",
+                "entity": "hud",
+                "prefix": "Score: ",
+                "variable": "score"
+              },
+              {
+                "kind": "visible",
+                "entity": "collectible",
+                "visible": false
+              }
+            ]
+          },
+          {
+            "id": "win",
+            "event": {
+              "kind": "physics_tick"
+            },
+            "state": "play",
+            "condition": 9,
+            "repeat": 1,
+            "actions": [
+              {
+                "kind": "transition",
+                "state": "win"
+              },
+              {
+                "kind": "label",
+                "entity": "hud",
+                "prefix": "Win. Score: ",
+                "variable": "score"
+              }
+            ]
+          },
+          {
+            "id": "lose",
+            "event": {
+              "kind": "area_entered",
+              "area": "obstacle",
+              "body": "player"
+            },
+            "state": "play",
+            "condition": null,
+            "repeat": 1,
+            "actions": [
+              {
+                "kind": "transition",
+                "state": "lose"
+              },
+              {
+                "kind": "label",
+                "entity": "hud",
+                "prefix": "Lose. Score: ",
+                "variable": "score"
+              }
+            ]
+          },
+          {
+            "id": "timeout",
+            "event": {
+              "kind": "timer",
+              "timer": "deadline"
+            },
+            "state": "play",
+            "condition": null,
+            "repeat": 1,
+            "actions": [
+              {
+                "kind": "transition",
+                "state": "lose"
+              }
+            ]
+          },
+          {
+            "id": "restart",
+            "event": {
+              "kind": "input",
+              "action": "restart"
+            },
+            "state": null,
+            "condition": null,
+            "repeat": 1,
+            "actions": [
+              {
+                "kind": "restart"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "limits": {
+    "actions_per_event": 128,
+    "actions_per_tick": 2048,
+    "events_per_tick": 128,
+    "entities": 1024,
+    "spawns_per_tick": 8
+  }
+}

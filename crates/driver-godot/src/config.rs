@@ -31,6 +31,14 @@ pub struct RunnerConfig {
     pub display: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AuthoringConfig {
+    pub output_root: PathBuf,
+    pub state_root: PathBuf,
+    pub input_root: Option<PathBuf>,
+}
+
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
@@ -39,6 +47,8 @@ pub struct Config {
     pub development_mode: bool,
     pub projects: Vec<ProjectConfig>,
     pub runner: Option<RunnerConfig>,
+    #[serde(default)]
+    pub authoring: Option<AuthoringConfig>,
 }
 
 #[derive(Deserialize)]
@@ -60,6 +70,8 @@ struct StoredConfig {
     development_mode: bool,
     projects: Vec<StoredProjectConfig>,
     runner: Option<RunnerConfig>,
+    #[serde(default)]
+    authoring: Option<AuthoringConfig>,
 }
 
 impl Config {
@@ -122,16 +134,23 @@ impl Config {
             development_mode: stored.development_mode,
             projects,
             runner: stored.runner,
+            authoring: stored.authoring,
         };
         config.validate()?;
         Ok(config)
     }
 
     pub fn validate(&self) -> Result<()> {
-        if self.port == 0 || self.projects.is_empty() || self.projects.len() > 8 {
+        if self.port == 0
+            || (self.projects.is_empty() && self.authoring.is_none())
+            || self.projects.len() > 8
+        {
             return Err(Error::invalid(
-                "Godot config requires a port and 1..8 projects",
+                "Godot config requires a port and paired projects or an authoring grant",
             ));
+        }
+        if let Some(authoring) = &self.authoring {
+            authoring.validate()?;
         }
         let mut ids = BTreeSet::new();
         for project in &self.projects {
@@ -310,5 +329,46 @@ mod tests {
     fn secret_file_must_live_under_run_secrets() {
         let error = load_secret_file(Path::new("/tmp/not-a-secret")).unwrap_err();
         assert_eq!(error.code, ErrorCode::PermissionDenied);
+    }
+}
+
+impl AuthoringConfig {
+    pub fn validate(&self) -> Result<()> {
+        for root in [&self.output_root, &self.state_root]
+            .into_iter()
+            .chain(self.input_root.iter())
+        {
+            if !root.is_absolute() || root.canonicalize()? != *root || !root.is_dir() {
+                return Err(Error::new(
+                    ErrorCode::PermissionDenied,
+                    "Authoring roots must be canonical directories",
+                ));
+            }
+        }
+        let overlaps = |a: &Path, b: &Path| a.starts_with(b) || b.starts_with(a);
+        if overlaps(&self.state_root, &self.output_root)
+            || self.input_root.as_ref().is_some_and(|input| {
+                overlaps(input, &self.state_root) || overlaps(input, &self.output_root)
+            })
+        {
+            return Err(Error::new(
+                ErrorCode::PermissionDenied,
+                "Authoring input/output/private-state roots must not overlap",
+            ));
+        }
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::MetadataExt;
+            let state = std::fs::symlink_metadata(&self.state_root)?;
+            // SAFETY: getuid takes no pointers and has no memory safety preconditions.
+            let uid = unsafe { libc::getuid() };
+            if state.uid() != uid || state.mode() & 0o077 != 0 {
+                return Err(Error::new(
+                    ErrorCode::PermissionDenied,
+                    "Authoring derivation state must be owner-only",
+                ));
+            }
+        }
+        Ok(())
     }
 }

@@ -1,0 +1,89 @@
+{
+  "version": 1,
+  "project": "resource_sharing",
+  "title": "Resource Sharing",
+  "main_scene": "arena",
+  "settings": {"width": 640, "height": 360, "physics_ticks": 60},
+  "inputs": [],
+  "assets": [],
+  "scenes": [
+    {
+      "id": "arena",
+      "dimension": "three",
+      "entities": [
+        {
+          "id": "shared_a",
+          "parent": null,
+          "position": [-3,0,0],
+          "rotation": [0,0,0],
+          "scale": [1,1,1],
+          "groups": [],
+          "node": {
+            "kind": "mesh3d_material",
+            "shape": {"kind":"box","size":[1,1,1]},
+            "material": {"material":"bronze","sharing":"shared","color_override":null,"roughness_override":null}
+          }
+        },
+        {
+          "id": "shared_b",
+          "parent": null,
+          "position": [-1,0,0],
+          "rotation": [0,0,0],
+          "scale": [1,1,1],
+          "groups": [],
+          "node": {
+            "kind": "mesh3d_material",
+            "shape": {"kind":"sphere","radius":0.5},
+            "material": {"material":"bronze","sharing":"shared","color_override":null,"roughness_override":null}
+          }
+        },
+        {
+          "id": "local_a",
+          "parent": null,
+          "position": [1,0,0],
+          "rotation": [0,0,0],
+          "scale": [1,1,1],
+          "groups": [],
+          "node": {
+            "kind": "mesh3d_material",
+            "shape": {"kind":"box","size":[1,1,1]},
+            "material": {"material":"bronze","sharing":"local_to_scene","color_override":[0.8,0.2,0.1,1.0],"roughness_override":0.25}
+          }
+        },
+        {
+          "id": "local_b",
+          "parent": null,
+          "position": [3,0,0],
+          "rotation": [0,0,0],
+          "scale": [1,1,1],
+          "groups": [],
+          "node": {
+            "kind": "mesh3d_material",
+            "shape": {"kind":"sphere","radius":0.5},
+            "material": {"material":"bronze","sharing":"local_to_scene","color_override":[0.1,0.4,0.9,1.0],"roughness_override":0.7}
+          }
+        }
+      ],
+      "materials": [
+        {"id":"bronze","color":[0.55,0.3,0.12,1.0],"roughness":0.6}
+      ],
+      "animations": [],
+      "behavior": {
+        "states": ["idle"],
+        "initial_state": "idle",
+        "variables": [],
+        "expressions": [],
+        "handlers": [],
+        "timers": [],
+        "signals": []
+      }
+    }
+  ],
+  "limits": {
+    "actions_per_event": 16,
+    "actions_per_tick": 64,
+    "events_per_tick": 16,
+    "entities": 64,
+    "spawns_per_tick": 2
+  }
+}

@@ -3166,11 +3166,17 @@ dependencies = [
  "libc",
  "proptest",
  "semwright-backend-api",
+ "semwright-core",
  "semwright-driver-host",
  "semwright-driver-sdk",
+ "semwright-effect-conformance",
+ "semwright-project-graph",
+ "semwright-semantic-composition",
  "semwright-policy",
+ "semwright-platform-common",
  "semwright-registry",
  "semwright-types",
+ "schemars",
  "serde",
  "serde_json",
  "sha2",
@@ -3320,6 +3326,19 @@ dependencies = [
  "semwright-types",
  "serde_json",
  "tokio",
+]
+
+[[package]]
+name = "semwright-effect-conformance"
+version = "0.9.0-dev.1"
+dependencies = [
+ "proptest",
+ "schemars",
+ "semwright-project-graph",
+ "semwright-semantic-composition",
+ "semwright-types",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

@@ -1,0 +1,769 @@
+name: Godot semantic authoring diagnostics
+on:
+  push:
+    branches: [feat/godot-semantic-authoring]
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Exact immutable D candidate SHA to certify (must equal the selected ref SHA)
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: godot-authoring-${{ (github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[godot-certify]')) && format('certify-{0}', github.sha) || format('iterate-{0}', github.ref) }}
+  cancel-in-progress: ${{ github.event_name == 'push' && !contains(github.event.head_commit.message, '[godot-certify]') }}
+defaults:
+  run:
+    shell: bash
+jobs:
+  scope:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      certify: ${{ steps.scope.outputs.certify }}
+      model: ${{ steps.scope.outputs.model }}
+      native: ${{ steps.scope.outputs.native }}
+      native_scenarios: ${{ steps.scope.outputs.native_scenarios }}
+      native_contracts: ${{ steps.scope.outputs.native_contracts }}
+      runner_contracts: ${{ steps.scope.outputs.runner_contracts }}
+      persistence: ${{ steps.scope.outputs.persistence }}
+      export: ${{ steps.scope.outputs.export }}
+      hostile: ${{ steps.scope.outputs.hostile }}
+      cross_app: ${{ steps.scope.outputs.cross_app }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Scope selector self-tests
+        run: python3 scripts/godot-authoring/test_ci_scope.py
+      - name: Select affected lanes or exact certification
+        id: scope
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_SHA: ${{ github.sha }}
+          BASE_SHA: ${{ github.event.before }}
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+          CERTIFY_REQUEST: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[godot-certify]') }}
+        run: |
+          set -euo pipefail
+          python3 scripts/godot-authoring/select_ci_scope.py \
+            --event "$EVENT_NAME" \
+            --head "$HEAD_SHA" \
+            --base "${BASE_SHA:-}" \
+            --expected-sha "${EXPECTED_SHA:-}" \
+            --certify "$CERTIFY_REQUEST" \
+            --github-output "$GITHUB_OUTPUT" \
+            --report verification/godot-authoring/scope.json
+      - name: Scope evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: godot-ci-scope-${{ github.sha }}-${{ github.run_attempt }}
+          path: verification/godot-authoring/scope.json
+          if-no-files-found: error
+          retention-days: 14
+
+  godot-model:
+    needs: scope
+    if: needs.scope.outputs.model == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_PROFILE_DEV_DEBUG: '0'
+      CARGO_PROFILE_TEST_DEBUG: '0'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Exact source checkout
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          shared-key: godot-authoring-v1
+      - name: Evidence collector self-tests
+        run: python3 scripts/godot-authoring/test_collector.py
+      - name: Formatting
+        run: cargo fmt -p semwright-driver-godot -- --check
+      - name: Typed model and compiler
+        run: python3 scripts/godot-authoring/ci.py godot-model
+      - name: Diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: godot-model-${{ github.sha }}
+          path: godot-authoring-evidence/
+          if-no-files-found: warn
+          retention-days: 7
+  godot-native-authoring:
+    needs: scope
+    if: needs.scope.outputs.native == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_PROFILE_DEV_DEBUG: '0'
+      CARGO_PROFILE_TEST_DEBUG: '0'
+      NATIVE_SCENARIOS: ${{ needs.scope.outputs.native_scenarios }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Exact source checkout
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - name: Isolate native Cargo target
+        run: echo "CARGO_TARGET_DIR=$RUNNER_TEMP/godot-native-target" >> "$GITHUB_ENV"
+      - name: Prepare native evidence
+        env:
+          NATIVE_CONTRACTS: ${{ needs.scope.outputs.native_contracts }}
+          RUNNER_CONTRACTS: ${{ needs.scope.outputs.runner_contracts }}
+          CROSS_APP: ${{ needs.scope.outputs.cross_app }}
+        run: |
+          mkdir -p verification/godot-authoring
+          printf 'native_scenarios=%s\nnative_contracts=%s\nrunner_contracts=%s\ncross_app=%s\n' \
+            "$NATIVE_SCENARIOS" "$NATIVE_CONTRACTS" "$RUNNER_CONTRACTS" "$CROSS_APP" \
+            > verification/godot-authoring/selection.txt
+      - name: Install isolated native prerequisites
+        if: ${{ env.NATIVE_SCENARIOS != '' || needs.scope.outputs.native_contracts == 'true' || needs.scope.outputs.cross_app == 'true' }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap apparmor-profiles apparmor-utils libpipewire-0.3-dev
+          mkdir -p verification/godot-authoring
+          bash scripts/dev/ci-driver-bwrap-profile.sh verification/godot-authoring/sandbox-setup.log
+      - name: Install pinned Godot 4.7.2 and Linux release template
+        if: ${{ env.NATIVE_SCENARIOS != '' || needs.scope.outputs.native_contracts == 'true' || needs.scope.outputs.cross_app == 'true' }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/godot" "$RUNNER_TEMP/export-templates"
+          curl -fL --retry 4 --retry-delay 2             "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip"             -o "$RUNNER_TEMP/godot.zip"
+          unzip -q "$RUNNER_TEMP/godot.zip" -d "$RUNNER_TEMP/godot"
+          GODOT="$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64"
+          echo "8d106cbe6144c2dc7e881d61d2429c1a8a76e6b22ef48bd5e48dcf934953f71e  $GODOT" | sha256sum -c -
+          "$GODOT" --version | tee verification/godot-authoring/godot-version.txt
+          curl -fL --retry 4 --retry-delay 2             "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_export_templates.tpz"             -o "$RUNNER_TEMP/export-templates.tpz"
+          echo "f298490b8d44d934be425a5a65a51bf15f422428b229a06a6e11d9ffea248011  $RUNNER_TEMP/export-templates.tpz" | sha256sum -c -
+          unzip -j -q "$RUNNER_TEMP/export-templates.tpz"             "templates/linux_release.x86_64" -d "$RUNNER_TEMP/export-templates"
+          rm "$RUNNER_TEMP/export-templates.tpz"
+          chmod 0755 "$RUNNER_TEMP/export-templates/linux_release.x86_64"
+          test -x "$RUNNER_TEMP/export-templates/linux_release.x86_64"
+          echo "GODOT_BIN=$GODOT" >> "$GITHUB_ENV"
+          echo "SEMWRIGHT_TEST_GODOT_EXPORT_TEMPLATES=$RUNNER_TEMP/export-templates" >> "$GITHUB_ENV"
+      - name: Build sandbox helper
+        if: ${{ env.NATIVE_SCENARIOS != '' || needs.scope.outputs.cross_app == 'true' }}
+        run: cargo build --locked -p semwright-plugin-host --bin semwright-sandbox
+      - name: Broker Driver Host isolated native scenarios
+        if: ${{ env.NATIVE_SCENARIOS != '' }}
+        run: |
+          set -euo pipefail
+          export SEMWRIGHT_TEST_SANDBOX_HELPER="$CARGO_TARGET_DIR/debug/semwright-sandbox"
+          : > verification/godot-authoring/authoring-host.log
+          test -n "$NATIVE_SCENARIOS"
+          IFS=',' read -r -a native_scenarios <<< "$NATIVE_SCENARIOS"
+          for test_name in "${native_scenarios[@]}"
+          do
+            test -n "$test_name"
+            echo "=== $test_name ===" | tee -a verification/godot-authoring/authoring-host.log
+            if [ "$test_name" = "empty_project_authoring_flows_through_broker_driver_host_and_provider" ]; then
+              SEMWRIGHT_TEST_GODOT_AUTHORING_HOST=1                 cargo test --locked -p semwright-driver-godot --test authoring_host "$test_name"                 -- --ignored --exact --nocapture --test-threads=1                 2>&1 | tee -a verification/godot-authoring/authoring-host.log
+            else
+              env -u SEMWRIGHT_TEST_GODOT_AUTHORING_HOST                 cargo test --locked -p semwright-driver-godot --test authoring_host "$test_name"                 -- --ignored --exact --nocapture --test-threads=1                 2>&1 | tee -a verification/godot-authoring/authoring-host.log
+            fi
+          done
+      - name: Acquire pinned E Blender GLB evidence for D12
+        if: needs.scope.outputs.cross_app == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          E_SOURCE_SHA: e753248ed33b345554b0e7c3c8d521e666751d6f
+          E_RUN_ID: '36680849875'
+          E_ARTIFACT_ID: '11082381172'
+          E_ARTIFACT_NAME: blender-authoring-e753248ed33b345554b0e7c3c8d521e666751d6f-blender-native-authoring
+          E_GLB_SHA256: d3a4ba15f14ad6d3fba680c2d1db6d6d7584fb5254d2df8fd1c070870e9b0fd2
+        run: |
+          set -euo pipefail
+          E_DIR="$RUNNER_TEMP/e-blender-e753248"
+          OUT=verification/godot-authoring/cross-app
+          mkdir -p "$E_DIR" "$OUT/e-source"
+          gh api "repos/seradotcom/semwright/actions/artifacts/$E_ARTIFACT_ID" > "$OUT/e-source/artifact-metadata.json"
+          gh api "repos/seradotcom/semwright/actions/runs/$E_RUN_ID/jobs" > "$OUT/e-source/run-jobs.json"
+          gh api "repos/seradotcom/semwright/actions/artifacts/$E_ARTIFACT_ID/zip" > "$RUNNER_TEMP/e-artifact.zip"
+          unzip -q "$RUNNER_TEMP/e-artifact.zip" -d "$E_DIR"
+          test -f "$E_DIR/articulated.glb"
+          echo "$E_GLB_SHA256  $E_DIR/articulated.glb" | sha256sum -c -
+          cp "$E_DIR/articulated.glb" "$OUT/articulated.glb"
+          python3 - "$E_DIR" "$OUT/e-source" <<'PY2'
+          import hashlib, json, os, pathlib, sys
+          root = pathlib.Path(sys.argv[1])
+          evidence = pathlib.Path(sys.argv[2])
+          metadata = json.loads((evidence / "artifact-metadata.json").read_text())
+          jobs = json.loads((evidence / "run-jobs.json").read_text())
+          suite = json.loads((root / "blender-native-authoring.json").read_text())
+          oracle = json.loads((root / "glb-roundtrip-blender.json").read_text())
+          native = json.loads((root / "native-pipeline.json").read_text())
+          acceptance = json.loads((root / "acceptance-final.json").read_text())
+          summary = json.loads((root / "acceptance-final-summary.json").read_text())
+          source_package = json.loads((root / "source-package.json").read_text())
+          skill_bundle = json.loads((root / "skill-bundle.json").read_text())
+          skill_validate = json.loads((root / "skill-validate.json").read_text())
+          expected_sha = os.environ["E_SOURCE_SHA"]
+          expected_run = os.environ["E_RUN_ID"]
+          expected_name = os.environ["E_ARTIFACT_NAME"]
+          glb_sha = os.environ["E_GLB_SHA256"]
+          assert metadata["id"] == int(os.environ["E_ARTIFACT_ID"])
+          assert metadata["name"] == expected_name and metadata["expired"] is False
+          assert suite["source_sha"] == suite["suite_sha"] == suite["github_sha"] == expected_sha
+          assert str(suite["run_id"]) == expected_run
+          assert suite["suite"] == "blender-native-authoring"
+          assert suite["outcome"] == "PASS" and suite["passed"] == 3
+          assert suite["failed"] == suite["ignored"] == suite["filtered"] == 0
+          assert oracle["result"] == "PASS" and oracle["source_sha256"] == glb_sha
+          assert all(oracle["required_checks"].values())
+          assert native["native_assertions_completed"] is True
+          assert native["native_authoring_c_f_verified"] is True
+          assert native["glb"]["sha256"] == glb_sha and native["glb"]["bytes"] == 7220
+          job = next(j for j in jobs["jobs"] if j["name"] == "authoring")
+          assert job["status"] == "completed" and job["conclusion"] == "success"
+          exact = acceptance["exact_evidence"]
+          assert exact["source_sha"] == expected_sha and exact["run_id"] == int(expected_run)
+          assert exact["glb_sha256"] == glb_sha
+          assert exact["model"]["passed"] == 50 and exact["native"]["passed"] == 3
+          for key in [
+              "fresh_blender_roundtrip",
+              "startup_factory_clean_autoexec_disabled",
+              "sampled_media_time_verified",
+              "incremental_material_slots_verified",
+              "axis_selective_align_verified",
+              "pre_cancelled_apply_fail_closed",
+          ]:
+              assert exact[key] is True, key
+          expected_pass = {f"E{i:02d}" for i in range(1, 11)} | {"E12", "E14", "E15", "E16"}
+          assert set(summary["pass_requirements"]) == expected_pass
+          assert summary["source_sha"] == expected_sha and str(summary["run_id"]) == expected_run
+          assert summary["blocked"] == ["E11"] and summary["partial"] == ["E13"]
+          assert summary["blender_authoring_ready"] is False and acceptance["blender_authoring_ready"] is False
+          source_zip = root / "semwright-blender-authoring-E-source.zip"
+          assert source_package["source_sha"] == expected_sha
+          assert source_package["bytes"] == source_zip.stat().st_size
+          assert source_package["sha256"] == exact["source_backup_sha256"]
+          assert hashlib.sha256(source_zip.read_bytes()).hexdigest() == source_package["sha256"]
+          skill_zip = root / "semwright-blender-production.zip"
+          assert skill_bundle["sha256"] == exact["skill_zip_sha256"]
+          assert skill_bundle["bytes"] == skill_zip.stat().st_size
+          assert hashlib.sha256(skill_zip.read_bytes()).hexdigest() == skill_bundle["sha256"]
+          assert skill_validate["result"] == "valid" and skill_validate["standard_valid"] is True
+          assert skill_validate["script_execution"] == "disabled" and skill_validate["warnings"] == []
+          for name in [
+              "blender-native-authoring.json",
+              "glb-roundtrip-blender.json",
+              "native-pipeline.json",
+              "acceptance-final.json",
+              "acceptance-final-summary.json",
+              "source-package.json",
+              "skill-bundle.json",
+              "skill-validate.json",
+          ]:
+              (evidence / name).write_bytes((root / name).read_bytes())
+          PY2
+      - name: D12 Blender replacement through Broker and Driver Host
+        if: needs.scope.outputs.cross_app == 'true'
+        env:
+          SEMWRIGHT_TEST_E_GLB: ${{ github.workspace }}/verification/godot-authoring/cross-app/articulated.glb
+          SEMWRIGHT_TEST_D12_C_RECEIPT_OUT: ${{ github.workspace }}/verification/godot-authoring/cross-app/c-receipt.json
+          E_SOURCE_SHA: e753248ed33b345554b0e7c3c8d521e666751d6f
+          E_RUN_ID: '36680849875'
+          E_ARTIFACT_ID: '11082381172'
+          E_GLB_SHA256: d3a4ba15f14ad6d3fba680c2d1db6d6d7584fb5254d2df8fd1c070870e9b0fd2
+        run: |
+          set -euo pipefail
+          export SEMWRIGHT_TEST_SANDBOX_HELPER="$CARGO_TARGET_DIR/debug/semwright-sandbox"
+          OUT=verification/godot-authoring/cross-app
+          cargo test --locked -p semwright-driver-godot --test authoring_host \
+            blender_glb_handoff_preserves_godot_semantics_and_gameplay \
+            -- --ignored --exact --nocapture \
+            2>&1 | tee "$OUT/d12-cross-app.log"
+          test -s "$OUT/c-receipt.json"
+          python3 - "$OUT/c-receipt.json" "$OUT/d12-receipt.json" <<'PY2'
+          import json, os, pathlib, sys
+          c = json.loads(pathlib.Path(sys.argv[1]).read_text())
+          assert c["operation"] == "driver.godot.composition.apply"
+          assert c["receipt_id"].startswith("receipt_")
+          assert c["asset"].startswith("asset_")
+          assert c["revision"].startswith("rev_")
+          assert c["sha256"] == os.environ["E_GLB_SHA256"]
+          assert c["coverage_complete"] is False
+          receipt = {
+              "schema_version": 1,
+              "role": "D",
+              "source_sha": os.environ["GITHUB_SHA"],
+              "e_source_sha": os.environ["E_SOURCE_SHA"],
+              "e_run_id": int(os.environ["E_RUN_ID"]),
+              "e_artifact_id": int(os.environ["E_ARTIFACT_ID"]),
+              "e_glb_sha256": os.environ["E_GLB_SHA256"],
+              "route": "D baseline triangle GLB -> native inspect/play -> E artifact -> Broker artifact.handoff -> incremental D composition.plan/apply -> native inspect/persistence/play -> C composition.verify receipt",
+              "outcome": "PASS",
+              "incremental_asset_replacement_verified": True,
+              "behavior_bytes_preserved": True,
+              "gameplay_collision_mapping_preserved": True,
+              "logical_bindings_preserved": True,
+              "cross_app_c_receipt_verified": True,
+              "c_receipt_id": c["receipt_id"],
+              "c_output_asset": c["asset"],
+              "c_output_revision": c["revision"],
+              "godot_authoring_ready": False,
+          }
+          pathlib.Path(sys.argv[2]).write_text(json.dumps(receipt, indent=2) + "\n")
+          PY2
+
+      - name: "Native #171 readback and persistence contracts"
+        if: needs.scope.outputs.native_contracts == 'true'
+        run: |
+          set -euo pipefail
+          fixture="$RUNNER_TEMP/godot-authoring-native-contracts"
+          mkdir -p "$fixture/addons" "$fixture/tests"
+          cp -R integrations/godot/addons/semwright "$fixture/addons/"
+          cp integrations/godot/tests/readback_contract.gd integrations/godot/tests/scene_save_contract.gd "$fixture/tests/"
+          printf '%s\n' 'config_version=5' '[application]' 'config/name="Semwright D Native Contracts"' > "$fixture/project.godot"
+          for contract in readback scene_save; do
+            log="verification/godot-authoring/${contract}-contract.log"
+            timeout 90 "$GODOT_BIN" --headless --path "$fixture" \
+              --script "res://tests/${contract}_contract.gd" 2>&1 | tee "$log"
+            grep -q "^${contract^^}_FIXTURE_TESTS PASS:" "$log"
+            if grep -E "ERROR:|SCRIPT ERROR:|Parse Error:" "$log"; then
+              exit 1
+            fi
+          done
+      - name: Managed runner and native route contracts
+        if: needs.scope.outputs.runner_contracts == 'true'
+        run: |
+          cargo test --locked -p semwright-driver-godot --lib runner::tests:: -- --nocapture
+          cargo test --locked -p semwright-driver-godot --test contracts -- --nocapture
+      - name: Native evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: godot-native-authoring-${{ github.sha }}
+          path: verification/godot-authoring/
+          if-no-files-found: error
+          retention-days: 7
+
+  godot-persistence:
+    needs: scope
+    if: needs.scope.outputs.persistence == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_PROFILE_DEV_DEBUG: '0'
+      CARGO_PROFILE_TEST_DEBUG: '0'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Exact source checkout
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          shared-key: godot-authoring-persistence-v1
+      - name: Install isolated native prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap apparmor-profiles apparmor-utils libpipewire-0.3-dev
+          mkdir -p verification/godot-persistence
+          bash scripts/dev/ci-driver-bwrap-profile.sh verification/godot-persistence/sandbox-setup.log
+      - name: Install pinned Godot 4.7.2
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/godot"
+          curl -fL --retry 4 --retry-delay 2 \
+            "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip" \
+            -o "$RUNNER_TEMP/godot.zip"
+          unzip -q "$RUNNER_TEMP/godot.zip" -d "$RUNNER_TEMP/godot"
+          GODOT="$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64"
+          echo "8d106cbe6144c2dc7e881d61d2429c1a8a76e6b22ef48bd5e48dcf934953f71e  $GODOT" | sha256sum -c -
+          "$GODOT" --version | tee verification/godot-persistence/godot-version.txt
+          echo "GODOT_BIN=$GODOT" >> "$GITHUB_ENV"
+      - name: Native #171 scene-only persistence contract
+        run: |
+          set -euo pipefail
+          fixture="$RUNNER_TEMP/godot-persistence-contract"
+          mkdir -p "$fixture/addons" "$fixture/tests"
+          cp -R integrations/godot/addons/semwright "$fixture/addons/"
+          cp integrations/godot/tests/scene_save_contract.gd "$fixture/tests/"
+          printf '%s\n' 'config_version=5' '[application]' 'config/name="Semwright D Persistence"' > "$fixture/project.godot"
+          timeout 90 "$GODOT_BIN" --headless --path "$fixture" \
+            --script res://tests/scene_save_contract.gd 2>&1 \
+            | tee verification/godot-persistence/scene-save-contract.log
+          grep -q '^SCENE_SAVE_FIXTURE_TESTS PASS:' verification/godot-persistence/scene-save-contract.log
+          if grep -E 'ERROR:|SCRIPT ERROR:|Parse Error:' verification/godot-persistence/scene-save-contract.log; then
+            exit 1
+          fi
+      - name: Build sandbox helper
+        run: cargo build --locked -p semwright-plugin-host --bin semwright-sandbox
+      - name: Broker fresh-process save reopen
+        env:
+          SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
+        run: |
+          set -euo pipefail
+          cargo test --locked -p semwright-driver-godot --test authoring_host \
+            persistence_lane_reopens_in_fresh_process_and_preserves_dependencies \
+            -- --ignored --exact --nocapture \
+            2>&1 | tee verification/godot-persistence/persistence-host.log
+      - name: Persistence evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: godot-persistence
+          path: verification/godot-persistence/
+          if-no-files-found: error
+          retention-days: 14
+
+  godot-export:
+    needs: scope
+    if: needs.scope.outputs.export == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_PROFILE_DEV_DEBUG: '0'
+      CARGO_PROFILE_TEST_DEBUG: '0'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Exact source checkout
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          shared-key: godot-authoring-export-v1
+      - name: Install isolated native prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap apparmor-profiles apparmor-utils libpipewire-0.3-dev
+          mkdir -p verification/godot-export
+          bash scripts/dev/ci-driver-bwrap-profile.sh verification/godot-export/sandbox-setup.log
+      - name: Install pinned Godot 4.7.2 and Linux release template
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/godot" "$RUNNER_TEMP/export-templates"
+          curl -fL --retry 4 --retry-delay 2 \
+            "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip" \
+            -o "$RUNNER_TEMP/godot.zip"
+          unzip -q "$RUNNER_TEMP/godot.zip" -d "$RUNNER_TEMP/godot"
+          GODOT="$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64"
+          echo "8d106cbe6144c2dc7e881d61d2429c1a8a76e6b22ef48bd5e48dcf934953f71e  $GODOT" | sha256sum -c -
+          "$GODOT" --version | tee verification/godot-export/godot-version.txt
+          curl -fL --retry 4 --retry-delay 2 \
+            "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_export_templates.tpz" \
+            -o "$RUNNER_TEMP/export-templates.tpz"
+          echo "f298490b8d44d934be425a5a65a51bf15f422428b229a06a6e11d9ffea248011  $RUNNER_TEMP/export-templates.tpz" | sha256sum -c -
+          unzip -j -q "$RUNNER_TEMP/export-templates.tpz" \
+            "templates/linux_release.x86_64" -d "$RUNNER_TEMP/export-templates"
+          rm "$RUNNER_TEMP/export-templates.tpz"
+          chmod 0755 "$RUNNER_TEMP/export-templates/linux_release.x86_64"
+          echo "GODOT_BIN=$GODOT" >> "$GITHUB_ENV"
+          echo "SEMWRIGHT_TEST_GODOT_EXPORT_TEMPLATES=$RUNNER_TEMP/export-templates" >> "$GITHUB_ENV"
+      - name: Build sandbox helper
+        run: cargo build --locked -p semwright-plugin-host --bin semwright-sandbox
+      - name: Broker standalone export and launch
+        env:
+          SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
+        run: |
+          set -euo pipefail
+          cargo test --locked -p semwright-driver-godot --test authoring_host \
+            export_lane_builds_and_launches_without_editor_or_semwright \
+            -- --ignored --exact --nocapture \
+            2>&1 | tee verification/godot-export/export-host.log
+      - name: Export evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: godot-export
+          path: verification/godot-export/
+          if-no-files-found: error
+          retention-days: 14
+
+  godot-hostile:
+    needs: scope
+    if: needs.scope.outputs.hostile == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_PROFILE_DEV_DEBUG: '0'
+      CARGO_PROFILE_TEST_DEBUG: '0'
+      PROPTEST_CASES: '2048'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Exact source checkout
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          shared-key: godot-authoring-hostile-v1
+      - name: Property fuzz IR plan native wire and cursors
+        run: |
+          set -euo pipefail
+          mkdir -p verification/godot-authoring-hostile
+          cargo test --locked -p semwright-driver-godot --test authoring_fuzz -- --nocapture             2>&1 | tee verification/godot-authoring-hostile/property-fuzz.log
+      - name: Focused hostile regressions
+        run: |
+          set -euo pipefail
+          mkdir -p verification/godot-authoring-hostile
+          tests=(
+            "authoring unknown_fields_and_caller_code_are_rejected"
+            "authoring duplicate_keys_and_excessive_payload_are_rejected"
+            "authoring nonfinite_values_and_event_budgets_fail_closed"
+            "authoring recursive_spawn_and_nonterminal_scene_changes_are_rejected"
+            "authoring unicode_copy_cannot_terminate_native_literals"
+            "authoring runtime_contains_no_authoring_credentials_or_listener"
+            "authoring animation_tree_state_machine_and_blend_space_are_typed_and_deterministic"
+            "authoring shared_material_and_local_to_scene_copy_are_explicit_and_incremental"
+            "authoring_store stale_plan_cannot_overwrite_a_changed_source"
+            "authoring_store crafted_glb_assets_fail_before_any_managed_write"
+            "authoring_store existing_directory_and_symlink_roots_are_never_adopted_implicitly"
+            "authoring_store symlink_and_hardlink_managed_files_fail_closed"
+            "authoring_store private_state_grant_must_be_separate_and_owner_only"
+            "authoring_profile plan_authority_is_owner_bound_and_single_attempt"
+            "authoring_native native_request_is_typed_bounded_and_action_scoped"
+            "authoring_native observation_decode_rejects_unknown_wire_fields"
+            "authoring_native native_target_query_is_bounded_filtered_and_rejects_ambiguity"
+            "authoring_native fixed_native_probe_contains_no_arbitrary_execution_surface"
+            "contracts runner_capabilities_accept_owned_managed_projects_without_accepting_paths"
+            "contracts native_authoring_verification_is_code_execution_and_not_a_plain_runner"
+          )
+          for entry in "${tests[@]}"; do
+            binary="${entry%% *}"
+            test_name="${entry#* }"
+            cargo test --locked -p semwright-driver-godot --test "$binary" "$test_name" -- --exact --nocapture
+          done 2>&1 | tee verification/godot-authoring-hostile/focused-hostile.log
+      - name: Hostile evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: godot-authoring-hostile
+          path: verification/godot-authoring-hostile/
+          if-no-files-found: error
+          retention-days: 7
+
+  godot-source-package:
+    needs: [scope, godot-model, godot-native-authoring, godot-persistence, godot-export, godot-hostile, godot-cross-app-glb]
+    if: ${{ always() && needs.scope.outputs.certify == 'true' && needs.godot-model.result == 'success' && needs.godot-native-authoring.result == 'success' && needs.godot-persistence.result == 'success' && needs.godot-export.result == 'success' && needs.godot-hostile.result == 'success' && needs.godot-cross-app-glb.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_PROFILE_DEV_DEBUG: '0'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          shared-key: godot-authoring-delivery-v1
+      - name: Validate and bundle production Skill
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          mkdir -p verification/godot-authoring/package
+          cargo build --locked -p semwright-cli --bin semwright
+          target/debug/semwright --json skill validate skills/semwright-godot-production             | tee verification/godot-authoring/package/skill-validate.json
+          target/debug/semwright --json skill inspect skills/semwright-godot-production             | tee verification/godot-authoring/package/skill-inspect.json
+          target/debug/semwright --json skill bundle             skills/semwright-godot-production             verification/godot-authoring/package/semwright-godot-production.zip
+          test -s verification/godot-authoring/package/semwright-godot-production.zip
+          sha256sum verification/godot-authoring/package/semwright-godot-production.zip             > verification/godot-authoring/package/semwright-godot-production.zip.sha256
+      - name: Exact source package
+        run: |
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$GITHUB_SHA" = "${{ inputs.expected_sha || github.sha }}"
+          python3 scripts/godot-authoring/package_source.py             --source "$GITHUB_SHA"             --output verification/godot-authoring/package/semwright-godot-authoring-source.zip
+      - name: Exact candidate certification manifest
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha || github.sha }}
+          MODEL_RESULT: ${{ needs.godot-model.result }}
+          NATIVE_RESULT: ${{ needs.godot-native-authoring.result }}
+          PERSISTENCE_RESULT: ${{ needs.godot-persistence.result }}
+          EXPORT_RESULT: ${{ needs.godot-export.result }}
+          HOSTILE_RESULT: ${{ needs.godot-hostile.result }}
+          CROSS_APP_RESULT: ${{ needs.godot-cross-app-glb.result }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, pathlib
+          gates = {
+              "godot-model": os.environ["MODEL_RESULT"],
+              "godot-native-authoring": os.environ["NATIVE_RESULT"],
+              "godot-persistence": os.environ["PERSISTENCE_RESULT"],
+              "godot-export": os.environ["EXPORT_RESULT"],
+              "godot-hostile": os.environ["HOSTILE_RESULT"],
+              "godot-cross-app-glb": os.environ["CROSS_APP_RESULT"],
+          }
+          assert os.environ["GITHUB_SHA"] == os.environ["EXPECTED_SHA"]
+          assert all(value == "success" for value in gates.values()), gates
+          out = {
+              "schema_version": 1,
+              "role": "D",
+              "kind": "exact_candidate_certification",
+              "source_sha": os.environ["GITHUB_SHA"],
+              "run_id": int(os.environ["GITHUB_RUN_ID"]),
+              "run_attempt": int(os.environ["GITHUB_RUN_ATTEMPT"]),
+              "event": os.environ["GITHUB_EVENT_NAME"],
+              "gates": gates,
+              "godot_authoring_ready": False,
+              "r16_closed": False,
+          }
+          path = pathlib.Path("verification/godot-authoring/package/certification.json")
+          path.write_text(json.dumps(out, indent=2) + "\n")
+          PY
+      - name: Upload source backup
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: godot-authoring-source-${{ github.sha }}
+          path: verification/godot-authoring/package/
+          if-no-files-found: error
+          retention-days: 30
+
+  godot-cross-app-glb:
+    needs: [scope, godot-native-authoring]
+    if: ${{ always() && needs.scope.outputs.cross_app == 'true' && needs.godot-native-authoring.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    env:
+      E_SOURCE_SHA: e753248ed33b345554b0e7c3c8d521e666751d6f
+      E_RUN_ID: '36680849875'
+      E_ARTIFACT_ID: '11082381172'
+      E_ARTIFACT_NAME: blender-authoring-e753248ed33b345554b0e7c3c8d521e666751d6f-blender-native-authoring
+      E_GLB_SHA256: d3a4ba15f14ad6d3fba680c2d1db6d6d7584fb5254d2df8fd1c070870e9b0fd2
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Exact D source checkout
+        run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - name: Download exact-SHA native D12 evidence
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          name: godot-native-authoring-${{ github.sha }}
+          path: verification/godot-cross-app/native
+      - name: Independent D12 receipt and E artifact oracle
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          NATIVE=verification/godot-cross-app/native
+          OUT=verification/godot-cross-app/oracle
+          mkdir -p "$OUT"
+          test -s "$NATIVE/cross-app/d12-receipt.json"
+          test -s "$NATIVE/cross-app/c-receipt.json"
+          test -s "$NATIVE/cross-app/articulated.glb"
+          echo "$E_GLB_SHA256  $NATIVE/cross-app/articulated.glb" | sha256sum -c -
+          gh api "repos/seradotcom/semwright/actions/artifacts/$E_ARTIFACT_ID" > "$OUT/e-artifact-metadata.json"
+          gh api "repos/seradotcom/semwright/actions/artifacts/$E_ARTIFACT_ID/zip" > "$RUNNER_TEMP/e-artifact.zip"
+          mkdir -p "$RUNNER_TEMP/e-cross-app"
+          unzip -q "$RUNNER_TEMP/e-artifact.zip" -d "$RUNNER_TEMP/e-cross-app"
+          echo "$E_GLB_SHA256  $RUNNER_TEMP/e-cross-app/articulated.glb" | sha256sum -c -
+          cmp "$NATIVE/cross-app/articulated.glb" "$RUNNER_TEMP/e-cross-app/articulated.glb"
+          for name in blender-native-authoring.json glb-roundtrip-blender.json native-pipeline.json acceptance-final.json acceptance-final-summary.json source-package.json skill-bundle.json skill-validate.json; do
+            test -s "$NATIVE/cross-app/e-source/$name"
+            cmp "$NATIVE/cross-app/e-source/$name" "$RUNNER_TEMP/e-cross-app/$name"
+          done
+          python3 - "$NATIVE/cross-app/d12-receipt.json" "$NATIVE/cross-app/c-receipt.json" "$OUT/e-artifact-metadata.json" "$RUNNER_TEMP/e-cross-app" "$OUT/d12-oracle.json" <<'PY2'
+          import hashlib, json, os, pathlib, sys
+          d12 = json.loads(pathlib.Path(sys.argv[1]).read_text())
+          c = json.loads(pathlib.Path(sys.argv[2]).read_text())
+          metadata = json.loads(pathlib.Path(sys.argv[3]).read_text())
+          e_root = pathlib.Path(sys.argv[4])
+          e_suite = json.loads((e_root / "blender-native-authoring.json").read_text())
+          e_oracle = json.loads((e_root / "glb-roundtrip-blender.json").read_text())
+          e_native = json.loads((e_root / "native-pipeline.json").read_text())
+          e_acceptance = json.loads((e_root / "acceptance-final.json").read_text())
+          e_summary = json.loads((e_root / "acceptance-final-summary.json").read_text())
+          e_source_package = json.loads((e_root / "source-package.json").read_text())
+          e_skill_bundle = json.loads((e_root / "skill-bundle.json").read_text())
+          e_skill_validate = json.loads((e_root / "skill-validate.json").read_text())
+          assert d12["source_sha"] == os.environ["GITHUB_SHA"]
+          assert d12["e_source_sha"] == os.environ["E_SOURCE_SHA"]
+          assert d12["e_run_id"] == int(os.environ["E_RUN_ID"])
+          assert d12["e_artifact_id"] == int(os.environ["E_ARTIFACT_ID"])
+          assert d12["e_glb_sha256"] == os.environ["E_GLB_SHA256"]
+          assert d12["outcome"] == "PASS"
+          for key in [
+              "incremental_asset_replacement_verified",
+              "behavior_bytes_preserved",
+              "gameplay_collision_mapping_preserved",
+              "logical_bindings_preserved",
+              "cross_app_c_receipt_verified",
+          ]:
+              assert d12[key] is True, key
+          assert d12["c_receipt_id"] == c["receipt_id"]
+          assert d12["c_output_asset"] == c["asset"]
+          assert d12["c_output_revision"] == c["revision"]
+          assert c["operation"] == "driver.godot.composition.apply"
+          assert c["sha256"] == os.environ["E_GLB_SHA256"]
+          assert c["coverage_complete"] is False
+          assert metadata["id"] == int(os.environ["E_ARTIFACT_ID"])
+          assert metadata["name"] == os.environ["E_ARTIFACT_NAME"]
+          assert metadata["expired"] is False
+          assert e_suite["source_sha"] == e_suite["suite_sha"] == e_suite["github_sha"] == os.environ["E_SOURCE_SHA"]
+          assert str(e_suite["run_id"]) == os.environ["E_RUN_ID"]
+          assert e_suite["outcome"] == "PASS" and e_suite["passed"] == 3
+          assert e_suite["failed"] == e_suite["ignored"] == e_suite["filtered"] == 0
+          assert e_oracle["result"] == "PASS" and e_oracle["source_sha256"] == os.environ["E_GLB_SHA256"]
+          assert all(e_oracle["required_checks"].values())
+          assert e_native["native_assertions_completed"] is True
+          assert e_native["native_authoring_c_f_verified"] is True
+          assert e_native["glb"]["sha256"] == os.environ["E_GLB_SHA256"]
+          e_exact = e_acceptance["exact_evidence"]
+          assert e_exact["source_sha"] == os.environ["E_SOURCE_SHA"]
+          assert e_exact["run_id"] == int(os.environ["E_RUN_ID"])
+          assert e_exact["glb_sha256"] == os.environ["E_GLB_SHA256"]
+          assert e_exact["model"]["passed"] == 50 and e_exact["native"]["passed"] == 3
+          assert e_summary["source_sha"] == os.environ["E_SOURCE_SHA"]
+          assert str(e_summary["run_id"]) == os.environ["E_RUN_ID"]
+          assert e_summary["blocked"] == ["E11"] and e_summary["partial"] == ["E13"]
+          assert e_source_package["source_sha"] == os.environ["E_SOURCE_SHA"]
+          assert e_source_package["sha256"] == e_exact["source_backup_sha256"]
+          assert e_skill_bundle["sha256"] == e_exact["skill_zip_sha256"]
+          assert e_skill_validate["result"] == "valid" and e_skill_validate["warnings"] == []
+          out = {
+              "schema_version": 1,
+              "role": "D-cross-app-oracle",
+              "source_sha": os.environ["GITHUB_SHA"],
+              "outcome": "PASS",
+              "native_receipt_sha256": hashlib.sha256(pathlib.Path(sys.argv[1]).read_bytes()).hexdigest(),
+              "c_receipt_sha256": hashlib.sha256(pathlib.Path(sys.argv[2]).read_bytes()).hexdigest(),
+              "e_glb_sha256": os.environ["E_GLB_SHA256"],
+              "c_receipt_id": c["receipt_id"],
+          }
+          pathlib.Path(sys.argv[5]).write_text(json.dumps(out, indent=2) + "\n")
+          PY2
+      - name: Cross-app oracle evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: godot-cross-app-glb-${{ github.sha }}
+          path: verification/godot-cross-app/
+          if-no-files-found: error
+          retention-days: 30
