@@ -1,23 +1,23 @@
 # Effects and driver conformance — F
 
 ## Product contracts
-- EFFECT_GAP_ANALYSIS.md maps existing A semantics to additive F work.
-- EFFECT_SEMANTICS.md specifies intention, authorization, predicates, evidence and verdicts.
-- E0_ADAPTER_CONTRACT.md explains the trusted producer boundary.
-- DRIVER_QUALITY_CONTRACT.md defines nine workflow-scoped evidence dimensions.
-- SECURITY_DELTA.md and RELEASE_IMPACT.md describe limits and open integration gates.
+- EFFECT_GAP_ANALYSIS.md maps A-owned semantics to additive F work.
+- EFFECT_SEMANTICS.md defines intention, authorization, obligations, evidence and verdicts.
+- E0_ADAPTER_CONTRACT.md defines the trusted producer boundary.
+- DRIVER_QUALITY_CONTRACT.md defines nine workflow-scoped quality dimensions.
+- ACCEPTANCE.md and INTEGRATION.md carry requirement and consumer status.
 
-The implementation is crates/effect-conformance. It consumes A reports/PlanVault contracts and existing semwright-types command descriptors. The only C dependency is the P0 dev consumer. No A/C source is modified. Native D/E production extractors remain owned by their authors.
+The implementation is `crates/effect-conformance`. Runtime dependency direction is F -> A semantic-composition. C project-graph is dev-only. F does not own A's reports, PlanVault, canonicalization or policy authority.
 
-## Current evidence discipline
-The named checkpoint documents preserve their historical SHAs; do not treat their status paragraphs as a live dashboard. Current evidence is the exact-SHA Actions artifact, the PR #172 handoff and the private coordination F.json. No file named READY is itself an acceptance receipt.
+## Tested implementation
+Implementation source `d2cfd86a2ee064aa5de8f0a8944319edf6dbb060` passed F release run 36942492444 on Ubuntu/Windows/macOS. Linux additionally executed pinned Godot 4.7.2 and Blender 4.5.14 native conformance plus targeted mutations.
+The Linux F artifact requested/executed 40/40 tests with zero skips, including the explicit Forbidden-obligation regression, killed all three targeted mutants and generated bounded native receipts/quality reports. Current-SHA Quality 36942497243, Packaging 36942497427 and Supply-chain 36942497317 are SUCCESS. Dependency/coverage/fuzz 36942497359 has coverage/fuzz PASS but its audit job is red because the current RustSec database marks unchanged `yoke-derive 0.8.3` as yanked.
 
-At source 42204ac6a6f3c66ba66de5adfe689d8633bb7c74, 34 contract tests executed with zero skips. The overall job failed strict test naming; identifiers were corrected in a00bc6a8cf422cb002f55a4b5cd15f406cd234e0 without relaxing assertions. Source added later is not retrospectively tested by that run. Native and portable acceptance, targeted mutation execution and final consumer integration remain unconfirmed in that checkpoint.
+## Reconstructive backup
+`backup/semwright-effect-conformance-F-d2cfd86.zip` is the CI-produced source backup for the tested implementation SHA.
+SHA-256: `31536b484a3fc9e54fce7d3c570fa41440a1ccb043e4313b13c078061342f542`.
+It contains `F_SOURCE.patch`, `SOURCE_MANIFEST.json` and `RESTORE.md`; fixed timestamps make the source package reproducible.
 
-## Reconstructible backup
-backup/semwright-effect-conformance-F-source.zip snapshots source a00bc6a8cf422cb002f55a4b5cd15f406cd234e0. It contains a complete F source patch against C P0 6ee52b428310370d3ad438a13964086a63f48367, exact file hashes and a restore runbook. Its SHA-256 is a329e77f1ead34e5243c3cf32b5dc31c5eefc47bdd94f490f31a7d7c885a20f4.
-The patch restores all 40 source files and Cargo.lock byte-for-byte. Two independent packaging runs produced identical ZIP bytes. Neither operation runs Cargo, tests or native applications.
-The diagnostic lane also generates a source backup for its own exact SHA using scripts/effects/package_source.py; it does not recursively bundle older backups.
-
-## Open gates
-Owner A review; D/E production adapter receipts; final A/B/C integration; native Godot/Blender negatives; targeted mutations; Linux/Windows/macOS portable gates; dependency/license audit and clean installation. Do not merge main, publish a release, claim security certification or close R16 from this candidate.
+## Open review gates
+A final `7ab43f99f4cc62be2a9b0ce9ce1155283a429768` explicitly approved E0, so F01 is closed. F12 remains partial only because B is still contractual: C/D are accepted and E exact head `f492f13` passed run 36942759168 with both F findings resolved. Separately, the current repo-wide dependency audit is red because `yoke-derive 0.8.3` is now yanked; F does not alter that global lockfile.
+Do not infer main merge, release approval, R16 closure, security certification, global noninterference, crash durability or Broker E2E from the bounded native harness.

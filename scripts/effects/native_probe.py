@@ -91,7 +91,15 @@ def launch(work, native_args, phase, expect_failure=False):
         if path.exists():
             raise RuntimeError("faulted observer produced a measurement receipt")
         return {"fault_log_digest": digest(output)}, f"host-pid:{proc.pid}:started:{started}"
-    if proc.returncode or any(marker in text for marker in ("SCRIPT ERROR:", "Parse Error:", "ERROR:")):
+    # Godot probes the XDG Desktop directory during Linux startup. In this
+    # isolated mount namespace its optional popen can fail; Godot falls back to
+    # "." and continues. Ignore only that exact startup diagnostic, never a
+    # script error or a missing native receipt. See OS_LinuxBSD::get_system_dir.
+    known_godot_startup_error = 'ERROR: Cannot create pipe from command: "xdg-user-dir" "DESKTOP" 2>/dev/null.'
+    unexpected_errors = [line for line in text.splitlines()
+                         if any(marker in line for marker in ("SCRIPT ERROR:", "Parse Error:", "ERROR:"))
+                         and not (backend == "godot" and line == known_godot_startup_error)]
+    if proc.returncode or unexpected_errors:
         sys.stderr.write(text[-16000:]); raise RuntimeError("native process failed")
     if not path.is_file() or path.stat().st_size > 65536: raise RuntimeError("missing/oversized native measurement")
     result = json.loads(path.read_text())
@@ -138,9 +146,11 @@ with tempfile.TemporaryDirectory(prefix="semwright-effects-",dir=os.environ["RUN
             p=data/"shared.tres"; p.write_text(p.read_text().replace("0.7","0.3"))
             p=data/"idle.tres"; p.write_text(p.read_text().replace("1.0","0.5"))
     if backend == "godot" and case == "observation-mutant":
-        text=persisted.read_text(); old="Vector3(1, 2, 3)"
-        if old not in text: raise RuntimeError("mutation target absent; no negative evidence")
-        persisted.write_text(text.replace(old,"Vector3(9, 2, 3)",1))
+        # Use a separate Godot process as the external writer. PackedScene text
+        # formatting is not an authoring contract and varies across versions.
+        mutated, _ = launch(work,args("mutant"),"mutant")
+        if mutated["projection"]["observed"]["position"][0] != 9.0:
+            raise RuntimeError("native mutation target absent; no negative evidence")
     if backend == "blender" and case == "membership-mutant":
         launch(work,args("mutant"),"mutant")
     if case == "readback-fault":
