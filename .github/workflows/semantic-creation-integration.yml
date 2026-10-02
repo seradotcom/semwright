@@ -77,7 +77,7 @@ jobs:
       - name: Combined runtime transport compilation
         run: cargo check --locked --all-targets -p semwright-driver-godot -p semwright-driver-blender -p semwright-driver-motion-canvas -p semwright-mlt-video-driver -p semwright-faust-audio-driver -p semwright-ardour-audio-driver
       - name: Host job wait and cancellation contracts
-        run: cargo test --locked -p semwright-driver-sdk job_wait_ -- --nocapture
+        run: cargo test --locked -p semwright-driver-sdk --lib -- --nocapture
       - name: A contracts and D reconciliation source regressions
         run: python3 scripts/semantic-creation/reconciliation_diagnostic.py
       - name: Strict A/D lints

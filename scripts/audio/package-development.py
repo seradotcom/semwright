@@ -186,7 +186,8 @@ def main():
         ("audio-analysis.manifest.template.json", args.analysis_driver,
          {"audio-meter": args.audio_meter}, "audio-analysis", None),
         ("ardour-audio.manifest.template.json", args.ardour_driver,
-         {"ardour-lua": args.ardour_lua, "ardour-new-session": args.ardour_create,
+         {"ardour-runtime-runner": args.ardour_driver.with_name("semwright-ardour-runtime-runner"),
+          "ardour-lua": args.ardour_lua, "ardour-new-session": args.ardour_create,
           "ardour-export": args.ardour_export}, "ardour-audio", ardour_runtime),
     ]
     tested_sha = run(["git", "rev-parse", "HEAD"]).strip()

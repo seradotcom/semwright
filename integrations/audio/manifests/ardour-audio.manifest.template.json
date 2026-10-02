@@ -67,6 +67,11 @@
       "root": "ardour-export-tool",
       "name": "ardour-export",
       "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    {
+      "root": "ardour-runner-tool",
+      "name": "ardour-runtime-runner",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
     }
   ],
   "interfaces": {

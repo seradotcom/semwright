@@ -207,7 +207,7 @@ async fn execute_materialized_tool(
         .take()
         .ok_or_else(|| Error::unavailable("Runtime tool stderr is unavailable"))?;
 
-    let execution = async move {
+    let execution = async {
         if !stdin.is_empty() {
             child_stdin.write_all(&stdin).await?;
         }
@@ -231,13 +231,13 @@ async fn execute_materialized_tool(
             Ok::<_, std::io::Error>(bytes)
         };
         let (stdout, stderr) = tokio::try_join!(read_stdout, read_stderr)?;
-        let status = child.wait().await?;
         if stdout.len() > MAX_TOOL_OUTPUT_BYTES || stderr.len() > MAX_TOOL_OUTPUT_BYTES {
             return Err(Error::new(
                 ErrorCode::ResourceExhausted,
                 "Materialized runtime tool output exceeds protocol bounds",
             ));
         }
+        let status = child.wait().await?;
         let output = ToolExecutionOutput {
             exit_code: status.code().unwrap_or(-1),
             stdout,
@@ -1508,8 +1508,6 @@ impl DriverExecutionContext {
         }
     }
 
-    /// Execute a protocol-v7 Host-mediated runtime tool with logical path arguments.
-    /// Mount/tool paths are resolved only by Driver Host after sandbox materialization.
     /// Typed arguments for the Linux v4 compatibility boundary. Expansion uses
     /// only SDK materialized owner grants; this does not add Host authority or
     /// change the parent's aggregate CPU accounting. Other protocols/platforms
@@ -1561,6 +1559,8 @@ impl DriverExecutionContext {
         .await
     }
 
+    /// Execute a protocol-v7 Host-mediated tool with logical path arguments.
+    /// Only Driver Host resolves the delegated mounts and sealed dependencies.
     pub async fn execute_runtime_tool_args(
         &self,
         name: &str,
@@ -3385,6 +3385,39 @@ mod tests {
             },
             receiver,
         )
+    }
+
+    #[tokio::test]
+    async fn legacy_typed_tools_reject_host_protocol_and_non_root_mounts_before_execution() {
+        let (mut context, mut receiver) = job_wait_context();
+        let error = context
+            .execute_legacy_runtime_tool_args(
+                "probe",
+                vec![],
+                vec![],
+                std::time::Duration::from_secs(1),
+                None,
+            )
+            .await
+            .unwrap_err();
+        assert_eq!(error.code, ErrorCode::Unsupported);
+        assert!(receiver.try_recv().is_err());
+        context.protocol = 4;
+        let error = context
+            .execute_legacy_runtime_tool_args(
+                "probe",
+                vec![RuntimeToolArg::MountPath {
+                    mount: "project".into(),
+                    relative: "child".into(),
+                }],
+                vec![],
+                std::time::Duration::from_secs(1),
+                None,
+            )
+            .await
+            .unwrap_err();
+        assert_eq!(error.code, ErrorCode::Unsupported);
+        assert!(receiver.try_recv().is_err());
     }
 
     #[tokio::test]

@@ -168,6 +168,13 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
     )
     .unwrap();
     fs::set_permissions(&executable, fs::Permissions::from_mode(0o500)).unwrap();
+    let runtime_runner = root.path().join("binary/runtime-runner");
+    fs::copy(
+        env!("CARGO_BIN_EXE_semwright-ardour-runtime-runner"),
+        &runtime_runner,
+    )
+    .unwrap();
+    fs::set_permissions(&runtime_runner, fs::Permissions::from_mode(0o500)).unwrap();
     let runtime = root.path().join("runtime");
     fs::write(
         runtime.join("semwright-runtime.json"),
@@ -230,6 +237,14 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
         secrets: vec![],
         tools: vec![
             DriverToolMount {
+                root: "ardour-runner-tool".into(),
+                name: "ardour-runtime-runner".into(),
+                sha256: digest(&runtime_runner),
+                mounts: vec![],
+                system_config: vec![],
+                dependencies: vec![],
+            },
+            DriverToolMount {
                 root: "ardour-lua-tool".into(),
                 name: "ardour-lua".into(),
                 sha256: digest(&lua),
@@ -275,6 +290,12 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
         },
     };
     let grants = vec![
+        FilesystemGrant {
+            name: "ardour-runner-tool".into(),
+            path: runtime_runner,
+            read: true,
+            write: false,
+        },
         FilesystemGrant {
             name: "ardour-runtime".into(),
             path: runtime.canonicalize().unwrap(),
