@@ -370,6 +370,74 @@ fn host_catalog(bytes: &[u8]) -> Result<ServiceCatalog> {
 }
 
 impl MltVideoDriver {
+    async fn host_av_operation(
+        &self,
+        command: &str,
+        descriptor: &str,
+        args: &Value,
+        context: &DriverExecutionContext,
+    ) -> Result<Value> {
+        let literal = |value: &str| RuntimeToolArg::Literal {
+            value: value.to_owned(),
+        };
+        let mount = |name: &str| RuntimeToolArg::MountPath {
+            mount: name.to_owned(),
+            relative: String::new(),
+        };
+        let tool = |name: &str| RuntimeToolArg::ToolPath {
+            tool: name.to_owned(),
+        };
+        let job = context
+            .start_runtime_tool_job_args(
+                "mlt-runner",
+                vec![
+                    literal("av-operation"),
+                    literal("--runtime-root"),
+                    mount("mlt-runtime"),
+                    literal("--melt-sealed"),
+                    tool("melt"),
+                    literal("--ffprobe-sealed"),
+                    tool("ffprobe"),
+                    literal("--ffmpeg-sealed"),
+                    tool("ffmpeg"),
+                    literal("--project-root"),
+                    mount("project"),
+                    literal("--media-root"),
+                    mount("media"),
+                    literal("--output-root"),
+                    mount("output"),
+                ],
+                serde_json::to_vec(&serde_json::json!({
+                    "command": command, "descriptor_sha256": descriptor, "args": args,
+                }))?,
+                Duration::from_secs(300),
+                None,
+            )
+            .await?;
+        let result = context.wait_runtime_tool_job(&job).await?;
+        if result.exit_code != 0 {
+            let mut error = Error::new(
+                ErrorCode::BackendFailed,
+                host_runner_failure(&result.stdout)
+                    .unwrap_or_else(|| "Host AV operation failed".into()),
+            );
+            // The tool may have published before an error or cancellation. The
+            // original artifact is reconciled by its digest; never assume rollback.
+            error.outcome_known = command == "driver.mlt-video.sync.probe";
+            return Err(error);
+        }
+        let value: Value = serde_json::from_slice(&result.stdout).map_err(|_| {
+            Error::new(
+                ErrorCode::PluginProtocolError,
+                "Host AV tool returned malformed JSON",
+            )
+        })?;
+        self.app
+            .validate_output(command, &to_internal(&value)?)
+            .map_err(map_error)?;
+        Ok(value)
+    }
+
     async fn host_probe_staged(
         &self,
         directory: &str,
@@ -998,6 +1066,16 @@ impl Driver for MltVideoDriver {
             .validate_call(command, descriptor_sha256, &internal)
             .map_err(map_error)?;
         self.ensure_host_catalog(&context).await?;
+        if matches!(
+            command,
+            "driver.mlt-video.frames.encode"
+                | "driver.mlt-video.av.mux"
+                | "driver.mlt-video.sync.probe"
+        ) {
+            return self
+                .host_av_operation(command, descriptor_sha256, &args, &context)
+                .await;
+        }
         let value = match command {
             "driver.mlt-video.render.start" => {
                 let request = self

@@ -20,7 +20,7 @@ use semwright_core::{Broker, NoApprover, audit::Audit};
 use semwright_driver_host::DriverProvider;
 use semwright_driver_sdk::{
     ApplicationMatch, DriverInterfaces, DriverMount, DriverResources, DriverToolMount, Manifest,
-    SystemConfigMount, Transport, descriptor_digest,
+    Transport, descriptor_digest,
 };
 use semwright_media_time::{MediaArtifact, MediaMetadata, Rate, Rational, Retention};
 use semwright_motion_authoring::Film;
@@ -120,10 +120,10 @@ fn binary_resources(cpu_seconds: u64, processes: u64) -> DriverResources {
     }
 }
 
-fn motion_manifest(executable: &Path) -> Manifest {
+fn motion_manifest(executable: &Path, node: &Path) -> Manifest {
     Manifest {
         manifest_version: 1,
-        protocol: 3,
+        protocol: 7,
         id: "motion-canvas".into(),
         version: env!("CARGO_PKG_VERSION").into(),
         publisher: "semwright-combined-native".into(),
@@ -151,13 +151,27 @@ fn motion_manifest(executable: &Path) -> Manifest {
                 read_only: true,
                 execute: true,
             },
+            DriverMount {
+                root: "fontconfig".into(),
+                read_only: true,
+                execute: false,
+            },
         ],
-        system_config: vec![SystemConfigMount {
-            root: "fontconfig".into(),
-            destination: "/etc/fonts".into(),
-        }],
+        system_config: vec![],
         secrets: vec![],
-        tools: vec![],
+        tools: vec![DriverToolMount {
+            root: "motion-node-tool".into(),
+            name: "motion-node".into(),
+            sha256: file_sha(node),
+            mounts: vec![
+                "project".into(),
+                "output".into(),
+                "runtime".into(),
+                "fontconfig".into(),
+            ],
+            system_config: vec![],
+            dependencies: vec![],
+        }],
         network: false,
         loopback_port: None,
         resources: binary_resources(300, 256),
@@ -167,6 +181,7 @@ fn motion_manifest(executable: &Path) -> Manifest {
             progress: true,
             artifacts: true,
             health: true,
+            host_tools: true,
             ..DriverInterfaces::default()
         },
     }
@@ -286,15 +301,15 @@ fn analysis_manifest(executable: &Path, meter: &Path) -> Manifest {
     }
 }
 
-fn mlt_manifest(executable: &Path) -> Manifest {
+fn mlt_manifest(h: &Harness) -> Manifest {
     Manifest {
         manifest_version: 1,
-        protocol: 1,
+        protocol: 7,
         id: "mlt-video".into(),
         version: env!("CARGO_PKG_VERSION").into(),
         publisher: "semwright-combined-native".into(),
-        executable: executable.into(),
-        sha256: file_sha(executable),
+        executable: h.mlt_exe.clone(),
+        sha256: file_sha(&h.mlt_exe),
         application: ApplicationMatch {
             desktop_id: Some("org.mltframework.melt".into()),
             process_names: vec!["melt".into()],
@@ -318,19 +333,61 @@ fn mlt_manifest(executable: &Path) -> Manifest {
                 execute: false,
             },
             DriverMount {
-                root: "runtime".into(),
+                root: "mlt-runtime".into(),
                 read_only: true,
-                execute: false,
+                execute: true,
             },
         ],
         system_config: vec![],
         secrets: vec![],
-        tools: vec![],
+        tools: vec![
+            DriverToolMount {
+                root: "mlt-runner-tool".into(),
+                name: "mlt-runner".into(),
+                sha256: file_sha(&h.mlt_runner),
+                mounts: vec![
+                    "mlt-runtime".into(),
+                    "project".into(),
+                    "media".into(),
+                    "output".into(),
+                ],
+                dependencies: vec!["melt".into(), "ffprobe".into(), "ffmpeg".into()],
+                system_config: vec![],
+            },
+            DriverToolMount {
+                root: "melt-tool".into(),
+                name: "melt".into(),
+                sha256: file_sha(&h.melt),
+                mounts: vec![],
+                dependencies: vec![],
+                system_config: vec![],
+            },
+            DriverToolMount {
+                root: "ffprobe-tool".into(),
+                name: "ffprobe".into(),
+                sha256: file_sha(&h.ffprobe),
+                mounts: vec![],
+                dependencies: vec![],
+                system_config: vec![],
+            },
+            DriverToolMount {
+                root: "ffmpeg-tool".into(),
+                name: "ffmpeg".into(),
+                sha256: file_sha(&h.ffmpeg),
+                mounts: vec![],
+                dependencies: vec![],
+                system_config: vec![],
+            },
+        ],
         network: false,
         loopback_port: None,
         resources: binary_resources(300, 256),
         request_timeout_ms: 300_000,
-        interfaces: DriverInterfaces::default(),
+        interfaces: DriverInterfaces {
+            host_tools: true,
+            cooperative_cancellation: true,
+            ..Default::default()
+        },
     }
 }
 
@@ -339,7 +396,12 @@ struct Harness {
     project: PathBuf,
     output: PathBuf,
     media: PathBuf,
-    runtime: PathBuf,
+    mlt_runtime_root: PathBuf,
+    mlt_runner: PathBuf,
+    node: PathBuf,
+    melt: PathBuf,
+    ffprobe: PathBuf,
+    ffmpeg: PathBuf,
     state_motion: PathBuf,
     state_faust: PathBuf,
     state_analysis: PathBuf,
@@ -388,6 +450,14 @@ impl Harness {
             &required_file("SEMWRIGHT_TEST_COMBINED_MLT_DRIVER"),
             &bin.join("semwright-mlt-video-driver"),
         );
+        let mlt_runner = copy_exec(
+            &required_file("SEMWRIGHT_TEST_COMBINED_MLT_RUNNER"),
+            &bin.join("semwright-mlt-runtime-runner"),
+        );
+        let node = copy_exec(
+            &required_file("SEMWRIGHT_TEST_MOTION_NODE"),
+            &bin.join("motion-node"),
+        );
         let sandbox = required_file("SEMWRIGHT_TEST_SANDBOX_HELPER");
         let faust_helper = copy_exec(
             &required_file("SEMWRIGHT_TEST_FAUST_HELPER"),
@@ -405,6 +475,12 @@ impl Harness {
         let melt = required_file("SEMWRIGHT_TEST_MELT");
         let ffprobe = required_file("SEMWRIGHT_TEST_FFPROBE");
         let ffmpeg = required_file("SEMWRIGHT_TEST_FFMPEG");
+        let mlt_runtime_root = melt
+            .parent()
+            .and_then(Path::parent)
+            .unwrap()
+            .canonicalize()
+            .unwrap();
         let bwrap = required_file("SEMWRIGHT_TEST_BWRAP");
         let runtime_json = json!({
             "schema": 1,
@@ -427,7 +503,12 @@ impl Harness {
             project,
             output,
             media,
-            runtime,
+            mlt_runtime_root,
+            mlt_runner,
+            node,
+            melt,
+            ffprobe,
+            ffmpeg,
             state_motion,
             state_faust,
             state_analysis,
@@ -451,7 +532,7 @@ impl Harness {
 
     async fn providers(&self) -> Vec<Arc<DriverProvider>> {
         let motion = DriverProvider::connect(
-            motion_manifest(&self.motion_exe),
+            motion_manifest(&self.motion_exe, &self.node),
             &self.state_motion,
             &self.sandbox,
             &[
@@ -459,6 +540,7 @@ impl Harness {
                 grant("output", &self.output, true, true),
                 grant("runtime", &self.motion_runtime, true, false),
                 grant("fontconfig", Path::new("/etc/fonts"), true, false),
+                grant("motion-node-tool", &self.node, true, false),
             ],
             false,
         )
@@ -494,14 +576,18 @@ impl Harness {
         .unwrap();
 
         let mlt = DriverProvider::connect(
-            mlt_manifest(&self.mlt_exe),
+            mlt_manifest(self),
             &self.state_mlt,
             &self.sandbox,
             &[
                 grant("project", &self.project, true, false),
                 grant("media", &self.media, true, false),
                 grant("output", &self.output, true, true),
-                grant("runtime", &self.runtime, true, false),
+                grant("mlt-runtime", &self.mlt_runtime_root, true, false),
+                grant("mlt-runner-tool", &self.mlt_runner, true, false),
+                grant("melt-tool", &self.melt, true, false),
+                grant("ffprobe-tool", &self.ffprobe, true, false),
+                grant("ffmpeg-tool", &self.ffmpeg, true, false),
             ],
             false,
         )

@@ -75,7 +75,7 @@ jobs:
       - name: Source formatting
         run: cargo fmt -p semwright-semantic-composition -p semwright-driver-godot -p semwright-audio-authoring -p semwright-effect-conformance -- --check
       - name: Combined runtime transport compilation
-        run: cargo check --locked --all-targets -p semwright-driver-godot -p semwright-driver-blender -p semwright-driver-motion-canvas -p semwright-mlt-video-driver -p semwright-faust-audio-driver -p semwright-ardour-audio-driver
+        run: cargo check --locked --all-targets -p semwright-driver-godot -p semwright-driver-blender -p semwright-driver-motion-canvas -p semwright-mlt-video-driver -p semwright-faust-audio-driver -p semwright-ardour-audio-driver -p semwright-av-composition
       - name: Host job wait and cancellation contracts
         run: cargo test --locked -p semwright-driver-sdk --lib -- --nocapture
       - name: A contracts and D reconciliation source regressions

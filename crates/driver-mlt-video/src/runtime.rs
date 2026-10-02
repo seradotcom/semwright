@@ -435,6 +435,28 @@ pub struct Runtime {
     host_sandboxed: bool,
 }
 impl Runtime {
+    /// Construct the bounded media engine inside the Semwright-owned Host tool.
+    /// The helper receives these paths only as sealed ToolPath dependencies, then
+    /// verifies the matching read-only executable runtime entrypoints. Caller
+    /// capability arguments never select an executable or a runtime configuration.
+    pub fn from_host_tools(melt: Tool, ffprobe: Tool, ffmpeg: Tool) -> Result<Self> {
+        melt.verify()?;
+        ffprobe.verify()?;
+        ffmpeg.verify()?;
+        let mut runtime = Self {
+            melt,
+            ffprobe: ffprobe.clone(),
+            ffmpeg,
+            // No nested sandbox is invoked: the Host owns this tool's isolation.
+            bubblewrap: ffprobe,
+            timeout: Duration::from_secs(120),
+            catalog: ServiceCatalog::default(),
+            tools: PrivateDir::new(Path::new("/tmp"))?,
+            host_sandboxed: true,
+        };
+        runtime.discover()?;
+        Ok(runtime)
+    }
     pub fn load(v: &Value) -> Result<Self> {
         v.strict(
             &[

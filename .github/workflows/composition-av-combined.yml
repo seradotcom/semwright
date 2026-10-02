@@ -123,9 +123,9 @@ jobs:
           set -euo pipefail
           g++ -std=c++17 -O2 -Wall -Wextra -Werror             integrations/audio/faust-runtime/main.cpp             -lfaust -lsndfile -o "$RUNNER_TEMP/semwright-faust-interpreter"
           g++ -std=c++17 -O2 -Wall -Wextra -Werror             integrations/audio/analysis-runtime/main.cpp             -lebur128 -lsndfile -o "$RUNNER_TEMP/semwright-audio-meter"
-          cargo build --locked             -p semwright-plugin-host --bin semwright-sandbox             -p semwright-driver-motion-canvas --bin semwright-motion-canvas-driver             -p semwright-faust-audio-driver --bins             -p semwright-mlt-video-driver --bin semwright-mlt-video-driver
-          strip --strip-unneeded             target/debug/semwright-sandbox             target/debug/semwright-motion-canvas-driver             target/debug/semwright-faust-audio-driver             target/debug/semwright-audio-analysis-driver             target/debug/semwright-mlt-video-driver
-          chmod 0500             target/debug/semwright-sandbox             target/debug/semwright-motion-canvas-driver             target/debug/semwright-faust-audio-driver             target/debug/semwright-audio-analysis-driver             target/debug/semwright-mlt-video-driver
+          cargo build --locked             -p semwright-plugin-host --bin semwright-sandbox             -p semwright-driver-motion-canvas --bin semwright-motion-canvas-driver             -p semwright-faust-audio-driver --bins             -p semwright-mlt-video-driver --bins
+          strip --strip-unneeded             target/debug/semwright-sandbox             target/debug/semwright-motion-canvas-driver             target/debug/semwright-faust-audio-driver             target/debug/semwright-audio-analysis-driver             target/debug/semwright-mlt-video-driver target/debug/semwright-mlt-runtime-runner
+          chmod 0500             target/debug/semwright-sandbox             target/debug/semwright-motion-canvas-driver             target/debug/semwright-faust-audio-driver             target/debug/semwright-audio-analysis-driver             target/debug/semwright-mlt-video-driver target/debug/semwright-mlt-runtime-runner
           stat -c '%s %a %n'             target/debug/semwright-sandbox             target/debug/semwright-motion-canvas-driver             target/debug/semwright-faust-audio-driver             target/debug/semwright-audio-analysis-driver             target/debug/semwright-mlt-video-driver             | tee verification/composition-av/native-binaries.stat
           python3 - <<'PY'
           from pathlib import Path
@@ -135,6 +135,7 @@ jobs:
               'semwright-faust-audio-driver',
               'semwright-audio-analysis-driver',
               'semwright-mlt-video-driver',
+              'semwright-mlt-runtime-runner',
           ]:
               path=Path('target/debug')/name
               if path.stat().st_size > limit:
@@ -147,7 +148,9 @@ jobs:
           SEMWRIGHT_TEST_COMBINED_MOTION_DRIVER: ${{ github.workspace }}/target/debug/semwright-motion-canvas-driver
           SEMWRIGHT_TEST_COMBINED_FAUST_DRIVER: ${{ github.workspace }}/target/debug/semwright-faust-audio-driver
           SEMWRIGHT_TEST_COMBINED_ANALYSIS_DRIVER: ${{ github.workspace }}/target/debug/semwright-audio-analysis-driver
-          SEMWRIGHT_TEST_COMBINED_MLT_DRIVER: ${{ github.workspace }}/target/debug/semwright-mlt-video-driver
+          SEMWRIGHT_TEST_COMBINED_MLT_RUNNER: ${{ github.workspace }}/target/debug/semwright-mlt-runtime-runner
+          SEMWRIGHT_TEST_MOTION_NODE: ${{ github.workspace }}/integrations/motion-canvas/runtime/.semwright-tools/node
+          SEMWRIGHT_TEST_COMBINED_MLT_DRIVER: ${{ github.workspace }}/target/debug/semwright-mlt-video-driver target/debug/semwright-mlt-runtime-runner
           SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
           SEMWRIGHT_TEST_MOTION_RUNTIME: ${{ github.workspace }}/integrations/motion-canvas/runtime
           SEMWRIGHT_TEST_FAUST_VERSION: '2.70.3'

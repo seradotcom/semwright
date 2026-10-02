@@ -484,6 +484,7 @@ mod tests {
                 mount: Some("godot-project".into()),
                 secret: "b".repeat(64),
             }],
+            authoring: None,
             runner: Some(RunnerConfig {
                 executable: None,
                 sha256: None,
@@ -515,6 +516,7 @@ mod tests {
                 mount: None,
                 secret: "b".repeat(64),
             }],
+            authoring: None,
             runner: Some(RunnerConfig {
                 executable: Some(binary.clone()),
                 sha256: Some("c".repeat(64)),

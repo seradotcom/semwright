@@ -12,7 +12,9 @@ use semwright_mlt_video::{
 use serde_json::{Map, Value, json};
 use std::{
     ffi::OsString,
+    io::Read,
     path::{Path, PathBuf},
+    sync::Arc,
     sync::atomic::AtomicBool,
     time::Duration,
 };
@@ -40,7 +42,7 @@ fn dependency_path(value: &str) -> Result<PathBuf, String> {
 }
 
 fn runtime_entry(runtime_root: &Path, sealed_tool: &Path, name: &str) -> Result<PathBuf, String> {
-    if !matches!(name, "melt" | "ffprobe") {
+    if !matches!(name, "melt" | "ffprobe" | "ffmpeg") {
         return Err("runtime entrypoint is not allowlisted".into());
     }
     let root_meta = std::fs::symlink_metadata(runtime_root)
@@ -307,12 +309,117 @@ fn required_flag(
         .ok_or_else(|| format!("{description} requires a value for {expected}"))
 }
 
+fn av_operation(
+    runtime_root: &Path,
+    sealed: [&Path; 3],
+    roots: [&Path; 3],
+) -> Result<Value, String> {
+    use semwright_mlt_video::{
+        app::App,
+        fs::Root,
+        runtime::{Runtime, Tool},
+    };
+    let mut bytes = Vec::new();
+    std::io::stdin()
+        .take(65_537)
+        .read_to_end(&mut bytes)
+        .map_err(|_| "AV request unreadable")?;
+    if bytes.len() > 65_536 {
+        return Err("AV request exceeds Host stdin budget".into());
+    }
+    let request: Value = serde_json::from_slice(&bytes).map_err(|_| "AV request must be JSON")?;
+    let object = request.as_object().ok_or("AV request must be an object")?;
+    if object.len() != 3 || !object.contains_key("args") {
+        return Err("AV request has unexpected fields".into());
+    }
+    let command = object
+        .get("command")
+        .and_then(Value::as_str)
+        .ok_or("AV command missing")?;
+    if !matches!(
+        command,
+        "driver.mlt-video.frames.encode"
+            | "driver.mlt-video.av.mux"
+            | "driver.mlt-video.sync.probe"
+    ) {
+        return Err("AV operation is not allowlisted".into());
+    }
+    let descriptor = object
+        .get("descriptor_sha256")
+        .and_then(Value::as_str)
+        .ok_or("AV descriptor missing")?;
+    let mut delegated = std::collections::BTreeMap::new();
+    for ((name, writable), path) in [("project", false), ("media", false), ("output", true)]
+        .into_iter()
+        .zip(roots)
+    {
+        if !path.is_absolute() {
+            return Err("Delegated AV root must be absolute".into());
+        }
+        delegated.insert(
+            name.to_owned(),
+            Arc::new(
+                Root::open(path, true, writable)
+                    .map_err(|e| format!("{}: {}", e.code, e.message))?,
+            ),
+        );
+    }
+    let mut tools = Vec::new();
+    for (name, sealed) in ["melt", "ffprobe", "ffmpeg"].into_iter().zip(sealed) {
+        let path = runtime_entry(runtime_root, sealed, name)?;
+        let (sha256, _) = reader_hash(
+            std::fs::File::open(&path).map_err(|_| "AV dependency unreadable")?,
+            64 * 1024 * 1024,
+        )
+        .map_err(|e| format!("{}: {}", e.code, e.message))?;
+        tools.push(Tool { path, sha256 });
+    }
+    let runtime = Runtime::from_host_tools(tools[0].clone(), tools[1].clone(), tools[2].clone())
+        .map_err(|e| format!("{}: {}", e.code, e.message))?;
+    let mut app = App::new(delegated, Some(Arc::new(runtime)))
+        .map_err(|e| format!("{}: {}", e.code, e.message))?;
+    let args = semwright_mlt_video::json::parse(object["args"].to_string().as_bytes())
+        .map_err(|e| format!("{}: {}", e.code, e.message))?;
+    let result = app
+        .execute(command, descriptor, args)
+        .map_err(|e| format!("{}: {}", e.code, e.message))?;
+    serde_json::from_str(&result.encode()).map_err(|_| "AV result serialization failed".into())
+}
+
 fn parse() -> Result<Value, String> {
     let mut args = std::env::args().skip(1);
     let operation = args
         .next()
         .ok_or_else(|| "runtime operation is required".to_string())?;
     match operation.as_str() {
+        "av-operation" => {
+            let runtime_root =
+                PathBuf::from(required_flag(&mut args, "--runtime-root", "AV operation")?);
+            let melt =
+                dependency_path(&required_flag(&mut args, "--melt-sealed", "AV operation")?)?;
+            let ffprobe = dependency_path(&required_flag(
+                &mut args,
+                "--ffprobe-sealed",
+                "AV operation",
+            )?)?;
+            let ffmpeg = dependency_path(&required_flag(
+                &mut args,
+                "--ffmpeg-sealed",
+                "AV operation",
+            )?)?;
+            let project =
+                PathBuf::from(required_flag(&mut args, "--project-root", "AV operation")?);
+            let media = PathBuf::from(required_flag(&mut args, "--media-root", "AV operation")?);
+            let output = PathBuf::from(required_flag(&mut args, "--output-root", "AV operation")?);
+            if args.next().is_some() {
+                return Err("AV operation has unexpected arguments".into());
+            }
+            av_operation(
+                &runtime_root,
+                [&melt, &ffprobe, &ffmpeg],
+                [&project, &media, &output],
+            )
+        }
         "discover" => {
             let runtime_root =
                 PathBuf::from(required_flag(&mut args, "--runtime-root", "discover")?);
