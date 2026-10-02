@@ -1,4 +1,5 @@
 #![cfg(target_os = "linux")]
+use semwright_audio_domain::{analysis::LoudnessAnalysis, wav::WaveReader};
 use semwright_backend_api::Provider;
 use semwright_core::{Broker, NoApprover, audit::Audit};
 use semwright_driver_host::DriverProvider;
@@ -28,6 +29,34 @@ fn required_path(name: &str) -> PathBuf {
     assert!(path.is_file(), "native prerequisite is not a file: {name}");
     path.canonicalize().unwrap()
 }
+fn stereo_impulse_wav(path: &Path) {
+    const SAMPLE_RATE: u32 = 48_000;
+    const FRAMES: u32 = 96_000;
+    const IMPULSE_FRAME: u32 = 48_000;
+    let channels = 2u16;
+    let bits = 16u16;
+    let data_bytes = FRAMES * u32::from(channels) * 2;
+    let mut out = Vec::with_capacity(44 + data_bytes as usize);
+    out.extend_from_slice(b"RIFF");
+    out.extend_from_slice(&(36 + data_bytes).to_le_bytes());
+    out.extend_from_slice(b"WAVEfmt ");
+    out.extend_from_slice(&16u32.to_le_bytes());
+    out.extend_from_slice(&1u16.to_le_bytes());
+    out.extend_from_slice(&channels.to_le_bytes());
+    out.extend_from_slice(&SAMPLE_RATE.to_le_bytes());
+    out.extend_from_slice(&(SAMPLE_RATE * u32::from(channels) * 2).to_le_bytes());
+    out.extend_from_slice(&(channels * 2).to_le_bytes());
+    out.extend_from_slice(&bits.to_le_bytes());
+    out.extend_from_slice(b"data");
+    out.extend_from_slice(&data_bytes.to_le_bytes());
+    for frame in 0..FRAMES {
+        let sample = if frame == IMPULSE_FRAME { i16::MAX } else { 0 };
+        out.extend_from_slice(&sample.to_le_bytes());
+        out.extend_from_slice(&sample.to_le_bytes());
+    }
+    fs::write(path, out).unwrap();
+}
+
 fn wav(path: &Path, frames: u32, sample_rate: u32) {
     let channels = 1u16;
     let bits = 16u16;
@@ -226,4 +255,41 @@ async fn broker_host_meter_measures_digest_bound_wav_and_rejects_substitution() 
         .unwrap(),
     )
     .unwrap();
+}
+
+#[test]
+#[ignore = "requires the pinned libebur128 helper on a disposable runner"]
+fn direct_meter_and_wave_reader_accept_combined_av_impulse() {
+    let meter = required_path("SEMWRIGHT_TEST_AUDIO_METER");
+    let root = tempfile::tempdir().unwrap();
+    let signal = root.path().join("combined-av-impulse.wav");
+    stereo_impulse_wav(&signal);
+    let expected = digest(&signal);
+    assert_eq!(
+        expected,
+        "072d639c91011a0b5d183d8890eb92af1568136f241faae70a8956308a24133a"
+    );
+
+    let output = std::process::Command::new(&meter)
+        .args(["analyze", signal.to_string_lossy().as_ref(), "stereo"])
+        .output()
+        .unwrap();
+    eprintln!("meter status={}", output.status);
+    eprintln!("meter stdout={}", String::from_utf8_lossy(&output.stdout));
+    eprintln!("meter stderr={}", String::from_utf8_lossy(&output.stderr));
+    assert!(output.status.success());
+    let loudness: LoudnessAnalysis = serde_json::from_slice(&output.stdout).unwrap();
+    loudness.validate().unwrap();
+    assert_eq!(loudness.frames, 96_000);
+    assert_eq!(loudness.sample_rate, 48_000);
+    assert_eq!(loudness.channels, 2);
+    assert_eq!(loudness.layout, "stereo");
+
+    let reader = WaveReader::open(fs::File::open(&signal).unwrap(), 512 * 1024 * 1024).unwrap();
+    assert_eq!(reader.info().frames, 96_000);
+    assert_eq!(reader.info().sample_rate.0, 48_000);
+    assert_eq!(reader.info().channels, 2);
+    let statistics = reader.analyze(-90_000, 480).unwrap();
+    assert_eq!(statistics.frames, 96_000);
+    assert_eq!(statistics.channels.len(), 2);
 }
