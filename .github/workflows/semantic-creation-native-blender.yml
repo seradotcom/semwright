@@ -2,7 +2,7 @@ name: Integrated Blender native transport diagnostic (I)
 on:
   push:
     branches: [integration/semantic-creation-i-20261001]
-    paths: [.github/workflows/semantic-creation-native-blender.yml]
+    paths: [.github/workflows/semantic-creation-native-blender.yml, crates/driver-blender/**]
   workflow_dispatch:
     inputs:
       candidate_sha:

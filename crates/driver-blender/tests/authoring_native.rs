@@ -5,7 +5,7 @@ use semwright_core::{Broker, NoApprover, audit::Audit};
 use semwright_driver_host::DriverProvider;
 use semwright_driver_sdk::{
     ApplicationMatch, DriverInterfaces, DriverMount, DriverResources, DriverToolMount, Manifest,
-    SystemConfigMount, Transport, descriptor_digest,
+    Transport, descriptor_digest,
 };
 use semwright_policy::{FilesystemGrant, Policy, PolicyConfig, Profile};
 use semwright_project_graph as graph;
@@ -118,6 +118,11 @@ impl NativeFixture {
             },
             mounts: vec![
                 DriverMount {
+                    root: "font-config".into(),
+                    read_only: true,
+                    execute: false,
+                },
+                DriverMount {
                     root: "scratch".into(),
                     read_only: false,
                     execute: false,
@@ -133,10 +138,7 @@ impl NativeFixture {
                     execute: false,
                 },
             ],
-            system_config: vec![SystemConfigMount {
-                root: "font-config".into(),
-                destination: "/etc/fonts".into(),
-            }],
+            system_config: vec![],
             tools: vec![
                 DriverToolMount {
                     name: "blender-session-runner".into(),
@@ -146,8 +148,9 @@ impl NativeFixture {
                         "workspace".into(),
                         "blender-runtime".into(),
                         "scratch".into(),
+                        "font-config".into(),
                     ],
-                    system_config: vec!["font-config".into()],
+                    system_config: vec![],
                     dependencies: vec!["blender".into()],
                 },
                 DriverToolMount {
