@@ -15,10 +15,10 @@ ROOT = Path(__file__).resolve().parents[2]
 OWNED = ("crates/effect-conformance/", "scripts/effects/", "docs/effects/")
 WORKFLOW = ".github/workflows/effect-conformance.yml"
 A_CONTRACT = "26602e4b25929be869d69ef28fef4dd9713180d7"
-DEFAULT_BASE = "1518e372a01249a7a0a10f544a9a69265a5f12c0"
-DEPENDENCY_VERSION = 3
+DEFAULT_BASE = "a6b5bebbb022ae1e29c2b8e1ec3d4358cee7fb35"
+DEPENDENCY_VERSION = 4
 A_COMPONENT_SOURCE = "6e1261d645699e99fe94ad902b5fb26956f92102"
-HOST_COMPONENT_SOURCE = "1518e372a01249a7a0a10f544a9a69265a5f12c0"
+HOST_COMPONENT_SOURCE = "a6b5bebbb022ae1e29c2b8e1ec3d4358cee7fb35"
 
 
 def git(*args):
