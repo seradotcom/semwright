@@ -2,7 +2,7 @@
   "schema_version": 1,
   "baseline_sha": "b736d41b61c4a4146c9e75c16796e251b025e69f",
   "contract_sha": "7ed5b848e4d2e7af235d6166e6f93e0cf0bac90d",
-  "combined_candidate_sha": "1518e372a01249a7a0a10f544a9a69265a5f12c0",
+  "combined_candidate_sha": "58433870f100efe5e6a8275561d9a13d4dff6616",
   "targets": {
     "A": "65b773f4dd627b860358342f4d40a1ac532566d1",
     "B": "df2654bed6d2ac57d547846b69d16ea48b4a9ee3",
