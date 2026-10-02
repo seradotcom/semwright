@@ -49,7 +49,19 @@ use tempfile::TempDir;
 use tokio_util::sync::CancellationToken;
 
 const SESSION: &str = "combined-av-native-e2e";
-const B_AUDIO_SHA: &str = "df2654bed6d2ac57d547846b69d16ea48b4a9ee3";
+const B_AUDIO_OWNER_SHA: &str = "df2654bed6d2ac57d547846b69d16ea48b4a9ee3";
+
+fn integration_source_sha() -> String {
+    let sha = std::env::var("GITHUB_SHA").expect("exact native integration source SHA");
+    assert!(
+        sha.len() == 40
+            && sha
+                .bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b)),
+        "native integration source must be a full immutable SHA"
+    );
+    sha
+}
 
 fn file_sha(path: &Path) -> String {
     format!("{:x}", Sha256::digest(fs::read(path).unwrap()))
@@ -1084,11 +1096,12 @@ async fn audio_consumer_receipt(
             ("semantic-model".into(), applied_model),
             (
                 "audio-implementation".into(),
-                Digest::of_bytes(B_AUDIO_SHA.as_bytes()),
+                Digest::of_bytes(integration_source_sha().as_bytes()),
             ),
         ]),
         provenance: Some(format!(
-            "role-b-certified-sha={B_AUDIO_SHA}; faust-native+libebur128"
+            "integrated-source-sha={}; faust-native+libebur128",
+            integration_source_sha()
         )),
         license: None,
         retention: Retention::PrivateCandidate,
@@ -1199,7 +1212,7 @@ fn combined_av_plan(
     let audio_runtime = canonical_digest(&(
         file_sha(&harness.faust_exe),
         file_sha(&harness.analysis_exe),
-        B_AUDIO_SHA.to_owned(),
+        integration_source_sha(),
     ))
     .unwrap();
 
@@ -1864,7 +1877,7 @@ async fn combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_s
             pg::Determinant {
                 class: pg::DependencyClass::External,
                 key: "c14-mux-agent-b-source".into(),
-                digest: Digest::of_bytes(B_AUDIO_SHA.as_bytes()),
+                digest: Digest::of_bytes(integration_source_sha().as_bytes()),
             },
         ],
         coverage: pg::Coverage::unknown(),
@@ -2030,8 +2043,10 @@ async fn combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_s
             "schema_version": 1,
             "classification": "C14_PROJECT_GRAPH_AV_AUDIO_INTEGRATION",
             "source_sha": std::env::var("GITHUB_SHA").ok(),
-            "project_graph_source_sha": "77b34d8abad50f242c4c8494e280fe82d5cbcf55",
-            "audio_source_sha": B_AUDIO_SHA,
+            "project_graph_source_sha": integration_source_sha(),
+            "project_graph_owner_sha": "77b34d8abad50f242c4c8494e280fe82d5cbcf55",
+            "audio_source_sha": integration_source_sha(),
+            "audio_owner_sha": B_AUDIO_OWNER_SHA,
             "project": graph_project.as_str(),
             "mux_receipt": mux_receipt.id.as_str(),
             "publication_receipt": publication_receipt.id.as_str(),
@@ -2061,8 +2076,10 @@ async fn combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_s
             "schema_version": 1,
             "classification": "COMBINED_A_B_NATIVE_AV_CANDIDATE",
             "source_sha": std::env::var("GITHUB_SHA").ok(),
-            "composition_source_sha": "7ab43f99f4cc62be2a9b0ce9ce1155283a429768",
-            "audio_source_sha": B_AUDIO_SHA,
+            "composition_source_sha": integration_source_sha(),
+            "composition_owner_sha": "7ab43f99f4cc62be2a9b0ce9ce1155283a429768",
+            "audio_source_sha": integration_source_sha(),
+            "audio_owner_sha": B_AUDIO_OWNER_SHA,
             "av_plan_sha256": manifest.av_plan_digest.as_str(),
             "pre_encode_audio_sha256": pre_encode_audio_digest.as_str(),
             "post_encode_audio_sha256": post_encode_audio_digest.as_str(),

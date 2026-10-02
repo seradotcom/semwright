@@ -82,6 +82,10 @@ jobs:
         run: cargo check --locked --all-targets -p semwright-driver-godot -p semwright-driver-blender -p semwright-driver-motion-canvas -p semwright-mlt-video-driver -p semwright-faust-audio-driver -p semwright-ardour-audio-driver -p semwright-av-composition --features semwright-driver-blender/authoring-native
       - name: Host job wait and cancellation contracts
         run: cargo test --locked -p semwright-driver-sdk --lib -- --nocapture
+      - name: Scoped pinned font reader boundaries
+        run: |
+          cargo test --locked -p semwright-driver-motion-canvas --lib store::tests::pinned_font_reader -- --nocapture 2>&1 | tee verification/semantic-creation/pinned-font-reader.log
+          grep -F 'test result: ok. 2 passed; 0 failed; 0 ignored;' verification/semantic-creation/pinned-font-reader.log
       - name: A contracts and D reconciliation source regressions
         run: python3 scripts/semantic-creation/reconciliation_diagnostic.py
       - name: Strict A/D lints

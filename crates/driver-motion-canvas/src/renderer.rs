@@ -604,7 +604,7 @@ fn render_inputs(snapshot: &Snapshot, plan: &RenderPlan) -> Result<RenderInputs>
         "node_modules/@fontsource-variable/instrument-sans/index.css",
         "node_modules/@fontsource/ibm-plex-mono/400.css",
     ] {
-        let bytes = crate::store::read_granted_file(&runtime, css_path, 256 * 1024)?;
+        let bytes = crate::store::read_pinned_font_file(&runtime, css_path, 256 * 1024)?;
         let css = std::str::from_utf8(&bytes)
             .map_err(|_| Error::invalid("Font stylesheet is not UTF8"))?;
         resources.insert(css_path.to_owned(), security::sha256(&bytes));
@@ -621,7 +621,7 @@ fn render_inputs(snapshot: &Snapshot, plan: &RenderPlan) -> Result<RenderInputs>
             let reference = reference.strip_prefix("./").unwrap_or(reference);
             runtime_relative_path(reference)?;
             let path = format!("{}/{}", css_path.rsplit_once('/').unwrap().0, reference);
-            let bytes = crate::store::read_granted_file(&runtime, &path, 16 * 1024 * 1024)?;
+            let bytes = crate::store::read_pinned_font_file(&runtime, &path, 16 * 1024 * 1024)?;
             if bytes.is_empty() {
                 return Err(Error::invalid("Font resource is empty"));
             }

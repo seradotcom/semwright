@@ -31,3 +31,27 @@ lockfile already includes `0.8.4` with registry checksum
 `ec8ebde2db3681e8c9980cc27822030e68752690ddfa9473e739aeb4dbde6d71`.
 No extra dependency update is needed for that historical finding. The final
 combined audit and license gates remain required and must not be suppressed.
+
+Focused Actions evidence now includes Blender model 52/52 and native authoring
+4/4 at `1af65a3be88d048f1f42224ab27b8e9143d5b7bc` (run `36975525201`),
+Ardour Broker/SDK authoring at `a672512ed294145fd6e76d700aba667d4d315b77`
+(run `36976180797`), and native analysis at
+`af58a3ce1a0cabfe0a290f89fbba208bb72c3c98` (run `36977261090`).
+Source diagnostics at `6d107e8700b97d6ccfe8930a33141d418718e2d5`
+(run `37006551930`) passed the full SDK library suite, 115 A/D/B/F regressions,
+compilation of the integrated driver/AV targets and expanded strict lints.
+These runs retain their original scope; they do not certify a later source SHA.
+
+The final certification executes one workflow family at a time, retaining every
+original scope predicate and required gate. Matrix and job dependencies bound
+heavy jobs within a family to two. Scheduling dependencies use explicit status
+conditions so an optional skipped family or an earlier failure does not silently
+remove subsequent required checks. Any failed required check still fails the
+unchanged final evidence gate. B and D owner certifications run their heavy lanes
+sequentially; G retains its independent single-lane campaign.
+
+AV receipts and resource determinants bind the tested integrated source SHA.
+Historical owner SHAs remain separately labelled as ancestry; they are not
+reported as the source of rebuilt integrated binaries. The harness applies the
+Host's existing 64 MiB provider and 256 MiB sealed-tool executable limits.
+Prepared driver binaries are staged apart from Cargo's mutable build directory.

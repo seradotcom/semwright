@@ -1,6 +1,7 @@
 # B/F12 integration consumer
 
-Status: implementation awaiting exact-SHA Actions evidence; F12 is not yet certified.
+Status: source implementation passed Actions run `37006551930` at
+`6d107e8700b97d6ccfe8930a33141d418718e2d5`; final native F12 certification remains pending.
 
 The compiled audio planner creates F's seven-rule effect contract and pins its
 digest before preparing A's plan. Client `effects.contract` dependencies are

@@ -456,6 +456,27 @@ impl ProjectStore {
 
 pub(crate) fn read_granted_file(root: &Path, relative: &str, limit: usize) -> Result<Vec<u8>> {
     security::relative_path(relative)?;
+    read_granted_regular_file(root, relative, limit)
+}
+
+pub(crate) fn read_pinned_font_file(root: &Path, relative: &str, limit: usize) -> Result<Vec<u8>> {
+    let suffix = [
+        "node_modules/@fontsource-variable/instrument-sans/",
+        "node_modules/@fontsource/ibm-plex-mono/",
+    ]
+    .into_iter()
+    .find_map(|prefix| relative.strip_prefix(prefix))
+    .ok_or_else(|| Error::invalid("Font resource is outside the pinned packages"))?;
+    security::relative_path(suffix)?;
+    if !matches!(suffix, "index.css" | "400.css")
+        && !(suffix.starts_with("files/") && suffix.ends_with(".woff2"))
+    {
+        return Err(Error::invalid("Unsupported pinned font resource"));
+    }
+    read_granted_regular_file(root, relative, limit)
+}
+
+fn read_granted_regular_file(root: &Path, relative: &str, limit: usize) -> Result<Vec<u8>> {
     let root = fs::canonicalize(root).map_err(|error| {
         if error.kind() == std::io::ErrorKind::NotFound {
             Error::new(ErrorCode::NotFound, "Granted filesystem root is missing")
@@ -597,6 +618,47 @@ fn sync_tree(root: &Path) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn pinned_font_reader_accepts_scoped_packages_and_rejects_unpinned_paths() {
+        let temp = tempfile::tempdir().unwrap();
+        let relative = "node_modules/@fontsource-variable/instrument-sans/index.css";
+        let path = temp.path().join(relative);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(&path, b"pinned-font").unwrap();
+        assert_eq!(
+            read_pinned_font_file(temp.path(), relative, 32).unwrap(),
+            b"pinned-font"
+        );
+        assert!(read_granted_file(temp.path(), relative, 32).is_err());
+        assert!(read_pinned_font_file(temp.path(), relative, 3).is_err());
+        for hostile in [
+            "node_modules/@untrusted/font/index.css",
+            "node_modules/@fontsource-variable/instrument-sans/../../../secret.css",
+            "node_modules/@fontsource/ibm-plex-mono/files/../400.css",
+            "node_modules/@fontsource/ibm-plex-mono/runtime.js",
+        ] {
+            assert!(read_pinned_font_file(temp.path(), hostile, 32).is_err());
+        }
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn pinned_font_reader_rejects_symlink_files_and_package_escape() {
+        let temp = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        fs::write(outside.path().join("400.css"), b"outside").unwrap();
+        let package = temp.path().join("node_modules/@fontsource/ibm-plex-mono");
+        fs::create_dir_all(&package).unwrap();
+        std::os::unix::fs::symlink(outside.path().join("400.css"), package.join("400.css"))
+            .unwrap();
+        let relative = "node_modules/@fontsource/ibm-plex-mono/400.css";
+        assert!(read_pinned_font_file(temp.path(), relative, 32).is_err());
+        fs::remove_file(package.join("400.css")).unwrap();
+        fs::remove_dir(&package).unwrap();
+        std::os::unix::fs::symlink(outside.path(), &package).unwrap();
+        assert!(read_pinned_font_file(temp.path(), relative, 32).is_err());
+    }
 
     fn fixture() -> Project {
         validate::parse(include_bytes!(
