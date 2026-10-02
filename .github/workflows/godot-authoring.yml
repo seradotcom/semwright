@@ -60,10 +60,12 @@ jobs:
           SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
         run: |
           set -euo pipefail
-          cargo test --locked -p semwright-driver-godot --test authoring_host \
-            export_lane_builds_and_launches_without_editor_or_semwright \
-            -- --ignored --exact --nocapture \
-            2>&1 | tee verification/godot-export/export-host.log
+          for diagnostic_iteration in 1 2 3; do
+            cargo test --locked -p semwright-driver-godot --test authoring_host \
+              export_lane_builds_and_launches_without_editor_or_semwright \
+              -- --ignored --exact --nocapture \
+              2>&1 | tee "verification/godot-export/export-host-$diagnostic_iteration.log"
+          done
       - name: Export evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a

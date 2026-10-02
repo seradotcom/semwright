@@ -994,10 +994,12 @@ impl HostToolExecutor for LinuxHostToolBroker {
                 "Driver requested an ungranted Linux sealed tool",
             )
         })?;
+        let diagnostic_started = Instant::now();
         let _ = semwright_platform_services::verify_sealed_tool_executable(
             &tool.staged.0,
             &tool.sha256,
         )?;
+        eprintln!("I_DIAG Linux executable verification {name}: {} ms", diagnostic_started.elapsed().as_millis());
         let contract = self.contracts.get(name).ok_or_else(|| {
             Error::new(
                 ErrorCode::PolicyDenied,
@@ -2381,7 +2383,9 @@ fn spawn_v2_reader(
                             return;
                         }
 
+                        eprintln!("I_DIAG detached start receipt ready");
                         let mut input = input.lock().await;
+                        eprintln!("I_DIAG detached start receipt writer acquired");
                         if write_frame(&mut *input, &request).await.is_err() {
                             terminate_call.cancel();
                             closed_call.cancel();
