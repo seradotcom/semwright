@@ -14,3 +14,7 @@ retest or a claim that old findings certify the new transport. The registry,
 mutants, oracle implementation and Blender attack bodies are byte-identical;
 `reports/I_TRANSPORT_BOOTSTRAP.json` records their hashes. All product lanes
 must still use one explicit full `combined_candidate_sha`. R16 remains open.
+
+The lint cleanup removes three unused local assignments from `native_apps.py`.
+The native calls, result checks and case expectations are unchanged. This source
+change is included in the new suite identity before the combined campaign.

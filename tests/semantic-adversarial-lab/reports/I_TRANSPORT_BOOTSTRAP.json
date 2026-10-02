@@ -12,5 +12,6 @@
     "tests/semantic-adversarial-lab/selftest_extra.py": "e3ffe15d3e78d4043bfe9cb8e21f1d8d249bf652db1b515cd1b813107f73e4c0",
     "tests/semantic-adversarial-lab/fixtures/blender_native.json": "19ba4248fe8b26a9e906069e569225374d0ab3af57f6090a2453f11e9ddb903a",
     "tests/semantic-adversarial-lab/oracle_identity.py": "84cd3baf9521be43f7de3840a8668f2e3ebd2afd77befd756aeafc1322d1be26"
-  }
+  },
+  "lint_cleanup": "Three unused local assignments removed from native_apps.py; native calls, result checks and case expectations unchanged"
 }

@@ -499,8 +499,6 @@ def run_godot(target: Path, source_sha: str, suite_sha: str, cases: list[dict], 
             "/out/request-reopen.json",
             "/out/observation-reopen.json",
         )
-        save_raw = persistence_pair_raw
-        reopen_raw = persistence_pair_raw
         if (
             not sound(persistence_pair_raw, enclosure)
             or not (out / "observation-save.json").is_file()
@@ -775,7 +773,6 @@ def run_godot(target: Path, source_sha: str, suite_sha: str, cases: list[dict], 
             and "Parse Error:" not in launch_text,
         }
 
-        case_map = {case["id"]: case for case in cases}
         execution_map = {
             "G-GODOT-001": [import_raw, inspect_raw, decode_raw],
             "G-GODOT-002": [first_raw, second_raw],
