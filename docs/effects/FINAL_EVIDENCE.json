@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
   "role": "F",
-  "state": "NATIVE_COMPLETE_INTEGRATION_REVIEW_PENDING",
+  "state": "NATIVE_COMPLETE_CONSUMER_RECONCILIATION_PENDING",
   "baseline_sha": "b736d41b61c4a4146c9e75c16796e251b025e69f",
-  "implementation_source_sha": "0afad4b4ceac59434ae938d246f96d8d4351498e",
+  "implementation_source_sha": "d2cfd86a2ee064aa5de8f0a8944319edf6dbb060",
   "e0_sha": "dd6d22d6ec6c7c5ef378da58ed75ca18b25ba5ff",
   "contract_sha": "26602e4b25929be869d69ef28fef4dd9713180d7",
   "dependencies": {
@@ -11,13 +11,13 @@
     "C_P0": "6ee52b428310370d3ad438a13964086a63f48367"
   },
   "effect_conformance": {
-    "run_id": 36683875483,
+    "run_id": 36942492444,
     "conclusion": "success",
-    "linux_job": 109791197589,
-    "windows_job": 109791197577,
-    "macos_job": 109791197598,
-    "requested_tests": 39,
-    "executed_tests": 39,
+    "linux_job": 110639271867,
+    "windows_job": 110639271836,
+    "macos_job": 110639271776,
+    "requested_tests": 40,
+    "executed_tests": 40,
     "skipped_tests": 0,
     "schema_mutation_cases": 15000,
     "targeted_mutants_killed": 3
@@ -34,21 +34,29 @@
     "route": "native-product-adapter-not-broker",
     "crash_durability": "NOT_TESTED"
   },
-  "same_sha_gates": {
+  "current_sha_gates": {
+    "quality": {"run_id": 36942497243, "conclusion": "success"},
+    "dependency_coverage_fuzz": {"run_id": 36942497359, "conclusion": "failure", "coverage": "success", "fuzz": "success", "dependency_audit": "failure_yanked_yoke-derive_0.8.3"},
+    "packaging": {"run_id": 36942497427, "conclusion": "success"},
+    "supply_chain": {"run_id": 36942497317, "conclusion": "success", "attestation": "skipped_not_claimed"}
+  },
+  "prior_product_gate_reference": {
+    "source_sha": "0afad4b4ceac59434ae938d246f96d8d4351498e",
+    "delta_to_current": "test-only Forbidden-obligation regression",
     "quality": {"run_id": 36683883701, "conclusion": "success"},
     "dependency_coverage_fuzz": {"run_id": 36683883572, "conclusion": "success"},
     "packaging": {"run_id": 36683883626, "conclusion": "success"},
     "supply_chain": {"run_id": 36683883597, "conclusion": "success", "attestation": "skipped_not_claimed"}
   },
   "consumers": {
-    "A": "PreparedPlan compile/binding consumer PASS; owner approval still pending",
+    "A": "PreparedPlan compile/binding consumer PASS; E0 ownership boundary APPROVED by A final 7ab43f99 / PR #172 issuecomment-5942070000",
     "C": "P0 receipt consumer PASS",
     "D": "production EvidenceAdapter/collect/evaluate; exact certification 655a233 / run 36742703497 PASS",
-    "E": "certified consumer 3d04d846 / run 36684985248 PASS, but preservation obligation/scope finding remains open",
-    "B": "contractual Audio compatibility only; no production B crate in frozen F graph"
+    "E": "exact head f492f13 contains both requested F semantic fixes; authoring run 36942759168 SUCCESS",
+    "B": "contractual Audio compatibility only; production consumer pending after df2654b audio recertification"
   },
   "requirements": {
-    "F01": "BLOCKED_OWNER_A_APPROVAL",
+    "F01": "PASS",
     "F02": "PASS",
     "F03": "PASS",
     "F04": "PASS",
@@ -64,8 +72,8 @@
     "F14": "PASS"
   },
   "backup": {
-    "path": "docs/effects/backup/semwright-effect-conformance-F-0afad4b.zip",
-    "sha256": "81dce5784b01693f1c221e65937c25d4640ecea1a4c74aa384451325bf591b8f",
+    "path": "docs/effects/backup/semwright-effect-conformance-F-d2cfd86.zip",
+    "sha256": "31536b484a3fc9e54fce7d3c570fa41440a1ccb043e4313b13c078061342f542",
     "format": "reconstructive-source-zip"
   },
   "claims": {
