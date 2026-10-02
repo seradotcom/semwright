@@ -169,6 +169,24 @@ impl Controller {
         self.state = State::RepairPlanned;
         Ok(Decision::PlanRepair)
     }
+    /// Called only after PlanVault accepted fresh reconciliation evidence and the
+    /// trusted profile proved a single bounded repair. Historical rounds and
+    /// progress remain intact; this changes no permission or execution receipt.
+    pub fn reconciled_for_repair(&mut self, parent_plan: &Digest) -> Result<()> {
+        ensure(
+            matches!(self.state, State::PartiallyApplied | State::Unknown)
+                && self.plan == *parent_plan,
+            "reconciliation controller/parent mismatch",
+        )?;
+        ensure(
+            self.rounds < self.budget.max_iterations,
+            "reconciliation iteration budget",
+        )?;
+        self.state = State::RepairPlanned;
+        self.stop = None;
+        Ok(())
+    }
+
     /// Repair approval and freshness are enforced by the profile and Broker.
     /// This binding change itself grants no right to execute.
     pub fn bind_repair(&mut self, new_plan: Digest) -> Result<()> {

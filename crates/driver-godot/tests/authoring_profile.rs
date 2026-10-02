@@ -424,3 +424,141 @@ fn native_revision_candidate_requires_c_generation_and_c_admits_it() {
             .is_err()
     );
 }
+
+#[test]
+fn uncertain_publication_reconciles_to_a_fresh_owner_bound_repair() {
+    use semwright_types::Error;
+    use std::cell::Cell;
+    let (_root, config) = environment();
+    let mut runtime = runtime(config.clone());
+    let alice = owner("host-session-a");
+    let bob = owner("host-session-b");
+    let spec = fixture();
+    let parent = runtime.plan(&alice, spec.clone()).unwrap();
+    let calls = Cell::new(0);
+    let failure = runtime
+        .apply(&alice, &parent.plan_id, false, "interrupted-write", || {
+            calls.set(calls.get() + 1);
+            if calls.get() >= 4 {
+                Err(Error::new(ErrorCode::Cancelled, "bounded interruption"))
+            } else {
+                Ok(())
+            }
+        })
+        .unwrap_err();
+    assert!(!failure.outcome_known);
+    assert_eq!(
+        runtime
+            .measure(&alice, &parent.plan_id)
+            .unwrap()
+            .snapshot
+            .status,
+        "PARTIAL"
+    );
+    let request = RepairPlanRequest {
+        parent_plan_id: parent.plan_id.clone(),
+        mode: RepairMode::ReconcilePartialPublication,
+    };
+    assert!(
+        runtime
+            .repair_plan_with_request(&bob, request.clone(), "foreign-read")
+            .is_err()
+    );
+    assert!(
+        runtime
+            .apply(&alice, &parent.plan_id, false, "retry-parent", || Ok(()))
+            .is_err()
+    );
+    assert!(
+        runtime
+            .repair_plan_with_request(&alice, request.clone(), "interrupted-write")
+            .is_err()
+    );
+    let repair = runtime
+        .repair_plan_with_request(&alice, request.clone(), "reconcile-read")
+        .unwrap();
+    assert_ne!(repair.plan_id, parent.plan_id);
+    assert_eq!(repair.root_plan_id, parent.root_plan_id);
+    assert_eq!(repair.intent_digest, parent.intent_digest);
+    assert_eq!(repair.target_revision, parent.target_revision);
+    assert!(
+        runtime
+            .repair_plan_with_request(&alice, request, "reconcile-read")
+            .is_err()
+    );
+    assert!(
+        runtime
+            .apply(
+                &alice,
+                &repair.plan_id,
+                true,
+                "interrupted-write",
+                || Ok(())
+            )
+            .is_err()
+    );
+    assert!(
+        runtime
+            .apply(&alice, &repair.plan_id, true, "reconcile-read", || Ok(()))
+            .is_err()
+    );
+    let applied = runtime
+        .apply(&alice, &repair.plan_id, true, "fresh-repair-write", || {
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(applied.source_state, "IN_SYNC");
+    let verified = runtime.verify(&alice, &repair.plan_id).unwrap();
+    assert_eq!(verified.report.verdict().unwrap(), Verdict::Pass);
+    assert_eq!(
+        verified.receipt.operation.capability,
+        "driver.godot.composition.repair.apply"
+    );
+}
+
+#[test]
+fn uncertain_publication_reconciliation_never_overwrites_a_human_edit() {
+    use semwright_types::Error;
+    use std::cell::Cell;
+    let (_root, config) = environment();
+    let mut runtime = runtime(config.clone());
+    let alice = owner("host-session-a");
+    let spec = fixture();
+    let initial = runtime.plan(&alice, spec.clone()).unwrap();
+    runtime
+        .apply(&alice, &initial.plan_id, false, "initial-write", || Ok(()))
+        .unwrap();
+    let mut update = spec.clone();
+    update.title = "Updated title".into();
+    let parent = runtime.plan(&alice, update).unwrap();
+    let calls = Cell::new(0);
+    let failure = runtime
+        .apply(&alice, &parent.plan_id, false, "interrupted-update", || {
+            calls.set(calls.get() + 1);
+            if calls.get() >= 4 {
+                Err(Error::new(ErrorCode::Cancelled, "bounded interruption"))
+            } else {
+                Ok(())
+            }
+        })
+        .unwrap_err();
+    assert!(!failure.outcome_known);
+    let source = config
+        .output_root
+        .join(&spec.project)
+        .join("scripts/arena.gd");
+    fs::write(&source, "human-owned edit").unwrap();
+    assert!(
+        runtime
+            .repair_plan_with_request(
+                &alice,
+                RepairPlanRequest {
+                    parent_plan_id: parent.plan_id,
+                    mode: RepairMode::ReconcilePartialPublication,
+                },
+                "human-reconcile"
+            )
+            .is_err()
+    );
+    assert_eq!(fs::read_to_string(source).unwrap(), "human-owned edit");
+}

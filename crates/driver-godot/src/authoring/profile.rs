@@ -61,6 +61,7 @@ pub struct PlanRefRequest {
 #[serde(rename_all = "snake_case")]
 pub enum RepairMode {
     MissingManagedSource,
+    ReconcilePartialPublication,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]

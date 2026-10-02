@@ -1,6 +1,10 @@
 use crate::*;
 use serde::Serialize;
-use std::{collections::BTreeMap, sync::Arc, time::Instant};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    sync::Arc,
+    time::Instant,
+};
 
 fn expired(elapsed_ms: u128, max_elapsed_ms: u64) -> bool {
     elapsed_ms > u128::from(max_elapsed_ms)
@@ -26,6 +30,8 @@ struct Root {
     iterations: u32,
     observations: u32,
     attempts: Vec<Attempt>,
+    reconciliation_requests: BTreeSet<String>,
+    reconciliations: Vec<ReconciliationRecord>,
 }
 struct Entry {
     root: String,
@@ -33,6 +39,32 @@ struct Entry {
     operations: u32,
     consumed: bool,
 }
+/// Evidence of an explicitly observed uncertain attempt. Its original status and
+/// effects remain in the attempt ledger; this record never promotes them to PASS.
+#[derive(Debug, Clone, Serialize)]
+pub struct ReconciliationRecord {
+    pub attempt_index: usize,
+    pub request_id: String,
+    pub observation: ObservationRef,
+    pub child_plan_id: Option<String>,
+}
+
+/// Read-only reconciliation ticket, bound to one vault/root/attempt incarnation.
+/// Only a trusted profile may use it with newly collected native evidence.
+/// It grants no Broker permission and is never deserializable from request JSON.
+pub struct ReconciliationPermit {
+    vault_identity: Arc<VaultIdentity>,
+    root_identity: Arc<RootIdentity>,
+    owner: Owner,
+    root: String,
+    index: usize,
+    plan_id: String,
+    request_id: String,
+    observation_sequence: u32,
+    expected_base: BaseStateSet,
+    scope: BTreeSet<Address>,
+}
+
 /// Private, non-serializable permit. Only begin() creates one, and finish consumes it.
 /// This prevents replay, not policy bypass: caller must still use the Broker.
 pub struct BeginPermit {
@@ -105,15 +137,27 @@ impl PlanVault {
                 .ok_or_else(|| ContractError::Denied("unknown parent plan".into()))?;
             let r = self
                 .roots
-                .get(&(owner.clone(), e.root.clone()))
+                .get_mut(&(owner.clone(), e.root.clone()))
                 .ok_or_else(|| ContractError::Stale("expired root".into()))?;
             ensure(r.budget == budget, "repair cannot reset or enlarge budget")?;
             ensure(
-                r.attempts
-                    .last()
-                    .is_some_and(|a| a.status == ExecutionStatus::Completed),
-                "repair needs a completed observed parent; unknown requires reconciliation",
+                r.attempts.last().is_some_and(|a| a.plan_digest == parent),
+                "repair parent is not the latest attempted plan",
             )?;
+            if r.attempts
+                .last()
+                .is_none_or(|a| a.status != ExecutionStatus::Completed)
+            {
+                let index = r.attempts.len() - 1;
+                let reconciled = r.reconciliations.last_mut().ok_or_else(|| {
+                    ContractError::Unknown("repair needs explicit outcome reconciliation".into())
+                })?;
+                ensure(
+                    reconciled.attempt_index == index && reconciled.child_plan_id.is_none(),
+                    "reconciliation already consumed or belongs to another attempt",
+                )?;
+                reconciled.child_plan_id = Some(id.to_owned());
+            }
             e.root.clone()
         } else {
             ensure(!repair, "repair needs a root")?;
@@ -130,6 +174,8 @@ impl PlanVault {
                     iterations: 0,
                     observations: 0,
                     attempts: vec![],
+                    reconciliation_requests: BTreeSet::new(),
+                    reconciliations: vec![],
                 },
             );
             id.into()
@@ -197,12 +243,18 @@ impl PlanVault {
             .roots
             .get_mut(&(owner.clone(), e.root.clone()))
             .ok_or_else(|| ContractError::Stale("missing root".into()))?;
-        if r.attempts.iter().any(|a| a.request_id == request_id) {
+        if r.attempts.iter().any(|a| a.request_id == request_id)
+            || r.reconciliation_requests.contains(request_id)
+        {
             return Err(ContractError::Denied("request replay".into()));
         }
         if r.attempts
             .last()
             .is_some_and(|a| a.status != ExecutionStatus::Completed)
+            && r.reconciliations.last().is_none_or(|record| {
+                record.attempt_index != r.attempts.len() - 1
+                    || record.child_plan_id.as_deref() != Some(id)
+            })
         {
             return Err(ContractError::Unknown(
                 "previous outcome needs reconciliation".into(),
@@ -284,6 +336,173 @@ impl PlanVault {
         a.effects = effects;
         Ok(())
     }
+    /// Reserve observation budget before the profile performs any reconciliation
+    /// read. expected_base and scope must come from trusted current provider state,
+    /// not from client input. A failed read never refunds this reservation.
+    pub fn begin_reconciliation<T: Serialize>(
+        &mut self,
+        owner: &Owner,
+        id: &str,
+        plan: &T,
+        request_id: &str,
+        expected_base: BaseStateSet,
+        scope: Vec<Address>,
+    ) -> Result<ReconciliationPermit> {
+        self.matches(owner, id, plan)?;
+        bounded_id(request_id)?;
+        expected_base.validate()?;
+        ensure(
+            !scope.is_empty() && scope.len() <= MAX_ENTRIES,
+            "reconciliation scope",
+        )?;
+        let resources: BTreeSet<_> = expected_base.0.iter().map(|base| &base.key).collect();
+        for address in &scope {
+            bounded_id(&address.logical_id)?;
+            bounded_id(&address.property)?;
+            ensure(
+                resources.contains(&address.resource),
+                "reconciliation resource scope",
+            )?;
+        }
+        let entry = self
+            .entries
+            .get(&(owner.clone(), id.into()))
+            .expect("matches checked");
+        let root = self
+            .roots
+            .get_mut(&(owner.clone(), entry.root.clone()))
+            .expect("matches checked");
+        let attempt = root
+            .attempts
+            .last()
+            .ok_or_else(|| ContractError::Denied("no attempted parent".into()))?;
+        ensure(
+            attempt.plan_digest == id
+                && matches!(
+                    attempt.status,
+                    ExecutionStatus::Partial | ExecutionStatus::Unknown
+                ),
+            "reconciliation requires the latest Partial/Unknown attempt",
+        )?;
+        ensure(
+            !root
+                .attempts
+                .iter()
+                .any(|attempt| attempt.request_id == request_id)
+                && !root.reconciliation_requests.contains(request_id),
+            "reconciliation request replay",
+        )?;
+        ensure(
+            root.reconciliations
+                .last()
+                .is_none_or(|record| record.attempt_index != root.attempts.len() - 1),
+            "attempt already reconciled",
+        )?;
+        if root.observations >= root.budget.max_observations {
+            return Err(ContractError::Limit("aggregate observation budget".into()));
+        }
+        root.observations += 1;
+        root.reconciliation_requests.insert(request_id.into());
+        Ok(ReconciliationPermit {
+            vault_identity: self.identity.clone(),
+            root_identity: root.identity.clone(),
+            owner: owner.clone(),
+            root: entry.root.clone(),
+            index: root.attempts.len() - 1,
+            plan_id: id.into(),
+            request_id: request_id.into(),
+            observation_sequence: root.observations,
+            expected_base,
+            scope: scope.into_iter().collect(),
+        })
+    }
+
+    /// The trusted profile must freshly observe the pending effect and prove one
+    /// deterministic repair before calling this method. Serialized evidence alone
+    /// is not authority. The old attempt/effects/budget are preserved unchanged.
+    pub fn finish_reconciliation(
+        &mut self,
+        permit: ReconciliationPermit,
+        observed: ObservationRef,
+    ) -> Result<()> {
+        ensure(
+            Arc::ptr_eq(&self.identity, &permit.vault_identity),
+            "foreign reconciliation vault",
+        )?;
+        canonical_bytes(&observed)?;
+        bounded_id(&observed.id)?;
+        bounded_id(&observed.method)?;
+        ensure(
+            observed.exhaustive
+                && observed.method_version > 0
+                && observed.artifact.is_some()
+                && matches!(
+                    observed.source,
+                    EvidenceSource::NativeApi
+                        | EvidenceSource::RendererState
+                        | EvidenceSource::DecodedMedia
+                        | EvidenceSource::FileRead
+                ),
+            "reconciliation needs exhaustive native evidence",
+        )?;
+        permit.expected_base.check_fresh(&observed.base, false)?;
+        let scope: BTreeSet<_> = observed.scope.iter().cloned().collect();
+        ensure(
+            scope == permit.scope && observed.scope.len() == scope.len(),
+            "reconciliation observation scope mismatch",
+        )?;
+        let root = self
+            .roots
+            .get_mut(&(permit.owner, permit.root))
+            .ok_or_else(|| ContractError::Stale("reconciliation root lost".into()))?;
+        ensure(
+            Arc::ptr_eq(&root.identity, &permit.root_identity),
+            "stale reconciliation root incarnation",
+        )?;
+        if expired(
+            root.started.elapsed().as_millis(),
+            root.budget.max_elapsed_ms,
+        ) {
+            return Err(ContractError::Stale("reconciliation root expired".into()));
+        }
+        ensure(
+            root.attempts.len() == permit.index + 1
+                && root.observations == permit.observation_sequence,
+            "stale reconciliation observation",
+        )?;
+        let attempt = &root.attempts[permit.index];
+        ensure(
+            attempt.plan_digest == permit.plan_id
+                && matches!(
+                    attempt.status,
+                    ExecutionStatus::Partial | ExecutionStatus::Unknown
+                )
+                && root
+                    .reconciliations
+                    .last()
+                    .is_none_or(|record| record.attempt_index != permit.index),
+            "reconciliation attempt changed or replayed",
+        )?;
+        root.reconciliations.push(ReconciliationRecord {
+            attempt_index: permit.index,
+            request_id: permit.request_id,
+            observation: observed,
+            child_plan_id: None,
+        });
+        Ok(())
+    }
+
+    pub fn reconciliations(&self, owner: &Owner, id: &str) -> Result<&[ReconciliationRecord]> {
+        let entry = self
+            .entries
+            .get(&(owner.clone(), id.into()))
+            .ok_or_else(|| ContractError::Denied("unknown plan".into()))?;
+        self.roots
+            .get(&(owner.clone(), entry.root.clone()))
+            .map(|root| root.reconciliations.as_slice())
+            .ok_or_else(|| ContractError::Stale("missing root".into()))
+    }
+
     pub fn record_observation(&mut self, owner: &Owner, id: &str, findings: u32) -> Result<()> {
         let e = self
             .entries

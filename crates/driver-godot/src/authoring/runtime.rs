@@ -133,7 +133,7 @@ impl AuthoringRuntime {
             }
             "driver.godot.composition.repair.plan" => {
                 let request: RepairPlanRequest = decode(args)?;
-                serde_json::to_value(self.repair_plan(&owner, request)?)?
+                serde_json::to_value(self.repair_plan_with_request(&owner, request, request_id)?)?
             }
             "driver.godot.composition.repair.apply" => {
                 let request: PlanRefRequest = decode(args)?;
@@ -445,7 +445,19 @@ impl AuthoringRuntime {
     }
 
     pub fn repair_plan(&mut self, owner: &Owner, request: RepairPlanRequest) -> Result<PlanResult> {
+        self.repair_plan_with_request(owner, request, &format!("godot_reconcile_{}", unique_id()))
+    }
+
+    pub fn repair_plan_with_request(
+        &mut self,
+        owner: &Owner,
+        request: RepairPlanRequest,
+        request_id: &str,
+    ) -> Result<PlanResult> {
         self.ensure_capacity()?;
+        if matches!(request.mode, RepairMode::ReconcilePartialPublication) {
+            return self.reconcile_partial_plan(owner, &request.parent_plan_id, request_id);
+        }
         let parent_key = (owner.clone(), request.parent_plan_id.clone());
         let (spec, root_plan_id) = {
             let parent = self.plans.get(&parent_key).ok_or_else(|| {
@@ -485,9 +497,6 @@ impl AuthoringRuntime {
                 "No supported missing-managed-source repair candidate is present",
             ));
         }
-        match request.mode {
-            RepairMode::MissingManagedSource => {}
-        }
         let prepared = self.store.prepare(&spec, true, false)?;
         let budget = self
             .vault
@@ -501,6 +510,94 @@ impl AuthoringRuntime {
             Some(&request.parent_plan_id),
             true,
         )
+    }
+
+    /// Read-only reconciliation through A, followed by a new ordinary repair plan.
+    /// The pending Store journal and actual managed bytes must still match the
+    /// original target. This neither retries the parent nor resets its controller.
+    fn reconcile_partial_plan(
+        &mut self,
+        owner: &Owner,
+        parent_id: &str,
+        request_id: &str,
+    ) -> Result<PlanResult> {
+        let (parent_plan, parent_target, root_plan_id) = {
+            let parent = self.stored_plan(owner, parent_id)?;
+            (
+                parent.plan.clone(),
+                parent.prepared.target.clone(),
+                parent.root_plan_id.clone(),
+            )
+        };
+        self.vault
+            .matches(owner, parent_id, &parent_plan)
+            .map_err(composition_error)?;
+        let control_key = (owner.clone(), root_plan_id);
+        let control = self
+            .controllers
+            .get(&control_key)
+            .ok_or_else(|| Error::new(ErrorCode::Internal, "Missing reconciliation controller"))?;
+        if !matches!(
+            control.controller.state,
+            State::PartiallyApplied | State::Unknown
+        ) {
+            return Err(Error::new(
+                ErrorCode::Conflict,
+                "Only an uncertain application can be reconciled",
+            ));
+        }
+        let spec = parent_plan.body.intent.clone();
+        // prepare is read-only, rejects human edits/collisions and retains the
+        // pending target's project, bindings, file identities and revision.
+        let prepared = self.store.prepare(&spec, false, true)?;
+        if prepared.target.project != parent_target.project
+            || prepared.target.intent_digest != parent_target.intent_digest
+            || prepared.target.manifest_digest != parent_target.manifest_digest
+        {
+            return Err(Error::new(
+                ErrorCode::Conflict,
+                "Pending target differs from the original authorized publication",
+            ));
+        }
+        let expected_base = base_state(owner, &spec.project, &prepared.before)?;
+        let scope = parent_plan
+            .body
+            .observation_scope
+            .iter()
+            .filter(|address| {
+                address.property == "managed_files" || address.property == "intent_digest"
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        let permit = self
+            .vault
+            .begin_reconciliation(
+                owner,
+                parent_id,
+                &parent_plan,
+                request_id,
+                expected_base,
+                scope.clone(),
+            )
+            .map_err(composition_error)?;
+        // Observe again after A's observation reservation. A rejects a changed
+        // fingerprint/provider binding; apply revalidates the same state later.
+        let fresh = self.store.snapshot(&spec.project)?;
+        let observed = observation(owner, &spec.project, &fresh, scope)?;
+        self.vault
+            .finish_reconciliation(permit, observed)
+            .map_err(composition_error)?;
+        self.controllers
+            .get_mut(&control_key)
+            .expect("controller checked")
+            .controller
+            .reconciled_for_repair(&parent_plan.digest)
+            .map_err(composition_error)?;
+        let budget = self
+            .vault
+            .root_budget(owner, parent_id)
+            .map_err(composition_error)?;
+        self.issue(owner, prepared, spec, budget, Some(parent_id), true)
     }
 
     fn issue(

@@ -4,7 +4,7 @@ import hashlib, json, os, pathlib, subprocess, sys, time
 from collector import parse_tests
 ROOT=pathlib.Path(__file__).resolve().parents[2]
 OUT=ROOT/"godot-authoring-evidence"
-EXPECTED_TESTS={"authoring":18,"authoring_store":14,"authoring_profile":5,"authoring_native":10}
+EXPECTED_TESTS={"authoring":18,"authoring_store":14,"authoring_profile":7,"authoring_native":10}
 SUITES={"godot-model": ["cargo", "test", "--locked", "-p", "semwright-driver-godot", "--test", "authoring", "--test", "authoring_store", "--test", "authoring_profile", "--test", "authoring_native", "--", "--nocapture"]}
 def main():
     if len(sys.argv)!=2 or sys.argv[1] not in SUITES:

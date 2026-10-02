@@ -1,0 +1,71 @@
+name: Semantic creation integration diagnostics (I)
+on:
+  push:
+    branches: [integration/semantic-creation-i-20261001]
+    paths:
+      - crates/semantic-composition/**
+      - crates/driver-godot/src/authoring/**
+      - crates/driver-godot/tests/authoring_profile.rs
+      - scripts/semantic-creation/**
+      - .github/workflows/semantic-creation-integration.yml
+  workflow_dispatch:
+    inputs:
+      candidate_sha:
+        description: Immutable integration SHA for the narrow A/D reconciliation diagnostic
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: semantic-creation-i-${{ inputs.candidate_sha || github.sha }}
+  cancel-in-progress: false
+jobs:
+  reconciliation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_PROFILE_DEV_DEBUG: '0'
+      CARGO_PROFILE_TEST_DEBUG: '0'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.candidate_sha || github.sha }}
+          persist-credentials: false
+      - name: Bind exact source
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha || github.sha }}
+        run: |
+          set -euo pipefail
+          [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          git diff --exit-code
+          git diff --cached --exit-code
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          shared-key: godot-authoring-v1
+      - name: Native compile prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpipewire-0.3-dev pkg-config
+      - name: Source formatting
+        run: cargo fmt -p semwright-semantic-composition -p semwright-driver-godot -- --check
+      - name: A contracts and D reconciliation source regressions
+        run: python3 scripts/semantic-creation/reconciliation_diagnostic.py
+      - name: Strict A/D lints
+        run: cargo clippy --locked -p semwright-semantic-composition -p semwright-driver-godot --all-targets --no-deps -- -D warnings
+      - name: Preserve exact-source identity after checks
+        run: |
+          git diff --exit-code
+          git diff --cached --exit-code
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: semantic-creation-i-reconciliation-${{ inputs.candidate_sha || github.sha }}
+          path: verification/semantic-creation
+          if-no-files-found: error
+          retention-days: 14
