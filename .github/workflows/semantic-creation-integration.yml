@@ -61,6 +61,10 @@ jobs:
           test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
           git diff --exit-code
           git diff --cached --exit-code
+      - name: Runtime-tool source boundaries
+        run: |
+          python3 scripts/verify-driver-runtime-tools.py
+          python3 -m unittest discover -s tests/python -p test_runtime_tool_guard.py -v
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
         with:
           toolchain: 1.98.1

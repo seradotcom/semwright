@@ -95,6 +95,33 @@ fn valid_tool_name(name: &str) -> bool {
     canonical_slug(name) && name.len() <= 64 && !name.starts_with("semwright-internal-")
 }
 
+/// Validate an executable path already supplied by a Host typed tool argument.
+/// Closed tool entrypoints use the required materialized table, without runtime
+/// discovery or the legacy filesystem fallback. This does not grant authority
+/// to launch a tool outside the enclosing Host sandbox invocation.
+pub fn validate_materialized_tool_argument(name: &str, path: &Path) -> Result<()> {
+    let encoded = std::env::var(SANDBOX_TOOLS_ENV)
+        .map_err(|_| Error::unavailable("Host materialized tool table is required"))?;
+    validate_materialized_tool_argument_table(&encoded, name, path)
+}
+
+fn validate_materialized_tool_argument_table(encoded: &str, name: &str, path: &Path) -> Result<()> {
+    if !valid_tool_name(name) {
+        return Err(Error::invalid("Invalid sandbox tool name"));
+    }
+    if decode_materialized_tools(encoded)?
+        .iter()
+        .any(|tool| tool.name == name && Path::new(&tool.path) == path)
+    {
+        Ok(())
+    } else {
+        Err(Error::new(
+            ErrorCode::PermissionDenied,
+            "Tool argument differs from the Host-materialized dependency",
+        ))
+    }
+}
+
 /// Resolve one Host-verified executable tool as materialized by the current platform sandbox.
 pub fn tool_path(name: &str) -> Result<PathBuf> {
     if !valid_tool_name(name) {
@@ -2875,6 +2902,30 @@ pub async fn serve<D: Driver>(driver: D) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn typed_tool_argument_requires_exact_host_table_name_and_path() {
+        let table = r#"[{"name":"godot","path":"/sealed/godot"}]"#;
+        let sealed = Path::new("/sealed/godot");
+        validate_materialized_tool_argument_table(table, "godot", sealed).unwrap();
+        for (name, path) in [
+            ("godot", "/foreign/godot"),
+            ("godot", "godot"),
+            ("other", "/sealed/godot"),
+            ("../godot", "/sealed/godot"),
+        ] {
+            let result = validate_materialized_tool_argument_table(table, name, Path::new(path));
+            assert!(result.is_err());
+        }
+        for invalid in [
+            "",
+            "[]",
+            r#"[{"name":"godot","path":"relative"}]"#,
+            r#"[{"name":"godot","path":"/sealed/godot"},{"name":"godot","path":"/foreign/godot"}]"#,
+        ] {
+            assert!(validate_materialized_tool_argument_table(invalid, "godot", sealed).is_err());
+        }
+    }
     use semwright_types::{Idempotency, Risk};
 
     fn manifest() -> Manifest {

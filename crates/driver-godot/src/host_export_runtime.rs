@@ -61,13 +61,8 @@ pub fn execute(args: &[OsString]) -> Result<()> {
             "Godot export runtime requires a Host tool invocation",
         ));
     }
-    let executable = semwright_driver_sdk::tool_path("godot")?;
-    if Path::new(&args[0]) != executable {
-        return Err(Error::new(
-            ErrorCode::PermissionDenied,
-            "Godot export dependency differs from the Host-sealed tool",
-        ));
-    }
+    let executable = Path::new(&args[0]);
+    semwright_driver_sdk::validate_materialized_tool_argument("godot", executable)?;
     let output_mount = args[1]
         .to_str()
         .ok_or_else(|| Error::invalid("Godot output mount is not UTF8"))?;
