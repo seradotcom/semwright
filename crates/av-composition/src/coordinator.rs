@@ -344,13 +344,9 @@ impl AvCoordinator {
                     ],
                 )?;
                 ensure(
-                    receipt
-                        .verification
-                        .validation
-                        .checks
-                        .iter()
-                        .flat_map(|result| &result.evidence)
-                        .all(|evidence| evidence.artifact.as_ref() == Some(&receipt.master.sha256)),
+                    receipt.verification.validation.checks.iter().all(|result| {
+                        audio_evidence_bound(&result.evidence, &receipt.master.sha256)
+                    }),
                     "imported audio verification is not bound to its master artifact",
                 )?;
                 self.outputs.audio_verification = Some(receipt.verification.clone());
@@ -1020,4 +1016,72 @@ pub fn classify_reuse(
     } else {
         ReuseDecision::Rebuild { invalidated }
     })
+}
+
+// A compiled effect contract cannot pin a future render digest. Its contextual
+// readback remains admissible only beside actual native artifact evidence for
+// the same base/scope. No named foreign artifact or context-only check passes.
+fn audio_evidence_bound(evidence: &[c::ObservationRef], master: &Digest) -> bool {
+    evidence.iter().any(|bound| {
+        bound.artifact.as_ref() == Some(master)
+            && matches!(
+                bound.source,
+                c::EvidenceSource::NativeApi | c::EvidenceSource::DecodedMedia
+            )
+            && evidence
+                .iter()
+                .all(|observation| match &observation.artifact {
+                    Some(artifact) => artifact == master,
+                    None => {
+                        observation.base == bound.base
+                            && observation.scope == bound.scope
+                            && observation.exhaustive == bound.exhaustive
+                            && matches!(
+                                observation.source,
+                                c::EvidenceSource::NativeApi | c::EvidenceSource::DecodedMedia
+                            )
+                    }
+                })
+    })
+}
+
+#[cfg(test)]
+mod audio_binding_tests {
+    use super::*;
+
+    #[test]
+    fn imported_audio_requires_native_artifact_and_consistent_context() {
+        let digest = Digest::of_bytes(b"master");
+        let bound = c::ObservationRef {
+            id: "decoded".into(),
+            base: BaseStateSet(vec![]),
+            source: c::EvidenceSource::DecodedMedia,
+            method: "native-decoder".into(),
+            method_version: 1,
+            scope: vec![],
+            artifact: Some(digest.clone()),
+            exhaustive: true,
+        };
+        let mut context = bound.clone();
+        context.id = "compiled-constraints".into();
+        context.method = "audio-decoded-constraints".into();
+        context.artifact = None;
+        assert!(audio_evidence_bound(
+            &[bound.clone(), context.clone()],
+            &digest
+        ));
+        assert!(!audio_evidence_bound(&[context.clone()], &digest));
+        assert!(!audio_evidence_bound(&[], &digest));
+        let mut foreign = bound.clone();
+        foreign.artifact = Some(Digest::of_bytes(b"foreign"));
+        assert!(!audio_evidence_bound(&[bound.clone(), foreign], &digest));
+        context.exhaustive = false;
+        assert!(!audio_evidence_bound(
+            &[bound.clone(), context.clone()],
+            &digest
+        ));
+        context.exhaustive = true;
+        context.source = c::EvidenceSource::Fixture;
+        assert!(!audio_evidence_bound(&[bound, context], &digest));
+    }
 }

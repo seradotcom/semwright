@@ -1288,13 +1288,20 @@ fn imported_b_audio_receipt_advances_only_audio_stages_and_updates_only_audio_ba
     observed_audio.0[0].revision = Revision::Counter(2);
     let mut master = audio_artifact();
     master.source_state = observed_audio.clone();
-    let verification = verification_report_on_base(
+    let mut verification = verification_report_on_base(
         plan.body.audio.plan_digest.clone(),
         plan.body.audio.required_rules.clone(),
         EvidenceSource::DecodedMedia,
         master.sha256.clone(),
         observed_audio.clone(),
     );
+    for check in &mut verification.validation.checks {
+        let mut context = check.evidence[0].clone();
+        context.id = format!("context-{}", check.rule);
+        context.method = "audio-decoded-constraints".into();
+        context.artifact = None;
+        check.evidence.push(context);
+    }
     let imported = AudioConsumerReceipt {
         version: 1,
         project: plan.body.audio.clone(),
