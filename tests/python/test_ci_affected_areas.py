@@ -16,6 +16,7 @@ class CiAffectedAreasTests(unittest.TestCase):
         areas = MODULE.classify(["crates/driver-mlt-video/src/main.rs"])
         self.assertTrue(areas["mlt"])
         self.assertTrue(areas["native_kicad_mlt"])
+        self.assertTrue(areas["runtime_tools"])
         self.assertFalse(areas["native_blender"])
         self.assertFalse(areas["platform_macos"])
         self.assertFalse(areas["core_rust"])
@@ -36,6 +37,11 @@ class CiAffectedAreasTests(unittest.TestCase):
         self.assertTrue(areas["native_chromium"])
         self.assertTrue(areas["runtime_tools"])
         self.assertFalse(areas["native_blender"])
+
+    def test_driver_plugin_sidecar_runs_runtime_boundary_gate(self):
+        areas = MODULE.classify(["crates/driver-figma/plugin/src/code.ts"])
+        self.assertTrue(areas["runtime_tools"])
+        self.assertTrue(areas["native_figma"])
 
     def test_lockfile_change_runs_dependency_and_core_gates(self):
         areas = MODULE.classify(["Cargo.lock"])

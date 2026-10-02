@@ -25,14 +25,24 @@ LEGACY_COUNTS = {}
 
 issues: list[str] = []
 legacy_seen: Counter[tuple[str, str]] = Counter()
-production_paths = set((ROOT / "crates").glob("driver-*/src/**/*.rs"))
-production_paths.update((ROOT / "crates" / "adapters" / "src").glob("**/*.rs"))
-for source_root in (ROOT / "integrations").glob("*/driver/src"):
-    production_paths.update(
+SOURCE_SUFFIXES = {".rs", ".py", ".gd", ".ts", ".js", ".mjs", ".sh", ".go"}
+
+def add_sources(paths: set[Path], source_root: Path) -> None:
+    if not source_root.is_dir():
+        return
+    paths.update(
         path
         for path in source_root.rglob("*")
-        if path.is_file() and path.suffix in {".rs", ".py", ".ts", ".js", ".go"}
+        if path.is_file() and path.suffix in SOURCE_SUFFIXES
     )
+
+production_paths: set[Path] = set()
+for driver_root in (ROOT / "crates").glob("driver-*"):
+    add_sources(production_paths, driver_root / "src")
+    add_sources(production_paths, driver_root / "plugin" / "src")
+add_sources(production_paths, ROOT / "crates" / "adapters" / "src")
+for source_root in (ROOT / "integrations").glob("*/driver/src"):
+    add_sources(production_paths, source_root)
 for path in sorted(production_paths):
     rel = str(path.relative_to(ROOT))
     if rel.startswith("crates/driver-host/") or rel.startswith("crates/driver-sdk/"):

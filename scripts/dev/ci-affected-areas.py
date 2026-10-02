@@ -102,6 +102,9 @@ def classify(paths: list[str], full: bool = False) -> dict[str, bool]:
         if common_host or matches(path, (
             "crates/platform-*/**",
             "crates/adapters/**",
+            "crates/driver-*/src/**",
+            "crates/driver-*/plugin/src/**",
+            "crates/driver-*/driver.manifest.example.json",
             "integrations/*/driver/src/**",
             ".github/workflows/runtime-tools-portability.yml",
             "docs/runtime-tools.md",
