@@ -125,6 +125,10 @@ impl NativeFixture {
                 name: "blender".into(),
                 root: "blender-executable".into(),
                 sha256: digest(&blender),
+
+                mounts: vec![],
+                system_config: vec![],
+                dependencies: vec![],
             }],
             secrets: vec![],
             network: false,

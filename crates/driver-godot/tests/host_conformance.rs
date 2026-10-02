@@ -36,6 +36,7 @@ fn interfaces() -> DriverInterfaces {
         artifacts: true,
         health: true,
         native_refs: true,
+        host_tools: true,
         ..DriverInterfaces::default()
     }
 }
@@ -82,6 +83,9 @@ fn manifest(
                 root: "godot-runtime".into(),
                 name: "godot".into(),
                 sha256,
+                mounts: vec!["godot-project".into()],
+                system_config: vec![],
+                dependencies: vec![],
             })
             .into_iter()
             .collect(),
@@ -160,13 +164,11 @@ fn fixture() -> Fixture {
             "development_mode": false,
             "projects": [{
                 "project": project_id,
-                "root": "/workspace/godot-project",
-                "secret_file": "/run/secrets/godot-pairing"
+                "mount": "godot-project",
+                "secret_name": "godot-pairing"
             }],
             "runner": {
-                "executable": "/plugin/tools/godot",
-                "sha256": tool_sha256.clone(),
-                "output_root": "/workspace/godot-project",
+                "output_mount": "godot-project",
                 "display": null
             }
         }))
@@ -471,7 +473,7 @@ async fn godot_driver_network_requires_owner_opt_in() {
     let fixture = fixture();
 
     let error = match DriverProvider::connect(
-        manifest(executable, true, None, None),
+        manifest(executable, true, None, Some(fixture.tool_sha256.clone())),
         state.path(),
         &helper,
         &fixture.roots,

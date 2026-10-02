@@ -29,6 +29,7 @@ concurrency:
 
 jobs:
   authoring:
+    if: github.ref_name != 'integration/semantic-creation-i-20261001' || contains(github.event.head_commit.message, 'Semwright-Certify: blender-authoring')
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     env:

@@ -1,6 +1,6 @@
 {
   "manifest_version": 1,
-  "protocol": 1,
+  "protocol": 7,
   "id": "mlt-video",
   "version": "0.9.0-dev.1",
   "publisher": "semwright",
@@ -28,24 +28,65 @@
       "read_only": false
     },
     {
-      "root": "runtime",
-      "read_only": true
+      "root": "mlt-runtime",
+      "read_only": true,
+      "execute": true
+    },
+    {
+      "root": "scratch",
+      "read_only": false
     }
   ],
   "system_config": [],
+  "secrets": [],
+  "tools": [
+    {
+      "root": "mlt-runner-root",
+      "name": "mlt-runner",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "mounts": [
+        "mlt-runtime",
+        "scratch"
+      ],
+      "dependencies": [
+        "melt",
+        "ffprobe"
+      ]
+    },
+    {
+      "root": "melt-root",
+      "name": "melt",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "mounts": [],
+      "dependencies": []
+    },
+    {
+      "root": "ffprobe-root",
+      "name": "ffprobe",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "mounts": [],
+      "dependencies": []
+    }
+  ],
   "network": false,
+  "loopback_port": null,
   "resources": {
-    "open_files": 128,
-    "processes": 64,
-    "cpu_seconds": 120,
-    "address_space_bytes": 1073741824,
+    "open_files": 512,
+    "processes": 256,
+    "cpu_seconds": 300,
+    "operation_cpu_seconds": 0,
+    "address_space_bytes": 4294967296,
     "file_size_bytes": 1073741824
   },
-  "request_timeout_ms": 30000,
+  "request_timeout_ms": 300000,
   "interfaces": {
     "dynamic_capabilities": false,
     "cooperative_cancellation": false,
     "events": false,
-    "health": true
+    "health": true,
+    "progress": false,
+    "artifacts": false,
+    "native_refs": false,
+    "host_tools": true
   }
 }

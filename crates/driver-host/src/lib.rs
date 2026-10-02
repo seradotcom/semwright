@@ -7,12 +7,23 @@ use semwright_backend_api::{
     Context, ProvidedCapability, Provider, ProviderInterfaces, ProviderSignal,
 };
 use semwright_driver_sdk::{
-    DriverInterfaces, DriverRequestContext, Manifest, Request, Response, ToolExecutionOutput,
-    capabilities_digest, descriptor_digest, validate_tool_execute_request,
+    DriverInterfaces, DriverRequestContext, MAX_TOOL_SESSION_REQUEST_TIMEOUT_MS, Manifest, Request,
+    Response, RuntimeToolArg, RuntimeToolCwd, RuntimeToolJob, RuntimeToolJobStatus,
+    RuntimeToolSession, ToolExecutionOutput, capabilities_digest, descriptor_digest,
+    validate_runtime_tool_args, validate_runtime_tool_execute_request,
+    validate_runtime_tool_job_start,
 };
-#[cfg(target_os = "windows")]
-use semwright_platform_api::launch::{ResourceLimits, SandboxSpec};
-use semwright_platform_api::launch::{SandboxCpuAccounting, SandboxStdin, SandboxStdout};
+#[cfg(any(target_os = "linux", target_os = "windows"))]
+use semwright_driver_sdk::{DriverToolMount, SystemConfigMount};
+#[cfg(any(target_os = "linux", target_os = "windows"))]
+use semwright_platform_api::launch::{
+    HostToolArgRef, Mount, MountClass, ResourceLimits, SANDBOX_HOST_TOOL_CWD_ENV,
+    SANDBOX_HOST_TOOL_TYPED_ARGS_ENV, SandboxSpec, SealedToolMount, SealedToolSource,
+    encode_host_tool_arg_ref,
+};
+use semwright_platform_api::launch::{
+    SandboxCpuAccounting, SandboxProcess, SandboxStdin, SandboxStdout,
+};
 use semwright_policy::FilesystemGrant;
 use semwright_protocol::{read_frame, write_frame};
 use semwright_types::{
@@ -33,11 +44,10 @@ use std::{
     io::Write,
     path::{Path, PathBuf},
     sync::{Arc, RwLock as StdRwLock},
-    time::Duration,
+    time::{Duration, Instant},
 };
 #[cfg(target_os = "linux")]
 use std::{ffi::CString, os::fd::FromRawFd};
-#[cfg(target_os = "windows")]
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 #[cfg(all(test, unix))]
 use tokio::process::Command;
@@ -72,6 +82,18 @@ impl SealedTool {
             name: self.name.clone(),
         }
     }
+
+    #[cfg(target_os = "linux")]
+    fn duplicate_data_file_inheritable(&self) -> Result<std::fs::File> {
+        // SAFETY: F_DUPFD duplicates the live read-only descriptor and intentionally omits
+        // FD_CLOEXEC so Bubblewrap can consume it through --file in a nested tool child.
+        let fd = unsafe { libc::fcntl(self.data_file.as_raw_fd(), libc::F_DUPFD, 3) };
+        if fd < 0 {
+            return Err(std::io::Error::last_os_error().into());
+        }
+        // SAFETY: fcntl returned a new owned descriptor on success.
+        Ok(unsafe { std::fs::File::from_raw_fd(fd) })
+    }
 }
 
 #[cfg(target_os = "windows")]
@@ -81,25 +103,243 @@ struct SealedTool {
     staged: Arc<StagedFile>,
     sha256: String,
 }
+
+#[cfg(target_os = "linux")]
+#[derive(Clone)]
+struct LinuxBrokerTool {
+    name: String,
+    staged: Arc<StagedFile>,
+    sha256: String,
+    dependency_file: Arc<std::fs::File>,
+}
+#[cfg(target_os = "linux")]
+fn fresh_linux_dependency_file(source: &std::fs::File) -> Result<std::fs::File> {
+    let proc_path = CString::new(format!("/proc/self/fd/{}", source.as_raw_fd()))
+        .map_err(|_| Error::invalid("Invalid Linux dependency descriptor path"))?;
+    // Re-open the sealed inode for every invocation. F_DUPFD/dup would share
+    // the same open-file offset, allowing Bubblewrap --file to consume the
+    // descriptor once and leave a later invocation at EOF.
+    // SAFETY: proc_path is a live NUL-terminated path to a Host-owned sealed file.
+    let fd = unsafe { libc::open(proc_path.as_ptr(), libc::O_RDONLY) };
+    if fd < 0 {
+        return Err(std::io::Error::last_os_error().into());
+    }
+    // SAFETY: open returned a new owned descriptor on success.
+    let file = unsafe { std::fs::File::from_raw_fd(fd) };
+    // Make the intended inheritance/offset contract explicit and fail closed.
+    // SAFETY: fd is live; F_GETFD reads scalar descriptor flags and has no pointer arguments.
+    let fd_flags = unsafe { libc::fcntl(fd, libc::F_GETFD) };
+    // SAFETY: fd is live; F_GETFL reads scalar status flags and has no pointer arguments.
+    let status_flags = unsafe { libc::fcntl(fd, libc::F_GETFL) };
+    // SAFETY: fd is live; SEEK_SET with a scalar offset has no pointer arguments.
+    let offset = unsafe { libc::lseek(fd, 0, libc::SEEK_SET) };
+    if fd_flags < 0
+        || status_flags < 0
+        || fd_flags & libc::FD_CLOEXEC != 0
+        || status_flags & libc::O_ACCMODE != libc::O_RDONLY
+        || offset != 0
+    {
+        return Err(Error::new(
+            ErrorCode::SandboxDenied,
+            "Linux runtime-tool dependency descriptor is not fresh/read-only/inheritable",
+        ));
+    }
+    Ok(file)
+}
+
+#[cfg(target_os = "linux")]
+impl LinuxBrokerTool {
+    fn fresh_dependency_file(&self) -> Result<std::fs::File> {
+        fresh_linux_dependency_file(&self.dependency_file)
+    }
+}
+
+enum HostToolArgs {
+    Raw(Vec<String>),
+    Typed(Vec<RuntimeToolArg>),
+}
+
+#[cfg(any(target_os = "linux", target_os = "windows"))]
+fn prepare_host_tool_args(
+    contract: &DriverToolMount,
+    args: HostToolArgs,
+) -> Result<(Vec<String>, BTreeSet<String>, bool)> {
+    match args {
+        HostToolArgs::Raw(args) => Ok((args, BTreeSet::new(), false)),
+        HostToolArgs::Typed(args) => {
+            validate_runtime_tool_args(&args)?;
+            let mut encoded = Vec::with_capacity(args.len());
+            let mut dependencies = BTreeSet::new();
+            for argument in args {
+                match argument {
+                    RuntimeToolArg::Literal { value } => encoded.push(value),
+                    RuntimeToolArg::MountPath { mount, relative } => {
+                        if !contract.mounts.contains(&mount) {
+                            return Err(Error::new(
+                                ErrorCode::PolicyDenied,
+                                "Runtime-tool path argument exceeds the tool mount allowlist",
+                            ));
+                        }
+                        encoded.push(encode_host_tool_arg_ref(&HostToolArgRef::MountPath {
+                            mount,
+                            relative,
+                        })?);
+                    }
+                    RuntimeToolArg::ToolPath { tool } => {
+                        if !contract.dependencies.contains(&tool) {
+                            return Err(Error::new(
+                                ErrorCode::PolicyDenied,
+                                "Runtime-tool dependency argument exceeds the tool dependency allowlist",
+                            ));
+                        }
+                        dependencies.insert(tool.clone());
+                        encoded.push(encode_host_tool_arg_ref(&HostToolArgRef::ToolPath {
+                            tool,
+                        })?);
+                    }
+                }
+            }
+            Ok((encoded, dependencies, true))
+        }
+    }
+}
+
 #[async_trait]
 trait HostToolExecutor: Send + Sync {
     async fn execute(
         &self,
         name: &str,
-        args: Vec<String>,
+        args: HostToolArgs,
         stdin: Vec<u8>,
         timeout_ms: u64,
+        cwd: Option<RuntimeToolCwd>,
+        detached: bool,
+        cancellation: CancellationToken,
         charged_cpu_seconds: Arc<Mutex<u64>>,
     ) -> Result<ToolExecutionOutput>;
+
+    async fn start_session(
+        &self,
+        name: &str,
+        args: Vec<RuntimeToolArg>,
+        cwd: Option<RuntimeToolCwd>,
+    ) -> Result<SandboxProcess>;
 }
 
-#[cfg(target_os = "windows")]
+#[cfg(any(target_os = "linux", target_os = "windows"))]
 const MAX_HOST_TOOL_OUTPUT_BYTES: usize = 256 * 1024;
 const MAX_HOST_TOOL_CALLS: usize = 8;
+const MAX_HOST_TOOL_JOBS: usize = 8;
+const MAX_HOST_TOOL_SESSIONS: usize = 2;
+const MAX_HOST_TOOL_SESSION_FRAME_BYTES: usize = 256 * 1024;
+const MAX_HOST_TOOL_SESSION_LIFETIME_MS: u64 = 3_600_000;
+
+#[derive(Clone)]
+struct HostToolJobEntry {
+    owner_session: String,
+    cancellation: CancellationToken,
+    status: Arc<Mutex<RuntimeToolJobStatus>>,
+}
+
+#[cfg(any(target_os = "linux", target_os = "windows"))]
+fn host_tool_system_config_mounts(
+    root_spec: &SandboxSpec,
+    system_config: &[SystemConfigMount],
+) -> Result<BTreeMap<String, Mount>> {
+    let materialized = root_spec
+        .mounts
+        .iter()
+        .filter(|mount| mount.class == MountClass::SystemConfig)
+        .map(|mount| (mount.logical_name.as_str(), mount))
+        .collect::<BTreeMap<_, _>>();
+    let mut by_root = BTreeMap::new();
+    for declared in system_config {
+        let relative = declared.destination.strip_prefix("/etc").map_err(|_| {
+            Error::new(
+                ErrorCode::PolicyDenied,
+                "Driver system-config destination escaped /etc",
+            )
+        })?;
+        let logical_name = relative
+            .to_str()
+            .ok_or_else(|| Error::invalid("Driver system-config destination must be UTF-8"))?
+            .trim_start_matches('/');
+        let mount = materialized.get(logical_name).ok_or_else(|| {
+            Error::new(
+                ErrorCode::PolicyDenied,
+                "Driver system-config mount disappeared before Host-tool delegation",
+            )
+        })?;
+        if by_root
+            .insert(declared.root.clone(), (*mount).clone())
+            .is_some()
+        {
+            return Err(Error::invalid(
+                "Driver system-config roots must remain unique",
+            ));
+        }
+    }
+    Ok(by_root)
+}
+
+struct HostToolSessionState {
+    process: SandboxProcess,
+    stdin: SandboxStdin,
+    stdout: SandboxStdout,
+    expires_at: Instant,
+}
+
+#[derive(Clone)]
+struct HostToolSessionEntry {
+    state: Arc<Mutex<HostToolSessionState>>,
+}
+
+async fn write_host_tool_session_frame(output: &mut SandboxStdin, payload: &[u8]) -> Result<()> {
+    if payload.len() > MAX_HOST_TOOL_SESSION_FRAME_BYTES {
+        return Err(Error::new(
+            ErrorCode::ResourceExhausted,
+            "Runtime-tool session frame exceeds Host bound",
+        ));
+    }
+    let length = u32::try_from(payload.len()).map_err(|_| {
+        Error::new(
+            ErrorCode::ResourceExhausted,
+            "Runtime-tool session frame length overflowed",
+        )
+    })?;
+    output.write_all(&length.to_be_bytes()).await?;
+    output.write_all(payload).await?;
+    output.flush().await?;
+    Ok(())
+}
+
+async fn read_host_tool_session_frame(input: &mut SandboxStdout) -> Result<Vec<u8>> {
+    let mut header = [0u8; 4];
+    input.read_exact(&mut header).await?;
+    let length = u32::from_be_bytes(header) as usize;
+    if length > MAX_HOST_TOOL_SESSION_FRAME_BYTES {
+        return Err(Error::new(
+            ErrorCode::ResourceExhausted,
+            "Runtime-tool session response exceeds Host bound",
+        ));
+    }
+    let mut payload = vec![0u8; length];
+    input.read_exact(&mut payload).await?;
+    Ok(payload)
+}
+
+async fn reap_host_tool_session(entry: HostToolSessionEntry) {
+    let mut state = entry.state.lock().await;
+    let _ = state.process.kill().await;
+    let _ = state.process.wait().await;
+}
 
 #[cfg(target_os = "windows")]
 struct HostToolBroker {
     tools: BTreeMap<String, SealedTool>,
+    contracts: BTreeMap<String, DriverToolMount>,
+    workspace_mounts: BTreeMap<String, Mount>,
+    system_config_mounts: BTreeMap<String, Mount>,
     template: SandboxSpec,
     operation_cpu_seconds: u64,
 }
@@ -109,6 +349,8 @@ impl HostToolBroker {
     fn new(
         root_spec: &SandboxSpec,
         tools: &[SealedTool],
+        contracts: &[DriverToolMount],
+        system_config: &[SystemConfigMount],
         operation_cpu_seconds: u64,
     ) -> Result<Self> {
         let mut by_name = BTreeMap::new();
@@ -117,16 +359,55 @@ impl HostToolBroker {
                 return Err(Error::invalid("Duplicate Host-mediated sealed tool"));
             }
         }
+        let workspace_mounts = root_spec
+            .mounts
+            .iter()
+            .filter(|mount| mount.class == MountClass::Workspace)
+            .map(|mount| (mount.logical_name.clone(), mount.clone()))
+            .collect::<BTreeMap<_, _>>();
+        let system_config_mounts = host_tool_system_config_mounts(root_spec, system_config)?;
+        let mut contract_by_name = BTreeMap::new();
+        for contract in contracts {
+            if !by_name.contains_key(&contract.name)
+                || contract
+                    .mounts
+                    .iter()
+                    .any(|mount| !workspace_mounts.contains_key(mount))
+                || contract
+                    .system_config
+                    .iter()
+                    .any(|root| !system_config_mounts.contains_key(root))
+                || contract
+                    .dependencies
+                    .iter()
+                    .any(|dependency| !by_name.contains_key(dependency))
+                || contract_by_name
+                    .insert(contract.name.clone(), contract.clone())
+                    .is_some()
+            {
+                return Err(Error::invalid(
+                    "Host-mediated tool contract does not match sealed tool/mount authority",
+                ));
+            }
+        }
+        if contract_by_name.len() != by_name.len() {
+            return Err(Error::invalid(
+                "Every sealed Host tool requires one matching manifest contract",
+            ));
+        }
         let mut template = root_spec.clone();
         template.mounts.clear();
         template.environment.clear();
         template.sealed_tools.clear();
-        // Tool subprocesses receive no ambient filesystem, secret, system-config, network or
-        // loopback authority. A future per-tool grant contract may opt into narrower authority
-        // explicitly, but the driver root spec is never inherited wholesale.
+        // Tool subprocesses never inherit the driver root spec wholesale. Workspace and
+        // system-config authority are selected explicitly by the tool contract; secrets, network
+        // and loopback authority remain absent.
         template.network = false;
         Ok(Self {
             tools: by_name,
+            contracts: contract_by_name,
+            workspace_mounts,
+            system_config_mounts,
             template,
             operation_cpu_seconds,
         })
@@ -139,12 +420,61 @@ impl HostToolExecutor for HostToolBroker {
     async fn execute(
         &self,
         name: &str,
-        args: Vec<String>,
+        args: HostToolArgs,
         stdin_bytes: Vec<u8>,
         timeout_ms: u64,
+        cwd: Option<RuntimeToolCwd>,
+        detached: bool,
+        cancellation: CancellationToken,
         charged_cpu_seconds: Arc<Mutex<u64>>,
     ) -> Result<ToolExecutionOutput> {
-        validate_tool_execute_request(name, &args, &stdin_bytes, timeout_ms)?;
+        match &args {
+            HostToolArgs::Raw(raw) => {
+                if detached {
+                    validate_runtime_tool_job_start(
+                        name,
+                        raw,
+                        &stdin_bytes,
+                        timeout_ms,
+                        cwd.as_ref(),
+                    )?;
+                } else {
+                    validate_runtime_tool_execute_request(
+                        name,
+                        raw,
+                        &stdin_bytes,
+                        timeout_ms,
+                        cwd.as_ref(),
+                    )?;
+                }
+            }
+            HostToolArgs::Typed(typed) => {
+                validate_runtime_tool_args(typed)?;
+                if detached {
+                    validate_runtime_tool_job_start(
+                        name,
+                        &[],
+                        &stdin_bytes,
+                        timeout_ms,
+                        cwd.as_ref(),
+                    )?;
+                } else {
+                    validate_runtime_tool_execute_request(
+                        name,
+                        &[],
+                        &stdin_bytes,
+                        timeout_ms,
+                        cwd.as_ref(),
+                    )?;
+                }
+            }
+        }
+        if detached && self.operation_cpu_seconds != 0 {
+            return Err(Error::new(
+                ErrorCode::Unsupported,
+                "Detached runtime-tool jobs do not yet provide aggregate per-operation CPU accounting",
+            ));
+        }
         let tool = self.tools.get(name).ok_or_else(|| {
             Error::new(
                 ErrorCode::PolicyDenied,
@@ -175,15 +505,103 @@ impl HostToolExecutor for HostToolBroker {
             )
         };
 
+        let contract = self.contracts.get(name).ok_or_else(|| {
+            Error::new(
+                ErrorCode::PolicyDenied,
+                "Driver requested a sealed tool without a manifest contract",
+            )
+        })?;
+        let (prepared_args, dependencies, typed_args) = prepare_host_tool_args(contract, args)?;
         let mut spec = self.template.clone();
         spec.staged_executable = tool.staged.0.clone();
-        spec.args = args;
+        spec.args = prepared_args;
+        let mut selected_mounts = contract
+            .mounts
+            .iter()
+            .map(|mount| {
+                self.workspace_mounts.get(mount).cloned().ok_or_else(|| {
+                    Error::new(
+                        ErrorCode::PolicyDenied,
+                        "Host-mediated tool mount authority disappeared",
+                    )
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        selected_mounts.extend(
+            contract
+                .system_config
+                .iter()
+                .map(|root| {
+                    self.system_config_mounts.get(root).cloned().ok_or_else(|| {
+                        Error::new(
+                            ErrorCode::PolicyDenied,
+                            "Host-mediated tool system-config authority disappeared",
+                        )
+                    })
+                })
+                .collect::<Result<Vec<_>>>()?,
+        );
+        spec.mounts = selected_mounts;
         spec.environment.clear();
         spec.environment.push((
             semwright_platform_api::launch::SANDBOX_HOST_TOOL_CHILD_ENV.into(),
             "1".into(),
         ));
-        spec.sealed_tools.clear();
+        if typed_args {
+            spec.environment
+                .push((SANDBOX_HOST_TOOL_TYPED_ARGS_ENV.into(), "1".into()));
+        }
+        spec.sealed_tools = dependencies
+            .iter()
+            .map(|dependency| {
+                let dependency_tool = self.tools.get(dependency).ok_or_else(|| {
+                    Error::new(
+                        ErrorCode::PolicyDenied,
+                        "Runtime-tool dependency disappeared from Host staging",
+                    )
+                })?;
+                Ok(SealedToolMount {
+                    source: SealedToolSource::VerifiedFile {
+                        path: dependency_tool.staged.0.clone(),
+                        sha256: dependency_tool.sha256.clone(),
+                    },
+                    name: dependency_tool.name.clone(),
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        if let Some(cwd) = cwd {
+            if !contract.mounts.contains(&cwd.mount) {
+                return Err(Error::new(
+                    ErrorCode::PolicyDenied,
+                    "Runtime tool working directory is outside the tool mount allowlist",
+                ));
+            }
+            let mount = self.workspace_mounts.get(&cwd.mount).ok_or_else(|| {
+                Error::new(
+                    ErrorCode::PolicyDenied,
+                    "Runtime tool working-directory mount disappeared",
+                )
+            })?;
+            let mut directory = mount.source.clone();
+            if !cwd.relative.is_empty() {
+                directory.push(&cwd.relative);
+            }
+            let metadata = std::fs::metadata(&directory).map_err(|_| {
+                Error::new(
+                    ErrorCode::NotFound,
+                    "Runtime tool working directory is unavailable",
+                )
+            })?;
+            if !metadata.is_dir() {
+                return Err(Error::invalid(
+                    "Runtime tool working directory is not a directory",
+                ));
+            }
+            spec.environment.push((
+                SANDBOX_HOST_TOOL_CWD_ENV.into(),
+                directory.to_string_lossy().into_owned(),
+            ));
+        }
         let timeout = Duration::from_millis(timeout_ms);
         let timeout_cpu_seconds = timeout
             .as_secs()
@@ -192,7 +610,7 @@ impl HostToolExecutor for HostToolBroker {
         spec.limits = Some(match spec.limits.take() {
             Some(limit) => ResourceLimits {
                 open_files: limit.open_files,
-                processes: 1,
+                processes: limit.processes,
                 cpu_seconds: limit
                     .cpu_seconds
                     .min(timeout_cpu_seconds)
@@ -202,7 +620,7 @@ impl HostToolExecutor for HostToolBroker {
             },
             None => ResourceLimits {
                 open_files: 64,
-                processes: 1,
+                processes: 8,
                 cpu_seconds: timeout_cpu_seconds.min(remaining_operation_cpu.unwrap_or(u64::MAX)),
                 address_space_bytes: 512 * 1024 * 1024,
                 file_size_bytes: 16 * 1024 * 1024,
@@ -246,13 +664,31 @@ impl HostToolExecutor for HostToolBroker {
             Ok(output)
         };
 
-        let result = match tokio::time::timeout(timeout, execution).await {
-            Ok(Ok(output)) => Ok(output),
-            Ok(Err(error)) => {
+        enum ToolCompletion {
+            Finished(Result<ToolExecutionOutput>),
+            Cancelled,
+            TimedOut,
+        }
+        let completion = tokio::select! {
+            biased;
+            _ = cancellation.cancelled() => ToolCompletion::Cancelled,
+            result = execution => ToolCompletion::Finished(result),
+            _ = tokio::time::sleep(timeout) => ToolCompletion::TimedOut,
+        };
+        let result = match completion {
+            ToolCompletion::Finished(Ok(output)) => Ok(output),
+            ToolCompletion::Finished(Err(error)) => {
                 let _ = child.kill().await;
                 Err(error)
             }
-            Err(_) => {
+            ToolCompletion::Cancelled => {
+                let _ = child.kill().await;
+                Err(Error::new(
+                    ErrorCode::Cancelled,
+                    "Host-mediated sealed tool was cancelled",
+                ))
+            }
+            ToolCompletion::TimedOut => {
                 let _ = child.kill().await;
                 Err(Error::new(
                     ErrorCode::Timeout,
@@ -284,6 +720,595 @@ impl HostToolExecutor for HostToolBroker {
 
         result
     }
+
+    async fn start_session(
+        &self,
+        name: &str,
+        args: Vec<RuntimeToolArg>,
+        cwd: Option<RuntimeToolCwd>,
+    ) -> Result<SandboxProcess> {
+        validate_runtime_tool_args(&args)?;
+        if self.operation_cpu_seconds != 0 {
+            return Err(Error::new(
+                ErrorCode::Unsupported,
+                "Persistent runtime-tool sessions do not yet provide aggregate per-operation CPU accounting",
+            ));
+        }
+        let tool = self.tools.get(name).ok_or_else(|| {
+            Error::new(
+                ErrorCode::PolicyDenied,
+                "Driver requested an ungranted sealed session tool",
+            )
+        })?;
+        let _ = semwright_platform_services::verify_sealed_tool_executable(
+            &tool.staged.0,
+            &tool.sha256,
+        )?;
+        let contract = self.contracts.get(name).ok_or_else(|| {
+            Error::new(
+                ErrorCode::PolicyDenied,
+                "Driver requested a sealed session tool without a manifest contract",
+            )
+        })?;
+        let (prepared_args, dependencies, typed_args) =
+            prepare_host_tool_args(contract, HostToolArgs::Typed(args))?;
+        if !typed_args {
+            return Err(Error::new(
+                ErrorCode::ProtocolMismatch,
+                "Persistent runtime-tool sessions require typed Host arguments",
+            ));
+        }
+
+        let mut spec = self.template.clone();
+        spec.staged_executable = tool.staged.0.clone();
+        spec.args = prepared_args;
+        let mut selected_mounts = contract
+            .mounts
+            .iter()
+            .map(|mount| {
+                self.workspace_mounts.get(mount).cloned().ok_or_else(|| {
+                    Error::new(
+                        ErrorCode::PolicyDenied,
+                        "Host-mediated session mount authority disappeared",
+                    )
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        selected_mounts.extend(
+            contract
+                .system_config
+                .iter()
+                .map(|root| {
+                    self.system_config_mounts.get(root).cloned().ok_or_else(|| {
+                        Error::new(
+                            ErrorCode::PolicyDenied,
+                            "Host-mediated session system-config authority disappeared",
+                        )
+                    })
+                })
+                .collect::<Result<Vec<_>>>()?,
+        );
+        spec.mounts = selected_mounts;
+        spec.environment.clear();
+        spec.environment.push((
+            semwright_platform_api::launch::SANDBOX_HOST_TOOL_CHILD_ENV.into(),
+            "1".into(),
+        ));
+        spec.environment
+            .push((SANDBOX_HOST_TOOL_TYPED_ARGS_ENV.into(), "1".into()));
+        spec.sealed_tools = dependencies
+            .iter()
+            .map(|dependency| {
+                let dependency_tool = self.tools.get(dependency).ok_or_else(|| {
+                    Error::new(
+                        ErrorCode::PolicyDenied,
+                        "Runtime-tool session dependency disappeared from Host staging",
+                    )
+                })?;
+                Ok(SealedToolMount {
+                    source: SealedToolSource::VerifiedFile {
+                        path: dependency_tool.staged.0.clone(),
+                        sha256: dependency_tool.sha256.clone(),
+                    },
+                    name: dependency_tool.name.clone(),
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        if let Some(cwd) = cwd {
+            if !contract.mounts.contains(&cwd.mount) {
+                return Err(Error::new(
+                    ErrorCode::PolicyDenied,
+                    "Runtime-tool session working directory is outside the tool mount allowlist",
+                ));
+            }
+            let mount = self.workspace_mounts.get(&cwd.mount).ok_or_else(|| {
+                Error::new(
+                    ErrorCode::PolicyDenied,
+                    "Runtime-tool session working-directory mount disappeared",
+                )
+            })?;
+            if !mount.source.is_dir() {
+                return Err(Error::invalid(
+                    "Runtime-tool session working directory is not a directory",
+                ));
+            }
+            spec.environment.push((
+                SANDBOX_HOST_TOOL_CWD_ENV.into(),
+                mount.source.to_string_lossy().into_owned(),
+            ));
+        }
+        semwright_platform_services::sandbox_spawn(&spec)
+    }
+}
+
+#[cfg(target_os = "linux")]
+struct LinuxHostToolBroker {
+    tools: BTreeMap<String, LinuxBrokerTool>,
+    contracts: BTreeMap<String, DriverToolMount>,
+    workspace_mounts: BTreeMap<String, Mount>,
+    system_config_mounts: BTreeMap<String, Mount>,
+    template: SandboxSpec,
+    operation_cpu_seconds: u64,
+}
+
+#[cfg(target_os = "linux")]
+impl LinuxHostToolBroker {
+    fn new(
+        root_spec: &SandboxSpec,
+        tools: &[LinuxBrokerTool],
+        contracts: &[DriverToolMount],
+        system_config: &[SystemConfigMount],
+        operation_cpu_seconds: u64,
+    ) -> Result<Self> {
+        let mut by_name = BTreeMap::new();
+        for tool in tools {
+            if by_name.insert(tool.name.clone(), tool.clone()).is_some() {
+                return Err(Error::invalid("Duplicate Linux Host-mediated sealed tool"));
+            }
+        }
+        let workspace_mounts = root_spec
+            .mounts
+            .iter()
+            .filter(|mount| mount.class == MountClass::Workspace)
+            .map(|mount| (mount.logical_name.clone(), mount.clone()))
+            .collect::<BTreeMap<_, _>>();
+        let system_config_mounts = host_tool_system_config_mounts(root_spec, system_config)?;
+        let mut contract_by_name = BTreeMap::new();
+        for contract in contracts {
+            if !by_name.contains_key(&contract.name)
+                || contract
+                    .mounts
+                    .iter()
+                    .any(|mount| !workspace_mounts.contains_key(mount))
+                || contract
+                    .system_config
+                    .iter()
+                    .any(|root| !system_config_mounts.contains_key(root))
+                || contract
+                    .dependencies
+                    .iter()
+                    .any(|dependency| !by_name.contains_key(dependency))
+                || contract_by_name
+                    .insert(contract.name.clone(), contract.clone())
+                    .is_some()
+            {
+                return Err(Error::invalid(
+                    "Linux Host-tool contract does not match sealed tool/mount authority",
+                ));
+            }
+        }
+        if contract_by_name.len() != by_name.len() {
+            return Err(Error::invalid(
+                "Every Linux Host tool requires one matching manifest contract",
+            ));
+        }
+
+        let mut template = root_spec.clone();
+        template.mounts.clear();
+        template.environment.clear();
+        template.sealed_tools.clear();
+        template.network = false;
+        Ok(Self {
+            tools: by_name,
+            contracts: contract_by_name,
+            workspace_mounts,
+            system_config_mounts,
+            template,
+            operation_cpu_seconds,
+        })
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn linux_host_tool_cpu_limit(timeout: Duration) -> u64 {
+    timeout
+        .as_secs()
+        .saturating_add(u64::from(timeout.subsec_nanos() != 0))
+        .max(5)
+}
+
+#[cfg(target_os = "linux")]
+#[async_trait]
+impl HostToolExecutor for LinuxHostToolBroker {
+    async fn execute(
+        &self,
+        name: &str,
+        args: HostToolArgs,
+        stdin_bytes: Vec<u8>,
+        timeout_ms: u64,
+        cwd: Option<RuntimeToolCwd>,
+        detached: bool,
+        cancellation: CancellationToken,
+        _charged_cpu_seconds: Arc<Mutex<u64>>,
+    ) -> Result<ToolExecutionOutput> {
+        match &args {
+            HostToolArgs::Raw(raw) => {
+                if detached {
+                    validate_runtime_tool_job_start(
+                        name,
+                        raw,
+                        &stdin_bytes,
+                        timeout_ms,
+                        cwd.as_ref(),
+                    )?;
+                } else {
+                    validate_runtime_tool_execute_request(
+                        name,
+                        raw,
+                        &stdin_bytes,
+                        timeout_ms,
+                        cwd.as_ref(),
+                    )?;
+                }
+            }
+            HostToolArgs::Typed(typed) => {
+                validate_runtime_tool_args(typed)?;
+                if detached {
+                    validate_runtime_tool_job_start(
+                        name,
+                        &[],
+                        &stdin_bytes,
+                        timeout_ms,
+                        cwd.as_ref(),
+                    )?;
+                } else {
+                    validate_runtime_tool_execute_request(
+                        name,
+                        &[],
+                        &stdin_bytes,
+                        timeout_ms,
+                        cwd.as_ref(),
+                    )?;
+                }
+            }
+        }
+        if self.operation_cpu_seconds != 0 {
+            return Err(Error::new(
+                ErrorCode::Unsupported,
+                "Linux Host-mediated tools do not yet provide aggregate per-operation CPU accounting",
+            ));
+        }
+        let tool = self.tools.get(name).ok_or_else(|| {
+            Error::new(
+                ErrorCode::PolicyDenied,
+                "Driver requested an ungranted Linux sealed tool",
+            )
+        })?;
+        let _ = semwright_platform_services::verify_sealed_tool_executable(
+            &tool.staged.0,
+            &tool.sha256,
+        )?;
+        let contract = self.contracts.get(name).ok_or_else(|| {
+            Error::new(
+                ErrorCode::PolicyDenied,
+                "Driver requested a Linux sealed tool without a manifest contract",
+            )
+        })?;
+        let (prepared_args, dependencies, typed_args) = prepare_host_tool_args(contract, args)?;
+
+        let mut spec = self.template.clone();
+        spec.staged_executable = tool.staged.0.clone();
+        spec.args = prepared_args;
+        let mut selected_mounts = contract
+            .mounts
+            .iter()
+            .map(|mount| {
+                self.workspace_mounts.get(mount).cloned().ok_or_else(|| {
+                    Error::new(
+                        ErrorCode::PolicyDenied,
+                        "Linux Host-tool mount authority disappeared",
+                    )
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        selected_mounts.extend(
+            contract
+                .system_config
+                .iter()
+                .map(|root| {
+                    self.system_config_mounts.get(root).cloned().ok_or_else(|| {
+                        Error::new(
+                            ErrorCode::PolicyDenied,
+                            "Linux Host-tool system-config authority disappeared",
+                        )
+                    })
+                })
+                .collect::<Result<Vec<_>>>()?,
+        );
+        spec.mounts = selected_mounts;
+        spec.environment.clear();
+        spec.environment.push((
+            semwright_platform_api::launch::SANDBOX_HOST_TOOL_CHILD_ENV.into(),
+            "1".into(),
+        ));
+        if typed_args {
+            spec.environment
+                .push((SANDBOX_HOST_TOOL_TYPED_ARGS_ENV.into(), "1".into()));
+        }
+        let dependency_files = dependencies
+            .iter()
+            .map(|dependency| {
+                let dependency_tool = self.tools.get(dependency).ok_or_else(|| {
+                    Error::new(
+                        ErrorCode::PolicyDenied,
+                        "Linux runtime-tool dependency disappeared from Host staging",
+                    )
+                })?;
+                Ok((
+                    dependency_tool.name.clone(),
+                    dependency_tool.fresh_dependency_file()?,
+                ))
+            })
+            .collect::<Result<Vec<_>>>()?;
+        spec.sealed_tools = dependency_files
+            .iter()
+            .map(|(name, file)| SealedToolMount {
+                source: SealedToolSource::UnixFd(file.as_raw_fd()),
+                name: name.clone(),
+            })
+            .collect();
+        if let Some(cwd) = cwd {
+            if !contract.mounts.contains(&cwd.mount) {
+                return Err(Error::new(
+                    ErrorCode::PolicyDenied,
+                    "Runtime tool working directory is outside the Linux tool mount allowlist",
+                ));
+            }
+            spec.environment.push((
+                SANDBOX_HOST_TOOL_CWD_ENV.into(),
+                format!("/workspace/{}", cwd.mount),
+            ));
+        }
+
+        let timeout = Duration::from_millis(timeout_ms);
+        // semwright-sandbox enforces a five-second minimum RLIMIT_CPU.
+        // Wall-clock timeout remains the stricter deadline for shorter tool calls.
+        let timeout_cpu_seconds = linux_host_tool_cpu_limit(timeout);
+        spec.limits = Some(match spec.limits.take() {
+            Some(limit) => ResourceLimits {
+                open_files: limit.open_files,
+                processes: limit.processes,
+                cpu_seconds: limit.cpu_seconds.min(timeout_cpu_seconds),
+                address_space_bytes: limit.address_space_bytes,
+                file_size_bytes: limit.file_size_bytes,
+            },
+            None => ResourceLimits {
+                open_files: 64,
+                processes: 8,
+                cpu_seconds: timeout_cpu_seconds,
+                address_space_bytes: 512 * 1024 * 1024,
+                file_size_bytes: 16 * 1024 * 1024,
+            },
+        });
+
+        let mut child = semwright_platform_services::sandbox_spawn(&spec)?;
+        let mut child_stdin = child.take_stdin()?;
+        let child_stdout = child.take_stdout()?;
+        let execution = async {
+            if !stdin_bytes.is_empty() {
+                child_stdin.write_all(&stdin_bytes).await?;
+            }
+            child_stdin.shutdown().await?;
+            drop(child_stdin);
+
+            let mut stdout = Vec::new();
+            let mut bounded = child_stdout.take((MAX_HOST_TOOL_OUTPUT_BYTES + 1) as u64);
+            bounded.read_to_end(&mut stdout).await?;
+            if stdout.len() > MAX_HOST_TOOL_OUTPUT_BYTES {
+                return Err(Error::new(
+                    ErrorCode::ResourceExhausted,
+                    "Linux Host-mediated sealed tool output exceeded its bound",
+                ));
+            }
+            let exit_code = child.wait_exit_code().await?.ok_or_else(|| {
+                Error::new(
+                    ErrorCode::BackendFailed,
+                    "Linux Host-mediated sealed tool did not expose an exit code",
+                )
+            })?;
+            let output = ToolExecutionOutput {
+                exit_code,
+                stdout,
+                stderr: Vec::new(),
+            };
+            output.validate()?;
+            Ok(output)
+        };
+
+        enum ToolCompletion {
+            Finished(Result<ToolExecutionOutput>),
+            Cancelled,
+            TimedOut,
+        }
+        let completion = tokio::select! {
+            biased;
+            _ = cancellation.cancelled() => ToolCompletion::Cancelled,
+            result = execution => ToolCompletion::Finished(result),
+            _ = tokio::time::sleep(timeout) => ToolCompletion::TimedOut,
+        };
+        match completion {
+            ToolCompletion::Finished(Ok(output)) => Ok(output),
+            ToolCompletion::Finished(Err(error)) => {
+                let _ = child.kill().await;
+                Err(error)
+            }
+            ToolCompletion::Cancelled => {
+                let _ = child.kill().await;
+                Err(Error::new(
+                    ErrorCode::Cancelled,
+                    "Linux Host-mediated sealed tool was cancelled",
+                ))
+            }
+            ToolCompletion::TimedOut => {
+                let _ = child.kill().await;
+                Err(Error::new(
+                    ErrorCode::Timeout,
+                    "Linux Host-mediated sealed tool timed out",
+                ))
+            }
+        }
+    }
+
+    async fn start_session(
+        &self,
+        name: &str,
+        args: Vec<RuntimeToolArg>,
+        cwd: Option<RuntimeToolCwd>,
+    ) -> Result<SandboxProcess> {
+        validate_runtime_tool_args(&args)?;
+        if self.operation_cpu_seconds != 0 {
+            return Err(Error::new(
+                ErrorCode::Unsupported,
+                "Persistent runtime-tool sessions do not yet provide aggregate per-operation CPU accounting",
+            ));
+        }
+        let tool = self.tools.get(name).ok_or_else(|| {
+            Error::new(
+                ErrorCode::PolicyDenied,
+                "Driver requested an ungranted Linux session tool",
+            )
+        })?;
+        let _ = semwright_platform_services::verify_sealed_tool_executable(
+            &tool.staged.0,
+            &tool.sha256,
+        )?;
+        let contract = self.contracts.get(name).ok_or_else(|| {
+            Error::new(
+                ErrorCode::PolicyDenied,
+                "Driver requested a Linux session tool without a manifest contract",
+            )
+        })?;
+        let (prepared_args, dependencies, typed_args) =
+            prepare_host_tool_args(contract, HostToolArgs::Typed(args))?;
+        if !typed_args {
+            return Err(Error::new(
+                ErrorCode::ProtocolMismatch,
+                "Persistent runtime-tool sessions require typed Host arguments",
+            ));
+        }
+
+        let mut spec = self.template.clone();
+        spec.staged_executable = tool.staged.0.clone();
+        spec.args = prepared_args;
+        let mut selected_mounts = contract
+            .mounts
+            .iter()
+            .map(|mount| {
+                self.workspace_mounts.get(mount).cloned().ok_or_else(|| {
+                    Error::new(
+                        ErrorCode::PolicyDenied,
+                        "Linux Host-session mount authority disappeared",
+                    )
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        selected_mounts.extend(
+            contract
+                .system_config
+                .iter()
+                .map(|root| {
+                    self.system_config_mounts.get(root).cloned().ok_or_else(|| {
+                        Error::new(
+                            ErrorCode::PolicyDenied,
+                            "Linux Host-session system-config authority disappeared",
+                        )
+                    })
+                })
+                .collect::<Result<Vec<_>>>()?,
+        );
+        spec.mounts = selected_mounts;
+        spec.environment.clear();
+        spec.environment.push((
+            semwright_platform_api::launch::SANDBOX_HOST_TOOL_CHILD_ENV.into(),
+            "1".into(),
+        ));
+        spec.environment
+            .push((SANDBOX_HOST_TOOL_TYPED_ARGS_ENV.into(), "1".into()));
+        let dependency_files = dependencies
+            .iter()
+            .map(|dependency| {
+                let dependency_tool = self.tools.get(dependency).ok_or_else(|| {
+                    Error::new(
+                        ErrorCode::PolicyDenied,
+                        "Linux runtime-tool session dependency disappeared from Host staging",
+                    )
+                })?;
+                Ok((
+                    dependency_tool.name.clone(),
+                    dependency_tool.fresh_dependency_file()?,
+                ))
+            })
+            .collect::<Result<Vec<_>>>()?;
+        spec.sealed_tools = dependency_files
+            .iter()
+            .map(|(name, file)| SealedToolMount {
+                source: SealedToolSource::UnixFd(file.as_raw_fd()),
+                name: name.clone(),
+            })
+            .collect();
+        if let Some(cwd) = cwd {
+            if !contract.mounts.contains(&cwd.mount) {
+                return Err(Error::new(
+                    ErrorCode::PolicyDenied,
+                    "Runtime-tool session working directory is outside the Linux tool mount allowlist",
+                ));
+            }
+            spec.environment.push((
+                SANDBOX_HOST_TOOL_CWD_ENV.into(),
+                format!("/workspace/{}", cwd.mount),
+            ));
+        }
+        semwright_platform_services::sandbox_spawn(&spec)
+    }
+}
+
+#[cfg(target_os = "linux")]
+fn stage_linux_broker_tool(
+    path: &Path,
+    digest: &str,
+    name: &str,
+    state: &Path,
+    dependency_file: std::fs::File,
+) -> Result<LinuxBrokerTool> {
+    let bytes = semwright_platform_services::verify_sealed_tool_executable(path, digest)?;
+    let staged_path = state.join(format!("driver-host-tool-{name}-{}", unique_id()));
+    let staged = Arc::new(StagedFile(staged_path.clone()));
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(&staged_path)?;
+    file.write_all(&bytes)?;
+    file.sync_all()?;
+    file.set_permissions(std::fs::Permissions::from_mode(0o500))?;
+    drop(file);
+    let _ = semwright_platform_services::verify_sealed_tool_executable(&staged_path, digest)?;
+    Ok(LinuxBrokerTool {
+        name: name.to_owned(),
+        staged,
+        sha256: digest.to_ascii_lowercase(),
+        dependency_file: Arc::new(dependency_file),
+    })
 }
 
 #[cfg(target_os = "windows")]
@@ -759,6 +1784,7 @@ struct Io {
 struct PendingResponse {
     sender: oneshot::Sender<Response>,
     allows_host_tools: bool,
+    session: Option<String>,
     cancellation: CancellationToken,
     charged_tool_cpu_seconds: Arc<Mutex<u64>>,
 }
@@ -778,7 +1804,13 @@ impl V2Io {
     async fn begin(&self, request: &Request, id: &str) -> Result<oneshot::Receiver<Response>> {
         let (sender, receiver) = oneshot::channel();
         let cancellation = CancellationToken::new();
-        let allows_host_tools = matches!(request, Request::Execute { .. });
+        let (allows_host_tools, session) = match request {
+            Request::Execute { context, .. } => (
+                true,
+                context.as_ref().map(|context| context.session.clone()),
+            ),
+            _ => (false, None),
+        };
         {
             let mut pending = self.pending.lock().await;
             if pending.len() >= 256 {
@@ -793,6 +1825,7 @@ impl V2Io {
                     PendingResponse {
                         sender,
                         allows_host_tools,
+                        session,
                         cancellation,
                         charged_tool_cpu_seconds: Arc::new(Mutex::new(0)),
                     },
@@ -864,7 +1897,15 @@ fn response_id(response: &Response) -> Option<&str> {
         | Response::Event { .. }
         | Response::CapabilitiesChanged
         | Response::Progress { .. }
-        | Response::ToolExecute { .. } => None,
+        | Response::ToolExecute { .. }
+        | Response::ToolExecuteV7 { .. }
+        | Response::ToolJobStart { .. }
+        | Response::ToolJobStartV7 { .. }
+        | Response::ToolJobStatus { .. }
+        | Response::ToolJobCancel { .. }
+        | Response::ToolSessionStartV8 { .. }
+        | Response::ToolSessionRequest { .. }
+        | Response::ToolSessionClose { .. } => None,
     }
 }
 
@@ -872,7 +1913,7 @@ fn host_tool_parent(
     pending: &BTreeMap<String, PendingResponse>,
     tool_id: &str,
     parent: &str,
-) -> Option<(CancellationToken, Arc<Mutex<u64>>)> {
+) -> Option<(CancellationToken, Arc<Mutex<u64>>, Option<String>)> {
     if pending.contains_key(tool_id) {
         return None;
     }
@@ -881,6 +1922,7 @@ fn host_tool_parent(
             (
                 entry.cancellation.clone(),
                 entry.charged_tool_cpu_seconds.clone(),
+                entry.session.clone(),
             )
         })
     })
@@ -913,6 +1955,8 @@ fn spawn_v2_reader(
 ) {
     let tool_calls = Arc::new(Mutex::new(BTreeSet::<String>::new()));
     let tool_parents = Arc::new(Mutex::new(BTreeSet::<String>::new()));
+    let host_tool_jobs = Arc::new(Mutex::new(BTreeMap::<String, HostToolJobEntry>::new()));
+    let host_tool_sessions = Arc::new(Mutex::new(BTreeMap::<String, HostToolSessionEntry>::new()));
     tokio::spawn(async move {
         loop {
             let response = match read_frame::<_, Response>(&mut output).await {
@@ -968,14 +2012,22 @@ fn spawn_v2_reader(
                     args,
                     stdin,
                     timeout_ms,
+                    cwd,
                 } => {
                     let parent_state = {
                         let pending = pending.lock().await;
                         host_tool_parent(&pending, &id, &parent)
                     };
-                    let valid = protocol >= 4
+                    let valid = protocol >= if cwd.is_some() { 5 } else { 4 }
                         && interfaces.host_tools
-                        && validate_tool_execute_request(&name, &args, &stdin, timeout_ms).is_ok()
+                        && validate_runtime_tool_execute_request(
+                            &name,
+                            &args,
+                            &stdin,
+                            timeout_ms,
+                            cwd.as_ref(),
+                        )
+                        .is_ok()
                         && parent_state.is_some();
                     let registered = if valid {
                         let mut calls = tool_calls.lock().await;
@@ -990,7 +2042,7 @@ fn spawn_v2_reader(
                         break;
                     }
 
-                    let (parent_cancellation, charged_cpu_seconds) =
+                    let (parent_cancellation, charged_cpu_seconds, _parent_session) =
                         parent_state.expect("validated Host-tool parent");
                     let input = input.clone();
                     let pending = pending.clone();
@@ -1000,15 +2052,19 @@ fn spawn_v2_reader(
                     let terminate_call = terminate.clone();
                     let closed_call = closed.clone();
                     tokio::spawn(async move {
+                        let execution_cancellation = CancellationToken::new();
                         let execution = async {
                             match broker {
                                 Some(broker) => {
                                     broker
                                         .execute(
                                             &name,
-                                            args,
+                                            HostToolArgs::Raw(args),
                                             stdin,
                                             timeout_ms,
+                                            cwd,
+                                            false,
+                                            execution_cancellation.clone(),
                                             charged_cpu_seconds,
                                         )
                                         .await
@@ -1019,15 +2075,21 @@ fn spawn_v2_reader(
                                 )),
                             }
                         };
+                        tokio::pin!(execution);
                         let result = tokio::select! {
-                            _ = parent_cancellation.cancelled() => Err(Error::new(
-                                ErrorCode::Cancelled,
-                                "Host-mediated sealed tool parent request ended",
-                            )),
-                            _ = closed_call.cancelled() => Err(Error::unavailable(
-                                "Driver connection closed during Host-mediated tool execution",
-                            )),
-                            result = execution => result,
+                            biased;
+                            result = &mut execution => result,
+                            _ = parent_cancellation.cancelled() => {
+                                execution_cancellation.cancel();
+                                execution.await
+                            },
+                            _ = closed_call.cancelled() => {
+                                execution_cancellation.cancel();
+                                let _ = execution.await;
+                                Err(Error::unavailable(
+                                    "Driver connection closed during Host-mediated tool execution",
+                                ))
+                            },
                         };
                         tool_calls.lock().await.remove(&id);
                         tool_parents.lock().await.remove(&parent);
@@ -1056,6 +2118,914 @@ fn spawn_v2_reader(
                         }
                     });
                 }
+                Response::ToolExecuteV7 {
+                    id,
+                    parent,
+                    name,
+                    args,
+                    stdin,
+                    timeout_ms,
+                    cwd,
+                } => {
+                    let parent_state = {
+                        let pending = pending.lock().await;
+                        host_tool_parent(&pending, &id, &parent)
+                    };
+                    let valid = protocol >= 7
+                        && interfaces.host_tools
+                        && validate_runtime_tool_args(&args).is_ok()
+                        && validate_runtime_tool_execute_request(
+                            &name,
+                            &[],
+                            &stdin,
+                            timeout_ms,
+                            cwd.as_ref(),
+                        )
+                        .is_ok()
+                        && parent_state.is_some();
+                    let registered = if valid {
+                        let mut calls = tool_calls.lock().await;
+                        let mut parents = tool_parents.lock().await;
+                        register_host_tool_call(&mut calls, &mut parents, &id, &parent)
+                    } else {
+                        false
+                    };
+                    if !registered {
+                        terminate.cancel();
+                        closed.cancel();
+                        break;
+                    }
+
+                    let (parent_cancellation, charged_cpu_seconds, _parent_session) =
+                        parent_state.expect("validated typed Host-tool parent");
+                    let input = input.clone();
+                    let pending = pending.clone();
+                    let broker = tool_broker.clone();
+                    let tool_calls = tool_calls.clone();
+                    let tool_parents = tool_parents.clone();
+                    let terminate_call = terminate.clone();
+                    let closed_call = closed.clone();
+                    tokio::spawn(async move {
+                        let execution_cancellation = CancellationToken::new();
+                        let execution = async {
+                            match broker {
+                                Some(broker) => {
+                                    broker
+                                        .execute(
+                                            &name,
+                                            HostToolArgs::Typed(args),
+                                            stdin,
+                                            timeout_ms,
+                                            cwd,
+                                            false,
+                                            execution_cancellation.clone(),
+                                            charged_cpu_seconds,
+                                        )
+                                        .await
+                                }
+                                None => Err(Error::new(
+                                    ErrorCode::Unsupported,
+                                    "Typed Host-mediated sealed tools are unavailable on this platform",
+                                )),
+                            }
+                        };
+                        tokio::pin!(execution);
+                        let result = tokio::select! {
+                            biased;
+                            result = &mut execution => result,
+                            _ = parent_cancellation.cancelled() => {
+                                execution_cancellation.cancel();
+                                execution.await
+                            },
+                            _ = closed_call.cancelled() => {
+                                execution_cancellation.cancel();
+                                let _ = execution.await;
+                                Err(Error::unavailable(
+                                    "Driver connection closed during typed Host-tool execution",
+                                ))
+                            },
+                        };
+                        tool_calls.lock().await.remove(&id);
+                        tool_parents.lock().await.remove(&parent);
+
+                        let parent_active = {
+                            let pending = pending.lock().await;
+                            pending.get(&parent).is_some_and(|entry| {
+                                entry.allows_host_tools && !entry.cancellation.is_cancelled()
+                            })
+                        };
+                        if !parent_active {
+                            return;
+                        }
+
+                        let request = match result {
+                            Ok(output) => Request::ToolResult { id, output },
+                            Err(error) => Request::ToolFailure {
+                                id,
+                                error: Error::new(
+                                    error.code,
+                                    "Typed Host-mediated sealed tool failed",
+                                ),
+                            },
+                        };
+                        let mut input = input.lock().await;
+                        if write_frame(&mut *input, &request).await.is_err() {
+                            terminate_call.cancel();
+                            closed_call.cancel();
+                        }
+                    });
+                }
+                Response::ToolJobStart {
+                    id,
+                    parent,
+                    name,
+                    args,
+                    stdin,
+                    timeout_ms,
+                    cwd,
+                } => {
+                    let parent_state = {
+                        let pending = pending.lock().await;
+                        host_tool_parent(&pending, &id, &parent)
+                    };
+                    let parent_session = parent_state
+                        .as_ref()
+                        .and_then(|(_, _, session)| session.clone());
+                    let valid = protocol >= 6
+                        && interfaces.host_tools
+                        && validate_runtime_tool_job_start(
+                            &name,
+                            &args,
+                            &stdin,
+                            timeout_ms,
+                            cwd.as_ref(),
+                        )
+                        .is_ok()
+                        && parent_session.is_some();
+                    let registered = if valid {
+                        let mut calls = tool_calls.lock().await;
+                        let mut parents = tool_parents.lock().await;
+                        register_host_tool_call(&mut calls, &mut parents, &id, &parent)
+                    } else {
+                        false
+                    };
+                    if !registered {
+                        terminate.cancel();
+                        closed.cancel();
+                        break;
+                    }
+
+                    let owner_session =
+                        parent_session.expect("validated runtime-tool job parent session");
+                    let input = input.clone();
+                    let pending = pending.clone();
+                    let broker = tool_broker.clone();
+                    let tool_calls = tool_calls.clone();
+                    let tool_parents = tool_parents.clone();
+                    let host_tool_jobs = host_tool_jobs.clone();
+                    let terminate_call = terminate.clone();
+                    let closed_call = closed.clone();
+                    tokio::spawn(async move {
+                        let request = match broker {
+                            None => Request::ToolJobFailure {
+                                id: id.clone(),
+                                error: Error::new(
+                                    ErrorCode::Unsupported,
+                                    "Detached runtime-tool jobs are unavailable on this platform",
+                                ),
+                            },
+                            Some(broker) => {
+                                let job = RuntimeToolJob {
+                                    id: format!("tool-job-{}", unique_id()),
+                                };
+                                let cancellation = CancellationToken::new();
+                                let status = Arc::new(Mutex::new(RuntimeToolJobStatus::Running));
+                                let inserted = {
+                                    let mut jobs = host_tool_jobs.lock().await;
+                                    if jobs.len() >= MAX_HOST_TOOL_JOBS {
+                                        false
+                                    } else {
+                                        jobs.insert(
+                                            job.id.clone(),
+                                            HostToolJobEntry {
+                                                owner_session: owner_session.clone(),
+                                                cancellation: cancellation.clone(),
+                                                status: status.clone(),
+                                            },
+                                        )
+                                        .is_none()
+                                    }
+                                };
+                                if !inserted {
+                                    Request::ToolJobFailure {
+                                        id: id.clone(),
+                                        error: Error::new(
+                                            ErrorCode::ResourceExhausted,
+                                            "Driver Host has too many detached runtime-tool jobs",
+                                        ),
+                                    }
+                                } else {
+                                    let status_task = status.clone();
+                                    let cancellation_task = cancellation.clone();
+                                    tokio::spawn(async move {
+                                        let result = broker
+                                            .execute(
+                                                &name,
+                                                HostToolArgs::Raw(args),
+                                                stdin,
+                                                timeout_ms,
+                                                cwd,
+                                                true,
+                                                cancellation_task,
+                                                Arc::new(Mutex::new(0)),
+                                            )
+                                            .await;
+                                        let next = match result {
+                                            Ok(output) => {
+                                                RuntimeToolJobStatus::Succeeded { output }
+                                            }
+                                            Err(error) if error.code == ErrorCode::Cancelled => {
+                                                RuntimeToolJobStatus::Cancelled
+                                            }
+                                            Err(error) => RuntimeToolJobStatus::Failed {
+                                                error: Error::new(
+                                                    error.code,
+                                                    "Host-mediated detached runtime-tool job failed",
+                                                ),
+                                            },
+                                        };
+                                        *status_task.lock().await = next;
+                                    });
+                                    Request::ToolJobStarted {
+                                        id: id.clone(),
+                                        job,
+                                    }
+                                }
+                            }
+                        };
+
+                        tool_calls.lock().await.remove(&id);
+                        tool_parents.lock().await.remove(&parent);
+                        let parent_active = {
+                            let pending = pending.lock().await;
+                            pending.get(&parent).is_some_and(|entry| {
+                                entry.allows_host_tools && !entry.cancellation.is_cancelled()
+                            })
+                        };
+                        if !parent_active {
+                            if let Request::ToolJobStarted { job, .. } = &request
+                                && let Some(entry) = host_tool_jobs.lock().await.remove(&job.id)
+                            {
+                                entry.cancellation.cancel();
+                            }
+                            return;
+                        }
+
+                        let mut input = input.lock().await;
+                        if write_frame(&mut *input, &request).await.is_err() {
+                            terminate_call.cancel();
+                            closed_call.cancel();
+                        }
+                    });
+                }
+                Response::ToolJobStartV7 {
+                    id,
+                    parent,
+                    name,
+                    args,
+                    stdin,
+                    timeout_ms,
+                    cwd,
+                } => {
+                    let parent_state = {
+                        let pending = pending.lock().await;
+                        host_tool_parent(&pending, &id, &parent)
+                    };
+                    let parent_session = parent_state
+                        .as_ref()
+                        .and_then(|(_, _, session)| session.clone());
+                    let valid = protocol >= 7
+                        && interfaces.host_tools
+                        && validate_runtime_tool_args(&args).is_ok()
+                        && validate_runtime_tool_job_start(
+                            &name,
+                            &[],
+                            &stdin,
+                            timeout_ms,
+                            cwd.as_ref(),
+                        )
+                        .is_ok()
+                        && parent_session.is_some();
+                    let registered = if valid {
+                        let mut calls = tool_calls.lock().await;
+                        let mut parents = tool_parents.lock().await;
+                        register_host_tool_call(&mut calls, &mut parents, &id, &parent)
+                    } else {
+                        false
+                    };
+                    if !registered {
+                        terminate.cancel();
+                        closed.cancel();
+                        break;
+                    }
+
+                    let owner_session =
+                        parent_session.expect("validated typed runtime-tool job parent session");
+                    let input = input.clone();
+                    let pending = pending.clone();
+                    let broker = tool_broker.clone();
+                    let tool_calls = tool_calls.clone();
+                    let tool_parents = tool_parents.clone();
+                    let host_tool_jobs = host_tool_jobs.clone();
+                    let terminate_call = terminate.clone();
+                    let closed_call = closed.clone();
+                    tokio::spawn(async move {
+                        let request = match broker {
+                            None => Request::ToolJobFailure {
+                                id: id.clone(),
+                                error: Error::new(
+                                    ErrorCode::Unsupported,
+                                    "Typed detached runtime-tool jobs are unavailable on this platform",
+                                ),
+                            },
+                            Some(broker) => {
+                                let job = RuntimeToolJob {
+                                    id: format!("tool-job-{}", unique_id()),
+                                };
+                                let cancellation = CancellationToken::new();
+                                let status = Arc::new(Mutex::new(RuntimeToolJobStatus::Running));
+                                let inserted = {
+                                    let mut jobs = host_tool_jobs.lock().await;
+                                    if jobs.len() >= MAX_HOST_TOOL_JOBS {
+                                        false
+                                    } else {
+                                        jobs.insert(
+                                            job.id.clone(),
+                                            HostToolJobEntry {
+                                                owner_session: owner_session.clone(),
+                                                cancellation: cancellation.clone(),
+                                                status: status.clone(),
+                                            },
+                                        )
+                                        .is_none()
+                                    }
+                                };
+                                if !inserted {
+                                    Request::ToolJobFailure {
+                                        id: id.clone(),
+                                        error: Error::new(
+                                            ErrorCode::ResourceExhausted,
+                                            "Driver Host has too many detached runtime-tool jobs",
+                                        ),
+                                    }
+                                } else {
+                                    let status_task = status.clone();
+                                    let cancellation_task = cancellation.clone();
+                                    tokio::spawn(async move {
+                                        let result = broker
+                                            .execute(
+                                                &name,
+                                                HostToolArgs::Typed(args),
+                                                stdin,
+                                                timeout_ms,
+                                                cwd,
+                                                true,
+                                                cancellation_task,
+                                                Arc::new(Mutex::new(0)),
+                                            )
+                                            .await;
+                                        let next = match result {
+                                            Ok(output) => {
+                                                RuntimeToolJobStatus::Succeeded { output }
+                                            }
+                                            Err(error) if error.code == ErrorCode::Cancelled => {
+                                                RuntimeToolJobStatus::Cancelled
+                                            }
+                                            Err(error) => RuntimeToolJobStatus::Failed {
+                                                error: Error::new(
+                                                    error.code,
+                                                    "Typed Host-mediated detached runtime-tool job failed",
+                                                ),
+                                            },
+                                        };
+                                        *status_task.lock().await = next;
+                                    });
+                                    Request::ToolJobStarted {
+                                        id: id.clone(),
+                                        job,
+                                    }
+                                }
+                            }
+                        };
+
+                        tool_calls.lock().await.remove(&id);
+                        tool_parents.lock().await.remove(&parent);
+                        let parent_active = {
+                            let pending = pending.lock().await;
+                            pending.get(&parent).is_some_and(|entry| {
+                                entry.allows_host_tools && !entry.cancellation.is_cancelled()
+                            })
+                        };
+                        if !parent_active {
+                            if let Request::ToolJobStarted { job, .. } = &request
+                                && let Some(entry) = host_tool_jobs.lock().await.remove(&job.id)
+                            {
+                                entry.cancellation.cancel();
+                            }
+                            return;
+                        }
+
+                        let mut input = input.lock().await;
+                        if write_frame(&mut *input, &request).await.is_err() {
+                            terminate_call.cancel();
+                            closed_call.cancel();
+                        }
+                    });
+                }
+                Response::ToolJobStatus { id, parent, job } => {
+                    let parent_state = {
+                        let pending = pending.lock().await;
+                        host_tool_parent(&pending, &id, &parent)
+                    };
+                    let caller_session = parent_state
+                        .as_ref()
+                        .and_then(|(_, _, session)| session.clone());
+                    let valid = protocol >= 6
+                        && interfaces.host_tools
+                        && job.validate().is_ok()
+                        && caller_session.is_some();
+                    let registered = if valid {
+                        let mut calls = tool_calls.lock().await;
+                        let mut parents = tool_parents.lock().await;
+                        register_host_tool_call(&mut calls, &mut parents, &id, &parent)
+                    } else {
+                        false
+                    };
+                    if !registered {
+                        terminate.cancel();
+                        closed.cancel();
+                        break;
+                    }
+
+                    let caller_session =
+                        caller_session.expect("validated runtime-tool job caller session");
+                    let entry = host_tool_jobs.lock().await.get(&job.id).cloned();
+                    let request = match entry {
+                        Some(entry) if entry.owner_session == caller_session => {
+                            let status = entry.status.lock().await.clone();
+                            if status.terminal() {
+                                host_tool_jobs.lock().await.remove(&job.id);
+                            }
+                            Request::ToolJobState {
+                                id: id.clone(),
+                                job,
+                                status,
+                            }
+                        }
+                        Some(_) => Request::ToolJobFailure {
+                            id: id.clone(),
+                            error: Error::new(
+                                ErrorCode::PolicyDenied,
+                                "Detached runtime-tool job belongs to another driver session",
+                            ),
+                        },
+                        None => Request::ToolJobFailure {
+                            id: id.clone(),
+                            error: Error::new(
+                                ErrorCode::NotFound,
+                                "Detached runtime-tool job is unknown or already collected",
+                            ),
+                        },
+                    };
+                    tool_calls.lock().await.remove(&id);
+                    tool_parents.lock().await.remove(&parent);
+                    let mut input = input.lock().await;
+                    if write_frame(&mut *input, &request).await.is_err() {
+                        terminate.cancel();
+                        closed.cancel();
+                        break;
+                    }
+                }
+                Response::ToolJobCancel { id, parent, job } => {
+                    let parent_state = {
+                        let pending = pending.lock().await;
+                        host_tool_parent(&pending, &id, &parent)
+                    };
+                    let caller_session = parent_state
+                        .as_ref()
+                        .and_then(|(_, _, session)| session.clone());
+                    let valid = protocol >= 6
+                        && interfaces.host_tools
+                        && job.validate().is_ok()
+                        && caller_session.is_some();
+                    let registered = if valid {
+                        let mut calls = tool_calls.lock().await;
+                        let mut parents = tool_parents.lock().await;
+                        register_host_tool_call(&mut calls, &mut parents, &id, &parent)
+                    } else {
+                        false
+                    };
+                    if !registered {
+                        terminate.cancel();
+                        closed.cancel();
+                        break;
+                    }
+
+                    let caller_session =
+                        caller_session.expect("validated runtime-tool job caller session");
+                    let entry = host_tool_jobs.lock().await.get(&job.id).cloned();
+                    let request = match entry {
+                        Some(entry) if entry.owner_session == caller_session => {
+                            let mut status = entry.status.lock().await;
+                            if matches!(*status, RuntimeToolJobStatus::Running) {
+                                *status = RuntimeToolJobStatus::Cancelling;
+                                entry.cancellation.cancel();
+                            }
+                            let observed = status.clone();
+                            let terminal = observed.terminal();
+                            drop(status);
+                            if terminal {
+                                host_tool_jobs.lock().await.remove(&job.id);
+                            }
+                            Request::ToolJobState {
+                                id: id.clone(),
+                                job,
+                                status: observed,
+                            }
+                        }
+                        Some(_) => Request::ToolJobFailure {
+                            id: id.clone(),
+                            error: Error::new(
+                                ErrorCode::PolicyDenied,
+                                "Detached runtime-tool job belongs to another driver session",
+                            ),
+                        },
+                        None => Request::ToolJobFailure {
+                            id: id.clone(),
+                            error: Error::new(
+                                ErrorCode::NotFound,
+                                "Detached runtime-tool job is unknown or already collected",
+                            ),
+                        },
+                    };
+                    tool_calls.lock().await.remove(&id);
+                    tool_parents.lock().await.remove(&parent);
+                    let mut input = input.lock().await;
+                    if write_frame(&mut *input, &request).await.is_err() {
+                        terminate.cancel();
+                        closed.cancel();
+                        break;
+                    }
+                }
+                Response::ToolSessionStartV8 {
+                    id,
+                    parent,
+                    name,
+                    args,
+                    lifetime_ms,
+                    cwd,
+                } => {
+                    let parent_state = {
+                        let pending = pending.lock().await;
+                        host_tool_parent(&pending, &id, &parent)
+                    };
+                    let valid = protocol >= 8
+                        && interfaces.host_tools
+                        && validate_runtime_tool_args(&args).is_ok()
+                        && cwd.as_ref().is_none_or(|cwd| cwd.validate().is_ok())
+                        && (1..=MAX_HOST_TOOL_SESSION_LIFETIME_MS).contains(&lifetime_ms)
+                        && parent_state.is_some();
+                    let registered = if valid {
+                        let mut calls = tool_calls.lock().await;
+                        let mut parents = tool_parents.lock().await;
+                        register_host_tool_call(&mut calls, &mut parents, &id, &parent)
+                    } else {
+                        false
+                    };
+                    if !registered {
+                        terminate.cancel();
+                        closed.cancel();
+                        break;
+                    }
+
+                    let input = input.clone();
+                    let pending = pending.clone();
+                    let broker = tool_broker.clone();
+                    let tool_calls = tool_calls.clone();
+                    let tool_parents = tool_parents.clone();
+                    let host_tool_sessions = host_tool_sessions.clone();
+                    let terminate_call = terminate.clone();
+                    let closed_call = closed.clone();
+                    tokio::spawn(async move {
+                        let request = match broker {
+                            None => Request::ToolSessionFailure {
+                                id: id.clone(),
+                                error: Error::new(
+                                    ErrorCode::Unsupported,
+                                    "Persistent runtime-tool sessions are unavailable on this platform",
+                                ),
+                            },
+                            Some(broker) => {
+                                let capacity_available =
+                                    host_tool_sessions.lock().await.len() < MAX_HOST_TOOL_SESSIONS;
+                                if !capacity_available {
+                                    Request::ToolSessionFailure {
+                                        id: id.clone(),
+                                        error: Error::new(
+                                            ErrorCode::ResourceExhausted,
+                                            "Driver Host has too many persistent runtime-tool sessions",
+                                        ),
+                                    }
+                                } else {
+                                    match broker.start_session(&name, args, cwd).await {
+                                        Err(error) => Request::ToolSessionFailure {
+                                            id: id.clone(),
+                                            error: Error::new(
+                                                error.code,
+                                                "Host-mediated runtime-tool session failed to start",
+                                            ),
+                                        },
+                                        Ok(mut process) => {
+                                            let stdin = process.take_stdin();
+                                            let stdout = process.take_stdout();
+                                            match (stdin, stdout) {
+                                                (Ok(stdin), Ok(stdout)) => {
+                                                    let session = RuntimeToolSession {
+                                                        id: format!("tool-session-{}", unique_id()),
+                                                    };
+                                                    let entry = HostToolSessionEntry {
+                                                        state: Arc::new(Mutex::new(
+                                                            HostToolSessionState {
+                                                                process,
+                                                                stdin,
+                                                                stdout,
+                                                                expires_at: Instant::now()
+                                                                    + Duration::from_millis(
+                                                                        lifetime_ms,
+                                                                    ),
+                                                            },
+                                                        )),
+                                                    };
+                                                    let inserted = {
+                                                        let mut sessions =
+                                                            host_tool_sessions.lock().await;
+                                                        if sessions.len() >= MAX_HOST_TOOL_SESSIONS
+                                                        {
+                                                            false
+                                                        } else {
+                                                            sessions
+                                                                .insert(
+                                                                    session.id.clone(),
+                                                                    entry.clone(),
+                                                                )
+                                                                .is_none()
+                                                        }
+                                                    };
+                                                    if inserted {
+                                                        let sessions = host_tool_sessions.clone();
+                                                        let session_id = session.id.clone();
+                                                        tokio::spawn(async move {
+                                                            tokio::time::sleep(
+                                                                Duration::from_millis(lifetime_ms),
+                                                            )
+                                                            .await;
+                                                            if let Some(entry) = sessions
+                                                                .lock()
+                                                                .await
+                                                                .remove(&session_id)
+                                                            {
+                                                                reap_host_tool_session(entry).await;
+                                                            }
+                                                        });
+                                                        Request::ToolSessionStarted {
+                                                            id: id.clone(),
+                                                            session,
+                                                        }
+                                                    } else {
+                                                        reap_host_tool_session(entry).await;
+                                                        Request::ToolSessionFailure {
+                                                            id: id.clone(),
+                                                            error: Error::new(
+                                                                ErrorCode::ResourceExhausted,
+                                                                "Driver Host has too many persistent runtime-tool sessions",
+                                                            ),
+                                                        }
+                                                    }
+                                                }
+                                                _ => {
+                                                    let _ = process.kill().await;
+                                                    Request::ToolSessionFailure {
+                                                        id: id.clone(),
+                                                        error: Error::unavailable(
+                                                            "Persistent runtime-tool session pipes are unavailable",
+                                                        ),
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        };
+
+                        tool_calls.lock().await.remove(&id);
+                        tool_parents.lock().await.remove(&parent);
+                        let parent_active = {
+                            let pending = pending.lock().await;
+                            pending.get(&parent).is_some_and(|entry| {
+                                entry.allows_host_tools && !entry.cancellation.is_cancelled()
+                            })
+                        };
+                        if !parent_active {
+                            if let Request::ToolSessionStarted { session, .. } = &request
+                                && let Some(entry) =
+                                    host_tool_sessions.lock().await.remove(&session.id)
+                            {
+                                reap_host_tool_session(entry).await;
+                            }
+                            return;
+                        }
+
+                        let mut input = input.lock().await;
+                        if write_frame(&mut *input, &request).await.is_err() {
+                            terminate_call.cancel();
+                            closed_call.cancel();
+                        }
+                    });
+                }
+                Response::ToolSessionRequest {
+                    id,
+                    parent,
+                    session,
+                    payload,
+                    timeout_ms,
+                } => {
+                    let parent_state = {
+                        let pending = pending.lock().await;
+                        host_tool_parent(&pending, &id, &parent)
+                    };
+                    let valid = protocol >= 8
+                        && interfaces.host_tools
+                        && session.validate().is_ok()
+                        && payload.len() <= MAX_HOST_TOOL_SESSION_FRAME_BYTES
+                        && (1..=MAX_TOOL_SESSION_REQUEST_TIMEOUT_MS).contains(&timeout_ms)
+                        && parent_state.is_some();
+                    let registered = if valid {
+                        let mut calls = tool_calls.lock().await;
+                        let mut parents = tool_parents.lock().await;
+                        register_host_tool_call(&mut calls, &mut parents, &id, &parent)
+                    } else {
+                        false
+                    };
+                    if !registered {
+                        terminate.cancel();
+                        closed.cancel();
+                        break;
+                    }
+
+                    let parent_cancellation = parent_state
+                        .expect("validated runtime-tool session parent")
+                        .0;
+                    let input = input.clone();
+                    let tool_calls = tool_calls.clone();
+                    let tool_parents = tool_parents.clone();
+                    let host_tool_sessions = host_tool_sessions.clone();
+                    let terminate_call = terminate.clone();
+                    let closed_call = closed.clone();
+                    tokio::spawn(async move {
+                        let entry = host_tool_sessions.lock().await.get(&session.id).cloned();
+                        let request = match entry {
+                            Some(entry) => {
+                                let exchange = {
+                                    let mut state = entry.state.lock().await;
+                                    if Instant::now() >= state.expires_at {
+                                        Err(Error::new(
+                                            ErrorCode::Timeout,
+                                            "Persistent runtime-tool session expired",
+                                        ))
+                                    } else {
+                                        let io = async {
+                                            write_host_tool_session_frame(
+                                                &mut state.stdin,
+                                                &payload,
+                                            )
+                                            .await?;
+                                            read_host_tool_session_frame(&mut state.stdout).await
+                                        };
+                                        tokio::select! {
+                                            biased;
+                                            _ = parent_cancellation.cancelled() => Err(
+                                                Error::new(
+                                                    ErrorCode::Cancelled,
+                                                    "Runtime-tool session request cancelled",
+                                                )
+                                            ),
+                                            result = tokio::time::timeout(
+                                                Duration::from_millis(timeout_ms),
+                                                io,
+                                            ) => match result {
+                                                Ok(result) => result,
+                                                Err(_) => Err(Error::new(
+                                                    ErrorCode::Timeout,
+                                                    "Runtime-tool session request timed out",
+                                                )),
+                                            },
+                                        }
+                                    }
+                                };
+                                match exchange {
+                                    Ok(payload) => Request::ToolSessionFrame {
+                                        id: id.clone(),
+                                        session: session.clone(),
+                                        payload,
+                                    },
+                                    Err(error) => {
+                                        if let Some(entry) =
+                                            host_tool_sessions.lock().await.remove(&session.id)
+                                        {
+                                            reap_host_tool_session(entry).await;
+                                        }
+                                        Request::ToolSessionFailure {
+                                            id: id.clone(),
+                                            error: Error::new(
+                                                error.code,
+                                                "Persistent runtime-tool session request failed and the session was reaped",
+                                            ),
+                                        }
+                                    }
+                                }
+                            }
+                            None => Request::ToolSessionFailure {
+                                id: id.clone(),
+                                error: Error::new(
+                                    ErrorCode::NotFound,
+                                    "Persistent runtime-tool session is unknown or already closed",
+                                ),
+                            },
+                        };
+                        tool_calls.lock().await.remove(&id);
+                        tool_parents.lock().await.remove(&parent);
+                        let mut input = input.lock().await;
+                        if write_frame(&mut *input, &request).await.is_err() {
+                            terminate_call.cancel();
+                            closed_call.cancel();
+                        }
+                    });
+                }
+                Response::ToolSessionClose {
+                    id,
+                    parent,
+                    session,
+                } => {
+                    let parent_state = {
+                        let pending = pending.lock().await;
+                        host_tool_parent(&pending, &id, &parent)
+                    };
+                    let valid = protocol >= 8
+                        && interfaces.host_tools
+                        && session.validate().is_ok()
+                        && parent_state.is_some();
+                    let registered = if valid {
+                        let mut calls = tool_calls.lock().await;
+                        let mut parents = tool_parents.lock().await;
+                        register_host_tool_call(&mut calls, &mut parents, &id, &parent)
+                    } else {
+                        false
+                    };
+                    if !registered {
+                        terminate.cancel();
+                        closed.cancel();
+                        break;
+                    }
+                    let entry = host_tool_sessions.lock().await.get(&session.id).cloned();
+                    let request = match entry {
+                        Some(_) => {
+                            let removed = host_tool_sessions.lock().await.remove(&session.id);
+                            if let Some(entry) = removed {
+                                reap_host_tool_session(entry).await;
+                            }
+                            Request::ToolSessionClosed {
+                                id: id.clone(),
+                                session,
+                            }
+                        }
+                        None => Request::ToolSessionFailure {
+                            id: id.clone(),
+                            error: Error::new(
+                                ErrorCode::NotFound,
+                                "Persistent runtime-tool session is unknown or already closed",
+                            ),
+                        },
+                    };
+                    tool_calls.lock().await.remove(&id);
+                    tool_parents.lock().await.remove(&parent);
+                    let mut input = input.lock().await;
+                    if write_frame(&mut *input, &request).await.is_err() {
+                        terminate.cancel();
+                        closed.cancel();
+                        break;
+                    }
+                }
                 other => {
                     let Some(id) = response_id(&other).map(str::to_owned) else {
                         terminate.cancel();
@@ -1081,6 +3051,20 @@ fn spawn_v2_reader(
         };
         for (_, pending_response) in pending_responses {
             pending_response.cancellation.cancel();
+        }
+        let jobs = {
+            let mut jobs = host_tool_jobs.lock().await;
+            std::mem::take(&mut *jobs)
+        };
+        for (_, job) in jobs {
+            job.cancellation.cancel();
+        }
+        let sessions = {
+            let mut sessions = host_tool_sessions.lock().await;
+            std::mem::take(&mut *sessions)
+        };
+        for (_, session) in sessions {
+            reap_host_tool_session(session).await;
         }
         let _ = signals.send(ProviderSignal::Disconnected);
     });
@@ -1182,6 +3166,9 @@ fn sandbox_spec(
             "SEMWRIGHT_DRIVER_LOOPBACK_SOCKET".into(),
             loopback::SANDBOX_SOCKET.into(),
         ));
+    }
+    if manifest.interfaces.host_tools {
+        environment.push(("SEMWRIGHT_DRIVER_HOST_TOOLS".into(), "1".into()));
     }
     Ok(SandboxSpec {
         kind: SandboxKind::Driver,
@@ -1410,6 +3397,8 @@ impl DriverProvider {
                 Some(Arc::new(HostToolBroker::new(
                     &spec,
                     &sealed_tools,
+                    &manifest.tools,
+                    &manifest.system_config,
                     manifest.resources.operation_cpu_seconds,
                 )?))
             } else {
@@ -1689,18 +3678,72 @@ impl DriverProvider {
                     seal_verified_tool(&grant.path, &tool.sha256, &tool.name)
                 })
                 .collect::<Result<Vec<_>>>()?;
+            #[cfg(target_os = "linux")]
+            let broker_tools = if manifest.protocol >= 5 && manifest.interfaces.host_tools {
+                manifest
+                    .tools
+                    .iter()
+                    .zip(sealed_tools.iter())
+                    .map(|(tool, sealed)| {
+                        if tool.name != sealed.name {
+                            return Err(Error::new(
+                                ErrorCode::Internal,
+                                "Linux sealed-tool staging order diverged from manifest",
+                            ));
+                        }
+                        let grant = roots
+                            .iter()
+                            .find(|grant| grant.name == tool.root)
+                            .ok_or_else(|| {
+                                Error::new(
+                                    ErrorCode::PolicyDenied,
+                                    "Driver tool grant disappeared before Linux Host staging",
+                                )
+                            })?;
+                        stage_linux_broker_tool(
+                            &grant.path,
+                            &tool.sha256,
+                            &tool.name,
+                            state,
+                            sealed.duplicate_data_file_inheritable()?,
+                        )
+                    })
+                    .collect::<Result<Vec<_>>>()?
+            } else {
+                Vec::new()
+            };
             let loopback = match manifest.loopback_port {
                 Some(port) => Some(loopback::start(state, port).await?),
                 None => None,
             };
+            let driver_visible_tools: &[SealedTool] =
+                if manifest.protocol >= 5 && manifest.interfaces.host_tools {
+                    &[]
+                } else {
+                    &sealed_tools
+                };
             let spec = sandbox_spec(
                 &manifest,
                 &staged_path,
                 helper,
                 roots,
                 loopback.as_deref().map(loopback::LoopbackProxy::directory),
-                &sealed_tools,
+                driver_visible_tools,
             )?;
+            #[cfg(target_os = "linux")]
+            let tool_broker: Option<Arc<dyn HostToolExecutor>> =
+                if manifest.protocol >= 5 && manifest.interfaces.host_tools {
+                    Some(Arc::new(LinuxHostToolBroker::new(
+                        &spec,
+                        &broker_tools,
+                        &manifest.tools,
+                        &manifest.system_config,
+                        manifest.resources.operation_cpu_seconds,
+                    )?))
+                } else {
+                    None
+                };
+            #[cfg(not(target_os = "linux"))]
             let tool_broker: Option<Arc<dyn HostToolExecutor>> = None;
             let mut child = semwright_platform_services::sandbox_spawn(&spec)?;
             let process_id = child
@@ -2472,6 +4515,7 @@ mod host_tool_protocol_tests {
         PendingResponse {
             sender,
             allows_host_tools,
+            session: allows_host_tools.then(|| "session-a".into()),
             cancellation: CancellationToken::new(),
             charged_tool_cpu_seconds: Arc::new(Mutex::new(0)),
         }
@@ -2483,10 +4527,9 @@ mod host_tool_protocol_tests {
         pending.insert("execute-parent".into(), pending_entry(true));
         pending.insert("health-parent".into(), pending_entry(false));
 
-        assert!(
-            host_tool_parent(&pending, "tool-1", "execute-parent").is_some(),
-            "an active Execute request may own a Host-mediated tool call"
-        );
+        let execute_parent = host_tool_parent(&pending, "tool-1", "execute-parent")
+            .expect("an active Execute request may own a Host-mediated tool call");
+        assert_eq!(execute_parent.2.as_deref(), Some("session-a"));
         assert!(
             host_tool_parent(&pending, "tool-2", "health-parent").is_none(),
             "non-Execute requests may not gain Host-tool authority"
@@ -2573,6 +4616,14 @@ mod tests {
         }
     }
 
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn linux_host_tool_cpu_limit_respects_sandbox_floor_without_changing_wall_deadline() {
+        assert_eq!(linux_host_tool_cpu_limit(Duration::from_millis(1)), 5);
+        assert_eq!(linux_host_tool_cpu_limit(Duration::from_secs(2)), 5);
+        assert_eq!(linux_host_tool_cpu_limit(Duration::from_millis(5_001)), 6);
+    }
+
     #[test]
     fn owner_network_consent_and_interface_negotiation_fail_closed() {
         let mut network = manifest();
@@ -2630,6 +4681,25 @@ mod tests {
             std::io::Error::last_os_error().raw_os_error(),
             Some(libc::EPERM)
         );
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn linux_dependency_reopen_has_an_independent_zero_offset() {
+        let source = Path::new("/usr/bin/true");
+        let digest = format!("{:x}", Sha256::digest(std::fs::read(source).unwrap()));
+        let tool = seal_verified_tool(source, &digest, "dependency").unwrap();
+
+        let mut first = fresh_linux_dependency_file(&tool.data_file).unwrap();
+        let mut second = fresh_linux_dependency_file(&tool.data_file).unwrap();
+
+        let mut consumed = Vec::new();
+        std::io::Read::read_to_end(&mut first, &mut consumed).unwrap();
+        assert!(!consumed.is_empty());
+
+        let mut magic = [0u8; 4];
+        std::io::Read::read_exact(&mut second, &mut magic).unwrap();
+        assert_eq!(&magic, b"\x7fELF");
     }
 
     #[cfg(target_os = "linux")]

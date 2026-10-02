@@ -2,27 +2,25 @@
 
 This document records only gaps exercised by the implementation; it is not a proposal for speculative protocol features.
 
-## 1. Multi-tool runtime distribution
+## 1. Runtime bundle distribution remains the open packaging gap
 
-Driver Registry packages pin a driver executable/manifest but do not currently distribute and attest a complete auxiliary runtime such as Node + Firefox + helper files. Motion Canvas therefore requires an explicit owner `runtime` filesystem grant with the Driver-only `execute: true` opt-in. Other read-only grants remain non-executable. The driver verifies SHA-256 pins for Node, the helper and the selected browser executable before rendering.
+Protocol v7 now removes driver-owned executable discovery: Node is an owner-pinned `Manifest.tools` entry, the render helper is embedded in the Rust driver and delivered over bounded stdin, and project/output/runtime/fontconfig paths are typed Host-resolved arguments. The browser and its Playwright resources still live in one explicit owner-granted read-only executable `runtime` bundle. Semwright does not yet snapshot or attest every file in that bundle, so this document does not claim full bundle immutability or per-file browser attestation.
 
-A generic future tool-dependency/package primitive could remove this manual runtime preparation without widening filesystem access.
+A generic runtime-bundle packaging/attestation primitive would close that remaining distribution gap for Motion Canvas, Blender, LibreOffice and similar applications without returning executable-path discovery to individual drivers.
 
-## 2. Protocol-v3 adoption for long-running child jobs
+## 2. Protocol-v7 Host-owned render jobs
 
-The current Driver SDK supports through Protocol v4. Motion Canvas deliberately negotiates Driver Protocol v3 for cooperative cancellation, progress and artifact reporting because it does not require the v4 Host-mediated sealed-tool interface. The asynchronous `render.start/status/cancel/result` API remains available, while `render.execute` maps the same renderer onto one protocol-owned request lifecycle. Native refs remain disabled because Motion Canvas refs are managed semantic refs rather than broker-native application references.
-
-The protocol-v3 path reuses the existing bounded job registry; it does not introduce a second render authority or duplicate renderer implementation.
+Motion Canvas now negotiates Driver Protocol v7 for Host-mediated tools, typed logical path arguments and detached session-bound runtime-tool jobs. `render.start/status/cancel/result` map to that Host job lifecycle; `render.execute` uses the same job path while reporting progress/artifacts and performing narrow cleanup cancellation if its parent request is cancelled. The driver no longer spawns or kills Node/browser process trees itself. Native refs remain disabled because Motion Canvas refs are managed semantic refs rather than broker-native application references.
 
 ## 3. Browser sandbox composition
 
-The renderer needs a real browser process plus writable temporary/profile state while the driver remains inside Bubblewrap + Landlock with `network=false`. The final Firefox route uses the existing generic Driver-only executable-mount opt-in: the runtime is read-only, execution is explicit, and the helper can launch only the SHA-256-pinned browser path supplied by Rust. Firefox's nested content sandbox is disabled only after the outer Driver Host marker is verified; the outer sandbox remains authoritative. The helper also disables Firefox's Linux fork-server preference because that broker failed to create tab subprocesses inside the already-isolated namespace; this is a fixed compatibility choice, not an agent-controlled escape hatch.
+The renderer needs a real browser process plus writable temporary/profile state while the runtime-tool child remains inside Bubblewrap + Landlock with `network=false`. The runtime bundle is read-only with explicit execute authority; the embedded helper resolves Playwright's Firefox executable and rejects it unless its canonical path remains inside that bundle. Firefox writable profile/cache state is redirected to the delegated output root. Firefox's nested content sandbox is disabled only after the outer Driver Host marker is verified; the outer sandbox remains authoritative. The helper also disables Firefox's Linux fork-server preference because that broker failed to create tab subprocesses inside the already-isolated namespace; this is a fixed compatibility choice, not an agent-controlled escape hatch.
 
-The current driver package model still does not express the complete auxiliary Node/browser bundle or profile storage as a first-class distribution primitive. A future generic tool-dependency package could remove the owner-prepared runtime mount without broadening filesystem access.
+The current package model still does not attest the complete Node/browser resource bundle as one immutable artifact. That remains a generic packaging gap rather than a Motion-specific resolver.
 
 ## Browser-version compatibility evidence
 
-Playwright 1.63.0 / Firefox 155.0 repeatedly failed inside the otherwise-conformant Driver Host after Juggler startup with a tab-subprocess `SIGSEGV`. Supplying a private `/dev/shm` did not remove the crash and AppArmor logs showed no relevant denial. The runtime therefore pins Playwright 1.61.1 / Firefox 151.0, the last-good pair documented by a current upstream Firefox SIGSEGV regression report, while preserving the same digest pinning, filesystem, network and process policy. This is an upstream compatibility pin, not a new Driver SDK authority gap.
+Playwright 1.63.0 / Firefox 155.0 repeatedly failed inside the otherwise-conformant Driver Host after Juggler startup with a tab-subprocess `SIGSEGV`. Supplying a private `/dev/shm` did not remove the crash and AppArmor logs showed no relevant denial. The runtime therefore pins Playwright 1.61.1 / Firefox 151.0, the last-good pair documented by a current upstream Firefox SIGSEGV regression report, while preserving the same filesystem, network and process policy. The CI evidence records the concrete browser digest, but the complete browser bundle is still an owner-granted runtime root rather than a Host-attested immutable bundle. This is an upstream compatibility pin, not a new Driver SDK authority gap.
 
 ## Resolved experiment: resource ceilings
 

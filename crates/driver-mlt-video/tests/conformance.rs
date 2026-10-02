@@ -128,7 +128,7 @@ fn doctor_satisfies_actual_output_schema() {
         .clone();
     let v = app.execute(&c.name, &c.digest, obj([])).unwrap();
     assert!(!v.get("render_available").unwrap().boolean().unwrap());
-    assert_eq!(v.uint("driver_protocol").unwrap(), 1);
+    assert_eq!(v.uint("driver_protocol").unwrap(), 7);
 }
 #[test]
 fn wrong_descriptor_digest_rejected_before_execution() {

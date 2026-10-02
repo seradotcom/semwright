@@ -1,7 +1,7 @@
-//! Motion Canvas render jobs shared by legacy async capabilities and Protocol v3 render.execute.
+//! Motion Canvas render jobs backed exclusively by Driver Host runtime-tool jobs.
 use crate::{
     Error, ErrorCode, Result,
-    model::{ColorSpace, Project, RenderProfile},
+    model::{ColorSpace, RenderProfile},
     refs::{Kind, Reference},
     security,
     store::Snapshot,
@@ -9,193 +9,30 @@ use crate::{
 };
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use schemars::JsonSchema;
+use semwright_driver_sdk::{
+    DriverExecutionContext, RuntimeToolArg, RuntimeToolCwd, RuntimeToolJob, RuntimeToolJobStatus,
+    ToolExecutionOutput,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sha2::{Digest, Sha256};
 use std::{
     collections::BTreeMap,
     fs,
-    io::Read,
-    path::{Path, PathBuf},
+    path::{Component, Path, PathBuf},
     sync::Arc,
     time::Duration,
 };
-use tokio::{io::AsyncReadExt, process::Command, sync::Mutex};
-use tokio_util::sync::CancellationToken;
+use tokio::sync::Mutex;
 
-const MAX_PROCESS_OUTPUT: u64 = 262_144;
 const MAX_JOBS: usize = 64;
-// High-level authoring adds the fixed semantic runtime to Vite's module graph.
-// Keep V8 bounded well below the Driver Host's 4 GiB RLIMIT_AS while allowing
-// that closed first-party graph to build without the legacy 256 MiB heap cap.
+const HOST_TOOL: &str = "motion-node";
+const RENDER_HELPER: &str = include_str!("../../../integrations/motion-canvas/runtime/render.mjs");
+const RUNTIME_MOUNT: &str = "runtime";
+const PROJECT_MOUNT: &str = "project";
+const OUTPUT_MOUNT: &str = "output";
+const FONTCONFIG_MOUNT: &str = "fontconfig";
 const NODE_RENDER_FLAGS: [&str; 2] = ["--disable-wasm-trap-handler", "--max-old-space-size=512"];
-
-fn runtime_relative_path(path: &str) -> Result<()> {
-    if path.is_empty()
-        || path.len() > 512
-        || path.split('/').count() > 12
-        || path.contains(['\\', ':', '%', '\0'])
-        || !path
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || b"/_-.@".contains(&byte))
-        || path
-            .split('/')
-            .any(|part| part.is_empty() || part == "." || part == ".." || part.len() > 128)
-    {
-        return Err(Error::invalid(
-            "Runtime path must be bounded, relative and free of traversal or URLs",
-        ));
-    }
-    Ok(())
-}
-
-#[derive(Debug, Clone)]
-pub struct RendererRuntime {
-    pub node: PathBuf,
-    pub helper: PathBuf,
-    pub browser: PathBuf,
-    pub dependency_lock_sha256: String,
-    pub font_resources_sha256: String,
-}
-
-impl RendererRuntime {
-    pub fn from_root(root: &Path) -> Result<Self> {
-        let bytes = fs::read(root.join("runtime.json")).map_err(|_| {
-            Error::new(
-                ErrorCode::Unavailable,
-                "Pinned Motion Canvas runtime.json is unavailable",
-            )
-        })?;
-        if bytes.len() > 16_384 {
-            return Err(Error::new(
-                ErrorCode::ResourceExhausted,
-                "Runtime config exceeds byte budget",
-            ));
-        }
-        #[derive(Deserialize)]
-        #[serde(deny_unknown_fields)]
-        struct Tool {
-            path: String,
-            sha256: String,
-        }
-        #[derive(Deserialize)]
-        #[serde(deny_unknown_fields)]
-        struct Config {
-            node: Tool,
-            helper: Tool,
-            browser: Tool,
-            dependency_lock: Tool,
-            font_resources: Vec<Tool>,
-        }
-        let config: Config = serde_json::from_slice(&bytes)?;
-        let canonical_root = fs::canonicalize(root)?;
-        if canonical_root != root {
-            return Err(Error::new(
-                ErrorCode::PermissionDenied,
-                "Runtime root must be canonical",
-            ));
-        }
-        let resolve = |tool: &Tool| -> Result<PathBuf> {
-            runtime_relative_path(&tool.path)?;
-            if !security::digest(&tool.sha256) {
-                return Err(Error::invalid("Runtime tool digest is malformed"));
-            }
-            let path = root.join(&tool.path);
-            let canonical = fs::canonicalize(&path)?;
-            if !canonical.starts_with(root) {
-                return Err(Error::new(
-                    ErrorCode::PermissionDenied,
-                    "Runtime tool escapes owner-approved runtime root",
-                ));
-            }
-            let meta = fs::symlink_metadata(&path)?;
-            if !meta.is_file() || meta.file_type().is_symlink() || meta.len() > 536_870_912 {
-                return Err(Error::new(
-                    ErrorCode::PermissionDenied,
-                    "Runtime tool must be a bounded regular non-symlink file",
-                ));
-            }
-            let mut file = fs::File::open(&canonical)?;
-            let mut hasher = Sha256::new();
-            let mut buffer = [0u8; 65_536];
-            loop {
-                let read = file.read(&mut buffer)?;
-                if read == 0 {
-                    break;
-                }
-                hasher.update(&buffer[..read]);
-            }
-            let actual = format!("{:x}", hasher.finalize());
-            if actual != tool.sha256 {
-                return Err(Error::new(
-                    ErrorCode::PermissionDenied,
-                    "Pinned runtime tool digest mismatch",
-                ));
-            }
-            Ok(canonical)
-        };
-        if config.dependency_lock.path != "package-lock.json" {
-            return Err(Error::invalid(
-                "Motion Canvas runtime dependency lock must be package-lock.json",
-            ));
-        }
-        let dependency_lock = resolve(&config.dependency_lock)?;
-        if fs::metadata(&dependency_lock)?.len() > 4 * 1024 * 1024 {
-            return Err(Error::new(
-                ErrorCode::ResourceExhausted,
-                "Motion Canvas dependency lock exceeds 4 MiB",
-            ));
-        }
-        if config.font_resources.is_empty() || config.font_resources.len() > 128 {
-            return Err(Error::invalid(
-                "Motion Canvas runtime must pin a bounded font resource set",
-            ));
-        }
-        let mut font_resources = BTreeMap::new();
-        for resource in &config.font_resources {
-            let allowed = resource.path
-                == "node_modules/@fontsource-variable/instrument-sans/index.css"
-                || resource.path == "node_modules/@fontsource/ibm-plex-mono/400.css"
-                || resource
-                    .path
-                    .starts_with("node_modules/@fontsource-variable/instrument-sans/files/")
-                || resource
-                    .path
-                    .starts_with("node_modules/@fontsource/ibm-plex-mono/files/");
-            if !allowed
-                || !(resource.path.ends_with(".css") || resource.path.ends_with(".woff2"))
-                || font_resources
-                    .insert(resource.path.clone(), resource.sha256.clone())
-                    .is_some()
-            {
-                return Err(Error::invalid(
-                    "Unexpected or duplicate pinned font resource",
-                ));
-            }
-            let path = resolve(resource)?;
-            if fs::metadata(path)?.len() > 16 * 1024 * 1024 {
-                return Err(Error::new(
-                    ErrorCode::ResourceExhausted,
-                    "Pinned font resource exceeds 16 MiB",
-                ));
-            }
-        }
-        let mut font_hasher = Sha256::new();
-        for (path, digest) in &font_resources {
-            font_hasher.update(path.as_bytes());
-            font_hasher.update([0]);
-            font_hasher.update(digest.as_bytes());
-            font_hasher.update([0]);
-        }
-        Ok(Self {
-            node: resolve(&config.node)?,
-            helper: resolve(&config.helper)?,
-            browser: resolve(&config.browser)?,
-            dependency_lock_sha256: config.dependency_lock.sha256,
-            font_resources_sha256: format!("{:x}", font_hasher.finalize()),
-        })
-    }
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -345,31 +182,44 @@ pub struct JobView {
     pub artifact: Option<ArtifactSummary>,
 }
 
+#[derive(Clone)]
 struct Job {
-    source_sha256: String,
     view: JobView,
+    host_job: Option<RuntimeToolJob>,
+    source_sha256: String,
     failure_code: Option<ErrorCode>,
-    cancel: CancellationToken,
+    authoring: bool,
+    render_input_digest: String,
+    plan: RenderPlan,
+    output: PathBuf,
 }
 
 #[derive(Clone)]
 pub struct RenderManager {
     jobs: Arc<Mutex<BTreeMap<String, Job>>>,
-    runtime: Option<RendererRuntime>,
     output_root: PathBuf,
+    host_managed: bool,
 }
 
 impl RenderManager {
-    pub fn new(runtime: Option<RendererRuntime>, output_root: PathBuf) -> Self {
+    pub fn new(host_managed: bool, output_root: PathBuf) -> Self {
         Self {
             jobs: Arc::new(Mutex::new(BTreeMap::new())),
-            runtime,
             output_root,
+            host_managed,
         }
     }
 
     pub fn available(&self) -> bool {
-        self.runtime.is_some()
+        self.host_managed
+    }
+
+    pub async fn failure_code(&self, job_ref: &str) -> Option<ErrorCode> {
+        self.jobs
+            .lock()
+            .await
+            .get(job_ref)
+            .and_then(|job| job.failure_code)
     }
 
     pub async fn active_count(&self) -> usize {
@@ -377,47 +227,39 @@ impl RenderManager {
             .lock()
             .await
             .values()
-            .filter(|job| {
-                matches!(
-                    job.view.state,
-                    RenderState::Queued | RenderState::Starting | RenderState::Rendering
-                )
-            })
+            .filter(|job| active(&job.view.state))
             .count()
     }
 
-    pub async fn start(&self, snapshot: &Snapshot, profile: RenderProfile) -> Result<JobView> {
-        let runtime = self.runtime.clone().ok_or_else(|| {
-            Error::new(
-                ErrorCode::Unavailable,
-                "Pinned Motion Canvas runtime is unavailable",
-            )
-        })?;
-        let mut guard = self.jobs.lock().await;
-        if guard.len() >= MAX_JOBS {
-            guard.retain(|_, job| {
-                matches!(
-                    job.view.state,
-                    RenderState::Queued | RenderState::Starting | RenderState::Rendering
-                )
-            });
-        }
-        let active = guard
-            .values()
-            .filter(|job| {
-                matches!(
-                    job.view.state,
-                    RenderState::Queued | RenderState::Starting | RenderState::Rendering
-                )
-            })
-            .count();
-        if active >= 2 {
+    pub async fn start_host(
+        &self,
+        snapshot: &Snapshot,
+        project_root: &Path,
+        profile: RenderProfile,
+        context: &DriverExecutionContext,
+    ) -> Result<JobView> {
+        if !self.host_managed {
             return Err(Error::new(
-                ErrorCode::ResourceExhausted,
-                "At most two Motion Canvas render jobs may run concurrently",
+                ErrorCode::Unavailable,
+                "Host-managed Motion Canvas runtime is unavailable",
             ));
         }
+        context.check_cancelled()?;
+        let generated = snapshot.generated_dir.as_ref().ok_or_else(|| {
+            Error::new(
+                ErrorCode::Unavailable,
+                "Generated project has not been materialized for rendering",
+            )
+        })?;
+        let generated_relative = generated.strip_prefix(project_root).map_err(|_| {
+            Error::new(
+                ErrorCode::PermissionDenied,
+                "Generated project escaped the owner-granted project root",
+            )
+        })?;
+        let generated_relative = portable_relative(generated_relative)?;
         let plan = crate::validate::render_plan(&snapshot.project, &profile)?;
+        let inputs = render_inputs(snapshot, &plan)?;
         let id = format!("render-{}", uuid::Uuid::new_v4().simple());
         let job_ref = Reference::new(
             &snapshot.project,
@@ -426,117 +268,141 @@ impl RenderManager {
             &id,
         )
         .encode();
+        let output = self.output_root.join(&id);
+
         let view = JobView {
             job_ref: job_ref.clone(),
-            state: RenderState::Queued,
+            state: RenderState::Starting,
             failure_class: None,
             error: None,
             artifact: None,
         };
-        let cancel = CancellationToken::new();
-        guard.insert(
-            job_ref.clone(),
-            Job {
-                source_sha256: snapshot.source_sha256.clone(),
-                view: view.clone(),
-                failure_code: None,
-                cancel: cancel.clone(),
-            },
-        );
-        drop(guard);
+        {
+            let mut guard = self.jobs.lock().await;
+            if guard.len() >= MAX_JOBS {
+                guard.retain(|_, job| active(&job.view.state));
+            }
+            if guard.values().filter(|job| active(&job.view.state)).count() >= 2 {
+                return Err(Error::new(
+                    ErrorCode::ResourceExhausted,
+                    "At most two Motion Canvas render jobs may run concurrently",
+                ));
+            }
+            fs::create_dir_all(&self.output_root)?;
+            fs::create_dir(&output)?;
+            guard.insert(
+                job_ref.clone(),
+                Job {
+                    view: view.clone(),
+                    host_job: None,
+                    source_sha256: snapshot.source_sha256.clone(),
+                    failure_code: None,
+                    authoring: snapshot.project.authoring.is_some(),
+                    render_input_digest: inputs.digest.clone(),
+                    plan: plan.clone(),
+                    output: output.clone(),
+                },
+            );
+        }
 
-        let jobs = self.jobs.clone();
-        let output_root = self.output_root.clone();
-        let generated = snapshot.generated_dir.clone().ok_or_else(|| {
+        let args = host_args(snapshot, &plan, &generated_relative, &id, &inputs)?;
+        let host_job = match context
+            .start_runtime_tool_job_args(
+                HOST_TOOL,
+                args,
+                RENDER_HELPER.as_bytes().to_vec(),
+                host_timeout(&plan),
+                Some(RuntimeToolCwd {
+                    mount: RUNTIME_MOUNT.into(),
+                    relative: String::new(),
+                }),
+            )
+            .await
+        {
+            Ok(job) => job,
+            Err(error) => {
+                self.jobs.lock().await.remove(&job_ref);
+                let _ = fs::remove_dir_all(&output);
+                return Err(error);
+            }
+        };
+        let mut guard = self.jobs.lock().await;
+        let reserved = guard.get_mut(&job_ref).ok_or_else(|| {
             Error::new(
-                ErrorCode::Unavailable,
-                "Generated project has not been materialized for rendering",
+                ErrorCode::Conflict,
+                "Render job reservation disappeared before Host start completed",
             )
         })?;
-        let project = snapshot.project.clone();
-        let key = job_ref.clone();
-        tokio::spawn(async move {
-            let result = run_render(
-                &runtime,
-                &output_root,
-                &generated,
-                &project,
-                &plan,
-                &id,
-                &cancel,
-                &jobs,
-                &key,
-            )
-            .await;
-            let mut jobs = jobs.lock().await;
-            if let Some(job) = jobs.get_mut(&key) {
-                match result {
-                    Ok(artifact) => {
-                        job.view.state = RenderState::Succeeded;
-                        job.view.artifact = Some(artifact);
-                    }
-                    Err(error) if error.code == ErrorCode::Cancelled => {
-                        job.view.state = RenderState::Cancelled;
-                        job.failure_code = Some(error.code);
-                        job.view.error = Some("Motion Canvas render cancelled".into());
-                    }
-                    Err(error) => {
-                        job.view.state = RenderState::Failed;
-                        job.failure_code = Some(error.code);
-                        const DETAIL_PREFIX: &str = "Pinned Motion Canvas renderer exited without a validated success receipt; detail=";
-                        job.view.error = Some(
-                            error
-                                .message
-                                .strip_prefix(DETAIL_PREFIX)
-                                .filter(|detail| safe_renderer_detail(detail))
-                                .map_or_else(
-                                    || "Motion Canvas render failed".to_owned(),
-                                    |detail| format!("Motion Canvas render failed ({detail})"),
-                                ),
-                        );
-                    }
-                }
+        reserved.host_job = Some(host_job);
+        Ok(reserved.view.clone())
+    }
+
+    pub async fn status_host(
+        &self,
+        job_ref: &str,
+        context: &DriverExecutionContext,
+    ) -> Result<JobView> {
+        let host_job = {
+            let guard = self.jobs.lock().await;
+            let job = guard
+                .get(job_ref)
+                .ok_or_else(|| Error::new(ErrorCode::NotFound, "Unknown render job"))?;
+            if !active(&job.view.state) {
+                return Ok(job.view.clone());
             }
-        });
-        Ok(view)
+            job.host_job.clone().ok_or_else(|| {
+                Error::new(
+                    ErrorCode::Unavailable,
+                    "Render job is still waiting for Host start acknowledgement",
+                )
+            })?
+        };
+        match context.runtime_tool_job_status(&host_job).await {
+            Ok(status) => self.apply_host_status(job_ref, status).await,
+            Err(error) if error.code == ErrorCode::NotFound => {
+                let guard = self.jobs.lock().await;
+                if let Some(job) = guard.get(job_ref)
+                    && !active(&job.view.state)
+                {
+                    return Ok(job.view.clone());
+                }
+                Err(error)
+            }
+            Err(error) => Err(error),
+        }
     }
 
-    pub async fn status(&self, job_ref: &str) -> Result<JobView> {
-        self.jobs
-            .lock()
-            .await
-            .get(job_ref)
-            .map(|job| job.view.clone())
-            .ok_or_else(|| Error::new(ErrorCode::NotFound, "Unknown render job"))
+    pub async fn cancel_host(
+        &self,
+        job_ref: &str,
+        context: &DriverExecutionContext,
+    ) -> Result<JobView> {
+        let host_job = {
+            let guard = self.jobs.lock().await;
+            let job = guard
+                .get(job_ref)
+                .ok_or_else(|| Error::new(ErrorCode::NotFound, "Unknown render job"))?;
+            if !active(&job.view.state) {
+                return Ok(job.view.clone());
+            }
+            job.host_job.clone().ok_or_else(|| {
+                Error::new(
+                    ErrorCode::Unavailable,
+                    "Render job is still waiting for Host start acknowledgement",
+                )
+            })?
+        };
+        let status = context.cancel_runtime_tool_job(&host_job).await?;
+        self.apply_host_status(job_ref, status).await
     }
 
-    #[cfg(test)]
-    pub(crate) async fn failure_code(&self, job_ref: &str) -> Option<ErrorCode> {
-        self.jobs
-            .lock()
-            .await
-            .get(job_ref)
-            .and_then(|job| job.failure_code)
-    }
-
-    pub async fn cancel(&self, job_ref: &str) -> Result<JobView> {
-        let token = self
-            .jobs
-            .lock()
-            .await
-            .get(job_ref)
-            .map(|job| job.cancel.clone())
-            .ok_or_else(|| Error::new(ErrorCode::NotFound, "Unknown render job"))?;
-        token.cancel();
-        self.status(job_ref).await
-    }
-
-    pub async fn result(&self, job_ref: &str) -> Result<JobView> {
-        let view = self.status(job_ref).await?;
-        if matches!(
-            view.state,
-            RenderState::Queued | RenderState::Starting | RenderState::Rendering
-        ) {
+    pub async fn result_host(
+        &self,
+        job_ref: &str,
+        context: &DriverExecutionContext,
+    ) -> Result<JobView> {
+        let view = self.status_host(job_ref, context).await?;
+        if active(&view.state) {
             return Err(Error::new(
                 ErrorCode::Conflict,
                 "Render job is not terminal",
@@ -544,22 +410,319 @@ impl RenderManager {
         }
         Ok(view)
     }
-}
 
-async fn set_state(jobs: &Arc<Mutex<BTreeMap<String, Job>>>, key: &str, state: RenderState) {
-    if let Some(job) = jobs.lock().await.get_mut(key) {
-        job.view.state = state;
+    async fn apply_host_status(
+        &self,
+        job_ref: &str,
+        status: RuntimeToolJobStatus,
+    ) -> Result<JobView> {
+        let (plan, output, current, authoring, render_input_digest) = {
+            let guard = self.jobs.lock().await;
+            let job = guard
+                .get(job_ref)
+                .ok_or_else(|| Error::new(ErrorCode::NotFound, "Unknown render job"))?;
+            if !active(&job.view.state) {
+                return Ok(job.view.clone());
+            }
+            (
+                job.plan.clone(),
+                job.output.clone(),
+                job.view.clone(),
+                job.authoring,
+                job.render_input_digest.clone(),
+            )
+        };
+
+        let failure_code = match &status {
+            RuntimeToolJobStatus::Failed { error } => Some(error.code),
+            RuntimeToolJobStatus::Succeeded { output } => {
+                validate_host_result(output).err().map(|e| e.code)
+            }
+            _ => None,
+        };
+        let next = match status {
+            RuntimeToolJobStatus::Running => JobView {
+                state: RenderState::Rendering,
+                ..current
+            },
+            RuntimeToolJobStatus::Cancelling => JobView {
+                state: RenderState::Rendering,
+                ..current
+            },
+            RuntimeToolJobStatus::Cancelled => JobView {
+                state: RenderState::Cancelled,
+                error: Some("Motion Canvas render cancelled".into()),
+                ..current
+            },
+            RuntimeToolJobStatus::Failed { error } => JobView {
+                state: RenderState::Failed,
+                error: Some(error.message.chars().take(16_384).collect()),
+                ..current
+            },
+            RuntimeToolJobStatus::Succeeded {
+                output: tool_output,
+            } => match validate_host_result(&tool_output) {
+                Ok(()) => {
+                    let validation_output = output.clone();
+                    let validation_plan = plan.clone();
+                    match tokio::task::spawn_blocking(move || {
+                        validate_artifacts(
+                            &validation_output,
+                            &validation_plan,
+                            authoring,
+                            &render_input_digest,
+                        )
+                    })
+                    .await
+                    .map_err(|_| {
+                        Error::new(
+                            ErrorCode::BackendFailed,
+                            "Render artifact validation worker failed",
+                        )
+                    })? {
+                        Ok(artifact) => JobView {
+                            state: RenderState::Succeeded,
+                            error: None,
+                            artifact: Some(artifact),
+                            ..current
+                        },
+                        Err(error) => JobView {
+                            state: RenderState::Failed,
+                            failure_class: renderer_failure_class(&tool_output.stdout)
+                                .or_else(|| renderer_stderr_failure_class(&tool_output.stderr)),
+                            error: Some(error.message),
+                            ..current
+                        },
+                    }
+                }
+                Err(error) => JobView {
+                    state: RenderState::Failed,
+                    error: Some(error.message),
+                    ..current
+                },
+            },
+        };
+
+        let mut guard = self.jobs.lock().await;
+        let job = guard
+            .get_mut(job_ref)
+            .ok_or_else(|| Error::new(ErrorCode::NotFound, "Unknown render job"))?;
+        if active(&job.view.state) {
+            job.failure_code = failure_code;
+            job.view = next;
+        }
+        Ok(job.view.clone())
     }
 }
 
-async fn set_failure_class(
-    jobs: &Arc<Mutex<BTreeMap<String, Job>>>,
-    key: &str,
-    failure_class: RenderFailureClass,
-) {
-    if let Some(job) = jobs.lock().await.get_mut(key) {
-        job.view.failure_class = Some(failure_class);
+fn active(state: &RenderState) -> bool {
+    matches!(
+        state,
+        RenderState::Queued | RenderState::Starting | RenderState::Rendering
+    )
+}
+
+fn portable_relative(path: &Path) -> Result<String> {
+    let mut parts = Vec::new();
+    for component in path.components() {
+        let Component::Normal(value) = component else {
+            return Err(Error::new(
+                ErrorCode::PermissionDenied,
+                "Generated project path is not a canonical relative path",
+            ));
+        };
+        let value = value
+            .to_str()
+            .ok_or_else(|| Error::invalid("Generated project path must be Unicode"))?;
+        if value.is_empty() || value.chars().any(char::is_control) {
+            return Err(Error::invalid(
+                "Generated project path component is invalid",
+            ));
+        }
+        parts.push(value);
     }
+    if parts.is_empty() {
+        return Err(Error::invalid("Generated project path is empty"));
+    }
+    Ok(parts.join("/"))
+}
+
+fn literal(value: impl Into<String>) -> RuntimeToolArg {
+    RuntimeToolArg::Literal {
+        value: value.into(),
+    }
+}
+
+fn mount(name: &str) -> RuntimeToolArg {
+    RuntimeToolArg::MountPath {
+        mount: name.into(),
+        relative: String::new(),
+    }
+}
+
+fn runtime_relative_path(path: &str) -> Result<()> {
+    if path.is_empty()
+        || path.len() > 512
+        || path.split('/').count() > 12
+        || path.contains(['\\', ':', '%', '\0'])
+        || !path
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"/_-.@".contains(&byte))
+        || path
+            .split('/')
+            .any(|part| part.is_empty() || part == "." || part == ".." || part.len() > 128)
+    {
+        return Err(Error::invalid(
+            "Runtime path must be bounded, relative and free of traversal or URLs",
+        ));
+    }
+    Ok(())
+}
+
+struct RenderInputs {
+    digest: String,
+    lock: String,
+    fonts: String,
+    pins: Vec<serde_json::Value>,
+}
+fn render_inputs(snapshot: &Snapshot, plan: &RenderPlan) -> Result<RenderInputs> {
+    let runtime = semwright_driver_sdk::workspace_mount(RUNTIME_MOUNT)?;
+    let lock_bytes =
+        crate::store::read_granted_file(&runtime, "package-lock.json", 2 * 1024 * 1024)?;
+    let lock = security::sha256(&lock_bytes);
+    if lock
+        != security::sha256(include_bytes!(
+            "../../../integrations/motion-canvas/runtime/package-lock.json"
+        ))
+    {
+        return Err(Error::new(
+            ErrorCode::StaleReference,
+            "Motion runtime dependency lock changed",
+        ));
+    }
+    let mut resources = BTreeMap::new();
+    for css_path in [
+        "node_modules/@fontsource-variable/instrument-sans/index.css",
+        "node_modules/@fontsource/ibm-plex-mono/400.css",
+    ] {
+        let bytes = crate::store::read_granted_file(&runtime, css_path, 256 * 1024)?;
+        let css = std::str::from_utf8(&bytes)
+            .map_err(|_| Error::invalid("Font stylesheet is not UTF8"))?;
+        resources.insert(css_path.to_owned(), security::sha256(&bytes));
+        let mut count = 0;
+        for part in css.split("url(").skip(1) {
+            let reference = part
+                .split(')')
+                .next()
+                .ok_or_else(|| Error::invalid("Font URL is unterminated"))?
+                .trim_matches(['\'', '"']);
+            if !reference.ends_with(".woff2") {
+                continue;
+            }
+            runtime_relative_path(reference)?;
+            let path = format!("{}/{}", css_path.rsplit_once('/').unwrap().0, reference);
+            let bytes = crate::store::read_granted_file(&runtime, &path, 16 * 1024 * 1024)?;
+            if bytes.is_empty() {
+                return Err(Error::invalid("Font resource is empty"));
+            }
+            resources.insert(path, security::sha256(&bytes));
+            count += 1;
+            if resources.len() > 128 {
+                return Err(Error::new(
+                    ErrorCode::ResourceExhausted,
+                    "Font resource budget exceeded",
+                ));
+            }
+        }
+        if count == 0 {
+            return Err(Error::invalid("Font stylesheet has no WOFF2 resources"));
+        }
+    }
+    let mut hasher = Sha256::new();
+    for (path, digest) in &resources {
+        hasher.update(path.as_bytes());
+        hasher.update([0]);
+        hasher.update(digest.as_bytes());
+        hasher.update([0]);
+    }
+    let fonts = format!("{:x}", hasher.finalize());
+    let digest = semwright_semantic_composition::canonical_digest(&(
+        &snapshot.project,
+        plan,
+        crate::authoring::COMPILER_EXTENSION_VERSION,
+        security::sha256(RENDER_HELPER.as_bytes()),
+        &lock,
+        &fonts,
+    ))
+    .map_err(|e| Error::invalid(e.to_string()))?
+    .as_str()
+    .to_owned();
+    let pins = resources
+        .into_iter()
+        .map(|(path, sha256)| json!({"path":path,"sha256":sha256}))
+        .collect();
+    Ok(RenderInputs {
+        digest,
+        lock,
+        fonts,
+        pins,
+    })
+}
+
+fn host_args(
+    snapshot: &Snapshot,
+    plan: &RenderPlan,
+    generated_relative: &str,
+    output_relative: &str,
+    inputs: &RenderInputs,
+) -> Result<Vec<RuntimeToolArg>> {
+    security::relative_path(generated_relative)?;
+    security::relative_path(output_relative)?;
+    let config = json!({
+        "authoring": snapshot.project.authoring.is_some(),
+        "renderInputDigest": inputs.digest,
+        "dependencyLockDigest": inputs.lock,
+        "fontResourcesDigest": inputs.fonts,
+        "fontResourcePins": inputs.pins,
+        "name": "frames",
+        "width": plan.width,
+        "height": plan.height,
+        "fps": f64::from(plan.fps) / f64::from(plan.fps_denominator),
+        "fpsNum": plan.fps,
+        "fpsDen": plan.fps_denominator,
+        "firstFrame": plan.first_frame,
+        "endFrameExclusive": plan.end_frame_exclusive,
+        "colorSpace": match plan.color_space { ColorSpace::Srgb => "srgb", ColorSpace::DisplayP3 => "display-p3" },
+        "background": snapshot.project.settings.background,
+        "alpha": plan.alpha,
+        "timeoutMs": plan.timeout_ms,
+    });
+    let encoded = URL_SAFE_NO_PAD.encode(serde_json::to_vec(&config)?);
+    let mut args = NODE_RENDER_FLAGS
+        .into_iter()
+        .map(literal)
+        .collect::<Vec<_>>();
+    args.extend([
+        literal("--input-type=module"),
+        literal("-"),
+        literal("--project-root"),
+        mount(PROJECT_MOUNT),
+        literal("--project-relative"),
+        literal(generated_relative),
+        literal("--output-root"),
+        mount(OUTPUT_MOUNT),
+        literal("--output-relative"),
+        literal(output_relative),
+        literal("--fontconfig-root"),
+        mount(FONTCONFIG_MOUNT),
+        literal("--config"),
+        literal(encoded),
+    ]);
+    Ok(args)
+}
+
+fn host_timeout(plan: &RenderPlan) -> Duration {
+    Duration::from_millis(plan.timeout_ms.saturating_add(30_000).min(3_600_000))
 }
 
 fn renderer_failure_class(stdout: &[u8]) -> Option<RenderFailureClass> {
@@ -636,6 +799,7 @@ fn renderer_stderr_failure_class(stderr: &[u8]) -> Option<RenderFailureClass> {
     None
 }
 
+#[cfg(test)]
 fn renderer_status_failure_class(status: &std::process::ExitStatus) -> Option<RenderFailureClass> {
     #[cfg(unix)]
     {
@@ -658,6 +822,7 @@ fn renderer_status_failure_class(status: &std::process::ExitStatus) -> Option<Re
     }
 }
 
+#[cfg(test)]
 fn renderer_process_failure_code(status: &std::process::ExitStatus, stdout: &[u8]) -> ErrorCode {
     let receipt = renderer_failure_code(stdout);
     if receipt != ErrorCode::BackendFailed {
@@ -695,304 +860,65 @@ fn renderer_process_failure_code(status: &std::process::ExitStatus, stdout: &[u8
     }
 }
 
-#[allow(clippy::too_many_arguments)]
-async fn run_render(
-    runtime: &RendererRuntime,
-    output_root: &Path,
-    generated: &Path,
-    project: &Project,
-    plan: &RenderPlan,
-    id: &str,
-    cancel: &CancellationToken,
-    jobs: &Arc<Mutex<BTreeMap<String, Job>>>,
-    job_ref: &str,
-) -> Result<ArtifactSummary> {
-    set_state(jobs, job_ref, RenderState::Starting).await;
-    let mut failure_class = RenderFailureClass::Startup;
-    let result: Result<ArtifactSummary> = async {
-    if std::env::var("SEMWRIGHT_DRIVER_SANDBOX").as_deref() != Ok("landlock-bwrap-v1") {
-        return Err(Error::new(
-            ErrorCode::SandboxDenied,
-            "Rendering is only available inside the Semwright Driver Host sandbox",
-        ));
-    }
-    if cancel.is_cancelled() {
-        return Err(Error::new(
-            ErrorCode::Cancelled,
-            "Render cancelled before start",
-        ));
-    }
-    failure_class = RenderFailureClass::ProjectStage;
-    fs::create_dir_all(output_root)?;
-    let output = output_root.join(id);
-    fs::create_dir(&output)?;
-    let render_input_digest = semwright_semantic_composition::canonical_digest(&(
-        project,
-        plan,
-        crate::authoring::COMPILER_EXTENSION_VERSION,
-        security::sha256(&fs::read(&runtime.helper)?),
-        &runtime.dependency_lock_sha256,
-        &runtime.font_resources_sha256,
-    ))
-    .map_err(|e| Error::invalid(e.to_string()))?;
-    let config = json!({
-        "authoring": project.authoring.is_some(),
-        "renderInputDigest":render_input_digest.as_str(),
-        "fontResourcesDigest":runtime.font_resources_sha256,
-        "name": "frames",
-        "width": plan.width,
-        "height": plan.height,
-        "fps": f64::from(plan.fps) / f64::from(plan.fps_denominator),
-        "fpsNum": plan.fps,
-        "fpsDen": plan.fps_denominator,
-        "firstFrame": plan.first_frame,
-        "endFrameExclusive": plan.end_frame_exclusive,
-        "colorSpace": match plan.color_space { ColorSpace::Srgb => "srgb", ColorSpace::DisplayP3 => "display-p3" },
-        "background": project.settings.background,
-        "alpha": plan.alpha,
-        "timeoutMs": plan.timeout_ms,
-    });
-    failure_class = RenderFailureClass::Arguments;
-    let encoded = URL_SAFE_NO_PAD.encode(serde_json::to_vec(&config)?);
-
-    // The narrow Node helper owns the pinned Firefox process. Both inherit the
-    // same process group plus Driver Host Bubblewrap + Landlock confinement.
-    // No browser flags or executable paths come from agent input.
-    let mut command = Command::new(&runtime.node);
-    command
-        .args(NODE_RENDER_FLAGS)
-        .arg(&runtime.helper)
-        .arg("--project")
-        .arg(generated)
-        .arg("--output")
-        .arg(&output)
-        .arg("--config")
-        .arg(encoded)
-        .arg("--browser")
-        .arg(&runtime.browser)
-        .kill_on_drop(true)
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .env_clear()
-        .env("PATH", "/usr/bin:/bin")
-        .env("HOME", "/home")
-        .env("LANG", "C.UTF-8")
-        .env("FONTCONFIG_PATH", "/etc/fonts")
-        .env("FONTCONFIG_FILE", "fonts.conf")
-        .env("TMPDIR", &output)
-        .env("TMP", &output)
-        .env("TEMP", &output)
-        .env("XDG_CACHE_HOME", output.join(".cache"))
-        .env("XDG_CONFIG_HOME", output.join(".config"))
-        .env("XDG_DATA_HOME", output.join(".data"))
-        .env("SEMWRIGHT_DRIVER_SANDBOX", "landlock-bwrap-v1");
-    #[cfg(unix)]
-    {
-        use std::os::unix::process::CommandExt;
-        command.as_std_mut().process_group(0);
-    }
-    failure_class = RenderFailureClass::Startup;
-    let mut child = match command.spawn() {
-        Ok(child) => child,
-        Err(error) => {
-            let _ = fs::remove_dir_all(&output);
-            return Err(Error::new(
-                ErrorCode::Unavailable,
-                format!("Failed to start pinned renderer helper: {error}"),
-            ));
-        }
-    };
-    let pid = child.id();
-    let stdout = match child.stdout.take() {
-        Some(stdout) => stdout,
-        None => {
-            terminate_tree(pid, &mut child).await;
-            let _ = fs::remove_dir_all(&output);
-            return Err(Error::new(
-                ErrorCode::Internal,
-                "Renderer stdout unavailable",
-            ));
-        }
-    };
-    let stderr = match child.stderr.take() {
-        Some(stderr) => stderr,
-        None => {
-            terminate_tree(pid, &mut child).await;
-            let _ = fs::remove_dir_all(&output);
-            return Err(Error::new(
-                ErrorCode::Internal,
-                "Renderer stderr unavailable",
-            ));
-        }
-    };
-    let out_task = tokio::spawn(async move {
-        let mut bytes = vec![];
-        stdout
-            .take(MAX_PROCESS_OUTPUT + 1)
-            .read_to_end(&mut bytes)
-            .await
-            .map(|_| bytes)
-    });
-    let err_task = tokio::spawn(async move {
-        let mut bytes = vec![];
-        stderr
-            .take(MAX_PROCESS_OUTPUT + 1)
-            .read_to_end(&mut bytes)
-            .await
-            .map(|_| bytes)
-    });
-    failure_class = RenderFailureClass::RenderWait;
-    set_state(jobs, job_ref, RenderState::Rendering).await;
-    let status = tokio::select! {
-        status = child.wait() => status?,
-        _ = cancel.cancelled() => {
-            failure_class = RenderFailureClass::RenderResultAborted;
-            terminate_tree(pid, &mut child).await;
-            let _ = fs::remove_dir_all(&output);
-            return Err(Error::new(ErrorCode::Cancelled, "Render cancelled"));
-        }
-        _ = tokio::time::sleep(Duration::from_millis(plan.timeout_ms)) => {
-            failure_class = RenderFailureClass::RenderWaitTimeout;
-            terminate_tree(pid, &mut child).await;
-            let _ = fs::remove_dir_all(&output);
-            return Err(Error::new(ErrorCode::Timeout, "Render exceeded timeout"));
-        }
-    };
-    let stdout = out_task
-        .await
-        .map_err(|_| Error::new(ErrorCode::Internal, "Renderer stdout task failed"))??;
-    let stderr = err_task
-        .await
-        .map_err(|_| Error::new(ErrorCode::Internal, "Renderer stderr task failed"))??;
-    if stdout.len() > MAX_PROCESS_OUTPUT as usize || stderr.len() > MAX_PROCESS_OUTPUT as usize {
-        failure_class = RenderFailureClass::RenderNonzero;
-        let _ = fs::remove_dir_all(&output);
-        return Err(Error::new(
-            ErrorCode::ResourceExhausted,
-            "Renderer process output exceeded byte budget",
-        ));
-    }
-    if !status.success() {
-        let _ = fs::remove_dir_all(&output);
-        let receipt_class = renderer_failure_class(&stdout);
-        let process_class = renderer_stderr_failure_class(&stderr)
-            .or_else(|| renderer_status_failure_class(&status));
-        failure_class = receipt_class
-            .or(process_class)
-            .unwrap_or(RenderFailureClass::RenderNonzero);
-        let code = receipt_class
-            .or(process_class)
-            .map(RenderFailureClass::code)
-            .unwrap_or_else(|| renderer_process_failure_code(&status, &stdout));
-        let message = renderer_failure_detail(&stdout).map_or_else(
-            || "Pinned Motion Canvas renderer exited without a validated success receipt".to_owned(),
-            |detail| {
-                format!(
-                    "Pinned Motion Canvas renderer exited without a validated success receipt; detail={detail}"
-                )
-            },
-        );
-        return Err(Error::new(code, message));
-    }
-    failure_class = RenderFailureClass::RenderResultUnknown;
-    let stdout = String::from_utf8(stdout).map_err(|_| {
+fn validate_host_result(output: &ToolExecutionOutput) -> Result<()> {
+    let stdout = String::from_utf8(output.stdout.clone()).map_err(|_| {
         Error::new(
-            ErrorCode::PluginProtocolError,
+            ErrorCode::BackendFailed,
             "Renderer returned non-UTF8 output",
         )
     })?;
-    let result_line = stdout
-        .lines()
-        .rev()
-        .find(|line| line.starts_with('{'))
-        .ok_or_else(|| {
+    let result_line = stdout.lines().rev().find(|line| line.starts_with('{'));
+    let value = result_line
+        .map(serde_json::from_str::<serde_json::Value>)
+        .transpose()
+        .map_err(|_| {
             Error::new(
-                ErrorCode::PluginProtocolError,
-                "Renderer returned no structured result",
+                ErrorCode::BackendFailed,
+                "Renderer returned malformed result",
             )
         })?;
-    let value: serde_json::Value = serde_json::from_str(result_line).map_err(|_| {
+
+    if output.exit_code != 0 {
+        let detail = value
+            .as_ref()
+            .filter(|value| value.get("ok") == Some(&serde_json::Value::Bool(false)))
+            .and_then(|value| value.get("error"))
+            .and_then(serde_json::Value::as_str)
+            .filter(|message| {
+                !message.is_empty()
+                    && message.len() <= 1024
+                    && !message.chars().any(char::is_control)
+            });
+        let code = renderer_failure_code(&output.stdout);
+        let safe_detail = renderer_failure_detail(&output.stdout);
+        return Err(Error::new(
+            code,
+            match detail.or(safe_detail.as_deref()) {
+                Some(detail) => format!(
+                    "Motion Canvas renderer exited with code {}: {detail}",
+                    output.exit_code
+                ),
+                None => format!(
+                    "Motion Canvas renderer exited with code {}",
+                    output.exit_code
+                ),
+            },
+        ));
+    }
+
+    let value = value.ok_or_else(|| {
         Error::new(
-            ErrorCode::PluginProtocolError,
-            "Renderer returned malformed result",
+            ErrorCode::BackendFailed,
+            "Renderer returned no structured result",
         )
     })?;
     if value.get("ok") != Some(&serde_json::Value::Bool(true)) {
-        let _ = fs::remove_dir_all(&output);
         return Err(Error::new(
-            ErrorCode::PluginProtocolError,
+            ErrorCode::BackendFailed,
             "Renderer did not report success",
         ));
     }
-    // Full-film validation decodes and hashes every rendered PNG. Keep that bounded
-    // synchronous work off the current-thread protocol runtime so render.status and
-    // cancellation requests remain responsive while large artifacts are certified.
-    failure_class = if project.authoring.is_some() {
-        RenderFailureClass::Observation
-    } else {
-        RenderFailureClass::Finalize
-    };
-    let validation_output = output.clone();
-    let validation_plan = plan.clone();
-    let validation_authoring = project.authoring.is_some();
-    let validation_input_digest = render_input_digest.as_str().to_owned();
-    let validation = tokio::task::spawn_blocking(move || {
-        validate_artifacts(
-            &validation_output,
-            &validation_plan,
-            validation_authoring,
-            &validation_input_digest,
-        )
-    })
-    .await
-    .map_err(|_| {
-        Error::new(
-            ErrorCode::Internal,
-            "Render artifact validation worker failed",
-        )
-    })?;
-    match validation {
-        Ok(artifact) => Ok(artifact),
-        Err(error) => {
-            let _ = fs::remove_dir_all(&output);
-            if error.code == ErrorCode::BackendFailed {
-                Err(Error::new(ErrorCode::ProtocolMismatch, error.message))
-            } else {
-                Err(error)
-            }
-        }
-    }
-    }
-    .await;
-    if result.is_err() {
-        set_failure_class(jobs, job_ref, failure_class).await;
-    }
-    result
-}
-
-#[cfg(unix)]
-async fn terminate_tree(pid: Option<u32>, child: &mut tokio::process::Child) {
-    if let Some(pid) = pid {
-        // SAFETY: kill is called with a process-group id created for this owned render child.
-        unsafe { libc::kill(-(pid as i32), libc::SIGTERM) };
-    }
-    if tokio::time::timeout(Duration::from_secs(2), child.wait())
-        .await
-        .is_err()
-    {
-        if let Some(pid) = pid {
-            // SAFETY: same owned process group as above; SIGKILL is the bounded fallback.
-            unsafe { libc::kill(-(pid as i32), libc::SIGKILL) };
-        }
-        let _ = child.wait().await;
-    }
-}
-
-#[cfg(not(unix))]
-async fn terminate_tree(_pid: Option<u32>, child: &mut tokio::process::Child) {
-    let _ = child.kill().await;
-    let _ = child.wait().await;
+    Ok(())
 }
 
 fn validate_artifacts(
@@ -1246,6 +1172,38 @@ impl RenderManager {
             artifact_sha256: artifact.manifest_sha256,
             plan,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn host_result_accepts_success_and_preserves_bounded_structured_failure() {
+        let success = ToolExecutionOutput {
+            exit_code: 0,
+            stdout: br#"{"ok":true}"#.to_vec(),
+            stderr: vec![],
+        };
+        assert!(validate_host_result(&success).is_ok());
+
+        let failure = ToolExecutionOutput {
+            exit_code: 1,
+            stdout: br#"{"ok":false,"error":"runtime bundle resolution failed"}"#.to_vec(),
+            stderr: vec![],
+        };
+        let error = validate_host_result(&failure).unwrap_err();
+        assert_eq!(error.code, ErrorCode::BackendFailed);
+        assert!(error.message.contains("runtime bundle resolution failed"));
+
+        let unstructured = ToolExecutionOutput {
+            exit_code: 1,
+            stdout: b"not-json".to_vec(),
+            stderr: vec![],
+        };
+        let error = validate_host_result(&unstructured).unwrap_err();
+        assert_eq!(error.message, "Motion Canvas renderer exited with code 1");
     }
 }
 
@@ -1528,7 +1486,7 @@ mod runtime_path_tests {
 
     #[tokio::test]
     async fn render_failure_code_stays_private_but_is_preserved_for_execute_context() {
-        let manager = RenderManager::new(None, PathBuf::from("/tmp/not-used"));
+        let manager = RenderManager::new(false, PathBuf::from("/tmp/not-used"));
         let job_ref = "job:test".to_owned();
         let public = JobView {
             job_ref: job_ref.clone(),
@@ -1543,7 +1501,11 @@ mod runtime_path_tests {
                 source_sha256: "a".repeat(64),
                 view: public.clone(),
                 failure_code: Some(ErrorCode::ResourceExhausted),
-                cancel: CancellationToken::new(),
+                host_job: None,
+                authoring: false,
+                render_input_digest: "b".repeat(64),
+                plan: serde_json::from_value(json!({"renderer":"motion-canvas-core-renderer-v3.17.2","project_duration_ms":34,"width":32,"height":32,"fps":30,"fps_denominator":1,"first_frame":0,"end_frame_exclusive":1,"frame_count":1,"alpha":false,"color_space":"srgb","timeout_ms":1000})).unwrap(),
+                output: PathBuf::from("/tmp/not-used"),
             },
         );
         assert_eq!(

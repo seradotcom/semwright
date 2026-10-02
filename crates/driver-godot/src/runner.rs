@@ -10,7 +10,7 @@ use crate::authoring::{
     validate,
 };
 use crate::config::{AuthoringConfig, ProjectConfig, RunnerConfig};
-use semwright_driver_sdk::DriverExecutionContext;
+use semwright_driver_sdk::{DriverExecutionContext, RuntimeToolCwd};
 #[cfg(target_os = "linux")]
 use semwright_types::unique_id;
 use semwright_types::{Error, ErrorCode, JobArtifact, JobProgress, Result};
@@ -30,7 +30,6 @@ use std::{
     io::Write,
 };
 use tokio::{io::AsyncReadExt, process::Command};
-use tokio_util::sync::CancellationToken;
 
 const MAX_LOG: usize = 64 * 1024;
 
@@ -73,6 +72,7 @@ impl Drop for StagedManagedProject {
 pub struct Runner {
     config: RunnerConfig,
     projects: HashMap<String, PathBuf>,
+    project_mounts: HashMap<String, String>,
     #[cfg(target_os = "linux")]
     authoring: Option<AuthoringConfig>,
 }
@@ -83,7 +83,13 @@ impl Runner {
         projects: &[ProjectConfig],
         authoring: Option<&AuthoringConfig>,
     ) -> Result<Self> {
-        verify_file(&config.executable, &config.sha256)?;
+        if let (Some(executable), Some(sha256)) = (&config.executable, &config.sha256) {
+            verify_file(executable, sha256)?;
+        }
+        let project_mounts = projects
+            .iter()
+            .filter_map(|p| p.mount.clone().map(|mount| (p.project.clone(), mount)))
+            .collect();
         let projects = projects
             .iter()
             .map(|p| (p.project.clone(), p.root.clone()))
@@ -93,6 +99,7 @@ impl Runner {
         Ok(Self {
             config,
             projects,
+            project_mounts,
             #[cfg(target_os = "linux")]
             authoring: authoring.cloned(),
         })
@@ -120,9 +127,7 @@ impl Runner {
             },
             vec![],
         )?;
-        let value = self
-            .execute_inner(command, args, Some(context.cancellation()))
-            .await?;
+        let value = self.execute_inner(command, args, Some(context)).await?;
         let artifacts = self.artifacts_from_result(&value)?;
         context.report_progress(
             JobProgress {
@@ -151,7 +156,7 @@ impl Runner {
                 request,
                 binding,
                 context.request_id().to_owned(),
-                Some(context.cancellation()),
+                Some(context),
             )
             .await;
         if let Err(error) = &result {
@@ -196,7 +201,7 @@ impl Runner {
         &self,
         command: &str,
         args: &Value,
-        cancellation: Option<CancellationToken>,
+        context: Option<&DriverExecutionContext>,
     ) -> Result<Value> {
         let source_root = self.project_root(args)?;
         #[cfg(target_os = "linux")]
@@ -344,7 +349,7 @@ impl Runner {
             }
         };
 
-        let process = self.run(root, &argv, timeout, cancellation).await?;
+        let process = self.run(root, &argv, timeout, context).await?;
         let artifact = artifact
             .filter(|path| path.is_file())
             .map(|path| {
@@ -496,7 +501,7 @@ impl Runner {
         request: NativeVerifyRequest,
         binding: NativePlanContext,
         request_id: String,
-        cancellation: Option<CancellationToken>,
+        context: Option<&DriverExecutionContext>,
     ) -> Result<NativeVerifyResult> {
         validate::id(&request.scene).map_err(|error| Error::invalid(error.to_string()))?;
         let staged = self.stage_managed_project(&binding.project)?;
@@ -545,12 +550,7 @@ impl Runner {
             "--import".into(),
         ];
         let import_result = self
-            .run(
-                &staged.path,
-                &import_argv,
-                Duration::from_secs(90),
-                cancellation.clone(),
-            )
+            .run(&staged.path, &import_argv, Duration::from_secs(90), context)
             .await;
         if let Err(error) = import_result {
             let _ = std::fs::remove_dir_all(&private);
@@ -575,7 +575,7 @@ impl Runner {
                     };
                     native.validate(&actions)?;
                     let observation = self
-                        .run_native_probe(&staged, &private, &helper, &native, cancellation)
+                        .run_native_probe(&staged, &private, &helper, &native, context)
                         .await?;
                     Ok(NativeVerifyResult::Inspect {
                         binding: evidence_binding,
@@ -597,13 +597,7 @@ impl Runner {
                     };
                     writer_request.validate(&actions)?;
                     let writer = self
-                        .run_native_probe(
-                            &staged,
-                            &private,
-                            &helper,
-                            &writer_request,
-                            cancellation.clone(),
-                        )
+                        .run_native_probe(&staged, &private, &helper, &writer_request, context)
                         .await?;
                     let reader_request = NativeRequest {
                         version: NATIVE_VERSION,
@@ -619,7 +613,7 @@ impl Runner {
                     };
                     reader_request.validate(&actions)?;
                     let reader = self
-                        .run_native_probe(&staged, &private, &helper, &reader_request, cancellation)
+                        .run_native_probe(&staged, &private, &helper, &reader_request, context)
                         .await?;
                     let evidence = persistence_value(&writer, &reader)?;
                     Ok(NativeVerifyResult::Persistence {
@@ -650,7 +644,7 @@ impl Runner {
                     };
                     native.validate(&actions)?;
                     let observation = self
-                        .run_native_probe(&staged, &private, &helper, &native, cancellation)
+                        .run_native_probe(&staged, &private, &helper, &native, context)
                         .await?;
                     Ok(NativeVerifyResult::Play {
                         binding: evidence_binding,
@@ -671,7 +665,7 @@ impl Runner {
         private: &Path,
         helper: &Path,
         request: &NativeRequest,
-        cancellation: Option<CancellationToken>,
+        context: Option<&DriverExecutionContext>,
     ) -> Result<NativeObservation> {
         let token = unique_id();
         let request_path = private.join(format!("request-{token}.json"));
@@ -692,7 +686,7 @@ impl Runner {
             output_path.display().to_string(),
         ];
         let process = self
-            .run(&staged.path, &argv, Duration::from_secs(90), cancellation)
+            .run(&staged.path, &argv, Duration::from_secs(90), context)
             .await?;
         if native_probe_has_script_error(&process) {
             return Err(Error::new(
@@ -749,9 +743,85 @@ impl Runner {
         root: &Path,
         argv: &[String],
         timeout: Duration,
-        cancellation: Option<CancellationToken>,
+        context: Option<&DriverExecutionContext>,
     ) -> Result<ProcessOutput> {
-        verify_file(&self.config.executable, &self.config.sha256)?;
+        if self.config.executable.is_none() {
+            let context = context.ok_or_else(|| {
+                Error::new(
+                    ErrorCode::Unsupported,
+                    "Host-managed Godot execution requires an authenticated request context",
+                )
+            })?;
+            if self.config.display.is_some() {
+                return Err(Error::new(
+                    ErrorCode::Unsupported,
+                    "Host-managed Godot movie capture requires typed display authority",
+                ));
+            }
+            let output_mount = self.config.output_mount.as_deref().ok_or_else(|| {
+                Error::new(
+                    ErrorCode::PermissionDenied,
+                    "Godot output mount identity is missing",
+                )
+            })?;
+            let cwd_mount = if root.starts_with(&self.config.output_root) {
+                output_mount
+            } else {
+                self.projects
+                    .iter()
+                    .find_map(|(id, path)| {
+                        (path == root)
+                            .then(|| self.project_mounts.get(id).map(String::as_str))
+                            .flatten()
+                    })
+                    .ok_or_else(|| {
+                        Error::new(
+                            ErrorCode::PermissionDenied,
+                            "Godot project mount identity is missing",
+                        )
+                    })?
+            };
+            let output = context
+                .execute_runtime_tool_with_cwd(
+                    "godot",
+                    argv.to_vec(),
+                    Vec::new(),
+                    timeout,
+                    RuntimeToolCwd {
+                        mount: cwd_mount.to_owned(),
+                        relative: String::new(),
+                    },
+                )
+                .await?;
+            if output.stdout.len() > MAX_LOG || output.stderr.len() > MAX_LOG {
+                return Err(Error::new(
+                    ErrorCode::ResourceExhausted,
+                    "Godot runner output exceeded limit",
+                ));
+            }
+            if output.exit_code != 0 {
+                return Err(Error::new(
+                    ErrorCode::BackendFailed,
+                    "Godot runner exited with non-zero status",
+                ));
+            }
+            return Ok(ProcessOutput {
+                exit_code: output.exit_code,
+                stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
+                stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
+            });
+        }
+        let executable = self
+            .config
+            .executable
+            .as_ref()
+            .ok_or_else(|| Error::unavailable("Direct Godot executable absent"))?;
+        let sha256 = self
+            .config
+            .sha256
+            .as_ref()
+            .ok_or_else(|| Error::unavailable("Direct Godot digest absent"))?;
+        verify_file(executable, sha256)?;
         let home = self.config.output_root.join(".semwright-home");
         std::fs::create_dir_all(&home)?;
         #[cfg(unix)]
@@ -760,7 +830,7 @@ impl Runner {
             std::fs::set_permissions(&home, std::fs::Permissions::from_mode(0o700))?;
         }
 
-        let mut command = Command::new(&self.config.executable);
+        let mut command = Command::new(executable);
         command
             .args(argv)
             .current_dir(root)
@@ -799,7 +869,8 @@ impl Runner {
             Cancelled,
             TimedOut,
         }
-        let outcome = if let Some(cancellation) = cancellation {
+        let outcome = if let Some(context) = context {
+            let cancellation = context.cancellation();
             tokio::select! {
                 result = child.wait() => WaitOutcome::Exited(result),
                 _ = cancellation.cancelled() => WaitOutcome::Cancelled,
@@ -995,9 +1066,10 @@ mod tests {
         .unwrap();
         let executable = PathBuf::from("/usr/bin/true").canonicalize().unwrap();
         let config = RunnerConfig {
-            sha256: file_digest(&executable).unwrap(),
-            executable,
+            sha256: Some(file_digest(&executable).unwrap()),
+            executable: Some(executable),
             output_root: root.path().join("artifacts").canonicalize().unwrap(),
+            output_mount: None,
             display: None,
         };
         let authoring = AuthoringConfig {

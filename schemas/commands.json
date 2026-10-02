@@ -1003,7 +1003,7 @@
   {
     "name": "app.launch",
     "version": "1.0",
-    "description": "Launch only an administrator-configured application key, never arbitrary argv.",
+    "description": "Launch only an administrator-configured, digest-pinned application key, never arbitrary argv. The current native application-launch backend is Linux-only; unsupported hosts fail closed rather than interpreting the key as an ambient executable.",
     "input_schema": {
       "type": "object",
       "properties": {

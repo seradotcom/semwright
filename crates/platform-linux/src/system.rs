@@ -41,11 +41,30 @@ fn bus<T>(r: zbus::Result<T>) -> Result<T> {
 impl System {
     pub fn new(applications: BTreeMap<String, Application>) -> Result<Self> {
         for app in applications.values() {
-            if !app.executable.is_absolute() || app.args.len() > 64 {
+            if !app.executable.is_absolute()
+                || app.sha256.len() != 64
+                || !app
+                    .sha256
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+                || app.args.len() > 64
+            {
                 return Err(Error::invalid(
-                    "Application launch configuration requires an absolute executable and at most 64 arguments",
+                    "Application launch configuration requires an absolute executable, canonical lowercase SHA-256 and at most 64 arguments",
                 ));
             }
+            let canonical = std::fs::canonicalize(&app.executable)
+                .map_err(|_| Error::unavailable("Configured application executable not found"))?;
+            if canonical != app.executable {
+                return Err(Error::new(
+                    ErrorCode::PermissionDenied,
+                    "Application executable path must already be canonical",
+                ));
+            }
+            semwright_platform_services::verify_application_executable(
+                &app.executable,
+                &app.sha256,
+            )?;
             if app
                 .executable
                 .file_name()
@@ -72,6 +91,7 @@ impl System {
                 "Application key is not on the owner-controlled launch allowlist",
             )
         })?;
+        semwright_platform_services::verify_application_executable(&app.executable, &app.sha256)?;
         let mut command = Command::new(&app.executable);
         command
             .args(&app.args)
@@ -209,8 +229,8 @@ impl Backend for System {
                 self.name(),
                 "app.launch",
                 !self.applications.is_empty(),
-                "Only explicitly configured launch keys are available",
-                "Configure an application executable and fixed arguments in owner configuration",
+                "Only explicitly configured, digest-pinned launch keys are available",
+                "Configure a canonical application executable, SHA-256 and fixed arguments in owner configuration",
             ),
             feature(
                 self.name(),
@@ -362,5 +382,58 @@ impl Backend for System {
             ));
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sha2::{Digest, Sha256};
+    use std::os::unix::fs::PermissionsExt;
+
+    fn pinned_application() -> (tempfile::TempDir, Application) {
+        let directory = tempfile::tempdir().expect("application fixture directory");
+        let executable = directory.path().join("fixture-application");
+        std::fs::copy(
+            std::env::current_exe().expect("current test executable"),
+            &executable,
+        )
+        .expect("copy application fixture");
+        std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o500))
+            .expect("application fixture permissions");
+        let executable = std::fs::canonicalize(executable).expect("canonical application path");
+        let sha256 = format!(
+            "{:x}",
+            Sha256::digest(std::fs::read(&executable).expect("read application fixture"))
+        );
+        (
+            directory,
+            Application {
+                executable,
+                sha256,
+                args: vec![],
+                cwd: None,
+            },
+        )
+    }
+
+    #[test]
+    fn application_launch_targets_are_digest_pinned_and_canonical() {
+        let (_directory, application) = pinned_application();
+        let mut applications = BTreeMap::new();
+        applications.insert("fixture".to_owned(), application.clone());
+        assert!(System::new(applications).is_ok());
+
+        let mut invalid_digest = application.clone();
+        invalid_digest.sha256 = "0".repeat(64);
+        let mut applications = BTreeMap::new();
+        applications.insert("fixture".to_owned(), invalid_digest);
+        assert!(System::new(applications).is_err());
+
+        let mut missing_digest = application;
+        missing_digest.sha256.clear();
+        let mut applications = BTreeMap::new();
+        applications.insert("fixture".to_owned(), missing_digest);
+        assert!(System::new(applications).is_err());
     }
 }

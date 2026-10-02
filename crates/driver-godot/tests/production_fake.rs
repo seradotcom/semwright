@@ -31,6 +31,7 @@ async fn production_execute_crosses_authenticated_websocket() {
         projects: vec![ProjectConfig {
             project: project.clone(),
             root: dir.path().canonicalize().unwrap(),
+            mount: None,
             secret: secret_hex.clone(),
         }],
         runner: None,
@@ -217,6 +218,7 @@ async fn logical_session_resumes_and_waiting_call_crosses_reconnect_gap() {
         projects: vec![ProjectConfig {
             project: project.clone(),
             root: dir.path().canonicalize().unwrap(),
+            mount: None,
             secret: secret_hex.clone(),
         }],
         runner: None,

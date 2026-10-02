@@ -147,6 +147,10 @@ async fn broker_host_meter_measures_digest_bound_wav_and_rejects_substitution() 
             root: "audio-meter-tool".into(),
             name: "audio-meter".into(),
             sha256: digest(&meter),
+
+            mounts: vec![],
+            system_config: vec![],
+            dependencies: vec![],
         }],
         network: false,
         loopback_port: None,

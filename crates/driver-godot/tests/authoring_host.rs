@@ -216,6 +216,10 @@ fn manifest(executable: PathBuf, runtime_sha256: String) -> Manifest {
             root: "godot-authoring-runtime".into(),
             name: "godot".into(),
             sha256: runtime_sha256,
+
+            mounts: vec![],
+            system_config: vec![],
+            dependencies: vec![],
         }],
         network: false,
         loopback_port: None,

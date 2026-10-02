@@ -1,6 +1,6 @@
 {
   "manifest_version": 1,
-  "protocol": 3,
+  "protocol": 8,
   "id": "blender",
   "version": "0.9.0-dev.1",
   "publisher": "semwright",
@@ -8,22 +8,55 @@
   "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
   "application": {
     "desktop_id": "org.blender.Blender",
-    "process_names": ["blender"],
-    "supported_versions": ["4.5.14"]
+    "process_names": [
+      "blender"
+    ],
+    "supported_versions": [
+      "4.5.14"
+    ]
   },
   "transport": "stdio_v1",
   "mounts": [
-    {"root": "workspace", "read_only": false},
-    {"root": "blender-runtime", "read_only": true}
+    {
+      "root": "workspace",
+      "read_only": false
+    },
+    {
+      "root": "blender-runtime",
+      "read_only": true
+    },
+    {
+      "root": "scratch",
+      "read_only": false
+    },
+    {
+      "root": "font-config",
+      "read_only": true
+    }
   ],
-  "system_config": [
-    {"root": "font-config", "destination": "/etc/fonts"}
-  ],
+  "system_config": [],
+  "secrets": [],
   "tools": [
+    {
+      "root": "blender-session-runner",
+      "name": "blender-session-runner",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "mounts": [
+        "workspace",
+        "blender-runtime",
+        "scratch",
+        "font-config"
+      ],
+      "dependencies": [
+        "blender"
+      ]
+    },
     {
       "root": "blender-executable",
       "name": "blender",
-      "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "mounts": [],
+      "dependencies": []
     }
   ],
   "network": false,
@@ -31,6 +64,7 @@
     "open_files": 256,
     "processes": 64,
     "cpu_seconds": 300,
+    "operation_cpu_seconds": 0,
     "address_space_bytes": 4294967296,
     "file_size_bytes": 1073741824
   },
@@ -39,7 +73,10 @@
     "dynamic_capabilities": false,
     "cooperative_cancellation": true,
     "events": false,
+    "health": true,
     "progress": true,
-    "health": true
+    "artifacts": false,
+    "native_refs": false,
+    "host_tools": true
   }
 }

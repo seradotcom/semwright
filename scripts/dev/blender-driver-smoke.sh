@@ -1,16 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT=$(cd "$(dirname "$0")/../.." && pwd)
+ROOT=$(cd "$(dirname "$0")/../.." && pwd -P)
 BIN_DIR=${BIN_DIR:-"$ROOT/target/debug"}
 DAEMON="$BIN_DIR/semwrightd"
 CTL="$BIN_DIR/semwright"
 DRIVER="$BIN_DIR/semwright-blender-driver"
+SESSION_RUNNER="$BIN_DIR/semwright-blender-session-runner"
 SANDBOX="$BIN_DIR/semwright-sandbox"
 
-for file in "$DAEMON" "$CTL" "$DRIVER" "$SANDBOX"; do
+for file in "$DAEMON" "$CTL" "$DRIVER" "$SESSION_RUNNER" "$SANDBOX"; do
   test -x "$file" || { echo "missing executable: $file" >&2; exit 2; }
 done
+DAEMON=$(realpath -e "$DAEMON")
+CTL=$(realpath -e "$CTL")
+DRIVER=$(realpath -e "$DRIVER")
+SESSION_RUNNER=$(realpath -e "$SESSION_RUNNER")
+SANDBOX=$(realpath -e "$SANDBOX")
 command -v bwrap >/dev/null
 BLENDER_ROOT=${SEMWRIGHT_TEST_BLENDER_ROOT:-}
 if [[ -z "$BLENDER_ROOT" ]]; then
@@ -22,14 +28,26 @@ if [[ -z "$BLENDER_ROOT" ]]; then
   blender_real=$(readlink -f "$blender_on_path")
   BLENDER_ROOT=$(dirname "$blender_real")
 fi
-BLENDER_BIN="$BLENDER_ROOT/blender"
+BLENDER_ROOT=$(realpath -e "$BLENDER_ROOT")
+BLENDER_BIN=$(realpath -e "$BLENDER_ROOT/blender")
+case "$BLENDER_BIN" in
+  "$BLENDER_ROOT"/*) ;;
+  *) echo "Blender executable escaped its canonical runtime root" >&2; exit 5 ;;
+esac
 test -x "$BLENDER_BIN" || { echo "Blender runtime is missing $BLENDER_BIN" >&2; exit 5; }
 test "$("$BLENDER_BIN" --version | head -1)" = "Blender 4.5.14 LTS"
 for required in lib 4.5/scripts 4.5/extensions 4.5/datafiles 4.5/python; do
-  test -d "$BLENDER_ROOT/$required" || { echo "Blender runtime missing $required" >&2; exit 5; }
+  required_path=$(realpath -e "$BLENDER_ROOT/$required")
+  case "$required_path" in
+    "$BLENDER_ROOT"/*) ;;
+    *) echo "Blender runtime component escaped root: $required" >&2; exit 5 ;;
+  esac
+  test -d "$required_path" || { echo "Blender runtime missing $required" >&2; exit 5; }
 done
 BLENDER_SHA=$(sha256sum "$BLENDER_BIN" | awk '{print $1}')
-test -d /etc/fonts
+SESSION_RUNNER_SHA=$(sha256sum "$SESSION_RUNNER" | awk '{print $1}')
+FONT_CONFIG_ROOT=$(realpath -e /etc/fonts)
+test -d "$FONT_CONFIG_ROOT"
 
 TMP=$(mktemp -d)
 DAEMON_PID=""
@@ -42,8 +60,8 @@ cleanup() {
 }
 trap cleanup EXIT
 chmod 700 "$TMP"
-mkdir "$TMP/runtime" "$TMP/state" "$TMP/home" "$TMP/workspace"
-chmod 700 "$TMP/runtime" "$TMP/state" "$TMP/home" "$TMP/workspace"
+mkdir "$TMP/runtime" "$TMP/state" "$TMP/home" "$TMP/workspace" "$TMP/scratch"
+chmod 700 "$TMP/runtime" "$TMP/state" "$TMP/home" "$TMP/workspace" "$TMP/scratch"
 export XDG_RUNTIME_DIR="$TMP/runtime"
 export XDG_STATE_HOME="$TMP/state"
 export HOME="$TMP/home"
@@ -61,7 +79,7 @@ PY
 cat > "$TMP/driver.json" <<JSON
 {
   "manifest_version": 1,
-  "protocol": 3,
+  "protocol": 8,
   "id": "blender",
   "version": "$version",
   "publisher": "semwright",
@@ -75,19 +93,33 @@ cat > "$TMP/driver.json" <<JSON
   "transport": "stdio_v1",
   "mounts": [
     {"root": "workspace", "read_only": false},
-    {"root": "blender-runtime", "read_only": true}
+    {"root": "blender-runtime", "read_only": true},
+    {"root": "scratch", "read_only": false},
+    {"root": "font-config", "read_only": true}
   ],
-  "system_config": [
-    {"root": "font-config", "destination": "/etc/fonts"}
-  ],
+  "system_config": [],
   "tools": [
-    {"root": "blender-executable", "name": "blender", "sha256": "$BLENDER_SHA"}
+    {
+      "root": "blender-session-runner",
+      "name": "blender-session-runner",
+      "sha256": "$SESSION_RUNNER_SHA",
+      "mounts": ["workspace", "blender-runtime", "scratch", "font-config"],
+      "dependencies": ["blender"]
+    },
+    {
+      "root": "blender-executable",
+      "name": "blender",
+      "sha256": "$BLENDER_SHA",
+      "mounts": [],
+      "dependencies": []
+    }
   ],
   "network": false,
   "resources": {
     "open_files": 256,
     "processes": 64,
     "cpu_seconds": 300,
+    "operation_cpu_seconds": 0,
     "address_space_bytes": 4294967296,
     "file_size_bytes": 1073741824
   },
@@ -96,8 +128,11 @@ cat > "$TMP/driver.json" <<JSON
     "dynamic_capabilities": false,
     "cooperative_cancellation": true,
     "events": false,
-    "progress": true,
-    "health": true
+    "health": true,
+    "progress": false,
+    "artifacts": false,
+    "native_refs": false,
+    "host_tools": true
   }
 }
 JSON
@@ -119,13 +154,25 @@ write = true
 
 [[policy.filesystem]]
 name = "font-config"
-path = "/etc/fonts"
+path = "$FONT_CONFIG_ROOT"
 read = true
 write = false
 
 [[policy.filesystem]]
 name = "blender-runtime"
 path = "$BLENDER_ROOT"
+read = true
+write = false
+
+[[policy.filesystem]]
+name = "scratch"
+path = "$TMP/scratch"
+read = true
+write = true
+
+[[policy.filesystem]]
+name = "blender-session-runner"
+path = "$SESSION_RUNNER"
 read = true
 write = false
 
@@ -142,15 +189,40 @@ SESSION="$TMP/runtime/cli.session"
 LOG="$TMP/daemon.log"
 "$DAEMON" --config "$TMP/daemon.toml" --socket "$SOCKET" >"$LOG" 2>&1 &
 DAEMON_PID=$!
-for _ in $(seq 1 300); do
-  [[ -S "$SOCKET" ]] && break
+
+daemon_startup_diagnostics() {
+  echo "--- semwrightd startup diagnostics ---" >&2
+  ps -o pid=,ppid=,stat=,etime=,cmd= -p "$DAEMON_PID" >&2 2>/dev/null || true
+  ps -o pid=,ppid=,stat=,etime=,cmd= --ppid "$DAEMON_PID" >&2 2>/dev/null || true
+  if [[ -r "/proc/$DAEMON_PID/wchan" ]]; then
+    printf 'wchan=' >&2
+    head -c 128 "/proc/$DAEMON_PID/wchan" >&2 || true
+    printf '\n' >&2
+  fi
+  if [[ -f "$LOG" ]]; then
+    echo "--- semwrightd log tail ---" >&2
+    tail -c 16384 "$LOG" >&2 || true
+    printf '\n' >&2
+  fi
+}
+
+ready=0
+for _ in $(seq 1 1200); do
+  if [[ -S "$SOCKET" ]]; then
+    ready=1
+    break
+  fi
   if ! kill -0 "$DAEMON_PID" 2>/dev/null; then
-    cat "$LOG" >&2
+    daemon_startup_diagnostics
     exit 1
   fi
   sleep 0.05
 done
-[[ -S "$SOCKET" ]] || { cat "$LOG" >&2; exit 1; }
+if [[ "$ready" != "1" ]]; then
+  echo "semwrightd did not publish its broker socket within 60 seconds" >&2
+  daemon_startup_diagnostics
+  exit 1
+fi
 
 run() {
   "$CTL" --socket "$SOCKET" --session-file "$SESSION" --json "$@"

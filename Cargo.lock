@@ -1270,6 +1270,29 @@ dependencies = [
 
 [[package]]
 name = "hyper-util"
+version = "0.1.20"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "96547c2556ec9d12fb1578c4eaf448b04993e7fb79cbaad930a656880a6bdfa0"
+dependencies = [
+ "base64 0.22.1",
+ "bytes",
+ "futures-channel",
+ "futures-util",
+ "http",
+ "http-body",
+ "hyper",
+ "ipnet",
+ "libc",
+ "percent-encoding",
+ "pin-project-lite",
+ "socket2",
+ "tokio",
+ "tower-service",
+ "tracing",
+]
+
+[[package]]
+name = "hyper-util"
 version = "0.1.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ddc03d96684f9226b8a787cdb71488417b53ab5ea8fdb1dac946cb9431cc8bff"
@@ -2361,6 +2384,17 @@ checksum = "f8dcc9c7d52a811697d2151c701e0d08956f92b0e24136cf4cf27b57a6a0d9bf"
 
 [[package]]
 name = "rand"
+version = "0.10.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "65c9fb96cbc91e3478eaae79a69fcd3f1ae4ad052e471fe6732fff548984b4af"
+dependencies = [
+ "chacha20",
+ "getrandom 0.4.3",
+ "rand_core 0.10.1",
+]
+
+[[package]]
+name = "rand"
 version = "0.8.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e058c7de0b26af77780c769414d6257830bb240f3c38477dbc2c16e5f54d6d4c"
@@ -2379,17 +2413,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rand"
-version = "0.10.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "65c9fb96cbc91e3478eaae79a69fcd3f1ae4ad052e471fe6732fff548984b4af"
-dependencies = [
- "chacha20",
- "getrandom 0.4.3",
- "rand_core 0.10.1",
-]
-
-[[package]]
 name = "rand_chacha"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2398,6 +2421,12 @@ dependencies = [
  "ppv-lite86",
  "rand_core 0.9.5",
 ]
+
+[[package]]
+name = "rand_core"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "63b8176103e19a2643978565ca18b50549f6101881c443590420e4dc998a3c69"
 
 [[package]]
 name = "rand_core"
@@ -2413,12 +2442,6 @@ checksum = "76afc826de14238e6e8c374ddcc1fa19e374fd8dd986b0d2af0d02377261d83c"
 dependencies = [
  "getrandom 0.3.4",
 ]
-
-[[package]]
-name = "rand_core"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "63b8176103e19a2643978565ca18b50549f6101881c443590420e4dc998a3c69"
 
 [[package]]
 name = "rand_pcg"
@@ -2893,11 +2916,13 @@ dependencies = [
  "libc",
  "proptest",
  "semwright-backend-api",
+ "semwright-platform-services",
  "semwright-policy",
  "semwright-protocol",
  "semwright-types",
  "serde",
  "serde_json",
+ "sha2",
  "tempfile",
  "tokio",
  "tokio-tungstenite",
@@ -3106,6 +3131,7 @@ version = "0.9.0-dev.1"
 dependencies = [
  "async-trait",
  "jsonschema",
+ "libc",
  "proptest",
  "schemars",
  "semwright-backend-api",
@@ -3175,18 +3201,18 @@ dependencies = [
  "jsonschema",
  "libc",
  "proptest",
+ "schemars",
  "semwright-backend-api",
  "semwright-core",
  "semwright-driver-host",
  "semwright-driver-sdk",
  "semwright-effect-conformance",
- "semwright-project-graph",
- "semwright-semantic-composition",
- "semwright-policy",
  "semwright-platform-common",
+ "semwright-policy",
+ "semwright-project-graph",
  "semwright-registry",
+ "semwright-semantic-composition",
  "semwright-types",
- "schemars",
  "serde",
  "serde_json",
  "sha2",
@@ -3224,6 +3250,7 @@ name = "semwright-driver-libreoffice"
 version = "0.9.0-dev.1"
 dependencies = [
  "async-trait",
+ "libc",
  "semwright-backend-api",
  "semwright-driver-host",
  "semwright-driver-sdk",
@@ -3329,16 +3356,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "semwright-example-plugin"
-version = "0.9.0-dev.1"
-dependencies = [
- "semwright-plugin-sdk",
- "semwright-types",
- "serde_json",
- "tokio",
-]
-
-[[package]]
 name = "semwright-effect-conformance"
 version = "0.9.0-dev.1"
 dependencies = [
@@ -3349,6 +3366,16 @@ dependencies = [
  "semwright-types",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "semwright-example-plugin"
+version = "0.9.0-dev.1"
+dependencies = [
+ "semwright-plugin-sdk",
+ "semwright-types",
+ "serde_json",
+ "tokio",
 ]
 
 [[package]]
@@ -3545,6 +3572,7 @@ dependencies = [
  "semwright-backend-api",
  "semwright-platform-api",
  "semwright-platform-common",
+ "semwright-platform-services",
  "semwright-policy",
  "semwright-protocol",
  "semwright-types",
@@ -3566,6 +3594,7 @@ dependencies = [
 name = "semwright-platform-linux-sys"
 version = "0.9.0-dev.1"
 dependencies = [
+ "async-trait",
  "landlock",
  "libc",
  "proptest",
@@ -5390,11 +5419,31 @@ dependencies = [
 
 [[package]]
 name = "zerocopy"
+version = "0.8.57"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d35102a9f36d089ccae9e4c6802bc118be4487b80aaffc0ab4e0cf5ce92d2873"
+dependencies = [
+ "zerocopy-derive",
+]
+
+[[package]]
+name = "zerocopy"
 version = "0.8.58"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c17e8fafad82b542ff3717217ecdc736231b59e387768c9630123b4ce4d2db44"
 dependencies = [
  "zerocopy-derive",
+]
+
+[[package]]
+name = "zerocopy-derive"
+version = "0.8.57"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "146c01f5ab44258da43cf276c74a2763db2ff3969c9c652c3f2de07041d0b2bc"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
 ]
 
 [[package]]

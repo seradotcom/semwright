@@ -63,8 +63,10 @@ fn thin(b: &[u8]) -> Result<Architecture> {
     Ok(a)
 }
 pub fn architectures(b: &[u8]) -> Result<Vec<Architecture>> {
-    if b.len() > 67_108_864 {
-        return Err(Error::invalid("Executable exceeds 64 MiB"));
+    // Provider and sealed-tool launchers enforce their tighter budgets before
+    // parsing. The parser also serves explicitly owner-pinned application executables.
+    if b.len() > 536_870_912 {
+        return Err(Error::invalid("Executable exceeds Mach-O parser budget"));
     }
     if b.starts_with(&[0xcf, 0xfa, 0xed, 0xfe]) {
         return Ok(vec![thin(b)?]);

@@ -37,7 +37,10 @@ type Pending = Arc<StdMutex<BTreeMap<u64, (String, oneshot::Sender<Result<Value>
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct BrowserConfig {
+    #[serde(default)]
     pub executable: PathBuf,
+    #[serde(default)]
+    pub sha256: String,
     #[serde(default)]
     pub allowed_origins: Vec<String>,
     #[serde(default)]
@@ -54,6 +57,22 @@ const BROWSER_UPLOAD_MAX_FILE_BYTES: usize = 32 * 1024 * 1024;
 const BROWSER_UPLOAD_MAX_TOTAL_BYTES: u64 = 64 * 1024 * 1024;
 const BROWSER_UPLOAD_MAX_FILES_PER_ACTION: usize = 8;
 const BROWSER_UPLOAD_MAX_STAGED_FILES: u32 = 32;
+fn verify_browser_executable(config: &BrowserConfig) -> Result<()> {
+    if !config.runtime_configured() {
+        return Err(Error::unavailable(
+            "Browser runtime is disabled until the owner configures an executable and SHA-256 pin",
+        ));
+    }
+    let canonical = std::fs::canonicalize(&config.executable)
+        .map_err(|_| Error::unavailable("Configured Chromium executable not found"))?;
+    if canonical != config.executable {
+        return Err(Error::new(
+            ErrorCode::PermissionDenied,
+            "Browser executable path must already be canonical",
+        ));
+    }
+    semwright_platform_services::verify_application_executable(&config.executable, &config.sha256)
+}
 
 const fn default_download_bytes() -> u64 {
     32 * 1024 * 1024
@@ -67,7 +86,8 @@ const fn default_download_count() -> u32 {
 impl Default for BrowserConfig {
     fn default() -> Self {
         Self {
-            executable: PathBuf::from("/usr/bin/chromium"),
+            executable: PathBuf::new(),
+            sha256: String::new(),
             allowed_origins: vec![],
             allow_downloads: false,
             max_download_bytes: default_download_bytes(),
@@ -77,16 +97,32 @@ impl Default for BrowserConfig {
     }
 }
 impl BrowserConfig {
+    fn runtime_configured(&self) -> bool {
+        !self.executable.as_os_str().is_empty() && !self.sha256.is_empty()
+    }
+
     pub fn validate(&self) -> Result<()> {
-        if !self.executable.is_absolute()
-            || !matches!(
-                self.executable.file_name().and_then(|s| s.to_str()),
-                Some("chromium" | "chromium-browser" | "google-chrome" | "chrome")
-            )
-        {
+        if self.executable.as_os_str().is_empty() != self.sha256.is_empty() {
             return Err(Error::invalid(
-                "Browser executable must be an absolute Chromium-family executable, not a command line",
+                "Browser runtime executable and SHA-256 must be configured together",
             ));
+        }
+        if self.runtime_configured() {
+            if !self.executable.is_absolute() {
+                return Err(Error::invalid(
+                    "Browser executable must be an absolute path, not a command line",
+                ));
+            }
+            if self.sha256.len() != 64
+                || !self
+                    .sha256
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+            {
+                return Err(Error::invalid(
+                    "Browser runtime requires a canonical lowercase SHA-256 pin",
+                ));
+            }
         }
         if self.allowed_origins.len() > 128 {
             return Err(Error::invalid("Too many browser origins"));
@@ -1003,6 +1039,9 @@ impl Chromium {
         filesystem_grants: &[FilesystemGrant],
     ) -> Result<Self> {
         config.validate()?;
+        if config.runtime_configured() {
+            verify_browser_executable(&config)?;
+        }
         private_directory(&directory)?;
         let mut names = std::collections::BTreeSet::new();
         for grant in filesystem_grants {
@@ -1176,14 +1215,7 @@ impl Chromium {
                 "Browser adapter refuses root; it never adds --no-sandbox",
             ));
         }
-        let meta = std::fs::metadata(&self.config.executable)
-            .map_err(|_| Error::unavailable("Configured Chromium executable not found"))?;
-        if !meta.is_file() || meta.mode() & 0o022 != 0 {
-            return Err(Error::new(
-                ErrorCode::PermissionDenied,
-                "Browser executable is writable by another user or is not a regular file",
-            ));
-        }
+        verify_browser_executable(&self.config)?;
         let profile = self.directory.join(format!("profile-{}", unique_id()));
         private_directory(&profile)?;
         let downloads = profile.join("downloads");
@@ -3343,8 +3375,25 @@ mod tests {
     #[test]
     fn default_denies_navigation() {
         let c = BrowserConfig::default();
+        assert!(c.executable.as_os_str().is_empty());
+        assert!(c.sha256.is_empty());
         assert!(c.check_url("https://example.org").is_err());
         assert!(c.check_url("about:blank").is_ok());
+    }
+    #[test]
+    fn browser_runtime_requires_explicit_canonical_digest_pin() {
+        let mut c = BrowserConfig {
+            executable: PathBuf::from("/opt/google/chrome/chrome"),
+            ..Default::default()
+        };
+        assert!(c.validate().is_err());
+        c.sha256 = "a".repeat(64);
+        assert!(c.validate().is_ok());
+        c.sha256 = "A".repeat(64);
+        assert!(c.validate().is_err());
+        c.sha256.clear();
+        c.executable.clear();
+        assert!(c.validate().is_ok());
     }
     #[test]
     fn exact_origin_not_prefix() {

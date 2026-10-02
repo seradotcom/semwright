@@ -24,13 +24,13 @@ Driver identity: `driver:motion-canvas`. Protocol catalog count: **25**. The cat
 | `cue.list` | read_only / read_only | List named timing cues. |
 | `animation.list` | read_only / read_only | List declarative animations. |
 | `render.plan` | read_only / read_only | Validate exact bounded frame range/resolution/alpha plan. |
-| `render.start` | mutating_reversible / non_idempotent | Start a driver-local render job after source fingerprint verification. |
-| `render.execute` | mutating_reversible / non_idempotent | Execute the same bounded renderer under Protocol v3 progress/artifact/cooperative-cancellation context. |
-| `render.status` | read_only / read_only | Return observed render phase only; no invented percentage. |
-| `render.cancel` | mutating_reversible / idempotent | Cancel the owned render process tree. |
+| `render.start` | mutating_reversible / non_idempotent | Start a session-bound Host-owned runtime-tool job after source fingerprint verification. |
+| `render.execute` | mutating_reversible / non_idempotent | Execute the same bounded Host-owned renderer under Protocol v7 progress/artifact/cooperative-cancellation context. |
+| `render.status` | read_only / read_only | Return the observed Host job phase only; no invented percentage. |
+| `render.cancel` | mutating_reversible / idempotent | Cancel the session-bound Host-owned render job. |
 | `render.result` | read_only / read_only | Return validated artifact metadata for a terminal job. |
 
-Every descriptor has strict schemars-derived input/output schemas, owner namespace/scope, bounded timeout, risk, idempotency and truthful dry-run metadata. Descriptor SHA-256 pinning is enforced by the Driver SDK; this driver negotiates protocol v3.
+Every descriptor has strict schemars-derived input/output schemas, owner namespace/scope, bounded timeout, risk, idempotency and truthful dry-run metadata. Descriptor SHA-256 pinning is enforced by the Driver SDK; production rendering negotiates protocol v7 so executable discovery, job lifecycle and path-bearing runtime arguments remain Host-owned.
 
 ## Transaction operations
 

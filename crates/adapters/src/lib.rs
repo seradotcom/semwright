@@ -13,7 +13,10 @@ pub mod chromium {
     #[derive(Debug, Clone, Deserialize)]
     #[serde(deny_unknown_fields)]
     pub struct BrowserConfig {
+        #[serde(default)]
         pub executable: PathBuf,
+        #[serde(default)]
+        pub sha256: String,
         #[serde(default)]
         pub allowed_origins: Vec<String>,
         #[serde(default)]
@@ -40,6 +43,7 @@ pub mod chromium {
         fn default() -> Self {
             Self {
                 executable: PathBuf::new(),
+                sha256: String::new(),
                 allowed_origins: vec![],
                 allow_downloads: false,
                 max_download_bytes: default_download_bytes(),
@@ -51,6 +55,19 @@ pub mod chromium {
 
     impl BrowserConfig {
         pub fn validate(&self) -> Result<()> {
+            if self.executable.as_os_str().is_empty() != self.sha256.is_empty()
+                || (!self.executable.as_os_str().is_empty() && !self.executable.is_absolute())
+                || (!self.sha256.is_empty()
+                    && (self.sha256.len() != 64
+                        || !self
+                            .sha256
+                            .bytes()
+                            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))))
+            {
+                return Err(Error::invalid(
+                    "Browser runtime executable and canonical lowercase SHA-256 must be configured together",
+                ));
+            }
             if self.allowed_origins.len() > 128
                 || self.max_download_bytes == 0
                 || self.max_total_download_bytes == 0

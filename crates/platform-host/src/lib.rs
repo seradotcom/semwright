@@ -4,6 +4,8 @@ use semwright_platform_api::DesktopHost;
 use semwright_platform_common::{Application, fake::FakeDesktop};
 use semwright_policy::FilesystemGrant;
 use semwright_types::Result;
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+use semwright_types::{Error, ErrorCode};
 use std::{
     collections::BTreeMap,
     future::Future,
@@ -60,11 +62,17 @@ async fn native(
 async fn native(
     r: &Path,
     _state: &Path,
-    _a: BTreeMap<String, Application>,
-    _b: BrowserConfig,
+    a: BTreeMap<String, Application>,
+    b: BrowserConfig,
     _filesystem_grants: Vec<FilesystemGrant>,
     _s: Option<PathBuf>,
 ) -> Result<DesktopHost> {
+    if !a.is_empty() || !b.executable.as_os_str().is_empty() || !b.sha256.is_empty() {
+        return Err(Error::new(
+            ErrorCode::Unsupported,
+            "Configured application/Chromium launch is currently available only on Linux",
+        ));
+    }
     Ok(DesktopHost {
         backends: vec![Arc::new(
             semwright_platform_macos::Macos::new(&r.join("artifacts")).await?,
@@ -78,11 +86,17 @@ async fn native(
 async fn native(
     r: &Path,
     _state: &Path,
-    _a: BTreeMap<String, Application>,
-    _b: BrowserConfig,
+    a: BTreeMap<String, Application>,
+    b: BrowserConfig,
     _filesystem_grants: Vec<FilesystemGrant>,
     _s: Option<PathBuf>,
 ) -> Result<DesktopHost> {
+    if !a.is_empty() || !b.executable.as_os_str().is_empty() || !b.sha256.is_empty() {
+        return Err(Error::new(
+            ErrorCode::Unsupported,
+            "Configured application/Chromium launch is currently available only on Linux",
+        ));
+    }
     let principal = semwright_platform_services::current_principal()?;
     Ok(DesktopHost {
         backends: vec![Arc::new(semwright_platform_windows::Windows::new(

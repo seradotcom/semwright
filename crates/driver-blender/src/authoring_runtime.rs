@@ -1,8 +1,6 @@
 //! Context-bound orchestration using A's PlanVault and F's effect evaluator.
 //! This module is product code inside the first-party driver; it is not another authority service.
-use super::{
-    Capability, Child, Path, Value, capability, descriptor, descriptor_digest, json, request,
-};
+use super::{Capability, NativeSession, Value, capability, descriptor, descriptor_digest, json};
 use schemars::JsonSchema;
 use semwright_driver_blender::authoring::*;
 use semwright_driver_sdk::DriverExecutionContext;
@@ -33,6 +31,11 @@ pub(super) struct State {
     records: BTreeMap<(composition::Owner, String), Record>,
     cursors: BTreeMap<(composition::Owner, String), PageCursor>,
     poisoned: bool,
+}
+impl State {
+    pub(super) fn poisoned(&self) -> bool {
+        self.poisoned
+    }
 }
 impl Default for State {
     fn default() -> Self {
@@ -315,18 +318,14 @@ fn profile_bindings() -> Result<Vec<composition::CapabilityBinding>> {
     }
     Ok(bindings)
 }
-async fn native(socket: &Path, suffix: &str, args: Value) -> Result<Value> {
-    request(
-        socket,
-        &format!("driver.blender._authoring.{suffix}"),
-        args,
-        62,
-    )
-    .await
+async fn native(channel: &NativeSession<'_>, suffix: &str, args: Value) -> Result<Value> {
+    channel
+        .request(&format!("driver.blender._authoring.{suffix}"), args, 62)
+        .await
 }
-async fn snapshot(socket: &Path, island: Option<&str>) -> Result<NativeSnapshot> {
+async fn snapshot(channel: &NativeSession<'_>, island: Option<&str>) -> Result<NativeSnapshot> {
     Ok(serde_json::from_value(
-        native(socket, "snapshot", json!({"island":island})).await?,
+        native(channel, "snapshot", json!({"island":island})).await?,
     )?)
 }
 
@@ -528,7 +527,7 @@ fn flatten_page(snapshot: &NativeSnapshot, domain: &str) -> Result<Vec<Value>> {
 
 async fn inspect_page(
     state: &mut State,
-    socket: &Path,
+    channel: &NativeSession<'_>,
     owner: &composition::Owner,
     input: PageInput,
 ) -> Result<Value> {
@@ -536,7 +535,7 @@ async fn inspect_page(
     if !(1..=64).contains(&input.limit) {
         return Err(Error::invalid("page limit must be 1..64"));
     }
-    let snapshot = snapshot(socket, Some(&input.island)).await?;
+    let snapshot = snapshot(channel, Some(&input.island)).await?;
     let mut offset = 0usize;
     if let Some(cursor) = input.cursor {
         composition::bounded_id(&cursor).map_err(common_error)?;
@@ -632,8 +631,7 @@ fn plan_island(plan: &Plan) -> Result<&str> {
 #[allow(clippy::too_many_arguments)]
 pub(super) async fn execute(
     state: &mut State,
-    child: &mut Child,
-    socket: &Path,
+    channel: &NativeSession<'_>,
     command: &str,
     digest: &str,
     args: Value,
@@ -668,11 +666,11 @@ pub(super) async fn execute(
         .ok_or_else(|| Error::invalid("authoring namespace"))?;
     match suffix {
         "inspect" => Ok(serde_json::to_value(
-            snapshot(socket, args["island"].as_str()).await?,
+            snapshot(channel, args["island"].as_str()).await?,
         )?),
         "inspect.page" => {
             let input: PageInput = serde_json::from_value(args)?;
-            inspect_page(state, socket, &owner, input).await
+            inspect_page(state, channel, &owner, input).await
         }
         "plan" => {
             if state.records.len() >= 32 {
@@ -682,7 +680,7 @@ pub(super) async fn execute(
                 ));
             }
             let input: PlanInput = serde_json::from_value(args)?;
-            let before = snapshot(socket, intent_island(&input.intent)).await?;
+            let before = snapshot(channel, intent_island(&input.intent)).await?;
             let prepared = prepare(
                 owner.clone(),
                 input.intent,
@@ -760,7 +758,7 @@ pub(super) async fn execute(
                     ));
                 }
             };
-            let before = snapshot(socket, Some(&island)).await?;
+            let before = snapshot(channel, Some(&island)).await?;
             let prior_verdict = parent_report.verdict().map_err(common_error)?;
             if prior_verdict == composition::Verdict::Pass && !before.drift {
                 return Err(Error::new(
@@ -840,13 +838,13 @@ pub(super) async fn execute(
                 .vault
                 .matches(&owner, plan_ref, &plan)
                 .map_err(common_error)?;
-            let before = snapshot(socket, intent_island(&plan.body.intent)).await?;
+            let before = snapshot(channel, intent_island(&plan.body.intent)).await?;
             plan.body
                 .base
                 .check_fresh(&before.base(&owner).map_err(common_error)?, false)
                 .map_err(common_error)?;
             native(
-                socket,
+                channel,
                 "begin",
                 json!({
                     "island":intent_island(&plan.body.intent),
@@ -872,7 +870,7 @@ pub(super) async fn execute(
                 )?;
                 for (index, operation) in plan.body.changes.operations.iter().enumerate() {
                     context.check_cancelled()?;
-                    native(socket, "apply", json!({"operation":operation.payload})).await?;
+                    native(channel, "apply", json!({"operation":operation.payload})).await?;
                     context.report_progress(
                         JobProgress {
                             completed: index as u64 + 1,
@@ -884,7 +882,7 @@ pub(super) async fn execute(
                 }
                 let island = plan_island(&plan)?;
                 serde_json::from_value::<NativeSnapshot>(
-                    native(socket, "finish", json!({"island":island})).await?,
+                    native(channel, "finish", json!({"island":island})).await?,
                 )
                 .map_err(Into::into)
             };
@@ -914,7 +912,7 @@ pub(super) async fn execute(
                         .map_err(common_error)?;
                     let global_after = if matches!(plan.body.intent, AuthoringIntent::Create { .. })
                     {
-                        snapshot(socket, None).await.ok()
+                        snapshot(channel, None).await.ok()
                     } else {
                         None
                     };
@@ -950,7 +948,7 @@ pub(super) async fn execute(
                 Err(error) => {
                     // The failing operation may have changed native state before failing. Never
                     // refund, retry, claim rollback or leave it working in the background.
-                    let _ = child.start_kill();
+                    let _ = channel.close().await;
                     state.poisoned = true;
                     state
                         .vault
@@ -968,7 +966,7 @@ pub(super) async fn execute(
             let input: MeasureInput = serde_json::from_value(args)?;
             input.validate().map_err(common_error)?;
             let sample = input.sample;
-            let mut output = native(socket, "measure", serde_json::to_value(&input)?).await?;
+            let mut output = native(channel, "measure", serde_json::to_value(&input)?).await?;
             if let Some(sample) = sample {
                 let observed = output.get("sample_observed").ok_or_else(|| {
                     Error::new(
@@ -1001,8 +999,8 @@ pub(super) async fn execute(
             }
             Ok(output)
         }
-        "persist" => native(socket, "persist", args).await,
-        "reopen" => native(socket, "reopen", args).await,
+        "persist" => native(channel, "persist", args).await,
+        "reopen" => native(channel, "reopen", args).await,
         "validate" | "verify" => {
             let plan_ref = args["plan_ref"]
                 .as_str()
@@ -1015,14 +1013,14 @@ pub(super) async fn execute(
                     .ok_or_else(|| Error::new(ErrorCode::PolicyDenied, "plan session mismatch"))?;
                 plan_island(&record.prepared.plan)?.to_owned()
             };
-            let after = snapshot(socket, Some(&island)).await?;
+            let after = snapshot(channel, Some(&island)).await?;
             let global_after = {
                 let record = state.records.get(&key).expect("checked record");
                 if matches!(
                     record.prepared.plan.body.intent,
                     AuthoringIntent::Create { .. }
                 ) {
-                    snapshot(socket, None).await.ok()
+                    snapshot(channel, None).await.ok()
                 } else {
                     None
                 }

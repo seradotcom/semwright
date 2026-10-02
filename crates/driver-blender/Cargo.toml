@@ -10,6 +10,10 @@ publish = false
 name = "semwright-blender-driver"
 path = "src/main.rs"
 
+[[bin]]
+name = "semwright-blender-session-runner"
+path = "src/bin/session_runner.rs"
+
 [dependencies]
 semwright-driver-sdk.workspace = true
 semwright-protocol.workspace = true
@@ -18,6 +22,8 @@ async-trait.workspace = true
 serde_json.workspace = true
 jsonschema.workspace = true
 tokio.workspace = true
+libc.workspace = true
+
 serde.workspace = true
 schemars.workspace = true
 semwright-semantic-composition.workspace = true

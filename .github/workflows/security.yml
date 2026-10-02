@@ -7,7 +7,19 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_call:
+    inputs:
+      full_cert:
+        required: false
+        type: boolean
+        default: false
   workflow_dispatch:
+    inputs:
+      full_cert:
+        description: "Run complete dependency, coverage and fuzz certification"
+        required: false
+        type: boolean
+        default: false
   schedule:
     - cron: '0 8 * * 1'
 permissions:
@@ -20,8 +32,37 @@ env:
   CARGO_PROFILE_DEV_DEBUG: 0
   CARGO_PROFILE_TEST_DEBUG: 0
 jobs:
+  scope:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      security_dependencies: ${{ steps.scope.outputs.security_dependencies }}
+      security_fuzz: ${{ steps.scope.outputs.security_fuzz }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+      - id: scope
+        env:
+          FULL_CERT: ${{ inputs.full_cert }}
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [[ "$FULL_CERT" == "true" || "$EVENT_NAME" == "schedule" ]]; then
+            python3 scripts/dev/ci-affected-areas.py --full >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [[ -z "$BASE_SHA" || "$BASE_SHA" =~ ^0+$ ]]; then
+            BASE_SHA=$(git rev-parse HEAD^ 2>/dev/null || git rev-parse HEAD)
+          fi
+          git diff --name-only "$BASE_SHA" "$HEAD_SHA" |
+            python3 scripts/dev/ci-affected-areas.py >> "$GITHUB_OUTPUT"
+
   dependencies:
-    if: ${{ !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
+    needs: scope
+    if: ${{ (inputs.full_cert == true || github.event_name == 'schedule' || needs.scope.outputs.security_dependencies == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -37,7 +78,8 @@ jobs:
       - run: cargo audit --deny warnings
       - run: cargo deny --locked check
   coverage:
-    if: ${{ !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
+    needs: scope
+    if: ${{ (inputs.full_cert == true || github.event_name == 'schedule') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -65,7 +107,8 @@ jobs:
             coverage.json
           retention-days: 14
   fuzz:
-    if: ${{ !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
+    needs: scope
+    if: ${{ (inputs.full_cert == true || github.event_name == 'schedule' || needs.scope.outputs.security_fuzz == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:

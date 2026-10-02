@@ -210,6 +210,10 @@ fn faust_manifest(executable: &Path, helper: &Path, version: &str) -> Manifest {
             root: "faust-tool".into(),
             name: "faust-interpreter".into(),
             sha256: file_sha(helper),
+
+            mounts: vec![],
+            system_config: vec![],
+            dependencies: vec![],
         }],
         network: false,
         loopback_port: None,
@@ -258,6 +262,10 @@ fn analysis_manifest(executable: &Path, meter: &Path) -> Manifest {
             root: "audio-meter-tool".into(),
             name: "audio-meter".into(),
             sha256: file_sha(meter),
+
+            mounts: vec![],
+            system_config: vec![],
+            dependencies: vec![],
         }],
         network: false,
         loopback_port: None,

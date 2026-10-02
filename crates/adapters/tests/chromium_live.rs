@@ -5,7 +5,9 @@ use semwright_backend_api::{Backend, Context};
 use semwright_policy::FilesystemGrant;
 use semwright_types::{ErrorCode, NativeTarget};
 use serde_json::{Value, json};
+use sha2::{Digest, Sha256};
 use std::{
+    io::Read,
     os::unix::fs::MetadataExt,
     path::{Path, PathBuf},
     process::Command,
@@ -19,6 +21,21 @@ use tokio::{
 };
 use tokio_util::sync::CancellationToken;
 type TestResult<T = ()> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
+
+fn executable_sha256(path: &Path) -> TestResult<String> {
+    let mut file = std::fs::File::open(path)?;
+    let mut hasher = Sha256::new();
+    let mut buffer = [0u8; 64 * 1024];
+    loop {
+        let count = file.read(&mut buffer)?;
+        if count == 0 {
+            break;
+        }
+        hasher.update(&buffer[..count]);
+    }
+    Ok(format!("{:x}", hasher.finalize()))
+}
+
 async fn fixture(stop: CancellationToken, requests: Arc<Mutex<Vec<String>>>) -> TestResult<String> {
     let listener = TcpListener::bind("127.0.0.1:0").await?;
     let origin = format!("http://{}", listener.local_addr()?);
@@ -620,6 +637,7 @@ async fn exercise(
 #[ignore = "requires SEMWRIGHT_TEST_CHROMIUM pointing to a disposable Chromium-family executable"]
 async fn real_chromium_native_input_navigation_download_denial_and_cleanup() -> TestResult {
     let executable = PathBuf::from(std::env::var("SEMWRIGHT_TEST_CHROMIUM")?);
+    let sha256 = executable_sha256(&executable)?;
     let directory = tempfile::tempdir()?;
     let storage = directory.path().join("browser");
     let stop = CancellationToken::new();
@@ -629,6 +647,7 @@ async fn real_chromium_native_input_navigation_download_denial_and_cleanup() -> 
     let browser = Chromium::new(
         BrowserConfig {
             executable,
+            sha256,
             allowed_origins: vec![origin.clone()],
             allow_downloads: false,
             ..Default::default()
@@ -669,6 +688,7 @@ async fn real_chromium_native_input_navigation_download_denial_and_cleanup() -> 
 #[ignore = "requires SEMWRIGHT_TEST_CHROMIUM pointing to a disposable Chromium-family executable"]
 async fn real_chromium_cross_origin_oopif_semantics_are_scoped() -> TestResult {
     let executable = PathBuf::from(std::env::var("SEMWRIGHT_TEST_CHROMIUM")?);
+    let sha256 = executable_sha256(&executable)?;
     let directory = tempfile::tempdir()?;
     let storage = directory.path().join("browser");
     let stop = CancellationToken::new();
@@ -676,6 +696,7 @@ async fn real_chromium_cross_origin_oopif_semantics_are_scoped() -> TestResult {
     let browser = Chromium::new(
         BrowserConfig {
             executable,
+            sha256,
             allowed_origins: vec![parent_origin.clone(), child_origin.clone()],
             allow_downloads: false,
             ..Default::default()
@@ -789,6 +810,7 @@ async fn real_chromium_cross_origin_oopif_semantics_are_scoped() -> TestResult {
 #[ignore = "requires SEMWRIGHT_TEST_CHROMIUM pointing to a disposable Chromium-family executable"]
 async fn real_chromium_upload_is_grant_scoped_and_privately_staged() -> TestResult {
     let executable = PathBuf::from(std::env::var("SEMWRIGHT_TEST_CHROMIUM")?);
+    let sha256 = executable_sha256(&executable)?;
     let directory = tempfile::tempdir()?;
     let storage = directory.path().join("browser");
     let upload_root = tempfile::tempdir()?;
@@ -807,6 +829,7 @@ async fn real_chromium_upload_is_grant_scoped_and_privately_staged() -> TestResu
     let browser = Chromium::new_with_grants(
         BrowserConfig {
             executable,
+            sha256,
             allowed_origins: vec![origin.clone()],
             allow_downloads: false,
             ..Default::default()
@@ -929,16 +952,20 @@ fn kill_owned_browser_processes(storage: &Path) -> TestResult<usize> {
     if pids.is_empty() {
         return Err("owned Chromium process was not found".into());
     }
-    let mut command = Command::new("/bin/kill");
-    command.arg("-KILL");
+    let mut killed_or_already_gone = 0usize;
     for pid in &pids {
-        command.arg(pid.to_string());
+        let process_dir = PathBuf::from(format!("/proc/{pid}"));
+        let status = Command::new("/bin/kill")
+            .arg("-KILL")
+            .arg(pid.to_string())
+            .status()?;
+        if status.success() || !process_dir.exists() {
+            killed_or_already_gone += 1;
+            continue;
+        }
+        return Err(format!("failed to kill still-live owned Chromium process {pid}").into());
     }
-    let status = command.status()?;
-    if !status.success() {
-        return Err("failed to kill owned Chromium process set".into());
-    }
-    Ok(pids.len())
+    Ok(killed_or_already_gone)
 }
 
 async fn wait_until_not_running(browser: &Chromium, ctx: &Context) -> TestResult {
@@ -976,6 +1003,7 @@ async fn stable_main_document_ref(
 #[ignore = "requires SEMWRIGHT_TEST_CHROMIUM pointing to a disposable Chromium-family executable"]
 async fn real_chromium_quota_multiframe_crash_recovery_and_artifact_lifecycle() -> TestResult {
     let executable = PathBuf::from(std::env::var("SEMWRIGHT_TEST_CHROMIUM")?);
+    let sha256 = executable_sha256(&executable)?;
     let directory = tempfile::tempdir()?;
     let storage = directory.path().join("browser");
     let stop = CancellationToken::new();
@@ -985,6 +1013,7 @@ async fn real_chromium_quota_multiframe_crash_recovery_and_artifact_lifecycle() 
     let browser = Chromium::new(
         BrowserConfig {
             executable,
+            sha256,
             allowed_origins: vec![origin.clone()],
             allow_downloads: true,
             max_download_bytes: 4 * 1024,

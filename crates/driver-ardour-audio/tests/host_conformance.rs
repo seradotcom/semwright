@@ -233,16 +233,28 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
                 root: "ardour-lua-tool".into(),
                 name: "ardour-lua".into(),
                 sha256: digest(&lua),
+
+                mounts: vec![],
+                system_config: vec![],
+                dependencies: vec![],
             },
             DriverToolMount {
                 root: "ardour-create-tool".into(),
                 name: "ardour-new-session".into(),
                 sha256: digest(&create),
+
+                mounts: vec![],
+                system_config: vec![],
+                dependencies: vec![],
             },
             DriverToolMount {
                 root: "ardour-export-tool".into(),
                 name: "ardour-export".into(),
                 sha256: digest(&export),
+
+                mounts: vec![],
+                system_config: vec![],
+                dependencies: vec![],
             },
         ],
         network: false,

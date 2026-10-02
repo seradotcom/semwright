@@ -6,7 +6,6 @@ import {createHash} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import {build} from 'vite';
 import motionCanvasModule from '@motion-canvas/vite-plugin';
-import {firefox} from 'playwright';
 
 const motionCanvas = typeof motionCanvasModule === 'function' ? motionCanvasModule : motionCanvasModule.default;
 function fail(message) { throw new Error(message); }
@@ -54,8 +53,36 @@ function args() {
     if (!key?.startsWith('--') || value === undefined) fail('invalid arguments');
     out[key.slice(2)] = value;
   }
-  for (const key of ['project', 'output', 'config', 'browser']) if (!out[key]) fail(`missing --${key}`);
+  const required = ['project-root', 'project-relative', 'output-root', 'output-relative', 'fontconfig-root', 'config'];
+  for (const key of required) if (!out[key]) fail(`missing --${key}`);
+  if (Object.keys(out).some(key => !required.includes(key))) fail('unknown argument');
   return out;
+}
+function safeRelative(value, label) {
+  if (!value || value.includes('\\') || path.isAbsolute(value)) fail(`invalid ${label}`);
+  const parts = value.split('/');
+  if (parts.some(part => !part || part === '.' || part === '..')) fail(`invalid ${label}`);
+  return parts;
+}
+async function childOf(rootValue, relative, label) {
+  const root = await fs.realpath(rootValue);
+  const target = await fs.realpath(path.join(root, ...safeRelative(relative, label)));
+  const relation = path.relative(root, target);
+  if (!relation || relation.startsWith('..' + path.sep) || relation === '..' || path.isAbsolute(relation)) {
+    fail(`${label} escapes owner-granted root`);
+  }
+  return {root, target};
+}
+async function containedFile(root, candidate, label) {
+  const canonicalRoot = await fs.realpath(root);
+  const canonical = await fs.realpath(candidate);
+  const relation = path.relative(canonicalRoot, canonical);
+  if (!relation || relation.startsWith('..' + path.sep) || relation === '..' || path.isAbsolute(relation)) {
+    fail(`${label} escapes runtime bundle`);
+  }
+  const stat = await fs.stat(canonical);
+  if (!stat.isFile()) fail(`${label} is not a file`);
+  return canonical;
 }
 function harnessPlugin(config, entry) {
   const id = '\0semwright-render-entry';
@@ -204,11 +231,30 @@ let failureDetail = null;
 async function main() {
   failurePhase = 'arguments';
   const a = args();
-  const runtimeRoot = path.dirname(fileURLToPath(import.meta.url));
+  const runtimeRoot = await fs.realpath(process.cwd());
+  // Driver Host intentionally clears ambient environment. Pin Playwright's
+  // browser registry to this owner-granted runtime bundle before importing it.
+  process.env.PLAYWRIGHT_BROWSERS_PATH = '0';
+  const {firefox} = await import('playwright');
   const config = JSON.parse(Buffer.from(a.config, 'base64url').toString('utf8'));
   failurePhase = 'font_evidence';
+  const lockBytes=await fs.readFile(await containedFile(runtimeRoot,path.join(runtimeRoot,'package-lock.json'),'dependency lock'));
+  if(createHash('sha256').update(lockBytes).digest('hex')!==config.dependencyLockDigest)fail('dependency lock binding changed');
+  if(!Array.isArray(config.fontResourcePins)||config.fontResourcePins.length===0||config.fontResourcePins.length>128)fail('font resource pin budget');
+  const resourceHash=createHash('sha256');
+  for(const pin of config.fontResourcePins){
+    safeRelative(pin.path,'font resource');
+    const bytes=await fs.readFile(await containedFile(runtimeRoot,path.join(runtimeRoot,pin.path),'font resource'));
+    if(bytes.length===0||bytes.length>16*1024*1024||createHash('sha256').update(bytes).digest('hex')!==pin.sha256)fail('font resource binding changed');
+    resourceHash.update(pin.path);resourceHash.update(Buffer.from([0]));resourceHash.update(pin.sha256);resourceHash.update(Buffer.from([0]));
+  }
+  if(resourceHash.digest('hex')!==config.fontResourcesDigest)fail('font resource digest binding changed');
   if(config.authoring) config.fontEvidence=await pinnedFontEvidence(runtimeRoot);
-  const project = path.resolve(a.project); const output = path.resolve(a.output);
+  const {target: project} = await childOf(a['project-root'], a['project-relative'], 'project');
+  const {target: output} = await childOf(a['output-root'], a['output-relative'], 'output');
+  const fontconfigRoot = await fs.realpath(a['fontconfig-root']);
+  if (!(await fs.stat(fontconfigRoot)).isDirectory()) fail('fontconfig root is not a directory');
+  const browser = await containedFile(runtimeRoot, firefox.executablePath(), 'Firefox executable');
   const work = await fs.mkdtemp(path.join(os.tmpdir(), 'semwright-motion-render-'));
   const dist = path.join(work, '.semwright-render-dist');
   let context; let page; let cancelling = false;
@@ -235,11 +281,23 @@ async function main() {
     failurePhase = 'browser_launch';
     context = await firefox.launchPersistentContext(profile, {
       headless:true,
-      executablePath:a.browser,
+      executablePath:browser,
       viewport:{width:config.width,height:config.height},
       serviceWorkers:'block',
       firefoxUserPrefs:{'dom.ipc.forkserver.enable':false},
-      env:{...process.env,MOZ_ASSUME_USER_NS:'0',MOZ_DISABLE_CONTENT_SANDBOX:'1'},
+      env:{
+        ...process.env,
+        FONTCONFIG_PATH:fontconfigRoot,
+        FONTCONFIG_FILE:path.join(fontconfigRoot,'fonts.conf'),
+        TMPDIR:output,
+        TMP:output,
+        TEMP:output,
+        XDG_CACHE_HOME:path.join(output,'.cache'),
+        XDG_CONFIG_HOME:path.join(output,'.config'),
+        XDG_DATA_HOME:path.join(output,'.data'),
+        MOZ_ASSUME_USER_NS:'0',
+        MOZ_DISABLE_CONTENT_SANDBOX:'1'
+      },
     });
     page = context.pages()[0];
     if (!page) fail('Firefox persistent context exposed no startup page');

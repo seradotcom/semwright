@@ -5,7 +5,7 @@ use semwright_platform_api::{
     PlatformPaths,
     launch::{ExecutableVerifier, SandboxLauncher},
 };
-use semwright_types::Result;
+use semwright_types::{Error, Result};
 use std::path::{Path, PathBuf};
 
 #[cfg(target_os = "linux")]
@@ -133,9 +133,46 @@ pub fn verify_sealed_tool_executable(p: &Path, d: &str) -> Result<Vec<u8>> {
     semwright_platform_linux_sys::launch::verify_sealed_tool_executable(p, d)
 }
 
+#[cfg(target_os = "macos")]
+pub fn verify_sealed_tool_executable(path: &Path, digest: &str) -> Result<Vec<u8>> {
+    semwright_platform_macos_sys::launch::verify_sealed_tool_executable(path, digest)
+}
+
 #[cfg(target_os = "windows")]
 pub fn verify_sealed_tool_executable(path: &Path, digest: &str) -> Result<Vec<u8>> {
     semwright_platform_windows_sys::launch::verify_sealed_tool_executable(path, digest)
+}
+
+fn validate_application_executable_input(path: &Path, digest: &str) -> Result<()> {
+    if !path.is_absolute()
+        || digest.len() != 64
+        || !digest
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    {
+        return Err(Error::invalid(
+            "Application executable requires an absolute path and canonical lowercase SHA-256",
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+pub fn verify_application_executable(path: &Path, digest: &str) -> Result<()> {
+    validate_application_executable_input(path, digest)?;
+    semwright_platform_linux_sys::launch::verify_application_executable(path, digest)
+}
+
+#[cfg(target_os = "macos")]
+pub fn verify_application_executable(path: &Path, digest: &str) -> Result<()> {
+    validate_application_executable_input(path, digest)?;
+    semwright_platform_macos_sys::launch::verify_application_executable(path, digest)
+}
+
+#[cfg(target_os = "windows")]
+pub fn verify_application_executable(path: &Path, digest: &str) -> Result<()> {
+    validate_application_executable_input(path, digest)?;
+    semwright_platform_windows_sys::launch::verify_application_executable(path, digest)
 }
 
 #[cfg(target_os = "windows")]

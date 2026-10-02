@@ -1,5 +1,6 @@
 name: Maintainer secret precheck
 on:
+  workflow_call:
   push:
     branches: [main]
   pull_request:

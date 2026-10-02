@@ -3,7 +3,7 @@ use semwright_backend_api::{Context, Provider};
 use semwright_core::{Broker, NoApprover, audit::Audit};
 use semwright_driver_host::DriverProvider;
 use semwright_driver_sdk::{
-    ApplicationMatch, DriverInterfaces, DriverMount, DriverResources, Manifest, SystemConfigMount,
+    ApplicationMatch, DriverInterfaces, DriverMount, DriverResources, DriverToolMount, Manifest,
     Transport,
 };
 use semwright_policy::{FilesystemGrant, Policy, PolicyConfig};
@@ -77,29 +77,10 @@ fn grant(name: &str, path: &Path, write: bool) -> FilesystemGrant {
         write,
     }
 }
-fn manifest(executable: PathBuf, with_runtime: bool) -> Manifest {
-    let mut mounts = vec![
-        DriverMount {
-            root: "project".into(),
-            read_only: false,
-            execute: false,
-        },
-        DriverMount {
-            root: "output".into(),
-            read_only: false,
-            execute: false,
-        },
-    ];
-    if with_runtime {
-        mounts.push(DriverMount {
-            root: "runtime".into(),
-            read_only: true,
-            execute: true,
-        });
-    }
+fn manifest(executable: PathBuf, node_sha256: String) -> Manifest {
     Manifest {
         manifest_version: 1,
-        protocol: 3,
+        protocol: 7,
         id: "motion-canvas".into(),
         version: env!("CARGO_PKG_VERSION").into(),
         publisher: "semwright-tests".into(),
@@ -108,20 +89,46 @@ fn manifest(executable: PathBuf, with_runtime: bool) -> Manifest {
         application: ApplicationMatch {
             desktop_id: None,
             process_names: vec!["node".into()],
-            supported_versions: vec!["3.17.2".into()],
+            supported_versions: vec!["3.17.2".into(), "Node 22.22.0".into()],
         },
         transport: Transport::StdioV1,
-        mounts,
-        system_config: if with_runtime {
-            vec![SystemConfigMount {
+        mounts: vec![
+            DriverMount {
+                root: "project".into(),
+                read_only: false,
+                execute: false,
+            },
+            DriverMount {
+                root: "output".into(),
+                read_only: false,
+                execute: false,
+            },
+            DriverMount {
+                root: "runtime".into(),
+                read_only: true,
+                execute: true,
+            },
+            DriverMount {
                 root: "fontconfig".into(),
-                destination: "/etc/fonts".into(),
-            }]
-        } else {
-            vec![]
-        },
+                read_only: true,
+                execute: false,
+            },
+        ],
+        system_config: vec![],
         secrets: vec![],
-        tools: vec![],
+        tools: vec![DriverToolMount {
+            root: "motion-node-tool".into(),
+            name: "motion-node".into(),
+            sha256: node_sha256,
+            mounts: vec![
+                "project".into(),
+                "output".into(),
+                "runtime".into(),
+                "fontconfig".into(),
+            ],
+            system_config: vec![],
+            dependencies: vec![],
+        }],
         network: false,
         loopback_port: None,
         resources: DriverResources {
@@ -138,6 +145,7 @@ fn manifest(executable: PathBuf, with_runtime: bool) -> Manifest {
             progress: true,
             artifacts: true,
             health: true,
+            host_tools: true,
             ..DriverInterfaces::default()
         },
     }
@@ -196,14 +204,17 @@ async fn real_motion_canvas_render_runs_inside_sandbox() {
     let h = Harness::new();
     let runtime =
         PathBuf::from(std::env::var_os("SEMWRIGHT_TEST_MOTION_RUNTIME").expect("runtime root env"));
+    let node =
+        PathBuf::from(std::env::var_os("SEMWRIGHT_TEST_MOTION_NODE").expect("Node tool env"));
     let grants = vec![
         grant("project", h.project.path(), true),
         grant("output", h.output.path(), true),
         grant("runtime", &runtime, false),
         grant("fontconfig", Path::new("/etc/fonts"), false),
+        grant("motion-node-tool", &node, false),
     ];
     let provider = DriverProvider::connect(
-        manifest(h.executable.clone(), true),
+        manifest(h.executable.clone(), digest(&node)),
         h.state.path(),
         &h.helper,
         &grants,
@@ -284,7 +295,7 @@ async fn real_motion_canvas_render_runs_inside_sandbox() {
     .unwrap();
     assert_eq!(
         alpha_terminal["state"], "succeeded",
-        "protocol-v3 alpha render: {alpha_terminal:#}"
+        "protocol-v7 alpha render: {alpha_terminal:#}"
     );
     assert_eq!(alpha_terminal["artifact"]["frame_count"], 2);
     let alpha_dir = h

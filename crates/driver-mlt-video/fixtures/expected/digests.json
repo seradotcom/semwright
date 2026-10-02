@@ -1,5 +1,5 @@
 {
-  "catalog_sha256": "bfafcea5e193ea05715afffceb624524e7c5fadb757144e8d72019e562d3e675",
+  "catalog_sha256": "6e315b6cf9c554685f15e7f86666fcabb9c6373850e7cfe03b18491afd3eb4de",
   "descriptor_sha256": {
     "driver.mlt-video.asset.import": "4de33c901da0526cc8fc503defa3e303e05ff12634a1acb2861fffecd8f01f8e",
     "driver.mlt-video.asset.inspect": "3e5a56169385238784bfcc2e8a761715ce40bce487c867a4f3fb058c2856cd98",
@@ -19,7 +19,7 @@
     "driver.mlt-video.clip.remove": "f345e56fba2e2a26b377bc855eafe0a93d953b61131a94165a41a68851e8fadd",
     "driver.mlt-video.clip.split": "6f4fa03c17d3fe6a59eb6920d04f5c59740b39875a5b4239e8d26dc51c0e30eb",
     "driver.mlt-video.clip.trim": "eeeaa54f36ae02af2256333dae4bed872f13a4f7ea5abca9c1158aa76a20e59b",
-    "driver.mlt-video.doctor": "e643f370a8b83560572b414918f5a808e635cb162bb493b1bde3804d5b36b45e",
+    "driver.mlt-video.doctor": "17fee2498402ad043344cfe59e3f1492ad3a21939356391f39eb1d41e47eb92f",
     "driver.mlt-video.effect.add": "2ccf39ca041ee47043bbe5105a78e8351705044e0f50d652c8d6e807725cf290",
     "driver.mlt-video.effect.describe": "2f076ec6d415fd6404a8a6d985955dfffdb0ce2534865277efdce737ea62f40a",
     "driver.mlt-video.effect.disable": "e28f97ae69700f48a801843de50c016dfc29eda406fc281804ef84bf5e29a582",

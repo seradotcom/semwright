@@ -6,19 +6,24 @@ on:
   push:
     branches: [main]
   pull_request:
-  workflow_dispatch:
+  workflow_call:
     inputs:
-      certify_all:
-        description: 'Run complete native integration certification for exact candidate'
+      full_cert:
         required: false
         type: boolean
         default: false
-      candidate_sha:
-        description: 'Exact candidate SHA; required when certify_all=true on composition branch'
+  workflow_dispatch:
+    inputs:
+      full_cert:
+        description: "Run every native integration certification job"
         required: false
-        type: string
+        type: boolean
+        default: false
 permissions:
   contents: read
+concurrency:
+  group: native-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
 env:
   CARGO_INCREMENTAL: 0
   CARGO_PROFILE_DEV_DEBUG: 0
@@ -26,56 +31,43 @@ env:
 jobs:
   scope:
     runs-on: ubuntu-24.04
-    timeout-minutes: 3
+    timeout-minutes: 5
     outputs:
-      run_full: ${{ steps.scope.outputs.run_full }}
-      figma: ${{ steps.scope.outputs.figma }}
-      mlt: ${{ steps.scope.outputs.mlt }}
-      driver_common: ${{ steps.scope.outputs.native_driver_common }}
+      native_chromium: ${{ steps.scope.outputs.native_chromium }}
+      native_driver_conformance: ${{ steps.scope.outputs.native_driver_conformance }}
+      native_driver_distribution: ${{ steps.scope.outputs.native_driver_distribution }}
+      native_libreoffice: ${{ steps.scope.outputs.native_libreoffice }}
+      native_blender: ${{ steps.scope.outputs.native_blender }}
+      native_figma: ${{ steps.scope.outputs.native_figma }}
+      native_kicad_mlt: ${{ steps.scope.outputs.native_kicad_mlt }}
+      native_pipewire: ${{ steps.scope.outputs.native_pipewire }}
+      native_x11: ${{ steps.scope.outputs.native_x11 }}
+      native_atspi: ${{ steps.scope.outputs.native_atspi }}
+      native_sway: ${{ steps.scope.outputs.native_sway }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          persist-credentials: false
-          fetch-depth: 2
+          fetch-depth: 0
       - id: scope
         env:
-          HEAD_REF: ${{ github.head_ref }}
-          REF_NAME: ${{ github.ref_name }}
-          CERTIFY_ALL: ${{ inputs.certify_all }}
-          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          FULL_CERT: ${{ inputs.full_cert }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
         run: |
-          mode=iteration
-          if [ "$CERTIFY_ALL" = true ]; then mode=certify; fi
-
-          if [ "$mode" = certify ]; then
-            python scripts/composition/ci-scope.py \
-              --mode certify \
-              --after "$GITHUB_SHA" \
-              --candidate-sha "$CANDIDATE_SHA" \
-              --github-output "$GITHUB_OUTPUT"
-            echo "run_full=true" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+          if [[ "$FULL_CERT" == "true" ]]; then
+            python3 scripts/dev/ci-affected-areas.py --full >> "$GITHUB_OUTPUT"
             exit 0
           fi
-
-          if [ "$HEAD_REF" != "feat/composition-media" ] && [ "$REF_NAME" != "feat/composition-media" ]; then
-            echo "run_full=true" >> "$GITHUB_OUTPUT"
-            echo "figma=true" >> "$GITHUB_OUTPUT"
-            echo "mlt=true" >> "$GITHUB_OUTPUT"
-            echo "native_driver_common=true" >> "$GITHUB_OUTPUT"
-            exit 0
+          if [[ -z "$BASE_SHA" || "$BASE_SHA" =~ ^0+$ ]]; then
+            BASE_SHA=$(git rev-parse HEAD^ 2>/dev/null || git rev-parse HEAD)
           fi
+          git diff --name-only "$BASE_SHA" "$HEAD_SHA" |
+            python3 scripts/dev/ci-affected-areas.py >> "$GITHUB_OUTPUT"
 
-          python scripts/composition/ci-scope.py \
-            --mode iteration \
-            --after "$GITHUB_SHA" \
-            --github-output "$GITHUB_OUTPUT"
-          echo "run_full=false" >> "$GITHUB_OUTPUT"
   chromium:
     needs: scope
-    if: ${{ needs.scope.outputs.run_full == 'true' && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
-    concurrency:
-      group: native-chromium-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
-      cancel-in-progress: true
+    if: ${{ (inputs.full_cert == true || needs.scope.outputs.native_chromium == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -112,10 +104,7 @@ jobs:
 
   driver-conformance:
     needs: scope
-    if: ${{ (needs.scope.outputs.run_full == 'true' || needs.scope.outputs.driver_common == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
-    concurrency:
-      group: native-driver-conformance-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
-      cancel-in-progress: true
+    if: ${{ (inputs.full_cert == true || needs.scope.outputs.native_driver_conformance == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -213,10 +202,7 @@ jobs:
 
   driver-distribution:
     needs: scope
-    if: ${{ (needs.scope.outputs.run_full == 'true' || needs.scope.outputs.driver_common == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
-    concurrency:
-      group: native-driver-distribution-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
-      cancel-in-progress: true
+    if: ${{ (inputs.full_cert == true || needs.scope.outputs.native_driver_distribution == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -247,10 +233,7 @@ jobs:
 
   libreoffice-driver:
     needs: scope
-    if: ${{ needs.scope.outputs.run_full == 'true' && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
-    concurrency:
-      group: native-libreoffice-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
-      cancel-in-progress: true
+    if: ${{ (inputs.full_cert == true || needs.scope.outputs.native_libreoffice == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -311,6 +294,7 @@ jobs:
       - name: Build LibreOffice driver surface
         run: |
           cargo build --locked -p semwright-driver-libreoffice --bin semwright-libreoffice-driver \
+            --bin semwright-libreoffice-runtime-runner \
             -p semwright-plugin-host --bin semwright-sandbox \
             -p semwright-cli --bin semwright \
             -p semwright-daemon --bin semwrightd
@@ -331,10 +315,7 @@ jobs:
 
   blender-driver:
     needs: scope
-    if: ${{ needs.scope.outputs.run_full == 'true' && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
-    concurrency:
-      group: native-blender-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
-      cancel-in-progress: true
+    if: ${{ (inputs.full_cert == true || needs.scope.outputs.native_blender == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     env:
@@ -413,7 +394,8 @@ jobs:
             2>&1 | tee verification/native-ci/blender-background-preflight.log
       - name: Build Blender driver surface
         run: |
-          cargo build --locked -p semwright-driver-blender --bin semwright-blender-driver \
+          cargo build --locked -p semwright-driver-blender \
+            --bin semwright-blender-driver --bin semwright-blender-session-runner \
             -p semwright-plugin-host --bin semwright-sandbox \
             -p semwright-cli --bin semwright \
             -p semwright-daemon --bin semwrightd
@@ -485,10 +467,7 @@ jobs:
 
   figma-driver:
     needs: scope
-    if: ${{ (needs.scope.outputs.run_full == 'true' || needs.scope.outputs.figma == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
-    concurrency:
-      group: native-figma-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
-      cancel-in-progress: true
+    if: ${{ (inputs.full_cert == true || needs.scope.outputs.native_figma == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -585,116 +564,13 @@ jobs:
           path: verification/native-ci/figma-*
           retention-days: 14
 
-  mlt-driver-iteration:
-    needs: scope
-    if: ${{ needs.scope.outputs.run_full != 'true' && needs.scope.outputs.mlt == 'true' && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
-    concurrency:
-      group: native-mlt-iteration-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
-      cancel-in-progress: true
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
-        with:
-          toolchain: 1.98.1
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
-        with:
-          key: mlt-driver-iteration-v1
-      - name: Install MLT sandbox dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y bubblewrap apparmor-profiles apparmor-utils python3 melt ffmpeg libpipewire-0.3-dev
-          mkdir -p verification/native-ci
-          melt -version | head -5 | tee verification/native-ci/mlt-version.log
-          ffprobe -version | head -3 | tee verification/native-ci/ffprobe-version.log
-          bwrap --version | tee verification/native-ci/bwrap-version.log
-      - name: Preflight unprivileged Bubblewrap without relaxing AppArmor
-        run: |
-          current_userns=$(sysctl -n kernel.unprivileged_userns_clone 2>/dev/null || true)
-          if [ -n "$current_userns" ] && [ "$current_userns" != "1" ]; then
-            sudo sysctl -w kernel.unprivileged_userns_clone=1
-          fi
-          current_apparmor=$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || true)
-          if [ "$current_apparmor" = "1" ]; then
-            PROFILE=/usr/share/apparmor/extra-profiles/bwrap-userns-restrict
-            test -f "$PROFILE"
-            cp "$PROFILE" "$RUNNER_TEMP/mlt-bwrap-userns-restrict"
-            python3 - "$RUNNER_TEMP/mlt-bwrap-userns-restrict" <<'PY'
-          from pathlib import Path
-          import sys
-          path=Path(sys.argv[1]); text=path.read_text()
-          old="flags=(attach_disconnected)"
-          if text.count(old)!=2: raise SystemExit("unexpected bwrap AppArmor flag shape")
-          text=text.replace(old,"flags=(attach_disconnected,mediate_deleted)")
-          parent="allow px /** -> bwrap//&unpriv_bwrap,"
-          nested="allow pix /** -> &unpriv_bwrap,"
-          if text.count(parent)!=1 or text.count(nested)!=1:
-              raise SystemExit("unexpected bwrap AppArmor exec-rule shape")
-          text=text.replace("  "+parent,"\n".join([
-              "  allow px /plugin/sandbox -> bwrap//&unpriv_bwrap,",
-              "  allow ix /plugin/bin,",
-              "  allow ix /workspace/**,",
-              "  allow ix /usr/**,",
-              "  allow ix /tmp/**,",
-          ]))
-          text=text.replace("  "+nested,"\n".join([
-              "  allow ix /plugin/bin,",
-              "  allow ix /workspace/**,",
-              "  allow ix /usr/**,",
-              "  allow ix /tmp/**,",
-          ]))
-          path.write_text(text)
-          PY
-            sudo install -m 0644 "$RUNNER_TEMP/mlt-bwrap-userns-restrict" /etc/apparmor.d/bwrap-userns-restrict
-            sudo apparmor_parser -r /etc/apparmor.d/bwrap-userns-restrict
-            test "$(sysctl -n kernel.apparmor_restrict_unprivileged_userns)" = "1"
-          fi
-          bwrap_args=(--die-with-parent --new-session --unshare-all --clearenv --cap-drop ALL --proc /proc --dev /dev --tmpfs /tmp --dir /home)
-          for runtime in /usr /lib /lib64; do
-            if [ -e "$runtime" ]; then bwrap_args+=(--ro-bind "$runtime" "$runtime"); fi
-          done
-          bwrap "${bwrap_args[@]}" -- /usr/bin/true
-      - name: Verify generated MLT catalog evidence
-        run: |
-          python3 scripts/generate-mlt-catalog-fixtures.py | tee verification/native-ci/mlt-catalog-generation.log
-          git diff --exit-code --             crates/driver-mlt-video/src/catalog.json             crates/driver-mlt-video/fixtures/expected             crates/driver-mlt-video/fixtures/SHA256SUMS.json
-      - name: Build and test MLT semantic driver
-        run: |
-          cargo test --locked -p semwright-mlt-video-driver --all-features 2>&1 | tee verification/native-ci/mlt-tests.log
-          cargo clippy --locked -p semwright-mlt-video-driver --all-targets --all-features -- -D warnings
-      - name: Real MLT DriverProvider sandbox conformance
-        env:
-          SEMWRIGHT_TEST_MLT_VIDEO: 1
-          SEMWRIGHT_TEST_MELT: /usr/bin/melt
-          SEMWRIGHT_TEST_FFPROBE: /usr/bin/ffprobe
-          SEMWRIGHT_TEST_FFMPEG: /usr/bin/ffmpeg
-          SEMWRIGHT_TEST_BWRAP: /usr/bin/bwrap
-          SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
-        run: |
-          cargo build --locked -p semwright-plugin-host --bin semwright-sandbox             -p semwright-mlt-video-driver --bin semwright-mlt-video-driver
-          cargo test --locked -p semwright-mlt-video-driver real_mlt_video_driver_runs_inside_sandbox -- --ignored --nocapture             2>&1 | tee verification/native-ci/mlt-driver-live.log
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        if: always()
-        with:
-          name: mlt-driver-iteration-evidence-${{ github.sha }}
-          path: verification/native-ci/mlt-*
-          retention-days: 7
-
   kicad-mlt-drivers:
     needs: scope
-    if: ${{ needs.scope.outputs.run_full == 'true' && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
-    concurrency:
-      group: native-kicad-mlt-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
-      cancel-in-progress: true
+    if: ${{ (inputs.full_cert == true || needs.scope.outputs.native_kicad_mlt == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
         with:
           toolchain: 1.98.1
@@ -714,64 +590,9 @@ jobs:
           ffprobe -version | head -3 | tee verification/native-ci/ffprobe-version.log
           go version | tee verification/native-ci/go-version.log
           bwrap --version | tee verification/native-ci/bwrap-version.log
-      - name: Preflight unprivileged Bubblewrap without relaxing AppArmor
+      - name: Preflight unprivileged Bubblewrap
         run: |
-          current_userns=$(sysctl -n kernel.unprivileged_userns_clone 2>/dev/null || true)
-          if [ -n "$current_userns" ] && [ "$current_userns" != "1" ]; then
-            sudo sysctl -w kernel.unprivileged_userns_clone=1
-          fi
-          current_apparmor=$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || true)
-          sandbox_setup=kernel-default
-          if [ "$current_apparmor" = "1" ]; then
-            sudo apt-get install -y apparmor-profiles apparmor-utils
-            PROFILE=/usr/share/apparmor/extra-profiles/bwrap-userns-restrict
-            test -f "$PROFILE"
-            cp "$PROFILE" "$RUNNER_TEMP/mlt-bwrap-userns-restrict"
-            python3 - "$RUNNER_TEMP/mlt-bwrap-userns-restrict" <<'PY'
-          from pathlib import Path
-          import sys
-          path=Path(sys.argv[1]); text=path.read_text()
-          old="flags=(attach_disconnected)"
-          if text.count(old)!=2: raise SystemExit("unexpected bwrap AppArmor flag shape")
-          text=text.replace(old,"flags=(attach_disconnected,mediate_deleted)")
-          parent="allow px /** -> bwrap//&unpriv_bwrap,"
-          nested="allow pix /** -> &unpriv_bwrap,"
-          if text.count(parent)!=1 or text.count(nested)!=1:
-              raise SystemExit("unexpected bwrap AppArmor exec-rule shape")
-          text=text.replace("  "+parent,"\n".join([
-              "  allow px /plugin/sandbox -> bwrap//&unpriv_bwrap,",
-              "  allow ix /plugin/bin,",
-              "  allow ix /workspace/**,",
-              "  allow ix /usr/**,",
-              "  allow ix /tmp/**,",
-          ]))
-          text=text.replace("  "+nested,"\n".join([
-              "  allow ix /plugin/bin,",
-              "  allow ix /workspace/**,",
-              "  allow ix /usr/**,",
-              "  allow ix /tmp/**,",
-          ]))
-          path.write_text(text)
-          PY
-            sudo install -m 0644 "$RUNNER_TEMP/mlt-bwrap-userns-restrict" /etc/apparmor.d/bwrap-userns-restrict
-            sudo apparmor_parser -r /etc/apparmor.d/bwrap-userns-restrict
-            test "$(sysctl -n kernel.apparmor_restrict_unprivileged_userns)" = "1"
-            sandbox_setup=apparmor-scoped-semwright-chain
-          fi
-          echo "sandbox_setup=$sandbox_setup" | tee verification/native-ci/extended-driver-sandbox.log
-          test "$sandbox_setup" != ephemeral-ci-userns-relaxation
-          bwrap_args=(--die-with-parent --new-session --unshare-all --clearenv --cap-drop ALL --proc /proc --dev /dev --tmpfs /tmp --dir /home)
-          for runtime in /usr /lib /lib64; do
-            if [ -e "$runtime" ]; then bwrap_args+=(--ro-bind "$runtime" "$runtime"); fi
-          done
-          bwrap "${bwrap_args[@]}" -- /usr/bin/true
-      - name: Verify generated MLT catalog evidence
-        run: |
-          python3 scripts/generate-mlt-catalog-fixtures.py | tee verification/native-ci/mlt-catalog-generation.log
-          git diff --exit-code -- \
-            crates/driver-mlt-video/src/catalog.json \
-            crates/driver-mlt-video/fixtures/expected \
-            crates/driver-mlt-video/fixtures/SHA256SUMS.json
+          bash scripts/dev/ci-driver-bwrap-profile.sh verification/native-ci/extended-driver-sandbox.log
       - name: Build and test MLT semantic driver
         run: |
           cargo test --locked -p semwright-mlt-video-driver --all-features 2>&1 | tee verification/native-ci/mlt-tests.log
@@ -810,10 +631,7 @@ jobs:
 
   pipewire-screencast:
     needs: scope
-    if: ${{ needs.scope.outputs.run_full == 'true' && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
-    concurrency:
-      group: native-pipewire-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
-      cancel-in-progress: true
+    if: ${{ (inputs.full_cert == true || needs.scope.outputs.native_pipewire == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -842,10 +660,7 @@ jobs:
 
   x11-backend:
     needs: scope
-    if: ${{ needs.scope.outputs.run_full == 'true' && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
-    concurrency:
-      group: native-x11-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
-      cancel-in-progress: true
+    if: ${{ (inputs.full_cert == true || needs.scope.outputs.native_x11 == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -877,10 +692,7 @@ jobs:
 
   atspi-backend:
     needs: scope
-    if: ${{ needs.scope.outputs.run_full == 'true' && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
-    concurrency:
-      group: native-atspi-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
-      cancel-in-progress: true
+    if: ${{ (inputs.full_cert == true || needs.scope.outputs.native_atspi == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -926,10 +738,7 @@ jobs:
 
   atspi-qt-backend:
     needs: scope
-    if: ${{ needs.scope.outputs.run_full == 'true' && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
-    concurrency:
-      group: native-atspi-qt-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
-      cancel-in-progress: true
+    if: ${{ (inputs.full_cert == true || needs.scope.outputs.native_atspi == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -1004,10 +813,7 @@ jobs:
 
   sway-backend:
     needs: scope
-    if: ${{ needs.scope.outputs.run_full == 'true' && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
-    concurrency:
-      group: native-sway-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
-      cancel-in-progress: true
+    if: ${{ (inputs.full_cert == true || needs.scope.outputs.native_sway == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:

@@ -1,20 +1,288 @@
+use async_trait::async_trait;
 use semwright_platform_api::launch::{
-    ExecutableVerifier, MaterializedMount, MaterializedTool, Mount, MountClass, SANDBOX_MOUNTS_ENV,
-    SANDBOX_TOOLS_ENV, SandboxKind, SandboxLauncher, SandboxSpec, SealedToolSource,
-    encode_materialized_mounts, encode_materialized_tools,
+    ExecutableVerifier, MaterializedMount, MaterializedTool, Mount, MountClass,
+    SANDBOX_HOST_TOOL_CHILD_ENV, SANDBOX_HOST_TOOL_CWD_ENV, SANDBOX_HOST_TOOL_TYPED_ARGS_ENV,
+    SANDBOX_MOUNTS_ENV, SANDBOX_TOOLS_ENV, SandboxChildControl, SandboxKind, SandboxLauncher,
+    SandboxProcess, SandboxSpec, SandboxStdin, SandboxStdout, SealedToolSource,
+    encode_materialized_mounts, encode_materialized_tools, resolve_host_tool_args,
 };
 use semwright_types::{Error, ErrorCode, Result};
 use sha2::{Digest, Sha256};
 use std::{
     io::Read,
-    os::unix::fs::{MetadataExt, OpenOptionsExt},
+    os::{
+        fd::{AsRawFd, FromRawFd, OwnedFd},
+        unix::fs::{MetadataExt, OpenOptionsExt},
+    },
     path::Path,
     process::Stdio,
+    time::{Duration, Instant},
 };
-use tokio::process::Command;
+use tokio::process::{Child, Command};
 
 const MAX_PROVIDER_EXECUTABLE_BYTES: u64 = 64 * 1024 * 1024;
 const MAX_SEALED_TOOL_EXECUTABLE_BYTES: u64 = 256 * 1024 * 1024;
+const MAX_APPLICATION_EXECUTABLE_BYTES: u64 = 512 * 1024 * 1024;
+const SANDBOX_BWRAP_INFO_FD_ENV: &str = "SEMWRIGHT_INTERNAL_BWRAP_INFO_FD";
+const MAX_BWRAP_INFO_BYTES: usize = 16 * 1024;
+const BWRAP_INFO_TIMEOUT: Duration = Duration::from_secs(5);
+
+fn parse_bwrap_child_pid(bytes: &[u8]) -> Result<u32> {
+    if bytes.is_empty() || bytes.len() > MAX_BWRAP_INFO_BYTES {
+        return Err(Error::new(
+            ErrorCode::SandboxDenied,
+            "Bubblewrap child metadata is missing or exceeds its bound",
+        ));
+    }
+    let value: serde_json::Value = serde_json::from_slice(bytes).map_err(|_| {
+        Error::new(
+            ErrorCode::SandboxDenied,
+            "Bubblewrap child metadata is not valid JSON",
+        )
+    })?;
+    let pid = value
+        .get("child-pid")
+        .and_then(serde_json::Value::as_u64)
+        .filter(|pid| (1..=i32::MAX as u64).contains(pid))
+        .ok_or_else(|| {
+            Error::new(
+                ErrorCode::SandboxDenied,
+                "Bubblewrap child metadata lacks a valid host child PID",
+            )
+        })?;
+    Ok(pid as u32)
+}
+
+fn bwrap_info_pipe() -> Result<(OwnedFd, OwnedFd)> {
+    let mut fds = [-1i32; 2];
+    // SAFETY: fds points to two writable integers and pipe2 initializes both on success.
+    if unsafe { libc::pipe2(fds.as_mut_ptr(), libc::O_CLOEXEC) } != 0 {
+        return Err(std::io::Error::last_os_error().into());
+    }
+    // SAFETY: pipe2 returned two newly-owned descriptors.
+    let read_fd = unsafe { OwnedFd::from_raw_fd(fds[0]) };
+    // SAFETY: pipe2 returned two newly-owned descriptors.
+    let write_fd = unsafe { OwnedFd::from_raw_fd(fds[1]) };
+
+    // Keep only the Bubblewrap writer inheritable across exec.
+    // SAFETY: F_GETFD reads scalar descriptor flags only.
+    let write_flags = unsafe { libc::fcntl(write_fd.as_raw_fd(), libc::F_GETFD) };
+    if write_flags < 0 {
+        return Err(std::io::Error::last_os_error().into());
+    }
+    // SAFETY: F_SETFD writes scalar descriptor flags only.
+    let set_write_flags = unsafe {
+        libc::fcntl(
+            write_fd.as_raw_fd(),
+            libc::F_SETFD,
+            write_flags & !libc::FD_CLOEXEC,
+        )
+    };
+    if set_write_flags != 0 {
+        return Err(std::io::Error::last_os_error().into());
+    }
+    // Make the parent read side nonblocking so startup remains bounded if Bubblewrap fails.
+    // SAFETY: F_GETFL reads scalar status flags only.
+    let read_flags = unsafe { libc::fcntl(read_fd.as_raw_fd(), libc::F_GETFL) };
+    if read_flags < 0 {
+        return Err(std::io::Error::last_os_error().into());
+    }
+    // SAFETY: F_SETFL writes scalar status flags only.
+    let set_read_flags = unsafe {
+        libc::fcntl(
+            read_fd.as_raw_fd(),
+            libc::F_SETFL,
+            read_flags | libc::O_NONBLOCK,
+        )
+    };
+    if set_read_flags != 0 {
+        return Err(std::io::Error::last_os_error().into());
+    }
+    Ok((read_fd, write_fd))
+}
+
+fn read_bwrap_child_pid(read_fd: &OwnedFd, monitor: &mut Child) -> Result<u32> {
+    let deadline = Instant::now() + BWRAP_INFO_TIMEOUT;
+    let mut bytes = Vec::new();
+    loop {
+        let mut chunk = [0u8; 4096];
+        // SAFETY: chunk is live writable storage and read_fd is an owned readable pipe endpoint.
+        let read =
+            unsafe { libc::read(read_fd.as_raw_fd(), chunk.as_mut_ptr().cast(), chunk.len()) };
+        if read > 0 {
+            bytes.extend_from_slice(&chunk[..read as usize]);
+            if bytes.len() > MAX_BWRAP_INFO_BYTES {
+                return Err(Error::new(
+                    ErrorCode::SandboxDenied,
+                    "Bubblewrap child metadata exceeds its bound",
+                ));
+            }
+            if let Ok(pid) = parse_bwrap_child_pid(&bytes) {
+                return Ok(pid);
+            }
+        } else if read == 0 {
+            return parse_bwrap_child_pid(&bytes);
+        } else {
+            let error = std::io::Error::last_os_error();
+            if error.kind() != std::io::ErrorKind::WouldBlock {
+                return Err(error.into());
+            }
+        }
+
+        if monitor.try_wait()?.is_some() {
+            return Err(Error::new(
+                ErrorCode::SandboxDenied,
+                "Bubblewrap exited before reporting the sandbox child PID",
+            ));
+        }
+        if Instant::now() >= deadline {
+            let _ = monitor.start_kill();
+            return Err(Error::new(
+                ErrorCode::Timeout,
+                "Bubblewrap did not report the sandbox child PID in time",
+            ));
+        }
+        std::thread::sleep(Duration::from_millis(5));
+    }
+}
+
+fn duplicate_pidfd(pidfd: &OwnedFd) -> Result<OwnedFd> {
+    // SAFETY: F_DUPFD_CLOEXEC duplicates one live descriptor using scalar arguments only.
+    let fd = unsafe { libc::fcntl(pidfd.as_raw_fd(), libc::F_DUPFD_CLOEXEC, 3) };
+    if fd < 0 {
+        return Err(std::io::Error::last_os_error().into());
+    }
+    // SAFETY: fcntl returned a new owned descriptor on success.
+    Ok(unsafe { OwnedFd::from_raw_fd(fd) })
+}
+
+fn wait_pidfd_exit(pidfd: &OwnedFd, timeout: Duration) -> Result<()> {
+    let deadline = Instant::now() + timeout;
+    loop {
+        let remaining = deadline.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            return Err(Error::new(
+                ErrorCode::Timeout,
+                "Linux sandbox child did not terminate after Host signal",
+            ));
+        }
+        let timeout_ms = i32::try_from(remaining.as_millis())
+            .unwrap_or(i32::MAX)
+            .max(1);
+        let mut pollfd = libc::pollfd {
+            fd: pidfd.as_raw_fd(),
+            events: libc::POLLIN,
+            revents: 0,
+        };
+        // SAFETY: pollfd points to one live pollfd entry for the duration of the call.
+        let result = unsafe { libc::poll(&mut pollfd, 1, timeout_ms) };
+        if result > 0 {
+            if pollfd.revents & libc::POLLIN != 0 {
+                return Ok(());
+            }
+            if pollfd.revents & (libc::POLLERR | libc::POLLNVAL) != 0 {
+                return Err(Error::new(
+                    ErrorCode::SandboxDenied,
+                    "Linux sandbox child pidfd became invalid while reaping",
+                ));
+            }
+            continue;
+        }
+        if result == 0 {
+            return Err(Error::new(
+                ErrorCode::Timeout,
+                "Linux sandbox child did not terminate after Host signal",
+            ));
+        }
+        let error = std::io::Error::last_os_error();
+        if error.kind() != std::io::ErrorKind::Interrupted {
+            return Err(error.into());
+        }
+    }
+}
+
+fn open_pidfd(pid: u32) -> Result<Option<OwnedFd>> {
+    // SAFETY: pidfd_open takes a numeric PID and flags only.
+    let fd = unsafe { libc::syscall(libc::SYS_pidfd_open, pid, 0) };
+    if fd < 0 {
+        let error = std::io::Error::last_os_error();
+        if error.raw_os_error() == Some(libc::ESRCH) {
+            // Bubblewrap may report a very short-lived child that exits before Host opens
+            // its pidfd. Treat that as an already-terminal child, not a sandbox denial.
+            return Ok(None);
+        }
+        return Err(Error::new(
+            ErrorCode::SandboxDenied,
+            "pidfd_open is required for Linux sandbox child lifecycle safety",
+        ));
+    }
+    // SAFETY: successful pidfd_open returns a newly-owned descriptor.
+    Ok(Some(unsafe { OwnedFd::from_raw_fd(fd as i32) }))
+}
+
+struct LinuxSandboxChild {
+    monitor: Child,
+    child_pid: u32,
+    child_pidfd: Option<OwnedFd>,
+    exit_code: Option<i32>,
+}
+
+#[async_trait]
+impl SandboxChildControl for LinuxSandboxChild {
+    fn id(&self) -> Option<u32> {
+        Some(self.child_pid)
+    }
+
+    async fn kill(&mut self) -> Result<()> {
+        if let Some(child_pidfd) = &self.child_pidfd {
+            // Kill the exact Bubblewrap child first. This keeps Host-owned stdio open while the
+            // runtime is terminated, so a persistent child cannot interpret pipe EOF as a clean exit.
+            // SAFETY: pidfd pins the exact sandbox child and no user pointers are passed.
+            let signalled = unsafe {
+                libc::syscall(
+                    libc::SYS_pidfd_send_signal,
+                    child_pidfd.as_raw_fd(),
+                    libc::SIGKILL,
+                    std::ptr::null::<libc::siginfo_t>(),
+                    0,
+                )
+            };
+            if signalled != 0 {
+                let error = std::io::Error::last_os_error();
+                if error.raw_os_error() != Some(libc::ESRCH) {
+                    return Err(error.into());
+                }
+            } else {
+                let wait_pidfd = duplicate_pidfd(child_pidfd)?;
+                tokio::task::spawn_blocking(move || {
+                    wait_pidfd_exit(&wait_pidfd, Duration::from_secs(2))
+                })
+                .await
+                .map_err(|_| {
+                    Error::new(
+                        ErrorCode::Internal,
+                        "Linux sandbox child reaper task failed",
+                    )
+                })??;
+            }
+        }
+
+        if self.monitor.try_wait()?.is_none() {
+            let _ = self.monitor.start_kill();
+        }
+        Ok(())
+    }
+
+    async fn wait(&mut self) -> Result<()> {
+        let status = self.monitor.wait().await?;
+        self.exit_code = status.code();
+        Ok(())
+    }
+
+    fn exit_code(&self) -> Option<i32> {
+        self.exit_code
+    }
+}
 
 fn verify_executable_bounded(path: &Path, digest: &str, max_bytes: u64) -> Result<Vec<u8>> {
     let mut file = std::fs::OpenOptions::new()
@@ -75,6 +343,87 @@ fn merged_usr_alias(path: &Path, target: &Path) -> bool {
     })
 }
 
+pub fn verify_application_executable(path: &Path, digest: &str) -> Result<()> {
+    let mut file = std::fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK | libc::O_CLOEXEC)
+        .open(path)?;
+    let before = file.metadata()?;
+    // SAFETY: getuid has no pointer arguments or preconditions.
+    let uid = unsafe { libc::getuid() };
+    if !before.is_file()
+        || before.nlink() != 1
+        || before.len() < 4
+        || before.len() > MAX_APPLICATION_EXECUTABLE_BYTES
+        || before.mode() & 0o022 != 0
+        || !(before.uid() == uid || before.uid() == 0)
+    {
+        return Err(Error::new(
+            ErrorCode::PermissionDenied,
+            "Application executable must be owned/root, regular, single-link, bounded, and not writable by others",
+        ));
+    }
+    let expected = digest.trim();
+    if expected.len() != 64
+        || !expected
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    {
+        return Err(Error::invalid(
+            "Application executable digest must be canonical lowercase SHA-256",
+        ));
+    }
+    let mut hasher = Sha256::new();
+    let mut buffer = [0u8; 64 * 1024];
+    let mut prefix = [0u8; 4];
+    let mut prefix_len = 0usize;
+    let mut total = 0u64;
+    loop {
+        let count = file.read(&mut buffer)?;
+        if count == 0 {
+            break;
+        }
+        let copy = (4 - prefix_len).min(count);
+        if copy > 0 {
+            prefix[prefix_len..prefix_len + copy].copy_from_slice(&buffer[..copy]);
+            prefix_len += copy;
+        }
+        total = total.saturating_add(count as u64);
+        if total > MAX_APPLICATION_EXECUTABLE_BYTES {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Application executable exceeds verification budget",
+            ));
+        }
+        hasher.update(&buffer[..count]);
+    }
+    let after = file.metadata()?;
+    if before.dev() != after.dev()
+        || before.ino() != after.ino()
+        || before.len() != after.len()
+        || before.mtime() != after.mtime()
+        || before.mtime_nsec() != after.mtime_nsec()
+        || total != before.len()
+    {
+        return Err(Error::new(
+            ErrorCode::Conflict,
+            "Application executable changed while being verified",
+        ));
+    }
+    if prefix != *b"\x7fELF" {
+        return Err(Error::new(
+            ErrorCode::Unsupported,
+            "Pinned ELF application executable required",
+        ));
+    }
+    if format!("{:x}", hasher.finalize()) != expected {
+        return Err(Error::new(
+            ErrorCode::PermissionDenied,
+            "Application executable digest mismatch",
+        ));
+    }
+    Ok(())
+}
 fn materialized_destination(mount: &Mount) -> Result<String> {
     mount.validate()?;
     let prefix = match mount.class {
@@ -113,6 +462,25 @@ impl SandboxLauncher for LinuxSandbox {
             "--cap-drop",
             "ALL",
         ]);
+        if let Some((_, raw_fd)) = s
+            .environment
+            .iter()
+            .find(|(name, _)| name == SANDBOX_BWRAP_INFO_FD_ENV)
+        {
+            let fd = raw_fd.parse::<i32>().map_err(|_| {
+                Error::new(
+                    ErrorCode::SandboxDenied,
+                    "Bubblewrap info descriptor marker is invalid",
+                )
+            })?;
+            if fd < 3 {
+                return Err(Error::new(
+                    ErrorCode::SandboxDenied,
+                    "Bubblewrap info descriptor must not use standard I/O",
+                ));
+            }
+            p.arg("--info-fd").arg(fd.to_string());
+        }
         if s.network {
             p.arg("--share-net");
         }
@@ -213,39 +581,80 @@ impl SandboxLauncher for LinuxSandbox {
             "LANG",
             "C.UTF-8",
         ]);
-        // Only Semwright application drivers consume the logical mount table through
-        // driver-sdk helpers. Do not expose internal mount topology to plugins or
-        // external MCP children that do not need this authority-bearing metadata.
+        let materialized_mounts = s
+            .mounts
+            .iter()
+            .map(|mount| {
+                Ok(MaterializedMount {
+                    class: mount.class,
+                    logical_name: mount.logical_name.clone(),
+                    path: materialized_destination(mount)?,
+                    read_only: mount.read_only,
+                })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        let materialized_tools = s
+            .sealed_tools
+            .iter()
+            .map(|tool| MaterializedTool {
+                name: tool.name.clone(),
+                path: format!("/plugin/tools/{}", tool.name),
+            })
+            .collect::<Vec<_>>();
+        let typed_args = s
+            .environment
+            .iter()
+            .any(|(name, value)| name == SANDBOX_HOST_TOOL_TYPED_ARGS_ENV && value == "1");
+        let resolved_args = resolve_host_tool_args(
+            &s.args,
+            &materialized_mounts,
+            &materialized_tools,
+            typed_args,
+        )?;
+
+        // Only Semwright application drivers consume the logical mount/tool tables through
+        // driver-sdk helpers. Do not expose internal topology to plugins or external MCP
+        // children that do not need this authority-bearing metadata.
         if s.kind == SandboxKind::Driver {
-            let mount_table = encode_materialized_mounts(
-                &s.mounts
-                    .iter()
-                    .map(|mount| {
-                        Ok(MaterializedMount {
-                            class: mount.class,
-                            logical_name: mount.logical_name.clone(),
-                            path: materialized_destination(mount)?,
-                            read_only: mount.read_only,
-                        })
-                    })
-                    .collect::<Result<Vec<_>>>()?,
-            )?;
+            let mount_table = encode_materialized_mounts(&materialized_mounts)?;
             p.arg("--setenv").arg(SANDBOX_MOUNTS_ENV).arg(mount_table);
 
-            if !s.sealed_tools.is_empty() {
-                let tool_table = encode_materialized_tools(
-                    &s.sealed_tools
-                        .iter()
-                        .map(|tool| MaterializedTool {
-                            name: tool.name.clone(),
-                            path: format!("/plugin/tools/{}", tool.name),
-                        })
-                        .collect::<Vec<_>>(),
-                )?;
+            if !materialized_tools.is_empty() {
+                let tool_table = encode_materialized_tools(&materialized_tools)?;
                 p.arg("--setenv").arg(SANDBOX_TOOLS_ENV).arg(tool_table);
             }
         }
+        let sandbox_cwd = if let Some((_, requested)) = s
+            .environment
+            .iter()
+            .find(|(name, _)| name == SANDBOX_HOST_TOOL_CWD_ENV)
+        {
+            let allowed = s
+                .mounts
+                .iter()
+                .filter(|mount| mount.class == MountClass::Workspace)
+                .map(materialized_destination)
+                .collect::<Result<Vec<_>>>()?;
+            if !allowed.iter().any(|path| path == requested) {
+                return Err(Error::new(
+                    ErrorCode::SandboxDenied,
+                    "Linux Host-tool working directory is outside selected mounts",
+                ));
+            }
+            requested.clone()
+        } else {
+            "/tmp".into()
+        };
         for (name, value) in &s.environment {
+            if matches!(
+                name.as_str(),
+                SANDBOX_HOST_TOOL_CHILD_ENV
+                    | SANDBOX_HOST_TOOL_CWD_ENV
+                    | SANDBOX_HOST_TOOL_TYPED_ARGS_ENV
+                    | SANDBOX_BWRAP_INFO_FD_ENV
+            ) {
+                continue;
+            }
             p.arg("--setenv").arg(name).arg(value);
         }
         if matches!(s.kind, SandboxKind::Driver | SandboxKind::ExternalMcp) {
@@ -270,7 +679,9 @@ impl SandboxLauncher for LinuxSandbox {
                 SandboxKind::Plugin => {}
             }
         }
-        p.args(["--chdir", "/tmp", "--", "/plugin/sandbox"]);
+        p.arg("--chdir")
+            .arg(&sandbox_cwd)
+            .args(["--", "/plugin/sandbox"]);
         if let Some(l) = &s.limits {
             for (flag, n) in [
                 ("--limit-nofile", l.open_files),
@@ -297,7 +708,7 @@ impl SandboxLauncher for LinuxSandbox {
                 .arg(format!("/plugin/tools/{}", tool.name));
         }
         p.args(["--", "/plugin/bin"])
-            .args(&s.args)
+            .args(&resolved_args)
             .env_clear()
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -305,12 +716,105 @@ impl SandboxLauncher for LinuxSandbox {
             .kill_on_drop(true);
         Ok(p)
     }
+
+    fn spawn(&self, s: &SandboxSpec) -> Result<SandboxProcess> {
+        if s.environment
+            .iter()
+            .any(|(name, _)| name == SANDBOX_BWRAP_INFO_FD_ENV)
+        {
+            return Err(Error::new(
+                ErrorCode::SandboxDenied,
+                "Bubblewrap lifecycle descriptor marker is Host-reserved",
+            ));
+        }
+        if s.environment.len() >= 16 {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Sandbox environment has no room for Host lifecycle metadata",
+            ));
+        }
+
+        let (read_fd, write_fd) = bwrap_info_pipe()?;
+        let mut spec = s.clone();
+        spec.environment.push((
+            SANDBOX_BWRAP_INFO_FD_ENV.into(),
+            write_fd.as_raw_fd().to_string(),
+        ));
+        let mut command = self.command(&spec)?;
+        let mut monitor = command.spawn().map_err(|_| {
+            Error::new(
+                ErrorCode::SandboxDenied,
+                "Platform sandbox process failed to start",
+            )
+        })?;
+        drop(write_fd);
+
+        let child_pid = match read_bwrap_child_pid(&read_fd, &mut monitor) {
+            Ok(pid) => pid,
+            Err(error) => {
+                let _ = monitor.start_kill();
+                return Err(error);
+            }
+        };
+        let child_pidfd = match open_pidfd(child_pid) {
+            Ok(pidfd) => pidfd,
+            Err(error) => {
+                let _ = monitor.start_kill();
+                return Err(error);
+            }
+        };
+
+        let stdin = monitor
+            .stdin
+            .take()
+            .map(|value| Box::new(value) as SandboxStdin);
+        let stdout = monitor
+            .stdout
+            .take()
+            .map(|value| Box::new(value) as SandboxStdout);
+        let (Some(stdin), Some(stdout)) = (stdin, stdout) else {
+            let _ = monitor.start_kill();
+            return Err(Error::new(
+                ErrorCode::ProtocolMismatch,
+                "Linux sandbox child must expose piped stdin and stdout",
+            ));
+        };
+
+        Ok(SandboxProcess::from_parts(
+            stdin,
+            stdout,
+            Box::new(LinuxSandboxChild {
+                monitor,
+                child_pid,
+                child_pidfd,
+                exit_code: None,
+            }),
+        ))
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::os::unix::fs::PermissionsExt;
+
+    #[test]
+    fn already_exited_child_does_not_become_a_sandbox_denial() {
+        let pidfd = open_pidfd(i32::MAX as u32).expect("missing child PID is terminal");
+        assert!(pidfd.is_none());
+    }
+
+    #[test]
+    fn pidfd_wait_observes_owned_child_exit() {
+        let mut child = std::process::Command::new("/usr/bin/true")
+            .spawn()
+            .expect("spawn short-lived child");
+        let pidfd = open_pidfd(child.id())
+            .expect("open pidfd")
+            .expect("child is live when pidfd is opened");
+        child.wait().expect("reap short-lived child");
+        wait_pidfd_exit(&pidfd, Duration::from_secs(1)).expect("pidfd becomes terminal");
+    }
 
     #[test]
     fn bounded_executable_verifier_honors_requested_limit() {
@@ -352,8 +856,27 @@ mod tests {
     }
 
     #[test]
+    fn bubblewrap_child_pid_metadata_is_strict_and_bounded() {
+        assert_eq!(
+            parse_bwrap_child_pid(br#"{"child-pid":4321}"#).unwrap(),
+            4321
+        );
+        for invalid in [
+            br#"{}"#.as_slice(),
+            br#"{"child-pid":0}"#.as_slice(),
+            br#"{"child-pid":"4321"}"#.as_slice(),
+            br#"{"child-pid":2147483648}"#.as_slice(),
+            br#"{"child-pid":4321"#.as_slice(),
+        ] {
+            assert!(parse_bwrap_child_pid(invalid).is_err());
+        }
+        assert!(parse_bwrap_child_pid(&vec![b'x'; MAX_BWRAP_INFO_BYTES + 1]).is_err());
+    }
+
+    #[test]
     fn sealed_tool_budget_is_distinct_from_provider_budget() {
         assert_eq!(MAX_PROVIDER_EXECUTABLE_BYTES, 64 * 1024 * 1024);
         assert_eq!(MAX_SEALED_TOOL_EXECUTABLE_BYTES, 256 * 1024 * 1024);
+        assert_eq!(MAX_APPLICATION_EXECUTABLE_BYTES, 512 * 1024 * 1024);
     }
 }

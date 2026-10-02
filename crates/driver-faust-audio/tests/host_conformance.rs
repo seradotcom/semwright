@@ -385,6 +385,10 @@ async fn broker_sealed_faust_render_has_pcm_provenance_and_no_overwrite() {
             root: "faust-tool".into(),
             name: "faust-interpreter".into(),
             sha256: digest(&tool),
+
+            mounts: vec![],
+            system_config: vec![],
+            dependencies: vec![],
         }],
         network: false,
         loopback_port: None,
