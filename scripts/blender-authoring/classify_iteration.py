@@ -204,8 +204,8 @@ def main() -> None:
     if not isinstance(cert_trailer, str) or not cert_trailer:
         raise SystemExit("certification trailer must be nonempty")
     message = git("show", "-s", "--format=%B", head)
-    certification = (cert_trailer in {line.strip() for line in message.splitlines()}
-                     or dispatch_certification(args.certify_sha, head, dict(os.environ)))
+    manual_certification = dispatch_certification(args.certify_sha, head, dict(os.environ))
+    certification = cert_trailer in {line.strip() for line in message.splitlines()} or manual_certification
     request = config["certification_request"]
     if request is not None and (not isinstance(request, str) or len(request) != 40):
         raise SystemExit("certification_request must be null or a full parent SHA")
