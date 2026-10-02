@@ -201,8 +201,8 @@ jobs:
           retention-days: 14
 
   driver-distribution:
-    needs: scope
-    if: ${{ (inputs.full_cert == true || needs.scope.outputs.native_driver_distribution == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
+    needs: [scope, chromium]
+    if: ${{ always() && !cancelled() && ((inputs.full_cert == true || needs.scope.outputs.native_driver_distribution == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule'))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -232,8 +232,8 @@ jobs:
           retention-days: 14
 
   libreoffice-driver:
-    needs: scope
-    if: ${{ (inputs.full_cert == true || needs.scope.outputs.native_libreoffice == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
+    needs: [scope, driver-conformance]
+    if: ${{ always() && !cancelled() && ((inputs.full_cert == true || needs.scope.outputs.native_libreoffice == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule'))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -314,8 +314,8 @@ jobs:
 
 
   blender-driver:
-    needs: scope
-    if: ${{ (inputs.full_cert == true || needs.scope.outputs.native_blender == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
+    needs: [scope, driver-distribution]
+    if: ${{ always() && !cancelled() && ((inputs.full_cert == true || needs.scope.outputs.native_blender == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule'))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     env:
@@ -466,8 +466,8 @@ jobs:
           retention-days: 14
 
   figma-driver:
-    needs: scope
-    if: ${{ (inputs.full_cert == true || needs.scope.outputs.native_figma == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
+    needs: [scope, libreoffice-driver]
+    if: ${{ always() && !cancelled() && ((inputs.full_cert == true || needs.scope.outputs.native_figma == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule'))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
@@ -565,8 +565,8 @@ jobs:
           retention-days: 14
 
   kicad-mlt-drivers:
-    needs: scope
-    if: ${{ (inputs.full_cert == true || needs.scope.outputs.native_kicad_mlt == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
+    needs: [scope, blender-driver]
+    if: ${{ always() && !cancelled() && ((inputs.full_cert == true || needs.scope.outputs.native_kicad_mlt == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule'))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
@@ -630,8 +630,8 @@ jobs:
           retention-days: 14
 
   pipewire-screencast:
-    needs: scope
-    if: ${{ (inputs.full_cert == true || needs.scope.outputs.native_pipewire == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
+    needs: [scope, figma-driver]
+    if: ${{ always() && !cancelled() && ((inputs.full_cert == true || needs.scope.outputs.native_pipewire == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule'))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -659,8 +659,8 @@ jobs:
           retention-days: 14
 
   x11-backend:
-    needs: scope
-    if: ${{ (inputs.full_cert == true || needs.scope.outputs.native_x11 == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
+    needs: [scope, kicad-mlt-drivers]
+    if: ${{ always() && !cancelled() && ((inputs.full_cert == true || needs.scope.outputs.native_x11 == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule'))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -691,8 +691,8 @@ jobs:
           retention-days: 14
 
   atspi-backend:
-    needs: scope
-    if: ${{ (inputs.full_cert == true || needs.scope.outputs.native_atspi == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
+    needs: [scope, pipewire-screencast]
+    if: ${{ always() && !cancelled() && ((inputs.full_cert == true || needs.scope.outputs.native_atspi == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule'))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -737,8 +737,8 @@ jobs:
           retention-days: 14
 
   atspi-qt-backend:
-    needs: scope
-    if: ${{ (inputs.full_cert == true || needs.scope.outputs.native_atspi == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
+    needs: [scope, x11-backend]
+    if: ${{ always() && !cancelled() && ((inputs.full_cert == true || needs.scope.outputs.native_atspi == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule'))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -812,8 +812,8 @@ jobs:
           retention-days: 14
 
   sway-backend:
-    needs: scope
-    if: ${{ (inputs.full_cert == true || needs.scope.outputs.native_sway == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
+    needs: [scope, atspi-backend]
+    if: ${{ always() && !cancelled() && ((inputs.full_cert == true || needs.scope.outputs.native_sway == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule'))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:

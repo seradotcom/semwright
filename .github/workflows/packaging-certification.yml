@@ -16,6 +16,7 @@ jobs:
     if: ${{ !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
     strategy:
       fail-fast: false
+      max-parallel: 2
       matrix:
         include:
           - runner: ubuntu-24.04

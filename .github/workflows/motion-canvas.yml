@@ -133,6 +133,7 @@ jobs:
       cancel-in-progress: true
     strategy:
       fail-fast: false
+      max-parallel: 1
       matrix:
         os: [macos-14, windows-2025]
     runs-on: ${{ matrix.os }}
@@ -151,8 +152,8 @@ jobs:
         run: cargo check --locked -p semwright-driver-motion-canvas --lib --bin semwright-motion-canvas-driver
 
   real-render-and-host:
-    needs: scope
-    if: ${{ needs.scope.outputs.motion == 'true' }}
+    needs: [scope, domain]
+    if: ${{ always() && !cancelled() && (needs.scope.outputs.motion == 'true') }}
     concurrency:
       group: motion-native-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
       cancel-in-progress: true
@@ -357,8 +358,8 @@ jobs:
           retention-days: 14
 
   fuzz:
-    needs: scope
-    if: ${{ needs.scope.outputs.motion == 'true' && needs.scope.outputs.native_only != 'true' }}
+    needs: [scope, domain, portable-compile, real-render-and-host]
+    if: ${{ always() && !cancelled() && (needs.scope.outputs.motion == 'true' && needs.scope.outputs.native_only != 'true') }}
     concurrency:
       group: motion-fuzz-${{ github.event_name }}-${{ github.head_ref || github.ref_name }}
       cancel-in-progress: true

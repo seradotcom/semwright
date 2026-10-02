@@ -128,7 +128,8 @@ jobs:
           retention-days: 14
 
   real-obs:
-    if: ${{ !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
+    needs: [conformance]
+    if: ${{ always() && !cancelled() && (!(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule'))) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:

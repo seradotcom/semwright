@@ -83,97 +83,103 @@ jobs:
 
   quality:
     needs: verify
+    if: ${{ !cancelled() && needs.verify.result == 'success' }}
     uses: ./.github/workflows/ci.yml
     with:
       full_cert: true
 
   native:
-    needs: verify
+    needs: [verify, quality]
+    if: ${{ always() && !cancelled() && needs.verify.result == 'success' }}
     uses: ./.github/workflows/native-integrations.yml
     with:
       full_cert: true
 
   security:
-    needs: verify
+    needs: [verify, native]
+    if: ${{ always() && !cancelled() && needs.verify.result == 'success' }}
     uses: ./.github/workflows/security.yml
     with:
       full_cert: true
 
   packaging:
-    needs: verify
+    needs: [verify, security]
+    if: ${{ always() && !cancelled() && needs.verify.result == 'success' }}
     uses: ./.github/workflows/packaging-certification.yml
 
   supply_chain:
-    needs: verify
+    needs: [verify, packaging]
+    if: ${{ always() && !cancelled() && needs.verify.result == 'success' }}
     uses: ./.github/workflows/supply-chain.yml
 
   secret_precheck:
-    needs: verify
+    needs: [verify, supply_chain]
+    if: ${{ always() && !cancelled() && needs.verify.result == 'success' }}
     uses: ./.github/workflows/pre-r16.yml
 
   runtime_tools:
-    needs: verify
-    if: ${{ needs.verify.outputs.runtime_tools == 'true' }}
+    needs: [verify, secret_precheck]
+    if: ${{ always() && !cancelled() && needs.verify.result == 'success' && (needs.verify.outputs.runtime_tools == 'true') }}
     uses: ./.github/workflows/runtime-tools-portability.yml
 
   mlt_runtime:
-    needs: verify
-    if: ${{ needs.verify.outputs.mlt == 'true' }}
+    needs: [verify, runtime_tools]
+    if: ${{ always() && !cancelled() && needs.verify.result == 'success' && (needs.verify.outputs.mlt == 'true') }}
     uses: ./.github/workflows/mlt-runtime-tools.yml
 
   libreoffice_runtime:
-    needs: verify
-    if: ${{ needs.verify.outputs.native_libreoffice == 'true' }}
+    needs: [verify, mlt_runtime]
+    if: ${{ always() && !cancelled() && needs.verify.result == 'success' && (needs.verify.outputs.native_libreoffice == 'true') }}
     uses: ./.github/workflows/libreoffice-runtime-v8.yml
 
   godot:
-    needs: verify
-    if: ${{ needs.verify.outputs.godot == 'true' }}
+    needs: [verify, libreoffice_runtime]
+    if: ${{ always() && !cancelled() && needs.verify.result == 'success' && (needs.verify.outputs.godot == 'true') }}
     uses: ./.github/workflows/godot-integration.yml
 
   motion:
-    needs: verify
-    if: ${{ needs.verify.outputs.motion == 'true' }}
+    needs: [verify, godot]
+    if: ${{ always() && !cancelled() && needs.verify.result == 'success' && (needs.verify.outputs.motion == 'true') }}
     uses: ./.github/workflows/motion-canvas.yml
 
   obs:
-    needs: verify
-    if: ${{ needs.verify.outputs.obs == 'true' }}
+    needs: [verify, motion]
+    if: ${{ always() && !cancelled() && needs.verify.result == 'success' && (needs.verify.outputs.obs == 'true') }}
     uses: ./.github/workflows/obs-integration.yml
 
   blender:
-    needs: verify
-    if: ${{ needs.verify.outputs.blender_semantic == 'true' }}
+    needs: [verify, obs]
+    if: ${{ always() && !cancelled() && needs.verify.result == 'success' && (needs.verify.outputs.blender_semantic == 'true') }}
     uses: ./.github/workflows/blender-semantic.yml
 
   figma:
-    needs: verify
-    if: ${{ needs.verify.outputs.figma_semantic == 'true' }}
+    needs: [verify, blender]
+    if: ${{ always() && !cancelled() && needs.verify.result == 'success' && (needs.verify.outputs.figma_semantic == 'true') }}
     uses: ./.github/workflows/figma-semantic-authoring.yml
 
   driver_session:
-    needs: verify
-    if: ${{ needs.verify.outputs.driver_session == 'true' }}
+    needs: [verify, figma]
+    if: ${{ always() && !cancelled() && needs.verify.result == 'success' && (needs.verify.outputs.driver_session == 'true') }}
     uses: ./.github/workflows/driver-session-continuity.yml
 
   windows:
-    needs: verify
-    if: ${{ needs.verify.outputs.platform_windows == 'true' }}
+    needs: [verify, driver_session]
+    if: ${{ always() && !cancelled() && needs.verify.result == 'success' && (needs.verify.outputs.platform_windows == 'true') }}
     uses: ./.github/workflows/windows-platform.yml
 
   macos:
-    needs: verify
-    if: ${{ needs.verify.outputs.platform_macos == 'true' }}
+    needs: [verify, windows]
+    if: ${{ always() && !cancelled() && needs.verify.result == 'success' && (needs.verify.outputs.platform_macos == 'true') }}
     uses: ./.github/workflows/platformization-macos.yml
 
   x11_live:
-    needs: verify
-    if: ${{ needs.verify.outputs.native_x11 == 'true' }}
+    needs: [verify, macos]
+    if: ${{ always() && !cancelled() && needs.verify.result == 'success' && (needs.verify.outputs.native_x11 == 'true') }}
     uses: ./.github/workflows/live-x11-ewmh.yml
 
   plasma_live:
-    needs: verify
-    if: ${{ needs.verify.outputs.native_sway == 'true' || needs.verify.outputs.native_x11 == 'true' }}
+    needs: [verify, x11_live]
+    if: ${{ always() && !cancelled() && needs.verify.result == 'success' && (needs.verify.outputs.native_sway == 'true' || needs.verify.outputs.native_x11 == 'true') }}
     uses: ./.github/workflows/live-plasma.yml
 
   evidence:

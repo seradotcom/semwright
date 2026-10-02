@@ -99,7 +99,8 @@ jobs:
         run: npm run build
 
   host-loss:
-    if: ${{ !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
+    needs: [contract-and-bridges]
+    if: ${{ always() && !cancelled() && (!(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule'))) }}
     name: Driver Host transport-loss wakeup
     runs-on: ubuntu-24.04
     timeout-minutes: 25
@@ -140,7 +141,8 @@ jobs:
         run: cargo test --locked -p semwright-driver-host --test protocol_v2 -- --ignored --nocapture
 
   obs-fault-injection:
-    if: ${{ !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
+    needs: [figma-plugin]
+    if: ${{ always() && !cancelled() && (!(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule'))) }}
     name: OBS reconnect fault injection
     runs-on: ubuntu-24.04
     timeout-minutes: 25
@@ -172,7 +174,8 @@ jobs:
         run: cargo test --locked -p semwright-driver-obs --test fake_matrix disconnect_mid_concurrency_does_not_leave_waiters -- --ignored --exact --nocapture
 
   stdio-driver-regression:
-    if: ${{ !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
+    needs: [host-loss]
+    if: ${{ always() && !cancelled() && (!(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule'))) }}
     name: Process-backed stdio driver regression
     runs-on: ubuntu-24.04
     timeout-minutes: 35
@@ -226,7 +229,8 @@ jobs:
           cargo test --locked --all-targets             -p semwright-driver-blender             -p semwright-driver-libreoffice             -p semwright-mlt-video-driver             -p semwright-driver-motion-canvas
 
   continuity-fuzz:
-    if: ${{ !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
+    needs: [obs-fault-injection]
+    if: ${{ always() && !cancelled() && (!(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule'))) }}
     name: Continuity protocol fuzz smoke
     runs-on: ubuntu-24.04
     timeout-minutes: 20

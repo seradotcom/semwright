@@ -41,6 +41,7 @@ jobs:
     name: windows-${{ matrix.arch }} native noninteractive
     strategy:
       fail-fast: false
+      max-parallel: 1
       matrix:
         include:
           - arch: x64
@@ -197,6 +198,7 @@ jobs:
     name: sealed-tool compat ${{ matrix.name }}
     strategy:
       fail-fast: false
+      max-parallel: 1
       matrix:
         include:
           - name: server2022-x64
