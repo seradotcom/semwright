@@ -883,18 +883,6 @@ fn snapshot_sample_asset(
     }
     output.flush()?;
     output.sync_all()?;
-    drop(output);
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(&staged, fs::Permissions::from_mode(0o400))?;
-    }
-    #[cfg(not(unix))]
-    {
-        let mut permissions = fs::metadata(&staged)?.permissions();
-        permissions.set_readonly(true);
-        fs::set_permissions(&staged, permissions)?;
-    }
     let after = input.metadata()?;
     if copied != before.len() || after.len() != before.len() {
         return Err(Error::new(
@@ -1335,25 +1323,6 @@ mod library_inventory_tests {
                 100
             )
             .is_err()
-        );
-    }
-
-    #[test]
-    #[cfg(unix)]
-    fn sample_snapshot_seals_private_permissions_independent_of_umask() {
-        use std::os::unix::fs::PermissionsExt;
-
-        let root = tempfile::tempdir().unwrap();
-        let scratch = tempfile::tempdir().unwrap();
-        let source = root.path().join("sample.wav");
-        fs::write(&source, b"bounded-sample-fixture").unwrap();
-        let expected = format!("{:x}", Sha256::digest(fs::read(&source).unwrap()));
-
-        let staged =
-            snapshot_sample_asset(root.path(), "sample.wav", &expected, scratch.path()).unwrap();
-        assert_eq!(
-            fs::metadata(staged).unwrap().permissions().mode() & 0o777,
-            0o400
         );
     }
 
