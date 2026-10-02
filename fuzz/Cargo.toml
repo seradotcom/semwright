@@ -27,6 +27,7 @@ semwright-video-domain = { path = "../crates/video-domain" }
 semwright-audio-domain = { path = "../crates/audio-domain" }
 semwright-figma-driver = { package = "semwright-driver-figma", path = "../crates/driver-figma" }
 semwright-godot-driver = { package = "semwright-driver-godot", path = "../crates/driver-godot" }
+semwright-blender-driver = { package = "semwright-driver-blender", path = "../crates/driver-blender" }
 semwright-driver-motion-canvas = { package = "semwright-driver-motion-canvas", path = "../crates/driver-motion-canvas" }
 semwright-semantic-composition = { path = "../crates/semantic-composition" }
 semwright-media-time = { path = "../crates/media-time" }
@@ -350,6 +351,13 @@ bench = false
 [[bin]]
 name = "audio_wav"
 path = "fuzz_targets/audio_wav.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "blender_authoring"
+path = "fuzz_targets/blender_authoring.rs"
 test = false
 doc = false
 bench = false

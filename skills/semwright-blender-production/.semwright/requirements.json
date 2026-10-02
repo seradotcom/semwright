@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "semwright": {
+    "minimum_version": ">=0.9.0-dev.1",
+    "capabilities": [
+      {
+        "id": "driver.blender.composition.inspect",
+        "required": true
+      },
+      {
+        "id": "driver.blender.composition.inspect.page",
+        "required": true
+      },
+      {
+        "id": "driver.blender.composition.plan",
+        "required": true
+      },
+      {
+        "id": "driver.blender.composition.apply",
+        "required": true
+      },
+      {
+        "id": "driver.blender.composition.measure",
+        "required": true
+      },
+      {
+        "id": "driver.blender.composition.validate",
+        "required": true
+      },
+      {
+        "id": "driver.blender.composition.repair.plan",
+        "required": true
+      },
+      {
+        "id": "driver.blender.composition.repair.apply",
+        "required": true
+      },
+      {
+        "id": "driver.blender.composition.verify",
+        "required": true
+      },
+      {
+        "id": "driver.blender.composition.persist",
+        "required": true
+      },
+      {
+        "id": "driver.blender.composition.reopen",
+        "required": true
+      },
+      {
+        "id": "driver.blender.export.glb",
+        "required": true
+      }
+    ],
+    "semantic_packages": []
+  }
+}

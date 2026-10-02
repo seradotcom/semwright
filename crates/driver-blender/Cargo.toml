@@ -18,11 +18,23 @@ async-trait.workspace = true
 serde_json.workspace = true
 jsonschema.workspace = true
 tokio.workspace = true
+serde.workspace = true
+schemars.workspace = true
+semwright-semantic-composition.workspace = true
+semwright-media-time.workspace = true
+semwright-effect-conformance.workspace = true
+semwright-project-graph.workspace = true
+
+[features]
+authoring-native = []
 
 [lints]
 workspace = true
 
 [dev-dependencies]
+proptest.workspace = true
+semwright-core.workspace = true
+semwright-registry.workspace = true
 semwright-driver-host.workspace = true
 semwright-backend-api.workspace = true
 semwright-policy.workspace = true

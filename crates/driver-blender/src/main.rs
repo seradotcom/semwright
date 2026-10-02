@@ -3,6 +3,8 @@
 //! Curated operations reuse the existing allowlisted Blender command implementation. Runtime
 //! introspection exposes bounded RNA/operator/add-on metadata but never arbitrary Python or generic
 //! operator invocation.
+mod authoring_runtime;
+
 use async_trait::async_trait;
 use semwright_driver_sdk::{Capability, Driver, descriptor_digest, serve, tool_path};
 use semwright_protocol::{read_frame, write_frame};
@@ -27,6 +29,12 @@ const WORKSPACE_MOUNT: &str = "workspace";
 const BLENDER_RUNTIME_MOUNT: &str = "blender-runtime";
 const BLENDER_TOOL: &str = "blender";
 const SUPPORTED_BLENDER_VERSION: &str = "Blender 4.5.14 LTS";
+const BLENDER_SECURITY_ARGS: [&str; 4] = [
+    "--background",
+    "--factory-startup",
+    "--disable-autoexec",
+    "--python",
+];
 const LEGACY_DESCRIPTORS: &str = include_str!("../../../schemas/commands.json");
 const COMMANDS_PY: &str = include_str!("../../../adapters/blender/semwright_blender/commands.py");
 const COMMANDS_JSON: &str =
@@ -35,6 +43,9 @@ const VALIDATION_PY: &str =
     include_str!("../../../adapters/blender/semwright_blender/validation.py");
 const BRIDGE_PY: &str = include_str!("bridge.py");
 const SEMANTIC_PY: &str = include_str!("semantic.py");
+const AUTHORING_PY: &str = include_str!("authoring_native.py");
+const EXPORT_SCOPE_PY: &str =
+    include_str!("../../../adapters/blender/semwright_blender/export_scope.py");
 
 fn blender_binary() -> Result<PathBuf> {
     let path = tool_path(BLENDER_TOOL)?;
@@ -1362,6 +1373,7 @@ fn capabilities() -> Result<Vec<Capability>> {
     let mut values = curated_capabilities()?;
     values.extend(introspection_capabilities());
     values.extend(semantic_capabilities());
+    values.extend(authoring_runtime::capabilities());
     Ok(values)
 }
 
@@ -1399,6 +1411,10 @@ fn stage_runtime(runtime: &Path) -> Result<(PathBuf, PathBuf)> {
         .map_err(|error| io_step("Blender validation staging", error))?;
     fs::write(package.join("semantic.py"), SEMANTIC_PY)
         .map_err(|error| io_step("Blender semantic staging", error))?;
+    fs::write(package.join("authoring_native.py"), AUTHORING_PY)
+        .map_err(|error| io_step("Blender authoring staging", error))?;
+    fs::write(package.join("export_scope.py"), EXPORT_SCOPE_PY)
+        .map_err(|error| io_step("Blender export scope staging", error))?;
     let bridge = runtime.join("bridge.py");
     fs::write(&bridge, BRIDGE_PY).map_err(|error| io_step("Blender bridge staging", error))?;
     Ok((bridge, runtime.join("bridge.sock")))
@@ -1442,6 +1458,7 @@ struct BlenderDriver {
     runtime: PathBuf,
     socket: PathBuf,
     version: String,
+    authoring: authoring_runtime::State,
 }
 
 impl BlenderDriver {
@@ -1513,12 +1530,7 @@ impl BlenderDriver {
         let mut command = Command::new(&blender);
         configure_blender_runtime(&mut command, &blender_runtime);
         command
-            .args([
-                "--background",
-                "--factory-startup",
-                "--disable-autoexec",
-                "--python",
-            ])
+            .args(BLENDER_SECURITY_ARGS)
             .arg(&bridge)
             .arg("--")
             .arg(&socket)
@@ -1562,6 +1574,7 @@ impl BlenderDriver {
                     runtime,
                     socket,
                     version,
+                    authoring: authoring_runtime::State::default(),
                 });
             }
             sleep(Duration::from_millis(50)).await;
@@ -1592,11 +1605,59 @@ impl Driver for BlenderDriver {
         env!("CARGO_PKG_VERSION")
     }
 
+    fn interfaces(&self) -> semwright_driver_sdk::DriverInterfaces {
+        semwright_driver_sdk::DriverInterfaces {
+            health: true,
+            progress: true,
+            cooperative_cancellation: true,
+            ..Default::default()
+        }
+    }
+
     async fn capabilities(&mut self) -> Result<Vec<Capability>> {
         capabilities()
     }
 
+    async fn execute_with_context(
+        &mut self,
+        command: &str,
+        digest: &str,
+        args: Value,
+        context: semwright_driver_sdk::DriverExecutionContext,
+    ) -> Result<Value> {
+        context.check_cancelled()?;
+        if !authoring_runtime::handles(command) {
+            return self.execute(command, digest, args).await;
+        }
+        let value = authoring_runtime::execute(
+            &mut self.authoring,
+            &mut self.child,
+            &self.socket,
+            command,
+            digest,
+            args,
+            &context,
+        )
+        .await?;
+        let descriptor = capability(command)?.descriptor;
+        let validator = jsonschema::validator_for(&descriptor.output_schema)
+            .map_err(|_| Error::new(ErrorCode::Internal, "Invalid authoring output schema"))?;
+        if !validator.is_valid(&value) {
+            return Err(Error::new(
+                ErrorCode::PluginProtocolError,
+                "Authoring output violates descriptor schema",
+            ));
+        }
+        Ok(value)
+    }
+
     async fn execute(&mut self, command: &str, digest: &str, args: Value) -> Result<Value> {
+        if authoring_runtime::handles(command) {
+            return Err(Error::new(
+                ErrorCode::Unsupported,
+                "Authoring requires trusted protocol-v3 request context",
+            ));
+        }
         let capability = capability(command)?;
         if descriptor_digest(&capability.descriptor)? != digest {
             return Err(Error::new(
@@ -1693,6 +1754,20 @@ mod tests {
             assert_eq!(capability.descriptor.requires, [DRIVER_SCOPE]);
             assert_eq!(capability.descriptor.backends, [DRIVER_SCOPE]);
         }
+    }
+
+    #[test]
+    fn blender_launch_is_factory_clean_and_disables_autoexec() {
+        assert!(BLENDER_SECURITY_ARGS.contains(&"--background"));
+        assert!(BLENDER_SECURITY_ARGS.contains(&"--factory-startup"));
+        assert!(BLENDER_SECURITY_ARGS.contains(&"--disable-autoexec"));
+        assert!(BLENDER_SECURITY_ARGS.contains(&"--python"));
+        assert!(!BLENDER_SECURITY_ARGS.iter().any(|arg| {
+            matches!(
+                *arg,
+                "--enable-autoexec" | "--python-expr" | "--python-console" | "--python-text"
+            )
+        }));
     }
 
     #[test]
