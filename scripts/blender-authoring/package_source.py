@@ -14,11 +14,11 @@ import tempfile
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
-PATCH_BASE = "6e1261d645699e99fe94ad902b5fb26956f92102"
-DEPENDENCY_VERSION = 2
+PATCH_BASE = "1518e372a01249a7a0a10f544a9a69265a5f12c0"
+DEPENDENCY_VERSION = 3
 A_COMPONENT_SOURCE = "6e1261d645699e99fe94ad902b5fb26956f92102"
 C_COMPONENT_SOURCE = "77b34d8abad50f242c4c8494e280fe82d5cbcf55"
-HOST_COMPONENT_SOURCE = "6e1261d645699e99fe94ad902b5fb26956f92102"
+HOST_COMPONENT_SOURCE = "1518e372a01249a7a0a10f544a9a69265a5f12c0"
 A_C0 = "26602e4b25929be869d69ef28fef4dd9713180d7"
 C_P0 = "6ee52b428310370d3ad438a13964086a63f48367"
 F_SOURCE = "eadd5caf9b3f47f24158de530b87ad07e597f25e"
@@ -200,7 +200,7 @@ Patch base: {PATCH_BASE}
 PR: https://github.com/seradotcom/semwright/pull/175
 
 This ZIP is a deterministic source backup, not a release or acceptance result.
-The version 2 patch base contains the reviewed integrated A/C/F/Host dependencies documented in
+The version 3 patch base contains the reviewed integrated A/C/F/Host dependencies documented in
 SOURCE_MANIFEST.json. Prefer the existing E branch/worktree. To reconstruct in a
 separate owned checkout at exactly PATCH_BASE, verify E_SOURCE.patch with
 `git apply --check` before applying it, then compare every selected path against
