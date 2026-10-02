@@ -395,7 +395,7 @@ fn mlt_manifest(h: &Harness) -> Manifest {
         request_timeout_ms: 300_000,
         interfaces: DriverInterfaces {
             host_tools: true,
-            cooperative_cancellation: true,
+            health: true,
             ..Default::default()
         },
     }
