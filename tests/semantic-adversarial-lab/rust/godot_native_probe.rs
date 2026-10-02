@@ -78,14 +78,16 @@ fn runner_export(project: &Path, artifacts: &Path, godot_sha256: &str) -> AnyRes
     fs::create_dir_all(artifacts)?;
     let runner = Runner::new(
         RunnerConfig {
-            executable: PathBuf::from("/plugin/tools/godot"),
-            sha256: godot_sha256.into(),
+            executable: Some(PathBuf::from("/plugin/tools/godot")),
+            sha256: Some(godot_sha256.into()),
             output_root: artifacts.to_path_buf(),
+            output_mount: None,
             display: None,
         },
         &[ProjectConfig {
             project: "g-paired-project".into(),
             root: project.to_path_buf(),
+            mount: None,
             secret: "g-synthetic-not-a-secret".into(),
         }],
         None,

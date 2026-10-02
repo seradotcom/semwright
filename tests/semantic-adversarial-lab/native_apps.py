@@ -859,6 +859,10 @@ def run_blender(target: Path, source_sha: str, suite_sha: str,
             "blender-driver",
             features=["authoring-native"],
         )
+        build.build_named_binary(
+            "semwright-driver-blender", "semwright-blender-session-runner",
+            "blender-session-transport", features=["authoring-native"],
+        )
         sandbox, _ = build.build_named_binary(
             "semwright-plugin-host",
             "semwright-sandbox",

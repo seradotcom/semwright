@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "original_suite_sha": "a88e80f9de4aa2883b233d009a4b41ecdde08a0b",
+  "scope": "Native transport bootstrap only; no target is selected yet",
+  "blender_attack_bodies_sha256": "e91ec213f73fa6b0b9c30c61b8f6f1cebbc174741a9aafbb635ee00443efae71",
+  "unchanged_sources": {
+    "tests/semantic-adversarial-lab/registry.json": "824c26788cba8813ea1270792ff9bc759246891672b401a498b1240055406ac5",
+    "tests/semantic-adversarial-lab/mutants.json": "0c3c36296ce72245d45fa97a8e2508baca5c81a689aa9cc55905de3662750287",
+    "tests/semantic-adversarial-lab/lab_core.py": "fe76be669dff45bab3c16382ab8d20436a7bc6d2b23857045457f7d87768a9ba",
+    "tests/semantic-adversarial-lab/runner.py": "9932dfc58f0bdb6c2854fc75f0bc9eb478fefa344fee3abbdff340e3256a4560",
+    "tests/semantic-adversarial-lab/selftest.py": "e1d32ccdd7329773ed569cca88ac8a49cdf5ec6d173169869dbd1740d1819d8d",
+    "tests/semantic-adversarial-lab/selftest_extra.py": "e3ffe15d3e78d4043bfe9cb8e21f1d8d249bf652db1b515cd1b813107f73e4c0",
+    "tests/semantic-adversarial-lab/fixtures/blender_native.json": "19ba4248fe8b26a9e906069e569225374d0ab3af57f6090a2453f11e9ddb903a",
+    "tests/semantic-adversarial-lab/oracle_identity.py": "84cd3baf9521be43f7de3840a8668f2e3ebd2afd77befd756aeafc1322d1be26"
+  }
+}
