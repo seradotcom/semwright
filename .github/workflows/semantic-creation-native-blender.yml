@@ -1,5 +1,8 @@
 name: Integrated Blender native transport diagnostic (I)
 on:
+  push:
+    branches: [integration/semantic-creation-i-20261001]
+    paths: [.github/workflows/semantic-creation-native-blender.yml]
   workflow_dispatch:
     inputs:
       candidate_sha:
@@ -9,10 +12,12 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: semantic-creation-native-blender-${{ inputs.candidate_sha }}
+  group: semantic-creation-native-blender-${{ inputs.candidate_sha || github.sha }}
   cancel-in-progress: false
 jobs:
   native:
+    if: >-
+      github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[i-blender-native]')
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     env:
@@ -26,11 +31,11 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: ${{ inputs.candidate_sha }}
+          ref: ${{ inputs.candidate_sha || github.sha }}
           persist-credentials: false
       - name: Verify exact source and workflow identity
         env:
-          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          CANDIDATE_SHA: ${{ inputs.candidate_sha || github.sha }}
         run: |
           set -euo pipefail
           [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
@@ -63,7 +68,7 @@ jobs:
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
-          name: integrated-blender-native-${{ inputs.candidate_sha }}
+          name: integrated-blender-native-${{ inputs.candidate_sha || github.sha }}
           path: evidence/blender-authoring/
           if-no-files-found: error
           retention-days: 14

@@ -25,3 +25,9 @@ The standalone G suite adapts bootstrap only and records a new oracle identity;
 its registry, mutants, core oracles and Blender attack bodies are unchanged.
 Historical owner/native certificates do not certify the new combined source.
 R16 remains open and main is unchanged.
+
+F's historical audit blocker named the yanked `yoke-derive 0.8.3`. The #201
+lockfile already includes `0.8.4` with registry checksum
+`ec8ebde2db3681e8c9980cc27822030e68752690ddfa9473e739aeb4dbde6d71`.
+No extra dependency update is needed for that historical finding. The final
+combined audit and license gates remain required and must not be suppressed.

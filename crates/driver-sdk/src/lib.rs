@@ -258,22 +258,23 @@ async fn execute_materialized_tool(
             Err(_) => Err(Error::new(ErrorCode::Timeout, "Runtime tool execution timed out")),
         },
     };
-    if result.is_err() {
-        #[cfg(unix)]
-        if let Some(pid) = owned_pid {
-            // SAFETY: this group was created for our own still-unreaped tool leader.
-            let _ = unsafe { libc::kill(-(pid as i32), libc::SIGKILL) };
-        }
-        #[cfg(not(unix))]
-        let _ = owned_pid;
-        let _ = child.kill().await;
-        if child.wait().await.is_err() {
-            let mut error = result.unwrap_err();
-            error.outcome_known = false;
-            return Err(error);
+    match result {
+        Ok(output) => Ok(output),
+        Err(mut error) => {
+            #[cfg(unix)]
+            if let Some(pid) = owned_pid {
+                // SAFETY: this group was created for our own still-unreaped tool leader.
+                let _ = unsafe { libc::kill(-(pid as i32), libc::SIGKILL) };
+            }
+            #[cfg(not(unix))]
+            let _ = owned_pid;
+            let _ = child.kill().await;
+            if child.wait().await.is_err() {
+                error.outcome_known = false;
+            }
+            Err(error)
         }
     }
-    result
 }
 
 /// Resolve an owner-granted secret file as materialized by the current platform sandbox.
