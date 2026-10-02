@@ -21,6 +21,8 @@ jobs:
     timeout-minutes: 45
     env:
       PLAYWRIGHT_BROWSERS_PATH: '0'
+      CARGO_PROFILE_DEV_DEBUG: '0'
+      CARGO_PROFILE_TEST_DEBUG: '0'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -142,16 +144,24 @@ jobs:
                   raise SystemExit(f'{name} exceeds Driver Host 64 MiB executable budget')
           PY
           sha256sum             "$RUNNER_TEMP/semwright-faust-interpreter"             "$RUNNER_TEMP/semwright-audio-meter"             target/debug/semwright-sandbox             target/debug/semwright-motion-canvas-driver             target/debug/semwright-faust-audio-driver             target/debug/semwright-audio-analysis-driver             target/debug/semwright-mlt-video-driver target/debug/semwright-mlt-runtime-runner             > verification/composition-av/native-binaries.sha256
+      - name: Preserve prepared native executables across Cargo test rebuilds
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/composition-av-binaries"
+          for name in semwright-sandbox semwright-motion-canvas-driver semwright-faust-audio-driver semwright-audio-analysis-driver semwright-mlt-video-driver semwright-mlt-runtime-runner; do
+            install -m 0500 "target/debug/$name" "$RUNNER_TEMP/composition-av-binaries/$name"
+          done
+          sha256sum "$RUNNER_TEMP/composition-av-binaries/"* > verification/composition-av/prepared-binaries.sha256
       - name: Combined A+B native AV E2E
         env:
           SEMWRIGHT_TEST_COMBINED_AV: '1'
-          SEMWRIGHT_TEST_COMBINED_MOTION_DRIVER: ${{ github.workspace }}/target/debug/semwright-motion-canvas-driver
-          SEMWRIGHT_TEST_COMBINED_FAUST_DRIVER: ${{ github.workspace }}/target/debug/semwright-faust-audio-driver
-          SEMWRIGHT_TEST_COMBINED_ANALYSIS_DRIVER: ${{ github.workspace }}/target/debug/semwright-audio-analysis-driver
-          SEMWRIGHT_TEST_COMBINED_MLT_RUNNER: ${{ github.workspace }}/target/debug/semwright-mlt-runtime-runner
+          SEMWRIGHT_TEST_COMBINED_MOTION_DRIVER: ${{ runner.temp }}/composition-av-binaries/semwright-motion-canvas-driver
+          SEMWRIGHT_TEST_COMBINED_FAUST_DRIVER: ${{ runner.temp }}/composition-av-binaries/semwright-faust-audio-driver
+          SEMWRIGHT_TEST_COMBINED_ANALYSIS_DRIVER: ${{ runner.temp }}/composition-av-binaries/semwright-audio-analysis-driver
+          SEMWRIGHT_TEST_COMBINED_MLT_RUNNER: ${{ runner.temp }}/composition-av-binaries/semwright-mlt-runtime-runner
           SEMWRIGHT_TEST_MOTION_NODE: ${{ github.workspace }}/integrations/motion-canvas/runtime/.semwright-tools/node
-          SEMWRIGHT_TEST_COMBINED_MLT_DRIVER: ${{ github.workspace }}/target/debug/semwright-mlt-video-driver
-          SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
+          SEMWRIGHT_TEST_COMBINED_MLT_DRIVER: ${{ runner.temp }}/composition-av-binaries/semwright-mlt-video-driver
+          SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ runner.temp }}/composition-av-binaries/semwright-sandbox
           SEMWRIGHT_TEST_MOTION_RUNTIME: ${{ github.workspace }}/integrations/motion-canvas/runtime
           SEMWRIGHT_TEST_FAUST_VERSION: '2.70.3'
           SEMWRIGHT_TEST_FAUST_HELPER: ${{ runner.temp }}/semwright-faust-interpreter

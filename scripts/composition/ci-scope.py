@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Compute narrow Composition CI scope from the latest delta or force exact-SHA certification."""
 from __future__ import annotations
-import argparse, json, os, subprocess
+import argparse, json, subprocess
 from pathlib import Path
 
 ALL_FLAGS = (

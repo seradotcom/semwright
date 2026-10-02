@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import importlib.util,json,tempfile,unittest
+import importlib.util,unittest
 from pathlib import Path
 HERE=Path(__file__).resolve().parent
 SPEC=importlib.util.spec_from_file_location("candidate_evidence",HERE/"candidate-evidence.py")

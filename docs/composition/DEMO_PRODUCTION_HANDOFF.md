@@ -92,4 +92,4 @@ Publish only the verified manifest/pointer through the configured artifact route
 
 ## Non-goals
 
-This handoff does not contain a launch script, campaign copy, brand assets, marketing metrics or a promotional video. Those belong to the later creative production mission.
+The production guide does not contain a launch script, campaign copy, brand assets, marketing metrics or a promotional video. Those belong to the later creative production mission.

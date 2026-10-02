@@ -14,7 +14,6 @@ import os
 from pathlib import Path, PurePosixPath
 import stat
 import subprocess
-import tempfile
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]

@@ -55,10 +55,8 @@ class ScopeTests(unittest.TestCase):
     def test_certification_forces_every_area(self):
         f=scope.classify([],True)
         self.assertTrue(all(f.values()))
+    def test_run_suite_boundary_change_selects_contracts_and_package(self):
+        got = scope.classify(["scripts/composition/test-run-suite.py"])
+        self.assertTrue(got["contracts"])
+        self.assertTrue(got["package"])
 if __name__=="__main__": unittest.main()
-
-
-def test_run_suite_boundary_change_selects_contracts_and_package():
-    got = classify(["scripts/composition/test-run-suite.py"])
-    assert got["contracts"] is True
-    assert got["package"] is True
