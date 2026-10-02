@@ -1,4 +1,4 @@
-name: Composition AV Combined
+name: I joint native media fixture
 
 defaults:
   run:
@@ -14,16 +14,24 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
-  group: composition-av-combined-${{ github.event_name == 'workflow_dispatch' && inputs.candidate_sha || github.sha }}
+  group: i-joint-native-${{ github.sha }}-${{ github.event_name == 'workflow_dispatch' && inputs.candidate_sha || github.sha }}
   cancel-in-progress: true
 
 jobs:
   combined-native:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    strategy:
+      max-parallel: 1
+      fail-fast: true
+      matrix:
+        worker: [clean-1, clean-2]
     env:
+      SEMWRIGHT_TEST_SOURCE_SHA: ${{ inputs.candidate_sha }}
+      SEMWRIGHT_TEST_BLENDER_PREVIEW: ${{ runner.temp }}/i-joint-input/product-preview.png
       PLAYWRIGHT_BROWSERS_PATH: '0'
       CARGO_PROFILE_DEV_DEBUG: '0'
       CARGO_PROFILE_TEST_DEBUG: '0'
@@ -41,6 +49,61 @@ jobs:
           test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
           git diff --exit-code
           git diff --cached --exit-code
+      - name: Acquire exact E producer image and D cross-app receipt
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "${{ inputs.candidate_sha }}" = af109cadb00a8642e38f7e1ca3cd47c0f6d7aa03
+          mkdir -p "$RUNNER_TEMP/i-joint-input" verification/composition-av
+          gh api repos/seradotcom/semwright/actions/artifacts/11241050061 > "$RUNNER_TEMP/i-joint-input/e-meta.json"
+          gh api repos/seradotcom/semwright/actions/artifacts/11241050061/zip > "$RUNNER_TEMP/i-joint-input/e.zip"
+          gh api repos/seradotcom/semwright/actions/artifacts/11243508106 > "$RUNNER_TEMP/i-joint-input/d-meta.json"
+          gh api repos/seradotcom/semwright/actions/artifacts/11243508106/zip > "$RUNNER_TEMP/i-joint-input/d.zip"
+          python3 - <<'PYPINS'
+          import hashlib, io, json, os, zipfile
+          from pathlib import Path
+          root=Path(os.environ['RUNNER_TEMP'])/'i-joint-input'
+          source=os.environ['SEMWRIGHT_TEST_SOURCE_SHA']
+          e_meta=json.loads((root/'e-meta.json').read_text())
+          d_meta=json.loads((root/'d-meta.json').read_text())
+          assert e_meta['workflow_run']['id']==37035325016
+          assert d_meta['workflow_run']['id']==37036800206
+          assert e_meta['workflow_run']['head_sha']==d_meta['workflow_run']['head_sha']==source
+          e_bytes=(root/'e.zip').read_bytes()
+          assert hashlib.sha256(e_bytes).hexdigest()=='ae4b63a71cd4b96eb6cf1748d59ebe3be671b9387bd7bd3bb2be8433456357de'
+          e=zipfile.ZipFile(io.BytesIO(e_bytes))
+          native=json.loads(e.read('blender-native-authoring.json'))
+          assert native['source_sha']==source and native['outcome']=='PASS' and native['passed']==4
+          preview=e.read('product-preview.png')
+          digest=hashlib.sha256(preview).hexdigest()
+          assert digest=='bcee77e110a5d9e9f9e0d6964a1cfee4f073d0a6b0128a6bed94dfd685b927cf'
+          assert len(preview)<16*1024*1024 and preview[:8]==b'\x89PNG\r\n\x1a\n'
+          (root/'product-preview.png').write_bytes(preview)
+          d_bytes=(root/'d.zip').read_bytes()
+          assert d_meta['digest']=='sha256:'+hashlib.sha256(d_bytes).hexdigest()
+          d=zipfile.ZipFile(io.BytesIO(d_bytes))
+          receipt=json.loads(d.read('native/cross-app/d12-receipt.json'))
+          assert receipt['source_sha']==receipt['e_source_sha']==source and receipt['outcome']=='PASS'
+          assert receipt['e_artifact_id']==11241050061
+          assert all(receipt[k] for k in ('incremental_asset_replacement_verified','behavior_bytes_preserved','gameplay_collision_mapping_preserved','logical_bindings_preserved','cross_app_c_receipt_verified'))
+          Path('verification/composition-av/producer-pins.json').write_text(json.dumps({
+              'source_sha':source,'E_run':37035325016,'E_artifact':11241050061,
+              'preview_sha256':digest,'D_run':37036800206,'D_artifact':11243508106,
+              'D_receipt':receipt,
+              'scope':'E hard-surface product preview -> native Motion/AV; separate E articulated GLB -> native D/C receipt',
+              'same_E_asset_claimed':False,'godot_frame_capture_verified':False,
+          },indent=2)+'\n')
+          PYPINS
+      - name: Overlay only the separately identified I fixture
+        run: |
+          set -euo pipefail
+          git fetch --depth=1 origin "$GITHUB_SHA"
+          git show "$GITHUB_SHA:integration-lab/i-joint-af109ca/combined_native.rs" > crates/av-composition/tests/combined_native.rs
+          test "$(git rev-parse HEAD)" = "$SEMWRIGHT_TEST_SOURCE_SHA"
+          test "$(git diff --name-only)" = crates/av-composition/tests/combined_native.rs
+          sha256sum crates/av-composition/tests/combined_native.rs > verification/composition-av/fixture.sha256
+          printf '%s\n' "$GITHUB_SHA" > verification/composition-av/suite-sha.txt
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
         with:
           toolchain: 1.98.1
@@ -193,7 +256,9 @@ jobs:
               'github_sha': os.environ.get('GITHUB_SHA'),
               'audio_source_sha': os.environ['CANDIDATE_SHA'],
               'audio_owner_sha': 'df2654bed6d2ac57d547846b69d16ea48b4a9ee3',
-              'scope': 'combined-native-av-e2e',
+              'scope': 'I-joint-native-media-fixture',
+              'suite_sha': os.environ['GITHUB_SHA'],
+              'worker': '${{ matrix.worker }}',
               'promotional_video': False,
               'r16_closed': False,
           }, indent=2) + '\n')
@@ -213,7 +278,7 @@ jobs:
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
-          name: composition-av-combined-${{ github.event_name == 'workflow_dispatch' && inputs.candidate_sha || github.sha }}
+          name: i-joint-native-${{ matrix.worker }}-${{ github.event_name == 'workflow_dispatch' && inputs.candidate_sha || github.sha }}
           path: verification/composition-av
           retention-days: 14
           if-no-files-found: error
