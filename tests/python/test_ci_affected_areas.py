@@ -43,9 +43,10 @@ class CiAffectedAreasTests(unittest.TestCase):
         self.assertTrue(areas["security_dependencies"])
         self.assertFalse(areas["security_fuzz"])
 
-    def test_kicad_integration_path_is_native_scoped(self):
+    def test_kicad_integration_path_is_native_and_runtime_scoped(self):
         areas = MODULE.classify(["integrations/kicad-driver/driver/src/main.rs"])
         self.assertTrue(areas["native_kicad_mlt"])
+        self.assertTrue(areas["runtime_tools"])
         self.assertFalse(areas["native_blender"])
 
     def test_full_forces_every_area(self):

@@ -27,6 +27,12 @@ issues: list[str] = []
 legacy_seen: Counter[tuple[str, str]] = Counter()
 production_paths = set((ROOT / "crates").glob("driver-*/src/**/*.rs"))
 production_paths.update((ROOT / "crates" / "adapters" / "src").glob("**/*.rs"))
+for source_root in (ROOT / "integrations").glob("*/driver/src"):
+    production_paths.update(
+        path
+        for path in source_root.rglob("*")
+        if path.is_file() and path.suffix in {".rs", ".py", ".ts", ".js", ".go"}
+    )
 for path in sorted(production_paths):
     rel = str(path.relative_to(ROOT))
     if rel.startswith("crates/driver-host/") or rel.startswith("crates/driver-sdk/"):
