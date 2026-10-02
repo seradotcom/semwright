@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "baseline_sha": "b736d41b61c4a4146c9e75c16796e251b025e69f",
+  "contract_sha": "7ed5b848e4d2e7af235d6166e6f93e0cf0bac90d",
+  "combined_candidate_sha": null,
+  "targets": {
+    "A": "7ab43f99f4cc62be2a9b0ce9ce1155283a429768",
+    "B": "11b40fb0c59473bc0f007a879bf44c732d22b700",
+    "main": "b736d41b61c4a4146c9e75c16796e251b025e69f",
+    "C": "504ad2c6632305b580b51703a60b0a194865780d",
+    "F": "b30d693c24d7dc0527834b7830823655be5216ce",
+    "D": "70bd7857e9700b6f03547a706ff0e6496ffd838e",
+    "E": "f492f13a028f781d9ca55631764578f5b327eb1b"
+  },
+  "selected_lanes": [
+    "selftest"
+  ],
+  "pins": {
+    "os": "ubuntu-24.04",
+    "rust": "1.98.1",
+    "godot_version": "4.7.2-stable",
+    "godot_binary_sha256": "8d106cbe6144c2dc7e881d61d2429c1a8a76e6b22ef48bd5e48dcf934953f71e",
+    "blender_version": "4.5.14",
+    "blender_archive_sha256": "9ba871ff2ecd36526b77432745980b7e6664ecd0c7ca11c48849073dcfe06da3",
+    "godot_template_archive_sha256": "f298490b8d44d934be425a5a65a51bf15f422428b229a06a6e11d9ffea248011"
+  },
+  "limits": {
+    "local_source_bytes": 268435456,
+    "heavy_jobs": 1,
+    "probe_seconds": 30,
+    "output_bytes": 262144,
+    "address_space_bytes": 1073741824,
+    "open_files": 128,
+    "maximum_fixture_fanout": 2,
+    "native_address_space_bytes": 4294967296,
+    "file_size_bytes": 8388608,
+    "native_file_size_bytes": 268435456,
+    "blender_host_open_files": 256,
+    "blender_host_cpu_seconds": 300,
+    "blender_host_file_size_bytes": 1073741824
+  },
+  "harness_history": {
+    "suite_sha": "8ec7a74c3518216feb02ba1b9c55cf3183a0da2a",
+    "path": "tests/semantic-adversarial-lab/lab_core.py",
+    "sha256": "78beb81bfb3788a16d5a82b06c4b4d094f080a42334924da6889f845203d79d0"
+  }
+}

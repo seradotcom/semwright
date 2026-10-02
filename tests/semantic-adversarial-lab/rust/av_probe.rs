@@ -1,0 +1,89 @@
+//! Independent G AV contract fixtures. No render, audio playback or native claim.
+use semwright_av_composition::*;
+use semwright_media_time::*;
+use semwright_semantic_composition::*;
+use serde_json::{Value,json};
+use std::collections::{BTreeMap,BTreeSet};
+type ProbeResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+const SOURCE:&str=env!("G_LAB_COMPILED_SOURCE_SHA");
+fn d(s:&str)->Digest{Digest::of_bytes(s.as_bytes())}
+fn q(n:i64,den:i64)->ProbeResult<Rational>{Ok(Rational::new(n,den)?)}
+fn owner()->Owner{Owner{session:"g-av-session".into(),principal:PrincipalBinding::Named("g-principal".into())}}
+fn sync_spec()->ProbeResult<SyncSpec>{Ok(SyncSpec{cues:[1,4,8].into_iter().enumerate().map(|(i,t)|Ok(SyncCue{id:format!("cue-{i}"),expected_time:q(t,1)?})).collect::<ProbeResult<_>>()?,max_offset:q(1,50)?,max_drift:q(1,100)?,max_cue_error:q(1,50)?,confidence_floor:9000,require_full_scan:true})}
+fn decoded(artifact:Digest)->ProbeResult<DecodedSyncProbe>{let observations=sync_spec()?.cues.into_iter().map(|cue|Detection{cue_id:cue.id,presentation_time:cue.expected_time,uncertainty:Rational::ZERO,confidence:10000}).collect::<Vec<_>>();Ok(DecodedSyncProbe{version:1,artifact_digest:artifact,decoder_method:"g-synthetic-decoder-contract-fixture".into(),decoder_digest:d("g-decoder"),source:EvidenceSource::DecodedMedia,exhaustive_video:true,exhaustive_audio:true,flashes:observations.clone(),impulses:observations})}
+fn services()->Vec<ServiceProof>{[Service::Motion,Service::Audio,Service::Delivery,Service::Artifacts,Service::Decode].into_iter().map(|service|ServiceProof{service,provider:format!("g-provider-{service:?}"),generation:1,catalog_digest:d("g-catalog"),runtime_digest:d("g-runtime"),commands:Stage::ALL.into_iter().filter(|s|s.service()==service).map(|s|(s,d(&format!("g-command-{s:?}")))).collect(),available:true}).collect()}
+fn base()->BaseStateSet{BaseStateSet(services().into_iter().map(|s|BaseState{key:ResourceKey{provider:s.provider.clone(),resource:"g-document".into()},document_id:format!("g-document-{:?}",s.service),provider_session:format!("g-session-{:?}",s.service),generation:"1".into(),revision:Revision::Counter(1),concurrency:Concurrency::BestEffortRevalidate}).collect())}
+fn delivery()->ProbeResult<DeliveryProfile>{Ok(DeliveryProfile{codec:DeliveryCodec::Mp4H264Aac,frame_rate:Rate::new(24,1)?,width:32,height:32,duration:q(10,1)?,sample_rate:48000,channels:2,audio_is_final_mix:true,max_artifact_bytes:100000})}
+fn av_plan()->ProbeResult<AvPlan>{
+ let cues=CueGraph{version:1,cues:sync_spec()?.cues.into_iter().map(|s|Cue{id:s.id,anchor:Anchor::Absolute{time:s.expected_time},duration:Rational::ZERO,source:d("g-cue-source"),method:"g-cue-fixture".into(),version:1,confidence:Some(10000)}).collect()};
+ let cue_digest=cues.digest()?;let base=base();
+ let sub=|service:Service,index:usize|Subplan{version:1,service,owner:owner(),plan_ref:format!("g-plan-{service:?}"),plan_digest:d(&format!("g-plan-{service:?}")),base:BaseStateSet(vec![base.0[index].clone()]),cue_digest:cue_digest.clone(),duration:Rational{num:10,den:1},dependencies:BTreeMap::from([("g-source".into(),d("g-source"))]),required_rules:BTreeSet::from(["g-required".into()])};
+ Ok(AvPlan::prepare(AvPlanBody{version:1,motion:sub(Service::Motion,0),audio:sub(Service::Audio,1),base:base.clone(),services:services(),budget:ConvergenceBudget{max_iterations:3,max_operations:32,max_findings:64,max_observations:64,max_elapsed_ms:20000},spec:AvSpec{version:1,id:"g-av".into(),owner:owner(),cues,delivery:delivery()?,sync:sync_spec()?,required_final_audio_rules:BTreeSet::from(["g-final-audio".into()])}})?)
+}
+fn artifact(stage:Stage,plan:&AvPlan)->ProbeResult<MediaArtifact>{
+ let is_motion=stage==Stage::RenderMotion;let is_audio=stage==Stage::RenderAudio;let name=if is_motion{"motion"}else if is_audio{"audio"}else{"encoded"};
+ Ok(MediaArtifact{reference:format!("artifact:g-{name}"),owner:owner(),sha256:d(name),bytes:1000,media_type:if is_audio{"audio/wav"}else{"video/mp4"}.into(),source_plan:if is_motion{plan.body.motion.plan_digest.clone()}else if is_audio{plan.body.audio.plan_digest.clone()}else{plan.digest.clone()},source_state:base(),metadata:MediaMetadata{duration:q(10,1)?,encoded_duration:Some(q(10,1)?),video:if is_audio{None}else{Some(VideoMetadata{width:32,height:32,frame_rate:Rate::new(24,1)?,frames:240,alpha:false})},audio:if is_motion{None}else{Some(AudioMetadata{sample_rate:48000,channels:2,channel_layout:"stereo".into(),sample_frames:480000,priming_samples:Some(0),padding_samples:Some(0),latency_samples:Some(0),tail_samples:Some(0)})}},dependencies:BTreeMap::from([("g-source".into(),d("g-source"))]),provenance:Some("synthetic contract fixture, not native execution".into()),license:None,retention:Retention::PrivateCandidate})
+}
+fn verification(artifact:&MediaArtifact,rules:BTreeSet<String>)->VerificationReport{
+ VerificationReport{execution_status:ExecutionStatus::Completed,support_level:SupportLevel::Composed,effects_observed:vec![],effects_unobservable:vec![],validation:ValidationReport{plan_digest:artifact.source_plan.clone(),base:base(),required_rules:rules.clone(),checks:rules.into_iter().map(|rule|RuleResult{rule:rule.clone(),version:1,verdict:Verdict::Pass,evidence_class:EvidenceClass::Deterministic,evidence:vec![ObservationRef{id:format!("g-{rule}"),base:base(),source:EvidenceSource::DecodedMedia,method:"g-synthetic-receipt-not-native-acceptance".into(),method_version:1,scope:vec![],artifact:Some(artifact.sha256.clone()),exhaustive:true}],reason:None}).collect()}}
+}
+fn receipt(c:&AvCoordinator,call:&StageCall)->ProbeResult<NativeReceipt>{
+ let p=c.plan();let result=match &call.payload{
+  StagePayload::PlanDelivery{profile}=>NativeResult::DeliveryPlanned{profile_digest:canonical_digest(profile)?},
+  StagePayload::ApplyMotion{..}|StagePayload::ApplyAudio{..}=>NativeResult::Applied,
+  StagePayload::RenderMotion{..}|StagePayload::RenderAudio{..}=>NativeResult::Rendered{artifact:artifact(call.stage,p)?},
+  StagePayload::VerifyMotion{artifact,..}=>NativeResult::Verified{artifact_digest:artifact.sha256.clone(),report:verification(artifact,p.body.motion.required_rules.clone())},
+  StagePayload::VerifyAudio{artifact,..}=>NativeResult::Verified{artifact_digest:artifact.sha256.clone(),report:verification(artifact,p.body.audio.required_rules.clone())},
+  StagePayload::TransferMotion{artifact}|StagePayload::TransferAudio{artifact}=>NativeResult::Transferred{input:DeliveryInput{token:"g-synthetic-transfer".into(),source_digest:artifact.sha256.clone(),artifact_digest:artifact.sha256.clone(),owner:owner(),metadata:artifact.metadata.clone(),operation:TransferKind::ByteCopy,verification:None}},
+  StagePayload::Mux{..}=>NativeResult::Encoded{artifact:artifact(Stage::Mux,p)?},
+  StagePayload::VerifyFinalAudio{artifact,required_rules}=>NativeResult::Verified{artifact_digest:artifact.sha256.clone(),report:verification(artifact,required_rules.clone())},
+  StagePayload::VerifySync{artifact,spec}=>NativeResult::SyncVerified{report:verify_sync(spec,&decoded(artifact.sha256.clone())?)?},
+  StagePayload::PreparePublication{manifest}=>NativeResult::PublicationPrepared{candidate:PublicationCandidate{owner:owner(),manifest_digest:canonical_digest(manifest)?,source_root:"g-private".into(),source_path:"candidate/manifest.json".into(),destination_root:"g-output".into(),destination_path:"published/manifest.json".into(),bytes:1000}},
+  StagePayload::Publish{receipt}=>NativeResult::Published{manifest_digest:receipt.manifest_digest.clone(),pointer:receipt.destination_path.clone()},
+ };
+ Ok(NativeReceipt{request_id:call.request_id.clone(),av_plan_digest:call.av_plan_digest.clone(),owner:call.owner.clone(),stage:call.stage,proof:call.proof.clone(),observed_base:call.expected_base.clone(),status:ExecutionStatus::Completed,result:Some(result),effects:if call.stage.mutates(){vec![format!("synthetic-contract-stage:{:?}",call.stage)]}else{vec![]}})
+}
+fn start(c:&mut AvCoordinator)->ProbeResult<StageCall>{let s=c.next_stage().expect("test stage");let proof=c.plan().body.services.iter().find(|p|p.service==s.service()).expect("bound service").clone();let base=c.expected_base().clone();let call=c.reserve(&owner(),&proof,&base)?;c.before_dispatch(&call,&owner(),&proof,&base)?;Ok(call)}
+fn until(stage:Stage)->ProbeResult<AvCoordinator>{let mut c=AvCoordinator::new(av_plan()?)?;while c.next_stage()!=Some(stage){let call=start(&mut c)?;let r=receipt(&c,&call)?;c.complete(r)?;}Ok(c)}
+fn run(id:&str)->ProbeResult<Value>{Ok(match id{
+ "G-SYNC-001"=>{let r=verify_sync(&sync_spec()?,&decoded(d("encoded"))?)?;json!({"verdict":r.verdict,"count":r.observations.len(),"missing_any":!r.missing.is_empty()})},
+ "G-SYNC-002"=>{let mut p=decoded(d("encoded"))?;for o in p.flashes.iter_mut().chain(&mut p.impulses){o.presentation_time=o.presentation_time.checked_add(q(1,10)?)?;}let r=verify_sync(&sync_spec()?,&p)?;json!({"verdict":r.verdict})},
+ "G-SYNC-003"=>{let mut p=decoded(d("encoded"))?;p.impulses.pop();let r=verify_sync(&sync_spec()?,&p)?;json!({"verdict":r.verdict,"missing_any":!r.missing.is_empty()})},
+ "G-SYNC-004"=>{let mut p=decoded(d("encoded"))?;p.flashes.push(p.flashes[0].clone());json!({"duplicate_detection_rejected":verify_sync(&sync_spec()?,&p).is_err()})},
+ "G-SYNC-005"=>{let mut p=decoded(d("encoded"))?;p.exhaustive_audio=false;json!({"verdict":verify_sync(&sync_spec()?,&p)?.verdict})},
+ "G-SYNC-006"=>{let mut p=decoded(d("encoded"))?;p.source=EvidenceSource::Fixture;json!({"verdict":verify_sync(&sync_spec()?,&p)?.verdict})},
+ "G-SYNC-007"=>{let mut p=decoded(d("encoded"))?;p.flashes[1].confidence=8999;json!({"verdict":verify_sync(&sync_spec()?,&p)?.verdict})},
+ "G-SYNC-008"=>{let mut p=decoded(d("encoded"))?;p.flashes[1].uncertainty=q(1,10)?;json!({"verdict":verify_sync(&sync_spec()?,&p)?.verdict})},
+ "G-SYNC-009"=>{let mut p=decoded(d("encoded"))?;p.impulses[0].presentation_time=p.impulses[0].presentation_time.checked_sub(q(1,100)?)?;p.impulses[2].presentation_time=p.impulses[2].presentation_time.checked_add(q(1,100)?)?;json!({"verdict":verify_sync(&sync_spec()?,&p)?.verdict})},
+ "G-SYNC-010"=>{let mut p=decoded(d("encoded"))?;p.impulses[0].presentation_time=q(2,1)?;p.impulses.pop();json!({"verdict":verify_sync(&sync_spec()?,&p)?.verdict})},
+ "G-SYNC-011"=>{let mut s=sync_spec()?;s.max_cue_error=q(-1,100)?;json!({"negative_tolerance_rejected":s.validate().is_err()})},
+ "G-SYNC-012"=>{let mut s=sync_spec()?;s.max_offset=q(2,1)?;json!({"unbounded_tolerance_rejected":s.validate().is_err()})},
+ "G-SYNC-013"=>{let mut p=decoded(d("encoded"))?;p.impulses[0].uncertainty=q(-1,100)?;json!({"negative_uncertainty_rejected":verify_sync(&sync_spec()?,&p).is_err()})},
+ "G-SYNC-014"=>{let mut s=sync_spec()?;s.cues[1].expected_time=s.cues[0].expected_time;json!({"nonincreasing_cues_rejected":s.validate().is_err()})},
+ "G-SYNC-015"=>{let mut p=decoded(d("encoded"))?;p.version=0;json!({"stale_decoder_schema_rejected":verify_sync(&sync_spec()?,&p).is_err()})},
+ "G-AV-001"=>{let mut c=AvCoordinator::new(av_plan()?)?;for _ in 0..14{let call=start(&mut c)?;let r=receipt(&c,&call)?;c.complete(r)?;}let m=c.manifest()?;json!({"ready":c.ready(),"stages":c.ledger().len(),"r16_closed":m.r16_closed,"promotional_video":m.promotional_video})},
+ "G-AV-002"|"G-AV-003"=>{let stage=if id.ends_with("002"){Stage::ApplyAudio}else{Stage::RenderAudio};let mut c=until(stage)?;let call=start(&mut c)?;let mut r=receipt(&c,&call)?;r.status=ExecutionStatus::Unknown;r.result=None;let denied=c.complete(r).is_err();json!({"incomplete_stage_rejected":denied,"ready":c.ready(),"state_unknown":c.state()==AvState::Unknown,"manifest_unavailable":c.manifest().is_err(),"prior_completed":c.ledger().iter().filter(|e|e.status==ExecutionStatus::Completed).count()})},
+ "G-AV-004"=>{let mut c=AvCoordinator::new(av_plan()?)?;c.cancel_before_dispatch()?;let proof=services()[2].clone();json!({"cancelled_state":c.state()==AvState::Cancelled,"new_reservation_rejected":c.reserve(&owner(),&proof,&base()).is_err(),"ready":c.ready()})},
+ "G-AV-005"=>{let mut c=AvCoordinator::new(av_plan()?)?;start(&mut c)?;let refused=c.cancel_before_dispatch().is_err();c.lost_receipt()?;json!({"blind_cancellation_refused":refused,"unknown_ledger":c.ledger()[0].status==ExecutionStatus::Unknown,"new_dispatch_denied":c.reserve(&owner(),&services()[2],&base()).is_err(),"ready":c.ready()})},
+ "G-AV-006"=>{let mut c=AvCoordinator::new(av_plan()?)?;let proof=services()[2].clone();let mut call=c.reserve(&owner(),&proof,&base())?;if let StagePayload::PlanDelivery{profile}=&mut call.payload{profile.width=64;}json!({"altered_stage_rejected":c.before_dispatch(&call,&owner(),&proof,&base()).is_err(),"dispatches":c.ledger().len()})},
+ "G-AV-007"=>{let mut c=AvCoordinator::new(av_plan()?)?;let call=start(&mut c)?;json!({"duplicate_dispatch_rejected":c.before_dispatch(&call,&owner(),&call.proof,&base()).is_err(),"dispatches":c.ledger().len()})},
+ "G-AV-008"=>{let mut c=AvCoordinator::new(av_plan()?)?;let call=start(&mut c)?;let r=receipt(&c,&call)?;c.complete(r.clone())?;json!({"duplicate_receipt_rejected":c.complete(r).is_err(),"ledger_entries":c.ledger().len()})},
+ "G-AV-009"=>{let mut rejected=0;for index in 0..5{let mut c=AvCoordinator::new(av_plan()?)?;let call=start(&mut c)?;let mut r=receipt(&c,&call)?;match index{0=>r.request_id="old-request".into(),1=>r.av_plan_digest=d("old-plan"),2=>r.owner.session="foreign-session".into(),3=>r.stage=Stage::ApplyAudio,_=>r.proof.generation+=1};rejected+=usize::from(c.complete(r).is_err()&&!c.ready());}json!({"receipt_bindings_rejected":rejected})},
+ "G-AV-010"=>{let mut c=AvCoordinator::new(av_plan()?)?;let mut proof=services()[2].clone();let call=c.reserve(&owner(),&proof,&base())?;proof.generation+=1;json!({"reconnected_provider_rejected":c.before_dispatch(&call,&owner(),&proof,&base()).is_err(),"dispatches":c.ledger().len()})},
+ "G-AV-011"=>{let mut c=AvCoordinator::new(av_plan()?)?;let proof=services()[2].clone();let call=c.reserve(&owner(),&proof,&base())?;let mut fresh=base();fresh.0[0].generation="replacement".into();json!({"changed_resource_rejected":c.before_dispatch(&call,&owner(),&proof,&fresh).is_err(),"dispatches":c.ledger().len()})},
+ "G-AV-012"=>{let mut c=AvCoordinator::new(av_plan()?)?;let call=start(&mut c)?;let mut r=receipt(&c,&call)?;r.observed_base.0[0].revision=Revision::Counter(2);json!({"read_only_write_receipt_rejected":c.complete(r).is_err(),"ready":c.ready()})},
+ "G-AV-013"=>{let mut c=until(Stage::RenderMotion)?;let call=start(&mut c)?;let mut r=receipt(&c,&call)?;if let Some(NativeResult::Rendered{artifact})=&mut r.result{artifact.source_plan=d("old-motion-plan");}json!({"stale_render_plan_rejected":c.complete(r).is_err(),"ready":c.ready()})},
+ "G-AV-014"=>{let mut c=until(Stage::VerifyMotion)?;let call=start(&mut c)?;let mut r=receipt(&c,&call)?;if let Some(NativeResult::Verified{report,..})=&mut r.result{report.validation.checks[0].evidence[0].source=EvidenceSource::Fixture;}json!({"fixture_readback_rejected":c.complete(r).is_err(),"ready":c.ready()})},
+ "G-AV-015"=>{let mut c=until(Stage::VerifyAudio)?;let call=start(&mut c)?;let mut r=receipt(&c,&call)?;if let Some(NativeResult::Verified{report,..})=&mut r.result{report.validation.checks[0].evidence[0].artifact=Some(d("different-audio"));}json!({"different_artifact_readback_rejected":c.complete(r).is_err(),"ready":c.ready()})},
+    "G-AV-016"=>{let mut c=until(Stage::VerifyFinalAudio)?;let call=start(&mut c)?;let mut r=receipt(&c,&call)?;if let Some(NativeResult::Verified{report,..})=&mut r.result{report.validation.checks[0].verdict=Verdict::Fail;}json!({"failed_final_audio_rejected":c.complete(r).is_err(),"ready":c.ready()})},
+    "G-AV-017"=>{let mut c=until(Stage::VerifySync)?;let call=start(&mut c)?;let mut r=receipt(&c,&call)?;if let Some(NativeResult::SyncVerified{report})=&mut r.result{report.verdict=Verdict::Unknown;}json!({"unknown_sync_rejected":c.complete(r).is_err(),"ready":c.ready()})},
+    "G-AV-018"=>{let mut c=until(Stage::RenderAudio)?;let call=start(&mut c)?;let mut r=receipt(&c,&call)?;if let Some(NativeResult::Rendered{artifact})=&mut r.result{artifact.metadata.audio=None;}json!({"missing_audio_metadata_rejected":c.complete(r).is_err(),"ready":c.ready()})},
+    "G-AV-019"=>{let mut body=av_plan()?.body;body.audio.cue_digest=d("stale-cue-graph");json!({"stale_subplan_cues_rejected":AvPlan::prepare(body).is_err()})},
+    "G-AV-020"=>{let mut body=av_plan()?.body;body.spec.delivery.audio_is_final_mix=false;json!({"nonfinal_mix_rejected":AvPlan::prepare(body).is_err()})},
+    _=>{eprintln!("unregistered AV selector");std::process::exit(2)}
+})}
+fn cases()->Vec<String>{[("SYNC",15),("AV",20)].into_iter().flat_map(|(f,n)|(1..=n).map(move|i|format!("G-{f}-{i:03}"))).collect()}
+fn main(){let args:Vec<_>=std::env::args().skip(1).collect();if args.len()!=1||std::env::var("G_LAB_TARGET_SHA").as_deref()!=Ok(SOURCE){std::process::exit(2)}
+if args[0]=="--list"{println!("{}",json!({"schema_version":1,"source_sha":SOURCE,"cases":cases()}));return;}
+if !cases().contains(&args[0]){std::process::exit(2)}
+match run(&args[0]){Ok(observed)=>println!("{}",json!({"schema_version":1,"source_sha":SOURCE,"case_id":args[0],"observed":observed})),Err(e)=>{eprintln!("AV probe contract/setup error: {e:?}");std::process::exit(1)}}}

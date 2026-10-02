@@ -1,0 +1,5724 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "id": "G-SELF-001",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "positive control",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-002",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "zero requested cases",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-003",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "missing result",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-004",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "duplicate result",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-005",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "wrong source SHA",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-006",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "wrong suite SHA",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-007",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "native evidence relabel",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-008",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "missing isolation",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-009",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "skipped outcome",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-010",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "FAIL preserved",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-011",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "BLOCKED preserved",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-012",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "NOT_RUN preserved",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-013",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "open blocker",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-014",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "nested duplicate JSON",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-015",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "nonfinite JSON",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-016",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "fake PASS stdout",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-017",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "case substitution",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-018",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "branch instead of SHA",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-019",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "boolean schema version",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-020",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "bool versus integer",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-021",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "absent versus null",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-022",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "NaN oracle comparison",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-023",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "missing final case",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-024",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "missing-case guard mutant killed",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-025",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "SHA guard mutant killed",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-026",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "verdict guard mutant killed",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-027",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "retest missing job",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-028",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "abbreviated SHA",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-029",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "receipt budget",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-030",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "no native or R16 overclaim",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-031",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "numeric exponent overflow",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-032",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "negative exponent overflow",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-033",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "non-UTF8 wire encoding",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-034",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "unpaired Unicode value surrogate",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-035",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "unpaired Unicode key surrogate",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-036",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "depth budget",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-037",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "depth boundary positive control",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-038",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "unknown evidence scope",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-039",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "invalid requested case ID",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-040",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "boolean blocker count",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-041",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "nonobject result family",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-042",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "fake closure without observations",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-043",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "complete same-suite retest positive control",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-044",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "missing affected retest case",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-045",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "changed oracle suite at closure",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-046",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "missing evidence digest",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-047",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "stale result within fixing run",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-048",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "blocked affected retest case",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-049",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "valid UTF8 Unicode positive control",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-050",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "unverified cleanup at closure",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-051",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "boolean job identifier",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-052",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "missing isolation at closure",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-053",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "before: frozen oracle accepts exponent overflow",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-054",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "before/fix: frozen oracle accepts unobserved closure; current rejects",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-055",
+      "owner": "G",
+      "requirement": "G10",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "valid bounded artifact archive",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-056",
+      "owner": "G",
+      "requirement": "G10",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "wrong artifact digest",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-057",
+      "owner": "G",
+      "requirement": "G10",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "archive parent traversal",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-058",
+      "owner": "G",
+      "requirement": "G10",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "archive symlink",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-059",
+      "owner": "G",
+      "requirement": "G10",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "duplicate archive member",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-060",
+      "owner": "G",
+      "requirement": "G10",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "missing structured report",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-061",
+      "owner": "G",
+      "requirement": "G10",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "unexpected archive member",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-062",
+      "owner": "G",
+      "requirement": "G10",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "malformed ZIP",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-063",
+      "owner": "G",
+      "requirement": "G10",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "oversized member",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-064",
+      "owner": "G",
+      "requirement": "G10",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "valid report plus provisioning receipt",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-065",
+      "owner": "G",
+      "requirement": "G10",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "absolute archive path",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-066",
+      "owner": "G",
+      "requirement": "G10",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "directory archive member",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-067",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "exact-SHA collector positive control",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-068",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "wrong product source in report",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-069",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "wrong suite in report",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-070",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "wrong run attempt",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-071",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "missing requested case",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-072",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "fabricated executed count",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-073",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "false native acceptance",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-074",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "product report disguised as selftest",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-075",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "contract SHA substitution",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-076",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "dependency SHA substitution",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-077",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "FAIL hidden by success summary",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-078",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "omitted executed results",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-079",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "infrastructure BLOCKED preserved",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-080",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "skipped case cannot satisfy obligation",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-081",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "boolean executed count cannot impersonate integer",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-082",
+      "owner": "G",
+      "requirement": "G04",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "R16 closure field must be a strict boolean",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-083",
+      "owner": "G",
+      "requirement": "G11",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "target-only commit retest with identical oracle positive control",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-084",
+      "owner": "G",
+      "requirement": "G11",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "changed oracle digest cannot close finding",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-085",
+      "owner": "G",
+      "requirement": "G11",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "collector recomputes oracle from immutable Git source",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-086",
+      "owner": "G",
+      "requirement": "G11",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "missing oracle identity blocks closure",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-087",
+      "owner": "G",
+      "requirement": "G11",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "target selector change preserves oracle identity",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-088",
+      "owner": "G",
+      "requirement": "G11",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "relaxed limits change oracle identity",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-089",
+      "owner": "G",
+      "requirement": "G11",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "changed executable guard changes oracle identity",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-090",
+      "owner": "G",
+      "requirement": "G11",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "relaxed expectations change oracle identity",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-091",
+      "owner": "G",
+      "requirement": "G11",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "immutable evidence write is idempotent",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-092",
+      "owner": "G",
+      "requirement": "G11",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "PASS cannot overwrite retained before-FAIL receipt",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-PLAN-001",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "reservation before receipt",
+      "expected": {
+        "reserved_before_effect": true,
+        "attempts": 1,
+        "receipt": [
+          "synthetic-write:a"
+        ]
+      }
+    },
+    {
+      "id": "G-PLAN-002",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "rehash expanded write set",
+      "expected": {
+        "rehashed_structural_plan_valid": true,
+        "vault_denied": true,
+        "attempts": 0
+      }
+    },
+    {
+      "id": "G-PLAN-003",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "principal substitution",
+      "expected": {
+        "begin_denied": true,
+        "ledger_denied": true,
+        "owner_unmodified": true
+      }
+    },
+    {
+      "id": "G-PLAN-004",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "session substitution",
+      "expected": {
+        "begin_denied": true,
+        "ledger_denied": true,
+        "owner_unmodified": true
+      }
+    },
+    {
+      "id": "G-PLAN-005",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "unissued plan",
+      "expected": {
+        "unissued_denied": true
+      }
+    },
+    {
+      "id": "G-PLAN-006",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "six canonical bindings",
+      "expected": {
+        "bound_fields_denied": 6
+      }
+    },
+    {
+      "id": "G-PLAN-007",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "required suppression",
+      "expected": {
+        "required_suppression_rejected": true
+      }
+    },
+    {
+      "id": "G-PLAN-008",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "four profile substitutions",
+      "expected": {
+        "profile_substitutions_rejected": 4
+      }
+    },
+    {
+      "id": "G-PLAN-009",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "effect escalation",
+      "expected": {
+        "effect_escalation_rejected": true
+      }
+    },
+    {
+      "id": "G-PLAN-010",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "logical address transplant",
+      "expected": {
+        "structurally_valid": true,
+        "transplant_denied": true
+      }
+    },
+    {
+      "id": "G-PLAN-011",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "request replay across repair",
+      "expected": {
+        "root_request_replay_denied": true,
+        "fresh_request_still_possible": true,
+        "attempts": 2
+      }
+    },
+    {
+      "id": "G-PLAN-012",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "unsafe terminal outcome retry and repair",
+      "expected": {
+        "unsafe_retries_denied": 5,
+        "unsafe_repairs_denied": 5
+      }
+    },
+    {
+      "id": "G-PLAN-013",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "lost dispatch leaves reservation",
+      "expected": {
+        "still_applying": true,
+        "retry_denied": true,
+        "repair_denied": true
+      }
+    },
+    {
+      "id": "G-PLAN-014",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "reissue not a refund",
+      "expected": {
+        "reissue_did_not_reset": true,
+        "attempts": 1
+      }
+    },
+    {
+      "id": "G-PLAN-015",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "cumulative operations",
+      "expected": {
+        "aggregate_limit": "LIMIT",
+        "attempts": 1
+      }
+    },
+    {
+      "id": "G-PLAN-016",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "five budget dimensions",
+      "expected": {
+        "budget_dimensions_bound": 5
+      }
+    },
+    {
+      "id": "G-PLAN-017",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "root observation budget",
+      "expected": {
+        "findings_limit": true,
+        "shared_observation_limit": true
+      }
+    },
+    {
+      "id": "G-PLAN-018",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "independent root positive control",
+      "expected": {
+        "independent_root_allowed": true
+      }
+    },
+    {
+      "id": "G-PLAN-019",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "revocation scope",
+      "expected": {
+        "revoked_denied": true,
+        "other_unchanged": true
+      }
+    },
+    {
+      "id": "G-PLAN-020",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "restart loses issued authority",
+      "expected": {
+        "restart_loses_authority": true
+      }
+    },
+    {
+      "id": "G-PLAN-021",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "revoked completion rejected",
+      "expected": {
+        "completion_after_revoke_denied": true
+      }
+    },
+    {
+      "id": "G-PLAN-022",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "late receipt after root replacement",
+      "expected": {
+        "old_epoch_completion_accepted": false,
+        "new_attempt_still_applying": true
+      }
+    },
+    {
+      "id": "G-PLAN-023",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "cross-vault permit isolation",
+      "expected": {
+        "foreign_vault_completion_accepted": false
+      }
+    },
+    {
+      "id": "G-PLAN-024",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "expired epoch completion",
+      "expected": {
+        "expired_epoch_completion_accepted": false
+      }
+    },
+    {
+      "id": "G-PLAN-025",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "expired begin",
+      "expected": {
+        "expired_begin": "STALE"
+      }
+    },
+    {
+      "id": "G-PLAN-026",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "invalid terminal receipt retains reservation",
+      "expected": {
+        "nonterminal_finish_rejected": true,
+        "still_applying": true,
+        "reservation_not_refunded": true
+      }
+    },
+    {
+      "id": "G-PLAN-027",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "unobserved parent repair",
+      "expected": {
+        "unobserved_parent_denied": true,
+        "unclassified_child_denied": true
+      }
+    },
+    {
+      "id": "G-PLAN-028",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "server capacity budgets",
+      "expected": {
+        "root_capacity": "LIMIT",
+        "attempt_capacity": "LIMIT",
+        "plan_capacity": "LIMIT"
+      }
+    },
+    {
+      "id": "G-PLAN-029",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "empty cyclic and undeclared plans",
+      "expected": {
+        "invalid_structures_rejected": 3
+      }
+    },
+    {
+      "id": "G-PLAN-030",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "stale candidate receipt",
+      "expected": {
+        "old_candidate_denied": true
+      }
+    },
+    {
+      "id": "G-PLAN-031",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "controller required-set binding",
+      "expected": {
+        "scope_suppression_denied": true
+      }
+    },
+    {
+      "id": "G-PLAN-032",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "healthy controller",
+      "expected": {
+        "positive_complete": true,
+        "verified_state": true
+      }
+    },
+    {
+      "id": "G-PLAN-033",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "no progress terminates repair",
+      "expected": {
+        "repair_initially_allowed": true,
+        "stopped_without_progress": true
+      }
+    },
+    {
+      "id": "G-PLAN-034",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "ambiguous repair stops",
+      "expected": {
+        "ambiguous_repair_stopped": true
+      }
+    },
+    {
+      "id": "G-PLAN-035",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "partial controller cannot retry",
+      "expected": {
+        "partial_state": true,
+        "unsafe_retry_denied": true
+      }
+    },
+    {
+      "id": "G-PLAN-036",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "cancelled controller cannot certify",
+      "expected": {
+        "cancelled_state": true,
+        "apply_after_cancel_denied": true,
+        "ready_after_cancel_denied": true
+      }
+    },
+    {
+      "id": "G-PLAN-037",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "native identity replacement",
+      "expected": {
+        "identity_changes_rejected": 3
+      }
+    },
+    {
+      "id": "G-PLAN-038",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "unordered base set positive control",
+      "expected": {
+        "same_resource_set_fresh": true
+      }
+    },
+    {
+      "id": "G-PLAN-039",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "unknown vs stale membership",
+      "expected": {
+        "unobservable": "UNKNOWN",
+        "missing_membership": "STALE"
+      }
+    },
+    {
+      "id": "G-PLAN-040",
+      "owner": "A",
+      "requirement": "G03",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "best effort is not native CAS",
+      "expected": {
+        "best_effort_is_not_cas": "DENIED",
+        "declared_cas_contract_accepted": true
+      }
+    },
+    {
+      "id": "G-VERIFY-001",
+      "owner": "A/F",
+      "requirement": "G04",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "healthy synthetic-labelled evidence",
+      "expected": {
+        "verdict": "PASS"
+      }
+    },
+    {
+      "id": "G-VERIFY-002",
+      "owner": "A/F",
+      "requirement": "G04",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "27 required-verdict combinations",
+      "expected": {
+        "truth_table": [
+          "PASS",
+          "FAIL",
+          "UNKNOWN",
+          "FAIL",
+          "FAIL",
+          "FAIL",
+          "UNKNOWN",
+          "FAIL",
+          "UNKNOWN",
+          "FAIL",
+          "FAIL",
+          "FAIL",
+          "FAIL",
+          "FAIL",
+          "FAIL",
+          "FAIL",
+          "FAIL",
+          "FAIL",
+          "UNKNOWN",
+          "FAIL",
+          "UNKNOWN",
+          "FAIL",
+          "FAIL",
+          "FAIL",
+          "UNKNOWN",
+          "FAIL",
+          "UNKNOWN"
+        ]
+      }
+    },
+    {
+      "id": "G-VERIFY-003",
+      "owner": "A/F",
+      "requirement": "G04",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "missing final check",
+      "expected": {
+        "verdict": "UNKNOWN"
+      }
+    },
+    {
+      "id": "G-VERIFY-004",
+      "owner": "A/F",
+      "requirement": "G04",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "duplicate result",
+      "expected": {
+        "duplicate_rejected": true
+      }
+    },
+    {
+      "id": "G-VERIFY-005",
+      "owner": "A/F",
+      "requirement": "G04",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "nonexhaustive evidence each position",
+      "expected": {
+        "verdicts": [
+          "UNKNOWN",
+          "UNKNOWN",
+          "UNKNOWN"
+        ]
+      }
+    },
+    {
+      "id": "G-VERIFY-006",
+      "owner": "A/F",
+      "requirement": "G04",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "fixture and simulation",
+      "expected": {
+        "verdicts": [
+          "UNKNOWN",
+          "UNKNOWN"
+        ]
+      }
+    },
+    {
+      "id": "G-VERIFY-007",
+      "owner": "A/F",
+      "requirement": "G04",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "heuristic and aesthetic class",
+      "expected": {
+        "verdicts": [
+          "UNKNOWN",
+          "UNKNOWN"
+        ]
+      }
+    },
+    {
+      "id": "G-VERIFY-008",
+      "owner": "A/F",
+      "requirement": "G04",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "stale observation base",
+      "expected": {
+        "verdict": "UNKNOWN"
+      }
+    },
+    {
+      "id": "G-VERIFY-009",
+      "owner": "A/F",
+      "requirement": "G04",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "A bare ValidationReport does not authenticate observation method version; F owns that trusted binding before aggregation",
+      "expected": {
+        "bare_aggregator_passes_without_method_binding": true
+      }
+    },
+    {
+      "id": "G-VERIFY-010",
+      "owner": "A/F",
+      "requirement": "G04",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "A bare ValidationReport does not authenticate effect observation scope; F owns trusted invocation/scope binding before aggregation",
+      "expected": {
+        "bare_aggregator_passes_without_scope_binding": true
+      }
+    },
+    {
+      "id": "G-VERIFY-011",
+      "owner": "A/F",
+      "requirement": "G04",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "A VerificationReport effects_unobservable is coverage metadata; F makes required unobservable rules UNKNOWN before constructing the report",
+      "expected": {
+        "bare_report_passes_with_unobservable_metadata": true
+      }
+    },
+    {
+      "id": "G-VERIFY-012",
+      "owner": "A/F",
+      "requirement": "G04",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "execution status vs verdict",
+      "expected": {
+        "positive_validation": [
+          "UNKNOWN",
+          "UNKNOWN",
+          "PASS",
+          "UNKNOWN",
+          "UNKNOWN",
+          "UNKNOWN",
+          "UNKNOWN",
+          "UNKNOWN"
+        ],
+        "failed_validation": [
+          "FAIL",
+          "FAIL",
+          "FAIL",
+          "FAIL",
+          "FAIL",
+          "FAIL",
+          "FAIL",
+          "FAIL"
+        ]
+      }
+    },
+    {
+      "id": "G-VERIFY-013",
+      "owner": "A/F",
+      "requirement": "G04",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "explicit optional failure outside required scope",
+      "expected": {
+        "required_scope_verdict": "PASS"
+      }
+    },
+    {
+      "id": "G-VERIFY-014",
+      "owner": "A/F",
+      "requirement": "G04",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "FAIL dominates missing",
+      "expected": {
+        "verdict": "FAIL"
+      }
+    },
+    {
+      "id": "G-VERIFY-015",
+      "owner": "A/F",
+      "requirement": "G04",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "missing readback",
+      "expected": {
+        "verdict": "UNKNOWN"
+      }
+    },
+    {
+      "id": "G-VERIFY-016",
+      "owner": "A/F",
+      "requirement": "G04",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "invalid rule version",
+      "expected": {
+        "invalid_rule_version_rejected": true
+      }
+    },
+    {
+      "id": "G-VERIFY-017",
+      "owner": "A/F",
+      "requirement": "G04",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "ambiguous base",
+      "expected": {
+        "ambiguous_base_rejected": true
+      }
+    },
+    {
+      "id": "G-VERIFY-018",
+      "owner": "A/F",
+      "requirement": "G04",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "check count limit",
+      "expected": {
+        "check_budget_rejected": true
+      }
+    },
+    {
+      "id": "G-VERIFY-019",
+      "owner": "A/F",
+      "requirement": "G04",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "empty required scope",
+      "expected": {
+        "vacuous_pass_rejected": true
+      }
+    },
+    {
+      "id": "G-VERIFY-020",
+      "owner": "A/F",
+      "requirement": "G04",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "warning cannot hide required unknown",
+      "expected": {
+        "verdict": "UNKNOWN"
+      }
+    },
+    {
+      "id": "G-CODEC-001",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "escaped duplicate",
+      "expected": {
+        "escaped_duplicate_rejected": true
+      }
+    },
+    {
+      "id": "G-CODEC-002",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "entry limit",
+      "expected": {
+        "entry_limit_rejected": true
+      }
+    },
+    {
+      "id": "G-CODEC-003",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "depth limit",
+      "expected": {
+        "depth_limit_rejected": true
+      }
+    },
+    {
+      "id": "G-CODEC-004",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "trailing data",
+      "expected": {
+        "trailing_data_rejected": true
+      }
+    },
+    {
+      "id": "G-CODEC-005",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "invalid UTF8",
+      "expected": {
+        "invalid_utf8_rejected": true
+      }
+    },
+    {
+      "id": "G-CODEC-006",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "nonfinite number",
+      "expected": {
+        "nonfinite_number_rejected": true
+      }
+    },
+    {
+      "id": "G-CODEC-007",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "Unicode/null/array order",
+      "expected": {
+        "roundtrip": true,
+        "array_order_preserved": true
+      }
+    },
+    {
+      "id": "G-CODEC-008",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "canonical key order but no implicit Unicode normalization",
+      "expected": {
+        "key_order_canonical": true,
+        "unicode_forms_not_silently_normalized": true
+      }
+    },
+    {
+      "id": "G-CODEC-009",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "seeded small JSON corpus",
+      "expected": {
+        "seeded_roundtrips": 64
+      }
+    },
+    {
+      "id": "G-CODEC-010",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "composition",
+      "scope": "product_contract",
+      "description": "unknown authority metadata",
+      "expected": {
+        "unknown_authority_field_rejected": true
+      }
+    },
+    {
+      "id": "G-AUDIO-001",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "synthetic PCM positive control",
+      "expected": {
+        "frames": 4,
+        "nonfinite": 0,
+        "peak_millidbfs": -6021,
+        "rms_millidbfs": -9031,
+        "entirely_silent": false
+      }
+    },
+    {
+      "id": "G-AUDIO-002",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "silence has undefined logarithmic levels",
+      "expected": {
+        "frames": 8,
+        "peak": null,
+        "rms": null,
+        "silent": true,
+        "ranges": 1,
+        "exhaustive": true
+      }
+    },
+    {
+      "id": "G-AUDIO-003",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "nonfinite samples not mislabelled silence",
+      "expected": {
+        "nonfinite": 3,
+        "finite": 0,
+        "silent": false,
+        "peak": null,
+        "rms": null,
+        "dc": null
+      }
+    },
+    {
+      "id": "G-AUDIO-004",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "nonfinite samples excluded from finite denominator",
+      "expected": {
+        "nonfinite": 1,
+        "finite": 2,
+        "peak": -6021,
+        "rms": -6021,
+        "dc": 0.0
+      }
+    },
+    {
+      "id": "G-AUDIO-005",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "partial interleaved frame rejected before state change",
+      "expected": {
+        "partial_frame_denied": true,
+        "frames_after_valid": 1
+      }
+    },
+    {
+      "id": "G-AUDIO-006",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "frame budget rejection is not consumption",
+      "expected": {
+        "over_budget_denied": true,
+        "frames": 2
+      }
+    },
+    {
+      "id": "G-AUDIO-007",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "overflowing finite block rejected before state change",
+      "expected": {
+        "huge_finite_denied": true,
+        "frames": 1,
+        "silent": true
+      }
+    },
+    {
+      "id": "G-AUDIO-008",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "out of normalized range sample count",
+      "expected": {
+        "out_of_range": 2,
+        "nonfinite": 0
+      }
+    },
+    {
+      "id": "G-AUDIO-009",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "streaming partition invariance",
+      "expected": {
+        "streaming_partition_invariant": true
+      }
+    },
+    {
+      "id": "G-AUDIO-010",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "truncated silence index is nonexhaustive",
+      "expected": {
+        "stored_ranges": 4096,
+        "exhaustive": false
+      }
+    },
+    {
+      "id": "G-AUDIO-011",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "empty analyzer has no valid result",
+      "expected": {
+        "empty_analysis_denied": true
+      }
+    },
+    {
+      "id": "G-AUDIO-012",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "invalid channel/frame/threshold configurations",
+      "expected": {
+        "invalid_configurations_denied": 5
+      }
+    },
+    {
+      "id": "G-AUDIO-013",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "stereo channel isolation",
+      "expected": {
+        "left_peak": null,
+        "right_peak": 0,
+        "silent": false,
+        "silence_ranges": 0
+      }
+    },
+    {
+      "id": "G-AUDIO-014",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "PCM statistics are not mastering or intelligibility",
+      "expected": {
+        "claims_lufs": false,
+        "claims_true_peak": false,
+        "claims_intelligibility": false
+      }
+    },
+    {
+      "id": "G-AUDIO-015",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "signed zero remains silence",
+      "expected": {
+        "signed_zero_silent": true,
+        "peak": null
+      }
+    },
+    {
+      "id": "G-WAVE-001",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "PCM16 decode and EOF positive control",
+      "expected": {
+        "frames": 4,
+        "decoded": [
+          -1.0,
+          0.0,
+          0.5,
+          0.999969482421875
+        ],
+        "eof": true
+      }
+    },
+    {
+      "id": "G-WAVE-002",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "every truncation of bounded fixture",
+      "expected": {
+        "truncations_rejected": 52,
+        "bytes": 52
+      }
+    },
+    {
+      "id": "G-WAVE-003",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "RIFF length mismatch",
+      "expected": {
+        "size_mismatch_rejected": true
+      }
+    },
+    {
+      "id": "G-WAVE-004",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "duplicate data chunk",
+      "expected": {
+        "duplicate_data_rejected": true
+      }
+    },
+    {
+      "id": "G-WAVE-005",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "duplicate fmt chunk",
+      "expected": {
+        "duplicate_format_rejected": true
+      }
+    },
+    {
+      "id": "G-WAVE-006",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "wrong block alignment",
+      "expected": {
+        "alignment_rejected": true
+      }
+    },
+    {
+      "id": "G-WAVE-007",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "wrong byte rate",
+      "expected": {
+        "byte_rate_rejected": true
+      }
+    },
+    {
+      "id": "G-WAVE-008",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "partial sample payload",
+      "expected": {
+        "partial_sample_rejected": true
+      }
+    },
+    {
+      "id": "G-WAVE-009",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "missing format chunk",
+      "expected": {
+        "missing_format_rejected": true
+      }
+    },
+    {
+      "id": "G-WAVE-010",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "input byte budget",
+      "expected": {
+        "input_budget_rejected": true
+      }
+    },
+    {
+      "id": "G-WAVE-011",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "odd padded unknown chunk positive control",
+      "expected": {
+        "odd_unknown_chunk_preserved_samples": [
+          -1.0,
+          0.0,
+          0.5,
+          0.999969482421875
+        ]
+      }
+    },
+    {
+      "id": "G-WAVE-012",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "frame seek bounds",
+      "expected": {
+        "seek_frame": [
+          0.5
+        ],
+        "beyond_end_denied": true,
+        "seek_end_is_eof": true
+      }
+    },
+    {
+      "id": "G-WAVE-013",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "invalid read buffer does not consume input",
+      "expected": {
+        "zero_buffer_denied": true,
+        "oversize_buffer_denied": true,
+        "no_consumption": [
+          -1.0
+        ]
+      }
+    },
+    {
+      "id": "G-WAVE-014",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "float WAV preserves nonfinite classification",
+      "expected": {
+        "decoded_nonfinite": 2,
+        "finite": 1,
+        "silent": false
+      }
+    },
+    {
+      "id": "G-WAVE-015",
+      "owner": "B",
+      "requirement": "G08",
+      "lane": "audio",
+      "scope": "product_contract",
+      "description": "128 seeded bounded header/data mutations",
+      "expected": {
+        "bounded_parser_mutations_completed": 128
+      }
+    },
+    {
+      "id": "G-SYNC-001",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "synthetic sync positive control",
+      "expected": {
+        "verdict": "PASS",
+        "count": 3,
+        "missing_any": false
+      }
+    },
+    {
+      "id": "G-SYNC-002",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "common absolute audio/video drift",
+      "expected": {
+        "verdict": "FAIL"
+      }
+    },
+    {
+      "id": "G-SYNC-003",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "missing final cue",
+      "expected": {
+        "verdict": "UNKNOWN",
+        "missing_any": true
+      }
+    },
+    {
+      "id": "G-SYNC-004",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "duplicate cue observation",
+      "expected": {
+        "duplicate_detection_rejected": true
+      }
+    },
+    {
+      "id": "G-SYNC-005",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "nonexhaustive audio scan",
+      "expected": {
+        "verdict": "UNKNOWN"
+      }
+    },
+    {
+      "id": "G-SYNC-006",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "fixture cannot be promoted to decoded evidence",
+      "expected": {
+        "verdict": "UNKNOWN"
+      }
+    },
+    {
+      "id": "G-SYNC-007",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "confidence below declared floor",
+      "expected": {
+        "verdict": "UNKNOWN"
+      }
+    },
+    {
+      "id": "G-SYNC-008",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "uncertainty exceeds tolerance",
+      "expected": {
+        "verdict": "UNKNOWN"
+      }
+    },
+    {
+      "id": "G-SYNC-009",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "cumulative drift exceeds bound",
+      "expected": {
+        "verdict": "FAIL"
+      }
+    },
+    {
+      "id": "G-SYNC-010",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "known FAIL survives a missing cue",
+      "expected": {
+        "verdict": "FAIL"
+      }
+    },
+    {
+      "id": "G-SYNC-011",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "negative tolerance rejected",
+      "expected": {
+        "negative_tolerance_rejected": true
+      }
+    },
+    {
+      "id": "G-SYNC-012",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "unbounded tolerance rejected",
+      "expected": {
+        "unbounded_tolerance_rejected": true
+      }
+    },
+    {
+      "id": "G-SYNC-013",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "negative uncertainty rejected",
+      "expected": {
+        "negative_uncertainty_rejected": true
+      }
+    },
+    {
+      "id": "G-SYNC-014",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "nonincreasing absolute cues rejected",
+      "expected": {
+        "nonincreasing_cues_rejected": true
+      }
+    },
+    {
+      "id": "G-SYNC-015",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "old decoder schema rejected",
+      "expected": {
+        "stale_decoder_schema_rejected": true
+      }
+    },
+    {
+      "id": "G-AV-001",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "complete synthetic 14-stage contract positive control",
+      "expected": {
+        "ready": true,
+        "stages": 14,
+        "r16_closed": false,
+        "promotional_video": false
+      }
+    },
+    {
+      "id": "G-AV-002",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "audio apply unknown after video verification",
+      "expected": {
+        "incomplete_stage_rejected": true,
+        "ready": false,
+        "state_unknown": true,
+        "manifest_unavailable": true,
+        "prior_completed": 2
+      }
+    },
+    {
+      "id": "G-AV-003",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "audio render unknown after audio mutation",
+      "expected": {
+        "incomplete_stage_rejected": true,
+        "ready": false,
+        "state_unknown": true,
+        "manifest_unavailable": true,
+        "prior_completed": 4
+      }
+    },
+    {
+      "id": "G-AV-004",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "pre-dispatch cancellation blocks reservation",
+      "expected": {
+        "cancelled_state": true,
+        "new_reservation_rejected": true,
+        "ready": false
+      }
+    },
+    {
+      "id": "G-AV-005",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "lost dispatch cannot silently retry",
+      "expected": {
+        "blind_cancellation_refused": true,
+        "unknown_ledger": true,
+        "new_dispatch_denied": true,
+        "ready": false
+      }
+    },
+    {
+      "id": "G-AV-006",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "altered reserved payload cannot dispatch",
+      "expected": {
+        "altered_stage_rejected": true,
+        "dispatches": 0
+      }
+    },
+    {
+      "id": "G-AV-007",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "duplicate dispatch",
+      "expected": {
+        "duplicate_dispatch_rejected": true,
+        "dispatches": 1
+      }
+    },
+    {
+      "id": "G-AV-008",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "duplicate completion receipt",
+      "expected": {
+        "duplicate_receipt_rejected": true,
+        "ledger_entries": 1
+      }
+    },
+    {
+      "id": "G-AV-009",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "request plan owner stage generation bindings",
+      "expected": {
+        "receipt_bindings_rejected": 5
+      }
+    },
+    {
+      "id": "G-AV-010",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "provider reconnect before dispatch",
+      "expected": {
+        "reconnected_provider_rejected": true,
+        "dispatches": 0
+      }
+    },
+    {
+      "id": "G-AV-011",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "resource replacement before dispatch",
+      "expected": {
+        "changed_resource_rejected": true,
+        "dispatches": 0
+      }
+    },
+    {
+      "id": "G-AV-012",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "read-only stage with changed revision",
+      "expected": {
+        "read_only_write_receipt_rejected": true,
+        "ready": false
+      }
+    },
+    {
+      "id": "G-AV-013",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "render for old source plan",
+      "expected": {
+        "stale_render_plan_rejected": true,
+        "ready": false
+      }
+    },
+    {
+      "id": "G-AV-014",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "fixture labelled readback",
+      "expected": {
+        "fixture_readback_rejected": true,
+        "ready": false
+      }
+    },
+    {
+      "id": "G-AV-015",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "readback for a different audio artifact",
+      "expected": {
+        "different_artifact_readback_rejected": true,
+        "ready": false
+      }
+    },
+    {
+      "id": "G-AV-016",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "final audio FAIL prevents publication",
+      "expected": {
+        "failed_final_audio_rejected": true,
+        "ready": false
+      }
+    },
+    {
+      "id": "G-AV-017",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "sync UNKNOWN prevents publication",
+      "expected": {
+        "unknown_sync_rejected": true,
+        "ready": false
+      }
+    },
+    {
+      "id": "G-AV-018",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "audio artifact missing audio metadata",
+      "expected": {
+        "missing_audio_metadata_rejected": true,
+        "ready": false
+      }
+    },
+    {
+      "id": "G-AV-019",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "stale cue digest in audio subplan",
+      "expected": {
+        "stale_subplan_cues_rejected": true
+      }
+    },
+    {
+      "id": "G-AV-020",
+      "owner": "A",
+      "requirement": "G08",
+      "lane": "av",
+      "scope": "product_contract",
+      "description": "prevent undisclosed second mix",
+      "expected": {
+        "nonfinal_mix_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-001",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "unobserved registered asset stays UNKNOWN",
+      "expected": {
+        "label": "UNKNOWN",
+        "reconcile": true,
+        "latest": false
+      }
+    },
+    {
+      "id": "G-GRAPH-002",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "fixture observation cannot become trusted current evidence",
+      "expected": {
+        "label": "UNKNOWN",
+        "cache_safe": false,
+        "reconcile": true
+      }
+    },
+    {
+      "id": "G-GRAPH-003",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "conclusive not-found is distinct from offline",
+      "expected": {
+        "label": "MISSING",
+        "reconcile": false
+      }
+    },
+    {
+      "id": "G-GRAPH-004",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "provider offline remains UNKNOWN",
+      "expected": {
+        "label": "UNKNOWN",
+        "reconcile": true
+      }
+    },
+    {
+      "id": "G-GRAPH-005",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "rebind bumps generation and invalidates prior observation",
+      "expected": {
+        "generation": 2,
+        "latest": false,
+        "label": "UNKNOWN"
+      }
+    },
+    {
+      "id": "G-GRAPH-006",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "same-generation native instance replacement rejected",
+      "expected": {
+        "replacement_rejected": true,
+        "original_preserved": true
+      }
+    },
+    {
+      "id": "G-GRAPH-007",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "stale expected generation cannot rebind",
+      "expected": {
+        "wrong_generation_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-008",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "subset grant cannot replace project-wide determinants",
+      "expected": {
+        "subset_project_determinants_denied": true
+      }
+    },
+    {
+      "id": "G-GRAPH-009",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "foreign principal cannot inspect graph",
+      "expected": {
+        "cross_owner_denied": true
+      }
+    },
+    {
+      "id": "G-GRAPH-010",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "file scope excludes other roots and native locators",
+      "expected": {
+        "visible": 1,
+        "partial": true,
+        "only_alpha": true
+      }
+    },
+    {
+      "id": "G-GRAPH-011",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "cursor cannot cross authenticated sessions",
+      "expected": {
+        "cross_session_cursor_denied": true
+      }
+    },
+    {
+      "id": "G-GRAPH-012",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "cursor cannot survive graph snapshot mutation",
+      "expected": {
+        "mutated_snapshot_cursor_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-013",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "portable manifest cannot claim VerifiedBy",
+      "expected": {
+        "verified_by_manifest_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-014",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "manifest import allocates local identity without locator trust",
+      "expected": {
+        "identity_remapped": true,
+        "locator_not_imported": true,
+        "label": "a"
+      }
+    },
+    {
+      "id": "G-GRAPH-015",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "declared edge cannot certify verification",
+      "expected": {
+        "declaration_cannot_certify": true
+      }
+    },
+    {
+      "id": "G-GRAPH-016",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "contains cycle rejected",
+      "expected": {
+        "contains_cycle_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-017",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "duplicate watch event is idempotent but rescan remains",
+      "expected": {
+        "first_duplicate": false,
+        "second_duplicate": true,
+        "requires_rescan": true
+      }
+    },
+    {
+      "id": "G-GRAPH-018",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "watch sequence gap invalidates full registered scope",
+      "expected": {
+        "gap_invalidates_full_scope": true,
+        "requires_rescan": true
+      }
+    },
+    {
+      "id": "G-GRAPH-019",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "known dependency drift dominates unknown evidence",
+      "expected": {
+        "freshness": "Stale"
+      }
+    },
+    {
+      "id": "G-GRAPH-020",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "incomplete dependency coverage cannot become current",
+      "expected": {
+        "freshness": "Unknown"
+      }
+    },
+    {
+      "id": "G-GRAPH-021",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "zero traversal budget rejected",
+      "expected": {
+        "zero_traversal_budget_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-022",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "pre-cancelled impact query terminates bounded traversal",
+      "expected": {
+        "cancelled": true,
+        "truncated": true,
+        "known": 0,
+        "possible": 0
+      }
+    },
+    {
+      "id": "G-GRAPH-023",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "malformed durable identity rejected",
+      "expected": {
+        "malformed_project_id_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-024",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "file locator parent traversal rejected",
+      "expected": {
+        "path_traversal_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-025",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "portable Windows device filename rejected",
+      "expected": {
+        "portable_device_name_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-026",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "manifest unknown authority field rejected",
+      "expected": {
+        "unknown_authority_field_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-027",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "subset grant cannot read global revision history",
+      "expected": {
+        "subset_revision_history_denied": true
+      }
+    },
+    {
+      "id": "G-GRAPH-028",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "subset query advertises partial visibility",
+      "expected": {
+        "items": 1,
+        "scope_partial": true
+      }
+    },
+    {
+      "id": "G-GRAPH-029",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "cursor cannot cross observation epoch",
+      "expected": {
+        "old_epoch_cursor_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-030",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "same locator/label never collapses logical identity",
+      "expected": {
+        "same_locator_not_identity": true,
+        "assets": 2
+      }
+    },
+    {
+      "id": "G-GRAPH-031",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "CURRENT presentation does not imply cache-safe verified output",
+      "expected": {
+        "label": "CURRENT",
+        "cache_safe": false,
+        "verification": "Unknown",
+        "divergence": "Unknown"
+      }
+    },
+    {
+      "id": "G-GRAPH-032",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "portable export never claims complete coverage",
+      "expected": {
+        "coverage_complete": false,
+        "assets": 1
+      }
+    },
+    {
+      "id": "G-GRAPH-033",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "private store reopens journal and resets observation epoch",
+      "expected": {
+        "journal": 1,
+        "assets": 1,
+        "epoch_reset": true
+      }
+    },
+    {
+      "id": "G-GRAPH-034",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "store header principal mismatch rejected",
+      "expected": {
+        "wrong_principal_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-035",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "symlink database path rejected",
+      "expected": {
+        "symlink_store_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-036",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "malformed database rejected without destructive migration",
+      "expected": {
+        "corrupt_store_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-037",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "derived index mismatch fails closed unless explicit repair",
+      "expected": {
+        "strict_rejects_bad_index": true,
+        "explicit_repair_rebuilds_index": true
+      }
+    },
+    {
+      "id": "G-GRAPH-038",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "unexpected SQLite object rejected",
+      "expected": {
+        "unexpected_schema_object_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-039",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "world-readable private store rejected",
+      "expected": {
+        "world_readable_store_rejected": true
+      }
+    },
+    {
+      "id": "G-EFFECT-001",
+      "owner": "F",
+      "requirement": "G04",
+      "lane": "effects",
+      "scope": "product_contract",
+      "description": "trusted exact observation positive control",
+      "expected": {
+        "verdict": "PASS",
+        "calls": 1,
+        "observed": 1,
+        "unobservable": 0
+      }
+    },
+    {
+      "id": "G-EFFECT-002",
+      "owner": "F",
+      "requirement": "G04",
+      "lane": "effects",
+      "scope": "product_contract",
+      "description": "untrusted imported receipt cannot mint observer identity",
+      "expected": {
+        "verdict": "UNKNOWN",
+        "sufficient": false
+      }
+    },
+    {
+      "id": "G-EFFECT-003",
+      "owner": "F",
+      "requirement": "G04",
+      "lane": "effects",
+      "scope": "product_contract",
+      "description": "owner substitution in evidence binding",
+      "expected": {
+        "verdict": "UNKNOWN",
+        "sufficient": false
+      }
+    },
+    {
+      "id": "G-EFFECT-004",
+      "owner": "F",
+      "requirement": "G04",
+      "lane": "effects",
+      "scope": "product_contract",
+      "description": "request replay in evidence binding",
+      "expected": {
+        "verdict": "UNKNOWN"
+      }
+    },
+    {
+      "id": "G-EFFECT-005",
+      "owner": "F",
+      "requirement": "G04",
+      "lane": "effects",
+      "scope": "product_contract",
+      "description": "plan substitution in evidence binding",
+      "expected": {
+        "verdict": "UNKNOWN"
+      }
+    },
+    {
+      "id": "G-EFFECT-006",
+      "owner": "F",
+      "requirement": "G04",
+      "lane": "effects",
+      "scope": "product_contract",
+      "description": "method version drift",
+      "expected": {
+        "verdict": "UNKNOWN"
+      }
+    },
+    {
+      "id": "G-EFFECT-007",
+      "owner": "F",
+      "requirement": "G04",
+      "lane": "effects",
+      "scope": "product_contract",
+      "description": "fixture cannot become native evidence by agreement",
+      "expected": {
+        "verdict": "UNKNOWN"
+      }
+    },
+    {
+      "id": "G-EFFECT-008",
+      "owner": "F",
+      "requirement": "G04",
+      "lane": "effects",
+      "scope": "product_contract",
+      "description": "missing rule address from observation scope",
+      "expected": {
+        "verdict": "UNKNOWN"
+      }
+    },
+    {
+      "id": "G-EFFECT-009",
+      "owner": "F",
+      "requirement": "G04",
+      "lane": "effects",
+      "scope": "product_contract",
+      "description": "duplicate observation scope",
+      "expected": {
+        "verdict": "UNKNOWN"
+      }
+    },
+    {
+      "id": "G-EFFECT-010",
+      "owner": "F",
+      "requirement": "G04",
+      "lane": "effects",
+      "scope": "product_contract",
+      "description": "observation of foreign scope",
+      "expected": {
+        "verdict": "UNKNOWN"
+      }
+    },
+    {
+      "id": "G-EFFECT-011",
+      "owner": "F",
+      "requirement": "G04",
+      "lane": "effects",
+      "scope": "product_contract",
+      "description": "nonexhaustive observation",
+      "expected": {
+        "verdict": "UNKNOWN"
+      }
+    },
+    {
+      "id": "G-EFFECT-012",
+      "owner": "F",
+      "requirement": "G04",
+      "lane": "effects",
+      "scope": "product_contract",
+      "description": "explicit missing coverage",
+      "expected": {
+        "verdict": "UNKNOWN"
+      }
+    },
+    {
+      "id": "G-EFFECT-013",
+      "owner": "F",
+      "requirement": "G04",
+      "lane": "effects",
+      "scope": "product_contract",
+      "description": "request echo is not readback",
+      "expected": {
+        "verdict": "UNKNOWN"
+      }
+    },
+    {
+      "id": "G-EFFECT-014",
+      "owner": "F",
+      "requirement": "G04",
+      "lane": "effects",
+      "scope": "product_contract",
+      "description": "missing observed value",
+      "expected": {
+        "verdict": "UNKNOWN"
+      }
+    },
+    {
+      "id": "G-EFFECT-015",
+      "owner": "F",
+      "requirement": "G04",
+      "lane": "effects",
+      "scope": "product_contract",
+      "description": "concurrent causal attribution cannot satisfy causal rule",
+      "expected": {
+        "verdict": "UNKNOWN"
+      }
+    },
+    {
+      "id": "G-EFFECT-016",
+      "owner": "F",
+      "requirement": "G04",
+      "lane": "effects",
+      "scope": "product_contract",
+      "description": "observed false predicate remains FAIL",
+      "expected": {
+        "verdict": "FAIL",
+        "sufficient": true
+      }
+    },
+    {
+      "id": "G-EFFECT-017",
+      "owner": "F",
+      "requirement": "G04",
+      "lane": "effects",
+      "scope": "product_contract",
+      "description": "typed units mismatch remains UNKNOWN",
+      "expected": {
+        "verdict": "UNKNOWN"
+      }
+    },
+    {
+      "id": "G-EFFECT-018",
+      "owner": "F",
+      "requirement": "G04",
+      "lane": "effects",
+      "scope": "product_contract",
+      "description": "observation budget reserved before observer I/O",
+      "expected": {
+        "budget_denied_before_io": true,
+        "calls": 0
+      }
+    },
+    {
+      "id": "G-EFFECT-019",
+      "owner": "F",
+      "requirement": "G04",
+      "lane": "effects",
+      "scope": "product_contract",
+      "description": "observer generation changes during readback",
+      "expected": {
+        "verdict": "UNKNOWN",
+        "calls": 1
+      }
+    },
+    {
+      "id": "G-EFFECT-020",
+      "owner": "F",
+      "requirement": "G04",
+      "lane": "effects",
+      "scope": "product_contract",
+      "description": "complete snapshot enumeration positive control",
+      "expected": {
+        "verdict": "PASS"
+      }
+    },
+    {
+      "id": "G-EFFECT-021",
+      "owner": "F",
+      "requirement": "G04",
+      "lane": "effects",
+      "scope": "product_contract",
+      "description": "missing final enumeration page",
+      "expected": {
+        "verdict": "UNKNOWN"
+      }
+    },
+    {
+      "id": "G-EFFECT-022",
+      "owner": "F",
+      "requirement": "G04",
+      "lane": "effects",
+      "scope": "product_contract",
+      "description": "best-effort enumeration not exhaustive",
+      "expected": {
+        "verdict": "UNKNOWN"
+      }
+    },
+    {
+      "id": "G-EFFECT-023",
+      "owner": "F",
+      "requirement": "G04",
+      "lane": "effects",
+      "scope": "product_contract",
+      "description": "duplicate enumerated member",
+      "expected": {
+        "verdict": "UNKNOWN"
+      }
+    },
+    {
+      "id": "G-EFFECT-024",
+      "owner": "F",
+      "requirement": "G04",
+      "lane": "effects",
+      "scope": "product_contract",
+      "description": "three-way effect/write intersection",
+      "expected": {
+        "intersection_allows_exact": true,
+        "broker_missing_write_denied": true
+      }
+    },
+    {
+      "id": "G-EFFECT-025",
+      "owner": "F",
+      "requirement": "G04",
+      "lane": "effects",
+      "scope": "product_contract",
+      "description": "effect class escalation rejected",
+      "expected": {
+        "effect_escalation_denied": true
+      }
+    },
+    {
+      "id": "G-EFFECT-026",
+      "owner": "F",
+      "requirement": "G04",
+      "lane": "effects",
+      "scope": "product_contract",
+      "description": "duplicate effect rule rejected",
+      "expected": {
+        "duplicate_rule_rejected": true
+      }
+    },
+    {
+      "id": "G-EFFECT-027",
+      "owner": "F",
+      "requirement": "G04",
+      "lane": "effects",
+      "scope": "product_contract",
+      "description": "global predicate requires declared universe",
+      "expected": {
+        "global_without_universe_rejected": true
+      }
+    },
+    {
+      "id": "G-EFFECT-028",
+      "owner": "F",
+      "requirement": "G04",
+      "lane": "effects",
+      "scope": "product_contract",
+      "description": "negative tolerance rejected",
+      "expected": {
+        "negative_tolerance_rejected": true
+      }
+    },
+    {
+      "id": "G-EFFECT-029",
+      "owner": "F",
+      "requirement": "G04",
+      "lane": "effects",
+      "scope": "product_contract",
+      "description": "contract evidence cannot promote NativeEvidence dimension",
+      "expected": {
+        "native_evidence": "UNKNOWN"
+      }
+    },
+    {
+      "id": "G-EFFECT-030",
+      "owner": "F",
+      "requirement": "G04",
+      "lane": "effects",
+      "scope": "product_contract",
+      "description": "conformance dimension requires negative cases",
+      "expected": {
+        "conformance_without_negative_cases": "UNKNOWN"
+      }
+    },
+    {
+      "id": "G-EFFECT-031",
+      "owner": "F",
+      "requirement": "G04",
+      "lane": "effects",
+      "scope": "product_contract",
+      "description": "mutation command cannot masquerade read-only",
+      "expected": {
+        "readonly_mutation_descriptor_rejected": true
+      }
+    },
+    {
+      "id": "G-EFFECT-032",
+      "owner": "F",
+      "requirement": "G04",
+      "lane": "effects",
+      "scope": "product_contract",
+      "description": "native project reopen cannot use read-only observer classification",
+      "expected": {
+        "reopen_cannot_masquerade_readonly": true
+      }
+    },
+    {
+      "id": "G-EFFECT-033",
+      "owner": "F",
+      "requirement": "G04",
+      "lane": "effects",
+      "scope": "product_contract",
+      "description": "missing required readback mapping rejected",
+      "expected": {
+        "missing_required_mapping_rejected": true
+      }
+    },
+    {
+      "id": "G-EFFECT-034",
+      "owner": "F",
+      "requirement": "G04",
+      "lane": "effects",
+      "scope": "product_contract",
+      "description": "unavailable readback never calls adapter or passes",
+      "expected": {
+        "verdict": "UNKNOWN",
+        "calls": 0
+      }
+    },
+    {
+      "id": "G-EFFECT-035",
+      "owner": "F",
+      "requirement": "G04",
+      "lane": "effects",
+      "scope": "product_contract",
+      "description": "changed contract rejected before readback I/O",
+      "expected": {
+        "changed_contract_denied_before_io": true,
+        "calls": 0
+      }
+    },
+    {
+      "id": "G-EFFECT-036",
+      "owner": "F",
+      "requirement": "G04",
+      "lane": "effects",
+      "scope": "product_contract",
+      "description": "human review cannot satisfy native effect",
+      "expected": {
+        "verdict": "UNKNOWN"
+      }
+    },
+    {
+      "id": "G-EFFECT-037",
+      "owner": "F",
+      "requirement": "G04",
+      "lane": "effects",
+      "scope": "product_contract",
+      "description": "unsupported workflow cannot produce verified effect",
+      "expected": {
+        "verdict": "UNKNOWN"
+      }
+    },
+    {
+      "id": "G-EFFECT-038",
+      "owner": "F",
+      "requirement": "G04",
+      "lane": "effects",
+      "scope": "product_contract",
+      "description": "renderer-state source can satisfy exact declared non-fixture route",
+      "expected": {
+        "verdict": "PASS"
+      }
+    },
+    {
+      "id": "G-EFFECT-039",
+      "owner": "F",
+      "requirement": "G04",
+      "lane": "effects",
+      "scope": "product_contract",
+      "description": "fresh-process reopen predicate rejects same process",
+      "expected": {
+        "same_process_fails": true,
+        "fresh_process_passes": true
+      }
+    },
+    {
+      "id": "G-EFFECT-040",
+      "owner": "F",
+      "requirement": "G04",
+      "lane": "effects",
+      "scope": "product_contract",
+      "description": "closed predicate enum rejects arbitrary expression",
+      "expected": {
+        "arbitrary_expression_predicate_rejected": true
+      }
+    },
+    {
+      "id": "G-PACK-001",
+      "owner": "A-F",
+      "requirement": "G10",
+      "lane": "packaging",
+      "scope": "product_contract",
+      "description": "archive parent traversal rejected",
+      "expected": {
+        "parent_traversal_rejected": true
+      }
+    },
+    {
+      "id": "G-PACK-002",
+      "owner": "A-F",
+      "requirement": "G10",
+      "lane": "packaging",
+      "scope": "product_contract",
+      "description": "archive absolute path rejected",
+      "expected": {
+        "absolute_path_rejected": true
+      }
+    },
+    {
+      "id": "G-PACK-003",
+      "owner": "A-F",
+      "requirement": "G10",
+      "lane": "packaging",
+      "scope": "product_contract",
+      "description": "archive Windows drive prefix rejected",
+      "expected": {
+        "windows_drive_rejected": true
+      }
+    },
+    {
+      "id": "G-PACK-004",
+      "owner": "A-F",
+      "requirement": "G10",
+      "lane": "packaging",
+      "scope": "product_contract",
+      "description": "portable backslash ambiguity rejected",
+      "expected": {
+        "backslash_rejected": true
+      }
+    },
+    {
+      "id": "G-PACK-005",
+      "owner": "A-F",
+      "requirement": "G10",
+      "lane": "packaging",
+      "scope": "product_contract",
+      "description": "archive NUL rejected",
+      "expected": {
+        "nul_rejected": true
+      }
+    },
+    {
+      "id": "G-PACK-006",
+      "owner": "A-F",
+      "requirement": "G10",
+      "lane": "packaging",
+      "scope": "product_contract",
+      "description": "portable relative path positive control",
+      "expected": {
+        "portable_positive": true
+      }
+    },
+    {
+      "id": "G-PACK-007",
+      "owner": "A-F",
+      "requirement": "G10",
+      "lane": "packaging",
+      "scope": "product_contract",
+      "description": "duplicate top-level YAML field rejected",
+      "expected": {
+        "duplicate_frontmatter_rejected": true
+      }
+    },
+    {
+      "id": "G-PACK-008",
+      "owner": "A-F",
+      "requirement": "G10",
+      "lane": "packaging",
+      "scope": "product_contract",
+      "description": "custom YAML tag rejected",
+      "expected": {
+        "yaml_tag_rejected": true
+      }
+    },
+    {
+      "id": "G-PACK-009",
+      "owner": "A-F",
+      "requirement": "G10",
+      "lane": "packaging",
+      "scope": "product_contract",
+      "description": "unknown authority metadata rejected",
+      "expected": {
+        "unknown_authority_field_rejected": true
+      }
+    },
+    {
+      "id": "G-PACK-010",
+      "owner": "A-F",
+      "requirement": "G10",
+      "lane": "packaging",
+      "scope": "product_contract",
+      "description": "symlink package resource rejected",
+      "expected": {
+        "symlink_resource_rejected": true
+      }
+    },
+    {
+      "id": "G-PACK-011",
+      "owner": "A-F",
+      "requirement": "G10",
+      "lane": "packaging",
+      "scope": "product_contract",
+      "description": "hardlinked package resource rejected",
+      "expected": {
+        "hardlink_resource_rejected": true
+      }
+    },
+    {
+      "id": "G-PACK-012",
+      "owner": "A-F",
+      "requirement": "G10",
+      "lane": "packaging",
+      "scope": "product_contract",
+      "description": "executable script is described but never run by loader",
+      "expected": {
+        "script_listed": true,
+        "script_executed": false
+      }
+    },
+    {
+      "id": "G-PACK-013",
+      "owner": "A-F",
+      "requirement": "G10",
+      "lane": "packaging",
+      "scope": "product_contract",
+      "description": "symlink package root rejected",
+      "expected": {
+        "symlink_root_rejected": true
+      }
+    },
+    {
+      "id": "G-PACK-014",
+      "owner": "A-F",
+      "requirement": "G10",
+      "lane": "packaging",
+      "scope": "product_contract",
+      "description": "directory depth budget",
+      "expected": {
+        "depth_budget_rejected": true
+      }
+    },
+    {
+      "id": "G-PACK-015",
+      "owner": "A-F",
+      "requirement": "G10",
+      "lane": "packaging",
+      "scope": "product_contract",
+      "description": "allowed-tools metadata does not become Broker permission",
+      "expected": {
+        "metadata_retained": true,
+        "permission_warning": true,
+        "scripts": 0
+      }
+    },
+    {
+      "id": "G-PACK-016",
+      "owner": "A-F",
+      "requirement": "G10",
+      "lane": "packaging",
+      "scope": "product_contract",
+      "description": "directory and manifest identity must agree",
+      "expected": {
+        "directory_manifest_name_mismatch_rejected": true
+      }
+    },
+    {
+      "id": "G-PACK-017",
+      "owner": "A-F",
+      "requirement": "G10",
+      "lane": "packaging",
+      "scope": "product_contract",
+      "description": "healthy bounded package positive control",
+      "expected": {
+        "name": "g-skill",
+        "resources": 1,
+        "total_positive": true
+      }
+    },
+    {
+      "id": "G-PACK-018",
+      "owner": "A-F",
+      "requirement": "G10",
+      "lane": "packaging",
+      "scope": "product_contract",
+      "description": "missing YAML frontmatter rejected",
+      "expected": {
+        "missing_frontmatter_rejected": true
+      }
+    },
+    {
+      "id": "G-PACK-019",
+      "owner": "A-F",
+      "requirement": "G10",
+      "lane": "packaging",
+      "scope": "product_contract",
+      "description": "YAML anchor rejected",
+      "expected": {
+        "yaml_anchor_rejected": true
+      }
+    },
+    {
+      "id": "G-PACK-020",
+      "owner": "A-F",
+      "requirement": "G10",
+      "lane": "packaging",
+      "scope": "product_contract",
+      "description": "noncanonical skill name rejected",
+      "expected": {
+        "noncanonical_name_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-040",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "prepared external intent is visible only as recovery state",
+      "expected": {
+        "status": "Prepared",
+        "receipt": false,
+        "request": "g-request-040"
+      }
+    },
+    {
+      "id": "G-GRAPH-041",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "external intent cannot target a foreign project",
+      "expected": {
+        "wrong_project_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-042",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "live preparation cannot substitute the authenticated owner session",
+      "expected": {
+        "session_substitution_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-043",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "external intent affected scope rejects duplicate asset identities",
+      "expected": {
+        "duplicate_affected_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-044",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "same owner request identity cannot allocate a second external intent",
+      "expected": {
+        "request_identity_collision_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-045",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "byte-identical external intent replay is idempotent",
+      "expected": {
+        "exact_duplicate_idempotent": true,
+        "status": "Prepared"
+      }
+    },
+    {
+      "id": "G-GRAPH-046",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "same external intent id with mutated payload conflicts",
+      "expected": {
+        "same_id_mutation_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-047",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "external intent cannot be dispatched twice",
+      "expected": {
+        "double_dispatch_rejected": true,
+        "status": "Applying"
+      }
+    },
+    {
+      "id": "G-GRAPH-048",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "restart converts in-flight apply to UNKNOWN and forbids redispatch",
+      "expected": {
+        "status_after_restart": "Unknown",
+        "redispatch_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-049",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "post-restart in-flight intent can only reconcile to UNKNOWN without receipt",
+      "expected": {
+        "completed_after_restart_rejected": true,
+        "unknown_resolution_allowed": true,
+        "status": "Unknown"
+      }
+    },
+    {
+      "id": "G-GRAPH-050",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "subset visibility cannot observe intent affecting hidden assets",
+      "expected": {
+        "hidden_intent_denied": true
+      }
+    },
+    {
+      "id": "G-GRAPH-051",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "durable store reopen preserves intent but exposes interrupted apply as UNKNOWN",
+      "expected": {
+        "status_after_reopen": "Unknown",
+        "redispatch_rejected": true,
+        "unknown_resolution_allowed": true
+      }
+    },
+    {
+      "id": "G-GRAPH-052",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "foreign principal cannot inspect durable external intent",
+      "expected": {
+        "cross_principal_intent_denied": true
+      }
+    },
+    {
+      "id": "G-SELF-093",
+      "owner": "G",
+      "requirement": "G11",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "collector resolves graph/effects/routing to immutable C/F targets instead of main fallback",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-GRAPH-053",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "registered adapter admits a matching synthetic native candidate but does not create producer activity",
+      "expected": {
+        "admitted": true,
+        "producer": false
+      }
+    },
+    {
+      "id": "G-GRAPH-054",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "candidate document/project substitution rejected",
+      "expected": {
+        "project_substitution_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-055",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "asset identity substitution rejected",
+      "expected": {
+        "asset_substitution_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-056",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "binding generation substitution rejected",
+      "expected": {
+        "generation_substitution_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-057",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "evidence source substitution rejected",
+      "expected": {
+        "source_substitution_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-058",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "observation method/version substitution rejected",
+      "expected": {
+        "method_substitution_rejected": true,
+        "version_substitution_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-059",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "empty scope and scope resource absent from observation base are rejected",
+      "expected": {
+        "empty_scope_rejected": true,
+        "foreign_scope_resource_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-060",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "non-exhaustive observation cannot claim complete coverage",
+      "expected": {
+        "false_complete_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-061",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "partial admitted revision keeps verification UNKNOWN and is not cache safe; presentation label is non-authoritative",
+      "expected": {
+        "verification": "Unknown",
+        "coverage_cache_safe": false,
+        "cache_safe": false
+      }
+    },
+    {
+      "id": "G-GRAPH-062",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "admitted revision cannot be accepted through a different owner session",
+      "expected": {
+        "owner_substitution_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-063",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "provenance derivative budget rejects zero and values above 256",
+      "expected": {
+        "zero_limit_rejected": true,
+        "oversize_limit_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-064",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "subset visibility marks provenance unknown frontier without hidden identifiers",
+      "expected": {
+        "unknown_frontier": true,
+        "hidden_id_absent": true
+      }
+    },
+    {
+      "id": "G-GRAPH-065",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "declared derivative remains possible rather than known",
+      "expected": {
+        "known": 0,
+        "possible": 1
+      }
+    },
+    {
+      "id": "G-GRAPH-066",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "provenance truncation is bounded at requested derivative limit",
+      "expected": {
+        "returned": 1,
+        "truncated": true
+      }
+    },
+    {
+      "id": "G-GRAPH-067",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "garbage preview rejects partial project visibility",
+      "expected": {
+        "partial_preview_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-068",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "garbage preview rejects zero and greater-than-256 limits",
+      "expected": {
+        "zero_limit_rejected": true,
+        "oversize_limit_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-069",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "garbage collection rejects empty and duplicate candidate lists",
+      "expected": {
+        "empty_rejected": true,
+        "duplicate_rejected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-070",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "history-free tombstoned asset becomes collectable and no user file deletion is claimed",
+      "expected": {
+        "previewed": true,
+        "user_files_deleted": false,
+        "collected": true
+      }
+    },
+    {
+      "id": "G-GRAPH-071",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "revision history prevents tombstoned asset collection",
+      "expected": {
+        "revision_history_blocks_collection": true
+      }
+    },
+    {
+      "id": "G-GRAPH-072",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "external intent reference prevents tombstoned asset collection",
+      "expected": {
+        "intent_reference_blocks_collection": true
+      }
+    },
+    {
+      "id": "G-GRAPH-073",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "declared edge reference prevents tombstoned asset collection",
+      "expected": {
+        "edge_reference_blocks_collection": true
+      }
+    },
+    {
+      "id": "G-GRAPH-074",
+      "owner": "C",
+      "requirement": "G05",
+      "lane": "graph",
+      "scope": "product_contract",
+      "description": "store reopen preserves canonical journal while collected materialized state stays absent",
+      "expected": {
+        "collected_absent_after_reopen": true,
+        "journal_preserved": true
+      }
+    },
+    {
+      "id": "G-ROUTE-001",
+      "owner": "C",
+      "requirement": "G08",
+      "lane": "routing",
+      "scope": "product_contract",
+      "description": "project service is unavailable before trusted host configuration",
+      "expected": {
+        "unconfigured_code": "Unavailable"
+      }
+    },
+    {
+      "id": "G-ROUTE-002",
+      "owner": "C",
+      "requirement": "G08",
+      "lane": "routing",
+      "scope": "product_contract",
+      "description": "public registry exposes no raw receipt/revision admission or rebuild execution route",
+      "expected": {
+        "receipt_admission_absent": true,
+        "revision_admission_absent": true,
+        "rebuild_execute_absent": true
+      }
+    },
+    {
+      "id": "G-ROUTE-003",
+      "owner": "C",
+      "requirement": "G08",
+      "lane": "routing",
+      "scope": "product_contract",
+      "description": "filesystem read grant alone cannot mutate project state",
+      "expected": {
+        "filesystem_only_code": "PolicyDenied"
+      }
+    },
+    {
+      "id": "G-ROUTE-004",
+      "owner": "C",
+      "requirement": "G08",
+      "lane": "routing",
+      "scope": "product_contract",
+      "description": "durable project store is bound to authenticated principal rather than client IDs",
+      "expected": {
+        "different_principal_code": "PolicyDenied"
+      }
+    },
+    {
+      "id": "G-ROUTE-005",
+      "owner": "C",
+      "requirement": "G08",
+      "lane": "routing",
+      "scope": "product_contract",
+      "description": "same durable principal survives client session rotation",
+      "expected": {
+        "second_session_before_revoke": true,
+        "second_session_after_revoke": true
+      }
+    },
+    {
+      "id": "G-ROUTE-006",
+      "owner": "C",
+      "requirement": "G08",
+      "lane": "routing",
+      "scope": "product_contract",
+      "description": "ungranted root cannot query an existing project",
+      "expected": {
+        "ungranted_root_code": "PolicyDenied"
+      }
+    },
+    {
+      "id": "G-ROUTE-007",
+      "owner": "C",
+      "requirement": "G08",
+      "lane": "routing",
+      "scope": "product_contract",
+      "description": "catalog availability does not imply policy authorization",
+      "expected": {
+        "available": true,
+        "availability_is_authorization": false,
+        "policy_state": "deny"
+      }
+    },
+    {
+      "id": "G-ROUTE-008",
+      "owner": "C",
+      "requirement": "G08",
+      "lane": "routing",
+      "scope": "product_contract",
+      "description": "private project state cannot overlap an application filesystem grant",
+      "expected": {
+        "overlap_rejected": true,
+        "state_not_created": true
+      }
+    },
+    {
+      "id": "G-ROUTE-009",
+      "owner": "C",
+      "requirement": "G08",
+      "lane": "routing",
+      "scope": "product_contract",
+      "description": "resolved symlink grant overlap is rejected before state creation",
+      "expected": {
+        "resolved_overlap_rejected": true,
+        "state_not_created": true
+      }
+    },
+    {
+      "id": "G-ROUTE-010",
+      "owner": "C",
+      "requirement": "G08",
+      "lane": "routing",
+      "scope": "product_contract",
+      "description": "retargeted project-root symlink invalidates the persistent boundary",
+      "expected": {
+        "retarget_code": "PolicyDenied"
+      }
+    },
+    {
+      "id": "G-ROUTE-011",
+      "owner": "C",
+      "requirement": "G08",
+      "lane": "routing",
+      "scope": "product_contract",
+      "description": "provenance route does not invent producer lineage for observed source",
+      "expected": {
+        "producer_null": true,
+        "known_derivatives": 0
+      }
+    },
+    {
+      "id": "G-ROUTE-012",
+      "owner": "C",
+      "requirement": "G08",
+      "lane": "routing",
+      "scope": "product_contract",
+      "description": "broker GC removes only private graph state and preserves user-owned files",
+      "expected": {
+        "tombstoned": true,
+        "preview_no_user_delete": true,
+        "collect_no_user_delete": true,
+        "sentinel_preserved": true
+      }
+    },
+    {
+      "id": "G-SELF-094",
+      "owner": "G",
+      "requirement": "G11",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "routing probe builds as normal bin target so semwright-core dev-dependencies cannot expand the audited surface",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-095",
+      "owner": "G",
+      "requirement": "G11",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "native acceptance can only arise from a clean native_application scope and never a contract scope",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-GODOT-001",
+      "owner": "D",
+      "requirement": "G06",
+      "lane": "godot-native",
+      "scope": "native_application",
+      "description": "fresh native inspect admits D observer output and exposes managed nodes",
+      "expected": {
+        "no_failures": true,
+        "dependency_complete": true,
+        "node00_present": true,
+        "animator_present": true
+      }
+    },
+    {
+      "id": "G-GODOT-002",
+      "owner": "D",
+      "requirement": "G06",
+      "lane": "godot-native",
+      "scope": "native_application",
+      "description": "long native animation track pagination reaches the final page",
+      "expected": {
+        "total": 70,
+        "first": 64,
+        "last": 6,
+        "final_cursor_none": true
+      }
+    },
+    {
+      "id": "G-GODOT-003",
+      "owner": "D",
+      "requirement": "G06",
+      "lane": "godot-native",
+      "scope": "native_application",
+      "description": "long native key pagination reaches the final page",
+      "expected": {
+        "total": 70,
+        "first": 64,
+        "last": 6,
+        "final_cursor_none": true
+      }
+    },
+    {
+      "id": "G-GODOT-004",
+      "owner": "D",
+      "requirement": "G06",
+      "lane": "godot-native",
+      "scope": "native_application",
+      "description": "native readback distinguishes hierarchy ownership and shared/local material resources",
+      "expected": {
+        "parent_points_to_node00": true,
+        "parent_owner_distinct": true,
+        "shared_and_local_materials": true
+      }
+    },
+    {
+      "id": "G-GODOT-005",
+      "owner": "D",
+      "requirement": "G06",
+      "lane": "godot-native",
+      "scope": "native_application",
+      "description": "save candidate preserves every authored source/dependency and creates only the candidate",
+      "expected": {
+        "source_unchanged": true,
+        "authored_files_unchanged": true,
+        "candidate_created": true
+      }
+    },
+    {
+      "id": "G-GODOT-006",
+      "owner": "D",
+      "requirement": "G06",
+      "lane": "godot-native",
+      "scope": "native_application",
+      "description": "persistence requires and succeeds through a fresh Godot process reopen",
+      "expected": {
+        "fresh_process": true,
+        "persistence_verified": true
+      }
+    },
+    {
+      "id": "G-GODOT-007",
+      "owner": "D",
+      "requirement": "G06",
+      "lane": "godot-native",
+      "scope": "native_application",
+      "description": "external dependency mutation after save invalidates persistence evidence",
+      "expected": {
+        "dependency_tamper_rejected": true,
+        "reason_seen": true
+      }
+    },
+    {
+      "id": "G-GODOT-008",
+      "owner": "D",
+      "requirement": "G06",
+      "lane": "godot-native",
+      "scope": "native_application",
+      "description": "native observer rejects input injection on a non-play request",
+      "expected": {
+        "rejected": true,
+        "reason_seen": true
+      }
+    },
+    {
+      "id": "G-GODOT-009",
+      "owner": "D",
+      "requirement": "G06",
+      "lane": "godot-native",
+      "scope": "native_application",
+      "description": "native observer rejects unknown authority fields",
+      "expected": {
+        "rejected": true,
+        "reason_seen": true
+      }
+    },
+    {
+      "id": "G-GODOT-010",
+      "owner": "D",
+      "requirement": "G06",
+      "lane": "godot-native",
+      "scope": "native_application",
+      "description": "native track cursor is bound to the observed semantic snapshot",
+      "expected": {
+        "stale_cursor_rejected": true
+      }
+    },
+    {
+      "id": "G-GODOT-011",
+      "owner": "D",
+      "requirement": "G06",
+      "lane": "godot-native",
+      "scope": "native_application",
+      "description": "product-generated Godot export preset produces a standalone Linux artifact",
+      "expected": {
+        "exported": true
+      }
+    },
+    {
+      "id": "G-GODOT-012",
+      "owner": "D",
+      "requirement": "G06",
+      "lane": "godot-native",
+      "scope": "native_application",
+      "description": "standalone export excludes authoring/privileged markers and launches without Broker",
+      "expected": {
+        "authoring_markers_absent": true,
+        "standalone_without_broker": true
+      }
+    },
+    {
+      "id": "G-SELF-096",
+      "owner": "G",
+      "requirement": "G11",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "native runtime system configuration allowlist is limited to read-only font/XDG directories, never broad /etc",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-097",
+      "owner": "G",
+      "requirement": "G11",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "native runtime address-space budget is explicitly bounded at 4 GiB while ordinary probes remain at 1 GiB",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-098",
+      "owner": "G",
+      "requirement": "G11",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "ordinary enclosure file-size budget remains 8 MiB while native runtime file writes are explicitly bounded at 256 MiB",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-099",
+      "owner": "G",
+      "requirement": "G11",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "secondary native runtime is exposed read-only only at /plugin/runtime without repurposing /source history controls",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-GODOT-013",
+      "owner": "D",
+      "requirement": "G06",
+      "lane": "godot-native",
+      "scope": "native_application",
+      "description": "native observer must not publish a clean receipt when supported mesh projection emits GDScript errors",
+      "expected": {
+        "process_exit_zero": true,
+        "observer_reported_failures_empty": true,
+        "script_errors_absent": true
+      }
+    },
+    {
+      "id": "G-BLENDER-001",
+      "owner": "E",
+      "requirement": "G06",
+      "lane": "blender-native",
+      "scope": "native_application",
+      "description": "planning is non-mutating and returns a plan ref",
+      "expected": {
+        "plan_ref_present": true,
+        "plan_nonmutating": true
+      }
+    },
+    {
+      "id": "G-BLENDER-002",
+      "owner": "E",
+      "requirement": "G06",
+      "lane": "blender-native",
+      "scope": "native_application",
+      "description": "foreign authenticated owner cannot apply another session plan",
+      "expected": {
+        "foreign_owner_denied": true,
+        "state_unchanged": true
+      }
+    },
+    {
+      "id": "G-BLENDER-003",
+      "owner": "E",
+      "requirement": "G06",
+      "lane": "blender-native",
+      "scope": "native_application",
+      "description": "pre-cancelled apply fails closed without native mutation",
+      "expected": {
+        "pre_cancelled_denied": true,
+        "state_unchanged": true
+      }
+    },
+    {
+      "id": "G-BLENDER-004",
+      "owner": "E",
+      "requirement": "G06",
+      "lane": "blender-native",
+      "scope": "native_application",
+      "description": "native apply verifies and preserves shared mesh identity",
+      "expected": {
+        "total": 4,
+        "verification_pass": true,
+        "shared_data_name": true,
+        "shared_data_users": 2
+      }
+    },
+    {
+      "id": "G-BLENDER-005",
+      "owner": "E",
+      "requirement": "G06",
+      "lane": "blender-native",
+      "scope": "native_application",
+      "description": "consumed authoring plan cannot be replayed",
+      "expected": {
+        "consumed_plan_rejected": true
+      }
+    },
+    {
+      "id": "G-BLENDER-006",
+      "owner": "E",
+      "requirement": "G06",
+      "lane": "blender-native",
+      "scope": "native_application",
+      "description": "all six native enumeration domains paginate exhaustively without duplicates",
+      "expected": {
+        "domains": 6,
+        "all_nonempty": true,
+        "all_exhaustive": true,
+        "stable_totals": true,
+        "no_duplicates": true,
+        "all_final_pages": true
+      }
+    },
+    {
+      "id": "G-BLENDER-007",
+      "owner": "E",
+      "requirement": "G06",
+      "lane": "blender-native",
+      "scope": "native_application",
+      "description": "provider cursor is single-use and rejects replay",
+      "expected": {
+        "consumed_cursor_rejected": true
+      }
+    },
+    {
+      "id": "G-BLENDER-008",
+      "owner": "E",
+      "requirement": "G06",
+      "lane": "blender-native",
+      "scope": "native_application",
+      "description": "native mutation invalidates old cursor and explicit restoration clears drift",
+      "expected": {
+        "stale_cursor_rejected": true,
+        "restored_drift_false": true
+      }
+    },
+    {
+      "id": "G-BLENDER-009",
+      "owner": "E",
+      "requirement": "G06",
+      "lane": "blender-native",
+      "scope": "native_application",
+      "description": "shared mesh instance rejects shading writes that would mutate shared data",
+      "expected": {
+        "shared_mesh_material_plan_rejected": true
+      }
+    },
+    {
+      "id": "G-BLENDER-010",
+      "owner": "E",
+      "requirement": "G06",
+      "lane": "blender-native",
+      "scope": "native_application",
+      "description": "GLB export starts from a clean managed island, is real/hashed, preserves source state and sentinel",
+      "expected": {
+        "pre_export_drift_false": true,
+        "glb_magic": true,
+        "sha_matches": true,
+        "source_drift_false": true,
+        "sentinel_preserved": true
+      }
+    },
+    {
+      "id": "G-BLENDER-011",
+      "owner": "E",
+      "requirement": "G06",
+      "lane": "blender-native",
+      "scope": "native_application",
+      "description": "symlink export escape is rejected, outside path remains absent, and rejected export preserves native source state",
+      "expected": {
+        "symlink_output_rejected": true,
+        "outside_absent": true,
+        "source_drift_false": true
+      }
+    },
+    {
+      "id": "G-BLENDER-012",
+      "owner": "E",
+      "requirement": "G06",
+      "lane": "blender-native",
+      "scope": "native_application",
+      "description": "blend persistence is content-addressed and refuses overwrite",
+      "expected": {
+        "persisted": true,
+        "sha_matches": true,
+        "duplicate_rejected": true
+      }
+    },
+    {
+      "id": "G-BLENDER-013",
+      "owner": "E",
+      "requirement": "G06",
+      "lane": "blender-native",
+      "scope": "native_application",
+      "description": "fresh-process reopen preserves fingerprint and native state",
+      "expected": {
+        "fresh_native_session": true,
+        "fingerprint_matches": true,
+        "drift_false": true,
+        "sentinel_preserved": true
+      }
+    },
+    {
+      "id": "G-BLENDER-014",
+      "owner": "E",
+      "requirement": "G06",
+      "lane": "blender-native",
+      "scope": "native_application",
+      "description": "Broker policy denial blocks native inspection when driver grant is absent",
+      "expected": {
+        "policy_denied": true
+      }
+    },
+    {
+      "id": "G-SELF-100",
+      "owner": "G",
+      "requirement": "G11",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "Blender DriverProvider private state uses AppArmor-executable /tmp staging rather than runner workspace TMPDIR",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-101",
+      "owner": "G",
+      "requirement": "G11",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "outer Blender G process limits do not undercut E Driver Host sandbox hard limits",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-SELF-102",
+      "owner": "G",
+      "requirement": "G11",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "Blender dependent BLOCKED case remains BLOCKED and cannot mint native acceptance",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-FIGMA-001",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "figma",
+      "scope": "product_contract",
+      "description": "pairing proof is 256-bit and verifies only its exact binding",
+      "expected": {
+        "code_is_256_bit_hex": true,
+        "proof_verifies": true,
+        "proof_len": 64
+      }
+    },
+    {
+      "id": "G-FIGMA-002",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "figma",
+      "scope": "product_contract",
+      "description": "pairing proof rejects nonce/session/generation substitution and malformed proof",
+      "expected": {
+        "wrong_nonce_rejected": true,
+        "wrong_session_rejected": true,
+        "wrong_generation_rejected": true,
+        "malformed_proof_rejected": true
+      }
+    },
+    {
+      "id": "G-FIGMA-003",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "figma",
+      "scope": "product_contract",
+      "description": "bridge rejects message larger than protocol bound",
+      "expected": {
+        "oversized_message_rejected": true
+      }
+    },
+    {
+      "id": "G-FIGMA-004",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "figma",
+      "scope": "product_contract",
+      "description": "bridge strict decoding rejects unknown top-level and nested failure fields",
+      "expected": {
+        "top_unknown_field_rejected": true,
+        "nested_unknown_field_rejected": true
+      }
+    },
+    {
+      "id": "G-FIGMA-005",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "figma",
+      "scope": "product_contract",
+      "description": "bridge framing rejects trailing JSON and invalid UTF-8",
+      "expected": {
+        "trailing_json_rejected": true,
+        "invalid_utf8_rejected": true
+      }
+    },
+    {
+      "id": "G-FIGMA-006",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "figma",
+      "scope": "product_contract",
+      "description": "portable snapshots recursively strip volatile/native identities and round floats",
+      "expected": {
+        "root_ids_stripped": true,
+        "nested_node_id_stripped": true,
+        "volatile_stripped": true,
+        "rounded": true
+      }
+    },
+    {
+      "id": "G-FIGMA-007",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "figma",
+      "scope": "product_contract",
+      "description": "identity snapshots retain identity but strip volatile user fields and round floats",
+      "expected": {
+        "identity_ids_retained": true,
+        "volatile_user_stripped": true,
+        "rounded": true
+      }
+    },
+    {
+      "id": "G-FIGMA-008",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "figma",
+      "scope": "product_contract",
+      "description": "snapshot diff obeys hard limit with deterministic key ordering",
+      "expected": {
+        "zero_limit_empty": true,
+        "one_is_bounded": true,
+        "deterministic_first_path": true,
+        "two_is_bounded": true
+      }
+    },
+    {
+      "id": "G-FIGMA-009",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "figma",
+      "scope": "product_contract",
+      "description": "design-system variable alias cycle is rejected",
+      "expected": {
+        "alias_cycle_rejected": true
+      }
+    },
+    {
+      "id": "G-FIGMA-010",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "figma",
+      "scope": "product_contract",
+      "description": "design-system unknown alias is rejected",
+      "expected": {
+        "unknown_alias_rejected": true
+      }
+    },
+    {
+      "id": "G-FIGMA-011",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "figma",
+      "scope": "product_contract",
+      "description": "design-system collection and CSS byte budgets fail closed",
+      "expected": {
+        "collection_limit_rejected": true,
+        "css_size_limit_rejected": true
+      }
+    },
+    {
+      "id": "G-FIGMA-012",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "figma",
+      "scope": "product_contract",
+      "description": "CSS variable parser treats hostile values as static data only",
+      "expected": {
+        "only_custom_properties": true,
+        "hostile_value_retained_as_data": true,
+        "gap_static": true
+      }
+    },
+    {
+      "id": "G-FIGMA-013",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "figma",
+      "scope": "product_contract",
+      "description": "prototype validation finds dangling destinations and unreachable nodes without false unreachable start",
+      "expected": {
+        "dangling_detected": true,
+        "unreachable_detected": true,
+        "reachable_start_not_flagged": true
+      }
+    },
+    {
+      "id": "G-FIGMA-014",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "figma",
+      "scope": "product_contract",
+      "description": "motion timeline rejects nonfinite/out-of-range duration and accepts valid bounded duration",
+      "expected": {
+        "zero_duration_rejected": true,
+        "nan_duration_rejected": true,
+        "over_hour_rejected": true,
+        "valid_duration_accepted": true
+      }
+    },
+    {
+      "id": "G-FIGMA-015",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "figma",
+      "scope": "product_contract",
+      "description": "motion keyframes reject ordering/range/nonfinite/count violations",
+      "expected": {
+        "unsorted_rejected": true,
+        "negative_rejected": true,
+        "past_duration_rejected": true,
+        "nan_keyframe_rejected": true,
+        "keyframe_limit_rejected": true
+      }
+    },
+    {
+      "id": "G-FIGMA-016",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "figma",
+      "scope": "product_contract",
+      "description": "mutation/payment schemas remain closed, nested-strict and tokenless",
+      "expected": {
+        "node_move_closed": true,
+        "nested_variable_objects_closed": true,
+        "payments_tokenless_closed": true
+      }
+    },
+    {
+      "id": "G-FIGMA-017",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "figma",
+      "scope": "product_contract",
+      "description": "hostile Figma content remains literal data and cannot execute",
+      "expected": {
+        "name_literal": true,
+        "nested_literal": true,
+        "no_execution_marker": true
+      }
+    },
+    {
+      "id": "G-MOTION-001",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "motion",
+      "scope": "product_contract",
+      "description": "strict Motion project fixture parses and validates with bounded identity",
+      "expected": {
+        "valid": true,
+        "schema_version": 1,
+        "revision": 1,
+        "generation_len": 32,
+        "scene_count": 1
+      }
+    },
+    {
+      "id": "G-MOTION-002",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "motion",
+      "scope": "product_contract",
+      "description": "unknown executable field is rejected while hostile display content remains inert data",
+      "expected": {
+        "unknown_field_rejected": true,
+        "hostile_display_is_data": true,
+        "no_execution_marker": true
+      }
+    },
+    {
+      "id": "G-MOTION-003",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "motion",
+      "scope": "product_contract",
+      "description": "compiler output, fingerprint and inventory are deterministic",
+      "expected": {
+        "files_deterministic": true,
+        "fingerprint_deterministic": true,
+        "inventory_unique": true,
+        "project_source_present": true,
+        "lock_present": true
+      }
+    },
+    {
+      "id": "G-MOTION-004",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "motion",
+      "scope": "product_contract",
+      "description": "typed node reference round-trips and validates exact project binding",
+      "expected": {
+        "roundtrip": true,
+        "check_passes": true,
+        "canonical_prefix": true
+      }
+    },
+    {
+      "id": "G-MOTION-005",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "motion",
+      "scope": "product_contract",
+      "description": "reference rejects revision, generation and source-fingerprint drift",
+      "expected": {
+        "revision_stale": true,
+        "generation_stale": true,
+        "fingerprint_stale": true
+      }
+    },
+    {
+      "id": "G-MOTION-006",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "motion",
+      "scope": "product_contract",
+      "description": "reference rejects removed object and wrong object kind",
+      "expected": {
+        "removed_node_stale": true,
+        "wrong_kind_rejected": true
+      }
+    },
+    {
+      "id": "G-MOTION-007",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "motion",
+      "scope": "product_contract",
+      "description": "reference decoder rejects noncanonical revision/kind/project/non-ASCII forms",
+      "expected": {
+        "zero_revision_rejected": true,
+        "unknown_kind_rejected": true,
+        "project_identity_mismatch_rejected": true,
+        "non_ascii_rejected": true
+      }
+    },
+    {
+      "id": "G-MOTION-008",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "motion",
+      "scope": "product_contract",
+      "description": "semantic diff ignores revision noise and identifies exact text property change",
+      "expected": {
+        "revision_noise_ignored": true,
+        "one_property_change": true,
+        "text_property_named": true
+      }
+    },
+    {
+      "id": "G-MOTION-009",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "motion",
+      "scope": "product_contract",
+      "description": "render plan uses half-open frame range and exact bounded output",
+      "expected": {
+        "half_open_one_frame": true,
+        "width": 640,
+        "height": 360,
+        "alpha": true,
+        "fps": 30
+      }
+    },
+    {
+      "id": "G-MOTION-010",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "motion",
+      "scope": "product_contract",
+      "description": "render plan rejects empty/out-of-duration ranges and too-short timeout",
+      "expected": {
+        "empty_range_rejected": true,
+        "past_duration_rejected": true,
+        "short_timeout_rejected": true
+      }
+    },
+    {
+      "id": "G-MOTION-011",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "motion",
+      "scope": "product_contract",
+      "description": "frame conversion is integer-bound and rejects invalid FPS",
+      "expected": {
+        "sixteen_ms_zero": true,
+        "seventeen_ms_one": true,
+        "invalid_zero_fps": true,
+        "invalid_high_fps": true,
+        "seconds_exact": true
+      }
+    },
+    {
+      "id": "G-MOTION-012",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "motion",
+      "scope": "product_contract",
+      "description": "managed relative paths reject traversal, absolute, backslash, URL and encoding tricks",
+      "expected": {
+        "parent_rejected": true,
+        "absolute_rejected": true,
+        "backslash_rejected": true,
+        "url_colon_rejected": true,
+        "percent_rejected": true,
+        "portable_positive": true
+      }
+    },
+    {
+      "id": "G-MOTION-013",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "motion",
+      "scope": "product_contract",
+      "description": "SVG subset accepts structural geometry and rejects active/external content",
+      "expected": {
+        "safe_structural_svg": true,
+        "script_rejected": true,
+        "event_handler_rejected": true,
+        "external_href_rejected": true
+      }
+    },
+    {
+      "id": "G-MOTION-014",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "motion",
+      "scope": "product_contract",
+      "description": "LaTeX vocabulary is bounded and rejects unknown commands and oversized text",
+      "expected": {
+        "bounded_math_accepted": true,
+        "unknown_command_rejected": true,
+        "oversize_rejected": true
+      }
+    },
+    {
+      "id": "G-MOTION-015",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "motion",
+      "scope": "product_contract",
+      "description": "project store enforces source-hash CAS and commits only exact inspected revision",
+      "expected": {
+        "create_revision": 1,
+        "stale_cas_rejected": true,
+        "correct_cas_committed": true,
+        "source_changed": true
+      }
+    },
+    {
+      "id": "G-MOTION-016",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "motion",
+      "scope": "product_contract",
+      "description": "project store rejects symlink root and asset traversal without outside write",
+      "expected": {
+        "symlink_root_rejected": true,
+        "asset_traversal_rejected": true,
+        "outside_absent": true
+      }
+    },
+    {
+      "id": "G-MOTION-017",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "motion",
+      "scope": "product_contract",
+      "description": "asset rollback rejects wrong digest, preserves bytes, and removes exact match",
+      "expected": {
+        "wrong_hash_rejected": true,
+        "wrong_hash_preserves": true,
+        "correct_hash_removes": true
+      }
+    },
+    {
+      "id": "G-MOTION-018",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "motion",
+      "scope": "product_contract",
+      "description": "materializer detects tampered deterministic generated tree",
+      "expected": {
+        "tampered_generated_rejected": true
+      }
+    },
+    {
+      "id": "G-MOTION-019",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "motion",
+      "scope": "product_contract",
+      "description": "hostile text remains generated data without executing payload",
+      "expected": {
+        "payload_retained_as_data": true,
+        "no_execution_marker": true
+      }
+    },
+    {
+      "id": "G-MOTION-020",
+      "owner": "A",
+      "requirement": "G07",
+      "lane": "motion",
+      "scope": "product_contract",
+      "description": "duration overflow, duplicate identities and unknown parent fail closed",
+      "expected": {
+        "duration_overflow_rejected": true,
+        "duplicate_id_rejected": true,
+        "unknown_parent_rejected": true
+      }
+    },
+    {
+      "id": "G-SELF-103",
+      "owner": "G",
+      "requirement": "G11",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "lifecycle probe builds as normal core bin so dev-dependencies cannot expand the audited surface",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-LIFE-001",
+      "owner": "A",
+      "requirement": "G09",
+      "lane": "lifecycle",
+      "scope": "product_contract",
+      "description": "simultaneous provider registration publishes exactly one owner generation",
+      "expected": {
+        "exactly_one_mount": true,
+        "single_revision_advance": true,
+        "single_provider": true
+      }
+    },
+    {
+      "id": "G-LIFE-002",
+      "owner": "A",
+      "requirement": "G09",
+      "lane": "lifecycle",
+      "scope": "product_contract",
+      "description": "valid provider refresh advances generation atomically and future calls use new descriptor",
+      "expected": {
+        "revision_advanced": true,
+        "new_descriptor_visible": true,
+        "future_call_succeeds": true
+      }
+    },
+    {
+      "id": "G-LIFE-003",
+      "owner": "A",
+      "requirement": "G09",
+      "lane": "lifecycle",
+      "scope": "product_contract",
+      "description": "invalid refresh preserves old descriptor metadata but revokes execution",
+      "expected": {
+        "invalid_refresh_rejected": true,
+        "old_descriptor_preserved": true,
+        "execution_revoked": true
+      }
+    },
+    {
+      "id": "G-LIFE-004",
+      "owner": "A",
+      "requirement": "G09",
+      "lane": "lifecycle",
+      "scope": "product_contract",
+      "description": "terminal provider disconnect cannot be revived by refresh or dispatched again",
+      "expected": {
+        "terminal_disconnect_inactive": true,
+        "refresh_cannot_revive": true,
+        "provider_not_dispatched": true
+      }
+    },
+    {
+      "id": "G-LIFE-005",
+      "owner": "A",
+      "requirement": "G09",
+      "lane": "lifecycle",
+      "scope": "product_contract",
+      "description": "transport closure during in-flight call cancels provider and returns UNKNOWN unavailable without retry",
+      "expected": {
+        "inflight_returns_unavailable": true,
+        "outcome_unknown": true,
+        "provider_cancelled": true,
+        "no_retry": true
+      }
+    },
+    {
+      "id": "G-LIFE-006",
+      "owner": "A",
+      "requirement": "G09",
+      "lane": "lifecycle",
+      "scope": "product_contract",
+      "description": "explicit cancellation reaches provider once and returns uncertain Cancelled without retry",
+      "expected": {
+        "cancelled": true,
+        "outcome_unknown": true,
+        "provider_cancelled": true,
+        "no_retry": true
+      }
+    },
+    {
+      "id": "G-LIFE-007",
+      "owner": "A",
+      "requirement": "G09",
+      "lane": "lifecycle",
+      "scope": "product_contract",
+      "description": "descriptor timeout cancels provider once and returns uncertain Timeout",
+      "expected": {
+        "timed_out": true,
+        "outcome_unknown": true,
+        "provider_cancelled": true,
+        "no_retry": true
+      }
+    },
+    {
+      "id": "G-LIFE-008",
+      "owner": "A",
+      "requirement": "G09",
+      "lane": "lifecycle",
+      "scope": "product_contract",
+      "description": "malformed provider output is rejected by broker output schema",
+      "expected": {
+        "schema_failure": true,
+        "no_data": true,
+        "one_dispatch": true
+      }
+    },
+    {
+      "id": "G-LIFE-009",
+      "owner": "A",
+      "requirement": "G09",
+      "lane": "lifecycle",
+      "scope": "product_contract",
+      "description": "jobs are session-scoped and foreign job lookup is hidden",
+      "expected": {
+        "job_started": true,
+        "foreign_lookup_not_found": true
+      }
+    },
+    {
+      "id": "G-LIFE-010",
+      "owner": "A",
+      "requirement": "G09",
+      "lane": "lifecycle",
+      "scope": "product_contract",
+      "description": "job cancellation is idempotent, emits one cancel event and reaches provider",
+      "expected": {
+        "first_requests_cancel": true,
+        "second_is_idempotent": true,
+        "terminal_cancelled": true,
+        "single_cancel_event": true,
+        "provider_cancelled": true
+      }
+    },
+    {
+      "id": "G-LIFE-011",
+      "owner": "A",
+      "requirement": "G09",
+      "lane": "lifecycle",
+      "scope": "product_contract",
+      "description": "provider progress and artifacts are correlated into owner job snapshot only",
+      "expected": {
+        "succeeded": true,
+        "progress_complete": true,
+        "one_artifact": true,
+        "artifact_bound": true,
+        "foreign_hidden": true
+      }
+    },
+    {
+      "id": "G-LIFE-012",
+      "owner": "A",
+      "requirement": "G09",
+      "lane": "lifecycle",
+      "scope": "product_contract",
+      "description": "session revocation cancels provider work and forgets only that job authority",
+      "expected": {
+        "provider_cancelled": true,
+        "job_forgotten": true
+      }
+    },
+    {
+      "id": "G-LIFE-013",
+      "owner": "A",
+      "requirement": "G09",
+      "lane": "lifecycle",
+      "scope": "product_contract",
+      "description": "job-control commands cannot recursively become jobs",
+      "expected": {
+        "nested_job_control_rejected": true
+      }
+    },
+    {
+      "id": "G-LIFE-014",
+      "owner": "A",
+      "requirement": "G09",
+      "lane": "lifecycle",
+      "scope": "product_contract",
+      "description": "event replay rejects a cursor from a future broker generation",
+      "expected": {
+        "future_cursor_rejected": true
+      }
+    },
+    {
+      "id": "G-LIFE-015",
+      "owner": "A",
+      "requirement": "G09",
+      "lane": "lifecycle",
+      "scope": "product_contract",
+      "description": "session event replay exposes owner job history only with monotonic sequence",
+      "expected": {
+        "owner_sees_job_events": true,
+        "foreign_does_not": true,
+        "sequence_monotonic": true
+      }
+    },
+    {
+      "id": "G-LIFE-016",
+      "owner": "A",
+      "requirement": "G09",
+      "lane": "lifecycle",
+      "scope": "product_contract",
+      "description": "provider signals refresh capabilities and bind event authority to provider while preserving payload as untrusted data",
+      "expected": {
+        "signal_refresh_advanced": true,
+        "refreshed_descriptor_visible": true,
+        "source_bound_to_provider": true,
+        "payload_marked_untrusted": true,
+        "forged_payload_preserved_as_data": true
+      }
+    },
+    {
+      "id": "G-LIFE-017",
+      "owner": "A",
+      "requirement": "G09",
+      "lane": "lifecycle",
+      "scope": "product_contract",
+      "description": "explicit provider invalidation advances catalog and rejects stale catalog revision/execution",
+      "expected": {
+        "revision_advanced": true,
+        "stale_catalog_rejected": true,
+        "invalidated_execution_unavailable": true
+      }
+    },
+    {
+      "id": "G-LIFE-018",
+      "owner": "A",
+      "requirement": "G09",
+      "lane": "lifecycle",
+      "scope": "product_contract",
+      "description": "successful capability refresh does not cancel an already dispatched pinned call",
+      "expected": {
+        "refresh_advanced": true,
+        "inflight_not_cancelled": true,
+        "single_dispatch": true
+      }
+    },
+    {
+      "id": "G-SELF-104",
+      "owner": "G",
+      "requirement": "G11",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "collector maps clean-room distribution lane to frozen main baseline target",
+      "expected": {
+        "ok": true
+      }
+    },
+    {
+      "id": "G-DIST-001",
+      "owner": "main",
+      "requirement": "G10",
+      "lane": "distribution",
+      "scope": "product_contract",
+      "description": "verified package installs without executing payload and receipt binds package/executable bytes",
+      "expected": {
+        "package_attested": true,
+        "executable_attested": true,
+        "installed_mode": 448,
+        "payload_not_executed": true,
+        "manifest_published": true,
+        "metadata_version": 2
+      }
+    },
+    {
+      "id": "G-DIST-002",
+      "owner": "main",
+      "requirement": "G10",
+      "lane": "distribution",
+      "scope": "product_contract",
+      "description": "package byte tampering is rejected before any install publication",
+      "expected": {
+        "package_tamper_rejected": true,
+        "target_absent": true,
+        "manifest_absent": true
+      }
+    },
+    {
+      "id": "G-DIST-003",
+      "owner": "main",
+      "requirement": "G10",
+      "lane": "distribution",
+      "scope": "product_contract",
+      "description": "index publisher substitution cannot install a mismatched package",
+      "expected": {
+        "publisher_substitution_rejected": true,
+        "install_absent": true
+      }
+    },
+    {
+      "id": "G-DIST-004",
+      "owner": "main",
+      "requirement": "G10",
+      "lane": "distribution",
+      "scope": "product_contract",
+      "description": "application-version constrained package rejects missing and wrong application versions",
+      "expected": {
+        "missing_version_rejected": true,
+        "wrong_version_rejected": true,
+        "install_absent": true
+      }
+    },
+    {
+      "id": "G-DIST-005",
+      "owner": "main",
+      "requirement": "G10",
+      "lane": "distribution",
+      "scope": "product_contract",
+      "description": "symlink package cannot escape the selected static index directory",
+      "expected": {
+        "symlink_package_rejected": true,
+        "install_absent": true
+      }
+    },
+    {
+      "id": "G-DIST-006",
+      "owner": "main",
+      "requirement": "G10",
+      "lane": "distribution",
+      "scope": "product_contract",
+      "description": "companion traversal path is rejected before package creation",
+      "expected": {
+        "companion_traversal_rejected": true,
+        "package_absent": true
+      }
+    },
+    {
+      "id": "G-DIST-007",
+      "owner": "main",
+      "requirement": "G10",
+      "lane": "distribution",
+      "scope": "product_contract",
+      "description": "duplicate companion destination is rejected before package creation",
+      "expected": {
+        "duplicate_companion_rejected": true,
+        "package_absent": true
+      }
+    },
+    {
+      "id": "G-DIST-008",
+      "owner": "main",
+      "requirement": "G10",
+      "lane": "distribution",
+      "scope": "product_contract",
+      "description": "symlink companion source is rejected by strict package ingestion",
+      "expected": {
+        "symlink_companion_source_rejected": true,
+        "package_absent": true
+      }
+    },
+    {
+      "id": "G-DIST-009",
+      "owner": "main",
+      "requirement": "G10",
+      "lane": "distribution",
+      "scope": "product_contract",
+      "description": "executable-looking companion installs private and is never activated or executed",
+      "expected": {
+        "companion_installed": true,
+        "companion_mode": 384,
+        "hook_not_executed": true,
+        "not_activated_at_version_root": true,
+        "receipt_companions": 1
+      }
+    },
+    {
+      "id": "G-DIST-010",
+      "owner": "main",
+      "requirement": "G10",
+      "lane": "distribution",
+      "scope": "product_contract",
+      "description": "failed active-manifest publication rolls back version staging transaction",
+      "expected": {
+        "publication_failure_rejected": true,
+        "version_rolled_back": true,
+        "staging_leftovers": 0
+      }
+    },
+    {
+      "id": "G-DIST-011",
+      "owner": "main",
+      "requirement": "G10",
+      "lane": "distribution",
+      "scope": "product_contract",
+      "description": "remove path escape is rejected before touching outside store",
+      "expected": {
+        "remove_escape_rejected": true,
+        "outside_absent": true
+      }
+    },
+    {
+      "id": "G-DIST-012",
+      "owner": "main",
+      "requirement": "G10",
+      "lane": "distribution",
+      "scope": "product_contract",
+      "description": "duplicate driver id/version in static index is rejected",
+      "expected": {
+        "duplicate_id_version_rejected": true
+      }
+    },
+    {
+      "id": "G-SELF-105",
+      "owner": "G",
+      "requirement": "G12",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "explicit combined candidate overrides every product lane and evidence backup binds the same pointer",
+      "expected": {
+        "ok": true
+      }
+    }
+  ]
+}
