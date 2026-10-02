@@ -1,193 +1,503 @@
-name: Semantic creation integration diagnostics (I)
+name: I native shared-asset chain
 defaults:
   run:
     shell: bash
-
 on:
-  push:
-    branches: [integration/semantic-creation-i-20261001]
-    paths:
-      - crates/semantic-composition/**
-      - crates/driver-godot/src/authoring/**
-      - crates/driver-godot/tests/authoring_profile.rs
-      - crates/driver-godot/tests/authoring_host.rs
-      - crates/driver-faust-audio/**
-      - crates/driver-ardour-audio/**
-      - crates/driver-blender/**
-      - crates/driver-motion-canvas/**
-      - crates/driver-mlt-video/**
-      - crates/driver-sdk/**
-      - crates/driver-host/**
-      - Cargo.lock
-      - crates/audio-authoring/**
-      - crates/effect-conformance/**
-      - scripts/semantic-creation/**
-      - .github/workflows/semantic-creation-integration.yml
   workflow_dispatch:
     inputs:
       candidate_sha:
-        description: Immutable integration SHA for owner contracts and transport compile checks
+        description: Immutable product source
         required: true
         type: string
-      native_godot_probe:
-        description: Run two native Godot integration diagnostics after source contracts (not full D certification)
-        required: false
-        type: boolean
-        default: false
 permissions:
   contents: read
+  actions: read
 concurrency:
-  group: semantic-creation-i-${{ inputs.candidate_sha || github.sha }}
+  group: i-native-shared-asset-${{ github.sha }}
   cancel-in-progress: false
 jobs:
-  reconciliation:
+  blender:
     runs-on: ubuntu-24.04
     timeout-minutes: 35
+    strategy:
+      max-parallel: 1
+      fail-fast: true
+      matrix:
+        worker: [clean-1, clean-2]
     env:
       CARGO_INCREMENTAL: '0'
       CARGO_PROFILE_DEV_DEBUG: '0'
       CARGO_PROFILE_TEST_DEBUG: '0'
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: ${{ inputs.candidate_sha || github.sha }}
-          persist-credentials: false
-      - name: Bind exact source
-        env:
-          CANDIDATE_SHA: ${{ inputs.candidate_sha || github.sha }}
-        run: |
-          set -euo pipefail
-          [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
-          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
-          git diff --exit-code
-          git diff --cached --exit-code
-      - name: Runtime-tool source boundaries
-        run: |
-          python3 scripts/verify-driver-runtime-tools.py
-          python3 -m unittest discover -s tests/python -p test_runtime_tool_guard.py -v
-      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
-        with:
-          toolchain: 1.98.1
-          components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
-        with:
-          shared-key: godot-authoring-v1
-      - name: Native compile prerequisites
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libpipewire-0.3-dev pkg-config
-      - name: Lockfile source diagnostic
-        run: |
-          mkdir -p verification/semantic-creation
-          cp Cargo.lock verification/semantic-creation/Cargo.lock.before
-          if ! cargo metadata --locked --format-version 1 > verification/semantic-creation/metadata.json; then
-            cargo metadata --format-version 1 > verification/semantic-creation/metadata.resolved.json
-            cp Cargo.lock verification/semantic-creation/Cargo.lock.resolved
-            exit 1
-          fi
-      - name: Source formatting
-        run: cargo fmt -p semwright-semantic-composition -p semwright-driver-godot -p semwright-audio-authoring -p semwright-effect-conformance -p semwright-driver-sdk -p semwright-driver-blender -p semwright-driver-motion-canvas -p semwright-mlt-video-driver -p semwright-faust-audio-driver -p semwright-ardour-audio-driver -p semwright-av-composition -- --check
-      - name: Combined runtime transport compilation
-        run: cargo check --locked --all-targets -p semwright-driver-godot -p semwright-driver-blender -p semwright-driver-motion-canvas -p semwright-mlt-video-driver -p semwright-faust-audio-driver -p semwright-ardour-audio-driver -p semwright-av-composition --features semwright-driver-blender/authoring-native
-      - name: Host job wait and cancellation contracts
-        run: cargo test --locked -p semwright-driver-sdk --lib -- --nocapture
-      - name: Scoped pinned font reader boundaries
-        run: |
-          cargo test --locked -p semwright-driver-motion-canvas --lib store::tests::pinned_font_reader -- --nocapture 2>&1 | tee verification/semantic-creation/pinned-font-reader.log
-          grep -F 'test result: ok. 2 passed; 0 failed; 0 ignored;' verification/semantic-creation/pinned-font-reader.log
-      - name: MLT executable ownership boundary
-        run: cargo test --locked -p semwright-mlt-video-driver --lib owner_policy_allows_only_explicit_trust_cases -- --nocapture
-      - name: AV native artifact and compiled context admission
-        run: cargo test --locked -p semwright-av-composition --lib --test contracts
-      - name: A contracts and D reconciliation source regressions
-        run: python3 scripts/semantic-creation/reconciliation_diagnostic.py
-      - name: Godot native wire and process-incarnation contracts
-        run: cargo test --locked -p semwright-driver-godot --lib --test authoring_native -- --nocapture
-      - name: Strict A/D lints
-        run: cargo clippy --locked -p semwright-semantic-composition -p semwright-driver-godot -p semwright-audio-authoring -p semwright-effect-conformance -p semwright-driver-sdk -p semwright-driver-blender -p semwright-driver-motion-canvas -p semwright-mlt-video-driver -p semwright-faust-audio-driver -p semwright-ardour-audio-driver -p semwright-av-composition --all-targets --no-deps --features semwright-driver-blender/authoring-native -- -D warnings
-      - name: Preserve exact-source identity after checks
-        run: |
-          git diff --exit-code
-          git diff --cached --exit-code
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        if: always()
-        with:
-          name: semantic-creation-i-reconciliation-${{ inputs.candidate_sha || github.sha }}
-          path: verification/semantic-creation
-          if-no-files-found: error
-          retention-days: 14
-
-  godot-native-probe:
-    needs: reconciliation
-    if: ${{ inputs.native_godot_probe == true && needs.reconciliation.result == 'success' }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 25
-    env:
-      CARGO_INCREMENTAL: '0'
-      CARGO_PROFILE_DEV_DEBUG: '0'
-      CARGO_PROFILE_TEST_DEBUG: '0'
+      SEMWRIGHT_TEST_SOURCE_SHA: ${{ inputs.candidate_sha }}
+      SEMWRIGHT_AUTHORING_EVIDENCE: ${{ github.workspace }}/verification/joint-e
+      SEMWRIGHT_NATIVE_AUTHORING_ACCEPTANCE: '1'
+      SEMWRIGHT_TEST_BLENDER_ROOT: /usr/local/blender-4.5.14-linux-x64
+      SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ inputs.candidate_sha }}
           persist-credentials: false
-      - name: Bind diagnostic to exact source
+      - name: Bind source and I-only fixture
+        run: |
+          set -euo pipefail
+          test "$SEMWRIGHT_TEST_SOURCE_SHA" = cd518748f742025a251b78028613aa1b16919e73
+          test "$(git rev-parse HEAD)" = "$SEMWRIGHT_TEST_SOURCE_SHA"
+          git diff --exit-code
+          git fetch --depth=1 origin "$GITHUB_SHA"
+          git show "$GITHUB_SHA:integration-lab/i-chain-cd51874/e_fixture.rs" > crates/driver-blender/tests/authoring_native.rs
+          test "$(git diff --name-only)" = crates/driver-blender/tests/authoring_native.rs
+          mkdir -p verification/joint-e
+          sha256sum crates/driver-blender/tests/authoring_native.rs > verification/joint-e/fixture.sha256
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: blender-authoring-linux-rust1.98.1-v2-certification
+      - name: Provision isolated pinned Blender
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y libpipewire-0.3-dev pkg-config bubblewrap fontconfig xz-utils
+          curl --fail --location --retry 2 --output "$RUNNER_TEMP/blender.tar.xz" https://download.blender.org/release/Blender4.5/blender-4.5.14-linux-x64.tar.xz
+          echo "9ba871ff2ecd36526b77432745980b7e6664ecd0c7ca11c48849073dcfe06da3  $RUNNER_TEMP/blender.tar.xz" | sha256sum --check --strict
+          sudo tar -xJf "$RUNNER_TEMP/blender.tar.xz" -C /usr/local
+          test "$("$SEMWRIGHT_TEST_BLENDER_ROOT/blender" --version | head -1)" = "Blender 4.5.14 LTS"
+          bash scripts/dev/ci-driver-bwrap-profile.sh verification/joint-e/sandbox-setup.log
+          cargo build --locked -p semwright-plugin-host --bin semwright-sandbox
+      - name: E native create, transform, repair, export and fresh reopen
+        run: |
+          set -euo pipefail
+          cargo test --locked -p semwright-driver-blender --features authoring-native --test authoring_native broker_native_authoring_save_reopen_export_and_owner_denial -- --exact --nocapture --test-threads=1 2>&1 | tee verification/joint-e/native.log
+          grep -F 'test result: ok. 1 passed; 0 failed; 0 ignored;' verification/joint-e/native.log
+          test "$(git diff --name-only)" = crates/driver-blender/tests/authoring_native.rs
+      - name: Independent fresh Blender checks for both native GLBs
+        run: |
+          set -euo pipefail
+          for variant in initial-articulated articulated; do
+            "$SEMWRIGHT_TEST_BLENDER_ROOT/blender" --background --factory-startup --disable-autoexec --python-exit-code 1 --python crates/driver-blender/tests/glb_roundtrip_oracle.py -- "$GITHUB_WORKSPACE/verification/joint-e/$variant.glb" "$GITHUB_WORKSPACE/verification/joint-e/$variant-oracle.json" 2>&1 | tee "verification/joint-e/$variant-oracle.log"
+          done
+          python3 - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          r=Path('verification/joint-e')
+          a=hashlib.sha256((r/'initial-articulated.glb').read_bytes()).hexdigest()
+          b=hashlib.sha256((r/'articulated.glb').read_bytes()).hexdigest()
+          assert a!=b
+          for name,digest in [('initial-articulated',a),('articulated',b)]:
+              d=json.loads((r/(name+'-oracle.json')).read_text())
+              assert d['result']=='PASS' and d['source_sha256']==digest and all(d['required_checks'].values())
+          (r/'identity.json').write_text(json.dumps({'source_sha':os.environ['SEMWRIGHT_TEST_SOURCE_SHA'],'suite_sha':os.environ['GITHUB_SHA'],'run_id':os.environ['GITHUB_RUN_ID'],'worker':'${{ matrix.worker }}','initial_glb_sha256':a,'revised_glb_sha256':b,'same_managed_e_island':True,'r16_closed':False},indent=2)+'\n')
+          PY
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: joint-e-${{ matrix.worker }}
+          path: verification/joint-e/
+          if-no-files-found: error
+          retention-days: 14
+  godot:
+    needs: blender
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      max-parallel: 1
+      fail-fast: true
+      matrix:
+        worker: [clean-1, clean-2]
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_PROFILE_DEV_DEBUG: '0'
+      CARGO_PROFILE_TEST_DEBUG: '0'
+      SEMWRIGHT_TEST_SOURCE_SHA: ${{ inputs.candidate_sha }}
+      SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
+      SEMWRIGHT_TEST_JOINT_D_OUT: ${{ github.workspace }}/verification/joint-d
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.candidate_sha }}
+          persist-credentials: false
+      - name: Bind source and I-only fixture
+        run: |
+          set -euo pipefail
+          test "$SEMWRIGHT_TEST_SOURCE_SHA" = cd518748f742025a251b78028613aa1b16919e73
+          test "$(git rev-parse HEAD)" = "$SEMWRIGHT_TEST_SOURCE_SHA"
+          git diff --exit-code
+          git fetch --depth=1 origin "$GITHUB_SHA"
+          git show "$GITHUB_SHA:integration-lab/i-chain-cd51874/d_fixture.rs" > crates/driver-godot/tests/authoring_host.rs
+          test "$(git diff --name-only)" = crates/driver-godot/tests/authoring_host.rs
+          mkdir -p verification/joint-d
+          sha256sum crates/driver-godot/tests/authoring_host.rs > verification/joint-d/fixture.sha256
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          name: joint-e-${{ matrix.worker }}
+          path: ${{ runner.temp }}/joint-e
+      - name: Validate same-source E inputs and preserve original output bytes
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,os
+          from pathlib import Path
+          r=Path(os.environ['RUNNER_TEMP'])/'joint-e';d=json.loads((r/'identity.json').read_text())
+          assert d['source_sha']==os.environ['SEMWRIGHT_TEST_SOURCE_SHA'] and d['suite_sha']==os.environ['GITHUB_SHA']
+          assert d['run_id']==os.environ['GITHUB_RUN_ID'] and d['worker']=='${{ matrix.worker }}'
+          a=(r/'initial-articulated.glb').read_bytes();b=(r/'articulated.glb').read_bytes()
+          assert hashlib.sha256(a).hexdigest()==d['initial_glb_sha256']
+          assert hashlib.sha256(b).hexdigest()==d['revised_glb_sha256'] and a!=b
+          inputs=Path(os.environ['RUNNER_TEMP'])/'joint-e-input';inputs.mkdir()
+          (inputs/'articulated.glb').write_bytes(a);(inputs/'revised-articulated.glb').write_bytes(b)
+          with open(os.environ['GITHUB_ENV'],'a') as f:
+              f.write('SEMWRIGHT_TEST_E_GLB='+str(inputs/'articulated.glb')+'\n')
+              f.write('E_GLB_SHA256='+d['initial_glb_sha256']+'\nE_REVISION_GLB_SHA256='+d['revised_glb_sha256']+'\n')
+              f.write('E_SOURCE_SHA='+d['source_sha']+'\nE_RUN_ID='+d['run_id']+'\n')
+          PY
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          shared-key: godot-authoring-export-v1
+      - name: Install isolated native prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bubblewrap apparmor-profiles apparmor-utils libpipewire-0.3-dev
+          bash scripts/dev/ci-driver-bwrap-profile.sh verification/joint-d/sandbox-setup.log
+      - name: Install pinned Godot and release template
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/godot" "$RUNNER_TEMP/export-templates"
+          curl -fL --retry 4 --retry-delay 2 https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip -o "$RUNNER_TEMP/godot.zip"
+          unzip -q "$RUNNER_TEMP/godot.zip" -d "$RUNNER_TEMP/godot"
+          GODOT="$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64"
+          echo "8d106cbe6144c2dc7e881d61d2429c1a8a76e6b22ef48bd5e48dcf934953f71e  $GODOT" | sha256sum -c -
+          curl -fL --retry 4 --retry-delay 2 https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_export_templates.tpz -o "$RUNNER_TEMP/export-templates.tpz"
+          echo "f298490b8d44d934be425a5a65a51bf15f422428b229a06a6e11d9ffea248011  $RUNNER_TEMP/export-templates.tpz" | sha256sum -c -
+          unzip -j -q "$RUNNER_TEMP/export-templates.tpz" templates/linux_release.x86_64 -d "$RUNNER_TEMP/export-templates"
+          chmod 0755 "$RUNNER_TEMP/export-templates/linux_release.x86_64"
+          echo "GODOT_BIN=$GODOT" >> "$GITHUB_ENV"
+          echo "SEMWRIGHT_TEST_GODOT_EXPORT_TEMPLATES=$RUNNER_TEMP/export-templates" >> "$GITHUB_ENV"
+          cargo build --locked -p semwright-plugin-host --bin semwright-sandbox
+      - name: Both E revisions through native Godot, F, C, persistence and standalone export
+        run: |
+          set -euo pipefail
+          cargo test --locked -p semwright-driver-godot --test authoring_host blender_glb_handoff_preserves_godot_semantics_and_gameplay -- --ignored --exact --nocapture --test-threads=1 2>&1 | tee verification/joint-d/native.log
+          grep -F 'test result: ok. 1 passed; 0 failed; 0 ignored;' verification/joint-d/native.log
+          test "$(git diff --name-only)" = crates/driver-godot/tests/authoring_host.rs
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: joint-d-${{ matrix.worker }}
+          path: verification/joint-d/
+          if-no-files-found: error
+          retention-days: 14
+
+  combined-native:
+    needs: godot
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      max-parallel: 1
+      fail-fast: true
+      matrix:
+        worker: [clean-1, clean-2]
+    env:
+      SEMWRIGHT_TEST_SOURCE_SHA: ${{ inputs.candidate_sha }}
+      PLAYWRIGHT_BROWSERS_PATH: '0'
+      CARGO_PROFILE_DEV_DEBUG: '0'
+      CARGO_PROFILE_TEST_DEBUG: '0'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.candidate_sha || github.sha }}
+          persist-credentials: false
+      - name: Bind run to exact candidate SHA
         env:
-          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          CANDIDATE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.candidate_sha || github.sha }}
         run: |
           set -euo pipefail
           [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
           test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
-          test "$GITHUB_SHA" = "$CANDIDATE_SHA"
-          mkdir -p verification/godot-integration-probe
-          printf '%s\n' "$CANDIDATE_SHA" > verification/godot-integration-probe/SOURCE_SHA
-          printf '%s\n' 'NATIVE_INTEGRATION_DIAGNOSTIC_ONLY_NOT_FULL_D_CERTIFICATION' > verification/godot-integration-probe/SCOPE
-          echo "CARGO_TARGET_DIR=$RUNNER_TEMP/godot-probe-target" >> "$GITHUB_ENV"
+          git diff --exit-code
+          git diff --cached --exit-code
+      - name: Acquire exact E producer image and D cross-app receipt
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$SEMWRIGHT_TEST_SOURCE_SHA" = cd518748f742025a251b78028613aa1b16919e73
+          mkdir -p "$RUNNER_TEMP/i-joint-input" verification/composition-av
+          gh api repos/seradotcom/semwright/actions/artifacts/11256431831 > "$RUNNER_TEMP/i-joint-input/e-meta.json"
+          gh api repos/seradotcom/semwright/actions/artifacts/11256431831/zip > "$RUNNER_TEMP/i-joint-input/e.zip"
+          gh api repos/seradotcom/semwright/actions/artifacts/11256319822 > "$RUNNER_TEMP/i-joint-input/d-meta.json"
+          gh api repos/seradotcom/semwright/actions/artifacts/11256319822/zip > "$RUNNER_TEMP/i-joint-input/d.zip"
+          python3 - <<'PYPINS'
+          import hashlib, io, json, os, zipfile
+          from pathlib import Path
+          root=Path(os.environ['RUNNER_TEMP'])/'i-joint-input'
+          source=os.environ['SEMWRIGHT_TEST_SOURCE_SHA']
+          e_meta=json.loads((root/'e-meta.json').read_text())
+          d_meta=json.loads((root/'d-meta.json').read_text())
+          assert e_meta['workflow_run']['id']==37074959691
+          assert d_meta['workflow_run']['id']==37075910269
+          assert e_meta['workflow_run']['head_sha']==d_meta['workflow_run']['head_sha']==source
+          e_bytes=(root/'e.zip').read_bytes()
+          assert hashlib.sha256(e_bytes).hexdigest()=='7e895d9c92454ded972bc94143e2bc73054b50c6ec07da7e7c8c18f506d90dd4'
+          e=zipfile.ZipFile(io.BytesIO(e_bytes))
+          native=json.loads(e.read('blender-native-authoring.json'))
+          assert native['source_sha']==source and native['outcome']=='PASS' and native['passed']==4
+          assert e.getinfo('product-preview.png').file_size<16*1024*1024
+          preview=e.read('product-preview.png')
+          digest=hashlib.sha256(preview).hexdigest()
+          assert digest=='9fe983268d8098fd2a433eac6ba54e01e0160ad37bfb3aa2cb3d1058986d8466'
+          assert len(preview)<16*1024*1024 and preview[:8]==b'\x89PNG\r\n\x1a\n'
+          (root/'product-preview.png').write_bytes(preview)
+          d_bytes=(root/'d.zip').read_bytes()
+          assert d_meta['digest']=='sha256:'+hashlib.sha256(d_bytes).hexdigest()
+          d=zipfile.ZipFile(io.BytesIO(d_bytes))
+          receipt=json.loads(d.read('native/cross-app/d12-receipt.json'))
+          assert receipt['source_sha']==receipt['e_source_sha']==source and receipt['outcome']=='PASS'
+          assert receipt['e_artifact_id']==11256431831
+          assert all(receipt[k] for k in ('incremental_asset_replacement_verified','behavior_bytes_preserved','gameplay_collision_mapping_preserved','logical_bindings_preserved','cross_app_c_receipt_verified'))
+          Path('verification/composition-av/producer-pins.json').write_text(json.dumps({
+              'source_sha':source,'E_run':37074959691,'E_artifact':11256431831,
+              'preview_sha256':digest,'D_run':37075910269,'D_artifact':11256319822,
+              'D_receipt':receipt,
+              'scope':'E hard-surface product preview -> native Motion/AV; separate E articulated GLB -> native D/C receipt',
+              'same_E_asset_claimed':False,'godot_frame_capture_verified':False,
+          },indent=2)+'\n')
+          PYPINS
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          name: joint-d-${{ matrix.worker }}
+          path: ${{ runner.temp }}/i-joint-input/godot
+      - name: Verify same-source native Godot revision input
+        run: |
+          python3 - <<'PYGODOT'
+          import hashlib,json,os
+          from pathlib import Path
+          root=Path(os.environ['RUNNER_TEMP'])/'i-joint-input/godot'
+          d=json.loads((root/'joint-d.json').read_text())
+          assert d['source_sha']==os.environ['SEMWRIGHT_TEST_SOURCE_SHA']
+          assert d['suite_sha']==os.environ['GITHUB_SHA']
+          for key in ['native_asset_revision_verified','behavior_preserved','collision_mapping_preserved','fresh_persistence_verified','standalone_export_launch_verified']:assert d[key] is True
+          assert d['coverage_complete'] is False and d['godot_frame_capture_verified'] is False and d['r16_closed'] is False
+          assert d['e_initial_glb_sha256']!=d['e_revised_glb_sha256']
+          assert abs(d['initial_body_origin'][0]-d['revised_body_origin'][0])>0.1
+          for name in ['initial-native.json','revised-native.json']:
+              assert 0<(root/name).stat().st_size<1000000
+          Path('verification/composition-av/godot-producer.json').write_text(json.dumps(d,indent=2)+'\n')
+          PYGODOT
+      - name: Overlay only the separately identified I fixture
+        run: |
+          set -euo pipefail
+          git fetch --depth=1 origin "$GITHUB_SHA"
+          git show "$GITHUB_SHA:integration-lab/i-chain-cd51874/av_fixture.rs" > crates/av-composition/tests/combined_native.rs
+          test "$(git rev-parse HEAD)" = "$SEMWRIGHT_TEST_SOURCE_SHA"
+          test "$(git diff --name-only)" = crates/av-composition/tests/combined_native.rs
+          sha256sum crates/av-composition/tests/combined_native.rs > verification/composition-av/fixture.sha256
+          printf '%s\n' "$GITHUB_SHA" > verification/composition-av/suite-sha.txt
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
         with:
           toolchain: 1.98.1
-      - name: Provision isolated pinned Godot and export template
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: composition-av-combined-native-v1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22.22.0'
+          cache: npm
+          cache-dependency-path: integrations/motion-canvas/runtime/package-lock.json
+      - name: Install pinned native runtimes
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y bubblewrap apparmor-profiles apparmor-utils libpipewire-0.3-dev unzip
-          bash scripts/dev/ci-driver-bwrap-profile.sh verification/godot-integration-probe/sandbox-setup.log
-          mkdir -p "$RUNNER_TEMP/godot-probe" "$RUNNER_TEMP/godot-probe-templates"
-          curl -fL --retry 4 --retry-delay 2 \
-            https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip \
-            -o "$RUNNER_TEMP/godot-probe.zip"
-          unzip -q "$RUNNER_TEMP/godot-probe.zip" -d "$RUNNER_TEMP/godot-probe"
-          GODOT="$RUNNER_TEMP/godot-probe/Godot_v4.7.2-stable_linux.x86_64"
-          echo "8d106cbe6144c2dc7e881d61d2429c1a8a76e6b22ef48bd5e48dcf934953f71e  $GODOT" | sha256sum -c -
-          "$GODOT" --version > verification/godot-integration-probe/godot-version.txt
-          curl -fL --retry 4 --retry-delay 2 \
-            https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_export_templates.tpz \
-            -o "$RUNNER_TEMP/godot-probe-templates.tpz"
-          echo "f298490b8d44d934be425a5a65a51bf15f422428b229a06a6e11d9ffea248011  $RUNNER_TEMP/godot-probe-templates.tpz" | sha256sum -c -
-          unzip -j -q "$RUNNER_TEMP/godot-probe-templates.tpz" \
-            templates/linux_release.x86_64 -d "$RUNNER_TEMP/godot-probe-templates"
-          chmod 0755 "$RUNNER_TEMP/godot-probe-templates/linux_release.x86_64"
-          echo "GODOT_BIN=$GODOT" >> "$GITHUB_ENV"
-          echo "SEMWRIGHT_TEST_GODOT_EXPORT_TEMPLATES=$RUNNER_TEMP/godot-probe-templates" >> "$GITHUB_ENV"
-      - name: Build bounded driver and sandbox helper
-        run: cargo build --locked -p semwright-driver-godot --bin semwright-godot-driver -p semwright-plugin-host --bin semwright-sandbox
-      - name: Real Host persistence and export diagnostics
+          sudo apt-get install -y             faust=2.70.3+ds-1.1build2             libsndfile1-dev             libebur128-dev=1.2.6-1build1             bubblewrap apparmor-profiles apparmor-utils             melt ffmpeg libpipewire-0.3-dev
+          mkdir -p verification/composition-av
+          {
+            dpkg-query -W faust libsndfile1-dev libebur128-dev
+            melt -version | head -5
+            ffmpeg -version | head -3
+            ffprobe -version | head -3
+            bwrap --version
+          } > verification/composition-av/native-runtime-versions.txt
+      - name: Install scoped Driver Host AppArmor profile
+        run: |
+          bash scripts/dev/ci-driver-bwrap-profile.sh             verification/composition-av/sandbox-setup.log
+      - name: Install exact Motion Canvas runtime
+        working-directory: integrations/motion-canvas/runtime
         run: |
           set -euo pipefail
-          export SEMWRIGHT_TEST_SANDBOX_HELPER="$CARGO_TARGET_DIR/debug/semwright-sandbox"
-          for test_name in export_lane_builds_and_launches_without_editor_or_semwright empty_project_authoring_flows_through_broker_driver_host_and_provider
-          do
-            SEMWRIGHT_TEST_GODOT_AUTHORING_HOST=1 \
-              cargo test --locked -p semwright-driver-godot --test authoring_host "$test_name" \
-              -- --ignored --exact --nocapture --test-threads=1 \
-              2>&1 | tee "verification/godot-integration-probe/$test_name.log"
-            grep -F 'test result: ok. 1 passed; 0 failed; 0 ignored;' "verification/godot-integration-probe/$test_name.log"
+          npm ci --ignore-scripts
+          npx --no-install playwright install --with-deps firefox
+          npm run probe
+          mkdir -p .semwright-tools
+          cp "$(command -v node)" .semwright-tools/node
+          chmod 0755 .semwright-tools/node
+          mapfile -t BROWSERS < <(find node_modules/playwright-core/.local-browsers             -path '*/firefox-*/firefox/firefox' -type f -perm -111 -print)
+          test "${#BROWSERS[@]}" -eq 1
+          BROWSER_REL=$(realpath --relative-to="$PWD" "${BROWSERS[0]}")
+          python3 "$GITHUB_WORKSPACE/scripts/motion-canvas/runtime-manifest.py"             --root "$PWD" --browser-rel "$BROWSER_REL"
+          cat runtime.json
+      - name: Materialize pinned Faust library tree
+        run: |
+          set -euo pipefail
+          export FAUST_STAGE="$RUNNER_TEMP/faust-libraries"
+          python3 - <<'PY'
+          import hashlib, json, os, shutil
+          from pathlib import Path
+
+          src = Path('/usr/share/faust')
+          dst = Path(os.environ['FAUST_STAGE'])
+          if dst.exists():
+              shutil.rmtree(dst)
+          dst.mkdir(parents=True, mode=0o700)
+          pins = {}
+          for source in sorted(src.rglob('*.lib')):
+              if not source.is_file():
+                  continue
+              relative = source.relative_to(src)
+              target = dst / relative
+              target.parent.mkdir(parents=True, exist_ok=True)
+              shutil.copyfile(source, target, follow_symlinks=True)
+              target.chmod(0o400)
+              pins[relative.as_posix()] = hashlib.sha256(target.read_bytes()).hexdigest()
+          if 'stdfaust.lib' not in pins or len(pins) < 2:
+              raise SystemExit('Faust library inventory is incomplete')
+          manifest = {
+              'schema_version': 1,
+              'compiler_version': '2.70.3',
+              'libraries': pins,
+          }
+          runtime = dst / 'semwright-runtime.json'
+          runtime.write_text(json.dumps(manifest, separators=(',', ':'), sort_keys=True))
+          runtime.chmod(0o400)
+          for directory in sorted((p for p in dst.rglob('*') if p.is_dir()), reverse=True):
+              directory.chmod(0o500)
+          dst.chmod(0o500)
+          if any(path.is_symlink() for path in dst.rglob('*')):
+              raise SystemExit('staged Faust tree contains symlinks')
+          print(f'staged {len(pins)} Faust libraries')
+          PY
+          echo "SEMWRIGHT_TEST_FAUST_LIBRARIES=$FAUST_STAGE" >> "$GITHUB_ENV"
+      - name: Build fixed native helpers and drivers
+        run: |
+          set -euo pipefail
+          g++ -std=c++17 -O2 -Wall -Wextra -Werror             integrations/audio/faust-runtime/main.cpp             -lfaust -lsndfile -o "$RUNNER_TEMP/semwright-faust-interpreter"
+          g++ -std=c++17 -O2 -Wall -Wextra -Werror             integrations/audio/analysis-runtime/main.cpp             -lebur128 -lsndfile -o "$RUNNER_TEMP/semwright-audio-meter"
+          cargo build --locked --bins             -p semwright-plugin-host             -p semwright-driver-motion-canvas             -p semwright-faust-audio-driver             -p semwright-mlt-video-driver
+          strip --strip-unneeded             target/debug/semwright-sandbox             target/debug/semwright-motion-canvas-driver             target/debug/semwright-faust-audio-driver             target/debug/semwright-audio-analysis-driver             target/debug/semwright-mlt-video-driver target/debug/semwright-mlt-runtime-runner
+          chmod 0500             target/debug/semwright-sandbox             target/debug/semwright-motion-canvas-driver             target/debug/semwright-faust-audio-driver             target/debug/semwright-audio-analysis-driver             target/debug/semwright-mlt-video-driver target/debug/semwright-mlt-runtime-runner
+          stat -c '%s %a %n'             target/debug/semwright-sandbox             target/debug/semwright-motion-canvas-driver             target/debug/semwright-faust-audio-driver             target/debug/semwright-audio-analysis-driver             target/debug/semwright-mlt-video-driver target/debug/semwright-mlt-runtime-runner             | tee verification/composition-av/native-binaries.stat
+          python3 - <<'PY'
+          from pathlib import Path
+          limit=64*1024*1024
+          for name in [
+              'semwright-motion-canvas-driver',
+              'semwright-faust-audio-driver',
+              'semwright-audio-analysis-driver',
+              'semwright-mlt-video-driver',
+              'semwright-mlt-runtime-runner',
+          ]:
+              path=Path('target/debug')/name
+              if path.stat().st_size > limit:
+                  raise SystemExit(f'{name} exceeds Driver Host 64 MiB executable budget')
+          PY
+          sha256sum             "$RUNNER_TEMP/semwright-faust-interpreter"             "$RUNNER_TEMP/semwright-audio-meter"             target/debug/semwright-sandbox             target/debug/semwright-motion-canvas-driver             target/debug/semwright-faust-audio-driver             target/debug/semwright-audio-analysis-driver             target/debug/semwright-mlt-video-driver target/debug/semwright-mlt-runtime-runner             > verification/composition-av/native-binaries.sha256
+      - name: Preserve prepared native executables across Cargo test rebuilds
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/composition-av-binaries"
+          for name in semwright-sandbox semwright-motion-canvas-driver semwright-faust-audio-driver semwright-audio-analysis-driver semwright-mlt-video-driver semwright-mlt-runtime-runner; do
+            install -m 0500 "target/debug/$name" "$RUNNER_TEMP/composition-av-binaries/$name"
           done
-          git diff --exit-code
+          sha256sum "$RUNNER_TEMP/composition-av-binaries/"* > verification/composition-av/prepared-binaries.sha256
+      - name: Combined A+B native AV E2E
+        env:
+          SEMWRIGHT_TEST_BLENDER_PREVIEW: ${{ runner.temp }}/i-joint-input/product-preview.png
+          SEMWRIGHT_TEST_JOINT_D_INITIAL: ${{ runner.temp }}/i-joint-input/godot/initial-native.json
+          SEMWRIGHT_TEST_JOINT_D_REVISED: ${{ runner.temp }}/i-joint-input/godot/revised-native.json
+          SEMWRIGHT_TEST_COMBINED_AV: '1' 
+          SEMWRIGHT_TEST_COMBINED_MOTION_DRIVER: ${{ runner.temp }}/composition-av-binaries/semwright-motion-canvas-driver
+          SEMWRIGHT_TEST_COMBINED_FAUST_DRIVER: ${{ runner.temp }}/composition-av-binaries/semwright-faust-audio-driver
+          SEMWRIGHT_TEST_COMBINED_ANALYSIS_DRIVER: ${{ runner.temp }}/composition-av-binaries/semwright-audio-analysis-driver
+          SEMWRIGHT_TEST_COMBINED_MLT_RUNNER: ${{ runner.temp }}/composition-av-binaries/semwright-mlt-runtime-runner
+          SEMWRIGHT_TEST_MOTION_NODE: ${{ github.workspace }}/integrations/motion-canvas/runtime/.semwright-tools/node
+          SEMWRIGHT_TEST_COMBINED_MLT_DRIVER: ${{ runner.temp }}/composition-av-binaries/semwright-mlt-video-driver
+          SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ runner.temp }}/composition-av-binaries/semwright-sandbox
+          SEMWRIGHT_TEST_MOTION_RUNTIME: ${{ github.workspace }}/integrations/motion-canvas/runtime
+          SEMWRIGHT_TEST_FAUST_VERSION: '2.70.3'
+          SEMWRIGHT_TEST_FAUST_HELPER: ${{ runner.temp }}/semwright-faust-interpreter
+          SEMWRIGHT_TEST_AUDIO_METER: ${{ runner.temp }}/semwright-audio-meter
+          SEMWRIGHT_TEST_MELT: /usr/bin/melt
+          SEMWRIGHT_TEST_FFPROBE: /usr/bin/ffprobe
+          SEMWRIGHT_TEST_FFMPEG: /usr/bin/ffmpeg
+          SEMWRIGHT_TEST_BWRAP: /usr/bin/bwrap
+        run: |
+          set -euo pipefail
+          cargo test --locked -p semwright-av-composition             --test combined_native             combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_sync             -- --ignored --exact --nocapture             2>&1 | tee verification/composition-av/combined-native.log
+      - name: Validate native revision evidence
+        env:
+          EXPECTED_SUITE_SHA: ${{ github.sha }}
+        run: |
+          python3 - <<'PYREVISIONS'
+          import json, os
+          from pathlib import Path
+          d=json.loads(Path('verification/composition-av/joint-native-revisions.json').read_text())
+          assert d['source_sha']==os.environ['SEMWRIGHT_TEST_SOURCE_SHA']
+          assert d['suite_sha']==os.environ['EXPECTED_SUITE_SHA']
+          for key in ('existing_managed_project','visual_revision_changes_pixels',
+              'visual_revision_preserves_audio_digest','audio_revision_changes_pcm',
+              'audio_revision_visual_pixels_identical_after_conservative_rerender',
+              'post_encode_audio_and_exhaustive_sync_both_revisions',
+              'new_owned_publication_pointers','original_publication_preserved'):
+              assert d[key] is True, key
+          assert d['native_godot_transform_drives_motion'] is True
+          assert d['initial_godot_observation_sha256']!=d['revised_godot_observation_sha256']
+          assert abs(d['initial_body_x']-d['revised_body_x'])>0.1
+          assert d['coverage_complete'] is False
+          assert d['safe_cache_reuse_claimed'] is False
+          assert d['godot_frame_capture_verified'] is False
+          assert d['r16_closed'] is False
+          PYREVISIONS
+      - name: Record exact-SHA run metadata
+        if: always()
+        env:
+          CANDIDATE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.candidate_sha || github.sha }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          p = Path('verification/composition-av/run.json')
+          p.parent.mkdir(parents=True, exist_ok=True)
+          p.write_text(json.dumps({
+              'schema_version': 1,
+              'candidate_sha': os.environ['CANDIDATE_SHA'],
+              'github_sha': os.environ.get('GITHUB_SHA'),
+              'audio_source_sha': os.environ['CANDIDATE_SHA'],
+              'audio_owner_sha': 'df2654bed6d2ac57d547846b69d16ea48b4a9ee3',
+              'scope': 'I-joint-native-media-fixture',
+              'suite_sha': os.environ['GITHUB_SHA'],
+              'worker': '${{ matrix.worker }}',
+              'promotional_video': False,
+              'r16_closed': False,
+          }, indent=2) + '\n')
+          PY
+      - name: Capture sandbox diagnostics on failure
+        if: failure()
+        run: |
+          {
+            echo '=== aa-status ==='
+            sudo aa-status || true
+            echo '=== loaded bwrap profile ==='
+            sudo cat /etc/apparmor.d/bwrap-userns-restrict || true
+            echo '=== recent kernel/AppArmor/resource events ==='
+            sudo journalctl -k --no-pager --since '-20 min' 2>/dev/null               | grep -Ei 'apparmor|audit|denied|bwrap|firefox|faust|melt|ffmpeg|out of memory|oom|killed process|memory cgroup|sigxcpu|file size limit'               | tail -400 || true
+          } > verification/composition-av/sandbox-denials.log 2>&1
+          cat verification/composition-av/sandbox-denials.log
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
-          name: godot-integration-probe-${{ inputs.candidate_sha }}
-          path: verification/godot-integration-probe
-          if-no-files-found: error
+          name: i-chain-av-${{ matrix.worker }}-${{ github.event_name == 'workflow_dispatch' && inputs.candidate_sha || github.sha }}
+          path: verification/composition-av
           retention-days: 14
+          if-no-files-found: error
