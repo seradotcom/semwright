@@ -16,6 +16,7 @@ APP_EXEC="$APP/Contents/MacOS/SemwrightSandboxProbe"
 HELPER="$APP/Contents/Helpers/semwright-sandbox-child"
 EXEC_WRAPPER="$APP/Contents/Helpers/semwright-sandbox-exec"
 PAYLOAD="$BUILD/pinned-payload"
+RO_PAYLOAD="$RO/not-executable-by-policy"
 mkdir -p "$RO" "$RW" "$BUILD" "$DENIED_ROOT" "$APP/Contents/MacOS" "$APP/Contents/Helpers"
 cleanup() {
   kill "${SERVER_PID:-}" 2>/dev/null || true
@@ -26,7 +27,6 @@ trap cleanup EXIT
 
 printf 'allowed-ro' > "$RO/input.txt"
 printf 'denied' > "$DENIED_ROOT/secret.txt"
-chmod 0555 "$RO"
 chmod 0700 "$RW" "$DENIED_ROOT"
 
 cc -std=c17 -Wall -Wextra -Werror \
@@ -37,7 +37,11 @@ cc -std=c17 -Wall -Wextra -Werror \
   crates/platform-macos-sys/tests/fixtures/app_sandbox_exec_wrapper.c -o "$EXEC_WRAPPER"
 cc -std=c17 -Wall -Wextra -Werror \
   crates/platform-macos-sys/tests/fixtures/app_sandbox_child.c -o "$PAYLOAD"
+cc -std=c17 -Wall -Wextra -Werror \
+  crates/platform-macos-sys/tests/fixtures/app_sandbox_exec_marker.c -o "$RO_PAYLOAD"
 PAYLOAD_SHA_BEFORE="$(shasum -a 256 "$PAYLOAD" | awk '{print $1}')"
+RO_PAYLOAD_SHA_BEFORE="$(shasum -a 256 "$RO_PAYLOAD" | awk '{print $1}')"
+chmod 0555 "$RO"
 
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -156,6 +160,19 @@ test ! -e "$RO/blocked.txt"
 PAYLOAD_SHA_AFTER="$(shasum -a 256 "$PAYLOAD" | awk '{print $1}')"
 test "$PAYLOAD_SHA_AFTER" = "$PAYLOAD_SHA_BEFORE"
 echo "macOS App Sandbox exec-pinned-payload probe: PASS sha256=$PAYLOAD_SHA_AFTER"
+
+rm -f "$RW/exec-marker.txt"
+set +e
+"$APP_EXEC" "$EXEC_WRAPPER" "$RO_PAYLOAD" "$RO" "$RW" "$DENIED_ROOT" 18765
+RO_EXEC_RC=$?
+set -e
+RO_PAYLOAD_SHA_AFTER="$(shasum -a 256 "$RO_PAYLOAD" | awk '{print $1}')"
+test "$RO_PAYLOAD_SHA_AFTER" = "$RO_PAYLOAD_SHA_BEFORE"
+if [[ -e "$RW/exec-marker.txt" || "$RO_EXEC_RC" -eq 0 ]]; then
+  echo "read-only App Sandbox root permitted execution without Semwright execute authority" >&2
+  exit 73
+fi
+echo "macOS App Sandbox read-only-root execute denial: PASS rc=$RO_EXEC_RC"
 
 codesign -d --entitlements :- "$APP" >"$BUILD/parent.entitlements.actual" 2>&1
 codesign -d --entitlements :- "$HELPER" >"$BUILD/child.entitlements.actual" 2>&1
