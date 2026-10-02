@@ -234,6 +234,21 @@ fn host_runner_failure(bytes: &[u8]) -> Option<String> {
         .map(ToOwned::to_owned)
 }
 
+// The sealed AV helper emits bounded domain failures through the existing error
+// envelope. Preserve stale-input classification; never infer completed effects
+// from the helper's error text or accept a caller-supplied outcome flag.
+fn host_av_operation_failure(bytes: &[u8]) -> Error {
+    let message = host_runner_failure(bytes)
+        .unwrap_or_else(|| "Host AV operation failed".into());
+    let code = match message.strip_prefix("StaleReference: ") {
+        Some(detail) if !detail.trim().is_empty() => ErrorCode::StaleReference,
+        _ => ErrorCode::BackendFailed,
+    };
+    let mut error = Error::new(code, message);
+    error.outcome_known = false;
+    error
+}
+
 fn host_media_info(bytes: &[u8]) -> Result<MediaInfo> {
     let value: Value = serde_json::from_slice(bytes).map_err(|_| {
         Error::new(
@@ -416,11 +431,7 @@ impl MltVideoDriver {
             .await?;
         let result = context.wait_runtime_tool_job(&job).await?;
         if result.exit_code != 0 {
-            let mut error = Error::new(
-                ErrorCode::BackendFailed,
-                host_runner_failure(&result.stdout)
-                    .unwrap_or_else(|| "Host AV operation failed".into()),
-            );
+            let mut error = host_av_operation_failure(&result.stdout);
             // The tool may have published before an error or cancellation. The
             // original artifact is reconciled by its digest; never assume rollback.
             error.outcome_known = command == "driver.mlt-video.sync.probe";
@@ -1171,6 +1182,39 @@ mod tests {
             "error": "bad\nmessage"
         });
         assert!(host_runner_failure(&serde_json::to_vec(&control).unwrap()).is_none());
+    }
+
+    #[test]
+    fn host_av_failure_preserves_stale_without_promoting_effect_outcome() {
+        let envelope = |message: &str| {
+            serde_json::to_vec(&serde_json::json!({
+                "schema": 1, "operation": "error", "error": message
+            }))
+            .unwrap()
+        };
+        let stale = host_av_operation_failure(&envelope(
+            "StaleReference: Reference or expected revision is stale; observe again",
+        ));
+        assert_eq!(stale.code, ErrorCode::StaleReference);
+        assert!(!stale.outcome_known);
+        for message in [
+            "BackendFailed: native tool failed",
+            "Conflict: StaleReference: embedded text",
+            "StaleReference: ",
+            "StaleReference: bad\nmessage",
+        ] {
+            let error = host_av_operation_failure(&envelope(message));
+            assert_eq!(error.code, ErrorCode::BackendFailed);
+            assert!(!error.outcome_known);
+        }
+        let extra = serde_json::to_vec(&serde_json::json!({
+            "schema": 1, "operation": "error", "error": "StaleReference: stale",
+            "outcome_known": true
+        }))
+        .unwrap();
+        let rejected = host_av_operation_failure(&extra);
+        assert_eq!(rejected.code, ErrorCode::BackendFailed);
+        assert!(!rejected.outcome_known);
     }
 
     #[test]

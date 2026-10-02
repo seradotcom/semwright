@@ -167,6 +167,7 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
         request_timeout_ms: 300_000,
         interfaces: DriverInterfaces {
             cooperative_cancellation: true,
+            progress: true,
             health: true,
             host_tools: true,
             ..DriverInterfaces::default()

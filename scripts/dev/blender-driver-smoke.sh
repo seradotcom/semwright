@@ -129,7 +129,7 @@ cat > "$TMP/driver.json" <<JSON
     "cooperative_cancellation": true,
     "events": false,
     "health": true,
-    "progress": false,
+    "progress": true,
     "artifacts": false,
     "native_refs": false,
     "host_tools": true
