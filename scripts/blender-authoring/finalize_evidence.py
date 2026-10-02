@@ -40,14 +40,15 @@ skill = load("skill-validate.json")
 source_package = load("source-package.json")
 
 for report, expected_suite, minimum in [
-    (model, "blender-model", 50),
-    (native, "blender-native-authoring", 3),
+    (model, "blender-model", 52),
+    (native, "blender-native-authoring", 4),
 ]:
     require(report["source_sha"] == SOURCE, f"{expected_suite} source SHA mismatch")
     require(report["github_sha"] == SOURCE, f"{expected_suite} GitHub SHA mismatch")
     require(report["suite"] == expected_suite, f"{expected_suite} suite mismatch")
     require(report["outcome"] == "PASS", f"{expected_suite} did not PASS")
     require(report["passed"] >= minimum and report["failed"] == 0, f"{expected_suite} counts")
+    require(report["ignored"] == 0 and report["filtered"] == 0, f"{expected_suite} incomplete contract execution")
 
 require(pipeline["native_assertions_completed"] is True, "native assertions incomplete")
 require(pipeline["native_authoring_c_f_verified"] is True, "native C/F evidence incomplete")

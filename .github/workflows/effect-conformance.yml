@@ -13,6 +13,12 @@ on:
       - 'crates/effect-conformance/**'
       - 'scripts/effects/**'
       - '.github/workflows/effect-conformance.yml'
+  workflow_dispatch:
+    inputs:
+      candidate_sha:
+        description: Exact immutable integration source SHA
+        required: true
+        type: string
 permissions:
   contents: read
 concurrency:
@@ -33,7 +39,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
       - id: select
         shell: bash
@@ -59,13 +65,18 @@ jobs:
       run:
         shell: bash
     env:
-      EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      EXPECTED_SHA: ${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
           fetch-depth: 0
+      - name: Bind exact integration source
+        run: |
+          [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          if test "${{ github.event_name }}" = workflow_dispatch; then test "$GITHUB_SHA" = "$EXPECTED_SHA"; fi
       - name: Validate versioned lane selector
         id: lane
         run: |
@@ -127,7 +138,7 @@ jobs:
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
-          name: effect-contract-${{ runner.os }}-${{ github.event.pull_request.head.sha || github.sha }}
+          name: effect-contract-${{ runner.os }}-${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }}
           path: verification/effects
           retention-days: 7
           if-no-files-found: error
