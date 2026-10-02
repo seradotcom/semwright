@@ -618,6 +618,7 @@ fn render_inputs(snapshot: &Snapshot, plan: &RenderPlan) -> Result<RenderInputs>
             if !reference.ends_with(".woff2") {
                 continue;
             }
+            let reference = reference.strip_prefix("./").unwrap_or(reference);
             runtime_relative_path(reference)?;
             let path = format!("{}/{}", css_path.rsplit_once('/').unwrap().0, reference);
             let bytes = crate::store::read_granted_file(&runtime, &path, 16 * 1024 * 1024)?;

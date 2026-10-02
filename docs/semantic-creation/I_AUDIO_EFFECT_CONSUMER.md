@@ -22,7 +22,7 @@ additional provenance; this adds no PASS or claimed mutation observation.
 Only decoded-master constraints are reported as observed. Native audio behavior
 still requires the final candidate's Faust/analysis/Ardour and combined AV gates.
 
-Source regressions cover client verifier injection, missing decoded scope,
+Source regressions cover client verifier injection, decoded scope pinning,
 decoder provenance, partial decode, unavailable loudness, foreign measurement
 channels, verification before application, and repair contract re-pinning.
 The existing lifecycle tests remain in the suite. Fixture PCM is source-test

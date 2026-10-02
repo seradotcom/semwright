@@ -1,0 +1,69 @@
+name: Integrated Blender native transport diagnostic (I)
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_sha:
+        description: Immutable source SHA; must equal the selected workflow ref
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: semantic-creation-native-blender-${{ inputs.candidate_sha }}
+  cancel-in-progress: false
+jobs:
+  native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_PROFILE_DEV_DEBUG: '0'
+      CARGO_PROFILE_TEST_DEBUG: '0'
+      SEMWRIGHT_AUTHORING_EVIDENCE: ${{ github.workspace }}/evidence/blender-authoring
+      SEMWRIGHT_NATIVE_AUTHORING_ACCEPTANCE: '1'
+      SEMWRIGHT_TEST_BLENDER_ROOT: /usr/local/blender-4.5.14-linux-x64
+      SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.candidate_sha }}
+          persist-credentials: false
+      - name: Verify exact source and workflow identity
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          test "$GITHUB_SHA" = "$CANDIDATE_SHA"
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          shared-key: godot-authoring-v1
+      - name: Prepare pinned native runtime
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y libpipewire-0.3-dev pkg-config bubblewrap fontconfig xz-utils
+          mkdir -p evidence/blender-authoring
+          curl --fail --location --retry 2 --output "$RUNNER_TEMP/blender.tar.xz" https://download.blender.org/release/Blender4.5/blender-4.5.14-linux-x64.tar.xz
+          echo "9ba871ff2ecd36526b77432745980b7e6664ecd0c7ca11c48849073dcfe06da3  $RUNNER_TEMP/blender.tar.xz" | sha256sum --check --strict
+          sudo tar -xJf "$RUNNER_TEMP/blender.tar.xz" -C /usr/local
+          test "$("$SEMWRIGHT_TEST_BLENDER_ROOT/blender" --version | head -1)" = "Blender 4.5.14 LTS"
+          bash scripts/dev/ci-driver-bwrap-profile.sh evidence/blender-authoring/sandbox-setup.log
+          cargo build --locked -p semwright-plugin-host --bin semwright-sandbox
+      - name: Preserve owner model expectations
+        run: python3 scripts/blender-authoring/run-suite.py --suite blender-model
+      - name: Authoring through Host-owned v8 session
+        run: python3 scripts/blender-authoring/run-suite.py --suite blender-native-authoring
+      - name: Preserve exact source after native execution
+        run: git diff --exit-code && git diff --cached --exit-code
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: integrated-blender-native-${{ inputs.candidate_sha }}
+          path: evidence/blender-authoring/
+          if-no-files-found: error
+          retention-days: 14

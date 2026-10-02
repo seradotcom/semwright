@@ -73,15 +73,15 @@ jobs:
             exit 1
           fi
       - name: Source formatting
-        run: cargo fmt -p semwright-semantic-composition -p semwright-driver-godot -p semwright-audio-authoring -p semwright-effect-conformance -- --check
+        run: cargo fmt -p semwright-semantic-composition -p semwright-driver-godot -p semwright-audio-authoring -p semwright-effect-conformance -p semwright-driver-sdk -p semwright-driver-blender -p semwright-driver-motion-canvas -p semwright-mlt-video-driver -p semwright-faust-audio-driver -p semwright-ardour-audio-driver -p semwright-av-composition -- --check
       - name: Combined runtime transport compilation
-        run: cargo check --locked --all-targets -p semwright-driver-godot -p semwright-driver-blender -p semwright-driver-motion-canvas -p semwright-mlt-video-driver -p semwright-faust-audio-driver -p semwright-ardour-audio-driver -p semwright-av-composition
+        run: cargo check --locked --all-targets -p semwright-driver-godot -p semwright-driver-blender -p semwright-driver-motion-canvas -p semwright-mlt-video-driver -p semwright-faust-audio-driver -p semwright-ardour-audio-driver -p semwright-av-composition --features semwright-driver-blender/authoring-native
       - name: Host job wait and cancellation contracts
         run: cargo test --locked -p semwright-driver-sdk --lib -- --nocapture
       - name: A contracts and D reconciliation source regressions
         run: python3 scripts/semantic-creation/reconciliation_diagnostic.py
       - name: Strict A/D lints
-        run: cargo clippy --locked -p semwright-semantic-composition -p semwright-driver-godot -p semwright-audio-authoring -p semwright-effect-conformance --all-targets --no-deps -- -D warnings
+        run: cargo clippy --locked -p semwright-semantic-composition -p semwright-driver-godot -p semwright-audio-authoring -p semwright-effect-conformance -p semwright-driver-sdk -p semwright-driver-blender -p semwright-driver-motion-canvas -p semwright-mlt-video-driver -p semwright-faust-audio-driver -p semwright-ardour-audio-driver -p semwright-av-composition --all-targets --no-deps -- -D warnings
       - name: Preserve exact-source identity after checks
         run: |
           git diff --exit-code
