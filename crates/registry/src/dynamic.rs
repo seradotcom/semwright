@@ -149,6 +149,15 @@ impl Registry {
         }
         let bytes = serde_json::to_vec(self.describe(name)?)?.len()
             + serde_json::to_vec(self.metadata(name)?)?.len();
+        let related = self
+            .preparation_relations
+            .iter()
+            .filter(|(_, relation)| relation.production == name || relation.preparation == name)
+            .map(|(production, _)| production.clone())
+            .collect::<Vec<_>>();
+        for production in related {
+            self.preparation_relations.remove(&production);
+        }
         self.commands.remove(name);
         self.metadata.remove(name);
         self.validators.remove(name);

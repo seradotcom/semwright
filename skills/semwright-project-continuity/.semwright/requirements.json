@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "semwright": {
+    "minimum_version": ">=0.9.0-dev.1",
+    "capabilities": [
+      { "id": "capabilities.search", "required": true },
+      { "id": "capabilities.describe", "required": true },
+      { "id": "project.create", "required": true },
+      { "id": "project.asset.register", "required": true },
+      { "id": "project.asset.inspect", "required": true },
+      { "id": "project.asset.provenance", "required": true },
+      { "id": "project.asset.reconcile", "required": true },
+      { "id": "project.query", "required": true },
+      { "id": "project.impact", "required": true },
+      { "id": "project.revisions", "required": true },
+      { "id": "project.manifest.export", "required": true },
+      { "id": "project.manifest.import", "required": true },
+      { "id": "project.asset.rebind", "required": false },
+      { "id": "project.asset.tombstone", "required": false },
+      { "id": "project.gc.preview", "required": false },
+      { "id": "project.gc.collect", "required": false }
+    ],
+    "semantic_packages": []
+  }
+}

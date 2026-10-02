@@ -16,7 +16,24 @@ pub enum Confinement {
     WindowsHandleRelativeNoReparse,
 }
 
+/// A bounded read plus native instance evidence. Bytes alone are not logical identity.
+/// No caller may treat this as a grant or a compare-and-swap reservation.
+#[derive(Debug)]
+pub struct ScopedFileObservation {
+    pub bytes: Vec<u8>,
+    pub instance_identity: String,
+    pub method: &'static str,
+    pub method_version: u32,
+}
+
 pub trait ScopedRoot: Send + Sync {
+    /// Backends without instance evidence must fail closed, not infer identity from a path.
+    fn observe_file(&self, _path: &Path, _limit: usize) -> Result<ScopedFileObservation> {
+        Err(Error::new(
+            ErrorCode::Unsupported,
+            "Native file-instance observation is unavailable",
+        ))
+    }
     fn confinement(&self) -> Confinement;
     fn read(&self, path: &Path, limit: usize) -> Result<Vec<u8>>;
     fn write_atomic(&self, path: &Path, bytes: &[u8]) -> Result<()>;

@@ -1,0 +1,8 @@
+{
+  "capability": "project.gc.preview",
+  "input": {
+    "root": "workspace",
+    "project": "prj_00000000000000000000000000000001",
+    "limit": 64
+  }
+}

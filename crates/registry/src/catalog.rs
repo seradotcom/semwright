@@ -7,6 +7,20 @@ use sha2::{Digest, Sha256};
 use semwright_types::ProviderIdentity;
 pub use semwright_types::SourceKind;
 
+/// Host-owned, explicitly registered reconstruction relationship.
+///
+/// Providers cannot declare this through dynamic aliases/tags/object types. The
+/// descriptor digests pin both endpoints so provider refresh cannot silently
+/// reinterpret an existing rebuild reservation.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PreparationRelation {
+    pub production: String,
+    pub preparation: String,
+    pub provider: String,
+    pub production_descriptor_sha256: String,
+    pub preparation_descriptor_sha256: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Metadata {

@@ -155,6 +155,96 @@ impl Root {
         }
         Ok(bytes)
     }
+    /// openat2-confined instance observation. Revalidation is best effort, not CAS.
+    pub fn observe_file(
+        &self,
+        path: &Path,
+        limit: usize,
+    ) -> Result<semwright_platform_api::filesystem::ScopedFileObservation> {
+        if !self.readable {
+            return Err(Error::new(ErrorCode::PolicyDenied, "Root is not readable"));
+        }
+        if limit == 0 || limit > MAX_SCOPED_BINARY_BYTES {
+            return Err(Error::invalid("Observation exceeds scoped binary budget"));
+        }
+        let fd = open_beneath(&self.fd, path, libc::O_RDONLY | libc::O_NONBLOCK, 0)?;
+        let mut file = File::from(fd);
+        let before = file.metadata()?;
+        if !before.is_file() || before.nlink() != 1 {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Only regular single-link files may be observed",
+            ));
+        }
+        if before.len() > limit as u64 {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Observation exceeds read budget",
+            ));
+        }
+        let born = before
+            .created()
+            .map_err(|_| {
+                Error::new(
+                    ErrorCode::Unsupported,
+                    "Creation-time instance evidence unavailable",
+                )
+            })?
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|_| Error::new(ErrorCode::Unsupported, "Unsupported file creation epoch"))?;
+        let mut bytes = Vec::new();
+        Read::by_ref(&mut file)
+            .take(limit as u64 + 1)
+            .read_to_end(&mut bytes)?;
+        if bytes.len() > limit {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "File grew beyond read budget",
+            ));
+        }
+        let after = file.metadata()?;
+        let current = File::from(open_beneath(
+            &self.fd,
+            path,
+            libc::O_RDONLY | libc::O_NONBLOCK,
+            0,
+        )?)
+        .metadata()?;
+        let stamp = |m: &std::fs::Metadata| {
+            (
+                m.dev(),
+                m.ino(),
+                m.len(),
+                m.nlink(),
+                m.mtime(),
+                m.mtime_nsec(),
+                m.ctime(),
+                m.ctime_nsec(),
+                m.created().ok(),
+            )
+        };
+        if stamp(&before) != stamp(&after)
+            || stamp(&after) != stamp(&current)
+            || bytes.len() as u64 != after.len()
+        {
+            return Err(Error::new(
+                ErrorCode::Conflict,
+                "File changed during bounded observation",
+            ));
+        }
+        Ok(semwright_platform_api::filesystem::ScopedFileObservation {
+            bytes,
+            instance_identity: format!(
+                "linux-file-instance-v1:{}:{}:{}",
+                before.dev(),
+                before.ino(),
+                born.as_nanos()
+            ),
+            method: "openat2-fd-btime-read-revalidate",
+            method_version: 1,
+        })
+    }
+
     pub fn write_atomic(&self, path: &Path, bytes: &[u8]) -> Result<()> {
         if !self.writable {
             return Err(Error::new(ErrorCode::PolicyDenied, "Root is not writable"));
@@ -254,6 +344,13 @@ impl Root {
     }
 }
 impl semwright_platform_api::filesystem::ScopedRoot for Root {
+    fn observe_file(
+        &self,
+        path: &Path,
+        limit: usize,
+    ) -> Result<semwright_platform_api::filesystem::ScopedFileObservation> {
+        Root::observe_file(self, path, limit)
+    }
     fn confinement(&self) -> semwright_platform_api::filesystem::Confinement {
         semwright_platform_api::filesystem::Confinement::LinuxOpenat2NoSymlinksNoMounts
     }

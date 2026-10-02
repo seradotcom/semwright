@@ -5,6 +5,9 @@ use semwright_backend_api::{
 };
 use semwright_core::{Broker, NoApprover, audit::Audit};
 use semwright_policy::{Policy, PolicyConfig, Profile};
+use semwright_project_graph::{
+    OperationIdentity, RebuildCatalog as _, composition::Digest as ProjectDigest,
+};
 use semwright_recipes::Executor;
 use semwright_registry::{CatalogQuery, catalog::descriptor_digest};
 use semwright_types::*;
@@ -537,6 +540,159 @@ async fn figma_semantic_plan_does_not_grant_apply_authority() {
     );
     assert_eq!(audit.tail(1).unwrap()[0].decision, "require_confirmation");
     broker.shutdown().await;
+}
+
+#[tokio::test]
+async fn rebuild_preparation_relation_reenters_broker_and_invalidates_on_refresh() {
+    let dir = tempfile::tempdir().unwrap();
+    let audit = Audit::open(&dir.path().join("audit-rebuild"), 65_536, 2).unwrap();
+    let provider = FixtureProvider::figma_semantic_policy();
+    let config = PolicyConfig {
+        profile: Profile::Observe,
+        allow: [provider.identity.id.clone()].into(),
+        ..Default::default()
+    };
+    let broker = Broker::new(
+        Policy::new(config).unwrap(),
+        vec![],
+        audit,
+        Arc::new(NoApprover),
+        None,
+        json!({}),
+        false,
+    )
+    .unwrap();
+    broker.mount_provider(provider.clone()).await.unwrap();
+    broker
+        .register_rebuild_preparation_relation(
+            "driver.figma.composition.apply",
+            "driver.figma.composition.plan",
+        )
+        .unwrap();
+
+    let historical = OperationIdentity {
+        capability: "driver.figma.composition.apply".into(),
+        descriptor: ProjectDigest::of_bytes(b"historical-descriptor"),
+        runtime: ProjectDigest::of_bytes(b"historical-runtime"),
+        plan: ProjectDigest::of_bytes(b"historical-plan"),
+        parameters: ProjectDigest::of_bytes(b"historical-parameters"),
+        recipe: None,
+    };
+    let first = broker
+        .rebuild_catalog_snapshot()
+        .unwrap()
+        .lookup(&historical)
+        .unwrap()
+        .unwrap();
+    assert_eq!(first.capability, historical.capability);
+    assert_eq!(first.prepare_capability, "driver.figma.composition.plan");
+
+    let prepared = broker
+        .execute_rebuild_preparation(
+            unique_id(),
+            unique_id(),
+            &first,
+            json!({}),
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+    assert!(prepared.ok, "{prepared:?}");
+    assert_eq!(prepared.execution.policy_decision, "allow");
+    assert_eq!(provider.calls.load(Ordering::SeqCst), 1);
+
+    broker
+        .refresh_provider(&provider.identity.id)
+        .await
+        .unwrap();
+    assert!(
+        broker
+            .rebuild_catalog_snapshot()
+            .unwrap()
+            .lookup(&historical)
+            .unwrap()
+            .is_none(),
+        "provider refresh must require host relation re-registration"
+    );
+    let stale = broker
+        .execute_rebuild_preparation(
+            unique_id(),
+            unique_id(),
+            &first,
+            json!({}),
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(stale.code, ErrorCode::Conflict);
+    assert_eq!(provider.calls.load(Ordering::SeqCst), 1);
+
+    broker
+        .register_rebuild_preparation_relation(
+            "driver.figma.composition.apply",
+            "driver.figma.composition.plan",
+        )
+        .unwrap();
+    let rebound = broker
+        .rebuild_catalog_snapshot()
+        .unwrap()
+        .lookup(&historical)
+        .unwrap()
+        .unwrap();
+    assert_ne!(
+        first.runtime, rebound.runtime,
+        "provider generation drift must change the rebuild runtime binding"
+    );
+    broker.shutdown().await;
+
+    let denied_dir = tempfile::tempdir().unwrap();
+    let denied_audit =
+        Audit::open(&denied_dir.path().join("audit-rebuild-deny"), 65_536, 2).unwrap();
+    let denied_provider = FixtureProvider::figma_semantic_policy();
+    let denied_broker = Broker::new(
+        Policy::new(PolicyConfig {
+            profile: Profile::Observe,
+            ..Default::default()
+        })
+        .unwrap(),
+        vec![],
+        denied_audit.clone(),
+        Arc::new(NoApprover),
+        None,
+        json!({}),
+        false,
+    )
+    .unwrap();
+    denied_broker
+        .mount_provider(denied_provider.clone())
+        .await
+        .unwrap();
+    denied_broker
+        .register_rebuild_preparation_relation(
+            "driver.figma.composition.apply",
+            "driver.figma.composition.plan",
+        )
+        .unwrap();
+    let denied_binding = denied_broker
+        .rebuild_catalog_snapshot()
+        .unwrap()
+        .lookup(&historical)
+        .unwrap()
+        .unwrap();
+    let denied = denied_broker
+        .execute_rebuild_preparation(
+            unique_id(),
+            unique_id(),
+            &denied_binding,
+            json!({}),
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(denied.error.unwrap().code, ErrorCode::PolicyDenied);
+    assert_eq!(denied_provider.calls.load(Ordering::SeqCst), 0);
+    assert_eq!(denied_audit.tail(1).unwrap()[0].decision, "deny");
+    denied_broker.shutdown().await;
 }
 
 #[tokio::test]

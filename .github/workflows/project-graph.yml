@@ -1,0 +1,89 @@
+name: Project Graph diagnostics
+on:
+  push:
+    branches: [feat/project-graph]
+    paths:
+      - 'crates/project-graph/**'
+      - 'crates/core/Cargo.toml'
+      - 'crates/core/src/lib.rs'
+      - 'crates/core/src/project_graph.rs'
+      - 'crates/core/tests/project_graph.rs'
+      - 'crates/daemon/src/semwrightd.rs'
+      - 'crates/platform-services/src/lib.rs'
+      - 'scripts/project-graph/**'
+      - '.github/workflows/project-graph.yml'
+      - 'Cargo.lock'
+      - 'Cargo.toml'
+      - 'schemas/commands.json'
+      - 'schemas/builtin-provenance.json'
+      - 'skills/semwright-project-continuity/**'
+      - 'tests/python/test_contracts.py'
+      - 'crates/platform-api/src/filesystem.rs'
+      - 'crates/platform-linux-sys/src/filesystem.rs'
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Exact immutable checkout SHA
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: project-graph-${{ github.ref }}
+  cancel-in-progress: false
+defaults:
+  run:
+    shell: bash
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_DEV_DEBUG: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+  RUSTUP_TOOLCHAIN: 1.88.0
+jobs:
+  project-graph:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Exact source SHA
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha || github.sha }}
+        run: test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.88.0
+          components: rustfmt, clippy
+      - name: Read bounded suite selector
+        id: suite
+        run: |
+          python3 - <<'PYSELECT'
+          import json, os
+          value = json.load(open('scripts/project-graph/lane.json'))
+          assert set(value) == {'suite'} and value['suite'] in {'contracts','store','lockfile','fuzz-lock','full'}
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as out:
+              out.write('suite=' + value['suite'] + '\n')
+          PYSELECT
+      - name: Install Linux media development libraries
+        if: steps.suite.outputs.suite == 'full'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpipewire-0.3-dev
+      - name: Pinned fuzz toolchains and engine
+        if: steps.suite.outputs.suite == 'full'
+        run: |
+          rustup toolchain install 1.98.1 nightly-2026-09-18 --profile minimal
+          cargo +1.98.1 install --locked cargo-fuzz --version 0.13.2
+      - name: Allowlisted exact-SHA lane
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha || github.sha }}
+          RUSTDOCFLAGS: -D warnings
+        run: python3 scripts/project-graph/run-suite.py auto
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: project-graph-${{ github.sha }}-${{ github.run_attempt }}
+          path: verification/project-graph
+          if-no-files-found: error
+          retention-days: 7
