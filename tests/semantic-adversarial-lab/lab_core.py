@@ -108,6 +108,14 @@ def target_for_lane(
     return full_sha(targets.get(TARGET_OWNERS.get(lane, "main")))
 
 
+def evidence_matches_lock(index: dict[str, Any], lock: dict[str, Any]) -> bool:
+    """Evidence belongs to the exact owner-target set and joint-candidate pointer."""
+    return (
+        index.get("targets") == lock.get("targets")
+        and index.get("combined_candidate_sha") == lock.get("combined_candidate_sha")
+    )
+
+
 def validate_probe(value: Any, expected_id: str, expected_sha: str) -> dict[str, Any]:
     if not isinstance(value, dict) or set(value) != {"schema_version", "case_id", "source_sha", "observed"}:
         raise EvidenceError("probe receipt field mismatch")

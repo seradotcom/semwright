@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 import subprocess
 import zipfile
+from lab_core import evidence_matches_lock
 
 LAB = Path(__file__).resolve().parent
 REPO = LAB.parents[1]
@@ -25,12 +26,6 @@ def allowed(path: str) -> bool:
 
 def encoded(value) -> bytes:
     return (json.dumps(value, indent=2, sort_keys=True, allow_nan=False) + "\n").encode()
-
-def evidence_matches_lock(index: dict, lock: dict) -> bool:
-    return (
-        index.get("targets") == lock.get("targets")
-        and index.get("combined_candidate_sha") == lock.get("combined_candidate_sha")
-    )
 
 def main():
     parser = argparse.ArgumentParser()

@@ -11,9 +11,8 @@ from artifact_io import MAX_FILE, read_evidence_archive
 from collect_evidence import validate_lane, immutable_write
 from product import build_target_kind
 from isolation import SYSTEM_CONFIG_RO, DEFAULT_FILE_SIZE_BYTES, MAX_FILE_SIZE_BYTES
-from lab_core import EvidenceError, LANES, digest, summarize, strict_json, target_for_lane
+from lab_core import EvidenceError, LANES, digest, evidence_matches_lock, summarize, strict_json, target_for_lane
 from oracle_identity import payload_digest
-from package_backup import evidence_matches_lock
 from selftest_extra import target_only_retest, closure_rejects
 
 SOURCE = "1" * 40
