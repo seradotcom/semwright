@@ -747,6 +747,7 @@ impl Driver for ArdourAudioDriver {
     fn interfaces(&self) -> DriverInterfaces {
         DriverInterfaces {
             cooperative_cancellation: true,
+            host_tools: std::env::var_os("SEMWRIGHT_DRIVER_HOST_TOOLS").is_some(),
             health: true,
             ..Default::default()
         }

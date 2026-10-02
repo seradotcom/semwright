@@ -316,7 +316,7 @@ impl Driver for FaustAudioDriver {
             cooperative_cancellation: true,
             progress: true,
             artifacts: true,
-            host_tools: false,
+            host_tools: std::env::var_os("SEMWRIGHT_DRIVER_HOST_TOOLS").is_some(),
             health: true,
             ..Default::default()
         }
