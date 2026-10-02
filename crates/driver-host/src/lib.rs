@@ -154,6 +154,56 @@ impl LinuxBrokerTool {
     }
 }
 
+// Hashing large native binaries and waiting for Bubblewrap's child metadata
+// are blocking preparation. Keep both off the protocol executor so bounded
+// job/session controls remain responsive while the original checks run.
+#[cfg(target_os = "linux")]
+async fn verify_linux_broker_tool(tool: &LinuxBrokerTool) -> Result<()> {
+    let tool = tool.clone();
+    tokio::task::spawn_blocking(move || {
+        semwright_platform_services::verify_sealed_tool_executable(&tool.staged.0, &tool.sha256)
+            .map(|_| ())
+    })
+    .await
+    .map_err(|_| {
+        Error::new(
+            ErrorCode::Internal,
+            "Linux runtime-tool verifier task failed",
+        )
+    })?
+}
+
+#[cfg(target_os = "linux")]
+async fn spawn_linux_broker_tool(
+    spec: SandboxSpec,
+    dependency_files: Vec<(String, std::fs::File)>,
+    cancellation: Option<CancellationToken>,
+) -> Result<SandboxProcess> {
+    tokio::task::spawn_blocking(move || {
+        if cancellation
+            .as_ref()
+            .is_some_and(CancellationToken::is_cancelled)
+        {
+            return Err(Error::new(
+                ErrorCode::Cancelled,
+                "Linux runtime-tool preparation cancelled",
+            ));
+        }
+        let result = semwright_platform_services::sandbox_spawn(&spec);
+        // The fresh descriptors must live until Bubblewrap has materialized
+        // their sealed bytes, including its bounded child-metadata handshake.
+        drop(dependency_files);
+        result
+    })
+    .await
+    .map_err(|_| {
+        Error::new(
+            ErrorCode::Internal,
+            "Linux runtime-tool launcher task failed",
+        )
+    })?
+}
+
 enum HostToolArgs {
     Raw(Vec<String>),
     Typed(Vec<RuntimeToolArg>),
@@ -994,10 +1044,7 @@ impl HostToolExecutor for LinuxHostToolBroker {
                 "Driver requested an ungranted Linux sealed tool",
             )
         })?;
-        let _ = semwright_platform_services::verify_sealed_tool_executable(
-            &tool.staged.0,
-            &tool.sha256,
-        )?;
+        verify_linux_broker_tool(tool).await?;
         let contract = self.contracts.get(name).ok_or_else(|| {
             Error::new(
                 ErrorCode::PolicyDenied,
@@ -1101,7 +1148,8 @@ impl HostToolExecutor for LinuxHostToolBroker {
             },
         });
 
-        let mut child = semwright_platform_services::sandbox_spawn(&spec)?;
+        let mut child =
+            spawn_linux_broker_tool(spec, dependency_files, Some(cancellation.clone())).await?;
         let mut child_stdin = child.take_stdin()?;
         let child_stdout = child.take_stdout()?;
         let execution = async {
@@ -1188,10 +1236,7 @@ impl HostToolExecutor for LinuxHostToolBroker {
                 "Driver requested an ungranted Linux session tool",
             )
         })?;
-        let _ = semwright_platform_services::verify_sealed_tool_executable(
-            &tool.staged.0,
-            &tool.sha256,
-        )?;
+        verify_linux_broker_tool(tool).await?;
         let contract = self.contracts.get(name).ok_or_else(|| {
             Error::new(
                 ErrorCode::PolicyDenied,
@@ -1278,7 +1323,7 @@ impl HostToolExecutor for LinuxHostToolBroker {
                 format!("/workspace/{}", cwd.mount),
             ));
         }
-        semwright_platform_services::sandbox_spawn(&spec)
+        spawn_linux_broker_tool(spec, dependency_files, None).await
     }
 }
 
