@@ -13,6 +13,8 @@ and an unknown observation scope. The acquired D receipt independently binds E's
 articulated GLB to native D/C replacement. These are two different E fixtures;
 this suite does not claim that Godot footage was captured or consumed by AV.
 
-Fault revision tests establish graph invalidation. They do not certify native
+Fault revision tests inject graph observations and establish model invalidation;
+they do not perform native readback of changed media. Inputs without production
+receipts retain Unknown divergence; the unaffected input revision is preserved. They do not certify native
 repair/render/remix of the changed input or authorize cache reuse with incomplete
 coverage. Native and independent-review readiness remain separate.

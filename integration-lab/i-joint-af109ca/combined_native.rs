@@ -2172,22 +2172,31 @@ async fn combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_s
         pg::Divergence::Clean
     );
 
-    // Controlled input faults establish graph invalidation, not a claim that an
-    // externally changed native asset was repaired/re-rendered by this fixture.
+    // Injected graph observations test dependency invalidation only. These are
+    // model faults, not live FileRead/DecodedMedia of changed native inputs.
+    // Source inputs have no producer receipt; their divergence remains Unknown.
     let original_audio = audio_revision.pin.fingerprint.bytes.clone().unwrap();
+    let unaffected_audio = graph.inspect(&graph_access, &audio_asset).unwrap();
+    assert_eq!(unaffected_audio.knowledge.divergence, pg::Divergence::Unknown);
     c14_observe(&mut graph, &graph_access, &graph_owner, &preview_asset,
         Digest::of_bytes(b"deliberate visual-only external revision"),
         EvidenceSource::FileRead, "joint_blender_preview_handoff", 9);
     assert_eq!(graph.inspect(&graph_access, &final_master_asset).unwrap().knowledge.freshness, pg::Freshness::Stale);
-    assert_eq!(graph.inspect(&graph_access, &audio_asset).unwrap().knowledge.divergence, pg::Divergence::Clean);
+    let audio_after_visual_fault = graph.inspect(&graph_access, &audio_asset).unwrap();
+    assert_eq!(audio_after_visual_fault.latest_revision, unaffected_audio.latest_revision);
+    assert_eq!(audio_after_visual_fault.knowledge.divergence, pg::Divergence::Unknown);
     assert_eq!(file_sha(&harness.project.join("assets/blender-preview.png")), preview_digest.as_str());
     c14_observe(&mut graph, &graph_access, &graph_owner, &preview_asset, preview_digest.clone(),
         EvidenceSource::FileRead, "joint_blender_preview_handoff", 10);
+    let unaffected_preview = graph.inspect(&graph_access, &preview_asset).unwrap();
+    assert_eq!(unaffected_preview.knowledge.divergence, pg::Divergence::Unknown);
     c14_observe(&mut graph, &graph_access, &graph_owner, &audio_asset,
         Digest::of_bytes(b"deliberate audio-only external revision"),
         EvidenceSource::DecodedMedia, "combined_av_audio_master", 11);
     assert_eq!(graph.inspect(&graph_access, &final_master_asset).unwrap().knowledge.freshness, pg::Freshness::Stale);
-    assert_eq!(graph.inspect(&graph_access, &preview_asset).unwrap().knowledge.divergence, pg::Divergence::Clean);
+    let preview_after_audio_fault = graph.inspect(&graph_access, &preview_asset).unwrap();
+    assert_eq!(preview_after_audio_fault.latest_revision, unaffected_preview.latest_revision);
+    assert_eq!(preview_after_audio_fault.knowledge.divergence, pg::Divergence::Unknown);
     c14_observe(&mut graph, &graph_access, &graph_owner, &audio_asset, original_audio,
         EvidenceSource::DecodedMedia, "combined_av_audio_master", 12);
     graph.invalidate_scope(&graph_access, vec![preview_asset.clone()]).unwrap();
@@ -2251,6 +2260,7 @@ async fn combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_s
             "test_suite_sha": std::env::var("GITHUB_SHA").ok(),
             "blender_preview_sha256": preview_digest,
             "blender_preview_product_import": true,
+            "input_fault_evidence": "INJECTED_GRAPH_OBSERVATIONS_NOT_NATIVE_READBACK",
             "visual_only_graph_invalidation": true,
             "audio_only_graph_invalidation": true,
             "unknown_scope_fail_closed": true,
