@@ -32,8 +32,8 @@ use semwright_registry::{Metadata, Registry};
 use semwright_semantic_composition::{
     Address, BaseState, BaseStateSet, CapabilityBinding, Concurrency, ConvergenceBudget, Digest,
     EffectClass, EvidenceClass, EvidenceSource, ExecutionStatus, ObservationRef, Owner, Phase,
-    ResourceKey, Revision, RuleResult, SupportLevel, ValidationReport, Verdict, VerificationReport,
-    canonical_digest,
+    PrincipalBinding, ResourceKey, Revision, RuleResult, SupportLevel, ValidationReport, Verdict,
+    VerificationReport, canonical_digest,
 };
 use semwright_types::ExecuteRequest;
 use serde_json::{Value, json};
@@ -1640,16 +1640,26 @@ async fn combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_s
     assert_eq!(Digest::of_bytes(&published_bytes), manifest_digest);
     assert_eq!(candidate_bytes, published_bytes);
 
+    // A/B plans intentionally use the request-scoped HostSession owner. Project Graph
+    // persistence is a separate trusted-host boundary and requires a durable principal.
+    // Preserve the authenticated session, but bind C evidence to the host principal instead
+    // of laundering the ephemeral Composition owner into durable graph authority.
+    assert!(matches!(owner.principal, PrincipalBinding::HostSession));
+    let graph_owner = Owner {
+        session: owner.session.clone(),
+        principal: PrincipalBinding::Named("os-user-v1:ci:composition-av".into()),
+    };
     let graph_project = pg::ProjectId::new();
     let graph_access = pg::ProjectAccess::authorized(
-        owner.clone(),
+        graph_owner.clone(),
         graph_project.clone(),
         None,
         true,
         Digest::of_bytes(b"combined-av-c14-grants"),
     )
     .unwrap();
-    let mut graph = pg::ProjectGraph::new(graph_project.clone(), owner.principal.clone()).unwrap();
+    let mut graph =
+        pg::ProjectGraph::new(graph_project.clone(), graph_owner.principal.clone()).unwrap();
     let audio_asset = c14_asset(&mut graph, &graph_access, "audio", "audio-master");
     let final_master_asset =
         c14_asset(&mut graph, &graph_access, "av-master", "verified-av-master");
@@ -1665,7 +1675,7 @@ async fn combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_s
     let audio_revision = c14_observe(
         &mut graph,
         &graph_access,
-        &owner,
+        &graph_owner,
         &audio_asset,
         audio.master.sha256.clone(),
         EvidenceSource::DecodedMedia,
@@ -1675,7 +1685,7 @@ async fn combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_s
     let master_revision = c14_observe(
         &mut graph,
         &graph_access,
-        &owner,
+        &graph_owner,
         &final_master_asset,
         manifest.final_artifact.sha256.clone(),
         EvidenceSource::DecodedMedia,
@@ -1685,7 +1695,7 @@ async fn combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_s
     let candidate_revision = c14_observe(
         &mut graph,
         &graph_access,
-        &owner,
+        &graph_owner,
         &candidate_manifest_asset,
         manifest_digest.clone(),
         EvidenceSource::FileRead,
@@ -1695,7 +1705,7 @@ async fn combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_s
     let published_revision = c14_observe(
         &mut graph,
         &graph_access,
-        &owner,
+        &graph_owner,
         &published_manifest_asset,
         manifest_digest.clone(),
         EvidenceSource::FileRead,
@@ -1713,7 +1723,7 @@ async fn combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_s
         id: pg::ReceiptId::new(),
         derivation: pg::DerivationId::new(),
         project: graph_project.clone(),
-        owner: owner.clone(),
+        owner: graph_owner.clone(),
         request_id: "c14-mux".into(),
         operation: pg::OperationIdentity {
             capability: "driver.mlt-video.av.mux".into(),
@@ -1771,7 +1781,11 @@ async fn combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_s
         .accept_receipt(
             &graph_access,
             mux_adapter
-                .admit(&owner, &mux_receipt.request_id.clone(), mux_receipt.clone())
+                .admit(
+                    &graph_owner,
+                    &mux_receipt.request_id.clone(),
+                    mux_receipt.clone(),
+                )
                 .unwrap(),
         )
         .unwrap();
@@ -1787,7 +1801,7 @@ async fn combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_s
         id: pg::ReceiptId::new(),
         derivation: pg::DerivationId::new(),
         project: graph_project.clone(),
-        owner: owner.clone(),
+        owner: graph_owner.clone(),
         request_id: "c14-publication".into(),
         operation: pg::OperationIdentity {
             capability: "artifact.handoff".into(),
@@ -1836,7 +1850,7 @@ async fn combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_s
             &graph_access,
             publication_adapter
                 .admit(
-                    &owner,
+                    &graph_owner,
                     &publication_receipt.request_id.clone(),
                     publication_receipt.clone(),
                 )
@@ -1865,7 +1879,7 @@ async fn combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_s
     c14_observe(
         &mut graph,
         &graph_access,
-        &owner,
+        &graph_owner,
         &published_manifest_asset,
         Digest::of_bytes(&external_bytes),
         EvidenceSource::FileRead,
@@ -1884,7 +1898,7 @@ async fn combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_s
     c14_observe(
         &mut graph,
         &graph_access,
-        &owner,
+        &graph_owner,
         &published_manifest_asset,
         manifest_digest.clone(),
         EvidenceSource::FileRead,
