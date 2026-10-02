@@ -1,327 +1,47 @@
-name: Native application integration
+name: I targeted global native fixture integration
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_sha:
+        required: true
+        type: string
+permissions:
+  contents: read
 defaults:
   run:
     shell: bash
-on:
-  push:
-    branches: [main]
-  pull_request:
-  workflow_call:
-    inputs:
-      full_cert:
-        required: false
-        type: boolean
-        default: false
-  workflow_dispatch:
-    inputs:
-      full_cert:
-        description: "Run every native integration certification job"
-        required: false
-        type: boolean
-        default: false
-permissions:
-  contents: read
 concurrency:
-  group: native-${{ github.ref }}-${{ github.event_name }}
+  group: i-global-native-fixtures-${{ github.ref }}
   cancel-in-progress: true
 env:
   CARGO_INCREMENTAL: 0
   CARGO_PROFILE_DEV_DEBUG: 0
   CARGO_PROFILE_TEST_DEBUG: 0
 jobs:
-  scope:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    outputs:
-      native_chromium: ${{ steps.scope.outputs.native_chromium }}
-      native_driver_conformance: ${{ steps.scope.outputs.native_driver_conformance }}
-      native_driver_distribution: ${{ steps.scope.outputs.native_driver_distribution }}
-      native_libreoffice: ${{ steps.scope.outputs.native_libreoffice }}
-      native_blender: ${{ steps.scope.outputs.native_blender }}
-      native_figma: ${{ steps.scope.outputs.native_figma }}
-      native_kicad_mlt: ${{ steps.scope.outputs.native_kicad_mlt }}
-      native_pipewire: ${{ steps.scope.outputs.native_pipewire }}
-      native_x11: ${{ steps.scope.outputs.native_x11 }}
-      native_atspi: ${{ steps.scope.outputs.native_atspi }}
-      native_sway: ${{ steps.scope.outputs.native_sway }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          fetch-depth: 0
-      - id: scope
-        env:
-          FULL_CERT: ${{ inputs.full_cert }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-          HEAD_SHA: ${{ github.sha }}
-        run: |
-          set -euo pipefail
-          if [[ "$FULL_CERT" == "true" ]]; then
-            python3 scripts/dev/ci-affected-areas.py --full >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          if [[ -z "$BASE_SHA" || "$BASE_SHA" =~ ^0+$ ]]; then
-            BASE_SHA=$(git rev-parse HEAD^ 2>/dev/null || git rev-parse HEAD)
-          fi
-          git diff --name-only "$BASE_SHA" "$HEAD_SHA" |
-            python3 scripts/dev/ci-affected-areas.py >> "$GITHUB_OUTPUT"
-
-  chromium:
-    needs: scope
-    if: ${{ (inputs.full_cert == true || needs.scope.outputs.native_chromium == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
-        with:
-          toolchain: 1.98.1
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
-        with:
-          key: native-applications
-      - name: Install Linux media development libraries
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libpipewire-0.3-dev
-      - name: Detect actual browser version
-        run: |
-          mkdir -p verification/native-ci
-          command -v google-chrome
-          google-chrome --version | tee verification/native-ci/browser-version.log
-          test -x /opt/google/chrome/chrome
-          sudo chmod 0755 /opt/google/chrome/chrome
-          stat -c '%A %a %U:%G %n' /opt/google/chrome/chrome | tee verification/native-ci/browser-binary.log
-      - name: Real Rust adapter, owned profile, loopback fixture
-        env:
-          SEMWRIGHT_TEST_CHROMIUM: /opt/google/chrome/chrome
-        run: |
-          cargo test --locked --workspace --all-targets --all-features real_chromium_ -- --ignored --nocapture 2>&1 | tee verification/native-ci/chromium.log
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        if: always()
-        with:
-          name: real-chromium-evidence
-          path: verification/native-ci
-          retention-days: 14
-
-  driver-conformance:
-    needs: scope
-    if: ${{ (inputs.full_cert == true || needs.scope.outputs.native_driver_conformance == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
-        with:
-          toolchain: 1.98.1
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
-        with:
-          key: driver-conformance
-      - name: Install and preflight sandbox dependency
-        run: |
-          if ! command -v bwrap >/dev/null; then
-            sudo apt-get update
-            sudo apt-get install -y bubblewrap libpipewire-0.3-dev
-          fi
-          current_userns=$(sysctl -n kernel.unprivileged_userns_clone 2>/dev/null || true)
-          if [ -n "$current_userns" ] && [ "$current_userns" != "1" ]; then
-            sudo sysctl -w kernel.unprivileged_userns_clone=1
-          fi
-          current_apparmor=$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || true)
-          sandbox_setup=kernel-default
-          if [ "$current_apparmor" = "1" ]; then
-            sudo apt-get update
-            sudo apt-get install -y apparmor-profiles apparmor-utils
-            profile=/usr/share/apparmor/extra-profiles/bwrap-userns-restrict
-            if [ -f "$profile" ] && sudo install -m 0644 "$profile" /etc/apparmor.d/bwrap-userns-restrict && sudo apparmor_parser -r /etc/apparmor.d/bwrap-userns-restrict; then
-              sandbox_setup=apparmor-bwrap-profile
-            else
-              # GitHub-hosted runners are ephemeral. This fallback changes only the
-              # disposable CI host; production Semwright never changes this sysctl.
-              sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-              sandbox_setup=ephemeral-ci-userns-relaxation
-            fi
-          fi
-          {
-            bwrap --version
-            echo "sandbox_setup=$sandbox_setup"
-            echo "kernel.unprivileged_userns_clone=$(sysctl -n kernel.unprivileged_userns_clone 2>/dev/null || true)"
-            echo "kernel.apparmor_restrict_unprivileged_userns=$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || true)"
-          } | tee /tmp/bwrap-version.log
-          bwrap_args=(--die-with-parent --new-session --unshare-all --clearenv --cap-drop ALL --proc /proc --dev /dev --tmpfs /tmp --dir /home --dir /workspace --dir /plugin)
-          for runtime in /usr /lib /lib64; do
-            if [ -e "$runtime" ]; then
-              bwrap_args+=(--ro-bind "$runtime" "$runtime")
-            fi
-          done
-          bwrap_args+=(--dir /etc)
-          if [ -e /etc/ld.so.cache ]; then
-            bwrap_args+=(--ro-bind /etc/ld.so.cache /etc/ld.so.cache)
-          fi
-          bwrap "${bwrap_args[@]}" -- /usr/bin/true
-      - name: Build driver conformance surface
-        run: |
-          cargo build --locked -p semwright-driver-host --bin semwright-driver-fixture \
-            -p semwright-plugin-host --bin semwright-sandbox \
-            -p semwright-cli --bin semwright \
-            -p semwright-daemon --bin semwrightd
-      - name: Sandboxed persistent driver conformance
-        run: |
-          mkdir -p verification/native-ci
-          BIN_DIR=target/debug scripts/dev/driver-conformance.sh 2>&1 | tee verification/native-ci/driver-conformance.log
-          BIN_DIR=target/debug scripts/dev/driver-broker-smoke.sh 2>&1 | tee verification/native-ci/driver-broker-smoke.log
-          SEMWRIGHT_TEST_DRIVER_V2=1 \
-            SEMWRIGHT_TEST_SANDBOX_HELPER="$PWD/target/debug/semwright-sandbox" \
-            cargo test --locked -p semwright-driver-host --test protocol_v2 \
-            -- --ignored --nocapture 2>&1 | tee verification/native-ci/driver-protocol-v2.log
-          cp /tmp/bwrap-version.log verification/native-ci/
-      - name: Adversarial plugin sandbox and handshake attestation
-        env:
-          SEMWRIGHT_TEST_PLUGIN_SANDBOX: "1"
-        run: |
-          cargo build --locked -p semwright-plugin-host --features test-tools \
-            --bin semwright-sandbox --bin semwright-adversarial-plugin-fixture
-          cargo test --locked -p semwright-plugin-host --features test-tools \
-            --test adversarial -- --ignored --nocapture 2>&1 | tee verification/native-ci/plugin-adversarial.log
-          cargo build --locked -p semwright-driver-host --features test-tools \
-            --bin semwright-adversarial-driver-fixture
-          SEMWRIGHT_TEST_DRIVER_SANDBOX=1 \
-            SEMWRIGHT_TEST_SANDBOX_HELPER="$PWD/target/debug/semwright-sandbox" \
-            cargo test --locked -p semwright-driver-host --features test-tools \
-            --test adversarial_sandbox -- --ignored --nocapture 2>&1 | tee verification/native-ci/driver-adversarial.log
-      - name: Sandboxed external MCP federation
-        env:
-          SEMWRIGHT_REQUIRE_MCP_SANDBOX: "1"
-        run: |
-          cargo test --locked -p semwright-federation --test federation -- --nocapture \
-            2>&1 | tee verification/native-ci/mcp-federation-sandbox.log
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        if: always()
-        with:
-          name: driver-conformance-evidence
-          path: verification/native-ci
-          retention-days: 14
-
-  driver-distribution:
-    needs: [scope, chromium]
-    if: ${{ always() && !cancelled() && ((inputs.full_cert == true || needs.scope.outputs.native_driver_distribution == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule'))) }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
-        with:
-          toolchain: 1.98.1
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
-        with:
-          key: driver-distribution
-      - name: Test bounded package and static-index contracts
-        run: |
-          mkdir -p verification/native-ci
-          cargo test --locked -p semwright-driver-registry --all-targets 2>&1 | tee verification/native-ci/driver-registry-tests.log
-          cargo clippy --locked -p semwright-driver-registry -p semwright-cli --all-targets -- -D warnings 2>&1 | tee verification/native-ci/driver-registry-clippy.log
-      - name: Non-executing package install/update/remove smoke
-        run: |
-          cargo build --locked -p semwright-cli --bin semwright
-          BIN_DIR=target/debug scripts/dev/driver-registry-smoke.sh 2>&1 | tee verification/native-ci/driver-distribution-smoke.log
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        if: always()
-        with:
-          name: driver-distribution-evidence
-          path: |
-            verification/native-ci/driver-registry-*
-            verification/native-ci/driver-distribution-smoke.log
-          retention-days: 14
-
-  libreoffice-driver:
-    needs: [scope, driver-conformance]
-    if: ${{ always() && !cancelled() && ((inputs.full_cert == true || needs.scope.outputs.native_libreoffice == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule'))) }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
-        with:
-          toolchain: 1.98.1
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
-        with:
-          key: libreoffice-driver
-      - name: Install LibreOffice, pyuno and sandbox dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y bubblewrap fontconfig libreoffice-writer libreoffice-calc python3-uno unzip libpipewire-0.3-dev
-          mkdir -p verification/native-ci
-          soffice --version | tee verification/native-ci/libreoffice-version.log
-          /usr/bin/python3 -c 'import uno; print("pyuno=ok")' | tee verification/native-ci/pyuno.log
-          bwrap --version | tee verification/native-ci/bwrap-version.log
-      - name: Preflight unprivileged Bubblewrap
-        run: |
-          current_userns=$(sysctl -n kernel.unprivileged_userns_clone 2>/dev/null || true)
-          if [ -n "$current_userns" ] && [ "$current_userns" != "1" ]; then
-            sudo sysctl -w kernel.unprivileged_userns_clone=1
-          fi
-          current_apparmor=$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || true)
-          sandbox_setup=kernel-default
-          if [ "$current_apparmor" = "1" ]; then
-            sudo apt-get install -y apparmor-profiles apparmor-utils
-            profile=/usr/share/apparmor/extra-profiles/bwrap-userns-restrict
-            if [ -f "$profile" ] && sudo install -m 0644 "$profile" /etc/apparmor.d/bwrap-userns-restrict && sudo apparmor_parser -r /etc/apparmor.d/bwrap-userns-restrict; then
-              sandbox_setup=apparmor-bwrap-profile
-            else
-              # GitHub-hosted runners are ephemeral. Production Semwright never
-              # changes this sysctl; this fallback exists only to test the real sandbox.
-              sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-              sandbox_setup=ephemeral-ci-userns-relaxation
-            fi
-          fi
-          test -d /etc/libreoffice
-          test -d /etc/fonts
-          {
-            echo "sandbox_setup=$sandbox_setup"
-            echo "kernel.unprivileged_userns_clone=$(sysctl -n kernel.unprivileged_userns_clone 2>/dev/null || true)"
-            echo "kernel.apparmor_restrict_unprivileged_userns=$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || true)"
-          } | tee verification/native-ci/sandbox-setup.log
-          bwrap_args=(--die-with-parent --new-session --unshare-all --clearenv --cap-drop ALL --proc /proc --dev /dev --tmpfs /tmp --dir /home --dir /workspace --dir /plugin)
-          for runtime in /usr /lib /lib64; do
-            if [ -e "$runtime" ]; then
-              bwrap_args+=(--ro-bind "$runtime" "$runtime")
-            fi
-          done
-          bwrap_args+=(--dir /etc)
-          if [ -e /etc/ld.so.cache ]; then
-            bwrap_args+=(--ro-bind /etc/ld.so.cache /etc/ld.so.cache)
-          fi
-          bwrap_args+=(--ro-bind /etc/libreoffice /etc/libreoffice --ro-bind /etc/fonts /etc/fonts)
-          bwrap "${bwrap_args[@]}" -- /usr/bin/true
-      - name: Build LibreOffice driver surface
-        run: |
-          cargo build --locked -p semwright-driver-libreoffice --bin semwright-libreoffice-driver \
-            --bin semwright-libreoffice-runtime-runner \
-            -p semwright-plugin-host --bin semwright-sandbox \
-            -p semwright-cli --bin semwright \
-            -p semwright-daemon --bin semwrightd
-      - name: Real sandboxed DriverProvider against LibreOffice UNO
-        run: |
-          SEMWRIGHT_TEST_LIBREOFFICE=1 SEMWRIGHT_TEST_SANDBOX_HELPER="$GITHUB_WORKSPACE/target/debug/semwright-sandbox" \
-            cargo test --locked -p semwright-driver-libreoffice real_libreoffice_driver_runs_inside_sandbox -- --ignored --nocapture 2>&1 | tee verification/native-ci/libreoffice-driver-live.log
-      - name: Broker, policy, CLI and LibreOffice end-to-end
-        run: |
-          BIN_DIR=target/debug scripts/dev/libreoffice-driver-smoke.sh 2>&1 | tee verification/native-ci/libreoffice-broker-smoke.log
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        if: always()
-        with:
-          name: libreoffice-driver-evidence
-          path: verification/native-ci
-          retention-days: 14
-
-
   blender-driver:
-    needs: [scope, driver-distribution]
-    if: ${{ always() && !cancelled() && ((inputs.full_cert == true || needs.scope.outputs.native_blender == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule'))) }}
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     env:
       SEMWRIGHT_TEST_BLENDER_ROOT: /usr/local/blender-4.5.14-linux-x64
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.candidate_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Bind exact product source; no fixture overlay
+        env:
+          SOURCE_SHA: ${{ inputs.candidate_sha }}
+        run: |
+          set -euo pipefail
+          test "$SOURCE_SHA" = ae62d8bf1d607019e92fe428e505c29e2bf552c9
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          git diff --exit-code
+          mkdir -p verification/native-ci
+          printf '%s\n' "$SOURCE_SHA" > verification/native-ci/product-source-sha.txt
+          printf '%s\n' "$GITHUB_SHA" > verification/native-ci/fixture-suite-sha.txt
+          git diff --check
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
         with:
           toolchain: 1.98.1
@@ -465,112 +185,29 @@ jobs:
           path: verification/native-ci
           retention-days: 14
 
-  figma-driver:
-    needs: [scope, libreoffice-driver]
-    if: ${{ always() && !cancelled() && ((inputs.full_cert == true || needs.scope.outputs.native_figma == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule'))) }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
-        with:
-          toolchain: 1.98.1
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
-        with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: crates/driver-figma/plugin/package-lock.json
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
-        with:
-          key: figma-driver
-      - name: Install sandbox dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y bubblewrap apparmor-profiles apparmor-utils libpipewire-0.3-dev
-          mkdir -p verification/native-ci
-      - name: Preflight unprivileged Bubblewrap
-        run: |
-          current_userns=$(sysctl -n kernel.unprivileged_userns_clone 2>/dev/null || true)
-          if [ -n "$current_userns" ] && [ "$current_userns" != "1" ]; then
-            sudo sysctl -w kernel.unprivileged_userns_clone=1
-          fi
-          current_apparmor=$(sysctl -n kernel.apparmor_restrict_unprivileged_userns 2>/dev/null || true)
-          sandbox_setup=kernel-default
-          if [ "$current_apparmor" = "1" ]; then
-            profile=/usr/share/apparmor/extra-profiles/bwrap-userns-restrict
-            if [ -f "$profile" ] && sudo install -m 0644 "$profile" /etc/apparmor.d/bwrap-userns-restrict && sudo apparmor_parser -r /etc/apparmor.d/bwrap-userns-restrict; then
-              sandbox_setup=apparmor-bwrap-profile
-            else
-              sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-              sandbox_setup=ephemeral-ci-userns-relaxation
-            fi
-          fi
-          bwrap --version | tee verification/native-ci/figma-bwrap-version.log
-          echo "sandbox_setup=$sandbox_setup" | tee verification/native-ci/figma-sandbox-setup.log
-          bwrap_args=(--die-with-parent --new-session --unshare-all --clearenv --cap-drop ALL --proc /proc --dev /dev --tmpfs /tmp --dir /home --dir /workspace --dir /plugin)
-          for runtime in /usr /lib /lib64; do
-            if [ -e "$runtime" ]; then
-              bwrap_args+=(--ro-bind "$runtime" "$runtime")
-            fi
-          done
-          bwrap_args+=(--dir /etc)
-          if [ -e /etc/ld.so.cache ]; then
-            bwrap_args+=(--ro-bind /etc/ld.so.cache /etc/ld.so.cache)
-          fi
-          bwrap "${bwrap_args[@]}" -- /usr/bin/true
-      - name: Build Figma driver and sandbox surface
-        run: |
-          cargo build --locked -p semwright-driver-figma --features test-tools --bins \
-            -p semwright-plugin-host --bin semwright-sandbox
-          python3 crates/driver-figma/tools/catalog_consistency.py | tee verification/native-ci/figma-catalog.log
-      - name: Figma semantic driver tests
-        run: |
-          cargo test --locked -p semwright-driver-figma --all-targets --all-features \
-            2>&1 | tee verification/native-ci/figma-rust-tests.log
-      - name: Production Driver Protocol to fake Figma E2E
-        run: |
-          BIN_DIR="$GITHUB_WORKSPACE/target/debug" \
-            python3 crates/driver-figma/tools/e2e_driver.py | tee verification/native-ci/figma-e2e.log
-      - name: Semantic authoring convergence demo and structural benchmark
-        run: |
-          python3 demos/figma-semantic-authoring/build_demo_spec.py
-          BIN_DIR="$GITHUB_WORKSPACE/target/debug" \
-            python3 demos/figma-semantic-authoring/convergence_demo.py \
-            | tee verification/native-ci/figma-semantic-demo.log
-          BIN_DIR="$GITHUB_WORKSPACE/target/debug" \
-            python3 demos/figma-semantic-authoring/benchmark.py \
-            | tee verification/native-ci/figma-semantic-benchmark.log
-      - name: Build and test the Figma Plugin API bridge
-        working-directory: crates/driver-figma/plugin
-        run: |
-          npm ci
-          node ../tools/api_coverage.mjs | tee ../../../verification/native-ci/figma-api-coverage.log
-          python3 ../tools/rest_api_coverage.py | tee ../../../verification/native-ci/figma-rest-api-coverage.log
-          python3 ../tools/semantic_completeness.py | tee ../../../verification/native-ci/figma-semantic-completeness.log
-          npm test
-          npm run typecheck
-          npm run build
-      - name: Sandboxed DriverProvider to fake Figma
-        env:
-          SEMWRIGHT_TEST_FIGMA: "1"
-          SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
-        run: |
-          cargo test --locked -p semwright-driver-figma --features test-tools \
-            --test host_conformance -- --ignored --nocapture 2>&1 | tee verification/native-ci/figma-host-conformance.log
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        if: always()
-        with:
-          name: figma-driver-evidence
-          path: verification/native-ci/figma-*
-          retention-days: 14
-
   kicad-mlt-drivers:
-    needs: [scope, blender-driver]
-    if: ${{ always() && !cancelled() && ((inputs.full_cert == true || needs.scope.outputs.native_kicad_mlt == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule'))) }}
+    needs: blender-driver
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.candidate_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Bind exact product source; no fixture overlay
+        env:
+          SOURCE_SHA: ${{ inputs.candidate_sha }}
+        run: |
+          set -euo pipefail
+          test "$SOURCE_SHA" = ae62d8bf1d607019e92fe428e505c29e2bf552c9
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          git diff --exit-code
+          mkdir -p verification/native-ci
+          printf '%s\n' "$SOURCE_SHA" > verification/native-ci/product-source-sha.txt
+          printf '%s\n' "$GITHUB_SHA" > verification/native-ci/fixture-suite-sha.txt
+          git diff --check
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
         with:
           toolchain: 1.98.1
@@ -629,262 +266,3 @@ jobs:
           path: verification/native-ci
           retention-days: 14
 
-  pipewire-screencast:
-    needs: [scope, figma-driver]
-    if: ${{ always() && !cancelled() && ((inputs.full_cert == true || needs.scope.outputs.native_pipewire == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule'))) }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
-        with:
-          toolchain: 1.98.1
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
-        with:
-          key: pipewire-screencast
-      - name: Install private PipeWire video fixture
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y             libpipewire-0.3-dev pipewire pipewire-bin wireplumber             dbus-x11 gstreamer1.0-tools gstreamer1.0-pipewire             gstreamer1.0-plugins-base
-      - name: Real synthetic PipeWire frame capture
-        run: |
-          mkdir -p verification/native-ci
-          bash -n scripts/dev/pipewire-screencast-smoke.sh
-          dbus-run-session -- bash scripts/dev/pipewire-screencast-smoke.sh             2>&1 | tee verification/native-ci/pipewire-screencast.log
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        if: always()
-        with:
-          name: pipewire-screencast-evidence
-          path: verification/native-ci
-          retention-days: 14
-
-  x11-backend:
-    needs: [scope, kicad-mlt-drivers]
-    if: ${{ always() && !cancelled() && ((inputs.full_cert == true || needs.scope.outputs.native_x11 == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule'))) }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
-        with:
-          toolchain: 1.98.1
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
-        with:
-          key: x11-backend
-      - name: Install isolated X11 server
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y xvfb xauth libpipewire-0.3-dev
-          mkdir -p verification/native-ci
-          Xvfb -version 2>&1 | head -20 | tee verification/native-ci/xvfb-version.log || true
-      - name: Real X11 lifecycle and bounded backend
-        env:
-          XDG_SESSION_TYPE: x11
-          SEMWRIGHT_TEST_X11: "1"
-        run: |
-          xvfb-run -a -s "-screen 0 1280x720x24 -nolisten tcp"             cargo test --locked -p semwright-backends               real_x11_window_ref_is_focus_checked_and_stales_after_destroy               -- --ignored --nocapture 2>&1 | tee verification/native-ci/x11-backend.log
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        if: always()
-        with:
-          name: real-x11-backend-evidence
-          path: verification/native-ci
-          retention-days: 14
-
-  atspi-backend:
-    needs: [scope, pipewire-screencast]
-    if: ${{ always() && !cancelled() && ((inputs.full_cert == true || needs.scope.outputs.native_atspi == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule'))) }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
-        with:
-          toolchain: 1.98.1
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
-        with:
-          key: atspi-gtk-backend
-      - name: Install isolated GTK accessibility fixture
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y at-spi2-core dbus-x11 xvfb xauth x11-utils \
-            python3-gi gir1.2-gtk-4.0 libpipewire-0.3-dev
-          mkdir -p verification/native-ci "$RUNNER_TEMP/atspi-gtk"
-          chmod 700 "$RUNNER_TEMP/atspi-gtk"
-          python3 - <<'PYGTK' | tee verification/native-ci/gtk-version.log
-          import gi
-          gi.require_version("Gtk", "4.0")
-          from gi.repository import Gtk
-          print(f"Gtk={Gtk.get_major_version()}.{Gtk.get_minor_version()}.{Gtk.get_micro_version()}")
-          PYGTK
-          cat > "$RUNNER_TEMP/atspi-gtk-fixture" <<EOF
-          #!/usr/bin/env bash
-          exec /usr/bin/python3 "$GITHUB_WORKSPACE/fixtures/gtk/fixture.py" "\$@"
-          EOF
-          chmod 755 "$RUNNER_TEMP/atspi-gtk-fixture"
-          dpkg-query -W -f='at-spi2-core=${Version}\n' at-spi2-core | tee verification/native-ci/atspi-version.log
-      - name: Real GTK AT-SPI delta, structural resync and stale-reference lifecycle
-        env:
-          XDG_RUNTIME_DIR: ${{ runner.temp }}/atspi-gtk
-          XDG_SESSION_TYPE: x11
-          SEMWRIGHT_TEST_ATSPI: "1"
-          SEMWRIGHT_TEST_GTK_FIXTURE: ${{ runner.temp }}/atspi-gtk-fixture
-        run: scripts/dev/atspi-live-ci.sh gtk
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        if: always()
-        with:
-          name: real-atspi-gtk-evidence
-          path: verification/native-ci
-          retention-days: 14
-
-  atspi-qt-backend:
-    needs: [scope, x11-backend]
-    if: ${{ always() && !cancelled() && ((inputs.full_cert == true || needs.scope.outputs.native_atspi == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule'))) }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - name: Install maintained Qt accessibility runtime
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            at-spi2-core dbus-x11 file \
-            python3-venv libegl1 libgl1 libx11-xcb1 \
-            libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
-            libxcb-render-util0 libxcb-shape0 libxcb-util1 libxcb-xkb1 \
-            libxkbcommon-x11-0 libpipewire-0.3-dev \
-            xvfb xauth x11-utils
-          mkdir -p verification/native-ci "$RUNNER_TEMP/atspi-qt"
-          chmod 700 "$RUNNER_TEMP/atspi-qt"
-          python3 -m venv "$RUNNER_TEMP/qt-venv"
-          "$RUNNER_TEMP/qt-venv/bin/pip" install \
-            --disable-pip-version-check --no-cache-dir \
-            "PyQt6==6.11.0" "PyQt6-Qt6==6.11.2" "PyQt6-sip==13.12.0"
-          "$RUNNER_TEMP/qt-venv/bin/python" - <<'PY' | tee verification/native-ci/qt-version.log
-          from PyQt6.QtCore import PYQT_VERSION_STR, QT_VERSION_STR
-          print(f"PyQt6={PYQT_VERSION_STR}")
-          print(f"Qt6={QT_VERSION_STR}")
-          PY
-          qt_xcb=$(find "$RUNNER_TEMP/qt-venv" -path '*/PyQt6/Qt6/plugins/platforms/libqxcb.so' -print -quit)
-          test -f "$qt_xcb"
-          ldd "$qt_xcb" | tee verification/native-ci/qt-xcb-ldd.log
-          if grep -q 'not found' verification/native-ci/qt-xcb-ldd.log; then
-            echo "Qt xcb plugin has unresolved shared libraries" >&2
-            exit 1
-          fi
-          dpkg-query -W -f='${binary:Package}=${Version}\n' \
-            at-spi2-core libxcb-cursor0 libxkbcommon-x11-0 \
-            | tee verification/native-ci/atspi-qt-packages.log
-          cat > "$RUNNER_TEMP/atspi-qt-fixture" <<EOF
-          #!/usr/bin/env bash
-          exec "$RUNNER_TEMP/qt-venv/bin/python" \
-            "$GITHUB_WORKSPACE/crates/platform-linux/tests/fixtures/atspi_qt_fixture.py" "\$@"
-          EOF
-          chmod 755 "$RUNNER_TEMP/atspi-qt-fixture"
-          file "$RUNNER_TEMP/atspi-qt-fixture" | tee verification/native-ci/qt-fixture.log
-      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
-        with:
-          toolchain: 1.98.1
-      - name: Real Qt AT-SPI delta, structural resync and stale-reference lifecycle
-        env:
-          XDG_RUNTIME_DIR: ${{ runner.temp }}/atspi-qt
-          XDG_SESSION_TYPE: x11
-          SEMWRIGHT_TEST_ATSPI: "1"
-          SEMWRIGHT_TEST_QT_FIXTURE: ${{ runner.temp }}/atspi-qt-fixture
-          SEMWRIGHT_TEST_QT_PLATFORM: xcb
-        run: |
-          Xvfb :99 -screen 0 1280x720x24 -nolisten tcp > verification/native-ci/xvfb-qt.log 2>&1 &
-          xvfb_pid=$!
-          trap 'kill "$xvfb_pid" 2>/dev/null || true; wait "$xvfb_pid" 2>/dev/null || true' EXIT
-          export DISPLAY=:99
-          for _ in $(seq 1 100); do
-            if xdpyinfo -display "$DISPLAY" >/dev/null 2>&1; then
-              break
-            fi
-            sleep 0.05
-          done
-          xdpyinfo -display "$DISPLAY" >/dev/null
-          SEMWRIGHT_ATSPI_INNER=1 dbus-run-session -- scripts/dev/atspi-live-ci.sh qt
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        if: always()
-        with:
-          name: real-atspi-qt-evidence
-          path: verification/native-ci
-          retention-days: 14
-
-  sway-backend:
-    needs: [scope, atspi-backend]
-    if: ${{ always() && !cancelled() && ((inputs.full_cert == true || needs.scope.outputs.native_sway == 'true') && !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule'))) }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
-        with:
-          toolchain: 1.98.1
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
-        with:
-          key: sway-live
-      - name: Install real headless Sway fixture
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            sway zenity dbus-x11 libpipewire-0.3-dev
-          mkdir -p verification/native-ci "$RUNNER_TEMP/sway-runtime"
-          chmod 700 "$RUNNER_TEMP/sway-runtime"
-          sway --version | tee verification/native-ci/sway-version.log
-      - name: Real Sway IPC window lifecycle
-        env:
-          XDG_RUNTIME_DIR: ${{ runner.temp }}/sway-runtime
-          XDG_SESSION_TYPE: wayland
-          WLR_BACKENDS: headless
-          WLR_RENDERER: pixman
-          WLR_LIBINPUT_NO_DEVICES: "1"
-          SEMWRIGHT_TEST_SWAY: "1"
-        run: |
-          cat > "$RUNNER_TEMP/sway-config" <<'EOF'
-          output * resolution 1280x720
-          seat seat0 fallback true
-          for_window [title="Semwright Sway Fixture"] floating enable
-          EOF
-          dbus-run-session -- bash -euo pipefail <<'EOF'
-          sway --unsupported-gpu --config "$RUNNER_TEMP/sway-config" --debug \
-            > verification/native-ci/sway.log 2>&1 &
-          sway_pid=$!
-          cleanup_sway() {
-            kill -TERM "$sway_pid" 2>/dev/null || true
-            for _ in $(seq 1 50); do
-              kill -0 "$sway_pid" 2>/dev/null || break
-              sleep 0.05
-            done
-            kill -KILL "$sway_pid" 2>/dev/null || true
-            wait "$sway_pid" 2>/dev/null || true
-          }
-          trap cleanup_sway EXIT
-          for _ in $(seq 1 160); do
-            SWAYSOCK=$(find "$XDG_RUNTIME_DIR" -maxdepth 1 -type s -name 'sway-ipc.*.sock' -print -quit)
-            WAYLAND_DISPLAY=$(find "$XDG_RUNTIME_DIR" -maxdepth 1 -type s -name 'wayland-*' -printf '%f\n' -quit)
-            if [ -n "${SWAYSOCK:-}" ] && [ -n "${WAYLAND_DISPLAY:-}" ]; then
-              export SWAYSOCK WAYLAND_DISPLAY
-              break
-            fi
-            if ! kill -0 "$sway_pid" 2>/dev/null; then
-              cat verification/native-ci/sway.log
-              exit 1
-            fi
-            sleep 0.05
-          done
-          test -S "${SWAYSOCK:?Sway IPC socket was not created}"
-          test -S "$XDG_RUNTIME_DIR/${WAYLAND_DISPLAY:?Wayland socket was not created}"
-          swaymsg -s "$SWAYSOCK" -t get_version | tee verification/native-ci/sway-get-version.json
-          timeout --signal=TERM --kill-after=5s 90s \
-            cargo test --locked -p semwright-platform-linux \
-              real_sway_window_lifecycle_uses_native_ipc \
-              -- --ignored --nocapture --test-threads=1 \
-            2>&1 | tee verification/native-ci/sway-backend.log
-          EOF
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        if: always()
-        with:
-          name: real-sway-backend-evidence
-          path: verification/native-ci
-          retention-days: 14
