@@ -1,5 +1,10 @@
 # Composition / Audio / AV integration record
 
+Historical A+B integration record. The all-owner integration and runtime #201
+work now follow [the I ledger](../semantic-creation/INTEGRATION.md). The B
+`8ed2d30` pin below was superseded by `df2654be`; retain this section as
+checkpoint history, not current readiness evidence.
+
 This file is the source-controlled integration ledger. A private diagnostic integration branch may exist before readiness; fields marked PENDING are replaced only when B declares AUDIO_READY_FOR_INTEGRATION and one formal combined candidate is cut and tested.
 
 ## Source lineage

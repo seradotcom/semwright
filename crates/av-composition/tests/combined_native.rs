@@ -1369,10 +1369,123 @@ fn proof_for(plan: &AvPlan, stage: Stage) -> ServiceProof {
         .clone()
 }
 
+// Failure-only CI diagnosis on synthetic fixture inputs and a fresh output root.
+// This runs the closed helper outside the Host to distinguish media-engine errors
+// from transport errors. It never certifies effects or retries the uncertain
+// original publication; the original Broker failure remains a test failure.
+fn diagnose_frames_encode(harness: &Harness, call: &StageCall, proof: &ServiceProof) {
+    use std::{
+        io::Write,
+        process::{Command, Stdio},
+    };
+    let StagePayload::TransferMotion { artifact } = &call.payload else {
+        return;
+    };
+    let mut pending = vec![harness.output.clone()];
+    let mut visited = 0usize;
+    let mut found = None;
+    while let Some(directory) = pending.pop() {
+        for entry in fs::read_dir(directory).unwrap() {
+            visited += 1;
+            assert!(visited <= 256, "diagnostic fixture inventory bound");
+            let entry = entry.unwrap();
+            let path = entry.path();
+            let metadata = fs::symlink_metadata(&path).unwrap();
+            if metadata.is_dir() {
+                pending.push(path);
+            } else if metadata.is_file()
+                && path
+                    .extension()
+                    .is_some_and(|extension| extension == "json")
+                && metadata.len() <= 8 * 1024 * 1024
+                && file_sha(&path) == artifact.sha256.as_str()
+            {
+                assert!(
+                    found.replace(path).is_none(),
+                    "ambiguous diagnostic manifest"
+                );
+            }
+        }
+    }
+    let Some(manifest) = found else {
+        eprintln!("MLT diagnostic: exact Motion manifest not found");
+        return;
+    };
+    let fresh_output = tempfile::tempdir().unwrap();
+    let descriptor = &proof.commands[&Stage::TransferMotion][0].descriptor;
+    let request = json!({
+        "command": "driver.mlt-video.frames.encode",
+        "descriptor_sha256": descriptor.as_str(),
+        "args": {
+            "root": "media",
+            "manifest_path": manifest.strip_prefix(&harness.output).unwrap().to_str().unwrap(),
+            "expected_manifest_sha256": artifact.sha256.as_str(),
+            "output_path": "diagnostic-fresh-mezzanine.mkv",
+            "max_bytes": 64 * 1024 * 1024
+        }
+    });
+    let mut child = Command::new("/usr/bin/timeout")
+        .args(["--kill-after=5s", "150s"])
+        .arg(&harness.mlt_runner)
+        .arg("av-operation")
+        .arg("--runtime-root")
+        .arg(&harness.mlt_runtime_root)
+        .arg("--melt-sealed")
+        .arg(&harness.melt)
+        .arg("--ffprobe-sealed")
+        .arg(&harness.ffprobe)
+        .arg("--ffmpeg-sealed")
+        .arg(&harness.ffmpeg)
+        .arg("--project-root")
+        .arg(&harness.project)
+        .arg("--media-root")
+        .arg(&harness.output)
+        .arg("--output-root")
+        .arg(fresh_output.path())
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(&serde_json::to_vec(&request).unwrap())
+        .unwrap();
+    let result = child.wait_with_output().unwrap();
+    assert!(
+        result.stdout.len() <= 256 * 1024,
+        "closed runner output bound"
+    );
+    if result.status.success() {
+        eprintln!(
+            "MLT diagnostic: fresh-output closed helper succeeded outside Host; original Host operation remains failed"
+        );
+    } else {
+        // The closed runner emits its bounded error envelope, never raw tool logs.
+        let value: Value = serde_json::from_slice(&result.stdout).unwrap_or(Value::Null);
+        let error = value
+            .get("error")
+            .and_then(Value::as_str)
+            .unwrap_or("no bounded error envelope");
+        eprintln!(
+            "MLT diagnostic (not certification): status={}, error={}",
+            result.status,
+            error
+                .chars()
+                .filter(|ch| !ch.is_control())
+                .take(1024)
+                .collect::<String>()
+        );
+    }
+}
+
 async fn execute_native_stage(
     coordinator: &mut AvCoordinator,
     adapter: &mut AgentAStageAdapter,
     executor: &dyn Executor,
+    harness: &Harness,
 ) {
     let stage = coordinator.next_stage().expect("next AV stage");
     let proof = proof_for(coordinator.plan(), stage);
@@ -1385,7 +1498,12 @@ async fn execute_native_stage(
     let result = adapter
         .execute(&call, executor, CancellationToken::new())
         .await
-        .unwrap_or_else(|error| panic!("{stage:?} failed: {error:?}"));
+        .unwrap_or_else(|error| {
+            if stage == Stage::TransferMotion {
+                diagnose_frames_encode(harness, &call, &proof);
+            }
+            panic!("{stage:?} failed: {error:?}")
+        });
     coordinator
         .complete(NativeReceipt {
             request_id: call.request_id,
@@ -1621,19 +1739,19 @@ async fn combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_s
     adapter.bind_audio_consumer_receipt(&audio).unwrap();
 
     assert_eq!(coordinator.next_stage(), Some(Stage::PlanDelivery));
-    execute_native_stage(&mut coordinator, &mut adapter, &executor).await;
+    execute_native_stage(&mut coordinator, &mut adapter, &executor, &harness).await;
     assert_eq!(coordinator.next_stage(), Some(Stage::ApplyMotion));
-    execute_native_stage(&mut coordinator, &mut adapter, &executor).await;
+    execute_native_stage(&mut coordinator, &mut adapter, &executor, &harness).await;
 
     assert_eq!(coordinator.next_stage(), Some(Stage::ApplyAudio));
     coordinator.complete_imported_audio_stage().unwrap();
     assert_eq!(coordinator.next_stage(), Some(Stage::RenderMotion));
-    execute_native_stage(&mut coordinator, &mut adapter, &executor).await;
+    execute_native_stage(&mut coordinator, &mut adapter, &executor, &harness).await;
 
     assert_eq!(coordinator.next_stage(), Some(Stage::RenderAudio));
     coordinator.complete_imported_audio_stage().unwrap();
     assert_eq!(coordinator.next_stage(), Some(Stage::VerifyMotion));
-    execute_native_stage(&mut coordinator, &mut adapter, &executor).await;
+    execute_native_stage(&mut coordinator, &mut adapter, &executor, &harness).await;
 
     assert_eq!(coordinator.next_stage(), Some(Stage::VerifyAudio));
     coordinator.complete_imported_audio_stage().unwrap();
@@ -1645,7 +1763,7 @@ async fn combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_s
         Stage::VerifySync,
     ] {
         assert_eq!(coordinator.next_stage(), Some(stage));
-        execute_native_stage(&mut coordinator, &mut adapter, &executor).await;
+        execute_native_stage(&mut coordinator, &mut adapter, &executor, &harness).await;
     }
 
     assert_eq!(coordinator.next_stage(), Some(Stage::PreparePublication));
