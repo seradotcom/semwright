@@ -1807,11 +1807,16 @@ fn joint_pixels(harness: &Harness, artifact: &MediaArtifact) -> Vec<String> {
 async fn joint_visual(executor: &dyn Executor) -> Digest {
     let inspected = call(executor, "driver.motion-canvas.project.inspect", json!({})).await;
     assert!(inspected["project"]["scenes"].is_array());
-    // Low-level nodes intentionally omit high-level layout. Include the sealed
-    // authoring binding and every native project field; exclude only the revision
-    // counter so an audio-only conservative re-render can prove visual identity.
+    // Verify the raw sealed projection, then normalize its revision-dependent
+    // seal together with the revision counter. Retain all visual fields, the
+    // intent/realization and the persistent project identity/generation.
     let mut visual = inspected["project"].as_object().unwrap().clone();
     assert!(visual["authoring"]["intent"]["sequences"].is_array());
+    let mut raw_projection = visual.clone();
+    raw_projection.remove("authoring");
+    assert_eq!(canonical_digest(&raw_projection).unwrap().as_str(),
+        visual["authoring"]["projection_digest"].as_str().unwrap());
+    visual.get_mut("authoring").unwrap().as_object_mut().unwrap().remove("projection_digest");
     visual.remove("revision");
     canonical_digest(&visual).unwrap()
 }
