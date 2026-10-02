@@ -188,9 +188,13 @@ jobs:
         with:
           key: composition-skills-v2
       - name: First-party Composition Skills validate
-        run: cargo test --locked -p semwright-skills official_skills_validate_and_keep_progressive_disclosure_small -- --exact --nocapture
-      - name: AV Skill stays blocked without public audio Composition
-        run: cargo test --locked -p semwright-skills av_skill_stays_blocked_until_public_audio_composition_is_advertised -- --exact --nocapture
+        run: |
+          cargo test --locked -p semwright-skills --lib tests::official_skills_validate_and_keep_progressive_disclosure_small -- --exact --nocapture 2>&1 | tee "$RUNNER_TEMP/composition-skill-validation.log"
+          grep -F 'test result: ok. 1 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/composition-skill-validation.log"
+      - name: AV Skill requires the real combined authority surfaces
+        run: |
+          cargo test --locked -p semwright-skills --lib tests::av_skill_resolves_against_real_combined_authority_surfaces -- --exact --nocapture 2>&1 | tee "$RUNNER_TEMP/composition-av-skill-authority.log"
+          grep -F 'test result: ok. 1 passed; 0 failed; 0 ignored;' "$RUNNER_TEMP/composition-av-skill-authority.log"
   contracts-gate:
     if: always()
     needs: [scope, contracts, broker-session, development-package, skill-packages]

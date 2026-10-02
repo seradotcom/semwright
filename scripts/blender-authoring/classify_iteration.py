@@ -148,7 +148,33 @@ def self_test() -> None:
     )
     certified = classify_areas(["docs/blender/authoring/INTEGRATION.md"], True)
     assert certified and all(certified.values()), certified
+    head = "a" * 40
+    hosted = {"GITHUB_SHA": head, "GITHUB_EVENT_NAME": "workflow_dispatch",
+              "GITHUB_ACTIONS": "true", "RUNNER_ENVIRONMENT": "github-hosted"}
+    assert dispatch_certification(head, head, hosted)
+    assert not dispatch_certification("", head, {})
+    for key, value in [("GITHUB_SHA", "b" * 40), ("GITHUB_EVENT_NAME", "push"),
+                       ("GITHUB_ACTIONS", "false"), ("RUNNER_ENVIRONMENT", "self-hosted")]:
+        try:
+            dispatch_certification(head, head, {**hosted, key: value})
+        except SystemExit:
+            pass
+        else:
+            raise AssertionError(f"foreign dispatch context accepted: {key}")
     print("classifier-self-test: ok")
+
+
+def dispatch_certification(requested: str, head: str, environment: dict) -> bool:
+    if not requested:
+        return False
+    if not (
+        requested == head == environment.get("GITHUB_SHA")
+        and environment.get("GITHUB_EVENT_NAME") == "workflow_dispatch"
+        and environment.get("GITHUB_ACTIONS") == "true"
+        and environment.get("RUNNER_ENVIRONMENT") == "github-hosted"
+    ):
+        raise SystemExit("manual certification requires an exact-SHA GitHub-hosted dispatch")
+    return True
 
 
 def main() -> None:
@@ -156,6 +182,7 @@ def main() -> None:
     parser.add_argument("--self-test", action="store_true")
     parser.add_argument("--base", default="")
     parser.add_argument("--head")
+    parser.add_argument("--certify-sha", default="")
     parser.add_argument("--output")
     args = parser.parse_args()
 
@@ -177,7 +204,8 @@ def main() -> None:
     if not isinstance(cert_trailer, str) or not cert_trailer:
         raise SystemExit("certification trailer must be nonempty")
     message = git("show", "-s", "--format=%B", head)
-    certification = cert_trailer in {line.strip() for line in message.splitlines()}
+    certification = (cert_trailer in {line.strip() for line in message.splitlines()}
+                     or dispatch_certification(args.certify_sha, head, dict(os.environ)))
     request = config["certification_request"]
     if request is not None and (not isinstance(request, str) or len(request) != 40):
         raise SystemExit("certification_request must be null or a full parent SHA")

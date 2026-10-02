@@ -22,19 +22,25 @@ on:
       - 'Cargo.toml'
       - 'Cargo.lock'
 
+  workflow_dispatch:
+    inputs:
+      candidate_sha:
+        description: Exact immutable source for full E certification
+        required: true
+        type: string
 permissions:
   contents: read
 
 # Iterations supersede older iterations, while a certification candidate lives in
 # a distinct concurrency group and cannot be cancelled by a later normal push.
 concurrency:
-  group: "blender-authoring-${{ github.ref }}-${{ contains(github.event.head_commit.message, 'Semwright-Certify: blender-authoring') }}"
-  cancel-in-progress: true
+  group: "blender-authoring-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && inputs.candidate_sha || contains(github.event.head_commit.message, 'Semwright-Certify: blender-authoring') && github.sha || 'iteration' }}"
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' && !contains(github.event.head_commit.message, 'Semwright-Certify: blender-authoring') }}
 
 jobs:
   authoring:
     if: >-
-      github.ref_name != 'integration/semantic-creation-i-20261001' || contains(github.event.head_commit.message, 'Semwright-Certify: blender-authoring')
+      github.event_name == 'workflow_dispatch' || github.ref_name != 'integration/semantic-creation-i-20261001' || contains(github.event.head_commit.message, 'Semwright-Certify: blender-authoring')
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     env:
@@ -56,10 +62,13 @@ jobs:
         id: plan
         env:
           PUSH_BASE_SHA: ${{ github.event.before }}
+          CERTIFY_SHA: ${{ inputs.candidate_sha }}
         run: |
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
           mkdir -p evidence/blender-authoring
-          python3 scripts/blender-authoring/classify_iteration.py             --base "$PUSH_BASE_SHA"             --head "$GITHUB_SHA"             --output evidence/blender-authoring/iteration-plan.json
+          args=(--base "$PUSH_BASE_SHA" --head "$GITHUB_SHA" --output evidence/blender-authoring/iteration-plan.json)
+          if test -n "$CERTIFY_SHA"; then args+=(--certify-sha "$CERTIFY_SHA"); fi
+          python3 scripts/blender-authoring/classify_iteration.py "${args[@]}"
 
       - name: Validate diagnostic harness syntax
         run: |
@@ -162,7 +171,7 @@ jobs:
         if: steps.plan.outputs.need_rust == 'true'
         run: cargo fmt --package semwright-driver-blender -- --check
 
-      # Full certification is deliberately unreachable from ordinary iteration pushes.
+      # Full certification is unreachable from ordinary iteration pushes; exact hosted dispatch is explicit.
       # A candidate to integrate is marked by an exact commit trailer:
       #   Semwright-Certify: blender-authoring
       # The classifier then forces every area gate above and only this step may emit
