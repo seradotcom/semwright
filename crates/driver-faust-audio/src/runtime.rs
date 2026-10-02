@@ -1149,16 +1149,16 @@ async fn run_sealed_tool(
     } else {
         Duration::from_secs(30)
     };
-    let output = if wall_timeout <= Duration::from_secs(30) {
-        context
-            .execute_runtime_tool(HELPER_NAME, args, source.to_vec(), wall_timeout)
-            .await?
-    } else {
-        let job = context
-            .start_runtime_tool_job(HELPER_NAME, args, source.to_vec(), wall_timeout, None)
-            .await?;
-        context.wait_runtime_tool_job(&job).await?
-    };
+    // Keep the existing v4 aggregate CPU budget. The shared one-shot SDK
+    // applies its stricter 30-second wall ceiling and reaps cancellation.
+    let output = context
+        .execute_runtime_tool(
+            HELPER_NAME,
+            args,
+            source.to_vec(),
+            wall_timeout.min(Duration::from_secs(30)),
+        )
+        .await?;
     if output.stdout.len() > 262144 || output.stderr.len() > 262144 {
         return Err(Error::new(
             ErrorCode::ResourceExhausted,

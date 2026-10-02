@@ -78,7 +78,7 @@ pub struct DeepRuntime {
     config: RuntimeConfig,
     session_root: PathBuf,
     output_root: PathBuf,
-    host_managed: bool,
+    sdk_runtime: bool,
     lua_tool: PathBuf,
     create_tool: PathBuf,
     export_tool: PathBuf,
@@ -166,7 +166,7 @@ impl DeepRuntime {
         lua_tool: PathBuf,
         create_tool: PathBuf,
         export_tool: PathBuf,
-        host_managed: bool,
+        sdk_runtime: bool,
     ) -> Result<Self> {
         if config.schema_version != 1
             || config.ardour_version != "8.4.0"
@@ -196,7 +196,7 @@ impl DeepRuntime {
         }
         directory(&session_root, "Ardour project")?;
         directory(&output_root, "Ardour output")?;
-        if !host_managed {
+        if !sdk_runtime {
             for tool in [&lua_tool, &create_tool, &export_tool] {
                 regular(tool, MAX_TOOL_BYTES)?;
             }
@@ -205,7 +205,7 @@ impl DeepRuntime {
             config,
             session_root,
             output_root,
-            host_managed,
+            sdk_runtime,
             lua_tool,
             create_tool,
             export_tool,
@@ -732,7 +732,7 @@ close_session()
         if let Some(context) = context {
             context.check_cancelled()?;
         }
-        if self.host_managed {
+        if self.sdk_runtime {
             let context = context.ok_or_else(|| {
                 Error::new(
                     ErrorCode::Unsupported,
@@ -748,8 +748,8 @@ close_session()
             let payload = serde_json::to_vec(&serde_json::json!({
                 "args": args, "project_root": self.session_root, "output_root": self.output_root
             }))?;
-            let job = context
-                .start_runtime_tool_job_args(
+            let output = context
+                .execute_legacy_runtime_tool_args(
                     "ardour-runtime-runner",
                     vec![
                         RuntimeToolArg::Literal {
@@ -772,14 +772,13 @@ close_session()
                         },
                     ],
                     payload,
-                    Duration::from_secs(180),
+                    Duration::from_secs(30),
                     Some(RuntimeToolCwd {
                         mount: "ardour-output".into(),
                         relative: String::new(),
                     }),
                 )
                 .await?;
-            let output = context.wait_runtime_tool_job(&job).await?;
             if output.stdout.len() > MAX_STDOUT_BYTES || output.stderr.len() > MAX_STDERR_BYTES {
                 return Err(Error::new(
                     ErrorCode::ResourceExhausted,

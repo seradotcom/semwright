@@ -7,7 +7,6 @@ use crate::{
     store::Snapshot,
     validate::RenderPlan,
 };
-use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use schemars::JsonSchema;
 use semwright_driver_sdk::{
     DriverExecutionContext, RuntimeToolArg, RuntimeToolCwd, RuntimeToolJob, RuntimeToolJobStatus,
@@ -305,12 +304,12 @@ impl RenderManager {
             );
         }
 
-        let args = host_args(snapshot, &plan, &generated_relative, &id, &inputs)?;
+        let (args, program) = host_args(snapshot, &plan, &generated_relative, &id, &inputs)?;
         let host_job = match context
             .start_runtime_tool_job_args(
                 HOST_TOOL,
                 args,
-                RENDER_HELPER.as_bytes().to_vec(),
+                program,
                 host_timeout(&plan),
                 Some(RuntimeToolCwd {
                     mount: RUNTIME_MOUNT.into(),
@@ -675,7 +674,7 @@ fn host_args(
     generated_relative: &str,
     output_relative: &str,
     inputs: &RenderInputs,
-) -> Result<Vec<RuntimeToolArg>> {
+) -> Result<(Vec<RuntimeToolArg>, Vec<u8>)> {
     security::relative_path(generated_relative)?;
     security::relative_path(output_relative)?;
     let config = json!({
@@ -697,7 +696,18 @@ fn host_args(
         "alpha": plan.alpha,
         "timeoutMs": plan.timeout_ms,
     });
-    let encoded = URL_SAFE_NO_PAD.encode(serde_json::to_vec(&config)?);
+    let program = format!(
+        "globalThis.__SEMWRIGHT_RENDER_INPUT__ = {};\n{}",
+        serde_json::to_string(&config)?,
+        RENDER_HELPER
+    )
+    .into_bytes();
+    if program.len() > 64 * 1024 {
+        return Err(Error::new(
+            ErrorCode::ResourceExhausted,
+            "Motion render program exceeds Host stdin budget",
+        ));
+    }
     let mut args = NODE_RENDER_FLAGS
         .into_iter()
         .map(literal)
@@ -716,9 +726,9 @@ fn host_args(
         literal("--fontconfig-root"),
         mount(FONTCONFIG_MOUNT),
         literal("--config"),
-        literal(encoded),
+        literal(inputs.digest.clone()),
     ]);
-    Ok(args)
+    Ok((args, program))
 }
 
 fn host_timeout(plan: &RenderPlan) -> Duration {

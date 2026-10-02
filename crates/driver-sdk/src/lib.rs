@@ -185,6 +185,11 @@ async fn execute_materialized_tool(
     if let Some(directory) = working_directory {
         command.current_dir(directory);
     }
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::CommandExt;
+        command.as_std_mut().process_group(0);
+    }
     let mut child = command
         .spawn()
         .map_err(|_| Error::unavailable("Materialized runtime tool could not be launched"))?;
@@ -192,6 +197,7 @@ async fn execute_materialized_tool(
         .stdin
         .take()
         .ok_or_else(|| Error::unavailable("Runtime tool stdin is unavailable"))?;
+    let owned_pid = child.id();
     let child_stdout = child
         .stdout
         .take()
@@ -224,7 +230,8 @@ async fn execute_materialized_tool(
                 .await?;
             Ok::<_, std::io::Error>(bytes)
         };
-        let (stdout, stderr, status) = tokio::try_join!(read_stdout, read_stderr, child.wait())?;
+        let (stdout, stderr) = tokio::try_join!(read_stdout, read_stderr)?;
+        let status = child.wait().await?;
         if stdout.len() > MAX_TOOL_OUTPUT_BYTES || stderr.len() > MAX_TOOL_OUTPUT_BYTES {
             return Err(Error::new(
                 ErrorCode::ResourceExhausted,
@@ -240,7 +247,7 @@ async fn execute_materialized_tool(
         Ok(output)
     };
 
-    tokio::select! {
+    let result = tokio::select! {
         biased;
         _ = cancellation.cancelled() => Err(Error::new(
             ErrorCode::Cancelled,
@@ -250,7 +257,23 @@ async fn execute_materialized_tool(
             Ok(result) => result,
             Err(_) => Err(Error::new(ErrorCode::Timeout, "Runtime tool execution timed out")),
         },
+    };
+    if result.is_err() {
+        #[cfg(unix)]
+        if let Some(pid) = owned_pid {
+            // SAFETY: this group was created for our own still-unreaped tool leader.
+            let _ = unsafe { libc::kill(-(pid as i32), libc::SIGKILL) };
+        }
+        #[cfg(not(unix))]
+        let _ = owned_pid;
+        let _ = child.kill().await;
+        if child.wait().await.is_err() {
+            let mut error = result.unwrap_err();
+            error.outcome_known = false;
+            return Err(error);
+        }
     }
+    result
 }
 
 /// Resolve an owner-granted secret file as materialized by the current platform sandbox.
@@ -1487,6 +1510,57 @@ impl DriverExecutionContext {
 
     /// Execute a protocol-v7 Host-mediated runtime tool with logical path arguments.
     /// Mount/tool paths are resolved only by Driver Host after sandbox materialization.
+    /// Typed arguments for the Linux v4 compatibility boundary. Expansion uses
+    /// only SDK materialized owner grants; this does not add Host authority or
+    /// change the parent's aggregate CPU accounting. Other protocols/platforms
+    /// must use the Host-mediated typed-argument API.
+    pub async fn execute_legacy_runtime_tool_args(
+        &self,
+        name: &str,
+        args: Vec<RuntimeToolArg>,
+        stdin: Vec<u8>,
+        timeout: std::time::Duration,
+        cwd: Option<RuntimeToolCwd>,
+    ) -> Result<ToolExecutionOutput> {
+        if !cfg!(target_os = "linux")
+            || self.protocol != 4
+            || self.runtime_tool_mode(name)? != RuntimeToolMode::Materialized
+        {
+            return Err(Error::new(
+                ErrorCode::Unsupported,
+                "Legacy typed tools require Linux protocol v4 materialized owner grants",
+            ));
+        }
+        validate_runtime_tool_args(&args)?;
+        let mut expanded = Vec::with_capacity(args.len());
+        for arg in args {
+            expanded.push(match arg {
+                RuntimeToolArg::Literal { value } => value,
+                RuntimeToolArg::ToolPath { tool } => {
+                    tool_path(&tool)?.to_string_lossy().into_owned()
+                }
+                RuntimeToolArg::MountPath { mount, relative } => {
+                    if !relative.is_empty() {
+                        return Err(Error::new(
+                            ErrorCode::Unsupported,
+                            "Legacy typed mounts expose only the owner-granted root",
+                        ));
+                    }
+                    workspace_mount(&mount)?.to_string_lossy().into_owned()
+                }
+            });
+        }
+        execute_materialized_tool(
+            name,
+            expanded,
+            stdin,
+            timeout,
+            cwd.as_ref(),
+            self.cancellation.clone(),
+        )
+        .await
+    }
+
     pub async fn execute_runtime_tool_args(
         &self,
         name: &str,
@@ -3289,6 +3363,144 @@ mod tests {
         assert_eq!(wire["type"], "tool_execute_v7");
         assert_eq!(wire["args"][1]["kind"], "mount_path");
         assert_eq!(wire["args"][2]["kind"], "tool_path");
+    }
+
+    fn job_wait_context() -> (DriverExecutionContext, mpsc::UnboundedReceiver<Response>) {
+        let (output, receiver) = mpsc::unbounded_channel();
+        (
+            DriverExecutionContext {
+                request_id: "job-wait-request".into(),
+                session: "owner-session".into(),
+                native_target: None,
+                cancellation: CancellationToken::new(),
+                output,
+                interfaces: DriverInterfaces {
+                    host_tools: true,
+                    ..Default::default()
+                },
+                protocol: 8,
+                tool_calls: Arc::new(Mutex::new(BTreeMap::new())),
+                tool_jobs: Arc::new(Mutex::new(BTreeMap::new())),
+                tool_sessions: Arc::new(Mutex::new(BTreeMap::new())),
+            },
+            receiver,
+        )
+    }
+
+    #[tokio::test]
+    async fn job_wait_collects_only_the_exact_host_job_terminal_result() {
+        let (context, mut receiver) = job_wait_context();
+        let job = RuntimeToolJob {
+            id: "job-wait-1".into(),
+        };
+        let worker = context.clone();
+        let worker_job = job.clone();
+        let waiting = tokio::spawn(async move { worker.wait_runtime_tool_job(&worker_job).await });
+        for status in [
+            RuntimeToolJobStatus::Running,
+            RuntimeToolJobStatus::Succeeded {
+                output: ToolExecutionOutput {
+                    exit_code: 0,
+                    stdout: b"native-proof".to_vec(),
+                    stderr: vec![],
+                },
+            },
+        ] {
+            let Response::ToolJobStatus {
+                id,
+                parent,
+                job: requested,
+            } = receiver.recv().await.unwrap()
+            else {
+                panic!("expected job status control");
+            };
+            assert_eq!(parent, "job-wait-request");
+            assert_eq!(requested, job);
+            context
+                .tool_jobs
+                .lock()
+                .await
+                .remove(&id)
+                .unwrap()
+                .send(Ok(ToolJobReply::Status {
+                    job: job.clone(),
+                    status,
+                }))
+                .unwrap();
+        }
+        assert_eq!(waiting.await.unwrap().unwrap().stdout, b"native-proof");
+        assert!(context.tool_jobs.lock().await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn job_wait_does_not_report_known_cancellation_until_host_reaps_the_job() {
+        let (context, mut receiver) = job_wait_context();
+        let job = RuntimeToolJob {
+            id: "job-wait-2".into(),
+        };
+        context.cancellation.cancel();
+        let worker = context.clone();
+        let worker_job = job.clone();
+        let waiting = tokio::spawn(async move { worker.wait_runtime_tool_job(&worker_job).await });
+        for status in [
+            RuntimeToolJobStatus::Cancelling,
+            RuntimeToolJobStatus::Cancelled,
+        ] {
+            let Response::ToolJobCancel {
+                id,
+                parent,
+                job: requested,
+            } = receiver.recv().await.unwrap()
+            else {
+                panic!("expected cleanup control");
+            };
+            assert_eq!(parent, "job-wait-request");
+            assert_eq!(requested, job);
+            assert!(
+                !waiting.is_finished(),
+                "wait must retain the request until cleanup is terminal"
+            );
+            context
+                .tool_jobs
+                .lock()
+                .await
+                .remove(&id)
+                .unwrap()
+                .send(Ok(ToolJobReply::Status {
+                    job: job.clone(),
+                    status,
+                }))
+                .unwrap();
+        }
+        let error = waiting.await.unwrap().unwrap_err();
+        assert_eq!(error.code, ErrorCode::Cancelled);
+        assert!(error.outcome_known);
+    }
+
+    #[tokio::test]
+    async fn job_wait_keeps_cleanup_failure_outcome_unknown() {
+        let (context, mut receiver) = job_wait_context();
+        let job = RuntimeToolJob {
+            id: "job-wait-3".into(),
+        };
+        context.cancellation.cancel();
+        let worker = context.clone();
+        let worker_job = job.clone();
+        let waiting = tokio::spawn(async move { worker.wait_runtime_tool_job(&worker_job).await });
+        let Response::ToolJobCancel { id, .. } = receiver.recv().await.unwrap() else {
+            panic!("expected cleanup control");
+        };
+        context
+            .tool_jobs
+            .lock()
+            .await
+            .remove(&id)
+            .unwrap()
+            .send(Err(Error::unavailable("cleanup transport closed")))
+            .unwrap();
+        let error = waiting.await.unwrap().unwrap_err();
+        assert_eq!(error.code, ErrorCode::Cancelled);
+        assert!(!error.outcome_known);
     }
 
     #[tokio::test]

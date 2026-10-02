@@ -393,16 +393,19 @@ async fn composition_authoring_runs_through_broker_driver_host_and_native_render
     }
     let h = Harness::new();
     std::fs::remove_file(h.project.path().join("semwright-motion.json")).unwrap();
+    let node =
+        PathBuf::from(std::env::var_os("SEMWRIGHT_TEST_MOTION_NODE").expect("Node tool env"));
     let runtime =
         PathBuf::from(std::env::var_os("SEMWRIGHT_TEST_MOTION_RUNTIME").expect("runtime root env"));
     let grants = vec![
+        grant("motion-node-tool", &node, false),
         grant("project", h.project.path(), true),
         grant("output", h.output.path(), true),
         grant("runtime", &runtime, false),
         grant("fontconfig", Path::new("/etc/fonts"), false),
     ];
     let provider = DriverProvider::connect(
-        manifest(h.executable.clone(), true),
+        manifest(h.executable.clone(), digest(&node)),
         h.state.path(),
         &h.helper,
         &grants,

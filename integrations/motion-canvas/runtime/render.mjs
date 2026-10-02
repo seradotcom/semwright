@@ -236,7 +236,8 @@ async function main() {
   // browser registry to this owner-granted runtime bundle before importing it.
   process.env.PLAYWRIGHT_BROWSERS_PATH = '0';
   const {firefox} = await import('playwright');
-  const config = JSON.parse(Buffer.from(a.config, 'base64url').toString('utf8'));
+  const config = globalThis.__SEMWRIGHT_RENDER_INPUT__;
+  if(!config||config.renderInputDigest!==a.config)fail('render input binding absent or changed');
   failurePhase = 'font_evidence';
   const lockBytes=await fs.readFile(await containedFile(runtimeRoot,path.join(runtimeRoot,'package-lock.json'),'dependency lock'));
   if(createHash('sha256').update(lockBytes).digest('hex')!==config.dependencyLockDigest)fail('dependency lock binding changed');

@@ -3320,6 +3320,7 @@ name = "semwright-driver-sdk"
 version = "0.9.0-dev.1"
 dependencies = [
  "async-trait",
+ "libc",
  "schemars",
  "semwright-platform-api",
  "semwright-protocol",
