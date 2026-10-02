@@ -1806,7 +1806,13 @@ fn joint_pixels(harness: &Harness, artifact: &MediaArtifact) -> Vec<String> {
 async fn joint_visual(executor: &dyn Executor) -> Digest {
     let inspected = call(executor, "driver.motion-canvas.project.inspect", json!({})).await;
     assert!(inspected["project"]["scenes"].is_array());
-    canonical_digest(&inspected["project"]["scenes"]).unwrap()
+    // Low-level nodes intentionally omit high-level layout. Include the sealed
+    // authoring binding and every native project field; exclude only the revision
+    // counter so an audio-only conservative re-render can prove visual identity.
+    let mut visual = inspected["project"].as_object().unwrap().clone();
+    assert!(visual["authoring"]["intent"]["sequences"].is_array());
+    visual.remove("revision");
+    canonical_digest(&visual).unwrap()
 }
 
 async fn joint_native_revision(
