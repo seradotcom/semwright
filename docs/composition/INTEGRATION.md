@@ -59,7 +59,8 @@ Unexpected conflicts inside audio-domain/Faust/Ardour are returned to B for expl
 
 ## Candidate evidence
 
-- A_HEAD_SHA: 7ab43f99f4cc62be2a9b0ce9ce1155283a429768
+- A_HEAD_SHA: 65b773f4dd627b860358342f4d40a1ac532566d1
+- A_AFFECTED_DIAGNOSTIC: Composition diagnostics run 36960368022 PASS (Linux/Windows/macOS contracts + Broker session; Skills/package correctly out of scope)
 - PREVIOUS_B_READY_SHA_SUPERSEDED: 8ed2d30c8ba797ebd5b8c102d34f8ab5bb3a28b3
 - B_RECERTIFIED_SHA_AWAITING_FORMAL_HANDOFF: df2654bed6d2ac57d547846b69d16ea48b4a9ee3 (run 36942574098 PASS)
 - B_READY_SHA: PENDING
