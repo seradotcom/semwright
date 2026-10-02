@@ -1914,8 +1914,12 @@ async fn combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_s
         pg::Divergence::Clean
     );
 
-    let c14_evidence = PathBuf::from("verification/composition-av/c14-project-graph.json");
-    fs::create_dir_all(c14_evidence.parent().unwrap()).unwrap();
+    let evidence_root = std::env::var_os("GITHUB_WORKSPACE")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("verification/composition-av");
+    let c14_evidence = evidence_root.join("c14-project-graph.json");
+    fs::create_dir_all(&evidence_root).unwrap();
     fs::write(
         &c14_evidence,
         serde_json::to_vec_pretty(&json!({
@@ -1946,8 +1950,7 @@ async fn combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_s
     )
     .unwrap();
 
-    let evidence = PathBuf::from("verification/composition-av/combined-native.json");
-    fs::create_dir_all(evidence.parent().unwrap()).unwrap();
+    let evidence = evidence_root.join("combined-native.json");
     fs::write(
         &evidence,
         serde_json::to_vec_pretty(&json!({
