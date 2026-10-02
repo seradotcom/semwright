@@ -2,18 +2,31 @@
   "schema_version": 1,
   "baseline_sha": "b736d41b61c4a4146c9e75c16796e251b025e69f",
   "contract_sha": "7ed5b848e4d2e7af235d6166e6f93e0cf0bac90d",
-  "combined_candidate_sha": null,
+  "combined_candidate_sha": "ca681529aba82aa0f9c1d6504bc7a9f26fac3a9b",
   "targets": {
-    "A": "7ab43f99f4cc62be2a9b0ce9ce1155283a429768",
-    "B": "11b40fb0c59473bc0f007a879bf44c732d22b700",
+    "A": "65b773f4dd627b860358342f4d40a1ac532566d1",
+    "B": "df2654bed6d2ac57d547846b69d16ea48b4a9ee3",
     "main": "b736d41b61c4a4146c9e75c16796e251b025e69f",
-    "C": "504ad2c6632305b580b51703a60b0a194865780d",
-    "F": "b30d693c24d7dc0527834b7830823655be5216ce",
+    "C": "77b34d8abad50f242c4c8494e280fe82d5cbcf55",
+    "F": "eadd5caf9b3f47f24158de530b87ad07e597f25e",
     "D": "70bd7857e9700b6f03547a706ff0e6496ffd838e",
     "E": "f492f13a028f781d9ca55631764578f5b327eb1b"
   },
   "selected_lanes": [
-    "selftest"
+    "selftest",
+    "audio",
+    "av",
+    "blender-native",
+    "composition",
+    "distribution",
+    "effects",
+    "figma",
+    "godot-native",
+    "graph",
+    "lifecycle",
+    "motion",
+    "packaging",
+    "routing"
   ],
   "pins": {
     "os": "ubuntu-24.04",
