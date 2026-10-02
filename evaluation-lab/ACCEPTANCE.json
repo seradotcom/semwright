@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "role": "H",
+  "state": "HARNESS_FOUNDATION_IMPLEMENTED_CI_PENDING",
+  "evaluation_target_sha": null,
+  "evaluation_suite_sha": null,
+  "evaluation_executed": false,
+  "model_evaluation_state": "MODEL_EVALUATION_BLOCKED_CONFIGURATION_MISSING",
+  "product_changed": false,
+  "r16_closed": false,
+  "requirements": {
+    "H01": {"status": "PARTIAL", "implementation": ["evaluate.py", "tests/test_evaluate.py"], "reason": "Result validation foundation implemented; native/model session harness still required"},
+    "H02": {"status": "PARTIAL", "implementation": ["protocol.json", "tasks/public-dev.json"], "reason": "Public draft only; final budgets, native oracles and heldout tasks are not sealed"},
+    "H03": {"status": "PENDING", "reason": "Competent direct native helpers and comparable model sessions need implementation/versioning"},
+    "H04": {"status": "CI_PENDING", "implementation": ["evaluate.py", "protocol.json"], "reason": "P/S studies and three arms represented separately"},
+    "H05": {"status": "PENDING", "reason": "No real heldout registry, seal or reveal generated"},
+    "H06": {"status": "BLOCKED", "reason": "I technical gate and authorized model/runtime/Skills configuration not frozen"},
+    "H07": {"status": "PARTIAL", "implementation": ["tasks/public-dev.json"], "reason": "Ten public varied instances with revision phase declarations; executable task-specific native oracles pending"},
+    "H08": {"status": "PARTIAL", "implementation": ["evaluate.py", "tests/test_evaluate.py"], "reason": "Synthetic route violations tested in CI; trusted live route collector pending"},
+    "H09": {"status": "PENDING", "reason": "Independent native oracles and actual blind aesthetic assessment absent"},
+    "H10": {"status": "CI_PENDING", "implementation": ["evaluate.py"], "reason": "Observed cost fields and explicit null reasons; no actual model costs recorded"},
+    "H11": {"status": "PARTIAL", "implementation": ["evaluate.py"], "reason": "Paired order and all-attempt analysis implemented; no real replicas executed"},
+    "H12": {"status": "PARTIAL", "implementation": ["evaluate.py", "README.md"], "reason": "Stale identity refused; complete frozen runtime inventory pending"},
+    "H13": {"status": "CI_PENDING", "implementation": ["evaluate.py", "README.md"], "reason": "Deterministic controls cannot be ingested as model benchmark results"},
+    "H14": {"status": "PENDING", "reason": "Final raw results, reproducible package and hypothesis report require actual evaluation"}
+  }
+}

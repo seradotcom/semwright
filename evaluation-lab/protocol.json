@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "revision": "H-foundation-1",
+  "status": "DRAFT_NOT_EVALUATION_FREEZE",
+  "studies": {
+    "P": "Product choice with competent unrestricted direct workflow under equal resources",
+    "S": "Strict semantic authoring coverage; Semwright mutations through Broker capabilities"
+  },
+  "arms": [
+    "direct",
+    "low_level",
+    "semantic"
+  ],
+  "families": [
+    "godot",
+    "blender",
+    "cross_app",
+    "media",
+    "recovery"
+  ],
+  "phases": [
+    "create",
+    "appearance",
+    "rule",
+    "replace_source",
+    "derived",
+    "recovery"
+  ],
+  "failure_propagation": "remaining_phases_failed",
+  "primary_outcomes": [
+    "native task completion",
+    "silent defects",
+    "source preservation"
+  ],
+  "secondary_outcomes": [
+    "all-attempt user wall time",
+    "success-conditioned revision cost",
+    "measured token and billed costs"
+  ],
+  "unknown_cost_policy": "null plus reason; never replace with zero",
+  "setup_policy": "Equivalent pinned runtime provisioning, cold and warm separate, integration/setup costs separately recorded",
+  "order_policy": "Task/study/seed paired, deterministic randomized arm order",
+  "replica_policy": "Seeds fixed before measurement; one replica is exploratory, no population significance claim",
+  "baseline_policy": "Direct arm may use competent code, modules, native APIs, tests, docs and visual tools; same model and task outputs",
+  "holdout_policy": "Public development tasks are never final holdouts; fresh reserved instances prepared before technical freeze; seal/reveal ledger required",
+  "visual_quality_policy": "Blind human assessment only when actually available; absent judgments stay unknown",
+  "source_policy": "Immutable frozen product and suite; no product repair or hidden benchmark helpers during evaluation",
+  "model_policy": "No API calls until provider, model, comparable sessions and paid quota use are explicitly authorized/configured",
+  "budget_proposal": {
+    "max_model_tokens": 12000,
+    "max_tool_calls": 100,
+    "max_attempt_wall_ms": 1200000
+  },
+  "budget_authorized": false,
+  "target_source_sha": null,
+  "model_identity": null,
+  "runtime_manifest_digest": null,
+  "skills_manifest_digest": null,
+  "r16_closed": false
+}

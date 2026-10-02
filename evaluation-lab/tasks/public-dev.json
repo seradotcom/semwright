@@ -1,0 +1,460 @@
+{
+  "schema_version": 1,
+  "split": "public_dev",
+  "tasks": [
+    {
+      "id": "dev-lantern-delivery",
+      "family": "godot",
+      "parameters": {
+        "dimension": "2D",
+        "objective_count": 4,
+        "timer_seconds": 45
+      },
+      "phases": [
+        "create",
+        "appearance",
+        "rule",
+        "replace_source",
+        "derived",
+        "recovery"
+      ],
+      "requirements": [
+        "Deliver editable native source when required by this task",
+        "Apply five registered changes on the same arm-owned project",
+        "Validate output with read-only native oracles"
+      ],
+      "preserved_resources": [
+        "unaffected user-owned resources",
+        "original accepted publication"
+      ],
+      "input_allowances": [
+        "declared public assets",
+        "native application documentation",
+        "equally provisioned pinned engines",
+        "reusable tools and tests for the competent direct arm"
+      ],
+      "native_oracles": [
+        "editable_native_project",
+        "standalone_inputs_objective_restart",
+        "save_reopen",
+        "unaffected_resource_hashes"
+      ],
+      "declared_faults": [
+        "external_edit",
+        "provider_restart",
+        "stale_dependency",
+        "unknown_outcome_cancel"
+      ]
+    },
+    {
+      "id": "dev-harbor-inspection",
+      "family": "godot",
+      "parameters": {
+        "dimension": "3D",
+        "objective_count": 6,
+        "timer_seconds": 70
+      },
+      "phases": [
+        "create",
+        "appearance",
+        "rule",
+        "replace_source",
+        "derived",
+        "recovery"
+      ],
+      "requirements": [
+        "Deliver editable native source when required by this task",
+        "Apply five registered changes on the same arm-owned project",
+        "Validate output with read-only native oracles"
+      ],
+      "preserved_resources": [
+        "unaffected user-owned resources",
+        "original accepted publication"
+      ],
+      "input_allowances": [
+        "declared public assets",
+        "native application documentation",
+        "equally provisioned pinned engines",
+        "reusable tools and tests for the competent direct arm"
+      ],
+      "native_oracles": [
+        "editable_native_project",
+        "standalone_inputs_objective_restart",
+        "save_reopen",
+        "unaffected_resource_hashes"
+      ],
+      "declared_faults": [
+        "external_edit",
+        "provider_restart",
+        "stale_dependency",
+        "unknown_outcome_cancel"
+      ]
+    },
+    {
+      "id": "dev-hinged-cabinet",
+      "family": "blender",
+      "parameters": {
+        "form": "articulated",
+        "segments": 3,
+        "material_palette": [
+          "amber",
+          "slate"
+        ]
+      },
+      "phases": [
+        "create",
+        "appearance",
+        "rule",
+        "replace_source",
+        "derived",
+        "recovery"
+      ],
+      "requirements": [
+        "Deliver editable native source when required by this task",
+        "Apply five registered changes on the same arm-owned project",
+        "Validate output with read-only native oracles"
+      ],
+      "preserved_resources": [
+        "unaffected user-owned resources",
+        "original accepted publication"
+      ],
+      "input_allowances": [
+        "declared public assets",
+        "native application documentation",
+        "equally provisioned pinned engines",
+        "reusable tools and tests for the competent direct arm"
+      ],
+      "native_oracles": [
+        "editable_native_blend",
+        "native_geometry_material_animation",
+        "save_reopen",
+        "glb_consumer_fidelity",
+        "unaffected_resource_hashes"
+      ],
+      "declared_faults": [
+        "external_edit",
+        "provider_restart",
+        "stale_dependency",
+        "unknown_outcome_cancel"
+      ]
+    },
+    {
+      "id": "dev-vented-instrument",
+      "family": "blender",
+      "parameters": {
+        "form": "hard_surface",
+        "segments": 7,
+        "material_palette": [
+          "teal",
+          "ivory"
+        ]
+      },
+      "phases": [
+        "create",
+        "appearance",
+        "rule",
+        "replace_source",
+        "derived",
+        "recovery"
+      ],
+      "requirements": [
+        "Deliver editable native source when required by this task",
+        "Apply five registered changes on the same arm-owned project",
+        "Validate output with read-only native oracles"
+      ],
+      "preserved_resources": [
+        "unaffected user-owned resources",
+        "original accepted publication"
+      ],
+      "input_allowances": [
+        "declared public assets",
+        "native application documentation",
+        "equally provisioned pinned engines",
+        "reusable tools and tests for the competent direct arm"
+      ],
+      "native_oracles": [
+        "editable_native_blend",
+        "native_geometry_material_animation",
+        "save_reopen",
+        "glb_consumer_fidelity",
+        "unaffected_resource_hashes"
+      ],
+      "declared_faults": [
+        "external_edit",
+        "provider_restart",
+        "stale_dependency",
+        "unknown_outcome_cancel"
+      ]
+    },
+    {
+      "id": "dev-replace-forklift",
+      "family": "cross_app",
+      "parameters": {
+        "asset": "vehicle",
+        "replacement_scale": 2,
+        "preserve_rule": "pickup_count"
+      },
+      "phases": [
+        "create",
+        "appearance",
+        "rule",
+        "replace_source",
+        "derived",
+        "recovery"
+      ],
+      "requirements": [
+        "Deliver editable native source when required by this task",
+        "Apply five registered changes on the same arm-owned project",
+        "Validate output with read-only native oracles"
+      ],
+      "preserved_resources": [
+        "unaffected user-owned resources",
+        "original accepted publication"
+      ],
+      "input_allowances": [
+        "declared public assets",
+        "native application documentation",
+        "equally provisioned pinned engines",
+        "reusable tools and tests for the competent direct arm"
+      ],
+      "native_oracles": [
+        "editable_native_projects",
+        "asset_replacement_in_native_consumer",
+        "save_reopen",
+        "unaffected_resource_hashes",
+        "necessary_derivatives"
+      ],
+      "declared_faults": [
+        "external_edit",
+        "provider_restart",
+        "stale_dependency",
+        "unknown_outcome_cancel"
+      ]
+    },
+    {
+      "id": "dev-replace-wayfinder",
+      "family": "cross_app",
+      "parameters": {
+        "asset": "beacon",
+        "replacement_scale": 3,
+        "preserve_rule": "zone_goal"
+      },
+      "phases": [
+        "create",
+        "appearance",
+        "rule",
+        "replace_source",
+        "derived",
+        "recovery"
+      ],
+      "requirements": [
+        "Deliver editable native source when required by this task",
+        "Apply five registered changes on the same arm-owned project",
+        "Validate output with read-only native oracles"
+      ],
+      "preserved_resources": [
+        "unaffected user-owned resources",
+        "original accepted publication"
+      ],
+      "input_allowances": [
+        "declared public assets",
+        "native application documentation",
+        "equally provisioned pinned engines",
+        "reusable tools and tests for the competent direct arm"
+      ],
+      "native_oracles": [
+        "editable_native_projects",
+        "asset_replacement_in_native_consumer",
+        "save_reopen",
+        "unaffected_resource_hashes",
+        "necessary_derivatives"
+      ],
+      "declared_faults": [
+        "external_edit",
+        "provider_restart",
+        "stale_dependency",
+        "unknown_outcome_cancel"
+      ]
+    },
+    {
+      "id": "dev-gallery-announcement",
+      "family": "media",
+      "parameters": {
+        "layout": "portrait",
+        "duration_seconds": 3,
+        "sample_rate": 48000,
+        "cue_count": 2
+      },
+      "phases": [
+        "create",
+        "appearance",
+        "rule",
+        "replace_source",
+        "derived",
+        "recovery"
+      ],
+      "requirements": [
+        "Deliver editable native source when required by this task",
+        "Apply five registered changes on the same arm-owned project",
+        "Validate output with read-only native oracles"
+      ],
+      "preserved_resources": [
+        "unaffected user-owned resources",
+        "original accepted publication"
+      ],
+      "input_allowances": [
+        "declared public assets",
+        "native application documentation",
+        "equally provisioned pinned engines",
+        "reusable tools and tests for the competent direct arm"
+      ],
+      "native_oracles": [
+        "native_figma_editability",
+        "native_motion_source",
+        "pre_post_encode_audio",
+        "exhaustive_av_sync",
+        "unaffected_resource_hashes"
+      ],
+      "declared_faults": [
+        "external_edit",
+        "provider_restart",
+        "stale_dependency",
+        "unknown_outcome_cancel"
+      ]
+    },
+    {
+      "id": "dev-workshop-schedule",
+      "family": "media",
+      "parameters": {
+        "layout": "landscape",
+        "duration_seconds": 4,
+        "sample_rate": 44100,
+        "cue_count": 3
+      },
+      "phases": [
+        "create",
+        "appearance",
+        "rule",
+        "replace_source",
+        "derived",
+        "recovery"
+      ],
+      "requirements": [
+        "Deliver editable native source when required by this task",
+        "Apply five registered changes on the same arm-owned project",
+        "Validate output with read-only native oracles"
+      ],
+      "preserved_resources": [
+        "unaffected user-owned resources",
+        "original accepted publication"
+      ],
+      "input_allowances": [
+        "declared public assets",
+        "native application documentation",
+        "equally provisioned pinned engines",
+        "reusable tools and tests for the competent direct arm"
+      ],
+      "native_oracles": [
+        "native_figma_editability",
+        "native_motion_source",
+        "pre_post_encode_audio",
+        "exhaustive_av_sync",
+        "unaffected_resource_hashes"
+      ],
+      "declared_faults": [
+        "external_edit",
+        "provider_restart",
+        "stale_dependency",
+        "unknown_outcome_cancel"
+      ]
+    },
+    {
+      "id": "dev-scene-drift",
+      "family": "recovery",
+      "parameters": {
+        "fault": "external_edit",
+        "affected_resource": "material"
+      },
+      "phases": [
+        "create",
+        "appearance",
+        "rule",
+        "replace_source",
+        "derived",
+        "recovery"
+      ],
+      "requirements": [
+        "Deliver editable native source when required by this task",
+        "Apply five registered changes on the same arm-owned project",
+        "Validate output with read-only native oracles"
+      ],
+      "preserved_resources": [
+        "unaffected user-owned resources",
+        "original accepted publication"
+      ],
+      "input_allowances": [
+        "declared public assets",
+        "native application documentation",
+        "equally provisioned pinned engines",
+        "reusable tools and tests for the competent direct arm"
+      ],
+      "native_oracles": [
+        "reconciled_fresh_observation",
+        "no_replay_or_foreign_overwrite",
+        "ledger_budget_preserved",
+        "save_reopen",
+        "unaffected_resource_hashes"
+      ],
+      "declared_faults": [
+        "external_edit",
+        "provider_restart",
+        "stale_dependency",
+        "unknown_outcome_cancel"
+      ]
+    },
+    {
+      "id": "dev-provider-restart",
+      "family": "recovery",
+      "parameters": {
+        "fault": "restart_unknown_outcome",
+        "affected_resource": "derived_export"
+      },
+      "phases": [
+        "create",
+        "appearance",
+        "rule",
+        "replace_source",
+        "derived",
+        "recovery"
+      ],
+      "requirements": [
+        "Deliver editable native source when required by this task",
+        "Apply five registered changes on the same arm-owned project",
+        "Validate output with read-only native oracles"
+      ],
+      "preserved_resources": [
+        "unaffected user-owned resources",
+        "original accepted publication"
+      ],
+      "input_allowances": [
+        "declared public assets",
+        "native application documentation",
+        "equally provisioned pinned engines",
+        "reusable tools and tests for the competent direct arm"
+      ],
+      "native_oracles": [
+        "reconciled_fresh_observation",
+        "no_replay_or_foreign_overwrite",
+        "ledger_budget_preserved",
+        "save_reopen",
+        "unaffected_resource_hashes"
+      ],
+      "declared_faults": [
+        "external_edit",
+        "provider_restart",
+        "stale_dependency",
+        "unknown_outcome_cancel"
+      ]
+    }
+  ]
+}
