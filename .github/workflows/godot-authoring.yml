@@ -259,7 +259,7 @@ jobs:
           assert suite["source_sha"] == suite["suite_sha"] == suite["github_sha"] == expected_sha
           assert str(suite["run_id"]) == expected_run
           assert suite["suite"] == "blender-native-authoring"
-          assert suite["outcome"] == "PASS" and suite["passed"] == 3
+          assert suite["outcome"] == "PASS" and suite["passed"] == (3 if os.environ["E_SOURCE_SHA"] == "e753248ed33b345554b0e7c3c8d521e666751d6f" else 4)
           assert suite["failed"] == suite["ignored"] == suite["filtered"] == 0
           assert oracle["result"] == "PASS" and oracle["source_sha256"] == glb_sha
           assert all(oracle["required_checks"].values())
@@ -271,7 +271,7 @@ jobs:
           exact = acceptance["exact_evidence"]
           assert exact["source_sha"] == expected_sha and exact["run_id"] == int(expected_run)
           assert exact["glb_sha256"] == glb_sha
-          assert exact["model"]["passed"] == 50 and exact["native"]["passed"] == 3
+          assert (exact["model"]["passed"], exact["native"]["passed"]) == ((50, 3) if os.environ["E_SOURCE_SHA"] == "e753248ed33b345554b0e7c3c8d521e666751d6f" else (52, 4))
           for key in [
               "fresh_blender_roundtrip",
               "startup_factory_clean_autoexec_disabled",
@@ -764,7 +764,7 @@ jobs:
           assert metadata["expired"] is False
           assert e_suite["source_sha"] == e_suite["suite_sha"] == e_suite["github_sha"] == os.environ["E_SOURCE_SHA"]
           assert str(e_suite["run_id"]) == os.environ["E_RUN_ID"]
-          assert e_suite["outcome"] == "PASS" and e_suite["passed"] == 3
+          assert e_suite["outcome"] == "PASS" and e_suite["passed"] == (3 if os.environ["E_SOURCE_SHA"] == "e753248ed33b345554b0e7c3c8d521e666751d6f" else 4)
           assert e_suite["failed"] == e_suite["ignored"] == e_suite["filtered"] == 0
           assert e_oracle["result"] == "PASS" and e_oracle["source_sha256"] == os.environ["E_GLB_SHA256"]
           assert all(e_oracle["required_checks"].values())

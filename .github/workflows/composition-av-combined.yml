@@ -150,7 +150,7 @@ jobs:
           SEMWRIGHT_TEST_COMBINED_ANALYSIS_DRIVER: ${{ github.workspace }}/target/debug/semwright-audio-analysis-driver
           SEMWRIGHT_TEST_COMBINED_MLT_RUNNER: ${{ github.workspace }}/target/debug/semwright-mlt-runtime-runner
           SEMWRIGHT_TEST_MOTION_NODE: ${{ github.workspace }}/integrations/motion-canvas/runtime/.semwright-tools/node
-          SEMWRIGHT_TEST_COMBINED_MLT_DRIVER: ${{ github.workspace }}/target/debug/semwright-mlt-video-driver target/debug/semwright-mlt-runtime-runner
+          SEMWRIGHT_TEST_COMBINED_MLT_DRIVER: ${{ github.workspace }}/target/debug/semwright-mlt-video-driver
           SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
           SEMWRIGHT_TEST_MOTION_RUNTIME: ${{ github.workspace }}/integrations/motion-canvas/runtime
           SEMWRIGHT_TEST_FAUST_VERSION: '2.70.3'
