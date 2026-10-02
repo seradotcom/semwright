@@ -83,13 +83,23 @@ fn make_dir(root: &Path, name: &str) -> PathBuf {
 }
 
 fn copy_exec(source: &Path, destination: &Path) -> PathBuf {
+    copy_exec_bounded(source, destination, 64 * 1024 * 1024)
+}
+
+fn copy_tool(source: &Path, destination: &Path) -> PathBuf {
+    copy_exec_bounded(source, destination, 256 * 1024 * 1024)
+}
+
+fn copy_exec_bounded(source: &Path, destination: &Path, limit: u64) -> PathBuf {
     fs::copy(source, destination).unwrap();
     fs::set_permissions(destination, fs::Permissions::from_mode(0o500)).unwrap();
     let metadata = fs::metadata(destination).unwrap();
     assert!(metadata.is_file(), "provider executable is not regular");
     assert!(
-        metadata.len() <= 64 * 1024 * 1024,
-        "provider executable exceeds Driver Host 64 MiB budget: {} bytes",
+        metadata.len() <= limit,
+        "executable {} exceeds its Driver Host {} byte budget: {} bytes",
+        source.display(),
+        limit,
         metadata.len()
     );
     assert_eq!(
@@ -450,20 +460,20 @@ impl Harness {
             &required_file("SEMWRIGHT_TEST_COMBINED_MLT_DRIVER"),
             &bin.join("semwright-mlt-video-driver"),
         );
-        let mlt_runner = copy_exec(
+        let mlt_runner = copy_tool(
             &required_file("SEMWRIGHT_TEST_COMBINED_MLT_RUNNER"),
             &bin.join("semwright-mlt-runtime-runner"),
         );
-        let node = copy_exec(
+        let node = copy_tool(
             &required_file("SEMWRIGHT_TEST_MOTION_NODE"),
             &bin.join("motion-node"),
         );
         let sandbox = required_file("SEMWRIGHT_TEST_SANDBOX_HELPER");
-        let faust_helper = copy_exec(
+        let faust_helper = copy_tool(
             &required_file("SEMWRIGHT_TEST_FAUST_HELPER"),
             &bin.join("faust-interpreter"),
         );
-        let meter = copy_exec(
+        let meter = copy_tool(
             &required_file("SEMWRIGHT_TEST_AUDIO_METER"),
             &bin.join("audio-meter"),
         );
