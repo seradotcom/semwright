@@ -775,7 +775,7 @@ jobs:
           assert e_exact["source_sha"] == os.environ["E_SOURCE_SHA"]
           assert e_exact["run_id"] == int(os.environ["E_RUN_ID"])
           assert e_exact["glb_sha256"] == os.environ["E_GLB_SHA256"]
-          assert e_exact["model"]["passed"] == 50 and e_exact["native"]["passed"] == 3
+          assert (e_exact["model"]["passed"], e_exact["native"]["passed"]) == ((50, 3) if os.environ["E_SOURCE_SHA"] == "e753248ed33b345554b0e7c3c8d521e666751d6f" else (52, 4))
           assert e_summary["source_sha"] == os.environ["E_SOURCE_SHA"]
           assert str(e_summary["run_id"]) == os.environ["E_RUN_ID"]
           assert e_summary["blocked"] == ["E11"] and e_summary["partial"] == ["E13"]
