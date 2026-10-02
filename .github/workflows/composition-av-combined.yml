@@ -123,10 +123,10 @@ jobs:
           set -euo pipefail
           g++ -std=c++17 -O2 -Wall -Wextra -Werror             integrations/audio/faust-runtime/main.cpp             -lfaust -lsndfile -o "$RUNNER_TEMP/semwright-faust-interpreter"
           g++ -std=c++17 -O2 -Wall -Wextra -Werror             integrations/audio/analysis-runtime/main.cpp             -lebur128 -lsndfile -o "$RUNNER_TEMP/semwright-audio-meter"
-          cargo build --locked             -p semwright-plugin-host --bin semwright-sandbox             -p semwright-driver-motion-canvas --bin semwright-motion-canvas-driver             -p semwright-faust-audio-driver --bins             -p semwright-mlt-video-driver --bins
+          cargo build --locked --bins             -p semwright-plugin-host             -p semwright-driver-motion-canvas             -p semwright-faust-audio-driver             -p semwright-mlt-video-driver
           strip --strip-unneeded             target/debug/semwright-sandbox             target/debug/semwright-motion-canvas-driver             target/debug/semwright-faust-audio-driver             target/debug/semwright-audio-analysis-driver             target/debug/semwright-mlt-video-driver target/debug/semwright-mlt-runtime-runner
           chmod 0500             target/debug/semwright-sandbox             target/debug/semwright-motion-canvas-driver             target/debug/semwright-faust-audio-driver             target/debug/semwright-audio-analysis-driver             target/debug/semwright-mlt-video-driver target/debug/semwright-mlt-runtime-runner
-          stat -c '%s %a %n'             target/debug/semwright-sandbox             target/debug/semwright-motion-canvas-driver             target/debug/semwright-faust-audio-driver             target/debug/semwright-audio-analysis-driver             target/debug/semwright-mlt-video-driver             | tee verification/composition-av/native-binaries.stat
+          stat -c '%s %a %n'             target/debug/semwright-sandbox             target/debug/semwright-motion-canvas-driver             target/debug/semwright-faust-audio-driver             target/debug/semwright-audio-analysis-driver             target/debug/semwright-mlt-video-driver target/debug/semwright-mlt-runtime-runner             | tee verification/composition-av/native-binaries.stat
           python3 - <<'PY'
           from pathlib import Path
           limit=64*1024*1024
@@ -141,7 +141,7 @@ jobs:
               if path.stat().st_size > limit:
                   raise SystemExit(f'{name} exceeds Driver Host 64 MiB executable budget')
           PY
-          sha256sum             "$RUNNER_TEMP/semwright-faust-interpreter"             "$RUNNER_TEMP/semwright-audio-meter"             target/debug/semwright-sandbox             target/debug/semwright-motion-canvas-driver             target/debug/semwright-faust-audio-driver             target/debug/semwright-audio-analysis-driver             target/debug/semwright-mlt-video-driver             > verification/composition-av/native-binaries.sha256
+          sha256sum             "$RUNNER_TEMP/semwright-faust-interpreter"             "$RUNNER_TEMP/semwright-audio-meter"             target/debug/semwright-sandbox             target/debug/semwright-motion-canvas-driver             target/debug/semwright-faust-audio-driver             target/debug/semwright-audio-analysis-driver             target/debug/semwright-mlt-video-driver target/debug/semwright-mlt-runtime-runner             > verification/composition-av/native-binaries.sha256
       - name: Combined A+B native AV E2E
         env:
           SEMWRIGHT_TEST_COMBINED_AV: '1'
@@ -177,7 +177,8 @@ jobs:
               'schema_version': 1,
               'candidate_sha': os.environ['CANDIDATE_SHA'],
               'github_sha': os.environ.get('GITHUB_SHA'),
-              'audio_source_sha': 'df2654bed6d2ac57d547846b69d16ea48b4a9ee3',
+              'audio_source_sha': os.environ['CANDIDATE_SHA'],
+              'audio_owner_sha': 'df2654bed6d2ac57d547846b69d16ea48b4a9ee3',
               'scope': 'combined-native-av-e2e',
               'promotional_video': False,
               'r16_closed': False,
