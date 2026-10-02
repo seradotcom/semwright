@@ -12,10 +12,9 @@ import sys
 import tempfile
 from isolation import Enclosure, require_hosted
 from oracle_identity import from_git as oracle_identity
-from lab_core import EvidenceError, LANES, digest, full_sha, strict_json, summarize, write_json
+from lab_core import EvidenceError, LANES, digest, full_sha, strict_json, summarize, target_for_lane, write_json
 
 LAB = Path(__file__).resolve().parent
-OWNERS = {"composition": "A", "av": "A", "motion": "A", "figma": "A", "audio": "B", "graph": "C", "effects": "F", "routing": "C", "godot-native": "D", "blender-native": "E", "lifecycle": "A", "distribution": "main"}
 
 def git(root: Path, *args: str) -> str:
     return subprocess.check_output(["git", "-C", str(root), *args], text=True).strip()
@@ -28,6 +27,8 @@ def config():
         full_sha(sha)
     full_sha(target["baseline_sha"])
     full_sha(target["contract_sha"])
+    if target.get("combined_candidate_sha") is not None:
+        full_sha(target["combined_candidate_sha"])
     lanes = target["selected_lanes"]
     if not lanes or len(set(lanes)) != len(lanes) or any(x not in LANES for x in lanes):
         raise EvidenceError("invalid lane selector")
@@ -105,7 +106,19 @@ def main():
     args = parser.parse_args()
     lock = config()
     if args.lane == "matrix":
-        print(json.dumps({"include": [{"lane": lane, "target_sha": lock["targets"][OWNERS.get(lane, "main")]} for lane in lock["selected_lanes"]]}))
+        print(
+            json.dumps(
+                {
+                    "include": [
+                        {
+                            "lane": lane,
+                            "target_sha": target_for_lane(lock, lane, checkout=True),
+                        }
+                        for lane in lock["selected_lanes"]
+                    ]
+                }
+            )
+        )
         return 0
     require_hosted()
     root = LAB.parents[1]
@@ -117,7 +130,7 @@ def main():
     cases = [c for c in strict_json((LAB / "registry.json").read_bytes())["cases"] if c["lane"] == args.lane]
     if not cases:
         raise EvidenceError("zero selected tests is a failure, not success")
-    source_sha = suite_sha if args.lane == "selftest" else lock["targets"][OWNERS.get(args.lane, "main")]
+    source_sha = target_for_lane(lock, args.lane, suite_sha)
     report = metadata(source_sha, suite_sha, args.lane)
     output = args.output or Path(os.environ["RUNNER_TEMP"]) / "g-lab-evidence" / (args.lane + ".json")
     requested = [c["id"] for c in cases]

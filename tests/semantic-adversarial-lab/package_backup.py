@@ -26,6 +26,12 @@ def allowed(path: str) -> bool:
 def encoded(value) -> bytes:
     return (json.dumps(value, indent=2, sort_keys=True, allow_nan=False) + "\n").encode()
 
+def evidence_matches_lock(index: dict, lock: dict) -> bool:
+    return (
+        index.get("targets") == lock.get("targets")
+        and index.get("combined_candidate_sha") == lock.get("combined_candidate_sha")
+    )
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--commit", required=True)
@@ -67,8 +73,10 @@ def main():
         index = json.loads(index_path.read_bytes())
         if index.get("role") != "G" or index.get("repo") != "seradotcom/semwright":
             raise SystemExit("Evidence is not from G's authorized repository")
-        if index.get("targets") != lock["targets"]:
-            raise SystemExit("Historical target differs; do not mix experiments in this backup")
+        if not evidence_matches_lock(index, lock):
+            raise SystemExit(
+                "Historical target or combined candidate differs; do not mix experiments in this backup"
+            )
         run_id = index.get("run_id")
         if type(run_id) is not int or run_id < 1:
             raise SystemExit("Invalid run ID")
@@ -77,6 +85,7 @@ def main():
             raise SystemExit("Unknown experiment suite")
         experiments.append({"run_id": run_id, "run_attempt": index.get("run_attempt"),
                             "suite_sha": suite, "source_shas": index["targets"],
+                            "combined_candidate_sha": index.get("combined_candidate_sha"),
                             "state": index.get("status"), "observed_at": index.get("observed_at"),
                             "known_executed_count": index.get("known_executed_count"),
                             "unknown_execution_lanes": index.get("unknown_execution_lanes"),

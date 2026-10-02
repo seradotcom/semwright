@@ -5708,6 +5708,17 @@
       "expected": {
         "duplicate_id_version_rejected": true
       }
+    },
+    {
+      "id": "G-SELF-105",
+      "owner": "G",
+      "requirement": "G12",
+      "lane": "selftest",
+      "scope": "lab_selftest",
+      "description": "explicit combined candidate overrides every product lane and evidence backup binds the same pointer",
+      "expected": {
+        "ok": true
+      }
     }
   ]
 }

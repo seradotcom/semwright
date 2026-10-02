@@ -12,6 +12,20 @@ SHA1 = re.compile(r"[0-9a-f]{40}\Z")
 CASE_ID = re.compile(r"G-[A-Z]+-[0-9]{3}\Z")
 OUTCOMES = frozenset({"PASS", "FAIL", "BLOCKED", "NOT_RUN"})
 LANES = frozenset({"selftest", "composition", "audio", "av", "packaging", "graph", "effects", "routing", "godot-native", "blender-native", "motion", "figma", "lifecycle", "distribution"})
+TARGET_OWNERS = {
+    "composition": "A",
+    "av": "A",
+    "motion": "A",
+    "figma": "A",
+    "audio": "B",
+    "graph": "C",
+    "effects": "F",
+    "routing": "C",
+    "godot-native": "D",
+    "blender-native": "E",
+    "lifecycle": "A",
+    "distribution": "main",
+}
 
 class EvidenceError(ValueError):
     """Evidence is absent, ambiguous, stale, or outside the frozen contract."""
@@ -70,6 +84,29 @@ def full_sha(value: Any) -> str:
     if not isinstance(value, str) or not SHA1.fullmatch(value):
         raise EvidenceError("full immutable Git SHA required")
     return value
+
+def target_for_lane(
+    lock: dict[str, Any],
+    lane: str,
+    suite_sha: str | None = None,
+    *,
+    checkout: bool = False,
+) -> str:
+    """Resolve one immutable target; a joint candidate overrides every product lane."""
+    if lane not in LANES:
+        raise EvidenceError("unknown lab lane")
+    targets = lock.get("targets")
+    if not isinstance(targets, dict):
+        raise EvidenceError("target lock missing owner targets")
+    if lane == "selftest":
+        if checkout:
+            return full_sha(targets.get("main"))
+        return full_sha(suite_sha)
+    combined = lock.get("combined_candidate_sha")
+    if combined is not None:
+        return full_sha(combined)
+    return full_sha(targets.get(TARGET_OWNERS.get(lane, "main")))
+
 
 def validate_probe(value: Any, expected_id: str, expected_sha: str) -> dict[str, Any]:
     if not isinstance(value, dict) or set(value) != {"schema_version", "case_id", "source_sha", "observed"}:

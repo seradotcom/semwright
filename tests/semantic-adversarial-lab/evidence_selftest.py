@@ -8,11 +8,12 @@ from pathlib import Path
 import warnings
 import zipfile
 from artifact_io import MAX_FILE, read_evidence_archive
-from collect_evidence import validate_lane, immutable_write, target_for_lane
+from collect_evidence import validate_lane, immutable_write
 from product import build_target_kind
 from isolation import SYSTEM_CONFIG_RO, DEFAULT_FILE_SIZE_BYTES, MAX_FILE_SIZE_BYTES
-from lab_core import EvidenceError, digest, summarize, strict_json
+from lab_core import EvidenceError, LANES, digest, summarize, strict_json, target_for_lane
 from oracle_identity import payload_digest
+from package_backup import evidence_matches_lock
 from selftest_extra import target_only_retest, closure_rejects
 
 SOURCE = "1" * 40
@@ -104,6 +105,41 @@ def collector_role_targets():
         and target_for_lane(lock, "blender-native", SUITE) == "e" * 40
         and target_for_lane(lock, "packaging", SUITE) == "0" * 40
         and target_for_lane(lock, "distribution", SUITE) == "0" * 40
+    )
+
+
+def combined_candidate_overrides_product_targets():
+    targets = {
+        "main": "0" * 40,
+        "A": "a" * 40,
+        "B": "b" * 40,
+        "C": "c" * 40,
+        "D": "d" * 40,
+        "E": "e" * 40,
+        "F": "f" * 40,
+    }
+    candidate = "9" * 40
+    lock = {"targets": targets, "combined_candidate_sha": candidate}
+    if target_for_lane(lock, "selftest", SUITE) != SUITE:
+        return False
+    if target_for_lane(lock, "selftest", SUITE, checkout=True) != targets["main"]:
+        return False
+    if any(
+        target_for_lane(lock, lane, SUITE) != candidate
+        for lane in LANES
+        if lane != "selftest"
+    ):
+        return False
+    good_index = {"targets": targets, "combined_candidate_sha": candidate}
+    wrong_index = {"targets": targets, "combined_candidate_sha": "8" * 40}
+    runner = (Path(__file__).resolve().parent / "runner.py").read_text()
+    collector = (Path(__file__).resolve().parent / "collect_evidence.py").read_text()
+    return (
+        evidence_matches_lock(good_index, lock)
+        and not evidence_matches_lock(wrong_index, lock)
+        and "target_for_lane(lock, lane, checkout=True)" in runner
+        and "target_for_lane(lock, args.lane, suite_sha)" in runner
+        and "target_for_lane(lock, lane, suite, checkout=True)" in collector
     )
 
 
@@ -254,4 +290,5 @@ def evidence_cases():
         ("G-SELF-102", blender_case_scoped_block_is_not_pass),
         ("G-SELF-103", lifecycle_build_target_is_normal_bin),
         ("G-SELF-104", collector_role_targets),
+        ("G-SELF-105", combined_candidate_overrides_product_targets),
     ]

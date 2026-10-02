@@ -14,15 +14,10 @@ import subprocess
 import sys
 from artifact_io import MAX_ARCHIVE, read_evidence_archive
 from oracle_identity import from_git as oracle_identity
-from lab_core import EvidenceError, compare_observation, digest, full_sha, strict_json, summarize, write_json
+from lab_core import EvidenceError, compare_observation, digest, full_sha, strict_json, summarize, target_for_lane, write_json
 
 REPO = "seradotcom/semwright"
 LAB = Path(__file__).resolve().parent
-ROLES = {"composition": "A", "av": "A", "motion": "A", "figma": "A", "audio": "B", "graph": "C", "effects": "F", "routing": "C", "godot-native": "D", "blender-native": "E", "lifecycle": "A", "distribution": "main"}
-
-def target_for_lane(lock: dict, lane: str, suite: str) -> str:
-    return suite if lane == "selftest" else lock["targets"][ROLES.get(lane, "main")]
-
 def immutable_write(path: Path, data: bytes) -> None:
     """Content-addressed history is append-only, never an overwrite of a failure."""
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -145,9 +140,7 @@ def main():
     findings = []
     for lane in lock["selected_lanes"]:
         cases = [c for c in registry if c["lane"] == lane]
-        matrix_target = target_for_lane(lock, lane, suite)
-        if lane == "selftest":
-            matrix_target = lock["targets"]["main"]
+        matrix_target = target_for_lane(lock, lane, suite, checkout=True)
         job_matches = [j for j in jobs if j["name"] == f"boundary ({lane}, {matrix_target})"]
         artifact_matches = [a for a in artifacts if a["name"] == f"semantic-adversarial-{lane}-{suite}"]
         row = {"lane": lane, "requested_count": len(cases), "source_sha": suite if lane == "selftest" else matrix_target,

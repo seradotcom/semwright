@@ -13,8 +13,7 @@
     "E": "f492f13a028f781d9ca55631764578f5b327eb1b"
   },
   "selected_lanes": [
-    "selftest",
-    "blender-native"
+    "selftest"
   ],
   "pins": {
     "os": "ubuntu-24.04",
