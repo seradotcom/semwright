@@ -13,6 +13,7 @@ use semwright_audio_domain::{
     signal_analysis::SignalStatistics,
     time::SampleRate,
     units::MilliDb,
+    wav::WaveReader,
 };
 use semwright_av_composition::*;
 use semwright_backend_api::{Backend, Context, Provider};
@@ -39,7 +40,7 @@ use sha2::{Digest as ShaDigest, Sha256};
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs,
-    os::unix::fs::PermissionsExt,
+    os::unix::fs::{MetadataExt, PermissionsExt},
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -535,6 +536,49 @@ impl Harness {
         .await
     }
 
+    fn inspect_audio_analysis_input(&self, file_name: &str, layout: &str) {
+        let path = self.output.join(file_name);
+        let metadata = fs::metadata(&path).expect("diagnostic audio artifact metadata");
+        eprintln!(
+            "combined-e2e analysis input bytes={} nlink={} mode={:o}",
+            metadata.len(),
+            metadata.nlink(),
+            metadata.permissions().mode() & 0o777
+        );
+        let meter = std::process::Command::new(&self.meter)
+            .args(["analyze", path.to_string_lossy().as_ref(), layout])
+            .output()
+            .expect("run direct audio meter diagnostic");
+        eprintln!(
+            "combined-e2e direct meter status={} stdout={} stderr={}",
+            meter.status,
+            String::from_utf8_lossy(&meter.stdout),
+            String::from_utf8_lossy(&meter.stderr)
+        );
+        if meter.status.success() {
+            let loudness: LoudnessAnalysis =
+                serde_json::from_slice(&meter.stdout).expect("direct meter JSON");
+            eprintln!(
+                "combined-e2e direct meter validate={:?}",
+                loudness.validate()
+            );
+        }
+        let wave = WaveReader::open(
+            fs::File::open(&path).expect("open direct WAV diagnostic"),
+            512 * 1024 * 1024,
+        );
+        match wave {
+            Ok(reader) => {
+                eprintln!("combined-e2e direct WaveReader info={:?}", reader.info());
+                eprintln!(
+                    "combined-e2e direct WaveReader analyze={:?}",
+                    reader.analyze(-90_000, 480)
+                );
+            }
+            Err(error) => eprintln!("combined-e2e direct WaveReader open={error:?}"),
+        }
+    }
+
     async fn direct_analysis_measure(&self, args: Value) -> semwright_types::Result<Value> {
         let state = make_dir(self._root.path(), "state-analysis-direct-diagnostic");
         let provider = DriverProvider::connect(
@@ -922,6 +966,7 @@ async fn audio_consumer_receipt(
         "expected_sha256": artifact_digest.as_str(),
         "layout": "stereo"
     });
+    harness.inspect_audio_analysis_input("sync-final.wav", "stereo");
     let direct_analysis = harness.direct_analysis_measure(analysis_args.clone()).await;
     eprintln!("combined-e2e direct audio-analysis diagnostic={direct_analysis:?}");
     direct_analysis.expect("raw Driver Host audio-analysis must succeed before Broker dispatch");
