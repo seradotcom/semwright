@@ -2970,6 +2970,7 @@ dependencies = [
  "semwright-motion-authoring",
  "semwright-platform-common",
  "semwright-policy",
+ "semwright-project-graph",
  "semwright-recipes",
  "semwright-registry",
  "semwright-semantic-composition",
