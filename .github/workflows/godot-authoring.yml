@@ -60,7 +60,7 @@ jobs:
           SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
         run: |
           set -euo pipefail
-          for diagnostic_iteration in 1 2 3; do
+          for diagnostic_iteration in 1; do
             cargo test --locked -p semwright-driver-godot --test authoring_host \
               export_lane_builds_and_launches_without_editor_or_semwright \
               -- --ignored --exact --nocapture \

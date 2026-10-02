@@ -1000,6 +1000,9 @@ impl HostToolExecutor for LinuxHostToolBroker {
             &tool.sha256,
         )?;
         eprintln!("I_DIAG Linux executable verification {name}: {} ms", diagnostic_started.elapsed().as_millis());
+        if detached && name == "godot" {
+            std::thread::sleep(Duration::from_secs(6));
+        }
         let contract = self.contracts.get(name).ok_or_else(|| {
             Error::new(
                 ErrorCode::PolicyDenied,
