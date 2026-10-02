@@ -2,7 +2,7 @@
 
 ## Scope and current truth
 
-This is an internal adversarial laboratory, not an independent R16 closeout. No product vulnerability is confirmed solely from source hypotheses or an unexecuted test. See exact-SHA Actions receipts for actual execution. Contract, lifecycle, package/distribution and pinned Godot/Blender native experiments have now executed; the combined candidate remains absent and owner-open findings keep readiness BLOCKED.
+This is an internal adversarial laboratory, not an independent R16 closeout. No product vulnerability is confirmed solely from source hypotheses or an unexecuted test. See exact-SHA Actions receipts for actual execution. Contract, lifecycle, package/distribution and pinned Godot/Blender native experiments have now executed. All currently confirmed owner findings are closed by exact-SHA fix retest; the combined candidate remains absent and therefore readiness remains BLOCKED.
 
 G corrected two defects in its own evidence oracle. These are laboratory reliability findings, not product security bugs. Their fixes are authored by G and must not be called independent review of G's own code. Severity below concerns the laboratory's evidence trust boundary; no host exploit or native application compromise has been demonstrated.
 
@@ -32,9 +32,9 @@ Confirmed owner findings from executed exact-SHA families remain open:
 
 - G-FIND-A-001 is CLOSED_RETEST_PASS: A FIX_SHA 7ab43f99f4cc62be2a9b0ce9ce1155283a429768 binds permits to private vault/root identities; G retest run 36938854785 passed 70/70 Composition including G-PLAN-022/023/024.
 - G-FIND-D-001 and G-FIND-D-002 are CLOSED_RETEST_PASS on D FIX_SHA 70bd7857: Godot native 13/13 PASS.
-- G-FIND-E-001 remains open after E FIX_SHA 44780d97: Blender real GLB export still produces valid hashed output but leaves source readback drifted in the G adversarial sequence.
+- G-FIND-E-001 is CLOSED_RETEST_PASS on E second FIX_SHA f492f13: Blender native 14/14 PASS; G-BLENDER-010 now preserves exact managed source projection while producing the valid hashed GLB and preserving the external sentinel.
 
-Godot and Blender findings were reached through pinned real native runtimes and product routes; G does not patch their owner branches. A future owner fix requires an explicit FIX_SHA and exact affected-family retest.
+Godot and Blender findings were reached through pinned real native runtimes and product routes. Their owner fixes were retested by G on exact affected families and are now closed; G did not patch the owner branches.
 
 Clean contract fixtures still do not establish every live collaboration, OS, device, media-intelligibility or cross-app property. The G enclosure is Linux/GitHub-hosted only and is not itself the product sandbox. Separate A/B/C/D/E/F exact-SHA results cannot be combined into an I certification. No explicit combined candidate has been handed to G.
 

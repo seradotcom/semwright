@@ -413,7 +413,7 @@
       "id": "G07",
       "claim": "Blender export/dependencies/shared data",
       "owner": "E",
-      "status": "BLOCKED",
+      "status": "PASS",
       "implementation": [
         "native_apps.py",
         "rust/blender_native_probe.rs",
@@ -436,17 +436,17 @@
         "G-BLENDER-013",
         "G-BLENDER-014"
       ],
-      "source_sha": "44780d977735ccc9417ec2992427833abffd0f3c",
-      "suite_sha": "ee512ea79840d880998045d1d373cfab94d4093b",
-      "run_id": 36944138504,
-      "job_id": 110646109790,
+      "source_sha": "f492f13a028f781d9ca55631764578f5b327eb1b",
+      "suite_sha": "c913a26badc218b9e53756e68eb22398c52f5550",
+      "run_id": 36946146627,
+      "job_id": 110652860701,
       "evidence": [
-        "Blender native 13/14 PASS; only G-BLENDER-010 FAIL",
-        "receipt ca6edce0893bf6355534aca8b39978e8e25449701972f4d0e77ddf5f6591cb73",
-        "artifact d59de226b39ea086a230d184e70474a17488291eb676b38f37b2dcb750596609",
-        "pre-export drift false, GLB magic/hash/sentinel clean, post-export drift true"
+        "Blender native second FIX_SHA retest 14/14 PASS",
+        "receipt 3bcdc35346f1e1b243312e605846adf44182447712721a811806885907a16740",
+        "artifact e7e3d2774b3ba09c92cebfd2e898c3a8c18d6253d1c8b9cdabe852581c1f78b1",
+        "G-BLENDER-010 PASS with pre/post source drift=false, valid GLB magic/hash and sentinel preserved"
       ],
-      "blocker": "E fix 44780d97 is insufficient. Its regression covers reopen then immediate export, but G still reproduces source drift after fresh reopen plus valid hostile/cursor/shared-mesh operations with a clean pre-export snapshot. G-FIND-E-001 remains OPEN_OWNER_TRIAGE.",
+      "blocker": "G-FIND-E-001 is CLOSED_RETEST_PASS on E second FIX_SHA f492f13. The unchanged 14-case native family is 14/14 PASS; no open Blender finding remains in this tested scope.",
       "implementation_suite_sha": "982e5698cc44c2adead9491a2f8590242fd1dbf3",
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },
@@ -652,7 +652,7 @@
       "id": "G11",
       "claim": "Owner findings and exact-fix retests",
       "owner": "G/A-F",
-      "status": "BLOCKED",
+      "status": "PASS",
       "implementation": [
         "lab_core.py",
         "collect_evidence.py",
@@ -671,17 +671,17 @@
         "G-SELF-092"
       ],
       "source_sha": null,
-      "suite_sha": "fc9e218046c32619d5212217a931cfdad71b98b4",
-      "run_id": 36888045183,
-      "job_id": 110456380047,
+      "suite_sha": "c913a26badc218b9e53756e68eb22398c52f5550",
+      "run_id": 36946146627,
+      "job_id": 110652860701,
       "evidence": [
-        "G-FIND-C-001 closed by exact fix retest",
-        "G-FIND-A-001 closed by exact fix retest",
-        "G-FIND-D-001 closed by exact fix retest",
-        "G-FIND-D-002 closed by exact fix retest",
-        "G-FIND-E-001 remains open after failed owner-fix retest"
+        "G-FIND-C-001 CLOSED_RETEST_PASS",
+        "G-FIND-A-001 CLOSED_RETEST_PASS",
+        "G-FIND-D-001 CLOSED_RETEST_PASS",
+        "G-FIND-D-002 CLOSED_RETEST_PASS",
+        "G-FIND-E-001 CLOSED_RETEST_PASS"
       ],
-      "blocker": "C/A/D findings are closed by exact-SHA retests. E-001 remains open: E 44780d97 retest reproduced G-BLENDER-010, so another explicit owner FIX_SHA is required.",
+      "blocker": "All currently confirmed owner findings have exact fix retests and are closed. Any future combined-candidate finding remains a new experiment.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },
@@ -698,14 +698,16 @@
       ],
       "tests": [],
       "source_sha": null,
-      "suite_sha": "fc9e218046c32619d5212217a931cfdad71b98b4",
-      "run_id": 36888045183,
-      "job_id": 110456380047,
+      "suite_sha": "c913a26badc218b9e53756e68eb22398c52f5550",
+      "run_id": 36946146627,
+      "job_id": 110652860701,
       "evidence": [
-        "479 cases registered across 14 lanes; latest A-fix suite selftest 104/104 PASS",
+        "479 cases registered across 14 lanes",
+        "current E-fix suite selftest 104/104 PASS",
+        "all known owner findings are CLOSED_RETEST_PASS",
         "combined_candidate_sha remains null"
       ],
-      "blocker": "No explicit I combined-candidate handoff exists, and G-FIND-E-001 remains open after failed fix retest. R16/demo/security guarantee remain explicitly out of scope.",
+      "blocker": "No explicit I combined-candidate handoff exists. Individual exact-SHA owner scopes are clean after fixes, but separate results cannot certify an integrated candidate. R16/demo/security guarantee remain out of scope.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     }
@@ -721,5 +723,5 @@
       "last_observed": "queued"
     }
   ],
-  "updated_at": "2026-10-02T00:27:30.672725+00:00"
+  "updated_at": "2026-10-02T00:55:29.349063+00:00"
 }
