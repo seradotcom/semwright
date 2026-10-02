@@ -67,6 +67,29 @@ jobs:
           python3 scripts/blender-authoring/classify_iteration.py --self-test
           python3 -m json.tool .ci/blender-authoring.json >/dev/null
 
+      - name: Preflight integrated D and F source backup dependencies
+        if: steps.plan.outputs.certification == 'true'
+        run: |
+          python3 scripts/godot-authoring/package_source.py --source "$GITHUB_SHA" --output "$RUNNER_TEMP/integrated-D-source-preflight.zip" > evidence/blender-authoring/d-source-preflight.json
+          python3 scripts/effects/package_source.py --source "$GITHUB_SHA" --output "$RUNNER_TEMP/integrated-F-source-preflight.zip" > evidence/blender-authoring/f-source-preflight.json
+
+      - name: Reproducible E source backup
+        if: steps.plan.outputs.package == 'true'
+        run: |
+          set -o pipefail
+          python3 scripts/blender-authoring/package_source.py             --source "$GITHUB_SHA"             --output evidence/blender-authoring/semwright-blender-authoring-E-source.zip             | tee evidence/blender-authoring/source-package.json
+          test -s evidence/blender-authoring/source-package.json
+          test -s evidence/blender-authoring/semwright-blender-authoring-E-source.zip
+          test -s evidence/blender-authoring/semwright-blender-authoring-E-source.zip.sha256
+          python3 -m json.tool evidence/blender-authoring/source-package.json >/dev/null
+          (
+            cd evidence/blender-authoring
+            sha256sum --check --strict semwright-blender-authoring-E-source.zip.sha256
+          )
+          python3 scripts/blender-authoring/package_source.py             --source "$GITHUB_SHA"             --output /tmp/semwright-blender-authoring-E-source-second.zip             >/tmp/source-package-second.json
+          cmp evidence/blender-authoring/semwright-blender-authoring-E-source.zip             /tmp/semwright-blender-authoring-E-source-second.zip
+          rm -f             /tmp/semwright-blender-authoring-E-source-second.zip             /tmp/semwright-blender-authoring-E-source-second.zip.sha256             /tmp/source-package-second.json
+
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
         if: steps.plan.outputs.need_rust == 'true'
         with:
@@ -134,23 +157,6 @@ jobs:
       - name: Skill validate and clean bundle
         if: steps.plan.outputs.skill == 'true'
         run: bash scripts/blender-authoring/verify_skill_bundle.sh
-
-      - name: Reproducible E source backup
-        if: steps.plan.outputs.package == 'true'
-        run: |
-          set -o pipefail
-          python3 scripts/blender-authoring/package_source.py             --source "$GITHUB_SHA"             --output evidence/blender-authoring/semwright-blender-authoring-E-source.zip             | tee evidence/blender-authoring/source-package.json
-          test -s evidence/blender-authoring/source-package.json
-          test -s evidence/blender-authoring/semwright-blender-authoring-E-source.zip
-          test -s evidence/blender-authoring/semwright-blender-authoring-E-source.zip.sha256
-          python3 -m json.tool evidence/blender-authoring/source-package.json >/dev/null
-          (
-            cd evidence/blender-authoring
-            sha256sum --check --strict semwright-blender-authoring-E-source.zip.sha256
-          )
-          python3 scripts/blender-authoring/package_source.py             --source "$GITHUB_SHA"             --output /tmp/semwright-blender-authoring-E-source-second.zip             >/tmp/source-package-second.json
-          cmp evidence/blender-authoring/semwright-blender-authoring-E-source.zip             /tmp/semwright-blender-authoring-E-source-second.zip
-          rm -f             /tmp/semwright-blender-authoring-E-source-second.zip             /tmp/semwright-blender-authoring-E-source-second.zip.sha256             /tmp/source-package-second.json
 
       - name: Formatting gate
         if: steps.plan.outputs.need_rust == 'true'

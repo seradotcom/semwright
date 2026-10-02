@@ -15,7 +15,10 @@ ROOT = Path(__file__).resolve().parents[2]
 OWNED = ("crates/effect-conformance/", "scripts/effects/", "docs/effects/")
 WORKFLOW = ".github/workflows/effect-conformance.yml"
 A_CONTRACT = "26602e4b25929be869d69ef28fef4dd9713180d7"
-DEFAULT_BASE = "6ee52b428310370d3ad438a13964086a63f48367"
+DEFAULT_BASE = "6e1261d645699e99fe94ad902b5fb26956f92102"
+DEPENDENCY_VERSION = 2
+A_COMPONENT_SOURCE = "6e1261d645699e99fe94ad902b5fb26956f92102"
+HOST_COMPONENT_SOURCE = "6e1261d645699e99fe94ad902b5fb26956f92102"
 
 
 def git(*args):
@@ -31,10 +34,13 @@ def build(source, base, output):
         if not re.fullmatch(r"[a-f0-9]{40}", value):
             raise ValueError("source and base must be full immutable SHA-1 commit IDs")
         git("cat-file", "-e", value + "^{commit}")
-    if git("rev-parse", source + ":crates/semantic-composition") != git("rev-parse", A_CONTRACT + ":crates/semantic-composition"):
+    if git("rev-parse", source + ":crates/semantic-composition") != git("rev-parse", A_COMPONENT_SOURCE + ":crates/semantic-composition"):
         raise ValueError("A shared contract changed; review and version the backup dependency first")
     if git("rev-parse", source + ":crates/project-graph") != git("rev-parse", base + ":crates/project-graph"):
         raise ValueError("C P0 changed; review the backup dependency first")
+    for path in ["crates/driver-sdk", "crates/driver-host"]:
+        if git("rev-parse", source + ":" + path) != git("rev-parse", HOST_COMPONENT_SOURCE + ":" + path):
+            raise ValueError("Reviewed Host transport changed; review and version the backup dependency first")
     candidates = git("ls-tree", "-r", "--name-only", source, "--", *OWNED, WORKFLOW).decode().splitlines()
     files = {}
     for name in sorted(candidates):
@@ -69,6 +75,9 @@ def build(source, base, output):
                 raise ValueError("restored source mismatch: " + name)
     manifest = {"schema_version": 1, "role": "F", "source_sha": source,
                 "patch_base_sha": base, "contract_sha": A_CONTRACT,
+                "dependency_version": DEPENDENCY_VERSION,
+                "a_component_source": A_COMPONENT_SOURCE,
+                "host_component_source": HOST_COMPONENT_SOURCE,
                 "main_baseline_sha": "b736d41b61c4a4146c9e75c16796e251b025e69f",
                 "files": {name: sha(data) for name, data in files.items()},
                 "lock_sha256": sha(lock), "workspace_sha256": sha(workspace), "patch_sha256": sha(patch),
@@ -81,7 +90,10 @@ This is a reconstructive patch ZIP, not a full repository checkout. F_SOURCE.pat
 
 Source: {source}
 Patch base: {base}
-A contract: {A_CONTRACT}
+Historical A contract: {A_CONTRACT}
+Reviewed A implementation: {A_COMPONENT_SOURCE}
+Reviewed Host transport: {HOST_COMPONENT_SOURCE}
+Dependency version: {DEPENDENCY_VERSION}
 PR: https://github.com/seradotcom/semwright/pull/172
 
 Prefer continuing the existing effect-conformance worktree and branch. Do not reset it, change another branch, or apply this patch over existing F files. In a separate owned worktree based exactly on the patch base, run git apply --check /path/F_SOURCE.patch before git apply /path/F_SOURCE.patch. Check all restored file hashes against SOURCE_MANIFEST.json. Source-only reconstruction was already verified in a disposable temporary folder; that is not a build, installation, native acceptance or security claim.

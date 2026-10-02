@@ -15,12 +15,15 @@ import tempfile
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
-PATCH_BASE = "c14f79f9a59115a56967b53d6abcf8a027d7a132"
+PATCH_BASE = "6e1261d645699e99fe94ad902b5fb26956f92102"
+DEPENDENCY_VERSION = 2
+A_COMPONENT_SOURCE = "6e1261d645699e99fe94ad902b5fb26956f92102"
+HOST_COMPONENT_SOURCE = "6e1261d645699e99fe94ad902b5fb26956f92102"
 A_C0 = "26602e4b25929be869d69ef28fef4dd9713180d7"
-A_FINAL = "7ab43f99f4cc62be2a9b0ce9ce1155283a429768"
+A_FINAL = "65b773f4dd627b860358342f4d40a1ac532566d1"
 C_P0 = "6ee52b428310370d3ad438a13964086a63f48367"
-C_FINAL = "504ad2c6632305b580b51703a60b0a194865780d"
-F_SOURCE = "b30d693c24d7dc0527834b7830823655be5216ce"
+C_FINAL = "77b34d8abad50f242c4c8494e280fe82d5cbcf55"
+F_SOURCE = "eadd5caf9b3f47f24158de530b87ad07e597f25e"
 PR = 176
 OWNED = (
     "crates/driver-godot/",
@@ -86,18 +89,22 @@ def zip_entry(archive, name, data, executable=False):
 def build(source, output):
     if os.environ.get("GITHUB_ACTIONS") != "true" or os.environ.get("RUNNER_ENVIRONMENT") != "github-hosted":
         raise ValueError("D packaging is restricted to GitHub-hosted Actions")
-    for commit in [source, PATCH_BASE, A_C0, A_FINAL, C_P0, C_FINAL, F_SOURCE]:
+    for commit in [source, PATCH_BASE, A_C0, A_FINAL, C_P0, C_FINAL, F_SOURCE, A_COMPONENT_SOURCE, HOST_COMPONENT_SOURCE]:
         if not re.fullmatch(r"[a-f0-9]{40}", commit):
             raise ValueError("dependency IDs must be full immutable commit SHAs")
         run_git("cat-file", "-e", commit + "^{commit}")
     if git("rev-parse", "HEAD").decode().strip() != source or os.environ.get("GITHUB_SHA") != source:
         raise ValueError("package source must equal exact Actions checkout")
-    if tree(source, "crates/semantic-composition") != tree(A_FINAL, "crates/semantic-composition"):
+    if tree(source, "crates/semantic-composition") != tree(A_COMPONENT_SOURCE, "crates/semantic-composition"):
         raise ValueError("A Composition tree changed")
     if tree(source, "crates/project-graph") != tree(C_FINAL, "crates/project-graph"):
         raise ValueError("C final Project Graph tree changed")
     if tree(source, "crates/effect-conformance") != tree(F_SOURCE, "crates/effect-conformance"):
         raise ValueError("F consumed source changed")
+
+    for path in ["crates/driver-sdk", "crates/driver-host"]:
+        if tree(source, path) != tree(HOST_COMPONENT_SOURCE, path):
+            raise ValueError("Reviewed Host transport tree changed; reconcile before packaging D")
 
     names = current_files(source)
     if not names or len(names) > 384:
@@ -161,9 +168,12 @@ def build(source, output):
         "pr": PR,
         "baseline_sha": "b736d41b61c4a4146c9e75c16796e251b025e69f",
         "patch_base_sha": PATCH_BASE,
+        "dependency_version": DEPENDENCY_VERSION,
         "dependencies": {
             "a_c0": A_C0,
             "a_final": A_FINAL,
+            "a_component_source": A_COMPONENT_SOURCE,
+            "host_component_source": HOST_COMPONENT_SOURCE,
             "c_p0": C_P0,
             "c_final": C_FINAL,
             "f_source": F_SOURCE,
