@@ -18,12 +18,12 @@ This file maps the Agent-A master requirements to implementation and evidence. I
 | A10 | Temporal DAG, exact rational solver, hard/soft constraints | IMPLEMENTED |
 | A11 | Renderer observations, explicit frame coverage, speed/acceleration | IMPLEMENTED; exact-SHA native evidence pending |
 | A12 | Deterministic validation and bounded repair candidates | IMPLEMENTED; M07 hold/retime regressions added |
-| A13 | Fixed AV graph, B public receipt boundary, dependency reuse/invalidation | A-SIDE IMPLEMENTED; formal B SHA fixed; fresh combined exact-SHA E2E PENDING |
+| A13 | Fixed AV graph, B public receipt boundary, dependency reuse/invalidation | A-SIDE IMPLEMENTED; previous B-ready SHA superseded; df2654bed recertified PASS but fresh formal B handoff and combined exact-SHA E2E PENDING |
 | A14 | Motion render, FFV1 mezzanine, MLT H.264/AAC mux, post-encode audio decode/analysis, full decoded sync | IMPLEMENTED; A-side backport passed CircleCI private exact-SHA iteration; final candidate certification pending |
 | A15 | Figma, video and fail-closed AV Skills plus production runbook | IMPLEMENTED against public B audio capabilities; exact combined Skill evidence PENDING |
 | A16 | Contracts, Figma, Motion, AV, security, fuzz and mutation workflows | IMPLEMENTED; exact-SHA results pending |
 | A17 | Reproducible technical benchmark harness | IMPLEMENTED; no advertising claim |
-| A18 | Exact B handoff and one combined candidate | FORMAL B HANDOFF SATISFIED; combined candidate/harness integration in progress; certification PENDING |
+| A18 | Exact B handoff and one combined candidate | PREVIOUS B HANDOFF SUPERSEDED; df2654bed full audio certification PASS observed, but fresh AUDIO_READY_FOR_INTEGRATION publication and one new combined candidate are PENDING |
 | A19 | Code/docs/Skills/CI/package/runbook/evidence tooling | IMPLEMENTED except combined evidence/ZIP after A18 |
 
 ## General gates
@@ -31,14 +31,14 @@ This file maps the Agent-A master requirements to implementation and evidence. I
 | Gate | Mapping | Acceptance state |
 |---|---|---|
 | G01 | Frozen baselines, isolated worktrees, A.json/B.json | PENDING final combined provenance |
-| G02 | B rescue manifest/hashes | B PASS @ 8ed2d30c8ba797ebd5b8c102d34f8ab5bb3a28b3; combined evidence PENDING |
+| G02 | B rescue manifest/hashes | 8ed2d30 handoff superseded; B recertification PASS @ df2654bed6d2ac57d547846b69d16ea48b4a9ee3 / run 36942574098; formal handoff + combined evidence PENDING |
 | G03 | Exact C0 shared; additive C1 handoff contract | C0 satisfied; C1 A-owned consumer boundary; combined proof PENDING |
 | G04 | Common kernel in Figma/Motion and B audio-authoring C0 consumer | PENDING public audio Composition + combined E2E |
-| G05 | Plans/descriptors/Skills grant no authority; Broker rechecks | IMPLEMENTED; stale BeginPermit incarnation fix `e58886d50057e85c3fc9d3a14f1483de1c36270d` published; independent G-FIND-A-001 retest pending |
+| G05 | Plans/descriptors/Skills grant no authority; Broker rechecks | IMPLEMENTED; stale BeginPermit incarnation fix `e58886d50057e85c3fc9d3a14f1483de1c36270d` published; independent G-FIND-A-001 retest PASS 70/70 in run 36938854785 |
 | G06 | Freshness/partial/unknown/cancel/budgets | IMPLEMENTED; revoke/expiry/cross-vault permit regressions added; exact-SHA G/native evidence pending |
 | G07 | Inventory, mapping and evidence remain distinct | IMPLEMENTED |
 | G08 | Heavy work hosted; no heavy generated outputs committed | IMPLEMENTED; final hygiene evidence pending |
-| G09 | A+B integration on one SHA | FORMAL A+B ancestry established; exact-SHA certification PENDING |
+| G09 | A+B integration on one SHA | Previous A+B ancestry used superseded B handoff; current PR #204 rebuild awaits fresh B-ready publication before cutting and certifying the new combined SHA |
 | G10 | Production runbook present; no promo video/R16 closure | IMPLEMENTED; final candidate prerequisites pending |
 
 ## Figma gates
@@ -83,7 +83,7 @@ No AV row is PASS before the exact B-ready SHA is merged and the technical E2E e
 | AV06 | Coordinator retains prior effects and refuses ready master after failure | IMPLEMENTED; PENDING combined failure E2E |
 | AV07 | Owner/session binding on plans/artifacts/transfers | IMPLEMENTED; PENDING combined |
 | AV08 | Mux re-probes duration/rate/channels/sample count; final audio must be analyzed again | A-SIDE IMPLEMENTED against public B analysis; PENDING combined E2E |
-| AV09 | Motion + B common receipt + artifact.handoff + MLT | A-SIDE CONNECTED; formal B handoff fixed; PENDING combined real receipt/E2E |
+| AV09 | Motion + B common receipt + artifact.handoff + MLT | A-SIDE CONNECTED; disposable E2E with corrected B semantics PASS in run 36948655709; fresh formal B handoff and final combined receipt/E2E PENDING |
 | AV10 | Clean-runner package/runtime setup | PENDING combined clean run |
 | AV11 | Cancellation/UNKNOWN semantics and provider cancellation | IMPLEMENTED; PENDING combined |
 | AV12 | Dependency diff/reuse and new evidence after semantic change | CONTRACT TESTED; PENDING combined |

@@ -15,14 +15,15 @@ This file is the source-controlled integration ledger. A private diagnostic inte
 - B baseline: 93f70241e9fb9d4c99ca76fab55c8517574a9f6f
 - B branch: feat/audio-completion
 - B consumed C0 through normal Git ancestry: verified locally
-- B observed PR/worktree head at this checkpoint: 8ed2d30c8ba797ebd5b8c102d34f8ab5bb3a28b3
-- B formal handoff: AUDIO_READY_FOR_INTEGRATION=true at 8ed2d30c8ba797ebd5b8c102d34f8ab5bb3a28b3; full audio certification run 36744494536 PASS
+- Previous B formal handoff: 8ed2d30c8ba797ebd5b8c102d34f8ab5bb3a28b3; superseded after the formal combined E2E exposed a bounded-loudness receipt defect
+- B observed PR/worktree head at this checkpoint: df2654bed6d2ac57d547846b69d16ea48b4a9ee3
+- B exact-SHA recertification: run 36942574098 PASS with audio-gate PASS and retained final certification artifact; the new AUDIO_READY_FOR_INTEGRATION handoff is still PENDING because B.json has not yet published df2654bed as ready
 - Current origin/main reconciled into A: e3713e90e87f1caa8f7105c065094d5c724d144e
 - Integration branch/worktree exists at integration/composition-av for private diagnostics.
 - Latest observed diagnostic integration head: 5648dd2da719b4602126f3458c3c266679c67b2a
 - Formal combined candidate: integration/composition-av-formal; the exact commit is bound externally by candidate_sha and CANDIDATE_EVIDENCE so the source tree never self-certifies
 
-A never edits the B worktree. B.json, PR #183 ancestry and native evidence now agree on the formal B SHA above. The historical/private integration candidate remains diagnostic history only; the formal candidate is rebuilt from exact A+B ancestry and must obtain fresh exact-SHA certification.
+A never edits the B worktree or B.json. PR #183 and native evidence currently identify recertified B head df2654bed6d2ac57d547846b69d16ea48b4a9ee3, but B.json still marks it RECERTIFICATION_PENDING and audio_ready_for_integration=false. Therefore A has no current B-ready SHA to consume. The historical/private integration candidates remain diagnostic history only; the next formal candidate is cut only after B publishes the new handoff and must obtain fresh exact-SHA certification.
 
 ## Contract history
 
@@ -63,8 +64,11 @@ Unexpected conflicts inside audio-domain/Faust/Ardour are returned to B for expl
 
 ## Candidate evidence
 
-- A_HEAD_SHA: 7ab43f99f4cc62be2a9b0ce9ce1155283a429768
-- B_READY_SHA: 8ed2d30c8ba797ebd5b8c102d34f8ab5bb3a28b3
+- A_HEAD_SHA: 65b773f4dd627b860358342f4d40a1ac532566d1
+- A_AFFECTED_DIAGNOSTIC: Composition diagnostics run 36960368022 PASS (Linux/Windows/macOS contracts + Broker session; Skills/package correctly out of scope)
+- PREVIOUS_B_READY_SHA_SUPERSEDED: 8ed2d30c8ba797ebd5b8c102d34f8ab5bb3a28b3
+- B_RECERTIFIED_SHA_AWAITING_FORMAL_HANDOFF: df2654bed6d2ac57d547846b69d16ea48b4a9ee3 (run 36942574098 PASS)
+- B_READY_SHA: PENDING
 - C0_SHA: 26602e4b25929be869d69ef28fef4dd9713180d7
 - C1_CONSUMER_BOUNDARY: A-owned; exact combined E2E pending
 - INTEGRATION_CANDIDATE_SHA: PENDING
