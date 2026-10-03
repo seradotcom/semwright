@@ -385,10 +385,22 @@ async fn snapshot_with_owned_hit_point(
         eprintln!(
             "BLOCKED_NONINTERACTIVE_OCCLUSION: hosted ARM64 runner exposed no fixture-owned physical pixel"
         );
-        return (
-            last_snapshot.expect("occluded fixture must still expose a scoped semantic snapshot"),
-            None,
+        // The bounded physical-point search can outlive a UIA structure epoch.
+        // Keep the semantic assertions, but observe again after the search;
+        // production StaleReference rejection is unchanged.
+        assert!(
+            last_snapshot.is_some(),
+            "occluded fixture must still expose a scoped semantic snapshot"
         );
+        let fresh_snapshot = backend
+            .execute(
+                ctx,
+                "ui.snapshot",
+                &json!({"_target":window_target.clone()}),
+            )
+            .await
+            .expect("fresh scoped UIA snapshot after physical-point search");
+        return (fresh_snapshot, None);
     }
     panic!(
         "fixture could not own any bounded hit-test placement; last=({},{}) screen={}x{} observed={:?} root={:?} fixture={:?}",

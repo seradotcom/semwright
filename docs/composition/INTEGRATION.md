@@ -1,5 +1,7 @@
 # Composition / Audio / AV integration record
 
+> Historical Agent A handoff. The final combined engineering certificates and main promotion policy are recorded in [the integration ledger](../semantic-creation/INTEGRATION.md); pending owner states below retain their original checkpoint scope.
+
 Historical A+B integration record. The all-owner integration and runtime #201
 work now follow [the I ledger](../semantic-creation/INTEGRATION.md). The B
 `8ed2d30` pin below was superseded by `df2654be`; retain this section as

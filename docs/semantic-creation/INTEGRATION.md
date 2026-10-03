@@ -45,21 +45,51 @@ owner-only green runs do not certify the integrated runtime.
   non-symlink regular-file checks and byte budgets. See
   [the native transport contract](I_RUNTIME_TRANSPORT.md).
 
-## Required remaining closure
+## Integrated engineering closure
 
-1. Certify native combined AV, including pre/post-encode audio, exhaustive sync,
-   Broker publication and C divergence/restoration receipts.
-2. Freeze one candidate and run complete E certification. Consume its exact
-   artifact/run/source/digest through D's full cross-app certification and C
-   receipts on that same source.
-3. Complete B's full audio certification, the required Composition/native
-   consumers and global quality, security, packaging and supply-chain checks.
-4. Deliver the explicit immutable SHA to the separately frozen G suite. Every
-   product lane runs against that source, preserving failed/blocked/not-run
-   states. G's original attack registry and expectations remain intact.
-5. Preserve the exact review baseline and evidence for the independent R16
-   review defined in [the security review contract](../security-review.md).
+The engineering baseline is `cd518748f742025a251b78028613aa1b16919e73`.
+Its certificates are source-scoped; promotion does not relabel them as tests
+executed on a later commit.
+
+| Scope | Hosted Actions run | Result |
+| --- | --- | --- |
+| Combined AV, decoded audio, exhaustive sync and C publication | [37077508380](https://github.com/seradotcom/semwright/actions/runs/37077508380) | PASS |
+| Blender native authoring and export | [37074959691](https://github.com/seradotcom/semwright/actions/runs/37074959691) | PASS |
+| Godot native authoring and cross-app consumption | [37075910269](https://github.com/seradotcom/semwright/actions/runs/37075910269) | PASS |
+| B audio, three operating systems and native engines | [37077804879](https://github.com/seradotcom/semwright/actions/runs/37077804879) | PASS |
+| A Composition and native consumers | [37080028165](https://github.com/seradotcom/semwright/actions/runs/37080028165) | PASS |
+| C Project Graph, Broker, rebuild, fuzz and scale | [37080806793](https://github.com/seradotcom/semwright/actions/runs/37080806793) | PASS |
+| F effects, native consumers, fault cases and mutants | [37081317102](https://github.com/seradotcom/semwright/actions/runs/37081317102) | PASS |
+| Frozen G suite against the combined source | [37074787747](https://github.com/seradotcom/semwright/actions/runs/37074787747) | 480/480 PASS |
+| Global job disposition including corrected ARM64 fixture | [37088550848](https://github.com/seradotcom/semwright/actions/runs/37088550848) | PASS with explicit original-failure disposition |
+| Reproducible engineering review package | [37088728581](https://github.com/seradotcom/semwright/actions/runs/37088728581) | PASS |
+
+The original global run `37074828959` remains FAILURE. Its only failed job used
+a cached UIA test snapshot after a bounded physical-point search. The complete
+ARM64 job passed with a freshly observed snapshot in `37085834067`. The main
+promotion incorporates that exact test-only correction and requires the affected
+Windows workflow to pass on the promotion revision. Production source and the
+root lockfile remain identical to the engineering baseline; changes since that
+baseline are documentation, formal AV ancestry and this test fixture.
+
+## Main promotion and deferred work
+
+The user explicitly authorized merging the completed A–G/runtime integration
+into `main` and deferred H benchmarks to separate future work. H is preserved
+on `eval/semantic-productivity-lab` at
+`6fe1994d9ab25f44631ef8c41e9dad8f05aee0ca`; no model comparison was executed.
+H is not an admission gate for this development integration.
+
+The promotion branch is `integration/semantic-creation-main-promotion`. The
+actual promoted SHA and affected Windows run are recorded in the coordination
+directory's `I_MAIN_PROMOTION.json` and in GitHub's immutable commit/run records.
+The frozen engineering and H deliveries retain their original identities.
+
+Independent R16 review remains open under
+[the security review contract](../security-review.md). Physical desktop and
+interactive Windows residuals remain in [release blockers](../../RELEASE_BLOCKERS.md).
+This development integration does not declare release readiness.
 
 All builds, tests, native engines and packaging run on hosted Actions. Execution
-is staged to limit heavy jobs; required checks are retained. No main merge,
-release, demo production or R16 closure is claimed by this integration ledger.
+is staged to limit heavy jobs; required checks are retained. No release,
+demo production or R16 closure is claimed by this integration ledger.

@@ -1,5 +1,7 @@
 # C1 audio / audiovisual consumer contract
 
+> Historical Agent A handoff. The final combined engineering certificates and main promotion policy are recorded in [the integration ledger](../semantic-creation/INTEGRATION.md); pending owner states below retain their original checkpoint scope.
+
 C0 is commit 26602e4b25929be869d69ef28fef4dd9713180d7. C1 is an additive source contract revision in this PR: media artifact metadata, audio consumer receipts, fixed-stage AV coordination, final decoded sync verification and Broker-only manifest publication. C1 does not claim that the audio agent has consumed it.
 
 ## Public boundary for B

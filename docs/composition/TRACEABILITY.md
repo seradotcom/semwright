@@ -1,5 +1,7 @@
 # Composition / Figma / Motion / AV traceability
 
+> Historical Agent A handoff. The final combined engineering certificates and main promotion policy are recorded in [the integration ledger](../semantic-creation/INTEGRATION.md); pending owner states below retain their original checkpoint scope.
+
 This file maps the Agent-A master requirements to implementation and evidence. It is not an acceptance report. IMPLEMENTED means code/tests exist; only exact-SHA CI/native evidence may change a gate to PASS. Combined A+B rows remain PENDING until B publishes its formal handoff and one combined candidate SHA exists.
 
 ## Agent A mission
