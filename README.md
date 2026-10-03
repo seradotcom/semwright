@@ -12,10 +12,10 @@ structured operations, application APIs and governed system interfaces.
 - **Keep authority local, policy-gated and auditable.**
 - **Read back and verify bounded outcomes instead of assuming success.**
 
-> **Status:** Semwright is pre-1.0 development software. **R16 is CLOSED** and
-> **V1_ENGINEERING_CLOSEOUT is COMPLETE**. R06/R18 physical and interactive certification remains
-> **OPEN — `DEFERRED_TO_POST_V1_ENVIRONMENT_DEPENDENT`**. Full release admission is still fail-closed.
-> See [verification](VERIFY.md), [release blockers](RELEASE_BLOCKERS.md) and [security](SECURITY.md).
+> **Status:** Semwright is pre-1.0 development software. Linux has the broadest verified host
+> coverage; Windows, macOS and some application paths have narrower evidence. V1 engineering
+> closeout is complete, but full release certification remains fail-closed while physical and
+> interactive gates are open. [See exact status and evidence.](#status-and-verification)
 
 [Try Semwright](#try-semwright) · [Applications](#applications) ·
 [How it works](#how-it-works) · [Build an integration](#build-an-integration) ·
