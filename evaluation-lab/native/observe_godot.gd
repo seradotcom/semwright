@@ -80,6 +80,12 @@ func observe() -> void:
     else:
         color = marker.color if marker is Polygon2D else marker.material_override.albedo_color
     var expected = Color(spec.color[0],spec.color[1],spec.color[2],spec.color[3])
+    var color_space = "native authored albedo"
+    if spec.has("asset_source"):
+        # Godot 4.7.2 gltf_document.cpp converts linear baseColorFactor to sRGB.
+        # Match the imported material representation without relaxing the oracle.
+        expected = expected.linear_to_srgb()
+        color_space = "glTF linear baseColorFactor converted to Godot sRGB albedo"
     checks.native_material = color.is_equal_approx(expected)
     for asset_color in asset_colors:
         checks.native_material = checks.native_material and asset_color.is_equal_approx(expected)
@@ -108,7 +114,11 @@ func observe() -> void:
     var report = {"schema_version":1,"oracle":"H-native-godot-input-v1","native":true,
         "outcome":"PASS" if ok else "FAIL","checks":checks,
         "input_origin":"independent Input.parse_input_event; not calls to game methods",
-        "standalone_export_input_acceptance":false}
+        "standalone_export_input_acceptance":false,
+        "material_observation":{"representation":color_space,
+            "expected_rgba":[expected.r,expected.g,expected.b,expected.a],
+            "observed_rgba":[color.r,color.g,color.b,color.a],
+            "all_imported_rgba":asset_colors.map(func(c): return [c.r,c.g,c.b,c.a])}}
     var file = FileAccess.open(args[1], FileAccess.WRITE)
     file.store_string(JSON.stringify(report,"  "))
     file.close()
