@@ -1,5 +1,10 @@
 # Continue this repository, do not regenerate it
 
+> Historical owner record. Its original targets, failures and instructions remain below.
+> PR #174 and the integrated engineering disposition have since been recorded in
+> [the immutable integration ledger](https://github.com/seradotcom/semwright/blob/6491c0d838fa066938a494524d69ed507aa0dbe8/docs/semantic-creation/INTEGRATION.md). This note does not rerun the suite,
+> rewrite a historical result or close R16.
+
 Read README.md, VERIFY.md, RELEASE_BLOCKERS.md and ACCEPTANCE.md, then the original
 requirements under docs/requirements. The actual source exists throughout the workspace;
 this is not a request for another architectural proposal.

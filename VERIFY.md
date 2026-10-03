@@ -1,5 +1,24 @@
 # Verification — Semwright 0.9.0-dev.1
 
+## Current review snapshot versus historical evidence
+
+R reviews `6491c0d838fa066938a494524d69ed507aa0dbe8`. I's source is
+`cd518748f742025a251b78028613aa1b16919e73`; the actual diff is four documentation files and
+the Windows UIA test fixture, not production-source changes. Native Windows run
+[37096430846](https://github.com/seradotcom/semwright/actions/runs/37096430846) passed on R's
+snapshot. I's separate global disposition preserves its original failed run and corrected
+fixture retest. None of these records supplies an independent R16 verdict or turns skipped
+main-push jobs into executed gates.
+
+Consult [I's integration ledger](docs/semantic-creation/INTEGRATION.md) and
+[R's evidence directory](verification/r16-closeout/README.md). The bounded R smoke is not
+a repeat of every native, supply-chain, physical-desktop or fuzz gate below.
+
+## Historical preflight at 241000c268d1bf1dc29d4e91a913097ac0d020cb
+
+The following preflight conclusion and detailed history remain source-scoped. Its failure
+is retained deliberately; it is not the current main snapshot's Windows result.
+
 **Evidence is commit-scoped, not inherited by the commit containing this document.**
 
 The maintainer pre-R16 observation used

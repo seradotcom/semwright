@@ -1,5 +1,10 @@
 # Integration of G's independent laboratory
 
+> Historical owner record. Its original targets, failures and instructions remain below.
+> PR #174 and the integrated engineering disposition have since been recorded in
+> [the immutable integration ledger](https://github.com/seradotcom/semwright/blob/6491c0d838fa066938a494524d69ed507aa0dbe8/docs/semantic-creation/INTEGRATION.md). This note does not rerun the suite,
+> rewrite a historical result or close R16.
+
 G owns only `tests/semantic-adversarial-lab/` and `.github/workflows/semantic-adversarial-lab.yml`. PR #174 is a tests-only draft; no product source is patched. The original lab baseline remains `b736d41b61c4a4146c9e75c16796e251b025e69f`. A refreshed main reference is an observation, not permission to silently change an experiment target.
 
 ## Identities

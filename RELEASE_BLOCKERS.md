@@ -1,13 +1,16 @@
 # Release blockers — 0.9.0-dev.1
 
-**Baseline for all statements below: the exact Git commit containing this document.**
+**This is a historical blocker ledger, not evidence that every gate ran on its containing commit.**
 
-The hosted source, Rust, dependency, coverage, bounded-fuzz, fake-E2E, native application,
-driver-distribution, X11, AT-SPI, PipeWire and platformization jobs are green on the certified
-development line. Provider Runtime, governed stdio MCP federation, persistent App Driver SDK,
-deep application drivers, EIS transport, AT-SPI delta recovery, X11 lifecycle hardening,
-PipeWire frame capture and portal restore/clipboard persistence all have executed evidence.
-This remains a development snapshot and is not a release candidate.
+The R16 review snapshot is `6491c0d838fa066938a494524d69ed507aa0dbe8`. Integrated engineering
+certificates retain source `cd518748f742025a251b78028613aa1b16919e73`, their suite SHAs and
+explicit job dispositions. Native Windows run `37096430846` passed on the review snapshot;
+that does not make skipped main-push jobs executed or close interactive R18.
+See [integrated evidence](docs/semantic-creation/INTEGRATION.md), [verification](VERIFY.md)
+and [R's evidence directory](verification/r16-closeout/README.md).
+
+The closure notes below retain their recorded historical scope. R06, R16 and R18 remain
+open, and `release-readiness.json` is unchanged. This remains development software.
 
 | ID | Remaining blocker | Completion evidence needed |
 |---|---|---|
