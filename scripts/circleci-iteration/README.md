@@ -10,11 +10,19 @@ Pipeline parameters: `candidate-sha` (full commit), `lane` (enum).
 Choose `composition`, `graph-effects`, or `authoring` for an affected area.
 Choose `all` to launch those three independent groups concurrently, subject to
 the CircleCI account's available concurrency. There is no dependency between them.
+`retest-affected` launches only composition and graph/effects after the first
+configuration iteration; authoring already passed 129 controls in pipeline123.
+The first failed pipeline stays preserved with its original source/suite IDs.
 Compilation/test commands have a 25 minute shared budget per group. Registry
 and Git dependency caches stay on CircleCI for seven days, keyed by Linux,
 architecture, Rust 1.98.1, group, and exact Cargo.lock hash. No workstation build
 or cache download is needed. No automatic full regression or paid account change
 is performed.
+
+Ubuntu prerequisites explicitly install Clang18 and its development headers,
+bind libclang/resource paths, and keep native PipeWire bindgen compilation on
+the runner. Audio model inventory uses its integration tests, not the empty
+authoring library test target. Test-count guards retain their original floors.
 
 The fixed command inventory comes from current owner Actions workflows. The
 wrapper rejects zero/incomplete inventories, failures, ignored required tests,

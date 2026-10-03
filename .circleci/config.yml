@@ -8,7 +8,7 @@ parameters:
     default: "cd518748f742025a251b78028613aa1b16919e73"
   lane:
     type: enum
-    enum: [smoke, composition, graph-effects, authoring, all]
+    enum: [smoke, composition, graph-effects, authoring, all, retest-affected]
     default: smoke
 
 jobs:
@@ -65,7 +65,9 @@ jobs:
                   rustup toolchain install 1.98.1 --profile minimal --component rustfmt
                   printf 'export PATH=%q:$PATH\n' "$HOME/.cargo/bin" >> "$BASH_ENV"
                   sudo apt-get update
-                  sudo apt-get install -y pkg-config build-essential libpipewire-0.3-dev
+                  sudo apt-get install -y pkg-config build-essential libpipewire-0.3-dev clang-18 libclang-18-dev
+                  printf 'export LIBCLANG_PATH=%q\n' /usr/lib/llvm-18/lib >> "$BASH_ENV"
+                  printf 'export BINDGEN_EXTRA_CLANG_ARGS=%q\n' "-resource-dir=$(clang-18 -print-resource-dir)" >> "$BASH_ENV"
                   mkdir -p "$HOME/.cargo/registry" "$HOME/.cargo/git"
       - run:
           name: Execute only the selected portable diagnostic inventory
@@ -101,6 +103,7 @@ workflows:
     when:
       or:
         - equal: [all, << pipeline.parameters.lane >>]
+        - equal: [retest-affected, << pipeline.parameters.lane >>]
         - equal: [composition, << pipeline.parameters.lane >>]
     jobs:
       - portable-iteration:
@@ -112,6 +115,7 @@ workflows:
     when:
       or:
         - equal: [all, << pipeline.parameters.lane >>]
+        - equal: [retest-affected, << pipeline.parameters.lane >>]
         - equal: [graph-effects, << pipeline.parameters.lane >>]
     jobs:
       - portable-iteration:

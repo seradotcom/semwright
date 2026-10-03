@@ -21,7 +21,7 @@ LANES = {
         suite("composition-contracts", ["semwright-semantic-composition", "semwright-media-time"], ["--all-targets"], 65),
         suite("motion-contracts", ["semwright-motion-authoring"], ["--all-targets"], 29),
         suite("av-contracts", ["semwright-av-composition"], ["--lib", "--test", "contracts"], 54),
-        suite("audio-model", ["semwright-audio-authoring", "semwright-audio-domain"], ["--lib"], 18),
+        suite("audio-model", ["semwright-audio-authoring", "semwright-audio-domain"], ["--tests"], 18),
     ],
     "graph-effects": [
         suite("graph-store", ["semwright-project-graph"], ["--all-targets"], 36, ["--features", "store"]),
