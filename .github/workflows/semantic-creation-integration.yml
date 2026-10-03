@@ -1,193 +1,53 @@
-name: Semantic creation integration diagnostics (I)
-defaults:
-  run:
-    shell: bash
-
+name: I main promotion source identity
 on:
-  push:
-    branches: [integration/semantic-creation-i-20261001]
-    paths:
-      - crates/semantic-composition/**
-      - crates/driver-godot/src/authoring/**
-      - crates/driver-godot/tests/authoring_profile.rs
-      - crates/driver-godot/tests/authoring_host.rs
-      - crates/driver-faust-audio/**
-      - crates/driver-ardour-audio/**
-      - crates/driver-blender/**
-      - crates/driver-motion-canvas/**
-      - crates/driver-mlt-video/**
-      - crates/driver-sdk/**
-      - crates/driver-host/**
-      - Cargo.lock
-      - crates/audio-authoring/**
-      - crates/effect-conformance/**
-      - scripts/semantic-creation/**
-      - .github/workflows/semantic-creation-integration.yml
   workflow_dispatch:
-    inputs:
-      candidate_sha:
-        description: Immutable integration SHA for owner contracts and transport compile checks
-        required: true
-        type: string
-      native_godot_probe:
-        description: Run two native Godot integration diagnostics after source contracts (not full D certification)
-        required: false
-        type: boolean
-        default: false
 permissions:
   contents: read
-concurrency:
-  group: semantic-creation-i-${{ inputs.candidate_sha || github.sha }}
-  cancel-in-progress: false
 jobs:
-  reconciliation:
+  source-identity:
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
-    env:
-      CARGO_INCREMENTAL: '0'
-      CARGO_PROFILE_DEV_DEBUG: '0'
-      CARGO_PROFILE_TEST_DEBUG: '0'
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: ${{ inputs.candidate_sha || github.sha }}
+          ref: 6491c0d838fa066938a494524d69ed507aa0dbe8
+          fetch-depth: 0
           persist-credentials: false
-      - name: Bind exact source
+      - name: Verify ancestry, production equivalence and exact certified fixture
         env:
-          CANDIDATE_SHA: ${{ inputs.candidate_sha || github.sha }}
+          SUITE_SHA: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
         run: |
-          set -euo pipefail
-          [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
-          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
-          git diff --exit-code
-          git diff --cached --exit-code
-      - name: Runtime-tool source boundaries
-        run: |
-          python3 scripts/verify-driver-runtime-tools.py
-          python3 -m unittest discover -s tests/python -p test_runtime_tool_guard.py -v
-      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
-        with:
-          toolchain: 1.98.1
-          components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
-        with:
-          shared-key: godot-authoring-v1
-      - name: Native compile prerequisites
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libpipewire-0.3-dev pkg-config
-      - name: Lockfile source diagnostic
-        run: |
-          mkdir -p verification/semantic-creation
-          cp Cargo.lock verification/semantic-creation/Cargo.lock.before
-          if ! cargo metadata --locked --format-version 1 > verification/semantic-creation/metadata.json; then
-            cargo metadata --format-version 1 > verification/semantic-creation/metadata.resolved.json
-            cp Cargo.lock verification/semantic-creation/Cargo.lock.resolved
-            exit 1
-          fi
-      - name: Source formatting
-        run: cargo fmt -p semwright-semantic-composition -p semwright-driver-godot -p semwright-audio-authoring -p semwright-effect-conformance -p semwright-driver-sdk -p semwright-driver-blender -p semwright-driver-motion-canvas -p semwright-mlt-video-driver -p semwright-faust-audio-driver -p semwright-ardour-audio-driver -p semwright-av-composition -- --check
-      - name: Combined runtime transport compilation
-        run: cargo check --locked --all-targets -p semwright-driver-godot -p semwright-driver-blender -p semwright-driver-motion-canvas -p semwright-mlt-video-driver -p semwright-faust-audio-driver -p semwright-ardour-audio-driver -p semwright-av-composition --features semwright-driver-blender/authoring-native
-      - name: Host job wait and cancellation contracts
-        run: cargo test --locked -p semwright-driver-sdk --lib -- --nocapture
-      - name: Scoped pinned font reader boundaries
-        run: |
-          cargo test --locked -p semwright-driver-motion-canvas --lib store::tests::pinned_font_reader -- --nocapture 2>&1 | tee verification/semantic-creation/pinned-font-reader.log
-          grep -F 'test result: ok. 2 passed; 0 failed; 0 ignored;' verification/semantic-creation/pinned-font-reader.log
-      - name: MLT executable ownership boundary
-        run: cargo test --locked -p semwright-mlt-video-driver --lib owner_policy_allows_only_explicit_trust_cases -- --nocapture
-      - name: AV native artifact and compiled context admission
-        run: cargo test --locked -p semwright-av-composition --lib --test contracts
-      - name: A contracts and D reconciliation source regressions
-        run: python3 scripts/semantic-creation/reconciliation_diagnostic.py
-      - name: Godot native wire and process-incarnation contracts
-        run: cargo test --locked -p semwright-driver-godot --lib --test authoring_native -- --nocapture
-      - name: Strict A/D lints
-        run: cargo clippy --locked -p semwright-semantic-composition -p semwright-driver-godot -p semwright-audio-authoring -p semwright-effect-conformance -p semwright-driver-sdk -p semwright-driver-blender -p semwright-driver-motion-canvas -p semwright-mlt-video-driver -p semwright-faust-audio-driver -p semwright-ardour-audio-driver -p semwright-av-composition --all-targets --no-deps --features semwright-driver-blender/authoring-native -- -D warnings
-      - name: Preserve exact-source identity after checks
-        run: |
-          git diff --exit-code
-          git diff --cached --exit-code
+          python3 - <<'PY'
+          import hashlib,json,os,subprocess
+          from pathlib import Path
+          source='6491c0d838fa066938a494524d69ed507aa0dbe8'
+          baseline='cd518748f742025a251b78028613aa1b16919e73'
+          def git(*args):return subprocess.check_output(['git',*args])
+          assert git('rev-parse','HEAD').decode().strip()==source
+          subprocess.run(['git','merge-base','--is-ancestor',baseline,source],check=True)
+          subprocess.run(['git','diff','--exit-code'],check=True)
+          subprocess.run(['git','diff','--cached','--exit-code'],check=True)
+          docs=['docs/composition/AUDIO_AV_CONTRACT.md','docs/composition/INTEGRATION.md','docs/composition/TRACEABILITY.md','docs/semantic-creation/INTEGRATION.md']
+          fixture='crates/platform-windows/tests/uia_native_fixture.rs'
+          changed=git('diff','--name-only',baseline,source).decode().splitlines()
+          assert sorted(changed)==sorted(docs+[fixture]),changed
+          original_fixture=git('show',baseline+':'+fixture)
+          certified=git('show','27924ecf3bba369e0560c6685693bac3aa1dcdc3:integration-lab/i-windows-arm64-cd51874/uia_native_fixture.rs')
+          actual=git('show',source+':'+fixture)
+          assert actual==certified and actual!=original_fixture
+          owners={'A':'65b773f4dd627b860358342f4d40a1ac532566d1','B':'df2654bed6d2ac57d547846b69d16ea48b4a9ee3','C':'77b34d8abad50f242c4c8494e280fe82d5cbcf55','C14':'28eba9d733d254289255b33a9c14d409fad3e2e2','D':'70bd7857e9700b6f03547a706ff0e6496ffd838e','E':'f492f13a028f781d9ca55631764578f5b327eb1b','F':'eadd5caf9b3f47f24158de530b87ad07e597f25e','G':'a88e80f9de4aa2883b233d009a4b41ecdde08a0b','runtime_201':'733037145c374d28cb7d0e3d51dc76c64f223ad4','dependencies_198':'e7d1149e2920522fb0eaec17783e35ca11d0231b','ci_192':'faaa26ce7d014601a3da0a34ba1ff995ae74fae0','formal_av_204':'1fc61e3be25fcdb88e882e989127945508109510','previous_main':'e3713e90e87f1caa8f7105c065094d5c724d144e'}
+          for sha in owners.values():subprocess.run(['git','merge-base','--is-ancestor',sha,source],check=True)
+          lock=hashlib.sha256(Path('Cargo.lock').read_bytes()).hexdigest()
+          assert lock=='53458999594da110fc8e55ebcbab1b7427157c7aacc30ef3eb8b90707bd2cefe'
+          evidence={'schema':1,'status':'PASS_SOURCE_IDENTITY','source_sha':source,'suite_sha':os.environ['SUITE_SHA'],'run_id':int(os.environ['RUN_ID']),'certified_engineering_baseline':baseline,'changed_paths':changed,'all_other_tracked_blobs_unchanged':True,'production_source_unchanged':True,'lockfile_sha256':lock,'fixture_sha256':hashlib.sha256(actual).hexdigest(),'fixture_certificate_run':37085834067,'included_ancestors':owners,'H_deferred_by_user':True,'benchmark_executed':False,'independent_R16_closed':False,'main_merge_performed':False}
+          Path('promotion-evidence').mkdir()
+          Path('promotion-evidence/SOURCE_IDENTITY.json').write_text(json.dumps(evidence,indent=2)+'\n')
+          print(json.dumps(evidence,indent=2))
+          PY
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        if: always()
         with:
-          name: semantic-creation-i-reconciliation-${{ inputs.candidate_sha || github.sha }}
-          path: verification/semantic-creation
+          name: main-promotion-source-6491c0d
+          path: promotion-evidence
           if-no-files-found: error
-          retention-days: 14
-
-  godot-native-probe:
-    needs: reconciliation
-    if: ${{ inputs.native_godot_probe == true && needs.reconciliation.result == 'success' }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 25
-    env:
-      CARGO_INCREMENTAL: '0'
-      CARGO_PROFILE_DEV_DEBUG: '0'
-      CARGO_PROFILE_TEST_DEBUG: '0'
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: ${{ inputs.candidate_sha }}
-          persist-credentials: false
-      - name: Bind diagnostic to exact source
-        env:
-          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
-        run: |
-          set -euo pipefail
-          [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
-          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
-          test "$GITHUB_SHA" = "$CANDIDATE_SHA"
-          mkdir -p verification/godot-integration-probe
-          printf '%s\n' "$CANDIDATE_SHA" > verification/godot-integration-probe/SOURCE_SHA
-          printf '%s\n' 'NATIVE_INTEGRATION_DIAGNOSTIC_ONLY_NOT_FULL_D_CERTIFICATION' > verification/godot-integration-probe/SCOPE
-          echo "CARGO_TARGET_DIR=$RUNNER_TEMP/godot-probe-target" >> "$GITHUB_ENV"
-      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
-        with:
-          toolchain: 1.98.1
-      - name: Provision isolated pinned Godot and export template
-        run: |
-          set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install -y bubblewrap apparmor-profiles apparmor-utils libpipewire-0.3-dev unzip
-          bash scripts/dev/ci-driver-bwrap-profile.sh verification/godot-integration-probe/sandbox-setup.log
-          mkdir -p "$RUNNER_TEMP/godot-probe" "$RUNNER_TEMP/godot-probe-templates"
-          curl -fL --retry 4 --retry-delay 2 \
-            https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip \
-            -o "$RUNNER_TEMP/godot-probe.zip"
-          unzip -q "$RUNNER_TEMP/godot-probe.zip" -d "$RUNNER_TEMP/godot-probe"
-          GODOT="$RUNNER_TEMP/godot-probe/Godot_v4.7.2-stable_linux.x86_64"
-          echo "8d106cbe6144c2dc7e881d61d2429c1a8a76e6b22ef48bd5e48dcf934953f71e  $GODOT" | sha256sum -c -
-          "$GODOT" --version > verification/godot-integration-probe/godot-version.txt
-          curl -fL --retry 4 --retry-delay 2 \
-            https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_export_templates.tpz \
-            -o "$RUNNER_TEMP/godot-probe-templates.tpz"
-          echo "f298490b8d44d934be425a5a65a51bf15f422428b229a06a6e11d9ffea248011  $RUNNER_TEMP/godot-probe-templates.tpz" | sha256sum -c -
-          unzip -j -q "$RUNNER_TEMP/godot-probe-templates.tpz" \
-            templates/linux_release.x86_64 -d "$RUNNER_TEMP/godot-probe-templates"
-          chmod 0755 "$RUNNER_TEMP/godot-probe-templates/linux_release.x86_64"
-          echo "GODOT_BIN=$GODOT" >> "$GITHUB_ENV"
-          echo "SEMWRIGHT_TEST_GODOT_EXPORT_TEMPLATES=$RUNNER_TEMP/godot-probe-templates" >> "$GITHUB_ENV"
-      - name: Build bounded driver and sandbox helper
-        run: cargo build --locked -p semwright-driver-godot --bin semwright-godot-driver -p semwright-plugin-host --bin semwright-sandbox
-      - name: Real Host persistence and export diagnostics
-        run: |
-          set -euo pipefail
-          export SEMWRIGHT_TEST_SANDBOX_HELPER="$CARGO_TARGET_DIR/debug/semwright-sandbox"
-          for test_name in export_lane_builds_and_launches_without_editor_or_semwright empty_project_authoring_flows_through_broker_driver_host_and_provider
-          do
-            SEMWRIGHT_TEST_GODOT_AUTHORING_HOST=1 \
-              cargo test --locked -p semwright-driver-godot --test authoring_host "$test_name" \
-              -- --ignored --exact --nocapture --test-threads=1 \
-              2>&1 | tee "verification/godot-integration-probe/$test_name.log"
-            grep -F 'test result: ok. 1 passed; 0 failed; 0 ignored;' "verification/godot-integration-probe/$test_name.log"
-          done
-          git diff --exit-code
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        if: always()
-        with:
-          name: godot-integration-probe-${{ inputs.candidate_sha }}
-          path: verification/godot-integration-probe
-          if-no-files-found: error
-          retention-days: 14
+          retention-days: 30
