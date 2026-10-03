@@ -1,0 +1,839 @@
+{
+  "schema_version": 1,
+  "review_id": "R16-2026-10-03-6491c0d8",
+  "generated_at_utc": "2026-10-03T05:29:08.167280+00:00",
+  "role": "R",
+  "review_target_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+  "final_source_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+  "engineering_source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+  "source_changes_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+  "reports_are_subsequent_evidence_only": true,
+  "delivery_commit_recorded_in": "External DELIVERY_MANIFEST.json in backup",
+  "r16_closed": false,
+  "external_audit": false,
+  "reviewer_provenance": "AI-assisted agent review; no product-code correction authored by R",
+  "independence_eligibility": "UNCONFIRMED",
+  "areas": [
+    {
+      "id": "R16-01",
+      "title": "Authorization and confirmation",
+      "status": "PARTIAL_REVIEW",
+      "source_locations": [
+        "crates/policy/src/lib.rs:1-382",
+        "crates/core/src/lib.rs:591-1000",
+        "crates/daemon/src/console.rs:1-145"
+      ],
+      "review_target_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+      "observation": "Schemas, explicit grants, application scope, operator confirmation and post-confirmation reference/policy checks converge on broker dispatch. Nine policy tests and five Composition library tests ran in R smoke.",
+      "limitations": [
+        "Direct PlanVault/prepared-plan lifetime inspection was tool-blocked. A passing library subset does not cover every cross-domain owner/revocation transition."
+      ],
+      "finding_ids": [
+        "R-007",
+        "R-008"
+      ],
+      "owner": "Broker / Composition owners"
+    },
+    {
+      "id": "R16-02",
+      "title": "IPC and session identity",
+      "status": "REVIEWED_NO_OPEN_BLOCKING_FINDINGS_IN_SCOPE",
+      "source_locations": [
+        "crates/daemon/src/server.rs:1-320",
+        "crates/daemon/src/server.rs:435-506",
+        "crates/protocol/src/lib.rs:1-145",
+        "crates/protocol/src/lib.rs:236-286"
+      ],
+      "review_target_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+      "observation": "Bounded framed IPC, peer validation, private endpoints/tickets, session expiry and request replay rejection are present. Seven protocol library tests ran. Windows server dispatch explicitly validates the peer.",
+      "limitations": [
+        "Same-user hostile processes remain outside the stated boundary. R did not independently reexecute Windows principal or interactive-session cases."
+      ],
+      "finding_ids": [],
+      "owner": "IPC / platform owners"
+    },
+    {
+      "id": "R16-03",
+      "title": "Object identity and focus",
+      "status": "PARTIAL_REVIEW",
+      "source_locations": [
+        "crates/core/src/lib.rs:591-1000",
+        "docs/project-graph/INTEGRATION.md",
+        "docs/semantic-creation/INTEGRATION.md"
+      ],
+      "review_target_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+      "observation": "Broker references are resolved again after approval; live validation and focused-window requirements precede input. The Graph identity contract is distinct from permission. G Graph receipts contain 74 product cases on I source.",
+      "limitations": [
+        "Direct Graph implementation inspection and additional test selection were blocked. R Graph --lib executed zero tests. A focus precheck is not a proof of exclusive graphical authority."
+      ],
+      "finding_ids": [
+        "R-005",
+        "R-008"
+      ],
+      "owner": "Broker / Graph / desktop owners"
+    },
+    {
+      "id": "R16-04",
+      "title": "Portal authority",
+      "status": "BLOCKED_ENVIRONMENT",
+      "source_locations": [
+        "docs/permissions.md",
+        "VERIFY.md",
+        "RELEASE_BLOCKERS.md",
+        "verification/live-portal-eis/"
+      ],
+      "review_target_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+      "observation": "Reviewed the declared OS/user-consent, restore-token, clipboard and session-lifecycle contract and the boundaries of historical desktop evidence. Earlier shared-authority keyboard diagnostics remain invalidated; later isolated VM records are not physical-hardware certification.",
+      "limitations": [
+        "The requested portal implementation ranges were tool-blocked. R did not request live portal consent or reexecute any interactive portal sequence. Code-level and physical residuals remain explicit."
+      ],
+      "finding_ids": [
+        "R-008",
+        "R-010"
+      ],
+      "owner": "Linux portal owner / maintainer"
+    },
+    {
+      "id": "R16-05",
+      "title": "Filesystem confinement",
+      "status": "PARTIAL_REVIEW",
+      "source_locations": [
+        "crates/platform-linux-sys/src/filesystem.rs:1-320",
+        "crates/platform-services/src/lib.rs:1-250"
+      ],
+      "review_target_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+      "observation": "The inspected Linux path uses a pinned directory descriptor, relative-path validation and openat2 confinement. Reads are bounded regular single-link files; publication uses a private temporary file and descriptor-relative parent. Observation explicitly states it is not CAS.",
+      "limitations": [
+        "R reviewed the Linux slice and platform dispatch, not every implementation line on all three hosts. No new live filesystem race or platform-native campaign ran. Existing metadata/hash identity is not a universal transactional guarantee."
+      ],
+      "finding_ids": [
+        "R-008"
+      ],
+      "owner": "Filesystem / platform owners"
+    },
+    {
+      "id": "R16-06",
+      "title": "Driver and Plugin isolation",
+      "status": "PARTIAL_REVIEW",
+      "source_locations": [
+        "crates/driver-host/src/lib.rs:166-340",
+        "crates/platform-services/src/lib.rs:1-250",
+        "docs/runtime-tools.md"
+      ],
+      "review_target_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+      "observation": "Typed Host arguments check mount/dependency allowlists, and the inspected Linux launch route delegates to the platform sandbox. The Host declares bounded calls, jobs, sessions, frame output and session lifetime. Provider-scoped sessions differ from user-session-scoped jobs.",
+      "limitations": [
+        "The large Host/Plugin implementation was not exhaustively audited. Existing-process application authority is distinct from child sandboxing. R did not run hostile payloads or a new native confinement campaign."
+      ],
+      "finding_ids": [
+        "R-007",
+        "R-008"
+      ],
+      "owner": "Driver Host / Plugin / platform owners"
+    },
+    {
+      "id": "R16-07",
+      "title": "Federated MCP",
+      "status": "FINDINGS_OPEN",
+      "source_locations": [
+        "crates/federation/src/lib.rs:551-870",
+        "crates/core/src/lib.rs:591-1000"
+      ],
+      "review_target_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+      "observation": "Imported tools have owner-bound namespace, untrusted descriptions, explicit provider requirements and mandatory sensitive confirmation. Descriptor digest drift is rejected; cancellation/upstream failures preserve uncertainty.",
+      "limitations": [
+        "The 512-tool count check follows list_all_tools completion. Cumulative SDK pagination/frame allocation bounds were not established in this review; R-006 is unconfirmed, not a demonstrated exploit."
+      ],
+      "finding_ids": [
+        "R-006"
+      ],
+      "owner": "Federation / broker owners"
+    },
+    {
+      "id": "R16-08",
+      "title": "Prompt-injection containment",
+      "status": "REVIEWED_NO_OPEN_BLOCKING_FINDINGS_IN_SCOPE",
+      "source_locations": [
+        "crates/federation/src/lib.rs:551-870",
+        "crates/core/src/lib.rs:591-1000",
+        "crates/daemon/src/console.rs:1-145",
+        "docs/skills.md"
+      ],
+      "review_target_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+      "observation": "Upstream descriptions are labeled untrusted and bounded; the inspected confirmation path escapes resource text. The broker validates descriptors/grants independently of prose. Skills and recipes are documented as procedures, not extra authorization.",
+      "limitations": [
+        "No universal prompt-injection immunity is claimed. This is deterministic authority-path review, not a model-based robustness benchmark, and not an audit of every renderer or third-party application."
+      ],
+      "finding_ids": [],
+      "owner": "Broker / Skills / frontend owners"
+    },
+    {
+      "id": "R16-09",
+      "title": "Audit and disclosure",
+      "status": "REMEDIATED_REVALIDATION_PENDING",
+      "source_locations": [
+        "crates/core/src/audit.rs:106-316",
+        "crates/core/src/lib.rs:591-1000",
+        "SECURITY.md",
+        "SUPPORT.md"
+      ],
+      "review_target_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+      "observation": "The inspected audit path preserves provenance, validates an existing chain, bounds retention and records abandoned/unknown outcomes. R observed successful nested invocation metadata in the fake smoke. Public support/security instructions now match the enabled private reporting channel.",
+      "limitations": [
+        "The chain is not a publisher signature or protection against an already-authorized same-user process rewriting state. R-authored security and evidence guidance still requires independent adoption."
+      ],
+      "finding_ids": [
+        "R-003",
+        "R-004",
+        "R-007"
+      ],
+      "owner": "Audit / maintainer"
+    },
+    {
+      "id": "R16-10",
+      "title": "Resources and lifecycle",
+      "status": "FINDINGS_OPEN",
+      "source_locations": [
+        "crates/core/src/jobs.rs:1-260",
+        "crates/daemon/src/server.rs:1-320",
+        "crates/driver-host/src/lib.rs:166-340",
+        "crates/federation/src/lib.rs:551-870"
+      ],
+      "review_target_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+      "observation": "Jobs have explicit global/session/active/result/artifact limits and owner-filtered get/list/cancel. Session IPC and Host tool budgets are visible. Historical G lifecycle receipts record 18 cases; they were not rerun by R.",
+      "limitations": [
+        "The unconfirmed federated aggregate-list observation remains open. Script completion is not comprehensive descendant/process/socket cleanup proof; unsupported native platform resource combinations retain their limits."
+      ],
+      "finding_ids": [
+        "R-006"
+      ],
+      "owner": "Jobs / Federation / Host owners"
+    },
+    {
+      "id": "R16-11",
+      "title": "Supply chain",
+      "status": "PARTIAL_REVIEW",
+      "source_locations": [
+        "Cargo.lock",
+        "rust-toolchain.toml",
+        ".github/workflows/r16-closeout.yml",
+        "scripts/ci/pre-r16-secret-scan.py:1-193",
+        "scripts/release/assert-ready.py:1-115"
+      ],
+      "review_target_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+      "observation": "The committed lock and pinned toolchain were preserved. R workflow actions are immutable-pinned with read-only contents permission and separate source/suite checkout. Fourteen historical G archive digests and four I/Windows archive digests were matched. The release guard still rejects missing live/security admission.",
+      "limitations": [
+        "No fresh full dependency, secret-history, packaging, SBOM, Nix, notarization or signature campaign ran on the documentary candidate. Existing I certificates retain their source identity. A digest proves matching bytes, not publisher identity."
+      ],
+      "finding_ids": [
+        "R-007",
+        "R-009"
+      ],
+      "owner": "Supply-chain / maintainer"
+    },
+    {
+      "id": "R16-12",
+      "title": "Platform limits",
+      "status": "PARTIAL_REVIEW",
+      "source_locations": [
+        "crates/platform-services/src/lib.rs:1-250",
+        "docs/platforms.md",
+        "docs/compatibility.md",
+        "RELEASE_BLOCKERS.md"
+      ],
+      "review_target_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+      "observation": "The platform dispatch selects separate Linux/macOS/Windows services; macOS arbitrary-child sandbox entry remains denied. The current Windows native run is successful at the review target, and public docs no longer describe Windows as only future work.",
+      "limitations": [
+        "Hosted native CI is not unlocked-desktop acceptance. Physical R06, Windows R18 and interactive macOS/TCC scope were not exercised by R. No Linux PASS is extrapolated to another OS."
+      ],
+      "finding_ids": [
+        "R-002",
+        "R-010"
+      ],
+      "owner": "Platform owners / maintainer"
+    }
+  ],
+  "successful_source_reads": [
+    {
+      "path": "crates/policy/src/lib.rs",
+      "source_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+      "git_blob": "4a07a310541f561faf7b0bc1f8b453b68309f601",
+      "successful_read_lines": [
+        1,
+        382
+      ],
+      "method": "direct code read; not an exhaustive file audit"
+    },
+    {
+      "path": "crates/core/src/lib.rs",
+      "source_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+      "git_blob": "fb7f394ca54461016e56758e859f0d5bbf34c535",
+      "successful_read_lines": [
+        591,
+        1000
+      ],
+      "method": "direct code read; not an exhaustive file audit"
+    },
+    {
+      "path": "crates/daemon/src/server.rs",
+      "source_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+      "git_blob": "c8769730c685f99644fbbf5e4caa41311faa5bbf",
+      "successful_read_lines": [
+        1,
+        320
+      ],
+      "method": "direct code read; not an exhaustive file audit"
+    },
+    {
+      "path": "crates/daemon/src/server.rs",
+      "source_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+      "git_blob": "c8769730c685f99644fbbf5e4caa41311faa5bbf",
+      "successful_read_lines": [
+        435,
+        506
+      ],
+      "method": "direct code read; not an exhaustive file audit"
+    },
+    {
+      "path": "crates/daemon/src/console.rs",
+      "source_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+      "git_blob": "cedf4a08cc1bbdf5370693e0b0dee76bd70d5df3",
+      "successful_read_lines": [
+        1,
+        145
+      ],
+      "method": "direct code read; not an exhaustive file audit"
+    },
+    {
+      "path": "crates/protocol/src/lib.rs",
+      "source_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+      "git_blob": "6fa96dfea6fc0d125f660ec14bf048d35258f218",
+      "successful_read_lines": [
+        1,
+        145
+      ],
+      "method": "direct code read; not an exhaustive file audit"
+    },
+    {
+      "path": "crates/protocol/src/lib.rs",
+      "source_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+      "git_blob": "6fa96dfea6fc0d125f660ec14bf048d35258f218",
+      "successful_read_lines": [
+        236,
+        286
+      ],
+      "method": "direct code read; not an exhaustive file audit"
+    },
+    {
+      "path": "crates/platform-linux-sys/src/filesystem.rs",
+      "source_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+      "git_blob": "07e55cbe6e0b522430147030fa3b13f23caae6a8",
+      "successful_read_lines": [
+        1,
+        320
+      ],
+      "method": "direct code read; not an exhaustive file audit"
+    },
+    {
+      "path": "crates/federation/src/lib.rs",
+      "source_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+      "git_blob": "d686cb9696a1121de5e9793ed98029b646ff9ce4",
+      "successful_read_lines": [
+        551,
+        870
+      ],
+      "method": "direct code read; not an exhaustive file audit"
+    },
+    {
+      "path": "crates/core/src/audit.rs",
+      "source_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+      "git_blob": "5e30796048c2cd723a1c243b550f553ad89ddb01",
+      "successful_read_lines": [
+        106,
+        316
+      ],
+      "method": "direct code read; not an exhaustive file audit"
+    },
+    {
+      "path": "crates/core/src/jobs.rs",
+      "source_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+      "git_blob": "fe2d901a2cafae531c622dfdfc36896dcab225ac",
+      "successful_read_lines": [
+        1,
+        260
+      ],
+      "method": "direct code read; not an exhaustive file audit"
+    },
+    {
+      "path": "crates/driver-host/src/lib.rs",
+      "source_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+      "git_blob": "8790dacb562e13c45d6a019270e7457b784a7d93",
+      "successful_read_lines": [
+        166,
+        340
+      ],
+      "method": "direct code read; not an exhaustive file audit"
+    },
+    {
+      "path": "crates/platform-services/src/lib.rs",
+      "source_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+      "git_blob": "d6802f634c8de5b7dff87d3c1f687cdd64e0bce7",
+      "successful_read_lines": [
+        1,
+        250
+      ],
+      "method": "direct code read; not an exhaustive file audit"
+    },
+    {
+      "path": "scripts/ci/pre-r16-secret-scan.py",
+      "source_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+      "git_blob": "69b3c9fb2cc8023c3cfbba44e88406b681e55ae4",
+      "successful_read_lines": [
+        1,
+        193
+      ],
+      "method": "direct code read; not an exhaustive file audit"
+    },
+    {
+      "path": "scripts/release/assert-ready.py",
+      "source_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+      "git_blob": "4c0b978d46a20257ec2ccc12639a0407b13d62f5",
+      "successful_read_lines": [
+        1,
+        115
+      ],
+      "method": "direct code read; not an exhaustive file audit"
+    }
+  ],
+  "executions": [
+    {
+      "kind": "R frozen-source smoke",
+      "result": "PASS",
+      "executed": true,
+      "run_id": 37099067854,
+      "job_id": 111134879759,
+      "source_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+      "suite_sha": "df17366855be487fc22189658f6a3f0cc0f5dfc5",
+      "actual_library_tests": 21,
+      "fresh_graph_effects_tests": 0
+    },
+    {
+      "kind": "documentary",
+      "result": "PASS",
+      "executed": true,
+      "run_id": 37099590257,
+      "job_id": 111136349060,
+      "source_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "suite_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "url": "https://github.com/seradotcom/semwright/actions/runs/37099590257/job/111136349060"
+    },
+    {
+      "kind": "positive-smoke",
+      "result": "SKIPPED",
+      "executed": false,
+      "run_id": 37099590257,
+      "job_id": 111136422081,
+      "source_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "suite_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "url": "https://github.com/seradotcom/semwright/actions/runs/37099590257/job/111136422081"
+    },
+    {
+      "kind": "scope",
+      "result": "PASS",
+      "executed": true,
+      "run_id": 37099614123,
+      "job_id": 111136418922,
+      "source_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "suite_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "url": "https://github.com/seradotcom/semwright/actions/runs/37099614123/job/111136418922",
+      "execution_type": "classification_only",
+      "product_tests_executed": 0,
+      "source_identity_note": "Source SHA denotes classifier input head, not a product-test checkout."
+    },
+    {
+      "kind": "source-contracts",
+      "result": "PASS",
+      "executed": true,
+      "run_id": 37099614123,
+      "job_id": 111136443116,
+      "source_sha": "21447095a4120fc52f2506e8d7e4ffcf9e7562fd",
+      "suite_sha": "21447095a4120fc52f2506e8d7e4ffcf9e7562fd",
+      "url": "https://github.com/seradotcom/semwright/actions/runs/37099614123/job/111136443116",
+      "candidate_head_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "candidate_tree_equal": true
+    },
+    {
+      "kind": "static-lints",
+      "result": "PASS",
+      "executed": true,
+      "run_id": 37099614123,
+      "job_id": 111136443134,
+      "source_sha": "21447095a4120fc52f2506e8d7e4ffcf9e7562fd",
+      "suite_sha": "21447095a4120fc52f2506e8d7e4ffcf9e7562fd",
+      "url": "https://github.com/seradotcom/semwright/actions/runs/37099614123/job/111136443134",
+      "candidate_head_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "candidate_tree_equal": true
+    },
+    {
+      "kind": "msrv",
+      "result": "SKIPPED",
+      "executed": false,
+      "run_id": 37099614123,
+      "job_id": 111136443875,
+      "source_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "suite_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "url": "https://github.com/seradotcom/semwright/actions/runs/37099614123/job/111136443875"
+    },
+    {
+      "kind": "rust",
+      "result": "SKIPPED",
+      "executed": false,
+      "run_id": 37099614123,
+      "job_id": 111136443925,
+      "source_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "suite_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "url": "https://github.com/seradotcom/semwright/actions/runs/37099614123/job/111136443925"
+    },
+    {
+      "kind": "scope",
+      "result": "PASS",
+      "executed": true,
+      "run_id": 37099614145,
+      "job_id": 111136418910,
+      "source_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "suite_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "url": "https://github.com/seradotcom/semwright/actions/runs/37099614145/job/111136418910",
+      "execution_type": "classification_only",
+      "product_tests_executed": 0,
+      "source_identity_note": "Source SHA denotes classifier input head, not a product-test checkout."
+    },
+    {
+      "kind": "dependencies",
+      "result": "SKIPPED",
+      "executed": false,
+      "run_id": 37099614145,
+      "job_id": 111136443909,
+      "source_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "suite_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "url": "https://github.com/seradotcom/semwright/actions/runs/37099614145/job/111136443909"
+    },
+    {
+      "kind": "fuzz",
+      "result": "SKIPPED",
+      "executed": false,
+      "run_id": 37099614145,
+      "job_id": 111136444262,
+      "source_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "suite_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "url": "https://github.com/seradotcom/semwright/actions/runs/37099614145/job/111136444262"
+    },
+    {
+      "kind": "coverage",
+      "result": "SKIPPED",
+      "executed": false,
+      "run_id": 37099614145,
+      "job_id": 111136444294,
+      "source_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "suite_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "url": "https://github.com/seradotcom/semwright/actions/runs/37099614145/job/111136444294"
+    },
+    {
+      "kind": "scope",
+      "result": "PASS",
+      "executed": true,
+      "run_id": 37099614157,
+      "job_id": 111136418994,
+      "source_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "suite_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "url": "https://github.com/seradotcom/semwright/actions/runs/37099614157/job/111136418994",
+      "execution_type": "classification_only",
+      "product_tests_executed": 0,
+      "source_identity_note": "Source SHA denotes classifier input head, not a product-test checkout."
+    },
+    {
+      "kind": "chromium",
+      "result": "SKIPPED",
+      "executed": false,
+      "run_id": 37099614157,
+      "job_id": 111136439649,
+      "source_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "suite_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "url": "https://github.com/seradotcom/semwright/actions/runs/37099614157/job/111136439649"
+    },
+    {
+      "kind": "driver-distribution",
+      "result": "SKIPPED",
+      "executed": false,
+      "run_id": 37099614157,
+      "job_id": 111136439763,
+      "source_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "suite_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "url": "https://github.com/seradotcom/semwright/actions/runs/37099614157/job/111136439763"
+    },
+    {
+      "kind": "figma-driver",
+      "result": "SKIPPED",
+      "executed": false,
+      "run_id": 37099614157,
+      "job_id": 111136439809,
+      "source_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "suite_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "url": "https://github.com/seradotcom/semwright/actions/runs/37099614157/job/111136439809"
+    },
+    {
+      "kind": "driver-conformance",
+      "result": "SKIPPED",
+      "executed": false,
+      "run_id": 37099614157,
+      "job_id": 111136439861,
+      "source_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "suite_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "url": "https://github.com/seradotcom/semwright/actions/runs/37099614157/job/111136439861"
+    },
+    {
+      "kind": "blender-driver",
+      "result": "SKIPPED",
+      "executed": false,
+      "run_id": 37099614157,
+      "job_id": 111136439989,
+      "source_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "suite_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "url": "https://github.com/seradotcom/semwright/actions/runs/37099614157/job/111136439989"
+    },
+    {
+      "kind": "libreoffice-driver",
+      "result": "SKIPPED",
+      "executed": false,
+      "run_id": 37099614157,
+      "job_id": 111136440026,
+      "source_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "suite_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "url": "https://github.com/seradotcom/semwright/actions/runs/37099614157/job/111136440026"
+    },
+    {
+      "kind": "kicad-mlt-drivers",
+      "result": "SKIPPED",
+      "executed": false,
+      "run_id": 37099614157,
+      "job_id": 111136440279,
+      "source_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "suite_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "url": "https://github.com/seradotcom/semwright/actions/runs/37099614157/job/111136440279"
+    },
+    {
+      "kind": "x11-backend",
+      "result": "SKIPPED",
+      "executed": false,
+      "run_id": 37099614157,
+      "job_id": 111136440384,
+      "source_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "suite_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "url": "https://github.com/seradotcom/semwright/actions/runs/37099614157/job/111136440384"
+    },
+    {
+      "kind": "sway-backend",
+      "result": "SKIPPED",
+      "executed": false,
+      "run_id": 37099614157,
+      "job_id": 111136440388,
+      "source_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "suite_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "url": "https://github.com/seradotcom/semwright/actions/runs/37099614157/job/111136440388"
+    },
+    {
+      "kind": "pipewire-screencast",
+      "result": "SKIPPED",
+      "executed": false,
+      "run_id": 37099614157,
+      "job_id": 111136440443,
+      "source_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "suite_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "url": "https://github.com/seradotcom/semwright/actions/runs/37099614157/job/111136440443"
+    },
+    {
+      "kind": "atspi-backend",
+      "result": "SKIPPED",
+      "executed": false,
+      "run_id": 37099614157,
+      "job_id": 111136440515,
+      "source_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "suite_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "url": "https://github.com/seradotcom/semwright/actions/runs/37099614157/job/111136440515"
+    },
+    {
+      "kind": "atspi-qt-backend",
+      "result": "SKIPPED",
+      "executed": false,
+      "run_id": 37099614157,
+      "job_id": 111136440633,
+      "source_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "suite_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "url": "https://github.com/seradotcom/semwright/actions/runs/37099614157/job/111136440633"
+    }
+  ],
+  "historical_evidence": {
+    "G_run_id": 37074787747,
+    "G_source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+    "G_suite_sha": "73cf4806d5c0193109da4d1cc6aa96b01b7c6a73",
+    "I_delivery_run_id": 37088728581,
+    "I_delivery_suite_sha": "73bb117a9328ce2147f0c56d79d6ddf5ceba7115",
+    "Windows_run_id": 37096430846,
+    "Windows_source_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+    "original_global_failure_preserved": 37074828959,
+    "corrected_external_fixture_retest": 37085834067
+  },
+  "external_editorial_source": {
+    "repository": "https://github.com/199-biotechnologies/github-optimization-skill",
+    "commit": "3f20ca72981f19c8e16b5aa0b453b96d682b458b",
+    "files": {
+      "README.md": "818ee145d465358cab87d40ce12784d422c61e050a215bedea723e54b978bb91",
+      "SKILL.md": "3077601e8253848c13293ab0526929468e527e37f9b24ccc65a049bec403d071"
+    },
+    "installed": false,
+    "redistributed": false,
+    "adopted": [
+      "Concrete value proposition and progressive disclosure",
+      "Tested quickstart and navigable architecture/support references",
+      "Original plain-language editorial revisions"
+    ],
+    "rejected": [
+      "Default license changes",
+      "Stars, conversion and benchmark promotion",
+      "Automatic repository metadata edits or publication",
+      "Chained skill installation and third-party branding"
+    ]
+  },
+  "changed_source_paths": [
+    ".github/workflows/r16-closeout.yml",
+    "CONTRIBUTING.md",
+    "DEVELOPMENT_HANDOFF.md",
+    "README.md",
+    "RELEASE_BLOCKERS.md",
+    "SECURITY.md",
+    "SUPPORT.md",
+    "VERIFY.md",
+    "docs/architecture.md",
+    "docs/compatibility.md",
+    "docs/development.md",
+    "docs/installation.md",
+    "docs/platforms.md",
+    "docs/security.md",
+    "scripts/review/r16-smoke.py",
+    "scripts/review/validate_r16.py",
+    "tests/python/test_r16_closeout.py",
+    "tests/semantic-adversarial-lab/INTEGRATION.md",
+    "verification/r16-closeout/README.md"
+  ],
+  "preservation": {
+    "license_notice_and_lock_readiness_files_unchanged": true,
+    "paths_checked": [
+      "Cargo.lock",
+      "LICENSE-APACHE",
+      "LICENSE-MIT",
+      "NOTICE",
+      "demos/tideling/project/assets/FONT-LICENSE.txt",
+      "docs/audio/LICENSES.md",
+      "docs/motion-canvas/LICENSES.md",
+      "integrations/kicad-driver/LICENSES/NOTICE.md",
+      "release-readiness.json"
+    ],
+    "product_rust_changed": false,
+    "historical_evidence_deleted": false,
+    "others_prs_modified": false
+  },
+  "evidence_files": [
+    {
+      "path": "evidence/G_RECEIPT_VERIFICATION.json",
+      "sha256": "e21f3de6c48069cc5c0724a9056ba03c0a3d16c73f93d113d958facb4f484f54",
+      "bytes": 42519
+    },
+    {
+      "path": "evidence/I_INTEGRATED_ACCEPTANCE.json",
+      "sha256": "ddb3d6b3ff99abc135f7b630799144b64e7a475633fe30e57f37291deec58d85",
+      "bytes": 6544
+    },
+    {
+      "path": "evidence/R_DOCUMENTARY_SOURCE_CHECKS.json",
+      "sha256": "b30e7eafd9646167904155f7d76f0ee6376d693eede1688fb517fa86791abe7e",
+      "bytes": 15925
+    },
+    {
+      "path": "evidence/R_FROZEN_SOURCE_SMOKE.json",
+      "sha256": "fc7a0aec34552008e0df5512763d5b0bb22a31cf10ef3579733d82df3a97e8e9",
+      "bytes": 2436
+    }
+  ],
+  "source_equivalence": {
+    "from": "cd518748f742025a251b78028613aa1b16919e73",
+    "to": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+    "production_code_identical_observed": true,
+    "observed_difference": "Four documentary files and the Windows UIA test fixture. Original run/source identities are not rewritten."
+  },
+  "tool_blocked_work": [
+    "Additional direct inspection involving PlanVault, Graph/Effects and portal ranges",
+    "Additional existing test-target selection",
+    "Proposed R smoke assertion/selection refinement; not applied"
+  ],
+  "ci_policy": {
+    "providers_used": [
+      "GitHub Actions"
+    ],
+    "CircleCI": "No authorized CLI/token or available CircleCI connector was present; no credentials were sought.",
+    "standard_ubuntu_runner": true,
+    "paid_larger_runners_requested": false,
+    "cache_or_artifact_upload_added": false,
+    "billing_settings_changed": false,
+    "device_builds_or_native_runtimes_executed": false,
+    "provider_identity_forged": false,
+    "invoice_audited": false
+  },
+  "pr_merge_tree_proof": {
+    "pull_request_head_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+    "tested_pr_merge_sha": "21447095a4120fc52f2506e8d7e4ffcf9e7562fd",
+    "tree_sha": "999f95cb4b4e4fb644b8df176cff7441e7182965",
+    "identical_tree": true,
+    "merge_parents": [
+      "6491c0d838fa066938a494524d69ed507aa0dbe8",
+      "206ce2477e8cd02aa66a876328d25a74cf675a3c"
+    ],
+    "checkout_verified_from_job_logs": [
+      111136443116,
+      111136443134
+    ],
+    "note": "Jobs ran on the synthetic PR merge commit, not the branch commit. Tree equality supports the candidate without relabeling the execution."
+  },
+  "verified_other_archives": [
+    {
+      "artifact_id": 11264936896,
+      "name": "windows-arm64-evidence",
+      "bytes": 1137,
+      "sha256": "5d26fe679e0712b6f7ee179a44ed6ff762d430e1df9d00a1712b0088a507b3ef",
+      "api_digest_matched": true,
+      "api_record": "artifacts-37096430846.json"
+    },
+    {
+      "artifact_id": 11264501934,
+      "name": "windows-x64-evidence",
+      "bytes": 649,
+      "sha256": "be03b368c73a22e2c408335268d81c20ad1daf88086ae22435a3bab707e5a82a",
+      "api_digest_matched": true,
+      "api_record": "artifacts-37096430846.json"
+    },
+    {
+      "artifact_id": 11261234273,
+      "name": "semantic-creation-I-cd51874-review-summary",
+      "bytes": 87109,
+      "sha256": "78b1cb27af5ec3c7f9bf70ab40202e04937e91e40fba43a17d315a211c510da7",
+      "api_digest_matched": true,
+      "api_record": "artifacts-37088728581.json"
+    },
+    {
+      "artifact_id": 11260709591,
+      "name": "integrated-source-global-explicit-job-disposition",
+      "bytes": 21196,
+      "sha256": "b1195c038fd9a05bdf8a3999507893861f6be9ff1baf681815851dd8f469d22a",
+      "api_digest_matched": true,
+      "api_record": "artifacts-37088550848.json"
+    }
+  ]
+}

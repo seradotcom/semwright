@@ -1,0 +1,2495 @@
+{
+  "schema_version": 1,
+  "role": "R",
+  "review_id": "R16-2026-10-03-6491c0d8",
+  "review_target_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+  "final_source_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+  "target_in_main": true,
+  "docs_delivery_sha": null,
+  "docs_delivery_sha_reason": "Recorded in external DELIVERY_MANIFEST.json after the evidence-only commit exists.",
+  "reviewer_provenance": "AI-assisted",
+  "independence_eligibility": "UNCONFIRMED",
+  "review_status": "PARTIAL",
+  "review_disposition": "FINDINGS_OPEN_AND_REVALIDATION_PENDING",
+  "r16_formal_status": "OPEN",
+  "docs_status": "VERIFIED_UPDATED_SURFACE_NOT_GLOBAL_REFERENCE_AUDIT",
+  "quickstart_status": "PASS_HOSTED_FAKE_RESULT_INSPECTED",
+  "native_scope": "Historical I/G/native Windows evidence only; R smoke is fake.",
+  "h_evaluation_status": "DEFERRED_NOT_EXECUTED",
+  "open_blocking_findings": [
+    "R-006",
+    "R-007",
+    "R-008"
+  ],
+  "pr_disposition_status": "CURRENT_OPEN_PRS_AND_RELEVANT_HISTORY_RECORDED",
+  "pr_url": "https://github.com/seradotcom/semwright/pull/207",
+  "pr_dispositions": {
+    "observed_at_utc": "2026-10-03T05:23:23.274729+00:00",
+    "observed_main_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+    "review_target_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+    "prs": [
+      {
+        "number": 207,
+        "url": "https://github.com/seradotcom/semwright/pull/207",
+        "title": "R16: defensive review and repository documentation closeout",
+        "head_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+        "base_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+        "draft": true,
+        "state": "open",
+        "changed_paths": [
+          ".github/workflows/r16-closeout.yml",
+          "CONTRIBUTING.md",
+          "DEVELOPMENT_HANDOFF.md",
+          "README.md",
+          "RELEASE_BLOCKERS.md",
+          "SECURITY.md",
+          "SUPPORT.md",
+          "VERIFY.md",
+          "docs/architecture.md",
+          "docs/compatibility.md",
+          "docs/development.md",
+          "docs/installation.md",
+          "docs/platforms.md",
+          "docs/security.md",
+          "scripts/review/r16-smoke.py",
+          "scripts/review/validate_r16.py",
+          "tests/python/test_r16_closeout.py",
+          "tests/semantic-adversarial-lab/INTEGRATION.md",
+          "verification/r16-closeout/README.md"
+        ],
+        "r_changed_pr": true,
+        "disposition": "R_OWN_DRAFT"
+      },
+      {
+        "number": 166,
+        "url": "https://github.com/seradotcom/semwright/pull/166",
+        "title": "chore(deps): bump hmac from 0.12.1 to 0.13.0",
+        "head_sha": "2463a3822ef9e31527c382aa47bc61c69eba2df3",
+        "base_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+        "draft": false,
+        "state": "open",
+        "changed_paths": [
+          "Cargo.lock",
+          "Cargo.toml",
+          "crates/driver-godot/Cargo.toml"
+        ],
+        "r_changed_pr": false,
+        "disposition": "PRESERVE_OPEN_DEPENDENCY_PR",
+        "decision": "Not a dependency-upgrade mission; retain for compatibility and supply-chain review."
+      },
+      {
+        "number": 165,
+        "url": "https://github.com/seradotcom/semwright/pull/165",
+        "title": "chore(deps): bump getrandom from 0.2.17 to 0.4.3",
+        "head_sha": "a3ad946f22d7188b8060b1eec301d8241c75e44c",
+        "base_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+        "draft": false,
+        "state": "open",
+        "changed_paths": [
+          "Cargo.lock",
+          "crates/driver-godot/Cargo.toml"
+        ],
+        "r_changed_pr": false,
+        "disposition": "PRESERVE_OPEN_DEPENDENCY_PR",
+        "decision": "Not a dependency-upgrade mission; retain for compatibility and supply-chain review."
+      },
+      {
+        "number": 161,
+        "url": "https://github.com/seradotcom/semwright/pull/161",
+        "title": "build(deps): bump sha2 from 0.10.9 to 0.11.0",
+        "head_sha": "d81cd21b2d228b8ab8b82be50ca63b531a469482",
+        "base_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+        "draft": false,
+        "state": "open",
+        "changed_paths": [
+          "Cargo.lock",
+          "Cargo.toml"
+        ],
+        "r_changed_pr": false,
+        "disposition": "PRESERVE_OPEN_DEPENDENCY_PR",
+        "decision": "Not a dependency-upgrade mission; retain for compatibility and supply-chain review."
+      },
+      {
+        "number": 157,
+        "url": "https://github.com/seradotcom/semwright/pull/157",
+        "title": "build(deps): bump actions/setup-node from 4.4.0 to 7.0.0",
+        "head_sha": "e97078d66b51fbcabf120d662eaa115c98363e2c",
+        "base_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+        "draft": false,
+        "state": "open",
+        "changed_paths": [
+          ".github/workflows/composition-av-combined.yml",
+          ".github/workflows/driver-session-continuity.yml",
+          ".github/workflows/motion-canvas-launch-film.yml",
+          ".github/workflows/motion-canvas.yml"
+        ],
+        "r_changed_pr": false,
+        "disposition": "PRESERVE_OPEN_DEPENDENCY_PR",
+        "decision": "Not a dependency-upgrade mission; retain for compatibility and supply-chain review."
+      },
+      {
+        "number": 202,
+        "url": "https://github.com/seradotcom/semwright/pull/202",
+        "title": "integration(composition-av): combined A+B candidate",
+        "head_sha": "b70fb1c0e1a9d06a8cae4159e25c5a68d86be6eb",
+        "merge_sha": "23bdc873080c51c61564eb0a3f2de5900db0e49e",
+        "merged_at": null,
+        "state": "closed",
+        "head_is_review_target_ancestor": false,
+        "ancestry_command_exit": 1,
+        "r_changed_pr": false,
+        "disposition": "CLOSED_HISTORY_RETAINED_NO_UNIQUE_WORK_REMOVAL_AUTHORIZED"
+      },
+      {
+        "number": 206,
+        "url": "https://github.com/seradotcom/semwright/pull/206",
+        "title": "C14: bind formal AV/audio publication into Project Graph",
+        "head_sha": "28eba9d733d254289255b33a9c14d409fad3e2e2",
+        "merge_sha": "0e8e4afccb0b71f54d1c74d1fbcd41ee1c7ae366",
+        "merged_at": null,
+        "state": "closed",
+        "head_is_review_target_ancestor": true,
+        "ancestry_command_exit": 0,
+        "r_changed_pr": false,
+        "disposition": "CLOSED_HEAD_INCLUDED_IN_TARGET"
+      },
+      {
+        "number": 204,
+        "url": "https://github.com/seradotcom/semwright/pull/204",
+        "title": "integrate(composition): formal A+B AV rebuild",
+        "head_sha": "1fc61e3be25fcdb88e882e989127945508109510",
+        "merge_sha": "da1e1a3c0557a5cd88192379f1058aea298fbcb3",
+        "merged_at": "2026-10-03T04:43:53Z",
+        "state": "closed",
+        "head_is_review_target_ancestor": true,
+        "ancestry_command_exit": 0,
+        "r_changed_pr": false,
+        "disposition": "MERGED_HISTORY_PRESERVED"
+      },
+      {
+        "number": 201,
+        "url": "https://github.com/seradotcom/semwright/pull/201",
+        "title": "feat(runtime): unify portable Host-managed application runtimes",
+        "head_sha": "733037145c374d28cb7d0e3d51dc76c64f223ad4",
+        "merge_sha": "467515e3289fafa3b1bef35b70d3f378b230a1da",
+        "merged_at": "2026-10-03T04:43:53Z",
+        "state": "closed",
+        "head_is_review_target_ancestor": true,
+        "ancestry_command_exit": 0,
+        "r_changed_pr": false,
+        "disposition": "MERGED_HISTORY_PRESERVED"
+      },
+      {
+        "number": 198,
+        "url": "https://github.com/seradotcom/semwright/pull/198",
+        "title": "build(deps): move yoke-derive off yanked release",
+        "head_sha": "e7d1149e2920522fb0eaec17783e35ca11d0231b",
+        "merge_sha": "c18c7819612d364e534cce9c948dc063cd02d898",
+        "merged_at": "2026-10-03T04:43:53Z",
+        "state": "closed",
+        "head_is_review_target_ancestor": true,
+        "ancestry_command_exit": 0,
+        "r_changed_pr": false,
+        "disposition": "MERGED_HISTORY_PRESERVED"
+      },
+      {
+        "number": 192,
+        "url": "https://github.com/seradotcom/semwright/pull/192",
+        "title": "ci: scope iteration by affected area and certify exact candidates",
+        "head_sha": "faaa26ce7d014601a3da0a34ba1ff995ae74fae0",
+        "merge_sha": "ee5318924a51d8537519afc1f4f034dec9829758",
+        "merged_at": "2026-10-03T04:43:53Z",
+        "state": "closed",
+        "head_is_review_target_ancestor": true,
+        "ancestry_command_exit": 0,
+        "r_changed_pr": false,
+        "disposition": "MERGED_HISTORY_PRESERVED"
+      },
+      {
+        "number": 183,
+        "url": "https://github.com/seradotcom/semwright/pull/183",
+        "title": "feat(audio): professional authoring, Faust and Ardour backends",
+        "head_sha": "df2654bed6d2ac57d547846b69d16ea48b4a9ee3",
+        "merge_sha": "b244f2047359247cb67a8f1e9e31c760ee9c50f4",
+        "merged_at": "2026-10-03T04:43:53Z",
+        "state": "closed",
+        "head_is_review_target_ancestor": true,
+        "ancestry_command_exit": 0,
+        "r_changed_pr": false,
+        "disposition": "MERGED_HISTORY_PRESERVED"
+      },
+      {
+        "number": 176,
+        "url": "https://github.com/seradotcom/semwright/pull/176",
+        "title": "feat(godot): semantic authoring and typed behavior profile",
+        "head_sha": "70bd7857e9700b6f03547a706ff0e6496ffd838e",
+        "merge_sha": "0629d950f586d6d87b948d68632c82cbb01f041d",
+        "merged_at": "2026-10-03T04:43:53Z",
+        "state": "closed",
+        "head_is_review_target_ancestor": true,
+        "ancestry_command_exit": 0,
+        "r_changed_pr": false,
+        "disposition": "MERGED_HISTORY_PRESERVED"
+      },
+      {
+        "number": 175,
+        "url": "https://github.com/seradotcom/semwright/pull/175",
+        "title": "feat(blender): semantic authoring over Composition",
+        "head_sha": "f492f13a028f781d9ca55631764578f5b327eb1b",
+        "merge_sha": "c743a3e5a248f9494a96272e76fbda822976e86a",
+        "merged_at": "2026-10-03T04:43:53Z",
+        "state": "closed",
+        "head_is_review_target_ancestor": true,
+        "ancestry_command_exit": 0,
+        "r_changed_pr": false,
+        "disposition": "MERGED_HISTORY_PRESERVED"
+      },
+      {
+        "number": 174,
+        "url": "https://github.com/seradotcom/semwright/pull/174",
+        "title": "test(adversarial): independent exact-SHA semantic conformance lab (G)",
+        "head_sha": "a88e80f9de4aa2883b233d009a4b41ecdde08a0b",
+        "merge_sha": "f5a9f9e74a972b77c165597595a72eb6a88b1ccd",
+        "merged_at": "2026-10-03T04:43:53Z",
+        "state": "closed",
+        "head_is_review_target_ancestor": true,
+        "ancestry_command_exit": 0,
+        "r_changed_pr": false,
+        "disposition": "MERGED_HISTORY_PRESERVED"
+      },
+      {
+        "number": 173,
+        "url": "https://github.com/seradotcom/semwright/pull/173",
+        "title": "feat(project-graph): persistent identity, provenance and reconciliation (C)",
+        "head_sha": "77b34d8abad50f242c4c8494e280fe82d5cbcf55",
+        "merge_sha": "6d3d98138032442b107a20d0497304e8353955ba",
+        "merged_at": "2026-10-03T04:43:53Z",
+        "state": "closed",
+        "head_is_review_target_ancestor": true,
+        "ancestry_command_exit": 0,
+        "r_changed_pr": false,
+        "disposition": "MERGED_HISTORY_PRESERVED"
+      },
+      {
+        "number": 172,
+        "url": "https://github.com/seradotcom/semwright/pull/172",
+        "title": "feat(effects): typed effect conformance and driver observation quality (F)",
+        "head_sha": "eadd5caf9b3f47f24158de530b87ad07e597f25e",
+        "merge_sha": "e01d7087109aea7369b272acdd08f8d22e4b876e",
+        "merged_at": "2026-10-03T04:43:53Z",
+        "state": "closed",
+        "head_is_review_target_ancestor": true,
+        "ancestry_command_exit": 0,
+        "r_changed_pr": false,
+        "disposition": "MERGED_HISTORY_PRESERVED"
+      },
+      {
+        "number": 168,
+        "url": "https://github.com/seradotcom/semwright/pull/168",
+        "title": "feat(composition): shared kernel, Figma, semantic motion and AV integration",
+        "head_sha": "65b773f4dd627b860358342f4d40a1ac532566d1",
+        "merge_sha": "40fe9a881cbe23a352da14509d033187ff7839dc",
+        "merged_at": "2026-10-03T04:43:53Z",
+        "state": "closed",
+        "head_is_review_target_ancestor": true,
+        "ancestry_command_exit": 0,
+        "r_changed_pr": false,
+        "disposition": "MERGED_HISTORY_PRESERVED"
+      },
+      {
+        "number": 197,
+        "url": "https://github.com/seradotcom/semwright/pull/197",
+        "title": "test(runtime): probe public macOS App Sandbox confinement",
+        "head_sha": "21c4487982217c057aae1d69a1565f8f425ac44e",
+        "merge_sha": "daf441ff81a5fe7f65d60089b26778e139afdd0c",
+        "merged_at": null,
+        "state": "closed",
+        "head_is_review_target_ancestor": false,
+        "ancestry_command_exit": 1,
+        "r_changed_pr": false,
+        "disposition": "CLOSED_HISTORY_RETAINED_NO_UNIQUE_WORK_REMOVAL_AUTHORIZED"
+      },
+      {
+        "number": 205,
+        "url": "https://github.com/seradotcom/semwright/pull/205",
+        "title": "feat(runtime): enforce macOS App Sandbox for pinned payloads",
+        "head_sha": "68a39fc65630219efb2197cf59d618cf759179d3",
+        "merge_sha": "529f9e65d93356acc562195e90274f05ec7a036a",
+        "merged_at": null,
+        "state": "closed",
+        "head_is_review_target_ancestor": false,
+        "ancestry_command_exit": 1,
+        "r_changed_pr": false,
+        "disposition": "CLOSED_HISTORY_RETAINED_NO_UNIQUE_WORK_REMOVAL_AUTHORIZED"
+      },
+      {
+        "number": 200,
+        "url": "https://github.com/seradotcom/semwright/pull/200",
+        "title": "chore(runtime): converge Host-owned tool execution across drivers",
+        "head_sha": "5fff3f7f56c829ad8c1d0837d3f6b85d2e4e2309",
+        "merge_sha": "1b65e676783c4a8f225ddde756b8c0d779b184e5",
+        "merged_at": null,
+        "state": "closed",
+        "head_is_review_target_ancestor": false,
+        "ancestry_command_exit": 1,
+        "r_changed_pr": false,
+        "disposition": "CLOSED_HISTORY_RETAINED_NO_UNIQUE_WORK_REMOVAL_AUTHORIZED"
+      },
+      {
+        "number": 199,
+        "url": "https://github.com/seradotcom/semwright/pull/199",
+        "title": "cert(runtime): integrated Host runtime-tools candidate",
+        "head_sha": "21ff2ba9f166baabab3f3322b150d48fb7654be1",
+        "merge_sha": "c6f61eee7c06b02f95c15e66b7a58db7e918adc2",
+        "merged_at": null,
+        "state": "closed",
+        "head_is_review_target_ancestor": false,
+        "ancestry_command_exit": 1,
+        "r_changed_pr": false,
+        "disposition": "CLOSED_HISTORY_RETAINED_NO_UNIQUE_WORK_REMOVAL_AUTHORIZED"
+      },
+      {
+        "number": 188,
+        "url": "https://github.com/seradotcom/semwright/pull/188",
+        "title": "feat(motion): migrate rendering to Host runtime tools",
+        "head_sha": "23465a72a46a56fbb50f58d8773f35506ae7f6be",
+        "merge_sha": "0631e2f3664e5050bd091aead6551af14c5c40f0",
+        "merged_at": null,
+        "state": "closed",
+        "head_is_review_target_ancestor": false,
+        "ancestry_command_exit": 1,
+        "r_changed_pr": false,
+        "disposition": "CLOSED_HISTORY_RETAINED_NO_UNIQUE_WORK_REMOVAL_AUTHORIZED"
+      }
+    ],
+    "others_modified": false
+  },
+  "document_inventory": [
+    {
+      "path": ".github/PULL_REQUEST_TEMPLATE.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "ACCEPTANCE.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "CHANGELOG.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "CODE_OF_CONDUCT.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "classification": "CANONICAL_CURRENT_UPDATED",
+      "changed_by_r": true,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "DEVELOPMENT_HANDOFF.md",
+      "classification": "HISTORICAL_EVIDENCE_OR_VERSIONED_LEDGER",
+      "changed_by_r": true,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "GOVERNANCE.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "README.md",
+      "classification": "CANONICAL_CURRENT_UPDATED",
+      "changed_by_r": true,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "RELEASE_BLOCKERS.md",
+      "classification": "HISTORICAL_EVIDENCE_OR_VERSIONED_LEDGER",
+      "changed_by_r": true,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "SECURITY.md",
+      "classification": "CANONICAL_CURRENT_UPDATED",
+      "changed_by_r": true,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "SUPPORT.md",
+      "classification": "CANONICAL_CURRENT_UPDATED",
+      "changed_by_r": true,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "VERIFY.md",
+      "classification": "HISTORICAL_EVIDENCE_OR_VERSIONED_LEDGER",
+      "changed_by_r": true,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "adapters/blender/README.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "adapters/chromium/README.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "adapters/chromium/SEMANTIC_COMPLETENESS.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "adapters/chromium/VERIFY.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "adapters/example-plugin/README.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "benchmarks/composition/README.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "bridges/gnome/README.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "bridges/kwin/README.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "crates/audio-domain/README.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "crates/driver-ardour-audio/README.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "crates/driver-blender/README.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "crates/driver-faust-audio/README.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "crates/driver-figma/README.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "crates/driver-figma/docs/BRIDGE_PROTOCOL.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "crates/driver-figma/docs/CAPABILITIES.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "crates/driver-figma/docs/CHANGESETS.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "crates/driver-figma/docs/COMPATIBILITY.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "crates/driver-figma/docs/COMPOSITION_MODEL.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "crates/driver-figma/docs/DESIGN_MODEL.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "crates/driver-figma/docs/DESIGN_SYSTEMS.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "crates/driver-figma/docs/DRIVER_SDK_SCORECARD.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "crates/driver-figma/docs/FIGJAM.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "crates/driver-figma/docs/FIGMA_API_BASELINE.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "crates/driver-figma/docs/FIGMA_CLI_AUDIT.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "crates/driver-figma/docs/FIGMA_CLI_PARITY.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "crates/driver-figma/docs/MOTION.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "crates/driver-figma/docs/MOTION_COMPATIBILITY.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "crates/driver-figma/docs/PROTOTYPING.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "crates/driver-figma/docs/SDK_GAPS.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "crates/driver-figma/docs/SECURITY.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "crates/driver-figma/docs/SEMANTIC_AUTHORING.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "crates/driver-figma/docs/SEMANTIC_AUTHORING_DEMO.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "crates/driver-figma/docs/SEMANTIC_AUTHORING_IMPLEMENTATION_NOTE.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "crates/driver-figma/docs/SEMANTIC_AUTHORING_SECURITY.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "crates/driver-figma/docs/SEMANTIC_COMPLETENESS.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "crates/driver-figma/docs/SEMANTIC_VS_CODE_BENCHMARK.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "crates/driver-figma/docs/SNAPSHOTS.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "crates/driver-figma/docs/TRANSPORTS.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "crates/driver-figma/docs/VALIDATION_AND_REPAIR.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "crates/driver-godot/README.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "crates/driver-godot/docs/CAPABILITIES.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "crates/driver-godot/docs/COMPATIBILITY.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "crates/driver-godot/docs/COMPLETENESS.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "crates/driver-godot/docs/SDK_GAPS.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "crates/driver-godot/docs/SECURITY.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "crates/driver-godot/docs/SEMANTIC_DOMAINS.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "crates/driver-libreoffice/README.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "crates/driver-mlt-video/README.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "crates/driver-obs/README.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "crates/driver-obs/fixtures/configs/README.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "crates/recipes/Cargo.toml",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "crates/skills/Cargo.toml",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "crates/video-domain/README.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "demos/figma-semantic-authoring/README.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "demos/figma-semantic-authoring/STRUCTURAL_BENCHMARK.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "demos/figma-semantic-authoring/STRUCTURAL_BENCHMARK_BRIEF.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "demos/figma-semantic-authoring/agent-instructions.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "demos/figma-semantic-authoring/design-brief.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "demos/figma-semantic-authoring/runbook.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "demos/launch-film/README.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "demos/launch-film/STORYBOARD.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "demos/launch-film/VISUAL_SYSTEM.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "demos/tideling/ACCEPTANCE.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "demos/tideling/DESIGN.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "demos/tideling/PRODUCT.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "demos/tideling/PROOF.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "demos/tideling/README.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "demos/tideling/design/ART_DIRECTION.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "demos/tideling/design/SOURCES.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "demos/tideling/evidence/README.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/adr/0001-capability-catalog.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/adr/0001-delivered-scope.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/architecture.md",
+      "classification": "CANONICAL_CURRENT_UPDATED",
+      "changed_by_r": true,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/audio-domain.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/audio/AUDIO_ACCEPTANCE.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/audio/AUDIO_RESCUE_REPORT.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/audio/CI_TRIAGE_LOG.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/audio/COMPATIBILITY.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/audio/INTEGRATION.md",
+      "classification": "OWNER_HISTORY_OR_CONTRACT_REFERENCE_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/audio/LICENSES.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/audio/PACKAGING.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/audio/RELEASE_IMPACT.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/audio/RESEARCH_BASELINE.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/audio/SDK_GAPS.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/audio/SECURITY_DELTA.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/audio/VERIFY.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/blender/CAPABILITIES.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/blender/SDK_GAPS.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/blender/SECURITY.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/blender/SEMANTIC_COMPLETENESS.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/blender/VERIFY.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/blender/authoring/CONSUMER_HANDOFF.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/blender/authoring/D_GLB_HANDOFF.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/blender/authoring/INTEGRATION.md",
+      "classification": "OWNER_HISTORY_OR_CONTRACT_REFERENCE_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/blender/authoring/RELEASE_IMPACT.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/blender/authoring/RESEARCH_BASELINE.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/blender/authoring/SECURITY_DELTA.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/blender/authoring/VERIFY_FINAL.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/capabilities.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/ci-main-pause.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/ci/ITERATION_AND_CERTIFICATION.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/commands.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/compatibility.md",
+      "classification": "CANONICAL_CURRENT_UPDATED",
+      "changed_by_r": true,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/composition/ARCHITECTURE_DELTA.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/composition/AUDIO_AV_CONTRACT.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/composition/CONTRACT_HANDOFF.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/composition/DEMO_PRODUCTION_HANDOFF.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/composition/FIGMA_MIGRATION.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/composition/INTEGRATION.md",
+      "classification": "OWNER_HISTORY_OR_CONTRACT_REFERENCE_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/composition/MOTION_AUTHORING.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/composition/RELEASE_IMPACT.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/composition/RESEARCH_BASELINE.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/composition/SECURITY_DELTA.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/composition/TRACEABILITY.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/development.md",
+      "classification": "CANONICAL_CURRENT_UPDATED",
+      "changed_by_r": true,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/driver-distribution.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/driver-session-continuity.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/drivers.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/effects/ACCEPTANCE.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/effects/DRIVER_QUALITY_CONTRACT.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/effects/E0_ADAPTER_CONTRACT.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/effects/EFFECT_GAP_ANALYSIS.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/effects/EFFECT_READY_FOR_CONSUMERS.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/effects/EFFECT_SEMANTICS.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/effects/INTEGRATION.md",
+      "classification": "OWNER_HISTORY_OR_CONTRACT_REFERENCE_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/effects/README.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/effects/RELEASE_IMPACT.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/effects/RESEARCH_BASELINE.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/effects/SECURITY_DELTA.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/events-jobs.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/godot/authoring/GODOT_AUTHORING_COVERAGE.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/godot/authoring/INTEGRATION.md",
+      "classification": "OWNER_HISTORY_OR_CONTRACT_REFERENCE_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/godot/authoring/NATIVE_ADAPTER_CONTRACT.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/godot/authoring/RELEASE_IMPACT.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/godot/authoring/RESEARCH_BASELINE.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/godot/authoring/RUNBOOK.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/godot/authoring/SECURITY_DELTA.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/inspector.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/installation.md",
+      "classification": "CANONICAL_CURRENT_UPDATED",
+      "changed_by_r": true,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/manual-testing.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/mcp-federation.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/mcp.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/motion-canvas/ARCHITECTURE.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/motion-canvas/CAPABILITIES.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/motion-canvas/COMPATIBILITY.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/motion-canvas/INTEGRATION.md",
+      "classification": "OWNER_HISTORY_OR_CONTRACT_REFERENCE_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/motion-canvas/LICENSES.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/motion-canvas/MANAGED_PROJECT_FORMAT.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/motion-canvas/MOTION_CANVAS_BASELINE.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/motion-canvas/RENDERING.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/motion-canvas/SDK_GAPS.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/motion-canvas/SECURITY.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/motion-canvas/SEMANTIC_COMPLETENESS.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/motion-canvas/SEMWRIGHT_SNAPSHOT.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/motion-canvas/VERIFY.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/permissions.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/platforms.md",
+      "classification": "CANONICAL_CURRENT_UPDATED",
+      "changed_by_r": true,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/plugins.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/project-graph/CONSISTENCY.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/project-graph/INTEGRATION.md",
+      "classification": "OWNER_HISTORY_OR_CONTRACT_REFERENCE_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/project-graph/P0_HANDOFF.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/project-graph/P1_REBUILD_HANDOFF.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/project-graph/PROJECT_GRAPH_DESIGN.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/project-graph/RELEASE_IMPACT.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/project-graph/RESEARCH_BASELINE.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/project-graph/SECURITY_DELTA.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/project-graph/THREAT_MODEL.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/protocol.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/recipes.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/requirements/ACCEPTANCE_CHECKLIST.md",
+      "classification": "HISTORICAL_REQUIREMENTS_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/requirements/ARCHITECTURE.md",
+      "classification": "HISTORICAL_REQUIREMENTS_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/requirements/BACKENDS_AND_COMPATIBILITY.md",
+      "classification": "HISTORICAL_REQUIREMENTS_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/requirements/COMMANDS_AND_PLUGIN_SDK.md",
+      "classification": "HISTORICAL_REQUIREMENTS_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/requirements/MASTER_PROMPT.md",
+      "classification": "HISTORICAL_REQUIREMENTS_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/requirements/PRODUCT_VISION.md",
+      "classification": "HISTORICAL_REQUIREMENTS_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/requirements/REPO_BLUEPRINT.md",
+      "classification": "HISTORICAL_REQUIREMENTS_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/requirements/RESEARCH_BASELINE_2026-09-21.md",
+      "classification": "HISTORICAL_REQUIREMENTS_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/requirements/SECURITY_THREAT_MODEL.md",
+      "classification": "HISTORICAL_REQUIREMENTS_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/requirements/START_HERE.md",
+      "classification": "HISTORICAL_REQUIREMENTS_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/requirements/TESTING_RELEASE_AND_QUALITY.md",
+      "classification": "HISTORICAL_REQUIREMENTS_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/research.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/runtime-tools.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/security-review.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/security.md",
+      "classification": "CANONICAL_CURRENT_UPDATED",
+      "changed_by_r": true,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/semantic-creation/INTEGRATION.md",
+      "classification": "OWNER_HISTORY_OR_CONTRACT_REFERENCE_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/semantic-creation/I_AUDIO_EFFECT_CONSUMER.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/semantic-creation/I_PACKAGING_DEPENDENCIES.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/semantic-creation/I_RECONCILIATION.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/semantic-creation/I_RUNTIME_TRANSPORT.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/semantic-ui-v2.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/skills.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/troubleshooting.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/video-domain.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/wayland.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/windows/DRIVER_PORTABILITY.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/windows/LIVE_WINDOWS_TEST_MATRIX.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/windows/README.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/windows/SEMWRIGHT_WINDOWS_BASELINE.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/windows/THIRD_PLATFORM_FINDINGS.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/windows/WINDOWS_API_RESEARCH.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/windows/WINDOWS_ARCHITECTURE.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/windows/WINDOWS_DRIVER_SANDBOX.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/windows/WINDOWS_FILESYSTEM.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/windows/WINDOWS_PACKAGING.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/windows/WINDOWS_SECURITY_BOUNDARIES.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/windows/WINDOWS_UIA_MAPPING.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/windows/WINDOWS_VERIFY.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "docs/workflow-distillation.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "fixtures/README.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "fixtures/audio/README.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "fuzz/README.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "integrations/audio/faust-runtime/README.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "integrations/godot/tests/READBACK.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "integrations/godot/tests/SCENE_SAVE.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "integrations/kicad-driver/CAPABILITIES.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "integrations/kicad-driver/COMPATIBILITY.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "integrations/kicad-driver/LICENSES/NOTICE.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "integrations/kicad-driver/README.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "integrations/kicad-driver/SECURITY.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "integrations/kicad-driver/fixtures/fake-kicad/README.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "integrations/kicad-driver/fixtures/projects/README.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "recipes/blender-inspect.yaml",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "recipes/demo/launch-film.yaml",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "recipes/fake-edit.yaml",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "recipes/fake-export.yaml",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "recipes/workspace-write.yaml",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-audio-production/.semwright/examples/analysis-doctor.json",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-audio-production/.semwright/examples/ardour-runtime-probe.json",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-audio-production/.semwright/examples/faust-contract.json",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-audio-production/.semwright/requirements.json",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-audio-production/SKILL.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-audio-production/references/analysis-and-repair.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-audio-production/references/ardour-sessions.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-audio-production/references/assets-and-provenance.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-audio-production/references/cues-and-recovery.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-audio-production/references/routing-and-units.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-audio-production/references/synthesis-and-dsp.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-av-production/.semwright/requirements.json",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-av-production/SKILL.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-av-production/references/coordination-and-recovery.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-blender-production/.semwright/requirements.json",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-blender-production/SKILL.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-blender-production/references/typed-authoring.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-core/.semwright/requirements.json",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-core/SKILL.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-core/references/discovery.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-core/references/jobs-and-recovery.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-core/references/refs.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-core/references/verification.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-cross-app-artifacts/.semwright/requirements.json",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-cross-app-artifacts/SKILL.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-cross-app-artifacts/references/handoff.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-cross-app-artifacts/references/ports.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-cross-app-artifacts/references/recovery.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-driver-authoring/.semwright/requirements.json",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-driver-authoring/SKILL.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-driver-authoring/references/contract.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-driver-authoring/references/security.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-driver-authoring/references/testing.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-figma-production/.semwright/requirements.json",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-figma-production/SKILL.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-figma-production/references/artifacts.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-figma-production/references/design-systems.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-figma-production/references/inspection-and-mutation.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-figma-production/references/layout-and-typography.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-figma-production/references/limitations.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-figma-production/references/native-text-and-svg.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-figma-production/references/responsive-design.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-figma-production/references/semantic-authoring.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-figma-production/references/validation-and-repair.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-figma-production/references/visual-verification.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-godot-production/.semwright/requirements.json",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-godot-production/SKILL.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-godot-production/references/native-evidence.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-godot-production/references/security-and-repair.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-godot-production/references/semantic-authoring.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-project-continuity/.semwright/examples/describe.json",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-project-continuity/.semwright/examples/discover.json",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-project-continuity/.semwright/examples/gc-preview.json",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-project-continuity/.semwright/examples/impact.json",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-project-continuity/.semwright/examples/project-create.json",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-project-continuity/.semwright/examples/provenance.json",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-project-continuity/.semwright/requirements.json",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-project-continuity/SKILL.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-project-continuity/references/states.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-video-production/.semwright/requirements.json",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-video-production/SKILL.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-video-production/references/authoring-and-evidence.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-video-production/references/limitations.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-workflow-distillation/.semwright/requirements.json",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-workflow-distillation/SKILL.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-workflow-distillation/references/capture.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-workflow-distillation/references/compile-and-verify.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "skills/semwright-workflow-distillation/references/promotion.md",
+      "classification": "PROCEDURAL_OR_FUNCTIONAL_CONTRACT_PRESERVED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "tests/README.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "tests/semantic-adversarial-lab/AUDIT_PLAN.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "tests/semantic-adversarial-lab/EXPERIMENTS.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "tests/semantic-adversarial-lab/INTEGRATION.md",
+      "classification": "OWNER_HISTORY_OR_CONTRACT_REFERENCE_PRESERVED",
+      "changed_by_r": true,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "tests/semantic-adversarial-lab/README.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "tests/semantic-adversarial-lab/RELEASE_IMPACT.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "tests/semantic-adversarial-lab/RESEARCH_BASELINE.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "tests/semantic-adversarial-lab/RUNBOOK.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "tests/semantic-adversarial-lab/SECURITY_DELTA.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "tests/semantic-adversarial-lab/reports/BLENDER_NATIVE_FINDINGS.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "tests/semantic-adversarial-lab/reports/COMPOSITION_FINDINGS.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "tests/semantic-adversarial-lab/reports/GODOT_NATIVE_FINDINGS.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "tooling/compat/ubuntu-noble-atspi/README.md",
+      "classification": "UNKNOWN_NOT_INDIVIDUALLY_REVIEWED",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "verification/live-hyprland-kwin/README.md",
+      "classification": "HISTORICAL_EVIDENCE_OR_VERSIONED_LEDGER",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "verification/live-portal-eis/README.md",
+      "classification": "HISTORICAL_EVIDENCE_OR_VERSIONED_LEDGER",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "verification/platformization-macos/VERIFY.md",
+      "classification": "HISTORICAL_EVIDENCE_OR_VERSIONED_LEDGER",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "verification/pre-r16/BRANCH_DISPOSITION_CLOSEOUT.md",
+      "classification": "HISTORICAL_EVIDENCE_OR_VERSIONED_LEDGER",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "verification/pre-r16/BRANCH_WORKTREE_INVENTORY.md",
+      "classification": "HISTORICAL_EVIDENCE_OR_VERSIONED_LEDGER",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "verification/pre-r16/CI_AND_TEST_GAPS.md",
+      "classification": "HISTORICAL_EVIDENCE_OR_VERSIONED_LEDGER",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "verification/pre-r16/CLAIMS_EVIDENCE_MATRIX.md",
+      "classification": "HISTORICAL_EVIDENCE_OR_VERSIONED_LEDGER",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "verification/pre-r16/CONTINUATION.md",
+      "classification": "HISTORICAL_EVIDENCE_OR_VERSIONED_LEDGER",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "verification/pre-r16/FOLLOWUP_FINDINGS.md",
+      "classification": "HISTORICAL_EVIDENCE_OR_VERSIONED_LEDGER",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "verification/pre-r16/OWNER_HANDOFF.md",
+      "classification": "HISTORICAL_EVIDENCE_OR_VERSIONED_LEDGER",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "verification/pre-r16/POST_MERGE_RECONCILIATION.md",
+      "classification": "HISTORICAL_EVIDENCE_OR_VERSIONED_LEDGER",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "verification/pre-r16/PRE_R16_FORENSIC_AUDIT.md",
+      "classification": "HISTORICAL_EVIDENCE_OR_VERSIONED_LEDGER",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "verification/pre-r16/PRE_R16_STATE_MAP.md",
+      "classification": "HISTORICAL_EVIDENCE_OR_VERSIONED_LEDGER",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "verification/pre-r16/PR_INVENTORY.md",
+      "classification": "HISTORICAL_EVIDENCE_OR_VERSIONED_LEDGER",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "verification/pre-r16/R16_HANDOFF_READINESS.md",
+      "classification": "HISTORICAL_EVIDENCE_OR_VERSIONED_LEDGER",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "verification/pre-r16/REMEDIATION_LOG.md",
+      "classification": "HISTORICAL_EVIDENCE_OR_VERSIONED_LEDGER",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "verification/pre-r16/RESOURCE_LIFECYCLE_AUDIT.md",
+      "classification": "HISTORICAL_EVIDENCE_OR_VERSIONED_LEDGER",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "verification/pre-r16/SECURITY_PRECHECK.md",
+      "classification": "HISTORICAL_EVIDENCE_OR_VERSIONED_LEDGER",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "verification/pre-r16/WEBSITE_AND_PUBLIC_PROOFS.md",
+      "classification": "HISTORICAL_EVIDENCE_OR_VERSIONED_LEDGER",
+      "changed_by_r": false,
+      "moved_or_deleted": false
+    },
+    {
+      "path": "verification/r16-closeout/README.md",
+      "classification": "HISTORICAL_EVIDENCE_OR_VERSIONED_LEDGER",
+      "changed_by_r": true,
+      "moved_or_deleted": false
+    }
+  ],
+  "acceptance": [
+    {
+      "id": "CO01",
+      "status": "SATISFIED",
+      "evidence": "Current main, worktrees, PR metadata and target snapshot captured."
+    },
+    {
+      "id": "CO02",
+      "status": "SATISFIED",
+      "evidence": "I target admitted; all twelve boundaries mapped with distinct evidence identities."
+    },
+    {
+      "id": "CO03",
+      "status": "SATISFIED_WITH_UNCONFIRMED_ELIGIBILITY",
+      "evidence": "AI-assisted role and lack of independent adoption are explicit."
+    },
+    {
+      "id": "CO04",
+      "status": "PARTIAL",
+      "evidence": "Direct-review tool blocks and unexecuted native/supply-chain scope remain R-008."
+    },
+    {
+      "id": "CO05",
+      "status": "SATISFIED_IN_DECLARED_SCOPE",
+      "evidence": "Fifteen scoped claims map to source/evidence and limitations."
+    },
+    {
+      "id": "CO06",
+      "status": "SATISFIED",
+      "evidence": "Ten classified findings include owners, impact, status and residual risks."
+    },
+    {
+      "id": "CO07",
+      "status": "SATISFIED_WITH_REVALIDATION_BLOCK",
+      "evidence": "Documentary corrections have functional checks; own assurance changes remain independently unvalidated."
+    },
+    {
+      "id": "CO08",
+      "status": "SATISFIED_WITH_PRESERVATION_DISPOSITION",
+      "evidence": "Current PRs inventoried; merged heads checked; unproven closed alternatives preserved, not discarded."
+    },
+    {
+      "id": "CO09",
+      "status": "SATISFIED_FOR_UPDATED_GUIDES",
+      "evidence": "Fourteen public/historical documentary paths and review entry point changed; inventory retains unknown rows."
+    },
+    {
+      "id": "CO10",
+      "status": "SATISFIED_FOR_FAKE_QUICKSTART",
+      "evidence": "Real hosted two-binary build and fake recipe observed; other install variants not reexecuted."
+    },
+    {
+      "id": "CO11",
+      "status": "SATISFIED_FOR_CHANGED_SURFACE",
+      "evidence": "No license/notices/history deletion; local links checked in twelve public documents."
+    },
+    {
+      "id": "CO12",
+      "status": "SATISFIED",
+      "evidence": "Pinned external source read and selective adoption recorded; no installation or promotion."
+    },
+    {
+      "id": "CO13",
+      "status": "SATISFIED_IN_OBSERVED_CONFIGURATION",
+      "evidence": "Selective standard hosted jobs, no device builds/new paid runner/cache/artifact upload or billing changes."
+    },
+    {
+      "id": "CO14",
+      "status": "SATISFIED",
+      "evidence": "Review target, source candidate, suites and later report artifacts remain separate."
+    },
+    {
+      "id": "CO15",
+      "status": "FINALIZED_BY_EXTERNAL_DELIVERY_MANIFEST",
+      "evidence": "PR207 exists; archive/reproducibility and final delivery commit are recorded outside the self-referential report commit."
+    },
+    {
+      "id": "CO16",
+      "status": "SATISFIED",
+      "evidence": "R16/H/technical acceptance/merge/release remain separate; maintainer authority preserved."
+    }
+  ],
+  "merge_performed": false,
+  "release_published": false,
+  "repository_metadata_changed": false,
+  "backup_name": "semwright-r16-closeout.zip",
+  "all_mission_requirements_satisfied": false,
+  "maintainer_decisions": [
+    "Assign/adopt independent review of R changes and close the identified review gaps before deciding R16.",
+    "Decide a branch-protection/required-check policy; R has not changed settings.",
+    "Review/merge PR207 only when acceptable; dependency PRs, H budget, live gates and releases remain separate authorizations."
+  ]
+}

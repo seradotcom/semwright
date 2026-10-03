@@ -1,0 +1,311 @@
+{
+  "schema_version": 1,
+  "review_id": "R16-2026-10-03-6491c0d8",
+  "role": "R",
+  "review_target_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+  "final_source_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+  "findings": [
+    {
+      "id": "R-001",
+      "category": "DOCUMENTATION_OVERCLAIM",
+      "areas": [
+        "R16-11"
+      ],
+      "title": "Ordinary quickstart invoked initialization despite committed lockfile",
+      "severity": "MEDIUM",
+      "severity_basis": "The advertised first-run path fails before a normal locked build.",
+      "confidence": "HIGH",
+      "affected_source_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+      "preconditions": "New clone follows the earlier bootstrap instruction.",
+      "evidence": [
+        "README.md and docs/installation.md at review target",
+        "scripts/dev/bootstrap.sh refuses an existing Cargo.lock",
+        "R smoke run 37099067854/job 111134879759"
+      ],
+      "impact": "The advertised first-run path fails before a normal locked build.",
+      "owner": "Documentation / R",
+      "recommended_remediation": "Use the two-binary locked build and isolated fake recipe; retain lockfile.",
+      "status": "REMEDIATED_FUNCTIONALLY_VERIFIED",
+      "residual_risk": "No release install or full package matrix was rerun.",
+      "fix_sha": "df17366855be487fc22189658f6a3f0cc0f5dfc5",
+      "independent_revalidation": "NOT_CLAIMED",
+      "blocks_review_closure": false,
+      "blocks_release": false,
+      "exploitation_observed": false,
+      "cvss": null
+    },
+    {
+      "id": "R-002",
+      "category": "DOCUMENTATION_OVERCLAIM",
+      "areas": [
+        "R16-06",
+        "R16-12"
+      ],
+      "title": "Platform and architecture prose lagged the integrated implementation",
+      "severity": "MEDIUM",
+      "severity_basis": "Future-only or incomplete platform statements can mislead support and security assumptions.",
+      "confidence": "HIGH",
+      "affected_source_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+      "preconditions": "Reader uses earlier architecture/platform guide as current support matrix.",
+      "evidence": [
+        "Updated README, docs/architecture.md and docs/platforms.md",
+        "Windows run 37096430846 at reviewed source"
+      ],
+      "impact": "Future-only or incomplete platform statements can mislead support and security assumptions.",
+      "owner": "Documentation / platform owners",
+      "recommended_remediation": "Adopt the explicit implementation/native/interactive matrix without inferring parity.",
+      "status": "REMEDIATED_REVALIDATION_PENDING",
+      "residual_risk": "Independent review of R-authored security-relevant support wording remains required.",
+      "fix_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "independent_revalidation": "PENDING",
+      "blocks_review_closure": false,
+      "blocks_release": false,
+      "exploitation_observed": false,
+      "cvss": null
+    },
+    {
+      "id": "R-003",
+      "category": "DOCUMENTATION_OVERCLAIM",
+      "areas": [
+        "R16-09",
+        "R16-11"
+      ],
+      "title": "Current-commit evidence claim conflicted with historical and skipped jobs",
+      "severity": "MEDIUM",
+      "severity_basis": "Historical tests or skipped jobs could be mistaken for current executed approval.",
+      "confidence": "HIGH",
+      "affected_source_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+      "preconditions": "A reader treats the old all-green/current-containing-commit language or old preflight as current truth.",
+      "evidence": [
+        "RELEASE_BLOCKERS.md prior intro",
+        "VERIFY.md historical preflight",
+        "R_DOCUMENTARY_SOURCE_CHECKS.json and I_INTEGRATED_ACCEPTANCE.json"
+      ],
+      "impact": "Historical tests or skipped jobs could be mistaken for current executed approval.",
+      "owner": "Documentation / R / maintainer",
+      "recommended_remediation": "Keep source and suite identities and preserve original failures; scope every current statement.",
+      "status": "REMEDIATED_REVALIDATION_PENDING",
+      "residual_risk": "Reports and their validators are authored by R, not an independent attestation service.",
+      "fix_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "independent_revalidation": "PENDING",
+      "blocks_review_closure": false,
+      "blocks_release": false,
+      "exploitation_observed": false,
+      "cvss": null
+    },
+    {
+      "id": "R-004",
+      "category": "DOCUMENTATION_OVERCLAIM",
+      "areas": [
+        "R16-09"
+      ],
+      "title": "Contributor reporting instructions did not match available channels",
+      "severity": "LOW",
+      "severity_basis": "Confusing channels can delay or misroute reports.",
+      "confidence": "HIGH",
+      "affected_source_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+      "preconditions": "Contributor follows previous support/reporting guidance.",
+      "evidence": [
+        "Repository API: private vulnerability reporting enabled",
+        "Updated CONTRIBUTING.md, SUPPORT.md, SECURITY.md"
+      ],
+      "impact": "Confusing channels can delay or misroute reports.",
+      "owner": "Maintainer / documentation",
+      "recommended_remediation": "Use public issues for non-sensitive questions and enabled private vulnerability reporting for sensitive reports.",
+      "status": "REMEDIATED_FUNCTIONALLY_VERIFIED",
+      "residual_risk": "No response SLA, guaranteed triage time or changed disclosure setting is implied.",
+      "fix_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "independent_revalidation": "NOT_CLAIMED",
+      "blocks_review_closure": false,
+      "blocks_release": false,
+      "exploitation_observed": false,
+      "cvss": null
+    },
+    {
+      "id": "R-005",
+      "category": "TEST_OR_EVIDENCE_DEFECT",
+      "areas": [
+        "R16-03",
+        "R16-10"
+      ],
+      "title": "R smoke selection includes zero-test libraries and checks exit codes only",
+      "severity": "MEDIUM",
+      "severity_basis": "A green harness alone cannot prove every named package was tested or assert the expected fake output.",
+      "confidence": "HIGH",
+      "affected_source_sha": "df17366855be487fc22189658f6a3f0cc0f5dfc5",
+      "preconditions": "R smoke uses --lib for Graph and Effects, whose selected targets execute zero tests.",
+      "evidence": [
+        "R_FROZEN_SOURCE_SMOKE.json: 9 policy + 7 protocol + 5 Composition, 0 Graph, 0 Effects",
+        "r16-smoke.py at suite df17366855be487fc22189658f6a3f0cc0f5dfc5"
+      ],
+      "impact": "A green harness alone cannot prove every named package was tested or assert the expected fake output.",
+      "owner": "R verification harness owner",
+      "recommended_remediation": "Select inspected bounded integration targets, require positive counts, and assert the expected fake result; obtain independent review of verification changes.",
+      "status": "OPEN_SCOPE_RESTRICTED",
+      "residual_risk": "R inspected changed=true in the current log and makes no fresh Graph/Effects claim. A proposed harness correction was tool-blocked and was not applied.",
+      "fix_sha": null,
+      "independent_revalidation": "NOT_CLAIMED",
+      "blocks_review_closure": false,
+      "blocks_release": false,
+      "exploitation_observed": false,
+      "cvss": null
+    },
+    {
+      "id": "R-006",
+      "category": "UNCONFIRMED",
+      "areas": [
+        "R16-07",
+        "R16-10"
+      ],
+      "title": "Aggregate upstream tool-list budget requires further verification",
+      "severity": "MEDIUM_PROVISIONAL",
+      "severity_basis": "The visible count check is after collection. Without verified SDK aggregate bounds, transient resource use is not established as bounded by 512 tools. No impact or exploit was reproduced.",
+      "confidence": "MEDIUM",
+      "affected_source_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+      "preconditions": "An owner-configured external MCP provider is admitted and tool discovery runs.",
+      "evidence": [
+        "crates/federation/src/lib.rs:551-870: 10-second list_all_tools followed by tools.len()>512"
+      ],
+      "impact": "The visible count check is after collection. Without verified SDK aggregate bounds, transient resource use is not established as bounded by 512 tools. No impact or exploit was reproduced.",
+      "owner": "Federation / broker owners",
+      "recommended_remediation": "Review SDK cumulative pagination/frame budgets and enforce the declared aggregate limit before materialization when necessary; validate with bounded contract tests and independent review.",
+      "status": "UNCONFIRMED_OPEN",
+      "residual_risk": "The SDK or transport may already impose sufficient bounds; R has not established that fact.",
+      "fix_sha": null,
+      "independent_revalidation": "NOT_CLAIMED",
+      "blocks_review_closure": true,
+      "blocks_release": false,
+      "exploitation_observed": false,
+      "cvss": null
+    },
+    {
+      "id": "R-007",
+      "category": "TEST_OR_EVIDENCE_DEFECT",
+      "areas": [
+        "R16-01",
+        "R16-06",
+        "R16-09",
+        "R16-11"
+      ],
+      "title": "Independent eligibility and R-authored assurance changes are not adopted",
+      "severity": "HIGH_ASSURANCE_GAP",
+      "severity_basis": "The author cannot provide independent release approval for its own security-relevant assurance changes.",
+      "confidence": "HIGH",
+      "affected_source_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+      "preconditions": "R reports on source from A-I while also authoring documentation and verification tooling.",
+      "evidence": [
+        "No independent reviewer attestation is present",
+        "R source commits df173668 and 206ce247",
+        "R16 remains false/open in all new records"
+      ],
+      "impact": "The author cannot provide independent release approval for its own security-relevant assurance changes.",
+      "owner": "Maintainer / separate reviewer",
+      "recommended_remediation": "Assess R provenance, review R changes and independently validate relevant corrections before adopting a scoped closure.",
+      "status": "BLOCKED_REVALIDATION",
+      "residual_risk": "This is an AI-assisted repository review, not an external security audit.",
+      "fix_sha": null,
+      "independent_revalidation": "PENDING",
+      "blocks_review_closure": true,
+      "blocks_release": true,
+      "exploitation_observed": false,
+      "cvss": null
+    },
+    {
+      "id": "R-008",
+      "category": "TEST_OR_EVIDENCE_DEFECT",
+      "areas": [
+        "R16-01",
+        "R16-03",
+        "R16-04",
+        "R16-05",
+        "R16-06",
+        "R16-11"
+      ],
+      "title": "Requested review depth was not completed for all mandatory boundaries",
+      "severity": "MEDIUM_ASSURANCE_GAP",
+      "severity_basis": "The missing direct inspection and unexecuted platform/supply-chain work cannot be converted into a no-findings verdict.",
+      "confidence": "HIGH",
+      "affected_source_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+      "preconditions": "The complete twelve-area R16 review is being evaluated.",
+      "evidence": [
+        "Tool-blocked requests involving PlanVault, Graph/Effects, portal ranges and additional test selection",
+        "Successful source-read range index in R16_EVIDENCE_MANIFEST.json"
+      ],
+      "impact": "The missing direct inspection and unexecuted platform/supply-chain work cannot be converted into a no-findings verdict.",
+      "owner": "R review / relevant component owners",
+      "recommended_remediation": "Complete the missing inspections and independent verification in an environment where the operations are permitted; retain the present partial status.",
+      "status": "BLOCKED_TOOL_ACCESS_AND_SCOPE",
+      "residual_risk": "Existing I/G receipts were verified without rerunning them. Tool blocks were not bypassed.",
+      "fix_sha": null,
+      "independent_revalidation": "NOT_CLAIMED",
+      "blocks_review_closure": true,
+      "blocks_release": false,
+      "exploitation_observed": false,
+      "cvss": null
+    },
+    {
+      "id": "R-009",
+      "category": "TEST_OR_EVIDENCE_DEFECT",
+      "areas": [
+        "R16-11"
+      ],
+      "title": "No main branch protection or ruleset was observed",
+      "severity": "MEDIUM_GOVERNANCE_GAP",
+      "severity_basis": "The observed repository settings do not enforce those requirements at the branch level. This is a governance observation, not evidence of an unauthorized change.",
+      "confidence": "HIGH",
+      "affected_source_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+      "preconditions": "The repository relies on server-side enforcement of maintainer review and required checks.",
+      "evidence": [
+        "GitHub main protection endpoint returned 404 Branch not protected",
+        "Repository rulesets endpoint returned an empty array"
+      ],
+      "impact": "The observed repository settings do not enforce those requirements at the branch level. This is a governance observation, not evidence of an unauthorized change.",
+      "owner": "Repository maintainer",
+      "recommended_remediation": "Choose and configure an appropriate branch ruleset/required-check/review policy or document explicit risk acceptance.",
+      "status": "OPEN_MAINTAINER_DECISION",
+      "residual_risk": "R did not change repository settings or infer policy from a green workflow.",
+      "fix_sha": null,
+      "independent_revalidation": "NOT_CLAIMED",
+      "blocks_review_closure": false,
+      "blocks_release": false,
+      "exploitation_observed": false,
+      "cvss": null
+    },
+    {
+      "id": "R-010",
+      "category": "KNOWN_PLATFORM_LIMITATION",
+      "areas": [
+        "R16-04",
+        "R16-12"
+      ],
+      "title": "Physical and interactive platform release gates remain open",
+      "severity": "RELEASE_GATE",
+      "severity_basis": "Hosted/headless success does not establish the outstanding physical and unlocked-desktop conditions.",
+      "confidence": "HIGH",
+      "affected_source_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+      "preconditions": "A production/release-wide desktop support claim is proposed.",
+      "evidence": [
+        "RELEASE_BLOCKERS.md: R06 and R18",
+        "docs/platforms.md and native Windows source-specific evidence"
+      ],
+      "impact": "Hosted/headless success does not establish the outstanding physical and unlocked-desktop conditions.",
+      "owner": "Platform owners / maintainer",
+      "recommended_remediation": "Complete the existing authorized physical/interactive gate matrix before a corresponding release claim.",
+      "status": "OPEN_KNOWN_LIMITATION",
+      "residual_risk": "No fake display, shared graphical authority or cross-OS inference is accepted as replacement.",
+      "fix_sha": null,
+      "independent_revalidation": "NOT_CLAIMED",
+      "blocks_review_closure": false,
+      "blocks_release": true,
+      "exploitation_observed": false,
+      "cvss": null
+    }
+  ],
+  "confirmed_product_vulnerabilities": 0,
+  "absence_of_vulnerabilities_proven": false,
+  "open_review_blockers": [
+    "R-006",
+    "R-007",
+    "R-008"
+  ]
+}
