@@ -37,3 +37,9 @@ All original failed runs and raw outcomes must remain available. Unknown costs
 stay null with reasons. Direct code, modules, native APIs, tests and reusable tools
 are allowed in the competent direct arm. Strict semantic coverage is a separate
 study, rather than a restriction imposed on the direct baseline.
+
+Foundation source3cf2b44092668a5728749686b78dbea59c9edeaa passed28
+deterministic controls in GitHub run37074603304. That evidence does not certify
+a complete native/model harness. The preparatory delivery contains the lab source,
+public draft tasks, protocol, control logs and hashes; it contains no model results
+or final heldouts. ZIP creation and reproducibility checks run only in Actions.
