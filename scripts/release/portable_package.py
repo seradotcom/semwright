@@ -336,11 +336,16 @@ def run_help(bin_dir: Path, platform: str) -> dict[str, bool]:
     return results
 
 
+def write_private_owner_file(path: Path, text: str) -> None:
+    path.write_text(text)
+    path.chmod(0o600)
+
+
 def doctor_smoke(bin_dir: Path, platform: str) -> bool:
     with tempfile.TemporaryDirectory(prefix="semwright-portable-doctor-") as temp:
         work = Path(temp)
         policy = work / "policy.toml"
-        policy.write_text('[policy]\nprofile="desktop"\n')
+        write_private_owner_file(policy, '[policy]\nprofile="desktop"\n')
         if platform == "windows":
             endpoint = rf"\\.\pipe\semwright-packaging-{os.getpid()}"
         else:

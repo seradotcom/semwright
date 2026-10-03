@@ -2,6 +2,7 @@
 import importlib.util
 import os
 from pathlib import Path
+import stat
 import struct
 import tempfile
 import unittest
@@ -35,6 +36,13 @@ class PortablePackageTests(unittest.TestCase):
                 PORTABLE.normalize_tree(root, 1_700_000_000)
 
             self.assertTrue(executable.is_file())
+
+    @unittest.skipIf(os.name == "nt", "POSIX mode bits are not authoritative on Windows")
+    def test_private_owner_file_is_mode_0600(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "policy.toml"
+            PORTABLE.write_private_owner_file(path, '[policy]\nprofile="desktop"\n')
+            self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
 
     def test_normalize_tree_rejects_symlinks(self):
         with tempfile.TemporaryDirectory() as folder:
