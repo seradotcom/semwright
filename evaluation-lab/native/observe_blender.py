@@ -16,7 +16,10 @@ def observe(spec, source, kind):
     elif kind == "glb":
         bpy.ops.object.select_all(action="SELECT")
         bpy.ops.object.delete(use_global=False)
-        assert "FINISHED" in bpy.ops.import_scene.gltf(filepath=str(source))
+        # Blender's importer normally adds an Icosphere bone display object in
+        # glTF_not_exported. Disable that observer-owned visual helper so exact
+        # mesh counts describe the artifact, without filtering any artifact mesh.
+        assert "FINISHED" in bpy.ops.import_scene.gltf(filepath=str(source), disable_bone_shape=True)
     else:
         raise ValueError("Unknown native source kind")
     meshes = sorted((obj for obj in bpy.context.scene.objects if obj.type == "MESH"),
