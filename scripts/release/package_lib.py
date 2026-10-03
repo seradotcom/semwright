@@ -212,6 +212,7 @@ def build_packages(
                 _copy_regular(stage / "bin" / name, debroot / "usr/bin" / name, 0o755, epoch)
             for name in ("LICENSE-MIT", "LICENSE-APACHE", "README.md", "SECURITY.md", "SUPPORT.md", "V1_ENGINEERING_CLOSEOUT.md", "POST_V1_BACKLOG.md"):
                 _copy_regular(root / name, docs / name, 0o644, epoch)
+            _copy_regular(root / "docs/quickstart.md", docs / "QUICKSTART.md", 0o644, epoch)
             _copy_regular(root / "docs/installation.md", docs / "INSTALL.md", 0o644, epoch)
             control = (
                 "Package: semwright\n"
