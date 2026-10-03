@@ -1,4 +1,4 @@
-name: I CircleCI iteration configuration validation
+name: H CircleCI iteration configuration validation
 on:
   workflow_dispatch:
     inputs:
@@ -22,8 +22,8 @@ jobs:
           set -euo pipefail
           test "$CANDIDATE" = cd518748f742025a251b78028613aa1b16919e73
           mkdir -p verification/circleci-config
-          python3 -m py_compile scripts/circleci-iteration/run_iteration.py
-          if python3 scripts/circleci-iteration/run_iteration.py smoke > verification/circleci-config/host-guard.log 2>&1; then
+          python3 -m py_compile scripts/circleci-iteration/run_h_harness.py
+          if python3 scripts/circleci-iteration/run_h_harness.py > verification/circleci-config/host-guard.log 2>&1; then
             echo 'CircleCI-only harness incorrectly accepted an Actions runner' >&2
             exit 1
           fi
@@ -49,12 +49,14 @@ jobs:
           from pathlib import Path
           result = json.loads(Path('verification/circleci-config/compiler.json').read_text())
           assert result['valid'] is True, result
-          files = ['.circleci/config.yml', 'scripts/circleci-iteration/run_iteration.py']
+          files = ['.circleci/config.yml', 'scripts/circleci-iteration/run_h_harness.py']
           report = {'schema_version': 1, 'source_sha': 'cd518748f742025a251b78028613aa1b16919e73',
+                    'laboratory_source_sha': '9c7b3fb11750e3d70b52f55db27eea0eb24205f9',
                     'suite_sha': os.environ['GITHUB_SHA'], 'run_id': os.environ['GITHUB_RUN_ID'],
                     'status': 'CONFIGURATION_VALIDATED_CIRCLECI_EXECUTION_NOT_OBSERVED',
                     'files_sha256': {p: hashlib.sha256(Path(p).read_bytes()).hexdigest() for p in files},
                     'cli_version': '1.0.51932', 'product_tests_executed': 0,
+                    'model_evaluation_executed': False, 'native_application_acceptance': False,
                     'certification_eligible': False, 'r16_closed': False}
           Path('verification/circleci-config/validation.json').write_text(json.dumps(report, indent=2) + '\n')
           PY

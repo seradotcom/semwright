@@ -1,136 +1,27 @@
 version: 2.1
 
-# Separate iteration helper: source and suite identities are deliberately distinct.
-# GitHub Actions remains the exact-source certification authority.
-parameters:
-  candidate-sha:
-    type: string
-    default: "cd518748f742025a251b78028613aa1b16919e73"
-  lane:
-    type: enum
-    enum: [smoke, composition, graph-effects, authoring, all, retest-affected]
-    default: smoke
-
+# H preparation only; native evidence and final certification remain on Actions.
 jobs:
-  portable-iteration:
-    parameters:
-      lane:
-        type: enum
-        enum: [smoke, composition, graph-effects, authoring]
+  h-harness-iteration:
     machine:
       image: ubuntu-2404:current
     resource_class: medium
-    retention:
-      caches: 7d
     environment:
-      CARGO_INCREMENTAL: "0"
-      CARGO_PROFILE_DEV_DEBUG: "0"
-      CARGO_PROFILE_TEST_DEBUG: "0"
-      RUSTUP_TOOLCHAIN: "1.98.1"
-      SW_CANDIDATE_SHA: "<< pipeline.parameters.candidate-sha >>"
-      SW_ITERATION_LANE: "<< parameters.lane >>"
+      SW_HARNESS_SHA: 9c7b3fb11750e3d70b52f55db27eea0eb24205f9
     steps:
       - checkout
       - run:
-          name: Bind immutable product and preserve separate iteration helper
-          command: |
-            set -euo pipefail
-            test "$CIRCLECI" = true
-            test -z "${GITHUB_ACTIONS:-}"
-            test "$(git rev-parse HEAD)" = "$CIRCLE_SHA1"
-            [[ "$SW_CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
-            helper_root=$(mktemp -d /tmp/semwright-circle-iteration.XXXXXX)
-            cp scripts/circleci-iteration/run_iteration.py "$helper_root/run_iteration.py"
-            printf 'export SW_HELPER_ROOT=%q\n' "$helper_root" >> "$BASH_ENV"
-            git cat-file -e "$SW_CANDIDATE_SHA^{commit}" || git fetch origin "$SW_CANDIDATE_SHA"
-            git checkout --detach "$SW_CANDIDATE_SHA"
-            test "$(git rev-parse HEAD)" = "$SW_CANDIDATE_SHA"
-            test -z "$(git status --porcelain --untracked-files=no)"
-      - when:
-          condition:
-            not:
-              equal: [smoke, << parameters.lane >>]
-          steps:
-            - restore_cache:
-                keys:
-                  - sw-circle-v1-linux-{{ arch }}-rust1.98.1-<< parameters.lane >>-{{ checksum "Cargo.lock" }}
-            - run:
-                name: Install pinned toolchain and Linux compilation prerequisites
-                command: |
-                  set -euo pipefail
-                  if ! command -v rustup >/dev/null 2>&1; then
-                    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
-                  fi
-                  source "$HOME/.cargo/env"
-                  rustup toolchain install 1.98.1 --profile minimal --component rustfmt
-                  printf 'export PATH=%q:$PATH\n' "$HOME/.cargo/bin" >> "$BASH_ENV"
-                  sudo apt-get update
-                  sudo apt-get install -y pkg-config build-essential libpipewire-0.3-dev clang-18 libclang-18-dev
-                  printf 'export LIBCLANG_PATH=%q\n' /usr/lib/llvm-18/lib >> "$BASH_ENV"
-                  printf 'export BINDGEN_EXTRA_CLANG_ARGS=%q\n' "-resource-dir=$(clang-18 -print-resource-dir)" >> "$BASH_ENV"
-                  mkdir -p "$HOME/.cargo/registry" "$HOME/.cargo/git"
-      - run:
-          name: Execute only the selected portable diagnostic inventory
-          no_output_timeout: 30m
-          command: |
-            set -euo pipefail
-            timeout --signal=TERM --kill-after=15s 27m python3 "$SW_HELPER_ROOT/run_iteration.py" "$SW_ITERATION_LANE"
-      - when:
-          condition:
-            not:
-              equal: [smoke, << parameters.lane >>]
-          steps:
-            - save_cache:
-                key: sw-circle-v1-linux-{{ arch }}-rust1.98.1-<< parameters.lane >>-{{ checksum "Cargo.lock" }}
-                paths:
-                  - ~/.cargo/registry
-                  - ~/.cargo/git
+          name: Validate immutable H preparation controls without engines or model access
+          command: python3 scripts/circleci-iteration/run_h_harness.py
+          no_output_timeout: 5m
       - store_artifacts:
-          path: verification/circleci-integration
-          destination: iteration-diagnostics
+          path: verification/circleci-harness
+          destination: H-preparation-iteration
 
 workflows:
-  connection-smoke:
-    when:
-      equal: [smoke, << pipeline.parameters.lane >>]
+  h-preparation-iteration:
     jobs:
-      - portable-iteration:
-          lane: smoke
+      - h-harness-iteration:
           filters:
             branches:
-              only: ci/i-circleci-iteration-cd51874
-  composition-iteration:
-    when:
-      or:
-        - equal: [all, << pipeline.parameters.lane >>]
-        - equal: [retest-affected, << pipeline.parameters.lane >>]
-        - equal: [composition, << pipeline.parameters.lane >>]
-    jobs:
-      - portable-iteration:
-          lane: composition
-          filters:
-            branches:
-              only: ci/i-circleci-iteration-cd51874
-  graph-effects-iteration:
-    when:
-      or:
-        - equal: [all, << pipeline.parameters.lane >>]
-        - equal: [retest-affected, << pipeline.parameters.lane >>]
-        - equal: [graph-effects, << pipeline.parameters.lane >>]
-    jobs:
-      - portable-iteration:
-          lane: graph-effects
-          filters:
-            branches:
-              only: ci/i-circleci-iteration-cd51874
-  authoring-iteration:
-    when:
-      or:
-        - equal: [all, << pipeline.parameters.lane >>]
-        - equal: [authoring, << pipeline.parameters.lane >>]
-    jobs:
-      - portable-iteration:
-          lane: authoring
-          filters:
-            branches:
-              only: ci/i-circleci-iteration-cd51874
+              only: ci/h-circleci-iteration-9c7b3fb
