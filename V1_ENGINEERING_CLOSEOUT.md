@@ -46,4 +46,10 @@ check. Any packaging defect exposed there is a software defect and must be fixed
 an R06/R18 environment limitation. Passing hosted package jobs still does not certify physical
 Hyprland, unlocked Windows interaction, TCC, signing/notarization, or the broader release gates.
 
+Final distribution revalidation is recorded in
+`verification/v1-engineering-closeout-revalidation.json`: PR head `f6d7b4d13834a633e54e61fb2038eb8b5989735f`
+was tested as GitHub PR merge candidate `90acc6f8c1baaac0e9ed273c758084f7bc540ae3` in run `37109958115`;
+all six native platform jobs and the global manifest passed, yielding eight packages. The manifest
+retains `release_admission=false`; this is package/integration evidence, not release authorization.
+
 Machine-readable companion: `verification/v1-engineering-closeout.json`.

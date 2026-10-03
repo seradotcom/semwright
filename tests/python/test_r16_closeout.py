@@ -137,6 +137,17 @@ class EvidenceTests(unittest.TestCase):
         self.assertEqual(readiness["status"], "BLOCKED_DEVELOPMENT_SOURCE")
         self.assertFalse(readiness["gates"]["live_desktop_matrix"])
         self.assertFalse(readiness["gates"]["security_review"])
+        self.assertEqual(closeout["R16"]["status"], "CLOSED")
+        self.assertFalse(
+            closeout["multiplatform_distribution"]["final_documentation_source_revalidation_pending"]
+        )
+        self.assertFalse(closeout["multiplatform_distribution"]["release_admission"])
+        evidence = ROOT / closeout["final_revalidation_evidence"]
+        self.assertTrue(evidence.is_file())
+        distribution = json.loads(evidence.read_text())
+        self.assertEqual(distribution["run_conclusion"], "success")
+        self.assertFalse(distribution["release_admission"])
+        self.assertFalse(distribution["release_readiness_changed"])
 
 
 if __name__ == "__main__":
