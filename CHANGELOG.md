@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added a bundled three-step cross-platform quick start for native installs; portable installers now lead directly to the safe, idempotent `semwright setup` onboarding path.
 - Added `semwright setup` for safe cross-platform first-run configuration and MCP snippet generation; installers now point directly to this onboarding path.
 - Integrated portable platform contracts and native macOS/Windows hosts, preserving distinct
   hosted, interactive and physical-hardware verification levels.

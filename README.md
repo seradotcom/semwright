@@ -23,6 +23,7 @@
 </p>
 
 <p align="center">
+  <a href="./docs/quickstart.md"><strong>Quick start</strong></a> ·
   <a href="./docs/installation.md"><strong>Installation</strong></a> ·
   <a href="https://semwright.com/docs/"><strong>Documentation</strong></a> ·
   <a href="./docs/drivers.md"><strong>Drivers</strong></a> ·
@@ -69,9 +70,9 @@ Semwright
 The exact operations and evidence depend on each integration. Semwright does not pretend that one
 headless test certifies an entire interactive application.
 
-## Try Semwright
+## Install in three steps
 
-### Native bundle — no Rust build required
+### 1. Install the native bundle — no Rust build required
 
 Use the matching candidate from an exact-SHA **V1 multiplatform distribution** Actions run.
 There is no public v1 download in this closeout. Verify the external checksums, extract the archive,
@@ -83,12 +84,25 @@ and run its included helper:
 | Windows x86_64 / ARM64 | `.zip` | `.\Install-Semwright.ps1` |
 | macOS Apple Silicon / Intel | `.tar.gz` | `./install.sh` |
 
-Every portable bundle includes **all five runtime commands**, required packaged native companions,
-checksums and reversible user-local helpers. After the installer, run **`semwright setup`**: it creates
-a private observe-only configuration plus a ready-to-copy MCP client snippet without granting
-desktop authority, starting a service, or changing a third-party client. Windows/macOS bundles are
-unsigned; no security-control bypass is provided.
-[Exact commands, requirements and removal →](docs/installation.md#install-a-candidate-bundle)
+Every portable bundle includes the matched CLI, daemon, MCP frontend, TUI and sandbox helper,
+plus checksums and reversible user-local installers. **Install the core once and choose which
+interface to use; CLI/TUI/MCP are not separate versioned downloads.** Optional application
+integrations remain separate.
+
+[**Three-step quick start →**](docs/quickstart.md) ·
+[Full installation, checksums and removal →](docs/installation.md#install-a-candidate-bundle)
+
+### 2. Run `semwright setup`
+
+The installer prints the exact installed command, so onboarding does not depend on PATH. Setup is
+local, idempotent and non-overwriting: it creates an observe-only config plus a ready-to-copy MCP
+snippet, but grants no desktop authority and starts no background service.
+
+### 3. Start the broker and verify
+
+Setup prints the exact broker, doctor, TUI and MCP paths for the current platform. Start the broker,
+then run the printed doctor command from another terminal. `semwright-inspect` opens the read-only
+terminal UI and the generated `mcp-client.json` points at the exact installed `semwright-mcp`.
 
 ### Build and try the synthetic desktop
 
@@ -119,32 +133,6 @@ This is a functional first-use path, **not** live-desktop certification or a sec
 `Cargo.lock` is committed. Keep it and use `--locked`; do not run `scripts/dev/bootstrap.sh` on an
 ordinary checkout. For the full build, per-user installation, portable package layout and uninstall
 flow, use the [installation guide](docs/installation.md).
-
-### After installation
-
-The safe onboarding command is:
-
-```sh
-semwright setup
-```
-
-It is local and idempotent: existing configuration is preserved, a missing configuration is created
-with the **observe-only** profile, and a ready-to-copy `mcp-client.json` snippet points at the exact
-installed `semwright-mcp` binary. The native distribution gate exercises this setup path after
-installing each platform bundle. It does **not** grant desktop/application authority, start a service,
-modify a third-party MCP client, or bypass OS consent.
-
-`semwright setup` prints the exact installed paths and next commands for the current platform. Start
-the broker as your normal user in the graphical login session, then verify it from another terminal:
-
-```sh
-semwright --json doctor
-semwright ui snapshot --max-nodes 100
-semwright-inspect
-```
-
-Start with observe-only policy and a disposable environment. Sensitive mutations require explicit
-grants and, where configured, a separate operator approval path.
 
 ## Connect your agent
 

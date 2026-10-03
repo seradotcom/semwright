@@ -51,7 +51,13 @@ printf 'synthetic fixture only\\n'
             self.assertIn('uninstall.sh', records)
             self.assertIn('config/observe.toml', records)
             self.assertIn('LICENSE-MIT', records)
+            self.assertIn('docs/quickstart.md', records)
             self.assertIn('BUNDLE-CONTRACT.json', records)
+            quickstart = (stage / 'docs/quickstart.md').read_text()
+            self.assertIn('semwright setup', quickstart)
+            self.assertIn('### Windows', quickstart)
+            self.assertIn('### macOS', quickstart)
+            self.assertIn('### Linux', quickstart)
             self.assertFalse((stage / 'packaging/nix').exists())
             self.assertEqual(set(BINS), {'semwright', 'semwrightd', 'semwright-mcp', 'semwright-inspect', 'semwright-sandbox'})
 
