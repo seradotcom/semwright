@@ -20,7 +20,24 @@ class BundleContractTests(unittest.TestCase):
         (root / 'bin').mkdir()
         for name in BINS:
             target = root / 'bin' / name
-            target.write_text('#!/bin/sh\nprintf "synthetic fixture only\\n"\n')
+            if name == 'semwright':
+                target.write_text('''#!/bin/sh
+set -eu
+if [ "${1:-}" = "--dry-run" ] && [ "${2:-}" = "--json" ] && [ "${3:-}" = "setup" ]; then
+  printf '%s\\n' '{"setup":"dry-run","authority_changed":false,"service_started":false,"permissions_granted":false,"config":{"status":"would-create"},"mcp_client_snippet":{"status":"would-create"}}'
+  exit 0
+fi
+if [ "${1:-}" = "--json" ] && [ "${2:-}" = "setup" ]; then
+  D="$HOME/.config/semwright"; C="$D/daemon.toml"; M="$D/mcp-client.json"
+  if [ -f "$C" ]; then CS=kept-existing; else mkdir -p "$D"; chmod 700 "$D"; printf '# fixture\\n[policy]\\nprofile = "observe"\\n' > "$C"; chmod 600 "$C"; CS=created; fi
+  if [ -f "$M" ]; then MS=kept-existing; else MCP="$(dirname "$0")/semwright-mcp"; printf '{"mcpServers":{"semwright":{"command":"%s"}}}\\n' "$MCP" > "$M"; chmod 600 "$M"; MS=created; fi
+  printf '{"setup":"complete","authority_changed":false,"service_started":false,"permissions_granted":false,"config":{"status":"%s"},"mcp_client_snippet":{"status":"%s"}}\\n' "$CS" "$MS"
+  exit 0
+fi
+printf 'synthetic fixture only\\n'
+''')
+            else:
+                target.write_text('#!/bin/sh\nprintf "synthetic fixture only\\n"\n')
             target.chmod(0o755)
         add_bundle_files(ROOT, root, 'linux', 1_700_000_000)
         write_checksums(root, 1_700_000_000)

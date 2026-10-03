@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added `semwright setup` for safe cross-platform first-run configuration and MCP snippet generation; installers now point directly to this onboarding path.
 - Integrated portable platform contracts and native macOS/Windows hosts, preserving distinct
   hosted, interactive and physical-hardware verification levels.
 - Added Provider Runtime, governed sandboxed MCP federation, persistent Driver Protocol v2,
