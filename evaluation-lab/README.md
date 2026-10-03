@@ -101,3 +101,8 @@ of this laboratory branch. The target is technically frozen; the model protocol
 and evaluation suite remain draft/unfrozen, and no evaluation has run.
 The original global failure and successful corrected ARM64 external-fixture
 disposition remain explicit in the I handoff; they are not relabelled.
+
+Holdout tooling source `d17d0bb1c231a46e1a9a4a5bad99aea2a3e6d416` passed
+45 synthetic controls in hosted run `37091748012` (compact artifact `11263360006`).
+Only the affected lightweight harness lane ran. Native certificates retain their
+own earlier immutable source identity. No actual final reservation was generated.

@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "role": "H",
-  "state": "BLENDER_GODOT_NATIVE_CONTROLS_PASS_HELDOUT_TOOLING_CI_PENDING_FULL_HARNESS_PENDING",
+  "state": "BLENDER_GODOT_NATIVE_PREPARATION_AND_HOLDOUT_TOOLING_CI_PASS_FULL_HARNESS_PENDING",
   "evaluation_target_sha": null,
   "evaluation_suite_sha": null,
   "evaluation_executed": false,
@@ -47,7 +47,7 @@
     },
     "H05": {
       "status": "PARTIAL",
-      "reason": "Procedural commitment/reveal tooling implemented; hosted controls pending; actual final heldout reservation and model protocol not frozen",
+      "reason": "Hosted commitment/reveal tooling controls passed; actual final heldout reservation and model protocol remain unfrozen",
       "implementation": [
         "holdouts.py",
         "tests/test_holdouts.py"
@@ -142,5 +142,15 @@
     "scope": "Public direct native helpers/observers, not all final H task oracles",
     "artifact_id": 11262244432,
     "zip_sha256": "1728cf197cdb330f24495fb27b89a99e025472bc661c21ed4ee7d6ba9f740522"
+  },
+  "holdout_tooling_certificate": {
+    "laboratory_source_sha": "d17d0bb1c231a46e1a9a4a5bad99aea2a3e6d416",
+    "run_id": 37091748012,
+    "controls_passed": 45,
+    "execution_kind": "DETERMINISTIC_HARNESS_TESTS",
+    "artifact_id": 11263360006,
+    "actual_final_heldout_reservation_generated": false,
+    "model_evaluation_executed": false,
+    "native_jobs_executed": false
   }
 }
