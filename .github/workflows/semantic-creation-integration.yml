@@ -28,10 +28,13 @@ jobs:
           python3 - <<'PY'
           import json, os
           from pathlib import Path
+          protocol = json.loads(Path('evaluation-lab/protocol.json').read_text())
           Path('verification/H/scope.json').write_text(json.dumps({
               'schema_version': 1, 'laboratory_source_sha': os.environ['GITHUB_SHA'],
               'run_id': os.environ['GITHUB_RUN_ID'], 'execution_kind': 'DETERMINISTIC_HARNESS_TESTS',
               'model_evaluation_executed': False, 'native_productivity_evaluation_executed': False,
+              'technical_product_target_sha': protocol['target_source_sha'],
+              'technical_target_manifest_sha256': protocol['technical_target_manifest_sha256'],
               'evaluation_target_sha': None, 'winner_claim': None, 'r16_closed': False
           }, indent=2)+'\n')
           PY

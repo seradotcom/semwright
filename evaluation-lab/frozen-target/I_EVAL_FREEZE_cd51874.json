@@ -1,0 +1,392 @@
+{
+  "schema_version": 1,
+  "source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+  "SEMWRIGHT_EVAL_SHA": "cd518748f742025a251b78028613aa1b16919e73",
+  "status": "TECHNICAL_TARGET_FROZEN_MODEL_PROTOCOL_PENDING",
+  "technical_target_frozen": true,
+  "EVALUATION_SUITE_SHA": null,
+  "model_configuration": null,
+  "model_budget_authorized": false,
+  "model_evaluation_started": false,
+  "model_evaluation_blocker": "User confirmed no API key; native evaluation harness and model protocol remain pending.",
+  "g_suite_sha": "73cf4806d5c0193109da4d1cc6aa96b01b7c6a73",
+  "recorded_at": "2026-10-03T02:07:12.075243+00:00",
+  "source_files_sha256": {
+    ".github/workflows/atspi-noble-backport.yml": "8a217f078640b1e6a9a277ec74700c0d7d9ce93df5d9ceb1ab592a38e6f71ac9",
+    ".github/workflows/audio-diagnostics.yml": "c5b22f26345231ba0db2a15f85ffaaaec0bce82d02f7531ebb6074a73b38755d",
+    ".github/workflows/blender-authoring.yml": "63b0bf260e45b6d7140523bb556561e054fcc3f06a9f52534ef8cc84361f0261",
+    ".github/workflows/blender-semantic.yml": "015970bea440ba39005ae22fdf18447ea67deaca689597653f883d194260b95d",
+    ".github/workflows/candidate-certification.yml": "c97393f2852603ddbd61fba2706d05b61f307d3d2e72bb55ad6e880817be09a5",
+    ".github/workflows/ci.yml": "3c016b1e28a63c1cd851a85cecb809d80e37044ea9db3977f8b6ffaacb547032",
+    ".github/workflows/composition-av-combined.yml": "4012b6204e836998fbc93fd13e801b7f4922baa9f89bdac8656848c1851fc61f",
+    ".github/workflows/composition-diagnostics.yml": "7b80b45ac0813df5d02d9aab2256a991b55e52cd4a6219f52c28faf166264c3c",
+    ".github/workflows/composition-driver-diagnostics.yml": "15d801a87d283951804ba8b42276433a3f627c5f4ceac5cf9fa42b14c4d5d165",
+    ".github/workflows/composition-fuzz.yml": "2197595613b67bf7150b0bc6e8938ccadaea774085ce59031aefa3c558e00842",
+    ".github/workflows/composition-mutants.yml": "376c1a9138b32b58ab646ed60c5b3a03c7dbaf8eba72e6d7c8af20b1b1c19ee4",
+    ".github/workflows/driver-session-continuity.yml": "b268547c659156febb0ab0bfe32993df07357df2e8a12b418ebf4c58aece51cf",
+    ".github/workflows/effect-conformance.yml": "2685e9d80db3d5d511f0c69e01a866501a54ff1999cc3f0de280c4c7ed71dd8e",
+    ".github/workflows/figma-semantic-authoring.yml": "0ed94ee311311c6d6f29e8efa9023a04edd71c8122f930484ccfaa9754cad352",
+    ".github/workflows/godot-authoring.yml": "e93d7700f9c2df89811ec1ddd4b501c5d6df0537bf53081f8790fd0216484ecb",
+    ".github/workflows/godot-integration.yml": "da800ce45a1a3379d272024a4229785336fe4589ca69d966aa4561db029dc915",
+    ".github/workflows/libreoffice-runtime-v8.yml": "55216c47372f8d6c2ed9ba55721c20992261da24630642eee676bb84ba8d592f",
+    ".github/workflows/live-plasma.yml": "08a424978c6636c2390364b54be13ba793f7585780f5406882281adf008c924d",
+    ".github/workflows/live-x11-ewmh.yml": "cb9ab0c3e2c35c24f2fe68b70959a873400f58c3f82b9d734b3797caeaee52fb",
+    ".github/workflows/mlt-runtime-tools.yml": "99024cbd79527b78f17685f35f9e94cea3c842589852f9b7fdf49a85c21155a1",
+    ".github/workflows/motion-canvas-launch-film.yml": "b4be3a378b46125227ff4088625bfc80bb46b570afbe01082814c556216c3c7a",
+    ".github/workflows/motion-canvas.yml": "61b08054930c860ce2116e57fcb121c6531b487cee0c195bcfc10ae61ee377fb",
+    ".github/workflows/native-integrations.yml": "dd02b81932da816a68ba92f15046f4b0f5c246a8692ebcbfa02b3a79118b36db",
+    ".github/workflows/obs-integration.yml": "cde3c6ccb476aaf1b322e14006925eeeae6df915d9a35f09028e3abdeae8f8b8",
+    ".github/workflows/packaging-certification.yml": "d4598c9795a67afabdc7a95edb5e0d28271f152b509bc00dffc6afdddc6da1bc",
+    ".github/workflows/platformization-macos.yml": "ca9faa625c4d14bd5187ecc7261b2ebd72bf6772149ee76854b574b93fd1fcab",
+    ".github/workflows/pre-r16.yml": "2ebf981bfd21386f5715f740ce774af600bf5101156104aecdfc9f6a7109c3d3",
+    ".github/workflows/project-graph.yml": "3714bacb2e58d73cf555cefee4b5405853dff95a7b6a887713ec57b790977572",
+    ".github/workflows/release.yml": "cf7db24589502ed056e21aa0ee76c3173c062b56ba1a2a8a0fde6366707f8ac0",
+    ".github/workflows/runtime-tools-portability.yml": "e93807c50ef22bc7a869cab0d0e00d896bdc052995366a3cd8363b075d71829b",
+    ".github/workflows/security.yml": "1516a08d9ca2dfbffa09b38968c8f8701e3d627560554d6ab95a8277bb3e7228",
+    ".github/workflows/semantic-adversarial-lab.yml": "12ad63b79216198b690d0409956b54e492a6bcce115282f25b541669a558407f",
+    ".github/workflows/semantic-creation-integration.yml": "cbdbc1a6f8b3264d4e33e2bdd3934f92ff0c6fd5f9a8485f647850611db18af8",
+    ".github/workflows/semantic-creation-native-blender.yml": "7fbbf1f575a47df8232b44043a70f19d8ab9760c2f6c1f3a5e2e77a38ab46ab7",
+    ".github/workflows/supply-chain.yml": "dfb99f4ebdb45336b4527a9c715b2e9ba1237816aae6e972a830378cdb106596",
+    ".github/workflows/tideling-cross-app.yml": "e68ef92391a59419f6a427b4d08fb58e7e549aac2c0fd162fdf97bb6b0764db4",
+    ".github/workflows/tideling.yml": "bf43d55186b42a3e505e78533c876d5544f2b687ade8eaf031eaf27ee6b03a0e",
+    ".github/workflows/windows-interactive.yml": "7d33cadad08acf26e2f52a036221bf29776990669f6a6276163e96be4bfa98f7",
+    ".github/workflows/windows-platform.yml": "20e2ef22c2d282bc7425d3fe105be7b5f9f7bf8f80c6e6bd079432072cde3e90",
+    "Cargo.lock": "53458999594da110fc8e55ebcbab1b7427157c7aacc30ef3eb8b90707bd2cefe",
+    "Cargo.toml": "b0df0ae9d32c8bfef57a485f3a86f0983f10559bf99af0645d5d497f9297f8ae",
+    "crates/driver-figma/plugin/package-lock.json": "6cb75fcdd30e04674fb47e5a1e45f2915e559227228c3059bcd25fe663ec6c82",
+    "integrations/audio/manifests/ardour-audio.manifest.template.json": "6bcacb17423900cb5520e7939e990dfad0057eb7f0d04b05afd5b0fdb579b9b7",
+    "integrations/audio/manifests/audio-analysis.manifest.template.json": "524b41b2a330b33b88ebf5f6cbdbe966d1e7649958a188e3aa8899d0de11d205",
+    "integrations/audio/manifests/faust-audio.manifest.template.json": "8ff86ed332b69f137b70f39e55754fb980fe836321ca317e9bbd4eb77b4d48be",
+    "integrations/motion-canvas/runtime/package-lock.json": "ad80a11a188c70ea8bd28e1fd194d871e9f22479d20c29bb0ead0406dde890b8",
+    "integrations/motion-canvas/runtime/package.json": "1c393b6402eb8d883a92a7472cdaf1604e09cf5f19361d0ddda2c6ba13e80c2d",
+    "packaging/composition-development/manifest.json": "f590530f11da74ebff239ee7cb8143f3a1abd89d760be05d19055b49d5870a81",
+    "skills/semwright-audio-production/.semwright/examples/analysis-doctor.json": "950700f8c968affbd1a3d68377a41bdcec915721b44e51c84a9c61952384be62",
+    "skills/semwright-audio-production/.semwright/examples/ardour-runtime-probe.json": "57db6184c293b81b9f90178c71b31f655b6a773c28ba906c579cd158be3d4992",
+    "skills/semwright-audio-production/.semwright/examples/faust-contract.json": "acb02cab82ecf3657e2840765bd587f753c1adfd4306bfd3e4c1196f5589552b",
+    "skills/semwright-audio-production/.semwright/requirements.json": "36f047f30cd00309dbe30c518add5e5becca3e907eb3f16682a64a60291e486e",
+    "skills/semwright-audio-production/SKILL.md": "afcbd1e049c5927017f54f00df73d9deac75be288920f5e8c13ec9e114231ac2",
+    "skills/semwright-audio-production/references/analysis-and-repair.md": "1e510d89ba4f9354cf2feb987a54f984a3aac301d8a123a8344c9ecea29d633d",
+    "skills/semwright-audio-production/references/ardour-sessions.md": "1a452c43109b33d939783bc68ef0f88f00687d2a4087dbc271ff7e3d0bc16125",
+    "skills/semwright-audio-production/references/assets-and-provenance.md": "82c35965270d063880bceff5ace2699c2b646af7f47f16e635b1655d3667a6d1",
+    "skills/semwright-audio-production/references/cues-and-recovery.md": "224e1ea72f66ca29ce50639ea76c207840759016a228c0bd4ec1348aaa02d4b9",
+    "skills/semwright-audio-production/references/routing-and-units.md": "ef83e4ed250a3b8d9424c5a48176250dba162f09c081c1088fa36d5f71ceee06",
+    "skills/semwright-audio-production/references/synthesis-and-dsp.md": "1df43ef349005930ef9b46f3725db7bf75c6a568483946e212fdc4cabd88ba6e",
+    "skills/semwright-av-production/.semwright/requirements.json": "3124ba3c3f334504c97f9c148b489507637bc409c0748bdc1225150940514451",
+    "skills/semwright-av-production/SKILL.md": "30f0bfd6ad46042e6e961df004ee3913384027954cb0e3beb67102d195f94a89",
+    "skills/semwright-av-production/references/coordination-and-recovery.md": "73630abcd76d8959eb91e24753153cf459433c70d0ba5325ef6aec4b8515f2ad",
+    "skills/semwright-blender-production/.semwright/requirements.json": "80fb4b9a7fea527878838e4e096413151f582550cab90b60a17fa7f05139e408",
+    "skills/semwright-blender-production/SKILL.md": "71e6766a6ac7e67dca89055e236f33e6e9153ef62b0d0a62ac14381a5c0f7b4d",
+    "skills/semwright-blender-production/references/typed-authoring.md": "3453576b7be77428a8ff8107407c888f6e2f7118bc9956dabbc1867799d83c18",
+    "skills/semwright-core/.semwright/requirements.json": "a488317cee691488ec2ff09683cd3bb0031c1a1fcc61c52aa15c85c2c99c4be9",
+    "skills/semwright-core/SKILL.md": "6543d0580aed83e77c26717235b31d163658e44f2f09b66c27422570fc5ed7f8",
+    "skills/semwright-core/references/discovery.md": "7c21dc70241fbb906e07b7498834ff4f42de5416a26de7145910c6ea09a5be79",
+    "skills/semwright-core/references/jobs-and-recovery.md": "ae6ccbca3f0ef1de06cb66eb1e728cc0f946d08f65f0bac8aa0213ce774d5742",
+    "skills/semwright-core/references/refs.md": "82723309d9d1486f66bd6854f0c5bfc7633bfc73879410953b6932ad04a1caa9",
+    "skills/semwright-core/references/verification.md": "1ec101f44bea9accab05ed5ad0a99a5f30881853f1569ec100cbbd6a3f6eaa3e",
+    "skills/semwright-cross-app-artifacts/.semwright/requirements.json": "53d647e940246aba7162298d76d555a19273a51edaa1e79f2b7a4e9c7c82e213",
+    "skills/semwright-cross-app-artifacts/SKILL.md": "c589ded7485d37a504a74c999ceecf2cafd838507c15073ffcd172321703fa6e",
+    "skills/semwright-cross-app-artifacts/references/handoff.md": "6852274337cf27c281df79993814012c005b95831e2516e8a9461b63655bcaeb",
+    "skills/semwright-cross-app-artifacts/references/ports.md": "6596de24bf77b8d28bc961462735b4418cb9abcb2e7e6478c020ef8b9b8abd74",
+    "skills/semwright-cross-app-artifacts/references/recovery.md": "49670f53a46252bf0d77b5050f1a755b0c68a0efde80622d0456b172cbc8715b",
+    "skills/semwright-driver-authoring/.semwright/requirements.json": "c8ccdbb4b217de43cc1e02f7b25a1eae2c6ed1ff7e9b0ec1222966420dcd355d",
+    "skills/semwright-driver-authoring/SKILL.md": "99c6b1a2e68a4896d02a0375e43a8e0a95fa9f9f8ce8e1c112b10db681ba77d0",
+    "skills/semwright-driver-authoring/references/contract.md": "3d5ebb96cc06003071a5ddeac2c42427a493a4587cf62547220e9866f3f54f74",
+    "skills/semwright-driver-authoring/references/security.md": "d6fb053fc62921e771e741f3540be29fc2d92accbcc0c6fed041a1a7fcdc91b1",
+    "skills/semwright-driver-authoring/references/testing.md": "b909751264574ae0d9ae693ad92621052f5d2845c9602a01c228a9db07adf622",
+    "skills/semwright-figma-production/.semwright/requirements.json": "f582ece8096379e90a8ef3ae1c1851afc7b78a7e1502250187184262fd7b2c78",
+    "skills/semwright-figma-production/SKILL.md": "59339fe143eacbb31fc1dad9516c490026f8f818bd181fdced00a95db397f6a2",
+    "skills/semwright-figma-production/references/artifacts.md": "37f94fa37d38db03bcc55a8d87f00b7c870ebadf5d3696bc3701ba052ba7bd81",
+    "skills/semwright-figma-production/references/design-systems.md": "3eb886cd0748614c5fa00b7e4a96e9184389b5f50b2619834e3c60e9459251fa",
+    "skills/semwright-figma-production/references/inspection-and-mutation.md": "fdc184838c44a5bb14189f3731796bd4caa45f09a67c29a6012825fcd5d8eb85",
+    "skills/semwright-figma-production/references/layout-and-typography.md": "7972100da977101f3a130314836dc2571a2a541890df969e37bf8634390fea46",
+    "skills/semwright-figma-production/references/limitations.md": "e5ac0581513f7e5266405d07933a6c6e6bdfbda9da9e42ea046097d866768197",
+    "skills/semwright-figma-production/references/native-text-and-svg.md": "19f620e0a11d0785b9c9641557de143133d5ecc93e72049572e65c0381527be3",
+    "skills/semwright-figma-production/references/responsive-design.md": "0b91e470cef30d5938ac3216f3bc35d41a5f2f29e15fdbb64e830e343381a565",
+    "skills/semwright-figma-production/references/semantic-authoring.md": "d1a7b429637b6ee0af8bb18b5b63fb587f428563c6e3cc851a2be1a08bb12347",
+    "skills/semwright-figma-production/references/validation-and-repair.md": "4639a5d9b688cbccbd6310f0c98843b201e900dbfd5dd6f6916566d6396abdb3",
+    "skills/semwright-figma-production/references/visual-verification.md": "7b7b1d0db234de4b5fe04b1f5c4f953a35be971b7460d9373e746d69693c6260",
+    "skills/semwright-godot-production/.semwright/requirements.json": "b4db031a290f501539490d4c764927ca81e09d96ea7594719dc28049d01cbfe6",
+    "skills/semwright-godot-production/SKILL.md": "aa1d60858c0a0938f2ee2d8e4cfde27409e482fccd0762481554ebe08708a6ff",
+    "skills/semwright-godot-production/references/native-evidence.md": "c3f0ee30c387a83655bdc400544b2b291367178aebad5376b1da94bf9acc260f",
+    "skills/semwright-godot-production/references/security-and-repair.md": "bf61994a3814d43e2a41c10dc894d9183ff8213fc7d056dc63d2a3a0ffff13b4",
+    "skills/semwright-godot-production/references/semantic-authoring.md": "56d3ed51addd0f27352f309257e6f57efcd65144ec6c546f30bc29ed388dda51",
+    "skills/semwright-project-continuity/.semwright/examples/describe.json": "7eec99f5bc69f743bdfa45d2928396396530c5839faafa28451636b024f28ebf",
+    "skills/semwright-project-continuity/.semwright/examples/discover.json": "7722aefcdba9f0489f13cc3b1d8794122ce8fa93ad32ce404ebd75fdf2fb8c9b",
+    "skills/semwright-project-continuity/.semwright/examples/gc-preview.json": "3fd765174bb7586798e42f7fd13bb7e008a0616a68498fe9e852ef197fbd3e3a",
+    "skills/semwright-project-continuity/.semwright/examples/impact.json": "2795501084289f8224730d9120c5df02873fa55f9e3d9a54447466c6e9136b6f",
+    "skills/semwright-project-continuity/.semwright/examples/project-create.json": "4382bbbf8f285b11f820e2fa85189783f537f1c3597bd6b62eea391a740d40d6",
+    "skills/semwright-project-continuity/.semwright/examples/provenance.json": "7f59dc26ca7fcaef5b19a18ac351c052826cb4f1d56ceb499e8afa37c19774a6",
+    "skills/semwright-project-continuity/.semwright/requirements.json": "68d5a1dfc15d10ffa687d9c844220a95cc53498a57b8fa0fd85b2e1edfd099f8",
+    "skills/semwright-project-continuity/SKILL.md": "b9e924fae3c9c3ab2d3f4be2858cd6dbe3f04775cf0595df3d98710d9e02cec0",
+    "skills/semwright-project-continuity/references/states.md": "c8851f40841d3df631b598eaff5844ea6f03007b0db4890229ff27042642317b",
+    "skills/semwright-video-production/.semwright/requirements.json": "daefda77ff47e8a03685f2189a2d82a46a7d3e157d11fbe27dff1235a7dd52e2",
+    "skills/semwright-video-production/SKILL.md": "7fede46b3c084656851b7835cf43165cb9cdc979f14d48f8a134cff37e625b52",
+    "skills/semwright-video-production/references/authoring-and-evidence.md": "6245a623171a5e7f94be418fff3878c7f5cb7ddc034a398ee5e8a54d6c1e02b5",
+    "skills/semwright-video-production/references/limitations.md": "212e24dccc0c11609ab328d45cbf6e928f9e9cb53c403e3ccb4d228c72da1d3b",
+    "skills/semwright-workflow-distillation/.semwright/requirements.json": "0b5cb93871f3b6487dca5c606988914c78dd9063de7bab92e6fd03b6fa22f89e",
+    "skills/semwright-workflow-distillation/SKILL.md": "75d904b16dac072701de612e573e0cb4f717e4fc433c6cff5633d912be86f3af",
+    "skills/semwright-workflow-distillation/references/capture.md": "7815860a83116f40a3eff4a332b4499ffab0f482fd82e1b7a5aa616e279d2808",
+    "skills/semwright-workflow-distillation/references/compile-and-verify.md": "af814e4bf3995edf818937118b3f6340a9824c229e8fca50dce752f393c52dcf",
+    "skills/semwright-workflow-distillation/references/promotion.md": "023d2b8306a94b71c9447604a6a0e67c43e907fefb542dc1debcd7c2c91e12aa"
+  },
+  "exact_source_reports": {
+    "SOURCE_EXACT_I_cd51874.json": {
+      "run_id": 37074022332,
+      "sha256": "72ba22e8f2f0690f9e47a981d6dfb75ef2e0622271f7a609d6460584f3c97a6a"
+    },
+    "E_EXACT_I_cd51874.json": {
+      "run_id": 37074959691,
+      "sha256": "7a5c960ab7fcb9ca9df85669a569b44108462648f5629fa930592bddae79359f"
+    },
+    "D_EXACT_I_cd51874.json": {
+      "run_id": 37075910269,
+      "sha256": "14bce4082134b2d95119b81eae47074e45ed98ab263bf5f93273c9d635427fa9"
+    },
+    "AV_EXACT_I_cd51874.json": {
+      "run_id": 37077508380,
+      "sha256": "96c3e77d785f881b87d5de00510a034e9b155adc4959d61c48500d701bcd3b6b"
+    },
+    "B_EXACT_I_cd51874.json": {
+      "run_id": 37077804879,
+      "sha256": "fdd4a1741ccc44d4496358a5bfe5b51c7d88a11eadf36d7b2be4dada02e7b9a9"
+    },
+    "A_EXACT_I_cd51874.json": {
+      "run_id": 37080028165,
+      "sha256": "ed94371098b6640f113c16ee58bcfcf23d7f434c23f5b321fa6303dcb88c4c1a"
+    },
+    "C_EXACT_I_cd51874.json": {
+      "run_id": 37080806793,
+      "sha256": "be96e3e7d66e951f450be5c48d83a67b9fcd56628a463e5f417beae304ce9e68"
+    },
+    "F_EXACT_I_cd51874.json": {
+      "run_id": 37081317102,
+      "sha256": "e5200c34ffac085ec886af8742a5cd90fc7e350d4f26eb1368729b03674706f0"
+    },
+    "G_FINAL_INTEGRATED_CAMPAIGN_37074787747.json": {
+      "run_id": 37074787747,
+      "sha256": "191051db61ddeb68888417c6f144aa44d8551cceaed0deedafeb70544d286ae2"
+    },
+    "I_HOST_CONTROL_REGRESSIONS_cd51874.json": {
+      "run_id": 37074140012,
+      "sha256": "507a3381b7b5ea348e3b2bfc7ea29170f2535d3dfcf85eb12219e994427c61b6"
+    },
+    "I_JOINT_NATIVE_cd51874.json": {
+      "run_id": 37077527190,
+      "sha256": "b46774c24c902bc40456728d00c7e014c9a9a3b5e3dada0d04f2451fccf27cf0"
+    },
+    "I_GLOBAL_cd51874.json": {
+      "run_id": 37088550848,
+      "sha256": "568b412a17f6565fe79951047b731f3c6cf79dbab7c17cfc5b34201429e74172"
+    },
+    "I_JOINT_CHAIN_VERIFIED_cd51874.json": {
+      "run_id": 37082277878,
+      "sha256": "2b4cf12c49ca1d2ae3f8377dee5e0e6e6d31c23014653908c6f3229a4ce86e9a"
+    },
+    "MOTION_EXACT_I_cd51874.json": {
+      "run_id": 37082918121,
+      "sha256": "5d95a6839146928b0e1312254ddf763c28ad478e45a97b41e8f02e4b313afb77"
+    }
+  },
+  "remote_development_packages": [
+    {
+      "role": "D",
+      "run_id": 37075910269,
+      "artifact_id": 11256569435,
+      "name": "godot-authoring-source-cd518748f742025a251b78028613aa1b16919e73",
+      "bytes": 301753,
+      "github_artifact_digest": "sha256:92709d048d4a0c5693dd62b5624b504efe93f7abcfe9a4d0681fe4c3281b867a",
+      "remote_only": true
+    },
+    {
+      "role": "B",
+      "run_id": 37077804879,
+      "artifact_id": 11257938581,
+      "name": "audio-development-packages-cd518748f742025a251b78028613aa1b16919e73",
+      "bytes": 7353187,
+      "github_artifact_digest": "sha256:55800b6802cf1220d9acad1bd7d30be538f14cf7c306edb42258e31254a6aa2a",
+      "remote_only": true
+    },
+    {
+      "role": "A",
+      "run_id": 37080028165,
+      "artifact_id": 11257719478,
+      "name": "composition-development-cd518748f742025a251b78028613aa1b16919e73",
+      "bytes": 1156370,
+      "github_artifact_digest": "sha256:105a5c21f0457c7e5a40c5281460ee8d91e66c74dac3a1de7c5a9f9f1590aaa5",
+      "remote_only": true
+    },
+    {
+      "role": "GLOBAL",
+      "run_id": 37074828959,
+      "artifact_id": 11259076840,
+      "name": "nix-certification-cd518748f742025a251b78028613aa1b16919e73",
+      "bytes": 8307,
+      "github_artifact_digest": "sha256:2ac387ce331c1a34de312fdb89412970660a2ae02c47729cc0869633dfa16665",
+      "remote_only": true
+    },
+    {
+      "role": "GLOBAL",
+      "run_id": 37074828959,
+      "artifact_id": 11258700589,
+      "name": "supply-chain-aarch64-cd518748f742025a251b78028613aa1b16919e73",
+      "bytes": 41817634,
+      "github_artifact_digest": "sha256:33ecafa5837cd47fc405c62b4ebf16a5dcc1ca35d314fc8463b1d8f7f7652a66",
+      "remote_only": true
+    },
+    {
+      "role": "GLOBAL",
+      "run_id": 37074828959,
+      "artifact_id": 11258232717,
+      "name": "packaging-certification-aarch64-cd518748f742025a251b78028613aa1b16919e73",
+      "bytes": 518,
+      "github_artifact_digest": "sha256:1caf3fb33117bbec313a589ad6dadbc66231e0c38ef4a6ee0cab701eff592885",
+      "remote_only": true
+    },
+    {
+      "role": "GLOBAL",
+      "run_id": 37074828959,
+      "artifact_id": 11258223741,
+      "name": "supply-chain-x86_64-cd518748f742025a251b78028613aa1b16919e73",
+      "bytes": 45229170,
+      "github_artifact_digest": "sha256:5ac611df08fb946a128e2e913bc4fc63f136116f195d01c9f2c6d793a3c75d52",
+      "remote_only": true
+    },
+    {
+      "role": "GLOBAL",
+      "run_id": 37074828959,
+      "artifact_id": 11257613860,
+      "name": "packaging-certification-x86_64-cd518748f742025a251b78028613aa1b16919e73",
+      "bytes": 516,
+      "github_artifact_digest": "sha256:a34da1086ddd5df2a1b774ac61dad96874538d9141efd03f909e87d9a78034ea",
+      "remote_only": true
+    }
+  ],
+  "observed_runtime_and_skill_package_evidence": [
+    {
+      "artifact_id": 11256431831,
+      "run_id": 37074959691,
+      "github_artifact_digest": "sha256:7e895d9c92454ded972bc94143e2bc73054b50c6ec07da7e7c8c18f506d90dd4",
+      "files": {
+        "skill-bundle.json": {
+          "sha256": "32e81954a2c8cb23df918d7de526c7f359c8932af45ad63bd0ed70ea4cfedf3f",
+          "text": "{\"bytes\":13340,\"excluded_junk\":0,\"excluded_sensitive\":0,\"files\":3,\"format\":\"zip-store-v1\",\"schema_version\":1,\"sha256\":\"15683b167dc80cad5718a798e084a7ab032923f7ca5c3c1c64ea199f1c97e9c7\",\"skill\":\"semwright-blender-production\"}\n"
+        },
+        "skill-validate.json": {
+          "sha256": "9462ecbf51ccf1fd6e0dea100f4c61432fabd5f8c8264d99bda0b7b08847d97e",
+          "text": "{\"assets\":0,\"references\":1,\"resources\":2,\"result\":\"valid\",\"schema_version\":1,\"script_execution\":\"disabled\",\"scripts\":0,\"semwright_lock\":false,\"semwright_requirements\":true,\"skill\":\"semwright-blender-production\",\"skill_md_bytes\":5130,\"standard_valid\":true,\"supporting_bytes\":7656,\"total_bytes\":12786,\"warnings\":[]}\n"
+        },
+        "source-package.json": {
+          "sha256": "b0b3438350f39eb0f34cce2bcfb2e75d1e9259937bf5db2921307898be619547",
+          "text": "{\n  \"source_sha\": \"cd518748f742025a251b78028613aa1b16919e73\",\n  \"path\": \"evidence/blender-authoring/semwright-blender-authoring-E-source.zip\",\n  \"bytes\": 238606,\n  \"sha256\": \"7b5b3ddd95941b7bc206a84927bbd9f440022ddfa86f87f6f63379cb7af05338\",\n  \"files\": 58,\n  \"patch_base_sha\": \"a6b5bebbb022ae1e29c2b8e1ec3d4358cee7fb35\"\n}\n"
+        }
+      }
+    },
+    {
+      "artifact_id": 11256669988,
+      "run_id": 37077508380,
+      "github_artifact_digest": "sha256:dfc44cfb51bdf650a7a638591f64619f8c6c828405475de10d5187a2b85ea360",
+      "files": {
+        "native-binaries.sha256": {
+          "sha256": "e26d724a016568a97ea80e1c1ab262ea31a49149bdf1d8a002f7be8ac8b171ee",
+          "text": "27ee20470a218154441a96a10eac9859d6ff4ea51c0e3fe4b7c392ebae066dae  /home/runner/work/_temp/semwright-faust-interpreter\n06d898a2a82c51dee0e298be601fea839a7f533105f3e8c5c7bc3f2e8d3f1fa7  /home/runner/work/_temp/semwright-audio-meter\nd7a0398c321ca4f34cd59d6ad92bd14f086c17047ca0d4b02822df7caa4e62e0  target/debug/semwright-sandbox\ne6f01543698a467788c2a6b3255751fa9c3f9eba83849b9065a1278f5b4e0b65  target/debug/semwright-motion-canvas-driver\nb13998b2ccf31d839bb3a7daba5a26184aee28b966655a228e359443ac8b90ca  target/debug/semwright-faust-audio-driver\nfd58a0150efd6b9ab3863eadb2584c3acfa1624cf2cb8024f69be250466cd42a  target/debug/semwright-audio-analysis-driver\nfb5a04e08bce7090d1fe9bbfa514036d6ef21cb55f71c7cd90cf414f564850db  target/debug/semwright-mlt-video-driver\n98667d53cefc93eb6a82f5ec2bb63c583e38a56f710196ef72415fcdfd8aec9c  target/debug/semwright-mlt-runtime-runner\n"
+        },
+        "native-runtime-versions.txt": {
+          "sha256": "55be27d92e356c0559b010906da0e2a1cee2b88a427f969c7244d1206d0d763a",
+          "text": "faust\t2.70.3+ds-1.1build2\nlibebur128-dev:amd64\t1.2.6-1build1\nlibsndfile1-dev:amd64\t1.2.2-1ubuntu5.24.04.1\nmelt 7.22.0\nCopyright (C) 2002-2022 Meltytech, LLC\n<https://www.mltframework.org/>\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\nffmpeg version 6.1.1-3ubuntu5 Copyright (c) 2000-2023 the FFmpeg developers\nbuilt with gcc 13 (Ubuntu 13.2.0-23ubuntu3)\nconfiguration: --prefix=/usr --extra-version=3ubuntu5 --toolchain=hardened --libdir=/usr/lib/x86_64-linux-gnu --incdir=/usr/include/x86_64-linux-gnu --arch=amd64 --enable-gpl --disable-stripping --disable-omx --enable-gnutls --enable-libaom --enable-libass --enable-libbs2b --enable-libcaca --enable-libcdio --enable-libcodec2 --enable-libdav1d --enable-libflite --enable-libfontconfig --enable-libfreetype --enable-libfribidi --enable-libglslang --enable-libgme --enable-libgsm --enable-libharfbuzz --enable-libmp3lame --enable-libmysofa --enable-libopenjpeg --enable-libopenmpt --enable-libopus --enable-librubberband --enable-libshine --enable-libsnappy --enable-libsoxr --enable-libspeex --enable-libtheora --enable-libtwolame --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx265 --enable-libxml2 --enable-libxvid --enable-libzimg --enable-openal --enable-opencl --enable-opengl --disable-sndio --enable-libvpl --disable-libmfx --enable-libdc1394 --enable-libdrm --enable-libiec61883 --enable-chromaprint --enable-frei0r --enable-ladspa --enable-libbluray --enable-libjack --enable-libpulse --enable-librabbitmq --enable-librist --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libx264 --enable-libzmq --enable-libzvbi --enable-lv2 --enable-sdl2 --enable-libplacebo --enable-librav1e --enable-pocketsphinx --enable-librsvg --enable-libjxl --enable-shared\nffprobe version 6.1.1-3ubuntu5 Copyright (c) 2007-2023 the FFmpeg developers\nbuilt with gcc 13 (Ubuntu 13.2.0-23ubuntu3)\nconfiguration: --prefix=/usr --extra-version=3ubuntu5 --toolchain=hardened --libdir=/usr/lib/x86_64-linux-gnu --incdir=/usr/include/x86_64-linux-gnu --arch=amd64 --enable-gpl --disable-stripping --disable-omx --enable-gnutls --enable-libaom --enable-libass --enable-libbs2b --enable-libcaca --enable-libcdio --enable-libcodec2 --enable-libdav1d --enable-libflite --enable-libfontconfig --enable-libfreetype --enable-libfribidi --enable-libglslang --enable-libgme --enable-libgsm --enable-libharfbuzz --enable-libmp3lame --enable-libmysofa --enable-libopenjpeg --enable-libopenmpt --enable-libopus --enable-librubberband --enable-libshine --enable-libsnappy --enable-libsoxr --enable-libspeex --enable-libtheora --enable-libtwolame --enable-libvidstab --enable-libvorbis --enable-libvpx --enable-libwebp --enable-libx265 --enable-libxml2 --enable-libxvid --enable-libzimg --enable-openal --enable-opencl --enable-opengl --disable-sndio --enable-libvpl --disable-libmfx --enable-libdc1394 --enable-libdrm --enable-libiec61883 --enable-chromaprint --enable-frei0r --enable-ladspa --enable-libbluray --enable-libjack --enable-libpulse --enable-librabbitmq --enable-librist --enable-libsrt --enable-libssh --enable-libsvtav1 --enable-libx264 --enable-libzmq --enable-libzvbi --enable-lv2 --enable-sdl2 --enable-libplacebo --enable-librav1e --enable-pocketsphinx --enable-librsvg --enable-libjxl --enable-shared\nbubblewrap 0.9.0\n"
+        },
+        "prepared-binaries.sha256": {
+          "sha256": "df4dc22417eb61c8465094b8761ebaf748a4bc4ee6d939c5b8f4ad52bcda9200",
+          "text": "fd58a0150efd6b9ab3863eadb2584c3acfa1624cf2cb8024f69be250466cd42a  /home/runner/work/_temp/composition-av-binaries/semwright-audio-analysis-driver\nb13998b2ccf31d839bb3a7daba5a26184aee28b966655a228e359443ac8b90ca  /home/runner/work/_temp/composition-av-binaries/semwright-faust-audio-driver\n98667d53cefc93eb6a82f5ec2bb63c583e38a56f710196ef72415fcdfd8aec9c  /home/runner/work/_temp/composition-av-binaries/semwright-mlt-runtime-runner\nfb5a04e08bce7090d1fe9bbfa514036d6ef21cb55f71c7cd90cf414f564850db  /home/runner/work/_temp/composition-av-binaries/semwright-mlt-video-driver\ne6f01543698a467788c2a6b3255751fa9c3f9eba83849b9065a1278f5b4e0b65  /home/runner/work/_temp/composition-av-binaries/semwright-motion-canvas-driver\nd7a0398c321ca4f34cd59d6ad92bd14f086c17047ca0d4b02822df7caa4e62e0  /home/runner/work/_temp/composition-av-binaries/semwright-sandbox\n"
+        }
+      }
+    },
+    {
+      "artifact_id": 11257646075,
+      "run_id": 37077804879,
+      "github_artifact_digest": "sha256:9d5fcd02f5d22f774d629f391a5981056d84da0bfc11931a29e3ce5bfdce44a6",
+      "files": {
+        "faust-version.txt": {
+          "sha256": "1a18789d55c8ae2e44a3d3e563ac8ad7948ff8155821bb0e4716fb51a2c6c66a",
+          "text": "FAUST Version 2.70.3\nEmbedded backends: \n   DSP to C\n   DSP to C++\n   DSP to Cmajor\n   DSP to Codebox\n   DSP to CSharp\n   DSP to DLang\n   DSP to FIR\n   DSP to Interpreter\n   DSP to Java\n   DSP to JAX\n   DSP to Julia\n   DSP to JSFX\n   DSP to LLVM IR\n   DSP to old C++\n   DSP to Rust\n   DSP to WebAssembly (wast/wasm)\nBuild with LLVM version 17.0.6\nCopyright (C) 2002-2024, GRAME - Centre National de Creation Musicale. All rights reserved. \n"
+        },
+        "faust.sha256": {
+          "sha256": "23014b0ea1495e56785998bb218f2b9aa291f3bc55e011187314ea29f5fa7fcd",
+          "text": "e71fdeaa4e0e3b8aaf58a80f5d93e852f6d517d08b7329e760ba43058367f41e  /usr/bin/faust\n"
+        },
+        "runtime-packages.txt": {
+          "sha256": "7efeb219a3ab02f1d4b5c181377474a96c606f3333488e2fed78befa31ebbd8a",
+          "text": "faust\t2.70.3+ds-1.1build2\nlibsndfile1-dev:amd64\t1.2.2-1ubuntu5.24.04.1\n"
+        }
+      }
+    },
+    {
+      "artifact_id": 11257610914,
+      "run_id": 37077804879,
+      "github_artifact_digest": "sha256:960c977caa360bcdf6adbfbda4fcadce6e99d0fb0c0f0f2f498693a142d313f1",
+      "files": {
+        "faust-version.txt": {
+          "sha256": "87e1c6b85a4859be9008359e8bd87e23fedaed24b5ca295b857677ff48e383aa",
+          "text": "FAUST Version 2.37.3\nEmbedded backends: \n   DSP to C\n   DSP to C++\n   DSP to CSharp\n   DSP to DLang\n   DSP to FIR\n   DSP to Interpreter\n   DSP to Java\n   DSP to Julia\n   DSP to LLVM IR\n   DSP to old C++\n   DSP to Rust\n   DSP to SOUL\n   DSP to WebAssembly (wast/wasm)\nBuild with LLVM version 13.0.0\nCopyright (C) 2002-2021, GRAME - Centre National de Creation Musicale. All rights reserved. \n"
+        },
+        "faust.sha256": {
+          "sha256": "6bb598396754821a3a53bffc53cdd72ade85089a2d1086d89efa77a04b748309",
+          "text": "6636f60d873fc77224dab87c175e0f2e6c448bacb08fed2733e3a539e6c27a91  /usr/bin/faust\n"
+        },
+        "runtime-packages.txt": {
+          "sha256": "faec996d502c4c58a049da10144b03db399b640367c3e07bf6a12e7cf5009376",
+          "text": "faust\t2.37.3~ds0-1\nlibsndfile1-dev:amd64\t1.0.31-2ubuntu0.2\n"
+        }
+      }
+    },
+    {
+      "artifact_id": 11257597159,
+      "run_id": 37077804879,
+      "github_artifact_digest": "sha256:9acd44c5437f02c35ce86888613880516fbe46664e212e05c8ea2b3410a998ec",
+      "files": {
+        "ardour-runtime-packages.txt": {
+          "sha256": "49e56081e96a890c06d7a6e995fbac2ee937698ed416b0282bb138c7e3f99b3d",
+          "text": "ardour\t1:8.4.0+ds1-2ubuntu8\nardour-data\t1:8.4.0+ds1-2ubuntu8\n"
+        },
+        "ardour-tools.sha256": {
+          "sha256": "52de6c29cc92dfa4b1a9a30334b9ca8b7022698220dceec2e68c33316ff120f4",
+          "text": "466c364a979e066cd5fb3600404ceb297c0f3a696a529fcb9b1fd9d5def913aa  /usr/lib/ardour8/luasession\n65f5e842154b72fd393a8c27c8beb84ccf986499801517ee1b0f45130aa3a550  /usr/lib/ardour8/utils/ardour8-new_session\n322e7627fbf39b019978936b99b4dee10905deb98b352c9e7a3406d9c8b03ded  /usr/lib/ardour8/utils/ardour8-export\n"
+        }
+      }
+    },
+    {
+      "artifact_id": 11258507028,
+      "run_id": 37081317102,
+      "github_artifact_digest": "sha256:d19dfb500f083ba40ca3f0a4ae2467939c1fa72e93d40805fc617fd72f2358d5",
+      "files": {
+        "blender-binary.sha256": {
+          "sha256": "c89044213fc7f0b7ce04d57010b33c55e5d921e41592bc21c0e1e6898d4bc6ba",
+          "text": "050c02562f81fe80ba616a80198fa02d381e60f8b61b8d39add881f4bca0d7d8  /opt/semwright-effect-runtimes/blender-4.5.14-linux-x64/blender\n"
+        },
+        "godot-binary.sha256": {
+          "sha256": "6797b60ebe59559505682d8600b4849f9beb9d79bb8def44117bff8c4b235b04",
+          "text": "8d106cbe6144c2dc7e881d61d2429c1a8a76e6b22ef48bd5e48dcf934953f71e  /opt/semwright-effect-runtimes/Godot_v4.7.2-stable_linux.x86_64\n"
+        }
+      }
+    }
+  ],
+  "native_acceptance_scope": "Linux native Blender/Godot/Motion/Faust/Ardour/analysis/MLT; portable contracts do not certify native applications on Windows/macOS.",
+  "coverage_complete": false,
+  "safe_cache_reuse_claimed": false,
+  "independent_security_review_status": "UNREVIEWED",
+  "r16_closed": false,
+  "main_merge_performed": false,
+  "release_performed": false,
+  "global_gate_disposition": {
+    "original_run_id": 37074828959,
+    "original_conclusion": "failure",
+    "corrected_job_retest_run_id": 37085834067,
+    "corrected_test_suite_sha": "27924ecf3bba369e0560c6685693bac3aa1dcdc3",
+    "hosted_disposition_report": "I_GLOBAL_cd51874.json",
+    "original_workflow_pass_claimed": false,
+    "test_fixture_correction_in_product_tree": false
+  },
+  "skills_manifest_sha256": "b013d55c7c12e112fa53f88663034a5b63c9c0d1915cdd27d4184a97b7e9debd",
+  "runtime_manifest_sha256": "d8716acf054a76676c82bffeae7cc184ff8a4b6720729e82b173a4234fe178bb",
+  "package_manifest_sha256": "715a485432b44f6d5059fa9b050c89e9d654c88c046b9e81aeee22fef28dabe4",
+  "root_lock_sha256": "53458999594da110fc8e55ebcbab1b7427157c7aacc30ef3eb8b90707bd2cefe"
+}

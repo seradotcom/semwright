@@ -21,13 +21,20 @@ assert re.search(r'Ran 28 tests',log) and re.search(r'^OK$',log,re.M)
 # The native/model evaluation remains incomplete; these are validator controls.
 acceptance=json.loads((ROOT/'evaluation-lab/ACCEPTANCE.json').read_text())
 assert acceptance['evaluation_executed'] is False and acceptance['r16_closed'] is False
+protocol=json.loads((ROOT/'evaluation-lab/protocol.json').read_text())
+freeze_bytes=(ROOT/'evaluation-lab'/protocol['technical_target_manifest']).read_bytes()
+assert hashlib.sha256(freeze_bytes).hexdigest()==protocol['technical_target_manifest_sha256']
+freeze=json.loads(freeze_bytes)
+assert freeze['technical_target_frozen'] and freeze['SEMWRIGHT_EVAL_SHA']==protocol['target_source_sha']
+assert protocol['status']=='DRAFT_NOT_EVALUATION_FREEZE' and protocol['budget_authorized'] is False
 names=subprocess.check_output(['git','ls-tree','-r','--name-only',SOURCE,'--','evaluation-lab'],cwd=ROOT).decode().splitlines()
 entries={name:subprocess.check_output(['git','show',SOURCE+':'+name],cwd=ROOT) for name in names}
 for path in (ROOT/'verification/H').iterdir():
  if path.is_file():assert path.stat().st_size<300000;entries['evidence/'+path.name]=path.read_bytes()
 manifest={'schema_version':1,'laboratory_source_sha':SOURCE,'run_id':os.environ['GITHUB_RUN_ID'],
  'kind':'PREPARATORY_HARNESS_FOUNDATION_NOT_COMPLETED_EVALUATION','harness_controls_passed':28,
- 'technical_product_target_sha':None,'evaluation_suite_frozen':False,'native_productivity_evaluation_executed':False,
+ 'technical_product_target_sha':freeze['SEMWRIGHT_EVAL_SHA'],'technical_target_manifest_sha256':protocol['technical_target_manifest_sha256'],
+ 'evaluation_suite_frozen':False,'native_productivity_evaluation_executed':False,
  'model_evaluation_executed':False,'model_access_blocker':'User confirmed no API key',
  'remaining_harness_work':['Competent direct native helpers','Independent native task oracles','Trusted live route collector','Model-session adapters','Heldout seal and comparable frozen protocol'],
  'model_tokens_observed':None,'billed_model_cost_observed':None,'winner_claim':None,'r16_closed':False,

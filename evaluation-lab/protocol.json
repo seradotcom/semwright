@@ -52,9 +52,12 @@
     "max_attempt_wall_ms": 1200000
   },
   "budget_authorized": false,
-  "target_source_sha": null,
+  "target_source_sha": "cd518748f742025a251b78028613aa1b16919e73",
   "model_identity": null,
-  "runtime_manifest_digest": null,
-  "skills_manifest_digest": null,
-  "r16_closed": false
+  "runtime_manifest_digest": "d8716acf054a76676c82bffeae7cc184ff8a4b6720729e82b173a4234fe178bb",
+  "skills_manifest_digest": "b013d55c7c12e112fa53f88663034a5b63c9c0d1915cdd27d4184a97b7e9debd",
+  "r16_closed": false,
+  "technical_target_manifest": "frozen-target/I_EVAL_FREEZE_cd51874.json",
+  "technical_target_manifest_sha256": "23ed96b04e1ac14aefb0a729e619d0cb1f5d4cea2a23a0079b1edf38989068c7",
+  "model_protocol_frozen": false
 }

@@ -43,3 +43,12 @@ deterministic controls in GitHub run37074603304. That evidence does not certify
 a complete native/model harness. The preparatory delivery contains the lab source,
 public draft tasks, protocol, control logs and hashes; it contains no model results
 or final heldouts. ZIP creation and reproducibility checks run only in Actions.
+
+The received technical product target is now
+`cd518748f742025a251b78028613aa1b16919e73`, bound to the immutable I manifest
+in `frozen-target/` (SHA-256 `23ed96b04e1ac14aefb0a729e619d0cb1f5d4cea2a23a0079b1edf38989068c7`). Product checkout
+and laboratory checkout are distinct: do not evaluate the old product ancestry
+of this laboratory branch. The target is technically frozen; the model protocol
+and evaluation suite remain draft/unfrozen, and no evaluation has run.
+The original global failure and successful corrected ARM64 external-fixture
+disposition remain explicit in the I handoff; they are not relabelled.

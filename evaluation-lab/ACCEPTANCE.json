@@ -108,5 +108,8 @@
     "controls_passed": 28,
     "execution_kind": "DETERMINISTIC_HARNESS_TESTS",
     "native_productivity_evaluation_executed": false
-  }
+  },
+  "technical_target_received": true,
+  "technical_product_target_sha": "cd518748f742025a251b78028613aa1b16919e73",
+  "technical_target_manifest_sha256": "23ed96b04e1ac14aefb0a729e619d0cb1f5d4cea2a23a0079b1edf38989068c7"
 }
