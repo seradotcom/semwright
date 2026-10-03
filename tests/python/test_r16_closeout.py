@@ -157,8 +157,10 @@ class EvidenceTests(unittest.TestCase):
             )
             self.assertFalse(closeout[gate]["known_software_defect_behind_gap"])
         readiness = json.loads((ROOT / "release-readiness.json").read_text())
-        self.assertEqual(readiness["status"], "BLOCKED_DEVELOPMENT_SOURCE")
-        self.assertFalse(readiness["gates"]["live_desktop_matrix"])
+        self.assertEqual(readiness["status"], "BLOCKED_PENDING_SECURITY_REVIEW")
+        self.assertNotIn("live_desktop_matrix", readiness["gates"])
+        self.assertEqual(readiness["post_v1_certification"]["live_desktop_matrix"],
+                         "DEFERRED_TO_POST_V1_ENVIRONMENT_DEPENDENT")
         self.assertFalse(readiness["gates"]["security_review"])
         self.assertEqual(closeout["R16"]["status"], "CLOSED")
         self.assertFalse(

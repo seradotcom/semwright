@@ -1,6 +1,16 @@
 # Verification — Semwright 0.9.0-dev.1
 
-## Current review snapshot versus historical evidence
+## Current staging policy
+
+The [2026-10-03 release policy](docs/release-policy.md) supersedes the older live-matrix
+publication prerequisite. R16 is CLOSED; R06/R18 residuals remain OPEN/deferred post-v1, not PASS.
+Staging admission does not authorize publication. Independent security review is still mandatory;
+`release-readiness.json` currently says BLOCKED_PENDING_SECURITY_REVIEW.
+The new distribution contract requires complete extracted-bundle install/smoke/uninstall checks
+on six native architectures, internal checksums and a global exact-SHA manifest. Historical runs
+below do not certify this newer packaging implementation; use the staging PR/run evidence.
+
+## Historical review snapshot versus historical evidence
 
 R reviews `6491c0d838fa066938a494524d69ed507aa0dbe8`. I's source is
 `cd518748f742025a251b78028613aa1b16919e73`; the actual diff is four documentation files and

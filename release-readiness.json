@@ -1,5 +1,5 @@
 {
-  "status": "BLOCKED_DEVELOPMENT_SOURCE",
+  "status": "BLOCKED_PENDING_SECURITY_REVIEW",
   "gates": {
     "rust_build_and_tests": true,
     "reviewed_lockfile": true,
@@ -8,9 +8,13 @@
     "dependency_audit_and_licenses": true,
     "rust_broker_integration": true,
     "plugin_sandbox_negative_tests": true,
-    "live_desktop_matrix": false,
     "application_adapter_validation": true,
     "release_packaging_validation": true,
     "security_review": false
+  },
+  "schema_version": 2,
+  "post_v1_certification": {
+    "live_desktop_matrix": "DEFERRED_TO_POST_V1_ENVIRONMENT_DEPENDENT",
+    "windows_interactive": "DEFERRED_TO_POST_V1_ENVIRONMENT_DEPENDENT"
   }
 }

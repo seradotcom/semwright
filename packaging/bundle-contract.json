@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "binaries": ["semwright", "semwrightd", "semwright-mcp", "semwright-inspect", "semwright-sandbox"],
+  "documents": ["README.md", "LICENSE-MIT", "LICENSE-APACHE", "SECURITY.md", "SUPPORT.md", "V1_ENGINEERING_CLOSEOUT.md", "POST_V1_BACKLOG.md"],
+  "posix_helpers": ["install.sh", "uninstall.sh", "manage-install.sh"],
+  "windows_helpers": ["Install-Semwright.ps1", "Uninstall-Semwright.ps1", "Manage-Semwright.ps1"],
+  "configuration": "config/observe.toml",
+  "policy": "No automatic PATH, service, policy, permission or application installation. No public release authorization."
+}

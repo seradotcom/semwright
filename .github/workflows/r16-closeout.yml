@@ -54,7 +54,7 @@ jobs:
           persist-credentials: false
       - run: python3 scripts/review/validate_r16.py
       - run: python3 -m unittest discover -s tests/python -p test_r16_closeout.py -v
-      - run: python3 scripts/review/package_r16_closeout.py --check
+      - run: python3 scripts/review/package_r16_closeout.py --historical-check
       - run: python3 scripts/verify-oss-hygiene.py
   positive-smoke:
     needs: documentary

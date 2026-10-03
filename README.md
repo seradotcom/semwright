@@ -1,27 +1,45 @@
-# Semwright
+<h1 align="center"><img src="./docs/assets/semwright-mark.svg" alt="" width="44" height="44" />&nbsp;Semwright</h1>
 
-**Use real software from AI agents.**
+<p align="center">
+  <strong>Use real software from AI agents.</strong>
+</p>
 
-Semwright is an open runtime that connects agents to desktop and professional applications through
-structured operations, application APIs and governed system interfaces.
+<p align="center">
+  An open runtime that connects AI agents to desktop and professional applications through<br />
+  structured operations, native APIs, and governed system interfaces.
+</p>
 
-**Connect software once. Use it from a compatible MCP client, a CLI-driven agent, or your own integration.**
+<p align="center">
+  <a href="./LICENSE-MIT"><img alt="License: MIT OR Apache-2.0" src="https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-234ea2"></a>
+  <a href="./Cargo.toml"><img alt="Rust" src="https://img.shields.io/badge/Rust-runtime-000000?logo=rust&logoColor=white"></a>
+  <a href="./docs/installation.md"><img alt="Native bundles: Linux, macOS, Windows" src="https://img.shields.io/badge/native%20bundles-Linux%20%7C%20macOS%20%7C%20Windows-234ea2"></a>
+  <a href="./docs/mcp.md"><img alt="MCP frontend" src="https://img.shields.io/badge/MCP-frontend-6f42c1"></a>
+  <a href="./docs/installation.md"><img alt="Status: pre-v1" src="https://img.shields.io/badge/status-pre--v1-e67e22"></a>
+  <a href="./VERIFY.md"><img alt="Verification documented" src="https://img.shields.io/badge/verification-documented-2ea44f"></a>
+</p>
 
-- **Work with application semantics, not only pixels and clicks.**
-- **Use one execution layer across agents and applications.**
-- **Keep authority local, policy-gated and auditable.**
-- **Read back and verify bounded outcomes instead of assuming success.**
+<p align="center">
+  <a href="./docs/installation.md"><strong>Installation</strong></a> ·
+  <a href="https://semwright.com/docs/"><strong>Documentation</strong></a> ·
+  <a href="./docs/drivers.md"><strong>Drivers</strong></a> ·
+  <a href="./VERIFY.md"><strong>Verification</strong></a>
+</p>
 
-> **Status:** Semwright is pre-1.0 development software. Linux has the broadest verified host
-> coverage; Windows, macOS and some application paths have narrower evidence. V1 engineering
-> closeout is complete, but full release certification remains fail-closed while physical and
-> interactive gates are open. [See exact status and evidence.](#status-and-verification)
+> **Pre-release:** native candidate bundles are for evaluation; no public v1 has been published.
+> Physical/interactive residuals are explicit post-v1 certification work. Independent security
+> review remains required before public release. [Status and evidence](#status-and-verification).
 
-[Try Semwright](#try-semwright) · [Applications](#applications) ·
-[How it works](#how-it-works) · [Build an integration](#build-an-integration) ·
-[Verification](#status-and-verification)
+```text
+AI agent  →  Semwright  →  Blender · Godot · Browser · LibreOffice · Figma · KiCad · …
+```
 
 ## What can I do with it?
+
+- **Connect compatible agents to real desktop and professional software through one runtime.**
+- **Prefer structured application operations and native APIs over pixels and clicks when available.**
+- **Move verified file-backed artifacts between integrations without bypassing broker policy.**
+- **Keep mutations policy-gated, auditable, and bounded by explicit authority.**
+- **Extend applications with the Driver SDK, or add narrow external commands with the Plugin SDK.**
 
 A Semwright request can discover an application's structured capabilities, perform an authorized
 operation, move an artifact between tools, and verify the result through the same broker.
@@ -48,6 +66,25 @@ The exact operations and evidence depend on each integration. Semwright does not
 headless test certifies an entire interactive application.
 
 ## Try Semwright
+
+### Native bundle — no Rust build required
+
+Use the matching candidate from an exact-SHA **V1 multiplatform distribution** Actions run.
+There is no public v1 download in this closeout. Verify the external checksums, extract the archive,
+and run its included helper:
+
+| Platform | Bundle | Install from the extracted directory |
+| --- | --- | --- |
+| Linux x86_64 / aarch64 | `.tar.gz` or `.deb` | `./install.sh` (or the system package manager for `.deb`) |
+| Windows x86_64 / ARM64 | `.zip` | `.\Install-Semwright.ps1` |
+| macOS Apple Silicon / Intel | `.tar.gz` | `./install.sh` |
+
+Every portable bundle includes **all five runtime commands**, required packaged native companions,
+checksums and reversible user-local helpers. No automatic PATH changes, service installation,
+application downloads or permission grants. Windows/macOS bundles are unsigned; no security-control
+bypass is provided. [Exact commands, requirements and removal →](docs/installation.md#install-a-candidate-bundle)
+
+### Build and try the synthetic desktop
 
 The safest first run uses the repository's synthetic desktop. It exercises the real daemon, CLI,
 recipe runner and policy path without connecting to your real desktop or credentials.
@@ -79,7 +116,9 @@ flow, use the [installation guide](docs/installation.md).
 
 ### After installation
 
-Start the broker as your normal user in the same graphical login session:
+Follow the [installation guide](docs/installation.md) to create a private observe-only configuration
+and explicitly add your installed `bin` directory to the current shell PATH (or use absolute paths).
+Then start the broker as your normal user in the same graphical login session:
 
 ```sh
 semwrightd --config "$HOME/.config/semwright/daemon.toml"
@@ -107,7 +146,7 @@ absolute executable path such as:
 {
   "mcpServers": {
     "semwright": {
-      "command": "/home/YOUR_USER/.local/bin/semwright-mcp"
+      "command": "/home/YOUR_USER/.local/share/semwright/bin/semwright-mcp"
     }
   }
 }
@@ -266,11 +305,15 @@ Engineering completion and release certification are deliberately separate state
 | **R06** | **OPEN — `DEFERRED_TO_POST_V1_ENVIRONMENT_DEPENDENT`** |
 | **R18** | **OPEN — `DEFERRED_TO_POST_V1_ENVIRONMENT_DEPENDENT`** |
 | **V1_ENGINEERING_CLOSEOUT** | **COMPLETE** |
-| **RELEASE_READINESS** | **BLOCKED_DEVELOPMENT_SOURCE**; remains fail-closed |
+| **STAGING** | Engineering metadata admitted; native bundles require exact-SHA workflow evidence |
+| **PUBLIC RELEASE** | **NOT PUBLISHED**; **BLOCKED_PENDING_SECURITY_REVIEW** |
 
 R06 still requires the declared physical Hyprland/mixed-display cases. R18 still requires the
 declared unlocked Windows interactive, UIPI/UAC, real-app UIA, mixed-DPI and lifecycle cases.
-Those gaps are not simulated and are not converted into PASS by hosted CI.
+Those gaps are not simulated and are not converted into PASS by hosted CI. They are no longer
+prerequisites for the initial-v1 publication decision. Independent security review, explicit
+maintainer authorization and final exact-SHA validation remain mandatory under
+[the release policy](docs/release-policy.md).
 
 Start with:
 

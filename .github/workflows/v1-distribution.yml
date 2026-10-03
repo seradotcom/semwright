@@ -5,6 +5,9 @@ on:
   workflow_dispatch:
   pull_request:
     paths:
+      - 'release-readiness.json'
+      - 'tests/python/test_release_admission.py'
+      - 'tests/python/test_staging_bundle.py'
       - 'scripts/release/**'
       - 'packaging/**'
       - 'docs/installation.md'
@@ -33,7 +36,20 @@ env:
   CARGO_PROFILE_RELEASE_DEBUG: 0
 
 jobs:
+  staging-admission:
+    name: Staging admission (not publication)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - run: python3 scripts/release/assert-ready.py --mode staging
+      - run: python3 -m unittest discover -s tests/python -p test_release_admission.py -v
+      - run: python3 -m unittest discover -s tests/python -p test_staging_bundle.py -v
+
   linux:
+    needs: staging-admission
     name: Linux ${{ matrix.arch }} packages
     strategy:
       fail-fast: false
@@ -80,6 +96,8 @@ jobs:
             --arch "${{ matrix.arch }}" \
             --output dist \
             --report "dist/build-linux-${{ matrix.arch }}.json"
+          python3 scripts/release/certify_deb_install.py \
+            --report "dist/certification-linux-${{ matrix.arch }}.json"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: semwright-v1-linux-${{ matrix.arch }}-${{ github.sha }}
@@ -88,10 +106,11 @@ jobs:
           retention-days: 30
 
   windows:
+    needs: staging-admission
     name: Windows ${{ matrix.arch }} portable ZIP
     strategy:
       fail-fast: false
-      max-parallel: 1
+      max-parallel: 2
       matrix:
         include:
           - runner: windows-2025
@@ -112,6 +131,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
         with:
           toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: v1-dist-windows-${{ matrix.arch }}
       - name: Verify native Windows architecture
         run: |
           set -euo pipefail
@@ -141,10 +163,11 @@ jobs:
           retention-days: 30
 
   macos:
+    needs: staging-admission
     name: macOS ${{ matrix.arch }} portable archive
     strategy:
       fail-fast: false
-      max-parallel: 1
+      max-parallel: 2
       matrix:
         include:
           - runner: macos-15
@@ -165,6 +188,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
         with:
           toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: v1-dist-macos-${{ matrix.arch }}
       - name: Verify native macOS architecture
         run: |
           set -euo pipefail
@@ -200,6 +226,9 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           pattern: semwright-v1-*-${{ github.sha }}
@@ -209,54 +238,8 @@ jobs:
           SOURCE_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
-          python3 - <<'PY'
-          import hashlib, json, os
-          from pathlib import Path
-          root = Path("downloaded")
-          reports = sorted(root.rglob("certification-*.json"))
-          if len(reports) != 6:
-              raise SystemExit(f"expected 6 certification reports, found {len(reports)}")
-          parsed = [json.loads(p.read_text()) for p in reports]
-          if any(row.get("status") != "PASS" for row in parsed):
-              raise SystemExit("one or more distribution certification reports are not PASS")
-          packages = []
-          for path in sorted(root.rglob("*")):
-              if not path.is_file():
-                  continue
-              if not (path.name.endswith(".tar.gz") or path.suffix in {".deb", ".zip"}):
-                  continue
-              packages.append({
-                  "name": path.name,
-                  "bytes": path.stat().st_size,
-                  "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
-              })
-          suffixes = [p["name"] for p in packages]
-          if len(packages) != 8:
-              raise SystemExit(f"expected 8 native packages, found {len(packages)}: {suffixes}")
-          if sum(name.endswith(".deb") for name in suffixes) != 2:
-              raise SystemExit("expected amd64 and arm64 Debian packages")
-          if sum(name.endswith(".zip") for name in suffixes) != 2:
-              raise SystemExit("expected Windows x86_64 and ARM64 ZIPs")
-          if sum(name.endswith(".tar.gz") for name in suffixes) != 4:
-              raise SystemExit("expected two Linux and two macOS tar.gz archives")
-          out = Path("distribution-manifest")
-          out.mkdir()
-          manifest = {
-              "status": "PASS",
-              "source_sha": os.environ["SOURCE_SHA"],
-              "release_admission": False,
-              "package_count": len(packages),
-              "certification_reports": [str(p.relative_to(root)) for p in reports],
-              "packages": packages,
-              "release_readiness": "separate fail-closed gate",
-          }
-          (out / "V1_DISTRIBUTION_MANIFEST.json").write_text(
-              json.dumps(manifest, indent=2, sort_keys=True) + "\n"
-          )
-          (out / "SHA256SUMS").write_text(
-              "".join(f'{p["sha256"]}  {p["name"]}\n' for p in packages)
-          )
-          PY
+          python3 scripts/release/distribution_manifest.py \
+            --input downloaded --source-sha "$SOURCE_SHA" --output distribution-manifest
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: semwright-v1-distribution-manifest-${{ github.sha }}

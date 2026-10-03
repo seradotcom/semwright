@@ -19,3 +19,8 @@ Use GitHub private vulnerability reporting for security issues, as described in
 Follow [CONTRIBUTING.md](CONTRIBUTING.md) for focused changes and evidence requirements.
 Historical run links retain their original source SHA; new documentation does not renew
 a certificate or close R16.
+
+Candidate bundles are runtime packages, not bundled third-party applications or a blanket driver
+support certificate. Native CI installation is not physical desktop acceptance. R06/R18 residuals
+are explicitly post-v1; no unsigned package is represented as signed/notarized. Public release
+still requires independent security review and maintainer authorization under [release policy](docs/release-policy.md).

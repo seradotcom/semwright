@@ -4,7 +4,9 @@
 
 This is **development software with executed CI and live integration evidence**, not a security-reviewed automation product.
 There is no supported production version and no paid security response commitment.
-Do not attach it to a credential-rich desktop until the release blockers are closed and an independent security review is complete.
+Do not attach it to a credential-rich desktop on the basis of staging or CI alone. Independent
+security review remains required before public release; physical/interactive support claims require
+their separate evidence. See [release policy](docs/release-policy.md).
 
 The intended boundary is least-privilege **mediated commands**: a broker policy controls
 all frontends, references identify objects, mutations do not silently retry, and plugin
@@ -44,10 +46,11 @@ and [verification](VERIFY.md).
 
 ## R16 review and authority limits
 
-The current R review targets `6491c0d838fa066938a494524d69ed507aa0dbe8`; its source observations,
+The recorded R review targets `6491c0d838fa066938a494524d69ed507aa0dbe8`; its source observations,
 changes and subsequent verification artifacts are separately identified in
 [verification/r16-closeout](verification/r16-closeout/README.md). This AI-assisted repository
-review is not an external audit and does not close R16. A successful CI workflow is not
+review is not an external audit. R16 is CLOSED after its separately recorded revalidation,
+but that does not satisfy the independent public-release security review. A successful CI workflow is not
 a security approval, especially when its platform jobs were skipped.
 
 Local peer checks do not isolate a separately hostile same-user process. Driver sandboxing

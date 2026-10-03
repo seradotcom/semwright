@@ -98,4 +98,6 @@ R's review records source and suite identities separately in
 repository review, not an external security audit. Direct source observations, historical
 certificates, fresh checks and unexecuted requirements are distinct. Any R-authored
 security-relevant documentation or verification change needs separate review before
-being relied on for release. R16 and the physical/interactive gates remain open.
+being relied on for release. R16 is CLOSED under its recorded separate revalidation. Residual
+physical/interactive cases remain OPEN/deferred post-v1; the independent public-release security
+review remains mandatory and pending. See [release policy](release-policy.md).
