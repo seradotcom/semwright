@@ -1,0 +1,553 @@
+{
+  "source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+  "run_id": 37077804879,
+  "conclusion": "success",
+  "attempt": 1,
+  "artifacts": [
+    {
+      "id": 11258085700,
+      "name": "audio-analysis-cd518748f742025a251b78028613aa1b16919e73",
+      "size_in_bytes": 3208,
+      "digest": "sha256:9c501a48b549e370efa34feacb2940dcc927ba74109f55445df268c28cd8b12c",
+      "zip_sha256": "9c501a48b549e370efa34feacb2940dcc927ba74109f55445df268c28cd8b12c",
+      "files_sha256": {
+        "analysis-host-list.log": "a99d2e31ae2725dffac7698bee7e11db1a64bf1426d30c1f1e951a29ebb38dba",
+        "analysis-host.json": "b04105ff6acb467ec19a89d2ecfb826cba8653b9af2f3bc26f2a256b4a6393eb",
+        "analysis-host.log": "f67e994ecf4ab90b3b7337c47412d2bb7096cbbe00e98e714a53cf38c304da42",
+        "analysis-runtime-packages.txt": "cf3ae09aff529ff5b37a75f89ca08577d5db0208f96844833a1eb8f822572e65",
+        "analysis-sandbox-setup.log": "654bbf1cb628f87ffbeb80b9a8349805580c44a710217ace2568dfaf7975ba73"
+      },
+      "json": {
+        "analysis-host.json": {
+          "schema_version": 1,
+          "tested_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "github_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "run_id": "37077804879",
+          "run_attempt": "1",
+          "job": "analysis-native",
+          "suite": "analysis-host",
+          "status": "PASS",
+          "lock_sha256": "53458999594da110fc8e55ebcbab1b7427157c7aacc30ef3eb8b90707bd2cefe",
+          "expected_tests": 1,
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        }
+      },
+      "test_results": {
+        "analysis-host.log": [
+          "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.80s"
+        ]
+      }
+    },
+    {
+      "id": 11258057157,
+      "name": "audio-portable-macos-15-cd518748f742025a251b78028613aa1b16919e73",
+      "size_in_bytes": 10436,
+      "digest": "sha256:09907e09756ce8bd4b6dc73abd55e1a136f3e3eceb99288e8d2aa0bf8174f51b",
+      "zip_sha256": "09907e09756ce8bd4b6dc73abd55e1a136f3e3eceb99288e8d2aa0bf8174f51b",
+      "files_sha256": {
+        "portable-list.log": "54492946cf929c0336bce08ded4ed9194ec53530f3949fc4341d24d8312c76c2",
+        "portable.log": "228a841da81a73675fe0143d64fac4ee2a2285bc459c0b1d658a5b4f00cd237f",
+        "portable.json": "51f66105ae27b78b6ec6bfed5c28be5cb1641e600b60fe8787197dc030661925"
+      },
+      "json": {
+        "portable.json": {
+          "schema_version": 1,
+          "tested_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "github_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "run_id": "37077804879",
+          "run_attempt": "1",
+          "job": "audio-portable-cross",
+          "suite": "portable",
+          "status": "PASS",
+          "lock_sha256": "53458999594da110fc8e55ebcbab1b7427157c7aacc30ef3eb8b90707bd2cefe",
+          "expected_tests": 104,
+          "passed": 101,
+          "failed": 0,
+          "ignored": 3
+        }
+      },
+      "test_results": {
+        "portable.log": [
+          "test result: ok. 23 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+          "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+          "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.25s",
+          "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s",
+          "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s",
+          "test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s",
+          "test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s",
+          "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 0 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+        ]
+      }
+    },
+    {
+      "id": 11258016923,
+      "name": "audio-portable-windows-2022-cd518748f742025a251b78028613aa1b16919e73",
+      "size_in_bytes": 11364,
+      "digest": "sha256:020559ce12ed2abc4952b9587e8c8c0bbf1846c2e804e886b1f7be20de1a94a9",
+      "zip_sha256": "020559ce12ed2abc4952b9587e8c8c0bbf1846c2e804e886b1f7be20de1a94a9",
+      "files_sha256": {
+        "portable-list.log": "cc29c94ecce71007f507f8c4c39fbe35bc75223367908d40d2ca85e4bfa89a8a",
+        "portable.json": "f2a11c07f763daa886402fd4df529774b7240d31f817014830f4d3fcaa02c2bc",
+        "portable.log": "8e3fa883309f2a4743ba59421c7533c880709df0c851e31467898c3cb12a30c2"
+      },
+      "json": {
+        "portable.json": {
+          "schema_version": 1,
+          "tested_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "github_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "run_id": "37077804879",
+          "run_attempt": "1",
+          "job": "audio-portable-cross",
+          "suite": "portable",
+          "status": "PASS",
+          "lock_sha256": "53458999594da110fc8e55ebcbab1b7427157c7aacc30ef3eb8b90707bd2cefe",
+          "expected_tests": 102,
+          "passed": 99,
+          "failed": 0,
+          "ignored": 3
+        }
+      },
+      "test_results": {
+        "portable.log": [
+          "test result: ok. 23 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+          "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.28s",
+          "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.21s",
+          "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+          "test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s",
+          "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+          "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 0 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+        ]
+      }
+    },
+    {
+      "id": 11258013461,
+      "name": "audio-final-certification-cd518748f742025a251b78028613aa1b16919e73",
+      "size_in_bytes": 380,
+      "digest": "sha256:db25ae1ffe04adbc6632f8eccd37c811821710fb7043a3b5e04c3ee12997de61",
+      "zip_sha256": "db25ae1ffe04adbc6632f8eccd37c811821710fb7043a3b5e04c3ee12997de61",
+      "files_sha256": {
+        "final-certification.json": "1fe7d912f46be28c97fc421bef52261531d8dd775f87a5cd22bd665e6f9baefd"
+      },
+      "json": {
+        "final-certification.json": {
+          "candidate_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "github_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "lanes": {
+            "analysis-native": "success",
+            "ardour-native": "success",
+            "audio-domain": "success",
+            "audio-fuzz": "success",
+            "audio-package": "success",
+            "audio-portable-cross": "success",
+            "faust-native": "success"
+          },
+          "run_attempt": "1",
+          "run_id": "37077804879",
+          "schema_version": 1,
+          "status": "PASS"
+        }
+      },
+      "test_results": {}
+    },
+    {
+      "id": 11257938581,
+      "name": "audio-development-packages-cd518748f742025a251b78028613aa1b16919e73",
+      "size_in_bytes": 7353187,
+      "digest": "sha256:55800b6802cf1220d9acad1bd7d30be538f14cf7c306edb42258e31254a6aa2a",
+      "kept_remote": true
+    },
+    {
+      "id": 11257646075,
+      "name": "audio-faust-2.70.3-cd518748f742025a251b78028613aa1b16919e73",
+      "size_in_bytes": 22198,
+      "digest": "sha256:9d5fcd02f5d22f774d629f391a5981056d84da0bfc11931a29e3ce5bfdce44a6",
+      "zip_sha256": "9d5fcd02f5d22f774d629f391a5981056d84da0bfc11931a29e3ce5bfdce44a6",
+      "files_sha256": {
+        "faust-confinement/bwrap-landlock.exit": "a5e45837a2959db847f7e67a915d0ecaddd47f943af2af5fa6453be497faabca",
+        "faust-confinement/bwrap-landlock.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "faust-confinement/bwrap-landlock.stderr": "2a93150405092e2d51dec3cbcdd55a3be835ab7a47660e571711630e1c1942e4",
+        "faust-confinement/bwrap-mount-only-no-session.exit": "690e07064753123c967bbac0180f32da6a753a5bd8b79a47644cef58e776d9f0",
+        "faust-confinement/bwrap-mount-only-no-session.stderr": "29d509909d0d788d9c6609bee894d519dc435b607a6468adb65affc61e99ed6b",
+        "faust-confinement/bwrap-mount-only-no-session.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "faust-confinement/bwrap-new-session-only.exit": "690e07064753123c967bbac0180f32da6a753a5bd8b79a47644cef58e776d9f0",
+        "faust-confinement/bwrap-new-session-only.stderr": "29d509909d0d788d9c6609bee894d519dc435b607a6468adb65affc61e99ed6b",
+        "faust-confinement/bwrap-new-session-only.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "faust-confinement/bwrap-root-ro-new-session.exit": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+        "faust-confinement/bwrap-root-ro-new-session.stderr": "688c668325828672c07d4bd32d0e6b20199b1f87f8fcf64711f5f82c2521b4a6",
+        "faust-confinement/bwrap-root-ro-new-session.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "faust-confinement/bwrap-root-ro-no-session.exit": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+        "faust-confinement/bwrap-root-ro-no-session.stderr": "688c668325828672c07d4bd32d0e6b20199b1f87f8fcf64711f5f82c2521b4a6",
+        "faust-confinement/bwrap-root-ro-no-session.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "faust-confinement/bwrap-unshare-all-share-net.exit": "690e07064753123c967bbac0180f32da6a753a5bd8b79a47644cef58e776d9f0",
+        "faust-confinement/bwrap-unshare-all-share-net.stderr": "29d509909d0d788d9c6609bee894d519dc435b607a6468adb65affc61e99ed6b",
+        "faust-confinement/bwrap-unshare-all-share-net.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "faust-confinement/bwrap-unshare-all.exit": "690e07064753123c967bbac0180f32da6a753a5bd8b79a47644cef58e776d9f0",
+        "faust-confinement/bwrap-unshare-all.stderr": "29d509909d0d788d9c6609bee894d519dc435b607a6468adb65affc61e99ed6b",
+        "faust-confinement/bwrap-unshare-all.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "faust-confinement/bwrap-unshare-cgroup.exit": "690e07064753123c967bbac0180f32da6a753a5bd8b79a47644cef58e776d9f0",
+        "faust-confinement/bwrap-unshare-cgroup.stderr": "29d509909d0d788d9c6609bee894d519dc435b607a6468adb65affc61e99ed6b",
+        "faust-confinement/bwrap-unshare-cgroup.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "faust-confinement/bwrap-unshare-ipc.exit": "690e07064753123c967bbac0180f32da6a753a5bd8b79a47644cef58e776d9f0",
+        "faust-confinement/bwrap-unshare-ipc.stderr": "29d509909d0d788d9c6609bee894d519dc435b607a6468adb65affc61e99ed6b",
+        "faust-confinement/bwrap-unshare-ipc.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "faust-confinement/bwrap-unshare-net.exit": "690e07064753123c967bbac0180f32da6a753a5bd8b79a47644cef58e776d9f0",
+        "faust-confinement/bwrap-unshare-net.stderr": "29d509909d0d788d9c6609bee894d519dc435b607a6468adb65affc61e99ed6b",
+        "faust-confinement/bwrap-unshare-net.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "faust-confinement/bwrap-unshare-pid.exit": "690e07064753123c967bbac0180f32da6a753a5bd8b79a47644cef58e776d9f0",
+        "faust-confinement/bwrap-unshare-pid.stderr": "29d509909d0d788d9c6609bee894d519dc435b607a6468adb65affc61e99ed6b",
+        "faust-confinement/bwrap-unshare-pid.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "faust-confinement/bwrap-unshare-user.exit": "690e07064753123c967bbac0180f32da6a753a5bd8b79a47644cef58e776d9f0",
+        "faust-confinement/bwrap-unshare-user.stderr": "29d509909d0d788d9c6609bee894d519dc435b607a6468adb65affc61e99ed6b",
+        "faust-confinement/bwrap-unshare-user.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "faust-confinement/bwrap-unshare-uts.exit": "690e07064753123c967bbac0180f32da6a753a5bd8b79a47644cef58e776d9f0",
+        "faust-confinement/bwrap-unshare-uts.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "faust-confinement/bwrap-unshare-uts.stderr": "29d509909d0d788d9c6609bee894d519dc435b607a6468adb65affc61e99ed6b",
+        "faust-confinement/bwrap-with-bin.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+        "faust-confinement/bwrap-with-bin.stderr": "239d158aa34a79147426305cd110ae98c68059be00c6352440319b393078251f",
+        "faust-confinement/bwrap-with-bin.stdout": "5b17c25b9c2bda6c1868c578c84165e63e6df8a31980a789e795991b6ae928a4",
+        "faust-confinement/bwrap-with-run.exit": "690e07064753123c967bbac0180f32da6a753a5bd8b79a47644cef58e776d9f0",
+        "faust-confinement/bwrap-with-run.stderr": "29d509909d0d788d9c6609bee894d519dc435b607a6468adb65affc61e99ed6b",
+        "faust-confinement/bwrap-with-run.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "faust-confinement/bwrap-with-sys-run.exit": "690e07064753123c967bbac0180f32da6a753a5bd8b79a47644cef58e776d9f0",
+        "faust-confinement/bwrap-with-sys-run.stderr": "29d509909d0d788d9c6609bee894d519dc435b607a6468adb65affc61e99ed6b",
+        "faust-confinement/bwrap-with-sys-run.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "faust-confinement/bwrap-with-sys.exit": "690e07064753123c967bbac0180f32da6a753a5bd8b79a47644cef58e776d9f0",
+        "faust-confinement/bwrap-with-sys.stderr": "29d509909d0d788d9c6609bee894d519dc435b607a6468adb65affc61e99ed6b",
+        "faust-confinement/bwrap-with-sys.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "faust-confinement/direct-clean-env.stderr": "239d158aa34a79147426305cd110ae98c68059be00c6352440319b393078251f",
+        "faust-confinement/direct-clean-env.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+        "faust-confinement/direct-clean-env.stdout": "5b17c25b9c2bda6c1868c578c84165e63e6df8a31980a789e795991b6ae928a4",
+        "faust-confinement/direct-full-env.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+        "faust-confinement/direct-full-env.stderr": "239d158aa34a79147426305cd110ae98c68059be00c6352440319b393078251f",
+        "faust-confinement/direct-full-env.stdout": "5b17c25b9c2bda6c1868c578c84165e63e6df8a31980a789e795991b6ae928a4",
+        "faust-confinement/landlock-host-fs.exit": "a5e45837a2959db847f7e67a915d0ecaddd47f943af2af5fa6453be497faabca",
+        "faust-confinement/landlock-host-fs.stderr": "2a93150405092e2d51dec3cbcdd55a3be835ab7a47660e571711630e1c1942e4",
+        "faust-confinement/landlock-host-fs.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "faust-confinement/no-new-privs-clean-env.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+        "faust-confinement/no-new-privs-clean-env.stderr": "239d158aa34a79147426305cd110ae98c68059be00c6352440319b393078251f",
+        "faust-confinement/no-new-privs-clean-env.stdout": "5b17c25b9c2bda6c1868c578c84165e63e6df8a31980a789e795991b6ae928a4",
+        "faust-confinement/strace/faust.strace.5508.tail": "63d961cacc956c7110d409c99c996b934368137f5aecdc7dbd05be09ab3cc481",
+        "faust-confinement/strace/faust.strace.5516.tail": "c31d84031b18b2ff285094f5faf15c684881e4feb0eac6f167d892e2b804a629",
+        "faust-confinement/strace/faust.strace.5517.tail": "d31097a003377397086a3c443a668d1afb2bcc9e14a6ef9a311f9e84506eba84",
+        "faust-confinement/strace-bwrap.exit": "690e07064753123c967bbac0180f32da6a753a5bd8b79a47644cef58e776d9f0",
+        "faust-confinement/strace-bwrap.stderr": "29d509909d0d788d9c6609bee894d519dc435b607a6468adb65affc61e99ed6b",
+        "faust-confinement/strace-bwrap.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "faust-confinement/summary.txt": "58ffab41e93c08c299871adca77c1bb63f4a7ac1107ec3a2b9349a678bed70cc",
+        "faust-host-list.log": "4751751f01daef3ceaeb954c88fbdde5dc1ccc31b316ec5930a97efc1ec9335c",
+        "faust-host.json": "665cba5d6309b6139bd308ea4ff2548ef1c1811f32361447406167ac7033a1eb",
+        "faust-host.log": "e2bbc8ef443d094aea9c47a8f321a0eac520ab0ea3b4fd3812572782a032694c",
+        "faust-list.log": "bf86f3b10d6dedb7ef551b0669644d3b8f3dcf7cd1e28af82933f79a73c07e28",
+        "faust-sandbox-setup.log": "654bbf1cb628f87ffbeb80b9a8349805580c44a710217ace2568dfaf7975ba73",
+        "faust-version.txt": "1a18789d55c8ae2e44a3d3e563ac8ad7948ff8155821bb0e4716fb51a2c6c66a",
+        "faust.json": "3c46f1edab5e908c1b51363556123471de34c3eb813cd6e358a379c5de1ba8e0",
+        "faust.log": "7f591a0170cece874204b0a2bc0c47bd174aa2238c8499c3434fedfbfc12612b",
+        "faust.sha256": "23014b0ea1495e56785998bb218f2b9aa291f3bc55e011187314ea29f5fa7fcd",
+        "runtime-packages.txt": "7efeb219a3ab02f1d4b5c181377474a96c606f3333488e2fed78befa31ebbd8a"
+      },
+      "json": {
+        "faust-host.json": {
+          "schema_version": 1,
+          "tested_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "github_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "run_id": "37077804879",
+          "run_attempt": "1",
+          "job": "faust-native",
+          "suite": "faust-host",
+          "status": "PASS",
+          "lock_sha256": "53458999594da110fc8e55ebcbab1b7427157c7aacc30ef3eb8b90707bd2cefe",
+          "expected_tests": 1,
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        "faust.json": {
+          "schema_version": 1,
+          "tested_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "github_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "run_id": "37077804879",
+          "run_attempt": "1",
+          "job": "faust-native",
+          "suite": "faust",
+          "status": "PASS",
+          "lock_sha256": "53458999594da110fc8e55ebcbab1b7427157c7aacc30ef3eb8b90707bd2cefe",
+          "expected_tests": 2,
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        }
+      },
+      "test_results": {
+        "faust-host.log": [
+          "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.04s"
+        ],
+        "faust.log": [
+          "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.28s"
+        ]
+      }
+    },
+    {
+      "id": 11257610914,
+      "name": "audio-faust-2.37.3-cd518748f742025a251b78028613aa1b16919e73",
+      "size_in_bytes": 21842,
+      "digest": "sha256:960c977caa360bcdf6adbfbda4fcadce6e99d0fb0c0f0f2f498693a142d313f1",
+      "zip_sha256": "960c977caa360bcdf6adbfbda4fcadce6e99d0fb0c0f0f2f498693a142d313f1",
+      "files_sha256": {
+        "faust-confinement/bwrap-landlock.exit": "a5e45837a2959db847f7e67a915d0ecaddd47f943af2af5fa6453be497faabca",
+        "faust-confinement/bwrap-landlock.stderr": "2a93150405092e2d51dec3cbcdd55a3be835ab7a47660e571711630e1c1942e4",
+        "faust-confinement/bwrap-landlock.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "faust-confinement/bwrap-mount-only-no-session.exit": "690e07064753123c967bbac0180f32da6a753a5bd8b79a47644cef58e776d9f0",
+        "faust-confinement/bwrap-mount-only-no-session.stderr": "29d509909d0d788d9c6609bee894d519dc435b607a6468adb65affc61e99ed6b",
+        "faust-confinement/bwrap-mount-only-no-session.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "faust-confinement/bwrap-new-session-only.exit": "690e07064753123c967bbac0180f32da6a753a5bd8b79a47644cef58e776d9f0",
+        "faust-confinement/bwrap-new-session-only.stderr": "29d509909d0d788d9c6609bee894d519dc435b607a6468adb65affc61e99ed6b",
+        "faust-confinement/bwrap-new-session-only.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "faust-confinement/bwrap-root-ro-new-session.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+        "faust-confinement/bwrap-root-ro-new-session.stdout": "ce77a9357720ca13124933849dfa056f3dd3d0cd6877aa637aabaa7b67763701",
+        "faust-confinement/bwrap-root-ro-new-session.stderr": "9bafa5a212e06cbf4e34ae1e07c2b4439ac325d328cbfe3b876e3254f1f48174",
+        "faust-confinement/bwrap-root-ro-no-session.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+        "faust-confinement/bwrap-root-ro-no-session.stderr": "9bafa5a212e06cbf4e34ae1e07c2b4439ac325d328cbfe3b876e3254f1f48174",
+        "faust-confinement/bwrap-root-ro-no-session.stdout": "ce77a9357720ca13124933849dfa056f3dd3d0cd6877aa637aabaa7b67763701",
+        "faust-confinement/bwrap-unshare-all-share-net.exit": "690e07064753123c967bbac0180f32da6a753a5bd8b79a47644cef58e776d9f0",
+        "faust-confinement/bwrap-unshare-all-share-net.stderr": "29d509909d0d788d9c6609bee894d519dc435b607a6468adb65affc61e99ed6b",
+        "faust-confinement/bwrap-unshare-all-share-net.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "faust-confinement/bwrap-unshare-all.exit": "690e07064753123c967bbac0180f32da6a753a5bd8b79a47644cef58e776d9f0",
+        "faust-confinement/bwrap-unshare-all.stderr": "29d509909d0d788d9c6609bee894d519dc435b607a6468adb65affc61e99ed6b",
+        "faust-confinement/bwrap-unshare-all.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "faust-confinement/bwrap-unshare-cgroup.exit": "690e07064753123c967bbac0180f32da6a753a5bd8b79a47644cef58e776d9f0",
+        "faust-confinement/bwrap-unshare-cgroup.stderr": "29d509909d0d788d9c6609bee894d519dc435b607a6468adb65affc61e99ed6b",
+        "faust-confinement/bwrap-unshare-cgroup.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "faust-confinement/bwrap-unshare-ipc.exit": "690e07064753123c967bbac0180f32da6a753a5bd8b79a47644cef58e776d9f0",
+        "faust-confinement/bwrap-unshare-ipc.stderr": "29d509909d0d788d9c6609bee894d519dc435b607a6468adb65affc61e99ed6b",
+        "faust-confinement/bwrap-unshare-ipc.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "faust-confinement/bwrap-unshare-net.exit": "690e07064753123c967bbac0180f32da6a753a5bd8b79a47644cef58e776d9f0",
+        "faust-confinement/bwrap-unshare-net.stderr": "29d509909d0d788d9c6609bee894d519dc435b607a6468adb65affc61e99ed6b",
+        "faust-confinement/bwrap-unshare-net.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "faust-confinement/bwrap-unshare-pid.exit": "690e07064753123c967bbac0180f32da6a753a5bd8b79a47644cef58e776d9f0",
+        "faust-confinement/bwrap-unshare-pid.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "faust-confinement/bwrap-unshare-pid.stderr": "29d509909d0d788d9c6609bee894d519dc435b607a6468adb65affc61e99ed6b",
+        "faust-confinement/bwrap-unshare-user.exit": "690e07064753123c967bbac0180f32da6a753a5bd8b79a47644cef58e776d9f0",
+        "faust-confinement/bwrap-unshare-user.stderr": "29d509909d0d788d9c6609bee894d519dc435b607a6468adb65affc61e99ed6b",
+        "faust-confinement/bwrap-unshare-user.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "faust-confinement/bwrap-unshare-uts.exit": "690e07064753123c967bbac0180f32da6a753a5bd8b79a47644cef58e776d9f0",
+        "faust-confinement/bwrap-unshare-uts.stderr": "29d509909d0d788d9c6609bee894d519dc435b607a6468adb65affc61e99ed6b",
+        "faust-confinement/bwrap-unshare-uts.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "faust-confinement/bwrap-with-bin.stderr": "239d158aa34a79147426305cd110ae98c68059be00c6352440319b393078251f",
+        "faust-confinement/bwrap-with-bin.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+        "faust-confinement/bwrap-with-bin.stdout": "ce77a9357720ca13124933849dfa056f3dd3d0cd6877aa637aabaa7b67763701",
+        "faust-confinement/bwrap-with-run.exit": "690e07064753123c967bbac0180f32da6a753a5bd8b79a47644cef58e776d9f0",
+        "faust-confinement/bwrap-with-run.stderr": "29d509909d0d788d9c6609bee894d519dc435b607a6468adb65affc61e99ed6b",
+        "faust-confinement/bwrap-with-run.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "faust-confinement/bwrap-with-sys-run.exit": "690e07064753123c967bbac0180f32da6a753a5bd8b79a47644cef58e776d9f0",
+        "faust-confinement/bwrap-with-sys-run.stderr": "29d509909d0d788d9c6609bee894d519dc435b607a6468adb65affc61e99ed6b",
+        "faust-confinement/bwrap-with-sys-run.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "faust-confinement/bwrap-with-sys.exit": "690e07064753123c967bbac0180f32da6a753a5bd8b79a47644cef58e776d9f0",
+        "faust-confinement/bwrap-with-sys.stderr": "29d509909d0d788d9c6609bee894d519dc435b607a6468adb65affc61e99ed6b",
+        "faust-confinement/bwrap-with-sys.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "faust-confinement/direct-clean-env.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+        "faust-confinement/direct-clean-env.stderr": "239d158aa34a79147426305cd110ae98c68059be00c6352440319b393078251f",
+        "faust-confinement/direct-clean-env.stdout": "ce77a9357720ca13124933849dfa056f3dd3d0cd6877aa637aabaa7b67763701",
+        "faust-confinement/direct-full-env.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+        "faust-confinement/direct-full-env.stderr": "239d158aa34a79147426305cd110ae98c68059be00c6352440319b393078251f",
+        "faust-confinement/landlock-host-fs.exit": "a5e45837a2959db847f7e67a915d0ecaddd47f943af2af5fa6453be497faabca",
+        "faust-confinement/direct-full-env.stdout": "ce77a9357720ca13124933849dfa056f3dd3d0cd6877aa637aabaa7b67763701",
+        "faust-confinement/landlock-host-fs.stderr": "2a93150405092e2d51dec3cbcdd55a3be835ab7a47660e571711630e1c1942e4",
+        "faust-confinement/landlock-host-fs.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "faust-confinement/no-new-privs-clean-env.exit": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+        "faust-confinement/no-new-privs-clean-env.stderr": "239d158aa34a79147426305cd110ae98c68059be00c6352440319b393078251f",
+        "faust-confinement/strace/faust.strace.5095.tail": "bd164498bf14833cb0b760a7b4df9dd3c8312adac823bb1e9743fbc43c8fcbc7",
+        "faust-confinement/no-new-privs-clean-env.stdout": "ce77a9357720ca13124933849dfa056f3dd3d0cd6877aa637aabaa7b67763701",
+        "faust-confinement/strace-bwrap.exit": "690e07064753123c967bbac0180f32da6a753a5bd8b79a47644cef58e776d9f0",
+        "faust-confinement/strace/faust.strace.5096.tail": "5ad701ef7ad2c16c28bf432995392863b8d0bce7ad93a3cd8b36d49c648438bd",
+        "faust-confinement/strace-bwrap.stderr": "29d509909d0d788d9c6609bee894d519dc435b607a6468adb65affc61e99ed6b",
+        "faust-confinement/strace-bwrap.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "faust-confinement/summary.txt": "6c932515527659d7bb903927fa69555906d9901f4f8a1cdac6179046035a8926",
+        "faust-host-list.log": "5d4efa62b72a1694a0df3d67c32833e33830e502793f1353ceb0ba4a2d159ef4",
+        "faust-host.json": "665cba5d6309b6139bd308ea4ff2548ef1c1811f32361447406167ac7033a1eb",
+        "faust-host.log": "1512fefbee5d8e3920346d60294011c3e4f0e945f3347822cceabcd451c05374",
+        "faust-list.log": "3840833fe49e1fd1e691ba98f63829e2cfc76b6aab3725c1369db083ebe68996",
+        "faust-version.txt": "87e1c6b85a4859be9008359e8bd87e23fedaed24b5ca295b857677ff48e383aa",
+        "faust.json": "3c46f1edab5e908c1b51363556123471de34c3eb813cd6e358a379c5de1ba8e0",
+        "faust.log": "9596c541eb85179ed59c78c137ef8aaf487cca7c06140008eef5c8436f791d72",
+        "faust.sha256": "6bb598396754821a3a53bffc53cdd72ade85089a2d1086d89efa77a04b748309",
+        "runtime-packages.txt": "faec996d502c4c58a049da10144b03db399b640367c3e07bf6a12e7cf5009376"
+      },
+      "json": {
+        "faust-host.json": {
+          "schema_version": 1,
+          "tested_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "github_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "run_id": "37077804879",
+          "run_attempt": "1",
+          "job": "faust-native",
+          "suite": "faust-host",
+          "status": "PASS",
+          "lock_sha256": "53458999594da110fc8e55ebcbab1b7427157c7aacc30ef3eb8b90707bd2cefe",
+          "expected_tests": 1,
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        },
+        "faust.json": {
+          "schema_version": 1,
+          "tested_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "github_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "run_id": "37077804879",
+          "run_attempt": "1",
+          "job": "faust-native",
+          "suite": "faust",
+          "status": "PASS",
+          "lock_sha256": "53458999594da110fc8e55ebcbab1b7427157c7aacc30ef3eb8b90707bd2cefe",
+          "expected_tests": 2,
+          "passed": 2,
+          "failed": 0,
+          "ignored": 0
+        }
+      },
+      "test_results": {
+        "faust-host.log": [
+          "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.92s"
+        ],
+        "faust.log": [
+          "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.18s"
+        ]
+      }
+    },
+    {
+      "id": 11257597159,
+      "name": "audio-ardour-cd518748f742025a251b78028613aa1b16919e73",
+      "size_in_bytes": 2507,
+      "digest": "sha256:9acd44c5437f02c35ce86888613880516fbe46664e212e05c8ea2b3410a998ec",
+      "zip_sha256": "9acd44c5437f02c35ce86888613880516fbe46664e212e05c8ea2b3410a998ec",
+      "files_sha256": {
+        "ardour-direct-create.stderr": "eab4345f5b1224139b1314bc1adb8831e4d37cb868ddc2b50d5f0ed5336a02db",
+        "ardour-direct-create.stdout": "61d791a220a26e21cfd4faf44332d2eb33f8a6139b109a48ec606230d6d546d3",
+        "ardour-host-list.log": "0725542f9d56ac837f6259c1c49bec91d02e63755c74db3b63a77025f38d81b1",
+        "ardour-host.json": "a9e6ce6156276323bf06d8dbe505f3aa8faa9504e9a1bf446c76ba8dd985b5a2",
+        "ardour-host.log": "b3037f8416d4d808dadf82b5002dc5d1076efd109438eaa9e030120dffa7206f",
+        "ardour-runtime-packages.txt": "49e56081e96a890c06d7a6e995fbac2ee937698ed416b0282bb138c7e3f99b3d",
+        "ardour-sandbox-setup.log": "654bbf1cb628f87ffbeb80b9a8349805580c44a710217ace2568dfaf7975ba73",
+        "ardour-tool-baseline.txt": "82fd8932793dbea27b7ba502793aa35993392061a4b26297f574b6d76113aa85",
+        "ardour-tools.sha256": "52de6c29cc92dfa4b1a9a30334b9ca8b7022698220dceec2e68c33316ff120f4"
+      },
+      "json": {
+        "ardour-host.json": {
+          "schema_version": 1,
+          "tested_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "github_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "run_id": "37077804879",
+          "run_attempt": "1",
+          "job": "ardour-native",
+          "suite": "ardour-host",
+          "status": "PASS",
+          "lock_sha256": "53458999594da110fc8e55ebcbab1b7427157c7aacc30ef3eb8b90707bd2cefe",
+          "expected_tests": 1,
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0
+        }
+      },
+      "test_results": {
+        "ardour-host.log": [
+          "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 152.36s"
+        ]
+      }
+    },
+    {
+      "id": 11257543929,
+      "name": "audio-fuzz-cd518748f742025a251b78028613aa1b16919e73",
+      "size_in_bytes": 195187,
+      "digest": "sha256:f2b715ac829716be8ed3390e8eadd8279ca6b08febefbafad39835557d464097",
+      "zip_sha256": "f2b715ac829716be8ed3390e8eadd8279ca6b08febefbafad39835557d464097",
+      "files_sha256": {
+        "verification/audio/fuzz/audio_domain_edit.log": "62b5a805bd83fd0d1ae2c5d50c5d06278b3f1b90cd17754513a48e633db48fc3",
+        "verification/audio/fuzz/audio_domain_model.log": "ef3f0839ad34c25ac2f068b4addf588adc69a7358b13a94e2762ed383f81c065",
+        "verification/audio/fuzz/audio_wav.log": "1bdb1f5dc292bfc3ac6ff448e2b4f4ca79b0c686d9feb03a70beee81645797d5"
+      },
+      "json": {},
+      "test_results": {}
+    },
+    {
+      "id": 11257097888,
+      "name": "audio-portable-cd518748f742025a251b78028613aa1b16919e73",
+      "size_in_bytes": 9961,
+      "digest": "sha256:dc545a4c655d72687cbab68e894d133a97f326099bce5553804f79cb93d5c4b1",
+      "zip_sha256": "dc545a4c655d72687cbab68e894d133a97f326099bce5553804f79cb93d5c4b1",
+      "files_sha256": {
+        "portable-list.log": "7397d0a09851b5c0949cd17975202197fcd1e01f9ab1fe93d65e3fb3feb68bd8",
+        "portable.json": "edc819d0f01494648bd69e24832ca61edba99798d25e683d5608609b42371820",
+        "portable.log": "6693b9a1bf47739d0be67dc2fd600fa71cccfd817188b562677573e5ec2d566c"
+      },
+      "json": {
+        "portable.json": {
+          "schema_version": 1,
+          "tested_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "github_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "run_id": "37077804879",
+          "run_attempt": "1",
+          "job": "audio-domain",
+          "suite": "portable",
+          "status": "PASS",
+          "lock_sha256": "53458999594da110fc8e55ebcbab1b7427157c7aacc30ef3eb8b90707bd2cefe",
+          "expected_tests": 107,
+          "passed": 101,
+          "failed": 0,
+          "ignored": 6
+        }
+      },
+      "test_results": {
+        "portable.log": [
+          "test result: ok. 23 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+          "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.21s",
+          "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s",
+          "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+          "test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s",
+          "test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s",
+          "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 0 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 0 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+        ]
+      }
+    }
+  ],
+  "large_packages_kept_remote": true,
+  "r16_closed": false,
+  "main_merge_performed": false
+}

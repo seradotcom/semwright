@@ -1,0 +1,11 @@
+{
+  "source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+  "status": "PASS_THREE_ORIGINAL_NATIVE_CONTROLS",
+  "workflow": "motion-canvas.yml",
+  "scope": "Three original native Motion driver controls; portable/domain/fuzz gates deliberately excluded here and kept in their own evidence",
+  "r16_closed": false,
+  "run_id": 37082918121,
+  "workflow_status": "completed",
+  "conclusion": "success",
+  "verified_report": "MOTION_EXACT_I_cd51874.json"
+}

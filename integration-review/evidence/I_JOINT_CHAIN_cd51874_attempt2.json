@@ -1,0 +1,28 @@
+{
+  "source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+  "suite_sha": "d06c396fdd795717e52ad868243043bb34661d15",
+  "branch": "ci/i-native-shared-asset-retest-cd51874",
+  "status": "FAILED_REVIEW_REQUIRED",
+  "created_at": "2026-10-03T00:09:34.331981+00:00",
+  "fixture_sha256": {
+    ".github/workflows/semantic-creation-integration.yml": "5acbde2a7357c024c809ffcd945128adaaf1fee298ee45c37498db1e5fb2baef",
+    "integration-lab/i-chain-cd51874/e_fixture.rs": "bf4589b2ca5c90faceca0fdb34748ec0ffce03801509b7d05bb107cabc2a83cc",
+    "integration-lab/i-chain-cd51874/d_fixture.rs": "2ee641d7c4b7b1c99179c8684b87fa9b564b07ecf3a04d2cc5c99aa91eae03d7",
+    "integration-lab/i-chain-cd51874/av_fixture.rs": "ce77e91ca9ab201851d1bc856c0989f2c534222fa6e272d362e8a7d4a19895c5"
+  },
+  "production_source_modified": false,
+  "clean_chains_required": 2,
+  "heavy_jobs_parallel": 1,
+  "visualization": "typed Motion schematic driven by native Godot body transform3; not engine movie footage",
+  "coverage_complete": false,
+  "safe_cache_reuse_claimed": false,
+  "godot_frame_capture_verified": false,
+  "r16_closed": false,
+  "reused_e_run_id": 37079902271,
+  "reused_e_suite_sha": "cdf95987076ff4fc12071ca3dc8f4be2bc1dd0af",
+  "previous_manifest": "I_JOINT_CHAIN_cd51874_attempt1.json",
+  "run_id": 37080855145,
+  "workflow_status": "completed",
+  "conclusion": "failure",
+  "failure_reason": "Fixture selected both instances of the same E asset by suffix. Scope corrected to native logical key arena/imported_model; retain one exact body match within that subtree."
+}

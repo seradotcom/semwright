@@ -1,0 +1,331 @@
+{
+  "schema_version": 1,
+  "run_id": 37074787747,
+  "source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+  "suite_sha": "73cf4806d5c0193109da4d1cc6aa96b01b7c6a73",
+  "conclusion": "success",
+  "counts": {
+    "PASS": 480,
+    "FAIL": 0,
+    "BLOCKED": 0,
+    "NOT_RUN": 0
+  },
+  "cases": 480,
+  "product_cases": 375,
+  "selftest_cases": 105,
+  "native_claims_only": [
+    "godot-native",
+    "blender-native"
+  ],
+  "lanes": [
+    {
+      "artifact_id": 11257450170,
+      "zip_sha256": "877e20d306c2eeadad6321419b4d72089acc359ace3bb919308ad245971baaef",
+      "lane": "packaging",
+      "source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+      "suite_sha": "73cf4806d5c0193109da4d1cc6aa96b01b7c6a73",
+      "summary": {
+        "counts": {
+          "BLOCKED": 0,
+          "FAIL": 0,
+          "NOT_RUN": 0,
+          "PASS": 20
+        },
+        "executed_count": 20,
+        "native_acceptance": false,
+        "open_blockers": 0,
+        "r16_closed": false,
+        "requested_count": 20,
+        "scope": "product_contract",
+        "status": "NO_OPEN_BLOCKING_FINDINGS_IN_TESTED_SCOPE"
+      }
+    },
+    {
+      "artifact_id": 11256682604,
+      "zip_sha256": "2196c1f5438e6f23c16ae31f7853224e5fb393d9efc6d3fbc564764065aab907",
+      "lane": "routing",
+      "source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+      "suite_sha": "73cf4806d5c0193109da4d1cc6aa96b01b7c6a73",
+      "summary": {
+        "counts": {
+          "BLOCKED": 0,
+          "FAIL": 0,
+          "NOT_RUN": 0,
+          "PASS": 12
+        },
+        "executed_count": 12,
+        "native_acceptance": false,
+        "open_blockers": 0,
+        "r16_closed": false,
+        "requested_count": 12,
+        "scope": "product_contract",
+        "status": "NO_OPEN_BLOCKING_FINDINGS_IN_TESTED_SCOPE"
+      }
+    },
+    {
+      "artifact_id": 11256566738,
+      "zip_sha256": "d593f0d242bcfe3753538a5d3e38793953764943345181d22f41e3fe3f367955",
+      "lane": "graph",
+      "source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+      "suite_sha": "73cf4806d5c0193109da4d1cc6aa96b01b7c6a73",
+      "summary": {
+        "counts": {
+          "BLOCKED": 0,
+          "FAIL": 0,
+          "NOT_RUN": 0,
+          "PASS": 74
+        },
+        "executed_count": 74,
+        "native_acceptance": false,
+        "open_blockers": 0,
+        "r16_closed": false,
+        "requested_count": 74,
+        "scope": "product_contract",
+        "status": "NO_OPEN_BLOCKING_FINDINGS_IN_TESTED_SCOPE"
+      }
+    },
+    {
+      "artifact_id": 11256537383,
+      "zip_sha256": "e20050750d23ee42f7284b3b1c8f1e6f15d20ad42609c1d8933dbc4a85a20227",
+      "lane": "motion",
+      "source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+      "suite_sha": "73cf4806d5c0193109da4d1cc6aa96b01b7c6a73",
+      "summary": {
+        "counts": {
+          "BLOCKED": 0,
+          "FAIL": 0,
+          "NOT_RUN": 0,
+          "PASS": 20
+        },
+        "executed_count": 20,
+        "native_acceptance": false,
+        "open_blockers": 0,
+        "r16_closed": false,
+        "requested_count": 20,
+        "scope": "product_contract",
+        "status": "NO_OPEN_BLOCKING_FINDINGS_IN_TESTED_SCOPE"
+      }
+    },
+    {
+      "artifact_id": 11256437219,
+      "zip_sha256": "0683deebae484769aad433fd53054ee8018f497500307492adcb43e90e76391b",
+      "lane": "lifecycle",
+      "source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+      "suite_sha": "73cf4806d5c0193109da4d1cc6aa96b01b7c6a73",
+      "summary": {
+        "counts": {
+          "BLOCKED": 0,
+          "FAIL": 0,
+          "NOT_RUN": 0,
+          "PASS": 18
+        },
+        "executed_count": 18,
+        "native_acceptance": false,
+        "open_blockers": 0,
+        "r16_closed": false,
+        "requested_count": 18,
+        "scope": "product_contract",
+        "status": "NO_OPEN_BLOCKING_FINDINGS_IN_TESTED_SCOPE"
+      }
+    },
+    {
+      "artifact_id": 11256371793,
+      "zip_sha256": "230d2da0472b01a0294a16492583f5ee9394447e93e08ffee015e81059e84a8e",
+      "lane": "godot-native",
+      "source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+      "suite_sha": "73cf4806d5c0193109da4d1cc6aa96b01b7c6a73",
+      "summary": {
+        "counts": {
+          "BLOCKED": 0,
+          "FAIL": 0,
+          "NOT_RUN": 0,
+          "PASS": 13
+        },
+        "executed_count": 13,
+        "native_acceptance": true,
+        "open_blockers": 0,
+        "r16_closed": false,
+        "requested_count": 13,
+        "scope": "native_application",
+        "status": "NO_OPEN_BLOCKING_FINDINGS_IN_TESTED_SCOPE"
+      }
+    },
+    {
+      "artifact_id": 11256371421,
+      "zip_sha256": "47154d96d76a681601c7dc773727ccc955477b1cbaf7090d87c6f1c81b2b6924",
+      "lane": "figma",
+      "source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+      "suite_sha": "73cf4806d5c0193109da4d1cc6aa96b01b7c6a73",
+      "summary": {
+        "counts": {
+          "BLOCKED": 0,
+          "FAIL": 0,
+          "NOT_RUN": 0,
+          "PASS": 17
+        },
+        "executed_count": 17,
+        "native_acceptance": false,
+        "open_blockers": 0,
+        "r16_closed": false,
+        "requested_count": 17,
+        "scope": "product_contract",
+        "status": "NO_OPEN_BLOCKING_FINDINGS_IN_TESTED_SCOPE"
+      }
+    },
+    {
+      "artifact_id": 11256345916,
+      "zip_sha256": "a03b29a6f749a96c776c1376fcc0089e4dfbe181a8d37b40a4d3cf1cfa3fb825",
+      "lane": "blender-native",
+      "source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+      "suite_sha": "73cf4806d5c0193109da4d1cc6aa96b01b7c6a73",
+      "summary": {
+        "counts": {
+          "BLOCKED": 0,
+          "FAIL": 0,
+          "NOT_RUN": 0,
+          "PASS": 14
+        },
+        "executed_count": 14,
+        "native_acceptance": true,
+        "open_blockers": 0,
+        "r16_closed": false,
+        "requested_count": 14,
+        "scope": "native_application",
+        "status": "NO_OPEN_BLOCKING_FINDINGS_IN_TESTED_SCOPE"
+      }
+    },
+    {
+      "artifact_id": 11256341218,
+      "zip_sha256": "5b634703bc06a012ea7387484cc4753893d3fc9cdcb86df90520e08642a0c8de",
+      "lane": "distribution",
+      "source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+      "suite_sha": "73cf4806d5c0193109da4d1cc6aa96b01b7c6a73",
+      "summary": {
+        "counts": {
+          "BLOCKED": 0,
+          "FAIL": 0,
+          "NOT_RUN": 0,
+          "PASS": 12
+        },
+        "executed_count": 12,
+        "native_acceptance": false,
+        "open_blockers": 0,
+        "r16_closed": false,
+        "requested_count": 12,
+        "scope": "product_contract",
+        "status": "NO_OPEN_BLOCKING_FINDINGS_IN_TESTED_SCOPE"
+      }
+    },
+    {
+      "artifact_id": 11256285844,
+      "zip_sha256": "2bded69465a203d5055302ec3ce6c3c0424b2232efb1562c5ade3c453c1b879b",
+      "lane": "selftest",
+      "source_sha": "73cf4806d5c0193109da4d1cc6aa96b01b7c6a73",
+      "suite_sha": "73cf4806d5c0193109da4d1cc6aa96b01b7c6a73",
+      "summary": {
+        "counts": {
+          "BLOCKED": 0,
+          "FAIL": 0,
+          "NOT_RUN": 0,
+          "PASS": 105
+        },
+        "executed_count": 105,
+        "native_acceptance": false,
+        "open_blockers": 0,
+        "r16_closed": false,
+        "requested_count": 105,
+        "scope": "lab_selftest",
+        "status": "HARNESS_SELFTEST_PASS"
+      }
+    },
+    {
+      "artifact_id": 11255549087,
+      "zip_sha256": "485bb0b993bae27dacc4777076498fed8f19ad2e6b80594f63f530502bb18405",
+      "lane": "composition",
+      "source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+      "suite_sha": "73cf4806d5c0193109da4d1cc6aa96b01b7c6a73",
+      "summary": {
+        "counts": {
+          "BLOCKED": 0,
+          "FAIL": 0,
+          "NOT_RUN": 0,
+          "PASS": 70
+        },
+        "executed_count": 70,
+        "native_acceptance": false,
+        "open_blockers": 0,
+        "r16_closed": false,
+        "requested_count": 70,
+        "scope": "product_contract",
+        "status": "NO_OPEN_BLOCKING_FINDINGS_IN_TESTED_SCOPE"
+      }
+    },
+    {
+      "artifact_id": 11255293744,
+      "zip_sha256": "eb4a9188fecf1b446a13174f07ada3051874e23a1277cf6ac6eede7d8969f3f6",
+      "lane": "av",
+      "source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+      "suite_sha": "73cf4806d5c0193109da4d1cc6aa96b01b7c6a73",
+      "summary": {
+        "counts": {
+          "BLOCKED": 0,
+          "FAIL": 0,
+          "NOT_RUN": 0,
+          "PASS": 35
+        },
+        "executed_count": 35,
+        "native_acceptance": false,
+        "open_blockers": 0,
+        "r16_closed": false,
+        "requested_count": 35,
+        "scope": "product_contract",
+        "status": "NO_OPEN_BLOCKING_FINDINGS_IN_TESTED_SCOPE"
+      }
+    },
+    {
+      "artifact_id": 11255234463,
+      "zip_sha256": "5da9c980f4fe321899a34f4baccca4acaaeac7f9ee0d71c6a3a3996052c575db",
+      "lane": "effects",
+      "source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+      "suite_sha": "73cf4806d5c0193109da4d1cc6aa96b01b7c6a73",
+      "summary": {
+        "counts": {
+          "BLOCKED": 0,
+          "FAIL": 0,
+          "NOT_RUN": 0,
+          "PASS": 40
+        },
+        "executed_count": 40,
+        "native_acceptance": false,
+        "open_blockers": 0,
+        "r16_closed": false,
+        "requested_count": 40,
+        "scope": "product_contract",
+        "status": "NO_OPEN_BLOCKING_FINDINGS_IN_TESTED_SCOPE"
+      }
+    },
+    {
+      "artifact_id": 11255084029,
+      "zip_sha256": "3a2893d85592ebec799f4caf322f96df2cce66fae9a507670a26600919606e64",
+      "lane": "audio",
+      "source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+      "suite_sha": "73cf4806d5c0193109da4d1cc6aa96b01b7c6a73",
+      "summary": {
+        "counts": {
+          "BLOCKED": 0,
+          "FAIL": 0,
+          "NOT_RUN": 0,
+          "PASS": 30
+        },
+        "executed_count": 30,
+        "native_acceptance": false,
+        "open_blockers": 0,
+        "r16_closed": false,
+        "requested_count": 30,
+        "scope": "product_contract",
+        "status": "NO_OPEN_BLOCKING_FINDINGS_IN_TESTED_SCOPE"
+      }
+    }
+  ],
+  "r16_closed": false
+}

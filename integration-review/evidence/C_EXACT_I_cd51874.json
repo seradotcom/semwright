@@ -1,0 +1,4804 @@
+{
+  "source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+  "run_id": 37080806793,
+  "conclusion": "success",
+  "attempt": 1,
+  "artifacts": [
+    {
+      "id": 11259091339,
+      "name": "project-graph-cd518748f742025a251b78028613aa1b16919e73-1",
+      "size_in_bytes": 221509,
+      "digest": "sha256:8c874c110f1418c889fb1d608c082b66dc1777cab2a6def8677da38287b3838a",
+      "zip_sha256": "8c874c110f1418c889fb1d608c082b66dc1777cab2a6def8677da38287b3838a",
+      "files_sha256": {
+        "bounded-fuzz.log": "4e48a4158334a4cd35e8877fc93532a0487ee74a58106b86aacf20e4c4db40f8",
+        "broker-inventory.log": "94ba49a7eb4e099ca453080d574c15a61ae15d06edef8cc9a5e26ccc6d036e2f",
+        "broker-tests.log": "9a7d22877fe134ced51009d38e6ff76b095a3e31fe88cd1bfbf57c81ee44b408",
+        "clippy.log": "a9e5940351e9dbe5a11a78e8a6ad6457418d39ba558997b17ca1da2ac510ad5c",
+        "daemon-wiring.log": "d5602a2a9421a123ebddbcd140bebc44259c94591ed8f8834aa68f16d92e1b31",
+        "evidence.json": "c3b03b1b8804fb9d8e7dabb0dc929ddeb613b886640bbecf204cea5ccb0865bd",
+        "format.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "fuzz-dependencies.log": "de5a52a431d6d9d8c7378838a704c51588d13fa080c845f972e3ad7f29525bd1",
+        "fuzz-evidence.json": "0d2f52e43ce3ad11b9c59ff958a845a3dbb71e786dbf6d401168e1676132a130",
+        "fuzz-manifest.log": "52aed92a33180554e79541a591fb8122228b44fea111e327a2db99eddc671ee5",
+        "fuzz-receipt.log": "403a2fd546343208e4ebb0e1abd5bbeacffb18882c2aeb4790d50d4b99ed84b7",
+        "fuzz-toolchain.log": "6a1a09b1747d10c2e8b1ea21dd9570ce161e48d1d4ddc495278687dce73fbcd6",
+        "fuzz-store.log": "2363e58ce09e96e3b4dde40c7c35fc1b623d00dd12615fb5ffe2fdc1d7d971c0",
+        "fuzz-traversal.log": "00c93675a1bb97836c7b94ab76c58c3eee959a11f88bbfd14f138064a5b286d3",
+        "fuzz-version.log": "3e2aa5c2baaf44e5a4968cc3fedb864f4717f85b713deacf3fc4294162358ca1",
+        "integration-clippy-core-rebuild.log": "40e47334276cfa696d8f28e4cd536b691f9e1923eaebf3c4f1013f4ee941cb6d",
+        "integration-clippy-registry.log": "0392f38c12674f59f42450120d4eccd1a95b75b9d8987a5f85778ba9e2c317ae",
+        "integration-format.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "inventory.log": "0efe51ebd58ca9992171fcf5850f49f733ed319cc337d31ac99e5dcdb2198a58",
+        "principal-tests.log": "bd6783ef36f0012b85148b93e0bce7254c300da9da90c8b5bbea51551fb496c6",
+        "rebuild-broker-test.log": "0f4dc8429b28956c887b32e89968ceb55115b11fe5967a399ccd07fd2b233958",
+        "registry-rebuild-test.log": "06cc304f1957ec443fca3e1afa38d2fe8584a16ba5438f3fcff7080dd1f6b607",
+        "rustdoc.log": "d55bdcc73af2b8ecc81f44609d2ad4f4ed81a90270bb01a24f551c9f795fbd01",
+        "scale.json": "46d28921b2a6c5e4155617451bad8d37f8a8dd93f1c370d1da7f3a07d7e5c9a8",
+        "schemas.json": "cfffe718b9a4a478f9b449d597c688a55ace363247abfb09c5d3a71dfbb01659",
+        "semwright-project-continuity.swskill": "1d5007fe3148a335c7e2e06486129705722022ba197ce31952d9280d9f397b6b",
+        "schemas.log": "cfffe718b9a4a478f9b449d597c688a55ace363247abfb09c5d3a71dfbb01659",
+        "skill-package.json": "f972eb30e86ad246d2b3963182b14edd4dd649279b7515cef0e5a47786699c0c",
+        "skill-lock.json": "6a6bc68531121c4c58517a3e39e6ee534fb14f2f070244a98c55977b23dc826c",
+        "tests.log": "ca75962e7805787c4e912cb0268b0842a450504267cce9d0998e166ea088db58"
+      },
+      "json": {
+        "evidence.json": {
+          "schema_version": 1,
+          "role": "C",
+          "source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "workflow_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "contract_sha": "26602e4b25929be869d69ef28fef4dd9713180d7",
+          "workflow": "Project Graph diagnostics",
+          "run_id": "37080806793",
+          "attempt": "1",
+          "job": "project-graph",
+          "event": "workflow_dispatch",
+          "suite": "full",
+          "scope": "portable-model-not-native",
+          "native": false,
+          "outcome": "PASS",
+          "requested_tests": 74,
+          "executed_tests": 74,
+          "ignored_tests": 0,
+          "job_id": null,
+          "runtime_versions": {
+            "rustc": "rustc 1.88.0 (6b00bc388 2025-06-23)"
+          },
+          "steps": [
+            {
+              "name": "format",
+              "command": [
+                "cargo",
+                "fmt",
+                "-p",
+                "semwright-project-graph",
+                "--",
+                "--check"
+              ],
+              "exit_code": 0
+            },
+            {
+              "name": "inventory",
+              "command": [
+                "cargo",
+                "test",
+                "--locked",
+                "-p",
+                "semwright-project-graph",
+                "--features",
+                "store",
+                "--all-targets",
+                "--",
+                "--list"
+              ],
+              "exit_code": 0
+            },
+            {
+              "name": "tests",
+              "command": [
+                "cargo",
+                "test",
+                "--locked",
+                "-p",
+                "semwright-project-graph",
+                "--features",
+                "store",
+                "--all-targets"
+              ],
+              "exit_code": 0
+            },
+            {
+              "name": "clippy",
+              "command": [
+                "cargo",
+                "clippy",
+                "--locked",
+                "-p",
+                "semwright-project-graph",
+                "--features",
+                "store",
+                "--all-targets",
+                "--",
+                "-D",
+                "warnings"
+              ],
+              "exit_code": 0
+            },
+            {
+              "name": "schemas",
+              "command": [
+                "cargo",
+                "run",
+                "--quiet",
+                "--locked",
+                "-p",
+                "semwright-project-graph",
+                "--features",
+                "store",
+                "--example",
+                "schemas"
+              ],
+              "exit_code": 0
+            },
+            {
+              "name": "rustdoc",
+              "command": [
+                "cargo",
+                "doc",
+                "--locked",
+                "-p",
+                "semwright-project-graph",
+                "--features",
+                "store",
+                "--no-deps"
+              ],
+              "exit_code": 0
+            },
+            {
+              "name": "integration-format",
+              "command": [
+                "cargo",
+                "fmt",
+                "-p",
+                "semwright-core",
+                "-p",
+                "semwright-registry",
+                "-p",
+                "semwright-platform-services",
+                "-p",
+                "semwright-daemon",
+                "--",
+                "--check"
+              ],
+              "exit_code": 0
+            },
+            {
+              "name": "broker-inventory",
+              "command": [
+                "cargo",
+                "test",
+                "--locked",
+                "-p",
+                "semwright-core",
+                "--test",
+                "project_graph",
+                "--",
+                "--list"
+              ],
+              "exit_code": 0
+            },
+            {
+              "name": "broker-tests",
+              "command": [
+                "cargo",
+                "test",
+                "--locked",
+                "-p",
+                "semwright-core",
+                "--test",
+                "project_graph"
+              ],
+              "exit_code": 0
+            },
+            {
+              "name": "registry-rebuild-test",
+              "command": [
+                "cargo",
+                "test",
+                "--locked",
+                "-p",
+                "semwright-registry",
+                "tests::preparation_relationship_is_host_owned_pinned_and_provider_bound",
+                "--",
+                "--exact"
+              ],
+              "exit_code": 0
+            },
+            {
+              "name": "rebuild-broker-test",
+              "command": [
+                "cargo",
+                "test",
+                "--locked",
+                "-p",
+                "semwright-core",
+                "--test",
+                "provider_runtime",
+                "rebuild_preparation_relation_reenters_broker_and_invalidates_on_refresh",
+                "--",
+                "--exact"
+              ],
+              "exit_code": 0
+            },
+            {
+              "name": "integration-clippy-registry",
+              "command": [
+                "cargo",
+                "clippy",
+                "--locked",
+                "-p",
+                "semwright-registry",
+                "--lib",
+                "--",
+                "-D",
+                "warnings"
+              ],
+              "exit_code": 0
+            },
+            {
+              "name": "integration-clippy-core-rebuild",
+              "command": [
+                "cargo",
+                "clippy",
+                "--locked",
+                "-p",
+                "semwright-core",
+                "--test",
+                "provider_runtime",
+                "--",
+                "-D",
+                "warnings"
+              ],
+              "exit_code": 0
+            },
+            {
+              "name": "principal-tests",
+              "command": [
+                "cargo",
+                "test",
+                "--locked",
+                "-p",
+                "semwright-platform-services",
+                "durable_user_principal_excludes_broker_or_logon_session_identity"
+              ],
+              "exit_code": 0
+            },
+            {
+              "name": "daemon-wiring",
+              "command": [
+                "cargo",
+                "check",
+                "--locked",
+                "-p",
+                "semwright-daemon"
+              ],
+              "exit_code": 0
+            },
+            {
+              "name": "bounded-fuzz",
+              "command": [
+                "/usr/bin/python3",
+                "scripts/project-graph/fuzz-lane.py",
+                "run"
+              ],
+              "exit_code": 0
+            }
+          ],
+          "lock_sha256_before": "53458999594da110fc8e55ebcbab1b7427157c7aacc30ef3eb8b90707bd2cefe",
+          "active_step": "bounded-fuzz",
+          "failed_tests": 0,
+          "broker_requested_tests": 10,
+          "broker_executed_tests": 10,
+          "registry_rebuild_tests": 1,
+          "rebuild_broker_tests": 1,
+          "principal_tests": 1,
+          "lock_sha256": "53458999594da110fc8e55ebcbab1b7427157c7aacc30ef3eb8b90707bd2cefe",
+          "duration_seconds": 344.447,
+          "artifacts": {
+            "fuzz-traversal.log": "00c93675a1bb97836c7b94ab76c58c3eee959a11f88bbfd14f138064a5b286d3",
+            "daemon-wiring.log": "d5602a2a9421a123ebddbcd140bebc44259c94591ed8f8834aa68f16d92e1b31",
+            "semwright-project-continuity.swskill": "1d5007fe3148a335c7e2e06486129705722022ba197ce31952d9280d9f397b6b",
+            "rustdoc.log": "d55bdcc73af2b8ecc81f44609d2ad4f4ed81a90270bb01a24f551c9f795fbd01",
+            "registry-rebuild-test.log": "06cc304f1957ec443fca3e1afa38d2fe8584a16ba5438f3fcff7080dd1f6b607",
+            "skill-package.json": "f972eb30e86ad246d2b3963182b14edd4dd649279b7515cef0e5a47786699c0c",
+            "broker-tests.log": "9a7d22877fe134ced51009d38e6ff76b095a3e31fe88cd1bfbf57c81ee44b408",
+            "principal-tests.log": "bd6783ef36f0012b85148b93e0bce7254c300da9da90c8b5bbea51551fb496c6",
+            "scale.json": "46d28921b2a6c5e4155617451bad8d37f8a8dd93f1c370d1da7f3a07d7e5c9a8",
+            "format.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "integration-format.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "integration-clippy-registry.log": "0392f38c12674f59f42450120d4eccd1a95b75b9d8987a5f85778ba9e2c317ae",
+            "fuzz-toolchain.log": "6a1a09b1747d10c2e8b1ea21dd9570ce161e48d1d4ddc495278687dce73fbcd6",
+            "fuzz-dependencies.log": "de5a52a431d6d9d8c7378838a704c51588d13fa080c845f972e3ad7f29525bd1",
+            "integration-clippy-core-rebuild.log": "40e47334276cfa696d8f28e4cd536b691f9e1923eaebf3c4f1013f4ee941cb6d",
+            "fuzz-receipt.log": "403a2fd546343208e4ebb0e1abd5bbeacffb18882c2aeb4790d50d4b99ed84b7",
+            "fuzz-manifest.log": "52aed92a33180554e79541a591fb8122228b44fea111e327a2db99eddc671ee5",
+            "bounded-fuzz.log": "4e48a4158334a4cd35e8877fc93532a0487ee74a58106b86aacf20e4c4db40f8",
+            "schemas.json": "cfffe718b9a4a478f9b449d597c688a55ace363247abfb09c5d3a71dfbb01659",
+            "schemas.log": "cfffe718b9a4a478f9b449d597c688a55ace363247abfb09c5d3a71dfbb01659",
+            "inventory.log": "0efe51ebd58ca9992171fcf5850f49f733ed319cc337d31ac99e5dcdb2198a58",
+            "tests.log": "ca75962e7805787c4e912cb0268b0842a450504267cce9d0998e166ea088db58",
+            "skill-lock.json": "6a6bc68531121c4c58517a3e39e6ee534fb14f2f070244a98c55977b23dc826c",
+            "broker-inventory.log": "94ba49a7eb4e099ca453080d574c15a61ae15d06edef8cc9a5e26ccc6d036e2f",
+            "fuzz-version.log": "3e2aa5c2baaf44e5a4968cc3fedb864f4717f85b713deacf3fc4294162358ca1",
+            "clippy.log": "a9e5940351e9dbe5a11a78e8a6ad6457418d39ba558997b17ca1da2ac510ad5c",
+            "fuzz-evidence.json": "0d2f52e43ce3ad11b9c59ff958a845a3dbb71e786dbf6d401168e1676132a130",
+            "rebuild-broker-test.log": "0f4dc8429b28956c887b32e89968ceb55115b11fe5967a399ccd07fd2b233958",
+            "fuzz-store.log": "2363e58ce09e96e3b4dde40c7c35fc1b623d00dd12615fb5ffe2fdc1d7d971c0"
+          }
+        },
+        "fuzz-evidence.json": {
+          "version": 1,
+          "source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "role": "C",
+          "native_app_acceptance": false,
+          "scope": "parser, declaration traversal and private synthetic store",
+          "outcome": "PASS",
+          "targets": [
+            {
+              "target": "manifest",
+              "executions": 1256033,
+              "seed_sha256": {
+                "duplicate.json": "7f5498ce08efc28e326e559993c9a26774092b21bb9e17dbd59ef2c8b11e020a",
+                "empty.json": "1887878815ce32d1219fed6bb374db8e0078db8e9198a0dbf5bdb933df50ee25"
+              },
+              "max_seconds": 15,
+              "timeout_seconds": 3,
+              "rss_limit_mb": 768,
+              "seed": 17,
+              "outcome": "PASS"
+            },
+            {
+              "target": "receipt",
+              "executions": 511624,
+              "seed_sha256": {
+                "empty.json": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+                "fingerprint.json": "40aa115514c79dee5aab81a176edf09d2a196b4c04bb68e90691f21a50c63bbc"
+              },
+              "max_seconds": 15,
+              "timeout_seconds": 3,
+              "rss_limit_mb": 768,
+              "seed": 17,
+              "outcome": "PASS"
+            },
+            {
+              "target": "traversal",
+              "executions": 20337,
+              "seed_sha256": {
+                "chain.seed": "c73579893b2cd6d07a40f444c106fcea96646ee153fd4bb0af415022929c9055"
+              },
+              "max_seconds": 15,
+              "timeout_seconds": 3,
+              "rss_limit_mb": 768,
+              "seed": 17,
+              "outcome": "PASS"
+            },
+            {
+              "target": "store",
+              "executions": 1471,
+              "seed_sha256": {
+                "transactions.seed": "74f81fe167d99b4cb41d6d0ccda82278caee9f3e2f25d5e5a3936ff3dcec60d0"
+              },
+              "max_seconds": 15,
+              "timeout_seconds": 3,
+              "rss_limit_mb": 768,
+              "seed": 17,
+              "outcome": "PASS"
+            }
+          ],
+          "engine": "cargo-fuzz 0.13.2",
+          "toolchain": "rustc 1.100.0-nightly (330d31712 2026-09-17)",
+          "duration_seconds": 185.353,
+          "lock_sha256": "ee2bda43d5b9eca2dff3c72d9c901b730541a0371eca6bb0ee5d16cbf959d184"
+        },
+        "scale.json": {
+          "build_ms": 2615,
+          "edges": 50000,
+          "fixture": "declared graph, not native provenance or productivity evidence",
+          "known": 0,
+          "max_process_kib": 524288,
+          "max_total_seconds": 45,
+          "memory_method": "Linux /proc/self/status VmHWM; null when unavailable",
+          "native": false,
+          "possible": 9999,
+          "process_peak_kib": 79276,
+          "query_ms": 143,
+          "resources": 10000,
+          "schema_version": 1,
+          "unknown_frontier": true,
+          "visited_edges": 60000,
+          "visited_nodes": 10001
+        },
+        "schemas.json": {
+          "asset": {
+            "$defs": {
+              "DurableLocator": {
+                "description": "A locator is a re-resolution hint, never a reusable session ref or a grant.",
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "scoped_file",
+                        "type": "string"
+                      },
+                      "relative_path": {
+                        "type": "string"
+                      },
+                      "root": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "root",
+                      "relative_path"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "native",
+                        "type": "string"
+                      },
+                      "resolver": {
+                        "type": "string"
+                      },
+                      "resolver_version": {
+                        "format": "uint32",
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "resource": {
+                        "$ref": "#/$defs/ResourceKey"
+                      },
+                      "stable_id": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "resource",
+                      "stable_id",
+                      "resolver",
+                      "resolver_version"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              },
+              "ResourceKey": {
+                "additionalProperties": false,
+                "properties": {
+                  "provider": {
+                    "type": "string"
+                  },
+                  "resource": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "provider",
+                  "resource"
+                ],
+                "type": "object"
+              }
+            },
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              },
+              "locator": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/DurableLocator"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "resource_type": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "resource_type",
+              "label"
+            ],
+            "title": "Asset",
+            "type": "object"
+          },
+          "edge": {
+            "$defs": {
+              "Address": {
+                "additionalProperties": false,
+                "properties": {
+                  "logical_id": {
+                    "type": "string"
+                  },
+                  "property": {
+                    "type": "string"
+                  },
+                  "resource": {
+                    "$ref": "#/$defs/ResourceKey"
+                  }
+                },
+                "required": [
+                  "resource",
+                  "logical_id",
+                  "property"
+                ],
+                "type": "object"
+              },
+              "BaseState": {
+                "additionalProperties": false,
+                "properties": {
+                  "concurrency": {
+                    "$ref": "#/$defs/Concurrency"
+                  },
+                  "document_id": {
+                    "type": "string"
+                  },
+                  "generation": {
+                    "type": "string"
+                  },
+                  "key": {
+                    "$ref": "#/$defs/ResourceKey"
+                  },
+                  "provider_session": {
+                    "type": "string"
+                  },
+                  "revision": {
+                    "$ref": "#/$defs/Revision"
+                  }
+                },
+                "required": [
+                  "key",
+                  "document_id",
+                  "provider_session",
+                  "generation",
+                  "revision",
+                  "concurrency"
+                ],
+                "type": "object"
+              },
+              "Concurrency": {
+                "enum": [
+                  "compare_and_swap",
+                  "best_effort_revalidate",
+                  "unobservable"
+                ],
+                "type": "string"
+              },
+              "Digest": {
+                "description": "Versioned Semwright canonical JSON, not a claim of RFC 8785 conformance.\nKeys are sorted by Unicode scalar ordering; array order and string bytes are\npreserved. Numeric spelling is normalized by serde_json. No lossy Unicode NFC.",
+                "type": "string"
+              },
+              "EdgeEvidence": {
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "declaration": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "const": "declared",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "declaration"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "observed",
+                        "type": "string"
+                      },
+                      "observation": {
+                        "$ref": "#/$defs/ObservationRef"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "observation"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "executed",
+                        "type": "string"
+                      },
+                      "receipt": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "receipt"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              },
+              "EvidenceSource": {
+                "enum": [
+                  "native_api",
+                  "renderer_state",
+                  "decoded_media",
+                  "file_read",
+                  "simulation",
+                  "fixture",
+                  "human_review"
+                ],
+                "type": "string"
+              },
+              "ObservationRef": {
+                "additionalProperties": false,
+                "properties": {
+                  "artifact": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/Digest"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "base": {
+                    "items": {
+                      "$ref": "#/$defs/BaseState"
+                    },
+                    "type": "array"
+                  },
+                  "exhaustive": {
+                    "type": "boolean"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "method": {
+                    "type": "string"
+                  },
+                  "method_version": {
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "scope": {
+                    "items": {
+                      "$ref": "#/$defs/Address"
+                    },
+                    "type": "array"
+                  },
+                  "source": {
+                    "$ref": "#/$defs/EvidenceSource"
+                  }
+                },
+                "required": [
+                  "id",
+                  "base",
+                  "source",
+                  "method",
+                  "method_version",
+                  "scope",
+                  "exhaustive"
+                ],
+                "type": "object"
+              },
+              "Relation": {
+                "enum": [
+                  "contains",
+                  "references",
+                  "derived_from",
+                  "produced_by",
+                  "consumed_by",
+                  "realizes",
+                  "published_as",
+                  "verified_by"
+                ],
+                "type": "string"
+              },
+              "ResourceKey": {
+                "additionalProperties": false,
+                "properties": {
+                  "provider": {
+                    "type": "string"
+                  },
+                  "resource": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "provider",
+                  "resource"
+                ],
+                "type": "object"
+              },
+              "Revision": {
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "counter",
+                        "type": "string"
+                      },
+                      "value": {
+                        "format": "uint64",
+                        "minimum": 0,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "value"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "fingerprint",
+                        "type": "string"
+                      },
+                      "value": {
+                        "$ref": "#/$defs/Digest"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "value"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "unknown",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              },
+              "Vertex": {
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "const": "asset",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "id"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "const": "revision",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "id"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "const": "activity",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "id"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "const": "receipt",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "id"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              }
+            },
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "additionalProperties": false,
+            "properties": {
+              "evidence": {
+                "$ref": "#/$defs/EdgeEvidence"
+              },
+              "from": {
+                "$ref": "#/$defs/Vertex"
+              },
+              "relation": {
+                "$ref": "#/$defs/Relation"
+              },
+              "to": {
+                "$ref": "#/$defs/Vertex"
+              }
+            },
+            "required": [
+              "from",
+              "to",
+              "relation",
+              "evidence"
+            ],
+            "title": "Edge",
+            "type": "object"
+          },
+          "external_intent": {
+            "$defs": {
+              "Digest": {
+                "description": "Versioned Semwright canonical JSON, not a claim of RFC 8785 conformance.\nKeys are sorted by Unicode scalar ordering; array order and string bytes are\npreserved. Numeric spelling is normalized by serde_json. No lossy Unicode NFC.",
+                "type": "string"
+              },
+              "ExecutionStatus": {
+                "enum": [
+                  "prepared",
+                  "applying",
+                  "completed",
+                  "partial",
+                  "denied",
+                  "cancelled",
+                  "failed",
+                  "unknown"
+                ],
+                "type": "string"
+              },
+              "OperationIdentity": {
+                "additionalProperties": false,
+                "properties": {
+                  "capability": {
+                    "type": "string"
+                  },
+                  "descriptor": {
+                    "$ref": "#/$defs/Digest"
+                  },
+                  "parameters": {
+                    "$ref": "#/$defs/Digest"
+                  },
+                  "plan": {
+                    "$ref": "#/$defs/Digest"
+                  },
+                  "recipe": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/Digest"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "runtime": {
+                    "$ref": "#/$defs/Digest"
+                  }
+                },
+                "required": [
+                  "capability",
+                  "descriptor",
+                  "runtime",
+                  "plan",
+                  "parameters"
+                ],
+                "type": "object"
+              },
+              "Owner": {
+                "additionalProperties": false,
+                "properties": {
+                  "principal": {
+                    "$ref": "#/$defs/PrincipalBinding"
+                  },
+                  "session": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "session",
+                  "principal"
+                ],
+                "type": "object"
+              },
+              "PrincipalBinding": {
+                "oneOf": [
+                  {
+                    "enum": [
+                      "host_session"
+                    ],
+                    "type": "string"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "named": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "named"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              }
+            },
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "additionalProperties": false,
+            "description": "Durable record of an external operation boundary. It is evidence/recovery\nstate only: storing one never authorizes or schedules the operation.",
+            "properties": {
+              "affected": {
+                "description": "Resources that may be affected by the external operation. This scope is\nused for visibility/reconciliation, not as an authorization grant.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "id": {
+                "type": "string"
+              },
+              "observation_epoch": {
+                "description": "The live observation epoch in which the operation was prepared.",
+                "type": "string"
+              },
+              "operation": {
+                "$ref": "#/$defs/OperationIdentity"
+              },
+              "owner": {
+                "$ref": "#/$defs/Owner",
+                "description": "Historical authenticated owner. The session component is evidence, not\na restart credential."
+              },
+              "prepared_unix_ms": {
+                "format": "uint64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "project": {
+                "type": "string"
+              },
+              "receipt": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "request_id": {
+                "type": "string"
+              },
+              "status": {
+                "$ref": "#/$defs/ExecutionStatus"
+              },
+              "version": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "version",
+              "id",
+              "project",
+              "owner",
+              "request_id",
+              "operation",
+              "affected",
+              "prepared_unix_ms",
+              "observation_epoch",
+              "status"
+            ],
+            "title": "ExternalIntent",
+            "type": "object"
+          },
+          "garbage_collection": {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "additionalProperties": false,
+            "properties": {
+              "candidates": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "snapshot": {
+                "format": "uint64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "truncated": {
+                "type": "boolean"
+              },
+              "user_files_deleted": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "snapshot",
+              "candidates",
+              "truncated",
+              "user_files_deleted"
+            ],
+            "title": "GarbageCollectionPreview",
+            "type": "object"
+          },
+          "impact": {
+            "$defs": {
+              "ImpactHit": {
+                "additionalProperties": false,
+                "properties": {
+                  "asset": {
+                    "type": "string"
+                  },
+                  "depth": {
+                    "format": "uint",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "receipt": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "via": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "asset",
+                  "via",
+                  "depth"
+                ],
+                "type": "object"
+              }
+            },
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "additionalProperties": false,
+            "properties": {
+              "cancelled": {
+                "type": "boolean"
+              },
+              "known": {
+                "items": {
+                  "$ref": "#/$defs/ImpactHit"
+                },
+                "type": "array"
+              },
+              "possible": {
+                "items": {
+                  "$ref": "#/$defs/ImpactHit"
+                },
+                "type": "array"
+              },
+              "snapshot": {
+                "format": "uint64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "truncated": {
+                "type": "boolean"
+              },
+              "unknown_frontier": {
+                "type": "boolean"
+              },
+              "visited_edges": {
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "visited_nodes": {
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "snapshot",
+              "known",
+              "possible",
+              "unknown_frontier",
+              "truncated",
+              "cancelled",
+              "visited_nodes",
+              "visited_edges"
+            ],
+            "title": "ImpactReport",
+            "type": "object"
+          },
+          "knowledge": {
+            "$defs": {
+              "Coverage": {
+                "additionalProperties": false,
+                "properties": {
+                  "complete": {
+                    "type": "boolean"
+                  },
+                  "unknown_frontier": {
+                    "items": {
+                      "$ref": "#/$defs/DependencyClass"
+                    },
+                    "type": "array",
+                    "uniqueItems": true
+                  }
+                },
+                "required": [
+                  "complete",
+                  "unknown_frontier"
+                ],
+                "type": "object"
+              },
+              "DependencyClass": {
+                "enum": [
+                  "bytes",
+                  "projection",
+                  "parameters",
+                  "runtime",
+                  "descriptor",
+                  "recipe",
+                  "import_settings",
+                  "font",
+                  "texture",
+                  "plugin",
+                  "contract",
+                  "external"
+                ],
+                "type": "string"
+              },
+              "Divergence": {
+                "enum": [
+                  "clean",
+                  "diverged",
+                  "unknown"
+                ],
+                "type": "string"
+              },
+              "Existence": {
+                "enum": [
+                  "present",
+                  "missing",
+                  "unknown"
+                ],
+                "type": "string"
+              },
+              "Freshness": {
+                "enum": [
+                  "current",
+                  "stale",
+                  "unknown"
+                ],
+                "type": "string"
+              },
+              "Verdict": {
+                "enum": [
+                  "PASS",
+                  "FAIL",
+                  "UNKNOWN"
+                ],
+                "type": "string"
+              }
+            },
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "additionalProperties": false,
+            "properties": {
+              "coverage": {
+                "$ref": "#/$defs/Coverage"
+              },
+              "divergence": {
+                "$ref": "#/$defs/Divergence"
+              },
+              "existence": {
+                "$ref": "#/$defs/Existence"
+              },
+              "freshness": {
+                "$ref": "#/$defs/Freshness"
+              },
+              "observed_unix_ms": {
+                "format": "uint64",
+                "minimum": 0,
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "requires_reconcile": {
+                "type": "boolean"
+              },
+              "verification": {
+                "$ref": "#/$defs/Verdict"
+              }
+            },
+            "required": [
+              "existence",
+              "freshness",
+              "divergence",
+              "verification",
+              "coverage",
+              "requires_reconcile"
+            ],
+            "title": "Knowledge",
+            "type": "object"
+          },
+          "manifest": {
+            "$defs": {
+              "PortableAsset": {
+                "additionalProperties": false,
+                "properties": {
+                  "label": {
+                    "type": "string"
+                  },
+                  "resource_type": {
+                    "type": "string"
+                  },
+                  "source_id": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "source_id",
+                  "label",
+                  "resource_type"
+                ],
+                "type": "object"
+              },
+              "PortableEdge": {
+                "additionalProperties": false,
+                "properties": {
+                  "from": {
+                    "type": "string"
+                  },
+                  "relation": {
+                    "$ref": "#/$defs/Relation"
+                  },
+                  "to": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "from",
+                  "to",
+                  "relation"
+                ],
+                "type": "object"
+              },
+              "Relation": {
+                "enum": [
+                  "contains",
+                  "references",
+                  "derived_from",
+                  "produced_by",
+                  "consumed_by",
+                  "realizes",
+                  "published_as",
+                  "verified_by"
+                ],
+                "type": "string"
+              }
+            },
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "additionalProperties": false,
+            "properties": {
+              "assets": {
+                "items": {
+                  "$ref": "#/$defs/PortableAsset"
+                },
+                "type": "array"
+              },
+              "coverage_complete": {
+                "type": "boolean"
+              },
+              "declarations": {
+                "items": {
+                  "$ref": "#/$defs/PortableEdge"
+                },
+                "type": "array"
+              },
+              "source_project": {
+                "type": "string"
+              },
+              "source_snapshot": {
+                "format": "uint64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "version": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "version",
+              "source_project",
+              "source_snapshot",
+              "assets",
+              "declarations",
+              "coverage_complete"
+            ],
+            "title": "PortableManifest",
+            "type": "object"
+          },
+          "provenance": {
+            "$defs": {
+              "Asset": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "label": {
+                    "type": "string"
+                  },
+                  "locator": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/DurableLocator"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "resource_type": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "resource_type",
+                  "label"
+                ],
+                "type": "object"
+              },
+              "AssetView": {
+                "additionalProperties": false,
+                "properties": {
+                  "asset": {
+                    "$ref": "#/$defs/Asset"
+                  },
+                  "binding_generation": {
+                    "format": "uint64",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "knowledge": {
+                    "$ref": "#/$defs/Knowledge"
+                  },
+                  "latest_revision": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "tombstoned": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "asset",
+                  "binding_generation",
+                  "tombstoned",
+                  "knowledge"
+                ],
+                "type": "object"
+              },
+              "Coverage": {
+                "additionalProperties": false,
+                "properties": {
+                  "complete": {
+                    "type": "boolean"
+                  },
+                  "unknown_frontier": {
+                    "items": {
+                      "$ref": "#/$defs/DependencyClass"
+                    },
+                    "type": "array",
+                    "uniqueItems": true
+                  }
+                },
+                "required": [
+                  "complete",
+                  "unknown_frontier"
+                ],
+                "type": "object"
+              },
+              "DependencyClass": {
+                "enum": [
+                  "bytes",
+                  "projection",
+                  "parameters",
+                  "runtime",
+                  "descriptor",
+                  "recipe",
+                  "import_settings",
+                  "font",
+                  "texture",
+                  "plugin",
+                  "contract",
+                  "external"
+                ],
+                "type": "string"
+              },
+              "Digest": {
+                "description": "Versioned Semwright canonical JSON, not a claim of RFC 8785 conformance.\nKeys are sorted by Unicode scalar ordering; array order and string bytes are\npreserved. Numeric spelling is normalized by serde_json. No lossy Unicode NFC.",
+                "type": "string"
+              },
+              "Divergence": {
+                "enum": [
+                  "clean",
+                  "diverged",
+                  "unknown"
+                ],
+                "type": "string"
+              },
+              "DurableLocator": {
+                "description": "A locator is a re-resolution hint, never a reusable session ref or a grant.",
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "scoped_file",
+                        "type": "string"
+                      },
+                      "relative_path": {
+                        "type": "string"
+                      },
+                      "root": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "root",
+                      "relative_path"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "native",
+                        "type": "string"
+                      },
+                      "resolver": {
+                        "type": "string"
+                      },
+                      "resolver_version": {
+                        "format": "uint32",
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "resource": {
+                        "$ref": "#/$defs/ResourceKey"
+                      },
+                      "stable_id": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "resource",
+                      "stable_id",
+                      "resolver",
+                      "resolver_version"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              },
+              "Equivalence": {
+                "enum": [
+                  "exact_bytes",
+                  "projection",
+                  "bytes_and_projection"
+                ],
+                "type": "string"
+              },
+              "Existence": {
+                "enum": [
+                  "present",
+                  "missing",
+                  "unknown"
+                ],
+                "type": "string"
+              },
+              "Fingerprint": {
+                "additionalProperties": false,
+                "properties": {
+                  "bytes": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/Digest"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "projection": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/ProjectionDigest"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "type": "object"
+              },
+              "Freshness": {
+                "enum": [
+                  "current",
+                  "stale",
+                  "unknown"
+                ],
+                "type": "string"
+              },
+              "Knowledge": {
+                "additionalProperties": false,
+                "properties": {
+                  "coverage": {
+                    "$ref": "#/$defs/Coverage"
+                  },
+                  "divergence": {
+                    "$ref": "#/$defs/Divergence"
+                  },
+                  "existence": {
+                    "$ref": "#/$defs/Existence"
+                  },
+                  "freshness": {
+                    "$ref": "#/$defs/Freshness"
+                  },
+                  "observed_unix_ms": {
+                    "format": "uint64",
+                    "minimum": 0,
+                    "type": [
+                      "integer",
+                      "null"
+                    ]
+                  },
+                  "requires_reconcile": {
+                    "type": "boolean"
+                  },
+                  "verification": {
+                    "$ref": "#/$defs/Verdict"
+                  }
+                },
+                "required": [
+                  "existence",
+                  "freshness",
+                  "divergence",
+                  "verification",
+                  "coverage",
+                  "requires_reconcile"
+                ],
+                "type": "object"
+              },
+              "OperationIdentity": {
+                "additionalProperties": false,
+                "properties": {
+                  "capability": {
+                    "type": "string"
+                  },
+                  "descriptor": {
+                    "$ref": "#/$defs/Digest"
+                  },
+                  "parameters": {
+                    "$ref": "#/$defs/Digest"
+                  },
+                  "plan": {
+                    "$ref": "#/$defs/Digest"
+                  },
+                  "recipe": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/Digest"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "runtime": {
+                    "$ref": "#/$defs/Digest"
+                  }
+                },
+                "required": [
+                  "capability",
+                  "descriptor",
+                  "runtime",
+                  "plan",
+                  "parameters"
+                ],
+                "type": "object"
+              },
+              "ProducerSummary": {
+                "additionalProperties": false,
+                "properties": {
+                  "coverage": {
+                    "$ref": "#/$defs/Coverage"
+                  },
+                  "derivation": {
+                    "type": "string"
+                  },
+                  "inputs": {
+                    "items": {
+                      "$ref": "#/$defs/RevisionPin"
+                    },
+                    "type": "array"
+                  },
+                  "operation": {
+                    "$ref": "#/$defs/OperationIdentity"
+                  },
+                  "receipt": {
+                    "type": "string"
+                  },
+                  "verification": {
+                    "$ref": "#/$defs/Verdict"
+                  }
+                },
+                "required": [
+                  "receipt",
+                  "derivation",
+                  "operation",
+                  "inputs",
+                  "verification",
+                  "coverage"
+                ],
+                "type": "object"
+              },
+              "ProjectionDigest": {
+                "additionalProperties": false,
+                "properties": {
+                  "digest": {
+                    "$ref": "#/$defs/Digest"
+                  },
+                  "method": {
+                    "type": "string"
+                  },
+                  "method_version": {
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "digest",
+                  "method",
+                  "method_version"
+                ],
+                "type": "object"
+              },
+              "ProvenanceReason": {
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "observation_required",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "classes": {
+                        "items": {
+                          "$ref": "#/$defs/DependencyClass"
+                        },
+                        "type": "array",
+                        "uniqueItems": true
+                      },
+                      "kind": {
+                        "const": "coverage_incomplete",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "classes"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "output_diverged",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "verification_unknown",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "verification_failed",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "class": {
+                        "$ref": "#/$defs/DependencyClass"
+                      },
+                      "key": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "const": "determinant_changed",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "class",
+                      "key"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "class": {
+                        "$ref": "#/$defs/DependencyClass"
+                      },
+                      "key": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "const": "determinant_unknown",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "class",
+                      "key"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "asset": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "const": "input_changed",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "asset"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "asset": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "const": "input_stale",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "asset"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "asset": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "const": "input_missing",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "asset"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "asset": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "const": "input_unknown",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "asset"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              },
+              "ResourceKey": {
+                "additionalProperties": false,
+                "properties": {
+                  "provider": {
+                    "type": "string"
+                  },
+                  "resource": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "provider",
+                  "resource"
+                ],
+                "type": "object"
+              },
+              "RevisionPin": {
+                "additionalProperties": false,
+                "properties": {
+                  "asset": {
+                    "type": "string"
+                  },
+                  "equivalence": {
+                    "$ref": "#/$defs/Equivalence"
+                  },
+                  "fingerprint": {
+                    "$ref": "#/$defs/Fingerprint"
+                  },
+                  "revision": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "asset",
+                  "revision",
+                  "fingerprint",
+                  "equivalence"
+                ],
+                "type": "object"
+              },
+              "Verdict": {
+                "enum": [
+                  "PASS",
+                  "FAIL",
+                  "UNKNOWN"
+                ],
+                "type": "string"
+              }
+            },
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "additionalProperties": false,
+            "properties": {
+              "asset": {
+                "$ref": "#/$defs/AssetView"
+              },
+              "known_derivatives": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "possible_derivatives": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "producer": {
+                "anyOf": [
+                  {
+                    "$ref": "#/$defs/ProducerSummary"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "reasons": {
+                "items": {
+                  "$ref": "#/$defs/ProvenanceReason"
+                },
+                "type": "array"
+              },
+              "snapshot": {
+                "format": "uint64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "truncated": {
+                "type": "boolean"
+              },
+              "unknown_frontier": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "snapshot",
+              "asset",
+              "known_derivatives",
+              "possible_derivatives",
+              "reasons",
+              "unknown_frontier",
+              "truncated"
+            ],
+            "title": "ProvenanceView",
+            "type": "object"
+          },
+          "query": {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "additionalProperties": false,
+            "properties": {
+              "include_tombstones": {
+                "default": false,
+                "type": "boolean"
+              },
+              "resource_type": {
+                "default": null,
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "status": {
+                "default": null,
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "title": "AssetQuery",
+            "type": "object"
+          },
+          "rebuild_proposal": {
+            "$defs": {
+              "Digest": {
+                "description": "Versioned Semwright canonical JSON, not a claim of RFC 8785 conformance.\nKeys are sorted by Unicode scalar ordering; array order and string bytes are\npreserved. Numeric spelling is normalized by serde_json. No lossy Unicode NFC.",
+                "type": "string"
+              },
+              "Equivalence": {
+                "enum": [
+                  "exact_bytes",
+                  "projection",
+                  "bytes_and_projection"
+                ],
+                "type": "string"
+              },
+              "Fingerprint": {
+                "additionalProperties": false,
+                "properties": {
+                  "bytes": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/Digest"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "projection": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/ProjectionDigest"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "type": "object"
+              },
+              "OperationIdentity": {
+                "additionalProperties": false,
+                "properties": {
+                  "capability": {
+                    "type": "string"
+                  },
+                  "descriptor": {
+                    "$ref": "#/$defs/Digest"
+                  },
+                  "parameters": {
+                    "$ref": "#/$defs/Digest"
+                  },
+                  "plan": {
+                    "$ref": "#/$defs/Digest"
+                  },
+                  "recipe": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/Digest"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "runtime": {
+                    "$ref": "#/$defs/Digest"
+                  }
+                },
+                "required": [
+                  "capability",
+                  "descriptor",
+                  "runtime",
+                  "plan",
+                  "parameters"
+                ],
+                "type": "object"
+              },
+              "ProjectionDigest": {
+                "additionalProperties": false,
+                "properties": {
+                  "digest": {
+                    "$ref": "#/$defs/Digest"
+                  },
+                  "method": {
+                    "type": "string"
+                  },
+                  "method_version": {
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "digest",
+                  "method",
+                  "method_version"
+                ],
+                "type": "object"
+              },
+              "RebuildBinding": {
+                "additionalProperties": false,
+                "description": "Supplied by a trusted catalog adapter. No serialized program or arbitrary arguments.",
+                "properties": {
+                  "capability": {
+                    "type": "string"
+                  },
+                  "descriptor": {
+                    "$ref": "#/$defs/Digest"
+                  },
+                  "prepare_capability": {
+                    "type": "string"
+                  },
+                  "prepare_descriptor": {
+                    "$ref": "#/$defs/Digest"
+                  },
+                  "runtime": {
+                    "$ref": "#/$defs/Digest"
+                  }
+                },
+                "required": [
+                  "capability",
+                  "descriptor",
+                  "runtime",
+                  "prepare_capability",
+                  "prepare_descriptor"
+                ],
+                "type": "object"
+              },
+              "RebuildBlock": {
+                "enum": [
+                  "no_production_receipt",
+                  "observation_required",
+                  "output_diverged",
+                  "incomplete_dependencies",
+                  "hidden_dependencies",
+                  "capability_unavailable",
+                  "in_place_production",
+                  "production_cycle",
+                  "budget_exhausted",
+                  "cancelled"
+                ],
+                "type": "string"
+              },
+              "RebuildNode": {
+                "additionalProperties": false,
+                "properties": {
+                  "blockers": {
+                    "items": {
+                      "$ref": "#/$defs/RebuildBlock"
+                    },
+                    "type": "array",
+                    "uniqueItems": true
+                  },
+                  "current_binding": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/RebuildBinding"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "depends_on": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array",
+                    "uniqueItems": true
+                  },
+                  "derivation": {
+                    "type": "string"
+                  },
+                  "historical_operation": {
+                    "$ref": "#/$defs/OperationIdentity"
+                  },
+                  "input_pins": {
+                    "items": {
+                      "$ref": "#/$defs/RevisionPin"
+                    },
+                    "type": "array"
+                  },
+                  "output_pins": {
+                    "items": {
+                      "$ref": "#/$defs/RevisionPin"
+                    },
+                    "type": "array"
+                  },
+                  "receipt": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "derivation",
+                  "receipt",
+                  "historical_operation",
+                  "input_pins",
+                  "output_pins",
+                  "depends_on",
+                  "blockers"
+                ],
+                "type": "object"
+              },
+              "RevisionPin": {
+                "additionalProperties": false,
+                "properties": {
+                  "asset": {
+                    "type": "string"
+                  },
+                  "equivalence": {
+                    "$ref": "#/$defs/Equivalence"
+                  },
+                  "fingerprint": {
+                    "$ref": "#/$defs/Fingerprint"
+                  },
+                  "revision": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "asset",
+                  "revision",
+                  "fingerprint",
+                  "equivalence"
+                ],
+                "type": "object"
+              }
+            },
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "additionalProperties": false,
+            "properties": {
+              "cancelled": {
+                "type": "boolean"
+              },
+              "cycles": {
+                "items": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "type": "array"
+              },
+              "nodes": {
+                "items": {
+                  "$ref": "#/$defs/RebuildNode"
+                },
+                "type": "array"
+              },
+              "observation_epoch": {
+                "type": "string"
+              },
+              "order": {
+                "description": "Empty when any production cycle or incomplete traversal prevents a valid order.",
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "project": {
+                "type": "string"
+              },
+              "reusable_outputs": {
+                "items": {
+                  "$ref": "#/$defs/RevisionPin"
+                },
+                "type": "array"
+              },
+              "snapshot": {
+                "format": "uint64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "targets": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "truncated": {
+                "type": "boolean"
+              },
+              "unknown_frontier": {
+                "type": "boolean"
+              },
+              "unresolved": {
+                "additionalProperties": {
+                  "items": {
+                    "$ref": "#/$defs/RebuildBlock"
+                  },
+                  "type": "array",
+                  "uniqueItems": true
+                },
+                "type": "object"
+              },
+              "version": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "visited_edges": {
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "visited_nodes": {
+                "format": "uint",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "version",
+              "project",
+              "snapshot",
+              "observation_epoch",
+              "targets",
+              "nodes",
+              "order",
+              "cycles",
+              "reusable_outputs",
+              "unresolved",
+              "unknown_frontier",
+              "truncated",
+              "cancelled",
+              "visited_nodes",
+              "visited_edges"
+            ],
+            "title": "RebuildProposal",
+            "type": "object"
+          },
+          "rebuild_request": {
+            "$defs": {
+              "ConvergenceBudget": {
+                "additionalProperties": false,
+                "properties": {
+                  "max_elapsed_ms": {
+                    "format": "uint64",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "max_findings": {
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "max_iterations": {
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "max_observations": {
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "max_operations": {
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "max_iterations",
+                  "max_operations",
+                  "max_findings",
+                  "max_observations",
+                  "max_elapsed_ms"
+                ],
+                "type": "object"
+              },
+              "TraversalBudget": {
+                "additionalProperties": false,
+                "properties": {
+                  "depth": {
+                    "format": "uint",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "edges": {
+                    "format": "uint",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "nodes": {
+                    "format": "uint",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "results": {
+                    "format": "uint",
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "nodes",
+                  "edges",
+                  "depth",
+                  "results"
+                ],
+                "type": "object"
+              }
+            },
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "additionalProperties": false,
+            "description": "Agent-proposed targets and budgets. This is not an executable program.",
+            "properties": {
+              "convergence": {
+                "$ref": "#/$defs/ConvergenceBudget",
+                "description": "Counts preparation calls, not hidden native suboperations or approvals."
+              },
+              "targets": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "traversal": {
+                "$ref": "#/$defs/TraversalBudget"
+              }
+            },
+            "required": [
+              "targets",
+              "traversal",
+              "convergence"
+            ],
+            "title": "RebuildRequest",
+            "type": "object"
+          },
+          "rebuild_reservation": {
+            "$defs": {
+              "ConvergenceBudget": {
+                "additionalProperties": false,
+                "properties": {
+                  "max_elapsed_ms": {
+                    "format": "uint64",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "max_findings": {
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "max_iterations": {
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "max_observations": {
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "max_operations": {
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "max_iterations",
+                  "max_operations",
+                  "max_findings",
+                  "max_observations",
+                  "max_elapsed_ms"
+                ],
+                "type": "object"
+              },
+              "Digest": {
+                "description": "Versioned Semwright canonical JSON, not a claim of RFC 8785 conformance.\nKeys are sorted by Unicode scalar ordering; array order and string bytes are\npreserved. Numeric spelling is normalized by serde_json. No lossy Unicode NFC.",
+                "type": "string"
+              },
+              "Equivalence": {
+                "enum": [
+                  "exact_bytes",
+                  "projection",
+                  "bytes_and_projection"
+                ],
+                "type": "string"
+              },
+              "Fingerprint": {
+                "additionalProperties": false,
+                "properties": {
+                  "bytes": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/Digest"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "projection": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/ProjectionDigest"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "type": "object"
+              },
+              "OperationIdentity": {
+                "additionalProperties": false,
+                "properties": {
+                  "capability": {
+                    "type": "string"
+                  },
+                  "descriptor": {
+                    "$ref": "#/$defs/Digest"
+                  },
+                  "parameters": {
+                    "$ref": "#/$defs/Digest"
+                  },
+                  "plan": {
+                    "$ref": "#/$defs/Digest"
+                  },
+                  "recipe": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/Digest"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "runtime": {
+                    "$ref": "#/$defs/Digest"
+                  }
+                },
+                "required": [
+                  "capability",
+                  "descriptor",
+                  "runtime",
+                  "plan",
+                  "parameters"
+                ],
+                "type": "object"
+              },
+              "ProjectionDigest": {
+                "additionalProperties": false,
+                "properties": {
+                  "digest": {
+                    "$ref": "#/$defs/Digest"
+                  },
+                  "method": {
+                    "type": "string"
+                  },
+                  "method_version": {
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "digest",
+                  "method",
+                  "method_version"
+                ],
+                "type": "object"
+              },
+              "RebuildBinding": {
+                "additionalProperties": false,
+                "description": "Supplied by a trusted catalog adapter. No serialized program or arbitrary arguments.",
+                "properties": {
+                  "capability": {
+                    "type": "string"
+                  },
+                  "descriptor": {
+                    "$ref": "#/$defs/Digest"
+                  },
+                  "prepare_capability": {
+                    "type": "string"
+                  },
+                  "prepare_descriptor": {
+                    "$ref": "#/$defs/Digest"
+                  },
+                  "runtime": {
+                    "$ref": "#/$defs/Digest"
+                  }
+                },
+                "required": [
+                  "capability",
+                  "descriptor",
+                  "runtime",
+                  "prepare_capability",
+                  "prepare_descriptor"
+                ],
+                "type": "object"
+              },
+              "RebuildBlock": {
+                "enum": [
+                  "no_production_receipt",
+                  "observation_required",
+                  "output_diverged",
+                  "incomplete_dependencies",
+                  "hidden_dependencies",
+                  "capability_unavailable",
+                  "in_place_production",
+                  "production_cycle",
+                  "budget_exhausted",
+                  "cancelled"
+                ],
+                "type": "string"
+              },
+              "RebuildNode": {
+                "additionalProperties": false,
+                "properties": {
+                  "blockers": {
+                    "items": {
+                      "$ref": "#/$defs/RebuildBlock"
+                    },
+                    "type": "array",
+                    "uniqueItems": true
+                  },
+                  "current_binding": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/RebuildBinding"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "depends_on": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array",
+                    "uniqueItems": true
+                  },
+                  "derivation": {
+                    "type": "string"
+                  },
+                  "historical_operation": {
+                    "$ref": "#/$defs/OperationIdentity"
+                  },
+                  "input_pins": {
+                    "items": {
+                      "$ref": "#/$defs/RevisionPin"
+                    },
+                    "type": "array"
+                  },
+                  "output_pins": {
+                    "items": {
+                      "$ref": "#/$defs/RevisionPin"
+                    },
+                    "type": "array"
+                  },
+                  "receipt": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "derivation",
+                  "receipt",
+                  "historical_operation",
+                  "input_pins",
+                  "output_pins",
+                  "depends_on",
+                  "blockers"
+                ],
+                "type": "object"
+              },
+              "RebuildProposal": {
+                "additionalProperties": false,
+                "properties": {
+                  "cancelled": {
+                    "type": "boolean"
+                  },
+                  "cycles": {
+                    "items": {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    "type": "array"
+                  },
+                  "nodes": {
+                    "items": {
+                      "$ref": "#/$defs/RebuildNode"
+                    },
+                    "type": "array"
+                  },
+                  "observation_epoch": {
+                    "type": "string"
+                  },
+                  "order": {
+                    "description": "Empty when any production cycle or incomplete traversal prevents a valid order.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "project": {
+                    "type": "string"
+                  },
+                  "reusable_outputs": {
+                    "items": {
+                      "$ref": "#/$defs/RevisionPin"
+                    },
+                    "type": "array"
+                  },
+                  "snapshot": {
+                    "format": "uint64",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "targets": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "truncated": {
+                    "type": "boolean"
+                  },
+                  "unknown_frontier": {
+                    "type": "boolean"
+                  },
+                  "unresolved": {
+                    "additionalProperties": {
+                      "items": {
+                        "$ref": "#/$defs/RebuildBlock"
+                      },
+                      "type": "array",
+                      "uniqueItems": true
+                    },
+                    "type": "object"
+                  },
+                  "version": {
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "visited_edges": {
+                    "format": "uint",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "visited_nodes": {
+                    "format": "uint",
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "version",
+                  "project",
+                  "snapshot",
+                  "observation_epoch",
+                  "targets",
+                  "nodes",
+                  "order",
+                  "cycles",
+                  "reusable_outputs",
+                  "unresolved",
+                  "unknown_frontier",
+                  "truncated",
+                  "cancelled",
+                  "visited_nodes",
+                  "visited_edges"
+                ],
+                "type": "object"
+              },
+              "RevisionPin": {
+                "additionalProperties": false,
+                "properties": {
+                  "asset": {
+                    "type": "string"
+                  },
+                  "equivalence": {
+                    "$ref": "#/$defs/Equivalence"
+                  },
+                  "fingerprint": {
+                    "$ref": "#/$defs/Fingerprint"
+                  },
+                  "revision": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "asset",
+                  "revision",
+                  "fingerprint",
+                  "equivalence"
+                ],
+                "type": "object"
+              }
+            },
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "additionalProperties": false,
+            "description": "Ephemeral data bound by A's existing PlanVault; never persisted as authority.",
+            "properties": {
+              "budget": {
+                "$ref": "#/$defs/ConvergenceBudget"
+              },
+              "grants": {
+                "$ref": "#/$defs/Digest"
+              },
+              "plan_ref": {
+                "type": "string"
+              },
+              "proposal": {
+                "$ref": "#/$defs/RebuildProposal"
+              },
+              "visibility": {
+                "$ref": "#/$defs/Digest"
+              }
+            },
+            "required": [
+              "plan_ref",
+              "proposal",
+              "grants",
+              "visibility",
+              "budget"
+            ],
+            "title": "RebuildReservation",
+            "type": "object"
+          },
+          "receipt": {
+            "$defs": {
+              "Address": {
+                "additionalProperties": false,
+                "properties": {
+                  "logical_id": {
+                    "type": "string"
+                  },
+                  "property": {
+                    "type": "string"
+                  },
+                  "resource": {
+                    "$ref": "#/$defs/ResourceKey"
+                  }
+                },
+                "required": [
+                  "resource",
+                  "logical_id",
+                  "property"
+                ],
+                "type": "object"
+              },
+              "BaseState": {
+                "additionalProperties": false,
+                "properties": {
+                  "concurrency": {
+                    "$ref": "#/$defs/Concurrency"
+                  },
+                  "document_id": {
+                    "type": "string"
+                  },
+                  "generation": {
+                    "type": "string"
+                  },
+                  "key": {
+                    "$ref": "#/$defs/ResourceKey"
+                  },
+                  "provider_session": {
+                    "type": "string"
+                  },
+                  "revision": {
+                    "$ref": "#/$defs/Revision"
+                  }
+                },
+                "required": [
+                  "key",
+                  "document_id",
+                  "provider_session",
+                  "generation",
+                  "revision",
+                  "concurrency"
+                ],
+                "type": "object"
+              },
+              "Concurrency": {
+                "enum": [
+                  "compare_and_swap",
+                  "best_effort_revalidate",
+                  "unobservable"
+                ],
+                "type": "string"
+              },
+              "Coverage": {
+                "additionalProperties": false,
+                "properties": {
+                  "complete": {
+                    "type": "boolean"
+                  },
+                  "unknown_frontier": {
+                    "items": {
+                      "$ref": "#/$defs/DependencyClass"
+                    },
+                    "type": "array",
+                    "uniqueItems": true
+                  }
+                },
+                "required": [
+                  "complete",
+                  "unknown_frontier"
+                ],
+                "type": "object"
+              },
+              "DependencyClass": {
+                "enum": [
+                  "bytes",
+                  "projection",
+                  "parameters",
+                  "runtime",
+                  "descriptor",
+                  "recipe",
+                  "import_settings",
+                  "font",
+                  "texture",
+                  "plugin",
+                  "contract",
+                  "external"
+                ],
+                "type": "string"
+              },
+              "Determinant": {
+                "additionalProperties": false,
+                "properties": {
+                  "class": {
+                    "$ref": "#/$defs/DependencyClass"
+                  },
+                  "digest": {
+                    "$ref": "#/$defs/Digest"
+                  },
+                  "key": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "class",
+                  "key",
+                  "digest"
+                ],
+                "type": "object"
+              },
+              "Digest": {
+                "description": "Versioned Semwright canonical JSON, not a claim of RFC 8785 conformance.\nKeys are sorted by Unicode scalar ordering; array order and string bytes are\npreserved. Numeric spelling is normalized by serde_json. No lossy Unicode NFC.",
+                "type": "string"
+              },
+              "Equivalence": {
+                "enum": [
+                  "exact_bytes",
+                  "projection",
+                  "bytes_and_projection"
+                ],
+                "type": "string"
+              },
+              "EvidenceClass": {
+                "enum": [
+                  "DETERMINISTIC",
+                  "HEURISTIC",
+                  "AESTHETIC_ASSIST"
+                ],
+                "type": "string"
+              },
+              "EvidenceSource": {
+                "enum": [
+                  "native_api",
+                  "renderer_state",
+                  "decoded_media",
+                  "file_read",
+                  "simulation",
+                  "fixture",
+                  "human_review"
+                ],
+                "type": "string"
+              },
+              "ExecutionStatus": {
+                "enum": [
+                  "prepared",
+                  "applying",
+                  "completed",
+                  "partial",
+                  "denied",
+                  "cancelled",
+                  "failed",
+                  "unknown"
+                ],
+                "type": "string"
+              },
+              "Fingerprint": {
+                "additionalProperties": false,
+                "properties": {
+                  "bytes": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/Digest"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "projection": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/ProjectionDigest"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "type": "object"
+              },
+              "ObservationRef": {
+                "additionalProperties": false,
+                "properties": {
+                  "artifact": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/Digest"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "base": {
+                    "items": {
+                      "$ref": "#/$defs/BaseState"
+                    },
+                    "type": "array"
+                  },
+                  "exhaustive": {
+                    "type": "boolean"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "method": {
+                    "type": "string"
+                  },
+                  "method_version": {
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "scope": {
+                    "items": {
+                      "$ref": "#/$defs/Address"
+                    },
+                    "type": "array"
+                  },
+                  "source": {
+                    "$ref": "#/$defs/EvidenceSource"
+                  }
+                },
+                "required": [
+                  "id",
+                  "base",
+                  "source",
+                  "method",
+                  "method_version",
+                  "scope",
+                  "exhaustive"
+                ],
+                "type": "object"
+              },
+              "OperationIdentity": {
+                "additionalProperties": false,
+                "properties": {
+                  "capability": {
+                    "type": "string"
+                  },
+                  "descriptor": {
+                    "$ref": "#/$defs/Digest"
+                  },
+                  "parameters": {
+                    "$ref": "#/$defs/Digest"
+                  },
+                  "plan": {
+                    "$ref": "#/$defs/Digest"
+                  },
+                  "recipe": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/Digest"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "runtime": {
+                    "$ref": "#/$defs/Digest"
+                  }
+                },
+                "required": [
+                  "capability",
+                  "descriptor",
+                  "runtime",
+                  "plan",
+                  "parameters"
+                ],
+                "type": "object"
+              },
+              "Owner": {
+                "additionalProperties": false,
+                "properties": {
+                  "principal": {
+                    "$ref": "#/$defs/PrincipalBinding"
+                  },
+                  "session": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "session",
+                  "principal"
+                ],
+                "type": "object"
+              },
+              "PrincipalBinding": {
+                "oneOf": [
+                  {
+                    "enum": [
+                      "host_session"
+                    ],
+                    "type": "string"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "named": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "named"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              },
+              "ProjectionDigest": {
+                "additionalProperties": false,
+                "properties": {
+                  "digest": {
+                    "$ref": "#/$defs/Digest"
+                  },
+                  "method": {
+                    "type": "string"
+                  },
+                  "method_version": {
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "digest",
+                  "method",
+                  "method_version"
+                ],
+                "type": "object"
+              },
+              "ResourceKey": {
+                "additionalProperties": false,
+                "properties": {
+                  "provider": {
+                    "type": "string"
+                  },
+                  "resource": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "provider",
+                  "resource"
+                ],
+                "type": "object"
+              },
+              "Revision": {
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "counter",
+                        "type": "string"
+                      },
+                      "value": {
+                        "format": "uint64",
+                        "minimum": 0,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "value"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "fingerprint",
+                        "type": "string"
+                      },
+                      "value": {
+                        "$ref": "#/$defs/Digest"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "value"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "unknown",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              },
+              "RevisionPin": {
+                "additionalProperties": false,
+                "properties": {
+                  "asset": {
+                    "type": "string"
+                  },
+                  "equivalence": {
+                    "$ref": "#/$defs/Equivalence"
+                  },
+                  "fingerprint": {
+                    "$ref": "#/$defs/Fingerprint"
+                  },
+                  "revision": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "asset",
+                  "revision",
+                  "fingerprint",
+                  "equivalence"
+                ],
+                "type": "object"
+              },
+              "RuleResult": {
+                "additionalProperties": false,
+                "properties": {
+                  "evidence": {
+                    "items": {
+                      "$ref": "#/$defs/ObservationRef"
+                    },
+                    "type": "array"
+                  },
+                  "evidence_class": {
+                    "$ref": "#/$defs/EvidenceClass"
+                  },
+                  "reason": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "rule": {
+                    "type": "string"
+                  },
+                  "verdict": {
+                    "$ref": "#/$defs/Verdict"
+                  },
+                  "version": {
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "rule",
+                  "version",
+                  "verdict",
+                  "evidence_class",
+                  "evidence"
+                ],
+                "type": "object"
+              },
+              "SupportLevel": {
+                "enum": [
+                  "native",
+                  "composed",
+                  "read_only",
+                  "upstream_restricted",
+                  "security_excluded",
+                  "unsupported"
+                ],
+                "type": "string"
+              },
+              "ValidationReport": {
+                "additionalProperties": false,
+                "properties": {
+                  "base": {
+                    "items": {
+                      "$ref": "#/$defs/BaseState"
+                    },
+                    "type": "array"
+                  },
+                  "checks": {
+                    "items": {
+                      "$ref": "#/$defs/RuleResult"
+                    },
+                    "type": "array"
+                  },
+                  "plan_digest": {
+                    "$ref": "#/$defs/Digest"
+                  },
+                  "required_rules": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array",
+                    "uniqueItems": true
+                  }
+                },
+                "required": [
+                  "plan_digest",
+                  "base",
+                  "required_rules",
+                  "checks"
+                ],
+                "type": "object"
+              },
+              "Verdict": {
+                "enum": [
+                  "PASS",
+                  "FAIL",
+                  "UNKNOWN"
+                ],
+                "type": "string"
+              },
+              "VerificationReport": {
+                "additionalProperties": false,
+                "properties": {
+                  "effects_observed": {
+                    "items": {
+                      "$ref": "#/$defs/Address"
+                    },
+                    "type": "array"
+                  },
+                  "effects_unobservable": {
+                    "items": {
+                      "$ref": "#/$defs/Address"
+                    },
+                    "type": "array"
+                  },
+                  "execution_status": {
+                    "$ref": "#/$defs/ExecutionStatus"
+                  },
+                  "support_level": {
+                    "$ref": "#/$defs/SupportLevel"
+                  },
+                  "validation": {
+                    "$ref": "#/$defs/ValidationReport"
+                  }
+                },
+                "required": [
+                  "execution_status",
+                  "validation",
+                  "support_level",
+                  "effects_observed",
+                  "effects_unobservable"
+                ],
+                "type": "object"
+              }
+            },
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "additionalProperties": false,
+            "properties": {
+              "completed_unix_ms": {
+                "format": "uint64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "coverage": {
+                "$ref": "#/$defs/Coverage"
+              },
+              "derivation": {
+                "type": "string"
+              },
+              "determinants": {
+                "items": {
+                  "$ref": "#/$defs/Determinant"
+                },
+                "type": "array"
+              },
+              "id": {
+                "type": "string"
+              },
+              "inputs": {
+                "items": {
+                  "$ref": "#/$defs/RevisionPin"
+                },
+                "type": "array"
+              },
+              "operation": {
+                "$ref": "#/$defs/OperationIdentity"
+              },
+              "outputs": {
+                "items": {
+                  "$ref": "#/$defs/RevisionPin"
+                },
+                "type": "array"
+              },
+              "owner": {
+                "$ref": "#/$defs/Owner",
+                "description": "Historical authenticated execution owner, NOT a restart credential."
+              },
+              "project": {
+                "type": "string"
+              },
+              "request_id": {
+                "type": "string"
+              },
+              "source_base": {
+                "items": {
+                  "$ref": "#/$defs/BaseState"
+                },
+                "type": "array"
+              },
+              "verification": {
+                "$ref": "#/$defs/VerificationReport"
+              },
+              "version": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "version",
+              "id",
+              "derivation",
+              "project",
+              "owner",
+              "request_id",
+              "operation",
+              "source_base",
+              "inputs",
+              "outputs",
+              "determinants",
+              "coverage",
+              "verification",
+              "completed_unix_ms"
+            ],
+            "title": "ExecutionReceipt",
+            "type": "object"
+          },
+          "revision": {
+            "$defs": {
+              "Address": {
+                "additionalProperties": false,
+                "properties": {
+                  "logical_id": {
+                    "type": "string"
+                  },
+                  "property": {
+                    "type": "string"
+                  },
+                  "resource": {
+                    "$ref": "#/$defs/ResourceKey"
+                  }
+                },
+                "required": [
+                  "resource",
+                  "logical_id",
+                  "property"
+                ],
+                "type": "object"
+              },
+              "BaseState": {
+                "additionalProperties": false,
+                "properties": {
+                  "concurrency": {
+                    "$ref": "#/$defs/Concurrency"
+                  },
+                  "document_id": {
+                    "type": "string"
+                  },
+                  "generation": {
+                    "type": "string"
+                  },
+                  "key": {
+                    "$ref": "#/$defs/ResourceKey"
+                  },
+                  "provider_session": {
+                    "type": "string"
+                  },
+                  "revision": {
+                    "$ref": "#/$defs/Revision"
+                  }
+                },
+                "required": [
+                  "key",
+                  "document_id",
+                  "provider_session",
+                  "generation",
+                  "revision",
+                  "concurrency"
+                ],
+                "type": "object"
+              },
+              "Concurrency": {
+                "enum": [
+                  "compare_and_swap",
+                  "best_effort_revalidate",
+                  "unobservable"
+                ],
+                "type": "string"
+              },
+              "Coverage": {
+                "additionalProperties": false,
+                "properties": {
+                  "complete": {
+                    "type": "boolean"
+                  },
+                  "unknown_frontier": {
+                    "items": {
+                      "$ref": "#/$defs/DependencyClass"
+                    },
+                    "type": "array",
+                    "uniqueItems": true
+                  }
+                },
+                "required": [
+                  "complete",
+                  "unknown_frontier"
+                ],
+                "type": "object"
+              },
+              "DependencyClass": {
+                "enum": [
+                  "bytes",
+                  "projection",
+                  "parameters",
+                  "runtime",
+                  "descriptor",
+                  "recipe",
+                  "import_settings",
+                  "font",
+                  "texture",
+                  "plugin",
+                  "contract",
+                  "external"
+                ],
+                "type": "string"
+              },
+              "Digest": {
+                "description": "Versioned Semwright canonical JSON, not a claim of RFC 8785 conformance.\nKeys are sorted by Unicode scalar ordering; array order and string bytes are\npreserved. Numeric spelling is normalized by serde_json. No lossy Unicode NFC.",
+                "type": "string"
+              },
+              "Equivalence": {
+                "enum": [
+                  "exact_bytes",
+                  "projection",
+                  "bytes_and_projection"
+                ],
+                "type": "string"
+              },
+              "EvidenceSource": {
+                "enum": [
+                  "native_api",
+                  "renderer_state",
+                  "decoded_media",
+                  "file_read",
+                  "simulation",
+                  "fixture",
+                  "human_review"
+                ],
+                "type": "string"
+              },
+              "Fingerprint": {
+                "additionalProperties": false,
+                "properties": {
+                  "bytes": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/Digest"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "projection": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/ProjectionDigest"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "type": "object"
+              },
+              "ObservationRef": {
+                "additionalProperties": false,
+                "properties": {
+                  "artifact": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/Digest"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "base": {
+                    "items": {
+                      "$ref": "#/$defs/BaseState"
+                    },
+                    "type": "array"
+                  },
+                  "exhaustive": {
+                    "type": "boolean"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "method": {
+                    "type": "string"
+                  },
+                  "method_version": {
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "scope": {
+                    "items": {
+                      "$ref": "#/$defs/Address"
+                    },
+                    "type": "array"
+                  },
+                  "source": {
+                    "$ref": "#/$defs/EvidenceSource"
+                  }
+                },
+                "required": [
+                  "id",
+                  "base",
+                  "source",
+                  "method",
+                  "method_version",
+                  "scope",
+                  "exhaustive"
+                ],
+                "type": "object"
+              },
+              "ProjectionDigest": {
+                "additionalProperties": false,
+                "properties": {
+                  "digest": {
+                    "$ref": "#/$defs/Digest"
+                  },
+                  "method": {
+                    "type": "string"
+                  },
+                  "method_version": {
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "digest",
+                  "method",
+                  "method_version"
+                ],
+                "type": "object"
+              },
+              "ResourceKey": {
+                "additionalProperties": false,
+                "properties": {
+                  "provider": {
+                    "type": "string"
+                  },
+                  "resource": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "provider",
+                  "resource"
+                ],
+                "type": "object"
+              },
+              "Revision": {
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "counter",
+                        "type": "string"
+                      },
+                      "value": {
+                        "format": "uint64",
+                        "minimum": 0,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "value"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "fingerprint",
+                        "type": "string"
+                      },
+                      "value": {
+                        "$ref": "#/$defs/Digest"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "value"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "unknown",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              },
+              "RevisionPin": {
+                "additionalProperties": false,
+                "properties": {
+                  "asset": {
+                    "type": "string"
+                  },
+                  "equivalence": {
+                    "$ref": "#/$defs/Equivalence"
+                  },
+                  "fingerprint": {
+                    "$ref": "#/$defs/Fingerprint"
+                  },
+                  "revision": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "asset",
+                  "revision",
+                  "fingerprint",
+                  "equivalence"
+                ],
+                "type": "object"
+              }
+            },
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "additionalProperties": false,
+            "properties": {
+              "binding_generation": {
+                "format": "uint64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "coverage": {
+                "$ref": "#/$defs/Coverage"
+              },
+              "observation": {
+                "$ref": "#/$defs/ObservationRef"
+              },
+              "observed_unix_ms": {
+                "format": "uint64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "pin": {
+                "$ref": "#/$defs/RevisionPin"
+              }
+            },
+            "required": [
+              "pin",
+              "observed_unix_ms",
+              "binding_generation",
+              "observation",
+              "coverage"
+            ],
+            "title": "RevisionRecord",
+            "type": "object"
+          },
+          "revision_candidate": {
+            "$defs": {
+              "Address": {
+                "additionalProperties": false,
+                "properties": {
+                  "logical_id": {
+                    "type": "string"
+                  },
+                  "property": {
+                    "type": "string"
+                  },
+                  "resource": {
+                    "$ref": "#/$defs/ResourceKey"
+                  }
+                },
+                "required": [
+                  "resource",
+                  "logical_id",
+                  "property"
+                ],
+                "type": "object"
+              },
+              "BaseState": {
+                "additionalProperties": false,
+                "properties": {
+                  "concurrency": {
+                    "$ref": "#/$defs/Concurrency"
+                  },
+                  "document_id": {
+                    "type": "string"
+                  },
+                  "generation": {
+                    "type": "string"
+                  },
+                  "key": {
+                    "$ref": "#/$defs/ResourceKey"
+                  },
+                  "provider_session": {
+                    "type": "string"
+                  },
+                  "revision": {
+                    "$ref": "#/$defs/Revision"
+                  }
+                },
+                "required": [
+                  "key",
+                  "document_id",
+                  "provider_session",
+                  "generation",
+                  "revision",
+                  "concurrency"
+                ],
+                "type": "object"
+              },
+              "Concurrency": {
+                "enum": [
+                  "compare_and_swap",
+                  "best_effort_revalidate",
+                  "unobservable"
+                ],
+                "type": "string"
+              },
+              "Coverage": {
+                "additionalProperties": false,
+                "properties": {
+                  "complete": {
+                    "type": "boolean"
+                  },
+                  "unknown_frontier": {
+                    "items": {
+                      "$ref": "#/$defs/DependencyClass"
+                    },
+                    "type": "array",
+                    "uniqueItems": true
+                  }
+                },
+                "required": [
+                  "complete",
+                  "unknown_frontier"
+                ],
+                "type": "object"
+              },
+              "DependencyClass": {
+                "enum": [
+                  "bytes",
+                  "projection",
+                  "parameters",
+                  "runtime",
+                  "descriptor",
+                  "recipe",
+                  "import_settings",
+                  "font",
+                  "texture",
+                  "plugin",
+                  "contract",
+                  "external"
+                ],
+                "type": "string"
+              },
+              "Digest": {
+                "description": "Versioned Semwright canonical JSON, not a claim of RFC 8785 conformance.\nKeys are sorted by Unicode scalar ordering; array order and string bytes are\npreserved. Numeric spelling is normalized by serde_json. No lossy Unicode NFC.",
+                "type": "string"
+              },
+              "Equivalence": {
+                "enum": [
+                  "exact_bytes",
+                  "projection",
+                  "bytes_and_projection"
+                ],
+                "type": "string"
+              },
+              "EvidenceSource": {
+                "enum": [
+                  "native_api",
+                  "renderer_state",
+                  "decoded_media",
+                  "file_read",
+                  "simulation",
+                  "fixture",
+                  "human_review"
+                ],
+                "type": "string"
+              },
+              "Fingerprint": {
+                "additionalProperties": false,
+                "properties": {
+                  "bytes": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/Digest"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "projection": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/ProjectionDigest"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "type": "object"
+              },
+              "ObservationRef": {
+                "additionalProperties": false,
+                "properties": {
+                  "artifact": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/Digest"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "base": {
+                    "items": {
+                      "$ref": "#/$defs/BaseState"
+                    },
+                    "type": "array"
+                  },
+                  "exhaustive": {
+                    "type": "boolean"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "method": {
+                    "type": "string"
+                  },
+                  "method_version": {
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "scope": {
+                    "items": {
+                      "$ref": "#/$defs/Address"
+                    },
+                    "type": "array"
+                  },
+                  "source": {
+                    "$ref": "#/$defs/EvidenceSource"
+                  }
+                },
+                "required": [
+                  "id",
+                  "base",
+                  "source",
+                  "method",
+                  "method_version",
+                  "scope",
+                  "exhaustive"
+                ],
+                "type": "object"
+              },
+              "ProjectionDigest": {
+                "additionalProperties": false,
+                "properties": {
+                  "digest": {
+                    "$ref": "#/$defs/Digest"
+                  },
+                  "method": {
+                    "type": "string"
+                  },
+                  "method_version": {
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "digest",
+                  "method",
+                  "method_version"
+                ],
+                "type": "object"
+              },
+              "ResourceKey": {
+                "additionalProperties": false,
+                "properties": {
+                  "provider": {
+                    "type": "string"
+                  },
+                  "resource": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "provider",
+                  "resource"
+                ],
+                "type": "object"
+              },
+              "Revision": {
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "counter",
+                        "type": "string"
+                      },
+                      "value": {
+                        "format": "uint64",
+                        "minimum": 0,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "value"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "fingerprint",
+                        "type": "string"
+                      },
+                      "value": {
+                        "$ref": "#/$defs/Digest"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "value"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "unknown",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              }
+            },
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "additionalProperties": false,
+            "description": "Untrusted native/readback observation candidate. It contains no durable\nrevision identity and certifies no production activity.",
+            "properties": {
+              "asset": {
+                "type": "string"
+              },
+              "binding_generation": {
+                "format": "uint64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "coverage": {
+                "$ref": "#/$defs/Coverage"
+              },
+              "equivalence": {
+                "$ref": "#/$defs/Equivalence"
+              },
+              "fingerprint": {
+                "$ref": "#/$defs/Fingerprint"
+              },
+              "observation": {
+                "$ref": "#/$defs/ObservationRef"
+              },
+              "observed_unix_ms": {
+                "format": "uint64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "version": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "version",
+              "asset",
+              "fingerprint",
+              "equivalence",
+              "observed_unix_ms",
+              "binding_generation",
+              "observation",
+              "coverage"
+            ],
+            "title": "RevisionCandidate",
+            "type": "object"
+          },
+          "schema_version": 1
+        },
+        "skill-package.json": {
+          "bundle": {
+            "bytes": 15973,
+            "excluded_junk": 0,
+            "excluded_sensitive": 0,
+            "files": 10,
+            "format": "zip-store-v1",
+            "schema_version": 1,
+            "sha256": "1d5007fe3148a335c7e2e06486129705722022ba197ce31952d9280d9f397b6b",
+            "skill": "semwright-project-continuity"
+          },
+          "conformance": {
+            "compatibility": {
+              "authority_summary": {
+                "grants_changed": false,
+                "policy_state": "not_evaluated",
+                "required_scopes": [
+                  "desktop.observe",
+                  "filesystem.read:root",
+                  "project.manage"
+                ]
+              },
+              "drift": [],
+              "missing": [],
+              "policy_denied": [],
+              "requirements": [
+                {
+                  "matches": [
+                    {
+                      "available": true,
+                      "capability_version": "1.0",
+                      "descriptor_sha256": "cb87c281a330b0bd26cde03ce8f1d7143a8df50080b27fdc834cfd13033d634f",
+                      "id": "capabilities.search",
+                      "policy_preview": null,
+                      "provider": "semwright-core",
+                      "required_scopes": [
+                        "desktop.observe"
+                      ]
+                    }
+                  ],
+                  "minimum_matches": 1,
+                  "required": true,
+                  "requirement": "capability:capabilities.search",
+                  "state": "resolved"
+                },
+                {
+                  "matches": [
+                    {
+                      "available": true,
+                      "capability_version": "1.0",
+                      "descriptor_sha256": "d8c41b18b0b1f0fc2d60644b98ba116ae2eccd5a0d6b80b8fbd101c371fd2fa7",
+                      "id": "capabilities.describe",
+                      "policy_preview": null,
+                      "provider": "semwright-core",
+                      "required_scopes": [
+                        "desktop.observe"
+                      ]
+                    }
+                  ],
+                  "minimum_matches": 1,
+                  "required": true,
+                  "requirement": "capability:capabilities.describe",
+                  "state": "resolved"
+                },
+                {
+                  "matches": [
+                    {
+                      "available": true,
+                      "capability_version": "1.0",
+                      "descriptor_sha256": "141a1d8fea81955b7991091e4439924a2e315d14a3c7c3a047ec261c2cd1d0a4",
+                      "id": "project.create",
+                      "policy_preview": null,
+                      "provider": "semwright-core",
+                      "required_scopes": [
+                        "filesystem.read:root",
+                        "project.manage"
+                      ]
+                    }
+                  ],
+                  "minimum_matches": 1,
+                  "required": true,
+                  "requirement": "capability:project.create",
+                  "state": "resolved"
+                },
+                {
+                  "matches": [
+                    {
+                      "available": true,
+                      "capability_version": "1.0",
+                      "descriptor_sha256": "bb12d753e18e8aeafec5e8526fbac83c9b6ad3d85e200773b95e2f487991363d",
+                      "id": "project.asset.register",
+                      "policy_preview": null,
+                      "provider": "semwright-core",
+                      "required_scopes": [
+                        "filesystem.read:root",
+                        "project.manage"
+                      ]
+                    }
+                  ],
+                  "minimum_matches": 1,
+                  "required": true,
+                  "requirement": "capability:project.asset.register",
+                  "state": "resolved"
+                },
+                {
+                  "matches": [
+                    {
+                      "available": true,
+                      "capability_version": "1.0",
+                      "descriptor_sha256": "cd0caf991ad5db0f35bb5ce85f2d6ce2fa9be669825713bc9b7749b20cb92005",
+                      "id": "project.asset.inspect",
+                      "policy_preview": null,
+                      "provider": "semwright-core",
+                      "required_scopes": [
+                        "filesystem.read:root"
+                      ]
+                    }
+                  ],
+                  "minimum_matches": 1,
+                  "required": true,
+                  "requirement": "capability:project.asset.inspect",
+                  "state": "resolved"
+                },
+                {
+                  "matches": [
+                    {
+                      "available": true,
+                      "capability_version": "1.0",
+                      "descriptor_sha256": "30a31b6765379849e28635004a3126d0da25b1e0f1bdc9708201c456949e4c7b",
+                      "id": "project.asset.provenance",
+                      "policy_preview": null,
+                      "provider": "semwright-core",
+                      "required_scopes": [
+                        "filesystem.read:root"
+                      ]
+                    }
+                  ],
+                  "minimum_matches": 1,
+                  "required": true,
+                  "requirement": "capability:project.asset.provenance",
+                  "state": "resolved"
+                },
+                {
+                  "matches": [
+                    {
+                      "available": true,
+                      "capability_version": "1.0",
+                      "descriptor_sha256": "92767164b4e730c9f11166ac92c0660d02d913aea331622bbd002cb01c6d00c6",
+                      "id": "project.asset.reconcile",
+                      "policy_preview": null,
+                      "provider": "semwright-core",
+                      "required_scopes": [
+                        "filesystem.read:root",
+                        "project.manage"
+                      ]
+                    }
+                  ],
+                  "minimum_matches": 1,
+                  "required": true,
+                  "requirement": "capability:project.asset.reconcile",
+                  "state": "resolved"
+                },
+                {
+                  "matches": [
+                    {
+                      "available": true,
+                      "capability_version": "1.0",
+                      "descriptor_sha256": "37bdfb31231e891348077f175d2e38f844482372b6dfc72ec4b3a1ca95d7ca43",
+                      "id": "project.query",
+                      "policy_preview": null,
+                      "provider": "semwright-core",
+                      "required_scopes": [
+                        "filesystem.read:root"
+                      ]
+                    }
+                  ],
+                  "minimum_matches": 1,
+                  "required": true,
+                  "requirement": "capability:project.query",
+                  "state": "resolved"
+                },
+                {
+                  "matches": [
+                    {
+                      "available": true,
+                      "capability_version": "1.0",
+                      "descriptor_sha256": "a06e33536d979917ed925324837472d6ef63d93870b6c3ec662d5905591f1b2e",
+                      "id": "project.impact",
+                      "policy_preview": null,
+                      "provider": "semwright-core",
+                      "required_scopes": [
+                        "filesystem.read:root"
+                      ]
+                    }
+                  ],
+                  "minimum_matches": 1,
+                  "required": true,
+                  "requirement": "capability:project.impact",
+                  "state": "resolved"
+                },
+                {
+                  "matches": [
+                    {
+                      "available": true,
+                      "capability_version": "1.0",
+                      "descriptor_sha256": "cf4a15093498d0038e449a949d1d8ef32a6cd3b1759cd7026db0d42ffe57f33d",
+                      "id": "project.revisions",
+                      "policy_preview": null,
+                      "provider": "semwright-core",
+                      "required_scopes": [
+                        "filesystem.read:root"
+                      ]
+                    }
+                  ],
+                  "minimum_matches": 1,
+                  "required": true,
+                  "requirement": "capability:project.revisions",
+                  "state": "resolved"
+                },
+                {
+                  "matches": [
+                    {
+                      "available": true,
+                      "capability_version": "1.0",
+                      "descriptor_sha256": "e3b353699a4b9959d14caca3272fce34e7ce21e8b8782bcfdf781484dd399324",
+                      "id": "project.manifest.export",
+                      "policy_preview": null,
+                      "provider": "semwright-core",
+                      "required_scopes": [
+                        "filesystem.read:root"
+                      ]
+                    }
+                  ],
+                  "minimum_matches": 1,
+                  "required": true,
+                  "requirement": "capability:project.manifest.export",
+                  "state": "resolved"
+                },
+                {
+                  "matches": [
+                    {
+                      "available": true,
+                      "capability_version": "1.0",
+                      "descriptor_sha256": "ec66601f6769f828217a8a9b5cba95a7465e2cedc7ddb745dde2dc5839b8a209",
+                      "id": "project.manifest.import",
+                      "policy_preview": null,
+                      "provider": "semwright-core",
+                      "required_scopes": [
+                        "filesystem.read:root",
+                        "project.manage"
+                      ]
+                    }
+                  ],
+                  "minimum_matches": 1,
+                  "required": true,
+                  "requirement": "capability:project.manifest.import",
+                  "state": "resolved"
+                },
+                {
+                  "matches": [
+                    {
+                      "available": true,
+                      "capability_version": "1.0",
+                      "descriptor_sha256": "d06b6e9d11308cc341e09fd595607304daaa4e34230d3ea86b509318d1319f49",
+                      "id": "project.asset.rebind",
+                      "policy_preview": null,
+                      "provider": "semwright-core",
+                      "required_scopes": [
+                        "filesystem.read:root",
+                        "project.manage"
+                      ]
+                    }
+                  ],
+                  "minimum_matches": 1,
+                  "required": false,
+                  "requirement": "capability:project.asset.rebind",
+                  "state": "resolved"
+                },
+                {
+                  "matches": [
+                    {
+                      "available": true,
+                      "capability_version": "1.0",
+                      "descriptor_sha256": "504445c599d03d259a65250207dc33d9c3f112e1545bd2e9bd0a6c0e6c17f5bc",
+                      "id": "project.asset.tombstone",
+                      "policy_preview": null,
+                      "provider": "semwright-core",
+                      "required_scopes": [
+                        "filesystem.read:root",
+                        "project.manage"
+                      ]
+                    }
+                  ],
+                  "minimum_matches": 1,
+                  "required": false,
+                  "requirement": "capability:project.asset.tombstone",
+                  "state": "resolved"
+                },
+                {
+                  "matches": [
+                    {
+                      "available": true,
+                      "capability_version": "1.0",
+                      "descriptor_sha256": "8d0526ca51d9def9aa21d600d6806b034a705d7b6acfc82ce417d04aa018a6e3",
+                      "id": "project.gc.preview",
+                      "policy_preview": null,
+                      "provider": "semwright-core",
+                      "required_scopes": [
+                        "filesystem.read:root"
+                      ]
+                    }
+                  ],
+                  "minimum_matches": 1,
+                  "required": false,
+                  "requirement": "capability:project.gc.preview",
+                  "state": "resolved"
+                },
+                {
+                  "matches": [
+                    {
+                      "available": true,
+                      "capability_version": "1.0",
+                      "descriptor_sha256": "4d77f03fc57477c2941347769377caf0e64c899d7228db5c4c516b235f358087",
+                      "id": "project.gc.collect",
+                      "policy_preview": null,
+                      "provider": "semwright-core",
+                      "required_scopes": [
+                        "filesystem.read:root",
+                        "project.manage"
+                      ]
+                    }
+                  ],
+                  "minimum_matches": 1,
+                  "required": false,
+                  "requirement": "capability:project.gc.collect",
+                  "state": "resolved"
+                }
+              ],
+              "result": "ready",
+              "schema_version": 1,
+              "semwright_compatible": true,
+              "semwright_version": "0.9.0-dev.1",
+              "skill": "semwright-project-continuity",
+              "standard_valid": true,
+              "unavailable": [],
+              "warnings": []
+            },
+            "examples": {
+              "checked": 6,
+              "executed_operations": 0,
+              "failures": [],
+              "passed": 6,
+              "schema_version": 1,
+              "skill": "semwright-project-continuity"
+            },
+            "executed_operations": 0,
+            "pass": true,
+            "result": "ready",
+            "schema_version": 1,
+            "script_execution": "disabled",
+            "semwright_compatible": true,
+            "skill": "semwright-project-continuity",
+            "standard_valid": true,
+            "warnings": []
+          },
+          "executed_project_operations": 0,
+          "native": false,
+          "runtime_gate": "Broker route execution evidence is produced by the separate core integration lane; native cross-app and rebuild execution remain open",
+          "schema_version": 1,
+          "validation": {
+            "assets": 0,
+            "references": 1,
+            "resources": 8,
+            "result": "valid",
+            "schema_version": 1,
+            "script_execution": "disabled",
+            "scripts": 0,
+            "semwright_lock": false,
+            "semwright_requirements": true,
+            "skill": "semwright-project-continuity",
+            "skill_md_bytes": 2987,
+            "standard_valid": true,
+            "supporting_bytes": 4297,
+            "total_bytes": 7284,
+            "warnings": []
+          }
+        },
+        "skill-lock.json": {
+          "version": 1,
+          "semwright_version": "0.9.0-dev.1",
+          "requirements_sha256": "7906d118455ab0eddddb40160f98aae6b08c40542c7fb1ffb2b67304c5061b7c",
+          "entries": [
+            {
+              "requirement": "capability:capabilities.describe",
+              "capability_id": "capabilities.describe",
+              "provider": "semwright-core",
+              "provider_version": "0.9.0-dev.1",
+              "capability_version": "1.0",
+              "descriptor_sha256": "d8c41b18b0b1f0fc2d60644b98ba116ae2eccd5a0d6b80b8fbd101c371fd2fa7",
+              "schema_sha256": "665a7a6c0a0ffc4cd881edf1d0ea4681f3654644ed88517c13affb84a1f9aab2"
+            },
+            {
+              "requirement": "capability:capabilities.search",
+              "capability_id": "capabilities.search",
+              "provider": "semwright-core",
+              "provider_version": "0.9.0-dev.1",
+              "capability_version": "1.0",
+              "descriptor_sha256": "cb87c281a330b0bd26cde03ce8f1d7143a8df50080b27fdc834cfd13033d634f",
+              "schema_sha256": "b5d1532ce100738bc214f888d3dd40065f5698d38d7c0b5ba31ba6e0338a70fc"
+            },
+            {
+              "requirement": "capability:project.asset.inspect",
+              "capability_id": "project.asset.inspect",
+              "provider": "semwright-core",
+              "provider_version": "0.9.0-dev.1",
+              "capability_version": "1.0",
+              "descriptor_sha256": "cd0caf991ad5db0f35bb5ce85f2d6ce2fa9be669825713bc9b7749b20cb92005",
+              "schema_sha256": "43d9b40f97f2ef06af21dc27e723ff357fdd71952cd1c076cc675ff75603f970"
+            },
+            {
+              "requirement": "capability:project.asset.provenance",
+              "capability_id": "project.asset.provenance",
+              "provider": "semwright-core",
+              "provider_version": "0.9.0-dev.1",
+              "capability_version": "1.0",
+              "descriptor_sha256": "30a31b6765379849e28635004a3126d0da25b1e0f1bdc9708201c456949e4c7b",
+              "schema_sha256": "293924cdd60645617e42b650719ae40cd17b49da99755608cf38eb545f1d1769"
+            },
+            {
+              "requirement": "capability:project.asset.rebind",
+              "capability_id": "project.asset.rebind",
+              "provider": "semwright-core",
+              "provider_version": "0.9.0-dev.1",
+              "capability_version": "1.0",
+              "descriptor_sha256": "d06b6e9d11308cc341e09fd595607304daaa4e34230d3ea86b509318d1319f49",
+              "schema_sha256": "7c7e4a13b4b11f0b57a6f11ce900b4650d2053f9f1d5e01693026882bed8adf5"
+            },
+            {
+              "requirement": "capability:project.asset.reconcile",
+              "capability_id": "project.asset.reconcile",
+              "provider": "semwright-core",
+              "provider_version": "0.9.0-dev.1",
+              "capability_version": "1.0",
+              "descriptor_sha256": "92767164b4e730c9f11166ac92c0660d02d913aea331622bbd002cb01c6d00c6",
+              "schema_sha256": "6e7067b77ba4f0cb596ca57723e66fab48d6bae8a6076a3f4004230dcfe1d37c"
+            },
+            {
+              "requirement": "capability:project.asset.register",
+              "capability_id": "project.asset.register",
+              "provider": "semwright-core",
+              "provider_version": "0.9.0-dev.1",
+              "capability_version": "1.0",
+              "descriptor_sha256": "bb12d753e18e8aeafec5e8526fbac83c9b6ad3d85e200773b95e2f487991363d",
+              "schema_sha256": "112b160d2ae9d9144adaa053afe4dc87ff8221b2f8522b458a585a3c12f67b7a"
+            },
+            {
+              "requirement": "capability:project.asset.tombstone",
+              "capability_id": "project.asset.tombstone",
+              "provider": "semwright-core",
+              "provider_version": "0.9.0-dev.1",
+              "capability_version": "1.0",
+              "descriptor_sha256": "504445c599d03d259a65250207dc33d9c3f112e1545bd2e9bd0a6c0e6c17f5bc",
+              "schema_sha256": "43d9b40f97f2ef06af21dc27e723ff357fdd71952cd1c076cc675ff75603f970"
+            },
+            {
+              "requirement": "capability:project.create",
+              "capability_id": "project.create",
+              "provider": "semwright-core",
+              "provider_version": "0.9.0-dev.1",
+              "capability_version": "1.0",
+              "descriptor_sha256": "141a1d8fea81955b7991091e4439924a2e315d14a3c7c3a047ec261c2cd1d0a4",
+              "schema_sha256": "3ef228abcf8ee9dcb841315de29dc62d2e763427d6a7ee64e27d5be4dc234577"
+            },
+            {
+              "requirement": "capability:project.gc.collect",
+              "capability_id": "project.gc.collect",
+              "provider": "semwright-core",
+              "provider_version": "0.9.0-dev.1",
+              "capability_version": "1.0",
+              "descriptor_sha256": "4d77f03fc57477c2941347769377caf0e64c899d7228db5c4c516b235f358087",
+              "schema_sha256": "ea190dd89a22aa05c8e91b1ccacf4b781f42af94533008d210d92f1af34a9681"
+            },
+            {
+              "requirement": "capability:project.gc.preview",
+              "capability_id": "project.gc.preview",
+              "provider": "semwright-core",
+              "provider_version": "0.9.0-dev.1",
+              "capability_version": "1.0",
+              "descriptor_sha256": "8d0526ca51d9def9aa21d600d6806b034a705d7b6acfc82ce417d04aa018a6e3",
+              "schema_sha256": "16e36c553231c76e279b5760f2542f77a404bcab0c62bfefa4eeab5a871976ae"
+            },
+            {
+              "requirement": "capability:project.impact",
+              "capability_id": "project.impact",
+              "provider": "semwright-core",
+              "provider_version": "0.9.0-dev.1",
+              "capability_version": "1.0",
+              "descriptor_sha256": "a06e33536d979917ed925324837472d6ef63d93870b6c3ec662d5905591f1b2e",
+              "schema_sha256": "399b689e86778c8586446300dc3307984caad4b247acd68d5d199be0aecbb7e2"
+            },
+            {
+              "requirement": "capability:project.manifest.export",
+              "capability_id": "project.manifest.export",
+              "provider": "semwright-core",
+              "provider_version": "0.9.0-dev.1",
+              "capability_version": "1.0",
+              "descriptor_sha256": "e3b353699a4b9959d14caca3272fce34e7ce21e8b8782bcfdf781484dd399324",
+              "schema_sha256": "18f32b2bbf6d27a46eb618bf8c297eac1ed4a069833d5e3adae35f42ea6fe7c5"
+            },
+            {
+              "requirement": "capability:project.manifest.import",
+              "capability_id": "project.manifest.import",
+              "provider": "semwright-core",
+              "provider_version": "0.9.0-dev.1",
+              "capability_version": "1.0",
+              "descriptor_sha256": "ec66601f6769f828217a8a9b5cba95a7465e2cedc7ddb745dde2dc5839b8a209",
+              "schema_sha256": "653dfcc65594969eaa4fdf25e5f91dad67ab55128c6a78b1d43ad2ebcc6734ce"
+            },
+            {
+              "requirement": "capability:project.query",
+              "capability_id": "project.query",
+              "provider": "semwright-core",
+              "provider_version": "0.9.0-dev.1",
+              "capability_version": "1.0",
+              "descriptor_sha256": "37bdfb31231e891348077f175d2e38f844482372b6dfc72ec4b3a1ca95d7ca43",
+              "schema_sha256": "f62e86c1218bf72d55f40aae144ec6c9da90d7cdeef0c6925c802913db99a07b"
+            },
+            {
+              "requirement": "capability:project.revisions",
+              "capability_id": "project.revisions",
+              "provider": "semwright-core",
+              "provider_version": "0.9.0-dev.1",
+              "capability_version": "1.0",
+              "descriptor_sha256": "cf4a15093498d0038e449a949d1d8ef32a6cd3b1759cd7026db0d42ffe57f33d",
+              "schema_sha256": "e5db9bd89f1d59405af0d29ceb8817d7737849beb428133a5ad848997618343d"
+            }
+          ]
+        }
+      },
+      "test_results": {
+        "broker-tests.log": [
+          "test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.83s"
+        ],
+        "principal-tests.log": [
+          "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+        ],
+        "rebuild-broker-test.log": [
+          "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 20 filtered out; finished in 2.31s"
+        ],
+        "registry-rebuild-test.log": [
+          "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 1.73s",
+          "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 0.00s"
+        ],
+        "tests.log": [
+          "test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s",
+          "test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.36s",
+          "test result: ok. 30 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s",
+          "test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s",
+          "test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+          "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.44s",
+          "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.84s",
+          "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.77s",
+          "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+        ]
+      }
+    }
+  ],
+  "large_packages_kept_remote": true,
+  "r16_closed": false,
+  "main_merge_performed": false
+}

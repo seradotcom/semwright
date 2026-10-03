@@ -1,0 +1,20 @@
+{
+  "source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+  "suite_sha": "c2d3a561e67ab2184b5d319c941cd18b65decfd2",
+  "run_id": 37077527190,
+  "branch": "ci/i-native-joint-media-cd51874",
+  "status": "PASS_TWO_CLEAN_WORKERS",
+  "production_runtime_changed_by_suite": false,
+  "clean_workers_required": 2,
+  "E_run": 37074959691,
+  "E_artifact": 11256431831,
+  "E_preview_sha256": "9fe983268d8098fd2a433eac6ba54e01e0160ad37bfb3aa2cb3d1058986d8466",
+  "D_run": 37075910269,
+  "D_artifact": 11256319822,
+  "safe_cache_reuse_claimed": false,
+  "godot_frame_capture_verified": false,
+  "r16_closed": false,
+  "workflow_status": "completed",
+  "conclusion": "success",
+  "verified_report": "I_JOINT_NATIVE_cd51874.json"
+}

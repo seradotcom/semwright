@@ -1,0 +1,197 @@
+name: I exact-source Windows ARM64 native retest
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_sha:
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: i-windows-arm64-${{ github.sha }}
+  cancel-in-progress: false
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_DEV_DEBUG: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+jobs:
+  windows-native:
+    if: ${{ !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
+    name: windows-${{ matrix.arch }} native noninteractive
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include:
+          - arch: arm64
+            runs_on: windows-11-arm
+    runs-on: ${{ matrix.runs_on }}
+    timeout-minutes: 50
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.candidate_sha }}
+          persist-credentials: false
+      - name: Bind frozen source and separately identified native fixture
+        env:
+          TESTED_SOURCE_SHA: ${{ inputs.candidate_sha }}
+        run: |
+          set -euo pipefail
+          test "$TESTED_SOURCE_SHA" = cd518748f742025a251b78028613aa1b16919e73
+          test "$(git rev-parse HEAD)" = "$TESTED_SOURCE_SHA"
+          git diff --exit-code
+          git fetch --depth=1 origin "$GITHUB_SHA"
+          git show "$GITHUB_SHA:integration-lab/i-windows-arm64-cd51874/uia_native_fixture.rs" > crates/platform-windows/tests/uia_native_fixture.rs
+          test "$(git diff --name-only)" = crates/platform-windows/tests/uia_native_fixture.rs
+          mkdir -p verification/platform-ci
+          python - <<'PYIDENTITY'
+          import json,os
+          from pathlib import Path
+          Path('verification/platform-ci/identity.json').write_text(json.dumps({'source_sha':os.environ['TESTED_SOURCE_SHA'],'suite_sha':os.environ['GITHUB_SHA'],'run_id':os.environ['GITHUB_RUN_ID'],'production_source_modified':False,'original_failed_run':37074828959,'original_failed_job':111090595445,'interactive_windows_certified':False},indent=2)+'\n')
+          PYIDENTITY
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+          components: rustfmt, clippy
+      - name: Architecture evidence
+        run: |
+          set -euo pipefail
+          mkdir -p verification/platform-ci
+          {
+            echo "RUNNER_ARCH=$RUNNER_ARCH"
+            echo "PROCESSOR_ARCHITECTURE=${PROCESSOR_ARCHITECTURE:-unknown}"
+            rustc -vV
+            cargo -V
+          } | tee "verification/platform-ci/windows-${{ matrix.arch }}.log"
+      - name: Format
+        run: cargo fmt --all -- --check
+      - name: Windows portable command contracts
+        run: |
+          set -euo pipefail
+          python -m unittest tests.python.test_windows_contracts
+      - name: Interactive harness PowerShell parses
+        run: |
+          set -euo pipefail
+          pwsh -NoProfile -NonInteractive -File ./scripts/windows/validate-interactive-certification.ps1
+      - name: Native Windows runtime check
+        run: >-
+          cargo check --locked
+          -p semwright-types
+          -p semwright-backend-api
+          -p semwright-platform-api
+          -p semwright-platform-windows-sys
+          -p semwright-platform-windows
+          -p semwright-platform-services
+          -p semwright-platform-host
+          -p semwright-protocol
+          -p semwright-core
+          -p semwright-driver-host
+          -p semwright-plugin-host
+          -p semwright-daemon
+          -p semwright-cli
+          -p semwright-mcp
+          -p semwright-tui
+          --all-targets
+      - name: Native Windows runtime Clippy
+        run: >-
+          cargo clippy --locked
+          -p semwright-types
+          -p semwright-backend-api
+          -p semwright-platform-api
+          -p semwright-platform-windows-sys
+          -p semwright-platform-windows
+          -p semwright-platform-services
+          -p semwright-platform-host
+          -p semwright-protocol
+          -p semwright-core
+          -p semwright-driver-host
+          -p semwright-plugin-host
+          -p semwright-daemon
+          -p semwright-cli
+          -p semwright-mcp
+          -p semwright-tui
+          --all-targets -- -D warnings
+      - name: Host runner outbound network preflight
+        run: |
+          python - <<'PY'
+          import json, socket
+          results = {}
+          for endpoint in ("1.1.1.1:443", "1.0.0.1:443"):
+              host, port = endpoint.rsplit(":", 1)
+              try:
+                  with socket.create_connection((host, int(port)), timeout=1.5):
+                      results[endpoint] = "reachable"
+              except OSError as error:
+                  results[endpoint] = f"{type(error).__name__}:{getattr(error, 'winerror', None) or getattr(error, 'errno', None)}"
+          print("SEMWRIGHT_HOST_EGRESS=" + json.dumps(results, sort_keys=True))
+          PY
+      - name: Exact original UIA fixture with fresh readback, then fail fast
+        run: |
+          set -euo pipefail
+          cargo test --locked -p semwright-platform-windows --test uia_native_fixture real_win32_fixture_exercises_uia_without_pixel_fallback -- --exact --nocapture 2>&1 | tee verification/platform-ci/uia-freshness.log
+          grep -F 'test result: ok. 1 passed; 0 failed; 0 ignored;' verification/platform-ci/uia-freshness.log
+      - name: Native Windows runtime tests
+        run: >-
+          cargo test --locked
+          -p semwright-types
+          -p semwright-backend-api
+          -p semwright-platform-api
+          -p semwright-platform-windows-sys
+          -p semwright-platform-windows
+          -p semwright-platform-services
+          -p semwright-platform-host
+          -p semwright-protocol
+          -p semwright-core
+          -p semwright-driver-host
+          -p semwright-plugin-host
+          -p semwright-daemon
+      - name: Secure Windows Driver workspace grants
+        run: cargo test --locked -p semwright-driver-host --test windows_secure_host -- secure_windows_driver_workspace --nocapture
+      - name: Secure Windows Driver secret grants
+        run: cargo test --locked -p semwright-driver-host --test windows_secure_host -- secure_windows_driver_secret --nocapture
+      - name: Secure Windows Driver sealed tools
+        run: cargo test --locked -p semwright-driver-host --test windows_secure_host -- secure_windows_driver_sealed_tool --nocapture
+      - name: Secure Windows Driver loopback bridge
+        run: cargo test --locked -p semwright-driver-host --test windows_secure_host -- secure_windows_driver_loopback --nocapture
+      - name: Secure Windows Driver ambient network authority
+        run: cargo test --locked -p semwright-driver-host --test windows_secure_host -- secure_windows_driver_network --nocapture
+      - name: Secure Windows Plugin Host authority
+        run: cargo test --locked -p semwright-plugin-host --features test-tools --test windows_secure_host -- --nocapture
+      - name: Secure Windows external MCP authority
+        run: cargo test --locked -p semwright-federation --test windows_secure_stdio -- --nocapture
+      - name: Native Windows docs
+        run: |
+          set -euo pipefail
+          RUSTDOCFLAGS="-D warnings" cargo doc --locked -p semwright-platform-api -p semwright-platform-windows-sys -p semwright-platform-windows -p semwright-platform-services -p semwright-platform-host -p semwright-protocol --no-deps
+      - name: UIA fixture compiles natively
+        working-directory: fixtures/windows-uia
+        run: cargo check
+      - name: Record CI class
+        run: |
+          set -euo pipefail
+          CLASS="verification/platform-ci/windows-${{ matrix.arch }}-class.txt"
+          cat >"$CLASS" <<'EOF'
+          PASS_WINDOWS_NATIVE_CI can only be claimed after this job is green.
+          This hosted runner is not evidence of PASS_WINDOWS_INTERACTIVE.
+          EOF
+          if [[ -f verification/platform-ci/windows-arm64-uia-hit-test.txt ]]; then
+            cat >>"$CLASS" <<'EOF'
+          BLOCKED_NONINTERACTIVE_OCCLUSION: the hosted ARM64 runner exposed no fixture-owned
+          physical pixel. Native ui.hit_test physical-point fidelity remains unverified here
+          and requires interactive Windows evidence; all non-pixel UIA fixture assertions ran.
+          EOF
+          else
+            echo "Native UIA physical-point hit-test fixture executed without hosted occlusion." >>"$CLASS"
+          fi
+      - name: Preserve the exact source and fixture boundary
+        run: test "$(git diff --name-only)" = crates/platform-windows/tests/uia_native_fixture.rs
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: windows-${{ matrix.arch }}-evidence
+          path: verification/platform-ci/
+          retention-days: 14
+

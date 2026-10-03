@@ -1,0 +1,43 @@
+{
+  "source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+  "suite_sha": "cdf95987076ff4fc12071ca3dc8f4be2bc1dd0af",
+  "run_id": 37079902271,
+  "producer_jobs_passed": true,
+  "workflow_conclusion": "failure",
+  "failure_scope": "New D fixture used a hyphenated filename rejected by the unchanged typed logical-ID contract; no product regression finding",
+  "artifacts": [
+    {
+      "artifact_id": 11258113970,
+      "worker": "clean-1",
+      "job_id": 111077891212,
+      "zip_sha256": "8e435c64d179ccc1383099d68f85053c8c27e49083ff4c7c56f0134b4a3d7d5f",
+      "identity": {
+        "source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+        "suite_sha": "cdf95987076ff4fc12071ca3dc8f4be2bc1dd0af",
+        "run_id": "37079902271",
+        "worker": "clean-1",
+        "initial_glb_sha256": "8acf03b345128d5ebc7d7594780dc58adb4b805df6526f9ddd386b66351bbb06",
+        "revised_glb_sha256": "bc8116d2dd0b953c07c1081d7e503c931fbef6cc64392ef8fc618d8ac4057235",
+        "same_managed_e_island": true,
+        "r16_closed": false
+      }
+    },
+    {
+      "artifact_id": 11258079049,
+      "worker": "clean-2",
+      "job_id": 111077891359,
+      "zip_sha256": "1f6eec0c62d03548ea44c06c71875364252873a9cc21e5bfb69c273440fea17f",
+      "identity": {
+        "source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+        "suite_sha": "cdf95987076ff4fc12071ca3dc8f4be2bc1dd0af",
+        "run_id": "37079902271",
+        "worker": "clean-2",
+        "initial_glb_sha256": "2f2bb55afe9a4753b108308d71062755801c4db7b514e019f1408001317debc6",
+        "revised_glb_sha256": "4b7a272aeb5862f0fb35a009c02c85ed9e8f49a925c37d5bf0f49415be1c14ae",
+        "same_managed_e_island": true,
+        "r16_closed": false
+      }
+    }
+  ],
+  "r16_closed": false
+}

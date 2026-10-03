@@ -1,0 +1,38 @@
+name: I final exact-source job disposition
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_sha:
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+jobs:
+  explicit-regression-disposition:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Require the frozen source
+        env:
+          CANDIDATE: ${{ inputs.candidate_sha }}
+        run: test "$CANDIDATE" = cd518748f742025a251b78028613aa1b16919e73
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.candidate_sha }}
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          path: disposition-helper
+          persist-credentials: false
+      - name: Check every original job and the complete corrected native retest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 disposition-helper/integration-lab/global-disposition/verify_on_runner.py
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: integrated-source-global-explicit-job-disposition
+          path: verification/global-disposition
+          if-no-files-found: error
+          retention-days: 14

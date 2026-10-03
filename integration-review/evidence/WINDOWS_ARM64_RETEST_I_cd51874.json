@@ -1,0 +1,272 @@
+{
+  "source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+  "suite_sha": "27924ecf3bba369e0560c6685693bac3aa1dcdc3",
+  "branch": "ci/i-windows-arm64-freshness-cd51874",
+  "status": "PASS_FULL_NATIVE_ARM64_WITH_CORRECTED_FIXTURE",
+  "fixture_sha256": {
+    ".github/workflows/semantic-creation-integration.yml": "2f6ce304e86001185e7a861f5565d44106447875eb73436536520cfd70e37a63",
+    "integration-lab/i-windows-arm64-cd51874/uia_native_fixture.rs": "301d3bfb77e71a9db6c1df1f442f611f55d7aa1c664de7620429c9b218f95803"
+  },
+  "production_source_modified": false,
+  "original_failed_run": 37074828959,
+  "original_failed_job": 111090595445,
+  "r16_closed": false,
+  "run_id": 37085834067,
+  "conclusion": "success",
+  "artifact_id": 11261300160,
+  "artifact_zip_sha256": "ca543d7c4756d78af371f7def9238c979d7af8fe5be8a7d59106a45d567ea270",
+  "jobs": [
+    {
+      "id": 111095827516,
+      "run_id": 37085834067,
+      "workflow_name": "I exact-source Windows ARM64 native retest",
+      "head_branch": "ci/i-windows-arm64-freshness-cd51874",
+      "run_url": "https://api.github.com/repos/seradotcom/semwright/actions/runs/37085834067",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOUkU25s8AAAAZ3dPMPA",
+      "head_sha": "27924ecf3bba369e0560c6685693bac3aa1dcdc3",
+      "url": "https://api.github.com/repos/seradotcom/semwright/actions/jobs/111095827516",
+      "html_url": "https://github.com/seradotcom/semwright/actions/runs/37085834067/job/111095827516",
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-10-03T01:22:20Z",
+      "started_at": "2026-10-03T01:22:22Z",
+      "completed_at": "2026-10-03T01:32:47Z",
+      "name": "windows-arm64 native noninteractive",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-10-03T01:22:23Z",
+          "completed_at": "2026-10-03T01:22:25Z"
+        },
+        {
+          "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-10-03T01:22:25Z",
+          "completed_at": "2026-10-03T01:22:41Z"
+        },
+        {
+          "name": "Bind frozen source and separately identified native fixture",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-10-03T01:22:41Z",
+          "completed_at": "2026-10-03T01:22:44Z"
+        },
+        {
+          "name": "Run dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4,
+          "started_at": "2026-10-03T01:22:44Z",
+          "completed_at": "2026-10-03T01:23:02Z"
+        },
+        {
+          "name": "Architecture evidence",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5,
+          "started_at": "2026-10-03T01:23:02Z",
+          "completed_at": "2026-10-03T01:23:03Z"
+        },
+        {
+          "name": "Format",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2026-10-03T01:23:03Z",
+          "completed_at": "2026-10-03T01:23:07Z"
+        },
+        {
+          "name": "Windows portable command contracts",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7,
+          "started_at": "2026-10-03T01:23:07Z",
+          "completed_at": "2026-10-03T01:23:07Z"
+        },
+        {
+          "name": "Interactive harness PowerShell parses",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8,
+          "started_at": "2026-10-03T01:23:07Z",
+          "completed_at": "2026-10-03T01:23:08Z"
+        },
+        {
+          "name": "Native Windows runtime check",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 9,
+          "started_at": "2026-10-03T01:23:08Z",
+          "completed_at": "2026-10-03T01:25:07Z"
+        },
+        {
+          "name": "Native Windows runtime Clippy",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 10,
+          "started_at": "2026-10-03T01:25:07Z",
+          "completed_at": "2026-10-03T01:25:22Z"
+        },
+        {
+          "name": "Host runner outbound network preflight",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 11,
+          "started_at": "2026-10-03T01:25:22Z",
+          "completed_at": "2026-10-03T01:25:22Z"
+        },
+        {
+          "name": "Exact original UIA fixture with fresh readback, then fail fast",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 12,
+          "started_at": "2026-10-03T01:25:22Z",
+          "completed_at": "2026-10-03T01:26:57Z"
+        },
+        {
+          "name": "Native Windows runtime tests",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13,
+          "started_at": "2026-10-03T01:26:57Z",
+          "completed_at": "2026-10-03T01:29:28Z"
+        },
+        {
+          "name": "Secure Windows Driver workspace grants",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 14,
+          "started_at": "2026-10-03T01:29:28Z",
+          "completed_at": "2026-10-03T01:30:17Z"
+        },
+        {
+          "name": "Secure Windows Driver secret grants",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 15,
+          "started_at": "2026-10-03T01:30:17Z",
+          "completed_at": "2026-10-03T01:30:19Z"
+        },
+        {
+          "name": "Secure Windows Driver sealed tools",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 16,
+          "started_at": "2026-10-03T01:30:19Z",
+          "completed_at": "2026-10-03T01:30:20Z"
+        },
+        {
+          "name": "Secure Windows Driver loopback bridge",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 17,
+          "started_at": "2026-10-03T01:30:20Z",
+          "completed_at": "2026-10-03T01:30:22Z"
+        },
+        {
+          "name": "Secure Windows Driver ambient network authority",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 18,
+          "started_at": "2026-10-03T01:30:22Z",
+          "completed_at": "2026-10-03T01:30:26Z"
+        },
+        {
+          "name": "Secure Windows Plugin Host authority",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 19,
+          "started_at": "2026-10-03T01:30:26Z",
+          "completed_at": "2026-10-03T01:30:32Z"
+        },
+        {
+          "name": "Secure Windows external MCP authority",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 20,
+          "started_at": "2026-10-03T01:30:32Z",
+          "completed_at": "2026-10-03T01:31:40Z"
+        },
+        {
+          "name": "Native Windows docs",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 21,
+          "started_at": "2026-10-03T01:31:40Z",
+          "completed_at": "2026-10-03T01:32:26Z"
+        },
+        {
+          "name": "UIA fixture compiles natively",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 22,
+          "started_at": "2026-10-03T01:32:26Z",
+          "completed_at": "2026-10-03T01:32:40Z"
+        },
+        {
+          "name": "Record CI class",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 23,
+          "started_at": "2026-10-03T01:32:40Z",
+          "completed_at": "2026-10-03T01:32:40Z"
+        },
+        {
+          "name": "Preserve the exact source and fixture boundary",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 24,
+          "started_at": "2026-10-03T01:32:40Z",
+          "completed_at": "2026-10-03T01:32:40Z"
+        },
+        {
+          "name": "Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 25,
+          "started_at": "2026-10-03T01:32:40Z",
+          "completed_at": "2026-10-03T01:32:41Z"
+        },
+        {
+          "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 50,
+          "started_at": "2026-10-03T01:32:41Z",
+          "completed_at": "2026-10-03T01:32:46Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 51,
+          "started_at": "2026-10-03T01:32:46Z",
+          "completed_at": "2026-10-03T01:32:46Z"
+        }
+      ],
+      "check_run_url": "https://api.github.com/repos/seradotcom/semwright/check-runs/111095827516",
+      "labels": [
+        "windows-11-arm"
+      ],
+      "runner_id": 1000037927,
+      "runner_name": "GitHub Actions 1000037927",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions"
+    }
+  ],
+  "files_sha256": {
+    "identity.json": "201df5c024dbfdadeab8bea6c31af7b7c33d087783feda0f958bb9b3d15f0368",
+    "uia-freshness.log": "fc1e8c8959c99ee7f48ce443b2855c79f55a728ed7474072e778bd42f865e768",
+    "windows-arm64-class.txt": "c396993d3c4ad73b542492a610f56867f543da483bd3a563c60a3b840b24701c",
+    "windows-arm64-uia-hit-test.txt": "2345e89303d1d79c868cb4bea153b6a688795e617f4c2ef9db051c74c2924c24",
+    "windows-arm64.log": "260a04eba9338036c2df4bc3e6d5dce300e496307bc4b372a658a06d43064a68"
+  },
+  "original_workflow_pass_claimed": false
+}

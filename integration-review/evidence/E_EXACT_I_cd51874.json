@@ -1,0 +1,75 @@
+{
+  "source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+  "run_id": 37074959691,
+  "artifact_id": 11256431831,
+  "artifact_sha256": "7e895d9c92454ded972bc94143e2bc73054b50c6ec07da7e7c8c18f506d90dd4",
+  "glb_sha256": "34491cce5a03a3100c50a884bb22908e1f50adc7f23f8b4c60303c7a77a64b99",
+  "model_passed": 52,
+  "native_passed": 4,
+  "full_E_certificate": true,
+  "outcome": "PASS",
+  "pipeline": {
+    "blend": {
+      "bytes": 66512,
+      "fresh_process_verified": false,
+      "inventory": {
+        "collection": "SW_40ba9a750805_articulated_mechanism",
+        "objects": [
+          "SW_40ba9a750805_arm",
+          "SW_40ba9a750805_body",
+          "SW_40ba9a750805_rig"
+        ]
+      },
+      "island": "40ba9a7508054e3cadb1dc43d942c6c5",
+      "method": "libraries-write-indirect-closure",
+      "path": "articulated.blend",
+      "sha256": "05db136353991374a457b114f3c1e5391fe429771fa708c816649242f2dd2d7e",
+      "source_fingerprint": "90951736b730eab58cdc352758c07fa0528103143a07ede7704569d13e1a7da1"
+    },
+    "c_authoring_receipt_digest": "8be0abd4f97fd84570c8627e1d16c9e8339272604cb548aefae88107d763088c",
+    "cross_app_c_receipt_verified": false,
+    "glb": {
+      "bytes": 7220,
+      "changed": true,
+      "format": "glb",
+      "objects": 3,
+      "path": "articulated.glb",
+      "sha256": "34491cce5a03a3100c50a884bb22908e1f50adc7f23f8b4c60303c7a77a64b99"
+    },
+    "godot_reimport_verified": false,
+    "native_assertions_completed": true,
+    "native_authoring_c_f_verified": true,
+    "reader_process": "2cf325e40ebb4dfb980af73f51a890cf",
+    "ready": false,
+    "route": "Broker -> policy -> Driver Host -> Blender",
+    "version": 1,
+    "writer_process": "62ee460541ec4be0951e80231906d9e1"
+  },
+  "acceptance_summary": {
+    "blender_authoring_ready": false,
+    "blocked": [
+      "E11"
+    ],
+    "partial": [
+      "E13"
+    ],
+    "pass_requirements": [
+      "E01",
+      "E02",
+      "E03",
+      "E04",
+      "E05",
+      "E06",
+      "E07",
+      "E08",
+      "E09",
+      "E10",
+      "E12",
+      "E14",
+      "E15",
+      "E16"
+    ],
+    "run_id": "37074959691",
+    "source_sha": "cd518748f742025a251b78028613aa1b16919e73"
+  }
+}

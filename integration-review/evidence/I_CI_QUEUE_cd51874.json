@@ -1,0 +1,404 @@
+{
+  "source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+  "ref": "integration/semantic-creation-i-20261001",
+  "status": "STOPPED_FOR_REVIEW",
+  "previous_manifest": "I_CI_QUEUE_2111627.json",
+  "g_verified_report": "G_FINAL_INTEGRATED_CAMPAIGN_37074787747.json",
+  "runs": [
+    {
+      "stage": "Source contracts and compile",
+      "run_id": 37074022332,
+      "status": "completed",
+      "conclusion": "success",
+      "attempt": 1
+    },
+    {
+      "stage": "Linux Host controls and two exact-source native export regressions",
+      "run_id": 37074140012,
+      "status": "completed",
+      "conclusion": "success",
+      "attempt": 1
+    },
+    {
+      "stage": "E",
+      "run_id": 37074959691,
+      "status": "completed",
+      "conclusion": "success",
+      "attempt": 1
+    },
+    {
+      "stage": "D",
+      "run_id": 37075910269,
+      "status": "completed",
+      "conclusion": "success",
+      "attempt": 1
+    },
+    {
+      "stage": "AV",
+      "run_id": 37077508380,
+      "status": "completed",
+      "conclusion": "success",
+      "attempt": 1
+    },
+    {
+      "stage": "B",
+      "run_id": 37077804879,
+      "status": "completed",
+      "conclusion": "success",
+      "attempt": 1
+    },
+    {
+      "stage": "A",
+      "run_id": 37080028165,
+      "status": "completed",
+      "conclusion": "success",
+      "attempt": 1
+    },
+    {
+      "stage": "C",
+      "run_id": 37080806793,
+      "status": "completed",
+      "conclusion": "success",
+      "attempt": 1
+    },
+    {
+      "stage": "F",
+      "run_id": 37081317102,
+      "status": "completed",
+      "conclusion": "success",
+      "attempt": 1
+    },
+    {
+      "stage": "G",
+      "run_id": 37074787747,
+      "status": "completed",
+      "conclusion": "success",
+      "attempt": 1
+    },
+    {
+      "stage": "global",
+      "run_id": 37074828959,
+      "status": "completed",
+      "conclusion": "failure",
+      "attempt": 1
+    }
+  ],
+  "events": [
+    {
+      "at": "2026-10-02T22:54:29.911567+00:00",
+      "message": "Responsive Host candidate admitted by narrow source and native gates; preserve all earlier proofs and reuse current G/global runs"
+    },
+    {
+      "at": "2026-10-02T22:54:30.350969+00:00",
+      "message": "Source contracts and compile 37074022332: ('completed', 'success', 1)"
+    },
+    {
+      "at": "2026-10-02T22:54:30.764023+00:00",
+      "message": "Linux Host controls and two exact-source native export regressions 37074140012: ('completed', 'success', 1)"
+    },
+    {
+      "at": "2026-10-02T22:54:30.764596+00:00",
+      "message": "Independent full G campaign 37074787747; only target pin changed"
+    },
+    {
+      "at": "2026-10-02T22:54:33.532010+00:00",
+      "message": "Dispatched E on frozen cd518748f742025a251b78028613aa1b16919e73"
+    },
+    {
+      "at": "2026-10-02T22:54:40.251929+00:00",
+      "message": "E 37074959691: ('queued', None, 1)"
+    },
+    {
+      "at": "2026-10-02T22:55:41.157747+00:00",
+      "message": "E 37074959691: ('in_progress', None, 1)"
+    },
+    {
+      "at": "2026-10-02T23:05:50.438006+00:00",
+      "message": "E 37074959691: ('completed', 'success', 1)"
+    },
+    {
+      "at": "2026-10-02T23:05:52.115893+00:00",
+      "message": "Exact E producer artifact verified; D will consume these same-source pins"
+    },
+    {
+      "at": "2026-10-02T23:05:54.950171+00:00",
+      "message": "Dispatched D on frozen cd518748f742025a251b78028613aa1b16919e73"
+    },
+    {
+      "at": "2026-10-02T23:06:01.854440+00:00",
+      "message": "D 37075910269: ('queued', None, 1)"
+    },
+    {
+      "at": "2026-10-02T23:07:33.266281+00:00",
+      "message": "D 37075910269: ('in_progress', None, 1)"
+    },
+    {
+      "at": "2026-10-02T23:20:15.265528+00:00",
+      "message": "D 37075910269: ('queued', None, 1)"
+    },
+    {
+      "at": "2026-10-02T23:20:45.751300+00:00",
+      "message": "D 37075910269: ('in_progress', None, 1)"
+    },
+    {
+      "at": "2026-10-02T23:25:20.175458+00:00",
+      "message": "D 37075910269: ('completed', 'success', 1)"
+    },
+    {
+      "at": "2026-10-02T23:25:32.030133+00:00",
+      "message": "Dispatched AV on frozen cd518748f742025a251b78028613aa1b16919e73"
+    },
+    {
+      "at": "2026-10-02T23:25:40.609650+00:00",
+      "message": "AV 37077508380: ('in_progress', None, 1)"
+    },
+    {
+      "at": "2026-10-02T23:29:13.918897+00:00",
+      "message": "AV 37077508380: ('completed', 'success', 1)"
+    },
+    {
+      "at": "2026-10-02T23:29:15.723992+00:00",
+      "message": "AV: same-source compact artifacts reviewed and hashed"
+    },
+    {
+      "at": "2026-10-02T23:29:19.379381+00:00",
+      "message": "Dispatched B on frozen cd518748f742025a251b78028613aa1b16919e73"
+    },
+    {
+      "at": "2026-10-02T23:29:26.738230+00:00",
+      "message": "B 37077804879: ('in_progress', None, 1)"
+    },
+    {
+      "at": "2026-10-02T23:30:58.265802+00:00",
+      "message": "B 37077804879: ('queued', None, 1)"
+    },
+    {
+      "at": "2026-10-02T23:33:00.135144+00:00",
+      "message": "B 37077804879: ('in_progress', None, 1)"
+    },
+    {
+      "at": "2026-10-02T23:41:38.812944+00:00",
+      "message": "B 37077804879: ('queued', None, 1)"
+    },
+    {
+      "at": "2026-10-02T23:44:41.920709+00:00",
+      "message": "B 37077804879: ('in_progress', None, 1)"
+    },
+    {
+      "at": "2026-10-02T23:45:45.973139+00:00",
+      "message": "Stop: Command '['gh', 'api', 'repos/seradotcom/semwright/actions/runs/37077804879']' returned non-zero exit status 1."
+    },
+    {
+      "at": "2026-10-02T23:58:19.271993+00:00",
+      "message": "Resume after transient GitHub API read error; B already succeeded; no product test rerun"
+    },
+    {
+      "at": "2026-10-02T23:58:19.698977+00:00",
+      "message": "B 37077804879: ('completed', 'success', 1)"
+    },
+    {
+      "at": "2026-10-02T23:58:31.599689+00:00",
+      "message": "Dispatched A on frozen cd518748f742025a251b78028613aa1b16919e73"
+    },
+    {
+      "at": "2026-10-02T23:58:39.670967+00:00",
+      "message": "A 37080028165: ('in_progress', None, 1)"
+    },
+    {
+      "at": "2026-10-03T00:08:49.927801+00:00",
+      "message": "A 37080028165: ('completed', 'success', 1)"
+    },
+    {
+      "at": "2026-10-03T00:08:53.505987+00:00",
+      "message": "A: same-source artifacts collected and hashed"
+    },
+    {
+      "at": "2026-10-03T00:08:56.483538+00:00",
+      "message": "Dispatched C on frozen cd518748f742025a251b78028613aa1b16919e73"
+    },
+    {
+      "at": "2026-10-03T00:09:03.449295+00:00",
+      "message": "C 37080806793: ('in_progress', None, 1)"
+    },
+    {
+      "at": "2026-10-03T00:15:44.531757+00:00",
+      "message": "C 37080806793: ('completed', 'success', 1)"
+    },
+    {
+      "at": "2026-10-03T00:15:47.379677+00:00",
+      "message": "C: same-source artifacts collected and hashed"
+    },
+    {
+      "at": "2026-10-03T00:15:50.768183+00:00",
+      "message": "Dispatched F on frozen cd518748f742025a251b78028613aa1b16919e73"
+    },
+    {
+      "at": "2026-10-03T00:15:57.436680+00:00",
+      "message": "F 37081317102: ('in_progress', None, 1)"
+    },
+    {
+      "at": "2026-10-03T00:16:27.927591+00:00",
+      "message": "F 37081317102: ('queued', None, 1)"
+    },
+    {
+      "at": "2026-10-03T00:20:32.053209+00:00",
+      "message": "F 37081317102: ('in_progress', None, 1)"
+    },
+    {
+      "at": "2026-10-03T00:22:03.542926+00:00",
+      "message": "F 37081317102: ('completed', 'success', 1)"
+    },
+    {
+      "at": "2026-10-03T00:22:07.044614+00:00",
+      "message": "F: same-source artifacts collected and hashed"
+    },
+    {
+      "at": "2026-10-03T00:22:07.519524+00:00",
+      "message": "G 37074787747: ('completed', 'success', 1)"
+    },
+    {
+      "at": "2026-10-03T00:22:07.975738+00:00",
+      "message": "global 37074828959: ('queued', None, 1)"
+    },
+    {
+      "at": "2026-10-03T00:24:40.450239+00:00",
+      "message": "global 37074828959: ('in_progress', None, 1)"
+    },
+    {
+      "at": "2026-10-03T00:47:05.996590+00:00",
+      "message": "global 37074828959: ('queued', None, 1)"
+    },
+    {
+      "at": "2026-10-03T00:47:36.515688+00:00",
+      "message": "global 37074828959: ('in_progress', None, 1)"
+    },
+    {
+      "at": "2026-10-03T00:48:37.432245+00:00",
+      "message": "global 37074828959: ('queued', None, 1)"
+    },
+    {
+      "at": "2026-10-03T00:49:07.880943+00:00",
+      "message": "global 37074828959: ('in_progress', None, 1)"
+    },
+    {
+      "at": "2026-10-03T00:55:43.953105+00:00",
+      "message": "global 37074828959: ('queued', None, 1)"
+    },
+    {
+      "at": "2026-10-03T01:03:56.487695+00:00",
+      "message": "global 37074828959: ('in_progress', None, 1)"
+    },
+    {
+      "at": "2026-10-03T01:09:02.077506+00:00",
+      "message": "global 37074828959: ('queued', None, 1)"
+    },
+    {
+      "at": "2026-10-03T01:16:10.102936+00:00",
+      "message": "global 37074828959: ('in_progress', None, 1)"
+    },
+    {
+      "at": "2026-10-03T01:37:29.963362+00:00",
+      "message": "global 37074828959: ('queued', None, 1)"
+    },
+    {
+      "at": "2026-10-03T01:38:00.391437+00:00",
+      "message": "global 37074828959: ('in_progress', None, 1)"
+    },
+    {
+      "at": "2026-10-03T01:44:07.009389+00:00",
+      "message": "global 37074828959: ('completed', 'failure', 1)"
+    },
+    {
+      "at": "2026-10-03T01:44:07.010532+00:00",
+      "message": "Stop with preserved run identities: global: failed evidence preserved; no automatic rerun"
+    }
+  ],
+  "artifact_review_required": true,
+  "main_merge_performed": false,
+  "r16_closed": false,
+  "updated_at": "2026-10-03T01:44:07.010532+00:00",
+  "g_run_id": 37074787747,
+  "E_verified_pins": {
+    "source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+    "run_id": 37074959691,
+    "artifact_id": 11256431831,
+    "artifact_sha256": "7e895d9c92454ded972bc94143e2bc73054b50c6ec07da7e7c8c18f506d90dd4",
+    "glb_sha256": "34491cce5a03a3100c50a884bb22908e1f50adc7f23f8b4c60303c7a77a64b99",
+    "model_passed": 52,
+    "native_passed": 4,
+    "full_E_certificate": true,
+    "outcome": "PASS",
+    "pipeline": {
+      "blend": {
+        "bytes": 66512,
+        "fresh_process_verified": false,
+        "inventory": {
+          "collection": "SW_40ba9a750805_articulated_mechanism",
+          "objects": [
+            "SW_40ba9a750805_arm",
+            "SW_40ba9a750805_body",
+            "SW_40ba9a750805_rig"
+          ]
+        },
+        "island": "40ba9a7508054e3cadb1dc43d942c6c5",
+        "method": "libraries-write-indirect-closure",
+        "path": "articulated.blend",
+        "sha256": "05db136353991374a457b114f3c1e5391fe429771fa708c816649242f2dd2d7e",
+        "source_fingerprint": "90951736b730eab58cdc352758c07fa0528103143a07ede7704569d13e1a7da1"
+      },
+      "c_authoring_receipt_digest": "8be0abd4f97fd84570c8627e1d16c9e8339272604cb548aefae88107d763088c",
+      "cross_app_c_receipt_verified": false,
+      "glb": {
+        "bytes": 7220,
+        "changed": true,
+        "format": "glb",
+        "objects": 3,
+        "path": "articulated.glb",
+        "sha256": "34491cce5a03a3100c50a884bb22908e1f50adc7f23f8b4c60303c7a77a64b99"
+      },
+      "godot_reimport_verified": false,
+      "native_assertions_completed": true,
+      "native_authoring_c_f_verified": true,
+      "reader_process": "2cf325e40ebb4dfb980af73f51a890cf",
+      "ready": false,
+      "route": "Broker -> policy -> Driver Host -> Blender",
+      "version": 1,
+      "writer_process": "62ee460541ec4be0951e80231906d9e1"
+    },
+    "acceptance_summary": {
+      "blender_authoring_ready": false,
+      "blocked": [
+        "E11"
+      ],
+      "partial": [
+        "E13"
+      ],
+      "pass_requirements": [
+        "E01",
+        "E02",
+        "E03",
+        "E04",
+        "E05",
+        "E06",
+        "E07",
+        "E08",
+        "E09",
+        "E10",
+        "E12",
+        "E14",
+        "E15",
+        "E16"
+      ],
+      "run_id": "37074959691",
+      "source_sha": "cd518748f742025a251b78028613aa1b16919e73"
+    }
+  },
+  "current_stage": "global",
+  "read_error_history": [
+    {
+      "error": "Command '['gh', 'api', 'repos/seradotcom/semwright/actions/runs/37077804879']' returned non-zero exit status 1.",
+      "snapshot": "I_CI_QUEUE_cd51874_read_error_20261002T2357.json"
+    }
+  ],
+  "error": "global: failed evidence preserved; no automatic rerun"
+}

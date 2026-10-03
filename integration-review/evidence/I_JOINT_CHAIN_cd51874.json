@@ -1,0 +1,28 @@
+{
+  "source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+  "suite_sha": "6a925a9557990ab5f972fb89f11de6f49b16fe85",
+  "branch": "ci/i-native-shared-asset-bounds-cd51874",
+  "status": "PASS_TWO_CLEAN_SHARED_ASSET_CHAINS",
+  "created_at": "2026-10-03T00:29:27.379611+00:00",
+  "fixture_sha256": {
+    ".github/workflows/semantic-creation-integration.yml": "4c0670750b1d28baabafa627c6523e2e4c516b1a169347f00d2686a386385a84",
+    "integration-lab/i-chain-cd51874/e_fixture.rs": "bf4589b2ca5c90faceca0fdb34748ec0ffce03801509b7d05bb107cabc2a83cc",
+    "integration-lab/i-chain-cd51874/d_fixture.rs": "c83659642e49ef775c3e93855374e2080ed48017d3aef5383f3d7918094cabea",
+    "integration-lab/i-chain-cd51874/av_fixture.rs": "a5983c723ea279d9f2c0f27839759cc920b541d94ad778e83c401ddbf448d314"
+  },
+  "production_source_modified": false,
+  "clean_chains_required": 2,
+  "heavy_jobs_parallel": 1,
+  "visualization": "typed Motion schematic driven by native Godot mesh bounds; not engine movie footage",
+  "coverage_complete": false,
+  "safe_cache_reuse_claimed": false,
+  "godot_frame_capture_verified": false,
+  "r16_closed": false,
+  "reused_e_run_id": 37079902271,
+  "reused_e_suite_sha": "cdf95987076ff4fc12071ca3dc8f4be2bc1dd0af",
+  "previous_manifest": "I_JOINT_CHAIN_cd51874_attempt3.json",
+  "run_id": 37082277878,
+  "workflow_status": "completed",
+  "conclusion": "success",
+  "verified_report": "I_JOINT_CHAIN_VERIFIED_cd51874.json"
+}

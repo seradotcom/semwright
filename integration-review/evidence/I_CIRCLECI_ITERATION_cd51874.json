@@ -1,0 +1,36 @@
+{
+  "source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+  "suite_sha": "e034bb62656e927df82349be97bf575e81275970",
+  "branch": "ci/i-circleci-iteration-cd51874",
+  "status": "CONFIGURATION_VALIDATED_AUTHENTICATED_EXECUTION_PENDING",
+  "files_sha256": {
+    ".circleci/config.yml": "4f59239d746f86f696b96ffa1f51dc7951d9e339ea7317263097f524e21edabd",
+    "scripts/circleci-iteration/run_iteration.py": "ce75d9028f0cee5229abc67544d32d526a5e2ce97d7cffdc1df4317a9ba87aeb",
+    "scripts/circleci-iteration/README.md": "55bd2438f0d9db93673d00c2970161221a844bbea4d1bc54573fc03165c78aba",
+    ".github/workflows/semantic-creation-integration.yml": "8493b6d6366fa7858798059336503e2079cc1a6bdfa1b6ababca0561030946ba"
+  },
+  "circleci_project_url": "https://app.circleci.com/settings/project/circleci/2iTFoXJYHZ4dhHfXZwFsii/TTYuMs1YV3UxUvgg1y6v9j/setup",
+  "circleci_project_slug": "circleci/2iTFoXJYHZ4dhHfXZwFsii/TTYuMs1YV3UxUvgg1y6v9j",
+  "circleci_execution_observed": false,
+  "project_access_pending": true,
+  "certification_eligible": false,
+  "product_source_modified": false,
+  "main_merge_performed": false,
+  "r16_closed": false,
+  "validation_run_id": 37088174373,
+  "validation_conclusion": "success",
+  "validation_artifact_id": 11260943515,
+  "validation_zip_sha256": "9af1d8b6f139dfb5d7d27feb5e936963a34ded07ad8cc30b4cb407623b301edc",
+  "circleci_project_id": "d6429a9c-77ef-4dca-9adc-7042536a4cf6",
+  "circleci_organization_id": "0de2d046-9a4e-4bd5-9304-a6c6cba5308b",
+  "public_project_lookup_success": true,
+  "authenticated_admin_lookup_http_status": 401,
+  "latest_visible_pipeline": {
+    "id": "c44817aa-f42b-4468-80fd-f474385b6a44",
+    "number": 121,
+    "created_at": "2026-10-02T03:33:05.701Z",
+    "state": "created",
+    "workflow_count": 0
+  },
+  "credit_status": "UNKNOWN"
+}

@@ -1,0 +1,24 @@
+{
+  "source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+  "suite_sha": "cdf95987076ff4fc12071ca3dc8f4be2bc1dd0af",
+  "branch": "ci/i-native-shared-asset-cd51874",
+  "status": "FAILED_REVIEW_REQUIRED",
+  "created_at": "2026-10-02T23:56:36.593412+00:00",
+  "fixture_sha256": {
+    ".github/workflows/semantic-creation-integration.yml": "8bab9c53135995e19b70c2fd04e8e3b90adeea3d776bc5601212fd35192aa130",
+    "integration-lab/i-chain-cd51874/e_fixture.rs": "bf4589b2ca5c90faceca0fdb34748ec0ffce03801509b7d05bb107cabc2a83cc",
+    "integration-lab/i-chain-cd51874/d_fixture.rs": "2e7791f70ce94d765125a84cd329730b6704d4daca89f01386dff89b2c3d79c4",
+    "integration-lab/i-chain-cd51874/av_fixture.rs": "ce77e91ca9ab201851d1bc856c0989f2c534222fa6e272d362e8a7d4a19895c5"
+  },
+  "production_source_modified": false,
+  "clean_chains_required": 2,
+  "heavy_jobs_parallel": 1,
+  "visualization": "typed Motion schematic driven by native Godot body transform3; not engine movie footage",
+  "coverage_complete": false,
+  "safe_cache_reuse_claimed": false,
+  "godot_frame_capture_verified": false,
+  "r16_closed": false,
+  "run_id": 37079902271,
+  "workflow_status": "completed",
+  "conclusion": "failure"
+}

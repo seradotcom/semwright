@@ -1,0 +1,87 @@
+{
+  "role": "H",
+  "state": "HARNESS_FOUNDATION_CI_PASS_NATIVE_MODEL_HARNESS_PENDING",
+  "source_sha": "3cf2b44092668a5728749686b78dbea59c9edeaa",
+  "run_id": 37074603304,
+  "artifact_id": 11255583122,
+  "artifact_sha256": "3b2fafab13a538734e54ee5c94eb2e253f8350c3e9303dde82ee3212bccc4b13",
+  "tests_passed": 28,
+  "scope": {
+    "schema_version": 1,
+    "laboratory_source_sha": "3cf2b44092668a5728749686b78dbea59c9edeaa",
+    "run_id": "37074603304",
+    "execution_kind": "DETERMINISTIC_HARNESS_TESTS",
+    "model_evaluation_executed": false,
+    "native_productivity_evaluation_executed": false,
+    "evaluation_target_sha": null,
+    "winner_claim": null,
+    "r16_closed": false
+  },
+  "model_evaluation_state": "MODEL_EVALUATION_BLOCKED_NO_API_KEY",
+  "evaluation_target_sha": null,
+  "native_oracles_implemented": false,
+  "competent_direct_helpers_implemented": false,
+  "heldout_sealed": false,
+  "r16_closed": false,
+  "requirements_file": "evaluation-lab/ACCEPTANCE.json",
+  "user_confirmation": {
+    "at": "2026-10-02T23:09:52.356069+00:00",
+    "statement": "no hay clave.",
+    "api_credentials_or_model_quota_authorized": false
+  },
+  "tokens_observed": null,
+  "billed_cost_observed": null,
+  "current_preparatory_delivery": {
+    "laboratory_source_sha": "54e4fd31bb358d43dc9a2a346b2e22ef78665376",
+    "state": "PREPARATORY_DELIVERY_PASS_NATIVE_MODEL_HARNESS_PENDING",
+    "kind": "PREPARATORY_HARNESS_FOUNDATION_NOT_COMPLETED_EVALUATION",
+    "model_evaluation_executed": false,
+    "r16_closed": false,
+    "run_id": 37084141541,
+    "artifacts": [
+      {
+        "artifact_id": 11260266181,
+        "name": "H-preparatory-laboratory-delivery",
+        "zip_sha256": "39a59b991d8d053fecdcf5ab3b16ddd1475538463c01cd5994e94f54090745d0",
+        "files_sha256": {
+          "manifest.json": "8d068f6d8a27c54d2365d66d2cfdfbd2c07a0b81b981e7898fda56f73c56324f",
+          "semwright-H-preparation-54e4fd3.zip": "b4a6a0f43e3d7e616f4ecb3f0943b3747e458d077678dfe0b263f064c4414511",
+          "semwright-H-preparation-54e4fd3.zip.sha256": "8f4cfb55a728f2cebb8c6e89483b33f5ca2a4a608a26961b357c089ecb509d2e",
+          "summary.json": "e1b053d3c1a0cc580c29e90e3dbb63d2da8b167b6609a5da60ef7a3df6239b6e"
+        },
+        "summary": {
+          "laboratory_source_sha": "54e4fd31bb358d43dc9a2a346b2e22ef78665376",
+          "run_id": "37084141541",
+          "zip_sha256": "b4a6a0f43e3d7e616f4ecb3f0943b3747e458d077678dfe0b263f064c4414511",
+          "bytes": 16822,
+          "reproducible": true,
+          "testzip": "PASS",
+          "kind": "PREPARATORY_HARNESS_FOUNDATION_NOT_COMPLETED_EVALUATION",
+          "model_evaluation_executed": false,
+          "r16_closed": false
+        }
+      },
+      {
+        "artifact_id": 11260161334,
+        "name": "H-harness-foundation",
+        "zip_sha256": "d9dc8ee6c0bc5abfc661c97bbf5f28d96748563e00c4e9fc30e9f293f98a2d8f",
+        "files_sha256": {
+          "SHA256SUMS": "92f980df6356c6c23a0f3d6b45c8ec7b5641d7b4ebf0f587badb6a42848917a2",
+          "harness-tests.log": "f0904207ec2f737b50a70eb163d158dbedbf8ffaa38893e29babe06866ded952",
+          "laboratory-source-sha.txt": "570c19600a0da70dc1fa5dd87e886d6d8ad6d5c993b951df44d673ae1e5823a8",
+          "scope.json": "1db027ba64bad66fd570da66877e157e8d3705c94bc252de1275f2be392f0741"
+        }
+      }
+    ],
+    "conclusion": "success",
+    "controls_passed": 28
+  },
+  "laboratory_head_sha": "54e4fd31bb358d43dc9a2a346b2e22ef78665376",
+  "technical_product_target_sha": "cd518748f742025a251b78028613aa1b16919e73",
+  "technical_target_freeze_manifest": "I_EVAL_FREEZE_cd51874.json",
+  "technical_target_freeze_sha256": "23ed96b04e1ac14aefb0a729e619d0cb1f5d4cea2a23a0079b1edf38989068c7",
+  "technical_target_received": true,
+  "evaluation_suite_frozen": false,
+  "model_evaluation_started": false,
+  "updated_at": "2026-10-03T02:08:04.331833+00:00"
+}
