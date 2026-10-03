@@ -153,6 +153,9 @@ def inspect_deb(path: Path, bin_dir: Path, expected_arch: str) -> dict[str, str]
                 raise RuntimeError(f"Debian payload is invalid: {name}")
             if digest(packaged) != digest(bin_dir / name):
                 raise RuntimeError(f"Debian payload digest mismatch: {name}")
+        quickstart = extracted / "usr/share/doc/semwright/QUICKSTART.md"
+        if not quickstart.is_file() or "semwright setup" not in quickstart.read_text():
+            raise RuntimeError("Debian payload is missing the bundled quick start")
         subprocess.run(
             [str(extracted / "usr/bin/semwright"), "--help"],
             check=True,
@@ -185,6 +188,7 @@ def certify(bin_dir: Path, arch: str) -> dict[str, object]:
         required = {f"{package_root}/bin/{name}" for name in BINS}
         required.update({
             f"{package_root}/README.md", f"{package_root}/INSTALL.md",
+            f"{package_root}/docs/quickstart.md",
             f"{package_root}/LICENSE-MIT", f"{package_root}/LICENSE-APACHE",
             f"{package_root}/SECURITY.md", f"{package_root}/SUPPORT.md",
             f"{package_root}/SHA256SUMS",

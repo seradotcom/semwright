@@ -1,5 +1,8 @@
 # Build, install, start and uninstall
 
+Want the shortest path? Start with the **[three-step quick start](quickstart.md)**. This page is the
+complete reference for package selection, checksums, custom prefixes, source builds and removal.
+
 Semwright is development software. R16 is CLOSED after separate revalidation. R06/R18 residual
 physical/interactive cases remain OPEN — DEFERRED_TO_POST_V1_ENVIRONMENT_DEPENDENT, not initial-v1
 publication prerequisites. Independent security review and explicit maintainer authorization remain
@@ -134,8 +137,9 @@ removal rather than overriding it; normal upgrades use clean removal followed by
 External configuration, audit data, projects, application add-ons and consent remain untouched.
 
 No helper changes PATH. Invoke installed absolute paths, or explicitly add the installed `bin`
-directory to your own shell session. No daemon starts automatically. Run `semwright setup` to create
-the private observe-only config when missing; an existing config is never replaced. Review
+directory to your own shell session. The installer prints the exact installed `semwright setup`
+command, so first use does not depend on PATH. No daemon starts automatically. Setup creates the
+private observe-only config when missing; an existing config is never replaced. Review
 [permissions](permissions.md) before a live run and use an ordinary graphical-session user.
 Installation/setup checks are not physical desktop or security certification.
 
