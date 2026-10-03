@@ -8,6 +8,11 @@ on:
         description: Run bounded frozen-source positive tests and fake quickstart
         type: boolean
         default: false
+      source_sha:
+        description: Exact 40-character source SHA to test; blank uses this workflow ref
+        type: string
+        required: false
+        default: ''
 permissions:
   contents: read
 concurrency:
@@ -38,6 +43,7 @@ jobs:
       CARGO_PROFILE_TEST_DEBUG: '0'
       CARGO_TERM_COLOR: never
       REVIEW_SUITE_SHA: ${{ github.sha }}
+      REVIEW_SOURCE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.source_sha || github.sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -45,7 +51,7 @@ jobs:
           persist-credentials: false
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: 6491c0d838fa066938a494524d69ed507aa0dbe8
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.source_sha || github.sha }}
           path: source
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
@@ -60,4 +66,4 @@ jobs:
           rustc --version --verbose
           cargo --version
           uname -srmo
-          python3 suite/scripts/review/r16-smoke.py --source source --suite-sha "$REVIEW_SUITE_SHA"
+          python3 suite/scripts/review/r16-smoke.py             --source source             --expected-source-sha "$REVIEW_SOURCE_SHA"             --suite-sha "$REVIEW_SUITE_SHA"

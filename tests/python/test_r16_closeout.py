@@ -10,6 +10,12 @@ SPEC = importlib.util.spec_from_file_location("r16_validator", ROOT / "scripts/r
 MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
 
+SMOKE_SPEC = importlib.util.spec_from_file_location(
+    "r16_smoke", ROOT / "scripts/review/r16-smoke.py"
+)
+SMOKE = importlib.util.module_from_spec(SMOKE_SPEC)
+SMOKE_SPEC.loader.exec_module(SMOKE)
+
 
 def record():
     return {"review_target_sha": "a" * 40, "final_source_sha": "b" * 40,
@@ -60,6 +66,38 @@ class EvidenceTests(unittest.TestCase):
     def test_duplicate_json_keys_rejected(self):
         with self.assertRaises(ValueError):
             json.loads('{"result":"FAIL","result":"PASS"}', object_pairs_hook=MODULE.duplicate_keys)
+
+    def test_fake_smoke_requires_structured_effect_and_audit(self):
+        lines = [
+            {"command": "doctor", "ok": True, "data": {"fake": True}},
+            {"command": "ui.find", "ok": True, "data": {"count": 2}},
+            {"command": "recipe.run", "ok": True, "data": {
+                "completed": True,
+                "outputs": {"changed": True},
+                "steps": [{"ok": True}, {"ok": True}],
+            }},
+            {"command": "audit.tail", "ok": True, "data": {"events": [
+                {"command": "ui.invoke", "phase": "finish", "ok": True}
+            ]}},
+        ]
+        stdout = "\n".join(json.dumps(row) for row in lines)
+        assertions = SMOKE.assert_fake_smoke(stdout)
+        self.assertIn("recipe_completed_changed_true", assertions)
+        self.assertIn("audit_ui_invoke_finish_ok", assertions)
+
+    def test_fake_smoke_rejects_exit_success_without_effect_evidence(self):
+        lines = [
+            {"command": "doctor", "ok": True, "data": {"fake": True}},
+            {"command": "ui.find", "ok": True, "data": {"count": 2}},
+            {"command": "recipe.run", "ok": True, "data": {
+                "completed": True,
+                "outputs": {"changed": False},
+                "steps": [{"ok": True}, {"ok": True}],
+            }},
+            {"command": "audit.tail", "ok": True, "data": {"events": []}},
+        ]
+        with self.assertRaises(ValueError):
+            SMOKE.assert_fake_smoke("\n".join(json.dumps(row) for row in lines))
 
     def test_local_links_and_external_exclusion(self):
         with tempfile.TemporaryDirectory() as folder:
