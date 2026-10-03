@@ -1,0 +1,133 @@
+{
+  "schema_version": 1,
+  "source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+  "suite_sha": "ac52dc72db5b6e23bc36b5e3f34b89aba9c99251",
+  "run_id": 37088550848,
+  "conclusion": "success",
+  "status": "PASS_EXPLICIT_JOB_DISPOSITION_WITH_CORRECTED_TEST_FIXTURE",
+  "original_global_run_id": 37074828959,
+  "original_global_conclusion": "failure",
+  "original_workflow_pass_claimed": false,
+  "original_jobs_passed": 62,
+  "original_jobs_skipped": [
+    "figma / authoring",
+    "figma / fuzz",
+    "motion / domain",
+    "motion / fuzz",
+    "motion / portable-compile",
+    "motion / real-render-and-host"
+  ],
+  "skips_count_as_executed": false,
+  "original_failed_job": 111090595445,
+  "corrected_job_retest_run_id": 37085834067,
+  "corrected_job_retest_suite_sha": "27924ecf3bba369e0560c6685693bac3aa1dcdc3",
+  "corrected_job_artifact_digest": "sha256:ca543d7c4756d78af371f7def9238c979d7af8fe5be8a7d59106a45d567ea270",
+  "original_required_step_names_preserved": [
+    "Architecture evidence",
+    "Complete job",
+    "Format",
+    "Host runner outbound network preflight",
+    "Interactive harness PowerShell parses",
+    "Native Windows docs",
+    "Native Windows runtime Clippy",
+    "Native Windows runtime check",
+    "Native Windows runtime tests",
+    "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+    "Record CI class",
+    "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+    "Run actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+    "Run dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de",
+    "Secure Windows Driver ambient network authority",
+    "Secure Windows Driver loopback bridge",
+    "Secure Windows Driver sealed tools",
+    "Secure Windows Driver secret grants",
+    "Secure Windows Driver workspace grants",
+    "Secure Windows Plugin Host authority",
+    "Secure Windows external MCP authority",
+    "Set up job",
+    "UIA fixture compiles natively",
+    "Windows portable command contracts"
+  ],
+  "retest_job_id": 111095827516,
+  "production_source_modified": false,
+  "test_fixture_correction_in_product_tree": false,
+  "fixture_disposition": "Native UIA fixture reacquires its snapshot after the bounded placement search; production StaleReference checks and every original job check remain enforced. Review packet must carry the corrected external fixture and reproduction instructions.",
+  "exact_source_certificates": {
+    "AV_EXACT_I_cd51874.json": {
+      "run_id": 37077508380,
+      "suite_sha": "cd518748f742025a251b78028613aa1b16919e73",
+      "sha256": "96c3e77d785f881b87d5de00510a034e9b155adc4959d61c48500d701bcd3b6b"
+    },
+    "A_EXACT_I_cd51874.json": {
+      "run_id": 37080028165,
+      "suite_sha": "cd518748f742025a251b78028613aa1b16919e73",
+      "sha256": "ed94371098b6640f113c16ee58bcfcf23d7f434c23f5b321fa6303dcb88c4c1a"
+    },
+    "B_EXACT_I_cd51874.json": {
+      "run_id": 37077804879,
+      "suite_sha": "cd518748f742025a251b78028613aa1b16919e73",
+      "sha256": "fdd4a1741ccc44d4496358a5bfe5b51c7d88a11eadf36d7b2be4dada02e7b9a9"
+    },
+    "C_EXACT_I_cd51874.json": {
+      "run_id": 37080806793,
+      "suite_sha": "cd518748f742025a251b78028613aa1b16919e73",
+      "sha256": "be96e3e7d66e951f450be5c48d83a67b9fcd56628a463e5f417beae304ce9e68"
+    },
+    "D_EXACT_I_cd51874.json": {
+      "run_id": 37075910269,
+      "suite_sha": "cd518748f742025a251b78028613aa1b16919e73",
+      "sha256": "14bce4082134b2d95119b81eae47074e45ed98ab263bf5f93273c9d635427fa9"
+    },
+    "E_EXACT_I_cd51874.json": {
+      "run_id": 37074959691,
+      "suite_sha": "cd518748f742025a251b78028613aa1b16919e73",
+      "sha256": "7a5c960ab7fcb9ca9df85669a569b44108462648f5629fa930592bddae79359f"
+    },
+    "F_EXACT_I_cd51874.json": {
+      "run_id": 37081317102,
+      "suite_sha": "cd518748f742025a251b78028613aa1b16919e73",
+      "sha256": "e5200c34ffac085ec886af8742a5cd90fc7e350d4f26eb1368729b03674706f0"
+    },
+    "G_FINAL_INTEGRATED_CAMPAIGN_37074787747.json": {
+      "run_id": 37074787747,
+      "suite_sha": "73cf4806d5c0193109da4d1cc6aa96b01b7c6a73",
+      "sha256": "191051db61ddeb68888417c6f144aa44d8551cceaed0deedafeb70544d286ae2"
+    },
+    "I_HOST_CONTROL_REGRESSIONS_cd51874.json": {
+      "run_id": 37074140012,
+      "suite_sha": "d885011b6608faae349339230bb1a92213a73155",
+      "sha256": "507a3381b7b5ea348e3b2bfc7ea29170f2535d3dfcf85eb12219e994427c61b6"
+    },
+    "I_JOINT_CHAIN_VERIFIED_cd51874.json": {
+      "run_id": 37082277878,
+      "suite_sha": "6a925a9557990ab5f972fb89f11de6f49b16fe85",
+      "sha256": "2b4cf12c49ca1d2ae3f8377dee5e0e6e6d31c23014653908c6f3229a4ce86e9a"
+    },
+    "I_JOINT_NATIVE_cd51874.json": {
+      "run_id": 37077527190,
+      "suite_sha": "c2d3a561e67ab2184b5d319c941cd18b65decfd2",
+      "sha256": "b46774c24c902bc40456728d00c7e014c9a9a3b5e3dada0d04f2451fccf27cf0"
+    },
+    "MAINTAINER_PRECHECK_cd51874.json": {
+      "run_id": 37076233575,
+      "suite_sha": "8b61cb360e767cd008504d3e65bed53b618cf367",
+      "sha256": "7933980b194dd873e3c164f078ec103ad11b00a26ab88705f6ceaf0c2efa1a11"
+    },
+    "MOTION_EXACT_I_cd51874.json": {
+      "run_id": 37082918121,
+      "suite_sha": "cd518748f742025a251b78028613aa1b16919e73",
+      "sha256": "5d95a6839146928b0e1312254ddf763c28ad478e45a97b41e8f02e4b313afb77"
+    },
+    "SOURCE_EXACT_I_cd51874.json": {
+      "run_id": 37074022332,
+      "suite_sha": "cd518748f742025a251b78028613aa1b16919e73",
+      "sha256": "72ba22e8f2f0690f9e47a981d6dfb75ef2e0622271f7a609d6460584f3c97a6a"
+    }
+  },
+  "interactive_windows_certified": false,
+  "native_scope": "Scoped owner/native controls; no live Figma authoring or interactive Windows acceptance",
+  "r16_closed": false,
+  "main_merge_performed": false,
+  "artifact_id": 11260709591,
+  "artifact_zip_sha256": "b1195c038fd9a05bdf8a3999507893861f6be9ff1baf681815851dd8f469d22a"
+}

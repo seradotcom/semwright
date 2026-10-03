@@ -1,0 +1,2508 @@
+{
+  "source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+  "run_id": 37082918121,
+  "conclusion": "success",
+  "attempt": 1,
+  "artifacts": [
+    {
+      "id": 11258723815,
+      "name": "motion-canvas-real-render-evidence",
+      "size_in_bytes": 12982,
+      "digest": "sha256:3e9d2857df94f69c48f4ef109e19598e3b9d1e0198aff24dc9ffa8c1b83901de",
+      "zip_sha256": "3e9d2857df94f69c48f4ef109e19598e3b9d1e0198aff24dc9ffa8c1b83901de",
+      "files_sha256": {
+        "integrations/motion-canvas/runtime/evidence/versions.json": "bb5abce90ef4cf6d1be3e19b6d1dcb65dd35b4636751fa1ceb2a1ec1c7c23e85",
+        "integrations/motion-canvas/runtime/verification/firefox-4g-address-space.log": "b3e0239821503baac3554ba718b982b7b387df31774ba22309652aa28777f982",
+        "verification/motion-canvas-host/artifacts/alpha-first.png": "7e0239d45620b37d5236ba197d5113fa4ae90d3b22f9fa387dfa7e314f85e94b",
+        "verification/motion-canvas-host/artifacts/alpha-manifest.json": "fe4ce7e6c6cf197ff0a51384e82dd37ca6254788bb1f4d50ab1f811551681e70",
+        "verification/motion-canvas-host/artifacts/composition-broker-native.json": "e715c334b45cec2b13f4be8036a553cbd6add82fd118d9de08f460697287d205",
+        "verification/motion-canvas-host/artifacts/opaque-first.png": "fbb9a95c841c7ba4eeb7cfeaabd91dfe9555589aebc01ed52351c26a0eb1b4bc",
+        "verification/motion-canvas-host/artifacts/opaque-manifest.json": "2aeb15d0aba0b47cfe748c582dadc2aec209382b4e667c91bea05e020ec9f278",
+        "verification/motion-canvas-host/composition-authoring.log": "51ffeda0ac1c2d7b1ebdfe4728a759213e0b00e9204e0eee1c14fb0bfb7c5024",
+        "verification/motion-canvas-host/conformance.log": "ba453ed410541da7219a0ce795b4f5871257a4c0c73f39c652b76edd1eec1fb1",
+        "verification/motion-canvas-host/render.log": "b1e9e54d85df18e23f8bd9a3c4e01fee8acf2381875305d9a5202a52f104fb1d",
+        "verification/motion-canvas-host/runtime-tool-attestation.txt": "ea55cdbca4fca6e69c5f5ee66b602c313b2cc96b9a8695fad5b0d125860d8bf2"
+      },
+      "json": {
+        "integrations/motion-canvas/runtime/evidence/versions.json": {
+          "node": "v22.22.0",
+          "@motion-canvas/core": "3.17.2",
+          "@motion-canvas/2d": "3.17.2",
+          "@motion-canvas/vite-plugin": "3.17.2",
+          "vite": "5.4.21",
+          "playwright": "1.61.1",
+          "browser": "151.0",
+          "browserFamily": "firefox",
+          "canvas": true
+        },
+        "verification/motion-canvas-host/artifacts/alpha-manifest.json": {
+          "frames": [
+            {
+              "bytes": 3476,
+              "file": "frames/000000.png",
+              "index": 0,
+              "max_alpha": 255,
+              "min_alpha": 0,
+              "pixel_sha256": "0e621217ad1b8cc12c7cb621e1067df1364b7f82604ec4da58aafbb85900968d",
+              "sha256": "7e0239d45620b37d5236ba197d5113fa4ae90d3b22f9fa387dfa7e314f85e94b"
+            },
+            {
+              "bytes": 10168,
+              "file": "frames/000001.png",
+              "index": 1,
+              "max_alpha": 255,
+              "min_alpha": 0,
+              "pixel_sha256": "ff296fc3c233bc14d9c7bb06210b0ae8a75d088673d819554e84429c6b926ec6",
+              "sha256": "fbabf9f1be859778c211293adbb7217d1b205078378643c9f6541e4ee4965a19"
+            }
+          ],
+          "native_observations": null,
+          "pixel_validation": {
+            "mode": "all",
+            "sample_indices": [
+              0,
+              1
+            ]
+          },
+          "plan": {
+            "alpha": true,
+            "color_space": "srgb",
+            "end_frame_exclusive": 2,
+            "first_frame": 0,
+            "fps": 30,
+            "frame_count": 2,
+            "height": 360,
+            "project_duration_ms": 10000,
+            "renderer": "bundled_browser_v1",
+            "timeout_ms": 120000,
+            "width": 640
+          },
+          "renderer": "motion-canvas-core-renderer-v3.17.2"
+        },
+        "verification/motion-canvas-host/artifacts/composition-broker-native.json": {
+          "broker_session": "motion-composition-native",
+          "claim_scope": "Broker -> Driver Host -> Motion Canvas native render observations; native 16:9/9:16/1:1 reflow",
+          "plan_ref": "cb6b79981a1d235ee294fc84a3ffc51693816ffd2c90a64ab95f689675e115c9",
+          "reflows": [
+            {
+              "aspect": "landscape",
+              "height": 360,
+              "render": {
+                "artifact": {
+                  "directory": "render-a18565325be943379254b26cd986694f",
+                  "first_png": "render-a18565325be943379254b26cd986694f/frames/000000.png",
+                  "frame_count": 90,
+                  "last_png": "render-a18565325be943379254b26cd986694f/frames/000089.png",
+                  "manifest": "render-a18565325be943379254b26cd986694f/artifact-manifest.json",
+                  "manifest_bytes": 23680,
+                  "manifest_sha256": "ad789de426882077ebbf1a2650128a9282b72a6e9035318f14800105d03225ba"
+                },
+                "error": null,
+                "job_ref": "mc1:technical-motion:400afe291c854a009b89398990bbcc2a:1:c0e06f07ee15a5d0008b9d65d10214e17fe84afebb86e760aa8d33abe314d360:render_job:render-a18565325be943379254b26cd986694f",
+                "state": "succeeded"
+              },
+              "source_fingerprint": "c0e06f07ee15a5d0008b9d65d10214e17fe84afebb86e760aa8d33abe314d360",
+              "verification": {
+                "measurement": {
+                  "coverage": {
+                    "artifact_digest": "ad789de426882077ebbf1a2650128a9282b72a6e9035318f14800105d03225ba",
+                    "end_frame_exclusive": 90,
+                    "exhaustive": true,
+                    "first_frame": 0,
+                    "font_resources_digest": "63e621d6402c9a1ed87f43715a493cd7c45e8b767c8277b24771bc982bc5b209",
+                    "fps": {
+                      "den": 1,
+                      "num": 30
+                    },
+                    "method": "motion-canvas-3.17.2-native-frame-probe-v1",
+                    "observation_digest": "0a35feb6aa833a1aab1eab00fbadf328b973c5a2ddc149fdcbcdac2809004962",
+                    "observed_frames": 90,
+                    "render_input_digest": "6c67dd89b3c5708ca0198b32988601f357758d2c79de7db7b1911e221b3a45d9"
+                  },
+                  "findings": [],
+                  "intent_digest": "62a6f32d92205e8d4e7abea7a72f8b136ade7d9bc249b3f92d3f042516f262a3",
+                  "metrics": [
+                    {
+                      "kinematics_unknown_frames": 1,
+                      "maximum_acceleration": 0.0,
+                      "maximum_speed": 0.0,
+                      "native_draw_frames": 89,
+                      "observed_frames": 90,
+                      "pixel_visibility_unknown_frames": 90,
+                      "pixel_visible_frames": 0,
+                      "subject": "box_a"
+                    },
+                    {
+                      "kinematics_unknown_frames": 0,
+                      "maximum_acceleration": 0.0,
+                      "maximum_speed": 0.0,
+                      "native_draw_frames": 90,
+                      "observed_frames": 90,
+                      "pixel_visibility_unknown_frames": 90,
+                      "pixel_visible_frames": 0,
+                      "subject": "box_b"
+                    },
+                    {
+                      "kinematics_unknown_frames": 0,
+                      "maximum_acceleration": 0.0,
+                      "maximum_speed": 0.0,
+                      "native_draw_frames": 90,
+                      "observed_frames": 90,
+                      "pixel_visibility_unknown_frames": 90,
+                      "pixel_visible_frames": 0,
+                      "subject": "camera"
+                    },
+                    {
+                      "kinematics_unknown_frames": 0,
+                      "maximum_acceleration": 0.0,
+                      "maximum_speed": 0.0,
+                      "native_draw_frames": 90,
+                      "observed_frames": 90,
+                      "pixel_visibility_unknown_frames": 90,
+                      "pixel_visible_frames": 0,
+                      "subject": "code"
+                    },
+                    {
+                      "kinematics_unknown_frames": 0,
+                      "maximum_acceleration": 0.0,
+                      "maximum_speed": 0.0,
+                      "native_draw_frames": 90,
+                      "observed_frames": 90,
+                      "pixel_visibility_unknown_frames": 90,
+                      "pixel_visible_frames": 0,
+                      "subject": "label"
+                    },
+                    {
+                      "kinematics_unknown_frames": 0,
+                      "maximum_acceleration": 0.0,
+                      "maximum_speed": 0.0,
+                      "native_draw_frames": 90,
+                      "observed_frames": 90,
+                      "pixel_visibility_unknown_frames": 90,
+                      "pixel_visible_frames": 0,
+                      "subject": "overlay"
+                    },
+                    {
+                      "kinematics_unknown_frames": 0,
+                      "maximum_acceleration": 0.0,
+                      "maximum_speed": 0.0,
+                      "native_draw_frames": 90,
+                      "observed_frames": 90,
+                      "pixel_visibility_unknown_frames": 90,
+                      "pixel_visible_frames": 0,
+                      "subject": "path"
+                    }
+                  ],
+                  "validation": {
+                    "base": [
+                      {
+                        "concurrency": "best_effort_revalidate",
+                        "document_id": "technical-motion",
+                        "generation": "400afe291c854a009b89398990bbcc2a",
+                        "key": {
+                          "provider": "driver:motion-canvas",
+                          "resource": "project"
+                        },
+                        "provider_session": "motion-composition-native",
+                        "revision": {
+                          "kind": "fingerprint",
+                          "value": "c0e06f07ee15a5d0008b9d65d10214e17fe84afebb86e760aa8d33abe314d360"
+                        }
+                      }
+                    ],
+                    "checks": [
+                      {
+                        "evidence": [
+                          {
+                            "artifact": "ad789de426882077ebbf1a2650128a9282b72a6e9035318f14800105d03225ba",
+                            "base": [
+                              {
+                                "concurrency": "best_effort_revalidate",
+                                "document_id": "technical-motion",
+                                "generation": "400afe291c854a009b89398990bbcc2a",
+                                "key": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                },
+                                "provider_session": "motion-composition-native",
+                                "revision": {
+                                  "kind": "fingerprint",
+                                  "value": "c0e06f07ee15a5d0008b9d65d10214e17fe84afebb86e760aa8d33abe314d360"
+                                }
+                              }
+                            ],
+                            "exhaustive": true,
+                            "id": "render-0a35feb6aa833a1a",
+                            "method": "motion-canvas-3.17.2-native-frame-probe-v1",
+                            "method_version": 1,
+                            "scope": [
+                              {
+                                "logical_id": "technical-motion",
+                                "property": "native-frame-state",
+                                "resource": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                }
+                              }
+                            ],
+                            "source": "renderer_state"
+                          }
+                        ],
+                        "evidence_class": "DETERMINISTIC",
+                        "reason": null,
+                        "rule": "native-frame-coverage",
+                        "verdict": "PASS",
+                        "version": 1
+                      },
+                      {
+                        "evidence": [
+                          {
+                            "artifact": "ad789de426882077ebbf1a2650128a9282b72a6e9035318f14800105d03225ba",
+                            "base": [
+                              {
+                                "concurrency": "best_effort_revalidate",
+                                "document_id": "technical-motion",
+                                "generation": "400afe291c854a009b89398990bbcc2a",
+                                "key": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                },
+                                "provider_session": "motion-composition-native",
+                                "revision": {
+                                  "kind": "fingerprint",
+                                  "value": "c0e06f07ee15a5d0008b9d65d10214e17fe84afebb86e760aa8d33abe314d360"
+                                }
+                              }
+                            ],
+                            "exhaustive": true,
+                            "id": "render-0a35feb6aa833a1a",
+                            "method": "motion-canvas-3.17.2-native-frame-probe-v1",
+                            "method_version": 1,
+                            "scope": [
+                              {
+                                "logical_id": "technical-motion",
+                                "property": "native-frame-state",
+                                "resource": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                }
+                              }
+                            ],
+                            "source": "renderer_state"
+                          }
+                        ],
+                        "evidence_class": "DETERMINISTIC",
+                        "reason": null,
+                        "rule": "resolved-cues",
+                        "verdict": "PASS",
+                        "version": 1
+                      },
+                      {
+                        "evidence": [
+                          {
+                            "artifact": "ad789de426882077ebbf1a2650128a9282b72a6e9035318f14800105d03225ba",
+                            "base": [
+                              {
+                                "concurrency": "best_effort_revalidate",
+                                "document_id": "technical-motion",
+                                "generation": "400afe291c854a009b89398990bbcc2a",
+                                "key": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                },
+                                "provider_session": "motion-composition-native",
+                                "revision": {
+                                  "kind": "fingerprint",
+                                  "value": "c0e06f07ee15a5d0008b9d65d10214e17fe84afebb86e760aa8d33abe314d360"
+                                }
+                              }
+                            ],
+                            "exhaustive": true,
+                            "id": "render-0a35feb6aa833a1a",
+                            "method": "motion-canvas-3.17.2-native-frame-probe-v1",
+                            "method_version": 1,
+                            "scope": [
+                              {
+                                "logical_id": "technical-motion",
+                                "property": "native-frame-state",
+                                "resource": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                }
+                              }
+                            ],
+                            "source": "renderer_state"
+                          }
+                        ],
+                        "evidence_class": "DETERMINISTIC",
+                        "reason": null,
+                        "rule": "caption-timing",
+                        "verdict": "PASS",
+                        "version": 1
+                      },
+                      {
+                        "evidence": [
+                          {
+                            "artifact": "ad789de426882077ebbf1a2650128a9282b72a6e9035318f14800105d03225ba",
+                            "base": [
+                              {
+                                "concurrency": "best_effort_revalidate",
+                                "document_id": "technical-motion",
+                                "generation": "400afe291c854a009b89398990bbcc2a",
+                                "key": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                },
+                                "provider_session": "motion-composition-native",
+                                "revision": {
+                                  "kind": "fingerprint",
+                                  "value": "c0e06f07ee15a5d0008b9d65d10214e17fe84afebb86e760aa8d33abe314d360"
+                                }
+                              }
+                            ],
+                            "exhaustive": true,
+                            "id": "render-0a35feb6aa833a1a",
+                            "method": "motion-canvas-3.17.2-native-frame-probe-v1",
+                            "method_version": 1,
+                            "scope": [
+                              {
+                                "logical_id": "technical-motion",
+                                "property": "native-frame-state",
+                                "resource": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                }
+                              }
+                            ],
+                            "source": "renderer_state"
+                          }
+                        ],
+                        "evidence_class": "DETERMINISTIC",
+                        "reason": null,
+                        "rule": "transition-completion",
+                        "verdict": "PASS",
+                        "version": 1
+                      }
+                    ],
+                    "plan_digest": "cb6b79981a1d235ee294fc84a3ffc51693816ffd2c90a64ab95f689675e115c9",
+                    "required_rules": [
+                      "caption-timing",
+                      "native-frame-coverage",
+                      "resolved-cues",
+                      "transition-completion"
+                    ]
+                  },
+                  "version": 1
+                },
+                "report": {
+                  "effects_observed": [],
+                  "effects_unobservable": [],
+                  "execution_status": "completed",
+                  "support_level": "native",
+                  "validation": {
+                    "base": [
+                      {
+                        "concurrency": "best_effort_revalidate",
+                        "document_id": "technical-motion",
+                        "generation": "400afe291c854a009b89398990bbcc2a",
+                        "key": {
+                          "provider": "driver:motion-canvas",
+                          "resource": "project"
+                        },
+                        "provider_session": "motion-composition-native",
+                        "revision": {
+                          "kind": "fingerprint",
+                          "value": "c0e06f07ee15a5d0008b9d65d10214e17fe84afebb86e760aa8d33abe314d360"
+                        }
+                      }
+                    ],
+                    "checks": [
+                      {
+                        "evidence": [
+                          {
+                            "artifact": "ad789de426882077ebbf1a2650128a9282b72a6e9035318f14800105d03225ba",
+                            "base": [
+                              {
+                                "concurrency": "best_effort_revalidate",
+                                "document_id": "technical-motion",
+                                "generation": "400afe291c854a009b89398990bbcc2a",
+                                "key": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                },
+                                "provider_session": "motion-composition-native",
+                                "revision": {
+                                  "kind": "fingerprint",
+                                  "value": "c0e06f07ee15a5d0008b9d65d10214e17fe84afebb86e760aa8d33abe314d360"
+                                }
+                              }
+                            ],
+                            "exhaustive": true,
+                            "id": "render-0a35feb6aa833a1a",
+                            "method": "motion-canvas-3.17.2-native-frame-probe-v1",
+                            "method_version": 1,
+                            "scope": [
+                              {
+                                "logical_id": "technical-motion",
+                                "property": "native-frame-state",
+                                "resource": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                }
+                              }
+                            ],
+                            "source": "renderer_state"
+                          }
+                        ],
+                        "evidence_class": "DETERMINISTIC",
+                        "reason": null,
+                        "rule": "native-frame-coverage",
+                        "verdict": "PASS",
+                        "version": 1
+                      },
+                      {
+                        "evidence": [
+                          {
+                            "artifact": "ad789de426882077ebbf1a2650128a9282b72a6e9035318f14800105d03225ba",
+                            "base": [
+                              {
+                                "concurrency": "best_effort_revalidate",
+                                "document_id": "technical-motion",
+                                "generation": "400afe291c854a009b89398990bbcc2a",
+                                "key": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                },
+                                "provider_session": "motion-composition-native",
+                                "revision": {
+                                  "kind": "fingerprint",
+                                  "value": "c0e06f07ee15a5d0008b9d65d10214e17fe84afebb86e760aa8d33abe314d360"
+                                }
+                              }
+                            ],
+                            "exhaustive": true,
+                            "id": "render-0a35feb6aa833a1a",
+                            "method": "motion-canvas-3.17.2-native-frame-probe-v1",
+                            "method_version": 1,
+                            "scope": [
+                              {
+                                "logical_id": "technical-motion",
+                                "property": "native-frame-state",
+                                "resource": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                }
+                              }
+                            ],
+                            "source": "renderer_state"
+                          }
+                        ],
+                        "evidence_class": "DETERMINISTIC",
+                        "reason": null,
+                        "rule": "resolved-cues",
+                        "verdict": "PASS",
+                        "version": 1
+                      },
+                      {
+                        "evidence": [
+                          {
+                            "artifact": "ad789de426882077ebbf1a2650128a9282b72a6e9035318f14800105d03225ba",
+                            "base": [
+                              {
+                                "concurrency": "best_effort_revalidate",
+                                "document_id": "technical-motion",
+                                "generation": "400afe291c854a009b89398990bbcc2a",
+                                "key": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                },
+                                "provider_session": "motion-composition-native",
+                                "revision": {
+                                  "kind": "fingerprint",
+                                  "value": "c0e06f07ee15a5d0008b9d65d10214e17fe84afebb86e760aa8d33abe314d360"
+                                }
+                              }
+                            ],
+                            "exhaustive": true,
+                            "id": "render-0a35feb6aa833a1a",
+                            "method": "motion-canvas-3.17.2-native-frame-probe-v1",
+                            "method_version": 1,
+                            "scope": [
+                              {
+                                "logical_id": "technical-motion",
+                                "property": "native-frame-state",
+                                "resource": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                }
+                              }
+                            ],
+                            "source": "renderer_state"
+                          }
+                        ],
+                        "evidence_class": "DETERMINISTIC",
+                        "reason": null,
+                        "rule": "caption-timing",
+                        "verdict": "PASS",
+                        "version": 1
+                      },
+                      {
+                        "evidence": [
+                          {
+                            "artifact": "ad789de426882077ebbf1a2650128a9282b72a6e9035318f14800105d03225ba",
+                            "base": [
+                              {
+                                "concurrency": "best_effort_revalidate",
+                                "document_id": "technical-motion",
+                                "generation": "400afe291c854a009b89398990bbcc2a",
+                                "key": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                },
+                                "provider_session": "motion-composition-native",
+                                "revision": {
+                                  "kind": "fingerprint",
+                                  "value": "c0e06f07ee15a5d0008b9d65d10214e17fe84afebb86e760aa8d33abe314d360"
+                                }
+                              }
+                            ],
+                            "exhaustive": true,
+                            "id": "render-0a35feb6aa833a1a",
+                            "method": "motion-canvas-3.17.2-native-frame-probe-v1",
+                            "method_version": 1,
+                            "scope": [
+                              {
+                                "logical_id": "technical-motion",
+                                "property": "native-frame-state",
+                                "resource": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                }
+                              }
+                            ],
+                            "source": "renderer_state"
+                          }
+                        ],
+                        "evidence_class": "DETERMINISTIC",
+                        "reason": null,
+                        "rule": "transition-completion",
+                        "verdict": "PASS",
+                        "version": 1
+                      }
+                    ],
+                    "plan_digest": "cb6b79981a1d235ee294fc84a3ffc51693816ffd2c90a64ab95f689675e115c9",
+                    "required_rules": [
+                      "caption-timing",
+                      "native-frame-coverage",
+                      "resolved-cues",
+                      "transition-completion"
+                    ]
+                  }
+                }
+              },
+              "width": 640
+            },
+            {
+              "aspect": "portrait",
+              "height": 640,
+              "render": {
+                "artifact": {
+                  "directory": "render-e31b32e843d54c82a669153478d850b2",
+                  "first_png": "render-e31b32e843d54c82a669153478d850b2/frames/000000.png",
+                  "frame_count": 90,
+                  "last_png": "render-e31b32e843d54c82a669153478d850b2/frames/000089.png",
+                  "manifest": "render-e31b32e843d54c82a669153478d850b2/artifact-manifest.json",
+                  "manifest_bytes": 23680,
+                  "manifest_sha256": "a762747df8a0cb11ef2812629752b332616e4212b01eb795b0ba174bab372581"
+                },
+                "error": null,
+                "job_ref": "mc1:technical-motion:400afe291c854a009b89398990bbcc2a:2:37217ff7072453b0f242e11eeee4c643119ccb3e046c83e4d3e10d337278ebab:render_job:render-e31b32e843d54c82a669153478d850b2",
+                "state": "succeeded"
+              },
+              "source_fingerprint": "37217ff7072453b0f242e11eeee4c643119ccb3e046c83e4d3e10d337278ebab",
+              "verification": {
+                "measurement": {
+                  "coverage": {
+                    "artifact_digest": "a762747df8a0cb11ef2812629752b332616e4212b01eb795b0ba174bab372581",
+                    "end_frame_exclusive": 90,
+                    "exhaustive": true,
+                    "first_frame": 0,
+                    "font_resources_digest": "63e621d6402c9a1ed87f43715a493cd7c45e8b767c8277b24771bc982bc5b209",
+                    "fps": {
+                      "den": 1,
+                      "num": 30
+                    },
+                    "method": "motion-canvas-3.17.2-native-frame-probe-v1",
+                    "observation_digest": "d0043189efa8fe4471e687c4087b71a4038905518fad212079287083ecf8706c",
+                    "observed_frames": 90,
+                    "render_input_digest": "cc33f6a32256c4934d3b06af4ad7aa582654260b8a8f647e294f0460864e2497"
+                  },
+                  "findings": [],
+                  "intent_digest": "64f89b16b9170fa2f84cde42801d9f1026a7a7797af83a7e5d1ca62cc46a1aa8",
+                  "metrics": [
+                    {
+                      "kinematics_unknown_frames": 1,
+                      "maximum_acceleration": 0.0,
+                      "maximum_speed": 0.0,
+                      "native_draw_frames": 89,
+                      "observed_frames": 90,
+                      "pixel_visibility_unknown_frames": 90,
+                      "pixel_visible_frames": 0,
+                      "subject": "box_a"
+                    },
+                    {
+                      "kinematics_unknown_frames": 0,
+                      "maximum_acceleration": 0.0,
+                      "maximum_speed": 0.0,
+                      "native_draw_frames": 90,
+                      "observed_frames": 90,
+                      "pixel_visibility_unknown_frames": 90,
+                      "pixel_visible_frames": 0,
+                      "subject": "box_b"
+                    },
+                    {
+                      "kinematics_unknown_frames": 0,
+                      "maximum_acceleration": 0.0,
+                      "maximum_speed": 0.0,
+                      "native_draw_frames": 90,
+                      "observed_frames": 90,
+                      "pixel_visibility_unknown_frames": 90,
+                      "pixel_visible_frames": 0,
+                      "subject": "camera"
+                    },
+                    {
+                      "kinematics_unknown_frames": 0,
+                      "maximum_acceleration": 0.0,
+                      "maximum_speed": 0.0,
+                      "native_draw_frames": 90,
+                      "observed_frames": 90,
+                      "pixel_visibility_unknown_frames": 90,
+                      "pixel_visible_frames": 0,
+                      "subject": "code"
+                    },
+                    {
+                      "kinematics_unknown_frames": 0,
+                      "maximum_acceleration": 0.0,
+                      "maximum_speed": 0.0,
+                      "native_draw_frames": 90,
+                      "observed_frames": 90,
+                      "pixel_visibility_unknown_frames": 90,
+                      "pixel_visible_frames": 0,
+                      "subject": "label"
+                    },
+                    {
+                      "kinematics_unknown_frames": 0,
+                      "maximum_acceleration": 0.0,
+                      "maximum_speed": 0.0,
+                      "native_draw_frames": 90,
+                      "observed_frames": 90,
+                      "pixel_visibility_unknown_frames": 90,
+                      "pixel_visible_frames": 0,
+                      "subject": "overlay"
+                    },
+                    {
+                      "kinematics_unknown_frames": 0,
+                      "maximum_acceleration": 0.0,
+                      "maximum_speed": 0.0,
+                      "native_draw_frames": 90,
+                      "observed_frames": 90,
+                      "pixel_visibility_unknown_frames": 90,
+                      "pixel_visible_frames": 0,
+                      "subject": "path"
+                    }
+                  ],
+                  "validation": {
+                    "base": [
+                      {
+                        "concurrency": "best_effort_revalidate",
+                        "document_id": "technical-motion",
+                        "generation": "400afe291c854a009b89398990bbcc2a",
+                        "key": {
+                          "provider": "driver:motion-canvas",
+                          "resource": "project"
+                        },
+                        "provider_session": "motion-composition-native",
+                        "revision": {
+                          "kind": "fingerprint",
+                          "value": "37217ff7072453b0f242e11eeee4c643119ccb3e046c83e4d3e10d337278ebab"
+                        }
+                      }
+                    ],
+                    "checks": [
+                      {
+                        "evidence": [
+                          {
+                            "artifact": "a762747df8a0cb11ef2812629752b332616e4212b01eb795b0ba174bab372581",
+                            "base": [
+                              {
+                                "concurrency": "best_effort_revalidate",
+                                "document_id": "technical-motion",
+                                "generation": "400afe291c854a009b89398990bbcc2a",
+                                "key": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                },
+                                "provider_session": "motion-composition-native",
+                                "revision": {
+                                  "kind": "fingerprint",
+                                  "value": "37217ff7072453b0f242e11eeee4c643119ccb3e046c83e4d3e10d337278ebab"
+                                }
+                              }
+                            ],
+                            "exhaustive": true,
+                            "id": "render-d0043189efa8fe44",
+                            "method": "motion-canvas-3.17.2-native-frame-probe-v1",
+                            "method_version": 1,
+                            "scope": [
+                              {
+                                "logical_id": "technical-motion",
+                                "property": "native-frame-state",
+                                "resource": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                }
+                              }
+                            ],
+                            "source": "renderer_state"
+                          }
+                        ],
+                        "evidence_class": "DETERMINISTIC",
+                        "reason": null,
+                        "rule": "native-frame-coverage",
+                        "verdict": "PASS",
+                        "version": 1
+                      },
+                      {
+                        "evidence": [
+                          {
+                            "artifact": "a762747df8a0cb11ef2812629752b332616e4212b01eb795b0ba174bab372581",
+                            "base": [
+                              {
+                                "concurrency": "best_effort_revalidate",
+                                "document_id": "technical-motion",
+                                "generation": "400afe291c854a009b89398990bbcc2a",
+                                "key": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                },
+                                "provider_session": "motion-composition-native",
+                                "revision": {
+                                  "kind": "fingerprint",
+                                  "value": "37217ff7072453b0f242e11eeee4c643119ccb3e046c83e4d3e10d337278ebab"
+                                }
+                              }
+                            ],
+                            "exhaustive": true,
+                            "id": "render-d0043189efa8fe44",
+                            "method": "motion-canvas-3.17.2-native-frame-probe-v1",
+                            "method_version": 1,
+                            "scope": [
+                              {
+                                "logical_id": "technical-motion",
+                                "property": "native-frame-state",
+                                "resource": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                }
+                              }
+                            ],
+                            "source": "renderer_state"
+                          }
+                        ],
+                        "evidence_class": "DETERMINISTIC",
+                        "reason": null,
+                        "rule": "resolved-cues",
+                        "verdict": "PASS",
+                        "version": 1
+                      },
+                      {
+                        "evidence": [
+                          {
+                            "artifact": "a762747df8a0cb11ef2812629752b332616e4212b01eb795b0ba174bab372581",
+                            "base": [
+                              {
+                                "concurrency": "best_effort_revalidate",
+                                "document_id": "technical-motion",
+                                "generation": "400afe291c854a009b89398990bbcc2a",
+                                "key": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                },
+                                "provider_session": "motion-composition-native",
+                                "revision": {
+                                  "kind": "fingerprint",
+                                  "value": "37217ff7072453b0f242e11eeee4c643119ccb3e046c83e4d3e10d337278ebab"
+                                }
+                              }
+                            ],
+                            "exhaustive": true,
+                            "id": "render-d0043189efa8fe44",
+                            "method": "motion-canvas-3.17.2-native-frame-probe-v1",
+                            "method_version": 1,
+                            "scope": [
+                              {
+                                "logical_id": "technical-motion",
+                                "property": "native-frame-state",
+                                "resource": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                }
+                              }
+                            ],
+                            "source": "renderer_state"
+                          }
+                        ],
+                        "evidence_class": "DETERMINISTIC",
+                        "reason": null,
+                        "rule": "caption-timing",
+                        "verdict": "PASS",
+                        "version": 1
+                      },
+                      {
+                        "evidence": [
+                          {
+                            "artifact": "a762747df8a0cb11ef2812629752b332616e4212b01eb795b0ba174bab372581",
+                            "base": [
+                              {
+                                "concurrency": "best_effort_revalidate",
+                                "document_id": "technical-motion",
+                                "generation": "400afe291c854a009b89398990bbcc2a",
+                                "key": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                },
+                                "provider_session": "motion-composition-native",
+                                "revision": {
+                                  "kind": "fingerprint",
+                                  "value": "37217ff7072453b0f242e11eeee4c643119ccb3e046c83e4d3e10d337278ebab"
+                                }
+                              }
+                            ],
+                            "exhaustive": true,
+                            "id": "render-d0043189efa8fe44",
+                            "method": "motion-canvas-3.17.2-native-frame-probe-v1",
+                            "method_version": 1,
+                            "scope": [
+                              {
+                                "logical_id": "technical-motion",
+                                "property": "native-frame-state",
+                                "resource": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                }
+                              }
+                            ],
+                            "source": "renderer_state"
+                          }
+                        ],
+                        "evidence_class": "DETERMINISTIC",
+                        "reason": null,
+                        "rule": "transition-completion",
+                        "verdict": "PASS",
+                        "version": 1
+                      }
+                    ],
+                    "plan_digest": "39cb7db947ef4e5e1959274fe9f046df460311ce449405a464356375d8985ccb",
+                    "required_rules": [
+                      "caption-timing",
+                      "native-frame-coverage",
+                      "resolved-cues",
+                      "transition-completion"
+                    ]
+                  },
+                  "version": 1
+                },
+                "report": {
+                  "effects_observed": [],
+                  "effects_unobservable": [],
+                  "execution_status": "completed",
+                  "support_level": "native",
+                  "validation": {
+                    "base": [
+                      {
+                        "concurrency": "best_effort_revalidate",
+                        "document_id": "technical-motion",
+                        "generation": "400afe291c854a009b89398990bbcc2a",
+                        "key": {
+                          "provider": "driver:motion-canvas",
+                          "resource": "project"
+                        },
+                        "provider_session": "motion-composition-native",
+                        "revision": {
+                          "kind": "fingerprint",
+                          "value": "37217ff7072453b0f242e11eeee4c643119ccb3e046c83e4d3e10d337278ebab"
+                        }
+                      }
+                    ],
+                    "checks": [
+                      {
+                        "evidence": [
+                          {
+                            "artifact": "a762747df8a0cb11ef2812629752b332616e4212b01eb795b0ba174bab372581",
+                            "base": [
+                              {
+                                "concurrency": "best_effort_revalidate",
+                                "document_id": "technical-motion",
+                                "generation": "400afe291c854a009b89398990bbcc2a",
+                                "key": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                },
+                                "provider_session": "motion-composition-native",
+                                "revision": {
+                                  "kind": "fingerprint",
+                                  "value": "37217ff7072453b0f242e11eeee4c643119ccb3e046c83e4d3e10d337278ebab"
+                                }
+                              }
+                            ],
+                            "exhaustive": true,
+                            "id": "render-d0043189efa8fe44",
+                            "method": "motion-canvas-3.17.2-native-frame-probe-v1",
+                            "method_version": 1,
+                            "scope": [
+                              {
+                                "logical_id": "technical-motion",
+                                "property": "native-frame-state",
+                                "resource": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                }
+                              }
+                            ],
+                            "source": "renderer_state"
+                          }
+                        ],
+                        "evidence_class": "DETERMINISTIC",
+                        "reason": null,
+                        "rule": "native-frame-coverage",
+                        "verdict": "PASS",
+                        "version": 1
+                      },
+                      {
+                        "evidence": [
+                          {
+                            "artifact": "a762747df8a0cb11ef2812629752b332616e4212b01eb795b0ba174bab372581",
+                            "base": [
+                              {
+                                "concurrency": "best_effort_revalidate",
+                                "document_id": "technical-motion",
+                                "generation": "400afe291c854a009b89398990bbcc2a",
+                                "key": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                },
+                                "provider_session": "motion-composition-native",
+                                "revision": {
+                                  "kind": "fingerprint",
+                                  "value": "37217ff7072453b0f242e11eeee4c643119ccb3e046c83e4d3e10d337278ebab"
+                                }
+                              }
+                            ],
+                            "exhaustive": true,
+                            "id": "render-d0043189efa8fe44",
+                            "method": "motion-canvas-3.17.2-native-frame-probe-v1",
+                            "method_version": 1,
+                            "scope": [
+                              {
+                                "logical_id": "technical-motion",
+                                "property": "native-frame-state",
+                                "resource": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                }
+                              }
+                            ],
+                            "source": "renderer_state"
+                          }
+                        ],
+                        "evidence_class": "DETERMINISTIC",
+                        "reason": null,
+                        "rule": "resolved-cues",
+                        "verdict": "PASS",
+                        "version": 1
+                      },
+                      {
+                        "evidence": [
+                          {
+                            "artifact": "a762747df8a0cb11ef2812629752b332616e4212b01eb795b0ba174bab372581",
+                            "base": [
+                              {
+                                "concurrency": "best_effort_revalidate",
+                                "document_id": "technical-motion",
+                                "generation": "400afe291c854a009b89398990bbcc2a",
+                                "key": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                },
+                                "provider_session": "motion-composition-native",
+                                "revision": {
+                                  "kind": "fingerprint",
+                                  "value": "37217ff7072453b0f242e11eeee4c643119ccb3e046c83e4d3e10d337278ebab"
+                                }
+                              }
+                            ],
+                            "exhaustive": true,
+                            "id": "render-d0043189efa8fe44",
+                            "method": "motion-canvas-3.17.2-native-frame-probe-v1",
+                            "method_version": 1,
+                            "scope": [
+                              {
+                                "logical_id": "technical-motion",
+                                "property": "native-frame-state",
+                                "resource": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                }
+                              }
+                            ],
+                            "source": "renderer_state"
+                          }
+                        ],
+                        "evidence_class": "DETERMINISTIC",
+                        "reason": null,
+                        "rule": "caption-timing",
+                        "verdict": "PASS",
+                        "version": 1
+                      },
+                      {
+                        "evidence": [
+                          {
+                            "artifact": "a762747df8a0cb11ef2812629752b332616e4212b01eb795b0ba174bab372581",
+                            "base": [
+                              {
+                                "concurrency": "best_effort_revalidate",
+                                "document_id": "technical-motion",
+                                "generation": "400afe291c854a009b89398990bbcc2a",
+                                "key": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                },
+                                "provider_session": "motion-composition-native",
+                                "revision": {
+                                  "kind": "fingerprint",
+                                  "value": "37217ff7072453b0f242e11eeee4c643119ccb3e046c83e4d3e10d337278ebab"
+                                }
+                              }
+                            ],
+                            "exhaustive": true,
+                            "id": "render-d0043189efa8fe44",
+                            "method": "motion-canvas-3.17.2-native-frame-probe-v1",
+                            "method_version": 1,
+                            "scope": [
+                              {
+                                "logical_id": "technical-motion",
+                                "property": "native-frame-state",
+                                "resource": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                }
+                              }
+                            ],
+                            "source": "renderer_state"
+                          }
+                        ],
+                        "evidence_class": "DETERMINISTIC",
+                        "reason": null,
+                        "rule": "transition-completion",
+                        "verdict": "PASS",
+                        "version": 1
+                      }
+                    ],
+                    "plan_digest": "39cb7db947ef4e5e1959274fe9f046df460311ce449405a464356375d8985ccb",
+                    "required_rules": [
+                      "caption-timing",
+                      "native-frame-coverage",
+                      "resolved-cues",
+                      "transition-completion"
+                    ]
+                  }
+                }
+              },
+              "width": 360
+            },
+            {
+              "aspect": "square",
+              "height": 480,
+              "render": {
+                "artifact": {
+                  "directory": "render-f462a5ab16824f7d81fb071430f82b14",
+                  "first_png": "render-f462a5ab16824f7d81fb071430f82b14/frames/000000.png",
+                  "frame_count": 90,
+                  "last_png": "render-f462a5ab16824f7d81fb071430f82b14/frames/000089.png",
+                  "manifest": "render-f462a5ab16824f7d81fb071430f82b14/artifact-manifest.json",
+                  "manifest_bytes": 23680,
+                  "manifest_sha256": "8a2a0972b8b52eb14a8960a2ad9888c47791cb137b778388e7490e67e68a5017"
+                },
+                "error": null,
+                "job_ref": "mc1:technical-motion:400afe291c854a009b89398990bbcc2a:3:e4689c872021b5834452008cf0c56be70c32d799bfdcf9bbbafb5601be866391:render_job:render-f462a5ab16824f7d81fb071430f82b14",
+                "state": "succeeded"
+              },
+              "source_fingerprint": "e4689c872021b5834452008cf0c56be70c32d799bfdcf9bbbafb5601be866391",
+              "verification": {
+                "measurement": {
+                  "coverage": {
+                    "artifact_digest": "8a2a0972b8b52eb14a8960a2ad9888c47791cb137b778388e7490e67e68a5017",
+                    "end_frame_exclusive": 90,
+                    "exhaustive": true,
+                    "first_frame": 0,
+                    "font_resources_digest": "63e621d6402c9a1ed87f43715a493cd7c45e8b767c8277b24771bc982bc5b209",
+                    "fps": {
+                      "den": 1,
+                      "num": 30
+                    },
+                    "method": "motion-canvas-3.17.2-native-frame-probe-v1",
+                    "observation_digest": "edc1d15212d873b18e423b8f524a32049a80c73f342a0c10b93caf964ab89234",
+                    "observed_frames": 90,
+                    "render_input_digest": "9cca4ce9b97b7b2d8abc9e4275dbf95267da43531134e3fd48bb503f01f39be0"
+                  },
+                  "findings": [],
+                  "intent_digest": "40d4efefb24e5f1663bc75e9bac9eaad65b597fc4f2828d315921aee838acbdc",
+                  "metrics": [
+                    {
+                      "kinematics_unknown_frames": 1,
+                      "maximum_acceleration": 0.0,
+                      "maximum_speed": 0.0,
+                      "native_draw_frames": 89,
+                      "observed_frames": 90,
+                      "pixel_visibility_unknown_frames": 90,
+                      "pixel_visible_frames": 0,
+                      "subject": "box_a"
+                    },
+                    {
+                      "kinematics_unknown_frames": 0,
+                      "maximum_acceleration": 0.0,
+                      "maximum_speed": 0.0,
+                      "native_draw_frames": 90,
+                      "observed_frames": 90,
+                      "pixel_visibility_unknown_frames": 90,
+                      "pixel_visible_frames": 0,
+                      "subject": "box_b"
+                    },
+                    {
+                      "kinematics_unknown_frames": 0,
+                      "maximum_acceleration": 0.0,
+                      "maximum_speed": 0.0,
+                      "native_draw_frames": 90,
+                      "observed_frames": 90,
+                      "pixel_visibility_unknown_frames": 90,
+                      "pixel_visible_frames": 0,
+                      "subject": "camera"
+                    },
+                    {
+                      "kinematics_unknown_frames": 0,
+                      "maximum_acceleration": 0.0,
+                      "maximum_speed": 0.0,
+                      "native_draw_frames": 90,
+                      "observed_frames": 90,
+                      "pixel_visibility_unknown_frames": 90,
+                      "pixel_visible_frames": 0,
+                      "subject": "code"
+                    },
+                    {
+                      "kinematics_unknown_frames": 0,
+                      "maximum_acceleration": 0.0,
+                      "maximum_speed": 0.0,
+                      "native_draw_frames": 90,
+                      "observed_frames": 90,
+                      "pixel_visibility_unknown_frames": 90,
+                      "pixel_visible_frames": 0,
+                      "subject": "label"
+                    },
+                    {
+                      "kinematics_unknown_frames": 0,
+                      "maximum_acceleration": 0.0,
+                      "maximum_speed": 0.0,
+                      "native_draw_frames": 90,
+                      "observed_frames": 90,
+                      "pixel_visibility_unknown_frames": 90,
+                      "pixel_visible_frames": 0,
+                      "subject": "overlay"
+                    },
+                    {
+                      "kinematics_unknown_frames": 0,
+                      "maximum_acceleration": 0.0,
+                      "maximum_speed": 0.0,
+                      "native_draw_frames": 90,
+                      "observed_frames": 90,
+                      "pixel_visibility_unknown_frames": 90,
+                      "pixel_visible_frames": 0,
+                      "subject": "path"
+                    }
+                  ],
+                  "validation": {
+                    "base": [
+                      {
+                        "concurrency": "best_effort_revalidate",
+                        "document_id": "technical-motion",
+                        "generation": "400afe291c854a009b89398990bbcc2a",
+                        "key": {
+                          "provider": "driver:motion-canvas",
+                          "resource": "project"
+                        },
+                        "provider_session": "motion-composition-native",
+                        "revision": {
+                          "kind": "fingerprint",
+                          "value": "e4689c872021b5834452008cf0c56be70c32d799bfdcf9bbbafb5601be866391"
+                        }
+                      }
+                    ],
+                    "checks": [
+                      {
+                        "evidence": [
+                          {
+                            "artifact": "8a2a0972b8b52eb14a8960a2ad9888c47791cb137b778388e7490e67e68a5017",
+                            "base": [
+                              {
+                                "concurrency": "best_effort_revalidate",
+                                "document_id": "technical-motion",
+                                "generation": "400afe291c854a009b89398990bbcc2a",
+                                "key": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                },
+                                "provider_session": "motion-composition-native",
+                                "revision": {
+                                  "kind": "fingerprint",
+                                  "value": "e4689c872021b5834452008cf0c56be70c32d799bfdcf9bbbafb5601be866391"
+                                }
+                              }
+                            ],
+                            "exhaustive": true,
+                            "id": "render-edc1d15212d873b1",
+                            "method": "motion-canvas-3.17.2-native-frame-probe-v1",
+                            "method_version": 1,
+                            "scope": [
+                              {
+                                "logical_id": "technical-motion",
+                                "property": "native-frame-state",
+                                "resource": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                }
+                              }
+                            ],
+                            "source": "renderer_state"
+                          }
+                        ],
+                        "evidence_class": "DETERMINISTIC",
+                        "reason": null,
+                        "rule": "native-frame-coverage",
+                        "verdict": "PASS",
+                        "version": 1
+                      },
+                      {
+                        "evidence": [
+                          {
+                            "artifact": "8a2a0972b8b52eb14a8960a2ad9888c47791cb137b778388e7490e67e68a5017",
+                            "base": [
+                              {
+                                "concurrency": "best_effort_revalidate",
+                                "document_id": "technical-motion",
+                                "generation": "400afe291c854a009b89398990bbcc2a",
+                                "key": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                },
+                                "provider_session": "motion-composition-native",
+                                "revision": {
+                                  "kind": "fingerprint",
+                                  "value": "e4689c872021b5834452008cf0c56be70c32d799bfdcf9bbbafb5601be866391"
+                                }
+                              }
+                            ],
+                            "exhaustive": true,
+                            "id": "render-edc1d15212d873b1",
+                            "method": "motion-canvas-3.17.2-native-frame-probe-v1",
+                            "method_version": 1,
+                            "scope": [
+                              {
+                                "logical_id": "technical-motion",
+                                "property": "native-frame-state",
+                                "resource": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                }
+                              }
+                            ],
+                            "source": "renderer_state"
+                          }
+                        ],
+                        "evidence_class": "DETERMINISTIC",
+                        "reason": null,
+                        "rule": "resolved-cues",
+                        "verdict": "PASS",
+                        "version": 1
+                      },
+                      {
+                        "evidence": [
+                          {
+                            "artifact": "8a2a0972b8b52eb14a8960a2ad9888c47791cb137b778388e7490e67e68a5017",
+                            "base": [
+                              {
+                                "concurrency": "best_effort_revalidate",
+                                "document_id": "technical-motion",
+                                "generation": "400afe291c854a009b89398990bbcc2a",
+                                "key": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                },
+                                "provider_session": "motion-composition-native",
+                                "revision": {
+                                  "kind": "fingerprint",
+                                  "value": "e4689c872021b5834452008cf0c56be70c32d799bfdcf9bbbafb5601be866391"
+                                }
+                              }
+                            ],
+                            "exhaustive": true,
+                            "id": "render-edc1d15212d873b1",
+                            "method": "motion-canvas-3.17.2-native-frame-probe-v1",
+                            "method_version": 1,
+                            "scope": [
+                              {
+                                "logical_id": "technical-motion",
+                                "property": "native-frame-state",
+                                "resource": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                }
+                              }
+                            ],
+                            "source": "renderer_state"
+                          }
+                        ],
+                        "evidence_class": "DETERMINISTIC",
+                        "reason": null,
+                        "rule": "caption-timing",
+                        "verdict": "PASS",
+                        "version": 1
+                      },
+                      {
+                        "evidence": [
+                          {
+                            "artifact": "8a2a0972b8b52eb14a8960a2ad9888c47791cb137b778388e7490e67e68a5017",
+                            "base": [
+                              {
+                                "concurrency": "best_effort_revalidate",
+                                "document_id": "technical-motion",
+                                "generation": "400afe291c854a009b89398990bbcc2a",
+                                "key": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                },
+                                "provider_session": "motion-composition-native",
+                                "revision": {
+                                  "kind": "fingerprint",
+                                  "value": "e4689c872021b5834452008cf0c56be70c32d799bfdcf9bbbafb5601be866391"
+                                }
+                              }
+                            ],
+                            "exhaustive": true,
+                            "id": "render-edc1d15212d873b1",
+                            "method": "motion-canvas-3.17.2-native-frame-probe-v1",
+                            "method_version": 1,
+                            "scope": [
+                              {
+                                "logical_id": "technical-motion",
+                                "property": "native-frame-state",
+                                "resource": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                }
+                              }
+                            ],
+                            "source": "renderer_state"
+                          }
+                        ],
+                        "evidence_class": "DETERMINISTIC",
+                        "reason": null,
+                        "rule": "transition-completion",
+                        "verdict": "PASS",
+                        "version": 1
+                      }
+                    ],
+                    "plan_digest": "36c2455aac9edd2489960fa23a844a7900d52c6519a34a9e132b7f0dad13bc6f",
+                    "required_rules": [
+                      "caption-timing",
+                      "native-frame-coverage",
+                      "resolved-cues",
+                      "transition-completion"
+                    ]
+                  },
+                  "version": 1
+                },
+                "report": {
+                  "effects_observed": [],
+                  "effects_unobservable": [],
+                  "execution_status": "completed",
+                  "support_level": "native",
+                  "validation": {
+                    "base": [
+                      {
+                        "concurrency": "best_effort_revalidate",
+                        "document_id": "technical-motion",
+                        "generation": "400afe291c854a009b89398990bbcc2a",
+                        "key": {
+                          "provider": "driver:motion-canvas",
+                          "resource": "project"
+                        },
+                        "provider_session": "motion-composition-native",
+                        "revision": {
+                          "kind": "fingerprint",
+                          "value": "e4689c872021b5834452008cf0c56be70c32d799bfdcf9bbbafb5601be866391"
+                        }
+                      }
+                    ],
+                    "checks": [
+                      {
+                        "evidence": [
+                          {
+                            "artifact": "8a2a0972b8b52eb14a8960a2ad9888c47791cb137b778388e7490e67e68a5017",
+                            "base": [
+                              {
+                                "concurrency": "best_effort_revalidate",
+                                "document_id": "technical-motion",
+                                "generation": "400afe291c854a009b89398990bbcc2a",
+                                "key": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                },
+                                "provider_session": "motion-composition-native",
+                                "revision": {
+                                  "kind": "fingerprint",
+                                  "value": "e4689c872021b5834452008cf0c56be70c32d799bfdcf9bbbafb5601be866391"
+                                }
+                              }
+                            ],
+                            "exhaustive": true,
+                            "id": "render-edc1d15212d873b1",
+                            "method": "motion-canvas-3.17.2-native-frame-probe-v1",
+                            "method_version": 1,
+                            "scope": [
+                              {
+                                "logical_id": "technical-motion",
+                                "property": "native-frame-state",
+                                "resource": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                }
+                              }
+                            ],
+                            "source": "renderer_state"
+                          }
+                        ],
+                        "evidence_class": "DETERMINISTIC",
+                        "reason": null,
+                        "rule": "native-frame-coverage",
+                        "verdict": "PASS",
+                        "version": 1
+                      },
+                      {
+                        "evidence": [
+                          {
+                            "artifact": "8a2a0972b8b52eb14a8960a2ad9888c47791cb137b778388e7490e67e68a5017",
+                            "base": [
+                              {
+                                "concurrency": "best_effort_revalidate",
+                                "document_id": "technical-motion",
+                                "generation": "400afe291c854a009b89398990bbcc2a",
+                                "key": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                },
+                                "provider_session": "motion-composition-native",
+                                "revision": {
+                                  "kind": "fingerprint",
+                                  "value": "e4689c872021b5834452008cf0c56be70c32d799bfdcf9bbbafb5601be866391"
+                                }
+                              }
+                            ],
+                            "exhaustive": true,
+                            "id": "render-edc1d15212d873b1",
+                            "method": "motion-canvas-3.17.2-native-frame-probe-v1",
+                            "method_version": 1,
+                            "scope": [
+                              {
+                                "logical_id": "technical-motion",
+                                "property": "native-frame-state",
+                                "resource": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                }
+                              }
+                            ],
+                            "source": "renderer_state"
+                          }
+                        ],
+                        "evidence_class": "DETERMINISTIC",
+                        "reason": null,
+                        "rule": "resolved-cues",
+                        "verdict": "PASS",
+                        "version": 1
+                      },
+                      {
+                        "evidence": [
+                          {
+                            "artifact": "8a2a0972b8b52eb14a8960a2ad9888c47791cb137b778388e7490e67e68a5017",
+                            "base": [
+                              {
+                                "concurrency": "best_effort_revalidate",
+                                "document_id": "technical-motion",
+                                "generation": "400afe291c854a009b89398990bbcc2a",
+                                "key": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                },
+                                "provider_session": "motion-composition-native",
+                                "revision": {
+                                  "kind": "fingerprint",
+                                  "value": "e4689c872021b5834452008cf0c56be70c32d799bfdcf9bbbafb5601be866391"
+                                }
+                              }
+                            ],
+                            "exhaustive": true,
+                            "id": "render-edc1d15212d873b1",
+                            "method": "motion-canvas-3.17.2-native-frame-probe-v1",
+                            "method_version": 1,
+                            "scope": [
+                              {
+                                "logical_id": "technical-motion",
+                                "property": "native-frame-state",
+                                "resource": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                }
+                              }
+                            ],
+                            "source": "renderer_state"
+                          }
+                        ],
+                        "evidence_class": "DETERMINISTIC",
+                        "reason": null,
+                        "rule": "caption-timing",
+                        "verdict": "PASS",
+                        "version": 1
+                      },
+                      {
+                        "evidence": [
+                          {
+                            "artifact": "8a2a0972b8b52eb14a8960a2ad9888c47791cb137b778388e7490e67e68a5017",
+                            "base": [
+                              {
+                                "concurrency": "best_effort_revalidate",
+                                "document_id": "technical-motion",
+                                "generation": "400afe291c854a009b89398990bbcc2a",
+                                "key": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                },
+                                "provider_session": "motion-composition-native",
+                                "revision": {
+                                  "kind": "fingerprint",
+                                  "value": "e4689c872021b5834452008cf0c56be70c32d799bfdcf9bbbafb5601be866391"
+                                }
+                              }
+                            ],
+                            "exhaustive": true,
+                            "id": "render-edc1d15212d873b1",
+                            "method": "motion-canvas-3.17.2-native-frame-probe-v1",
+                            "method_version": 1,
+                            "scope": [
+                              {
+                                "logical_id": "technical-motion",
+                                "property": "native-frame-state",
+                                "resource": {
+                                  "provider": "driver:motion-canvas",
+                                  "resource": "project"
+                                }
+                              }
+                            ],
+                            "source": "renderer_state"
+                          }
+                        ],
+                        "evidence_class": "DETERMINISTIC",
+                        "reason": null,
+                        "rule": "transition-completion",
+                        "verdict": "PASS",
+                        "version": 1
+                      }
+                    ],
+                    "plan_digest": "36c2455aac9edd2489960fa23a844a7900d52c6519a34a9e132b7f0dad13bc6f",
+                    "required_rules": [
+                      "caption-timing",
+                      "native-frame-coverage",
+                      "resolved-cues",
+                      "transition-completion"
+                    ]
+                  }
+                }
+              },
+              "width": 480
+            }
+          ],
+          "render": {
+            "artifact": {
+              "directory": "render-a18565325be943379254b26cd986694f",
+              "first_png": "render-a18565325be943379254b26cd986694f/frames/000000.png",
+              "frame_count": 90,
+              "last_png": "render-a18565325be943379254b26cd986694f/frames/000089.png",
+              "manifest": "render-a18565325be943379254b26cd986694f/artifact-manifest.json",
+              "manifest_bytes": 23680,
+              "manifest_sha256": "ad789de426882077ebbf1a2650128a9282b72a6e9035318f14800105d03225ba"
+            },
+            "error": null,
+            "job_ref": "mc1:technical-motion:400afe291c854a009b89398990bbcc2a:1:c0e06f07ee15a5d0008b9d65d10214e17fe84afebb86e760aa8d33abe314d360:render_job:render-a18565325be943379254b26cd986694f",
+            "state": "succeeded"
+          },
+          "schema_version": 1,
+          "source_fingerprint": "c0e06f07ee15a5d0008b9d65d10214e17fe84afebb86e760aa8d33abe314d360",
+          "source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "verification": {
+            "measurement": {
+              "coverage": {
+                "artifact_digest": "ad789de426882077ebbf1a2650128a9282b72a6e9035318f14800105d03225ba",
+                "end_frame_exclusive": 90,
+                "exhaustive": true,
+                "first_frame": 0,
+                "font_resources_digest": "63e621d6402c9a1ed87f43715a493cd7c45e8b767c8277b24771bc982bc5b209",
+                "fps": {
+                  "den": 1,
+                  "num": 30
+                },
+                "method": "motion-canvas-3.17.2-native-frame-probe-v1",
+                "observation_digest": "0a35feb6aa833a1aab1eab00fbadf328b973c5a2ddc149fdcbcdac2809004962",
+                "observed_frames": 90,
+                "render_input_digest": "6c67dd89b3c5708ca0198b32988601f357758d2c79de7db7b1911e221b3a45d9"
+              },
+              "findings": [],
+              "intent_digest": "62a6f32d92205e8d4e7abea7a72f8b136ade7d9bc249b3f92d3f042516f262a3",
+              "metrics": [
+                {
+                  "kinematics_unknown_frames": 1,
+                  "maximum_acceleration": 0.0,
+                  "maximum_speed": 0.0,
+                  "native_draw_frames": 89,
+                  "observed_frames": 90,
+                  "pixel_visibility_unknown_frames": 90,
+                  "pixel_visible_frames": 0,
+                  "subject": "box_a"
+                },
+                {
+                  "kinematics_unknown_frames": 0,
+                  "maximum_acceleration": 0.0,
+                  "maximum_speed": 0.0,
+                  "native_draw_frames": 90,
+                  "observed_frames": 90,
+                  "pixel_visibility_unknown_frames": 90,
+                  "pixel_visible_frames": 0,
+                  "subject": "box_b"
+                },
+                {
+                  "kinematics_unknown_frames": 0,
+                  "maximum_acceleration": 0.0,
+                  "maximum_speed": 0.0,
+                  "native_draw_frames": 90,
+                  "observed_frames": 90,
+                  "pixel_visibility_unknown_frames": 90,
+                  "pixel_visible_frames": 0,
+                  "subject": "camera"
+                },
+                {
+                  "kinematics_unknown_frames": 0,
+                  "maximum_acceleration": 0.0,
+                  "maximum_speed": 0.0,
+                  "native_draw_frames": 90,
+                  "observed_frames": 90,
+                  "pixel_visibility_unknown_frames": 90,
+                  "pixel_visible_frames": 0,
+                  "subject": "code"
+                },
+                {
+                  "kinematics_unknown_frames": 0,
+                  "maximum_acceleration": 0.0,
+                  "maximum_speed": 0.0,
+                  "native_draw_frames": 90,
+                  "observed_frames": 90,
+                  "pixel_visibility_unknown_frames": 90,
+                  "pixel_visible_frames": 0,
+                  "subject": "label"
+                },
+                {
+                  "kinematics_unknown_frames": 0,
+                  "maximum_acceleration": 0.0,
+                  "maximum_speed": 0.0,
+                  "native_draw_frames": 90,
+                  "observed_frames": 90,
+                  "pixel_visibility_unknown_frames": 90,
+                  "pixel_visible_frames": 0,
+                  "subject": "overlay"
+                },
+                {
+                  "kinematics_unknown_frames": 0,
+                  "maximum_acceleration": 0.0,
+                  "maximum_speed": 0.0,
+                  "native_draw_frames": 90,
+                  "observed_frames": 90,
+                  "pixel_visibility_unknown_frames": 90,
+                  "pixel_visible_frames": 0,
+                  "subject": "path"
+                }
+              ],
+              "validation": {
+                "base": [
+                  {
+                    "concurrency": "best_effort_revalidate",
+                    "document_id": "technical-motion",
+                    "generation": "400afe291c854a009b89398990bbcc2a",
+                    "key": {
+                      "provider": "driver:motion-canvas",
+                      "resource": "project"
+                    },
+                    "provider_session": "motion-composition-native",
+                    "revision": {
+                      "kind": "fingerprint",
+                      "value": "c0e06f07ee15a5d0008b9d65d10214e17fe84afebb86e760aa8d33abe314d360"
+                    }
+                  }
+                ],
+                "checks": [
+                  {
+                    "evidence": [
+                      {
+                        "artifact": "ad789de426882077ebbf1a2650128a9282b72a6e9035318f14800105d03225ba",
+                        "base": [
+                          {
+                            "concurrency": "best_effort_revalidate",
+                            "document_id": "technical-motion",
+                            "generation": "400afe291c854a009b89398990bbcc2a",
+                            "key": {
+                              "provider": "driver:motion-canvas",
+                              "resource": "project"
+                            },
+                            "provider_session": "motion-composition-native",
+                            "revision": {
+                              "kind": "fingerprint",
+                              "value": "c0e06f07ee15a5d0008b9d65d10214e17fe84afebb86e760aa8d33abe314d360"
+                            }
+                          }
+                        ],
+                        "exhaustive": true,
+                        "id": "render-0a35feb6aa833a1a",
+                        "method": "motion-canvas-3.17.2-native-frame-probe-v1",
+                        "method_version": 1,
+                        "scope": [
+                          {
+                            "logical_id": "technical-motion",
+                            "property": "native-frame-state",
+                            "resource": {
+                              "provider": "driver:motion-canvas",
+                              "resource": "project"
+                            }
+                          }
+                        ],
+                        "source": "renderer_state"
+                      }
+                    ],
+                    "evidence_class": "DETERMINISTIC",
+                    "reason": null,
+                    "rule": "native-frame-coverage",
+                    "verdict": "PASS",
+                    "version": 1
+                  },
+                  {
+                    "evidence": [
+                      {
+                        "artifact": "ad789de426882077ebbf1a2650128a9282b72a6e9035318f14800105d03225ba",
+                        "base": [
+                          {
+                            "concurrency": "best_effort_revalidate",
+                            "document_id": "technical-motion",
+                            "generation": "400afe291c854a009b89398990bbcc2a",
+                            "key": {
+                              "provider": "driver:motion-canvas",
+                              "resource": "project"
+                            },
+                            "provider_session": "motion-composition-native",
+                            "revision": {
+                              "kind": "fingerprint",
+                              "value": "c0e06f07ee15a5d0008b9d65d10214e17fe84afebb86e760aa8d33abe314d360"
+                            }
+                          }
+                        ],
+                        "exhaustive": true,
+                        "id": "render-0a35feb6aa833a1a",
+                        "method": "motion-canvas-3.17.2-native-frame-probe-v1",
+                        "method_version": 1,
+                        "scope": [
+                          {
+                            "logical_id": "technical-motion",
+                            "property": "native-frame-state",
+                            "resource": {
+                              "provider": "driver:motion-canvas",
+                              "resource": "project"
+                            }
+                          }
+                        ],
+                        "source": "renderer_state"
+                      }
+                    ],
+                    "evidence_class": "DETERMINISTIC",
+                    "reason": null,
+                    "rule": "resolved-cues",
+                    "verdict": "PASS",
+                    "version": 1
+                  },
+                  {
+                    "evidence": [
+                      {
+                        "artifact": "ad789de426882077ebbf1a2650128a9282b72a6e9035318f14800105d03225ba",
+                        "base": [
+                          {
+                            "concurrency": "best_effort_revalidate",
+                            "document_id": "technical-motion",
+                            "generation": "400afe291c854a009b89398990bbcc2a",
+                            "key": {
+                              "provider": "driver:motion-canvas",
+                              "resource": "project"
+                            },
+                            "provider_session": "motion-composition-native",
+                            "revision": {
+                              "kind": "fingerprint",
+                              "value": "c0e06f07ee15a5d0008b9d65d10214e17fe84afebb86e760aa8d33abe314d360"
+                            }
+                          }
+                        ],
+                        "exhaustive": true,
+                        "id": "render-0a35feb6aa833a1a",
+                        "method": "motion-canvas-3.17.2-native-frame-probe-v1",
+                        "method_version": 1,
+                        "scope": [
+                          {
+                            "logical_id": "technical-motion",
+                            "property": "native-frame-state",
+                            "resource": {
+                              "provider": "driver:motion-canvas",
+                              "resource": "project"
+                            }
+                          }
+                        ],
+                        "source": "renderer_state"
+                      }
+                    ],
+                    "evidence_class": "DETERMINISTIC",
+                    "reason": null,
+                    "rule": "caption-timing",
+                    "verdict": "PASS",
+                    "version": 1
+                  },
+                  {
+                    "evidence": [
+                      {
+                        "artifact": "ad789de426882077ebbf1a2650128a9282b72a6e9035318f14800105d03225ba",
+                        "base": [
+                          {
+                            "concurrency": "best_effort_revalidate",
+                            "document_id": "technical-motion",
+                            "generation": "400afe291c854a009b89398990bbcc2a",
+                            "key": {
+                              "provider": "driver:motion-canvas",
+                              "resource": "project"
+                            },
+                            "provider_session": "motion-composition-native",
+                            "revision": {
+                              "kind": "fingerprint",
+                              "value": "c0e06f07ee15a5d0008b9d65d10214e17fe84afebb86e760aa8d33abe314d360"
+                            }
+                          }
+                        ],
+                        "exhaustive": true,
+                        "id": "render-0a35feb6aa833a1a",
+                        "method": "motion-canvas-3.17.2-native-frame-probe-v1",
+                        "method_version": 1,
+                        "scope": [
+                          {
+                            "logical_id": "technical-motion",
+                            "property": "native-frame-state",
+                            "resource": {
+                              "provider": "driver:motion-canvas",
+                              "resource": "project"
+                            }
+                          }
+                        ],
+                        "source": "renderer_state"
+                      }
+                    ],
+                    "evidence_class": "DETERMINISTIC",
+                    "reason": null,
+                    "rule": "transition-completion",
+                    "verdict": "PASS",
+                    "version": 1
+                  }
+                ],
+                "plan_digest": "cb6b79981a1d235ee294fc84a3ffc51693816ffd2c90a64ab95f689675e115c9",
+                "required_rules": [
+                  "caption-timing",
+                  "native-frame-coverage",
+                  "resolved-cues",
+                  "transition-completion"
+                ]
+              },
+              "version": 1
+            },
+            "report": {
+              "effects_observed": [],
+              "effects_unobservable": [],
+              "execution_status": "completed",
+              "support_level": "native",
+              "validation": {
+                "base": [
+                  {
+                    "concurrency": "best_effort_revalidate",
+                    "document_id": "technical-motion",
+                    "generation": "400afe291c854a009b89398990bbcc2a",
+                    "key": {
+                      "provider": "driver:motion-canvas",
+                      "resource": "project"
+                    },
+                    "provider_session": "motion-composition-native",
+                    "revision": {
+                      "kind": "fingerprint",
+                      "value": "c0e06f07ee15a5d0008b9d65d10214e17fe84afebb86e760aa8d33abe314d360"
+                    }
+                  }
+                ],
+                "checks": [
+                  {
+                    "evidence": [
+                      {
+                        "artifact": "ad789de426882077ebbf1a2650128a9282b72a6e9035318f14800105d03225ba",
+                        "base": [
+                          {
+                            "concurrency": "best_effort_revalidate",
+                            "document_id": "technical-motion",
+                            "generation": "400afe291c854a009b89398990bbcc2a",
+                            "key": {
+                              "provider": "driver:motion-canvas",
+                              "resource": "project"
+                            },
+                            "provider_session": "motion-composition-native",
+                            "revision": {
+                              "kind": "fingerprint",
+                              "value": "c0e06f07ee15a5d0008b9d65d10214e17fe84afebb86e760aa8d33abe314d360"
+                            }
+                          }
+                        ],
+                        "exhaustive": true,
+                        "id": "render-0a35feb6aa833a1a",
+                        "method": "motion-canvas-3.17.2-native-frame-probe-v1",
+                        "method_version": 1,
+                        "scope": [
+                          {
+                            "logical_id": "technical-motion",
+                            "property": "native-frame-state",
+                            "resource": {
+                              "provider": "driver:motion-canvas",
+                              "resource": "project"
+                            }
+                          }
+                        ],
+                        "source": "renderer_state"
+                      }
+                    ],
+                    "evidence_class": "DETERMINISTIC",
+                    "reason": null,
+                    "rule": "native-frame-coverage",
+                    "verdict": "PASS",
+                    "version": 1
+                  },
+                  {
+                    "evidence": [
+                      {
+                        "artifact": "ad789de426882077ebbf1a2650128a9282b72a6e9035318f14800105d03225ba",
+                        "base": [
+                          {
+                            "concurrency": "best_effort_revalidate",
+                            "document_id": "technical-motion",
+                            "generation": "400afe291c854a009b89398990bbcc2a",
+                            "key": {
+                              "provider": "driver:motion-canvas",
+                              "resource": "project"
+                            },
+                            "provider_session": "motion-composition-native",
+                            "revision": {
+                              "kind": "fingerprint",
+                              "value": "c0e06f07ee15a5d0008b9d65d10214e17fe84afebb86e760aa8d33abe314d360"
+                            }
+                          }
+                        ],
+                        "exhaustive": true,
+                        "id": "render-0a35feb6aa833a1a",
+                        "method": "motion-canvas-3.17.2-native-frame-probe-v1",
+                        "method_version": 1,
+                        "scope": [
+                          {
+                            "logical_id": "technical-motion",
+                            "property": "native-frame-state",
+                            "resource": {
+                              "provider": "driver:motion-canvas",
+                              "resource": "project"
+                            }
+                          }
+                        ],
+                        "source": "renderer_state"
+                      }
+                    ],
+                    "evidence_class": "DETERMINISTIC",
+                    "reason": null,
+                    "rule": "resolved-cues",
+                    "verdict": "PASS",
+                    "version": 1
+                  },
+                  {
+                    "evidence": [
+                      {
+                        "artifact": "ad789de426882077ebbf1a2650128a9282b72a6e9035318f14800105d03225ba",
+                        "base": [
+                          {
+                            "concurrency": "best_effort_revalidate",
+                            "document_id": "technical-motion",
+                            "generation": "400afe291c854a009b89398990bbcc2a",
+                            "key": {
+                              "provider": "driver:motion-canvas",
+                              "resource": "project"
+                            },
+                            "provider_session": "motion-composition-native",
+                            "revision": {
+                              "kind": "fingerprint",
+                              "value": "c0e06f07ee15a5d0008b9d65d10214e17fe84afebb86e760aa8d33abe314d360"
+                            }
+                          }
+                        ],
+                        "exhaustive": true,
+                        "id": "render-0a35feb6aa833a1a",
+                        "method": "motion-canvas-3.17.2-native-frame-probe-v1",
+                        "method_version": 1,
+                        "scope": [
+                          {
+                            "logical_id": "technical-motion",
+                            "property": "native-frame-state",
+                            "resource": {
+                              "provider": "driver:motion-canvas",
+                              "resource": "project"
+                            }
+                          }
+                        ],
+                        "source": "renderer_state"
+                      }
+                    ],
+                    "evidence_class": "DETERMINISTIC",
+                    "reason": null,
+                    "rule": "caption-timing",
+                    "verdict": "PASS",
+                    "version": 1
+                  },
+                  {
+                    "evidence": [
+                      {
+                        "artifact": "ad789de426882077ebbf1a2650128a9282b72a6e9035318f14800105d03225ba",
+                        "base": [
+                          {
+                            "concurrency": "best_effort_revalidate",
+                            "document_id": "technical-motion",
+                            "generation": "400afe291c854a009b89398990bbcc2a",
+                            "key": {
+                              "provider": "driver:motion-canvas",
+                              "resource": "project"
+                            },
+                            "provider_session": "motion-composition-native",
+                            "revision": {
+                              "kind": "fingerprint",
+                              "value": "c0e06f07ee15a5d0008b9d65d10214e17fe84afebb86e760aa8d33abe314d360"
+                            }
+                          }
+                        ],
+                        "exhaustive": true,
+                        "id": "render-0a35feb6aa833a1a",
+                        "method": "motion-canvas-3.17.2-native-frame-probe-v1",
+                        "method_version": 1,
+                        "scope": [
+                          {
+                            "logical_id": "technical-motion",
+                            "property": "native-frame-state",
+                            "resource": {
+                              "provider": "driver:motion-canvas",
+                              "resource": "project"
+                            }
+                          }
+                        ],
+                        "source": "renderer_state"
+                      }
+                    ],
+                    "evidence_class": "DETERMINISTIC",
+                    "reason": null,
+                    "rule": "transition-completion",
+                    "verdict": "PASS",
+                    "version": 1
+                  }
+                ],
+                "plan_digest": "cb6b79981a1d235ee294fc84a3ffc51693816ffd2c90a64ab95f689675e115c9",
+                "required_rules": [
+                  "caption-timing",
+                  "native-frame-coverage",
+                  "resolved-cues",
+                  "transition-completion"
+                ]
+              }
+            }
+          }
+        },
+        "verification/motion-canvas-host/artifacts/opaque-manifest.json": {
+          "frames": [
+            {
+              "bytes": 2992,
+              "file": "frames/000000.png",
+              "index": 0,
+              "max_alpha": 255,
+              "min_alpha": 255,
+              "pixel_sha256": "631ea147e76f8f5f52e01528a508e60cf5b57be24c17d415dd4e5f29e313795b",
+              "sha256": "fbb9a95c841c7ba4eeb7cfeaabd91dfe9555589aebc01ed52351c26a0eb1b4bc"
+            },
+            {
+              "bytes": 9639,
+              "file": "frames/000001.png",
+              "index": 1,
+              "max_alpha": 255,
+              "min_alpha": 255,
+              "pixel_sha256": "fb9fe8a590e5be31a7580679f4af157301221bd1880ebc031d1ad4a0c8080585",
+              "sha256": "517ba3830ca072348f242af35a50a91240cb1c29aa2a8bd79c757422c15d9c6f"
+            },
+            {
+              "bytes": 10757,
+              "file": "frames/000002.png",
+              "index": 2,
+              "max_alpha": 255,
+              "min_alpha": 255,
+              "pixel_sha256": "67ac5b102f0cc03061c54b765e680c41536a5ac8a2ccbe7cb1a10914685a64f4",
+              "sha256": "94aed73cf7e20e106260d7223289711a045eceddaaa2e3dab55c0f948f305b7d"
+            },
+            {
+              "bytes": 11243,
+              "file": "frames/000003.png",
+              "index": 3,
+              "max_alpha": 255,
+              "min_alpha": 255,
+              "pixel_sha256": "d852cc3b7427c0f530a19c2b4678ce3efe2cddd8c4ecb450c7115e2732347f02",
+              "sha256": "6a43ee839b409a546a01782b0b4933990982525378face9340b706d02ac9a2af"
+            },
+            {
+              "bytes": 11469,
+              "file": "frames/000004.png",
+              "index": 4,
+              "max_alpha": 255,
+              "min_alpha": 255,
+              "pixel_sha256": "bc615ede114b166dafce0ddd849db3483bc80d691c074f19b5d5938213aa3aba",
+              "sha256": "80b9c53965f651d59e510f848dc3be83ea1b66f875cb454eb2c8b0f6215eb41b"
+            },
+            {
+              "bytes": 11747,
+              "file": "frames/000005.png",
+              "index": 5,
+              "max_alpha": 255,
+              "min_alpha": 255,
+              "pixel_sha256": "29ee67ce972cdedddc5b5e747780a911e46e1aec0b387cde96cffd0a27078f13",
+              "sha256": "2b2d8e69e23643a23be15d7b1512cd908f5cee73561b24cf109c4f4173d979e8"
+            },
+            {
+              "bytes": 11742,
+              "file": "frames/000006.png",
+              "index": 6,
+              "max_alpha": 255,
+              "min_alpha": 255,
+              "pixel_sha256": "3338abac08e515458076f298da9463e5f81fd823fea61624ad06613210773a7d",
+              "sha256": "cff2509bb14fefa6c57cca6f56fea05d8e128d939832b14e45115f8e3fffec16"
+            },
+            {
+              "bytes": 11945,
+              "file": "frames/000007.png",
+              "index": 7,
+              "max_alpha": 255,
+              "min_alpha": 255,
+              "pixel_sha256": "b8a0d8419cc3a0741e12a84e18afc51ff85384f0bf5e3edd045d697075249fac",
+              "sha256": "b94596c2032edbe9d3faa8c239e2e7a0e3cb95b90955a2445bb24032fb6815fe"
+            },
+            {
+              "bytes": 11961,
+              "file": "frames/000008.png",
+              "index": 8,
+              "max_alpha": 255,
+              "min_alpha": 255,
+              "pixel_sha256": "3bb4bb52c6d9e9a03759c73fb40e21666e465177a60d75ebc5b93af920019d87",
+              "sha256": "f20e0c6eef54aaee73212711c4e025c4f6e2df7063b1a6992311ef2abd1864af"
+            },
+            {
+              "bytes": 11813,
+              "file": "frames/000009.png",
+              "index": 9,
+              "max_alpha": 255,
+              "min_alpha": 255,
+              "pixel_sha256": "7c58e550d8399ee155e75eee7c84481f7a8e7e8c204931df56bab2e3c04f34df",
+              "sha256": "d011d720780a85bb6e6cb985fcd5bf07583114962c24d91ff8491f25a7b76277"
+            },
+            {
+              "bytes": 11685,
+              "file": "frames/000010.png",
+              "index": 10,
+              "max_alpha": 255,
+              "min_alpha": 255,
+              "pixel_sha256": "9aa6bdf8931b52e11eefcdd64f74f6c93283876d98775865815482841467ee60",
+              "sha256": "2d4340b97a07b24264653aceb7bd087f9111fb644edb6e8a9f33f4662fe8c794"
+            },
+            {
+              "bytes": 11685,
+              "file": "frames/000011.png",
+              "index": 11,
+              "max_alpha": 255,
+              "min_alpha": 255,
+              "pixel_sha256": "3c9cef5c3bb64de6db7e61208c7f28a2baa588d0249b7acebace2b497d2a5cbe",
+              "sha256": "ed7bd842f318273f67d0d479962aae6dd1e0a064cd8691547ea0ec2454ead030"
+            },
+            {
+              "bytes": 11685,
+              "file": "frames/000012.png",
+              "index": 12,
+              "max_alpha": 255,
+              "min_alpha": 255,
+              "pixel_sha256": "3c9cef5c3bb64de6db7e61208c7f28a2baa588d0249b7acebace2b497d2a5cbe",
+              "sha256": "ed7bd842f318273f67d0d479962aae6dd1e0a064cd8691547ea0ec2454ead030"
+            },
+            {
+              "bytes": 11685,
+              "file": "frames/000013.png",
+              "index": 13,
+              "max_alpha": 255,
+              "min_alpha": 255,
+              "pixel_sha256": "3c9cef5c3bb64de6db7e61208c7f28a2baa588d0249b7acebace2b497d2a5cbe",
+              "sha256": "ed7bd842f318273f67d0d479962aae6dd1e0a064cd8691547ea0ec2454ead030"
+            },
+            {
+              "bytes": 11685,
+              "file": "frames/000014.png",
+              "index": 14,
+              "max_alpha": 255,
+              "min_alpha": 255,
+              "pixel_sha256": "3c9cef5c3bb64de6db7e61208c7f28a2baa588d0249b7acebace2b497d2a5cbe",
+              "sha256": "ed7bd842f318273f67d0d479962aae6dd1e0a064cd8691547ea0ec2454ead030"
+            },
+            {
+              "bytes": 11685,
+              "file": "frames/000015.png",
+              "index": 15,
+              "max_alpha": 255,
+              "min_alpha": 255,
+              "pixel_sha256": "3c9cef5c3bb64de6db7e61208c7f28a2baa588d0249b7acebace2b497d2a5cbe",
+              "sha256": "ed7bd842f318273f67d0d479962aae6dd1e0a064cd8691547ea0ec2454ead030"
+            },
+            {
+              "bytes": 11685,
+              "file": "frames/000016.png",
+              "index": 16,
+              "max_alpha": 255,
+              "min_alpha": 255,
+              "pixel_sha256": "3c9cef5c3bb64de6db7e61208c7f28a2baa588d0249b7acebace2b497d2a5cbe",
+              "sha256": "ed7bd842f318273f67d0d479962aae6dd1e0a064cd8691547ea0ec2454ead030"
+            },
+            {
+              "bytes": 11685,
+              "file": "frames/000017.png",
+              "index": 17,
+              "max_alpha": 255,
+              "min_alpha": 255,
+              "pixel_sha256": "3c9cef5c3bb64de6db7e61208c7f28a2baa588d0249b7acebace2b497d2a5cbe",
+              "sha256": "ed7bd842f318273f67d0d479962aae6dd1e0a064cd8691547ea0ec2454ead030"
+            },
+            {
+              "bytes": 11685,
+              "file": "frames/000018.png",
+              "index": 18,
+              "max_alpha": 255,
+              "min_alpha": 255,
+              "pixel_sha256": "3c9cef5c3bb64de6db7e61208c7f28a2baa588d0249b7acebace2b497d2a5cbe",
+              "sha256": "ed7bd842f318273f67d0d479962aae6dd1e0a064cd8691547ea0ec2454ead030"
+            },
+            {
+              "bytes": 11685,
+              "file": "frames/000019.png",
+              "index": 19,
+              "max_alpha": 255,
+              "min_alpha": 255,
+              "pixel_sha256": "3c9cef5c3bb64de6db7e61208c7f28a2baa588d0249b7acebace2b497d2a5cbe",
+              "sha256": "ed7bd842f318273f67d0d479962aae6dd1e0a064cd8691547ea0ec2454ead030"
+            },
+            {
+              "bytes": 11685,
+              "file": "frames/000020.png",
+              "index": 20,
+              "max_alpha": 255,
+              "min_alpha": 255,
+              "pixel_sha256": "3c9cef5c3bb64de6db7e61208c7f28a2baa588d0249b7acebace2b497d2a5cbe",
+              "sha256": "ed7bd842f318273f67d0d479962aae6dd1e0a064cd8691547ea0ec2454ead030"
+            },
+            {
+              "bytes": 11685,
+              "file": "frames/000021.png",
+              "index": 21,
+              "max_alpha": 255,
+              "min_alpha": 255,
+              "pixel_sha256": "3c9cef5c3bb64de6db7e61208c7f28a2baa588d0249b7acebace2b497d2a5cbe",
+              "sha256": "ed7bd842f318273f67d0d479962aae6dd1e0a064cd8691547ea0ec2454ead030"
+            },
+            {
+              "bytes": 11685,
+              "file": "frames/000022.png",
+              "index": 22,
+              "max_alpha": 255,
+              "min_alpha": 255,
+              "pixel_sha256": "3c9cef5c3bb64de6db7e61208c7f28a2baa588d0249b7acebace2b497d2a5cbe",
+              "sha256": "ed7bd842f318273f67d0d479962aae6dd1e0a064cd8691547ea0ec2454ead030"
+            },
+            {
+              "bytes": 11685,
+              "file": "frames/000023.png",
+              "index": 23,
+              "max_alpha": 255,
+              "min_alpha": 255,
+              "pixel_sha256": "3c9cef5c3bb64de6db7e61208c7f28a2baa588d0249b7acebace2b497d2a5cbe",
+              "sha256": "ed7bd842f318273f67d0d479962aae6dd1e0a064cd8691547ea0ec2454ead030"
+            },
+            {
+              "bytes": 11685,
+              "file": "frames/000024.png",
+              "index": 24,
+              "max_alpha": 255,
+              "min_alpha": 255,
+              "pixel_sha256": "3c9cef5c3bb64de6db7e61208c7f28a2baa588d0249b7acebace2b497d2a5cbe",
+              "sha256": "ed7bd842f318273f67d0d479962aae6dd1e0a064cd8691547ea0ec2454ead030"
+            },
+            {
+              "bytes": 11685,
+              "file": "frames/000025.png",
+              "index": 25,
+              "max_alpha": 255,
+              "min_alpha": 255,
+              "pixel_sha256": "3c9cef5c3bb64de6db7e61208c7f28a2baa588d0249b7acebace2b497d2a5cbe",
+              "sha256": "ed7bd842f318273f67d0d479962aae6dd1e0a064cd8691547ea0ec2454ead030"
+            },
+            {
+              "bytes": 11685,
+              "file": "frames/000026.png",
+              "index": 26,
+              "max_alpha": 255,
+              "min_alpha": 255,
+              "pixel_sha256": "3c9cef5c3bb64de6db7e61208c7f28a2baa588d0249b7acebace2b497d2a5cbe",
+              "sha256": "ed7bd842f318273f67d0d479962aae6dd1e0a064cd8691547ea0ec2454ead030"
+            },
+            {
+              "bytes": 11685,
+              "file": "frames/000027.png",
+              "index": 27,
+              "max_alpha": 255,
+              "min_alpha": 255,
+              "pixel_sha256": "3c9cef5c3bb64de6db7e61208c7f28a2baa588d0249b7acebace2b497d2a5cbe",
+              "sha256": "ed7bd842f318273f67d0d479962aae6dd1e0a064cd8691547ea0ec2454ead030"
+            },
+            {
+              "bytes": 11685,
+              "file": "frames/000028.png",
+              "index": 28,
+              "max_alpha": 255,
+              "min_alpha": 255,
+              "pixel_sha256": "3c9cef5c3bb64de6db7e61208c7f28a2baa588d0249b7acebace2b497d2a5cbe",
+              "sha256": "ed7bd842f318273f67d0d479962aae6dd1e0a064cd8691547ea0ec2454ead030"
+            },
+            {
+              "bytes": 11685,
+              "file": "frames/000029.png",
+              "index": 29,
+              "max_alpha": 255,
+              "min_alpha": 255,
+              "pixel_sha256": "3c9cef5c3bb64de6db7e61208c7f28a2baa588d0249b7acebace2b497d2a5cbe",
+              "sha256": "ed7bd842f318273f67d0d479962aae6dd1e0a064cd8691547ea0ec2454ead030"
+            }
+          ],
+          "native_observations": null,
+          "pixel_validation": {
+            "mode": "all",
+            "sample_indices": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11,
+              12,
+              13,
+              14,
+              15,
+              16,
+              17,
+              18,
+              19,
+              20,
+              21,
+              22,
+              23,
+              24,
+              25,
+              26,
+              27,
+              28,
+              29
+            ]
+          },
+          "plan": {
+            "alpha": false,
+            "color_space": "srgb",
+            "end_frame_exclusive": 30,
+            "first_frame": 0,
+            "fps": 30,
+            "frame_count": 30,
+            "height": 360,
+            "project_duration_ms": 10000,
+            "renderer": "bundled_browser_v1",
+            "timeout_ms": 120000,
+            "width": 640
+          },
+          "renderer": "motion-canvas-core-renderer-v3.17.2"
+        }
+      },
+      "test_results": {
+        "verification/motion-canvas-host/composition-authoring.log": [
+          "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 124 filtered out; finished in 0.00s",
+          "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s",
+          "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 55.86s"
+        ],
+        "verification/motion-canvas-host/conformance.log": [
+          "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 124 filtered out; finished in 0.00s",
+          "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 2.62s",
+          "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s"
+        ],
+        "verification/motion-canvas-host/render.log": [
+          "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 124 filtered out; finished in 0.00s",
+          "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s",
+          "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 44.48s"
+        ]
+      }
+    }
+  ],
+  "large_packages_kept_remote": true,
+  "r16_closed": false,
+  "main_merge_performed": false
+}

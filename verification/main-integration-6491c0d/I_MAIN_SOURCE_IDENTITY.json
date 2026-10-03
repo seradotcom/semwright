@@ -1,0 +1,39 @@
+{
+  "schema": 1,
+  "status": "PASS_SOURCE_IDENTITY",
+  "source_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+  "suite_sha": "6c9485a468d5c0e6e497002eb3f56cfc541b77a1",
+  "run_id": 37096515334,
+  "certified_engineering_baseline": "cd518748f742025a251b78028613aa1b16919e73",
+  "changed_paths": [
+    "crates/platform-windows/tests/uia_native_fixture.rs",
+    "docs/composition/AUDIO_AV_CONTRACT.md",
+    "docs/composition/INTEGRATION.md",
+    "docs/composition/TRACEABILITY.md",
+    "docs/semantic-creation/INTEGRATION.md"
+  ],
+  "all_other_tracked_blobs_unchanged": true,
+  "production_source_unchanged": true,
+  "lockfile_sha256": "53458999594da110fc8e55ebcbab1b7427157c7aacc30ef3eb8b90707bd2cefe",
+  "fixture_sha256": "301d3bfb77e71a9db6c1df1f442f611f55d7aa1c664de7620429c9b218f95803",
+  "fixture_certificate_run": 37085834067,
+  "included_ancestors": {
+    "A": "65b773f4dd627b860358342f4d40a1ac532566d1",
+    "B": "df2654bed6d2ac57d547846b69d16ea48b4a9ee3",
+    "C": "77b34d8abad50f242c4c8494e280fe82d5cbcf55",
+    "C14": "28eba9d733d254289255b33a9c14d409fad3e2e2",
+    "D": "70bd7857e9700b6f03547a706ff0e6496ffd838e",
+    "E": "f492f13a028f781d9ca55631764578f5b327eb1b",
+    "F": "eadd5caf9b3f47f24158de530b87ad07e597f25e",
+    "G": "a88e80f9de4aa2883b233d009a4b41ecdde08a0b",
+    "runtime_201": "733037145c374d28cb7d0e3d51dc76c64f223ad4",
+    "dependencies_198": "e7d1149e2920522fb0eaec17783e35ca11d0231b",
+    "ci_192": "faaa26ce7d014601a3da0a34ba1ff995ae74fae0",
+    "formal_av_204": "1fc61e3be25fcdb88e882e989127945508109510",
+    "previous_main": "e3713e90e87f1caa8f7105c065094d5c724d144e"
+  },
+  "H_deferred_by_user": true,
+  "benchmark_executed": false,
+  "independent_R16_closed": false,
+  "main_merge_performed": false
+}

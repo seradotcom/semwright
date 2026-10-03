@@ -1,0 +1,264 @@
+{
+  "source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+  "run_id": 37076233575,
+  "workflow_sha": "8b61cb360e767cd008504d3e65bed53b618cf367",
+  "artifact_id": 11256542419,
+  "zip_sha256": "bb791e5a88b3433e9f0c83b5ff6defa3fe05274c142e1dc2562be3936fccb424",
+  "summary": {
+    "content_scope": "git archive of HEAD; no untracked files or working-tree caches",
+    "history_commits": 1747,
+    "history_scope": "HEAD ancestry; not unpushed or unrelated worktree branches",
+    "independent_review": false,
+    "maintainer_precheck_only": true,
+    "non_claims": [
+      "Not proof of absence of all secrets",
+      "No nested archive or encoded-content scan"
+    ],
+    "positive_self_test": "PASS",
+    "results": [
+      {
+        "exit_code": 1,
+        "finding_count": 6,
+        "findings": [
+          {
+            "commit": "",
+            "end_line": 93,
+            "file": ".github/workflows/composition-diagnostics.yml",
+            "rule_id": "generic-api-key",
+            "start_line": 93,
+            "triage": {
+              "classification": "REVIEWED_NON_SECRET",
+              "line_sha256": "308df263bce89f51154a68b748aa983cae52b650ef9e3d968e89f1b8324dac4a",
+              "reason": "Public Swatinem Rust build-cache label for the Composition contract job; not an authorization credential."
+            }
+          },
+          {
+            "commit": "",
+            "end_line": 189,
+            "file": ".github/workflows/composition-diagnostics.yml",
+            "rule_id": "generic-api-key",
+            "start_line": 189,
+            "triage": {
+              "classification": "REVIEWED_NON_SECRET",
+              "line_sha256": "862d0693d58e8dec4cd139de7138f0ae1399e722fcd9c551e103d3c3fb189fcd",
+              "reason": "Public Swatinem Rust build-cache label for the Composition skills job; not an authorization credential."
+            }
+          },
+          {
+            "commit": "",
+            "end_line": 504,
+            "file": "crates/driver-figma/docs/REST_API_COVERAGE.json",
+            "rule_id": "generic-api-key",
+            "start_line": 504,
+            "triage": {
+              "classification": "REVIEWED_NON_SECRET",
+              "line_sha256": "e53966f950fa485ca7a0d5adb4680caaf14f540699dd230e28a15289c881a264",
+              "reason": "Public upstream Git commit identity, not an API credential."
+            }
+          },
+          {
+            "commit": "",
+            "end_line": 2065,
+            "file": "crates/av-composition/tests/combined_native.rs",
+            "rule_id": "generic-api-key",
+            "start_line": 2065,
+            "triage": {
+              "classification": "REVIEWED_NON_SECRET",
+              "line_sha256": "bb622815af2f14c04588927ae598d6daae69b3fbf31ab0b03b4af00a0e9dc89d",
+              "reason": "Project Graph contract-determinant identifier paired with the public cue-graph digest in the native C14 receipt; not a credential."
+            }
+          },
+          {
+            "commit": "",
+            "end_line": 6,
+            "file": "crates/driver-obs/fixtures/responses/auth-vector.json",
+            "rule_id": "generic-api-key",
+            "start_line": 6,
+            "triage": {
+              "classification": "REVIEWED_NON_SECRET",
+              "line_sha256": "929e1ab2279c4b56f2654d91bbcf16ea7a41b1cf4d74638fb3733798919096e4",
+              "reason": "Explicit fixture_only golden authentication response derived from the literal fixture-only password; protocol_regression::authentication_matches_independent_golden verifies it."
+            }
+          },
+          {
+            "commit": "",
+            "end_line": 452,
+            "file": "crates/driver-godot/tools/e2e_real.py",
+            "rule_id": "generic-api-key",
+            "start_line": 452,
+            "triage": {
+              "classification": "REVIEWED_NON_SECRET",
+              "line_sha256": "4781b494d0b416cd0d7ce9ffef551aacd6e671fb001a824178359b179be0c294",
+              "reason": "Godot Key game object collision-shape resource path in a generated disposable scene, not a cryptographic key."
+            }
+          }
+        ],
+        "scope": "committed_tree",
+        "status": "FINDINGS",
+        "untriaged_findings": 0
+      },
+      {
+        "exit_code": 1,
+        "finding_count": 12,
+        "findings": [
+          {
+            "commit": "5bed39376abd32d4aa81ce8b4d4cce231ccf421e",
+            "end_line": 1816,
+            "file": "crates/av-composition/tests/combined_native.rs",
+            "rule_id": "generic-api-key",
+            "start_line": 1816,
+            "triage": {
+              "classification": "REVIEWED_NON_SECRET",
+              "line_sha256": "bb622815af2f14c04588927ae598d6daae69b3fbf31ab0b03b4af00a0e9dc89d",
+              "reason": "Project Graph contract-determinant identifier paired with the public cue-graph digest in the native C14 receipt; not a credential."
+            }
+          },
+          {
+            "commit": "0872dc21166888378b9cdef3f6f0678085609b04",
+            "end_line": 93,
+            "file": ".github/workflows/composition-diagnostics.yml",
+            "rule_id": "generic-api-key",
+            "start_line": 93,
+            "triage": {
+              "classification": "REVIEWED_NON_SECRET",
+              "line_sha256": "308df263bce89f51154a68b748aa983cae52b650ef9e3d968e89f1b8324dac4a",
+              "reason": "Public Swatinem Rust build-cache label for the Composition contract job; not an authorization credential."
+            }
+          },
+          {
+            "commit": "0872dc21166888378b9cdef3f6f0678085609b04",
+            "end_line": 179,
+            "file": ".github/workflows/composition-diagnostics.yml",
+            "rule_id": "generic-api-key",
+            "start_line": 179,
+            "triage": {
+              "classification": "REVIEWED_NON_SECRET",
+              "line_sha256": "862d0693d58e8dec4cd139de7138f0ae1399e722fcd9c551e103d3c3fb189fcd",
+              "reason": "Public Swatinem Rust build-cache label for the Composition skills job; not an authorization credential."
+            }
+          },
+          {
+            "commit": "aeb1834706b90f3961a48f6af2150739915e1c6b",
+            "end_line": 133,
+            "file": ".github/workflows/composition-diagnostics.yml",
+            "rule_id": "generic-api-key",
+            "start_line": 133,
+            "triage": {
+              "classification": "REVIEWED_NON_SECRET",
+              "line_sha256": "dc7821845b0be864a67d48f7a47d44bc1f4d89a4d5b46584c3f0f5f6332f26a1",
+              "reason": "Public Swatinem Rust build-cache label for the Composition skills job; not an authorization credential."
+            }
+          },
+          {
+            "commit": "e09ab4e9a8fa22b1602d4186c64d206f72b64e8c",
+            "end_line": 55,
+            "file": ".github/workflows/composition-fuzz.yml",
+            "rule_id": "generic-api-key",
+            "start_line": 55,
+            "triage": {
+              "classification": "REVIEWED_NON_SECRET",
+              "line_sha256": "a8000b99709085cb6cfc56c776447a7617212d9f37c59f0af51026b32920980a",
+              "reason": "Public Swatinem Rust build-cache label for the Composition fuzz job; not an authorization credential."
+            }
+          },
+          {
+            "commit": "8f2953d14ebede87ab7239aa6c33f58947c60302",
+            "end_line": 50,
+            "file": ".github/workflows/composition-diagnostics.yml",
+            "rule_id": "generic-api-key",
+            "start_line": 50,
+            "triage": {
+              "classification": "REVIEWED_NON_SECRET",
+              "line_sha256": "e14249a6ad271daff3b37d69a1e0aa5ac43e60aa5ba077c7a60517039a83a0b5",
+              "reason": "Public Swatinem Rust build-cache label for the Composition contract job; not an authorization credential."
+            }
+          },
+          {
+            "commit": "63ba119ec7c2577163941b4eae605bb48399a624",
+            "end_line": 50,
+            "file": ".github/workflows/composition-diagnostics.yml",
+            "rule_id": "generic-api-key",
+            "start_line": 50,
+            "triage": {
+              "classification": "REVIEWED_NON_SECRET",
+              "line_sha256": "e14249a6ad271daff3b37d69a1e0aa5ac43e60aa5ba077c7a60517039a83a0b5",
+              "reason": "Public Swatinem Rust build-cache label for the Composition contract job; not an authorization credential."
+            }
+          },
+          {
+            "commit": "26602e4b25929be869d69ef28fef4dd9713180d7",
+            "end_line": 50,
+            "file": ".github/workflows/composition-diagnostics.yml",
+            "rule_id": "generic-api-key",
+            "start_line": 50,
+            "triage": {
+              "classification": "REVIEWED_NON_SECRET",
+              "line_sha256": "e14249a6ad271daff3b37d69a1e0aa5ac43e60aa5ba077c7a60517039a83a0b5",
+              "reason": "Public Swatinem Rust build-cache label for the Composition contract job; not an authorization credential."
+            }
+          },
+          {
+            "commit": "0e7c8bb917b0a5afecc15c413e99aae91b35b587",
+            "end_line": 166,
+            "file": "verification/pre-r16/pre-r16-audit.json",
+            "rule_id": "generic-api-key",
+            "start_line": 166,
+            "triage": {
+              "classification": "REVIEWED_NON_SECRET",
+              "line_sha256": "1ff351888bedfe32b856dd06a49be0c0bd606e15f091cb51fd567d70d28056b3",
+              "reason": "Public Actions merge-test commit identity, identical to the recorded scanner source_sha, not a credential. Historical field name contained secret; current metadata uses scan_source_revision."
+            }
+          },
+          {
+            "commit": "5c4f9bebdf8ea3e955806d2d694425af10f1ba63",
+            "end_line": 504,
+            "file": "crates/driver-figma/docs/REST_API_COVERAGE.json",
+            "rule_id": "generic-api-key",
+            "start_line": 504,
+            "triage": {
+              "classification": "REVIEWED_NON_SECRET",
+              "line_sha256": "e53966f950fa485ca7a0d5adb4680caaf14f540699dd230e28a15289c881a264",
+              "reason": "Public upstream Git commit identity, not an API credential."
+            }
+          },
+          {
+            "commit": "54f3a8c638066c5cef4a5e1e2e579db557b2f5a2",
+            "end_line": 247,
+            "file": "crates/driver-godot/tools/e2e_real.py",
+            "rule_id": "generic-api-key",
+            "start_line": 247,
+            "triage": {
+              "classification": "REVIEWED_NON_SECRET",
+              "line_sha256": "4781b494d0b416cd0d7ce9ffef551aacd6e671fb001a824178359b179be0c294",
+              "reason": "Godot Key game object collision-shape resource path in a generated disposable scene, not a cryptographic key."
+            }
+          },
+          {
+            "commit": "e8be1e39621891c7b984458b3398ca4e7b0208d1",
+            "end_line": 6,
+            "file": "crates/driver-obs/fixtures/responses/auth-vector.json",
+            "rule_id": "generic-api-key",
+            "start_line": 6,
+            "triage": {
+              "classification": "REVIEWED_NON_SECRET",
+              "line_sha256": "929e1ab2279c4b56f2654d91bbcf16ea7a41b1cf4d74638fb3733798919096e4",
+              "reason": "Explicit fixture_only golden authentication response derived from the literal fixture-only password; protocol_regression::authentication_matches_independent_golden verifies it."
+            }
+          }
+        ],
+        "scope": "head_history",
+        "status": "FINDINGS",
+        "untriaged_findings": 0
+      }
+    ],
+    "scanner": "gitleaks",
+    "scanner_binary_sha256": "88f91962aa2f93ac6ab281d553b9e125f5197bbbce38f9f2437f7299c32e5509",
+    "schema_version": 1,
+    "source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+    "status": "PASS_WITH_TRIAGED_NON_SECRETS",
+    "tracked_files": 1663,
+    "version": "8.30.1"
+  },
+  "independent_review": false,
+  "r16_closed": false
+}

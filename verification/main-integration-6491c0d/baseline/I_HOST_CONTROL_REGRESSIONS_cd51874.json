@@ -1,0 +1,58 @@
+{
+  "source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+  "suite_sha": "d885011b6608faae349339230bb1a92213a73155",
+  "branch": "ci/i-host-control-regressions-cd51874",
+  "status": "VERIFIED_PASS",
+  "product_overlays": false,
+  "native_host_tests_expected": 5,
+  "native_export_tests_expected": 2,
+  "production_code_changed_by_suite": false,
+  "run_id": 37074140012,
+  "conclusion": "success",
+  "artifacts": [
+    {
+      "artifact_id": 11256098736,
+      "name": "godot-export",
+      "zip_sha256": "a18a66a8462cfe8604df41459b19ef03e381ea2b77d506f9921f3fe90a56a5d0",
+      "test_results": {
+        "export-host-1.log": [
+          "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 36.13s"
+        ],
+        "export-host-2.log": [
+          "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 36.10s"
+        ]
+      },
+      "files_sha256": {
+        "export-host-1.log": "0fe1491194d21689c2d27dd3400846f9a821fb0f9592987880a54031c81956d0",
+        "export-host-2.log": "9734c56cbb3db3498e05e20c5908d32b2ab08162b91f85c0361727f0d2df260c",
+        "godot-version.txt": "edff16c1721dd4ae989cadf29a01f574ae8d51b118221f664725bd6980bbba5d",
+        "product-source-sha.txt": "41259e2d4245aa11ca4dec076575709848f98c3d7b1f09f08818d199ffe6a517",
+        "sandbox-setup.log": "654bbf1cb628f87ffbeb80b9a8349805580c44a710217ace2568dfaf7975ba73"
+      }
+    },
+    {
+      "artifact_id": 11255519080,
+      "name": "host-controls",
+      "zip_sha256": "107fd93c5f5db8a664db956273bf35235a21cfb43e74f7c014b31dd06a51fdcf",
+      "test_results": {
+        "native-host-controls.log": [
+          "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.47s"
+        ],
+        "host-unit.log": [
+          "test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.03s"
+        ],
+        "sdk-unit.log": [
+          "test result: ok. 26 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s"
+        ]
+      },
+      "files_sha256": {
+        "native-host-controls.log": "4e9cd57ba54ff922ff0b1c2da43a78fb6ea7e818c213e400c9af0382a61f7bb0",
+        "host-unit.log": "a1383fd19c7ac35f1c2c09c757c722fbc34f16a4c05dbeb211df2a33472e05b5",
+        "product-source-sha.txt": "41259e2d4245aa11ca4dec076575709848f98c3d7b1f09f08818d199ffe6a517",
+        "sandbox-setup.log": "654bbf1cb628f87ffbeb80b9a8349805580c44a710217ace2568dfaf7975ba73",
+        "sdk-unit.log": "b62f8f0dbd49b3dd2fb4e4f7e33ce08b1caaab942d7a6e19edfb60598c37112c"
+      }
+    }
+  ],
+  "actual_native_export_passes": 2
+}

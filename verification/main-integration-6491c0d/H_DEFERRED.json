@@ -1,0 +1,16 @@
+{
+  "role": "H",
+  "state": "DEFERRED_BY_USER_FOR_SEPARATE_FUTURE_BENCHMARKS",
+  "deferred_by_user": true,
+  "deferral": {
+    "scope": "H model comparisons and further benchmark development",
+    "reason": "User requested main integration now and future benchmarks separately from H",
+    "main_merge_gate": false,
+    "preserve_branch": "eval/semantic-productivity-lab",
+    "preserve_source_sha": "6fe1994d9ab25f44631ef8c41e9dad8f05aee0ca",
+    "model_evaluation_executed": false
+  },
+  "model_evaluation_executed": false,
+  "main_merge_gate": false,
+  "existing_native_preparation_retained": true
+}

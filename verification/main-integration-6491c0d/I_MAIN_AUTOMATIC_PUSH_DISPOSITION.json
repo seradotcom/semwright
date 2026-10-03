@@ -1,0 +1,323 @@
+{
+  "schema": 1,
+  "main_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+  "automatic_push_workflows": [
+    {
+      "run": {
+        "conclusion": "skipped",
+        "databaseId": 37097522659,
+        "name": "Driver session continuity",
+        "status": "completed"
+      },
+      "jobs": [
+        {
+          "name": "SDK + Figma + Godot continuity",
+          "conclusion": "skipped",
+          "status": "completed"
+        },
+        {
+          "name": "Figma trusted-resume plugin",
+          "conclusion": "skipped",
+          "status": "completed"
+        },
+        {
+          "name": "Process-backed stdio driver regression",
+          "conclusion": "skipped",
+          "status": "completed"
+        },
+        {
+          "name": "Continuity protocol fuzz smoke",
+          "conclusion": "skipped",
+          "status": "completed"
+        },
+        {
+          "name": "OBS reconnect fault injection",
+          "conclusion": "skipped",
+          "status": "completed"
+        },
+        {
+          "name": "Driver Host transport-loss wakeup",
+          "conclusion": "skipped",
+          "status": "completed"
+        }
+      ]
+    },
+    {
+      "run": {
+        "conclusion": "skipped",
+        "databaseId": 37097522612,
+        "name": "Maintainer secret precheck",
+        "status": "completed"
+      },
+      "jobs": [
+        {
+          "name": "history-and-tree",
+          "conclusion": "skipped",
+          "status": "completed"
+        }
+      ]
+    },
+    {
+      "run": {
+        "conclusion": "success",
+        "databaseId": 37097522630,
+        "name": "Quality gates",
+        "status": "completed"
+      },
+      "jobs": [
+        {
+          "name": "scope",
+          "conclusion": "success",
+          "status": "completed"
+        },
+        {
+          "name": "source-contracts",
+          "conclusion": "skipped",
+          "status": "completed"
+        },
+        {
+          "name": "rust",
+          "conclusion": "skipped",
+          "status": "completed"
+        },
+        {
+          "name": "static-lints",
+          "conclusion": "skipped",
+          "status": "completed"
+        },
+        {
+          "name": "msrv",
+          "conclusion": "skipped",
+          "status": "completed"
+        }
+      ]
+    },
+    {
+      "run": {
+        "conclusion": "skipped",
+        "databaseId": 37097522584,
+        "name": "OBS driver integration",
+        "status": "completed"
+      },
+      "jobs": [
+        {
+          "name": "conformance",
+          "conclusion": "skipped",
+          "status": "completed"
+        },
+        {
+          "name": "real-obs",
+          "conclusion": "skipped",
+          "status": "completed"
+        },
+        {
+          "name": "fuzz",
+          "conclusion": "skipped",
+          "status": "completed"
+        }
+      ]
+    },
+    {
+      "run": {
+        "conclusion": "skipped",
+        "databaseId": 37097522598,
+        "name": "Platformization and macOS",
+        "status": "completed"
+      },
+      "jobs": [
+        {
+          "name": "macos-native",
+          "conclusion": "skipped",
+          "status": "completed"
+        },
+        {
+          "name": "linux-regression",
+          "conclusion": "skipped",
+          "status": "completed"
+        }
+      ]
+    },
+    {
+      "run": {
+        "conclusion": "skipped",
+        "databaseId": 37097522505,
+        "name": "Plasma Wayland live",
+        "status": "completed"
+      },
+      "jobs": [
+        {
+          "name": "plasma-wayland",
+          "conclusion": "skipped",
+          "status": "completed"
+        }
+      ]
+    },
+    {
+      "run": {
+        "conclusion": "skipped",
+        "databaseId": 37097522582,
+        "name": "Native X11 EWMH live",
+        "status": "completed"
+      },
+      "jobs": [
+        {
+          "name": "openbox-ewmh",
+          "conclusion": "skipped",
+          "status": "completed"
+        }
+      ]
+    },
+    {
+      "run": {
+        "conclusion": "skipped",
+        "databaseId": 37097522576,
+        "name": "Platformization and Windows",
+        "status": "completed"
+      },
+      "jobs": [
+        {
+          "name": "windows-${{ matrix.arch }} native noninteractive",
+          "conclusion": "skipped",
+          "status": "completed"
+        },
+        {
+          "name": "sealed-tool compat ${{ matrix.name }}",
+          "conclusion": "skipped",
+          "status": "completed"
+        }
+      ]
+    },
+    {
+      "run": {
+        "conclusion": "skipped",
+        "databaseId": 37097522525,
+        "name": "Godot driver integration",
+        "status": "completed"
+      },
+      "jobs": [
+        {
+          "name": "real-godot",
+          "conclusion": "skipped",
+          "status": "completed"
+        },
+        {
+          "name": "conformance",
+          "conclusion": "skipped",
+          "status": "completed"
+        }
+      ]
+    },
+    {
+      "run": {
+        "conclusion": "success",
+        "databaseId": 37097522521,
+        "name": "Dependency, coverage and fuzz gates",
+        "status": "completed"
+      },
+      "jobs": [
+        {
+          "name": "scope",
+          "conclusion": "success",
+          "status": "completed"
+        },
+        {
+          "name": "dependencies",
+          "conclusion": "skipped",
+          "status": "completed"
+        },
+        {
+          "name": "coverage",
+          "conclusion": "skipped",
+          "status": "completed"
+        },
+        {
+          "name": "fuzz",
+          "conclusion": "skipped",
+          "status": "completed"
+        }
+      ]
+    },
+    {
+      "run": {
+        "conclusion": "success",
+        "databaseId": 37097522555,
+        "name": "Native application integration",
+        "status": "completed"
+      },
+      "jobs": [
+        {
+          "name": "scope",
+          "conclusion": "success",
+          "status": "completed"
+        },
+        {
+          "name": "chromium",
+          "conclusion": "skipped",
+          "status": "completed"
+        },
+        {
+          "name": "driver-conformance",
+          "conclusion": "skipped",
+          "status": "completed"
+        },
+        {
+          "name": "libreoffice-driver",
+          "conclusion": "skipped",
+          "status": "completed"
+        },
+        {
+          "name": "driver-distribution",
+          "conclusion": "skipped",
+          "status": "completed"
+        },
+        {
+          "name": "figma-driver",
+          "conclusion": "skipped",
+          "status": "completed"
+        },
+        {
+          "name": "pipewire-screencast",
+          "conclusion": "skipped",
+          "status": "completed"
+        },
+        {
+          "name": "blender-driver",
+          "conclusion": "skipped",
+          "status": "completed"
+        },
+        {
+          "name": "atspi-backend",
+          "conclusion": "skipped",
+          "status": "completed"
+        },
+        {
+          "name": "kicad-mlt-drivers",
+          "conclusion": "skipped",
+          "status": "completed"
+        },
+        {
+          "name": "x11-backend",
+          "conclusion": "skipped",
+          "status": "completed"
+        },
+        {
+          "name": "sway-backend",
+          "conclusion": "skipped",
+          "status": "completed"
+        },
+        {
+          "name": "atspi-qt-backend",
+          "conclusion": "skipped",
+          "status": "completed"
+        }
+      ]
+    }
+  ],
+  "existing_main_pause_was_active_at_push": true,
+  "skipped_jobs_are_not_executed_certification": true,
+  "executed_promotion_gates": {
+    "windows_run": 37096430846,
+    "source_equivalence_run": 37096515334
+  },
+  "ci_restore_for_future_events": true
+}
