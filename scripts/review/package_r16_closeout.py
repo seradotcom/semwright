@@ -51,6 +51,7 @@ REPOSITORY_FILES = (
     "verification/v1-engineering-closeout-revalidation.json",
 )
 TOOL_FILES = (
+    ".github/workflows/r16-closeout.yml",
     "scripts/review/validate_r16.py",
     "scripts/review/package_r16_closeout.py",
     "tests/python/test_r16_closeout.py",

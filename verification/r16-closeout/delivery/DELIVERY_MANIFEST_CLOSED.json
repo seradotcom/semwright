@@ -24,8 +24,8 @@
   "schema_version": 1,
   "v1_distribution_post_merge_run": 37146331051,
   "v1_engineering_closeout": "COMPLETE",
-  "zip_bytes": 357819,
+  "zip_bytes": 361640,
   "zip_integrity": "PASS",
   "zip_path": "verification/r16-closeout/delivery/semwright-r16-closeout-closed.zip",
-  "zip_sha256": "991780dd5e235b668aa004f946e862f950e8c9b8f1a7dfb6b73b896ab0778761"
+  "zip_sha256": "2927ec285401b62e44f7e42a10079a9ce231c4f6b476900ea6383b8c07103040"
 }
