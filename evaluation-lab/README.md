@@ -43,7 +43,7 @@ logs outside actor outputs. Its hash chain detects accidental editing/omission;
 same-UID development smoke is not a hostile-model isolation boundary. Final model
 admission requires a separate actor UID and certified model/tool/usage transport.
 
-The hosted preparation workflow runs 40 synthetic controls before at most two
+The hosted preparation workflow runs 45 synthetic controls before at most two
 native jobs. Product and laboratory checkouts are separate; the native smoke
 verifies the I target and all its frozen source-file digests before/after use.
 It executes the laboratory's direct helpers, not product authoring or a model.
@@ -52,6 +52,25 @@ route certification, winner and R16 claims disabled. Cross-app, media and full
 recovery oracles, live Broker route collection, model sessions and heldout sealing
 remain required. A missing native Figma surface remains a prerequisite blocker;
 no HTML surrogate can satisfy that requirement.
+
+`holdouts.py` implements fresh procedural parameter reservations, a nonce-bound
+integrity commitment and reveal validation. Private files must be outside this
+repository and cannot overwrite an earlier reservation. Seal/reveal controls use
+exposed synthetic fixtures, never real final holdouts. The actual final reservation
+remains pending until the full harness and comparable model protocol are ready.
+The draft seal explicitly states that it does not provide secrecy against the same
+user or assistant. An exposed/consumed round requires fresh tasks for a new round.
+
+Hosted native preparation source `eb9708d96eec3be78e14d924f5fba0fdde3c6d4e`
+passed in run `37091378217`: 40 then-current synthetic controls, 24 native revision
+phases and eight negative controls rejected. Its reproducible preparatory ZIP is
+artifact `11262244432`, SHA-256
+`1728cf197cdb330f24495fb27b89a99e025472bc661c21ed4ee7d6ba9f740522`.
+The first failed Blender attempt in run `37091169223` remains preserved. Godot
+passed that first run; Blender's GLB observer initially counted the importer-owned
+bone display Icosphere. Disabling that display helper retained all artifact mesh,
+material, animation and skin requirements. This is development-harness evidence;
+it does not certify all H task families or any model productivity result.
 
 Final execution also requires I's technical gate, a full immutable target SHA,
 fresh heldout instances with a seal/reveal ledger, explicit comparable model access

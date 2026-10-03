@@ -1,6 +1,12 @@
 name: H native evaluation harness preparation
 on:
   workflow_dispatch:
+    inputs:
+      lane:
+        type: choice
+        default: native-all
+        options: [harness-only, native-all]
+        description: Run lightweight harness controls or both native development apps
 permissions:
   contents: read
 defaults:
@@ -47,6 +53,7 @@ jobs:
           retention-days: 14
   native:
     needs: harness
+    if: inputs.lane != 'harness-only'
     strategy:
       fail-fast: false
       max-parallel: 2

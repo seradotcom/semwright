@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "role": "H",
-  "state": "NATIVE_PREPARATION_IMPLEMENTED_CI_PENDING",
+  "state": "BLENDER_GODOT_NATIVE_CONTROLS_PASS_HELDOUT_TOOLING_CI_PENDING_FULL_HARNESS_PENDING",
   "evaluation_target_sha": null,
   "evaluation_suite_sha": null,
   "evaluation_executed": false,
@@ -18,7 +18,7 @@
         "native/records.py",
         "admission.py"
       ],
-      "reason": "Native development controller implemented for Blender/Godot; hosted evidence pending; full model harness remains incomplete"
+      "reason": "Hosted native development controls pass for Blender/Godot; full model harness and three remaining task-family programs still required"
     },
     "H02": {
       "status": "PARTIAL",
@@ -46,8 +46,12 @@
       "foundation_evidence": "28 synthetic foundation controls in37074603304; full evaluation remains pending"
     },
     "H05": {
-      "status": "PENDING",
-      "reason": "No real heldout registry, seal or reveal generated"
+      "status": "PARTIAL",
+      "reason": "Procedural commitment/reveal tooling implemented; hosted controls pending; actual final heldout reservation and model protocol not frozen",
+      "implementation": [
+        "holdouts.py",
+        "tests/test_holdouts.py"
+      ]
     },
     "H06": {
       "status": "BLOCKED",
@@ -73,7 +77,7 @@
     },
     "H09": {
       "status": "PARTIAL",
-      "reason": "Independent native development observers and negative controls implemented; hosted evidence pending; final task oracles and blind aesthetic judgments absent",
+      "reason": "Blender/Godot development oracles passed native controls and rejected eight defective outputs; cross-app/media/full recovery task oracles and aesthetic judgment remain pending",
       "implementation": [
         "native/observe_blender.py",
         "native/observe_godot.gd",
@@ -126,5 +130,17 @@
   },
   "technical_target_received": true,
   "technical_product_target_sha": "cd518748f742025a251b78028613aa1b16919e73",
-  "technical_target_manifest_sha256": "23ed96b04e1ac14aefb0a729e619d0cb1f5d4cea2a23a0079b1edf38989068c7"
+  "technical_target_manifest_sha256": "23ed96b04e1ac14aefb0a729e619d0cb1f5d4cea2a23a0079b1edf38989068c7",
+  "native_preparation_certificate": {
+    "laboratory_source_sha": "eb9708d96eec3be78e14d924f5fba0fdde3c6d4e",
+    "run_id": 37091378217,
+    "foundation_controls_passed": 40,
+    "native_development_phases_passed": 24,
+    "negative_controls_rejected": 8,
+    "product_source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+    "model_evaluation_executed": false,
+    "scope": "Public direct native helpers/observers, not all final H task oracles",
+    "artifact_id": 11262244432,
+    "zip_sha256": "1728cf197cdb330f24495fb27b89a99e025472bc661c21ed4ee7d6ba9f740522"
+  }
 }
