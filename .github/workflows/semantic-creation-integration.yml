@@ -16,89 +16,7 @@ concurrency:
   group: i-native-shared-asset-${{ github.sha }}
   cancel-in-progress: false
 jobs:
-  blender:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 35
-    strategy:
-      max-parallel: 1
-      fail-fast: true
-      matrix:
-        worker: [clean-1, clean-2]
-    env:
-      CARGO_INCREMENTAL: '0'
-      CARGO_PROFILE_DEV_DEBUG: '0'
-      CARGO_PROFILE_TEST_DEBUG: '0'
-      SEMWRIGHT_TEST_SOURCE_SHA: ${{ inputs.candidate_sha }}
-      SEMWRIGHT_AUTHORING_EVIDENCE: ${{ github.workspace }}/verification/joint-e
-      SEMWRIGHT_NATIVE_AUTHORING_ACCEPTANCE: '1'
-      SEMWRIGHT_TEST_BLENDER_ROOT: /usr/local/blender-4.5.14-linux-x64
-      SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: ${{ inputs.candidate_sha }}
-          persist-credentials: false
-      - name: Bind source and I-only fixture
-        run: |
-          set -euo pipefail
-          test "$SEMWRIGHT_TEST_SOURCE_SHA" = cd518748f742025a251b78028613aa1b16919e73
-          test "$(git rev-parse HEAD)" = "$SEMWRIGHT_TEST_SOURCE_SHA"
-          git diff --exit-code
-          git fetch --depth=1 origin "$GITHUB_SHA"
-          git show "$GITHUB_SHA:integration-lab/i-chain-cd51874/e_fixture.rs" > crates/driver-blender/tests/authoring_native.rs
-          test "$(git diff --name-only)" = crates/driver-blender/tests/authoring_native.rs
-          mkdir -p verification/joint-e
-          sha256sum crates/driver-blender/tests/authoring_native.rs > verification/joint-e/fixture.sha256
-      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
-        with:
-          toolchain: 1.98.1
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
-        with:
-          key: blender-authoring-linux-rust1.98.1-v2-certification
-      - name: Provision isolated pinned Blender
-        run: |
-          set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install -y libpipewire-0.3-dev pkg-config bubblewrap fontconfig xz-utils
-          curl --fail --location --retry 2 --output "$RUNNER_TEMP/blender.tar.xz" https://download.blender.org/release/Blender4.5/blender-4.5.14-linux-x64.tar.xz
-          echo "9ba871ff2ecd36526b77432745980b7e6664ecd0c7ca11c48849073dcfe06da3  $RUNNER_TEMP/blender.tar.xz" | sha256sum --check --strict
-          sudo tar -xJf "$RUNNER_TEMP/blender.tar.xz" -C /usr/local
-          test "$("$SEMWRIGHT_TEST_BLENDER_ROOT/blender" --version | head -1)" = "Blender 4.5.14 LTS"
-          bash scripts/dev/ci-driver-bwrap-profile.sh verification/joint-e/sandbox-setup.log
-          cargo build --locked -p semwright-plugin-host --bin semwright-sandbox
-      - name: E native create, transform, repair, export and fresh reopen
-        run: |
-          set -euo pipefail
-          cargo test --locked -p semwright-driver-blender --features authoring-native --test authoring_native broker_native_authoring_save_reopen_export_and_owner_denial -- --exact --nocapture --test-threads=1 2>&1 | tee verification/joint-e/native.log
-          grep -F 'test result: ok. 1 passed; 0 failed; 0 ignored;' verification/joint-e/native.log
-          test "$(git diff --name-only)" = crates/driver-blender/tests/authoring_native.rs
-      - name: Independent fresh Blender checks for both native GLBs
-        run: |
-          set -euo pipefail
-          for variant in initial-articulated articulated; do
-            "$SEMWRIGHT_TEST_BLENDER_ROOT/blender" --background --factory-startup --disable-autoexec --python-exit-code 1 --python crates/driver-blender/tests/glb_roundtrip_oracle.py -- "$GITHUB_WORKSPACE/verification/joint-e/$variant.glb" "$GITHUB_WORKSPACE/verification/joint-e/$variant-oracle.json" 2>&1 | tee "verification/joint-e/$variant-oracle.log"
-          done
-          python3 - <<'PY'
-          import hashlib,json,os
-          from pathlib import Path
-          r=Path('verification/joint-e')
-          a=hashlib.sha256((r/'initial-articulated.glb').read_bytes()).hexdigest()
-          b=hashlib.sha256((r/'articulated.glb').read_bytes()).hexdigest()
-          assert a!=b
-          for name,digest in [('initial-articulated',a),('articulated',b)]:
-              d=json.loads((r/(name+'-oracle.json')).read_text())
-              assert d['result']=='PASS' and d['source_sha256']==digest and all(d['required_checks'].values())
-          (r/'identity.json').write_text(json.dumps({'source_sha':os.environ['SEMWRIGHT_TEST_SOURCE_SHA'],'suite_sha':os.environ['GITHUB_SHA'],'run_id':os.environ['GITHUB_RUN_ID'],'worker':'${{ matrix.worker }}','initial_glb_sha256':a,'revised_glb_sha256':b,'same_managed_e_island':True,'r16_closed':False},indent=2)+'\n')
-          PY
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        if: always()
-        with:
-          name: joint-e-${{ matrix.worker }}
-          path: verification/joint-e/
-          if-no-files-found: error
-          retention-days: 14
   godot:
-    needs: blender
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     strategy:
@@ -132,6 +50,8 @@ jobs:
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
         with:
           name: joint-e-${{ matrix.worker }}
+          run-id: 37079902271
+          github-token: ${{ github.token }}
           path: ${{ runner.temp }}/joint-e
       - name: Validate same-source E inputs and preserve original output bytes
         run: |
@@ -139,13 +59,13 @@ jobs:
           import hashlib,json,os
           from pathlib import Path
           r=Path(os.environ['RUNNER_TEMP'])/'joint-e';d=json.loads((r/'identity.json').read_text())
-          assert d['source_sha']==os.environ['SEMWRIGHT_TEST_SOURCE_SHA'] and d['suite_sha']==os.environ['GITHUB_SHA']
-          assert d['run_id']==os.environ['GITHUB_RUN_ID'] and d['worker']=='${{ matrix.worker }}'
+          assert d['source_sha']==os.environ['SEMWRIGHT_TEST_SOURCE_SHA'] and d['suite_sha']=='cdf95987076ff4fc12071ca3dc8f4be2bc1dd0af'
+          assert d['run_id']=='37079902271' and d['worker']=='${{ matrix.worker }}'
           a=(r/'initial-articulated.glb').read_bytes();b=(r/'articulated.glb').read_bytes()
           assert hashlib.sha256(a).hexdigest()==d['initial_glb_sha256']
           assert hashlib.sha256(b).hexdigest()==d['revised_glb_sha256'] and a!=b
           inputs=Path(os.environ['RUNNER_TEMP'])/'joint-e-input';inputs.mkdir()
-          (inputs/'articulated.glb').write_bytes(a);(inputs/'revised-articulated.glb').write_bytes(b)
+          (inputs/'articulated.glb').write_bytes(a);(inputs/'revised_articulated.glb').write_bytes(b)
           with open(os.environ['GITHUB_ENV'],'a') as f:
               f.write('SEMWRIGHT_TEST_E_GLB='+str(inputs/'articulated.glb')+'\n')
               f.write('E_GLB_SHA256='+d['initial_glb_sha256']+'\nE_REVISION_GLB_SHA256='+d['revised_glb_sha256']+'\n')

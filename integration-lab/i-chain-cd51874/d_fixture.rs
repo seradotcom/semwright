@@ -2460,15 +2460,15 @@ async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {
     semwright_semantic_composition::Digest::parse(revised_digest.clone()).unwrap();
     assert_ne!(e_digest, revised_digest);
     let second_handoff = broker_call(&handoff_broker, &session, "artifact.handoff", json!({
-        "source_root":"e-blender-output","source_path":"revised-articulated.glb",
-        "destination_root":"godot-authoring-input","destination_path":"revised-articulated.glb",
+        "source_root":"e-blender-output","source_path":"revised_articulated.glb",
+        "destination_root":"godot-authoring-input","destination_path":"revised_articulated.glb",
         "expected_sha256":revised_digest,"max_bytes":16_777_216,
         "semantic_type":"model/3d","media_type":"model/gltf-binary"
     })).await;
     assert_eq!(second_handoff["copied"], true);
     assert_eq!(second_handoff["atomic"], true);
     let mut second_spec = replacement_spec.clone();
-    second_spec["assets"][0]["file"] = json!("revised-articulated.glb");
+    second_spec["assets"][0]["file"] = json!("revised_articulated.glb");
     second_spec["assets"][0]["sha256"] = json!(revised_digest);
     let second_plan = broker_call(&host.broker, &session, "driver.godot.composition.plan",
         json!({"spec":second_spec})).await;
@@ -2480,7 +2480,7 @@ async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {
     assert_eq!(second_apply["execution_status"], "completed");
     assert_eq!(digest(&behavior_path), baseline_behavior_sha);
     assert_eq!(digest(&product_project.join("assets/articulated.glb")), e_digest);
-    assert_eq!(digest(&product_project.join("assets/revised-articulated.glb")), revised_digest);
+    assert_eq!(digest(&product_project.join("assets/revised_articulated.glb")), revised_digest);
     let second_snapshot = broker_call(&host.broker, &session, "driver.godot.composition.inspect",
         json!({"project":"cross_app_articulated"})).await;
     assert_eq!(second_snapshot["status"], "IN_SYNC");
@@ -2490,7 +2490,7 @@ async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {
     assert_eq!(gameplay_collision_signature(&second_inspected), baseline_collision);
     assert!(matches!(effect_rule_verdict(&second_inspected,"godot.native_readback.arena.v1").unwrap(), "PASS"|"UNKNOWN"));
     assert!(second_inspected["observation"]["dependencies"].as_array().unwrap().iter().any(|dependency|
-        dependency["path"].as_str().is_some_and(|path|path.ends_with("assets/revised-articulated.glb"))
+        dependency["path"].as_str().is_some_and(|path|path.ends_with("assets/revised_articulated.glb"))
         && dependency["exists"]==true && dependency["sha256"]==revised_digest));
     let body_origin = |report: &Value| {
         let rows = report["observation"]["authored"]["nodes"].as_array().unwrap();
