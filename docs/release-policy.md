@@ -53,10 +53,12 @@ merge candidate, which must not be relabeled as the branch head. Final main is c
 
 Every native job builds the five command binaries and checks architecture, deterministic package
 assembly, every internal checksum, installation of the **extracted** bundle into a disposable
-user location, installed execution, removal and cleanup. Tests also preserve changed/unowned files
-and reject an existing destination. Linux additionally installs/removes the actual `.deb` through
-the package manager on disposable GitHub-hosted runners. Fake-doctor checks are synthetic broker
-smokes, not physical desktop acceptance.
+user location, `semwright setup` dry-run/creation/idempotence, installed execution, removal and
+cleanup. Setup acceptance verifies an observe-only config plus an exact installed MCP snippet while
+granting no authority and starting no service. Tests also preserve changed/unowned files and reject
+an existing destination. Linux additionally installs/removes the actual `.deb` through the package
+manager on disposable GitHub-hosted runners. Fake-doctor checks are synthetic broker smokes, not
+physical desktop acceptance.
 
 The global manifest requires six unique exact-SHA native certificates and verifies the actual
 hashes of all eight packages against those certificates. It includes `release_admission=false`,

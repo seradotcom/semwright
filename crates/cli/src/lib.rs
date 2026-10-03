@@ -11,8 +11,8 @@ use std::{
 #[command(
     name = "semwright",
     version,
-    about = "Typed, policy-scoped Linux automation",
-    long_about = "Inspect and control a Linux desktop through one local capability broker. Start semwrightd first. Use commands search/describe to discover application adapters. JSON results go to stdout; diagnostics go to stderr. No shell/eval/confirmation approval command exists."
+    about = "Typed, policy-scoped desktop and application automation",
+    long_about = "Inspect and control supported desktop and application surfaces through one local capability broker. Run semwright setup once after installation; start semwrightd for broker-backed commands. Use commands search/describe to discover application adapters. JSON results go to stdout; diagnostics go to stderr. No shell/eval/confirmation approval command exists."
 )]
 pub struct Cli {
     #[arg(long, global = true, env = "SEMWRIGHT_SOCKET")]
@@ -49,6 +49,8 @@ pub struct Cli {
 }
 #[derive(Subcommand, Debug)]
 pub enum Command {
+    /// Prepare a safe local observe-only configuration and MCP client snippet.
+    Setup,
     Doctor,
     #[command(visible_alias = "capability")]
     Capabilities {
@@ -1262,7 +1264,8 @@ pub fn request(cli: &Cli) -> Result<Option<ExecuteRequest>> {
         Command::Audit {
             command: Audit::Tail { limit },
         } => ("audit.tail".into(), json!({"limit":limit})),
-        Command::Watch { .. }
+        Command::Setup
+        | Command::Watch { .. }
         | Command::Driver { .. }
         | Command::Mcp { .. }
         | Command::Config { .. }
@@ -1492,6 +1495,18 @@ mod tests {
         let help = Cli::try_parse_from(["semwright", "ui", "find", "--help"]).unwrap_err();
         assert_eq!(help.kind(), clap::error::ErrorKind::DisplayHelp);
     }
+    #[test]
+    fn setup_is_local_and_requires_no_broker() {
+        let parsed = Cli::try_parse_from(["semwright", "setup"]).unwrap();
+        assert!(request(&parsed).unwrap().is_none());
+        assert!(matches!(parsed.command, Command::Setup));
+
+        let dry = Cli::try_parse_from(["semwright", "--dry-run", "--json", "setup"]).unwrap();
+        assert!(dry.dry_run);
+        assert!(dry.json);
+        assert!(request(&dry).unwrap().is_none());
+    }
+
     #[test]
     fn known_examples_match_schemas() {
         for args in [

@@ -10,8 +10,8 @@ import re
 
 EXPECTED = frozenset({'linux-x86_64', 'linux-aarch64', 'windows-x86_64',
                       'windows-arm64', 'macos-arm64', 'macos-x86_64'})
-INSTALL_CHECKS = ('install', 'installed_smoke', 'uninstall', 'cleanup', 'overwrite_refused',
-                  'changed_files_preserved', 'unknown_files_preserved')
+INSTALL_CHECKS = ('install', 'setup', 'installed_smoke', 'uninstall', 'cleanup',
+                  'overwrite_refused', 'changed_files_preserved', 'unknown_files_preserved')
 
 
 def digest(path: Path) -> str:
