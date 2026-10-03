@@ -2898,7 +2898,7 @@ dependencies = [
  "semwright-types",
  "serde",
  "serde_json",
- "sha2",
+ "sha2 0.11.0",
  "tempfile",
  "tokio",
  "tokio-tungstenite",
@@ -2924,7 +2924,7 @@ dependencies = [
  "semwright-types",
  "serde",
  "serde_json",
- "sha2",
+ "sha2 0.11.0",
  "tempfile",
  "tokio",
  "tokio-util",
@@ -2952,7 +2952,7 @@ dependencies = [
  "schemars",
  "serde",
  "serde_json",
- "sha2",
+ "sha2 0.11.0",
  "uuid",
 ]
 
@@ -2979,7 +2979,7 @@ dependencies = [
  "semwright-types",
  "serde",
  "serde_json",
- "sha2",
+ "sha2 0.11.0",
  "tempfile",
  "tokio",
  "tokio-util",
@@ -3060,7 +3060,7 @@ dependencies = [
  "semwright-workflow",
  "serde",
  "serde_json",
- "sha2",
+ "sha2 0.11.0",
  "tempfile",
  "tokio",
  "tokio-util",
@@ -3124,7 +3124,7 @@ dependencies = [
  "semwright-types",
  "serde",
  "serde_json",
- "sha2",
+ "sha2 0.11.0",
  "tempfile",
  "tokio",
  "tokio-util",
@@ -3155,7 +3155,7 @@ dependencies = [
  "semwright-types",
  "serde",
  "serde_json",
- "sha2",
+ "sha2 0.11.0",
  "tempfile",
  "thiserror 2.0.21",
  "tokio",
@@ -3191,7 +3191,7 @@ dependencies = [
  "semwright-types",
  "serde",
  "serde_json",
- "sha2",
+ "sha2 0.11.0",
  "tempfile",
  "tokio",
  "tokio-tungstenite",
@@ -3214,7 +3214,7 @@ dependencies = [
  "semwright-types",
  "serde",
  "serde_json",
- "sha2",
+ "sha2 0.11.0",
  "tempfile",
  "tokio",
  "tokio-util",
@@ -3233,7 +3233,7 @@ dependencies = [
  "semwright-policy",
  "semwright-types",
  "serde_json",
- "sha2",
+ "sha2 0.11.0",
  "tempfile",
  "tokio",
  "tokio-util",
@@ -3266,7 +3266,7 @@ dependencies = [
  "semwright-types",
  "serde",
  "serde_json",
- "sha2",
+ "sha2 0.11.0",
  "tempfile",
  "tokio",
  "tokio-util",
@@ -3290,7 +3290,7 @@ dependencies = [
  "semwright-types",
  "serde",
  "serde_json",
- "sha2",
+ "sha2 0.11.0",
  "tempfile",
  "tokio",
  "tokio-tungstenite",
@@ -3311,7 +3311,7 @@ dependencies = [
  "semwright-types",
  "serde",
  "serde_json",
- "sha2",
+ "sha2 0.11.0",
  "tempfile",
 ]
 
@@ -3327,7 +3327,7 @@ dependencies = [
  "semwright-types",
  "serde",
  "serde_json",
- "sha2",
+ "sha2 0.11.0",
  "tokio",
  "tokio-util",
 ]
@@ -3369,7 +3369,7 @@ dependencies = [
  "semwright-types",
  "serde",
  "serde_json",
- "sha2",
+ "sha2 0.11.0",
  "tempfile",
  "tokio",
  "tokio-util",
@@ -3392,7 +3392,7 @@ dependencies = [
  "semwright-types",
  "serde",
  "serde_json",
- "sha2",
+ "sha2 0.11.0",
  "tempfile",
  "tokio",
  "tokio-util",
@@ -3411,7 +3411,7 @@ dependencies = [
  "semwright-policy",
  "semwright-types",
  "serde_json",
- "sha2",
+ "sha2 0.11.0",
  "tempfile",
  "tokio",
  "tokio-util",
@@ -3464,7 +3464,7 @@ dependencies = [
  "semwright-types",
  "semwright-video-domain",
  "serde_json",
- "sha2",
+ "sha2 0.11.0",
  "tempfile",
  "tokio",
  "tokio-util",
@@ -3508,7 +3508,7 @@ dependencies = [
  "semwright-types",
  "serde",
  "serde_json",
- "sha2",
+ "sha2 0.11.0",
  "tempfile",
  "tokio",
  "tokio-util",
@@ -3555,7 +3555,7 @@ dependencies = [
  "semwright-types",
  "serde",
  "serde_json",
- "sha2",
+ "sha2 0.11.0",
  "tempfile",
  "tokio",
  "tokio-util",
@@ -3578,7 +3578,7 @@ dependencies = [
  "semwright-platform-api",
  "semwright-types",
  "serde_json",
- "sha2",
+ "sha2 0.11.0",
  "tempfile",
  "tokio",
  "uuid",
@@ -3611,7 +3611,7 @@ dependencies = [
  "proptest",
  "semwright-platform-api",
  "semwright-types",
- "sha2",
+ "sha2 0.11.0",
  "tempfile",
  "tokio",
  "uuid",
@@ -3643,7 +3643,7 @@ dependencies = [
  "semwright-types",
  "serde",
  "serde_json",
- "sha2",
+ "sha2 0.11.0",
  "tokio",
  "tokio-util",
  "uiautomation",
@@ -3660,7 +3660,7 @@ dependencies = [
  "semwright-platform-api",
  "semwright-types",
  "serde_json",
- "sha2",
+ "sha2 0.11.0",
  "tempfile",
  "tokio",
  "uuid",
@@ -3682,7 +3682,7 @@ dependencies = [
  "semwright-types",
  "serde",
  "serde_json",
- "sha2",
+ "sha2 0.11.0",
  "tempfile",
  "tokio",
  "tokio-util",
@@ -3698,7 +3698,7 @@ dependencies = [
  "semwright-types",
  "serde",
  "serde_json",
- "sha2",
+ "sha2 0.11.0",
  "tempfile",
  "tokio",
 ]
@@ -3713,7 +3713,7 @@ dependencies = [
  "semwright-types",
  "serde",
  "serde_json",
- "sha2",
+ "sha2 0.11.0",
  "tempfile",
  "uuid",
 ]
@@ -3777,7 +3777,7 @@ dependencies = [
  "semwright-types",
  "serde",
  "serde_json",
- "sha2",
+ "sha2 0.11.0",
  "tempfile",
 ]
 
@@ -3789,7 +3789,7 @@ dependencies = [
  "schemars",
  "serde",
  "serde_json",
- "sha2",
+ "sha2 0.11.0",
  "thiserror 2.0.21",
 ]
 
@@ -3806,7 +3806,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml_ng",
- "sha2",
+ "sha2 0.11.0",
  "tempfile",
  "unicode-normalization",
 ]
@@ -3846,7 +3846,7 @@ version = "0.9.0-dev.1"
 dependencies = [
  "serde",
  "serde_json",
- "sha2",
+ "sha2 0.11.0",
  "uuid",
 ]
 
@@ -3859,7 +3859,7 @@ dependencies = [
  "semwright-types",
  "serde",
  "serde_json",
- "sha2",
+ "sha2 0.11.0",
  "tempfile",
  "uuid",
 ]
@@ -3983,6 +3983,17 @@ dependencies = [
  "cfg-if",
  "cpufeatures 0.2.17",
  "digest 0.10.7",
+]
+
+[[package]]
+name = "sha2"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "446ba717509524cb3f22f17ecc096f10f4822d76ab5c0b9822c5f9c284e825f4"
+dependencies = [
+ "cfg-if",
+ "cpufeatures 0.3.1",
+ "digest 0.11.3",
 ]
 
 [[package]]
@@ -4272,7 +4283,7 @@ dependencies = [
  "pest",
  "pest_derive",
  "phf",
- "sha2",
+ "sha2 0.10.9",
  "signal-hook",
  "siphasher",
  "terminfo",
@@ -4981,7 +4992,7 @@ checksum = "692daff6d93d94e29e4114544ef6d5c942a7ed998b37abdc19b17136ea428eb7"
 dependencies = [
  "getrandom 0.3.4",
  "mac_address",
- "sha2",
+ "sha2 0.10.9",
  "thiserror 1.0.69",
  "uuid",
 ]
