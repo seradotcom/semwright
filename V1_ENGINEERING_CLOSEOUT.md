@@ -52,4 +52,10 @@ was tested as GitHub PR merge candidate `90acc6f8c1baaac0e9ed273c758084f7bc540ae
 all six native platform jobs and the global manifest passed, yielding eight packages. The manifest
 retains `release_admission=false`; this is package/integration evidence, not release authorization.
 
+After PR #207 merged, the exact main SHA `9954c1f95f68305f32f153fe5ab302441845b7ed` was
+revalidated again. R16 run `37146328471` passed both `documentary` and `positive-smoke`; V1
+distribution run `37146331051` passed all six native platform package jobs plus the distribution
+manifest. This post-merge evidence strengthens the exact-main record but does not close R06/R18,
+change `release-readiness.json`, or authorize release publication.
+
 Machine-readable companion: `verification/v1-engineering-closeout.json`.

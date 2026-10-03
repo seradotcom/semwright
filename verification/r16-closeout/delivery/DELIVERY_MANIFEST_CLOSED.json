@@ -1,0 +1,31 @@
+{
+  "containing_git_commit": "EXTERNAL_IDENTITY_AFTER_GENERATION",
+  "contains_runtime_binaries": false,
+  "deterministic_double_build": "PASS",
+  "final_source_sha": "868446205df36826356483e93c53e5060c46e8aa",
+  "historical_pre_revalidation_backup": {
+    "path": "verification/r16-closeout/delivery/semwright-r16-closeout-final.zip",
+    "preserved_unchanged": true,
+    "sha256": "6a218df8bda6848ecdf56fd68ad0059a34534464e9822f72e09d04abc0631202"
+  },
+  "kind": "R16_POST_REVALIDATION_CLOSED_BACKUP",
+  "merge_commit_sha": "9954c1f95f68305f32f153fe5ab302441845b7ed",
+  "merge_performed_by_role_r": false,
+  "pr": 207,
+  "pr_head_sha": "b58544326c7422dd61b3e5d672625a06e7642c64",
+  "product_fix_sha": "4ef9a06e486cd8d2e3851c298e244435ecef3232",
+  "r06": "OPEN — DEFERRED_TO_POST_V1_ENVIRONMENT_DEPENDENT",
+  "r16_closed": true,
+  "r16_post_merge_run": 37146328471,
+  "r18": "OPEN — DEFERRED_TO_POST_V1_ENVIRONMENT_DEPENDENT",
+  "release_published": false,
+  "release_readiness": "BLOCKED_DEVELOPMENT_SOURCE",
+  "review_target_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+  "schema_version": 1,
+  "v1_distribution_post_merge_run": 37146331051,
+  "v1_engineering_closeout": "COMPLETE",
+  "zip_bytes": 357819,
+  "zip_integrity": "PASS",
+  "zip_path": "verification/r16-closeout/delivery/semwright-r16-closeout-closed.zip",
+  "zip_sha256": "991780dd5e235b668aa004f946e862f950e8c9b8f1a7dfb6b73b896ab0778761"
+}
