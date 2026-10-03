@@ -92,7 +92,7 @@ def main():
             assert json.loads(restored.read_text())["outcome"]=="PASS" and inventory(actor/"game")==before
             row["negative_controls"]=[{"mutation":"stale-imported-asset","rejected":True,"restored":"PASS",
                                        "report_sha256":file_digest(rejected),"restored_sha256":file_digest(restored)}]
-            row["negative_controls"]+=negative_controls("godot",recorder,args.godot,actor,game_out,game_spec)
+            row["negative_controls"]+=negative_controls("godot",recorder,args.godot,actor,game_out,game_spec,args.template)
             row["outcome"]="PASS"
         assert sum(len(t["phases"]) for t in report["tasks"])==12
         verify_product(args.product,freeze)

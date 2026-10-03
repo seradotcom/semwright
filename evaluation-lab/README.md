@@ -30,9 +30,11 @@ be modified or replaced. They are not a completed quality baseline for the final
 tasks. Blender observers independently reopen `.blend` and import exported GLB,
 examining geometry, materials, skin bindings and evaluated animation. Godot
 observers load the native scene and inject native input events to check movement,
-pickup conditions, objective UI, timers and restart. Standalone exports are built
-and launched; input completion in the standalone binary still needs its own
-oracle. The recovery development phase covers process restart/save/reopen only.
+pickup conditions, objective UI, timers and restart. Standalone exports now have an external X11 keyboard/rendered-HUD oracle,
+implemented for hosted testing. It uses private Xvfb displays, native XTEST key
+events and screenshots interpreted by Tesseract; it injects no engine script.
+The oracle must reject a broken-gameplay export. Native certification remains
+pending until its affected workflow passes. The recovery development phase covers process restart/save/reopen only.
 It does not certify Broker ledger recovery after an Unknown outcome.
 
 Declared broken animation/material/geometry and broken gameplay copies must fail
@@ -43,12 +45,12 @@ logs outside actor outputs. Its hash chain detects accidental editing/omission;
 same-UID development smoke is not a hostile-model isolation boundary. Final model
 admission requires a separate actor UID and certified model/tool/usage transport.
 
-The hosted preparation workflow runs 49 synthetic controls before at most two
+The hosted preparation workflow runs 55 synthetic controls before at most two
 native jobs. Product and laboratory checkouts are separate; the native smoke
 verifies the I target and all its frozen source-file digests before/after use.
 It executes the laboratory's direct helpers, not product authoring or a model.
 Reports are always `NATIVE_HARNESS_SMOKE`, with productivity, heldout, semantic
-route certification, winner and R16 claims disabled. Cross-app, media and full
+route certification, winner and R16 claims disabled. Media and full
 recovery oracles, live Broker route collection, model sessions and heldout sealing
 remain required. A missing native Figma surface remains a prerequisite blocker;
 no HTML surrogate can satisfy that requirement.
@@ -118,3 +120,16 @@ full task-quality model output, isolated semantic authoring and full Broker ledg
 recovery remain separate requirements. The `godot-cross` Actions lane tests only
 the affected native modules and skips the full package; `native-all` must execute
 all three native groups on one laboratory SHA before packaging.
+
+Cross-app observer correction `060cc2a350a72c114e2e97176176c49db01cc647`
+passed run `37093820713`: 49 harness controls, 24 Godot/cross-app revision phases
+and six negative controls. The original failed run `37093332332` is preserved.
+The material observer now matches Godot 4.7.2’s glTF linear-to-sRGB conversion
+([pinned importer source](https://github.com/godotengine/godot/blob/4.7.2-stable/modules/gltf/gltf_document.cpp#L3043));
+all imported meshes still require the expected native material. This is a harness
+representation correction, not a product repair.
+
+Standalone screenshot OCR follows [Tesseract command-line documentation](https://tesseract-ocr.github.io/tessdoc/Command-Line-Usage.html).
+Absent or ambiguous HUD text fails the oracle; it never becomes native acceptance.
+Rendered objective progress, wrong-location pickup rejection, completion, restart
+and timer progression/reset require actual exported-binary keyboard interaction.

@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "role": "H",
-  "state": "NATIVE_CROSS_APP_COMPONENTS_IMPLEMENTED_AFFECTED_CI_PENDING",
+  "state": "NATIVE_CROSS_APP_PASS_STANDALONE_KEYBOARD_ORACLE_AFFECTED_CI_PENDING",
   "evaluation_target_sha": null,
   "evaluation_suite_sha": null,
   "evaluation_executed": false,
@@ -18,7 +18,7 @@
         "native/records.py",
         "admission.py"
       ],
-      "reason": "Hosted native development controls pass for Blender/Godot; full model harness and three remaining task-family programs still required"
+      "reason": "Hosted Blender/Godot/cross-app development controls pass; media/full Broker recovery and isolated model harness remain required"
     },
     "H02": {
       "status": "PARTIAL",
@@ -65,7 +65,7 @@
         "native/cross_program.py",
         "native/cross_smoke.py"
       ],
-      "reason": "Public Blender/Godot/cross-app component revision programs implemented; native cross-app CI pending; media/full Broker recovery and final model evaluation remain pending"
+      "reason": "Public Blender/Godot/cross-app development revision programs have native CI evidence; media/full Broker recovery and final model evaluation remain pending"
     },
     "H08": {
       "status": "PARTIAL",
@@ -79,11 +79,12 @@
     },
     "H09": {
       "status": "PARTIAL",
-      "reason": "Blender/Godot observers already have native evidence; real GLB consumer geometry/material/skin/animation and stale-replacement controls now implemented, native retest pending; full media/recovery and aesthetic judgments remain pending",
+      "reason": "Native Blender/Godot/cross-app observers and stale replacement/restoration controls passed; standalone X11 keyboard/rendered-HUD oracle implemented with retest pending; full media/recovery and blind judgments pending",
       "implementation": [
         "native/observe_blender.py",
         "native/observe_godot.gd",
-        "native/mutate_blender.py"
+        "native/mutate_blender.py",
+        "native/export_gui.py"
       ]
     },
     "H10": {
@@ -154,5 +155,15 @@
     "actual_final_heldout_reservation_generated": false,
     "model_evaluation_executed": false,
     "native_jobs_executed": false
+  },
+  "cross_app_native_certificate": {
+    "laboratory_source_sha": "060cc2a350a72c114e2e97176176c49db01cc647",
+    "run_id": 37093820713,
+    "harness_controls_passed": 49,
+    "native_development_phases_passed": 24,
+    "negative_controls_rejected": 6,
+    "scope": "Godot/cross-app affected development controls, not model evaluation",
+    "first_failed_attempt_run_id": 37093332332,
+    "product_changed": false
   }
 }

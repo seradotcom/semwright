@@ -98,6 +98,14 @@ jobs:
           echo "H_NATIVE_BINARY=$binary" >> "$GITHUB_ENV"
           echo "H_GODOT_BINARY=$binary" >> "$GITHUB_ENV"
           echo "H_GODOT_TEMPLATE=$RUNNER_TEMP/h-export-templates/linux_release.x86_64" >> "$GITHUB_ENV"
+      - name: Provision native standalone keyboard and screenshot observation
+        if: matrix.app != 'blender'
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends xvfb xauth xdotool imagemagick tesseract-ocr tesseract-ocr-eng libgl1-mesa-dri
+          mkdir -p verification/H
+          dpkg-query -W xvfb xauth xdotool imagemagick tesseract-ocr tesseract-ocr-eng libgl1-mesa-dri > verification/H/gui-tool-versions-${{ matrix.app }}.log
       - name: Run independent native positive and negative development controls
         env:
           H_APP: ${{ matrix.app }}
@@ -118,6 +126,8 @@ jobs:
           path: |
             verification/H/native-${{ matrix.app }}/**/*.json
             verification/H/native-${{ matrix.app }}/**/*.log
+            verification/H/native-${{ matrix.app }}/**/*.png
+            verification/H/gui-tool-versions-${{ matrix.app }}.log
           if-no-files-found: warn
           retention-days: 14
   preparation-delivery:

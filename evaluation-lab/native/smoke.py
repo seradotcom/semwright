@@ -66,14 +66,21 @@ def godot_phase(recorder, binary, spec_path, actor, out, spec, template, asset_f
         target = builds/(spec["phase"]+"-game.x86_64")
         recorder.run([binary,"--headless","--path",str(project),"--export-release","Linux",str(target)],
                      cwd=project,label=spec["phase"]+"-native-export",timeout=120)
-        recorder.run([str(target),"--headless","--quit-after","8"],cwd=builds,
-                     label=spec["phase"]+"-standalone-launch",timeout=30)
-        checks.append({"kind":"standalone-export-launch", "binary_sha256":file_digest(target),
-                       "standalone_export_input_acceptance":False})
+        gui = out/(spec["phase"]+"-standalone")
+        recorder.run(["xvfb-run","-a","-s","-screen 0 800x600x24",sys.executable,
+                      str(HERE/"export_gui.py"),"--binary",str(target),"--spec",str(spec_path),
+                      "--output",str(gui)],cwd=builds,
+                     label=spec["phase"]+"-standalone-keyboard-oracle",timeout=90)
+        standalone = json.loads((gui/"report.json").read_text())
+        assert standalone["outcome"] == "PASS" and all(standalone["checks"].values())
+        assert before == inventory(project), "Standalone observer changed editable source"
+        checks.append({"kind":"standalone-export-keyboard", "binary_sha256":file_digest(target),
+                       "standalone_export_input_acceptance":True,
+                       "report_sha256":file_digest(gui/"report.json")})
     return checks
 
 
-def negative_controls(app, recorder, binary, actor, out, spec_path):
+def negative_controls(app, recorder, binary, actor, out, spec_path, template=None):
     negatives = out/"negative-controls"
     negatives.mkdir()
     results = []
@@ -102,7 +109,20 @@ def negative_controls(app, recorder, binary, actor, out, spec_path):
                       "--",str(spec_path),str(report)],cwd=project,label="negative-rule-observe",accepted_codes=(2,),timeout=30)
         data = json.loads(report.read_text())
         assert data["outcome"] == "FAIL" and data["checks"]["objective_from_input_events"] is False
-        results.append({"mutation":"wrong-objective-behavior","rejected":True,"report_sha256":file_digest(report)})
+        direct_godot.export_preset(project,template)
+        target = negatives/"wrong-rule-game.x86_64"
+        recorder.run([binary,"--headless","--path",str(project),"--export-release","Linux",str(target)],
+                     cwd=project,label="negative-rule-export",timeout=120)
+        gui = negatives/"standalone-wrong-rule"
+        recorder.run(["xvfb-run","-a","-s","-screen 0 800x600x24",sys.executable,
+                      str(HERE/"export_gui.py"),"--binary",str(target),"--spec",str(spec_path),
+                      "--output",str(gui)],cwd=negatives,label="negative-rule-standalone-keyboard",
+                     accepted_codes=(2,),timeout=90)
+        standalone = json.loads((gui/"report.json").read_text())
+        assert standalone["outcome"] == "FAIL"
+        assert standalone["checks"].get("keyboard_objective_completion") is False, "GUI failure must be gameplay rejection"
+        results.append({"mutation":"wrong-objective-behavior","rejected":True,"report_sha256":file_digest(report),
+                       "standalone_export_rejected":True,"standalone_report_sha256":file_digest(gui/"report.json")})
     return results
 
 
@@ -171,7 +191,7 @@ def main():
                 row["phases"].append({"phase":spec["phase"],"outcome":"PASS", "native_checks":checks,
                                       "preserved_sha256":preserved.copy()})
                 write(out/"summary.json",summary)
-            row["negative_controls"] = negative_controls(args.app,recorder,args.binary,actor,task_out,spec_path)
+            row["negative_controls"] = negative_controls(args.app,recorder,args.binary,actor,task_out,spec_path,args.template)
             row["outcome"] = "PASS"
         verify_product(args.product,freeze)
         assert sum(len(row["phases"]) for row in summary["tasks"]) == 12
