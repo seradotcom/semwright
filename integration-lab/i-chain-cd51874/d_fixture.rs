@@ -2494,7 +2494,10 @@ async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {
         && dependency["exists"]==true && dependency["sha256"]==revised_digest));
     let body_origin = |report: &Value| {
         let rows = report["observation"]["authored"]["nodes"].as_array().unwrap();
-        let body = rows.iter().filter(|row|row["path"].as_str().is_some_and(|path|path.ends_with("_body")))
+        let root=managed_native_node(report,"arena/imported_model");
+        let prefix=format!("{}/",root["path"].as_str().unwrap());
+        let body = rows.iter().filter(|row|row["class"]=="MeshInstance3D" && row["path"].as_str()
+            .is_some_and(|path|path.starts_with(&prefix)&&path.ends_with("_body")))
             .collect::<Vec<_>>();
         assert_eq!(body.len(),1,"exactly one E body in native Godot readback");
         let transform = &body[0]["properties"]["transform"];

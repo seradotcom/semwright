@@ -54,7 +54,11 @@ const B_AUDIO_OWNER_SHA: &str = "df2654bed6d2ac57d547846b69d16ea48b4a9ee3";
 
 fn joint_godot_body_x(report: &serde_json::Value) -> f64 {
     let rows=report["observation"]["authored"]["nodes"].as_array().unwrap();
-    let body=rows.iter().filter(|row|row["path"].as_str().is_some_and(|path|path.ends_with("_body"))).collect::<Vec<_>>();
+    let roots=rows.iter().filter(|row|row["logical_key"].as_str()==Some("arena/imported_model")).collect::<Vec<_>>();
+    assert_eq!(roots.len(),1);
+    let prefix=format!("{}/",roots[0]["path"].as_str().unwrap());
+    let body=rows.iter().filter(|row|row["class"]=="MeshInstance3D" && row["path"].as_str()
+        .is_some_and(|path|path.starts_with(&prefix)&&path.ends_with("_body"))).collect::<Vec<_>>();
     assert_eq!(body.len(),1);
     let transform=&body[0]["properties"]["transform"];
     assert_eq!(transform["type"],"transform3");
