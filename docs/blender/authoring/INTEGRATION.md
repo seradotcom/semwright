@@ -30,7 +30,7 @@ Effect evidence is collected by a compiled trusted `EvidenceAdapter`, not import
 
 Blender provides `graph_receipt_candidate` for Project Graph. The native E2E supplies host-owned Project/Asset/Revision IDs, the real Broker request ID, actual apply descriptor digest and driver runtime digest; The registered Project Graph `ReceiptAdapter` performs admission. That authoring receipt does not pretend that later GLB handoff/import activities already exist.
 
-Godot receives an artifact, never Blender write authority. The initial `557ad0b…` inspection predated Godot's public Broker-facing cross-app artifact-handoff/import route. That route now exists, but E11 remains blocked until an exact-SHA Godot candidate actually passes native import/readback/semantic verification against an authentic Blender GLB and returns the Godot/Project Graph/Effect Conformance evidence described in `D_GLB_HANDOFF.md`.
+Godot receives an artifact, never Blender write authority. The initial `557ad0b…` inspection predated Godot's public Broker-facing cross-app artifact-handoff/import route. That route now exists, but E11 remains blocked until an exact-SHA Godot candidate actually passes native import/readback/semantic verification against an authentic Blender GLB and returns the Godot/Project Graph/Effect Conformance evidence described in `GODOT_GLB_INTEROP.md`.
 
 ## CI and packaging
 

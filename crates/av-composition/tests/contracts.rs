@@ -637,7 +637,7 @@ fn artifact_reuse_never_crosses_owner_sessions() {
 }
 
 #[test]
-fn agent_a_native_command_inventory_claims_only_delivery_bridge_not_audio_authoring() {
+fn av_native_command_inventory_claims_only_delivery_bridge_not_audio_authoring() {
     for stage in [
         Stage::PlanDelivery,
         Stage::ApplyMotion,
@@ -649,7 +649,7 @@ fn agent_a_native_command_inventory_claims_only_delivery_bridge_not_audio_author
         Stage::VerifyFinalAudio,
         Stage::VerifySync,
     ] {
-        let commands = agent_a_stage_commands(stage).expect("Agent-A stage mapping");
+        let commands = av_stage_commands(stage).expect("AV stage mapping");
         assert!(!commands.is_empty());
         assert!(
             commands.iter().all(|command| {
@@ -660,7 +660,7 @@ fn agent_a_native_command_inventory_claims_only_delivery_bridge_not_audio_author
     assert_eq!(Stage::TransferMotion.service(), Service::Delivery);
     assert_eq!(Stage::TransferAudio.service(), Service::Artifacts);
     assert_eq!(
-        agent_a_stage_commands(Stage::TransferAudio).unwrap(),
+        av_stage_commands(Stage::TransferAudio).unwrap(),
         ["artifact.handoff"]
     );
     for stage in [
@@ -671,15 +671,15 @@ fn agent_a_native_command_inventory_claims_only_delivery_bridge_not_audio_author
         Stage::Publish,
     ] {
         assert!(
-            agent_a_stage_commands(stage).is_none(),
-            "Agent A must not silently claim {stage:?}"
+            av_stage_commands(stage).is_none(),
+            "The AV adapter must not silently claim {stage:?}"
         );
     }
 }
 
 #[test]
-fn agent_a_artifact_routes_are_host_configuration_not_arbitrary_mlt_roots() {
-    AgentAArtifactRoutes {
+fn av_artifact_routes_are_host_configuration_not_arbitrary_mlt_roots() {
+    AvArtifactRoutes {
         audio_source_root: "audio-output".into(),
         handoff_destination_root: "av-delivery".into(),
         mlt_media_root: "media".into(),
@@ -687,7 +687,7 @@ fn agent_a_artifact_routes_are_host_configuration_not_arbitrary_mlt_roots() {
     .validate()
     .unwrap();
     assert!(
-        AgentAArtifactRoutes {
+        AvArtifactRoutes {
             audio_source_root: "audio-output".into(),
             handoff_destination_root: "av-delivery".into(),
             mlt_media_root: "anything".into(),
@@ -699,9 +699,9 @@ fn agent_a_artifact_routes_are_host_configuration_not_arbitrary_mlt_roots() {
 
 #[test]
 fn audio_source_locator_is_separate_from_provider_artifact_token() {
-    let mut adapter = AgentAStageAdapter::with_artifact_routes(
+    let mut adapter = AvStageAdapter::with_artifact_routes(
         plan(),
-        Some(AgentAArtifactRoutes {
+        Some(AvArtifactRoutes {
             audio_source_root: "audio-output".into(),
             handoff_destination_root: "av-delivery".into(),
             mlt_media_root: "media".into(),

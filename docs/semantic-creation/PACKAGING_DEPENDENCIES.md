@@ -1,18 +1,18 @@
 # Integrated source backup dependencies, version 2
 
 The historical Blender/Godot/Effect Conformance source packagers pinned the original C0/P0 trees. The
-integrated A implementation adds the explicit reconciliation contract; C includes
-its completed rebuild/provenance work and F includes its final production adapter
+integrated Composition implementation adds the explicit reconciliation contract; Project Graph includes
+its completed rebuild/provenance work and Effect Conformance includes its final production adapter
 contracts. Those old tree pins correctly rejected the integrated candidate.
 
 Version 2 uses immutable reconstruction base
 `6e1261d645699e99fe94ad902b5fb26956f92102`, which contains the integrated Host and
-all consumed owner sources. This base passed source contracts and strict lints in
+all consumed subsystem sources. This base passed source contracts and strict lints in
 run `37011740338`, and real Broker/Host AV plus C14 in `37011740065`. These scopes
-are evidence for the reviewed dependency update, not complete owner acceptance.
+are evidence for the reviewed dependency update, not complete subsystem acceptance.
 
-Expected A implementation is pinned to that base. Expected C implementation is
-`77b34d8abad50f242c4c8494e280fe82d5cbcf55` and expected F implementation is
+Expected Composition implementation is pinned to that base. Expected Project Graph implementation is
+`77b34d8abad50f242c4c8494e280fe82d5cbcf55` and expected Effect Conformance implementation is
 `eadd5caf9b3f47f24158de530b87ad07e597f25e`; their component trees match the base.
 SDK and Host component trees are additionally pinned to the base. Historical
 logical C0/P0 contract references remain separately recorded. Future component

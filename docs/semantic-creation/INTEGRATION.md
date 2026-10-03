@@ -4,10 +4,7 @@ The historical integration branch is `integration/semantic-creation-i-20261001`.
 Subsystem source and delivered artifacts are retained while integration resolves
 remaining cross-component work on an isolated branch.
 
-The current immutable candidate, run IDs and readiness state are published in
-`semantic-creation/I.json` in the coordination directory. A working branch tip is
-not a final candidate. Readiness requires fresh evidence for one published full
-SHA; historical subsystem certificates retain their original source and scope.
+The immutable candidate, run IDs and readiness state are bound to exact Git commits and hosted CI records. A working branch tip is not a final candidate. Readiness requires fresh evidence for one published full SHA; historical subsystem certificates retain their original source and scope.
 
 ## Consumed source ancestry
 
@@ -30,10 +27,10 @@ subsystem-only green runs do not certify the integrated runtime.
 
 - Composition/Godot D11 explicit fresh-child reconciliation preserves owner/root incarnation,
   the old ledger and aggregate budgets; foreign, stale and replayed authority is
-  denied. See [the reconciliation contract](I_RECONCILIATION.md).
+  denied. See [the reconciliation contract](RECONCILIATION.md).
 - The audio production Effect Conformance consumer uses the actual admitted decoded measurements and
   attempt through `validate_plan`, `collect`, `evaluate`. See
-  [the audio consumer contract](I_AUDIO_EFFECT_CONSUMER.md).
+  [the audio consumer contract](AUDIO_EFFECT_CONSUMER.md).
 - AV admission requires each audio check to carry native evidence naming its
   master digest. Contextual contract observations may omit a future artifact
   pin only alongside that native evidence with matching base, scope and
@@ -43,7 +40,7 @@ subsystem-only green runs do not certify the integrated runtime.
   bounded shared SDK compatibility route and original CPU limits. Pinned font
   reads allow only the fixed font packages and retain filesystem containment,
   non-symlink regular-file checks and byte budgets. See
-  [the native transport contract](I_RUNTIME_TRANSPORT.md).
+  [the native transport contract](RUNTIME_TRANSPORT.md).
 
 ## Integrated engineering closure
 
@@ -79,10 +76,7 @@ work was deferred to a separate evaluation track. The historical evaluation bran
 on `eval/semantic-productivity-lab` at `6fe1994d9ab25f44631ef8c41e9dad8f05aee0ca`;
 no model comparison was executed, and that evaluation is not an admission gate for this integration.
 
-The promotion branch is `integration/semantic-creation-main-promotion`. The
-actual promoted SHA and affected Windows run are recorded in the coordination
-directory's `I_MAIN_PROMOTION.json` and in GitHub's immutable commit/run records.
-The frozen engineering and evaluation deliveries retain their original identities.
+The promotion branch is `integration/semantic-creation-main-promotion`. The actual promoted SHA and affected Windows run are recorded in GitHub's immutable commit/run records. The frozen engineering and evaluation deliveries retain their original identities.
 
 Independent R16 review remains open under
 [the security review contract](../security-review.md). Physical desktop and

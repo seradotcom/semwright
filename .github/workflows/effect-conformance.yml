@@ -103,12 +103,12 @@ jobs:
           if test -s verification/effects/format.patch; then git apply -R verification/effects/format.patch; fi
       - name: Reconstructive source package and reproducibility
         run: |
-          python3 scripts/effects/package_source.py --source "$EXPECTED_SHA" --output verification/effects/semwright-effect-conformance-F-source.zip
+          python3 scripts/effects/package_source.py --source "$EXPECTED_SHA" --output verification/effects/semwright-effect-conformance-source.zip
           python3 scripts/effects/package_source.py --source "$EXPECTED_SHA" --output "$RUNNER_TEMP/effect-source-repro.zip"
           python3 - <<'PY'
           import os
           from pathlib import Path
-          first=Path('verification/effects/semwright-effect-conformance-F-source.zip').read_bytes()
+          first=Path('verification/effects/semwright-effect-conformance-source.zip').read_bytes()
           second=(Path(os.environ['RUNNER_TEMP'])/'effect-source-repro.zip').read_bytes()
           assert first == second, 'source package is not reproducible'
           PY

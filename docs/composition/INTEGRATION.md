@@ -53,7 +53,7 @@ The full native integration workflow preserves its historical all-backend jobs f
 5. Merge the exact B-ready SHA by normal Git ancestry. Resolve Cargo.toml/Cargo.lock/CI/Skills centrally; do not replace the newer lockfile wholesale.
 6. Resolve any C0/C1 overlap structurally and run consumer/schema tests before native jobs. Bind B's verified final-audio artifact receipt to the owner-configured Broker source root/path separately from its provider token; configure the artifact-handoff destination root and the MLT `media` alias to the same delivery storage. Never derive a path from `MediaArtifact.reference`.
 7. Execute the combined candidate gates on one SHA: common contracts, Figma regression, Motion native, audio native, real `artifact.handoff` audio transfer, AV MLT/decode/sync, targeted security and relevant required repository checks.
-8. Record every run/job/artifact digest in this file and DEMO_PRODUCTION_HANDOFF.md.
+8. Record every run/job/artifact digest in the integration evidence for the exact candidate.
 9. Reconcile with current main once deliberately if needed; any code change creates a new candidate SHA and invalidates affected evidence.
 10. Leave a reviewable PR/candidate. Do not infer R16 closure or release/video publication from this historical integration procedure.
 

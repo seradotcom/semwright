@@ -12,7 +12,7 @@ Implementation source `d2cfd86a2ee064aa5de8f0a8944319edf6dbb060` has:
 - Current Packaging 36942497427 PASS including deterministic package and user install lifecycle on x86_64/aarch64 Linux.
 - Current Supply-chain 36942497317 PASS: x86_64/aarch64 release bundles and pinned Nix derivation succeeded; attestation was skipped and is not claimed.
 
-The CI source package for `d2cfd86` is preserved at `docs/effects/backup/semwright-effect-conformance-F-d2cfd86.zip` with SHA-256 `31536b484a3fc9e54fce7d3c570fa41440a1ccb043e4313b13c078061342f542`.
+The CI source package for `d2cfd86` is preserved at `docs/effects/backup/semwright-effect-conformance-d2cfd86.zip` with SHA-256 `31536b484a3fc9e54fce7d3c570fa41440a1ccb043e4313b13c078061342f542`.
 
 ## Readiness flags
 EFFECT_READY_FOR_CONSUMERS=true.
