@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "role": "H",
-  "state": "NATIVE_CROSS_APP_PASS_STANDALONE_KEYBOARD_ORACLE_AFFECTED_CI_PENDING",
+  "state": "THREE_NATIVE_DEVELOPMENT_FAMILIES_AND_STANDALONE_KEYBOARD_PASS_FULL_HARNESS_PENDING",
   "evaluation_target_sha": null,
   "evaluation_suite_sha": null,
   "evaluation_executed": false,
@@ -30,7 +30,7 @@
     },
     "H03": {
       "status": "PARTIAL",
-      "reason": "Basic reusable direct native modules for development controls; final-quality task baseline and comparable model sessions remain pending",
+      "reason": "Reusable basic native modules and standalone keyboard/native oracle controls now have hosted evidence; final task-quality baseline and comparable model sessions remain pending",
       "implementation": [
         "native/direct_blender.py",
         "native/direct_godot.py"
@@ -79,7 +79,7 @@
     },
     "H09": {
       "status": "PARTIAL",
-      "reason": "Native Blender/Godot/cross-app observers and stale replacement/restoration controls passed; standalone X11 keyboard/rendered-HUD oracle implemented with retest pending; full media/recovery and blind judgments pending",
+      "reason": "Native Blender/Godot/cross-app development observers passed, including exported-binary keyboard/HUD acceptance and broken-gameplay export rejection; full media/Broker recovery and blind judgments remain pending",
       "implementation": [
         "native/observe_blender.py",
         "native/observe_godot.gd",
@@ -164,6 +164,18 @@
     "negative_controls_rejected": 6,
     "scope": "Godot/cross-app affected development controls, not model evaluation",
     "first_failed_attempt_run_id": 37093332332,
+    "product_changed": false
+  },
+  "standalone_native_certificate": {
+    "laboratory_source_sha": "4652818723b8b100344b4da28420888bdbbe645d",
+    "run_id": 37094240933,
+    "harness_controls_passed": 55,
+    "native_development_phases_passed": 24,
+    "standalone_positive_exports": 8,
+    "standalone_broken_gameplay_exports_rejected": 4,
+    "native_source_negative_controls": 6,
+    "first_failed_attempt_run_id": 37094110628,
+    "model_evaluation_executed": false,
     "product_changed": false
   }
 }

@@ -33,8 +33,9 @@ observers load the native scene and inject native input events to check movement
 pickup conditions, objective UI, timers and restart. Standalone exports now have an external X11 keyboard/rendered-HUD oracle,
 implemented for hosted testing. It uses private Xvfb displays, native XTEST key
 events and screenshots interpreted by Tesseract; it injects no engine script.
-The oracle must reject a broken-gameplay export. Native certification remains
-pending until its affected workflow passes. The recovery development phase covers process restart/save/reopen only.
+The oracle must reject a broken-gameplay export. Hosted exported-game keyboard controls passed in run `37094240933`;
+source `4652818723b8b100344b4da28420888bdbbe645d`, eight positive exports and
+four deliberately broken-gameplay exports rejected. The recovery development phase covers process restart/save/reopen only.
 It does not certify Broker ledger recovery after an Unknown outcome.
 
 Declared broken animation/material/geometry and broken gameplay copies must fail
@@ -133,3 +134,11 @@ Standalone screenshot OCR follows [Tesseract command-line documentation](https:/
 Absent or ambiguous HUD text fails the oracle; it never becomes native acceptance.
 Rendered objective progress, wrong-location pickup rejection, completion, restart
 and timer progression/reset require actual exported-binary keyboard interaction.
+
+CircleCI iterations now launch automatically via the reviewed Actions bridge using
+the repository secret `CIRCLE_TOKEN`, which remains on the runner. Actual
+pipelines 125/126/127 passed 45/49/55 immutable-source controls respectively.
+CircleCI is for iteration; the native source/export/oracle evidence above comes
+from GitHub-hosted Actions. Model access, native Figma availability, media/full
+Broker continuity programs, isolated live route capture and comparable final
+heldout/model protocol remain open. No product or evaluation winner is declared.
