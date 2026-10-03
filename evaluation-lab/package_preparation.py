@@ -35,6 +35,9 @@ entries={name:subprocess.check_output(['git','show',SOURCE+':'+name],cwd=ROOT) f
 native_controls={}
 for app in ('blender','godot','cross_app'):
  directory=ROOT/'verification/H'/('native-'+app)
+ # Multiple upload patterns may retain the native group as an archive prefix.
+ if not (directory/'summary.json').is_file() and (directory/('native-'+app)/'summary.json').is_file():
+  directory=directory/('native-'+app)
  report=json.loads((directory/'summary.json').read_text())
  assert report['outcome']=='PASS' and report['identity']['laboratory_sha']==SOURCE
  assert report['identity']['source_sha']==freeze['SEMWRIGHT_EVAL_SHA'] and report['identity']['run_id']==os.environ['GITHUB_RUN_ID']
