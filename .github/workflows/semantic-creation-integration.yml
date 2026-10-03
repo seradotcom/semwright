@@ -1,193 +1,197 @@
-name: Semantic creation integration diagnostics (I)
-defaults:
-  run:
-    shell: bash
-
+name: I exact-source Windows ARM64 native retest
 on:
-  push:
-    branches: [integration/semantic-creation-i-20261001]
-    paths:
-      - crates/semantic-composition/**
-      - crates/driver-godot/src/authoring/**
-      - crates/driver-godot/tests/authoring_profile.rs
-      - crates/driver-godot/tests/authoring_host.rs
-      - crates/driver-faust-audio/**
-      - crates/driver-ardour-audio/**
-      - crates/driver-blender/**
-      - crates/driver-motion-canvas/**
-      - crates/driver-mlt-video/**
-      - crates/driver-sdk/**
-      - crates/driver-host/**
-      - Cargo.lock
-      - crates/audio-authoring/**
-      - crates/effect-conformance/**
-      - scripts/semantic-creation/**
-      - .github/workflows/semantic-creation-integration.yml
   workflow_dispatch:
     inputs:
       candidate_sha:
-        description: Immutable integration SHA for owner contracts and transport compile checks
         required: true
         type: string
-      native_godot_probe:
-        description: Run two native Godot integration diagnostics after source contracts (not full D certification)
-        required: false
-        type: boolean
-        default: false
 permissions:
   contents: read
 concurrency:
-  group: semantic-creation-i-${{ inputs.candidate_sha || github.sha }}
+  group: i-windows-arm64-${{ github.sha }}
   cancel-in-progress: false
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_DEV_DEBUG: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
 jobs:
-  reconciliation:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 35
-    env:
-      CARGO_INCREMENTAL: '0'
-      CARGO_PROFILE_DEV_DEBUG: '0'
-      CARGO_PROFILE_TEST_DEBUG: '0'
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: ${{ inputs.candidate_sha || github.sha }}
-          persist-credentials: false
-      - name: Bind exact source
-        env:
-          CANDIDATE_SHA: ${{ inputs.candidate_sha || github.sha }}
-        run: |
-          set -euo pipefail
-          [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
-          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
-          git diff --exit-code
-          git diff --cached --exit-code
-      - name: Runtime-tool source boundaries
-        run: |
-          python3 scripts/verify-driver-runtime-tools.py
-          python3 -m unittest discover -s tests/python -p test_runtime_tool_guard.py -v
-      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
-        with:
-          toolchain: 1.98.1
-          components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
-        with:
-          shared-key: godot-authoring-v1
-      - name: Native compile prerequisites
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libpipewire-0.3-dev pkg-config
-      - name: Lockfile source diagnostic
-        run: |
-          mkdir -p verification/semantic-creation
-          cp Cargo.lock verification/semantic-creation/Cargo.lock.before
-          if ! cargo metadata --locked --format-version 1 > verification/semantic-creation/metadata.json; then
-            cargo metadata --format-version 1 > verification/semantic-creation/metadata.resolved.json
-            cp Cargo.lock verification/semantic-creation/Cargo.lock.resolved
-            exit 1
-          fi
-      - name: Source formatting
-        run: cargo fmt -p semwright-semantic-composition -p semwright-driver-godot -p semwright-audio-authoring -p semwright-effect-conformance -p semwright-driver-sdk -p semwright-driver-blender -p semwright-driver-motion-canvas -p semwright-mlt-video-driver -p semwright-faust-audio-driver -p semwright-ardour-audio-driver -p semwright-av-composition -- --check
-      - name: Combined runtime transport compilation
-        run: cargo check --locked --all-targets -p semwright-driver-godot -p semwright-driver-blender -p semwright-driver-motion-canvas -p semwright-mlt-video-driver -p semwright-faust-audio-driver -p semwright-ardour-audio-driver -p semwright-av-composition --features semwright-driver-blender/authoring-native
-      - name: Host job wait and cancellation contracts
-        run: cargo test --locked -p semwright-driver-sdk --lib -- --nocapture
-      - name: Scoped pinned font reader boundaries
-        run: |
-          cargo test --locked -p semwright-driver-motion-canvas --lib store::tests::pinned_font_reader -- --nocapture 2>&1 | tee verification/semantic-creation/pinned-font-reader.log
-          grep -F 'test result: ok. 2 passed; 0 failed; 0 ignored;' verification/semantic-creation/pinned-font-reader.log
-      - name: MLT executable ownership boundary
-        run: cargo test --locked -p semwright-mlt-video-driver --lib owner_policy_allows_only_explicit_trust_cases -- --nocapture
-      - name: AV native artifact and compiled context admission
-        run: cargo test --locked -p semwright-av-composition --lib --test contracts
-      - name: A contracts and D reconciliation source regressions
-        run: python3 scripts/semantic-creation/reconciliation_diagnostic.py
-      - name: Godot native wire and process-incarnation contracts
-        run: cargo test --locked -p semwright-driver-godot --lib --test authoring_native -- --nocapture
-      - name: Strict A/D lints
-        run: cargo clippy --locked -p semwright-semantic-composition -p semwright-driver-godot -p semwright-audio-authoring -p semwright-effect-conformance -p semwright-driver-sdk -p semwright-driver-blender -p semwright-driver-motion-canvas -p semwright-mlt-video-driver -p semwright-faust-audio-driver -p semwright-ardour-audio-driver -p semwright-av-composition --all-targets --no-deps --features semwright-driver-blender/authoring-native -- -D warnings
-      - name: Preserve exact-source identity after checks
-        run: |
-          git diff --exit-code
-          git diff --cached --exit-code
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        if: always()
-        with:
-          name: semantic-creation-i-reconciliation-${{ inputs.candidate_sha || github.sha }}
-          path: verification/semantic-creation
-          if-no-files-found: error
-          retention-days: 14
-
-  godot-native-probe:
-    needs: reconciliation
-    if: ${{ inputs.native_godot_probe == true && needs.reconciliation.result == 'success' }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 25
-    env:
-      CARGO_INCREMENTAL: '0'
-      CARGO_PROFILE_DEV_DEBUG: '0'
-      CARGO_PROFILE_TEST_DEBUG: '0'
+  windows-native:
+    if: ${{ !(vars.SEMWRIGHT_PAUSE_MAIN_CI == 'true' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule')) }}
+    name: windows-${{ matrix.arch }} native noninteractive
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include:
+          - arch: arm64
+            runs_on: windows-11-arm
+    runs-on: ${{ matrix.runs_on }}
+    timeout-minutes: 50
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ inputs.candidate_sha }}
           persist-credentials: false
-      - name: Bind diagnostic to exact source
+      - name: Bind frozen source and separately identified native fixture
         env:
-          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          TESTED_SOURCE_SHA: ${{ inputs.candidate_sha }}
         run: |
           set -euo pipefail
-          [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
-          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
-          test "$GITHUB_SHA" = "$CANDIDATE_SHA"
-          mkdir -p verification/godot-integration-probe
-          printf '%s\n' "$CANDIDATE_SHA" > verification/godot-integration-probe/SOURCE_SHA
-          printf '%s\n' 'NATIVE_INTEGRATION_DIAGNOSTIC_ONLY_NOT_FULL_D_CERTIFICATION' > verification/godot-integration-probe/SCOPE
-          echo "CARGO_TARGET_DIR=$RUNNER_TEMP/godot-probe-target" >> "$GITHUB_ENV"
+          test "$TESTED_SOURCE_SHA" = cd518748f742025a251b78028613aa1b16919e73
+          test "$(git rev-parse HEAD)" = "$TESTED_SOURCE_SHA"
+          git diff --exit-code
+          git fetch --depth=1 origin "$GITHUB_SHA"
+          git show "$GITHUB_SHA:integration-lab/i-windows-arm64-cd51874/uia_native_fixture.rs" > crates/platform-windows/tests/uia_native_fixture.rs
+          test "$(git diff --name-only)" = crates/platform-windows/tests/uia_native_fixture.rs
+          mkdir -p verification/platform-ci
+          python - <<'PYIDENTITY'
+          import json,os
+          from pathlib import Path
+          Path('verification/platform-ci/identity.json').write_text(json.dumps({'source_sha':os.environ['TESTED_SOURCE_SHA'],'suite_sha':os.environ['GITHUB_SHA'],'run_id':os.environ['GITHUB_RUN_ID'],'production_source_modified':False,'original_failed_run':37074828959,'original_failed_job':111090595445,'interactive_windows_certified':False},indent=2)+'\n')
+          PYIDENTITY
       - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
         with:
           toolchain: 1.98.1
-      - name: Provision isolated pinned Godot and export template
+          components: rustfmt, clippy
+      - name: Architecture evidence
         run: |
           set -euo pipefail
-          sudo apt-get update
-          sudo apt-get install -y bubblewrap apparmor-profiles apparmor-utils libpipewire-0.3-dev unzip
-          bash scripts/dev/ci-driver-bwrap-profile.sh verification/godot-integration-probe/sandbox-setup.log
-          mkdir -p "$RUNNER_TEMP/godot-probe" "$RUNNER_TEMP/godot-probe-templates"
-          curl -fL --retry 4 --retry-delay 2 \
-            https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip \
-            -o "$RUNNER_TEMP/godot-probe.zip"
-          unzip -q "$RUNNER_TEMP/godot-probe.zip" -d "$RUNNER_TEMP/godot-probe"
-          GODOT="$RUNNER_TEMP/godot-probe/Godot_v4.7.2-stable_linux.x86_64"
-          echo "8d106cbe6144c2dc7e881d61d2429c1a8a76e6b22ef48bd5e48dcf934953f71e  $GODOT" | sha256sum -c -
-          "$GODOT" --version > verification/godot-integration-probe/godot-version.txt
-          curl -fL --retry 4 --retry-delay 2 \
-            https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_export_templates.tpz \
-            -o "$RUNNER_TEMP/godot-probe-templates.tpz"
-          echo "f298490b8d44d934be425a5a65a51bf15f422428b229a06a6e11d9ffea248011  $RUNNER_TEMP/godot-probe-templates.tpz" | sha256sum -c -
-          unzip -j -q "$RUNNER_TEMP/godot-probe-templates.tpz" \
-            templates/linux_release.x86_64 -d "$RUNNER_TEMP/godot-probe-templates"
-          chmod 0755 "$RUNNER_TEMP/godot-probe-templates/linux_release.x86_64"
-          echo "GODOT_BIN=$GODOT" >> "$GITHUB_ENV"
-          echo "SEMWRIGHT_TEST_GODOT_EXPORT_TEMPLATES=$RUNNER_TEMP/godot-probe-templates" >> "$GITHUB_ENV"
-      - name: Build bounded driver and sandbox helper
-        run: cargo build --locked -p semwright-driver-godot --bin semwright-godot-driver -p semwright-plugin-host --bin semwright-sandbox
-      - name: Real Host persistence and export diagnostics
+          mkdir -p verification/platform-ci
+          {
+            echo "RUNNER_ARCH=$RUNNER_ARCH"
+            echo "PROCESSOR_ARCHITECTURE=${PROCESSOR_ARCHITECTURE:-unknown}"
+            rustc -vV
+            cargo -V
+          } | tee "verification/platform-ci/windows-${{ matrix.arch }}.log"
+      - name: Format
+        run: cargo fmt --all -- --check
+      - name: Windows portable command contracts
         run: |
           set -euo pipefail
-          export SEMWRIGHT_TEST_SANDBOX_HELPER="$CARGO_TARGET_DIR/debug/semwright-sandbox"
-          for test_name in export_lane_builds_and_launches_without_editor_or_semwright empty_project_authoring_flows_through_broker_driver_host_and_provider
-          do
-            SEMWRIGHT_TEST_GODOT_AUTHORING_HOST=1 \
-              cargo test --locked -p semwright-driver-godot --test authoring_host "$test_name" \
-              -- --ignored --exact --nocapture --test-threads=1 \
-              2>&1 | tee "verification/godot-integration-probe/$test_name.log"
-            grep -F 'test result: ok. 1 passed; 0 failed; 0 ignored;' "verification/godot-integration-probe/$test_name.log"
-          done
-          git diff --exit-code
+          python -m unittest tests.python.test_windows_contracts
+      - name: Interactive harness PowerShell parses
+        run: |
+          set -euo pipefail
+          pwsh -NoProfile -NonInteractive -File ./scripts/windows/validate-interactive-certification.ps1
+      - name: Native Windows runtime check
+        run: >-
+          cargo check --locked
+          -p semwright-types
+          -p semwright-backend-api
+          -p semwright-platform-api
+          -p semwright-platform-windows-sys
+          -p semwright-platform-windows
+          -p semwright-platform-services
+          -p semwright-platform-host
+          -p semwright-protocol
+          -p semwright-core
+          -p semwright-driver-host
+          -p semwright-plugin-host
+          -p semwright-daemon
+          -p semwright-cli
+          -p semwright-mcp
+          -p semwright-tui
+          --all-targets
+      - name: Native Windows runtime Clippy
+        run: >-
+          cargo clippy --locked
+          -p semwright-types
+          -p semwright-backend-api
+          -p semwright-platform-api
+          -p semwright-platform-windows-sys
+          -p semwright-platform-windows
+          -p semwright-platform-services
+          -p semwright-platform-host
+          -p semwright-protocol
+          -p semwright-core
+          -p semwright-driver-host
+          -p semwright-plugin-host
+          -p semwright-daemon
+          -p semwright-cli
+          -p semwright-mcp
+          -p semwright-tui
+          --all-targets -- -D warnings
+      - name: Host runner outbound network preflight
+        run: |
+          python - <<'PY'
+          import json, socket
+          results = {}
+          for endpoint in ("1.1.1.1:443", "1.0.0.1:443"):
+              host, port = endpoint.rsplit(":", 1)
+              try:
+                  with socket.create_connection((host, int(port)), timeout=1.5):
+                      results[endpoint] = "reachable"
+              except OSError as error:
+                  results[endpoint] = f"{type(error).__name__}:{getattr(error, 'winerror', None) or getattr(error, 'errno', None)}"
+          print("SEMWRIGHT_HOST_EGRESS=" + json.dumps(results, sort_keys=True))
+          PY
+      - name: Exact original UIA fixture with fresh readback, then fail fast
+        run: |
+          set -euo pipefail
+          cargo test --locked -p semwright-platform-windows --test uia_native_fixture real_win32_fixture_exercises_uia_without_pixel_fallback -- --exact --nocapture 2>&1 | tee verification/platform-ci/uia-freshness.log
+          grep -F 'test result: ok. 1 passed; 0 failed; 0 ignored;' verification/platform-ci/uia-freshness.log
+      - name: Native Windows runtime tests
+        run: >-
+          cargo test --locked
+          -p semwright-types
+          -p semwright-backend-api
+          -p semwright-platform-api
+          -p semwright-platform-windows-sys
+          -p semwright-platform-windows
+          -p semwright-platform-services
+          -p semwright-platform-host
+          -p semwright-protocol
+          -p semwright-core
+          -p semwright-driver-host
+          -p semwright-plugin-host
+          -p semwright-daemon
+      - name: Secure Windows Driver workspace grants
+        run: cargo test --locked -p semwright-driver-host --test windows_secure_host -- secure_windows_driver_workspace --nocapture
+      - name: Secure Windows Driver secret grants
+        run: cargo test --locked -p semwright-driver-host --test windows_secure_host -- secure_windows_driver_secret --nocapture
+      - name: Secure Windows Driver sealed tools
+        run: cargo test --locked -p semwright-driver-host --test windows_secure_host -- secure_windows_driver_sealed_tool --nocapture
+      - name: Secure Windows Driver loopback bridge
+        run: cargo test --locked -p semwright-driver-host --test windows_secure_host -- secure_windows_driver_loopback --nocapture
+      - name: Secure Windows Driver ambient network authority
+        run: cargo test --locked -p semwright-driver-host --test windows_secure_host -- secure_windows_driver_network --nocapture
+      - name: Secure Windows Plugin Host authority
+        run: cargo test --locked -p semwright-plugin-host --features test-tools --test windows_secure_host -- --nocapture
+      - name: Secure Windows external MCP authority
+        run: cargo test --locked -p semwright-federation --test windows_secure_stdio -- --nocapture
+      - name: Native Windows docs
+        run: |
+          set -euo pipefail
+          RUSTDOCFLAGS="-D warnings" cargo doc --locked -p semwright-platform-api -p semwright-platform-windows-sys -p semwright-platform-windows -p semwright-platform-services -p semwright-platform-host -p semwright-protocol --no-deps
+      - name: UIA fixture compiles natively
+        working-directory: fixtures/windows-uia
+        run: cargo check
+      - name: Record CI class
+        run: |
+          set -euo pipefail
+          CLASS="verification/platform-ci/windows-${{ matrix.arch }}-class.txt"
+          cat >"$CLASS" <<'EOF'
+          PASS_WINDOWS_NATIVE_CI can only be claimed after this job is green.
+          This hosted runner is not evidence of PASS_WINDOWS_INTERACTIVE.
+          EOF
+          if [[ -f verification/platform-ci/windows-arm64-uia-hit-test.txt ]]; then
+            cat >>"$CLASS" <<'EOF'
+          BLOCKED_NONINTERACTIVE_OCCLUSION: the hosted ARM64 runner exposed no fixture-owned
+          physical pixel. Native ui.hit_test physical-point fidelity remains unverified here
+          and requires interactive Windows evidence; all non-pixel UIA fixture assertions ran.
+          EOF
+          else
+            echo "Native UIA physical-point hit-test fixture executed without hosted occlusion." >>"$CLASS"
+          fi
+      - name: Preserve the exact source and fixture boundary
+        run: test "$(git diff --name-only)" = crates/platform-windows/tests/uia_native_fixture.rs
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
-          name: godot-integration-probe-${{ inputs.candidate_sha }}
-          path: verification/godot-integration-probe
-          if-no-files-found: error
+          name: windows-${{ matrix.arch }}-evidence
+          path: verification/platform-ci/
           retention-days: 14
+
