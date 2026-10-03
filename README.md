@@ -35,6 +35,12 @@ AI agent  →  Semwright  →  Blender · Godot · Browser · LibreOffice · Fig
 
 ## What can I do with it?
 
+- **Connect compatible agents to real desktop and professional software through one runtime.**
+- **Prefer structured application operations and native APIs over pixels and clicks when available.**
+- **Move verified file-backed artifacts between integrations without bypassing broker policy.**
+- **Keep mutations policy-gated, auditable, and bounded by explicit authority.**
+- **Extend applications with the Driver SDK, or add narrow external commands with the Plugin SDK.**
+
 A Semwright request can discover an application's structured capabilities, perform an authorized
 operation, move an artifact between tools, and verify the result through the same broker.
 
