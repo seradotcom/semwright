@@ -12,6 +12,14 @@ on:
         options: [smoke, composition, graph-effects, authoring, all, retest-affected]
         default: smoke
         required: true
+      h_branch:
+        type: string
+        default: ci/h-circleci-iteration-9c7b3fb
+        description: Reviewed H helper branch; only ci/h-circleci-iteration-* accepted
+      h_suite_sha:
+        type: string
+        default: c2a6689493b88945835b2a4ce148124b339be322
+        description: Full immutable helper SHA, checked against branch before launching
 permissions:
   contents: read
 concurrency:
@@ -30,6 +38,8 @@ jobs:
           CIRCLE_TOKEN: ${{ secrets.CIRCLE_TOKEN }}
           SW_CIRCLE_TARGET: ${{ inputs.target }}
           SW_CIRCLE_LANE: ${{ inputs.lane }}
+          SW_H_CIRCLE_BRANCH: ${{ inputs.h_branch }}
+          SW_H_CIRCLE_SUITE: ${{ inputs.h_suite_sha }}
         run: python3 scripts/circleci-iteration/launch.py
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()

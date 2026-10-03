@@ -62,6 +62,11 @@ def main():
     if target_name not in TARGETS:
         raise RuntimeError("Unapproved CircleCI target")
     target = TARGETS[target_name]
+    if target_name == "h-harness":
+        target = {"branch":os.environ["SW_H_CIRCLE_BRANCH"],"sha":os.environ["SW_H_CIRCLE_SUITE"]}
+        if (not re.fullmatch(r"ci/h-circleci-iteration-[0-9a-f]{7}",target["branch"])
+                or not re.fullmatch(r"[0-9a-f]{40}",target["sha"])):
+            raise RuntimeError("Invalid reviewed H iteration branch/immutable suite identity")
     lane = os.environ["SW_CIRCLE_LANE"]
     if lane not in LANES:
         raise RuntimeError("Unapproved diagnostic lane")
