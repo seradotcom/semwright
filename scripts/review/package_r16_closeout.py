@@ -210,8 +210,16 @@ def write_outputs() -> None:
     }, indent=2))
 
 
-def check_outputs() -> int:
-    expected_zip, expected_sha, expected_manifest = expected_outputs()
+# Immutable delivery bytes carried by PR #208 / merge 0c3d55ed5382425cc72e041520913159eec419df.
+# Later README/policy edits must not rewrite this historical, previously validated archive.
+HISTORICAL_DELIVERY_SHA256 = {'semwright-r16-closeout-closed.zip': 'aae384d1fb3619ab213ba3d0536c1251cf802170b26992737a8b0ea73a0f02cb', 'semwright-r16-closeout-closed.zip.sha256': '33c5f9263ed4da8cd9798b6e9a51c20ea97e76e1912e55991825a728d985249c', 'DELIVERY_MANIFEST_CLOSED.json': 'ff4c683db486d07798a7c44d546b954418942f6ffdb3f56c0d78ecfc736173ef'}
+
+
+def check_outputs(historical: bool = False) -> int:
+    if historical:
+        expected_zip = expected_sha = expected_manifest = None
+    else:
+        expected_zip, expected_sha, expected_manifest = expected_outputs()
     errors = []
     for path, expected in (
         (ZIP_PATH, expected_zip),
@@ -220,7 +228,9 @@ def check_outputs() -> int:
     ):
         if not path.is_file():
             errors.append(f"missing: {path.relative_to(ROOT)}")
-        elif path.read_bytes() != expected:
+        elif historical and sha256(path.read_bytes()) != HISTORICAL_DELIVERY_SHA256[path.name]:
+            errors.append(f"historical delivery digest mismatch: {path.relative_to(ROOT)}")
+        elif not historical and path.read_bytes() != expected:
             errors.append(f"drift: {path.relative_to(ROOT)}")
 
     if ZIP_PATH.is_file():
@@ -247,11 +257,13 @@ def main() -> int:
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--write", action="store_true")
     group.add_argument("--check", action="store_true")
+    group.add_argument("--historical-check", action="store_true",
+                       help="Verify the immutable PR #208 delivery, independent of later current docs")
     args = parser.parse_args()
     if args.write:
         write_outputs()
         return 0
-    return check_outputs()
+    return check_outputs(historical=args.historical_check)
 
 
 if __name__ == "__main__":

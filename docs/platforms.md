@@ -1,5 +1,15 @@
 # Platform architecture and support status
 
+Current policy separates **native package availability**, **hosted automated verification** and
+**physical/interactive certification**. The initial-v1 package set targets Linux x86_64/aarch64,
+Windows x86_64/ARM64 and macOS arm64/x86_64. Candidate availability is not a public release or a
+universal desktop-support guarantee. R06/R18 residuals are OPEN/deferred post-v1 and no longer
+initial-v1 admission prerequisites; independent security review remains mandatory. See
+[release policy](release-policy.md) and [installation](installation.md).
+
+## Recorded implementation/evidence matrix
+
+
 Semwright has a portable core and Linux, macOS and Windows hosts. Implementation, native
 CI and interactive desktop certification are separate claims. This matrix describes source
 `6491c0d838fa066938a494524d69ed507aa0dbe8`, not every later revision.

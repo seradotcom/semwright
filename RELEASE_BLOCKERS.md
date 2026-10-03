@@ -1,5 +1,11 @@
 # Release blockers — 0.9.0-dev.1
 
+> **Current admission policy (2026-10-03):** see [staging and publication policy](docs/release-policy.md).
+> R16 is CLOSED. R06/R18 residuals remain OPEN/deferred post-v1 certification, not initial-v1
+> admission blockers. Staging is separate from public publication; the latter remains
+> BLOCKED_PENDING_SECURITY_REVIEW. The older release-readiness descriptions below are historical.
+
+
 **This is a historical blocker ledger, not evidence that every gate ran on its containing commit.**
 
 The R16 review snapshot is `6491c0d838fa066938a494524d69ed507aa0dbe8`. Integrated engineering

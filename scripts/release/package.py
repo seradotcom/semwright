@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import subprocess
+import sys
 from pathlib import Path
 
 from package_lib import build_packages
@@ -17,9 +18,18 @@ def main() -> None:
     parser.add_argument("--arch", choices=["x86_64", "aarch64"], required=True)
     parser.add_argument("--output", type=Path, default=ROOT / "dist")
     parser.add_argument("--deb", action="store_true")
+    parser.add_argument("--candidate-sha", required=True)
+    parser.add_argument("--review-report", type=Path, required=True)
+    parser.add_argument("--distribution-manifest", type=Path, required=True)
+    parser.add_argument("--maintainer-approved", action="store_true")
     args = parser.parse_args()
 
-    subprocess.run(["python3", str(ROOT / "scripts/release/assert-ready.py")], check=True)
+    admission = [sys.executable, str(ROOT / "scripts/release/assert-ready.py"), "--mode", "publish",
+                 "--candidate-sha", args.candidate_sha, "--review-report", str(args.review_report),
+                 "--distribution-manifest", str(args.distribution_manifest)]
+    if args.maintainer_approved:
+        admission.append("--maintainer-approved")
+    subprocess.run(admission, check=True)
     artifacts = build_packages(
         ROOT,
         args.bin_dir,

@@ -12,10 +12,9 @@ structured operations, application APIs and governed system interfaces.
 - **Keep authority local, policy-gated and auditable.**
 - **Read back and verify bounded outcomes instead of assuming success.**
 
-> **Status:** Semwright is pre-1.0 development software. Linux has the broadest verified host
-> coverage; Windows, macOS and some application paths have narrower evidence. V1 engineering
-> closeout is complete, but full release certification remains fail-closed while physical and
-> interactive gates are open. [See exact status and evidence.](#status-and-verification)
+> **Pre-release:** native candidate bundles are for evaluation, not a public v1 release.
+> Physical/interactive residuals are explicitly post-v1; independent security review is still
+> required before publication. [Status and evidence](#status-and-verification).
 
 [Try Semwright](#try-semwright) · [Applications](#applications) ·
 [How it works](#how-it-works) · [Build an integration](#build-an-integration) ·
@@ -49,6 +48,25 @@ headless test certifies an entire interactive application.
 
 ## Try Semwright
 
+### Native bundle — no Rust build required
+
+Use the matching candidate from an exact-SHA **V1 multiplatform distribution** Actions run.
+There is no public v1 download in this closeout. Verify the external checksums, extract the archive,
+and run its included helper:
+
+| Platform | Bundle | Install from the extracted directory |
+| --- | --- | --- |
+| Linux x86_64 / aarch64 | `.tar.gz` or `.deb` | `./install.sh` (or the system package manager for `.deb`) |
+| Windows x86_64 / ARM64 | `.zip` | `.\Install-Semwright.ps1` |
+| macOS Apple Silicon / Intel | `.tar.gz` | `./install.sh` |
+
+Every portable bundle includes **all five runtime commands**, required packaged native companions,
+checksums and reversible user-local helpers. No automatic PATH changes, service installation,
+application downloads or permission grants. Windows/macOS bundles are unsigned; no security-control
+bypass is provided. [Exact commands, requirements and removal →](docs/installation.md#install-a-candidate-bundle)
+
+### Build and try the synthetic desktop
+
 The safest first run uses the repository's synthetic desktop. It exercises the real daemon, CLI,
 recipe runner and policy path without connecting to your real desktop or credentials.
 
@@ -79,7 +97,9 @@ flow, use the [installation guide](docs/installation.md).
 
 ### After installation
 
-Start the broker as your normal user in the same graphical login session:
+Follow the [installation guide](docs/installation.md) to create a private observe-only configuration
+and explicitly add your installed `bin` directory to the current shell PATH (or use absolute paths).
+Then start the broker as your normal user in the same graphical login session:
 
 ```sh
 semwrightd --config "$HOME/.config/semwright/daemon.toml"
@@ -107,7 +127,7 @@ absolute executable path such as:
 {
   "mcpServers": {
     "semwright": {
-      "command": "/home/YOUR_USER/.local/bin/semwright-mcp"
+      "command": "/home/YOUR_USER/.local/share/semwright/bin/semwright-mcp"
     }
   }
 }
@@ -266,11 +286,15 @@ Engineering completion and release certification are deliberately separate state
 | **R06** | **OPEN — `DEFERRED_TO_POST_V1_ENVIRONMENT_DEPENDENT`** |
 | **R18** | **OPEN — `DEFERRED_TO_POST_V1_ENVIRONMENT_DEPENDENT`** |
 | **V1_ENGINEERING_CLOSEOUT** | **COMPLETE** |
-| **RELEASE_READINESS** | **BLOCKED_DEVELOPMENT_SOURCE**; remains fail-closed |
+| **STAGING** | Engineering metadata admitted; native bundles require exact-SHA workflow evidence |
+| **PUBLIC RELEASE** | **NOT PUBLISHED**; **BLOCKED_PENDING_SECURITY_REVIEW** |
 
 R06 still requires the declared physical Hyprland/mixed-display cases. R18 still requires the
 declared unlocked Windows interactive, UIPI/UAC, real-app UIA, mixed-DPI and lifecycle cases.
-Those gaps are not simulated and are not converted into PASS by hosted CI.
+Those gaps are not simulated and are not converted into PASS by hosted CI. They are no longer
+prerequisites for the initial-v1 publication decision. Independent security review, explicit
+maintainer authorization and final exact-SHA validation remain mandatory under
+[the release policy](docs/release-policy.md).
 
 Start with:
 

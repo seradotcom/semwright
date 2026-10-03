@@ -1,7 +1,10 @@
 # Post-v1 environment-dependent backlog
 
 This backlog contains only the physical/interactively dependent residuals intentionally deferred from
-v1 engineering closeout. Do not close a row from hosted CI, a nested/synthetic display, a screenshot,
+v1 engineering closeout and the initial-v1 publication prerequisite set under
+[the 2026-10-03 staging policy](docs/release-policy.md). These residuals do not block the initial
+release once its engineering/security/maintainer/exact-SHA gates are satisfied. They still block
+the corresponding physical/interactive support claims. Do not close a row from hosted CI, a nested/synthetic display, a screenshot,
 or an operator statement without the required machine evidence.
 
 <a id="r06"></a>

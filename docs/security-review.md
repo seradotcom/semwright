@@ -1,6 +1,8 @@
 # Independent security review packet
 
-This packet turns release blocker R16 into a reproducible third-party review task.
+This packet defines the independent `security_review` prerequisite for public release.
+The recorded R16 repository closeout is CLOSED; it does not supply this broader public-release
+approval. Staging does not require pretending that this review has occurred.
 It does **not** certify Semwright and must not be used as self-attestation.
 
 ## Baseline
@@ -166,10 +168,27 @@ reproduction, expected vs actual behavior, impact, whether an effect may already
 occurred, proposed remediation and regression-test recommendation. Secrets and unrelated
 user data must be redacted.
 
-## R16 closure evidence
+## Public-release security review evidence
 
-R16 may be marked closed only after an independent reviewer supplies a dated report tied to
+The public `security_review` gate may be approved only after an independent reviewer supplies a dated report tied to
 the reviewed commit, covers every required area above, and identifies any unresolved
 release-blocking findings. The maintainer then records the report reference and remediation
 SHAs in RELEASE_BLOCKERS.md/VERIFY.md. Absence of findings from automated tools alone is not
 an independent security review.
+
+## Machine-readable handoff for the publication boundary
+
+The genuine separate reviewer supplies the full report and a small JSON handoff. It is stored
+outside the reviewed source commit to avoid a self-referential SHA. No maintainer/packaging agent
+may generate an approval on the reviewer's behalf. An unreviewed template must remain UNREVIEWED.
+
+Required fields are `reviewed_sha` (full exact candidate SHA), `reviewer` (nonempty identity),
+`reviewed_at` (ISO date, not in the future), `report_reference` (full report/evidence location),
+`independent` (true only when established), `conclusion` (APPROVED_FOR_PUBLIC_RELEASE only after
+actual approval), `unresolved_blocking_findings` (empty only after remediation/retest), and `areas`
+(the twelve reviewed identifiers R16-01 through R16-12 corresponding to the areas above).
+
+The maintainer verifies authorship, independence, report provenance, coverage and remediation
+before authorizing publication. Schema validation cannot authenticate a reviewer and is not an
+attestation service. Later source changes require review/revalidation of the new SHA. See
+[the publication procedure](release-policy.md); this staging mission leaves `security_review=false`.

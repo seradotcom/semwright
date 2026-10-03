@@ -12,7 +12,7 @@ This document records engineering completion separately from full platform/relea
 | R06 | **OPEN — DEFERRED_TO_POST_V1_ENVIRONMENT_DEPENDENT** |
 | R18 | **OPEN — DEFERRED_TO_POST_V1_ENVIRONMENT_DEPENDENT** |
 | V1_ENGINEERING_CLOSEOUT | **COMPLETE** |
-| RELEASE_READINESS | **BLOCKED_DEVELOPMENT_SOURCE**; see `release-readiness.json` |
+| RELEASE_READINESS | **BLOCKED_PENDING_SECURITY_REVIEW**; see `release-readiness.json` |
 
 R16 closed only after a separate reviewer session inspected the R-authored federation pagination fix,
 confirmed that the bounds are applied during pagination, and checked two hosted sandboxed federation
@@ -36,17 +36,18 @@ reclassified as an R18 environment-dependent PASS.
 
 ## Release-readiness remains separate
 
-`release-readiness.json` is intentionally unchanged. Its broader certification gates still fail closed
-while required live/security gates are false. `V1_ENGINEERING_CLOSEOUT = COMPLETE` records that the
-known software work in the declared v1 engineering scope is closed; it is not release authorization
-and it does not convert R06/R18 into PASS or CLOSED.
+The later maintainer-authorized [staging policy](docs/release-policy.md) separates engineering
+package admission from publication. R06/R18 residuals are post-v1 certification, not initial-v1
+release prerequisites; their OPEN/deferred evidence is unchanged. The independent security review
+remains pending and mandatory before publication, together with explicit maintainer authorization
+and final exact-SHA validation. Engineering completion is not release authorization.
 
 The hosted multiplatform distribution workflow remains a separate reproducibility/package-integrity
 check. Any packaging defect exposed there is a software defect and must be fixed rather than waived as
 an R06/R18 environment limitation. Passing hosted package jobs still does not certify physical
 Hyprland, unlocked Windows interaction, TCC, signing/notarization, or the broader release gates.
 
-Final distribution revalidation is recorded in
+Historical distribution revalidation is recorded in
 `verification/v1-engineering-closeout-revalidation.json`: PR head `f6d7b4d13834a633e54e61fb2038eb8b5989735f`
 was tested as GitHub PR merge candidate `90acc6f8c1baaac0e9ed273c758084f7bc540ae3` in run `37109958115`;
 all six native platform jobs and the global manifest passed, yielding eight packages. The manifest
@@ -58,4 +59,4 @@ distribution run `37146331051` passed all six native platform package jobs plus 
 manifest. This post-merge evidence strengthens the exact-main record but does not close R06/R18,
 change `release-readiness.json`, or authorize release publication.
 
-Machine-readable companion: `verification/v1-engineering-closeout.json`.
+Historical machine-readable companion (records its original policy/source, not the subsequent staging-policy change): `verification/v1-engineering-closeout.json`.

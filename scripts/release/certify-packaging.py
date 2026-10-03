@@ -16,7 +16,8 @@ import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-BINS = ("semwright", "semwrightd", "semwright-mcp", "semwright-inspect", "semwright-sandbox")
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from bundle_contract import BINS, add_bundle_files, write_checksums, verify_checksums  # noqa: E402,F401
 
 
 def digest(path: Path) -> str:
@@ -31,17 +32,17 @@ def load_packager():
     return module
 
 
-def assert_release_still_blocked() -> None:
+def assert_staging_admitted() -> None:
     result = subprocess.run(
-        [sys.executable, "-I", "-S", str(ROOT / "scripts/release/assert-ready.py")],
+        [sys.executable, "-I", "-S", str(ROOT / "scripts/release/assert-ready.py"), "--mode", "staging"],
         cwd=ROOT,
         capture_output=True,
         text=True,
         timeout=10,
     )
-    if result.returncode != 2 or "Release blocked:" not in result.stderr:
+    if result.returncode != 0 or "NOT PUBLIC RELEASE AUTHORIZATION" not in result.stdout:
         raise RuntimeError(
-            "Development certification requires release admission to remain blocked"
+            "Package certification requires engineering staging admission (not public authorization)"
         )
 
 
@@ -193,11 +194,25 @@ def certify(bin_dir: Path, arch: str) -> dict[str, object]:
         deb_arch = packager.DEB_ARCH[arch]
         deb_path = first / f"semwright_{version}_{deb_arch}.deb"
         deb_fields = inspect_deb(deb_path, bin_dir, deb_arch)
-        install = user_install_roundtrip(bin_dir, temp_root / "install")
+        # Exercise the helper and bytes shipped inside the archive, not the source bin directory.
+        extracted = temp_root / 'extracted'
+        extracted.mkdir()
+        with tarfile.open(tar_path, 'r:gz') as archive:
+            archive.extractall(extracted, filter='data')
+        stage = extracted / package_root
+        verify_checksums(stage)
+        from certify_install import certify_install
+        install = certify_install(stage, 'linux')
+        legacy_install = user_install_roundtrip(stage / 'bin', temp_root / 'install')
         tamper = tamper_refusal(bin_dir, temp_root / "tamper")
         return {
             "status": "PASS",
-            "release_admission_remains_blocked": True,
+            "release_admission": False,
+            "platform": "linux",
+            "source_sha": subprocess.check_output(['git', '-C', str(ROOT), 'rev-parse', 'HEAD'], text=True).strip(),
+            "internal_checksums_verified": True,
+            "binary_architecture": "PASS",
+            "legacy_user_install": legacy_install,
             "arch": arch,
             "source_date_epoch": epoch,
             "artifacts": first_artifacts,
@@ -216,7 +231,7 @@ def main() -> None:
     parser.add_argument("--report", type=Path)
     args = parser.parse_args()
     bin_dir = args.bin_dir.resolve()
-    assert_release_still_blocked()
+    assert_staging_admitted()
     report = certify(bin_dir, args.arch)
     body = json.dumps(report, indent=2, sort_keys=True) + "\n"
     if args.report is not None:

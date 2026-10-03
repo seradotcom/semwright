@@ -18,7 +18,9 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-BINS = ("semwright", "semwrightd", "semwright-mcp", "semwright-inspect", "semwright-sandbox")
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from bundle_contract import BINS, add_bundle_files, write_checksums, verify_checksums  # noqa: E402,F401
 PE_MACHINE = {"x86_64": 0x8664, "arm64": 0xAA64}
 MACHO_CPU = {"x86_64": 0x01000007, "arm64": 0x0100000C}
 MAX_BINARY = 256 * 1024 * 1024
@@ -168,22 +170,7 @@ this portable package certification.
 
 
 def copy_docs(stage: Path, platform: str, arch: str, epoch: int) -> None:
-    docs = {
-        "README.md": ROOT / "README.md",
-        "INSTALL.md": ROOT / "docs/installation.md",
-        "LICENSE-MIT": ROOT / "LICENSE-MIT",
-        "LICENSE-APACHE": ROOT / "LICENSE-APACHE",
-        "SECURITY.md": ROOT / "SECURITY.md",
-        "SUPPORT.md": ROOT / "SUPPORT.md",
-        "V1_ENGINEERING_CLOSEOUT.md": ROOT / "V1_ENGINEERING_CLOSEOUT.md",
-        "POST_V1_BACKLOG.md": ROOT / "POST_V1_BACKLOG.md",
-    }
-    for name, src in docs.items():
-        if not src.is_file():
-            raise ValueError(f"required package document missing: {src}")
-        dst = stage / name
-        shutil.copyfile(src, dst)
-        os.utime(dst, (epoch, epoch))
+    add_bundle_files(ROOT, stage, platform, epoch)
     notes = stage / "PLATFORM-NOTES.md"
     notes.write_text(platform_notes(platform, arch))
     os.utime(notes, (epoch, epoch))
@@ -197,21 +184,14 @@ def normalize_tree(stage: Path, epoch: int) -> None:
         if path.is_dir():
             path.chmod(0o755)
         else:
-            executable_parent = path.parent.name in {"bin", "Frameworks"}
+            executable_parent = path.parent.name in {"bin", "Frameworks"} or path.suffix == ".sh"
             path.chmod(0o755 if executable_parent else 0o644)
     stage.chmod(0o755)
     os.utime(stage, (epoch, epoch))
 
 
 def write_internal_checksums(stage: Path, epoch: int) -> None:
-    files = [p for p in stage.rglob("*") if p.is_file() and p.name != "SHA256SUMS"]
-    body = "".join(
-        f"{sha256(path)}  {path.relative_to(stage).as_posix()}\n"
-        for path in sorted(files, key=lambda p: p.relative_to(stage).as_posix())
-    )
-    sums = stage / "SHA256SUMS"
-    sums.write_text(body)
-    os.utime(sums, (epoch, epoch))
+    write_checksums(stage, epoch)
 
 
 def zip_datetime(epoch: int) -> tuple[int, int, int, int, int, int]:
@@ -241,7 +221,7 @@ def tar_info(archive: tarfile.TarFile, path: Path, arcname: str, epoch: int) -> 
     info.uid = info.gid = 0
     info.uname = info.gname = "root"
     info.mtime = epoch
-    info.mode = 0o755 if path.is_dir() or path.parent.name == "bin" else 0o644
+    info.mode = 0o755 if path.is_dir() or path.parent.name in {"bin", "Frameworks"} or path.suffix == ".sh" else 0o644
     return info
 
 
@@ -407,6 +387,7 @@ def certify(bin_dir: Path, platform: str, arch: str, output: Path, report: Path)
         internal = stage / "SHA256SUMS"
         if not internal.is_file():
             raise RuntimeError("internal SHA256SUMS missing")
+        verify_checksums(stage)
         runtime_libraries = sorted(
             path.relative_to(stage).as_posix()
             for path in (stage / "Frameworks").rglob("*")
@@ -416,6 +397,11 @@ def certify(bin_dir: Path, platform: str, arch: str, output: Path, report: Path)
             validate_binary(stage / relative, platform, arch)
         checks = run_help(packaged_bin, platform)
         doctor = doctor_smoke(packaged_bin, platform)
+        from certify_install import certify_install
+        def installed_smoke(installed_bin):
+            run_help(installed_bin, platform)
+            doctor_smoke(installed_bin, platform)
+        installation = certify_install(stage, platform, installed_smoke)
     manifest = output / "SHA256SUMS"
     manifest.write_text(f"{sha256(final)}  {final.name}\n")
     result = {
@@ -430,6 +416,8 @@ def certify(bin_dir: Path, platform: str, arch: str, output: Path, report: Path)
         "format": "PE/ZIP" if platform == "windows" else "Mach-O/tar.gz",
         "reproducible": True,
         "clean_extract": True,
+        "internal_checksums_verified": True,
+        "user_install": installation,
         "binary_architecture": "PASS",
         "help_contracts": checks,
         "runtime_libraries": runtime_libraries,

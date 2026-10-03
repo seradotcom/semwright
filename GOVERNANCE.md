@@ -19,3 +19,13 @@ routine compatibility fix.
 All source is available for review under the stated licenses. No CLA,
 centralized plugin marketplace, usage telemetry or paid hosted backend is required by
 this design. A future change to any of those terms must be explicit and documented.
+
+## Initial-v1 admission decision — 2026-10-03
+
+The maintainer authorized Option B: residual R06/R18 physical/interactive certification is post-v1,
+not an initial-v1 release prerequisite. Its unexecuted states and withheld support claims remain
+visible; no evidence is converted to PASS. This does not waive software defects or security review.
+Staging/package validation is separate from publication, which requires a genuine independent
+review of the exact candidate, final native validation and explicit maintainer authorization.
+Tag pushes do not authorize asset publication. See [release policy](docs/release-policy.md).
+No license, branch-protection rule, paid plan or repository visibility is changed by this decision.
