@@ -1,0 +1,21 @@
+{
+  "contains_runtime_binaries": false,
+  "deterministic_double_build": "PASS",
+  "final_source_sha": "868446205df36826356483e93c53e5060c46e8aa",
+  "generated_at_utc": "2026-10-03T06:22:13.746326+00:00",
+  "kind": "R_FINAL_CLOSEOUT_BACKUP",
+  "main_merge_performed": false,
+  "note": "Evidence-only package; Git commit containing this manifest is the delivery commit identity.",
+  "pr": 207,
+  "product_fix_sha": "4ef9a06e486cd8d2e3851c298e244435ecef3232",
+  "r16_closed": false,
+  "release_published": false,
+  "review_disposition": "REVALIDATION_PENDING",
+  "review_target_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+  "schema_version": 1,
+  "zip_bytes": 172898,
+  "zip_entries": 30,
+  "zip_integrity": "PASS",
+  "zip_path": "verification/r16-closeout/delivery/semwright-r16-closeout-final.zip",
+  "zip_sha256": "6a218df8bda6848ecdf56fd68ad0059a34534464e9822f72e09d04abc0631202"
+}

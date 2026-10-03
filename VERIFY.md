@@ -1,13 +1,34 @@
 # Verification — Semwright 0.9.0-dev.1
 
+## Current review snapshot versus historical evidence
+
+R reviews `6491c0d838fa066938a494524d69ed507aa0dbe8`. I's source is
+`cd518748f742025a251b78028613aa1b16919e73`; the actual diff is four documentation files and
+the Windows UIA test fixture, not production-source changes. Native Windows run
+[37096430846](https://github.com/seradotcom/semwright/actions/runs/37096430846) passed on R's
+snapshot. I's separate global disposition preserves its original failed run and corrected
+fixture retest. None of these records supplies an independent R16 verdict or turns skipped
+main-push jobs into executed gates.
+
+Consult [I's integration ledger](docs/semantic-creation/INTEGRATION.md) and
+[R's evidence directory](verification/r16-closeout/README.md). The bounded R smoke is not
+a repeat of every native, supply-chain, physical-desktop or fuzz gate below.
+
+## Historical preflight at 241000c268d1bf1dc29d4e91a913097ac0d020cb
+
+The following preflight conclusion and detailed history remain source-scoped. Its failure
+is retained deliberately; it is not the current main snapshot's Windows result.
+
 **Evidence is commit-scoped, not inherited by the commit containing this document.**
 
 The maintainer pre-R16 observation used
 `241000c268d1bf1dc29d4e91a913097ac0d020cb`. Eleven workflows succeeded and the Windows
 workflow failed on its ARM64 native UIA fixture. Consequently this observation is
 **NOT_READY_FOR_INDEPENDENT_R16_REVIEW**, not an all-green candidate. Fixes and later
-commits require their own checks. R16 remains OPEN and this file is not an independent
-security review. See [the preflight inventory](verification/pre-r16/PRE_R16_STATE_MAP.md).
+commits require their own checks. At that historical snapshot R16 remained OPEN; a later
+separate revalidation closed R16 without turning this historical preflight into an independent
+audit. See [the preflight inventory](verification/pre-r16/PRE_R16_STATE_MAP.md) and
+[the R16 closeout](verification/r16-closeout/README.md).
 
 The table below names required gates, not an assertion that they have passed on a future
 commit. For the observed SHA, the per-run/job records are retained under
@@ -357,7 +378,8 @@ Linux hostile plugin/driver/federation prechecks ran with positive test counts a
 SHA. This is not an independent review, a formal sandbox proof, or an interchangeable Windows /
 macOS / Linux security certificate. A remote signed marketplace, universal publisher identity,
 full native application APIs and interactive Mac/Windows acceptance are not implied by hosted
-success. R16 remains OPEN; `release-readiness.json` remains fail-closed.
+success. R16 is now CLOSED after the separately recorded closeout revalidation;
+`release-readiness.json` remains fail-closed because broader physical/interactive gates are separate.
 
 Local exploratory evidence and `dummy-docs/` are intentionally excluded from Git. Historical
 failed logs remain useful diagnostics but do not contribute to the accepted baseline. See

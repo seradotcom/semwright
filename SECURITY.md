@@ -41,3 +41,21 @@ Tests must target a machine/account you own or are explicitly authorized to asse
 See [threat model](docs/security.md), [permissions](docs/permissions.md),
 [independent review packet](docs/security-review.md), [release blockers](RELEASE_BLOCKERS.md)
 and [verification](VERIFY.md).
+
+## R16 review and authority limits
+
+The current R review targets `6491c0d838fa066938a494524d69ed507aa0dbe8`; its source observations,
+changes and subsequent verification artifacts are separately identified in
+[verification/r16-closeout](verification/r16-closeout/README.md). This AI-assisted repository
+review is not an external audit and does not close R16. A successful CI workflow is not
+a security approval, especially when its platform jobs were skipped.
+
+Local peer checks do not isolate a separately hostile same-user process. Driver sandboxing
+does not sandbox an existing external application. Stored project identities, generated
+Skills and native readback do not create authority beyond the broker's explicit grants.
+See [the threat model](docs/security.md), [permissions](docs/permissions.md) and
+[platform limitations](docs/platforms.md) before exposing a real desktop.
+
+The private vulnerability-reporting API was observed enabled during this review. No public
+security issue, reporting setting or disclosure policy was changed. Preserve sensitive
+reproduction material privately; public review summaries must omit secrets and private data.

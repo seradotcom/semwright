@@ -1,0 +1,78 @@
+{
+  "POST_V1_BACKLOG": "POST_V1_BACKLOG.md",
+  "R06": {
+    "disposition": "DEFERRED_TO_POST_V1_ENVIRONMENT_DEPENDENT",
+    "known_software_defect_behind_gap": false,
+    "procedure": "POST_V1_BACKLOG.md#r06",
+    "remaining_environment_cases": [
+      "physical Hyprland login",
+      "physical mixed-scale/multi-monitor with at least two connected physical outputs"
+    ],
+    "status": "OPEN"
+  },
+  "R16": {
+    "evidence": "verification/r16-closeout/evidence/INDEPENDENT_R16_REVALIDATION_2026-10-03.json",
+    "status": "CLOSED"
+  },
+  "R18": {
+    "disposition": "DEFERRED_TO_POST_V1_ENVIRONMENT_DEPENDENT",
+    "explicit_non_claims": [
+      "Windows external MCP filesystem mounts remain BLOCKED_PORTABLE_PATH_VIRTUALIZATION and are not relabeled as an environment-dependent PASS."
+    ],
+    "known_software_defect_behind_gap": false,
+    "procedure": "POST_V1_BACKLOG.md#r18",
+    "remaining_environment_cases": [
+      "unlocked disposable Windows interactive certification",
+      "UIPI/UAC negative rows",
+      "real-application UIA and events/virtualization rows",
+      "mixed-DPI/multi-monitor",
+      "lock/unlock and sleep/wake lifecycle",
+      "interactive IPC negative cases"
+    ],
+    "status": "OPEN"
+  },
+  "RELEASE_READINESS": {
+    "changed_for_engineering_closeout": false,
+    "reason": "Full platform/release certification still requires the live desktop and security/release gates encoded by the existing fail-closed release guard.",
+    "source_of_truth": "release-readiness.json",
+    "status": "BLOCKED_DEVELOPMENT_SOURCE"
+  },
+  "V1_ENGINEERING_CLOSEOUT": "COMPLETE",
+  "date": "2026-10-03",
+  "final_revalidation_evidence": "verification/v1-engineering-closeout-revalidation.json",
+  "engineering_closeout_basis": [
+    "R16 independent-authorship revalidation passed and R16 remains CLOSED.",
+    "R06/R18 residuals are physical/interactive environment-dependent evidence gaps.",
+    "No known product defect is being reclassified as an R06/R18 environment gap.",
+    "Portable packaging defects discovered during final revalidation are software defects and are fixed/revalidated separately; they are not waived as environment gaps.",
+    "Unsupported Windows external-MCP filesystem mounts remain fail-closed and outside the certified v1 claim."
+  ],
+  "multiplatform_distribution": {
+    "certification_reports": 6,
+    "conclusion": "success",
+    "engineering_closeout_gate": false,
+    "final_documentation_source_revalidation_pending": false,
+    "manifest_sha256": "649e57a39ad7e49bb275393883cbc5e6400044d668ff3456ab15f09349fa8b85",
+    "package_count": 8,
+    "packaging_implementation_sha": "baf8e6f55374622d30abf6a85d259898b2a17454",
+    "release_admission": false,
+    "required_packages": 8,
+    "required_platforms": [
+      "linux-x86_64",
+      "linux-aarch64",
+      "windows-x86_64",
+      "windows-arm64",
+      "macos-arm64",
+      "macos-x86_64"
+    ],
+    "run_id": 37109958115,
+    "sha256sums_sha256": "64fad8536d39439455a87ab07f96ceff2ec1f0006e02a60caec41ad091dfafa1",
+    "source_sha": "90acc6f8c1baaac0e9ed273c758084f7bc540ae3",
+    "status": "PASS_PR_MERGE_CANDIDATE",
+    "validated_pr_head_sha": "f6d7b4d13834a633e54e61fb2038eb8b5989735f",
+    "workflow": ".github/workflows/v1-distribution.yml"
+  },
+  "record_commit_semantics": "This machine-readable record is committed after the validated PR head; its containing commit is evidence-only and is intentionally not self-embedded as a validation target.",
+  "schema_version": 1,
+  "source_basis_sha": "f6d7b4d13834a633e54e61fb2038eb8b5989735f"
+}

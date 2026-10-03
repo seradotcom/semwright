@@ -1,0 +1,134 @@
+{
+  "schema_version": 1,
+  "role": "I",
+  "status": "INTEGRATED_CANDIDATE_READY_FOR_REVIEW_AND_EVALUATION",
+  "source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+  "integration_base_sha": "b736d41b61c4a4146c9e75c16796e251b025e69f",
+  "source_shas": {
+    "A": "65b773f4dd627b860358342f4d40a1ac532566d1",
+    "B": "df2654bed6d2ac57d547846b69d16ea48b4a9ee3",
+    "C": "77b34d8abad50f242c4c8494e280fe82d5cbcf55",
+    "D": "70bd7857e9700b6f03547a706ff0e6496ffd838e",
+    "E": "f492f13a028f781d9ca55631764578f5b327eb1b",
+    "F": "eadd5caf9b3f47f24158de530b87ad07e597f25e"
+  },
+  "g_suite_sha": "73cf4806d5c0193109da4d1cc6aa96b01b7c6a73",
+  "ready_for_integration": true,
+  "engineering_ready": true,
+  "benchmark_pending": true,
+  "independent_security_review_pending": true,
+  "r16_closed": false,
+  "main_merge_performed": false,
+  "release_performed": false,
+  "updated_at": "2026-10-03T02:08:04.331833+00:00",
+  "requirements": [
+    {
+      "id": "I01",
+      "status": "PASS",
+      "condition": "Published owner inputs and ancestry admitted",
+      "evidence": "I.json/source_shas;8 verified ancestors"
+    },
+    {
+      "id": "I02",
+      "status": "PASS",
+      "condition": "A+B+C14 source consumed with media ownership retained",
+      "evidence": "Included A65b773f,Bdf2654be,C1428eba9d7"
+    },
+    {
+      "id": "I03",
+      "status": "PASS",
+      "condition": "Semantic conflict resolution and source provenance",
+      "evidence": "Runtime merge467515 and integration commit history"
+    },
+    {
+      "id": "I04",
+      "status": "PASS",
+      "condition": "Single integrated source, lock, runtime and package provenance",
+      "evidence": "One immutable cd51874 tree, unchanged root lock, reconstructive package v4 pins; source/Host/all A-F/global certificates, artifact digests and runtime/Skills manifest verified."
+    },
+    {
+      "id": "I05",
+      "status": "PASS",
+      "condition": "Complete current exact-SHA regression",
+      "evidence": "All current A-F/source/Host certificates and explicit hosted job disposition pass. Original global37074828959 remains FAILURE (62success,6skipped,one ARM64 fixture failure); full corrected ARM64 job37085834067 passes with every original check preserved. Sourcecd51874 unchanged, corrected test fixture is external suite27924ecf, not in the product tree. Global scope skips are explicit; three original native Motion controls separately PASS. No original global PASS claim."
+    },
+    {
+      "id": "I06",
+      "status": "PASS",
+      "condition": "Joint native Blender/Godot/AV/Graph/Effects acceptance",
+      "evidence": "Same E managed island initial/revised GLBs -> same native D managed project, linked mesh AABB 0.2m change -> typed Motion schematic -> native AV pixel changes/C receipts; two clean cohorts in 37082277878; fixture/product/suite identities separate. Not Godot movie footage."
+    },
+    {
+      "id": "I07",
+      "status": "PASS",
+      "condition": "External change, invalidation, partial effects and recovery",
+      "evidence": "Two native AV cohorts verify visual-only pixel change/audio unchanged, audio-only PCM change/conservative identical-pixel rerender, old publication preserved/new owned pointers and C raw-input invalidation. D/E/A/G provide scoped native external drift, denial/cancellation/persistence and partial/unknown reconciliation controls. No cache reuse, exhaustive coverage or global rollback claim."
+    },
+    {
+      "id": "I08",
+      "status": "PASS",
+      "condition": "Packaging, Skills and compatibility on clean workers",
+      "evidence": "Clean hosted x86_64/aarch64 packaging/supply-chain and Skills source/validate/package digests; A/B/F portable matrices and original workspace/store/schema/CLI tests on current source. Native support claims remain platform-scoped; runtimes stay remote."
+    },
+    {
+      "id": "I09",
+      "status": "PASS",
+      "condition": "Independent frozen G campaign and aggregate security delta",
+      "evidence": "G_FINAL_INTEGRATED_CAMPAIGN_37074787747.json:480PASS/0FAIL/0BLOCKED/0NOT_RUN,14artifact digests verified on cd51874; owner findings remain closed in the unchanged suite; aggregate SECURITY_DELTA.md and exact-source packet37076233575. Independent R16 remains UNREVIEWED and separate."
+    },
+    {
+      "id": "I10",
+      "status": "PASS",
+      "condition": "Freeze handoff to H after technical gates",
+      "evidence": "Immutable technical target cd51874 handed to H with I_EVAL_FREEZE_cd51874.json + SHA-256, observed runtime/package/Skills evidence. H model protocol/evaluation suite is not frozen or executed; API key absent."
+    },
+    {
+      "id": "I11",
+      "status": "PASS",
+      "condition": "Separate engineering/native/benchmark/security states",
+      "evidence": "R16 UNREVIEWED packet; no benchmark/native overclaim"
+    },
+    {
+      "id": "I12",
+      "status": "PASS",
+      "condition": "Merge-review candidate, reproducible delivery and production handoff",
+      "evidence": "This hosted delivery: two byte-identical archives, CRC and every source/evidence entry digest verified; source/commit map/runbook/handoffs included. No release or main merge."
+    }
+  ],
+  "evidence_source": "../I.json",
+  "queue_manifest": "../I_CI_QUEUE_cd51874.json",
+  "prior_source_sha": "211162799c0fa51707e1a27caa1a3a030c87f7c1",
+  "reviewed_sdk_source": "1518e372a01249a7a0a10f544a9a69265a5f12c0",
+  "current_source_evidence": [
+    "SOURCE_EXACT_I_cd51874.json",
+    "E_EXACT_I_cd51874.json",
+    "D_EXACT_I_cd51874.json",
+    "AV_EXACT_I_cd51874.json",
+    "B_EXACT_I_cd51874.json",
+    "A_EXACT_I_cd51874.json",
+    "C_EXACT_I_cd51874.json",
+    "F_EXACT_I_cd51874.json",
+    "MOTION_EXACT_I_cd51874.json",
+    "I_GLOBAL_cd51874.json",
+    "I_GLOBAL_ARTIFACTS_cd51874.json",
+    "G_FINAL_INTEGRATED_CAMPAIGN_37074787747.json",
+    "I_HOST_CONTROL_REGRESSIONS_cd51874.json",
+    "I_JOINT_NATIVE_cd51874.json",
+    "I_JOINT_CHAIN_VERIFIED_cd51874.json",
+    "MAINTAINER_PRECHECK_cd51874.json",
+    "I_EVAL_FREEZE_cd51874.json"
+  ],
+  "current_source_preflight": {
+    "source_report": "SOURCE_EXACT_I_cd51874.json",
+    "native_host_report": "I_HOST_CONTROL_REGRESSIONS_cd51874.json",
+    "control_deadlines_changed": false,
+    "product_overlays": false
+  },
+  "historical_source_evidence": [
+    "SOURCE_EXACT_I_2111627.json",
+    "I_NATIVE_RETEST_2111627.json"
+  ],
+  "SEMWRIGHT_EVAL_SHA": "cd518748f742025a251b78028613aa1b16919e73",
+  "delivery_workflow_sha": "73bb117a9328ce2147f0c56d79d6ddf5ceba7115",
+  "delivery_run_id": "37088728581"
+}

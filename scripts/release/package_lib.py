@@ -184,8 +184,9 @@ def build_packages(
             _write_regular(stage / "bin" / name, body, 0o755, epoch)
             checks[name] = hashlib.sha256(body).hexdigest()
 
-        for name in ("README.md", "VERIFY.md", "LICENSE-MIT", "LICENSE-APACHE", "SECURITY.md"):
+        for name in ("README.md", "VERIFY.md", "LICENSE-MIT", "LICENSE-APACHE", "SECURITY.md", "SUPPORT.md", "V1_ENGINEERING_CLOSEOUT.md", "POST_V1_BACKLOG.md"):
             _copy_regular(root / name, stage / name, 0o644, epoch)
+        _copy_regular(root / "docs/installation.md", stage / "INSTALL.md", 0o644, epoch)
         _copy_tree(root / "packaging", stage / "packaging", epoch)
         _copy_tree(root / "config", stage / "config", epoch)
         sums = "".join(f"{digest}  bin/{name}\n" for name, digest in checks.items())
@@ -206,8 +207,9 @@ def build_packages(
             docs.chmod(0o755)
             for name in BINS:
                 _copy_regular(stage / "bin" / name, debroot / "usr/bin" / name, 0o755, epoch)
-            for name in ("LICENSE-MIT", "LICENSE-APACHE", "README.md"):
+            for name in ("LICENSE-MIT", "LICENSE-APACHE", "README.md", "SECURITY.md", "SUPPORT.md", "V1_ENGINEERING_CLOSEOUT.md", "POST_V1_BACKLOG.md"):
                 _copy_regular(root / name, docs / name, 0o644, epoch)
+            _copy_regular(root / "docs/installation.md", docs / "INSTALL.md", 0o644, epoch)
             control = (
                 "Package: semwright\n"
                 f"Version: {version.replace('-', '~')}\n"

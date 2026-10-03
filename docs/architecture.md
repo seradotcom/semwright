@@ -1,96 +1,93 @@
 # Architecture
 
-Semwright keeps its public capability model independent of the operating-system mechanism that fulfils a request. CLI, MCP, recipes and the inspector converge on the same broker; choosing a frontend never creates a more privileged execution path.
-
-Agent Skills sit above the client/gateway boundary as untrusted procedural knowledge. They are not part of the trusted Broker execution core and do not introduce a second provider/source kind:
-
-```text
-Agent Skill -> agent reasoning -> Semwright MCP / CLI
-                                  |
-                                  v
-                                Broker
-                           schema / policy / audit
-                                  |
-                                  v
-                       capabilities / recipes / providers
-```
-
-Repeated successful Skill-guided executions may be recorded by Workflow Distillation, compiled into a deterministic Recipe, verified, replayed and promoted as a normal Recipe capability. The Skill itself is never parsed into an executable workflow. See [Agent Skills](skills.md).
+Semwright separates application semantics from operating-system enforcement. CLI, MCP,
+the inspector and recipes converge on the broker. A frontend, provider or Skill does not
+obtain another authority path.
 
 ```text
-semwright / semwright-mcp / semwright-inspect
-                │ bounded local IPC; session identity
-                ▼
-             Broker
-      policy / refs / audit
-                │
-        Capability Registry
-                │
-          Provider Runtime
-      ┌─────────┼──────────┐
-      │         │          │
- platform    drivers   external MCP
-   host         │          │
-      │         │          │
- ┌────┴────┐    │          │
- Linux   macOS  │          │
- └────┬────┘    │          │
-      └─────────┼──────────┘
-                ▼
-        OS / applications
+Untrusted intent / Skill prose / observed application data
+                         |
+                 CLI / MCP / recipes
+                         |
+       Broker: schemas, policy, approval, refs, jobs, audit
+                         |
+          Capability Registry / Provider Runtime
+                         |
+      platform hosts / Driver Host / federated MCP
+      Linux, macOS, Windows / pinned tools and sessions
+                         |
+                    applications
 ```
 
-Linux is the currently verified live host. The macOS host foundation is experimental: native ARM64 and Intel CI compile/link the Apple-framework bridge and pass noninteractive smoke, while TCC behaviour and live desktop automation still require an authorized interactive Mac before support is claimed.
+## Authority and platform boundary
 
-## Platform boundary
+`types`, `registry`, `policy` and `backend-api` define shared data, descriptor validation,
+permission intent and provider contracts. `core` owns broker dispatch, provider leases,
+refs, jobs and audit. The daemon composes these services and owner-configured providers.
+OS implementations live in `platform-linux[-sys]`, `platform-macos[-sys]` and
+`platform-windows[-sys]`, behind `platform-api`, `platform-common`, `platform-host`
+and `platform-services`.
 
-`platform-api` contains semantic contracts and data that do not expose AT-SPI, X11, AXUIElement, Mach-O handles or other native types. `platform-common` holds reusable backend-facing logic. `platform-host` is the daemon composition boundary. `platform-services` selects OS-specific filesystem, executable-verification, IPC/path and sandbox services. Linux and macOS mechanics live under `platform-linux[-sys]` and `platform-macos[-sys]`.
+Portability is not an equivalence claim. Linux retains pinned-root/openat2 confinement
+and Bubblewrap/Landlock launch admission. Windows uses native filesystem, IPC and
+restricted/AppContainer mechanisms with explicit unsupported cases. macOS has native
+host services and executable verification; arbitrary Driver/Plugin Host execution remains
+fail-closed. Interactive TCC/UIPI/portal acceptance is distinct from native CI.
+See [platforms](platforms.md) and [security](security.md).
 
-The boundary is deliberately not a weakest-common-denominator sandbox. Linux retains openat2, bubblewrap and Landlock enforcement. macOS is allowed to expose a different confinement level and must fail closed where the platform cannot provide an equivalent supported primitive.
+## Dispatch and identity
 
-High-level packages should depend on semantic contracts rather than native APIs. Platform code may depend inward on shared contracts; shared contracts must not depend on AT-SPI, X11, AppKit, ApplicationServices, ScreenCaptureKit or private OS APIs.
+The broker validates the selected descriptor and provenance, evaluates policy and scope,
+obtains its execution/approval gate, and revalidates live references before dispatch.
+Cancellation, deadlines and uncertain outcomes are part of the result contract. A failed
+mutation is not silently replayed through another backend.
 
-## Provider Runtime
+Operational refs are opaque and session-scoped. Generations, fingerprints and expiry
+prevent known stale identities from silently retargeting work. Persistent Graph identity
+serves a different purpose: a stored project node is not a live reference or permission.
+Provider disconnect/catalog changes invalidate the relevant runtime identity.
 
-The Provider Runtime is the common execution boundary. A provider has explicit owner-assigned identity, capability provenance, lifecycle and operation-level availability. Dynamic providers cannot claim the builtin namespace. Catalog replacement is revisioned and atomic; stale catalog pagination or capability descriptors fail rather than silently retargeting an operation.
+## Provider Runtime and Driver Host
 
-Platform-native providers, application drivers and federated MCP servers all enter the same broker path. Their implementation mechanism does not grant authority.
+Providers have owner-assigned identity and provenance. Dynamic catalogs are revisioned;
+an external provider cannot claim the builtin namespace. Federation imports untrusted
+schemas, descriptions and results through the same policy path.
 
-Federated MCP servers are dynamic `ExternalMcpProvider` instances. Their tool descriptions, schemas and results are untrusted data. Semwright assigns their namespace and still applies normal broker policy, operator approval, cancellation, provenance and audit.
+The Driver SDK defines application-facing contracts, not broker policy. Driver Host verifies
+and pins executables and constructs supported platform launch profiles. One-shot tools,
+user-session-scoped detached jobs and provider-scoped persistent sessions have different
+lifetimes. Logical mounts, tools and dependencies are resolved by the Host, not by ambient
+executable discovery inside a driver. See [runtime tools](runtime-tools.md).
 
-Application drivers use the same Provider Runtime. Driver Protocol semantics are shared; process launch, executable verification and isolation are platform responsibilities. On Linux, the Driver Host stages a digest-pinned ELF and requires bubblewrap plus Landlock. macOS driver/plugin execution remains fail-closed until a supported isolation model is proven; the portable Driver SDK does not weaken Linux to manufacture parity.
+Provider-scoped runtime sessions are deliberately not private per-user-session stores.
+Their handle is not a policy grant. Callers still enter an authorized provider operation;
+the Host enforces tool/mount contracts and resource bounds. Sandboxing a helper process
+does not isolate an already-running external application.
 
-Recipes and plugins remain separate composition mechanisms: recipes re-enter broker execution for every step; plugins provide narrow one-shot commands.
+## Composition, artifacts, Graph and Effects
 
-## Domain-specific semantic cores
+`semantic-composition` provides typed plans, owner binding, PlanVault/controller, bounded
+attempts and reconciliation records. Application profiles realize them through their
+providers; they do not create another kernel or bypass the broker.
 
-When multiple application backends share a real domain model, Semwright can factor that model
-below the concrete drivers without moving application/runtime authority into the shared layer.
-The first such core is `semwright-video-domain`: backend-neutral timeline, frame/time, refs,
-edit intent, mutation-support and differential-conformance primitives.
+`media-time`, audio/video domains and `av-composition` carry shared time, artifact and
+publication contracts. AV preserves owner, source, scope and artifact provenance through
+native execution and readback. Acceptance of an operation is not automatically persistence
+or verification of its result.
 
-Concrete video drivers keep native serialization, process/runtime integration, native revision
-calculation and round-trip metadata. The shared domain never imports a concrete editor SDK or
-native project representation. The MLT driver projects its rich native envelope into the shared
-model and differentially verifies every supported mutation before its existing native
-serialize/reparse gate.
+`project-graph` records persistent identity, dependencies, derived artifacts, drift and
+reconciliation. CURRENT/STALE/UNKNOWN describe evidence for a declared relationship.
+`effect-conformance` evaluates predicates and observation quality; incomplete enumeration
+cannot establish a global absence-of-change result. Read the
+[integrated contracts and evidence](semantic-creation/INTEGRATION.md) for concrete consumers.
 
-This is not a requirement that all applications share one model. A domain core is extracted
-only where multiple backends can preserve the same semantics without weakening them. See
-[semantic video domain](video-domain.md).
+## Skills, recipes and workflows
 
-## Execution and references
+Skills are untrusted procedural knowledge interpreted by the agent, not executable broker
+authority. Optional compatibility/lock metadata detects descriptor drift but grants no
+permissions. Skill scripts are not automatically run. Recipes re-enter the broker at every
+step. Workflow Distillation can produce a verified recipe capability without turning an
+observation or model instruction into a grant. Recipes are not transactions.
 
-The broker snapshots the selected capability descriptor and provenance before dispatch. It evaluates capability/risk/scope, obtains the execution gate, requests human approval when required, validates current references, and invokes the selected provider with cancellation and deadline semantics. A provider failure does not trigger an implicit retry or hidden fallback.
-
-References are opaque and session-scoped. Provider generations and backend fingerprints prevent known stale objects from silently becoming newly-created objects. Dynamic provider disconnects invalidate their catalog generation. Platform-native identifiers are implementation details, not agent authority.
-
-Provider discovery is not authorization. Registering a driver or MCP upstream does not create its policy grant.
-
-## Dependency direction
-
-`types` owns transport-independent domain data. `registry` validates/indexes capability descriptors. `policy` owns authorization intent. `backend-api` owns Provider/Backend contracts. `core` owns provider leases, broker orchestration, refs and audit. `federation` implements MCP providers. `driver-sdk` is application-author facing and has no broker authority. `driver-host` adapts that protocol into a platform-specific sandboxed Provider.
-
-The daemon is the composition root. It selects the compiled platform host and loads owner-configured providers. No root daemon, default TCP listener or automatic elevated helper is part of the architecture.
-
-See [platforms](platforms.md), [compatibility](compatibility.md), [security](security.md), [VERIFY](../VERIFY.md) and [release blockers](../RELEASE_BLOCKERS.md).
+See [Skills](skills.md), [recipes](recipes.md), [Workflow Distillation](workflow-distillation.md),
+[events/jobs](events-jobs.md), [permissions](permissions.md) and [verification](../VERIFY.md).

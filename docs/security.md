@@ -50,7 +50,8 @@ X11 blocking work now crosses a bounded blocking boundary and its refs carry lif
 but the full native-desktop matrix remains incomplete. Some operation-level capability discovery
 is still coarse. Configuration changes require restart; there is no independently authenticated
 multi-principal policy service. Recipe taint redaction is conservative but not a formal noninterference guarantee.
-Generic output schemas need tightening. CDP downloads need quotas. Existing apps can have
+Schema and Chromium quota/artifact-lifecycle evidence must be evaluated at its recorded SHA;
+older unresolved-status prose is not a replacement for the R09/R14 disposition. Existing apps can have
 side effects outside a broker filesystem grant because the apps themselves are not
 sandboxed. A declared action being accepted does not prove the UI has reached the intended
 postcondition; use a fresh observation and assertions.
@@ -77,3 +78,24 @@ The macOS Driver/Plugin Host therefore fails closed where arbitrary third-party 
 isolation has not been proven with a supported Apple mechanism. Digest/Mach-O validation is an
 identity check, not a sandbox. Native CI can establish compilation/linking and noninteractive
 tests; Accessibility/Input/Screen Recording acceptance requires a real authorized Mac session.
+
+## Composition, persistent knowledge and review status
+
+Prepared plans, stored Graph identities, Skills, provider metadata and Effects reports are
+not additional permission grants. Broker policy and per-operation provenance remain the
+authority path. A prepared plan is an owner-bound, bounded attempt, not blanket consent;
+a persisted asset identity is not a current live reference. Provider-scoped application
+sessions and user-session-scoped jobs have different lifetime/privacy boundaries.
+
+Treat readback according to its declared scope and completeness. UNKNOWN, incomplete
+enumeration or an uncertain action outcome must not be promoted to global success.
+Private project/Graph state and evidence may contain application information even though
+the audit ledger records metadata. Apply owner-controlled storage and retention policies;
+there is no claim that a metadata audit makes all application state non-sensitive.
+
+R's review records source and suite identities separately in
+[the evidence directory](../verification/r16-closeout/README.md). It is an AI-assisted
+repository review, not an external security audit. Direct source observations, historical
+certificates, fresh checks and unexecuted requirements are distinct. Any R-authored
+security-relevant documentation or verification change needs separate review before
+being relied on for release. R16 and the physical/interactive gates remain open.

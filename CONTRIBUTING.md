@@ -1,26 +1,42 @@
-# Contributing
+# Contributing to Semwright
 
-Start with [development](docs/development.md), [architecture](docs/architecture.md),
-[verification](VERIFY.md) and [release blockers](RELEASE_BLOCKERS.md). This source archive
-has no established public issue tracker yet; the eventual publisher must add the actual
-repository/reporting channel instead of leaving an invented URL.
+Semwright is development software. Contributions are welcome through focused pull requests;
+no contribution implies release approval. Read [architecture](docs/architecture.md),
+[development](docs/development.md), [security](SECURITY.md) and [support](SUPPORT.md).
 
-Keep command schemas and policy authoritative. A new frontend must use the broker. A
-backend must not interpret model text as code, silently choose ambiguous targets, migrate
-an old ref, retry an uncertain effect, or activate a more privileged fallback. Add a
-regression fixture for correctness/security changes. Test application-native functionality
-without borrowing credentials or normal user profiles.
+## Propose and reproduce
 
-Before submitting, format/lint/test the affected workspace and report exact commands,
-counts, failures, unexecuted tests and live environment versions. Do not label a fake test
-as live desktop validation, alter verification logs, or remove a failing gate to claim a
-release. Generated command docs must be regenerated with scripts/sync-contracts.py.
+Use the public [issue tracker](https://github.com/seradotcom/semwright/issues) for non-sensitive
+questions/defects. Include exact source and platform/application versions, expected and actual
+results, and a small synthetic fixture. Use the enabled private vulnerability-reporting
+channel for security findings. Do not paste credentials, private documents or live profiles.
 
-Keep original requirements in docs/requirements unchanged for traceability. Record design
-changes in an ADR. Ordinary Rust code is dual MIT OR Apache-2.0; by contributing original
-code, you agree to the same licensing. Third-party code/assets require preserved notices
-and dependency review. Avoid adding dependencies without a concrete capability reason.
+## Keep changes reviewable
 
-Security reports should follow SECURITY.md and remain private until an actual reporting
-channel is established. No public credentials, browser cookies, clipboard contents,
-private screenshots or copied personal application data belong in test fixtures.
+Use your own branch/worktree and preserve other contributors' work. Separate functional fixes
+from documentary/evidence-only changes. Do not edit historical FAIL into PASS: append the
+fix SHA, new run/job and disposition. Generated command schemas/documentation must remain
+consistent with their generating contracts. Never loosen an assertion or required security
+boundary just to obtain a green job.
+
+Use the affected-area CI lanes during iteration. Heavy Rust/native-runtime work belongs in
+compatible disposable CI, not on a constrained shared device. The full final gates remain
+separate. Record source SHA, suite SHA where different, test selection/counts, runtime and
+artifact digests. Skips, filtered tests, fixtures and native application runs are not
+interchangeable. See [verification](VERIFY.md) and [release blockers](RELEASE_BLOCKERS.md).
+
+## Security-sensitive changes
+
+Describe the authority/configuration impact and rollback/compatibility implications. A new
+capability or Skill does not confer permissions; preserve owner grants, approval, stale-ref
+checks, output validation and fail-closed unsupported-platform behavior. Security-affecting
+changes need a reviewer other than their author. Do not claim an external audit based on
+AI-assisted review or CI alone.
+
+## Licenses and history
+
+Keep existing copyright, license and third-party notices. The core is MIT OR Apache-2.0;
+`integrations/kicad-driver` is GPL-3.0-or-later with separate notices. Do not silently change
+license scope or vendor a new dependency without its provenance. Preserve useful ADRs,
+receipts, hashes and failure history. Merging, closing other contributors' PRs and publishing
+releases remain maintainer decisions, not side effects of documentation cleanup.

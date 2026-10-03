@@ -1,0 +1,296 @@
+{
+  "claims": [
+    {
+      "claim": "Development software; R16 is CLOSED after separate revalidation while full release certification remains blocked.",
+      "evidence": [
+        "release-readiness.json remains BLOCKED_DEVELOPMENT_SOURCE",
+        "scripts/release/assert-ready.py exit 2: live_desktop_matrix and security_review",
+        "R16_FINDINGS.json R-006/R-007",
+        "verification/r16-closeout/evidence/INDEPENDENT_R16_REVALIDATION_2026-10-03.json"
+      ],
+      "id": "CL01",
+      "limitations": [
+        "R16 closure is not release authorization. R06/R18 physical/interactive gates remain open and release-readiness.json remains fail-closed."
+      ],
+      "public_paths": [
+        "README.md",
+        "SECURITY.md",
+        "RELEASE_BLOCKERS.md"
+      ],
+      "scope": "release status",
+      "source_sha": "868446205df36826356483e93c53e5060c46e8aa"
+    },
+    {
+      "claim": "The isolated fake recipe completes and reports changed=true.",
+      "evidence": [
+        "evidence/R_CURRENT_SOURCE_VALIDATION.json",
+        "Actions run 37101919278 job 111143010836"
+      ],
+      "id": "CL02",
+      "limitations": [
+        "Synthetic fake route only; the structured harness proves its declared fake effect/audit, not a real application export or live desktop."
+      ],
+      "public_paths": [
+        "README.md",
+        "docs/installation.md"
+      ],
+      "scope": "Ubuntu hosted synthetic desktop",
+      "source_sha": "868446205df36826356483e93c53e5060c46e8aa"
+    },
+    {
+      "claim": "Ordinary installation preserves Cargo.lock and uses --locked.",
+      "evidence": [
+        "Cargo.lock",
+        "docs/installation.md",
+        "Actions run 37101919278 exact-source locked daemon/CLI build"
+      ],
+      "id": "CL03",
+      "limitations": [
+        "R did not rerun all packaging/Nix distribution jobs because no packaging source changed."
+      ],
+      "public_paths": [
+        "README.md",
+        "docs/installation.md"
+      ],
+      "scope": "first-run instructions",
+      "source_sha": "868446205df36826356483e93c53e5060c46e8aa"
+    },
+    {
+      "claim": "Authorization, refs and provenance converge on the broker.",
+      "evidence": [
+        "evidence/R_DIRECT_REVIEW_12_AREAS.json R16-01/R16-03",
+        "crates/core/src/lib.rs",
+        "crates/policy/src/lib.rs",
+        "crates/semantic-composition/src/vault.rs"
+      ],
+      "id": "CL04",
+      "limitations": [
+        "Repository review is not an external audit of every provider implementation."
+      ],
+      "public_paths": [
+        "README.md",
+        "docs/architecture.md"
+      ],
+      "scope": "inspected broker path",
+      "source_sha": "868446205df36826356483e93c53e5060c46e8aa"
+    },
+    {
+      "claim": "Windows is implemented with native x64/ARM64 evidence.",
+      "evidence": [
+        "Direct final-source review of crates/platform-windows-sys filesystem/pipe boundaries",
+        "historical native run 37096430846 artifacts 11264936896/11264501934 on 6491c0d8",
+        "platform-windows paths unchanged by R product fix"
+      ],
+      "id": "CL05",
+      "limitations": [
+        "Historical native evidence keeps its 6491c0d8 source identity; R18 unlocked-desktop matrix remains open."
+      ],
+      "public_paths": [
+        "docs/platforms.md",
+        "docs/compatibility.md"
+      ],
+      "scope": "recorded Windows native jobs",
+      "source_sha": "868446205df36826356483e93c53e5060c46e8aa"
+    },
+    {
+      "claim": "macOS verification does not authorize arbitrary-child execution.",
+      "evidence": [
+        "crates/platform-macos-sys/src/launch.rs MacSandbox::command => SandboxDenied",
+        "evidence/R_DIRECT_REVIEW_12_AREAS.json R16-12"
+      ],
+      "id": "CL06",
+      "limitations": [
+        "No fresh authorized interactive TCC acceptance by R."
+      ],
+      "public_paths": [
+        "README.md",
+        "docs/platforms.md",
+        "docs/architecture.md"
+      ],
+      "scope": "platform contract",
+      "source_sha": "868446205df36826356483e93c53e5060c46e8aa"
+    },
+    {
+      "claim": "Persistent Graph identities and Effects reports do not confer grants or global proof.",
+      "evidence": [
+        "Direct final-source review of project-graph knowledge/reconcile and effect-conformance evaluator",
+        "G_RECEIPT_VERIFICATION.json: historical graph 74/effects 40 on cd518748",
+        "I_INTEGRATED_ACCEPTANCE.json"
+      ],
+      "id": "CL07",
+      "limitations": [
+        "Historical G tests retain cd518748 source identity; R did not relabel them as executions on 86844620."
+      ],
+      "public_paths": [
+        "docs/architecture.md",
+        "docs/security.md"
+      ],
+      "scope": "contract and historical evidence",
+      "source_sha": "868446205df36826356483e93c53e5060c46e8aa"
+    },
+    {
+      "claim": "Skills, upstream prose and recipes are not separate authorization.",
+      "evidence": [
+        "crates/federation/src/lib.rs safe_description and privilege-sensitive imported descriptors",
+        "crates/skills/src/package.rs and compat.rs",
+        "docs/skills.md",
+        "evidence/R_DIRECT_REVIEW_12_AREAS.json R16-08"
+      ],
+      "id": "CL08",
+      "limitations": [
+        "No universal prompt-injection immunity; an agent separately granted unrestricted authority can bypass Semwright."
+      ],
+      "public_paths": [
+        "README.md",
+        "docs/architecture.md",
+        "docs/security.md"
+      ],
+      "scope": "inspected broker/federation path",
+      "source_sha": "868446205df36826356483e93c53e5060c46e8aa"
+    },
+    {
+      "claim": "Audit records provenance and uncertainty, with bounded retention.",
+      "evidence": [
+        "crates/core/src/audit.rs",
+        "crates/core/src/lib.rs audit-before/audit-after handling",
+        "Actions run 37101919278 structured fake audit assertion"
+      ],
+      "id": "CL09",
+      "limitations": [
+        "Audit hash chaining is not tamper-proof against a hostile same-UID process."
+      ],
+      "public_paths": [
+        "docs/security.md",
+        "SECURITY.md"
+      ],
+      "scope": "inspected audit path",
+      "source_sha": "868446205df36826356483e93c53e5060c46e8aa"
+    },
+    {
+      "claim": "Child isolation is distinct from authority of an existing application.",
+      "evidence": [
+        "crates/driver-host/src/lib.rs Host-tool parent/jobs/session lifecycle",
+        "crates/platform-macos-sys/src/launch.rs fail-closed execution",
+        "Actions run 37101922029 driver-conformance"
+      ],
+      "id": "CL10",
+      "limitations": [
+        "Linux sandbox regression evidence is not a formal proof of the kernel/Bubblewrap/Landlock stack."
+      ],
+      "public_paths": [
+        "README.md",
+        "docs/architecture.md"
+      ],
+      "scope": "declared host boundary",
+      "source_sha": "868446205df36826356483e93c53e5060c46e8aa"
+    },
+    {
+      "claim": "G receipts contain 375 product cases and 105 harness self-tests.",
+      "evidence": [
+        "G_RECEIPT_VERIFICATION.json: 14 archive digests and per-case outcomes"
+      ],
+      "id": "CL11",
+      "limitations": [
+        "105 self-tests use G suite as source. R did not relabel historical G tests; R16 closure uses the separate R16 revalidation receipt."
+      ],
+      "public_paths": [
+        "verification/r16-closeout/R16_REVIEW_REPORT.md"
+      ],
+      "scope": "historical receipt verification",
+      "source_sha": "cd518748f742025a251b78028613aa1b16919e73"
+    },
+    {
+      "candidate_head_sha": "206ce2477e8cd02aa66a876328d25a74cf675a3c",
+      "claim": "PR source/static checks passed on a synthetic merge with an identical candidate tree; documentary push checks passed on the branch commit.",
+      "evidence": [
+        "Actions run 37101919278 exact branch source: documentary + positive-smoke PASS",
+        "Actions run 37101922062 PR source/static: 200 Python + 20 Node, Ruff/ShellCheck/actionlint PASS",
+        "Actions run 37101922029 driver-conformance: federation 7/7 PASS",
+        "PR synthetic merge 52c4a7c579c39e5f5699f8b475c473abe2efdcba tree equals final source tree"
+      ],
+      "id": "CL12",
+      "limitations": [
+        "MSRV/full Rust, dependency, coverage and fuzz jobs skipped under affected-area policy are recorded as SKIPPED rather than PASS."
+      ],
+      "public_paths": [
+        "verification/r16-closeout/R16_REVIEW_REPORT.md"
+      ],
+      "scope": "selected current CI",
+      "source_sha": "868446205df36826356483e93c53e5060c46e8aa"
+    },
+    {
+      "claim": "Core licensing and isolated KiCad licensing are preserved.",
+      "evidence": [
+        "git diff 6491c0d8..86844620 contains no license notice or Cargo.lock change"
+      ],
+      "id": "CL13",
+      "limitations": [
+        "No relicensing is performed; isolated KiCad notices remain authoritative."
+      ],
+      "public_paths": [
+        "README.md",
+        "CONTRIBUTING.md"
+      ],
+      "scope": "unchanged license scope",
+      "source_sha": "868446205df36826356483e93c53e5060c46e8aa"
+    },
+    {
+      "claim": "Public support and private vulnerability reporting are available.",
+      "evidence": [
+        "Repository API observation: public repository and private vulnerability reporting enabled",
+        "SECURITY.md and SUPPORT.md current source"
+      ],
+      "id": "CL14",
+      "limitations": [
+        "No response SLA or immutable GitHub settings are implied."
+      ],
+      "public_paths": [
+        "SUPPORT.md",
+        "CONTRIBUTING.md",
+        "SECURITY.md"
+      ],
+      "scope": "observed repository channels",
+      "source_sha": "868446205df36826356483e93c53e5060c46e8aa"
+    },
+    {
+      "claim": "I engineering acceptance is not H evaluation or release authorization.",
+      "evidence": [
+        "I_INTEGRATED_ACCEPTANCE.json"
+      ],
+      "id": "CL15",
+      "limitations": [
+        "H benchmark remains deferred; R16 closure does not create speed/superiority claims or release authority."
+      ],
+      "public_paths": [
+        "VERIFY.md",
+        "docs/compatibility.md"
+      ],
+      "scope": "historical integration admission",
+      "source_sha": "cd518748f742025a251b78028613aa1b16919e73"
+    },
+    {
+      "claim": "Federated MCP catalog discovery is incrementally bounded in the final source.",
+      "evidence": [
+        "R16_FINDINGS.json R-006",
+        "fix 4ef9a06e486cd8d2e3851c298e244435ecef3232",
+        "Actions run 37101922029 job 111143008612: 7/7 federation tests PASS",
+        "driver-conformance artifact 11266447661",
+        "verification/r16-closeout/evidence/INDEPENDENT_R16_REVALIDATION_2026-10-03.json"
+      ],
+      "id": "CL16",
+      "limitations": [
+        "The R-authored fix received separate-authorship revalidation for formal R16 closure.",
+        "This is a resource/lifecycle remediation, not a claim that an upstream MCP executable is trustworthy."
+      ],
+      "public_paths": [
+        "docs/mcp-federation.md",
+        "SECURITY.md"
+      ],
+      "scope": "Final source adds a 512-tool/512-page aggregate bound and rejects repeated tools/list cursors.",
+      "source_sha": "868446205df36826356483e93c53e5060c46e8aa"
+    }
+  ],
+  "final_source_sha": "868446205df36826356483e93c53e5060c46e8aa",
+  "review_target_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+  "schema_version": 1
+}
