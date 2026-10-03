@@ -3,6 +3,8 @@ from copy import deepcopy
 import json
 from pathlib import Path
 import sys
+import tempfile
+import concurrent.futures
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -55,6 +57,55 @@ class HeldoutCommitmentTests(unittest.TestCase):
         self.assertEqual(revealed["payload"],self.payload)
         with self.assertRaises(ValueError):
             holdouts.reveal(self.payload,sealed,consumed_rounds=[self.payload["round_id"]])
+
+    def test_durable_ledger_refuses_second_reveal_to_new_destination(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);ledger=root/"ledger"
+            holdouts.reveal_with_ledger(self.payload,holdouts.seal(self.payload),ledger_directory=ledger,public_reveal=root/"first.json")
+            with self.assertRaisesRegex(ValueError,"cannot be reused"):
+                holdouts.reveal_with_ledger(self.payload,holdouts.seal(self.payload),ledger_directory=ledger,public_reveal=root/"second.json")
+            self.assertFalse((root/"second.json").exists())
+            value=json.loads(next(ledger.glob("*.json")).read_text())
+            self.assertNotIn("payload",value)
+            self.assertNotIn("registry",value)
+
+    def test_failed_publication_preserves_user_file_and_burns_round(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);destination=root/"existing.json";destination.write_text("valuable existing evidence")
+            with self.assertRaises(FileExistsError):
+                holdouts.reveal_with_ledger(self.payload,holdouts.seal(self.payload),ledger_directory=root/"ledger",public_reveal=destination)
+            self.assertEqual(destination.read_text(),"valuable existing evidence")
+            with self.assertRaisesRegex(ValueError,"cannot be reused"):
+                holdouts.reveal_with_ledger(self.payload,holdouts.seal(self.payload),ledger_directory=root/"ledger",public_reveal=root/"retry.json")
+
+    def test_invalid_commitment_does_not_consume_valid_round(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);sealed=holdouts.seal(self.payload);sealed["commitment_sha256"]="0"*64
+            with self.assertRaises(ValueError):
+                holdouts.reveal_with_ledger(self.payload,sealed,ledger_directory=root/"ledger",public_reveal=root/"bad.json")
+            self.assertFalse((root/"ledger").exists())
+
+    def test_concurrent_reveal_has_one_publication_and_one_consumed_lease(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            def reveal(index):
+                try:
+                    holdouts.reveal_with_ledger(self.payload,holdouts.seal(self.payload),ledger_directory=root/"ledger",public_reveal=root/(str(index)+".json"))
+                    return "published"
+                except ValueError: return "refused"
+            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+                results=list(pool.map(reveal,(1,2)))
+            self.assertEqual(sorted(results),["published","refused"])
+            self.assertEqual(len(list(root.glob("*.json"))),1)
+            self.assertEqual(len(list((root/"ledger").glob("*.json"))),1)
+
+    def test_insecure_or_symlink_ledger_refused(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);ledger=root/"unsafe";ledger.mkdir(mode=0o755)
+            (root/"link").symlink_to(ledger,target_is_directory=True)
+            for path in (ledger,root/"link"):
+                with self.assertRaises(ValueError):
+                    holdouts.reveal_with_ledger(self.payload,holdouts.seal(self.payload),ledger_directory=path,public_reveal=root/"bad.json")
 
 
 if __name__ == "__main__":

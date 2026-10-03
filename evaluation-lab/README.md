@@ -46,7 +46,7 @@ logs outside actor outputs. Its hash chain detects accidental editing/omission;
 same-UID development smoke is not a hostile-model isolation boundary. Final model
 admission requires a separate actor UID and certified model/tool/usage transport.
 
-The hosted preparation workflow runs 55 synthetic controls before at most two
+The hosted preparation workflow runs 60 synthetic controls before at most two
 native jobs. Product and laboratory checkouts are separate; the native smoke
 verifies the I target and all its frozen source-file digests before/after use.
 It executes the laboratory's direct helpers, not product authoring or a model.
@@ -142,3 +142,21 @@ CircleCI is for iteration; the native source/export/oracle evidence above comes
 from GitHub-hosted Actions. Model access, native Figma availability, media/full
 Broker continuity programs, isolated live route capture and comparable final
 heldout/model protocol remain open. No product or evaluation winner is declared.
+
+The holdout CLI now supports `--mode reveal` with a controller-owned, mode-0700
+ledger outside Git and an exclusive public destination. It fsyncs a consumption
+record before exposing parameters; failed publication or interruption burns that
+round permanently. Two concurrent reveal requests cannot publish twice, and
+existing user evidence is never overwritten. The ledger contains commitment and
+round identity, not hidden parameters. This is procedural integrity, requiring
+future actor/controller isolation for hostile model sessions. All new checks use
+exposed synthetic fixtures; no actual final heldout reservation was generated.
+
+Current native backup: laboratory e6908f0, native run37094481790, six tasks,
+36 phases and12 negative controls passed. Original workflow failed only during
+packaging on a retained archive-prefix path. External delivery wrapper98354b4
+in run37094806719 passed without native reruns, artifact11263609943,
+SHA256557b77365acd1d7b365296203f57a8b0333bcfbb4abed2f5df0bcc38ebd90a7b.
+The 1543392-byte reproducible archive includes external wrapper/workflow source,
+all native receipts/screenshots and the original failed run/job disposition.
+This backup remains explicitly preparatory and incomplete as an H evaluation.

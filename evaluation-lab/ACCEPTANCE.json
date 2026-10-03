@@ -47,7 +47,7 @@
     },
     "H05": {
       "status": "PARTIAL",
-      "reason": "Hosted commitment/reveal tooling controls passed; actual final heldout reservation and model protocol remain unfrozen",
+      "reason": "Fresh commitment/reveal controls passed; durable controller-owned consume-before-exposure ledger implemented, affected iteration pending; actual final heldouts and model protocol remain unfrozen",
       "implementation": [
         "holdouts.py",
         "tests/test_holdouts.py"
@@ -177,5 +177,20 @@
     "first_failed_attempt_run_id": 37094110628,
     "model_evaluation_executed": false,
     "product_changed": false
+  },
+  "latest_native_preparatory_delivery": {
+    "laboratory_source_sha": "e6908f0bf05849543ed76b8aa870231097a7de38",
+    "native_run_id": 37094481790,
+    "original_workflow_conclusion": "FAILURE_PACKAGING_ONLY",
+    "native_jobs_conclusion": "SUCCESS",
+    "packaging_suite_sha": "98354b433c1d420f1b342933519c3b4a147da3f9",
+    "packaging_run_id": 37094806719,
+    "artifact_id": 11263609943,
+    "zip_sha256": "557b77365acd1d7b365296203f57a8b0333bcfbb4abed2f5df0bcc38ebd90a7b",
+    "bytes": 1543392,
+    "harness_controls_passed": 55,
+    "native_revision_phases_passed": 36,
+    "native_negative_controls_rejected": 12,
+    "model_evaluation_executed": false
   }
 }

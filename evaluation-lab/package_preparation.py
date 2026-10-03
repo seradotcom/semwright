@@ -20,7 +20,7 @@ expected={'verification/H/laboratory-source-sha.txt','verification/H/SHA256SUMS'
 untracked=subprocess.check_output(['git','ls-files','--others','--exclude-standard'],cwd=ROOT).decode().splitlines()
 assert all(name in expected or name.startswith(('verification/H/native-blender/', 'verification/H/native-godot/', 'verification/H/native-cross_app/')) and name.endswith(('.json','.log','.png')) for name in untracked),'Unexpected generated/untracked files; preserve for inspection'
 log=(ROOT/'verification/H/harness-tests.log').read_text()
-assert re.search(r'Ran 55 tests',log) and re.search(r'^OK$',log,re.M)
+assert re.search(r'Ran 60 tests',log) and re.search(r'^OK$',log,re.M)
 # The native/model evaluation remains incomplete; these are validator controls.
 acceptance=json.loads((ROOT/'evaluation-lab/ACCEPTANCE.json').read_text())
 assert acceptance['evaluation_executed'] is False and acceptance['r16_closed'] is False
@@ -55,7 +55,7 @@ for app in ('blender','godot','cross_app'):
 for path in (ROOT/'verification/H').rglob('*'):
  if path.is_file():assert path.stat().st_size<300000;entries['evidence/'+str(path.relative_to(ROOT/'verification/H'))]=path.read_bytes()
 manifest={'schema_version':1,'laboratory_source_sha':SOURCE,'run_id':os.environ['GITHUB_RUN_ID'],
- 'kind':'PREPARATORY_NATIVE_CONTROLS_NOT_COMPLETED_EVALUATION','harness_controls_passed':55,
+ 'kind':'PREPARATORY_NATIVE_CONTROLS_NOT_COMPLETED_EVALUATION','harness_controls_passed':60,
  'native_development_controls':native_controls,
  'technical_product_target_sha':freeze['SEMWRIGHT_EVAL_SHA'],'technical_target_manifest_sha256':protocol['technical_target_manifest_sha256'],
  'evaluation_suite_frozen':False,'native_productivity_evaluation_executed':False,
@@ -79,4 +79,4 @@ name='semwright-H-preparation-'+SOURCE[:7]+'.zip';digest=hashlib.sha256(b).hexdi
 (out/name).write_bytes(b);(out/(name+'.sha256')).write_text(digest+'  '+name+'\n')
 (out/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
 (out/'summary.json').write_text(json.dumps({'laboratory_source_sha':SOURCE,'run_id':os.environ['GITHUB_RUN_ID'],'zip_sha256':digest,'bytes':len(b),'reproducible':True,'testzip':'PASS','kind':manifest['kind'],'model_evaluation_executed':False,'r16_closed':False},indent=2)+'\n')
-print('H preparation ZIP',digest,'bytes',len(b),'harness controls',55,'model evaluation',False)
+print('H preparation ZIP',digest,'bytes',len(b),'harness controls',60,'model evaluation',False)

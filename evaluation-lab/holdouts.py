@@ -12,6 +12,7 @@ import os
 from pathlib import Path
 import random
 import secrets
+import stat
 
 import evaluate
 
@@ -90,20 +91,76 @@ def exclusive_write(path, value, mode):
     fd = os.open(path, os.O_WRONLY|os.O_CREAT|os.O_EXCL, mode)
     with os.fdopen(fd,"w") as stream:
         stream.write(json.dumps(value,indent=2)+"\n")
+        stream.flush()
+        os.fsync(stream.fileno())
+
+
+def reveal_with_ledger(payload, public_seal, *, ledger_directory, public_reveal):
+    """Persist consumption before exposing parameters; interruption burns the round.
+
+    The ledger belongs to the controller. Its filesystem ownership is checked;
+    same-UID procedural integrity is not a hostile-actor isolation certificate.
+    """
+    value = reveal(payload, public_seal, consumed_rounds=[])
+    ledger = Path(ledger_directory)
+    if ledger.is_symlink():
+        raise ValueError("Controller ledger may not be a symlink")
+    ledger = ledger.resolve()
+    repository = Path(__file__).resolve().parents[1]
+    if ledger == repository or repository in ledger.parents:
+        raise ValueError("Controller ledger must remain outside the repository")
+    ledger.mkdir(mode=0o700,parents=True,exist_ok=True)
+    info = ledger.stat()
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid() or stat.S_IMODE(info.st_mode) != 0o700:
+        raise ValueError("Controller ledger requires current-owner mode 0700")
+    key = hashlib.sha256(payload["round_id"].encode()).hexdigest()
+    lease = ledger/(key+".json")
+    intent = {"schema_version":1,"round_id":payload["round_id"],
+              "commitment_sha256":value["commitment_sha256"],
+              "technical_product_sha":payload["technical_product_sha"],
+              "state":"CONSUMED_BEFORE_REVEAL_PUBLICATION",
+              "interruption_policy":"Never reuse even if publication fails",
+              "parameters_in_ledger":False}
+    try:
+        exclusive_write(lease,intent,0o600)
+    except FileExistsError:
+        raise ValueError("Exposed/consumed round cannot be reused") from None
+    fd = os.open(ledger,os.O_RDONLY|os.O_DIRECTORY)
+    try: os.fsync(fd)
+    finally: os.close(fd)
+    # Exclusive publication preserves earlier user files. A failure never unburns
+    # the lease: the controller cannot know whether parameters were observed.
+    exclusive_write(public_reveal,value,0o644)
+    return value
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--public-registry", required=True)
+    parser.add_argument("--mode",choices=("reserve","reveal"),default="reserve")
+    parser.add_argument("--public-registry")
     parser.add_argument("--private-directory", required=True)
     parser.add_argument("--public-seal", required=True)
     parser.add_argument("--product-sha", required=True)
     parser.add_argument("--round", required=True)
+    parser.add_argument("--ledger-directory")
+    parser.add_argument("--public-reveal")
     args = parser.parse_args()
     private = Path(args.private_directory).resolve()
     repository = Path(__file__).resolve().parents[1]
     if private == repository or repository in private.parents:
         raise ValueError("Private parameters must remain outside the repository")
+    if args.mode == "reveal":
+        if not args.ledger_directory or not args.public_reveal:
+            parser.error("Reveal requires --ledger-directory and --public-reveal")
+        payload = evaluate.load(private/"reserved-parameters.json")
+        if payload["round_id"] != args.round or payload["technical_product_sha"] != args.product_sha:
+            raise ValueError("Requested reveal differs from reserved round/product")
+        value = reveal_with_ledger(payload,evaluate.load(args.public_seal),
+                                   ledger_directory=args.ledger_directory,public_reveal=args.public_reveal)
+        print("Consumed round",value["round_id"],"commitment",value["commitment_sha256"])
+        return
+    if not args.public_registry:
+        parser.error("Reservation requires --public-registry")
     private.mkdir(mode=0o700,parents=True,exist_ok=False)
     seed = secrets.randbits(128)
     registry = reserve(evaluate.load(args.public_registry),round_id=args.round,seed=seed)
