@@ -60,10 +60,19 @@ fn joint_godot_body_x(report: &serde_json::Value) -> f64 {
     let body=rows.iter().filter(|row|row["class"]=="MeshInstance3D" && row["path"].as_str()
         .is_some_and(|path|path.starts_with(&prefix)&&path.ends_with("_body"))).collect::<Vec<_>>();
     assert_eq!(body.len(),1);
-    let transform=&body[0]["properties"]["transform"];
-    assert_eq!(transform["type"],"transform3");
-    let values=transform["value"].as_array().unwrap();assert_eq!(values.len(),12);
-    let x=values[9].as_f64().unwrap();assert!(x.is_finite()&&x.abs()<1.0);x
+    let reference=&body[0]["properties"]["mesh"];assert_eq!(reference["type"],"resource");
+    let binding=format!("{}:mesh",body[0]["path"].as_str().unwrap());
+    let resources=report["observation"]["authored"]["resources"].as_array().unwrap().iter()
+        .filter(|row|row["binding"]==binding && row["resource"]==reference["value"]).collect::<Vec<_>>();
+    assert_eq!(resources.len(),1);
+    let props=&resources[0]["properties"];
+    assert_eq!(props["bounds_position"]["type"],"vector3");
+    assert_eq!(props["bounds_size"]["type"],"vector3");
+    let pos=props["bounds_position"]["value"].as_array().unwrap();
+    let size=props["bounds_size"]["value"].as_array().unwrap();
+    assert_eq!(pos.len(),3);assert_eq!(size.len(),3);
+    let x=pos[0].as_f64().unwrap()+size[0].as_f64().unwrap()/2.0;
+    assert!(x.is_finite()&&x.abs()<1.0);x
 }
 
 fn integration_source_sha() -> String {
@@ -1981,8 +1990,8 @@ async fn combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_s
     film.validate().unwrap();
 
 
-    // Native Godot telemetry is visualized by the existing typed Motion grammar.
-    // This is a 100px/metre schematic of observed transforms, never movie footage.
+    // Native Godot mesh-bounds telemetry is visualized by the existing typed Motion grammar.
+    // This is a 100px/metre schematic of observed mesh geometry, never movie footage.
     let initial_d_path=required_file("SEMWRIGHT_TEST_JOINT_D_INITIAL");
     let revised_d_path=required_file("SEMWRIGHT_TEST_JOINT_D_REVISED");
     let initial_d_bytes=fs::read(&initial_d_path).unwrap();
@@ -2621,8 +2630,8 @@ async fn combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_s
         "route": "Broker -> policy -> Driver Host -> native Motion/Faust/analysis/MLT -> C receipts",
         "existing_managed_project": true, "visual_revision_changes_pixels": true,
         "native_godot_transform_drives_motion":true,
-        "visual_revision_source":"Same Blender articulated asset -> native Godot transform3 -> typed Motion schematic",
-        "visualization_method":"native-observed-body-x-at-100px-per-metre",
+        "visual_revision_source":"Same Blender articulated asset -> native Godot mesh AABB -> typed Motion schematic",
+        "visualization_method":"native-observed-mesh-bounds-center-x-at-100px-per-metre",
         "initial_body_x":initial_body_x,"revised_body_x":revised_body_x,
         "initial_godot_observation_sha256":initial_d_digest,
         "revised_godot_observation_sha256":revised_d_digest,

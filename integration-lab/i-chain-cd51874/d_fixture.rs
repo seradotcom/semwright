@@ -2492,24 +2492,43 @@ async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {
     assert!(second_inspected["observation"]["dependencies"].as_array().unwrap().iter().any(|dependency|
         dependency["path"].as_str().is_some_and(|path|path.ends_with("assets/revised_articulated.glb"))
         && dependency["exists"]==true && dependency["sha256"]==revised_digest));
-    let body_origin = |report: &Value| {
+    // Blender bakes the skinned object's translation into mesh POSITION data.
+    // Follow the actual node -> mesh resource reference and read native AABB;
+    // the local MeshInstance3D transform is expected to remain unchanged.
+    let body_bounds = |report: &Value| {
         let rows = report["observation"]["authored"]["nodes"].as_array().unwrap();
         let root=managed_native_node(report,"arena/imported_model");
         let prefix=format!("{}/",root["path"].as_str().unwrap());
-        let body = rows.iter().filter(|row|row["class"]=="MeshInstance3D" && row["path"].as_str()
-            .is_some_and(|path|path.starts_with(&prefix)&&path.ends_with("_body")))
-            .collect::<Vec<_>>();
+        let body=rows.iter().filter(|row|row["class"]=="MeshInstance3D" && row["path"].as_str()
+            .is_some_and(|path|path.starts_with(&prefix)&&path.ends_with("_body"))).collect::<Vec<_>>();
         assert_eq!(body.len(),1,"exactly one E body in native Godot readback");
-        let transform = &body[0]["properties"]["transform"];
-        assert_eq!(transform["type"],"transform3");
-        let values = transform["value"].as_array().unwrap();assert_eq!(values.len(),12);
-        [values[9].as_f64().unwrap(), values[10].as_f64().unwrap(), values[11].as_f64().unwrap()]
+        let reference=&body[0]["properties"]["mesh"];
+        assert_eq!(reference["type"],"resource");
+        let binding=format!("{}:mesh",body[0]["path"].as_str().unwrap());
+        let meshes=report["observation"]["authored"]["resources"].as_array().unwrap().iter()
+            .filter(|row|row["binding"]==binding && row["resource"]==reference["value"])
+            .collect::<Vec<_>>();
+        assert_eq!(meshes.len(),1,"native mesh reference must resolve exactly once");
+        let properties=&meshes[0]["properties"];
+        assert_eq!(properties["bounds_position"]["type"],"vector3");
+        assert_eq!(properties["bounds_size"]["type"],"vector3");
+        let position=properties["bounds_position"]["value"].as_array().unwrap();
+        let size=properties["bounds_size"]["value"].as_array().unwrap();
+        assert_eq!(position.len(),3);assert_eq!(size.len(),3);
+        let center=std::array::from_fn::<f64,3,_>(|i|position[i].as_f64().unwrap()+size[i].as_f64().unwrap()/2.0);
+        let extent=std::array::from_fn::<f64,3,_>(|i|size[i].as_f64().unwrap());
+        assert!(center.iter().chain(extent.iter()).all(|v|v.is_finite()&&v.abs()<100.0));
+        assert!(extent.iter().all(|v|*v>0.0));
+        (center,extent,body[0]["properties"]["transform"].clone())
     };
-    let first_origin = body_origin(&inspected);
-    let second_origin = body_origin(&second_inspected);
-    assert!(first_origin.iter().chain(second_origin.iter()).all(|value|value.is_finite()&&value.abs()<100.0));
-    assert!((first_origin[0]-second_origin[0]).abs()>0.1,
-        "typed Blender translation must reach actual Godot transform readback");
+    let (first_center,first_size,first_transform)=body_bounds(&inspected);
+    let (second_center,second_size,second_transform)=body_bounds(&second_inspected);
+    eprintln!("I_NATIVE_BODY_BOUNDS initial={first_center:?} revised={second_center:?}");
+    assert_eq!(first_transform,second_transform,"skinned mesh local transform remains unchanged");
+    assert!((second_center[0]-first_center[0]-0.2).abs()<0.0001,
+        "typed Blender translation must reach actual Godot mesh bounds readback");
+    for i in 0..3 {assert!((first_size[i]-second_size[i]).abs()<0.0001);}
+    for i in 1..3 {assert!((first_center[i]-second_center[i]).abs()<0.0001);}
     let second_persisted = broker_call(&host.broker, &session, "driver.godot.composition.native.verify",
         json!({"plan_id":second_id,"scene":"arena","verification":{"kind":"persistence"}})).await;
     assert!(effect_rule_passes(&second_persisted,"godot.native_persistence.arena.v1"));
@@ -2561,7 +2580,9 @@ async fn blender_glb_handoff_preserves_godot_semantics_and_gameplay() {
         "source_sha":std::env::var("SEMWRIGHT_TEST_SOURCE_SHA").unwrap(),
         "suite_sha":std::env::var("GITHUB_SHA").unwrap(),
         "e_initial_glb_sha256":e_digest,"e_revised_glb_sha256":revised_digest,
-        "initial_body_origin":first_origin,"revised_body_origin":second_origin,
+        "initial_body_bounds_center":first_center,"revised_body_bounds_center":second_center,
+        "native_revision_measurement":"mesh-aabb-center-linked-by-body-node-resource-reference",
+        "skinned_body_local_transform_unchanged":true,
         "native_asset_revision_verified":true,"behavior_preserved":true,"collision_mapping_preserved":true,
         "fresh_persistence_verified":true,"standalone_export_launch_verified":true,
         "coverage_complete":false,"godot_frame_capture_verified":false,"r16_closed":false

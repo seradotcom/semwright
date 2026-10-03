@@ -202,7 +202,7 @@ jobs:
           for key in ['native_asset_revision_verified','behavior_preserved','collision_mapping_preserved','fresh_persistence_verified','standalone_export_launch_verified']:assert d[key] is True
           assert d['coverage_complete'] is False and d['godot_frame_capture_verified'] is False and d['r16_closed'] is False
           assert d['e_initial_glb_sha256']!=d['e_revised_glb_sha256']
-          assert abs(d['initial_body_origin'][0]-d['revised_body_origin'][0])>0.1
+          assert abs(d['initial_body_bounds_center'][0]-d['revised_body_bounds_center'][0])>0.1
           for name in ['initial-native.json','revised-native.json']:
               assert 0<(root/name).stat().st_size<1000000
           Path('verification/composition-av/godot-producer.json').write_text(json.dumps(d,indent=2)+'\n')
