@@ -7,8 +7,9 @@ APIs. An agent can discover a named control, author a scene, or pass a verified 
 between applications without treating every operation as a guessed mouse click.
 The broker checks schemas, permissions, references and provenance before dispatch.
 
-> **Development software, 0.9.0-dev.1. R16 is CLOSED after separate revalidation.**
-> R06/R18 physical/interactive certification remains OPEN and deferred to the required environments.
+> **Development software, 0.9.0-dev.1. R16 is CLOSED; v1 engineering closeout is COMPLETE.**
+> R06/R18 physical/interactive certification remains OPEN — `DEFERRED_TO_POST_V1_ENVIRONMENT_DEPENDENT`.
+> `release-readiness.json` remains fail-closed; engineering closeout is not release authorization.
 > Start with the isolated fake-desktop example, not a credential-rich desktop.
 > Native CI, package certification, interactive desktop evidence and release approval are different things.
 > See [verification](VERIFY.md), [release blockers](RELEASE_BLOCKERS.md) and [security](SECURITY.md).

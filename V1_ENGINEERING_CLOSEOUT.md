@@ -11,7 +11,7 @@ This document records engineering completion separately from full platform/relea
 | R16 | **CLOSED** |
 | R06 | **OPEN — DEFERRED_TO_POST_V1_ENVIRONMENT_DEPENDENT** |
 | R18 | **OPEN — DEFERRED_TO_POST_V1_ENVIRONMENT_DEPENDENT** |
-| V1_ENGINEERING_CLOSEOUT | **PENDING_MULTIPLATFORM_DISTRIBUTION_CERTIFICATION** |
+| V1_ENGINEERING_CLOSEOUT | **COMPLETE** |
 | RELEASE_READINESS | **BLOCKED_DEVELOPMENT_SOURCE**; see `release-readiness.json` |
 
 R16 closed only after a separate reviewer session inspected the R-authored federation pagination fix,
@@ -37,6 +37,13 @@ reclassified as an R18 environment-dependent PASS.
 ## Release-readiness remains separate
 
 `release-readiness.json` is intentionally unchanged. Its broader certification gates still fail closed
-while required live/security gates are false. The environmental defer allows engineering closeout once the remaining non-environmental gates are green. The new multiplatform distribution gate must still produce and certify all required native archives before `V1_ENGINEERING_CLOSEOUT` is changed to `COMPLETE`. Release authorization remains separate.
+while required live/security gates are false. `V1_ENGINEERING_CLOSEOUT = COMPLETE` records that the
+known software work in the declared v1 engineering scope is closed; it is not release authorization
+and it does not convert R06/R18 into PASS or CLOSED.
+
+The hosted multiplatform distribution workflow remains a separate reproducibility/package-integrity
+check. Any packaging defect exposed there is a software defect and must be fixed rather than waived as
+an R06/R18 environment limitation. Passing hosted package jobs still does not certify physical
+Hyprland, unlocked Windows interaction, TCC, signing/notarization, or the broader release gates.
 
 Machine-readable companion: `verification/v1-engineering-closeout.json`.

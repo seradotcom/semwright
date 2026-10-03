@@ -84,7 +84,7 @@
   "all_mission_requirements_satisfied": true,
   "all_r_owned_repository_work_completed": true,
   "backup_name": "semwright-r16-closeout-final.zip",
-  "completion_state": "R16_CLOSED_V1_ENGINEERING_CLOSEOUT_PENDING_MULTIPLATFORM_DISTRIBUTION_CERTIFICATION",
+  "completion_state": "R16_CLOSED_V1_ENGINEERING_CLOSEOUT_COMPLETE_RELEASE_CERTIFICATION_DEFERRED",
   "docs_delivery_sha": null,
   "docs_delivery_sha_reason": "Evidence/report/archive are committed after the frozen source; the resulting evidence commit SHA is external identity and is not self-embedded.",
   "docs_status": "VERIFIED_UPDATED_PUBLIC_SURFACE_AND_COMPLETE_DECLARED_SOURCE_REVIEW",

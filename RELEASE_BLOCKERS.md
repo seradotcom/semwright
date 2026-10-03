@@ -11,7 +11,9 @@ and [R's evidence directory](verification/r16-closeout/README.md).
 
 The closure notes below retain their recorded historical scope. R16 is CLOSED after separate
 revalidation; R06 and R18 remain OPEN — DEFERRED_TO_POST_V1_ENVIRONMENT_DEPENDENT.
-`release-readiness.json` is unchanged and remains fail-closed. This remains development software.
+`V1_ENGINEERING_CLOSEOUT` is COMPLETE because no known software defect is being hidden behind those
+environment gaps. `release-readiness.json` is unchanged and remains fail-closed, so full platform /
+release certification is still blocked. This remains development software.
 
 | ID | Remaining blocker | Completion evidence needed |
 |---|---|---|

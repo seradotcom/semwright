@@ -123,6 +123,21 @@ class EvidenceTests(unittest.TestCase):
             self.assertEqual(len(errors), 1)
             self.assertIn("missing.md", errors[0])
 
+    def test_v1_closeout_keeps_environment_gaps_open_and_release_fail_closed(self):
+        closeout = json.loads((ROOT / "verification/v1-engineering-closeout.json").read_text())
+        self.assertEqual(closeout["V1_ENGINEERING_CLOSEOUT"], "COMPLETE")
+        for gate in ("R06", "R18"):
+            self.assertEqual(closeout[gate]["status"], "OPEN")
+            self.assertEqual(
+                closeout[gate]["disposition"],
+                "DEFERRED_TO_POST_V1_ENVIRONMENT_DEPENDENT",
+            )
+            self.assertFalse(closeout[gate]["known_software_defect_behind_gap"])
+        readiness = json.loads((ROOT / "release-readiness.json").read_text())
+        self.assertEqual(readiness["status"], "BLOCKED_DEVELOPMENT_SOURCE")
+        self.assertFalse(readiness["gates"]["live_desktop_matrix"])
+        self.assertFalse(readiness["gates"]["security_review"])
+
 
 if __name__ == "__main__":
     unittest.main()

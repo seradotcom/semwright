@@ -37,15 +37,22 @@
     "source_of_truth": "release-readiness.json",
     "status": "BLOCKED_DEVELOPMENT_SOURCE"
   },
-  "V1_ENGINEERING_CLOSEOUT": "PENDING_MULTIPLATFORM_DISTRIBUTION_CERTIFICATION",
+  "V1_ENGINEERING_CLOSEOUT": "COMPLETE",
   "date": "2026-10-03",
   "engineering_closeout_basis": [
-    "R16 independent-authorship revalidation passed.",
+    "R16 independent-authorship revalidation passed and R16 remains CLOSED.",
     "R06/R18 residuals are physical/interactive environment-dependent evidence gaps.",
     "No known product defect is being reclassified as an R06/R18 environment gap.",
+    "Portable packaging defects discovered during final revalidation are software defects and are fixed/revalidated separately; they are not waived as environment gaps.",
     "Unsupported Windows external-MCP filesystem mounts remain fail-closed and outside the certified v1 claim."
   ],
   "multiplatform_distribution": {
+    "certification_reports": 6,
+    "conclusion": "success",
+    "engineering_closeout_gate": false,
+    "final_documentation_source_revalidation_pending": true,
+    "package_count": 8,
+    "release_admission": false,
     "required_packages": 8,
     "required_platforms": [
       "linux-x86_64",
@@ -55,9 +62,11 @@
       "macos-arm64",
       "macos-x86_64"
     ],
-    "status": "PENDING",
+    "run_id": 37108943779,
+    "source_sha": "baf8e6f55374622d30abf6a85d259898b2a17454",
+    "status": "PASS_PACKAGING_FIX_SOURCE",
     "workflow": ".github/workflows/v1-distribution.yml"
   },
   "schema_version": 1,
-  "source_basis_sha": "868446205df36826356483e93c53e5060c46e8aa"
+  "source_basis_sha": "baf8e6f55374622d30abf6a85d259898b2a17454"
 }

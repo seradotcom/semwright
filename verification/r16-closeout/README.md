@@ -17,9 +17,11 @@ and a separate reviewer session subsequently inspected/adopted that security-rel
 The bound receipt is `evidence/INDEPENDENT_R16_REVALIDATION_2026-10-03.json`.
 
 The final source and later evidence are deliberately different identities. Historical I/G/native
-certificates retain their original source/suite SHAs. PR synthetic-merge executions are explicitly
-identified as such; their tree equivalence with the final source is recorded rather than relabeling
-their checkout SHA. SKIPPED jobs are never counted as executions.
+certificates retain their original source/suite SHAs. The direct twelve-area JSON is also preserved
+as the pre-revalidation snapshot; its `REVALIDATION_PENDING` status strings describe that earlier
+phase, while the separate receipt above records the later R16 closure. PR synthetic-merge executions
+are explicitly identified as such; their tree equivalence with the final source is recorded rather
+than relabeling their checkout SHA. SKIPPED jobs are never counted as executions.
 
 [PR #207](https://github.com/seradotcom/semwright/pull/207) is R's closeout PR. R did not merge
 main, close foreign PRs, publish a release, change repository protection/billing settings, or

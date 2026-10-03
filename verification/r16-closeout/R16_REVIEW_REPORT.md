@@ -94,7 +94,7 @@ Graph and Effects are deliberately not mislabeled as fresh tests in this smoke. 
 
 ### R16-01: Authorization and confirmation
 
-**Status:** `DIRECT_SOURCE_REVIEW_COMPLETE_REVALIDATION_PENDING`.
+**Status:** `DIRECT_SOURCE_REVIEW_COMPLETE_R16_CLOSED_SEPARATELY`.
 
 No additional authorization bypass found in the reviewed routes. The review traced owner binding, deny precedence, confirmation separation, post-confirmation revalidation, attempt consumption and reconciliation permits.
 
@@ -186,7 +186,7 @@ Direct source review confirmed three platform-specific mechanisms remain distinc
 
 ### R16-06: Driver and Plugin isolation
 
-**Status:** `DIRECT_SOURCE_REVIEW_COMPLETE_REVALIDATION_PENDING`.
+**Status:** `DIRECT_SOURCE_REVIEW_COMPLETE_R16_CLOSED_SEPARATELY`.
 
 Host-tool parent binding and persistent session lifecycle were directly reviewed, including cleanup after lost parent/transport. No new escape route was found in the reviewed source.
 
@@ -239,7 +239,7 @@ No text-to-authority path was found in the reviewed federation/Skills/broker rou
 
 ### R16-09: Audit and disclosure
 
-**Status:** `DIRECT_SOURCE_REVIEW_COMPLETE_REVALIDATION_PENDING`.
+**Status:** `DIRECT_SOURCE_REVIEW_COMPLETE_R16_CLOSED_SEPARATELY`.
 
 Disclosure paths were directly reviewed. Earlier documentation/reporting mismatches were remediated in the R branch; adoption remains independently reviewable.
 

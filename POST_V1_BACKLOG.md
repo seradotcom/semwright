@@ -122,7 +122,7 @@ transparent `/workspace/<name>` mount virtualization until a separately reviewed
 implemented and tested. This fail-closed unsupported surface is not hidden inside the environmental
 defer.
 
-### Claims witheld until completion
+### Claims withheld until completion
 
 Do not claim complete unlocked-Windows interactive certification, UIPI/UAC certification, real-app
 UIA certification, mixed-DPI/multi-monitor certification, or lock/wake lifecycle certification.
