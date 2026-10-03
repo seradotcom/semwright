@@ -111,7 +111,9 @@ if [[ "$MODE" == install ]]; then
   load_receipt "$PREFIX/.semwright-install-receipt"
   verify_files "$PREFIX"
   printf 'Installed in %s\nNo PATH, service, configuration or OS permission was changed.\n' "$PREFIX"
-  printf 'Try: "%s/bin/semwright" --help\nRemove: "%s/uninstall.sh"\n' "$PREFIX" "$PREFIX"
+  printf 'Next: "%s/bin/semwright" setup\n' "$PREFIX"
+  printf 'Then start the broker and run: "%s/bin/semwright" --json doctor\n' "$PREFIX"
+  printf 'Remove: "%s/uninstall.sh"\n' "$PREFIX"
 else
   load_receipt "$PREFIX/.semwright-install-receipt"
   verify_files "$PREFIX"

@@ -84,9 +84,11 @@ and run its included helper:
 | macOS Apple Silicon / Intel | `.tar.gz` | `./install.sh` |
 
 Every portable bundle includes **all five runtime commands**, required packaged native companions,
-checksums and reversible user-local helpers. No automatic PATH changes, service installation,
-application downloads or permission grants. Windows/macOS bundles are unsigned; no security-control
-bypass is provided. [Exact commands, requirements and removal →](docs/installation.md#install-a-candidate-bundle)
+checksums and reversible user-local helpers. After the installer, run **`semwright setup`**: it creates
+a private observe-only configuration plus a ready-to-copy MCP client snippet without granting
+desktop authority, starting a service, or changing a third-party client. Windows/macOS bundles are
+unsigned; no security-control bypass is provided.
+[Exact commands, requirements and removal →](docs/installation.md#install-a-candidate-bundle)
 
 ### Build and try the synthetic desktop
 
@@ -120,19 +122,25 @@ flow, use the [installation guide](docs/installation.md).
 
 ### After installation
 
-Follow the [installation guide](docs/installation.md) to create a private observe-only configuration
-and explicitly add your installed `bin` directory to the current shell PATH (or use absolute paths).
-Then start the broker as your normal user in the same graphical login session:
+The safe onboarding command is:
 
 ```sh
-semwrightd --config "$HOME/.config/semwright/daemon.toml"
+semwright setup
 ```
 
-Then, from another terminal:
+It is local and idempotent: existing configuration is preserved, a missing configuration is created
+with the **observe-only** profile, and a ready-to-copy `mcp-client.json` snippet points at the exact
+installed `semwright-mcp` binary. The native distribution gate exercises this setup path after
+installing each platform bundle. It does **not** grant desktop/application authority, start a service,
+modify a third-party MCP client, or bypass OS consent.
+
+`semwright setup` prints the exact installed paths and next commands for the current platform. Start
+the broker as your normal user in the graphical login session, then verify it from another terminal:
 
 ```sh
 semwright --json doctor
 semwright ui snapshot --max-nodes 100
+semwright-inspect
 ```
 
 Start with observe-only policy and a disposable environment. Sensitive mutations require explicit

@@ -93,7 +93,8 @@ if ($Mode -eq 'Install') {
     Assert-Files $Prefix @(Read-Records $Receipt)
     Write-Output "Installed in $Prefix"
     Write-Output 'PATH, registry, services, configuration and Windows security controls were not changed.'
-    Write-Output "Try: & '$Prefix\bin\semwright.exe' --help"
+    Write-Output "Next: & '$Prefix\bin\semwright.exe' setup"
+    Write-Output "Then start the broker and run: & '$Prefix\bin\semwright.exe' --json doctor"
     Write-Output "Remove: & '$Prefix\Uninstall-Semwright.ps1'"
 } else {
     $Records = @(Read-Records $Receipt)

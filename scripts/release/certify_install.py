@@ -1,6 +1,7 @@
 """Exercise the shipped helpers against an extracted bundle on its native OS."""
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 import shutil
@@ -18,6 +19,13 @@ def certify_install(stage: Path, platform: str, smoke=None) -> dict[str, bool]:
         home = Path(folder) / 'home'
         home.mkdir(mode=0o700)
         env = dict(os.environ, HOME=str(home))
+        if platform == 'windows':
+            # Keep first-run setup completely inside this disposable user fixture.
+            env['USERPROFILE'] = str(home)
+            env['APPDATA'] = str(home / 'AppData' / 'Roaming')
+            env['LOCALAPPDATA'] = str(home / 'AppData' / 'Local')
+            Path(env['APPDATA']).mkdir(parents=True, exist_ok=True)
+            Path(env['LOCALAPPDATA']).mkdir(parents=True, exist_ok=True)
         prefix = home / 'Installed bundle with spaces'
 
         def helper(operation: str, expected_success: bool = True):
@@ -37,6 +45,64 @@ def certify_install(stage: Path, platform: str, smoke=None) -> dict[str, bool]:
 
         helper('Install')
         verify_checksums_installed(prefix, records)
+
+        suffix = '.exe' if platform == 'windows' else ''
+        semwright = prefix / 'bin' / ('semwright' + suffix)
+        expected_mcp = prefix / 'bin' / ('semwright-mcp' + suffix)
+        if platform == 'windows':
+            setup_dir = Path(env['APPDATA']) / 'Semwright' / 'config'
+        elif platform == 'macos':
+            setup_dir = home / 'Library' / 'Application Support' / 'Semwright' / 'config'
+        else:
+            setup_dir = home / '.config' / 'semwright'
+        setup_config = setup_dir / 'daemon.toml'
+        setup_mcp = setup_dir / 'mcp-client.json'
+
+        dry = subprocess.run(
+            [str(semwright), '--dry-run', '--json', 'setup'],
+            env=env, capture_output=True, text=True, timeout=30, check=True,
+        )
+        dry_report = json.loads(dry.stdout)
+        if (dry_report.get('setup') != 'dry-run'
+                or dry_report.get('authority_changed') is not False
+                or dry_report.get('service_started') is not False
+                or dry_report.get('permissions_granted') is not False
+                or dry_report.get('config', {}).get('status') != 'would-create'
+                or dry_report.get('mcp_client_snippet', {}).get('status') != 'would-create'
+                or setup_config.exists() or setup_mcp.exists()):
+            raise RuntimeError('semwright setup dry-run was not side-effect-free')
+
+        first_setup = subprocess.run(
+            [str(semwright), '--json', 'setup'],
+            env=env, capture_output=True, text=True, timeout=30, check=True,
+        )
+        first_report = json.loads(first_setup.stdout)
+        if (first_report.get('setup') != 'complete'
+                or first_report.get('authority_changed') is not False
+                or first_report.get('service_started') is not False
+                or first_report.get('permissions_granted') is not False
+                or first_report.get('config', {}).get('status') != 'created'
+                or first_report.get('mcp_client_snippet', {}).get('status') != 'created'):
+            raise RuntimeError('semwright setup did not create the bounded first-run state')
+        if setup_config.read_text(encoding='utf-8').splitlines()[-2:] != ['[policy]', 'profile = "observe"']:
+            raise RuntimeError('semwright setup did not create observe-only policy')
+        snippet = json.loads(setup_mcp.read_text(encoding='utf-8'))
+        if Path(snippet['mcpServers']['semwright']['command']) != expected_mcp:
+            raise RuntimeError('semwright setup MCP snippet does not bind the installed sibling binary')
+        before_config = setup_config.read_bytes()
+        before_mcp = setup_mcp.read_bytes()
+
+        second_setup = subprocess.run(
+            [str(semwright), '--json', 'setup'],
+            env=env, capture_output=True, text=True, timeout=30, check=True,
+        )
+        second_report = json.loads(second_setup.stdout)
+        if (second_report.get('config', {}).get('status') != 'kept-existing'
+                or second_report.get('mcp_client_snippet', {}).get('status') != 'kept-existing'
+                or setup_config.read_bytes() != before_config
+                or setup_mcp.read_bytes() != before_mcp):
+            raise RuntimeError('semwright setup is not idempotent/non-overwriting')
+
         if smoke is not None:
             smoke(prefix / 'bin')
         else:
@@ -65,8 +131,9 @@ def certify_install(stage: Path, platform: str, smoke=None) -> dict[str, bool]:
         if any((prefix / name).exists() for name in records) or (prefix / '.semwright-install-receipt').exists():
             raise RuntimeError('Uninstall left a managed file behind')
         # TemporaryDirectory owns fixture cleanup, never the product uninstaller.
-    return {'install': True, 'installed_smoke': True, 'uninstall': True, 'cleanup': True,
-            'overwrite_refused': True, 'changed_files_preserved': True, 'unknown_files_preserved': True}
+    return {'install': True, 'setup': True, 'installed_smoke': True, 'uninstall': True,
+            'cleanup': True, 'overwrite_refused': True, 'changed_files_preserved': True,
+            'unknown_files_preserved': True}
 
 
 def verify_checksums_installed(prefix: Path, records: dict[str, str]) -> None:

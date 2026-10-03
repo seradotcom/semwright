@@ -34,7 +34,7 @@ sha256sum semwright-<version>-x86_64.tar.gz
 tar -xzf semwright-<version>-x86_64.tar.gz
 cd semwright-<version>-x86_64
 ./install.sh
-"$HOME/.local/share/semwright/bin/semwright" --help
+"$HOME/.local/share/semwright/bin/semwright" setup
 ```
 
 The default prefix is `$HOME/.local/share/semwright`; an optional
@@ -63,7 +63,7 @@ Get-FileHash .\semwright-<version>-windows-x86_64.zip -Algorithm SHA256
 Expand-Archive .\semwright-<version>-windows-x86_64.zip -DestinationPath .\candidate
 Set-Location .\candidate\semwright-<version>-windows-x86_64
 .\Install-Semwright.ps1
-& "$env:LOCALAPPDATA\Semwright\bin\semwright.exe" --help
+& "$env:LOCALAPPDATA\Semwright\bin\semwright.exe" setup
 ```
 
 Use the `windows-arm64` ZIP for ARM64. Installation defaults to `%LOCALAPPDATA%\Semwright`,
@@ -83,13 +83,32 @@ shasum -a 256 semwright-<version>-macos-arm64.tar.gz
 tar -xzf semwright-<version>-macos-arm64.tar.gz
 cd semwright-<version>-macos-arm64
 ./install.sh
-"$HOME/Library/Application Support/Semwright/bin/semwright" --help
+"$HOME/Library/Application Support/Semwright/bin/semwright" setup
 ```
 
 The default prefix is `$HOME/Library/Application Support/Semwright`; `--prefix` selects another new
 directory under HOME. Native runtime libraries remain beside the commands in the packaged layout.
 These are unsigned/unnotarized archives, not notarized apps or TCC-certified deployments. Helpers do
 not remove quarantine, disable Gatekeeper/SIP, change TCC databases or grant consent.
+
+### Safe first-time setup
+
+After any portable install, run the installed `semwright setup` command. It performs only local,
+non-authorizing onboarding:
+
+- creates the platform-native private config directory when missing;
+- creates `daemon.toml` with the `observe` policy only when that file does not already exist;
+- creates a ready-to-copy `mcp-client.json` snippet pointing at the exact sibling `semwright-mcp`;
+- reports whether CLI, daemon, MCP and TUI binaries are present beside the running CLI;
+- prints the broker, doctor and TUI next steps for the current installation.
+
+The command is intentionally idempotent and **never overwrites** existing config/snippet files. Use
+`semwright --dry-run --json setup` to inspect the proposed paths without writing anything.
+
+It does not edit PATH, install/start a service, modify Claude/ChatGPT/Codex/other MCP clients, grant
+broker policy, change TCC/portal settings, or approve sensitive operations. Those boundaries remain
+explicit owner/OS actions. This keeps one simple setup command without turning onboarding into an
+authority escalation.
 
 ### Removal and upgrades
 
@@ -115,10 +134,10 @@ removal rather than overriding it; normal upgrades use clean removal followed by
 External configuration, audit data, projects, application add-ons and consent remain untouched.
 
 No helper changes PATH. Invoke installed absolute paths, or explicitly add the installed `bin`
-directory to your own shell session. No daemon starts automatically. The included `config/observe.toml`
-is an example, not an automatic policy grant. Before a live run, create a private owner-controlled
-configuration without replacing an existing file, review [permissions](permissions.md), and use an
-ordinary graphical-session user. Installation checks are not physical desktop or security certification.
+directory to your own shell session. No daemon starts automatically. Run `semwright setup` to create
+the private observe-only config when missing; an existing config is never replaced. Review
+[permissions](permissions.md) before a live run and use an ordinary graphical-session user.
+Installation/setup checks are not physical desktop or security certification.
 
 ## Prerequisites
 
@@ -217,9 +236,9 @@ lingering setting is installed by default.
 The native package set is Linux x86_64/aarch64 tar.gz and amd64/arm64 deb, Windows x86_64/ARM64 ZIP,
 and macOS arm64/x86_64 tar.gz: **six native jobs and eight package files**. Linux binaries are never
 used as Windows/macOS payloads. Architecture, internal checksums, deterministic package assembly,
-extraction, shipped-helper installation, installed smoke, removal, cleanup, overwrite refusal and
-changed/unowned-file preservation are checked per native job. Linux also exercises the actual deb
-package-manager lifecycle in disposable hosted CI.
+extraction, shipped-helper installation, `semwright setup` dry-run/creation/idempotence, installed
+smoke, removal, cleanup, overwrite refusal and changed/unowned-file preservation are checked per
+native job. Linux also exercises the actual deb package-manager lifecycle in disposable hosted CI.
 
 `V1_DISTRIBUTION_MANIFEST.json` verifies the actual package hashes against all six exact-SHA native
 certificates. Its `release_admission=false` is intentional. Reproducibility here covers repeated
