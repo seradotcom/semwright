@@ -19,6 +19,9 @@ def certify_install(stage: Path, platform: str, smoke=None) -> dict[str, bool]:
         home = Path(folder) / 'home'
         home.mkdir(mode=0o700)
         env = dict(os.environ, HOME=str(home))
+        if platform == 'linux':
+            # Do not let the hosted runner's XDG config path escape the disposable HOME.
+            env.pop('XDG_CONFIG_HOME', None)
         if platform == 'windows':
             # Keep first-run setup completely inside this disposable user fixture.
             env['USERPROFILE'] = str(home)
