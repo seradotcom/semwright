@@ -45,14 +45,14 @@ fn setup_config_directory() -> Result<PathBuf> {
         if !base.is_absolute() {
             return Err(Error::invalid("XDG_CONFIG_HOME must be absolute"));
         }
-        return Ok(base.join("semwright"));
+        Ok(base.join("semwright"))
     }
     #[cfg(target_os = "macos")]
     {
         let home = std::env::var_os("HOME")
             .map(PathBuf::from)
             .ok_or_else(|| Error::unavailable("HOME is required for setup"))?;
-        return Ok(home.join("Library/Application Support/Semwright/config"));
+        Ok(home.join("Library/Application Support/Semwright/config"))
     }
     #[cfg(target_os = "windows")]
     {
@@ -116,10 +116,10 @@ fn setup_mcp_document(mcp: &Path) -> Result<String> {
 
 fn setup_result(cli: &Cli) -> Result<Value> {
     let config_dir = setup_config_directory()?;
-    if let Some(parent) = config_dir.parent() {
-        if !cli.dry_run {
-            std::fs::create_dir_all(parent)?;
-        }
+    if let Some(parent) = config_dir.parent()
+        && !cli.dry_run
+    {
+        std::fs::create_dir_all(parent)?;
     }
     if !cli.dry_run {
         semwright_platform_services::private_directory(&config_dir)?;
