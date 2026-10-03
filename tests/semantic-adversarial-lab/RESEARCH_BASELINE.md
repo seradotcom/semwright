@@ -2,9 +2,9 @@
 
 Sources inform test design, not acceptance. Exact identities are in the target lock.
 
-Read A's `docs/composition/{CONTRACT_HANDOFF,AUDIO_AV_CONTRACT}.md`, `crates/semantic-composition/src/{model,vault,controller,canonical}.rs`, `crates/av-composition/src/sync.rs`, manifests and diagnostics. Canonical integrity is not private vault authority or Broker policy. C1 does not imply integrated audio readiness.
+Read the Composition contracts in `docs/composition/{CONTRACT_HANDOFF,AUDIO_AV_CONTRACT}.md`, `crates/semantic-composition/src/{model,vault,controller,canonical}.rs`, `crates/av-composition/src/sync.rs`, manifests and diagnostics. Canonical integrity is not private vault authority or Broker policy. C1 does not imply integrated audio readiness.
 
-Read B's `crates/audio-domain/src/{lib,units,signal_analysis,wav}.rs` and diagnostics. PCM statistics are not LUFS/intelligibility; preserve undefined silence and distinguish sample peak from true peak.
+Read `crates/audio-domain/src/{lib,units,signal_analysis,wav}.rs` and diagnostics. PCM statistics are not LUFS/intelligibility; preserve undefined silence and distinguish sample peak from true peak.
 
 Read baseline `docs/{architecture,permissions,drivers,skills}.md`, `docs/blender/SECURITY.md`, SDK, Skills public API, workflow inventories and native pins. Installation/metadata never grants authority. Native availability/acceptance remains to be tested against exact runtime pins, not inferred from docs/current.
 

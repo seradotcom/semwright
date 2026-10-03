@@ -1,6 +1,6 @@
 # Research Baseline — 2026-09-21
 
-This file records the technical assumptions used to form the blueprint. The implementation chat should re-check versions before pinning dependencies.
+This file records the technical assumptions used to form the original specification. Re-check versions before pinning dependencies or publishing release metadata.
 
 ## XDG Desktop Portal — RemoteDesktop
 
@@ -154,7 +154,7 @@ accessibility protocol types must be wrapped by our own normalized domain model;
 
 ## Reference rule
 
-The coding chat must re-check:
+Before release, re-check:
 - current crate versions;
 - license compatibility;
 - minimum Rust version;

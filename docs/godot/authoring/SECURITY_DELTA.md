@@ -2,7 +2,7 @@
 
 ## New active surface
 
-D adds semantic project authoring and native verification. `composition.native.verify`, `composition.native.query`, `composition.native.tracks.page` and `composition.native.keys.page` are CodeExecution because all launch pinned Godot on provider-generated code; query/paging are read-only with respect to canonical project state but are not relabeled as ordinary low-risk reads. They are advertised only with authoring grants plus a runner and require authenticated Driver Host context plus an A-issued plan. Native query accepts only one managed logical node key or persistent `res://` resource path and at most 32 lowercase allowlisted property names; filtering occurs inside the provider after trusted inspect, so the model does not receive the complete projection.
+Godot authoring adds semantic project authoring and native verification. `composition.native.verify`, `composition.native.query`, `composition.native.tracks.page` and `composition.native.keys.page` are CodeExecution because all launch pinned Godot on provider-generated code; query/paging are read-only with respect to canonical project state but are not relabeled as ordinary low-risk reads. They are advertised only with authoring grants plus a runner and require authenticated Driver Host context plus a Composition-issued plan. Native query accepts only one managed logical node key or persistent `res://` resource path and at most 32 lowercase allowlisted property names; filtering occurs inside the provider after trusted inspect, so the model does not receive the complete projection.
 
 ## Enforced boundaries
 
@@ -16,4 +16,4 @@ Save/reopen requires distinct native process IDs and nonces. F Reopened compares
 
 ## Remaining risk and non-claims
 
-Pinned Godot still executes generated GDScript and imported resources; sandboxing reduces but does not eliminate upstream-engine risk. Visual/aesthetic correctness, arbitrary-program reachability, bit-identical physics, malicious third-party projects and complete shader semantics are not proven. Fixture success is not independent security certification. Hostile/property and exact-SHA native gates remain required, and D does not close R16.
+Pinned Godot still executes generated GDScript and imported resources; sandboxing reduces but does not eliminate upstream-engine risk. Visual/aesthetic correctness, arbitrary-program reachability, bit-identical physics, malicious third-party projects and complete shader semantics are not proven. Fixture success is not independent security certification. Hostile/property and exact-SHA native gates remain required, and this subsystem does not close R16.

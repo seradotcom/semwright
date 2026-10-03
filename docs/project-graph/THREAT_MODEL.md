@@ -1,7 +1,7 @@
 # Project Graph threat model
 
 ## Assets and trust boundaries
-Protected assets are durable logical identity, immutable revision/receipt history, current knowledge state, private project metadata, query visibility and rebuild reservations. Native application files remain owned by their applications/filesystem grants; C does not acquire blanket ownership of them.
+Protected assets are durable logical identity, immutable revision/receipt history, current knowledge state, private project metadata, query visibility and rebuild reservations. Native application files remain owned by their applications/filesystem grants; Project Graph does not acquire blanket ownership of them.
 
 Trusted boundaries are: authenticated local transport -> Broker policy/context; registered provider receipt/revision adapters; A PlanVault/controller; private GraphStore directory; and scoped filesystem/native resolvers supplied by platform or D/E. Agent JSON, imported manifests, RevisionCandidate/ExecutionReceipt wire data, Skill text, locators, content digests, application names and caller-selected IDs are untrusted data.
 

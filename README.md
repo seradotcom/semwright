@@ -350,5 +350,5 @@ Original core source is **MIT OR Apache-2.0**.
 
 The isolated `integrations/kicad-driver` subtree is **GPL-3.0-or-later** with its own notices.
 
-See [governance](GOVERNANCE.md), [changelog](CHANGELOG.md) and
-[original requirements](docs/requirements/START_HERE.md).
+See [governance](GOVERNANCE.md), [changelog](CHANGELOG.md) and the
+[architecture documentation](docs/architecture.md).

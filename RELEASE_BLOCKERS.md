@@ -13,7 +13,7 @@ certificates retain source `cd518748f742025a251b78028613aa1b16919e73`, their sui
 explicit job dispositions. Native Windows run `37096430846` passed on the review snapshot;
 that does not make skipped main-push jobs executed or close interactive R18.
 See [integrated evidence](docs/semantic-creation/INTEGRATION.md), [verification](VERIFY.md)
-and [R's evidence directory](verification/r16-closeout/README.md).
+and the [R16 evidence directory](verification/r16-closeout/README.md).
 
 The closure notes below retain their recorded historical scope. R16 is CLOSED after separate
 revalidation; R06 and R18 remain OPEN — DEFERRED_TO_POST_V1_ENVIRONMENT_DEPENDENT.

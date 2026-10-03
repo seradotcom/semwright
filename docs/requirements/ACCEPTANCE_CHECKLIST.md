@@ -1,6 +1,6 @@
-# Acceptance Checklist — v1.0-grade handoff
+# Engineering acceptance checklist
 
-The coding chat should use this as a hard completion checklist.
+This checklist records the original engineering acceptance targets for the first implementation.
 
 ## Repository
 
@@ -10,7 +10,7 @@ The coding chat should use this as a hard completion checklist.
 - [ ] Public license files.
 - [ ] README, contributing, security, changelog, code of conduct.
 - [ ] No credentials/secrets.
-- [ ] No `target/` or bulky build outputs in final ZIP.
+- [ ] No `target/` or bulky build outputs committed to the repository.
 
 ## Core architecture
 
@@ -158,11 +158,9 @@ The coding chat should use this as a hard completion checklist.
 - [ ] No claim of universal Wayland support.
 - [ ] No “production-ready” claim if critical compile/tests fail.
 
-## Final handoff
+## Release handoff
 
-- [ ] ZIP created.
-- [ ] ZIP opens and contains top-level repo.
-- [ ] SHA-256 of ZIP reported.
-- [ ] Final response links ZIP.
-- [ ] Final response summarizes what was actually run.
-- [ ] Remaining live Linux test steps are listed, not hidden.
+- [ ] Release candidate is bound to an exact source SHA.
+- [ ] Package checksums and manifests are generated from that candidate.
+- [ ] Executed checks are recorded separately from authored or skipped checks.
+- [ ] Remaining live platform/application tests are listed, not hidden.

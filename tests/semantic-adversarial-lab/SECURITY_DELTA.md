@@ -1,10 +1,10 @@
-# Security delta — internal G preparation
+# Security delta — adversarial lab
 
 ## Scope and current truth
 
-This is an internal adversarial laboratory, not an independent R16 closeout. No product vulnerability is confirmed solely from source hypotheses or an unexecuted test. See exact-SHA Actions receipts for actual execution. Contract, lifecycle, package/distribution and pinned Godot/Blender native experiments have now executed. All currently confirmed owner findings are closed by exact-SHA fix retest; the combined candidate remains absent and therefore readiness remains BLOCKED.
+This is an adversarial laboratory, not an independent R16 closeout. No product vulnerability is confirmed solely from source hypotheses or an unexecuted test. See exact-SHA Actions receipts for actual execution. Contract, lifecycle, package/distribution and pinned Godot/Blender native experiments have now executed. All currently confirmed product findings are closed by exact-SHA fix retest; the combined candidate remains absent and therefore readiness remains BLOCKED.
 
-G corrected two defects in its own evidence oracle. These are laboratory reliability findings, not product security bugs. Their fixes are authored by G and must not be called independent review of G's own code. Severity below concerns the laboratory's evidence trust boundary; no host exploit or native application compromise has been demonstrated.
+The lab corrected two defects in its own evidence oracle. These are laboratory reliability findings, not product security bugs. Those fixes are changes to the lab itself and must not be called independent review of the same lab code. Severity below concerns the laboratory's evidence trust boundary; no host exploit or native application compromise has been demonstrated.
 
 ## G-LAB-001 — non-finite values accepted through exponent overflow
 
@@ -30,22 +30,22 @@ The read-only collector binds run/attempt/job to the explicit suite and frozen t
 
 Confirmed owner findings from executed exact-SHA families remain open:
 
-- G-FIND-A-001 is CLOSED_RETEST_PASS: A FIX_SHA 7ab43f99f4cc62be2a9b0ce9ce1155283a429768 binds permits to private vault/root identities; G retest run 36938854785 passed 70/70 Composition including G-PLAN-022/023/024.
-- G-FIND-D-001 and G-FIND-D-002 are CLOSED_RETEST_PASS on D FIX_SHA 70bd7857: Godot native 13/13 PASS.
-- G-FIND-E-001 is CLOSED_RETEST_PASS on E second FIX_SHA f492f13: Blender native 14/14 PASS; G-BLENDER-010 now preserves exact managed source projection while producing the valid hashed GLB and preserving the external sentinel.
+- G-FIND-A-001 is CLOSED_RETEST_PASS: Composition FIX_SHA 7ab43f99f4cc62be2a9b0ce9ce1155283a429768 binds permits to private vault/root identities; lab retest run 36938854785 passed 70/70 Composition including G-PLAN-022/023/024.
+- G-FIND-D-001 and G-FIND-D-002 are CLOSED_RETEST_PASS on Godot FIX_SHA 70bd7857: Godot native 13/13 PASS.
+- G-FIND-E-001 is CLOSED_RETEST_PASS on Blender second FIX_SHA f492f13: Blender native 14/14 PASS; G-BLENDER-010 now preserves exact managed source projection while producing the valid hashed GLB and preserving the external sentinel.
 
-Godot and Blender findings were reached through pinned real native runtimes and product routes. Their owner fixes were retested by G on exact affected families and are now closed; G did not patch the owner branches.
+Godot and Blender findings were reached through pinned real native runtimes and product routes. Their product fixes were retested by the lab on the exact affected families and are now closed; the lab did not patch product implementation branches.
 
-Clean contract fixtures still do not establish every live collaboration, OS, device, media-intelligibility or cross-app property. The G enclosure is Linux/GitHub-hosted only and is not itself the product sandbox. Separate A/B/C/D/E/F exact-SHA results cannot be combined into an I certification. No explicit combined candidate has been handed to G.
+Clean contract fixtures still do not establish every live collaboration, OS, device, media-intelligibility or cross-app property. The lab enclosure is Linux/GitHub-hosted only and is not itself the product sandbox. Separate subsystem exact-SHA results cannot be combined into a final integration certification. No explicit combined candidate was supplied to this lab checkpoint.
 
 The public test package contains no real credentials, user documents, private native projects, recordings or public network listeners. Residual risk and severity remain bounded by the tested evidence rather than inferred from green author branches.
 
 ## Continuation safeguards
 
-Retests retain both full suite commits and a separately recomputed immutable oracle fingerprint. Changing only the target selector cannot hide changed expectations, guards, contract/runtime pins or budgets. Collection retains prior raw receipts and per-attempt reports instead of overwriting failure history. These are G-owned harness changes; their controls are included in the current registered suite and still require hosted execution. No product finding is auto-closed.
+Retests retain both full suite commits and a separately recomputed immutable oracle fingerprint. Changing only the target selector cannot hide changed expectations, guards, contract/runtime pins or budgets. Collection retains prior raw receipts and per-attempt reports instead of overwriting failure history. These are lab-owned harness changes; their controls are included in the current registered suite and still require hosted execution. No product finding is auto-closed.
 
 ## G-LAB-003 — missing failed-preflight diagnostics
 
 Classification: laboratory diagnostic defect, provisional low severity. The fail-closed decision was preserved, but a nonzero probe exit discarded its captured structured stdout and left an empty error detail. The first hosted example is run 36506309475 / job 109210343273 on suite fe78c7b048d1e88f6646f28d7ac28d3b9f84c119, with zero registered cases executed and 82 marked BLOCKED. This does not establish a product sandbox defect.
 
-The G-only correction retains bounded diagnostic bytes/hashes and parsed failed-control names before refusal, and records them through cleanup. It does not remove namespaces, mounts, capability drops, canaries, budgets, environment filtering or cleanup checks. The narrow follow-up is selftest-only. The underlying preflight cause and the correction require a new exact-SHA job.
+The lab-only correction retains bounded diagnostic bytes/hashes and parsed failed-control names before refusal, and records them through cleanup. It does not remove namespaces, mounts, capability drops, canaries, budgets, environment filtering or cleanup checks. The narrow follow-up is selftest-only. The underlying preflight cause and the correction require a new exact-SHA job.

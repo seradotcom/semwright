@@ -1,6 +1,6 @@
 # Composition contract C0
 
-Status: implementation published for consumer review; CI evidence belongs to the exact source SHA, not to this document. A owns these contracts. B owns audio-domain, Faust, Ardour and audio-authoring.
+Status: implementation published for consumer review; CI evidence belongs to the exact source SHA, not to this document. Composition owns these shared contracts; the audio subsystem owns audio-domain, Faust, Ardour and audio-authoring.
 
 Use workspace dependencies `semwright-semantic-composition` and `semwright-media-time`. No private worktree paths. The core has no application, media backend, audio loudness, filesystem or Broker dependency. Domain intents/operations remain distinct types. `PreparedPlan<I,O>` contains the generic lifecycle envelope, never arbitrary executable strings. A profile is trusted compiled integration code; a descriptor supplied by a client cannot authorize itself.
 
@@ -14,6 +14,6 @@ PlanVault binds complete canonical plan bytes to a host owner. Hashes are lookup
 
 A ValidationReport PASS needs every required versioned rule, deterministic exhaustive evidence on the same base and no failure. Fixture/simulation evidence does not certify native acceptance. Execution completion, evidence class and support level remain independent.
 
-B review requested: silence/undefined loudness as typed unknown measurement; delayed feedback; partial effects; rates 44.1/48/96 kHz against rational video; weak revision semantics. Add consumer fixtures, not a forked Finding or clock. Changes are explicit C1/C2 revisions with migration tests.
+Audio review requested: silence/undefined loudness as typed unknown measurement; delayed feedback; partial effects; rates 44.1/48/96 kHz against rational video; weak revision semantics. Add consumer fixtures, not a forked Finding or clock. Changes are explicit C1/C2 revisions with migration tests.
 
-C1 AV consumer note: a public final-audio receipt that will feed AV should preserve a path-free `MediaArtifact` and, when delivery is requested, populate the additive `ArtifactHandoffHint` with the artifact digest plus the provider-produced relative filename/path. Do not put a Broker root, absolute path or authority into the hint. A's integration host binds that hint to the owner-configured readable root and uses the existing `artifact.handoff`; B does not need to call MLT or expose private Ardour/Faust helpers.
+C1 AV consumer note: a public final-audio receipt that will feed AV should preserve a path-free `MediaArtifact` and, when delivery is requested, populate the additive `ArtifactHandoffHint` with the artifact digest plus the provider-produced relative filename/path. Do not put a Broker root, absolute path or authority into the hint. The AV integration host binds that hint to the owner-configured readable root and uses the existing `artifact.handoff`; The audio subsystem does not need to call MLT or expose private Ardour/Faust helpers.

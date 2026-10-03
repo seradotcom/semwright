@@ -1,7 +1,7 @@
 # Integrated native transport
 
 The integration includes runtime unification #201 at
-`733037145c374d28cb7d0e3d51dc76c64f223ad4` and the owner A–G ancestry.
+`733037145c374d28cb7d0e3d51dc76c64f223ad4` and the integrated subsystem ancestry.
 Blender uses v8 Host-owned sessions; Godot and Motion use typed Host tools/jobs.
 Composition AV uses the Semwright MLT runner with exactly the delegated project,
 media and output roots and sealed melt/ffprobe/ffmpeg dependencies. Its three
@@ -19,14 +19,14 @@ The SDK centralizes launch and bounded output; audio drivers no longer discover
 private executable paths. Compatibility is not a claim of v8 audio certification.
 
 Actions run `36973914364` certified source compilation, SDK contracts and the
-115 A/D/B/F regressions at `459090d16d4608473d7855551f9d4eb1ef77067e`.
+115 Composition/Godot/Audio/Effects regressions at `459090d16d4608473d7855551f9d4eb1ef77067e`.
 Native integrated acceptance and the final exact-SHA campaign remain pending.
-The standalone G suite adapts bootstrap only and records a new oracle identity;
+The standalone adversarial suite adapts bootstrap only and records a new oracle identity;
 its registry, mutants, core oracles and Blender attack bodies are unchanged.
 Historical owner/native certificates do not certify the new combined source.
 R16 remains open and main is unchanged.
 
-F's historical audit blocker named the yanked `yoke-derive 0.8.3`. The #201
+The historical Effect Conformance audit blocker named the yanked `yoke-derive 0.8.3`. The #201
 lockfile already includes `0.8.4` with registry checksum
 `ec8ebde2db3681e8c9980cc27822030e68752690ddfa9473e739aeb4dbde6d71`.
 No extra dependency update is needed for that historical finding. The final
@@ -38,7 +38,7 @@ Ardour Broker/SDK authoring at `a672512ed294145fd6e76d700aba667d4d315b77`
 (run `36976180797`), and native analysis at
 `af58a3ce1a0cabfe0a290f89fbba208bb72c3c98` (run `36977261090`).
 Source diagnostics at `6d107e8700b97d6ccfe8930a33141d418718e2d5`
-(run `37006551930`) passed the full SDK library suite, 115 A/D/B/F regressions,
+(run `37006551930`) passed the full SDK library suite, 115 Composition/Godot/Audio/Effects regressions,
 compilation of the integrated driver/AV targets and expanded strict lints.
 These runs retain their original scope; they do not certify a later source SHA.
 
@@ -47,8 +47,8 @@ original scope predicate and required gate. Matrix and job dependencies bound
 heavy jobs within a family to two. Scheduling dependencies use explicit status
 conditions so an optional skipped family or an earlier failure does not silently
 remove subsequent required checks. Any failed required check still fails the
-unchanged final evidence gate. B and D owner certifications run their heavy lanes
-sequentially; G retains its independent single-lane campaign.
+unchanged final evidence gate. Audio and Godot certifications run their heavy lanes
+sequentially; the adversarial suite retains its independent single-lane campaign.
 
 AV receipts and resource determinants bind the tested integrated source SHA.
 Historical owner SHAs remain separately labelled as ancestry; they are not

@@ -1,6 +1,6 @@
 # Integrated source backup dependencies, version 2
 
-The historical E/D/F source packagers pinned the original C0/P0 trees. The
+The historical Blender/Godot/Effect Conformance source packagers pinned the original C0/P0 trees. The
 integrated A implementation adds the explicit reconciliation contract; C includes
 its completed rebuild/provenance work and F includes its final production adapter
 contracts. Those old tree pins correctly rejected the integrated candidate.

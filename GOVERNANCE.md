@@ -1,24 +1,24 @@
 # Governance
 
-This archive creates source code, not a legal entity, foundation or existing maintainer
-team. The person or organization publishing a public repository must establish ownership,
-verified security contacts and a maintainer roster. “Semwright contributors” is a collective
-source attribution, not an assertion that named people have accepted responsibility.
+Semwright uses maintainer-led governance. Repository maintainers are responsible for project
+stewardship, release decisions, security-report routing and the compatibility policy for public
+interfaces. Maintainer decisions should be recorded in pull requests, ADRs or release documentation
+when they affect authority boundaries, protocols, reference identity, package trust or support.
 
-The initial governance model is maintainer review with written ADRs for policy, protocol,
-reference identity, plugin trust and compatibility changes. A supported release requires
-evidence for the release-readiness gates and review of security-sensitive changes by
-someone other than the change author where feasible.
+Security-sensitive changes should be reviewed by someone other than the change author where
+practical. A supported release requires the evidence defined by the release policy; passing a build
+or capability probe does not by itself establish platform or application support. Protocol changes
+require migration notes and regression coverage. Removing a safety boundary is a breaking design
+decision, not routine compatibility work.
 
-Public scope should be driven by reliable narrow commands and demonstrated user value,
-not a star target or demo alone. Do not award support labels based solely on compilation,
-capability probes or platform existence. Protocol version changes require migration notes
-and regression tests. Removing a safety boundary is a breaking design decision, not a
-routine compatibility fix.
+Public scope is driven by demonstrated user value and reproducible behavior. Support claims must be
+bound to the platform, application version and workflow that were actually exercised. Historical
+evidence stays historical rather than being promoted to a newer commit without revalidation.
 
-All source is available for review under the stated licenses. No CLA,
-centralized plugin marketplace, usage telemetry or paid hosted backend is required by
-this design. A future change to any of those terms must be explicit and documented.
+Semwright core source is available under MIT OR Apache-2.0. The KiCad integration retains its
+separate GPL-3.0-or-later boundary and notices. Changes to contribution terms, telemetry, hosted
+services, marketplaces or licensing must be explicit and reviewed rather than inferred from project
+growth.
 
 ## Initial-v1 admission decision — 2026-10-03
 
