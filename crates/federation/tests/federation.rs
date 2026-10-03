@@ -435,6 +435,28 @@ async fn invalid_descriptors_duplicate_names_and_bad_results_fail_closed() {
     if !sandbox_runtime_available() {
         return;
     }
+    let mut oversized = fixture_config("oversized-pagination");
+    oversized.args = vec!["--oversized-pagination".into()];
+    let oversized_error = match connect_result(oversized).await {
+        Ok(provider) => {
+            provider.shutdown().await.unwrap();
+            panic!("oversized paginated catalog must be rejected")
+        }
+        Err(error) => error,
+    };
+    assert_eq!(oversized_error.code, ErrorCode::ResourceExhausted);
+
+    let mut cycle = fixture_config("cursor-cycle");
+    cycle.args = vec!["--cursor-cycle".into()];
+    let cycle_error = match connect_result(cycle).await {
+        Ok(provider) => {
+            provider.shutdown().await.unwrap();
+            panic!("repeated tools/list cursor must be rejected")
+        }
+        Err(error) => error,
+    };
+    assert_eq!(cycle_error.code, ErrorCode::Conflict);
+
     let mut duplicate = fixture_config("duplicate");
     duplicate.args = vec!["--duplicate-tools".into()];
     assert!(connect_result(duplicate).await.is_err());
