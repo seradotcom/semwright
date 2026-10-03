@@ -1,12 +1,16 @@
-<h1 align="center"><img src="./docs/assets/semwright-mark.svg" alt="" width="44" height="44" />&nbsp;Semwright</h1>
+<h1 align="center"><img src="./docs/assets/semwright-mark.svg" alt="" width="44" height="44" />&nbsp;semwright</h1>
 
 <p align="center">
-  <strong>Use real software from AI agents.</strong>
+  <strong>Use real software from any AI agent.</strong>
 </p>
 
 <p align="center">
   An open runtime that connects AI agents to desktop and professional applications through<br />
   structured operations, native APIs, and governed system interfaces.
+</p>
+
+<p align="center">
+  Connect your tools once. Use them from any compatible agent.
 </p>
 
 <p align="center">
