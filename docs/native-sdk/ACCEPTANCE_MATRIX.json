@@ -1,0 +1,186 @@
+{
+  "schema_version": 1,
+  "baseline_sha": "4f121b3cd1d469c556adfa54159878dc96022148",
+  "scenarios": [
+    {
+      "id": "NATIVE-01",
+      "title": "Input provenance and archive binding",
+      "status": "NOT_RUN",
+      "evidence": []
+    },
+    {
+      "id": "NATIVE-02",
+      "title": "External Rust consumer",
+      "status": "NOT_RUN",
+      "evidence": []
+    },
+    {
+      "id": "NATIVE-03",
+      "title": "Optional read-only application",
+      "status": "NOT_RUN",
+      "evidence": []
+    },
+    {
+      "id": "NATIVE-04",
+      "title": "Truthful operation descriptors",
+      "status": "NOT_RUN",
+      "evidence": []
+    },
+    {
+      "id": "NATIVE-05",
+      "title": "App-owned storage and manual/agent CAS",
+      "status": "NOT_RUN",
+      "evidence": []
+    },
+    {
+      "id": "NATIVE-06",
+      "title": "Reference lifecycle",
+      "status": "NOT_RUN",
+      "evidence": []
+    },
+    {
+      "id": "NATIVE-07",
+      "title": "Concurrent CAS winner",
+      "status": "NOT_RUN",
+      "evidence": []
+    },
+    {
+      "id": "NATIVE-08",
+      "title": "Request-key binding and current authorization",
+      "status": "NOT_RUN",
+      "evidence": []
+    },
+    {
+      "id": "NATIVE-09",
+      "title": "Lost-result recovery",
+      "status": "NOT_RUN",
+      "evidence": []
+    },
+    {
+      "id": "NATIVE-10",
+      "title": "Cancellation and uncertainty",
+      "status": "NOT_RUN",
+      "evidence": []
+    },
+    {
+      "id": "NATIVE-11",
+      "title": "Sustainable retention beyond 512",
+      "status": "NOT_RUN",
+      "evidence": []
+    },
+    {
+      "id": "NATIVE-12",
+      "title": "Pagination/events and resynchronization",
+      "status": "NOT_RUN",
+      "evidence": []
+    },
+    {
+      "id": "NATIVE-13",
+      "title": "Scene through real CLI/Host",
+      "status": "NOT_RUN",
+      "evidence": []
+    },
+    {
+      "id": "NATIVE-14",
+      "title": "Table through real Host and denials",
+      "status": "NOT_RUN",
+      "evidence": []
+    },
+    {
+      "id": "NATIVE-15",
+      "title": "MCP through daemon and sessions",
+      "status": "NOT_RUN",
+      "evidence": []
+    },
+    {
+      "id": "NATIVE-16",
+      "title": "Snapshot/fork/restore",
+      "status": "NOT_RUN",
+      "evidence": []
+    },
+    {
+      "id": "NATIVE-17",
+      "title": "Private publication CAS",
+      "status": "NOT_RUN",
+      "evidence": []
+    },
+    {
+      "id": "NATIVE-18",
+      "title": "Canonical artifact admission and Effects",
+      "status": "NOT_RUN",
+      "evidence": []
+    },
+    {
+      "id": "NATIVE-19",
+      "title": "Noninterference and partial UNKNOWN",
+      "status": "NOT_RUN",
+      "evidence": []
+    },
+    {
+      "id": "NATIVE-20",
+      "title": "Graph drift and independent resources",
+      "status": "NOT_RUN",
+      "evidence": []
+    },
+    {
+      "id": "NATIVE-21",
+      "title": "Prepared plan invalidation",
+      "status": "NOT_RUN",
+      "evidence": []
+    },
+    {
+      "id": "NATIVE-22",
+      "title": "Executable TypeScript binding",
+      "status": "NOT_RUN",
+      "evidence": []
+    },
+    {
+      "id": "NATIVE-23",
+      "title": "Protocol negotiation and descriptor drift",
+      "status": "NOT_RUN",
+      "evidence": []
+    },
+    {
+      "id": "NATIVE-24",
+      "title": "Driver package lifecycle",
+      "status": "NOT_RUN",
+      "evidence": []
+    },
+    {
+      "id": "NATIVE-25",
+      "title": "MSRV and OS/profile portability",
+      "status": "NOT_RUN",
+      "evidence": []
+    },
+    {
+      "id": "NATIVE-26",
+      "title": "Jobs/budgets/cleanup",
+      "status": "NOT_RUN",
+      "evidence": []
+    },
+    {
+      "id": "NATIVE-27",
+      "title": "Defensive boundary conformance",
+      "status": "NOT_RUN",
+      "evidence": []
+    },
+    {
+      "id": "NATIVE-28",
+      "title": "Clean packages and tutorials",
+      "status": "NOT_RUN",
+      "evidence": []
+    },
+    {
+      "id": "NATIVE-29",
+      "title": "Optional Platform adapter",
+      "status": "NOT_RUN",
+      "evidence": []
+    },
+    {
+      "id": "NATIVE-30",
+      "title": "Final candidate review",
+      "status": "NOT_RUN",
+      "evidence": []
+    }
+  ]
+}

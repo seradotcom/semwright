@@ -11,6 +11,22 @@ parameters:
     default: false
 
 jobs:
+  native-sdk-metadata-iteration:
+    machine:
+      image: ubuntu-2404:current
+    resource_class: medium
+    steps:
+      - checkout
+      - run:
+          name: Native SDK exact-SHA metadata only
+          command: |
+            set -euo pipefail
+            test "$CIRCLE_BRANCH" = feat/native-sdk-canonical
+            test "$(git rev-parse HEAD)" = "$CIRCLE_SHA1"
+            python3 scripts/native-sdk/run-suite.py audit
+      - store_artifacts:
+          path: verification/native-sdk
+          destination: native-sdk-metadata-iteration
   a-linux-iteration:
     machine:
       image: ubuntu-2404:current
@@ -378,6 +394,12 @@ jobs:
           destination: semwright-a-circleci-iteration
 
 workflows:
+  native-sdk-private-iteration:
+    jobs:
+      - native-sdk-metadata-iteration:
+          filters:
+            branches:
+              only: feat/native-sdk-canonical
   a-private-iteration:
     jobs:
       - a-linux-iteration:
