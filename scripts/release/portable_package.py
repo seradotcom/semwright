@@ -77,6 +77,66 @@ def validate_binary(path: Path, platform: str, arch: str) -> None:
         raise ValueError("portable packager supports only windows/macos")
 
 
+def parse_macos_rpath_dependencies(output: str) -> tuple[str, ...]:
+    dependencies: set[str] = set()
+    for line in output.splitlines()[1:]:
+        token = line.strip().split(" ", 1)[0]
+        if token.startswith("@rpath/"):
+            relative = token.removeprefix("@rpath/")
+            path = Path(relative)
+            if not relative or path.is_absolute() or ".." in path.parts:
+                raise ValueError(f"unsafe @rpath dependency: {token}")
+            dependencies.add(relative)
+    return tuple(sorted(dependencies))
+
+
+def macos_rpath_dependencies(binary: Path) -> tuple[str, ...]:
+    output = subprocess.check_output(["otool", "-L", str(binary)], text=True)
+    return parse_macos_rpath_dependencies(output)
+
+
+def find_macos_runtime_library(bin_dir: Path, relative: str, arch: str) -> Path:
+    name = Path(relative).name
+    candidates = []
+    direct = bin_dir / name
+    if direct.is_file():
+        candidates.append(direct)
+    candidates.extend(sorted(bin_dir.glob(f"build/*/out/{name}")))
+    valid = []
+    for candidate in candidates:
+        try:
+            validate_binary(candidate, "macos", arch)
+        except (OSError, ValueError):
+            continue
+        valid.append(candidate)
+    if not valid:
+        raise RuntimeError(f"missing packaged macOS runtime dependency: {relative}")
+    digests = {sha256(candidate) for candidate in valid}
+    if len(digests) != 1:
+        raise RuntimeError(f"ambiguous macOS runtime dependency: {relative}")
+    return sorted(valid, key=lambda p: p.as_posix())[0]
+
+
+def copy_macos_runtime_libraries(stage: Path, bin_dir: Path, arch: str, epoch: int) -> tuple[str, ...]:
+    dependencies: set[str] = set()
+    for name in BINS:
+        dependencies.update(macos_rpath_dependencies(bin_dir / binary_name(name, "macos")))
+    if not dependencies:
+        return ()
+    frameworks = stage / "Frameworks"
+    frameworks.mkdir(parents=True, exist_ok=True)
+    copied = []
+    for relative in sorted(dependencies):
+        source = find_macos_runtime_library(bin_dir, relative, arch)
+        destination = frameworks / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source, destination)
+        destination.chmod(0o755)
+        os.utime(destination, (epoch, epoch))
+        copied.append(relative)
+    return tuple(copied)
+
+
 def platform_notes(platform: str, arch: str) -> str:
     if platform == "windows":
         return f"""# Windows portable package
@@ -131,13 +191,16 @@ def copy_docs(stage: Path, platform: str, arch: str, epoch: int) -> None:
 
 def normalize_tree(stage: Path, epoch: int) -> None:
     for path in sorted(stage.rglob("*"), key=lambda p: len(p.parts), reverse=True):
-        os.utime(path, (epoch, epoch), follow_symlinks=False)
+        if path.is_symlink():
+            raise ValueError(f"portable package cannot contain symlinks: {path}")
+        os.utime(path, (epoch, epoch))
         if path.is_dir():
             path.chmod(0o755)
         else:
-            path.chmod(0o755 if path.parent.name == "bin" else 0o644)
+            executable_parent = path.parent.name in {"bin", "Frameworks"}
+            path.chmod(0o755 if executable_parent else 0o644)
     stage.chmod(0o755)
-    os.utime(stage, (epoch, epoch), follow_symlinks=False)
+    os.utime(stage, (epoch, epoch))
 
 
 def write_internal_checksums(stage: Path, epoch: int) -> None:
@@ -217,6 +280,8 @@ def build_once(bin_dir: Path, platform: str, arch: str, output: Path, epoch: int
             shutil.copyfile(src, dst)
             dst.chmod(0o755)
             os.utime(dst, (epoch, epoch))
+        if platform == "macos":
+            copy_macos_runtime_libraries(stage, bin_dir, arch, epoch)
         copy_docs(stage, platform, arch, epoch)
         write_internal_checksums(stage, epoch)
         normalize_tree(stage, epoch)
@@ -337,6 +402,13 @@ def certify(bin_dir: Path, platform: str, arch: str, output: Path, report: Path)
         internal = stage / "SHA256SUMS"
         if not internal.is_file():
             raise RuntimeError("internal SHA256SUMS missing")
+        runtime_libraries = sorted(
+            path.relative_to(stage).as_posix()
+            for path in (stage / "Frameworks").rglob("*")
+            if path.is_file()
+        ) if (stage / "Frameworks").is_dir() else []
+        for relative in runtime_libraries:
+            validate_binary(stage / relative, platform, arch)
         checks = run_help(packaged_bin, platform)
         doctor = doctor_smoke(packaged_bin, platform)
     manifest = output / "SHA256SUMS"
@@ -355,6 +427,7 @@ def certify(bin_dir: Path, platform: str, arch: str, output: Path, report: Path)
         "clean_extract": True,
         "binary_architecture": "PASS",
         "help_contracts": checks,
+        "runtime_libraries": runtime_libraries,
         "doctor_fake_smoke": doctor,
         "tui_startup_contract": checks["semwright-inspect"],
         "mcp_binary_contract": checks["semwright-mcp"],
