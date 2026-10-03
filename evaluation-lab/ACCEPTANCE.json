@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "role": "H",
-  "state": "HARNESS_FOUNDATION_CI_PASS_NATIVE_MODEL_HARNESS_PENDING",
+  "state": "NATIVE_PREPARATION_IMPLEMENTED_CI_PENDING",
   "evaluation_target_sha": null,
   "evaluation_suite_sha": null,
   "evaluation_executed": false,
@@ -13,9 +13,12 @@
       "status": "PARTIAL",
       "implementation": [
         "evaluate.py",
-        "tests/test_evaluate.py"
+        "tests/test_evaluate.py",
+        "native/smoke.py",
+        "native/records.py",
+        "admission.py"
       ],
-      "reason": "Result validation foundation implemented; native/model session harness still required"
+      "reason": "Native development controller implemented for Blender/Godot; hosted evidence pending; full model harness remains incomplete"
     },
     "H02": {
       "status": "PARTIAL",
@@ -26,8 +29,12 @@
       "reason": "Public draft only; final budgets, native oracles and heldout tasks are not sealed"
     },
     "H03": {
-      "status": "PENDING",
-      "reason": "Competent direct native helpers and comparable model sessions need implementation/versioning"
+      "status": "PARTIAL",
+      "reason": "Basic reusable direct native modules for development controls; final-quality task baseline and comparable model sessions remain pending",
+      "implementation": [
+        "native/direct_blender.py",
+        "native/direct_godot.py"
+      ]
     },
     "H04": {
       "status": "PARTIAL",
@@ -44,26 +51,34 @@
     },
     "H06": {
       "status": "BLOCKED",
-      "reason": "I technical gate and authorized model/runtime/Skills configuration not frozen"
+      "reason": "I technical target is frozen; final suite, heldout protocol and authorized model access/budget remain unfrozen"
     },
     "H07": {
       "status": "PARTIAL",
       "implementation": [
-        "tasks/public-dev.json"
+        "tasks/public-dev.json",
+        "native/program.py"
       ],
-      "reason": "Ten public varied instances with revision phase declarations; executable task-specific native oracles pending"
+      "reason": "Executable public revision programs for Blender/Godot; cross-app/media/full recovery programs and final paired model evaluation pending"
     },
     "H08": {
       "status": "PARTIAL",
       "implementation": [
         "evaluate.py",
-        "tests/test_evaluate.py"
+        "tests/test_evaluate.py",
+        "native/records.py",
+        "admission.py"
       ],
-      "reason": "Synthetic route violations tested in CI; trusted live route collector pending"
+      "reason": "Actual development command capture and model admission controls implemented; isolated live model/Broker route capture remains pending"
     },
     "H09": {
-      "status": "PENDING",
-      "reason": "Independent native oracles and actual blind aesthetic assessment absent"
+      "status": "PARTIAL",
+      "reason": "Independent native development observers and negative controls implemented; hosted evidence pending; final task oracles and blind aesthetic judgments absent",
+      "implementation": [
+        "native/observe_blender.py",
+        "native/observe_godot.gd",
+        "native/mutate_blender.py"
+      ]
     },
     "H10": {
       "status": "PARTIAL",
@@ -86,7 +101,7 @@
         "evaluate.py",
         "README.md"
       ],
-      "reason": "Stale identity refused; complete frozen runtime inventory pending"
+      "reason": "I technical manifest and frozen source inventory checked by native controller; final model/runtime/tool suite still needs freeze"
     },
     "H13": {
       "status": "PARTIAL",

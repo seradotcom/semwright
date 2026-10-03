@@ -1,4 +1,4 @@
-name: H evaluation harness foundation
+name: H native evaluation harness preparation
 on:
   workflow_dispatch:
 permissions:
@@ -45,7 +45,89 @@ jobs:
           path: verification/H
           if-no-files-found: error
           retention-days: 14
-      - name: Reproducible preparatory laboratory delivery, without model results
+  native:
+    needs: harness
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        app: [blender, godot]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: cd518748f742025a251b78028613aa1b16919e73
+          path: frozen-product
+          persist-credentials: false
+      - name: Provision pinned Blender on hosted runner
+        if: matrix.app == 'blender'
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 https://download.blender.org/release/Blender4.5/blender-4.5.14-linux-x64.tar.xz -o "$RUNNER_TEMP/blender.tar.xz"
+          echo "9ba871ff2ecd36526b77432745980b7e6664ecd0c7ca11c48849073dcfe06da3  $RUNNER_TEMP/blender.tar.xz" | sha256sum --check --strict
+          tar -xJf "$RUNNER_TEMP/blender.tar.xz" -C "$RUNNER_TEMP"
+          rm "$RUNNER_TEMP/blender.tar.xz"
+          echo "H_NATIVE_BINARY=$RUNNER_TEMP/blender-4.5.14-linux-x64/blender" >> "$GITHUB_ENV"
+          echo "050c02562f81fe80ba616a80198fa02d381e60f8b61b8d39add881f4bca0d7d8  $RUNNER_TEMP/blender-4.5.14-linux-x64/blender" | sha256sum --check --strict
+      - name: Provision pinned Godot and release template on hosted runner
+        if: matrix.app == 'godot'
+        run: |
+          set -euo pipefail
+          mkdir "$RUNNER_TEMP/h-godot" "$RUNNER_TEMP/h-export-templates"
+          curl --fail --location --retry 3 https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip -o "$RUNNER_TEMP/godot.zip"
+          unzip -q "$RUNNER_TEMP/godot.zip" -d "$RUNNER_TEMP/h-godot"
+          binary="$RUNNER_TEMP/h-godot/Godot_v4.7.2-stable_linux.x86_64"
+          echo "8d106cbe6144c2dc7e881d61d2429c1a8a76e6b22ef48bd5e48dcf934953f71e  $binary" | sha256sum --check --strict
+          curl --fail --location --retry 3 https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_export_templates.tpz -o "$RUNNER_TEMP/templates.tpz"
+          echo "f298490b8d44d934be425a5a65a51bf15f422428b229a06a6e11d9ffea248011  $RUNNER_TEMP/templates.tpz" | sha256sum --check --strict
+          unzip -j -q "$RUNNER_TEMP/templates.tpz" templates/linux_release.x86_64 -d "$RUNNER_TEMP/h-export-templates"
+          chmod 0755 "$RUNNER_TEMP/h-export-templates/linux_release.x86_64"
+          rm "$RUNNER_TEMP/godot.zip" "$RUNNER_TEMP/templates.tpz"
+          echo "H_NATIVE_BINARY=$binary" >> "$GITHUB_ENV"
+          echo "H_GODOT_TEMPLATE=$RUNNER_TEMP/h-export-templates/linux_release.x86_64" >> "$GITHUB_ENV"
+      - name: Run independent native positive and negative development controls
+        env:
+          H_APP: ${{ matrix.app }}
+        run: |
+          set -euo pipefail
+          extra=()
+          if [[ "$H_APP" == godot ]]; then extra=(--template "$H_GODOT_TEMPLATE"); fi
+          python3 evaluation-lab/native/smoke.py --app "$H_APP" --binary "$H_NATIVE_BINARY" --product "$GITHUB_WORKSPACE/frozen-product" --output "$GITHUB_WORKSPACE/verification/H/native-$H_APP" "${extra[@]}"
+          git diff --exit-code
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: H-native-${{ matrix.app }}-controls
+          path: |
+            verification/H/native-${{ matrix.app }}/**/*.json
+            verification/H/native-${{ matrix.app }}/**/*.log
+          if-no-files-found: warn
+          retention-days: 14
+  preparation-delivery:
+    needs: [harness, native]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          name: H-harness-foundation
+          path: verification/H
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          name: H-native-blender-controls
+          path: verification/H/native-blender
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          name: H-native-godot-controls
+          path: verification/H/native-godot
+      - name: Reproducible preparatory native laboratory delivery
         run: python3 evaluation-lab/package_preparation.py
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:

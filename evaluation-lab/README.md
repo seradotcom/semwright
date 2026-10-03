@@ -23,6 +23,36 @@ assets but may not author hidden scene behavior. Collect route records outside t
 model's writable output directory. Model-provided `native=true` or a JSON receipt
 alone is not an independent native oracle.
 
+The next native preparation lane implements two public Blender instances and two
+Godot instances with creation and five sequential changes on each saved project.
+The basic reusable direct modules are available to future direct actors and may
+be modified or replaced. They are not a completed quality baseline for the final
+tasks. Blender observers independently reopen `.blend` and import exported GLB,
+examining geometry, materials, skin bindings and evaluated animation. Godot
+observers load the native scene and inject native input events to check movement,
+pickup conditions, objective UI, timers and restart. Standalone exports are built
+and launched; input completion in the standalone binary still needs its own
+oracle. The recovery development phase covers process restart/save/reopen only.
+It does not certify Broker ledger recovery after an Unknown outcome.
+
+Declared broken animation/material/geometry and broken gameplay copies must fail
+the native observers. Read-only observer launches must preserve all editable
+source hashes, unrelated user content and the originally accepted publication.
+The command recorder stores actual commands, durations, return codes and hashed
+logs outside actor outputs. Its hash chain detects accidental editing/omission;
+same-UID development smoke is not a hostile-model isolation boundary. Final model
+admission requires a separate actor UID and certified model/tool/usage transport.
+
+The hosted preparation workflow runs 40 synthetic controls before at most two
+native jobs. Product and laboratory checkouts are separate; the native smoke
+verifies the I target and all its frozen source-file digests before/after use.
+It executes the laboratory's direct helpers, not product authoring or a model.
+Reports are always `NATIVE_HARNESS_SMOKE`, with productivity, heldout, semantic
+route certification, winner and R16 claims disabled. Cross-app, media and full
+recovery oracles, live Broker route collection, model sessions and heldout sealing
+remain required. A missing native Figma surface remains a prerequisite blocker;
+no HTML surrogate can satisfy that requirement.
+
 Final execution also requires I's technical gate, a full immutable target SHA,
 fresh heldout instances with a seal/reveal ledger, explicit comparable model access
 and authorized budgets. No model API credentials are discovered or used here.
