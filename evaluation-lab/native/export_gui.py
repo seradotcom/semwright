@@ -107,7 +107,21 @@ def main():
                 return status
             def key(name):
                 call(["xdotool","key","--clearmodifiers",name]); time.sleep(0.15)
-            observations = [observe("initial")]
+            # Window creation precedes Godot's splash and application startup.
+            # Wait only for the initial rendered HUD, preserving every screenshot.
+            ready_deadline = time.monotonic()+15
+            ready_attempt = 0
+            while True:
+                try:
+                    initial = observe("initial-%02d" % ready_attempt)
+                    break
+                except ValueError:
+                    if process.poll() is not None or time.monotonic() >= ready_deadline:
+                        raise
+                    ready_attempt += 1
+                    time.sleep(0.2)
+            report["startup_render_wait_attempts"] = ready_attempt
+            observations = [initial]
             key("space"); observations.append(observe("wrong-position"))
             key("Right"); key("space"); observations.append(observe("partial"))
             for _ in range(spec["objective_count"]-1):
