@@ -1,0 +1,3294 @@
+{
+  "source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+  "run_id": 37080028165,
+  "conclusion": "success",
+  "attempt": 1,
+  "artifacts": [
+    {
+      "id": 11258650756,
+      "name": "composition-contracts-macos-15-cd518748f742025a251b78028613aa1b16919e73",
+      "size_in_bytes": 11491,
+      "digest": "sha256:cee83c8edce554e58523ae4943bf2b51c0195f07debe43fd262c599c732dadac",
+      "zip_sha256": "cee83c8edce554e58523ae4943bf2b51c0195f07debe43fd262c599c732dadac",
+      "files_sha256": {
+        "av.json": "7b46b572a0743fdb5c9cd399e2fbee82096da28e0f25167775861ae2b6d15ba5",
+        "contracts.json": "66ec201084ce161b20ec6ab2cf0f506c5164a307fa0d34fcbda3e12e549f90e8",
+        "av.log": "0fa2991a32a9d5c87ea3384f96d88f8921775b6b925d9f6737b79d1a844af9d7",
+        "contracts.log": "5321b2a881a39617ac7f95aea61a0674af64abdae3ce3d57c5382c29ea9d3eb1",
+        "motion.json": "16797df7d825324b6e2ce8e5bb68e885cc305a2bede1f9ed99c99fedf0c19783",
+        "motion.log": "e26b876c2d2435c3d33741cb331932b87dda8d56868b8ccdea3a5b116d04aa13",
+        "schemas.json": "39e29e876cd5c8ec6f5aa543a8988379fdb7fec68bcc6134d8677fb7d8e33bc7"
+      },
+      "json": {
+        "av.json": {
+          "schema_version": 1,
+          "suite": "av",
+          "tested_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "evidence_mode": "github-certification",
+          "evidence_authority": "github-hosted-certification",
+          "certification_eligible": true,
+          "github_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "run_id": "37080028165",
+          "run_attempt": "1",
+          "job": "contracts",
+          "runner": "macOS",
+          "github_run_id": "37080028165",
+          "github_run_attempt": "1",
+          "github_job": "contracts",
+          "circle_sha1": null,
+          "circle_workflow_id": null,
+          "circle_job": null,
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "lock_sha256": "53458999594da110fc8e55ebcbab1b7427157c7aacc30ef3eb8b90707bd2cefe",
+          "exit_code": 0,
+          "expected_minimum": 54,
+          "passed": 55,
+          "failed": 0,
+          "ignored": 0,
+          "status": "PASS",
+          "evidence_scope": "portable unit/contract tests, not native application acceptance"
+        },
+        "contracts.json": {
+          "schema_version": 1,
+          "suite": "contracts",
+          "tested_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "evidence_mode": "github-certification",
+          "evidence_authority": "github-hosted-certification",
+          "certification_eligible": true,
+          "github_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "run_id": "37080028165",
+          "run_attempt": "1",
+          "job": "contracts",
+          "runner": "macOS",
+          "github_run_id": "37080028165",
+          "github_run_attempt": "1",
+          "github_job": "contracts",
+          "circle_sha1": null,
+          "circle_workflow_id": null,
+          "circle_job": null,
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "lock_sha256": "53458999594da110fc8e55ebcbab1b7427157c7aacc30ef3eb8b90707bd2cefe",
+          "exit_code": 0,
+          "expected_minimum": 65,
+          "passed": 73,
+          "failed": 0,
+          "ignored": 0,
+          "status": "PASS",
+          "evidence_scope": "portable unit/contract tests, not native application acceptance"
+        },
+        "motion.json": {
+          "schema_version": 1,
+          "suite": "motion",
+          "tested_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "evidence_mode": "github-certification",
+          "evidence_authority": "github-hosted-certification",
+          "certification_eligible": true,
+          "github_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "run_id": "37080028165",
+          "run_attempt": "1",
+          "job": "contracts",
+          "runner": "macOS",
+          "github_run_id": "37080028165",
+          "github_run_attempt": "1",
+          "github_job": "contracts",
+          "circle_sha1": null,
+          "circle_workflow_id": null,
+          "circle_job": null,
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "lock_sha256": "53458999594da110fc8e55ebcbab1b7427157c7aacc30ef3eb8b90707bd2cefe",
+          "exit_code": 0,
+          "expected_minimum": 29,
+          "passed": 29,
+          "failed": 0,
+          "ignored": 0,
+          "status": "PASS",
+          "evidence_scope": "portable unit/contract tests, not native application acceptance"
+        },
+        "schemas.json": {
+          "base_state_set": {
+            "$defs": {
+              "BaseState": {
+                "additionalProperties": false,
+                "properties": {
+                  "concurrency": {
+                    "$ref": "#/$defs/Concurrency"
+                  },
+                  "document_id": {
+                    "type": "string"
+                  },
+                  "generation": {
+                    "type": "string"
+                  },
+                  "key": {
+                    "$ref": "#/$defs/ResourceKey"
+                  },
+                  "provider_session": {
+                    "type": "string"
+                  },
+                  "revision": {
+                    "$ref": "#/$defs/Revision"
+                  }
+                },
+                "required": [
+                  "key",
+                  "document_id",
+                  "provider_session",
+                  "generation",
+                  "revision",
+                  "concurrency"
+                ],
+                "type": "object"
+              },
+              "Concurrency": {
+                "enum": [
+                  "compare_and_swap",
+                  "best_effort_revalidate",
+                  "unobservable"
+                ],
+                "type": "string"
+              },
+              "Digest": {
+                "description": "Versioned Semwright canonical JSON, not a claim of RFC 8785 conformance.\nKeys are sorted by Unicode scalar ordering; array order and string bytes are\npreserved. Numeric spelling is normalized by serde_json. No lossy Unicode NFC.",
+                "type": "string"
+              },
+              "ResourceKey": {
+                "additionalProperties": false,
+                "properties": {
+                  "provider": {
+                    "type": "string"
+                  },
+                  "resource": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "provider",
+                  "resource"
+                ],
+                "type": "object"
+              },
+              "Revision": {
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "counter",
+                        "type": "string"
+                      },
+                      "value": {
+                        "format": "uint64",
+                        "minimum": 0,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "value"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "fingerprint",
+                        "type": "string"
+                      },
+                      "value": {
+                        "$ref": "#/$defs/Digest"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "value"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "unknown",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              }
+            },
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "items": {
+              "$ref": "#/$defs/BaseState"
+            },
+            "title": "Array_of_BaseState",
+            "type": "array"
+          },
+          "budget": {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "additionalProperties": false,
+            "properties": {
+              "max_elapsed_ms": {
+                "format": "uint64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "max_findings": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "max_iterations": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "max_observations": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "max_operations": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "max_iterations",
+              "max_operations",
+              "max_findings",
+              "max_observations",
+              "max_elapsed_ms"
+            ],
+            "title": "ConvergenceBudget",
+            "type": "object"
+          },
+          "canonical": "semwright-json-v1",
+          "contract_version": 1,
+          "owner": {
+            "$defs": {
+              "PrincipalBinding": {
+                "oneOf": [
+                  {
+                    "enum": [
+                      "host_session"
+                    ],
+                    "type": "string"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "named": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "named"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              }
+            },
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "additionalProperties": false,
+            "properties": {
+              "principal": {
+                "$ref": "#/$defs/PrincipalBinding"
+              },
+              "session": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "session",
+              "principal"
+            ],
+            "title": "Owner",
+            "type": "object"
+          },
+          "profile": {
+            "$defs": {
+              "CapabilityBinding": {
+                "additionalProperties": false,
+                "properties": {
+                  "command": {
+                    "type": "string"
+                  },
+                  "descriptor": {
+                    "$ref": "#/$defs/Digest"
+                  },
+                  "effects": {
+                    "items": {
+                      "$ref": "#/$defs/EffectClass"
+                    },
+                    "type": "array",
+                    "uniqueItems": true
+                  },
+                  "phase": {
+                    "$ref": "#/$defs/Phase"
+                  }
+                },
+                "required": [
+                  "phase",
+                  "command",
+                  "descriptor",
+                  "effects"
+                ],
+                "type": "object"
+              },
+              "Digest": {
+                "description": "Versioned Semwright canonical JSON, not a claim of RFC 8785 conformance.\nKeys are sorted by Unicode scalar ordering; array order and string bytes are\npreserved. Numeric spelling is normalized by serde_json. No lossy Unicode NFC.",
+                "type": "string"
+              },
+              "EffectClass": {
+                "enum": [
+                  "inspect",
+                  "create_owned_object",
+                  "update_owned_object",
+                  "render_private_artifact",
+                  "publish_artifact"
+                ],
+                "type": "string"
+              },
+              "Phase": {
+                "enum": [
+                  "inspect",
+                  "plan",
+                  "apply",
+                  "measure",
+                  "validate",
+                  "repair_plan",
+                  "repair_apply",
+                  "verify"
+                ],
+                "type": "string"
+              },
+              "ProfileIdentity": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "intent_schema": {
+                    "$ref": "#/$defs/Digest"
+                  },
+                  "operation_schema": {
+                    "$ref": "#/$defs/Digest"
+                  },
+                  "version": {
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "id",
+                  "version",
+                  "intent_schema",
+                  "operation_schema"
+                ],
+                "type": "object"
+              }
+            },
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "additionalProperties": false,
+            "properties": {
+              "allowed_effects": {
+                "items": {
+                  "$ref": "#/$defs/EffectClass"
+                },
+                "type": "array",
+                "uniqueItems": true
+              },
+              "capabilities": {
+                "items": {
+                  "$ref": "#/$defs/CapabilityBinding"
+                },
+                "type": "array"
+              },
+              "identity": {
+                "$ref": "#/$defs/ProfileIdentity"
+              },
+              "required_rules": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "uniqueItems": true
+              }
+            },
+            "required": [
+              "identity",
+              "capabilities",
+              "required_rules",
+              "allowed_effects"
+            ],
+            "title": "ProfileDescriptor",
+            "type": "object"
+          },
+          "validation": {
+            "$defs": {
+              "Address": {
+                "additionalProperties": false,
+                "properties": {
+                  "logical_id": {
+                    "type": "string"
+                  },
+                  "property": {
+                    "type": "string"
+                  },
+                  "resource": {
+                    "$ref": "#/$defs/ResourceKey"
+                  }
+                },
+                "required": [
+                  "resource",
+                  "logical_id",
+                  "property"
+                ],
+                "type": "object"
+              },
+              "BaseState": {
+                "additionalProperties": false,
+                "properties": {
+                  "concurrency": {
+                    "$ref": "#/$defs/Concurrency"
+                  },
+                  "document_id": {
+                    "type": "string"
+                  },
+                  "generation": {
+                    "type": "string"
+                  },
+                  "key": {
+                    "$ref": "#/$defs/ResourceKey"
+                  },
+                  "provider_session": {
+                    "type": "string"
+                  },
+                  "revision": {
+                    "$ref": "#/$defs/Revision"
+                  }
+                },
+                "required": [
+                  "key",
+                  "document_id",
+                  "provider_session",
+                  "generation",
+                  "revision",
+                  "concurrency"
+                ],
+                "type": "object"
+              },
+              "Concurrency": {
+                "enum": [
+                  "compare_and_swap",
+                  "best_effort_revalidate",
+                  "unobservable"
+                ],
+                "type": "string"
+              },
+              "Digest": {
+                "description": "Versioned Semwright canonical JSON, not a claim of RFC 8785 conformance.\nKeys are sorted by Unicode scalar ordering; array order and string bytes are\npreserved. Numeric spelling is normalized by serde_json. No lossy Unicode NFC.",
+                "type": "string"
+              },
+              "EvidenceClass": {
+                "enum": [
+                  "DETERMINISTIC",
+                  "HEURISTIC",
+                  "AESTHETIC_ASSIST"
+                ],
+                "type": "string"
+              },
+              "EvidenceSource": {
+                "enum": [
+                  "native_api",
+                  "renderer_state",
+                  "decoded_media",
+                  "file_read",
+                  "simulation",
+                  "fixture",
+                  "human_review"
+                ],
+                "type": "string"
+              },
+              "ObservationRef": {
+                "additionalProperties": false,
+                "properties": {
+                  "artifact": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/Digest"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "base": {
+                    "items": {
+                      "$ref": "#/$defs/BaseState"
+                    },
+                    "type": "array"
+                  },
+                  "exhaustive": {
+                    "type": "boolean"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "method": {
+                    "type": "string"
+                  },
+                  "method_version": {
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "scope": {
+                    "items": {
+                      "$ref": "#/$defs/Address"
+                    },
+                    "type": "array"
+                  },
+                  "source": {
+                    "$ref": "#/$defs/EvidenceSource"
+                  }
+                },
+                "required": [
+                  "id",
+                  "base",
+                  "source",
+                  "method",
+                  "method_version",
+                  "scope",
+                  "exhaustive"
+                ],
+                "type": "object"
+              },
+              "ResourceKey": {
+                "additionalProperties": false,
+                "properties": {
+                  "provider": {
+                    "type": "string"
+                  },
+                  "resource": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "provider",
+                  "resource"
+                ],
+                "type": "object"
+              },
+              "Revision": {
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "counter",
+                        "type": "string"
+                      },
+                      "value": {
+                        "format": "uint64",
+                        "minimum": 0,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "value"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "fingerprint",
+                        "type": "string"
+                      },
+                      "value": {
+                        "$ref": "#/$defs/Digest"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "value"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "unknown",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              },
+              "RuleResult": {
+                "additionalProperties": false,
+                "properties": {
+                  "evidence": {
+                    "items": {
+                      "$ref": "#/$defs/ObservationRef"
+                    },
+                    "type": "array"
+                  },
+                  "evidence_class": {
+                    "$ref": "#/$defs/EvidenceClass"
+                  },
+                  "reason": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "rule": {
+                    "type": "string"
+                  },
+                  "verdict": {
+                    "$ref": "#/$defs/Verdict"
+                  },
+                  "version": {
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "rule",
+                  "version",
+                  "verdict",
+                  "evidence_class",
+                  "evidence"
+                ],
+                "type": "object"
+              },
+              "Verdict": {
+                "enum": [
+                  "PASS",
+                  "FAIL",
+                  "UNKNOWN"
+                ],
+                "type": "string"
+              }
+            },
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "additionalProperties": false,
+            "properties": {
+              "base": {
+                "items": {
+                  "$ref": "#/$defs/BaseState"
+                },
+                "type": "array"
+              },
+              "checks": {
+                "items": {
+                  "$ref": "#/$defs/RuleResult"
+                },
+                "type": "array"
+              },
+              "plan_digest": {
+                "$ref": "#/$defs/Digest"
+              },
+              "required_rules": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "uniqueItems": true
+              }
+            },
+            "required": [
+              "plan_digest",
+              "base",
+              "required_rules",
+              "checks"
+            ],
+            "title": "ValidationReport",
+            "type": "object"
+          },
+          "verification": {
+            "$defs": {
+              "Address": {
+                "additionalProperties": false,
+                "properties": {
+                  "logical_id": {
+                    "type": "string"
+                  },
+                  "property": {
+                    "type": "string"
+                  },
+                  "resource": {
+                    "$ref": "#/$defs/ResourceKey"
+                  }
+                },
+                "required": [
+                  "resource",
+                  "logical_id",
+                  "property"
+                ],
+                "type": "object"
+              },
+              "BaseState": {
+                "additionalProperties": false,
+                "properties": {
+                  "concurrency": {
+                    "$ref": "#/$defs/Concurrency"
+                  },
+                  "document_id": {
+                    "type": "string"
+                  },
+                  "generation": {
+                    "type": "string"
+                  },
+                  "key": {
+                    "$ref": "#/$defs/ResourceKey"
+                  },
+                  "provider_session": {
+                    "type": "string"
+                  },
+                  "revision": {
+                    "$ref": "#/$defs/Revision"
+                  }
+                },
+                "required": [
+                  "key",
+                  "document_id",
+                  "provider_session",
+                  "generation",
+                  "revision",
+                  "concurrency"
+                ],
+                "type": "object"
+              },
+              "Concurrency": {
+                "enum": [
+                  "compare_and_swap",
+                  "best_effort_revalidate",
+                  "unobservable"
+                ],
+                "type": "string"
+              },
+              "Digest": {
+                "description": "Versioned Semwright canonical JSON, not a claim of RFC 8785 conformance.\nKeys are sorted by Unicode scalar ordering; array order and string bytes are\npreserved. Numeric spelling is normalized by serde_json. No lossy Unicode NFC.",
+                "type": "string"
+              },
+              "EvidenceClass": {
+                "enum": [
+                  "DETERMINISTIC",
+                  "HEURISTIC",
+                  "AESTHETIC_ASSIST"
+                ],
+                "type": "string"
+              },
+              "EvidenceSource": {
+                "enum": [
+                  "native_api",
+                  "renderer_state",
+                  "decoded_media",
+                  "file_read",
+                  "simulation",
+                  "fixture",
+                  "human_review"
+                ],
+                "type": "string"
+              },
+              "ExecutionStatus": {
+                "enum": [
+                  "prepared",
+                  "applying",
+                  "completed",
+                  "partial",
+                  "denied",
+                  "cancelled",
+                  "failed",
+                  "unknown"
+                ],
+                "type": "string"
+              },
+              "ObservationRef": {
+                "additionalProperties": false,
+                "properties": {
+                  "artifact": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/Digest"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "base": {
+                    "items": {
+                      "$ref": "#/$defs/BaseState"
+                    },
+                    "type": "array"
+                  },
+                  "exhaustive": {
+                    "type": "boolean"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "method": {
+                    "type": "string"
+                  },
+                  "method_version": {
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "scope": {
+                    "items": {
+                      "$ref": "#/$defs/Address"
+                    },
+                    "type": "array"
+                  },
+                  "source": {
+                    "$ref": "#/$defs/EvidenceSource"
+                  }
+                },
+                "required": [
+                  "id",
+                  "base",
+                  "source",
+                  "method",
+                  "method_version",
+                  "scope",
+                  "exhaustive"
+                ],
+                "type": "object"
+              },
+              "ResourceKey": {
+                "additionalProperties": false,
+                "properties": {
+                  "provider": {
+                    "type": "string"
+                  },
+                  "resource": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "provider",
+                  "resource"
+                ],
+                "type": "object"
+              },
+              "Revision": {
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "counter",
+                        "type": "string"
+                      },
+                      "value": {
+                        "format": "uint64",
+                        "minimum": 0,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "value"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "fingerprint",
+                        "type": "string"
+                      },
+                      "value": {
+                        "$ref": "#/$defs/Digest"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "value"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "unknown",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              },
+              "RuleResult": {
+                "additionalProperties": false,
+                "properties": {
+                  "evidence": {
+                    "items": {
+                      "$ref": "#/$defs/ObservationRef"
+                    },
+                    "type": "array"
+                  },
+                  "evidence_class": {
+                    "$ref": "#/$defs/EvidenceClass"
+                  },
+                  "reason": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "rule": {
+                    "type": "string"
+                  },
+                  "verdict": {
+                    "$ref": "#/$defs/Verdict"
+                  },
+                  "version": {
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "rule",
+                  "version",
+                  "verdict",
+                  "evidence_class",
+                  "evidence"
+                ],
+                "type": "object"
+              },
+              "SupportLevel": {
+                "enum": [
+                  "native",
+                  "composed",
+                  "read_only",
+                  "upstream_restricted",
+                  "security_excluded",
+                  "unsupported"
+                ],
+                "type": "string"
+              },
+              "ValidationReport": {
+                "additionalProperties": false,
+                "properties": {
+                  "base": {
+                    "items": {
+                      "$ref": "#/$defs/BaseState"
+                    },
+                    "type": "array"
+                  },
+                  "checks": {
+                    "items": {
+                      "$ref": "#/$defs/RuleResult"
+                    },
+                    "type": "array"
+                  },
+                  "plan_digest": {
+                    "$ref": "#/$defs/Digest"
+                  },
+                  "required_rules": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array",
+                    "uniqueItems": true
+                  }
+                },
+                "required": [
+                  "plan_digest",
+                  "base",
+                  "required_rules",
+                  "checks"
+                ],
+                "type": "object"
+              },
+              "Verdict": {
+                "enum": [
+                  "PASS",
+                  "FAIL",
+                  "UNKNOWN"
+                ],
+                "type": "string"
+              }
+            },
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "additionalProperties": false,
+            "properties": {
+              "effects_observed": {
+                "items": {
+                  "$ref": "#/$defs/Address"
+                },
+                "type": "array"
+              },
+              "effects_unobservable": {
+                "items": {
+                  "$ref": "#/$defs/Address"
+                },
+                "type": "array"
+              },
+              "execution_status": {
+                "$ref": "#/$defs/ExecutionStatus"
+              },
+              "support_level": {
+                "$ref": "#/$defs/SupportLevel"
+              },
+              "validation": {
+                "$ref": "#/$defs/ValidationReport"
+              }
+            },
+            "required": [
+              "execution_status",
+              "validation",
+              "support_level",
+              "effects_observed",
+              "effects_unobservable"
+            ],
+            "title": "VerificationReport",
+            "type": "object"
+          }
+        }
+      },
+      "test_results": {
+        "av.log": [
+          "test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 45 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s"
+        ],
+        "contracts.log": [
+          "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s",
+          "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s",
+          "test result: ok. 40 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+        ],
+        "motion.log": [
+          "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s",
+          "test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s"
+        ]
+      }
+    },
+    {
+      "id": 11258625601,
+      "name": "composition-contracts-windows-2022-cd518748f742025a251b78028613aa1b16919e73",
+      "size_in_bytes": 11293,
+      "digest": "sha256:85cdf11f0ed0f1d7b0fc3a9930016951d75b62302f39f0b0fa1cafaf94fca911",
+      "zip_sha256": "85cdf11f0ed0f1d7b0fc3a9930016951d75b62302f39f0b0fa1cafaf94fca911",
+      "files_sha256": {
+        "av.json": "d2f4444fd37db3066cadbf7b01926c1bd5fd13fe998bff77613f4a88378406ff",
+        "av.log": "830f9efbc5012da03bc8f47ac4a6c0ddbbcdccd79a0fd53fc27cf5c676ea5c80",
+        "contracts.json": "a5b3114a79bc3df582917e2d4826313d2d1f4cd789f1bcbfd978e00a2f423095",
+        "contracts.log": "feb415ae3f94dcc89fc1e318fd6b8db64b638a330cb370b99273423d1b48f265",
+        "motion.json": "e9dbce37d41a60204c200d582cd4e9ae85c490ae6b1e39ff82f174c689266449",
+        "motion.log": "a9f1e7bdc2889d92ef6ace00931dee331b7dadd096d467625d4fa2664fce023d",
+        "schemas.json": "39e29e876cd5c8ec6f5aa543a8988379fdb7fec68bcc6134d8677fb7d8e33bc7"
+      },
+      "json": {
+        "av.json": {
+          "schema_version": 1,
+          "suite": "av",
+          "tested_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "evidence_mode": "github-certification",
+          "evidence_authority": "github-hosted-certification",
+          "certification_eligible": true,
+          "github_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "run_id": "37080028165",
+          "run_attempt": "1",
+          "job": "contracts",
+          "runner": "Windows",
+          "github_run_id": "37080028165",
+          "github_run_attempt": "1",
+          "github_job": "contracts",
+          "circle_sha1": null,
+          "circle_workflow_id": null,
+          "circle_job": null,
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "lock_sha256": "53458999594da110fc8e55ebcbab1b7427157c7aacc30ef3eb8b90707bd2cefe",
+          "exit_code": 0,
+          "expected_minimum": 54,
+          "passed": 55,
+          "failed": 0,
+          "ignored": 0,
+          "status": "PASS",
+          "evidence_scope": "portable unit/contract tests, not native application acceptance"
+        },
+        "contracts.json": {
+          "schema_version": 1,
+          "suite": "contracts",
+          "tested_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "evidence_mode": "github-certification",
+          "evidence_authority": "github-hosted-certification",
+          "certification_eligible": true,
+          "github_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "run_id": "37080028165",
+          "run_attempt": "1",
+          "job": "contracts",
+          "runner": "Windows",
+          "github_run_id": "37080028165",
+          "github_run_attempt": "1",
+          "github_job": "contracts",
+          "circle_sha1": null,
+          "circle_workflow_id": null,
+          "circle_job": null,
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "lock_sha256": "53458999594da110fc8e55ebcbab1b7427157c7aacc30ef3eb8b90707bd2cefe",
+          "exit_code": 0,
+          "expected_minimum": 65,
+          "passed": 73,
+          "failed": 0,
+          "ignored": 0,
+          "status": "PASS",
+          "evidence_scope": "portable unit/contract tests, not native application acceptance"
+        },
+        "motion.json": {
+          "schema_version": 1,
+          "suite": "motion",
+          "tested_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "evidence_mode": "github-certification",
+          "evidence_authority": "github-hosted-certification",
+          "certification_eligible": true,
+          "github_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "run_id": "37080028165",
+          "run_attempt": "1",
+          "job": "contracts",
+          "runner": "Windows",
+          "github_run_id": "37080028165",
+          "github_run_attempt": "1",
+          "github_job": "contracts",
+          "circle_sha1": null,
+          "circle_workflow_id": null,
+          "circle_job": null,
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "lock_sha256": "53458999594da110fc8e55ebcbab1b7427157c7aacc30ef3eb8b90707bd2cefe",
+          "exit_code": 0,
+          "expected_minimum": 29,
+          "passed": 29,
+          "failed": 0,
+          "ignored": 0,
+          "status": "PASS",
+          "evidence_scope": "portable unit/contract tests, not native application acceptance"
+        },
+        "schemas.json": {
+          "base_state_set": {
+            "$defs": {
+              "BaseState": {
+                "additionalProperties": false,
+                "properties": {
+                  "concurrency": {
+                    "$ref": "#/$defs/Concurrency"
+                  },
+                  "document_id": {
+                    "type": "string"
+                  },
+                  "generation": {
+                    "type": "string"
+                  },
+                  "key": {
+                    "$ref": "#/$defs/ResourceKey"
+                  },
+                  "provider_session": {
+                    "type": "string"
+                  },
+                  "revision": {
+                    "$ref": "#/$defs/Revision"
+                  }
+                },
+                "required": [
+                  "key",
+                  "document_id",
+                  "provider_session",
+                  "generation",
+                  "revision",
+                  "concurrency"
+                ],
+                "type": "object"
+              },
+              "Concurrency": {
+                "enum": [
+                  "compare_and_swap",
+                  "best_effort_revalidate",
+                  "unobservable"
+                ],
+                "type": "string"
+              },
+              "Digest": {
+                "description": "Versioned Semwright canonical JSON, not a claim of RFC 8785 conformance.\nKeys are sorted by Unicode scalar ordering; array order and string bytes are\npreserved. Numeric spelling is normalized by serde_json. No lossy Unicode NFC.",
+                "type": "string"
+              },
+              "ResourceKey": {
+                "additionalProperties": false,
+                "properties": {
+                  "provider": {
+                    "type": "string"
+                  },
+                  "resource": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "provider",
+                  "resource"
+                ],
+                "type": "object"
+              },
+              "Revision": {
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "counter",
+                        "type": "string"
+                      },
+                      "value": {
+                        "format": "uint64",
+                        "minimum": 0,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "value"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "fingerprint",
+                        "type": "string"
+                      },
+                      "value": {
+                        "$ref": "#/$defs/Digest"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "value"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "unknown",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              }
+            },
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "items": {
+              "$ref": "#/$defs/BaseState"
+            },
+            "title": "Array_of_BaseState",
+            "type": "array"
+          },
+          "budget": {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "additionalProperties": false,
+            "properties": {
+              "max_elapsed_ms": {
+                "format": "uint64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "max_findings": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "max_iterations": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "max_observations": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "max_operations": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "max_iterations",
+              "max_operations",
+              "max_findings",
+              "max_observations",
+              "max_elapsed_ms"
+            ],
+            "title": "ConvergenceBudget",
+            "type": "object"
+          },
+          "canonical": "semwright-json-v1",
+          "contract_version": 1,
+          "owner": {
+            "$defs": {
+              "PrincipalBinding": {
+                "oneOf": [
+                  {
+                    "enum": [
+                      "host_session"
+                    ],
+                    "type": "string"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "named": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "named"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              }
+            },
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "additionalProperties": false,
+            "properties": {
+              "principal": {
+                "$ref": "#/$defs/PrincipalBinding"
+              },
+              "session": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "session",
+              "principal"
+            ],
+            "title": "Owner",
+            "type": "object"
+          },
+          "profile": {
+            "$defs": {
+              "CapabilityBinding": {
+                "additionalProperties": false,
+                "properties": {
+                  "command": {
+                    "type": "string"
+                  },
+                  "descriptor": {
+                    "$ref": "#/$defs/Digest"
+                  },
+                  "effects": {
+                    "items": {
+                      "$ref": "#/$defs/EffectClass"
+                    },
+                    "type": "array",
+                    "uniqueItems": true
+                  },
+                  "phase": {
+                    "$ref": "#/$defs/Phase"
+                  }
+                },
+                "required": [
+                  "phase",
+                  "command",
+                  "descriptor",
+                  "effects"
+                ],
+                "type": "object"
+              },
+              "Digest": {
+                "description": "Versioned Semwright canonical JSON, not a claim of RFC 8785 conformance.\nKeys are sorted by Unicode scalar ordering; array order and string bytes are\npreserved. Numeric spelling is normalized by serde_json. No lossy Unicode NFC.",
+                "type": "string"
+              },
+              "EffectClass": {
+                "enum": [
+                  "inspect",
+                  "create_owned_object",
+                  "update_owned_object",
+                  "render_private_artifact",
+                  "publish_artifact"
+                ],
+                "type": "string"
+              },
+              "Phase": {
+                "enum": [
+                  "inspect",
+                  "plan",
+                  "apply",
+                  "measure",
+                  "validate",
+                  "repair_plan",
+                  "repair_apply",
+                  "verify"
+                ],
+                "type": "string"
+              },
+              "ProfileIdentity": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "intent_schema": {
+                    "$ref": "#/$defs/Digest"
+                  },
+                  "operation_schema": {
+                    "$ref": "#/$defs/Digest"
+                  },
+                  "version": {
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "id",
+                  "version",
+                  "intent_schema",
+                  "operation_schema"
+                ],
+                "type": "object"
+              }
+            },
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "additionalProperties": false,
+            "properties": {
+              "allowed_effects": {
+                "items": {
+                  "$ref": "#/$defs/EffectClass"
+                },
+                "type": "array",
+                "uniqueItems": true
+              },
+              "capabilities": {
+                "items": {
+                  "$ref": "#/$defs/CapabilityBinding"
+                },
+                "type": "array"
+              },
+              "identity": {
+                "$ref": "#/$defs/ProfileIdentity"
+              },
+              "required_rules": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "uniqueItems": true
+              }
+            },
+            "required": [
+              "identity",
+              "capabilities",
+              "required_rules",
+              "allowed_effects"
+            ],
+            "title": "ProfileDescriptor",
+            "type": "object"
+          },
+          "validation": {
+            "$defs": {
+              "Address": {
+                "additionalProperties": false,
+                "properties": {
+                  "logical_id": {
+                    "type": "string"
+                  },
+                  "property": {
+                    "type": "string"
+                  },
+                  "resource": {
+                    "$ref": "#/$defs/ResourceKey"
+                  }
+                },
+                "required": [
+                  "resource",
+                  "logical_id",
+                  "property"
+                ],
+                "type": "object"
+              },
+              "BaseState": {
+                "additionalProperties": false,
+                "properties": {
+                  "concurrency": {
+                    "$ref": "#/$defs/Concurrency"
+                  },
+                  "document_id": {
+                    "type": "string"
+                  },
+                  "generation": {
+                    "type": "string"
+                  },
+                  "key": {
+                    "$ref": "#/$defs/ResourceKey"
+                  },
+                  "provider_session": {
+                    "type": "string"
+                  },
+                  "revision": {
+                    "$ref": "#/$defs/Revision"
+                  }
+                },
+                "required": [
+                  "key",
+                  "document_id",
+                  "provider_session",
+                  "generation",
+                  "revision",
+                  "concurrency"
+                ],
+                "type": "object"
+              },
+              "Concurrency": {
+                "enum": [
+                  "compare_and_swap",
+                  "best_effort_revalidate",
+                  "unobservable"
+                ],
+                "type": "string"
+              },
+              "Digest": {
+                "description": "Versioned Semwright canonical JSON, not a claim of RFC 8785 conformance.\nKeys are sorted by Unicode scalar ordering; array order and string bytes are\npreserved. Numeric spelling is normalized by serde_json. No lossy Unicode NFC.",
+                "type": "string"
+              },
+              "EvidenceClass": {
+                "enum": [
+                  "DETERMINISTIC",
+                  "HEURISTIC",
+                  "AESTHETIC_ASSIST"
+                ],
+                "type": "string"
+              },
+              "EvidenceSource": {
+                "enum": [
+                  "native_api",
+                  "renderer_state",
+                  "decoded_media",
+                  "file_read",
+                  "simulation",
+                  "fixture",
+                  "human_review"
+                ],
+                "type": "string"
+              },
+              "ObservationRef": {
+                "additionalProperties": false,
+                "properties": {
+                  "artifact": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/Digest"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "base": {
+                    "items": {
+                      "$ref": "#/$defs/BaseState"
+                    },
+                    "type": "array"
+                  },
+                  "exhaustive": {
+                    "type": "boolean"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "method": {
+                    "type": "string"
+                  },
+                  "method_version": {
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "scope": {
+                    "items": {
+                      "$ref": "#/$defs/Address"
+                    },
+                    "type": "array"
+                  },
+                  "source": {
+                    "$ref": "#/$defs/EvidenceSource"
+                  }
+                },
+                "required": [
+                  "id",
+                  "base",
+                  "source",
+                  "method",
+                  "method_version",
+                  "scope",
+                  "exhaustive"
+                ],
+                "type": "object"
+              },
+              "ResourceKey": {
+                "additionalProperties": false,
+                "properties": {
+                  "provider": {
+                    "type": "string"
+                  },
+                  "resource": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "provider",
+                  "resource"
+                ],
+                "type": "object"
+              },
+              "Revision": {
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "counter",
+                        "type": "string"
+                      },
+                      "value": {
+                        "format": "uint64",
+                        "minimum": 0,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "value"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "fingerprint",
+                        "type": "string"
+                      },
+                      "value": {
+                        "$ref": "#/$defs/Digest"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "value"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "unknown",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              },
+              "RuleResult": {
+                "additionalProperties": false,
+                "properties": {
+                  "evidence": {
+                    "items": {
+                      "$ref": "#/$defs/ObservationRef"
+                    },
+                    "type": "array"
+                  },
+                  "evidence_class": {
+                    "$ref": "#/$defs/EvidenceClass"
+                  },
+                  "reason": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "rule": {
+                    "type": "string"
+                  },
+                  "verdict": {
+                    "$ref": "#/$defs/Verdict"
+                  },
+                  "version": {
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "rule",
+                  "version",
+                  "verdict",
+                  "evidence_class",
+                  "evidence"
+                ],
+                "type": "object"
+              },
+              "Verdict": {
+                "enum": [
+                  "PASS",
+                  "FAIL",
+                  "UNKNOWN"
+                ],
+                "type": "string"
+              }
+            },
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "additionalProperties": false,
+            "properties": {
+              "base": {
+                "items": {
+                  "$ref": "#/$defs/BaseState"
+                },
+                "type": "array"
+              },
+              "checks": {
+                "items": {
+                  "$ref": "#/$defs/RuleResult"
+                },
+                "type": "array"
+              },
+              "plan_digest": {
+                "$ref": "#/$defs/Digest"
+              },
+              "required_rules": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "uniqueItems": true
+              }
+            },
+            "required": [
+              "plan_digest",
+              "base",
+              "required_rules",
+              "checks"
+            ],
+            "title": "ValidationReport",
+            "type": "object"
+          },
+          "verification": {
+            "$defs": {
+              "Address": {
+                "additionalProperties": false,
+                "properties": {
+                  "logical_id": {
+                    "type": "string"
+                  },
+                  "property": {
+                    "type": "string"
+                  },
+                  "resource": {
+                    "$ref": "#/$defs/ResourceKey"
+                  }
+                },
+                "required": [
+                  "resource",
+                  "logical_id",
+                  "property"
+                ],
+                "type": "object"
+              },
+              "BaseState": {
+                "additionalProperties": false,
+                "properties": {
+                  "concurrency": {
+                    "$ref": "#/$defs/Concurrency"
+                  },
+                  "document_id": {
+                    "type": "string"
+                  },
+                  "generation": {
+                    "type": "string"
+                  },
+                  "key": {
+                    "$ref": "#/$defs/ResourceKey"
+                  },
+                  "provider_session": {
+                    "type": "string"
+                  },
+                  "revision": {
+                    "$ref": "#/$defs/Revision"
+                  }
+                },
+                "required": [
+                  "key",
+                  "document_id",
+                  "provider_session",
+                  "generation",
+                  "revision",
+                  "concurrency"
+                ],
+                "type": "object"
+              },
+              "Concurrency": {
+                "enum": [
+                  "compare_and_swap",
+                  "best_effort_revalidate",
+                  "unobservable"
+                ],
+                "type": "string"
+              },
+              "Digest": {
+                "description": "Versioned Semwright canonical JSON, not a claim of RFC 8785 conformance.\nKeys are sorted by Unicode scalar ordering; array order and string bytes are\npreserved. Numeric spelling is normalized by serde_json. No lossy Unicode NFC.",
+                "type": "string"
+              },
+              "EvidenceClass": {
+                "enum": [
+                  "DETERMINISTIC",
+                  "HEURISTIC",
+                  "AESTHETIC_ASSIST"
+                ],
+                "type": "string"
+              },
+              "EvidenceSource": {
+                "enum": [
+                  "native_api",
+                  "renderer_state",
+                  "decoded_media",
+                  "file_read",
+                  "simulation",
+                  "fixture",
+                  "human_review"
+                ],
+                "type": "string"
+              },
+              "ExecutionStatus": {
+                "enum": [
+                  "prepared",
+                  "applying",
+                  "completed",
+                  "partial",
+                  "denied",
+                  "cancelled",
+                  "failed",
+                  "unknown"
+                ],
+                "type": "string"
+              },
+              "ObservationRef": {
+                "additionalProperties": false,
+                "properties": {
+                  "artifact": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/Digest"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "base": {
+                    "items": {
+                      "$ref": "#/$defs/BaseState"
+                    },
+                    "type": "array"
+                  },
+                  "exhaustive": {
+                    "type": "boolean"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "method": {
+                    "type": "string"
+                  },
+                  "method_version": {
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "scope": {
+                    "items": {
+                      "$ref": "#/$defs/Address"
+                    },
+                    "type": "array"
+                  },
+                  "source": {
+                    "$ref": "#/$defs/EvidenceSource"
+                  }
+                },
+                "required": [
+                  "id",
+                  "base",
+                  "source",
+                  "method",
+                  "method_version",
+                  "scope",
+                  "exhaustive"
+                ],
+                "type": "object"
+              },
+              "ResourceKey": {
+                "additionalProperties": false,
+                "properties": {
+                  "provider": {
+                    "type": "string"
+                  },
+                  "resource": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "provider",
+                  "resource"
+                ],
+                "type": "object"
+              },
+              "Revision": {
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "counter",
+                        "type": "string"
+                      },
+                      "value": {
+                        "format": "uint64",
+                        "minimum": 0,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "value"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "fingerprint",
+                        "type": "string"
+                      },
+                      "value": {
+                        "$ref": "#/$defs/Digest"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "value"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "unknown",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              },
+              "RuleResult": {
+                "additionalProperties": false,
+                "properties": {
+                  "evidence": {
+                    "items": {
+                      "$ref": "#/$defs/ObservationRef"
+                    },
+                    "type": "array"
+                  },
+                  "evidence_class": {
+                    "$ref": "#/$defs/EvidenceClass"
+                  },
+                  "reason": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "rule": {
+                    "type": "string"
+                  },
+                  "verdict": {
+                    "$ref": "#/$defs/Verdict"
+                  },
+                  "version": {
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "rule",
+                  "version",
+                  "verdict",
+                  "evidence_class",
+                  "evidence"
+                ],
+                "type": "object"
+              },
+              "SupportLevel": {
+                "enum": [
+                  "native",
+                  "composed",
+                  "read_only",
+                  "upstream_restricted",
+                  "security_excluded",
+                  "unsupported"
+                ],
+                "type": "string"
+              },
+              "ValidationReport": {
+                "additionalProperties": false,
+                "properties": {
+                  "base": {
+                    "items": {
+                      "$ref": "#/$defs/BaseState"
+                    },
+                    "type": "array"
+                  },
+                  "checks": {
+                    "items": {
+                      "$ref": "#/$defs/RuleResult"
+                    },
+                    "type": "array"
+                  },
+                  "plan_digest": {
+                    "$ref": "#/$defs/Digest"
+                  },
+                  "required_rules": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array",
+                    "uniqueItems": true
+                  }
+                },
+                "required": [
+                  "plan_digest",
+                  "base",
+                  "required_rules",
+                  "checks"
+                ],
+                "type": "object"
+              },
+              "Verdict": {
+                "enum": [
+                  "PASS",
+                  "FAIL",
+                  "UNKNOWN"
+                ],
+                "type": "string"
+              }
+            },
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "additionalProperties": false,
+            "properties": {
+              "effects_observed": {
+                "items": {
+                  "$ref": "#/$defs/Address"
+                },
+                "type": "array"
+              },
+              "effects_unobservable": {
+                "items": {
+                  "$ref": "#/$defs/Address"
+                },
+                "type": "array"
+              },
+              "execution_status": {
+                "$ref": "#/$defs/ExecutionStatus"
+              },
+              "support_level": {
+                "$ref": "#/$defs/SupportLevel"
+              },
+              "validation": {
+                "$ref": "#/$defs/ValidationReport"
+              }
+            },
+            "required": [
+              "execution_status",
+              "validation",
+              "support_level",
+              "effects_observed",
+              "effects_unobservable"
+            ],
+            "title": "VerificationReport",
+            "type": "object"
+          }
+        }
+      },
+      "test_results": {
+        "av.log": [
+          "test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 45 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s"
+        ],
+        "contracts.log": [
+          "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s",
+          "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+          "test result: ok. 40 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+          "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+        ],
+        "motion.log": [
+          "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s",
+          "test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s"
+        ]
+      }
+    },
+    {
+      "id": 11258148868,
+      "name": "composition-contracts-ubuntu-24.04-cd518748f742025a251b78028613aa1b16919e73",
+      "size_in_bytes": 11155,
+      "digest": "sha256:f3b97d744c192e41f5afb59bdfb89c6a138c037fe56289ef864a72221aec33d0",
+      "zip_sha256": "f3b97d744c192e41f5afb59bdfb89c6a138c037fe56289ef864a72221aec33d0",
+      "files_sha256": {
+        "av.json": "76c3481f0b9cd6f301fafedaa2a75768afee59cdbddd20ac9eea340cf4bad69f",
+        "contracts.json": "f02cfe1629a34ad3c7b4b5e91c9612b813cca041ca5bc001056aea634ae94ec9",
+        "av.log": "6800e9c33e26e0a174b41c1a67932b0daa7ff00df1c3bff93f9fb1da47fee9df",
+        "contracts.log": "a64e2a94bdc4c37bf5c6361478ad666ab171a786967e886c8d07e4f2ee284489",
+        "motion.json": "30b44a84e62eee72bd950252937f6f853995758419bbed5b52b2509f9f2d301b",
+        "motion.log": "9f0dfd0de7653f6ba40ddc72ed9d8ae98478cec6f9bc98007b24969ffa7db712",
+        "schemas.json": "39e29e876cd5c8ec6f5aa543a8988379fdb7fec68bcc6134d8677fb7d8e33bc7"
+      },
+      "json": {
+        "av.json": {
+          "schema_version": 1,
+          "suite": "av",
+          "tested_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "evidence_mode": "github-certification",
+          "evidence_authority": "github-hosted-certification",
+          "certification_eligible": true,
+          "github_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "run_id": "37080028165",
+          "run_attempt": "1",
+          "job": "contracts",
+          "runner": "Linux",
+          "github_run_id": "37080028165",
+          "github_run_attempt": "1",
+          "github_job": "contracts",
+          "circle_sha1": null,
+          "circle_workflow_id": null,
+          "circle_job": null,
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "lock_sha256": "53458999594da110fc8e55ebcbab1b7427157c7aacc30ef3eb8b90707bd2cefe",
+          "exit_code": 0,
+          "expected_minimum": 54,
+          "passed": 55,
+          "failed": 0,
+          "ignored": 0,
+          "status": "PASS",
+          "evidence_scope": "portable unit/contract tests, not native application acceptance"
+        },
+        "contracts.json": {
+          "schema_version": 1,
+          "suite": "contracts",
+          "tested_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "evidence_mode": "github-certification",
+          "evidence_authority": "github-hosted-certification",
+          "certification_eligible": true,
+          "github_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "run_id": "37080028165",
+          "run_attempt": "1",
+          "job": "contracts",
+          "runner": "Linux",
+          "github_run_id": "37080028165",
+          "github_run_attempt": "1",
+          "github_job": "contracts",
+          "circle_sha1": null,
+          "circle_workflow_id": null,
+          "circle_job": null,
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "lock_sha256": "53458999594da110fc8e55ebcbab1b7427157c7aacc30ef3eb8b90707bd2cefe",
+          "exit_code": 0,
+          "expected_minimum": 65,
+          "passed": 73,
+          "failed": 0,
+          "ignored": 0,
+          "status": "PASS",
+          "evidence_scope": "portable unit/contract tests, not native application acceptance"
+        },
+        "motion.json": {
+          "schema_version": 1,
+          "suite": "motion",
+          "tested_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "evidence_mode": "github-certification",
+          "evidence_authority": "github-hosted-certification",
+          "certification_eligible": true,
+          "github_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "run_id": "37080028165",
+          "run_attempt": "1",
+          "job": "contracts",
+          "runner": "Linux",
+          "github_run_id": "37080028165",
+          "github_run_attempt": "1",
+          "github_job": "contracts",
+          "circle_sha1": null,
+          "circle_workflow_id": null,
+          "circle_job": null,
+          "rustc": "rustc 1.98.1 (48a229cea 2026-09-01)",
+          "lock_sha256": "53458999594da110fc8e55ebcbab1b7427157c7aacc30ef3eb8b90707bd2cefe",
+          "exit_code": 0,
+          "expected_minimum": 29,
+          "passed": 29,
+          "failed": 0,
+          "ignored": 0,
+          "status": "PASS",
+          "evidence_scope": "portable unit/contract tests, not native application acceptance"
+        },
+        "schemas.json": {
+          "base_state_set": {
+            "$defs": {
+              "BaseState": {
+                "additionalProperties": false,
+                "properties": {
+                  "concurrency": {
+                    "$ref": "#/$defs/Concurrency"
+                  },
+                  "document_id": {
+                    "type": "string"
+                  },
+                  "generation": {
+                    "type": "string"
+                  },
+                  "key": {
+                    "$ref": "#/$defs/ResourceKey"
+                  },
+                  "provider_session": {
+                    "type": "string"
+                  },
+                  "revision": {
+                    "$ref": "#/$defs/Revision"
+                  }
+                },
+                "required": [
+                  "key",
+                  "document_id",
+                  "provider_session",
+                  "generation",
+                  "revision",
+                  "concurrency"
+                ],
+                "type": "object"
+              },
+              "Concurrency": {
+                "enum": [
+                  "compare_and_swap",
+                  "best_effort_revalidate",
+                  "unobservable"
+                ],
+                "type": "string"
+              },
+              "Digest": {
+                "description": "Versioned Semwright canonical JSON, not a claim of RFC 8785 conformance.\nKeys are sorted by Unicode scalar ordering; array order and string bytes are\npreserved. Numeric spelling is normalized by serde_json. No lossy Unicode NFC.",
+                "type": "string"
+              },
+              "ResourceKey": {
+                "additionalProperties": false,
+                "properties": {
+                  "provider": {
+                    "type": "string"
+                  },
+                  "resource": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "provider",
+                  "resource"
+                ],
+                "type": "object"
+              },
+              "Revision": {
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "counter",
+                        "type": "string"
+                      },
+                      "value": {
+                        "format": "uint64",
+                        "minimum": 0,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "value"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "fingerprint",
+                        "type": "string"
+                      },
+                      "value": {
+                        "$ref": "#/$defs/Digest"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "value"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "unknown",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              }
+            },
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "items": {
+              "$ref": "#/$defs/BaseState"
+            },
+            "title": "Array_of_BaseState",
+            "type": "array"
+          },
+          "budget": {
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "additionalProperties": false,
+            "properties": {
+              "max_elapsed_ms": {
+                "format": "uint64",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "max_findings": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "max_iterations": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "max_observations": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              },
+              "max_operations": {
+                "format": "uint32",
+                "minimum": 0,
+                "type": "integer"
+              }
+            },
+            "required": [
+              "max_iterations",
+              "max_operations",
+              "max_findings",
+              "max_observations",
+              "max_elapsed_ms"
+            ],
+            "title": "ConvergenceBudget",
+            "type": "object"
+          },
+          "canonical": "semwright-json-v1",
+          "contract_version": 1,
+          "owner": {
+            "$defs": {
+              "PrincipalBinding": {
+                "oneOf": [
+                  {
+                    "enum": [
+                      "host_session"
+                    ],
+                    "type": "string"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "named": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "named"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              }
+            },
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "additionalProperties": false,
+            "properties": {
+              "principal": {
+                "$ref": "#/$defs/PrincipalBinding"
+              },
+              "session": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "session",
+              "principal"
+            ],
+            "title": "Owner",
+            "type": "object"
+          },
+          "profile": {
+            "$defs": {
+              "CapabilityBinding": {
+                "additionalProperties": false,
+                "properties": {
+                  "command": {
+                    "type": "string"
+                  },
+                  "descriptor": {
+                    "$ref": "#/$defs/Digest"
+                  },
+                  "effects": {
+                    "items": {
+                      "$ref": "#/$defs/EffectClass"
+                    },
+                    "type": "array",
+                    "uniqueItems": true
+                  },
+                  "phase": {
+                    "$ref": "#/$defs/Phase"
+                  }
+                },
+                "required": [
+                  "phase",
+                  "command",
+                  "descriptor",
+                  "effects"
+                ],
+                "type": "object"
+              },
+              "Digest": {
+                "description": "Versioned Semwright canonical JSON, not a claim of RFC 8785 conformance.\nKeys are sorted by Unicode scalar ordering; array order and string bytes are\npreserved. Numeric spelling is normalized by serde_json. No lossy Unicode NFC.",
+                "type": "string"
+              },
+              "EffectClass": {
+                "enum": [
+                  "inspect",
+                  "create_owned_object",
+                  "update_owned_object",
+                  "render_private_artifact",
+                  "publish_artifact"
+                ],
+                "type": "string"
+              },
+              "Phase": {
+                "enum": [
+                  "inspect",
+                  "plan",
+                  "apply",
+                  "measure",
+                  "validate",
+                  "repair_plan",
+                  "repair_apply",
+                  "verify"
+                ],
+                "type": "string"
+              },
+              "ProfileIdentity": {
+                "additionalProperties": false,
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "intent_schema": {
+                    "$ref": "#/$defs/Digest"
+                  },
+                  "operation_schema": {
+                    "$ref": "#/$defs/Digest"
+                  },
+                  "version": {
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "id",
+                  "version",
+                  "intent_schema",
+                  "operation_schema"
+                ],
+                "type": "object"
+              }
+            },
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "additionalProperties": false,
+            "properties": {
+              "allowed_effects": {
+                "items": {
+                  "$ref": "#/$defs/EffectClass"
+                },
+                "type": "array",
+                "uniqueItems": true
+              },
+              "capabilities": {
+                "items": {
+                  "$ref": "#/$defs/CapabilityBinding"
+                },
+                "type": "array"
+              },
+              "identity": {
+                "$ref": "#/$defs/ProfileIdentity"
+              },
+              "required_rules": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "uniqueItems": true
+              }
+            },
+            "required": [
+              "identity",
+              "capabilities",
+              "required_rules",
+              "allowed_effects"
+            ],
+            "title": "ProfileDescriptor",
+            "type": "object"
+          },
+          "validation": {
+            "$defs": {
+              "Address": {
+                "additionalProperties": false,
+                "properties": {
+                  "logical_id": {
+                    "type": "string"
+                  },
+                  "property": {
+                    "type": "string"
+                  },
+                  "resource": {
+                    "$ref": "#/$defs/ResourceKey"
+                  }
+                },
+                "required": [
+                  "resource",
+                  "logical_id",
+                  "property"
+                ],
+                "type": "object"
+              },
+              "BaseState": {
+                "additionalProperties": false,
+                "properties": {
+                  "concurrency": {
+                    "$ref": "#/$defs/Concurrency"
+                  },
+                  "document_id": {
+                    "type": "string"
+                  },
+                  "generation": {
+                    "type": "string"
+                  },
+                  "key": {
+                    "$ref": "#/$defs/ResourceKey"
+                  },
+                  "provider_session": {
+                    "type": "string"
+                  },
+                  "revision": {
+                    "$ref": "#/$defs/Revision"
+                  }
+                },
+                "required": [
+                  "key",
+                  "document_id",
+                  "provider_session",
+                  "generation",
+                  "revision",
+                  "concurrency"
+                ],
+                "type": "object"
+              },
+              "Concurrency": {
+                "enum": [
+                  "compare_and_swap",
+                  "best_effort_revalidate",
+                  "unobservable"
+                ],
+                "type": "string"
+              },
+              "Digest": {
+                "description": "Versioned Semwright canonical JSON, not a claim of RFC 8785 conformance.\nKeys are sorted by Unicode scalar ordering; array order and string bytes are\npreserved. Numeric spelling is normalized by serde_json. No lossy Unicode NFC.",
+                "type": "string"
+              },
+              "EvidenceClass": {
+                "enum": [
+                  "DETERMINISTIC",
+                  "HEURISTIC",
+                  "AESTHETIC_ASSIST"
+                ],
+                "type": "string"
+              },
+              "EvidenceSource": {
+                "enum": [
+                  "native_api",
+                  "renderer_state",
+                  "decoded_media",
+                  "file_read",
+                  "simulation",
+                  "fixture",
+                  "human_review"
+                ],
+                "type": "string"
+              },
+              "ObservationRef": {
+                "additionalProperties": false,
+                "properties": {
+                  "artifact": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/Digest"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "base": {
+                    "items": {
+                      "$ref": "#/$defs/BaseState"
+                    },
+                    "type": "array"
+                  },
+                  "exhaustive": {
+                    "type": "boolean"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "method": {
+                    "type": "string"
+                  },
+                  "method_version": {
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "scope": {
+                    "items": {
+                      "$ref": "#/$defs/Address"
+                    },
+                    "type": "array"
+                  },
+                  "source": {
+                    "$ref": "#/$defs/EvidenceSource"
+                  }
+                },
+                "required": [
+                  "id",
+                  "base",
+                  "source",
+                  "method",
+                  "method_version",
+                  "scope",
+                  "exhaustive"
+                ],
+                "type": "object"
+              },
+              "ResourceKey": {
+                "additionalProperties": false,
+                "properties": {
+                  "provider": {
+                    "type": "string"
+                  },
+                  "resource": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "provider",
+                  "resource"
+                ],
+                "type": "object"
+              },
+              "Revision": {
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "counter",
+                        "type": "string"
+                      },
+                      "value": {
+                        "format": "uint64",
+                        "minimum": 0,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "value"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "fingerprint",
+                        "type": "string"
+                      },
+                      "value": {
+                        "$ref": "#/$defs/Digest"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "value"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "unknown",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              },
+              "RuleResult": {
+                "additionalProperties": false,
+                "properties": {
+                  "evidence": {
+                    "items": {
+                      "$ref": "#/$defs/ObservationRef"
+                    },
+                    "type": "array"
+                  },
+                  "evidence_class": {
+                    "$ref": "#/$defs/EvidenceClass"
+                  },
+                  "reason": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "rule": {
+                    "type": "string"
+                  },
+                  "verdict": {
+                    "$ref": "#/$defs/Verdict"
+                  },
+                  "version": {
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "rule",
+                  "version",
+                  "verdict",
+                  "evidence_class",
+                  "evidence"
+                ],
+                "type": "object"
+              },
+              "Verdict": {
+                "enum": [
+                  "PASS",
+                  "FAIL",
+                  "UNKNOWN"
+                ],
+                "type": "string"
+              }
+            },
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "additionalProperties": false,
+            "properties": {
+              "base": {
+                "items": {
+                  "$ref": "#/$defs/BaseState"
+                },
+                "type": "array"
+              },
+              "checks": {
+                "items": {
+                  "$ref": "#/$defs/RuleResult"
+                },
+                "type": "array"
+              },
+              "plan_digest": {
+                "$ref": "#/$defs/Digest"
+              },
+              "required_rules": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array",
+                "uniqueItems": true
+              }
+            },
+            "required": [
+              "plan_digest",
+              "base",
+              "required_rules",
+              "checks"
+            ],
+            "title": "ValidationReport",
+            "type": "object"
+          },
+          "verification": {
+            "$defs": {
+              "Address": {
+                "additionalProperties": false,
+                "properties": {
+                  "logical_id": {
+                    "type": "string"
+                  },
+                  "property": {
+                    "type": "string"
+                  },
+                  "resource": {
+                    "$ref": "#/$defs/ResourceKey"
+                  }
+                },
+                "required": [
+                  "resource",
+                  "logical_id",
+                  "property"
+                ],
+                "type": "object"
+              },
+              "BaseState": {
+                "additionalProperties": false,
+                "properties": {
+                  "concurrency": {
+                    "$ref": "#/$defs/Concurrency"
+                  },
+                  "document_id": {
+                    "type": "string"
+                  },
+                  "generation": {
+                    "type": "string"
+                  },
+                  "key": {
+                    "$ref": "#/$defs/ResourceKey"
+                  },
+                  "provider_session": {
+                    "type": "string"
+                  },
+                  "revision": {
+                    "$ref": "#/$defs/Revision"
+                  }
+                },
+                "required": [
+                  "key",
+                  "document_id",
+                  "provider_session",
+                  "generation",
+                  "revision",
+                  "concurrency"
+                ],
+                "type": "object"
+              },
+              "Concurrency": {
+                "enum": [
+                  "compare_and_swap",
+                  "best_effort_revalidate",
+                  "unobservable"
+                ],
+                "type": "string"
+              },
+              "Digest": {
+                "description": "Versioned Semwright canonical JSON, not a claim of RFC 8785 conformance.\nKeys are sorted by Unicode scalar ordering; array order and string bytes are\npreserved. Numeric spelling is normalized by serde_json. No lossy Unicode NFC.",
+                "type": "string"
+              },
+              "EvidenceClass": {
+                "enum": [
+                  "DETERMINISTIC",
+                  "HEURISTIC",
+                  "AESTHETIC_ASSIST"
+                ],
+                "type": "string"
+              },
+              "EvidenceSource": {
+                "enum": [
+                  "native_api",
+                  "renderer_state",
+                  "decoded_media",
+                  "file_read",
+                  "simulation",
+                  "fixture",
+                  "human_review"
+                ],
+                "type": "string"
+              },
+              "ExecutionStatus": {
+                "enum": [
+                  "prepared",
+                  "applying",
+                  "completed",
+                  "partial",
+                  "denied",
+                  "cancelled",
+                  "failed",
+                  "unknown"
+                ],
+                "type": "string"
+              },
+              "ObservationRef": {
+                "additionalProperties": false,
+                "properties": {
+                  "artifact": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/$defs/Digest"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "base": {
+                    "items": {
+                      "$ref": "#/$defs/BaseState"
+                    },
+                    "type": "array"
+                  },
+                  "exhaustive": {
+                    "type": "boolean"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "method": {
+                    "type": "string"
+                  },
+                  "method_version": {
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  "scope": {
+                    "items": {
+                      "$ref": "#/$defs/Address"
+                    },
+                    "type": "array"
+                  },
+                  "source": {
+                    "$ref": "#/$defs/EvidenceSource"
+                  }
+                },
+                "required": [
+                  "id",
+                  "base",
+                  "source",
+                  "method",
+                  "method_version",
+                  "scope",
+                  "exhaustive"
+                ],
+                "type": "object"
+              },
+              "ResourceKey": {
+                "additionalProperties": false,
+                "properties": {
+                  "provider": {
+                    "type": "string"
+                  },
+                  "resource": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "provider",
+                  "resource"
+                ],
+                "type": "object"
+              },
+              "Revision": {
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "counter",
+                        "type": "string"
+                      },
+                      "value": {
+                        "format": "uint64",
+                        "minimum": 0,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "value"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "fingerprint",
+                        "type": "string"
+                      },
+                      "value": {
+                        "$ref": "#/$defs/Digest"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "value"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "const": "unknown",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ],
+                    "type": "object"
+                  }
+                ]
+              },
+              "RuleResult": {
+                "additionalProperties": false,
+                "properties": {
+                  "evidence": {
+                    "items": {
+                      "$ref": "#/$defs/ObservationRef"
+                    },
+                    "type": "array"
+                  },
+                  "evidence_class": {
+                    "$ref": "#/$defs/EvidenceClass"
+                  },
+                  "reason": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "rule": {
+                    "type": "string"
+                  },
+                  "verdict": {
+                    "$ref": "#/$defs/Verdict"
+                  },
+                  "version": {
+                    "format": "uint32",
+                    "minimum": 0,
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "rule",
+                  "version",
+                  "verdict",
+                  "evidence_class",
+                  "evidence"
+                ],
+                "type": "object"
+              },
+              "SupportLevel": {
+                "enum": [
+                  "native",
+                  "composed",
+                  "read_only",
+                  "upstream_restricted",
+                  "security_excluded",
+                  "unsupported"
+                ],
+                "type": "string"
+              },
+              "ValidationReport": {
+                "additionalProperties": false,
+                "properties": {
+                  "base": {
+                    "items": {
+                      "$ref": "#/$defs/BaseState"
+                    },
+                    "type": "array"
+                  },
+                  "checks": {
+                    "items": {
+                      "$ref": "#/$defs/RuleResult"
+                    },
+                    "type": "array"
+                  },
+                  "plan_digest": {
+                    "$ref": "#/$defs/Digest"
+                  },
+                  "required_rules": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array",
+                    "uniqueItems": true
+                  }
+                },
+                "required": [
+                  "plan_digest",
+                  "base",
+                  "required_rules",
+                  "checks"
+                ],
+                "type": "object"
+              },
+              "Verdict": {
+                "enum": [
+                  "PASS",
+                  "FAIL",
+                  "UNKNOWN"
+                ],
+                "type": "string"
+              }
+            },
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "additionalProperties": false,
+            "properties": {
+              "effects_observed": {
+                "items": {
+                  "$ref": "#/$defs/Address"
+                },
+                "type": "array"
+              },
+              "effects_unobservable": {
+                "items": {
+                  "$ref": "#/$defs/Address"
+                },
+                "type": "array"
+              },
+              "execution_status": {
+                "$ref": "#/$defs/ExecutionStatus"
+              },
+              "support_level": {
+                "$ref": "#/$defs/SupportLevel"
+              },
+              "validation": {
+                "$ref": "#/$defs/ValidationReport"
+              }
+            },
+            "required": [
+              "execution_status",
+              "validation",
+              "support_level",
+              "effects_observed",
+              "effects_unobservable"
+            ],
+            "title": "VerificationReport",
+            "type": "object"
+          }
+        }
+      },
+      "test_results": {
+        "av.log": [
+          "test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 45 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s"
+        ],
+        "contracts.log": [
+          "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s",
+          "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+          "test result: ok. 40 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s"
+        ],
+        "motion.log": [
+          "test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+          "test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s",
+          "test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s"
+        ]
+      }
+    },
+    {
+      "id": 11257719478,
+      "name": "composition-development-cd518748f742025a251b78028613aa1b16919e73",
+      "size_in_bytes": 1156370,
+      "digest": "sha256:105a5c21f0457c7e5a40c5281460ee8d91e66c74dac3a1de7c5a9f9f1590aaa5",
+      "kept_remote": true
+    }
+  ],
+  "large_packages_kept_remote": true,
+  "r16_closed": false,
+  "main_merge_performed": false
+}

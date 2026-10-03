@@ -1,0 +1,131 @@
+{
+  "source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+  "run_id": 37077508380,
+  "conclusion": "success",
+  "attempt": 1,
+  "artifacts": [
+    {
+      "id": 11256669988,
+      "name": "composition-av-combined-cd518748f742025a251b78028613aa1b16919e73",
+      "size_in_bytes": 6087,
+      "digest": "sha256:dfc44cfb51bdf650a7a638591f64619f8c6c828405475de10d5187a2b85ea360",
+      "zip_sha256": "dfc44cfb51bdf650a7a638591f64619f8c6c828405475de10d5187a2b85ea360",
+      "files_sha256": {
+        "c14-project-graph.json": "1f475d8b337ade7ada75cfe1894458675cc820e0496c6e06b4ccc289bdcc6acd",
+        "combined-native.json": "04e8b03c8429fd942b3dedb817534591cacd6a9fb41cdb52eb519436dd344b1d",
+        "combined-native.log": "8da0449e2a1ee8cb71c8580ea026c53ea2a8e5b1d9bafd770e3123e649b2a604",
+        "native-binaries.sha256": "e26d724a016568a97ea80e1c1ab262ea31a49149bdf1d8a002f7be8ac8b171ee",
+        "native-binaries.stat": "9ca4628ebb52ae64ee9b2cbe7c2efce24e364e259b184987c9e61429df18931f",
+        "native-runtime-versions.txt": "55be27d92e356c0559b010906da0e2a1cee2b88a427f969c7244d1206d0d763a",
+        "prepared-binaries.sha256": "df4dc22417eb61c8465094b8761ebaf748a4bc4ee6d939c5b8f4ad52bcda9200",
+        "run.json": "d6131f2427ec3ca37ecc672d69485884148c6a7663b080abb18ce19274bd1d17",
+        "sandbox-setup.log": "654bbf1cb628f87ffbeb80b9a8349805580c44a710217ace2568dfaf7975ba73"
+      },
+      "json": {
+        "c14-project-graph.json": {
+          "audio_asset": "asset_f9ea9ca6752149308581d8521e625864",
+          "audio_owner_sha": "df2654bed6d2ac57d547846b69d16ea48b4a9ee3",
+          "audio_source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "broker_publication": true,
+          "classification": "C14_PROJECT_GRAPH_AV_AUDIO_INTEGRATION",
+          "coverage_complete": false,
+          "exact_restore_clean": true,
+          "external_edit_diverged": true,
+          "final_master_asset": "asset_8859375cbfaa40c883568cad4da1ff7e",
+          "master_mp4_sha256": "46fe295183d9199e7af0ab6dff99f066b7cf747387a5f394a50b979ce4a71d3b",
+          "mux_receipt": "receipt_afb6a7bbde104ef98656f754d6a8fd87",
+          "post_encode_audio_sha256": "b79a15522d0334e58d125b0cb35d7fa3b252c73c3d7a87083bc377128ec570ce",
+          "pre_encode_audio_sha256": "072d639c91011a0b5d183d8890eb92af1568136f241faae70a8956308a24133a",
+          "project": "prj_d0972e4f40b1421e812f361b22952732",
+          "project_graph_owner_sha": "77b34d8abad50f242c4c8494e280fe82d5cbcf55",
+          "project_graph_ready": false,
+          "project_graph_source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "publication_manifest_sha256": "5f1f2a91e365817c165cb4a9635838a8cbfdee7efe5828fcdfc45ea690ef1962",
+          "publication_pointer": "verified-av.json",
+          "publication_receipt": "receipt_cde69fa3bb024570b7b919a5f2529d71",
+          "published_manifest_asset": "asset_fff002d662bc4f53b276f1e9874fdeec",
+          "r16_closed": false,
+          "schema_version": 1,
+          "source_sha": "cd518748f742025a251b78028613aa1b16919e73"
+        },
+        "combined-native.json": {
+          "audio_owner_sha": "df2654bed6d2ac57d547846b69d16ea48b4a9ee3",
+          "audio_post_encode_pass": true,
+          "audio_pre_encode_pass": true,
+          "audio_source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "av_plan_sha256": "eef227573ae0c45f7a6cdca401a98871e079931d918bd08ba4b273d6fc7c94b6",
+          "classification": "COMBINED_A_B_NATIVE_AV_CANDIDATE",
+          "composition_owner_sha": "7ab43f99f4cc62be2a9b0ce9ce1155283a429768",
+          "composition_source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "imported_audio_stages": [
+            "apply_audio",
+            "render_audio",
+            "verify_audio"
+          ],
+          "master_mp4_sha256": "46fe295183d9199e7af0ab6dff99f066b7cf747387a5f394a50b979ce4a71d3b",
+          "native_dispatch_stages": [
+            "PlanDelivery",
+            "ApplyMotion",
+            "RenderMotion",
+            "VerifyMotion",
+            "TransferMotion",
+            "TransferAudio",
+            "Mux",
+            "VerifyFinalAudio",
+            "VerifySync",
+            "PreparePublication",
+            "Publish"
+          ],
+          "post_encode_audio_sha256": "b79a15522d0334e58d125b0cb35d7fa3b252c73c3d7a87083bc377128ec570ce",
+          "pre_encode_audio_sha256": "072d639c91011a0b5d183d8890eb92af1568136f241faae70a8956308a24133a",
+          "promotional_video": false,
+          "r16_closed": false,
+          "schema_version": 1,
+          "source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "sync_exhaustive": true,
+          "sync_full_scan_pass": true,
+          "sync_observations": [
+            {
+              "audio_time": {
+                "den": "125",
+                "num": "124"
+              },
+              "cue_id": "sync-pulse",
+              "offset": {
+                "den": "125",
+                "num": "-1"
+              },
+              "uncertainty": {
+                "den": "1000000",
+                "num": "21999"
+              },
+              "verdict": "PASS",
+              "video_time": {
+                "den": "1",
+                "num": "1"
+              }
+            }
+          ]
+        },
+        "run.json": {
+          "schema_version": 1,
+          "candidate_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "github_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "audio_source_sha": "cd518748f742025a251b78028613aa1b16919e73",
+          "audio_owner_sha": "df2654bed6d2ac57d547846b69d16ea48b4a9ee3",
+          "scope": "combined-native-av-e2e",
+          "promotional_video": false,
+          "r16_closed": false
+        }
+      },
+      "test_results": {
+        "combined-native.log": [
+          "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 38.71s"
+        ]
+      }
+    }
+  ],
+  "large_packages_kept_remote": true,
+  "r16_closed": false,
+  "main_merge_performed": false
+}
