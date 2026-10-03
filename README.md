@@ -1,24 +1,37 @@
-# Semwright
+<h1 align="center"><img src="./docs/assets/semwright-mark.svg" alt="" width="44" height="44" />&nbsp;Semwright</h1>
 
-**Use real software from AI agents.**
+<p align="center">
+  <strong>Use real software from AI agents.</strong>
+</p>
 
-Semwright is an open runtime that connects agents to desktop and professional applications through
-structured operations, application APIs and governed system interfaces.
+<p align="center">
+  An open runtime that connects AI agents to desktop and professional applications through<br />
+  structured operations, native APIs, and governed system interfaces.
+</p>
 
-**Connect software once. Use it from a compatible MCP client, a CLI-driven agent, or your own integration.**
+<p align="center">
+  <a href="./LICENSE-MIT"><img alt="License: MIT OR Apache-2.0" src="https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-234ea2"></a>
+  <a href="./Cargo.toml"><img alt="Rust" src="https://img.shields.io/badge/Rust-runtime-000000?logo=rust&logoColor=white"></a>
+  <a href="./docs/installation.md"><img alt="Native bundles: Linux, macOS, Windows" src="https://img.shields.io/badge/native%20bundles-Linux%20%7C%20macOS%20%7C%20Windows-234ea2"></a>
+  <a href="./docs/mcp.md"><img alt="MCP frontend" src="https://img.shields.io/badge/MCP-frontend-6f42c1"></a>
+  <a href="./docs/installation.md"><img alt="Status: pre-v1" src="https://img.shields.io/badge/status-pre--v1-e67e22"></a>
+  <a href="./VERIFY.md"><img alt="Verification documented" src="https://img.shields.io/badge/verification-documented-2ea44f"></a>
+</p>
 
-- **Work with application semantics, not only pixels and clicks.**
-- **Use one execution layer across agents and applications.**
-- **Keep authority local, policy-gated and auditable.**
-- **Read back and verify bounded outcomes instead of assuming success.**
+<p align="center">
+  <a href="./docs/installation.md"><strong>Installation</strong></a> ·
+  <a href="https://semwright.com/docs/"><strong>Documentation</strong></a> ·
+  <a href="./docs/drivers.md"><strong>Drivers</strong></a> ·
+  <a href="./VERIFY.md"><strong>Verification</strong></a>
+</p>
 
-> **Pre-release:** native candidate bundles are for evaluation, not a public v1 release.
-> Physical/interactive residuals are explicitly post-v1; independent security review is still
-> required before publication. [Status and evidence](#status-and-verification).
+> **Pre-release:** native candidate bundles are for evaluation; no public v1 has been published.
+> Physical/interactive residuals are explicit post-v1 certification work. Independent security
+> review remains required before public release. [Status and evidence](#status-and-verification).
 
-[Try Semwright](#try-semwright) · [Applications](#applications) ·
-[How it works](#how-it-works) · [Build an integration](#build-an-integration) ·
-[Verification](#status-and-verification)
+```text
+AI agent  →  Semwright  →  Blender · Godot · Browser · LibreOffice · Figma · KiCad · …
+```
 
 ## What can I do with it?
 
