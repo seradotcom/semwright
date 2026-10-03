@@ -82,6 +82,29 @@ class EvidenceTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             json.loads('{"result":"FAIL","result":"PASS"}', object_pairs_hook=MODULE.duplicate_keys)
 
+    def test_checksum_manifest_accepts_matching_file(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            base = root / "verification/r16-closeout"
+            base.mkdir(parents=True)
+            payload = b"bounded evidence\n"
+            (base / "record.json").write_bytes(payload)
+            import hashlib
+            digest = hashlib.sha256(payload).hexdigest()
+            (base / "SHA256SUMS").write_text(f"{digest}  record.json\n")
+            self.assertEqual(MODULE.checksum_errors(root), [])
+
+    def test_checksum_manifest_rejects_drift(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            base = root / "verification/r16-closeout"
+            base.mkdir(parents=True)
+            (base / "record.json").write_text("changed\n")
+            (base / "SHA256SUMS").write_text(f"{'0' * 64}  record.json\n")
+            errors = MODULE.checksum_errors(root)
+            self.assertEqual(len(errors), 1)
+            self.assertIn("digest mismatch", errors[0])
+
     def test_fake_smoke_requires_structured_effect_and_audit(self):
         lines = [
             {"command": "doctor", "ok": True, "data": {"fake": True}},

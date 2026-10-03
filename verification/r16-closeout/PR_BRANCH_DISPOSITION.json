@@ -1,7 +1,7 @@
 {
   "final_source_sha": "868446205df36826356483e93c53e5060c46e8aa",
   "foreign_prs_modified_or_closed_by_r": false,
-  "generated_at_utc": "2026-10-03T06:18:52.267715+00:00",
+  "generated_at_utc": "2026-10-03T19:38:38.608067+00:00",
   "main_merge_performed_by_r": false,
   "policy": "Preserve current foreign PRs and Git history; no deletion/closure solely for repository cleanliness.",
   "r_owned_pr": 207,
@@ -9,17 +9,21 @@
   "rows": [
     {
       "baseRefName": "main",
-      "closedAt": null,
-      "disposition": "R_OWN_READY_FOR_REVIEW_NO_AUTO_MERGE",
+      "closedAt": "2026-10-03T18:59:31Z",
+      "disposition": "R_OWN_MERGED_BY_MAINTAINER_AFTER_SEPARATE_REVALIDATION",
       "headRefName": "audit/r16-release-closeout",
-      "headRefOid": "868446205df36826356483e93c53e5060c46e8aa",
-      "isDraft": true,
-      "mergeCommit": null,
-      "mergedAt": null,
+      "headRefOid": "b58544326c7422dd61b3e5d672625a06e7642c64",
+      "isDraft": false,
+      "mergeCommit": {
+        "oid": "9954c1f95f68305f32f153fe5ab302441845b7ed"
+      },
+      "mergedAt": "2026-10-03T18:59:31Z",
       "number": 207,
-      "state": "OPEN",
+      "state": "MERGED",
       "title": "R16: defensive review and repository documentation closeout",
-      "url": "https://github.com/seradotcom/semwright/pull/207"
+      "url": "https://github.com/seradotcom/semwright/pull/207",
+      "source_review_sha": "868446205df36826356483e93c53e5060c46e8aa",
+      "merge_performed_by_role_r": false
     },
     {
       "baseRefName": "main",
@@ -366,5 +370,11 @@
       "url": "https://github.com/seradotcom/semwright/pull/168"
     }
   ],
-  "schema_version": 1
+  "schema_version": 1,
+  "main_merge_observed_after_role_r_delivery": {
+    "pr": 207,
+    "merge_commit_sha": "9954c1f95f68305f32f153fe5ab302441845b7ed",
+    "merged_at_utc": "2026-10-03T18:59:31Z",
+    "performed_by_role_r": false
+  }
 }

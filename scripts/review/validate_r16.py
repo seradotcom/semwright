@@ -2,6 +2,7 @@
 """Validate the bounded documentary/evidence surface, never authorize a release."""
 from __future__ import annotations
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import re
@@ -36,6 +37,38 @@ def links(root: Path, relative: str) -> list[str]:
         target = (path.parent / unquote(parsed.path)).resolve()
         if not target.is_relative_to(root.resolve()) or not target.exists():
             errors.append(f"{relative}: missing/outside local link: {value}")
+    return errors
+
+
+def checksum_errors(root: Path = ROOT) -> list[str]:
+    base = root / "verification/r16-closeout"
+    sums = base / "SHA256SUMS"
+    if not sums.is_file():
+        return ["R16 SHA256SUMS is required"]
+    errors = []
+    seen = set()
+    for line_no, raw in enumerate(sums.read_text().splitlines(), 1):
+        if not raw.strip():
+            continue
+        parts = raw.split(None, 1)
+        if len(parts) != 2 or not re.fullmatch(r"[0-9a-f]{64}", parts[0]):
+            errors.append(f"SHA256SUMS:{line_no}: malformed checksum line")
+            continue
+        digest, relative = parts[0], parts[1].lstrip("* ")
+        if relative in seen:
+            errors.append(f"SHA256SUMS:{line_no}: duplicate path: {relative}")
+            continue
+        seen.add(relative)
+        target = (base / relative).resolve()
+        if not target.is_relative_to(base.resolve()):
+            errors.append(f"SHA256SUMS:{line_no}: path escapes closeout root: {relative}")
+            continue
+        if not target.is_file():
+            errors.append(f"SHA256SUMS:{line_no}: missing file: {relative}")
+            continue
+        actual = hashlib.sha256(target.read_bytes()).hexdigest()
+        if actual != digest:
+            errors.append(f"SHA256SUMS:{line_no}: digest mismatch: {relative}")
     return errors
 
 
@@ -90,6 +123,7 @@ def main() -> int:
         errors.extend(evidence_errors(json.loads(record.read_text(), object_pairs_hook=duplicate_keys)))
     elif args.require_report:
         errors.append("review evidence manifest absent")
+    errors.extend(checksum_errors(ROOT))
     print(json.dumps({"validator": "r16-documentary-surface", "result": "FAIL" if errors else "PASS",
                       "documents_checked": len(DOCS), "errors": errors,
                       "external_links_checked": False, "security_verdict": False}, indent=2))

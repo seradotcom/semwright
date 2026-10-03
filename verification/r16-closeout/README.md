@@ -23,7 +23,13 @@ phase, while the separate receipt above records the later R16 closure. PR synthe
 are explicitly identified as such; their tree equivalence with the final source is recorded rather
 than relabeling their checkout SHA. SKIPPED jobs are never counted as executions.
 
-[PR #207](https://github.com/seradotcom/semwright/pull/207) is R's closeout PR. R did not merge
-main, close foreign PRs, publish a release, change repository protection/billing settings, or
-self-claim an external audit. Physical/interactive release residuals remain in
+[PR #207](https://github.com/seradotcom/semwright/pull/207) is R's closeout PR. Role R did not perform
+the merge; the maintainer subsequently merged it at `9954c1f95f68305f32f153fe5ab302441845b7ed`.
+No foreign PR was closed, no release was published, repository protection/billing settings were not
+changed, and no external-audit claim is made. Physical/interactive release residuals remain in
 [release blockers](../../RELEASE_BLOCKERS.md).
+
+`delivery/semwright-r16-closeout-final.zip` is preserved as the deterministic pre-revalidation
+snapshot; its manifest intentionally records `REVALIDATION_PENDING`. The current closed-state backup
+is `delivery/semwright-r16-closeout-closed.zip`, generated separately so historical evidence is not
+rewritten.

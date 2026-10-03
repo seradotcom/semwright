@@ -101,7 +101,7 @@
       "id": "R16-06",
       "limitations": [
         "Linux Bubblewrap/Landlock regressions are not a formal kernel proof.",
-        "R-authored federation fix still needs independent revalidation before formal R16 closure."
+        "The R-authored federation remediation received separate-reviewer revalidation for R16 closure; this is not an external organizational audit."
       ],
       "observation": "Host-tool parent binding and persistent session lifecycle were directly reviewed, including cleanup after lost parent/transport. No new escape route was found in the reviewed source.",
       "owner": "repository maintainers",
@@ -121,8 +121,8 @@
       ],
       "id": "R16-07",
       "limitations": [
-        "The product fix is authored by R and therefore cannot count as independently revalidated by R.",
-        "Current-source hosted federation tests are required before the remediation can be called functionally verified."
+        "The product fix was authored by R and therefore required separate-authorship revalidation; that receipt is now recorded and passed.",
+        "Hosted current-source federation regressions passed, but they do not replace broader platform/release certification."
       ],
       "observation": "R-006 was confirmed: rmcp 3.4.1 list_all_tools accumulated pages without an item/page/cursor-cycle bound and Semwright checked 512 only afterward. Commit 4ef9a06e486cd8d2e3851c298e244435ecef3232 replaces it with Semwright-owned bounded pagination and synthetic oversize/cursor-cycle regressions.",
       "owner": "repository maintainers",
@@ -182,7 +182,7 @@
       ],
       "id": "R16-10",
       "limitations": [
-        "Independent revalidation is still required for R-006.",
+        "Separate revalidation is complete for R-006.",
         "Hosted regression success does not prove absence of all resource exhaustion paths."
       ],
       "observation": "R-006 was the one new resource-lifecycle defect found. The source fix adds incremental bounded pagination; other inspected job/session paths were already bounded and fail closed.",
@@ -294,7 +294,9 @@
     "providers_used": [
       "GitHub Actions"
     ],
-    "standard_ubuntu_runner": true
+    "standard_ubuntu_runner": true,
+    "post_merge_r16_run": 37146328471,
+    "post_merge_distribution_run": 37146331051
   },
   "current_source_validation": "evidence/R_CURRENT_SOURCE_VALIDATION.json",
   "delivery_commit_recorded_in": "External DELIVERY_MANIFEST.json in backup",
@@ -627,7 +629,7 @@
     "repository": "https://github.com/199-biotechnologies/github-optimization-skill"
   },
   "final_source_sha": "868446205df36826356483e93c53e5060c46e8aa",
-  "generated_at_utc": "2026-10-03T06:19:53.690043+00:00",
+  "generated_at_utc": "2026-10-03T19:31:54.235257+00:00",
   "historical_evidence": {
     "G_run_id": 37074787747,
     "G_source_sha": "cd518748f742025a251b78028613aa1b16919e73",
@@ -701,7 +703,7 @@
   ],
   "review_id": "R16-2026-10-03-6491c0d8",
   "review_target_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
-  "reviewer_provenance": "AI-assisted agent review; no product-code correction authored by R",
+  "reviewer_provenance": "AI-assisted role-R review; R authored remediation 4ef9a06e486cd8d2e3851c298e244435ecef3232, which a separate reviewer session revalidated before R16 closure.",
   "role": "R",
   "schema_version": 1,
   "separate_revalidation": {
@@ -877,5 +879,15 @@
       "name": "integrated-source-global-explicit-job-disposition",
       "sha256": "b1195c038fd9a05bdf8a3999507893861f6be9ff1baf681815851dd8f469d22a"
     }
-  ]
+  ],
+  "post_merge_repository_state": {
+    "pr": 207,
+    "pr_head_sha": "b58544326c7422dd61b3e5d672625a06e7642c64",
+    "merge_commit_sha": "9954c1f95f68305f32f153fe5ab302441845b7ed",
+    "merged_at_utc": "2026-10-03T18:59:31Z",
+    "merge_performed_by_role_r": false,
+    "r16_post_merge_run": 37146328471,
+    "v1_distribution_post_merge_run": 37146331051,
+    "release_published": false
+  }
 }

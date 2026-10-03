@@ -74,5 +74,12 @@
   },
   "record_commit_semantics": "This machine-readable record is committed after the validated PR head; its containing commit is evidence-only and is intentionally not self-embedded as a validation target.",
   "schema_version": 1,
-  "source_basis_sha": "f6d7b4d13834a633e54e61fb2038eb8b5989735f"
+  "source_basis_sha": "f6d7b4d13834a633e54e61fb2038eb8b5989735f",
+  "post_merge_exact_main_revalidation": {
+    "source_sha": "9954c1f95f68305f32f153fe5ab302441845b7ed",
+    "r16_run_id": 37146328471,
+    "distribution_run_id": 37146331051,
+    "status": "PASS",
+    "release_readiness_changed": false
+  }
 }

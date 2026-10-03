@@ -1,7 +1,30 @@
 name: R16 documentary closeout
 on:
+  pull_request:
+    paths:
+      - '.github/workflows/r16-closeout.yml'
+      - 'README.md'
+      - 'V1_ENGINEERING_CLOSEOUT.md'
+      - 'POST_V1_BACKLOG.md'
+      - 'release-readiness.json'
+      - 'docs/installation.md'
+      - 'scripts/review/**'
+      - 'tests/python/test_r16_closeout.py'
+      - 'verification/r16-closeout/**'
+      - 'verification/v1-engineering-closeout*.json'
   push:
-    branches: [audit/r16-release-closeout]
+    branches: [main, audit/r16-release-closeout]
+    paths:
+      - '.github/workflows/r16-closeout.yml'
+      - 'README.md'
+      - 'V1_ENGINEERING_CLOSEOUT.md'
+      - 'POST_V1_BACKLOG.md'
+      - 'release-readiness.json'
+      - 'docs/installation.md'
+      - 'scripts/review/**'
+      - 'tests/python/test_r16_closeout.py'
+      - 'verification/r16-closeout/**'
+      - 'verification/v1-engineering-closeout*.json'
   workflow_dispatch:
     inputs:
       run_smoke:
@@ -31,10 +54,11 @@ jobs:
           persist-credentials: false
       - run: python3 scripts/review/validate_r16.py
       - run: python3 -m unittest discover -s tests/python -p test_r16_closeout.py -v
+      - run: python3 scripts/review/package_r16_closeout.py --check
       - run: python3 scripts/verify-oss-hygiene.py
   positive-smoke:
     needs: documentary
-    if: inputs.run_smoke == true || contains(github.event.head_commit.message, '[r16-smoke]')
+    if: (github.event_name == 'workflow_dispatch' && inputs.run_smoke == true) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[r16-smoke]'))
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     env:

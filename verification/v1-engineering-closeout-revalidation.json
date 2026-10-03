@@ -27,5 +27,33 @@
   "schema_version": 1,
   "validated_pr_head_sha": "f6d7b4d13834a633e54e61fb2038eb8b5989735f",
   "validated_pr_merge_sha": "90acc6f8c1baaac0e9ed273c758084f7bc540ae3",
-  "workflow": ".github/workflows/v1-distribution.yml"
+  "workflow": ".github/workflows/v1-distribution.yml",
+  "post_merge_exact_main_revalidation": {
+    "source_sha": "9954c1f95f68305f32f153fe5ab302441845b7ed",
+    "r16_documentary": {
+      "run_id": 37146328471,
+      "conclusion": "success",
+      "jobs": {
+        "documentary": "success",
+        "positive-smoke": "success"
+      }
+    },
+    "multiplatform_distribution": {
+      "run_id": 37146331051,
+      "conclusion": "success",
+      "platform_jobs": {
+        "linux-aarch64": "success",
+        "linux-x86_64": "success",
+        "macos-arm64": "success",
+        "macos-x86_64": "success",
+        "windows-arm64": "success",
+        "windows-x86_64": "success"
+      },
+      "manifest_job": "success",
+      "distribution_manifest_artifact_digest": "sha256:1fe1f4492e8b4526edc9565bca395e54cc45f551b27b3179a56e65362926bc7f"
+    },
+    "release_readiness_changed": false,
+    "r06": "OPEN — DEFERRED_TO_POST_V1_ENVIRONMENT_DEPENDENT",
+    "r18": "OPEN — DEFERRED_TO_POST_V1_ENVIRONMENT_DEPENDENT"
+  }
 }

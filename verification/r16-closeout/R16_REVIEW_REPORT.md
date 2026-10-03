@@ -359,13 +359,13 @@ The prior review-closure blockers R-006 and R-007 are closed by `evidence/INDEPE
 
 The repository now has an updated first-run path, installation guide, architecture, platform support matrix, security/reporting guidance, compatibility/development guidance and R16 evidence entry point. The quickstart preserves the committed lockfile and no longer invokes the lock initialization bootstrap on an ordinary checkout. Windows/macOS/Linux support statements distinguish implementation, hosted native evidence and interactive/physical certification.
 
-The selectively consulted 199-biotechnologies/github-optimization-skill was treated only as an editorial reference. R adopted scannability/quickstart structure where truthful, but did not install the skill, add star/follow CTAs, change repository metadata, replace licensing, auto-publish, or import unsupported promotional/growth claims.
+The selectively consulted 199-biotechnologies/github-optimization-skill was treated only as an editorial reference. During the R16 review itself, R adopted scannability/quickstart structure where truthful but did not install the skill, add star/follow CTAs, change repository metadata, replace licensing, auto-publish, or import unsupported promotional/growth claims. After R16 closed, the owner explicitly requested a launch-facing README rewrite and changed the GitHub description to `Open runtime for AI agents to use real software.`; that post-closeout metadata edit is recorded separately and does not alter the R16 evidence boundary.
 
 ## 10. PR and branch disposition
 
 | PR | Disposition |
 | --- | --- |
-| #207 | R-owned closeout; ready for maintainer/independent review. Do not auto-merge. |
+| #207 | **MERGED by maintainer** at `9954c1f95f68305f32f153fe5ab302441845b7ed` after separate R16 revalidation; role R did not perform the merge. |
 | #166 | Preserve open; dependency update outside R mission. |
 | #165 | Preserve open; dependency update outside R mission. |
 | #161 | Preserve open; dependency update outside R mission. |
@@ -379,11 +379,11 @@ All work that role R can perform under this mission is complete. CLOSEOUT_STATUS
 
 1. Preserve the separate R16 revalidation receipt; R16 is CLOSED and must not be relabeled as an external audit.
 2. Choose/configure or explicitly risk-accept the absence of main branch protection/rulesets; R did not change repository settings.
-3. Review and merge PR #207 only if acceptable; R does not merge main.
+3. Preserve PR #207 merge identity `9954c1f95f68305f32f153fe5ab302441845b7ed`; role R did not perform the merge.
 4. Complete R06 physical desktop and R18 unlocked Windows (plus any desired live macOS TCC) release gates before making corresponding platform/release claims.
 5. Handle Dependabot PRs #157/#161/#165/#166 separately; R neither merged nor closed them.
 
-This closeout does not merge main, publish a release, or represent the review as an external audit. R16 closure and release authorization remain distinct.
+Role R did not merge main or publish a release; PR #207 was subsequently merged by the maintainer. The review is not represented as an external audit. R16 closure and release authorization remain distinct.
 
 ## 12. Machine-readable companion files
 
@@ -396,4 +396,4 @@ This closeout does not merge main, publish a release, or represent the review as
 - [`evidence/R_CURRENT_SOURCE_VALIDATION.json`](evidence/R_CURRENT_SOURCE_VALIDATION.json)
 - [`SHA256SUMS`](SHA256SUMS)
 
-The final ZIP/manifest under delivery/ is a backup of the reviewed delta/evidence, not a Git release and not a substitute for repository history.
+The pre-revalidation `semwright-r16-closeout-final.zip` is preserved unchanged. The post-revalidation `semwright-r16-closeout-closed.zip` is a distinct deterministic evidence backup generated after closure; neither artifact is a Git release or a substitute for repository history.

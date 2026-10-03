@@ -25,18 +25,21 @@ Install Rust through its official distribution and make Cargo available in your 
 workspace MSRV is **1.88**. Network access is needed for an empty dependency cache. Review
 `Cargo.lock`; do not regenerate it to get past a failed build. Never run the daemon as root.
 
-## Pinned source quickstart
+## Development quickstart
 
 Use a new directory, not an existing checkout with work you want to keep:
 
 ```sh
 git clone https://github.com/seradotcom/semwright.git semwright
 cd semwright
-git checkout --detach 6491c0d838fa066938a494524d69ed507aa0dbe8
 ```
 
-This is the source frozen for the R16 documentation review, not a release approval. Its
-engineering ancestor and platform evidence retain their own SHAs. From that checkout:
+This follows the current development checkout; it is not a published release. Reproducible
+verification records name the exact source SHA they exercised. If you are reproducing one of
+those records, check out the SHA from that record rather than treating an older R16 snapshot as
+the normal first-use version. See [verification](../VERIFY.md).
+
+From the checkout you intend to evaluate:
 
 ```sh
 cargo build --locked -p semwright-daemon -p semwright-cli --bins
