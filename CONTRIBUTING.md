@@ -25,6 +25,15 @@ separate. Record source SHA, suite SHA where different, test selection/counts, r
 artifact digests. Skips, filtered tests, fixtures and native application runs are not
 interchangeable. See [verification](VERIFY.md) and [release blockers](RELEASE_BLOCKERS.md).
 
+## Public documentation and internal coordination
+
+Tracked documentation should be useful to users, contributors or reviewers of the product. Keep
+temporary orchestration notes, master prompts, branch choreography, scratch plans and private
+handoffs outside the repository (or under an ignored local-only directory). When an internal
+investigation produces lasting value, rewrite it as an ADR, design note, test plan or evidence
+record before committing it. Preserve technical provenance such as source SHAs, run IDs and failure
+receipts; do not publish conversational scaffolding merely because it helped produce them.
+
 ## Security-sensitive changes
 
 Describe the authority/configuration impact and rollback/compatibility implications. A new

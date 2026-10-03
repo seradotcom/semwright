@@ -23,7 +23,7 @@ No third-party repository is vendored as this project's implementation.
 | Browser | [Chrome DevTools Protocol](https://chromedevtools.github.io/devtools-protocol/) | Broker-created profile, DOM/Input rather than exposed Runtime.evaluate |
 | Blender | [Blender API reference](https://docs.blender.org/api/current/) | Typed bpy command allowlist; direct fetch was not reliable and no live Blender validation occurred |
 
-## Existing projects and naming
+## Existing projects and namespace history
 
 The reviewed [agent-sh/computer-use-linux](https://github.com/agent-sh/computer-use-linux)
 project already combines Linux desktop control with AT-SPI, GNOME and Wayland-related
@@ -33,11 +33,11 @@ Semwright's intended scope is the integrated capability broker, shared typed reg
 recipes, app-native adapters, process SDK and auditable local execution—not a claim that
 individual mechanisms are unprecedented or absent elsewhere.
 
-Exact-name web searches for “semwright” with GitHub/crates/npm/Linux package qualifiers
-did not establish a confirmed collision, but the returned search results were not a
-reliable namespace audit. **The working name is provisional.** No crate/npm/GitHub name
-was reserved, no trademark clearance was performed and no public repository URL is invented.
-Node is used for tests/GJS source only; no npm runtime package is published.
+Early exact-name searches for “semwright” with GitHub/crates/npm/Linux package qualifiers did not
+constitute a reliable namespace audit. Semwright is now the public project and CLI namespace used
+by this repository and `semwright.com`. This historical research note is not a trademark clearance
+or legal opinion; those checks remain separate from technical documentation. Node is used for
+tests/GJS source only; no npm runtime package is published by this research note.
 
 Most Cargo dependencies use bounded major/minor compatibility ranges, while key researched
 SDK/bus/sandbox dependencies are exact-pinned. This is not reproducibility without Cargo.lock.

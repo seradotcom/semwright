@@ -1,7 +1,7 @@
-# G Composition adversarial findings
+# Composition adversarial findings
 
-Exact attacked A target: 7ed5b848e4d2e7af235d6166e6f93e0cf0bac90d
-G suite: 891ea3f024398818407b8477be882c7943dd0c3a
+Exact attacked Composition target: 7ed5b848e4d2e7af235d6166e6f93e0cf0bac90d
+Lab suite: 891ea3f024398818407b8477be882c7943dd0c3a
 Run: 36884906772
 Composition job: 110445685891
 
@@ -18,7 +18,7 @@ Composition job: 110445685891
 - Same-suite selftest: 103/103 PASS.
 - G-MUT-001 and G-MUT-002: KILLED.
 
-Three verification failures (G-VERIFY-009..011) were G oracle defects: A is the generic report aggregator, while F's trusted effect evaluator owns method/version/source/scope/observability binding before producing A's report. They are not product findings.
+Three verification failures (G-VERIFY-009..011) were G oracle defects: Composition is the generic report aggregator, while the trusted Effect Conformance evaluator owns method/version/source/scope/observability binding before producing the report. They are not product findings.
 
 ## G-FIND-A-001 — stale BeginPermit can complete a different attempt incarnation
 
@@ -32,12 +32,12 @@ Independent reproductions:
 2. Create a second independent PlanVault with the same owner/root/index/digest and finish its current attempt using a permit minted by the first vault. The foreign-vault permit is accepted.
 3. Let the original root expire/reap, reissue the same root ID, begin a new attempt, then finish with the expired-root permit. The expired permit is accepted.
 
-This conflicts with A's handoff statement that restart/expiry/revocation invalidates pending plans. It also allows stale completion authority to cross a root incarnation while the API comment says the private permit prevents replay.
+This conflicts with the Composition lifecycle contract that restart/expiry/revocation invalidates pending plans. It also allows stale completion authority to cross a root incarnation while the API comment says the private permit prevents replay.
 
-Current PR #168 head 3223bdf0367b4c9de73ef867a560b200f1ab96e1 was inspected after the finding. BeginPermit and finish() still retain the same owner/root/index/digest authority without a vault/root incarnation binding. The newer vault changes cover expiry arithmetic, state guards and sibling Unknown reconciliation, but do not fix this finding.
+Composition PR #168 head 3223bdf0367b4c9de73ef867a560b200f1ab96e1 was inspected after the finding. BeginPermit and finish() still retain the same owner/root/index/digest authority without a vault/root incarnation binding. The newer vault changes cover expiry arithmetic, state guards and sibling Unknown reconciliation, but do not fix this finding.
 
-G will not patch A. Owner A should bind permits to a non-reusable vault/root incarnation (or equivalent unforgeable generation authority), add revoke/expiry/cross-vault completion regressions, publish an explicit FIX_SHA, and hand it to G for exact-SHA retest.
+The lab does not patch the Composition implementation. The fix must bind permits to a non-reusable vault/root incarnation (or equivalent unforgeable generation authority), add revoke/expiry/cross-vault completion regressions, publish an explicit FIX_SHA and undergo an exact-SHA lab retest.
 
 ## Closure retest
 
-Owner A published FIX_SHA 7ab43f99f4cc62be2a9b0ce9ce1155283a429768. The fix adds private vault and root incarnation identities to BeginPermit and verifies them in PlanVault::finish. G retested the unchanged 70-case Composition family on suite bf5a70f2e0f0ec6894b8f43e1a8322f9e1ed9e9f, run 36938854785, job 110625787176. Result: 70/70 PASS, 0 FAIL/BLOCKED/NOT_RUN. G-PLAN-022, G-PLAN-023 and G-PLAN-024 all PASS. Receipt SHA-256: 8623175f1bcc1e4a7f9764698cf2ffa6d5b41fd7e90a932127cb719c07597884. Artifact SHA-256: 9cdd503ce6e5de968577e9e0ce26d08e2aa9edb13e1bcd0acae2bd4201bcc3aa. Status: CLOSED_RETEST_PASS.
+Composition published FIX_SHA 7ab43f99f4cc62be2a9b0ce9ce1155283a429768. The fix adds private vault and root incarnation identities to BeginPermit and verifies them in PlanVault::finish. The lab retested the unchanged 70-case Composition family on suite bf5a70f2e0f0ec6894b8f43e1a8322f9e1ed9e9f, run 36938854785, job 110625787176. Result: 70/70 PASS, 0 FAIL/BLOCKED/NOT_RUN. G-PLAN-022, G-PLAN-023 and G-PLAN-024 all PASS. Receipt SHA-256: 8623175f1bcc1e4a7f9764698cf2ffa6d5b41fd7e90a932127cb719c07597884. Artifact SHA-256: 9cdd503ce6e5de968577e9e0ce26d08e2aa9edb13e1bcd0acae2bd4201bcc3aa. Status: CLOSED_RETEST_PASS.

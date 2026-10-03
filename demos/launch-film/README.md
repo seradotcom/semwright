@@ -14,6 +14,6 @@ Source-only checks validate JSON, asset manifests, the launch-film recipe agains
 
 The manual workflow emits `launch-film-1080p.mp4`, `poster.png`, seven representative review frames, `final-ffprobe.json`, SHA-256 sums and the execution `DEMO_TRACE.json` as one GitHub Actions artifact.
 
-## Creative direction and authorship
+## Creative direction
 
-The owner directed the mission, product message and quality bar. The storyboard, visual system, motion timing and managed semantic composition were proposed and iterated by the engineering/design agent during this mission, then rendered reproducibly by Semwright's own Motion Canvas and MLT capabilities. The film does not claim that every creative decision was autonomously generated; it is a human-directed, agent-produced launch asset and a self-hosted execution proof.
+The product message and quality bar are human-directed. Storyboard, visual system, motion timing and managed semantic composition are versioned project decisions, while generated code, frames and encoded video remain reproducible derivatives. The film is both a launch asset and a self-hosted execution proof built through Semwright's Motion Canvas and MLT integrations.

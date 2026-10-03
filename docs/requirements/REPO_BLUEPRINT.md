@@ -1,6 +1,6 @@
 # Repository Blueprint
 
-The final coding agent may adjust crate boundaries if compilation or dependency design makes a different split clearly better, but it must preserve separation of concerns.
+Implementation may adjust crate boundaries when compilation or dependency design makes a different split clearly better, while preserving separation of concerns.
 
 ## Proposed repository tree
 
@@ -20,7 +20,6 @@ The final coding agent may adjust crate boundaries if compilation or dependency 
 ├── CODE_OF_CONDUCT.md
 ├── SECURITY.md
 ├── GOVERNANCE.md
-├── AGENTS.md
 │
 ├── crates/
 │   ├── types/                 # stable domain types and errors

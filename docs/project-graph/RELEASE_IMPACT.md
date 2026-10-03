@@ -1,4 +1,4 @@
-# Release impact — role C
+# Project Graph release impact
 
 Status: development component in draft PR #173. No release/tag/main merge, production rollout, native readiness or R16 closure is requested.
 

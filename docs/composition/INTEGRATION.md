@@ -1,39 +1,38 @@
 # Composition / Audio / AV integration record
 
-> Historical Agent A handoff. The final combined engineering certificates and main promotion policy are recorded in [the integration ledger](../semantic-creation/INTEGRATION.md); pending owner states below retain their original checkpoint scope.
+> Historical Composition/Audio checkpoint. Final combined engineering certificates and main-promotion policy are recorded in [the integration ledger](../semantic-creation/INTEGRATION.md); pending states below retain their original checkpoint scope.
 
-Historical A+B integration record. The all-owner integration and runtime #201
-work now follow [the I ledger](../semantic-creation/INTEGRATION.md). The B
-`8ed2d30` pin below was superseded by `df2654be`; retain this section as
-checkpoint history, not current readiness evidence.
+Historical Composition + Audio integration record. Final integration and runtime work now follow
+[the semantic-creation ledger](../semantic-creation/INTEGRATION.md). The audio `8ed2d30` pin below
+was superseded by `df2654be`; retain this section as checkpoint history, not current readiness evidence.
 
-This file is the source-controlled integration ledger. A private diagnostic integration branch may exist before readiness; fields marked PENDING are replaced only when B declares AUDIO_READY_FOR_INTEGRATION and one formal combined candidate is cut and tested.
+This file is a historical source-controlled integration ledger. Fields marked PENDING describe the recorded checkpoint; readiness requires an AUDIO_READY_FOR_INTEGRATION revision and one formal combined candidate tested on an exact SHA.
 
 ## Source lineage
 
-- A frozen baseline: be375a12e8afa4d779f9dc0de501b0d4a262a682
+- Composition frozen baseline: be375a12e8afa4d779f9dc0de501b0d4a262a682
 - Common C0: 26602e4b25929be869d69ef28fef4dd9713180d7
-- A branch: feat/composition-media
-- B baseline: 93f70241e9fb9d4c99ca76fab55c8517574a9f6f
-- B branch: feat/audio-completion
-- B consumed C0 through normal Git ancestry: verified locally
-- Previous B formal handoff: 8ed2d30c8ba797ebd5b8c102d34f8ab5bb3a28b3; superseded after the formal combined E2E exposed a bounded-loudness receipt defect
-- B observed PR/worktree head at this checkpoint: df2654bed6d2ac57d547846b69d16ea48b4a9ee3
-- B exact-SHA recertification: run 36942574098 PASS with audio-gate PASS and retained final certification artifact; the new AUDIO_READY_FOR_INTEGRATION handoff is still PENDING because B.json has not yet published df2654bed as ready
-- Current origin/main reconciled into A: e3713e90e87f1caa8f7105c065094d5c724d144e
+- Composition branch: feat/composition-media
+- Audio baseline: 93f70241e9fb9d4c99ca76fab55c8517574a9f6f
+- Audio branch: feat/audio-completion
+- Audio consumed C0 through normal Git ancestry: verified locally
+- Previous audio formal handoff: 8ed2d30c8ba797ebd5b8c102d34f8ab5bb3a28b3; superseded after the formal combined E2E exposed a bounded-loudness receipt defect
+- Audio PR/worktree head observed at this checkpoint: df2654bed6d2ac57d547846b69d16ea48b4a9ee3
+- Audio exact-SHA recertification: run 36942574098 PASS with audio-gate PASS and retained final certification artifact; the new AUDIO_READY_FOR_INTEGRATION handoff is still PENDING because B.json has not yet published df2654bed as ready
+- Current origin/main reconciled into Composition: e3713e90e87f1caa8f7105c065094d5c724d144e
 - Integration branch/worktree exists at integration/composition-av for private diagnostics.
 - Latest observed diagnostic integration head: 5648dd2da719b4602126f3458c3c266679c67b2a
 - Formal combined candidate: integration/composition-av-formal; the exact commit is bound externally by candidate_sha and CANDIDATE_EVIDENCE so the source tree never self-certifies
 
-A never edits the B worktree or B.json. PR #183 and native evidence currently identify recertified B head df2654bed6d2ac57d547846b69d16ea48b4a9ee3, but B.json still marks it RECERTIFICATION_PENDING and audio_ready_for_integration=false. Therefore A has no current B-ready SHA to consume. The historical/private integration candidates remain diagnostic history only; the next formal candidate is cut only after B publishes the new handoff and must obtain fresh exact-SHA certification.
+PR #183 and native evidence identify recertified audio head df2654bed6d2ac57d547846b69d16ea48b4a9ee3, while the recorded `B.json` checkpoint still marks RECERTIFICATION_PENDING and audio_ready_for_integration=false. That checkpoint therefore exposes no audio-ready SHA for the combined candidate. Historical/private integration candidates remain diagnostic history only; a formal candidate must use a published audio-ready revision and obtain fresh exact-SHA certification.
 
 ## Contract history
 
-C0 provides generic plan/base/evidence/lifecycle and exact media-time primitives. B has C0 as an ancestor rather than a duplicate private copy.
+C0 provides generic plan/base/evidence/lifecycle and exact media-time primitives. The audio line consumes C0 through normal ancestry rather than a duplicate private copy.
 
-Effect-conformance E0 at `dd6d22d6ec6c7c5ef378da58ed75ca18b25ba5ff` was reviewed by Role A and its ownership/authority boundary is approved: F consumes A Composition types and evidence, while PlanVault, canonicalization, lifecycle aggregation and Broker/policy authority remain A/runtime-owned. The approval is recorded on PR #172 and closes only F01's A-review dependency. F12 remains an integration gate: `crates/effect-conformance` is not present in A's current base, so A will not add a private worktree/path dependency. B has been asked on PR #183 to publish the production audio consumer and exact consumed F SHA; A will wire that public consumer when the formal combined candidate is assembled.
+Effect-conformance E0 at `dd6d22d6ec6c7c5ef378da58ed75ca18b25ba5ff` was reviewed against the Composition ownership/authority boundary: effect conformance consumes Composition types and evidence, while PlanVault, canonicalization, lifecycle aggregation and Broker/policy authority remain runtime-owned. The approval is recorded on PR #172 and closes only the corresponding review dependency. The remaining integration gate requires `crates/effect-conformance` through normal workspace ancestry rather than a private worktree/path dependency. PR #183 records the requirement for the production audio consumer to publish the exact effect-conformance SHA it consumes before assembly of the formal combined candidate.
 
-A later additive AV consumer contract defines media artifact metadata, audio consumer receipts, service proofs, staged coordination, final decoded sync and manifest publication. B remains a provider of public audio capabilities; A owns this additive consumer contract and must prove the boundary on the exact combined candidate rather than requiring B to duplicate A-owned C1 types.
+The additive AV consumer contract defines media artifact metadata, audio consumer receipts, service proofs, staged coordination, final decoded sync and manifest publication. The audio subsystem remains a provider of public audio capabilities; the AV layer owns the consumer boundary and must prove it on the exact combined candidate rather than duplicating shared C1 types in the audio implementation.
 
 Wire-semantic changes after C0 must be listed here with migration/consumer tests rather than silently edited in both branches.
 
@@ -56,11 +55,11 @@ The full native integration workflow preserves its historical all-backend jobs f
 7. Execute the combined candidate gates on one SHA: common contracts, Figma regression, Motion native, audio native, real `artifact.handoff` audio transfer, AV MLT/decode/sync, targeted security and relevant required repository checks.
 8. Record every run/job/artifact digest in this file and DEMO_PRODUCTION_HANDOFF.md.
 9. Reconcile with current main once deliberately if needed; any code change creates a new candidate SHA and invalidates affected evidence.
-10. Leave a reviewable PR/candidate. Do not close R16 or publish a release/video from this mission.
+10. Leave a reviewable PR/candidate. Do not infer R16 closure or release/video publication from this historical integration procedure.
 
 ## Conflict policy
 
-Expected shared conflicts are workspace dependencies, Cargo.lock, Skill inventory/docs and aggregate CI. Preserve all independently required packages/targets. A conflict is not resolved by taking one side's complete lockfile or deleting another agent's target.
+Expected shared conflicts are workspace dependencies, Cargo.lock, Skill inventory/docs and aggregate CI. Preserve all independently required packages/targets. A conflict is not resolved by taking one side's complete lockfile or deleting another integration target.
 
 Unexpected conflicts inside audio-domain/Faust/Ardour are returned to B for explanation. Unexpected conflicts inside Figma/Motion/common contracts remain A-owned.
 

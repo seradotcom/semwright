@@ -2,9 +2,9 @@
 
 ## Compatibility and ownership
 
-This additive contract consumes A C0 `26602e4b25929be869d69ef28fef4dd9713180d7` from the pinned C branch, not copied A sources. P0 receipt, identity and evidence schemas remain version 1. New rebuild schemas have their own version-1 proposal envelope. There is no storage migration from this module. `observe_determinants` now requires full-project visibility because it replaces the entire observed determinant set; a subset grant cannot replace hidden dependencies.
+This additive contract consumes Composition C0 `26602e4b25929be869d69ef28fef4dd9713180d7` from the pinned Project Graph branch, not copied Composition sources. P0 receipt, identity and evidence schemas remain version 1. New rebuild schemas have their own version-1 proposal envelope. There is no storage migration from this module. `observe_determinants` now requires full-project visibility because it replaces the entire observed determinant set; a subset grant cannot replace hidden dependencies.
 
-C owns `RebuildRequest`, `RebuildProposal`, `RebuildBinding`, `RebuildReservation` and the reconstruction query. A owns `PlanVault`, `ConvergenceBudget`, controller, native prepared plans and evidence. D/E own native preparation/realization and identity resolvers; B owns audio and A AV publication; F owns effect semantics. Nothing here claims that their native adapters have been consumed or tested.
+Project Graph defines `RebuildRequest`, `RebuildProposal`, `RebuildBinding`, `RebuildReservation` and the reconstruction query. Composition defines `PlanVault`, `ConvergenceBudget`, controller, native prepared plans and evidence. Native integrations own preparation/realization and identity resolution; the audio subsystem owns audio; AV owns publication; Effect Conformance owns effect semantics. Nothing here claims that every native adapter has been consumed or tested.
 
 ## Read-only proposal
 
@@ -26,7 +26,7 @@ Production SCCs are computed iteratively and reported explicitly; a cycle yields
 
 This permit is NOT a policy grant. It only bounds entry to native preparation via the existing Broker/controller. It does not apply the reconstruction, execute an old native plan, authorize exports, clear uncertain effects, or prove external files did not change between observations. Native preparation must reacquire references and current base states. Every actual app operation must re-enter Broker policy; the controller records partial/cancelled/unknown outcomes in A's vault and produces trusted C receipts afterward. The reservation's operation count is preparation calls, not a claim of N native suboperations or N Broker approvals.
 
-There is no scheduler or background process in this module. Replanning after conflict is explicit. C provides a durable ExternalIntent ledger for host integration: PREPARED and APPLYING are store transitions, interrupted APPLYING becomes UNKNOWN after restart, and COMPLETED requires a matching admitted receipt. Core's host-only `execute_rebuild_preparation` revalidates the current relation and then enters the ordinary Broker; it does not make the proposal a permission and it does not dispatch a sequence on its own. The host/controller still owns PREPARED→APPLYING→terminal transitions and receipt persistence around each actual external operation.
+There is no scheduler or background process in this module. Replanning after conflict is explicit. Project Graph provides a durable ExternalIntent ledger for host integration: PREPARED and APPLYING are store transitions, interrupted APPLYING becomes UNKNOWN after restart, and COMPLETED requires a matching admitted receipt. Core's host-only `execute_rebuild_preparation` revalidates the current relation and then enters the ordinary Broker; it does not make the proposal a permission and it does not dispatch a sequence on its own. The host/controller still owns PREPARED→APPLYING→terminal transitions and receipt persistence around each actual external operation.
 
 ## Contract tests and CI
 

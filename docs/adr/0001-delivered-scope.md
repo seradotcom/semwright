@@ -1,9 +1,9 @@
-# ADR 0001 — Source handoff boundaries and deviations
+# ADR 0001 — Initial development boundaries and deviations
 
 Status: accepted for this development snapshot, **not accepted as completed v1.0 scope**.
 Date: 2026-09-21.
 
-**Supersession note (2026-09-23):** this ADR records the constraints of the initial source handoff,
+**Supersession note (2026-09-23):** this ADR records the constraints of the initial development snapshot,
 not the current verification state. Subsequent merged work produced a real Cargo.lock, Rust
 x86_64/ARM64 CI, dependency/license gates, real application integrations, EIS transport, PipeWire
 frame capture, portal restore-token/clipboard persistence and AT-SPI delta recovery. Current

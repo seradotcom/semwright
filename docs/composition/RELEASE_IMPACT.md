@@ -4,7 +4,7 @@ Status: development integration. No release/tag/publication is authorized by thi
 
 ## Source additions
 
-The A branch adds or extends:
+The Composition/AV branch adds or extends:
 
 - semantic-composition;
 - media-time;
@@ -16,7 +16,7 @@ The A branch adds or extends:
 - targeted Composition/driver diagnostics;
 - benchmark and production handoff documentation.
 
-Audio-domain, Faust, Ardour, audio-authoring and the audio production Skill remain owned by agent B and are not imported into A until B publishes AUDIO_READY_FOR_INTEGRATION.
+Audio-domain, Faust, Ardour, audio-authoring and the audio production Skill remain owned by the audio subsystem and are not imported into the AV integration until an AUDIO_READY_FOR_INTEGRATION revision is published.
 
 ## Compatibility
 

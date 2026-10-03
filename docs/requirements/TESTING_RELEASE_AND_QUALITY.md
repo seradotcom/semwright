@@ -268,19 +268,16 @@ Every discovered real-world bug should gain:
 - regression test;
 - changelog entry if user-visible.
 
-## Final ZIP criteria
+## Release bundle criteria
 
-The new chat must deliver a ZIP that includes:
-- source;
+A release candidate should include or reference:
+- source and exact source SHA;
 - lockfile;
-- tests;
-- docs;
-- CI;
-- packaging;
-- license;
-- no build cache/target directory;
-- no secrets;
-- no fake screenshots;
-- `VERIFY.md` with exact commands run and outputs summarized.
+- tests and CI definitions;
+- documentation and packaging metadata;
+- license notices;
+- no build cache or unrelated generated output;
+- no secrets or fabricated screenshots;
+- `VERIFY.md` with executed evidence clearly separated from unexecuted checks.
 
-The ZIP should be created only after the final verification pass.
+Release bundles are produced only after their required verification gates pass.

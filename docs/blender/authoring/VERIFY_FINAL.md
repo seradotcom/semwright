@@ -2,7 +2,7 @@
 
 ## Scope status
 
-Role E's Blender-owned implementation is frozen and exact-SHA certified at:
+The Blender authoring implementation is frozen and exact-SHA certified at:
 
 - Source SHA: `3d04d8465dcfa94d6cbf548fcaf343f69ac5838f`
 - PR: #175 (`feat/blender-semantic-authoring`)
@@ -38,16 +38,16 @@ Composition diagnostics for the same candidate lineage are also green in run `36
 - PARTIAL: E13.
 - `BLENDER_AUTHORING_READY=false` until the required cross-app evidence exists.
 
-E11 is not a Blender implementation gap. D must consume the certified E artifact through D's public artifact handoff/import route and produce exact-SHA native Godot import/readback/semantic evidence. E must not write Godot project files or bypass D's public API.
+E11 is not a Blender implementation gap. Godot must consume the certified Blender artifact through its public artifact handoff/import route and produce exact-SHA native import/readback/semantic evidence. The Blender integration must not write Godot project files or bypass the public Godot API.
 
-E13 is complete for Blender-native C/F evidence. Its remaining portion is the cross-app provenance chain produced only after D's real handoff/import/verification activity and subsequent C/F-bound admission/evidence.
+E13 is complete for Blender-native Project Graph/Effect Conformance evidence. Its remaining portion is the cross-app provenance chain produced only after real Godot handoff/import/verification activity and subsequent graph/effect-bound admission/evidence.
 
-## Handoff to D / C / F
+## Downstream Godot / Project Graph / Effect Conformance verification
 
-D should use the final certified producer evidence above, especially artifact `11084120677` and GLB digest `7c070046692e0561c0776646092624c60e4e73c44ebb5b5595808e2e6e0bc60e`. After D's exact-SHA public import/verification succeeds:
+The Godot consumer should use the final certified producer evidence above, especially artifact `11084120677` and GLB digest `7c070046692e0561c0776646092624c60e4e73c44ebb5b5595808e2e6e0bc60e`. After exact-SHA public Godot import/verification succeeds:
 
-1. C records export → handoff → import → verification as distinct activities/revisions.
-2. F binds D's native observations to the applicable effect evidence.
+1. Project Graph records export → handoff → import → verification as distinct activities/revisions.
+2. Effect Conformance binds Godot native observations to the applicable effect evidence.
 3. The wave integrator reconciles the combined candidate and its global gates.
 
-No additional Blender authoring work is required from E unless D/C/F expose a concrete interoperability defect attributable to E.
+No additional Blender authoring work is required unless Godot/Project Graph/Effect Conformance expose a concrete interoperability defect attributable to Blender.

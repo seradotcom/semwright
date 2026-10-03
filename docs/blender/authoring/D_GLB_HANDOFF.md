@@ -10,9 +10,9 @@ Those implementation facts informed the contract below. They are not, by themsel
 
 ## Current public boundary and missing acceptance
 
-D now owns a Broker-facing cross-app artifact handoff/import route and a dedicated cross-app GLB lane. E therefore no longer treats the API boundary itself as missing. E11 remains blocked because no exact-SHA D candidate has yet completed that public route with native Godot import/readback/semantic verification against an authentic final E artifact.
+Godot now exposes a Broker-facing cross-app artifact handoff/import route and a dedicated cross-app GLB lane. The Blender side therefore no longer treats the API boundary itself as missing. The recorded E11 checkpoint remains blocked because no exact-SHA cross-app candidate had yet completed that public route with native Godot import/readback/semantic verification against an authentic final Blender artifact.
 
-E therefore must **not**:
+The Blender producer therefore must **not**:
 - call `authoring::store::Store` directly;
 - write into D's project directory or `.godot/imported`;
 - manufacture a `.tscn` or import metadata;
@@ -31,6 +31,6 @@ For E11 closure, E needs one exact-SHA public, policy-checked D flow with:
 7. a C receipt representing export → handoff → import → verification as distinct activities/revisions;
 8. F evidence bound to D's own native observation channel.
 
-E's existing `driver.blender.export.glb` remains the producer. D remains the importer/consumer. Neither driver receives the other's filesystem authority.
+The existing `driver.blender.export.glb` remains the producer. Godot remains the importer/consumer. Neither driver receives the other's filesystem authority.
 
 Until that exact-SHA D native cross-app evidence exists, E11 remains `BLOCKED_DEPENDENCY`, not PASS and not unsupported.

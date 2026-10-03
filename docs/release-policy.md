@@ -71,7 +71,7 @@ This mission creates no tag, GitHub Release or release assets, and changes no re
 
 ## Later publication, not part of this closeout
 
-Finish the user's demo/polish work, select a final source SHA and complete all required engineering
+Complete the remaining demo/polish work, select a final source SHA and complete all required engineering
 and independent review gates for that SHA. Record the review decision without claiming that older
 CI or an earlier review covers later code. The containing SHA of an evidence document is not
 necessarily the SHA it certifies.

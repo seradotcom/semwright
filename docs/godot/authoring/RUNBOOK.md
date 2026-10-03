@@ -2,7 +2,7 @@
 
 ## Workstation rule
 
-Use the D worktree for reading/editing, Git/GitHub administration, hashes and lightweight syntax checks only. Do not run Cargo build/check/test/clippy/doc, Godot, fuzzing, coverage, mutation or package builds on the workstation. Heavy work runs on GitHub-hosted Actions.
+Use a dedicated Godot-authoring worktree for reading/editing, Git/GitHub administration, hashes and lightweight syntax checks only. Do not run Cargo build/check/test/clippy/doc, Godot, fuzzing, coverage, mutation or package builds on the workstation. Heavy work runs on GitHub-hosted Actions.
 
 ## Iteration scope and exact-SHA certification
 
@@ -22,7 +22,7 @@ For a failed iteration job, read only that affected job log, identify step/test/
 
 The native lane uses the repository Driver Host sandbox setup, pinned Godot 4.7.2 and pinned Linux export template. The harness provisions grants/runtime/input fixtures only; projects/scenes/scripts are created by Broker -> Driver Host -> D capabilities.
 
-Acceptance sequence: discover catalog; plan typed intent and prove plan makes no target bytes; apply; inspect/validate; native inspect; use `composition.native.query` to fetch one logical node and one persistent resource with selected properties without returning the full projection; page a >64-track animation through `composition.native.tracks.page` and a >64-key track through `composition.native.keys.page` across fresh inspect processes, reaching both final items; save/reopen in two processes; bounded playtest; managed project validate/run; export; launch package without editor/Semwright. For D12, after Driver Host has already passed on the native-authoring runner, pin and verify E's artifact, move the GLB through generic artifact.handoff, perform the incremental replacement, native persistence/play and `composition.verify` C receipt check on that same runner. The dependent cross-app oracle must then download the exact-SHA native artifact, redownload E, compare bytes, and validate both D12 and C receipts before delivery can run.
+Acceptance sequence: discover catalog; plan typed intent and prove plan makes no target bytes; apply; inspect/validate; native inspect; use `composition.native.query` to fetch one logical node and one persistent resource with selected properties without returning the full projection; page a >64-track animation through `composition.native.tracks.page` and a >64-key track through `composition.native.keys.page` across fresh inspect processes, reaching both final items; save/reopen in two processes; bounded playtest; managed project validate/run; export; launch package without editor/Semwright. For cross-app acceptance, after Driver Host has already passed on the native-authoring runner, pin and verify the Blender artifact, move the GLB through generic artifact.handoff, perform the incremental replacement, native persistence/play and `composition.verify` Project Graph receipt check on that same runner. The dependent cross-app oracle must then download the exact-SHA native artifact, redownload the pinned Blender artifact, compare bytes, and validate both Godot cross-app and Project Graph receipts before delivery can run.
 
 ## Delivery package
 

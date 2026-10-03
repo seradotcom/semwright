@@ -11,7 +11,7 @@ The production environment must provide the exact candidate's:
 - Semwright Broker/CLI/MCP entry point;
 - Figma driver if the chosen workflow imports/edits Figma source;
 - Motion Canvas driver and its pinned runtime/browser;
-- audio provider/authoring stack announced by the verified B handoff;
+- audio provider/authoring stack from the verified audio-ready revision;
 - MLT video delivery provider/runtime;
 - owner-configured filesystem/artifact grants;
 - installed first-party Skills for the chosen agent/client.

@@ -18,4 +18,4 @@ Post-hoc checks detect forbidden effects after execution; OS/Host enforcement is
 Fresh reopen proves the observed persistence path, not fsync/atomic crash durability. Quality reports retain Recovery=UNKNOWN and receipts record crash_durability=NOT_TESTED.
 Attribution is isolated/ordered only where the harness establishes it; no cross-app causal or rollback guarantee is made.
 E exact head `f492f13a028f781d9ca55631764578f5b327eb1b` classifies unmanaged preservation as Forbidden and represents the whole-scene check with an explicit unmanaged-scene/source-projection address; dedicated authoring run 36942759168 is SUCCESS.
-A owner approval is complete. Independent R16 review remains an external gate.
+Composition review is complete. Independent R16 review remains an external gate.

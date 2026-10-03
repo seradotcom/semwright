@@ -1,9 +1,11 @@
-# Acceptance resolution — all 123 original entries
+# Historical acceptance resolution — all 123 original entries
 
-**Accepted development baseline: the exact Git commit containing this document.**
+**Recorded development baseline: the exact Git commit containing this historical ledger.**
 
-**Overall: NOT V1.0 ACCEPTED.** The immutable original checklist is in
-[docs/requirements/ACCEPTANCE_CHECKLIST.md](docs/requirements/ACCEPTANCE_CHECKLIST.md).
+> Current staging/publication policy is maintained in [docs/release-policy.md](docs/release-policy.md) and supersedes this ledger as a statement of present release status.
+
+**Historical overall result at this baseline: NOT V1.0 ACCEPTED.** The original engineering checklist is preserved in
+[docs/requirements/ACCEPTANCE_CHECKLIST.md](docs/requirements/ACCEPTANCE_CHECKLIST.md); current release policy is defined separately.
 
 PASS below applies only to the exact requirement in its row. FAIL means the full criterion
 is unmet; green baseline CI is not substituted for missing live desktop, application,

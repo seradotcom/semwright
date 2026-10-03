@@ -1,12 +1,12 @@
-# Research baseline — role F, refreshed 2026-09-30
+# Effect Conformance research baseline — refreshed 2026-09-30
 
 ## Repository evidence
 Frozen base `b736d41b61c4a4146c9e75c16796e251b025e69f`; A C0 `26602e4b25929be869d69ef28fef4dd9713180d7`; C P0 `6ee52b428310370d3ad438a13964086a63f48367`; E0 `dd6d22d6ec6c7c5ef378da58ed75ca18b25ba5ff`.
-A owns Composition reports/vault/canonicalization. F adds effect predicates, evidence/coverage normalization, enumeration audits and driver-quality evaluation without replacing those types.
+Composition defines reports, vault and canonicalization. Effect Conformance adds effect predicates, evidence/coverage normalization, enumeration audits and driver-quality evaluation without replacing those types.
 Godot #171 scene-only persistence/readback and the fixed Blender Commands/GLB path are treated as conformance subjects, not inherited proof.
 
 ## Official sources used for design
-Godot 4.7 PackedScene documentation: `PackedScene.pack` serializes owned scene nodes; F therefore checks fresh reopen and external-resource sentinels rather than equating save ACK with persistence.
+Godot 4.7 PackedScene documentation: `PackedScene.pack` serializes owned scene nodes; The conformance layer therefore checks fresh reopen and external-resource sentinels rather than equating save ACK with persistence.
 Godot 4.7 ResourceSaver documentation: save flags and resource handling motivated explicit scene-only/external-resource distinction.
 Blender 4.5 API: glTF export `use_selection` and bounded native save/open behavior motivated decoded GLB membership plus fresh-process reopen.
 GitHub Actions/CLI documentation: reruns preserve the original SHA, so every code fix used a new commit/run rather than reusing an old PASS.
