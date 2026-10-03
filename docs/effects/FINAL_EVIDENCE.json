@@ -72,7 +72,7 @@
     "F14": "PASS"
   },
   "backup": {
-    "path": "docs/effects/backup/semwright-effect-conformance-F-d2cfd86.zip",
+    "path": "docs/effects/backup/semwright-effect-conformance-d2cfd86.zip",
     "sha256": "31536b484a3fc9e54fce7d3c570fa41440a1ccb043e4313b13c078061342f542",
     "format": "reconstructive-source-zip"
   },

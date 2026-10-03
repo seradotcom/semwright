@@ -1,6 +1,6 @@
 # Integrated reconciliation candidate
 
-After the audio, Project Graph and runtime #201 work completed, integration consolidated the remaining cross-component reconciliation work. Historical component branches and status records remain separate; the integration state is recorded in `semantic-creation/I.json`.
+After the audio, Project Graph and runtime #201 work completed, integration consolidated the remaining cross-component reconciliation work. Historical component branches and status records remain separate; canonical integration state is bound to exact Git commits and CI evidence.
 
 D11 is implementation-pending-certification. The existing repair.plan capability has a new explicit reconcile_partial_publication mode. Its input still contains only a parent plan ID and a mode; evidence and authority are supplied by the authenticated provider, never by request JSON. Descriptor/schema digests must be generated from the new schema when packaging the integrated candidate.
 

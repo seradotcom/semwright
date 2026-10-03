@@ -1,5 +1,5 @@
-//! Concrete Agent-A stage realization through descriptor-pinned Broker commands.
-//! Audio authoring/final-audio analysis remain delegated to Agent B's public provider.
+//! Concrete AV stage realization through descriptor-pinned Broker commands.
+//! Audio authoring/final-audio analysis remain delegated to the public audio provider.
 use crate::{
     ArtifactHandoffHint, AvPlan, DeliveryCodec, DeliveryInput, Error, NativeResult, Result, Stage,
     StageCall, StageCommandRunner, StagePayload, TransferKind,
@@ -23,8 +23,8 @@ struct Locator {
 }
 
 #[derive(Clone, Debug)]
-pub struct AgentAArtifactRoutes {
-    /// Broker filesystem grant containing B's verified public audio output.
+pub struct AvArtifactRoutes {
+    /// Broker filesystem grant containing the verified public audio output.
     pub audio_source_root: String,
     /// Broker filesystem grant that receives the byte-copy handoff.
     pub handoff_destination_root: String,
@@ -32,7 +32,7 @@ pub struct AgentAArtifactRoutes {
     pub mlt_media_root: String,
 }
 
-impl AgentAArtifactRoutes {
+impl AvArtifactRoutes {
     pub fn validate(&self) -> Result<()> {
         semwright_semantic_composition::bounded_id(&self.audio_source_root)?;
         semwright_semantic_composition::bounded_id(&self.handoff_destination_root)?;
@@ -43,7 +43,7 @@ impl AgentAArtifactRoutes {
     }
 }
 
-pub fn agent_a_stage_commands(stage: Stage) -> Option<&'static [&'static str]> {
+pub fn av_stage_commands(stage: Stage) -> Option<&'static [&'static str]> {
     Some(match stage {
         Stage::PlanDelivery => &["driver.mlt-video.render.profiles"],
         Stage::ApplyMotion => &["driver.motion-canvas.composition.apply"],
@@ -61,23 +61,23 @@ pub fn agent_a_stage_commands(stage: Stage) -> Option<&'static [&'static str]> {
     })
 }
 
-pub struct AgentAStageAdapter {
+pub struct AvStageAdapter {
     plan: AvPlan,
-    artifact_routes: Option<AgentAArtifactRoutes>,
+    artifact_routes: Option<AvArtifactRoutes>,
     motion_fingerprint: Option<String>,
     motion_job_ref: Option<String>,
     source_locators: BTreeMap<String, Locator>,
     locators: BTreeMap<String, Locator>,
 }
 
-impl AgentAStageAdapter {
+impl AvStageAdapter {
     pub fn new(plan: AvPlan) -> Result<Self> {
         Self::with_artifact_routes(plan, None)
     }
 
     pub fn with_artifact_routes(
         plan: AvPlan,
-        artifact_routes: Option<AgentAArtifactRoutes>,
+        artifact_routes: Option<AvArtifactRoutes>,
     ) -> Result<Self> {
         plan.validate()?;
         if let Some(routes) = &artifact_routes {
@@ -108,7 +108,7 @@ impl AgentAStageAdapter {
             .collect::<Vec<_>>();
         ensure(
             actual == expected,
-            "AV stage command mapping differs from the reviewed Agent-A adapter",
+            "AV stage command mapping differs from the reviewed AV adapter",
         )
     }
 
@@ -230,7 +230,7 @@ impl AgentAStageAdapter {
         Ok(())
     }
 
-    /// Consume B's common public receipt without coupling AV to Ardour/Faust result shapes.
+    /// Consume the common public audio receipt without coupling AV to Ardour/Faust result shapes.
     /// The hint contains only a relative path + digest; the Broker root comes from host config.
     pub fn bind_audio_consumer_receipt(
         &mut self,
@@ -290,11 +290,11 @@ impl AgentAStageAdapter {
     ) -> Result<NativeResult> {
         ensure(
             call.av_plan_digest == self.plan.digest,
-            "Agent-A adapter received another AV plan",
+            "AV adapter received another AV plan",
         )?;
         ensure(
             call.owner == self.plan.body.spec.owner,
-            "Agent-A adapter owner mismatch",
+            "AV adapter owner mismatch",
         )?;
         match call.stage {
             Stage::PlanDelivery => self.plan_delivery(call, executor, cancellation).await,
@@ -307,7 +307,8 @@ impl AgentAStageAdapter {
             Stage::VerifyFinalAudio => self.verify_final_audio(call, executor, cancellation).await,
             Stage::VerifySync => self.verify_sync(call, executor, cancellation).await,
             Stage::ApplyAudio | Stage::RenderAudio | Stage::VerifyAudio => Err(Error::Unknown(
-                "audio authoring/verification stage requires Agent B's verified public provider handoff".into(),
+                "audio authoring/verification stage requires the verified public audio provider"
+                    .into(),
             )),
             Stage::PreparePublication | Stage::Publish => Err(Error::Invalid(
                 "publication stages use BrokerPublisher with owner-configured roots".into(),
@@ -1385,13 +1386,13 @@ mod wire_default_tests {
     fn omitted_motion_fps_denominator_uses_documented_wire_default_only() {
         let omitted = json!({"fps": 30});
         assert_eq!(
-            AgentAStageAdapter::optional_u64_default(&omitted, "fps_denominator", 1).unwrap(),
+            AvStageAdapter::optional_u64_default(&omitted, "fps_denominator", 1).unwrap(),
             1
         );
 
         let explicit = json!({"fps_denominator": 1001});
         assert_eq!(
-            AgentAStageAdapter::optional_u64_default(&explicit, "fps_denominator", 1).unwrap(),
+            AvStageAdapter::optional_u64_default(&explicit, "fps_denominator", 1).unwrap(),
             1001
         );
 
@@ -1402,7 +1403,7 @@ mod wire_default_tests {
             json!({"fps_denominator": 1.5}),
         ] {
             assert!(
-                AgentAStageAdapter::optional_u64_default(&malformed, "fps_denominator", 1).is_err()
+                AvStageAdapter::optional_u64_default(&malformed, "fps_denominator", 1).is_err()
             );
         }
     }

@@ -11,9 +11,24 @@ class PublicRepositoryHygieneTests(unittest.TestCase):
             "DEVELOPMENT_HANDOFF.md",
             "docs/requirements/MASTER_PROMPT.md",
             "docs/requirements/START_HERE.md",
+            "docs/composition/DEMO_PRODUCTION_HANDOFF.md",
+            "docs/composition/DEMO_PRODUCTION_RUNBOOK.md",
         ):
             with self.subTest(relative=relative):
                 self.assertFalse((ROOT / relative).exists(), relative)
+
+    def test_public_av_api_does_not_encode_temporary_agent_roles(self):
+        self.assertFalse((ROOT / "crates/av-composition/src/agent_a.rs").exists())
+        lib = (ROOT / "crates/av-composition/src/lib.rs").read_text()
+        adapter = (ROOT / "crates/av-composition/src/stage_adapter.rs").read_text()
+        contracts = (ROOT / "crates/av-composition/tests/contracts.rs").read_text()
+        joined = "\n".join((lib, adapter, contracts))
+        for marker in ("AgentA", "agent_a_stage_commands", "mod agent_a", "Agent-A"):
+            with self.subTest(marker=marker):
+                self.assertNotIn(marker, joined)
+        for marker in ("AvStageAdapter", "AvArtifactRoutes", "av_stage_commands"):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, joined)
 
     def test_local_coordination_directories_are_ignored(self):
         ignored = (ROOT / ".gitignore").read_text()
@@ -48,6 +63,8 @@ class PublicRepositoryHygieneTests(unittest.TestCase):
             "From the G worktree",
             "G owns only",
             "original requirements](docs/requirements/START_HERE.md)",
+            "Agent-A stage",
+            "Agent B's public provider",
         )
         for relative in files:
             text = (ROOT / relative).read_text()

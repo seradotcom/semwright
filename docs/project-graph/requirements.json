@@ -9,7 +9,7 @@
       "status": "PASS",
       "implementation": [
         "crates/project-graph/src/{identity,knowledge,model}.rs",
-        "docs/project-graph/P0_HANDOFF.md"
+        "docs/project-graph/P0_CONTRACT.md"
       ],
       "tests": [
         "tests/p0.rs"
@@ -161,7 +161,7 @@
         "crates/registry/src/{lib,catalog,dynamic}.rs trusted preparation relationships",
         "crates/core/src/project_graph.rs RebuildCatalogSnapshot + execute_rebuild_preparation host adapter",
         "crates/core/src/lib.rs existing Broker core dispatch",
-        "docs/project-graph/P1_REBUILD_HANDOFF.md"
+        "docs/project-graph/P1_REBUILD_CONTRACT.md"
       ],
       "tests": [
         "altered_reservation_cannot_be_promoted_even_with_a_recomputed_digest",
