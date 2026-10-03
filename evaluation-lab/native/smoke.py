@@ -42,9 +42,11 @@ def blend_phase(recorder, binary, spec_path, actor, out, spec):
     return checks
 
 
-def godot_phase(recorder, binary, spec_path, actor, out, spec, template):
+def godot_phase(recorder, binary, spec_path, actor, out, spec, template, asset_file=None):
     direct_godot.apply(spec, actor/"game")
     project = actor/"game"
+    if asset_file is not None:
+        shutil.copyfile(asset_file, project/"asset.glb")
     direct_godot.export_preset(project, template)
     recorder.run([binary,"--headless","--path",str(project),"--import"],
                  cwd=project,label=spec["phase"]+"-native-import")
@@ -54,7 +56,7 @@ def godot_phase(recorder, binary, spec_path, actor, out, spec, template):
                   str(HERE/"observe_godot.gd"),"--",str(spec_path),str(report)],
                  cwd=project,label=spec["phase"]+"-native-input-oracle",timeout=30)
     data = json.loads(report.read_text())
-    assert data["outcome"] == "PASS" and len(data["checks"]) == 13 and all(data["checks"].values())
+    assert data["outcome"] == "PASS" and len(data["checks"]) == (17 if "asset_source" in spec else 13) and all(data["checks"].values())
     if before != inventory(project):
         raise AssertionError("Native observer changed editable game source")
     checks = [{"kind":"native-input-events", "report_sha256":file_digest(report)}]

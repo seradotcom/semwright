@@ -43,7 +43,7 @@ logs outside actor outputs. Its hash chain detects accidental editing/omission;
 same-UID development smoke is not a hostile-model isolation boundary. Final model
 admission requires a separate actor UID and certified model/tool/usage transport.
 
-The hosted preparation workflow runs 45 synthetic controls before at most two
+The hosted preparation workflow runs 49 synthetic controls before at most two
 native jobs. Product and laboratory checkouts are separate; the native smoke
 verifies the I target and all its frozen source-file digests before/after use.
 It executes the laboratory's direct helpers, not product authoring or a model.
@@ -106,3 +106,15 @@ Holdout tooling source `d17d0bb1c231a46e1a9a4a5bad99aea2a3e6d416` passed
 45 synthetic controls in hosted run `37091748012` (compact artifact `11263360006`).
 Only the affected lightweight harness lane ran. Native certificates retain their
 own earlier immutable source identity. No actual final reservation was generated.
+
+The native cross-app component program extends the same direct modules:
+Blender saves/revises and exports GLB, Godot imports that actual file and checks
+native mesh geometry/materials, skin and evaluated bone animation while gameplay
+inputs/objectives/restart still work. Both public instances have six sequential
+phases. Accepted original exports and logical gameplay source remain unchanged.
+The independent consumer must reject the old GLB after its replacement, and pass
+again after exact restoration. These are basic development component fixtures;
+full task-quality model output, isolated semantic authoring and full Broker ledger
+recovery remain separate requirements. The `godot-cross` Actions lane tests only
+the affected native modules and skips the full package; `native-all` must execute
+all three native groups on one laboratory SHA before packaging.

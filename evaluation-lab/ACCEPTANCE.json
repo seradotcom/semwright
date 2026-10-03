@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "role": "H",
-  "state": "BLENDER_GODOT_NATIVE_PREPARATION_AND_HOLDOUT_TOOLING_CI_PASS_FULL_HARNESS_PENDING",
+  "state": "NATIVE_CROSS_APP_COMPONENTS_IMPLEMENTED_AFFECTED_CI_PENDING",
   "evaluation_target_sha": null,
   "evaluation_suite_sha": null,
   "evaluation_executed": false,
@@ -61,9 +61,11 @@
       "status": "PARTIAL",
       "implementation": [
         "tasks/public-dev.json",
-        "native/program.py"
+        "native/program.py",
+        "native/cross_program.py",
+        "native/cross_smoke.py"
       ],
-      "reason": "Executable public revision programs for Blender/Godot; cross-app/media/full recovery programs and final paired model evaluation pending"
+      "reason": "Public Blender/Godot/cross-app component revision programs implemented; native cross-app CI pending; media/full Broker recovery and final model evaluation remain pending"
     },
     "H08": {
       "status": "PARTIAL",
@@ -77,7 +79,7 @@
     },
     "H09": {
       "status": "PARTIAL",
-      "reason": "Blender/Godot development oracles passed native controls and rejected eight defective outputs; cross-app/media/full recovery task oracles and aesthetic judgment remain pending",
+      "reason": "Blender/Godot observers already have native evidence; real GLB consumer geometry/material/skin/animation and stale-replacement controls now implemented, native retest pending; full media/recovery and aesthetic judgments remain pending",
       "implementation": [
         "native/observe_blender.py",
         "native/observe_godot.gd",

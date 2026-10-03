@@ -29,13 +29,20 @@ func _ready() -> void:
         marker.scale = Vector2.ONE * float(spec.asset_scale)
         player.add_child(marker)
     else:
-        var marker = MeshInstance3D.new()
-        marker.mesh = BoxMesh.new()
-        marker.scale = Vector3.ONE * float(spec.asset_scale)
-        var material = StandardMaterial3D.new()
-        material.albedo_color = Color(spec.color[0], spec.color[1], spec.color[2], spec.color[3])
-        marker.material_override = material
-        player.add_child(marker)
+        if spec.has("asset_source"):
+            var asset_scene = load(str(spec.asset_source)) as PackedScene
+            assert(asset_scene != null)
+            var asset = asset_scene.instantiate()
+            asset.name = "DeliveredAsset"
+            player.add_child(asset)
+        else:
+            var marker = MeshInstance3D.new()
+            marker.mesh = BoxMesh.new()
+            marker.scale = Vector3.ONE * float(spec.asset_scale)
+            var material = StandardMaterial3D.new()
+            material.albedo_color = Color(spec.color[0], spec.color[1], spec.color[2], spec.color[3])
+            marker.material_override = material
+            player.add_child(marker)
         var camera = Camera3D.new()
         camera.position = Vector3(3, 6, 10)
         add_child(camera)

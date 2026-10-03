@@ -5,7 +5,7 @@ on:
       lane:
         type: choice
         default: native-all
-        options: [harness-only, native-all]
+        options: [harness-only, native-all, godot-cross]
         description: Run lightweight harness controls or both native development apps
 permissions:
   contents: read
@@ -58,7 +58,7 @@ jobs:
       fail-fast: false
       max-parallel: 2
       matrix:
-        app: [blender, godot]
+        app: ${{ fromJSON(inputs.lane == 'godot-cross' && '["godot","cross_app"]' || '["blender","godot","cross_app"]') }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -71,7 +71,7 @@ jobs:
           path: frozen-product
           persist-credentials: false
       - name: Provision pinned Blender on hosted runner
-        if: matrix.app == 'blender'
+        if: matrix.app != 'godot'
         run: |
           set -euo pipefail
           curl --fail --location --retry 3 https://download.blender.org/release/Blender4.5/blender-4.5.14-linux-x64.tar.xz -o "$RUNNER_TEMP/blender.tar.xz"
@@ -79,9 +79,10 @@ jobs:
           tar -xJf "$RUNNER_TEMP/blender.tar.xz" -C "$RUNNER_TEMP"
           rm "$RUNNER_TEMP/blender.tar.xz"
           echo "H_NATIVE_BINARY=$RUNNER_TEMP/blender-4.5.14-linux-x64/blender" >> "$GITHUB_ENV"
+          echo "H_BLENDER_BINARY=$RUNNER_TEMP/blender-4.5.14-linux-x64/blender" >> "$GITHUB_ENV"
           echo "050c02562f81fe80ba616a80198fa02d381e60f8b61b8d39add881f4bca0d7d8  $RUNNER_TEMP/blender-4.5.14-linux-x64/blender" | sha256sum --check --strict
       - name: Provision pinned Godot and release template on hosted runner
-        if: matrix.app == 'godot'
+        if: matrix.app != 'blender'
         run: |
           set -euo pipefail
           mkdir "$RUNNER_TEMP/h-godot" "$RUNNER_TEMP/h-export-templates"
@@ -95,6 +96,7 @@ jobs:
           chmod 0755 "$RUNNER_TEMP/h-export-templates/linux_release.x86_64"
           rm "$RUNNER_TEMP/godot.zip" "$RUNNER_TEMP/templates.tpz"
           echo "H_NATIVE_BINARY=$binary" >> "$GITHUB_ENV"
+          echo "H_GODOT_BINARY=$binary" >> "$GITHUB_ENV"
           echo "H_GODOT_TEMPLATE=$RUNNER_TEMP/h-export-templates/linux_release.x86_64" >> "$GITHUB_ENV"
       - name: Run independent native positive and negative development controls
         env:
@@ -102,8 +104,12 @@ jobs:
         run: |
           set -euo pipefail
           extra=()
-          if [[ "$H_APP" == godot ]]; then extra=(--template "$H_GODOT_TEMPLATE"); fi
-          python3 evaluation-lab/native/smoke.py --app "$H_APP" --binary "$H_NATIVE_BINARY" --product "$GITHUB_WORKSPACE/frozen-product" --output "$GITHUB_WORKSPACE/verification/H/native-$H_APP" "${extra[@]}"
+          if [[ "$H_APP" == cross_app ]]; then
+            python3 evaluation-lab/native/cross_smoke.py --blender "$H_BLENDER_BINARY" --godot "$H_GODOT_BINARY" --template "$H_GODOT_TEMPLATE" --product "$GITHUB_WORKSPACE/frozen-product" --output "$GITHUB_WORKSPACE/verification/H/native-$H_APP"
+          else
+            if [[ "$H_APP" == godot ]]; then extra=(--template "$H_GODOT_TEMPLATE"); fi
+            python3 evaluation-lab/native/smoke.py --app "$H_APP" --binary "$H_NATIVE_BINARY" --product "$GITHUB_WORKSPACE/frozen-product" --output "$GITHUB_WORKSPACE/verification/H/native-$H_APP" "${extra[@]}"
+          fi
           git diff --exit-code
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
@@ -116,6 +122,7 @@ jobs:
           retention-days: 14
   preparation-delivery:
     needs: [harness, native]
+    if: inputs.lane == 'native-all'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -134,6 +141,10 @@ jobs:
         with:
           name: H-native-godot-controls
           path: verification/H/native-godot
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          name: H-native-cross_app-controls
+          path: verification/H/native-cross_app
       - name: Reproducible preparatory native laboratory delivery
         run: python3 evaluation-lab/package_preparation.py
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a

@@ -33,9 +33,56 @@ func observe() -> void:
     checks.editable_native_scene = player is Node2D if spec.dimension == "2D" else player is Node3D
     checks.native_status_ui = game.get_node("Status") is Label
     var marker = player.get_child(0)
-    var color: Color = marker.color if marker is Polygon2D else marker.material_override.albedo_color
+    var color: Color
+    var asset_colors: Array[Color] = []
+    if spec.has("asset_source"):
+        var meshes = marker.find_children("*", "MeshInstance3D", true, false)
+        var skeletons = marker.find_children("*", "Skeleton3D", true, false)
+        var animations = marker.find_children("*", "AnimationPlayer", true, false)
+        checks.native_asset_mesh_count = meshes.size() == int(spec.asset_segments)
+        var geometry_matches = not meshes.is_empty()
+        var skin_matches = not skeletons.is_empty()
+        for mesh in meshes:
+            geometry_matches = geometry_matches and absf(mesh.get_aabb().size.x - float(spec.asset_width)) < 0.002
+            skin_matches = skin_matches and mesh.skin != null
+            var material = mesh.get_active_material(0)
+            asset_colors.append(material.albedo_color if material is StandardMaterial3D else Color(0,0,0,0))
+        checks.native_asset_geometry = geometry_matches
+        checks.native_asset_skin = skin_matches and skeletons[0].get_bone_count() >= 2
+        var animation_matches = false
+        if not animations.is_empty() and not skeletons.is_empty():
+            var animator = animations[0] as AnimationPlayer
+            var skeleton = skeletons[0] as Skeleton3D
+            var hinge = skeleton.find_bone("hinge")
+            for animation_name in animator.get_animation_list():
+                var clip = animator.get_animation(animation_name)
+                if animation_name == "RESET" or hinge < 0 or clip.get_track_count() < 1:
+                    continue
+                if absf(clip.length - float(spec.asset_animation_seconds)) > 0.05:
+                    continue
+                animator.play(animation_name)
+                animator.seek(0, true)
+                animator.advance(0)
+                var initial = skeleton.get_bone_pose_rotation(hinge)
+                animator.seek(clip.length, true)
+                animator.advance(0)
+                var final = skeleton.get_bone_pose_rotation(hinge)
+                animation_matches = absf(initial.angle_to(final) - float(spec.asset_rotation)) < 0.02
+                animator.pause()
+                if animation_matches:
+                    break
+        checks.native_asset_animation = animation_matches
+        if meshes.is_empty():
+            color = Color(0,0,0,0)
+        else:
+            var material = meshes[0].get_active_material(0)
+            color = material.albedo_color if material is StandardMaterial3D else Color(0,0,0,0)
+    else:
+        color = marker.color if marker is Polygon2D else marker.material_override.albedo_color
     var expected = Color(spec.color[0],spec.color[1],spec.color[2],spec.color[3])
     checks.native_material = color.is_equal_approx(expected)
+    for asset_color in asset_colors:
+        checks.native_material = checks.native_material and asset_color.is_equal_approx(expected)
     checks.native_asset_scale = absf(marker.scale.x - float(spec.asset_scale)) < 0.001
     var timer_start = float(game.remaining)
     await create_timer(0.12).timeout
