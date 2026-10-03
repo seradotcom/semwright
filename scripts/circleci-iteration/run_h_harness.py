@@ -16,7 +16,7 @@ def main():
     suite = subprocess.check_output(["git","rev-parse","HEAD"]).decode().strip()
     assert suite == os.environ["CIRCLE_SHA1"]
     laboratory = os.environ["SW_HARNESS_SHA"]
-    assert laboratory == "9c7b3fb11750e3d70b52f55db27eea0eb24205f9"
+    assert laboratory == "fd347d133102f930d5750d8fec7a7a39a8b436b5"
     if subprocess.run(["git","cat-file","-e",laboratory+"^{commit}"],capture_output=True).returncode:
         subprocess.run(["git","fetch","--no-tags","--depth=1","origin",laboratory],check=True)
     output = root/"verification/circleci-harness"
@@ -43,11 +43,11 @@ def main():
     (output/"harness-tests.log").write_bytes(log)
     after = {name:hashlib.sha256((work/name).read_bytes()).hexdigest() for name in tracked}
     text = log.decode(errors="replace")
-    passed = result.returncode == 0 and re.search(r"Ran 45 tests\b",text) and re.search(r"^OK$",text,re.M) and before == after
+    passed = result.returncode == 0 and re.search(r"Ran 49 tests\b",text) and re.search(r"^OK$",text,re.M) and before == after
     report = {"schema_version":1,"status":"PASS" if passed else "FAIL",
               "execution_kind":"DETERMINISTIC_HARNESS_ITERATION","laboratory_source_sha":laboratory,
               "circle_helper_suite_sha":suite,"technical_product_target_sha":freeze["SEMWRIGHT_EVAL_SHA"],
-              "technical_product_executed":False,"test_count":45 if passed else None,
+              "technical_product_executed":False,"test_count":49 if passed else None,
               "source_unchanged":before==after,"runtime_ms":elapsed,"returncode":result.returncode,
               "log_sha256":hashlib.sha256(log).hexdigest(),"laboratory_files_sha256":before,
               "job_number":os.environ["CIRCLE_BUILD_NUM"],"job_url":os.environ.get("CIRCLE_BUILD_URL"),
@@ -58,7 +58,7 @@ def main():
     print(text)
     if not passed:
         raise RuntimeError("H diagnostic failed or its inventory/source changed")
-    print("H CircleCI iteration: 45 PASS; no native/model certification")
+    print("H CircleCI iteration: 49 PASS; no native/model certification")
 
 
 if __name__ == "__main__":

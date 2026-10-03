@@ -7,7 +7,7 @@ jobs:
       image: ubuntu-2404:current
     resource_class: medium
     environment:
-      SW_HARNESS_SHA: 9c7b3fb11750e3d70b52f55db27eea0eb24205f9
+      SW_HARNESS_SHA: fd347d133102f930d5750d8fec7a7a39a8b436b5
     steps:
       - checkout
       - run:
@@ -24,4 +24,4 @@ workflows:
       - h-harness-iteration:
           filters:
             branches:
-              only: ci/h-circleci-iteration-9c7b3fb
+              only: ci/h-circleci-iteration-fd347d1
