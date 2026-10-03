@@ -20,6 +20,10 @@ on:
 permissions:
   contents: read
 
+defaults:
+  run:
+    shell: bash
+
 concurrency:
   group: v1-distribution-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
