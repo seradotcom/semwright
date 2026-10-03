@@ -1,0 +1,370 @@
+{
+  "final_source_sha": "868446205df36826356483e93c53e5060c46e8aa",
+  "foreign_prs_modified_or_closed_by_r": false,
+  "generated_at_utc": "2026-10-03T06:18:52.267715+00:00",
+  "main_merge_performed_by_r": false,
+  "policy": "Preserve current foreign PRs and Git history; no deletion/closure solely for repository cleanliness.",
+  "r_owned_pr": 207,
+  "review_target_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+  "rows": [
+    {
+      "baseRefName": "main",
+      "closedAt": null,
+      "disposition": "R_OWN_READY_FOR_REVIEW_NO_AUTO_MERGE",
+      "headRefName": "audit/r16-release-closeout",
+      "headRefOid": "868446205df36826356483e93c53e5060c46e8aa",
+      "isDraft": true,
+      "mergeCommit": null,
+      "mergedAt": null,
+      "number": 207,
+      "state": "OPEN",
+      "title": "R16: defensive review and repository documentation closeout",
+      "url": "https://github.com/seradotcom/semwright/pull/207"
+    },
+    {
+      "baseRefName": "main",
+      "closedAt": null,
+      "disposition": "PRESERVE_OPEN_FOREIGN_PR",
+      "headRefName": "dependabot/cargo/hmac-0.13.0",
+      "headRefOid": "2463a3822ef9e31527c382aa47bc61c69eba2df3",
+      "isDraft": false,
+      "mergeCommit": null,
+      "mergedAt": null,
+      "number": 166,
+      "state": "OPEN",
+      "title": "chore(deps): bump hmac from 0.12.1 to 0.13.0",
+      "url": "https://github.com/seradotcom/semwright/pull/166"
+    },
+    {
+      "baseRefName": "main",
+      "closedAt": null,
+      "disposition": "PRESERVE_OPEN_FOREIGN_PR",
+      "headRefName": "dependabot/cargo/getrandom-0.4.3",
+      "headRefOid": "a3ad946f22d7188b8060b1eec301d8241c75e44c",
+      "isDraft": false,
+      "mergeCommit": null,
+      "mergedAt": null,
+      "number": 165,
+      "state": "OPEN",
+      "title": "chore(deps): bump getrandom from 0.2.17 to 0.4.3",
+      "url": "https://github.com/seradotcom/semwright/pull/165"
+    },
+    {
+      "baseRefName": "main",
+      "closedAt": null,
+      "disposition": "PRESERVE_OPEN_FOREIGN_PR",
+      "headRefName": "dependabot/cargo/sha2-0.11.0",
+      "headRefOid": "d81cd21b2d228b8ab8b82be50ca63b531a469482",
+      "isDraft": false,
+      "mergeCommit": null,
+      "mergedAt": null,
+      "number": 161,
+      "state": "OPEN",
+      "title": "build(deps): bump sha2 from 0.10.9 to 0.11.0",
+      "url": "https://github.com/seradotcom/semwright/pull/161"
+    },
+    {
+      "baseRefName": "main",
+      "closedAt": null,
+      "disposition": "PRESERVE_OPEN_FOREIGN_PR",
+      "headRefName": "dependabot/github_actions/actions/setup-node-7.0.0",
+      "headRefOid": "e97078d66b51fbcabf120d662eaa115c98363e2c",
+      "isDraft": false,
+      "mergeCommit": null,
+      "mergedAt": null,
+      "number": 157,
+      "state": "OPEN",
+      "title": "build(deps): bump actions/setup-node from 4.4.0 to 7.0.0",
+      "url": "https://github.com/seradotcom/semwright/pull/157"
+    },
+    {
+      "baseRefName": "integration/composition-av-formal",
+      "closedAt": "2026-10-03T04:45:07Z",
+      "disposition": "CLOSED_HISTORY_PRESERVED_NO_DELETION",
+      "headRefName": "integration/project-graph-av-c14",
+      "headRefOid": "28eba9d733d254289255b33a9c14d409fad3e2e2",
+      "isDraft": true,
+      "mergeCommit": null,
+      "mergedAt": null,
+      "number": 206,
+      "state": "CLOSED",
+      "title": "C14: bind formal AV/audio publication into Project Graph",
+      "url": "https://github.com/seradotcom/semwright/pull/206"
+    },
+    {
+      "baseRefName": "main",
+      "closedAt": "2026-10-03T04:43:53Z",
+      "disposition": "MERGED_HISTORY_PRESERVED",
+      "headRefName": "integration/composition-av-formal",
+      "headRefOid": "1fc61e3be25fcdb88e882e989127945508109510",
+      "isDraft": true,
+      "mergeCommit": {
+        "oid": "da1e1a3c0557a5cd88192379f1058aea298fbcb3"
+      },
+      "mergedAt": "2026-10-03T04:43:53Z",
+      "number": 204,
+      "state": "MERGED",
+      "title": "integrate(composition): formal A+B AV rebuild",
+      "url": "https://github.com/seradotcom/semwright/pull/204"
+    },
+    {
+      "baseRefName": "main",
+      "closedAt": "2026-10-03T04:45:09Z",
+      "disposition": "CLOSED_HISTORY_PRESERVED_NO_DELETION",
+      "headRefName": "integration/composition-av",
+      "headRefOid": "b70fb1c0e1a9d06a8cae4159e25c5a68d86be6eb",
+      "isDraft": true,
+      "mergeCommit": null,
+      "mergedAt": null,
+      "number": 202,
+      "state": "CLOSED",
+      "title": "integration(composition-av): combined A+B candidate",
+      "url": "https://github.com/seradotcom/semwright/pull/202"
+    },
+    {
+      "baseRefName": "main",
+      "closedAt": "2026-10-03T04:43:53Z",
+      "disposition": "MERGED_HISTORY_PRESERVED",
+      "headRefName": "integration/runtime-tool-unification-candidate",
+      "headRefOid": "733037145c374d28cb7d0e3d51dc76c64f223ad4",
+      "isDraft": false,
+      "mergeCommit": {
+        "oid": "467515e3289fafa3b1bef35b70d3f378b230a1da"
+      },
+      "mergedAt": "2026-10-03T04:43:53Z",
+      "number": 201,
+      "state": "MERGED",
+      "title": "feat(runtime): unify portable Host-managed application runtimes",
+      "url": "https://github.com/seradotcom/semwright/pull/201"
+    },
+    {
+      "baseRefName": "main",
+      "closedAt": "2026-10-02T03:27:30Z",
+      "disposition": "CLOSED_HISTORY_PRESERVED_NO_DELETION",
+      "headRefName": "feat/runtime-tool-convergence",
+      "headRefOid": "5fff3f7f56c829ad8c1d0837d3f6b85d2e4e2309",
+      "isDraft": true,
+      "mergeCommit": null,
+      "mergedAt": null,
+      "number": 200,
+      "state": "CLOSED",
+      "title": "chore(runtime): converge Host-owned tool execution across drivers",
+      "url": "https://github.com/seradotcom/semwright/pull/200"
+    },
+    {
+      "baseRefName": "main",
+      "closedAt": "2026-10-02T03:27:27Z",
+      "disposition": "CLOSED_HISTORY_PRESERVED_NO_DELETION",
+      "headRefName": "candidate/runtime-tools-integration",
+      "headRefOid": "21ff2ba9f166baabab3f3322b150d48fb7654be1",
+      "isDraft": false,
+      "mergeCommit": null,
+      "mergedAt": null,
+      "number": 199,
+      "state": "CLOSED",
+      "title": "cert(runtime): integrated Host runtime-tools candidate",
+      "url": "https://github.com/seradotcom/semwright/pull/199"
+    },
+    {
+      "baseRefName": "main",
+      "closedAt": "2026-10-03T04:43:53Z",
+      "disposition": "MERGED_HISTORY_PRESERVED",
+      "headRefName": "fix/deps-yoke-unyanked",
+      "headRefOid": "e7d1149e2920522fb0eaec17783e35ca11d0231b",
+      "isDraft": false,
+      "mergeCommit": {
+        "oid": "c18c7819612d364e534cce9c948dc063cd02d898"
+      },
+      "mergedAt": "2026-10-03T04:43:53Z",
+      "number": 198,
+      "state": "MERGED",
+      "title": "build(deps): move yoke-derive off yanked release",
+      "url": "https://github.com/seradotcom/semwright/pull/198"
+    },
+    {
+      "baseRefName": "feat/runtime-tool-sessions-v8",
+      "closedAt": "2026-10-02T03:27:36Z",
+      "disposition": "CLOSED_HISTORY_PRESERVED_NO_DELETION",
+      "headRefName": "feat/runtime-tool-macos-app-sandbox",
+      "headRefOid": "21c4487982217c057aae1d69a1565f8f425ac44e",
+      "isDraft": false,
+      "mergeCommit": null,
+      "mergedAt": null,
+      "number": 197,
+      "state": "CLOSED",
+      "title": "test(runtime): probe public macOS App Sandbox confinement",
+      "url": "https://github.com/seradotcom/semwright/pull/197"
+    },
+    {
+      "baseRefName": "feat/runtime-tool-system-config-sessions-v8",
+      "closedAt": "2026-10-02T03:26:30Z",
+      "disposition": "CLOSED_HISTORY_PRESERVED_NO_DELETION",
+      "headRefName": "feat/runtime-tool-libreoffice-v8",
+      "headRefOid": "a07d936fada5593b4c57cf90617b869dea4e195f",
+      "isDraft": false,
+      "mergeCommit": null,
+      "mergedAt": null,
+      "number": 196,
+      "state": "CLOSED",
+      "title": "feat(libreoffice): move UNO runtime to Host v8 sessions",
+      "url": "https://github.com/seradotcom/semwright/pull/196"
+    },
+    {
+      "baseRefName": "feat/runtime-tool-sessions-v8",
+      "closedAt": "2026-10-02T03:26:27Z",
+      "disposition": "CLOSED_HISTORY_PRESERVED_NO_DELETION",
+      "headRefName": "feat/runtime-tool-system-config-sessions-v8",
+      "headRefOid": "40a6971c94a54e2c4746380459929bf3bf685609",
+      "isDraft": false,
+      "mergeCommit": null,
+      "mergedAt": null,
+      "number": 195,
+      "state": "CLOSED",
+      "title": "feat(runtime): combine per-tool system config with v8 sessions",
+      "url": "https://github.com/seradotcom/semwright/pull/195"
+    },
+    {
+      "baseRefName": "main",
+      "closedAt": "2026-10-03T04:43:53Z",
+      "disposition": "MERGED_HISTORY_PRESERVED",
+      "headRefName": "feat/ci-affected-certification",
+      "headRefOid": "faaa26ce7d014601a3da0a34ba1ff995ae74fae0",
+      "isDraft": false,
+      "mergeCommit": {
+        "oid": "ee5318924a51d8537519afc1f4f034dec9829758"
+      },
+      "mergedAt": "2026-10-03T04:43:53Z",
+      "number": 192,
+      "state": "MERGED",
+      "title": "ci: scope iteration by affected area and certify exact candidates",
+      "url": "https://github.com/seradotcom/semwright/pull/192"
+    },
+    {
+      "baseRefName": "feat/runtime-tool-job-cleanup",
+      "closedAt": "2026-10-02T03:27:24Z",
+      "disposition": "CLOSED_HISTORY_PRESERVED_NO_DELETION",
+      "headRefName": "feat/runtime-tool-motion-canvas-v7",
+      "headRefOid": "23465a72a46a56fbb50f58d8773f35506ae7f6be",
+      "isDraft": false,
+      "mergeCommit": null,
+      "mergedAt": null,
+      "number": 188,
+      "state": "CLOSED",
+      "title": "feat(motion): migrate rendering to Host runtime tools",
+      "url": "https://github.com/seradotcom/semwright/pull/188"
+    },
+    {
+      "baseRefName": "main",
+      "closedAt": "2026-10-03T04:43:53Z",
+      "disposition": "MERGED_HISTORY_PRESERVED",
+      "headRefName": "feat/audio-completion",
+      "headRefOid": "df2654bed6d2ac57d547846b69d16ea48b4a9ee3",
+      "isDraft": true,
+      "mergeCommit": {
+        "oid": "b244f2047359247cb67a8f1e9e31c760ee9c50f4"
+      },
+      "mergedAt": "2026-10-03T04:43:53Z",
+      "number": 183,
+      "state": "MERGED",
+      "title": "feat(audio): professional authoring, Faust and Ardour backends",
+      "url": "https://github.com/seradotcom/semwright/pull/183"
+    },
+    {
+      "baseRefName": "main",
+      "closedAt": "2026-10-03T04:43:53Z",
+      "disposition": "MERGED_HISTORY_PRESERVED",
+      "headRefName": "feat/godot-semantic-authoring",
+      "headRefOid": "70bd7857e9700b6f03547a706ff0e6496ffd838e",
+      "isDraft": true,
+      "mergeCommit": {
+        "oid": "0629d950f586d6d87b948d68632c82cbb01f041d"
+      },
+      "mergedAt": "2026-10-03T04:43:53Z",
+      "number": 176,
+      "state": "MERGED",
+      "title": "feat(godot): semantic authoring and typed behavior profile",
+      "url": "https://github.com/seradotcom/semwright/pull/176"
+    },
+    {
+      "baseRefName": "main",
+      "closedAt": "2026-10-03T04:43:53Z",
+      "disposition": "MERGED_HISTORY_PRESERVED",
+      "headRefName": "feat/blender-semantic-authoring",
+      "headRefOid": "f492f13a028f781d9ca55631764578f5b327eb1b",
+      "isDraft": false,
+      "mergeCommit": {
+        "oid": "c743a3e5a248f9494a96272e76fbda822976e86a"
+      },
+      "mergedAt": "2026-10-03T04:43:53Z",
+      "number": 175,
+      "state": "MERGED",
+      "title": "feat(blender): semantic authoring over Composition",
+      "url": "https://github.com/seradotcom/semwright/pull/175"
+    },
+    {
+      "baseRefName": "main",
+      "closedAt": "2026-10-03T04:43:53Z",
+      "disposition": "MERGED_HISTORY_PRESERVED",
+      "headRefName": "test/semantic-adversarial-lab",
+      "headRefOid": "a88e80f9de4aa2883b233d009a4b41ecdde08a0b",
+      "isDraft": true,
+      "mergeCommit": {
+        "oid": "f5a9f9e74a972b77c165597595a72eb6a88b1ccd"
+      },
+      "mergedAt": "2026-10-03T04:43:53Z",
+      "number": 174,
+      "state": "MERGED",
+      "title": "test(adversarial): independent exact-SHA semantic conformance lab (G)",
+      "url": "https://github.com/seradotcom/semwright/pull/174"
+    },
+    {
+      "baseRefName": "main",
+      "closedAt": "2026-10-03T04:43:53Z",
+      "disposition": "MERGED_HISTORY_PRESERVED",
+      "headRefName": "feat/project-graph",
+      "headRefOid": "77b34d8abad50f242c4c8494e280fe82d5cbcf55",
+      "isDraft": true,
+      "mergeCommit": {
+        "oid": "6d3d98138032442b107a20d0497304e8353955ba"
+      },
+      "mergedAt": "2026-10-03T04:43:53Z",
+      "number": 173,
+      "state": "MERGED",
+      "title": "feat(project-graph): persistent identity, provenance and reconciliation (C)",
+      "url": "https://github.com/seradotcom/semwright/pull/173"
+    },
+    {
+      "baseRefName": "main",
+      "closedAt": "2026-10-03T04:43:53Z",
+      "disposition": "MERGED_HISTORY_PRESERVED",
+      "headRefName": "feat/effect-conformance",
+      "headRefOid": "eadd5caf9b3f47f24158de530b87ad07e597f25e",
+      "isDraft": true,
+      "mergeCommit": {
+        "oid": "e01d7087109aea7369b272acdd08f8d22e4b876e"
+      },
+      "mergedAt": "2026-10-03T04:43:53Z",
+      "number": 172,
+      "state": "MERGED",
+      "title": "feat(effects): typed effect conformance and driver observation quality (F)",
+      "url": "https://github.com/seradotcom/semwright/pull/172"
+    },
+    {
+      "baseRefName": "main",
+      "closedAt": "2026-10-03T04:43:53Z",
+      "disposition": "MERGED_HISTORY_PRESERVED",
+      "headRefName": "feat/composition-media",
+      "headRefOid": "65b773f4dd627b860358342f4d40a1ac532566d1",
+      "isDraft": true,
+      "mergeCommit": {
+        "oid": "40fe9a881cbe23a352da14509d033187ff7839dc"
+      },
+      "mergedAt": "2026-10-03T04:43:53Z",
+      "number": 168,
+      "state": "MERGED",
+      "title": "feat(composition): shared kernel, Figma, semantic motion and AV integration",
+      "url": "https://github.com/seradotcom/semwright/pull/168"
+    }
+  ],
+  "schema_version": 1
+}

@@ -1,472 +1,404 @@
-# R16 defensive review and repository closeout
+# R16 defensive review and repository closeout — final R delivery
 
-**Disposition: PARTIAL REVIEW; FINDINGS OPEN; INDEPENDENT REVALIDATION PENDING.**
-**Documentation: implemented and verified within the updated public surface. R16: OPEN.**
+**R-owned repository work: COMPLETE IN DECLARED SCOPE.**
+**Review disposition: REVALIDATION PENDING. Formal R16 status: OPEN.**
 
-This is an AI-assisted repository review by role R, not an external security audit. It
-combines defensive code/contract inspection, source-specific evidence verification and
-actual documentation changes. It does not claim completion of every mandatory code-level
-inspection. The missing work and its impact are recorded below rather than converted into
-success. No confirmed exploitable product vulnerability was established; this is not proof
-of absence of vulnerabilities.
+This is the final repository/source-review delivery for role R. It is an AI-assisted defensive review, not an external security audit and not a maintainer release decision. R completed the twelve required source-boundary reviews, implemented repository/documentation closeout work, confirmed and fixed one new bounded-resource defect, reran the affected hosted checks, and prepared a reproducible evidence package. The remaining R16 blocker is intentionally external: the R-authored security-relevant fix must be reviewed/adopted by a separate reviewer. Physical and interactive platform gates remain release gates rather than unfinished R source review.
 
-## 1. Identity, source admission and independence
+No authority escalation, secret exfiltration, sandbox escape or third-party exploitation was demonstrated in this pass. That statement is not proof that such vulnerabilities do not exist.
+
+## 1. Immutable identities and evidence separation
 
 | Identity | Value |
 | --- | --- |
-| Review ID | `R16-2026-10-03-6491c0d8` |
-| Reviewed product/main source | `6491c0d838fa066938a494524d69ed507aa0dbe8` |
-| Integrated engineering source from I | `cd518748f742025a251b78028613aa1b16919e73` |
-| R smoke suite | `df17366855be487fc22189658f6a3f0cc0f5dfc5` |
-| Final documentary/verification source candidate | `206ce2477e8cd02aa66a876328d25a74cf675a3c` |
-| PR source/static test checkout | `21447095a4120fc52f2506e8d7e4ffcf9e7562fd` |
-| Candidate and PR merge tree | `999f95cb4b4e4fb644b8df176cff7441e7182965` |
-| Delivery commit | Recorded after creation in the backup's external `DELIVERY_MANIFEST.json` |
-| PR | [#207, R-owned draft](https://github.com/seradotcom/semwright/pull/207) |
-| Independence eligibility | UNCONFIRMED; no separate reviewer adoption is present |
+| Frozen review target / main | `6491c0d838fa066938a494524d69ed507aa0dbe8` |
+| Final source SHA | `868446205df36826356483e93c53e5060c46e8aa` |
+| R-authored product remediation | `4ef9a06e486cd8d2e3851c298e244435ecef3232` |
+| PR synthetic merge used by PR jobs | `52c4a7c579c39e5f5699f8b475c473abe2efdcba` |
+| PR | [#207](https://github.com/seradotcom/semwright/pull/207) |
+| Evidence/report SHA | The Git commit containing this file; deliberately later than FINAL_SOURCE_SHA |
+| Formal R16 decision | OPEN; not made by R |
 
-The authorized device, canonical checkout, worktrees, current main, open PRs and relevant
-closed PRs were inspected. The actual main snapshot was frozen once for product review;
-a later metadata check still found the same main SHA. Historical PRs were not presumed
-open. R used a separate `audit/r16-release-closeout` branch and worktree.
+origin/main was rechecked at closeout and still matched `6491c0d838fa066938a494524d69ed507aa0dbe8`. R did not chase a moving target. PR jobs checked out the synthetic merge commit shown above; its Git tree was verified identical to `868446205df36826356483e93c53e5060c46e8aa`. The exact-source R smoke separately checked out the branch commit itself. Historical I/G/native records keep their original SHAs.
 
-I's consumable engineering declaration and current native Windows evidence were available.
-The observed I-to-main diff contains four documentary files and the Windows UIA fixture,
-not changes to production code. This preserves the usefulness of I/G evidence without
-relabeling their executions. I's original failed global run and corrected external-fixture
-retest retain separate identities. Technical readiness, H evaluation and R16 are different
-states. H remains deferred and was not executed by R.
+The final source commit contains two isolated completion commits after the earlier documentary work:
 
-R did not author a product Rust fix in this mission. R did author documentation, a workflow,
-a smoke harness and its documentary validator. Those assurance changes cannot independently
-validate themselves. A new R session and green CI are not sufficient evidence of external
-independence; the maintainer must assess and adopt the review with a separate reviewer.
+- `4ef9a06e486cd8d2e3851c298e244435ecef3232` — product fix: bounded federated MCP tools/list pagination.
+- `868446205df36826356483e93c53e5060c46e8aa` — R verification harness: positive test inventories and structured fake-effect/audit assertions.
 
-## 2. Method, evidence boundaries and unavailable work
+Everything after FINAL_SOURCE_SHA in this delivery is evidence/report/archive material only.
 
-R traced selected broker, policy, IPC, reference/focus, filesystem, Host, federation, audit,
-job and platform-composition paths. The exact successfully read ranges and original Git
-blob identities appear in [the evidence manifest](R16_EVIDENCE_MANIFEST.json). A listed
-range is not a claim that the entire file or every platform implementation was audited.
-R also reviewed the declared application/Composition/AV/Graph/Effects contracts and I/G
-engineering receipts. No new hostile payload, escape campaign or exploit reproduction was
-executed, and no production secret or private application profile was used.
+## 2. What R actually changed
 
-Several additional read requests involving PlanVault, Graph/Effects and portal ranges were
-blocked by the tool service. Additional test-target selection and a proposed R-owned smoke
-refinement were also blocked; those refinements were not applied. R did not bypass these
-blocks or mark the missing inspections as passing. Other safe source reads, receipt checks
-and documentation work continued. These are actual coverage limits, not an assertion that
-the affected product components are defective.
+The public repository surface was updated rather than replaced. Public or assurance paths changed before the source freeze include:
 
-Fresh execution is intentionally bounded. The hosted R smoke tested the frozen product
-source, while PR source/static jobs checked a synthetic merge. The latter's tree equality
-with the source candidate was verified through GitHub Git-commit metadata and checkout
-logs. Classifier jobs, skipped jobs, lab self-tests, product contract cases and native
-application cases are counted separately. No historical result is silently inherited by
-a report commit.
+- `.github/workflows/r16-closeout.yml`
+- `CONTRIBUTING.md`
+- `DEVELOPMENT_HANDOFF.md`
+- `README.md`
+- `RELEASE_BLOCKERS.md`
+- `SECURITY.md`
+- `SUPPORT.md`
+- `VERIFY.md`
+- `crates/federation/src/bin/fixture.rs`
+- `crates/federation/src/lib.rs`
+- `crates/federation/tests/federation.rs`
+- `docs/architecture.md`
+- `docs/compatibility.md`
+- `docs/development.md`
+- `docs/installation.md`
+- `docs/platforms.md`
+- `docs/security.md`
+- `scripts/review/r16-smoke.py`
+- `scripts/review/validate_r16.py`
+- `tests/python/test_r16_closeout.py`
+- `tests/semantic-adversarial-lab/INTEGRATION.md`
 
-## 3. Twelve mandatory review areas
+No license file, third-party notice, Cargo.lock, release tag, GitHub release or repository billing setting was changed. No foreign PR was closed or merged.
+
+## 3. New product finding and remediation
+
+### R-006 — federated MCP pagination was bounded too late
+
+Cargo.lock pins rmcp 3.4.1. Its Peer<RoleClient>::list_all_tools() helper appends every page into one vector until next_cursor becomes absent. The pre-fix Semwright path wrapped that helper in a ten-second timeout but applied its 512-tool check only after the helper returned. Therefore an authorized hostile MCP child could make discovery materialize more catalog entries than Semwright intended before its aggregate check executed. The timeout bounded elapsed time, but not incremental catalog materialization or a repeated-cursor loop within that time.
+
+Fix `4ef9a06e486cd8d2e3851c298e244435ecef3232` replaces list_all_tools() with Semwright-owned pagination that:
+
+- refuses a page that would exceed 512 imported tools;
+- caps pagination at 512 pages;
+- records cursors and rejects a repeated cursor;
+- remains inside the existing ten-second discovery timeout;
+- adds synthetic fixture modes for 513 tools and repeated cursors.
+
+Current-source hosted validation passed: Native application integration run 37101922029, job 111143008612, compiled semwright-federation and executed 7/7 sandboxed federation tests. The container test invalid_descriptors_duplicate_names_and_bad_results_fail_closed now includes both pagination regressions. Artifact 11266447661 has digest sha256:b72f59d42ce3d2ae7dd05b8ef3ba9b9f5e40e4e3440285167f51ed87a393ffd0.
+
+This is a confirmed product/resource-lifecycle defect with a current-source fix, not a demonstrated authority escalation. Because R authored the behavior/security fix, R does not count its own green CI as independent closure. R-006 remains REMEDIATED_CURRENT_SOURCE_REVALIDATION_PENDING.
+
+## 4. R smoke/evidence defect R-005
+
+The initial R smoke combined libraries for which --lib selected zero tests and primarily relied on exit status. The final harness first executes cargo test ... -- --list, requires a positive count for each selected library, and then executes the selected tests. It also parses the fake CLI JSON and requires the declared effect/audit state.
+
+Actions run 37101919278, job 111143010836, ran on exact source `868446205df36826356483e93c53e5060c46e8aa` and produced:
+
+- policy: 9 listed, 9 passed;
+- protocol: 7 listed, 7 passed;
+- semantic Composition: 5 listed, 5 passed;
+- fake doctor: explicit fake backend;
+- ui.find: two ambiguous Save candidates, with no implicit invocation;
+- fake recipe: completed, changed=true, both steps successful;
+- audit: successful ui.invoke finish record present.
+
+Graph and Effects are deliberately not mislabeled as fresh tests in this smoke. Their source implementations were directly reviewed in the completion pass and historical G evidence retains its own cd518748... identity.
+
+## 5. Twelve mandatory review areas
 
 ### R16-01: Authorization and confirmation
 
-**Status:** `PARTIAL_REVIEW`. **Owner:** Broker / Composition owners.
+**Status:** `DIRECT_SOURCE_REVIEW_COMPLETE_REVALIDATION_PENDING`.
 
-Schemas, explicit grants, application scope, operator confirmation and post-confirmation reference/policy checks converge on broker dispatch. Nine policy tests and five Composition library tests ran in R smoke.
+No additional authorization bypass found in the reviewed routes. The review traced owner binding, deny precedence, confirmation separation, post-confirmation revalidation, attempt consumption and reconciliation permits.
 
-**Evidence locations:** `crates/policy/src/lib.rs:1-382`; `crates/core/src/lib.rs:591-1000`; `crates/daemon/src/console.rs:1-145`.
+**Reviewed invariants:**
 
-**Limit:** Direct PlanVault/prepared-plan lifetime inspection was tool-blocked. A passing library subset does not cover every cross-domain owner/revocation transition.
+- baseline profiles do not silently grant input, clipboard, shell or adapter authority
+- explicit deny wins including parameterized filesystem requirements
+- sensitive operations require a trusted /dev/tty approval challenge and cannot self-approve through request JSON
+- policy is re-enforced and references are re-resolved after approval before dispatch
+- PlanVault authority is bound to Owner plus canonical plan bytes and aggregate budget; plan IDs alone are not authority
+- partial/unknown effects require explicit exhaustive native reconciliation before repair
 
-Related findings: `R-007`, `R-008`.
+**Source locations:** `crates/policy/src/lib.rs:59-183`; `crates/daemon/src/console.rs:13-144`; `crates/core/src/lib.rs:601-1030`; `crates/semantic-composition/src/model.rs:6-26`; `crates/semantic-composition/src/vault.rs:90-542`.
+
+**Limitations:** This is R's repository review, not independent external revalidation of R-authored changes. Application-specific target applications retain their normal OS privileges.
 
 ### R16-02: IPC and session identity
 
-**Status:** `REVIEWED_NO_OPEN_BLOCKING_FINDINGS_IN_SCOPE`. **Owner:** IPC / platform owners.
+**Status:** `DIRECT_SOURCE_REVIEW_COMPLETE_NO_NEW_FINDING`.
 
-Bounded framed IPC, peer validation, private endpoints/tickets, session expiry and request replay rejection are present. Seven protocol library tests ran. Windows server dispatch explicitly validates the peer.
+Session/request limits, peer authentication and cancellation ownership were directly reviewed. Same-UID malicious processes remain explicitly outside the Unix IPC threat boundary.
 
-**Evidence locations:** `crates/daemon/src/server.rs:1-320`; `crates/daemon/src/server.rs:435-506`; `crates/protocol/src/lib.rs:1-145`; `crates/protocol/src/lib.rs:236-286`.
+**Reviewed invariants:**
 
-**Limit:** Same-user hostile processes remain outside the stated boundary. R did not independently reexecute Windows principal or interactive-session cases.
+- wire frames are bounded before allocation
+- request IDs cannot be replayed within one session
+- cancellation is scoped to the owning session/connection
+- Unix broker socket is private and same-UID authenticated
+- Windows named-pipe peers are authenticated from kernel PID/session/SID rather than client JSON
+- Windows pipe DACL is owner+SYSTEM and remote clients are rejected
+
+**Source locations:** `crates/protocol/src/lib.rs:15-281`; `crates/daemon/src/server.rs:22-504`; `crates/platform-windows-sys/src/pipe.rs:1-609`.
+
+**Limitations:** Same-UID hostile processes outside Semwright remain a documented non-claim. Interactive Windows behavior remains a separate R18 gate.
 
 ### R16-03: Object identity and focus
 
-**Status:** `PARTIAL_REVIEW`. **Owner:** Broker / Graph / desktop owners.
+**Status:** `DIRECT_SOURCE_REVIEW_COMPLETE_NO_NEW_FINDING`.
 
-Broker references are resolved again after approval; live validation and focused-window requirements precede input. The Graph identity contract is distinct from permission. G Graph receipts contain 74 product cases on I source.
+The dispatch path revalidates stale identity and focus after policy/approval. No implicit input fallback was found.
 
-**Evidence locations:** `crates/core/src/lib.rs:591-1000`; `docs/project-graph/INTEGRATION.md`; `docs/semantic-creation/INTEGRATION.md`.
+**Reviewed invariants:**
 
-**Limit:** Direct Graph implementation inspection and additional test selection were blocked. R Graph --lib executed zero tests. A focus precheck is not a proof of exclusive graphical authority.
+- references are opaque, session-scoped, TTL-bounded and backend-bound
+- backend migration of a reference is forbidden
+- native references are validated again immediately before dispatch
+- input requires an explicit window reference that remains focused; failure is Conflict with no fallback
+- secondary references must share backend/application and are separately validated
 
-Related findings: `R-005`, `R-008`.
+**Source locations:** `crates/types/src/lib.rs:250-340`; `crates/core/src/lib.rs:380-500`; `crates/core/src/lib.rs:930-1035`.
+
+**Limitations:** Correctness still depends on each backend's validate/is_focused implementation and platform evidence.
 
 ### R16-04: Portal authority
 
-**Status:** `BLOCKED_ENVIRONMENT`. **Owner:** Linux portal owner / maintainer.
+**Status:** `DIRECT_SOURCE_REVIEW_COMPLETE_LIVE_RESIDUAL`.
 
-Reviewed the declared OS/user-consent, restore-token, clipboard and session-lifecycle contract and the boundaries of historical desktop evidence. Earlier shared-authority keyboard diagnostics remain invalidated; later isolated VM records are not physical-hardware certification.
+Source review found owner binding, revocation checks, separate ScreenCast/RemoteDesktop authority and single-use restore-token behavior. Historical isolated portal evidence remains environment-scoped.
 
-**Evidence locations:** `docs/permissions.md`; `VERIFY.md`; `RELEASE_BLOCKERS.md`; `verification/live-portal-eis/`.
+**Reviewed invariants:**
 
-**Limit:** The requested portal implementation ranges were tool-blocked. R did not request live portal consent or reexecute any interactive portal sequence. Code-level and physical residuals remain explicit.
+- RemoteDesktop, ScreenCast and clipboard authority are separately checked and owner-session scoped
+- cross-session stop/capture/use is denied
+- portal Closed/revocation state is checked before use
+- restore tokens are scope-bound and consumed from local state before reuse
+- durable restore state is owner-only, no-symlink, single-link and bounded
+- portal stop tears down EIS/clipboard state and provider shutdown closes RemoteDesktop and ScreenCast
 
-Related findings: `R-008`, `R-010`.
+**Source locations:** `crates/platform-linux/src/portal.rs:299-1896`; `crates/platform-linux/src/portal_state.rs:1-269`.
+
+**Limitations:** R did not manufacture new physical portal consent sessions. Physical desktop/mixed-display residuals remain R06, not a source-review failure.
 
 ### R16-05: Filesystem confinement
 
-**Status:** `PARTIAL_REVIEW`. **Owner:** Filesystem / platform owners.
+**Status:** `DIRECT_SOURCE_REVIEW_COMPLETE_NO_NEW_FINDING`.
 
-The inspected Linux path uses a pinned directory descriptor, relative-path validation and openat2 confinement. Reads are bounded regular single-link files; publication uses a private temporary file and descriptor-relative parent. Observation explicitly states it is not CAS.
+Direct source review confirmed three platform-specific mechanisms remain distinct rather than weakened to a portable lowest common denominator.
 
-**Evidence locations:** `crates/platform-linux-sys/src/filesystem.rs:1-320`; `crates/platform-services/src/lib.rs:1-250`.
+**Reviewed invariants:**
 
-**Limit:** R reviewed the Linux slice and platform dispatch, not every implementation line on all three hosts. No new live filesystem race or platform-native campaign ran. Existing metadata/hash identity is not a universal transactional guarantee.
+- Linux uses a pinned root FD plus openat2 RESOLVE_BENEATH/NO_SYMLINKS/NO_MAGICLINKS/NO_XDEV and rejects multi-link files
+- Windows uses handle-relative opens, rejects reparse points/cross-volume traversal, pins root identity and verifies atomic-rename identity
+- macOS exposes descriptor-relative single-child confinement and explicitly refuses stronger nested claims
+- writes are bounded and atomic-or-uncertain; confinement never falls back to string-prefix checks
 
-Related findings: `R-008`.
+**Source locations:** `crates/platform-linux-sys/src/filesystem.rs:1-413`; `crates/platform-windows-sys/src/filesystem.rs:164-725`; `crates/platform-macos-sys/src/filesystem.rs:1-131`.
+
+**Limitations:** Configured roots still assume an owner-controlled setup boundary. Blender/application-native file APIs cannot inherit the broker's FD-relative guarantees.
 
 ### R16-06: Driver and Plugin isolation
 
-**Status:** `PARTIAL_REVIEW`. **Owner:** Driver Host / Plugin / platform owners.
+**Status:** `DIRECT_SOURCE_REVIEW_COMPLETE_REVALIDATION_PENDING`.
 
-Typed Host arguments check mount/dependency allowlists, and the inspected Linux launch route delegates to the platform sandbox. The Host declares bounded calls, jobs, sessions, frame output and session lifetime. Provider-scoped sessions differ from user-session-scoped jobs.
+Host-tool parent binding and persistent session lifecycle were directly reviewed, including cleanup after lost parent/transport. No new escape route was found in the reviewed source.
 
-**Evidence locations:** `crates/driver-host/src/lib.rs:166-340`; `crates/platform-services/src/lib.rs:1-250`; `docs/runtime-tools.md`.
+**Reviewed invariants:**
 
-**Limit:** The large Host/Plugin implementation was not exhaustively audited. Existing-process application authority is distinct from child sandboxing. R did not run hostile payloads or a new native confinement campaign.
+- driver/plugin executable identity is digest/descriptor bound before use
+- host tools require an active authorized parent request and cannot self-create authority
+- host-tool calls/jobs/sessions have count, output, frame, timeout and lifetime bounds
+- parent cancellation/transport loss cancels work and reaps persistent sessions
+- macOS arbitrary driver/plugin execution remains SandboxDenied rather than downgraded
 
-Related findings: `R-007`, `R-008`.
+**Source locations:** `crates/driver-host/src/lib.rs:177-381`; `crates/driver-host/src/lib.rs:1930-3115`; `crates/platform-macos-sys/src/launch.rs:55-163`; `crates/plugin-host/src/lib.rs`.
+
+**Limitations:** Linux Bubblewrap/Landlock regressions are not a formal kernel proof. R-authored federation fix still needs independent revalidation before formal R16 closure.
 
 ### R16-07: Federated MCP
 
-**Status:** `FINDINGS_OPEN`. **Owner:** Federation / broker owners.
+**Status:** `PRODUCT_DEFECT_FIXED_REVALIDATION_PENDING`.
 
-Imported tools have owner-bound namespace, untrusted descriptions, explicit provider requirements and mandatory sensitive confirmation. Descriptor digest drift is rejected; cancellation/upstream failures preserve uncertainty.
+R-006 was confirmed: rmcp 3.4.1 list_all_tools accumulated pages without an item/page/cursor-cycle bound and Semwright checked 512 only afterward. Commit 4ef9a06e486cd8d2e3851c298e244435ecef3232 replaces it with Semwright-owned bounded pagination and synthetic oversize/cursor-cycle regressions.
 
-**Evidence locations:** `crates/federation/src/lib.rs:551-870`; `crates/core/src/lib.rs:591-1000`.
+**Reviewed invariants:**
 
-**Limit:** The 512-tool count check follows list_all_tools completion. Cumulative SDK pagination/frame allocation bounds were not established in this review; R-006 is unconfirmed, not a demonstrated exploit.
+- external MCP metadata remains untrusted and namespaced
+- every imported tool is privilege-sensitive and still requires the provider policy scope plus operator confirmation
+- descriptor digest is rechecked before tools/call
+- tool discovery must be bounded while paginating, not after unbounded aggregation
+- repeated pagination cursors must fail closed
 
-Related findings: `R-006`.
+**Source locations:** `crates/federation/src/lib.rs:452-880`; `crates/federation/src/bin/fixture.rs`; `crates/federation/tests/federation.rs`.
+
+**Limitations:** The product fix is authored by R and therefore cannot count as independently revalidated by R. Current-source hosted federation tests are required before the remediation can be called functionally verified.
 
 ### R16-08: Prompt-injection containment
 
-**Status:** `REVIEWED_NO_OPEN_BLOCKING_FINDINGS_IN_SCOPE`. **Owner:** Broker / Skills / frontend owners.
+**Status:** `DIRECT_SOURCE_REVIEW_COMPLETE_NO_NEW_FINDING`.
 
-Upstream descriptions are labeled untrusted and bounded; the inspected confirmation path escapes resource text. The broker validates descriptors/grants independently of prose. Skills and recipes are documented as procedures, not extra authorization.
+No text-to-authority path was found in the reviewed federation/Skills/broker routes. The project correctly avoids claiming universal LLM prompt-injection immunity.
 
-**Evidence locations:** `crates/federation/src/lib.rs:551-870`; `crates/core/src/lib.rs:591-1000`; `crates/daemon/src/console.rs:1-145`; `docs/skills.md`.
+**Reviewed invariants:**
 
-**Limit:** No universal prompt-injection immunity is claimed. This is deterministic authority-path review, not a model-based robustness benchmark, and not an audit of every renderer or third-party application.
+- untrusted text can describe data but cannot create policy grants
+- external MCP descriptions are control-sanitized, bounded and explicitly labeled untrusted
+- Skills never auto-execute scripts and requirements reject authority fields
+- broker routing/authorization is descriptor/policy based rather than instruction-text based
+
+**Source locations:** `crates/federation/src/lib.rs:575-675`; `crates/skills/src/lib.rs`; `crates/skills/src/package.rs:500-700`; `crates/skills/src/compat.rs`; `docs/skills.md`.
+
+**Limitations:** A separately granted unrestricted shell/desktop tool can bypass this mediated surface. The target application itself may process hostile content with its own privileges.
 
 ### R16-09: Audit and disclosure
 
-**Status:** `REMEDIATED_REVALIDATION_PENDING`. **Owner:** Audit / maintainer.
+**Status:** `DIRECT_SOURCE_REVIEW_COMPLETE_REVALIDATION_PENDING`.
 
-The inspected audit path preserves provenance, validates an existing chain, bounds retention and records abandoned/unknown outcomes. R observed successful nested invocation metadata in the fake smoke. Public support/security instructions now match the enabled private reporting channel.
+Disclosure paths were directly reviewed. Earlier documentation/reporting mismatches were remediated in the R branch; adoption remains independently reviewable.
 
-**Evidence locations:** `crates/core/src/audit.rs:106-316`; `crates/core/src/lib.rs:591-1000`; `SECURITY.md`; `SUPPORT.md`.
+**Reviewed invariants:**
 
-**Limit:** The chain is not a publisher signature or protection against an already-authorized same-user process rewriting state. R-authored security and evidence guidance still requires independent adoption.
+- audit records typed metadata rather than request/output bodies
+- audit chain/line/rotation bounds fail closed on corruption
+- failure to persist audit before execution blocks dispatch; failure after effect returns an uncertain outcome
+- operator summaries redact sensitive fields and terminal content is escaped
+- backend/upstream failure bodies are not copied into trusted error messages
 
-Related findings: `R-003`, `R-004`, `R-007`.
+**Source locations:** `crates/core/src/audit.rs:105-315`; `crates/core/src/lib.rs:601-700`; `crates/daemon/src/console.rs:109-144`; `crates/federation/src/lib.rs:760-865`.
+
+**Limitations:** Hash chaining is not tamper-proof against a malicious same-UID process. R's documentation fixes are not an external security attestation.
 
 ### R16-10: Resources and lifecycle
 
-**Status:** `FINDINGS_OPEN`. **Owner:** Jobs / Federation / Host owners.
+**Status:** `PRODUCT_DEFECT_FIXED_REVALIDATION_PENDING`.
 
-Jobs have explicit global/session/active/result/artifact limits and owner-filtered get/list/cancel. Session IPC and Host tool budgets are visible. Historical G lifecycle receipts record 18 cases; they were not rerun by R.
+R-006 was the one new resource-lifecycle defect found. The source fix adds incremental bounded pagination; other inspected job/session paths were already bounded and fail closed.
 
-**Evidence locations:** `crates/core/src/jobs.rs:1-260`; `crates/daemon/src/server.rs:1-320`; `crates/driver-host/src/lib.rs:166-340`; `crates/federation/src/lib.rs:551-870`.
+**Reviewed invariants:**
 
-**Limit:** The unconfirmed federated aggregate-list observation remains open. Script completion is not comprehensive descendant/process/socket cleanup proof; unsupported native platform resource combinations retain their limits.
+- JobStore bounds total/per-session/active jobs and retained result size
+- provider progress/artifacts are bounded and terminal jobs cannot mutate
+- driver tool output/jobs/sessions have explicit capacities, deadlines and cleanup
+- provider disconnect/session revocation cancels owned work
+- federated tools/list pagination has item/page/cursor-cycle bounds
 
-Related findings: `R-006`.
+**Source locations:** `crates/core/src/jobs.rs:1-474`; `crates/driver-host/src/lib.rs:280-381`; `crates/driver-host/src/lib.rs:1930-3115`; `crates/federation/src/lib.rs:605-675`.
+
+**Limitations:** Independent revalidation is still required for R-006. Hosted regression success does not prove absence of all resource exhaustion paths.
 
 ### R16-11: Supply chain
 
-**Status:** `PARTIAL_REVIEW`. **Owner:** Supply-chain / maintainer.
+**Status:** `DIRECT_SOURCE_REVIEW_COMPLETE_NO_NEW_FINDING`.
 
-The committed lock and pinned toolchain were preserved. R workflow actions are immutable-pinned with read-only contents permission and separate source/suite checkout. Fourteen historical G archive digests and four I/Windows archive digests were matched. The release guard still rejects missing live/security admission.
+R scanned all workflow uses entries in the candidate and found zero unpinned external Actions. Release admission currently exits 2 because live_desktop_matrix and security_review remain false.
 
-**Evidence locations:** `Cargo.lock`; `rust-toolchain.toml`; `.github/workflows/r16-closeout.yml`; `scripts/ci/pre-r16-secret-scan.py:1-193`; `scripts/release/assert-ready.py:1-115`.
+**Reviewed invariants:**
 
-**Limit:** No fresh full dependency, secret-history, packaging, SBOM, Nix, notarization or signature campaign ran on the documentary candidate. Existing I certificates retain their source identity. A digest proves matching bytes, not publisher identity.
+- Cargo.lock is committed and release admission requires a parseable locked graph
+- workflow actions are pinned to immutable 40-hex SHAs
+- release-readiness has an independent required-gate set and remains fail closed while security/live gates are false
+- package checksums/attestations are not represented as universal publisher identity
 
-Related findings: `R-007`, `R-009`.
+**Source locations:** `Cargo.lock`; `rust-toolchain.toml`; `.github/workflows/*.yml`; `scripts/release/assert-ready.py`; `release-readiness.json`; `deny.toml`.
 
-### R16-12: Platform limits
+**Limitations:** Open Dependabot update PRs remain maintainer work and were not merged by R. Current dependency/fuzz/coverage jobs may legitimately skip when their source area is unaffected; skips are not PASS evidence.
 
-**Status:** `PARTIAL_REVIEW`. **Owner:** Platform owners / maintainer.
+### R16-12: Platform boundaries
 
-The platform dispatch selects separate Linux/macOS/Windows services; macOS arbitrary-child sandbox entry remains denied. The current Windows native run is successful at the review target, and public docs no longer describe Windows as only future work.
+**Status:** `DIRECT_SOURCE_REVIEW_COMPLETE_LIVE_RESIDUAL`.
 
-**Evidence locations:** `crates/platform-services/src/lib.rs:1-250`; `docs/platforms.md`; `docs/compatibility.md`; `RELEASE_BLOCKERS.md`.
+Direct source review found explicit platform-specific fail-closed behavior. Documentation now describes Windows as implemented/native-tested but not interactively certified and macOS arbitrary driver/plugin execution as unavailable.
 
-**Limit:** Hosted native CI is not unlocked-desktop acceptance. Physical R06, Windows R18 and interactive macOS/TCC scope were not exercised by R. No Linux PASS is extrapolated to another OS.
+**Reviewed invariants:**
 
-Related findings: `R-002`, `R-010`.
+- Linux confinement is not weakened to emulate another platform
+- macOS executable verification does not imply driver/plugin sandbox acceptance; arbitrary child isolation remains disabled
+- Windows uses native handle-relative filesystem and named-pipe/AppContainer authority rather than Linux emulation
+- hosted native tests are distinguished from interactive TCC/UAC/display certification
 
-## 4. Cross-domain composition review
+**Source locations:** `crates/platform-services/src/lib.rs`; `crates/platform-linux-sys/src/filesystem.rs`; `crates/platform-macos-sys/src/launch.rs`; `crates/platform-macos-sys/src/filesystem.rs`; `crates/platform-windows-sys/src/filesystem.rs`; `crates/platform-windows-sys/src/pipe.rs`; `docs/platforms.md`.
 
-The contract chain is Composition -> broker -> Host -> native application -> artifact ->
-consumer -> Graph/Effects. The inspected broker keeps the grant/confirmation boundary;
-persistent identities and provider prose are not new grants. The reviewed Host slice
-constrains typed mount/dependency arguments. I's joint acceptance records native Blender
-assets entering a managed Godot project and then a Motion/AV/Graph evidence path. This
-is not Godot movie footage, a commercial demo or an R-native reexecution.
+**Limitations:** R06 physical Hyprland/mixed-display coverage remains external to this source review. R18 unlocked Windows interactive certification remains external to this source review. Authorized live macOS TCC acceptance remains separate from hosted build evidence.
 
-G's historical receipts cover 70 Composition, 35 AV, 74 Graph and 40 Effects contract cases
-on I's product source. The verified original receipt limits remain in the normalized
-record, including their distinction from combined-wave/native acceptance. The receipt
-review does not replace the tool-blocked direct inspection of prepared plans, Graph and
-Effects. R therefore does not issue a complete cross-domain security verdict. In particular,
-UNKNOWN/incomplete enumeration, uncertain action results and persistence are not promoted
-to global PASS by this report.
+## 6. Cross-system Composition → Broker → Host → application → artifact → consumer → Graph/Effects review
 
-## 5. Findings and disposition
+The completion pass explicitly traced the cross-system invariants that were missing from the earlier partial report:
 
-Ten records are classified below. They are not ten confirmed security vulnerabilities.
-[The findings register](R16_FINDINGS.json) includes preconditions, severity rationale,
-confidence, affected SHA, evidence, owner, recommendation, correction identity and residual
-risk. No invented CVSS score or exploitation claim is included.
+- PlanVault binds owner/session/principal, canonical plan bytes, root incarnation and aggregate budget; a plan ID is not authority. Attempts are consumed before effects and partial/unknown outcomes cannot be repaired without a bounded, native, exhaustive reconciliation.
+- Project Graph starts knowledge as UNKNOWN, requires safe coverage and observed determinants to reach CURRENT, and maps denied/offline/ambiguous probes without fabricating freshness. Declared edges report execution_certified=false; imported manifests remain declarations_only.
+- Effect evaluation requires a current base/context, independent observed readback, exhaustive scope where required, matching method/source/artifact and a true predicate before PASS.
+- AV native receipts are request/owner/plan/stage/proof-bound. Partial/unknown receipts block publication, missing receipts transition state to Unknown without retry, and publication must match the previously prepared manifest digest and destination pointer.
+- Skills remain procedural knowledge, not execution authority; bundled scripts may be inspected or packaged but Semwright does not auto-execute them.
 
-| ID | Category | Finding | Disposition |
+No new cross-system bypass was identified beyond R-006.
+
+## 7. Current-source CI and evidence
+
+| Evidence | Actual checkout | Result | What it establishes |
 | --- | --- | --- | --- |
+| R16 documentary + positive smoke 37101919278 / 111143010836 | `868446205df36826356483e93c53e5060c46e8aa` | PASS | locked daemon/CLI build, 21 positive selected library tests, structured fake effect/audit |
+| Quality source contracts 37101922062 / 111143005458 | `52c4a7c579c39e5f5699f8b475c473abe2efdcba` (tree = final source) | PASS | 200 Python tests, 20/20 Node tests, OSS hygiene |
+| Quality static lints 37101922062 / 111143005373 | `52c4a7c579c39e5f5699f8b475c473abe2efdcba` (tree = final source) | PASS | Ruff F/E9, ShellCheck, actionlint |
+| Driver conformance 37101922029 / 111143008612 | `52c4a7c579c39e5f5699f8b475c473abe2efdcba` (tree = final source) | PASS | 7/7 sandboxed federation tests including R-006 regressions |
 
-| R-001 | DOCUMENTATION_OVERCLAIM | Ordinary quickstart invoked initialization despite committed lockfile | REMEDIATED_FUNCTIONALLY_VERIFIED |
+Jobs excluded by affected-area classification remain SKIPPED, not PASS. In particular, this completion pass does not invent fresh MSRV/full-workspace, coverage or fuzz results when their source areas were not selected. Historical evidence is cited only with its original SHA/scope.
 
-| R-002 | DOCUMENTATION_OVERCLAIM | Platform and architecture prose lagged the integrated implementation | REMEDIATED_REVALIDATION_PENDING |
+The release guard remains deliberately fail closed: release-readiness.json is BLOCKED_DEVELOPMENT_SOURCE, with live_desktop_matrix=false and security_review=false; scripts/release/assert-ready.py exits 2 on the final source.
 
-| R-003 | DOCUMENTATION_OVERCLAIM | Current-commit evidence claim conflicted with historical and skipped jobs | REMEDIATED_REVALIDATION_PENDING |
+All external GitHub Actions uses entries in the candidate were scanned; zero floating/unpinned external Actions were found (each uses an exact 40-hex commit).
 
-| R-004 | DOCUMENTATION_OVERCLAIM | Contributor reporting instructions did not match available channels | REMEDIATED_FUNCTIONALLY_VERIFIED |
+CircleCI was not used because no authorized CircleCI CLI/token/connector was available to this session. No credentials were requested. Standard GitHub-hosted runners were sufficient for the selected current-source lanes. No heavy Rust/native build was executed on the owner device.
 
-| R-005 | TEST_OR_EVIDENCE_DEFECT | R smoke selection includes zero-test libraries and checks exit codes only | OPEN_SCOPE_RESTRICTED |
+## 8. Findings disposition
 
-| R-006 | UNCONFIRMED | Aggregate upstream tool-list budget requires further verification | UNCONFIRMED_OPEN |
+| ID | Severity | Status | Blocks R review closure? | Blocks release? |
+| --- | --- | --- | ---: | ---: |
+| R-001 | `MEDIUM` | `REMEDIATED_FUNCTIONALLY_VERIFIED` | no | no |
+| R-002 | `MEDIUM` | `REMEDIATED_CURRENT_SOURCE_VALIDATED_REVALIDATION_PENDING` | no | no |
+| R-003 | `MEDIUM` | `REMEDIATED_CURRENT_SOURCE_VALIDATED_REVALIDATION_PENDING` | no | no |
+| R-004 | `LOW` | `REMEDIATED_FUNCTIONALLY_VERIFIED` | no | no |
+| R-005 | `MEDIUM` | `REMEDIATED_FUNCTIONALLY_VERIFIED` | no | no |
+| R-006 | `MEDIUM` | `REMEDIATED_CURRENT_SOURCE_REVALIDATION_PENDING` | yes | no |
+| R-007 | `HIGH_ASSURANCE_GAP` | `BLOCKED_REVALIDATION` | yes | yes |
+| R-008 | `MEDIUM_ASSURANCE_GAP` | `REMEDIATED_DIRECT_REVIEW_COMPLETE` | no | no |
+| R-009 | `MEDIUM_GOVERNANCE_GAP` | `OPEN_MAINTAINER_DECISION` | no | no |
+| R-010 | `RELEASE_GATE` | `OPEN_KNOWN_LIMITATION` | no | yes |
 
-| R-007 | TEST_OR_EVIDENCE_DEFECT | Independent eligibility and R-authored assurance changes are not adopted | BLOCKED_REVALIDATION |
-
-| R-008 | TEST_OR_EVIDENCE_DEFECT | Requested review depth was not completed for all mandatory boundaries | BLOCKED_TOOL_ACCESS_AND_SCOPE |
+R-008 is closed for the declared source-review scope: all twelve areas were directly inspected. R-010 remains the already-known physical/interactive platform gate. R-009 remains a maintainer governance choice because no main branch protection/ruleset was observed and R did not alter repository settings.
 
-| R-009 | TEST_OR_EVIDENCE_DEFECT | No main branch protection or ruleset was observed | OPEN_MAINTAINER_DECISION |
-
-| R-010 | KNOWN_PLATFORM_LIMITATION | Physical and interactive platform release gates remain open | OPEN_KNOWN_LIMITATION |
-
-
-The three review-closure blockers are **R-006, R-007 and R-008**. R-006 is provisional:
-the visible federated tool-count check occurs after collection, but SDK aggregate bounds
-and actual resource impact remain unverified. It is assigned for owner review, not presented
-as a demonstrated vulnerability. R-007 requires separate adoption of R's own assurance
-changes. R-008 records the incomplete direct-review coverage.
-
-R-005 limits the interpretation of the smoke harness. Its exit-code checks passed; R then
-inspected the actual log to verify the positive fake outcome. It cannot be used to claim
-fresh Graph/Effects coverage or automatic assertion of that outcome. The blocked proposed
-refinement is neither in the PR nor counted as a correction.
-
-The lack of an observed main protection/ruleset is a maintainer governance decision, not
-proof of an unauthorized write. R06/R18 and the interactive platform limits remain release
-gates, separate from whether this report is complete in a narrower scope.
-
-## 6. Implemented documentation and first-run path
-
-README now has a concrete purpose, progressive navigation, a small broker/provider diagram,
-a bounded first operation and clear implementation/native/interactive support distinctions.
-Installation preserves the committed lockfile and no longer recommends initialization that
-intentionally rejects it. Architecture now covers Linux/macOS/Windows, Provider Runtime,
-Driver Host, Composition, Graph, Effects, Skills, recipes and lifecycle boundaries without
-inventing a second authorization system.
-
-Support, contribution and security guidance now identify the actual public issue/private
-vulnerability-reporting channels. No SLA is promised. VERIFY and RELEASE_BLOCKERS now
-separate current observations from the old failed preflight. The old failures, receipts,
-owner reports and historical G instructions remain, with historical notices where edited.
-No file or worktree belonging to another contributor was deleted or moved.
-
-The entry example is a fake Export operation, not an export from Blender or Godot. From
-the pinned checkout and prerequisites documented in the installation guide, the verified
-commands are:
-
-```sh
-cargo build --locked -p semwright-daemon -p semwright-cli --bins
-BIN_DIR=target/debug ./scripts/dev/fake-smoke.sh
-```
-
-The hosted execution reported fake=true, a completed recipe, changed=true and successful
-nested invocation audit metadata. The example uses its own temporary runtime and the fake
-backend. R did not certify every installer, package format, Nix path or interactive session
-by running this example. The full release-build and uninstall variants retain their stated
-historical evidence and limitations.
-
-The inventory in [CLOSEOUT_STATUS.json](CLOSEOUT_STATUS.json) classifies 339 documentary or
-procedural paths. Ten canonical public guides were updated; the broader changed documentary
-surface includes historical notices and the review entry point. **212 inventory rows were
-not individually reviewed** and remain UNKNOWN, not silently relabeled as current or obsolete.
-Generated references, Skills, recipes, notices and useful history were preserved. The local
-link checker verified targets in twelve named public documents; it does not validate all
-external URLs or Markdown fragment anchors. This is not a global reference-documentation
-certification.
-
-## 7. Executed checks and historical evidence
-
-| Evidence | Actual source/suite | Observed result | Important exclusion |
-| --- | --- | --- | --- |
-| R smoke, run 37099067854 / job 111134879759 | Product 6491c0d8; suite df173668 | Two-binary locked build, 21 library tests, fake changed=true | Graph/Effects --lib each ran zero tests; expected fake result inspected by R |
-| R documentary push, run 37099590257 / job 111136349060 | Candidate 206ce247 | Validator, 10 documentary tests and hygiene passed | Positive-smoke job skipped on this later docs commit |
-| Quality source/static jobs, run 37099614123 | Synthetic merge 21447095, tree identical to 206ce247 | 198 Python tests, 20 Node tests, static lints passed | Rust/MSRV skipped; some documentary tests overlap Python discovery |
-| G run 37074787747 | Product cd518748; suite 73cf4806 | 480 case outcomes match summaries; 14 archive digests match | 105 are lab self-tests on the suite source; 348 contract and 27 native cases concern product |
-| I acceptance and global disposition | Product cd518748; distinct suites | Original acceptance and failure/retest disposition retained | Not independent R16 approval; not H evaluation |
-| Windows run 37096430846 | Product 6491c0d8 | Native x64/ARM64 and selected sealed-tool jobs passed | Not unlocked-desktop R18 acceptance |
-
-The [fresh smoke record](evidence/R_FROZEN_SOURCE_SMOKE.json) retains the exact commands,
-return codes, timings, log digest and lock/source unchanged checks. The
-[documentary source record](evidence/R_DOCUMENTARY_SOURCE_CHECKS.json) retains every job
-status and the synthetic-merge tree proof. The
-[G receipt verification](evidence/G_RECEIPT_VERIFICATION.json) compares every case's outcome
-with the summary and keeps the original source/suite/limitations. Archive checks establish
-byte integrity, not independent correctness of every historical oracle.
-
-The later PR dependency/fuzz/coverage workflow ran classification only. Its three heavy
-jobs were skipped. Native integration also ran classification only; twelve application jobs
-were skipped. This is appropriate selection for the documented diff but is not fresh native
-or supply-chain certification. No mutation/fuzz/model benchmark or complete platform matrix
-was rerun by R. Release admission still returns exit 2 for readiness/live/security gates;
-its input and guard were not weakened.
-
-## 8. PR and historical-work disposition
+The two review-closure blockers are:
 
-The current open set before R consisted of four dependency PRs. All remain open and untouched.
-Their current changed paths and full head SHAs are retained in CLOSEOUT_STATUS. This mission
-did not claim an untested version upgrade was equivalent to current source.
+1. **R-006:** the product fix is green but needs a separate reviewer because R authored it.
+2. **R-007:** R provenance/assurance changes must be independently adopted before a formal R16 decision.
 
-| PR | Current scope | R disposition |
-| --- | --- | --- |
-| #166 | hmac 0.12.1 -> 0.13.0; root/driver manifest and lock | Preserve open for dependency/compatibility review |
-| #165 | getrandom 0.2.17 -> 0.4.3; driver manifest and lock | Preserve open for dependency/compatibility review |
-| #161 | sha2 0.10.9 -> 0.11.0; manifest and lock | Preserve open for dependency/compatibility review |
-| #157 | setup-node update across four workflows | Preserve open; do not assume already superseded from another workflow |
-| #207 | R documentation, verification and review evidence | Own draft; no merge or release performed |
+These are not additional implementation tasks that R can honestly self-complete.
 
-The captured API and ancestry checks confirm the merged relevant heads #168, #172-#176,
-#183, #192, #198, #201 and #204 are ancestors of the review target. Closed #206's head is
-also included. Closed #188, #197, #199, #200, #202 and #205 were **not proven superseded by
-head ancestry**; their PR histories/objects/worktrees were preserved and no removal was
-performed. No unknown unique contribution was discarded to make the repository look tidy.
-This is a preservation disposition, not a claim that R independently reconstructed every
-closed alternative's patch equivalence.
+## 9. Documentation/repository closeout
 
-## 9. Selective editorial source and repository metadata
+The repository now has an updated first-run path, installation guide, architecture, platform support matrix, security/reporting guidance, compatibility/development guidance and R16 evidence entry point. The quickstart preserves the committed lockfile and no longer invokes the lock initialization bootstrap on an ordinary checkout. Windows/macOS/Linux support statements distinguish implementation, hosted native evidence and interactive/physical certification.
 
-The user-selected github-optimization-skill was read at
-`3f20ca72981f19c8e16b5aa0b453b96d682b458b`. README and SKILL hashes are in the manifest.
-It was treated as editorial reference, not installed, executed as a dependency or
-redistributed. All new Semwright wording is original to this closeout.
+The selectively consulted 199-biotechnologies/github-optimization-skill was treated only as an editorial reference. R adopted scannability/quickstart structure where truthful, but did not install the skill, add star/follow CTAs, change repository metadata, replace licensing, auto-publish, or import unsupported promotional/growth claims.
 
-| External idea | Actual change | Excluded advice and reason |
-| --- | --- | --- |
-| Concrete purpose and progressive disclosure | New README introduction/navigation and concise architecture entry | Stars/conversion claims and branding are not evidence |
-| Usable quickstart | Locked two-binary fake example and install/uninstall distinctions | No installer shortcut or unverified release-download path |
-| Helpful links/support/contribution routes | Updated support, contribution, security and versioned evidence links | No automated repository metadata edits, contacts or publication |
-| Editorial simplification | Source-scoped support and assurance language | No automatic license replacement or chained humanise-text installation |
+## 10. PR and branch disposition
 
-A possible metadata description, not applied, is: “Policy-gated semantic commands and
-verified workflows for desktop applications.” Possible topics are `rust`, `mcp`,
-`desktop-automation`, `accessibility` and `application-integration`. The maintainer can
-assess them separately; R did not change description, topics, homepage, visibility, licensing
-or repository protection settings.
+| PR | Disposition |
+| --- | --- |
+| #207 | R-owned closeout; ready for maintainer/independent review. Do not auto-merge. |
+| #166 | Preserve open; dependency update outside R mission. |
+| #165 | Preserve open; dependency update outside R mission. |
+| #161 | Preserve open; dependency update outside R mission. |
+| #157 | Preserve open; Action dependency update outside R mission. |
 
-## 10. CI, resources and data handling
+No foreign PR was closed, rebased, merged or overwritten. Existing merged/closed historical PRs remain Git history/evidence and were not deleted to make the repository look cleaner.
 
-Only existing compatible standard hosted GitHub Actions jobs were used for compilation
-and test execution. No large device builds, native application runtimes, package-manager
-installs, cache construction, display capture or live application state manipulation ran
-on the connected device. Device work was source/document editing, small Python validation,
-Git/API metadata and small receipt/archive handling.
+## 11. Completion status and maintainer-only decisions
 
-CircleCI had no authorized CLI/token or available connector in this session. R did not
-search for credentials in private configuration, fabricate CI environment identity or claim
-that CircleCI credits were checked. No paid larger runner, new cache/artifact upload,
-billing setting or paid service was requested by the added workflow. This describes the
-observed configuration; R did not audit the account invoice.
+All work that role R can perform under this mission is complete. CLOSEOUT_STATUS.json records all sixteen closeout acceptance items as satisfied within their declared scope while preserving the difference between repository completion and formal R16/release authority.
 
-Private raw observations and logs are kept apart from the public delivery. The public
-bundle excludes credentials, personal filesystem paths, .git, targets, toolchains, caches,
-node_modules, real user application data and large renders. Historical sources were not
-rewritten, deleted or converted from FAIL to PASS. Every referenced digest is labeled for
-the file/archive it actually hashes.
+1. Assign an independent reviewer to review/adopt R-authored security-relevant changes, especially fix 4ef9a06e486cd8d2e3851c298e244435ecef3232, before deciding formal R16 closure.
+2. Choose/configure or explicitly risk-accept the absence of main branch protection/rulesets; R did not change repository settings.
+3. Review and merge PR #207 only if acceptable; R does not merge main.
+4. Complete R06 physical desktop and R18 unlocked Windows (plus any desired live macOS TCC) release gates before making corresponding platform/release claims.
+5. Handle Dependabot PRs #157/#161/#165/#166 separately; R neither merged nor closed them.
 
-## 11. Adoption, compatibility and evidence-only delivery
+R does not merge main, publish a release, close R16, or represent itself as an external auditor.
 
-The source candidate changes nineteen paths: documentation/historical notices, one new
-workflow, two R verification scripts, a small test module and the review entry point.
-There are no product Rust, Cargo.lock, release-readiness, license or notice changes.
-No compatibility namespace or generated capability/schema was edited. Existing roots,
-providers, applications and user data need no migration from this documentary patch.
+## 12. Machine-readable companion files
 
-The later review commit adds only this evidence surface under `verification/r16-closeout`.
-Its own commit hash is recorded externally after it exists, avoiding a self-referential
-report. Tests of source candidate 206ce247 or merge 21447095 are not described as executions
-on that delivery commit. The backup includes the actual changed documents and exact-base
-patches, plus payload checksums and a separate archive SHA-256.
+- [`R16_FINDINGS.json`](R16_FINDINGS.json)
+- [`CLAIMS_EVIDENCE_MATRIX.json`](CLAIMS_EVIDENCE_MATRIX.json)
+- [`R16_EVIDENCE_MANIFEST.json`](R16_EVIDENCE_MANIFEST.json)
+- [`CLOSEOUT_STATUS.json`](CLOSEOUT_STATUS.json)
+- [`PR_BRANCH_DISPOSITION.json`](PR_BRANCH_DISPOSITION.json)
+- [`evidence/R_DIRECT_REVIEW_12_AREAS.json`](evidence/R_DIRECT_REVIEW_12_AREAS.json)
+- [`evidence/R_CURRENT_SOURCE_VALIDATION.json`](evidence/R_CURRENT_SOURCE_VALIDATION.json)
+- [`SHA256SUMS`](SHA256SUMS)
 
-Review the PR and its scoped records together. A new runtime, quickstart behavior, workflow
-permission, Skill or product correction after this freeze needs a new source identity and
-impact-appropriate verification. Do not toggle security_review or merge/publish solely
-because the documentary workflow passes.
-
-## 12. Mission acceptance and decisions
-
-The following matrix describes this mission, not the old release-blocker numbering.
-PARTIAL and blocked rows are intentional. Overall full mission satisfaction is **not claimed**.
-
-| ID | Status | Evidence / remaining condition |
-| --- | --- | --- |
-
-| CO01 | SATISFIED | Current main, worktrees, PR metadata and target snapshot captured. |
-
-| CO02 | SATISFIED | I target admitted; all twelve boundaries mapped with distinct evidence identities. |
-
-| CO03 | SATISFIED_WITH_UNCONFIRMED_ELIGIBILITY | AI-assisted role and lack of independent adoption are explicit. |
-
-| CO04 | PARTIAL | Direct-review tool blocks and unexecuted native/supply-chain scope remain R-008. |
-
-| CO05 | SATISFIED_IN_DECLARED_SCOPE | Fifteen scoped claims map to source/evidence and limitations. |
-
-| CO06 | SATISFIED | Ten classified findings include owners, impact, status and residual risks. |
-
-| CO07 | SATISFIED_WITH_REVALIDATION_BLOCK | Documentary corrections have functional checks; own assurance changes remain independently unvalidated. |
-
-| CO08 | SATISFIED_WITH_PRESERVATION_DISPOSITION | Current PRs inventoried; merged heads checked; unproven closed alternatives preserved, not discarded. |
-
-| CO09 | SATISFIED_FOR_UPDATED_GUIDES | Fourteen public/historical documentary paths and review entry point changed; inventory retains unknown rows. |
-
-| CO10 | SATISFIED_FOR_FAKE_QUICKSTART | Real hosted two-binary build and fake recipe observed; other install variants not reexecuted. |
-
-| CO11 | SATISFIED_FOR_CHANGED_SURFACE | No license/notices/history deletion; local links checked in twelve public documents. |
-
-| CO12 | SATISFIED | Pinned external source read and selective adoption recorded; no installation or promotion. |
-
-| CO13 | SATISFIED_IN_OBSERVED_CONFIGURATION | Selective standard hosted jobs, no device builds/new paid runner/cache/artifact upload or billing changes. |
-
-| CO14 | SATISFIED | Review target, source candidate, suites and later report artifacts remain separate. |
-
-| CO15 | FINALIZED_BY_EXTERNAL_DELIVERY_MANIFEST | PR207 exists; archive/reproducibility and final delivery commit are recorded outside the self-referential report commit. |
-
-| CO16 | SATISFIED | R16/H/technical acceptance/merge/release remain separate; maintainer authority preserved. |
-
-
-### Maintainer decisions requiring authority
-
-Adopt a separate reviewer for R-authored assurance changes and resolve R-006/R-008 before
-any R16 closure decision. Decide the repository protection/required-check policy and any
-optional metadata edits. Decide whether and when to merge PR #207; dependency upgrades,
-H budget, outstanding physical/interactive gates and release publication remain separate
-choices. R has not performed or preapproved any of these actions.
-
-The actionable next technical work is assigned in the findings register; the maintainer
-is not asked to reconstruct the integration or manually rediscover every outdated README.
-The present delivery is useful now as corrected entry documentation and a source-specific
-review record, but it is not a complete independent security sign-off.
+The final ZIP/manifest under delivery/ is a backup of the reviewed delta/evidence, not a Git release and not a substitute for repository history.
