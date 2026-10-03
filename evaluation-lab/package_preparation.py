@@ -11,7 +11,11 @@ assert os.environ.get('GITHUB_ACTIONS')=='true' and os.environ.get('RUNNER_ENVIR
 ROOT=Path(__file__).resolve().parents[1]
 SOURCE=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT).decode().strip()
 assert SOURCE==os.environ['GITHUB_SHA']
-assert not subprocess.check_output(['git','status','--porcelain'],cwd=ROOT)
+subprocess.run(['git','diff','--exit-code'],cwd=ROOT,check=True)
+subprocess.run(['git','diff','--cached','--exit-code'],cwd=ROOT,check=True)
+expected={'verification/H/laboratory-source-sha.txt','verification/H/SHA256SUMS','verification/H/scope.json'}
+untracked=subprocess.check_output(['git','ls-files','--others','--exclude-standard'],cwd=ROOT).decode().splitlines()
+assert set(untracked)<=expected,'Unexpected generated/untracked files; preserve for inspection'
 log=(ROOT/'verification/H/harness-tests.log').read_text()
 assert re.search(r'Ran 28 tests',log) and re.search(r'^OK$',log,re.M)
 # The native/model evaluation remains incomplete; these are validator controls.
