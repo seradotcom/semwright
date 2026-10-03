@@ -34,6 +34,10 @@ assert freeze['technical_target_frozen'] and freeze['SEMWRIGHT_EVAL_SHA']==proto
 assert protocol['status']=='DRAFT_NOT_EVALUATION_FREEZE' and protocol['budget_authorized'] is False
 names=subprocess.check_output(['git','ls-tree','-r','--name-only',SOURCE,'--','evaluation-lab'],cwd=ROOT).decode().splitlines()
 entries={name:subprocess.check_output(['git','show',SOURCE+':'+name],cwd=ROOT) for name in names}
+entries['delivery/external-package-wrapper.py']=Path(__file__).read_bytes()
+entries['delivery/external-workflow.yml']=(Path(__file__).resolve().parents[2]/'.github/workflows/semantic-creation-integration.yml').read_bytes()
+entries['delivery/original-native-run.json']=(Path(os.environ['RUNNER_TEMP'])/'native-run.json').read_bytes()
+entries['delivery/original-native-jobs.json']=(Path(os.environ['RUNNER_TEMP'])/'native-jobs.json').read_bytes()
 native_controls={}
 for app in ('blender','godot','cross_app'):
  directory=ROOT/'verification/H'/('native-'+app)
