@@ -180,9 +180,16 @@ def certify(bin_dir: Path, arch: str) -> dict[str, object]:
         version = tomllib.loads((ROOT / "Cargo.toml").read_text())["workspace"]["package"]["version"]
         tar_path = first / f"semwright-{version}-{arch}.tar.gz"
         members = safe_tar_members(tar_path, epoch)
-        required = {f"semwright-{version}-{arch}/bin/{name}" for name in BINS}
+        package_root = f"semwright-{version}-{arch}"
+        required = {f"{package_root}/bin/{name}" for name in BINS}
+        required.update({
+            f"{package_root}/README.md", f"{package_root}/INSTALL.md",
+            f"{package_root}/LICENSE-MIT", f"{package_root}/LICENSE-APACHE",
+            f"{package_root}/SECURITY.md", f"{package_root}/SUPPORT.md",
+            f"{package_root}/SHA256SUMS",
+        })
         if not required.issubset(set(members)):
-            raise RuntimeError("Tarball is missing required executables")
+            raise RuntimeError("Tarball is missing required executables or release documents")
         deb_arch = packager.DEB_ARCH[arch]
         deb_path = first / f"semwright_{version}_{deb_arch}.deb"
         deb_fields = inspect_deb(deb_path, bin_dir, deb_arch)

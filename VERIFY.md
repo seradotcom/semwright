@@ -25,8 +25,10 @@ The maintainer pre-R16 observation used
 `241000c268d1bf1dc29d4e91a913097ac0d020cb`. Eleven workflows succeeded and the Windows
 workflow failed on its ARM64 native UIA fixture. Consequently this observation is
 **NOT_READY_FOR_INDEPENDENT_R16_REVIEW**, not an all-green candidate. Fixes and later
-commits require their own checks. R16 remains OPEN and this file is not an independent
-security review. See [the preflight inventory](verification/pre-r16/PRE_R16_STATE_MAP.md).
+commits require their own checks. At that historical snapshot R16 remained OPEN; a later
+separate revalidation closed R16 without turning this historical preflight into an independent
+audit. See [the preflight inventory](verification/pre-r16/PRE_R16_STATE_MAP.md) and
+[the R16 closeout](verification/r16-closeout/README.md).
 
 The table below names required gates, not an assertion that they have passed on a future
 commit. For the observed SHA, the per-run/job records are retained under
@@ -376,7 +378,8 @@ Linux hostile plugin/driver/federation prechecks ran with positive test counts a
 SHA. This is not an independent review, a formal sandbox proof, or an interchangeable Windows /
 macOS / Linux security certificate. A remote signed marketplace, universal publisher identity,
 full native application APIs and interactive Mac/Windows acceptance are not implied by hosted
-success. R16 remains OPEN; `release-readiness.json` remains fail-closed.
+success. R16 is now CLOSED after the separately recorded closeout revalidation;
+`release-readiness.json` remains fail-closed because broader physical/interactive gates are separate.
 
 Local exploratory evidence and `dummy-docs/` are intentionally excluded from Git. Historical
 failed logs remain useful diagnostics but do not contribute to the accepted baseline. See

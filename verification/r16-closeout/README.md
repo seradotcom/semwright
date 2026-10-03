@@ -1,6 +1,6 @@
 # R16 review and repository closeout delivery
 
-**R-owned repository work is complete in the declared scope. Review disposition: REVALIDATION_PENDING. Formal R16 remains OPEN.**
+**R-owned repository work is complete in the declared scope. Review disposition: CLOSED AFTER SEPARATE REVALIDATION. Formal R16 is CLOSED.**
 
 Start with [R16_REVIEW_REPORT.md](R16_REVIEW_REPORT.md). The machine-readable companions are
 [findings](R16_FINDINGS.json), [claims/evidence](CLAIMS_EVIDENCE_MATRIX.json),
@@ -13,8 +13,8 @@ The frozen main/review target is
 `868446205df36826356483e93c53e5060c46e8aa`. R confirmed one new product/resource
 finding in federated MCP pagination and fixed it at
 `4ef9a06e486cd8d2e3851c298e244435ecef3232`; current-source hosted regression tests pass,
-but that R-authored security-relevant fix still requires a separate reviewer before it can
-count toward formal R16 closure.
+and a separate reviewer session subsequently inspected/adopted that security-relevant fix.
+The bound receipt is `evidence/INDEPENDENT_R16_REVALIDATION_2026-10-03.json`.
 
 The final source and later evidence are deliberately different identities. Historical I/G/native
 certificates retain their original source/suite SHAs. PR synthetic-merge executions are explicitly

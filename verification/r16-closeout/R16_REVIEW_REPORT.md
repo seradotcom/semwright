@@ -1,9 +1,9 @@
 # R16 defensive review and repository closeout — final R delivery
 
 **R-owned repository work: COMPLETE IN DECLARED SCOPE.**
-**Review disposition: REVALIDATION PENDING. Formal R16 status: OPEN.**
+**Review disposition: CLOSED AFTER SEPARATE REVALIDATION. Formal R16 status: CLOSED.**
 
-This is the final repository/source-review delivery for role R. It is an AI-assisted defensive review, not an external security audit and not a maintainer release decision. R completed the twelve required source-boundary reviews, implemented repository/documentation closeout work, confirmed and fixed one new bounded-resource defect, reran the affected hosted checks, and prepared a reproducible evidence package. The remaining R16 blocker is intentionally external: the R-authored security-relevant fix must be reviewed/adopted by a separate reviewer. Physical and interactive platform gates remain release gates rather than unfinished R source review.
+This is the final repository/source-review delivery for role R. It is an AI-assisted defensive review, not an external security audit and not a maintainer release decision. R completed the twelve required source-boundary reviews, implemented repository/documentation closeout work, confirmed and fixed one new bounded-resource defect, reran the affected hosted checks, and prepared a reproducible evidence package. A separate reviewer session subsequently inspected/adopted the R-authored security-relevant fix and closeout wording. Physical and interactive platform gates remain release gates rather than unfinished R source review.
 
 No authority escalation, secret exfiltration, sandbox escape or third-party exploitation was demonstrated in this pass. That statement is not proof that such vulnerabilities do not exist.
 
@@ -17,7 +17,7 @@ No authority escalation, secret exfiltration, sandbox escape or third-party expl
 | PR synthetic merge used by PR jobs | `52c4a7c579c39e5f5699f8b475c473abe2efdcba` |
 | PR | [#207](https://github.com/seradotcom/semwright/pull/207) |
 | Evidence/report SHA | The Git commit containing this file; deliberately later than FINAL_SOURCE_SHA |
-| Formal R16 decision | OPEN; not made by R |
+| Formal R16 decision | CLOSED after separate revalidation; not an external audit or release authorization |
 
 origin/main was rechecked at closeout and still matched `6491c0d838fa066938a494524d69ed507aa0dbe8`. R did not chase a moving target. PR jobs checked out the synthetic merge commit shown above; its Git tree was verified identical to `868446205df36826356483e93c53e5060c46e8aa`. The exact-source R smoke separately checked out the branch commit itself. Historical I/G/native records keep their original SHAs.
 
@@ -72,7 +72,7 @@ Fix `4ef9a06e486cd8d2e3851c298e244435ecef3232` replaces list_all_tools() with Se
 
 Current-source hosted validation passed: Native application integration run 37101922029, job 111143008612, compiled semwright-federation and executed 7/7 sandboxed federation tests. The container test invalid_descriptors_duplicate_names_and_bad_results_fail_closed now includes both pagination regressions. Artifact 11266447661 has digest sha256:b72f59d42ce3d2ae7dd05b8ef3ba9b9f5e40e4e3440285167f51ed87a393ffd0.
 
-This is a confirmed product/resource-lifecycle defect with a current-source fix, not a demonstrated authority escalation. Because R authored the behavior/security fix, R does not count its own green CI as independent closure. R-006 remains REMEDIATED_CURRENT_SOURCE_REVALIDATION_PENDING.
+This is a confirmed product/resource-lifecycle defect with a current-source fix, not a demonstrated authority escalation. Because R authored the behavior/security fix, R does not count its own green CI as independent closure. R-006 is now REMEDIATED_INDEPENDENTLY_REVALIDATED; the separate receipt is recorded under evidence/.
 
 ## 4. R smoke/evidence defect R-005
 
@@ -200,11 +200,11 @@ Host-tool parent binding and persistent session lifecycle were directly reviewed
 
 **Source locations:** `crates/driver-host/src/lib.rs:177-381`; `crates/driver-host/src/lib.rs:1930-3115`; `crates/platform-macos-sys/src/launch.rs:55-163`; `crates/plugin-host/src/lib.rs`.
 
-**Limitations:** Linux Bubblewrap/Landlock regressions are not a formal kernel proof. R-authored federation fix still needs independent revalidation before formal R16 closure.
+**Limitations:** Linux Bubblewrap/Landlock regressions are not a formal kernel proof. R-authored federation fix received separate-authorship revalidation before formal R16 closure.
 
 ### R16-07: Federated MCP
 
-**Status:** `PRODUCT_DEFECT_FIXED_REVALIDATION_PENDING`.
+**Status:** `PRODUCT_DEFECT_FIXED_SEPARATE_REVALIDATION_COMPLETE`.
 
 R-006 was confirmed: rmcp 3.4.1 list_all_tools accumulated pages without an item/page/cursor-cycle bound and Semwright checked 512 only afterward. Commit 4ef9a06e486cd8d2e3851c298e244435ecef3232 replaces it with Semwright-owned bounded pagination and synthetic oversize/cursor-cycle regressions.
 
@@ -218,7 +218,7 @@ R-006 was confirmed: rmcp 3.4.1 list_all_tools accumulated pages without an item
 
 **Source locations:** `crates/federation/src/lib.rs:452-880`; `crates/federation/src/bin/fixture.rs`; `crates/federation/tests/federation.rs`.
 
-**Limitations:** The product fix is authored by R and therefore cannot count as independently revalidated by R. Current-source hosted federation tests are required before the remediation can be called functionally verified.
+**Limitations:** The product fix was authored by R; a separate reviewer inspected the pagination loop and verified the hosted sandboxed federation evidence before closure.
 
 ### R16-08: Prompt-injection containment
 
@@ -257,7 +257,7 @@ Disclosure paths were directly reviewed. Earlier documentation/reporting mismatc
 
 ### R16-10: Resources and lifecycle
 
-**Status:** `PRODUCT_DEFECT_FIXED_REVALIDATION_PENDING`.
+**Status:** `PRODUCT_DEFECT_FIXED_SEPARATE_REVALIDATION_COMPLETE`.
 
 R-006 was the one new resource-lifecycle defect found. The source fix adds incremental bounded pagination; other inspected job/session paths were already bounded and fail closed.
 
@@ -271,7 +271,7 @@ R-006 was the one new resource-lifecycle defect found. The source fix adds incre
 
 **Source locations:** `crates/core/src/jobs.rs:1-474`; `crates/driver-host/src/lib.rs:280-381`; `crates/driver-host/src/lib.rs:1930-3115`; `crates/federation/src/lib.rs:605-675`.
 
-**Limitations:** Independent revalidation is still required for R-006. Hosted regression success does not prove absence of all resource exhaustion paths.
+**Limitations:** Separate revalidation is complete for R-006. Hosted regression success still does not prove absence of all resource exhaustion paths.
 
 ### R16-11: Supply chain
 
@@ -341,24 +341,19 @@ CircleCI was not used because no authorized CircleCI CLI/token/connector was ava
 | ID | Severity | Status | Blocks R review closure? | Blocks release? |
 | --- | --- | --- | ---: | ---: |
 | R-001 | `MEDIUM` | `REMEDIATED_FUNCTIONALLY_VERIFIED` | no | no |
-| R-002 | `MEDIUM` | `REMEDIATED_CURRENT_SOURCE_VALIDATED_REVALIDATION_PENDING` | no | no |
-| R-003 | `MEDIUM` | `REMEDIATED_CURRENT_SOURCE_VALIDATED_REVALIDATION_PENDING` | no | no |
+| R-002 | `MEDIUM` | `REMEDIATED_INDEPENDENTLY_REVIEWED` | no | no |
+| R-003 | `MEDIUM` | `REMEDIATED_INDEPENDENTLY_REVIEWED` | no | no |
 | R-004 | `LOW` | `REMEDIATED_FUNCTIONALLY_VERIFIED` | no | no |
 | R-005 | `MEDIUM` | `REMEDIATED_FUNCTIONALLY_VERIFIED` | no | no |
-| R-006 | `MEDIUM` | `REMEDIATED_CURRENT_SOURCE_REVALIDATION_PENDING` | yes | no |
-| R-007 | `HIGH_ASSURANCE_GAP` | `BLOCKED_REVALIDATION` | yes | yes |
+| R-006 | `MEDIUM` | `REMEDIATED_INDEPENDENTLY_REVALIDATED` | no | no |
+| R-007 | `HIGH_ASSURANCE_GAP` | `CLOSED_SEPARATE_REVIEW_ADOPTED` | no | no |
 | R-008 | `MEDIUM_ASSURANCE_GAP` | `REMEDIATED_DIRECT_REVIEW_COMPLETE` | no | no |
 | R-009 | `MEDIUM_GOVERNANCE_GAP` | `OPEN_MAINTAINER_DECISION` | no | no |
 | R-010 | `RELEASE_GATE` | `OPEN_KNOWN_LIMITATION` | no | yes |
 
 R-008 is closed for the declared source-review scope: all twelve areas were directly inspected. R-010 remains the already-known physical/interactive platform gate. R-009 remains a maintainer governance choice because no main branch protection/ruleset was observed and R did not alter repository settings.
 
-The two review-closure blockers are:
-
-1. **R-006:** the product fix is green but needs a separate reviewer because R authored it.
-2. **R-007:** R provenance/assurance changes must be independently adopted before a formal R16 decision.
-
-These are not additional implementation tasks that R can honestly self-complete.
+The prior review-closure blockers R-006 and R-007 are closed by `evidence/INDEPENDENT_R16_REVALIDATION_2026-10-03.json`. The receipt records separate authorship/review and explicitly does not claim an external security audit.
 
 ## 9. Documentation/repository closeout
 
@@ -382,13 +377,13 @@ No foreign PR was closed, rebased, merged or overwritten. Existing merged/closed
 
 All work that role R can perform under this mission is complete. CLOSEOUT_STATUS.json records all sixteen closeout acceptance items as satisfied within their declared scope while preserving the difference between repository completion and formal R16/release authority.
 
-1. Assign an independent reviewer to review/adopt R-authored security-relevant changes, especially fix 4ef9a06e486cd8d2e3851c298e244435ecef3232, before deciding formal R16 closure.
+1. Preserve the separate R16 revalidation receipt; R16 is CLOSED and must not be relabeled as an external audit.
 2. Choose/configure or explicitly risk-accept the absence of main branch protection/rulesets; R did not change repository settings.
 3. Review and merge PR #207 only if acceptable; R does not merge main.
 4. Complete R06 physical desktop and R18 unlocked Windows (plus any desired live macOS TCC) release gates before making corresponding platform/release claims.
 5. Handle Dependabot PRs #157/#161/#165/#166 separately; R neither merged nor closed them.
 
-R does not merge main, publish a release, close R16, or represent itself as an external auditor.
+This closeout does not merge main, publish a release, or represent the review as an external audit. R16 closure and release authorization remain distinct.
 
 ## 12. Machine-readable companion files
 

@@ -1,0 +1,261 @@
+name: V1 multiplatform distribution
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'scripts/release/**'
+      - 'packaging/**'
+      - 'docs/installation.md'
+      - 'README.md'
+      - 'SECURITY.md'
+      - 'SUPPORT.md'
+      - 'V1_ENGINEERING_CLOSEOUT.md'
+      - 'POST_V1_BACKLOG.md'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/v1-distribution.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: v1-distribution-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_RELEASE_DEBUG: 0
+
+jobs:
+  linux:
+    name: Linux ${{ matrix.arch }} packages
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: x86_64
+          - runner: ubuntu-24.04-arm
+            arch: aarch64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: v1-dist-linux-${{ matrix.arch }}
+      - name: Install Linux packaging dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y libpipewire-0.3-dev dpkg-dev
+      - name: Build release binaries
+        run: |
+          cargo build --locked --release \
+            -p semwright-cli --bin semwright \
+            -p semwright-daemon --bin semwrightd \
+            -p semwright-mcp --bin semwright-mcp \
+            -p semwright-tui --bin semwright-inspect \
+            -p semwright-plugin-host --bin semwright-sandbox
+      - name: Certify Linux package contracts
+        run: |
+          mkdir -p dist
+          python3 scripts/release/certify-packaging.py \
+            --bin-dir target/release \
+            --arch "${{ matrix.arch }}" \
+            --report "dist/certification-linux-${{ matrix.arch }}.json"
+          python3 scripts/release/build-certification-packages.py \
+            --bin-dir target/release \
+            --arch "${{ matrix.arch }}" \
+            --output dist \
+            --report "dist/build-linux-${{ matrix.arch }}.json"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: semwright-v1-linux-${{ matrix.arch }}-${{ github.sha }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30
+
+  windows:
+    name: Windows ${{ matrix.arch }} portable ZIP
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include:
+          - runner: windows-2025
+            arch: x86_64
+            runner_arch: X64
+          - runner: windows-11-arm
+            arch: arm64
+            runner_arch: ARM64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 55
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - name: Verify native Windows architecture
+        run: |
+          set -euo pipefail
+          test "$RUNNER_ARCH" = "${{ matrix.runner_arch }}"
+          rustc -vV
+      - name: Build Windows release binaries
+        run: |
+          cargo build --locked --release \
+            -p semwright-cli --bin semwright \
+            -p semwright-daemon --bin semwrightd \
+            -p semwright-mcp --bin semwright-mcp \
+            -p semwright-tui --bin semwright-inspect \
+            -p semwright-plugin-host --bin semwright-sandbox
+      - name: Certify PE architecture and portable ZIP
+        run: |
+          python scripts/release/portable_package.py \
+            --bin-dir target/release \
+            --platform windows \
+            --arch "${{ matrix.arch }}" \
+            --output dist \
+            --report "dist/certification-windows-${{ matrix.arch }}.json"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: semwright-v1-windows-${{ matrix.arch }}-${{ github.sha }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30
+
+  macos:
+    name: macOS ${{ matrix.arch }} portable archive
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include:
+          - runner: macos-15
+            arch: arm64
+            uname_arch: arm64
+          - runner: macos-15-intel
+            arch: x86_64
+            uname_arch: x86_64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 55
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - name: Verify native macOS architecture
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = "${{ matrix.uname_arch }}"
+          sw_vers
+          rustc -vV
+      - name: Build macOS release binaries
+        run: |
+          cargo build --locked --release \
+            -p semwright-cli --bin semwright \
+            -p semwright-daemon --bin semwrightd \
+            -p semwright-mcp --bin semwright-mcp \
+            -p semwright-tui --bin semwright-inspect \
+            -p semwright-plugin-host --bin semwright-sandbox
+      - name: Certify Mach-O architecture and portable archive
+        run: |
+          python3 scripts/release/portable_package.py \
+            --bin-dir target/release \
+            --platform macos \
+            --arch "${{ matrix.arch }}" \
+            --output dist \
+            --report "dist/certification-macos-${{ matrix.arch }}.json"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: semwright-v1-macos-${{ matrix.arch }}-${{ github.sha }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30
+
+  manifest:
+    name: V1 distribution manifest
+    needs: [linux, windows, macos]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          pattern: semwright-v1-*-${{ github.sha }}
+          path: downloaded
+      - name: Verify all six native package gates and build global manifest
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          root = Path("downloaded")
+          reports = sorted(root.rglob("certification-*.json"))
+          if len(reports) != 6:
+              raise SystemExit(f"expected 6 certification reports, found {len(reports)}")
+          parsed = [json.loads(p.read_text()) for p in reports]
+          if any(row.get("status") != "PASS" for row in parsed):
+              raise SystemExit("one or more distribution certification reports are not PASS")
+          packages = []
+          for path in sorted(root.rglob("*")):
+              if not path.is_file():
+                  continue
+              if not (path.name.endswith(".tar.gz") or path.suffix in {".deb", ".zip"}):
+                  continue
+              packages.append({
+                  "name": path.name,
+                  "bytes": path.stat().st_size,
+                  "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+              })
+          suffixes = [p["name"] for p in packages]
+          if len(packages) != 8:
+              raise SystemExit(f"expected 8 native packages, found {len(packages)}: {suffixes}")
+          if sum(name.endswith(".deb") for name in suffixes) != 2:
+              raise SystemExit("expected amd64 and arm64 Debian packages")
+          if sum(name.endswith(".zip") for name in suffixes) != 2:
+              raise SystemExit("expected Windows x86_64 and ARM64 ZIPs")
+          if sum(name.endswith(".tar.gz") for name in suffixes) != 4:
+              raise SystemExit("expected two Linux and two macOS tar.gz archives")
+          out = Path("distribution-manifest")
+          out.mkdir()
+          manifest = {
+              "status": "PASS",
+              "source_sha": os.environ["SOURCE_SHA"],
+              "release_admission": False,
+              "package_count": len(packages),
+              "certification_reports": [str(p.relative_to(root)) for p in reports],
+              "packages": packages,
+              "release_readiness": "separate fail-closed gate",
+          }
+          (out / "V1_DISTRIBUTION_MANIFEST.json").write_text(
+              json.dumps(manifest, indent=2, sort_keys=True) + "\n"
+          )
+          (out / "SHA256SUMS").write_text(
+              "".join(f'{p["sha256"]}  {p["name"]}\n' for p in packages)
+          )
+          PY
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: semwright-v1-distribution-manifest-${{ github.sha }}
+          path: distribution-manifest/
+          if-no-files-found: error
+          retention-days: 30

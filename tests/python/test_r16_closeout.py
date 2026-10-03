@@ -33,10 +33,25 @@ class EvidenceTests(unittest.TestCase):
         data["review_target_sha"] = "a" * 7
         self.assertTrue(MODULE.evidence_errors(data))
 
-    def test_self_closure_rejected(self):
+    def test_closure_without_separate_receipt_is_rejected(self):
         data = record()
         data["r16_closed"] = True
-        self.assertTrue(MODULE.evidence_errors(data))
+        with tempfile.TemporaryDirectory() as folder:
+            self.assertTrue(MODULE.evidence_errors(data, Path(folder)))
+
+    def test_closure_with_bound_separate_receipt_is_valid(self):
+        data = record()
+        data["r16_closed"] = True
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            evidence = root / "verification/r16-closeout/evidence"
+            evidence.mkdir(parents=True)
+            (evidence / "INDEPENDENT_R16_REVALIDATION_2026-10-03.json").write_text(json.dumps({
+                "external_audit": False,
+                "fix_sha": "4ef9a06e486cd8d2e3851c298e244435ecef3232",
+                "disposition": {"R16": "CLOSED"},
+            }))
+            self.assertEqual(MODULE.evidence_errors(data, root), [])
 
     def test_external_audit_claim_rejected(self):
         data = record()

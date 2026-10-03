@@ -1,0 +1,63 @@
+{
+  "POST_V1_BACKLOG": "POST_V1_BACKLOG.md",
+  "R06": {
+    "disposition": "DEFERRED_TO_POST_V1_ENVIRONMENT_DEPENDENT",
+    "known_software_defect_behind_gap": false,
+    "procedure": "POST_V1_BACKLOG.md#r06",
+    "remaining_environment_cases": [
+      "physical Hyprland login",
+      "physical mixed-scale/multi-monitor with at least two connected physical outputs"
+    ],
+    "status": "OPEN"
+  },
+  "R16": {
+    "evidence": "verification/r16-closeout/evidence/INDEPENDENT_R16_REVALIDATION_2026-10-03.json",
+    "status": "CLOSED"
+  },
+  "R18": {
+    "disposition": "DEFERRED_TO_POST_V1_ENVIRONMENT_DEPENDENT",
+    "explicit_non_claims": [
+      "Windows external MCP filesystem mounts remain BLOCKED_PORTABLE_PATH_VIRTUALIZATION and are not relabeled as an environment-dependent PASS."
+    ],
+    "known_software_defect_behind_gap": false,
+    "procedure": "POST_V1_BACKLOG.md#r18",
+    "remaining_environment_cases": [
+      "unlocked disposable Windows interactive certification",
+      "UIPI/UAC negative rows",
+      "real-application UIA and events/virtualization rows",
+      "mixed-DPI/multi-monitor",
+      "lock/unlock and sleep/wake lifecycle",
+      "interactive IPC negative cases"
+    ],
+    "status": "OPEN"
+  },
+  "RELEASE_READINESS": {
+    "changed_for_engineering_closeout": false,
+    "reason": "Full platform/release certification still requires the live desktop and security/release gates encoded by the existing fail-closed release guard.",
+    "source_of_truth": "release-readiness.json",
+    "status": "BLOCKED_DEVELOPMENT_SOURCE"
+  },
+  "V1_ENGINEERING_CLOSEOUT": "PENDING_MULTIPLATFORM_DISTRIBUTION_CERTIFICATION",
+  "date": "2026-10-03",
+  "engineering_closeout_basis": [
+    "R16 independent-authorship revalidation passed.",
+    "R06/R18 residuals are physical/interactive environment-dependent evidence gaps.",
+    "No known product defect is being reclassified as an R06/R18 environment gap.",
+    "Unsupported Windows external-MCP filesystem mounts remain fail-closed and outside the certified v1 claim."
+  ],
+  "multiplatform_distribution": {
+    "required_packages": 8,
+    "required_platforms": [
+      "linux-x86_64",
+      "linux-aarch64",
+      "windows-x86_64",
+      "windows-arm64",
+      "macos-arm64",
+      "macos-x86_64"
+    ],
+    "status": "PENDING",
+    "workflow": ".github/workflows/v1-distribution.yml"
+  },
+  "schema_version": 1,
+  "source_basis_sha": "868446205df36826356483e93c53e5060c46e8aa"
+}

@@ -19,7 +19,7 @@
         "crates/semantic-composition/src/model.rs:6-26",
         "crates/semantic-composition/src/vault.rs:90-542"
       ],
-      "status": "DIRECT_SOURCE_REVIEW_COMPLETE_REVALIDATION_PENDING",
+      "status": "DIRECT_SOURCE_REVIEW_COMPLETE_SEPARATE_REVALIDATION_COMPLETE",
       "title": "Authorization and confirmation"
     },
     {
@@ -112,7 +112,7 @@
         "crates/platform-macos-sys/src/launch.rs:55-163",
         "crates/plugin-host/src/lib.rs"
       ],
-      "status": "DIRECT_SOURCE_REVIEW_COMPLETE_REVALIDATION_PENDING",
+      "status": "DIRECT_SOURCE_REVIEW_COMPLETE_SEPARATE_REVALIDATION_COMPLETE",
       "title": "Driver and Plugin isolation"
     },
     {
@@ -132,7 +132,7 @@
         "crates/federation/src/bin/fixture.rs",
         "crates/federation/tests/federation.rs"
       ],
-      "status": "PRODUCT_DEFECT_FIXED_REVALIDATION_PENDING",
+      "status": "PRODUCT_DEFECT_FIXED_SEPARATE_REVALIDATION_COMPLETE",
       "title": "Federated MCP"
     },
     {
@@ -173,7 +173,7 @@
         "crates/daemon/src/console.rs:109-144",
         "crates/federation/src/lib.rs:760-865"
       ],
-      "status": "DIRECT_SOURCE_REVIEW_COMPLETE_REVALIDATION_PENDING",
+      "status": "DIRECT_SOURCE_REVIEW_COMPLETE_SEPARATE_REVALIDATION_COMPLETE",
       "title": "Audit and disclosure"
     },
     {
@@ -194,7 +194,7 @@
         "crates/driver-host/src/lib.rs:1930-3115",
         "crates/federation/src/lib.rs:605-675"
       ],
-      "status": "PRODUCT_DEFECT_FIXED_REVALIDATION_PENDING",
+      "status": "PRODUCT_DEFECT_FIXED_SEPARATE_REVALIDATION_COMPLETE",
       "title": "Resources and lifecycle"
     },
     {
@@ -330,6 +330,11 @@
       "bytes": 2436,
       "path": "evidence/R_FROZEN_SOURCE_SMOKE.json",
       "sha256": "fc7a0aec34552008e0df5512763d5b0bb22a31cf10ef3579733d82df3a97e8e9"
+    },
+    {
+      "bytes": 2627,
+      "path": "evidence/INDEPENDENT_R16_REVALIDATION_2026-10-03.json",
+      "sha256": "9dc73e6f0e152aaab3cd815ccf3906dbf1460cc715ef020c37ec776cb21ee5dc"
     }
   ],
   "evidence_files_manifest_scope": "JSON receipts under verification/r16-closeout/evidence; the manifest itself is excluded to avoid self-hash recursion.",
@@ -640,14 +645,16 @@
     "production_code_identical_observed": true,
     "to": "6491c0d838fa066938a494524d69ed507aa0dbe8"
   },
-  "independence_eligibility": "UNCONFIRMED",
+  "independence_eligibility": "SATISFIED_BY_SEPARATE_REVIEW_SESSION_FOR_CLOSEOUT",
   "independent_revalidation_required": {
+    "evidence": "verification/r16-closeout/evidence/INDEPENDENT_R16_REVALIDATION_2026-10-03.json",
     "finding_ids": [
       "R-006",
       "R-007"
     ],
-    "reason": "R authored the behavior/security remediation and cannot independently validate its own fix for formal R16 closure.",
-    "required": true
+    "reason": "A separate reviewer session inspected/adopted the R-authored remediation and assurance wording.",
+    "required": false,
+    "status": "COMPLETED_2026-10-03"
   },
   "pr_branch_disposition": "PR_BRANCH_DISPOSITION.json",
   "pr_merge_tree_proof": {
@@ -683,7 +690,7 @@
     ],
     "product_rust_changed": false
   },
-  "r16_closed": false,
+  "r16_closed": true,
   "reports_are_subsequent_evidence_only": true,
   "resolved_prior_tool_blocks": [
     "PlanVault/reconciliation source inspection completed",
@@ -697,6 +704,13 @@
   "reviewer_provenance": "AI-assisted agent review; no product-code correction authored by R",
   "role": "R",
   "schema_version": 1,
+  "separate_revalidation": {
+    "evidence": "verification/r16-closeout/evidence/INDEPENDENT_R16_REVALIDATION_2026-10-03.json",
+    "external_audit": false,
+    "organizational_independence_claimed": false,
+    "result": "PASS",
+    "type": "SEPARATE_AI_ASSISTED_REVALIDATION"
+  },
   "source_changes_sha": "868446205df36826356483e93c53e5060c46e8aa",
   "source_equivalence": {
     "assurance_and_documentation_changes": "R documentation, R16 workflow/harness/tests and retained earlier R evidence.",

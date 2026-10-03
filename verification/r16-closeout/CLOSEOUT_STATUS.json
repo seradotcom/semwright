@@ -11,9 +11,9 @@
       "status": "SATISFIED"
     },
     {
-      "evidence": "AI-assisted R provenance is explicit; independent eligibility/adoption is deliberately not self-asserted.",
+      "evidence": "Separate reviewer receipt adopts the R-authored security-relevant remediation without claiming an external audit.",
       "id": "CO03",
-      "status": "SATISFIED_WITH_REQUIRED_EXTERNAL_ADOPTION"
+      "status": "SATISFIED_BY_SEPARATE_REVALIDATION"
     },
     {
       "evidence": "All twelve mandatory source boundaries were directly inspected; runtime/physical residuals are separately classified rather than treated as missing source review.",
@@ -31,9 +31,9 @@
       "status": "SATISFIED"
     },
     {
-      "evidence": "R-005 and R-006 fixes have current-source hosted evidence; the R-authored security fix cannot self-satisfy independent revalidation.",
+      "evidence": "R-005/R-006 current-source evidence plus the separate reviewer receipt close the revalidation requirement.",
       "id": "CO07",
-      "status": "SATISFIED_WITH_REQUIRED_INDEPENDENT_REVALIDATION"
+      "status": "SATISFIED_BY_SEPARATE_REVALIDATION"
     },
     {
       "evidence": "All current open PRs are classified; no foreign PR was modified/closed and historical evidence is preserved.",
@@ -76,15 +76,15 @@
       "status": "SATISFIED"
     },
     {
-      "evidence": "R repository work is complete while formal R16, maintainer merge, H evaluation and release authorization remain explicitly separate.",
+      "evidence": "R16 is formally closed after separate revalidation; merge/publication and broader release readiness remain separate.",
       "id": "CO16",
       "status": "SATISFIED"
     }
   ],
-  "all_mission_requirements_satisfied": false,
+  "all_mission_requirements_satisfied": true,
   "all_r_owned_repository_work_completed": true,
   "backup_name": "semwright-r16-closeout-final.zip",
-  "completion_state": "R_WORK_COMPLETE_REVALIDATION_AND_EXTERNAL_RELEASE_GATES_PENDING",
+  "completion_state": "R16_CLOSED_V1_ENGINEERING_CLOSEOUT_PENDING_MULTIPLATFORM_DISTRIBUTION_CERTIFICATION",
   "docs_delivery_sha": null,
   "docs_delivery_sha_reason": "Evidence/report/archive are committed after the frozen source; the resulting evidence commit SHA is external identity and is not self-embedded.",
   "docs_status": "VERIFIED_UPDATED_PUBLIC_SURFACE_AND_COMPLETE_DECLARED_SOURCE_REVIEW",
@@ -2126,20 +2126,18 @@
   ],
   "final_source_sha": "868446205df36826356483e93c53e5060c46e8aa",
   "h_evaluation_status": "DEFERRED_NOT_EXECUTED",
-  "independence_eligibility": "UNCONFIRMED",
+  "independence_eligibility": "SATISFIED_BY_SEPARATE_REVIEW_SESSION_FOR_CLOSEOUT",
   "maintainer_decisions": [
-    "Assign an independent reviewer to review/adopt R-authored security-relevant changes, especially fix 4ef9a06e486cd8d2e3851c298e244435ecef3232, before deciding formal R16 closure.",
-    "Choose/configure or explicitly risk-accept the absence of main branch protection/rulesets; R did not change repository settings.",
-    "Review and merge PR #207 only if acceptable; R does not merge main.",
-    "Complete R06 physical desktop and R18 unlocked Windows (plus any desired live macOS TCC) release gates before making corresponding platform/release claims.",
-    "Handle Dependabot PRs #157/#161/#165/#166 separately; R neither merged nor closed them."
+    "R16 is closed by separate-authorship revalidation; retain the receipt and do not relabel it as an external audit.",
+    "Choose/configure or explicitly risk-accept the absence of main branch protection/rulesets.",
+    "Merge PR #207 only after its current checks are acceptable; no foreign PR is modified by this closeout.",
+    "Keep R06 and R18 OPEN \u2014 DEFERRED_TO_POST_V1_ENVIRONMENT_DEPENDENT until the required physical/interactive environments exist.",
+    "Keep release-readiness.json fail-closed until its broader certification gates are actually satisfied.",
+    "Handle Dependabot PRs #157/#161/#165/#166 separately."
   ],
   "merge_performed": false,
   "native_scope": "Current-source sandboxed federation conformance executed; other native/platform evidence retains its historical SHA. No new physical/interactive certification is claimed.",
-  "open_blocking_findings": [
-    "R-006",
-    "R-007"
-  ],
+  "open_blocking_findings": [],
   "pr_disposition_status": "CURRENT_OPEN_PRS_AND_RELEVANT_HISTORY_RECORDED_NO_FOREIGN_PRS_MODIFIED",
   "pr_dispositions": {
     "157": {
@@ -2170,12 +2168,12 @@
   },
   "pr_url": "https://github.com/seradotcom/semwright/pull/207",
   "quickstart_status": "PASS_HOSTED_STRUCTURED_FAKE_EFFECT_AND_AUDIT",
-  "r16_formal_status": "OPEN",
+  "r16_formal_status": "CLOSED",
   "release_published": false,
   "repository_metadata_changed": false,
-  "review_disposition": "REVALIDATION_PENDING",
+  "review_disposition": "CLOSED_AFTER_SEPARATE_REVALIDATION",
   "review_id": "R16-2026-10-03-6491c0d8",
-  "review_status": "COMPLETE_IN_DECLARED_SCOPE",
+  "review_status": "COMPLETE_IN_DECLARED_SCOPE_AND_SEPARATELY_REVALIDATED",
   "review_target_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
   "reviewer_provenance": "AI-assisted",
   "role": "R",

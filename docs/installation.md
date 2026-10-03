@@ -2,8 +2,9 @@
 
 Semwright is development software. This guide starts with a synthetic desktop; it does
 not request real desktop, microphone, camera, clipboard or browser-profile access.
-Independent R16 review and remaining physical/interactive release gates are open.
-There is no verified release-download path in this guide and no `curl | sh` installer.
+R16 is closed after separate revalidation; R06/R18 physical/interactive certification remains
+`OPEN — DEFERRED_TO_POST_V1_ENVIRONMENT_DEPENDENT`. Release admission is still fail-closed.
+There is no `curl | sh` installer.
 
 ## Prerequisites
 
@@ -98,16 +99,32 @@ before starting another broker on the same endpoint. No lingering service is ins
 
 ## Distribution and verification
 
-The repository contains tar/deb packaging, a Nix build expression, SBOM generation and
-scoped attestation workflows. Historical hosted certification is recorded in
-[release blockers](../RELEASE_BLOCKERS.md) and [verification](../VERIFY.md). Consult the
-source/run record rather than assuming every one of these gates ran on a new commit.
-The quickstart above is not a new Nix build or package-install certification.
+The v1 distribution gate builds and certifies native packages separately; Linux artifacts are not
+reused as Windows/macOS payloads. The expected package set is:
 
-For future downloaded artifacts, establish an independently trusted source of checksums
-and publisher provenance before extraction. `sha256sum -c SHA256SUMS` verifies matching
-bytes, not publisher identity. A checksum next to an untrusted archive is not a signature.
-No release is published by these instructions; release admission remains fail-closed.
+- Linux: `semwright-<version>-x86_64.tar.gz`, `semwright-<version>-aarch64.tar.gz`,
+  `semwright_<version>_amd64.deb`, and `semwright_<version>_arm64.deb`.
+- Windows: `semwright-<version>-windows-x86_64.zip` and
+  `semwright-<version>-windows-arm64.zip` containing native PE executables.
+- macOS: `semwright-<version>-macos-arm64.tar.gz` and
+  `semwright-<version>-macos-x86_64.tar.gz` containing native Mach-O executables.
+
+Every portable archive contains the five command binaries, README/install notes, dual licenses,
+SECURITY/SUPPORT scope, platform notes and an internal `SHA256SUMS`. CI also emits an external
+manifest for each package plus a combined `V1_DISTRIBUTION_MANIFEST.json` after all six native jobs
+pass. Linux additionally certifies per-user install/uninstall and `.deb` extraction.
+
+Windows packages are portable ZIPs, not MSI/MSIX, and are not Authenticode-signed; SmartScreen or
+reputation warnings remain possible. Remove the extracted directory to remove the portable copy.
+macOS packages are unsigned/unnotarized CLI archives; they are not equivalent to a notarized app or
+TCC-certified installation. Codesign/notarization/SmartScreen reputation are post-v1 distribution
+hardening unless signing infrastructure is explicitly provisioned.
+
+Historical hosted certification is recorded in [release blockers](../RELEASE_BLOCKERS.md) and
+[verification](../VERIFY.md). Consult the source/run record rather than assuming every gate ran on a
+new commit. `sha256sum -c SHA256SUMS` verifies matching bytes, not publisher identity. GitHub Release
+asset publication remains behind `scripts/release/assert-ready.py`; a green package job alone does
+not authorize a release.
 
 ## Uninstall
 

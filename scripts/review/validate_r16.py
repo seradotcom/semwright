@@ -39,13 +39,24 @@ def links(root: Path, relative: str) -> list[str]:
     return errors
 
 
-def evidence_errors(record: dict) -> list[str]:
+def evidence_errors(record: dict, root: Path = ROOT) -> list[str]:
     errors = []
     for key in ("review_target_sha", "final_source_sha"):
         if not isinstance(record.get(key), str) or not SHA.fullmatch(record[key]):
             errors.append(f"missing full {key}")
-    if record.get("r16_closed") is not False:
-        errors.append("this R review must not declare R16 closed")
+    closed = record.get("r16_closed")
+    if closed is True:
+        receipt_path = root / "verification/r16-closeout/evidence/INDEPENDENT_R16_REVALIDATION_2026-10-03.json"
+        if not receipt_path.is_file():
+            errors.append("R16 closure requires a separate revalidation receipt")
+        else:
+            receipt = json.loads(receipt_path.read_text(), object_pairs_hook=duplicate_keys)
+            if receipt.get("external_audit") is not False or receipt.get("disposition", {}).get("R16") != "CLOSED":
+                errors.append("R16 revalidation receipt does not support closure")
+            if receipt.get("fix_sha") != "4ef9a06e486cd8d2e3851c298e244435ecef3232":
+                errors.append("R16 revalidation receipt is not bound to the reviewed remediation")
+    elif closed is not False:
+        errors.append("r16_closed must be a boolean")
     if record.get("external_audit") is not False:
         errors.append("this R review is not an external audit")
     expected = {f"R16-{n:02}" for n in range(1, 13)}

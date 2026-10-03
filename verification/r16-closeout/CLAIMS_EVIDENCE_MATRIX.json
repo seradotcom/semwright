@@ -1,15 +1,16 @@
 {
   "claims": [
     {
-      "claim": "Development software; R16 remains open.",
+      "claim": "Development software; R16 is CLOSED after separate revalidation while full release certification remains blocked.",
       "evidence": [
         "release-readiness.json remains BLOCKED_DEVELOPMENT_SOURCE",
         "scripts/release/assert-ready.py exit 2: live_desktop_matrix and security_review",
-        "R16_FINDINGS.json R-006/R-007"
+        "R16_FINDINGS.json R-006/R-007",
+        "verification/r16-closeout/evidence/INDEPENDENT_R16_REVALIDATION_2026-10-03.json"
       ],
       "id": "CL01",
       "limitations": [
-        "R completed its repository/source work but cannot self-supply independent revalidation or physical/interactive release gates."
+        "R16 closure is not release authorization. R06/R18 physical/interactive gates remain open and release-readiness.json remains fail-closed."
       ],
       "public_paths": [
         "README.md",
@@ -190,7 +191,7 @@
       ],
       "id": "CL11",
       "limitations": [
-        "105 self-tests use G suite as source. No R rerun, no independent R16 closure."
+        "105 self-tests use G suite as source. R did not relabel historical G tests; R16 closure uses the separate R16 revalidation receipt."
       ],
       "public_paths": [
         "verification/r16-closeout/R16_REVIEW_REPORT.md"
@@ -252,13 +253,13 @@
       "source_sha": "868446205df36826356483e93c53e5060c46e8aa"
     },
     {
-      "claim": "I engineering acceptance is not H evaluation or R16 closure.",
+      "claim": "I engineering acceptance is not H evaluation or release authorization.",
       "evidence": [
         "I_INTEGRATED_ACCEPTANCE.json"
       ],
       "id": "CL15",
       "limitations": [
-        "H benchmark deferred; no speed/superiority claim or release decision."
+        "H benchmark remains deferred; R16 closure does not create speed/superiority claims or release authority."
       ],
       "public_paths": [
         "VERIFY.md",
@@ -273,11 +274,12 @@
         "R16_FINDINGS.json R-006",
         "fix 4ef9a06e486cd8d2e3851c298e244435ecef3232",
         "Actions run 37101922029 job 111143008612: 7/7 federation tests PASS",
-        "driver-conformance artifact 11266447661"
+        "driver-conformance artifact 11266447661",
+        "verification/r16-closeout/evidence/INDEPENDENT_R16_REVALIDATION_2026-10-03.json"
       ],
       "id": "CL16",
       "limitations": [
-        "The fix was authored by R and remains independently revalidation-pending for formal R16 closure.",
+        "The R-authored fix received separate-authorship revalidation for formal R16 closure.",
         "This is a resource/lifecycle remediation, not a claim that an upstream MCP executable is trustworthy."
       ],
       "public_paths": [
