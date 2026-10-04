@@ -378,6 +378,10 @@ impl AvCoordinator {
         elapsed_ms > u128::from(max_elapsed_ms)
     }
 
+    fn operation_budget_exhausted(serial: u64, max_operations: u32) -> bool {
+        serial >= u64::from(max_operations)
+    }
+
     fn budget(&mut self) -> Result<()> {
         if Self::elapsed_budget_exhausted(
             self.started.elapsed().as_millis(),
@@ -388,7 +392,7 @@ impl AvCoordinator {
                 "AV cumulative invocation/deadline budget exhausted".into(),
             ));
         }
-        if self.serial >= u64::from(self.plan.body.budget.max_operations) {
+        if Self::operation_budget_exhausted(self.serial, self.plan.body.budget.max_operations) {
             self.state = AvState::Exhausted;
             return Err(Error::Limit(
                 "AV cumulative invocation/deadline budget exhausted".into(),
@@ -1184,10 +1188,14 @@ mod audio_binding_tests {
     use super::*;
 
     #[test]
-    fn elapsed_budget_boundary_is_strict_and_deterministic() {
+    fn budget_boundaries_are_strict_and_deterministic() {
         assert!(!AvCoordinator::elapsed_budget_exhausted(0, 0));
         assert!(!AvCoordinator::elapsed_budget_exhausted(1_000, 1_000));
         assert!(AvCoordinator::elapsed_budget_exhausted(1_001, 1_000));
+
+        assert!(!AvCoordinator::operation_budget_exhausted(31, 32));
+        assert!(AvCoordinator::operation_budget_exhausted(32, 32));
+        assert!(AvCoordinator::operation_budget_exhausted(33, 32));
     }
 
     #[test]

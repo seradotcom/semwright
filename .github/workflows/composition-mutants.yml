@@ -124,7 +124,7 @@ jobs:
             av)
               echo 'PACKAGE=semwright-av-composition' >> "$GITHUB_ENV"
               echo 'FILES=crates/av-composition/src/sync.rs crates/av-composition/src/coordinator.rs crates/av-composition/src/executor.rs' >> "$GITHUB_ENV"
-              echo 'CRITICAL=AvCoordinator::elapsed_budget_exhausted;AvCoordinator::budget;AvCoordinator::reserve;AvCoordinator::before_dispatch;AvCoordinator::complete;AvCoordinator::validate_state_delta;AvCoordinator::accept_result;AvCoordinator::ready;AvCoordinator::cancel_before_dispatch;AvCoordinator::lost_receipt;classify_reuse;SyncSpec::validate;verify_sync;broker_error' >> "$GITHUB_ENV"
+              echo 'CRITICAL=AvCoordinator::elapsed_budget_exhausted;AvCoordinator::operation_budget_exhausted;AvCoordinator::budget;AvCoordinator::reserve;AvCoordinator::before_dispatch;AvCoordinator::complete;AvCoordinator::validate_state_delta;AvCoordinator::accept_result;AvCoordinator::ready;AvCoordinator::cancel_before_dispatch;AvCoordinator::lost_receipt;classify_reuse;SyncSpec::validate;verify_sync;broker_error' >> "$GITHUB_ENV"
               ;;
             *) echo "unexpected mutation area: $ID" >&2; exit 2 ;;
           esac

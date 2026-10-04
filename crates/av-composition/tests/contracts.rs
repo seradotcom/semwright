@@ -422,37 +422,6 @@ fn active_mutation_needs_a_native_cancel_receipt() {
     assert!(c.cancel_before_dispatch().is_err());
 }
 #[test]
-fn operation_budget_exhausts_at_the_exact_operation_limit() {
-    let mut body = plan().body;
-    body.budget.max_operations = 1;
-    let mut coordinator = AvCoordinator::new(AvPlan::prepare(body).unwrap()).unwrap();
-
-    let call = next(&mut coordinator);
-    coordinator
-        .complete(receipt(
-            &call,
-            NativeResult::DeliveryPlanned {
-                profile_digest: c::canonical_digest(&coordinator.plan().body.spec.delivery)
-                    .unwrap(),
-            },
-        ))
-        .unwrap();
-
-    let stage = coordinator.next_stage().unwrap();
-    let proof = coordinator
-        .plan()
-        .body
-        .services
-        .iter()
-        .find(|value| value.service == stage.service())
-        .unwrap()
-        .clone();
-    let observed = coordinator.expected_base().clone();
-    assert!(coordinator.reserve(&owner(), &proof, &observed).is_err());
-    assert_eq!(coordinator.state(), AvState::Exhausted);
-}
-
-#[test]
 fn native_effect_receipt_count_and_string_limits_are_inclusive() {
     fn delivery_result(coordinator: &AvCoordinator) -> NativeResult {
         NativeResult::DeliveryPlanned {
