@@ -77,19 +77,36 @@ def classify(files: list[str], certify: bool=False) -> dict[str,bool]:
 
         if semantic_src or p == "fuzz/fuzz_targets/composition_contract.rs":
             flags["fuzz_kernel"]=True
-        if semantic_src or semantic_tests:
+        semantic_mutation_src = p in {
+            "crates/semantic-composition/src/controller.rs",
+            "crates/semantic-composition/src/vault.rs",
+        }
+        if semantic_mutation_src or semantic_tests:
             flags["mutants_kernel"]=True
         if media_src or p == "fuzz/fuzz_targets/media_time_contract.rs":
             flags["fuzz_media"]=True
-        if media_src or media_tests:
+        media_mutation_src = p in {
+            "crates/media-time/src/lib.rs",
+            "crates/media-time/src/cue.rs",
+        }
+        if media_mutation_src or media_tests:
             flags["mutants_media"]=True
         if motion_src or p == "fuzz/fuzz_targets/motion_authoring_contract.rs":
             flags["fuzz_motion"]=True
-        if motion_src or motion_tests:
+        motion_mutation_src = p in {
+            "crates/motion-authoring/src/temporal.rs",
+            "crates/motion-authoring/src/measurement.rs",
+        }
+        if motion_mutation_src or motion_tests:
             flags["mutants_motion"]=True
         if av_src or p == "fuzz/fuzz_targets/av_contract.rs":
             flags["fuzz_av"]=True
-        if av_src or av_tests:
+        av_mutation_src = p in {
+            "crates/av-composition/src/coordinator.rs",
+            "crates/av-composition/src/executor.rs",
+            "crates/av-composition/src/sync.rs",
+        }
+        if av_mutation_src or av_tests:
             flags["mutants_av"]=True
         if p == "fuzz/Cargo.toml":
             for name in ("fuzz_kernel","fuzz_media","fuzz_motion","fuzz_av"):
