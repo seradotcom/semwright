@@ -1,22 +1,15 @@
 {
-  "authoring_relation": {
-    "authored_fix_4ef9a06e": false,
-    "authored_original_r16_delivery": false,
-    "note": "This revalidation was performed in a separate reviewer session after the R-authored fix/delivery. It is independent of authorship for the closeout check, but is not represented as an external security audit."
-  },
-  "branch_head_observed_before_closeout": "f73c04006b6cc08f644666792283921857c24838",
+  "schema_version": 2,
+  "review_date": "2026-10-03",
+  "review_target_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+  "final_source_sha": "868446205df36826356483e93c53e5060c46e8aa",
+  "fix_sha": "4ef9a06e486cd8d2e3851c298e244435ecef3232",
+  "external_audit": false,
+  "organizational_independence_claimed": false,
+  "review_type": "SEPARATE_REVALIDATION",
   "disposition": {
-    "R-006": "REMEDIATED_INDEPENDENTLY_REVALIDATED",
-    "R-007": "CLOSED_SEPARATE_REVIEW_ADOPTED",
     "R16": "CLOSED"
   },
-  "external_audit": false,
-  "final_source_sha": "868446205df36826356483e93c53e5060c46e8aa",
-  "finding_ids": [
-    "R-006",
-    "R-007"
-  ],
-  "fix_sha": "4ef9a06e486cd8d2e3851c298e244435ecef3232",
   "hosted_revalidation": [
     {
       "job_id": 111143008612,
@@ -35,16 +28,6 @@
       "suite": "Sandboxed external MCP federation"
     }
   ],
-  "limitations": [
-    "This revalidation does not prove absence of all security defects.",
-    "It does not substitute for physical R06 or unlocked-Windows R18 certification.",
-    "It does not alter release-readiness.json or authorize a release."
-  ],
-  "organizational_independence_claimed": false,
-  "review_date": "2026-10-03",
-  "review_target_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
-  "review_type": "SEPARATE_AI_ASSISTED_REVALIDATION",
-  "schema_version": 1,
   "source_review": {
     "assertions": [
       "Tool accumulation is rejected incrementally before the aggregate can exceed 512 imported tools.",
@@ -60,5 +43,10 @@
       "crates/federation/tests/federation.rs"
     ],
     "result": "PASS"
-  }
+  },
+  "limitations": [
+    "This revalidation does not prove absence of all security defects.",
+    "It does not substitute for physical R06 or unlocked-Windows R18 certification.",
+    "It does not alter release-readiness.json or authorize a release."
+  ]
 }

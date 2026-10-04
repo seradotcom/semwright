@@ -1,4 +1,4 @@
-"""G-owned native application attacks on disposable hosted runners."""
+"""Lab-owned native application attacks on disposable hosted runners."""
 from __future__ import annotations
 
 import hashlib

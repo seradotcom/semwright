@@ -169,7 +169,7 @@ def main():
     report["skipped_cases"] = []
     report["limitations"] = ["Internal adversarial preparation, not independent R16 closure.",
                               "Results apply only to the explicit source and suite SHAs and declared cases.",
-                              "No combined-wave acceptance until a candidate SHA is deliberately pinned."]
+                              "No integrated-candidate acceptance until a candidate SHA is deliberately pinned."]
     write_json(output, report)
     print(json.dumps({"lane": args.lane, "source_sha": source_sha, "suite_sha": suite_sha,
                       "summary": report["summary"]}, sort_keys=True))

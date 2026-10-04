@@ -5,7 +5,7 @@ from pathlib import Path
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
-SPEC = importlib.util.spec_from_file_location("pre_r16_secrets", ROOT / "scripts/ci/pre-r16-secret-scan.py")
+SPEC = importlib.util.spec_from_file_location("repository_secrets", ROOT / "scripts/ci/repository-secret-scan.py")
 SCANNER = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(SCANNER)
 
@@ -33,6 +33,26 @@ class SecretScanEvidenceTests(unittest.TestCase):
         self.assertIsNone(SCANNER.triage_metadata({**finding, "rule_id": "other-rule"}, line, [entry]))
         self.assertIsNone(SCANNER.triage_metadata({**finding, "end_line": 3}, line, [entry]))
 
+    def test_historical_triage_can_bind_hashed_path_and_commit(self):
+        path = "historical/internal-record.json"
+        line = '"commit": "public-merge-identity"'
+        commit = "a" * 40
+        entry = {
+            "file_sha256": hashlib.sha256(path.encode()).hexdigest(),
+            "commit": commit,
+            "rule_id": "generic-api-key",
+            "line_sha256": hashlib.sha256(line.encode()).hexdigest(),
+            "reason": "historical public identity",
+        }
+        finding = {"file": path, "commit": commit, "rule_id": "generic-api-key",
+                   "start_line": 2, "end_line": 2}
+        self.assertEqual(
+            SCANNER.triage_metadata(finding, line, [entry])["classification"],
+            "REVIEWED_NON_SECRET",
+        )
+        self.assertIsNone(SCANNER.triage_metadata({**finding, "commit": "b" * 40}, line, [entry]))
+        self.assertIsNone(SCANNER.triage_metadata({**finding, "file": "other.json"}, line, [entry]))
+
     def test_exit_code_and_findings_must_agree(self):
         self.assertEqual(SCANNER.scan_status(0, []), "PASS")
         self.assertEqual(SCANNER.scan_status(1, [{}]), "FINDINGS")
@@ -44,7 +64,7 @@ class SecretScanEvidenceTests(unittest.TestCase):
             SCANNER.sanitize_findings(["untrusted text"], Path("/tmp/snapshot"))
 
     def test_workflow_is_hosted_read_only_and_history_complete(self):
-        text = (ROOT / ".github/workflows/pre-r16.yml").read_text()
+        text = (ROOT / ".github/workflows/repository-secret-scan.yml").read_text()
         self.assertIn("runs-on: ubuntu-24.04", text)
         self.assertIn("fetch-depth: 0", text)
         self.assertIn("persist-credentials: false", text)

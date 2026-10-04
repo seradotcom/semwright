@@ -20,7 +20,7 @@
   preserve previous bundles, create private output and checksum `BASELINE_SHA`.
 - Escape terminal controls in CLI human diagnostics and JSON metadata without changing
   parsed values; remove the obsolete hardcoded PipeWire-unimplemented diagnostic.
-- Reconcile current documentation with commit-scoped evidence. The pre-R16 observation
+- Reconcile current documentation with commit-scoped evidence. The earlier repository observation
   retains a Windows ARM64 failure, unresolved parallel work and R16 OPEN; no release is declared.
 
 - Renamed the canonical user CLI from `computerctl` to `semwright` across build targets,

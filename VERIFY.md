@@ -28,24 +28,10 @@ a repeat of every native, supply-chain, physical-desktop or fuzz gate below.
 
 ## Historical preflight at 241000c268d1bf1dc29d4e91a913097ac0d020cb
 
-The following preflight conclusion and detailed history remain source-scoped. Its failure
-is retained deliberately; it is not the current main snapshot's Windows result.
-
-**Evidence is commit-scoped, not inherited by the commit containing this document.**
-
-The maintainer pre-R16 observation used
-`241000c268d1bf1dc29d4e91a913097ac0d020cb`. Eleven workflows succeeded and the Windows
-workflow failed on its ARM64 native UIA fixture. Consequently this observation is
-**NOT_READY_FOR_INDEPENDENT_R16_REVIEW**, not an all-green candidate. Fixes and later
-commits require their own checks. At that historical snapshot R16 remained OPEN; a later
-separate revalidation closed R16 without turning this historical preflight into an independent
-audit. See [the preflight inventory](verification/pre-r16/PRE_R16_STATE_MAP.md) and
-[the R16 closeout](verification/r16-closeout/README.md).
-
-The table below names required gates, not an assertion that they have passed on a future
-commit. For the observed SHA, the per-run/job records are retained under
-`verification/pre-r16/inventory/`; historical live evidence below retains its original
-SHA/environment and does not automatically certify the observation or a later candidate.
+Historical coordination snapshots are intentionally not part of the public repository. Verification
+claims are tied to exact source SHAs, GitHub Actions run identities and the durable R16 review evidence
+under verification/r16-closeout. A PASS on one commit never certifies a later commit, and skipped or
+blocked checks are never treated as successful execution.
 
 ## Required GitHub Actions gates
 
@@ -369,13 +355,10 @@ This closes Semwright's `release_packaging_validation` gate and the development 
 
 ## Evidence boundaries
 
-Historical public proofs are also retained in the separate website checkout: Figma Desktop
-126.5.6 at `3cd86958f70f7a8231d31e492b5505acff19dae0` exercises the driver/Plugin API route,
-not every operation through the CLI/broker. Godot Parcel Lantern at
-`9ecf35fd9c3d6fbcbc1f8b72b8d4734c70037ffa` records a bounded full broker route and clean restart.
-Neither was re-executed by this preflight. See
-[website/public proof observation](verification/pre-r16/WEBSITE_AND_PUBLIC_PROOFS.md).
-
+Historical website demonstrations remain exact-SHA observations: Figma Desktop
+126.5.6 at 3cd86958f70f7a8231d31e492b5505acff19dae0 exercises the driver/Plugin API route,
+while Godot Parcel Lantern at 9ecf35fd9c3d6fbcbc1f8b72b8d4734c70037ffa records a bounded
+broker route and clean restart. These historical observations are not inherited by current main.
 
 The observed workflows provide hosted regression evidence for the listed source SHA, with the
 Windows ARM64 failure explicitly retained. Historical records separately cover GNOME semantic

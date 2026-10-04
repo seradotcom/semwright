@@ -1,4 +1,4 @@
-# Dogfood agent instructions
+# Dogfood model instructions
 
 Use only current Semwright Figma capabilities discovered at runtime. Do not reconstruct capability schemas from this file.
 
