@@ -21,8 +21,9 @@ Retained evidence:
   pagination remediation.
 - `SHA256SUMS` — integrity for every retained R16 evidence file.
 
-R-009 was re-observed through the repository API on 2026-10-04: the GitHub branch-protection
-endpoint reported `main` as unprotected and the repository rulesets list was empty. This is a governance finding, not a runtime vulnerability or evidence of an unauthorized
+R-009 was re-observed through the repository API on 2026-10-04 against `main`
+`d17b4fe464a957767a898c07a836448c0f96d681`: the GitHub branch-protection endpoint reported
+`main` as unprotected and the repository rulesets list was empty. This is a governance finding, not a runtime vulnerability or evidence of an unauthorized
 change.
 
 This evidence is not an external organizational security audit and does not replace

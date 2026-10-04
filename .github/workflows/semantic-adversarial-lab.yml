@@ -1,4 +1,4 @@
-name: Semantic adversarial lab (G)
+name: Semantic adversarial lab
 on:
   push:
     branches: [test/semantic-adversarial-lab]
