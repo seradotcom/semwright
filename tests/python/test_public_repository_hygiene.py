@@ -124,6 +124,16 @@ class PublicRepositoryHygieneTests(unittest.TestCase):
                 with self.subTest(relative=relative, pattern=pattern.pattern):
                     self.assertIsNone(pattern.search(text))
 
+    def test_public_workflow_names_use_component_names(self):
+        for relative in (
+            ".github/workflows/semantic-adversarial-lab.yml",
+            ".github/workflows/semantic-creation-integration.yml",
+            ".github/workflows/semantic-creation-native-blender.yml",
+        ):
+            with self.subTest(relative=relative):
+                first_line = (ROOT / relative).read_text().splitlines()[0]
+                self.assertIsNone(re.search(r"\([A-I]\)\s*$", first_line), first_line)
+
     def test_adversarial_lab_uses_component_ownership(self):
         registry = json.loads((ROOT / "tests/semantic-adversarial-lab/registry.json").read_text())
         coverage = json.loads((ROOT / "tests/semantic-adversarial-lab/COVERAGE.json").read_text())

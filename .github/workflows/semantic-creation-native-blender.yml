@@ -1,4 +1,4 @@
-name: Integrated Blender native transport diagnostic (I)
+name: Integrated Blender native transport diagnostic
 defaults:
   run:
     shell: bash

@@ -5,7 +5,7 @@
   "absence_of_vulnerabilities_proven": false,
   "confirmed_product_vulnerabilities": 0,
   "current_governance_observation": {
-    "observed_against_main_sha": "04cf0ef7062d134b71206d832375be9545553bb4",
+    "observed_against_main_sha": "d17b4fe464a957767a898c07a836448c0f96d681",
     "observed_at_utc_date": "2026-10-04",
     "main_branch_protection": "NONE",
     "repository_rulesets": [],
@@ -47,7 +47,7 @@
       "evidence": [
         "Updated README, docs/architecture.md and docs/platforms.md",
         "Windows run 37096430846 at reviewed source",
-        "verification/r16-closeout/evidence/INDEPENDENT_R16_REVALIDATION_2026-10-03.json"
+        "verification/r16-closeout/evidence/SEPARATE_REVALIDATION_2026-10-03.json"
       ],
       "residual_risk": "The corrected platform/support wording passed current-source documentary/source/static validation and separate-reviewer adoption is recorded; broader platform/release certification remains separate."
     },
@@ -67,7 +67,7 @@
       "evidence": [
         "RELEASE_BLOCKERS.md prior intro",
         "VERIFY.md historical preflight",
-        "verification/r16-closeout/evidence/INDEPENDENT_R16_REVALIDATION_2026-10-03.json"
+        "verification/r16-closeout/evidence/SEPARATE_REVALIDATION_2026-10-03.json"
       ],
       "residual_risk": "Current evidence separates exact push checkout, PR synthetic-merge checkout, tree equivalence and skipped jobs. The review record remains repository-scoped assurance material."
     },

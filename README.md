@@ -169,7 +169,9 @@ Applications that already own their model, persistence and transactions can inte
 SDK exposes small optional cooperation contracts, adapts them through the canonical Driver
 SDK/Driver Host, and keeps Broker/Policy, Project Graph and Effect Conformance as the existing
 authorities. Rust and TypeScript surfaces, a file-backed reference profile and an application-owned
-SQLite example are included in the repository.
+SQLite example are included in the repository. The portable SDK baseline has executed on Linux,
+Windows and macOS across x64/ARM64 where native hosted runners are available; the real Host E2E is
+currently an accepted Linux profile. See the [Native SDK verification](docs/native-sdk/VERIFY.md).
 
 ## Applications
 
@@ -179,11 +181,11 @@ certificate**.
 
 | Application / domain | Semwright path | Evidence boundary today |
 | --- | --- | --- |
-| **Blender** | First-party driver and semantic authoring/export | Driver/native authoring evidence exists; live/version coverage remains scoped |
+| **Blender** | First-party driver and semantic authoring/export | Real Blender 4.5.14 DriverProvider and add-on evidence exists; broader version/desktop coverage remains scoped |
 | **Godot** | Driver + EditorPlugin + pinned runner | Production driver is exercised through Driver Host and pinned Godot CI; broader editor interaction remains scoped |
 | **Chromium** | Private-profile CDP adapter | Real hosted browser integration exists on the Linux development line |
 | **Figma** | Official Plugin API through authenticated loopback driver | Typed/fake-host/sandboxed CI exists; real Figma acceptance is separate |
-| **LibreOffice** | First-party driver | Repository integration exists; per-application live coverage varies |
+| **LibreOffice** | First-party sandboxed UNO driver | Real hosted Writer/Calc/PDF operations execute through CLI -> daemon -> Broker -> DriverProvider; the curated surface is not the full UNO API |
 | **OBS Studio** | `obs-websocket` driver | Fake-server, sandbox and disposable read-only OBS paths are exercised |
 | **MLT video** | Offline timeline/render driver | Semantic/render tests exist; arbitrary Kdenlive/Shotcut round trips are not implied |
 | **KiCad** | Curated driver integration | Deterministic IPC/conformance exists; fake IPC is not a real KiCad interoperability certificate |

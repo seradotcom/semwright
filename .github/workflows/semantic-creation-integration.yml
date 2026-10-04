@@ -1,4 +1,4 @@
-name: Semantic creation integration diagnostics (I)
+name: Semantic creation integration diagnostics
 defaults:
   run:
     shell: bash
