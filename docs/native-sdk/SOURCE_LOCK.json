@@ -1,0 +1,1125 @@
+{
+  "schema_version": 1,
+  "canonical_baseline": "4f121b3cd1d469c556adfa54159878dc96022148",
+  "source_status": "REBUILT_PRIVATE_LICENSE_UNRESOLVED",
+  "public_distribution_permitted": false,
+  "sources": [
+    {
+      "kind": "source",
+      "archive_name": "semwright-native-sdk-0.3.0.zip",
+      "sha256": "d5f337af548010e4adcd2578834ff9319ae709fca3ac7b00354fff60166c97c4",
+      "internal_hashes_verified": 60,
+      "file_count": 61,
+      "files": [
+        {
+          "path": "semwright-native-sdk-0.3.0/DEPENDENCIES.json",
+          "sha256": "d444127221dc5868331f88ca43aafb955519279a8750aa724f1a75f646d00b6b",
+          "bytes": 81265,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "RETAINED_AS_REFERENCE",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/PACKAGE-MANIFEST.json",
+          "sha256": "ed992f7ed70af22324318ac25e09aa90f525f39a9c11e5ad9a19b5836848ccea",
+          "bytes": 11061,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "RETAINED_AS_REFERENCE",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/README.md",
+          "sha256": "b93dd4ce5066a93071b936a984b46813f46d2605f41c828728477ded88f1d33e",
+          "bytes": 4497,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "RETAINED_AS_REFERENCE",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/SBOM.cdx.json",
+          "sha256": "f74aa9b649124511d42d2b6412aded34d1adcc5dbefaee9b230910f4422ebc94",
+          "bytes": 175486,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "HISTORICAL_ONLY",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/SHA256SUMS.txt",
+          "sha256": "1929aa74609e2ea631342e5fd4d8ca0897dbbcad721bd49a9cea7d30f35351a8",
+          "bytes": 6035,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "RETAINED_AS_REFERENCE",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/SOURCE-IDENTITIES.json",
+          "sha256": "eb338304b66c51aa29c6c3e4f3de458d80262ad61cabe9be271a9b86205a3ffe",
+          "bytes": 1804,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "RETAINED_AS_REFERENCE",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/contracts/native/effects-fixtures/README.md",
+          "sha256": "933b9cc8647ddb3fa2eb01e4264d7d2d45b5ab01ebc5711f15305072f5c25997",
+          "bytes": 784,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "RETAINED_AS_REFERENCE",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/contracts/native/effects-fixtures/scalar.json",
+          "sha256": "7d1ba9f8c35dad730d7eee05626181926f76a192e1d118bf1c7b2b829d95fb78",
+          "bytes": 36,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "RETAINED_AS_REFERENCE",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/contracts/native/effects-fixtures/table.csv",
+          "sha256": "72a22552cdee228f9d7d4c87f04c5b42b6b8303ce2de63cc77b677d2dd9d4115",
+          "bytes": 45,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "RETAINED_AS_REFERENCE",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/contracts/native/effects-result.schema.json",
+          "sha256": "6ec089a9a2ab2e96ef57fb5b3aec07efd21b1fd08ee6b14fb834798076bd4f92",
+          "bytes": 23121,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "RETAINED_AS_REFERENCE",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/contracts/native/effects-spec.schema.json",
+          "sha256": "c11d76548724392701ff7be4a00e31e6b4522a11f75c50bd708365db3643532f",
+          "bytes": 30015,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "RETAINED_AS_REFERENCE",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/contracts/native/scene-capabilities.json",
+          "sha256": "9a8ddee0c0cfd9c57d20f591bb1049ec2aefead624c365ba1155683a1c8ed43b",
+          "bytes": 18042,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "RETAINED_AS_REFERENCE",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/contracts/native/table-capabilities.json",
+          "sha256": "40ca2980a69695aeb87bccb9307f769b9322aa3296d378e7bb2cefda73047015",
+          "bytes": 18447,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "RETAINED_AS_REFERENCE",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/docs/native-sdk-delivery/ACCEPTANCE.md",
+          "sha256": "d45bcc4700ec661481155596007a4a821245d4094507db636d921390625d0df1",
+          "bytes": 4847,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "RETAINED_AS_REFERENCE",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/docs/native-sdk-delivery/API.md",
+          "sha256": "df9507a651bea7fb0a149712ee1c620d27d21908f3d90a2ecb82e9b21e2cb96f",
+          "bytes": 11749,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "RETAINED_AS_REFERENCE",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/docs/native-sdk-delivery/EFFECTS.md",
+          "sha256": "8f8cddfe7583cba70e8be946f65babfef7c3bd46671e5fceda04ac7e14391dfa",
+          "bytes": 7982,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "RETAINED_AS_REFERENCE",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/docs/native-sdk-delivery/NOTICES.md",
+          "sha256": "5d3beb20c272c2f602b657edccb24222f4945168d082f35b5ae0b9e52eeda4b9",
+          "bytes": 1895,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "RETAINED_AS_REFERENCE",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/docs/native-sdk-delivery/OPERATOR.md",
+          "sha256": "8c36f1afa146712c5e82d13ad9473ae8e8acda9e429425f31ba1bb2162b51718",
+          "bytes": 10740,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "RETAINED_AS_REFERENCE",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/docs/native-sdk-delivery/PACKAGING.md",
+          "sha256": "4c427b1d33b880ea1177d4893cc00714301763c684370b97d27cb7fe3a341514",
+          "bytes": 6987,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "RETAINED_AS_REFERENCE",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/docs/native-sdk-delivery/PREREQUISITES.md",
+          "sha256": "cb0371c7f663ea3554e70b8c9a9a3e850e2da32867f46cacfa78be582f1f207b",
+          "bytes": 6219,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "RETAINED_AS_REFERENCE",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/docs/native-sdk-delivery/README.md",
+          "sha256": "b93dd4ce5066a93071b936a984b46813f46d2605f41c828728477ded88f1d33e",
+          "bytes": 4497,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "RETAINED_AS_REFERENCE",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/docs/native-sdk-delivery/REBUILT.json",
+          "sha256": "eba1752e3d95e61abe84f76277260c320206a8a19275a7f9a4297ac661538e7b",
+          "bytes": 2561,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "RETAINED_AS_REFERENCE",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/docs/native-sdk-delivery/RELEASE_PLAN.md",
+          "sha256": "7ca99a1a7b6567612561292eebe9c5c5e9201597e298c0952b27ac5abcebf56f",
+          "bytes": 1505,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "RETAINED_AS_REFERENCE",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/docs/native-sdk-delivery/REQUIREMENTS.md",
+          "sha256": "d281f1b319c17cf8628a3289c2ee0c9e3da0dab97db73ae240845892b175a260",
+          "bytes": 7454,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "RETAINED_AS_REFERENCE",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/docs/native-sdk-delivery/STE_REVIEW.md",
+          "sha256": "beb42593a2f619d9c0a386b4ecca1831c0e1b792d8019fdce9449aea6f7a8812",
+          "bytes": 4012,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "RETAINED_AS_REFERENCE",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/docs/native-sdk-delivery/TUTORIAL_SCENE.md",
+          "sha256": "8b63938fda2182670808109377a89fd93790ade293978af2647398b2f5752d94",
+          "bytes": 4285,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "RETAINED_AS_REFERENCE",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/docs/native-sdk-delivery/TUTORIAL_TABLE.md",
+          "sha256": "8abdbe0dd9add78528315792c3d39996ca83e9cde3dedd70e70023fa7674f2de",
+          "bytes": 4189,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "RETAINED_AS_REFERENCE",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/docs/native-sdk-delivery/package-files.json",
+          "sha256": "893fb6524bcdca87ca6457cec2405197510155bd64e739ed481bf6dc2c2acacd",
+          "bytes": 8086,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "RETAINED_AS_REFERENCE",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/docs/native-sdk-delivery/ste-review.json",
+          "sha256": "2d68527eb130952a0dc99a67441aff0ea3e916661603e93bacaa4f8fb81cdc7d",
+          "bytes": 8198,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "RETAINED_AS_REFERENCE",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/docs/native-sdk-delivery/upstream/LICENSE-APACHE.txt",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "bytes": 11358,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "RETAINED_AS_REFERENCE",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/docs/native-sdk-delivery/upstream/LICENSE-MIT.txt",
+          "sha256": "ad56b5c3e274c6d82e1424447211bfb4e5b2c22c86e6cf8aa8120458aa7347ef",
+          "bytes": 1079,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "RETAINED_AS_REFERENCE",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/docs/native-sdk-delivery/upstream/NOTICE.txt",
+          "sha256": "3dc76b2628748ac595ed5da872f0492145bd10968b20962ff531528d55010fc7",
+          "bytes": 840,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "RETAINED_AS_REFERENCE",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/docs/native-sdk-delivery/validation_bundle.py",
+          "sha256": "deb386f0c3c61c9b0a7aa64237762e78728de1ee59f76a8c5549dd506a5db3bd",
+          "bytes": 10367,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "RETAINED_AS_REFERENCE",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/examples/native/counter.rs",
+          "sha256": "ef2207b8b73c45c8cf971c8595605b509c5309be35b2c846b935e3c504452744",
+          "bytes": 6129,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "PORTED",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/examples/native/scene.rs",
+          "sha256": "831b529d136e9c00e757583ee0c3040a432d94a245c9412b8bf243748f6b4096",
+          "bytes": 3563,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "PORTED",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/examples/native/table.rs",
+          "sha256": "1870f93c5ca28369feb1574ffe6a5d86d31562f0b99e36691c980576417d838d",
+          "bytes": 10494,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "PORTED",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/scripts/package_native_sdk.py",
+          "sha256": "061d018d5af5d90f96ceacb92b6d08a501e5b8ec264a18db93ae3da0f15f98ef",
+          "bytes": 24815,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "RETAINED_AS_REFERENCE",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/sdk/native/Cargo.lock",
+          "sha256": "edf86441928676e199992661cad4d4760008722b98c1fe5637e905b5314f17fd",
+          "bytes": 49150,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "HISTORICAL_ONLY",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/sdk/native/Cargo.toml",
+          "sha256": "013e330864941ae1bccede9918f17c0029398b028194a47f0e280aa4037d859c",
+          "bytes": 1995,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "RETAINED_AS_REFERENCE",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/sdk/native/RECONSTRUCTION_STATUS.json",
+          "sha256": "e8d80b4e59bfd366fc062688c69b7aa56ec186f1921f5df160e3612fd7699ced",
+          "bytes": 13722,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "RETAINED_AS_REFERENCE",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/sdk/native/build_inputs.py",
+          "sha256": "de731ea1a62bbe7933e29dded29094f950b14909222bc86b355e20a6e3399199",
+          "bytes": 9861,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "RETAINED_AS_REFERENCE",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/sdk/native/clean_room.py",
+          "sha256": "dbf4a774ec600f7ff6cbf4b30c02a0d03afe40bee627d80b59cec6aab9fdda37",
+          "bytes": 14735,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "RETAINED_AS_REFERENCE",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/sdk/native/prepare_core_integration.py",
+          "sha256": "101c3e2b79407010e47c00146dce156f9ceee21265c8797e7ba7edc1fae0df37",
+          "bytes": 20284,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "RETAINED_AS_REFERENCE",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/sdk/native/protocol_client.py",
+          "sha256": "a6f27e55a12a5c516d820e9482570362b7fa8d78f8174d65ca6cacc79e723f84",
+          "bytes": 4744,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "RETAINED_AS_REFERENCE",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/sdk/native/record_build.py",
+          "sha256": "33a4d1c86bfd68ac52ec4505c731a16929819527bb13d0659c40fe707b087cf8",
+          "bytes": 5925,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "RETAINED_AS_REFERENCE",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/sdk/native/scaffold.py",
+          "sha256": "370e17e1f5faaa8916fc93c23d693097fd7b18b494bcce6290712a7d75f6bc4f",
+          "bytes": 2438,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "RETAINED_AS_REFERENCE",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/sdk/native/src/composition_report.rs",
+          "sha256": "4ec942b7ae0e8e8953eb4d7ae38d52cc9f50e4f743395f86b760c77cf1596974",
+          "bytes": 1148,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "REFACTORED",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/sdk/native/src/cooperation_profile.rs",
+          "sha256": "0b6e25e9793c964545a23b0fcc5b692f3b91234d6830709eb95ae0e52ea833e1",
+          "bytes": 2254,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "REFACTORED",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/sdk/native/src/effects.rs",
+          "sha256": "74e3de62cf5d9ecf96c5dc72cca963bafea079d1a9e9ff53a4b6a21b226e76f4",
+          "bytes": 1873,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "REFACTORED",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/sdk/native/src/effects_readback.rs",
+          "sha256": "4efac4e3afd163a66a3d2857eda911a65cf91ba10ed073ccf723d803498bc70a",
+          "bytes": 27295,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "REFACTORED",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/sdk/native/src/lib.rs",
+          "sha256": "b00b1d43409f5d58dd467438fba161ca1a47352abaf32b3465e85fe8779c4bac",
+          "bytes": 32384,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "REFACTORED",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/sdk/native/src/package.rs",
+          "sha256": "9238bbd9679b2f54c6ae36ca2832f2a0a5d45b6c11348f2bce261aef726bd059",
+          "bytes": 2740,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "REFACTORED",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/sdk/native/src/recovery.rs",
+          "sha256": "cd8f99dccd082308a2f3d64377748bba4ced15fe03d6b10938e70d8e0e76d4f5",
+          "bytes": 25475,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "REFACTORED",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/sdk/native/src/report_validation.rs",
+          "sha256": "5203c658b15ac5c4a3131ccdd7f4afd02fec9555f501236145da528b72ae5bbf",
+          "bytes": 862,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "REFACTORED",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/sdk/native/tests/conformance.rs",
+          "sha256": "f8e113c0148495bd5a5523c060639881ad5e9c383337668a5f8eb842f2272733",
+          "bytes": 12732,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "PORTED",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/sdk/native/tests/core_reference_contract.rs",
+          "sha256": "323c488ab1c4c553c1f021a00c093d4481d2a62659ea21996baccb7f1a957aa8",
+          "bytes": 13097,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "PORTED",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/sdk/native/tests/export_effects_cli.rs",
+          "sha256": "cf3c2077bc6c433f75a43be21df80adcc8751e35103e0a1471396dfad2d1470a",
+          "bytes": 6834,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "PORTED",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/sdk/native/tests/rebuilt_effects.rs",
+          "sha256": "d3ec29e2463008bae7027b1669e4f83995305e87618e2d3a4379c47f5021910f",
+          "bytes": 15009,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "PORTED",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/sdk/native/tests/test_tools.py",
+          "sha256": "6311d2f89006ef01ec748a028f5419daa2b0bf16fab60835d16b8f7bb847b448",
+          "bytes": 3779,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "PORTED",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/tests/test_native_integration_preparation.py",
+          "sha256": "b0a520d9085052b727ce8de212de111c5dfd0ca82818c6e4f9aec21c1cfc4120",
+          "bytes": 13617,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "PORTED",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0/tests/test_native_sdk_package.py",
+          "sha256": "150b7f1a009c9bff63b0480cd1b2521150ebac5f2c5741bd7491e02fdeaad128",
+          "bytes": 15152,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED",
+          "planned_disposition": "PORTED",
+          "public_distribution": "BLOCKED_LICENSE_REVIEW"
+        }
+      ]
+    },
+    {
+      "kind": "validation",
+      "archive_name": "semwright-native-sdk-0.3.0-validation.zip",
+      "sha256": "aff4949137d162e47ee329a78d8e2656f519a68f22696f36ae18e90c69b9c12c",
+      "internal_hashes_verified": 50,
+      "file_count": 51,
+      "files": [
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/README.md",
+          "sha256": "fc63660a13437acf5511c3aececd5b3d37952143b0c5950de14f62a2e1cc910d",
+          "bytes": 598,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/SHA256SUMS.txt",
+          "sha256": "b065c0791c2d866ef9882701adb903fde56a47e4b79bdad77882f69ef09f890e",
+          "bytes": 4904,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/VALIDATION.json",
+          "sha256": "db8db61f8fc700b7be6050e6fafb17a520109a38555af6692a2fba68e9571007",
+          "bytes": 26471,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/build/final-sdk-native-counter-strip.log",
+          "sha256": "a8a491ce63161e071c5a02e32091c11bde9f860563a3e1487571c50ba8c3d1a3",
+          "bytes": 320,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/build/final-sdk-native-scene-strip.log",
+          "sha256": "73785e66546fb795bef45624232661d7990305985f6df77df244bfe76e3762af",
+          "bytes": 316,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/build/final-sdk-native-sdk.log",
+          "sha256": "5c455466a8e1ba3beb6254040df2635e374835d7c3295af93f59ee0b22b73eec",
+          "bytes": 185030,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/build/final-sdk-native-table-strip.log",
+          "sha256": "507ed092d0fe03c8b484428b48c5702acf4f3c5959fa9150a9f3a64d1bff0983",
+          "bytes": 316,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/build/final-sdk.json",
+          "sha256": "b4d935d0bfd1ef2ae64e516ffbda80d6d13637568a1f330e9517484dceced2d3",
+          "bytes": 9429,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/canonical-packages/REPORT.json",
+          "sha256": "c9e9600623f369660e42f294f044f4b8b8eacbd1d4b13ea009388782c7178177",
+          "bytes": 9378,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/canonical-packages/scene/driver.manifest.json",
+          "sha256": "d81935d1254e89da4af64e87284e46a5a452238be17f4e004d17992e6dadaaff",
+          "bytes": 1215,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/canonical-packages/scene/inspect.stderr.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/canonical-packages/scene/inspect.stdout.txt",
+          "sha256": "62023ad4779f93580e339cbc6ef6d85ce861d59819412a7cf424d6c3cb12b421",
+          "bytes": 1052,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/canonical-packages/scene/pack.stderr.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/canonical-packages/scene/pack.stdout.txt",
+          "sha256": "3782fd7dafa4952f56c49b456d97f3508d15a4f8f00defc6ab1aa7916059e72a",
+          "bytes": 86,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/canonical-packages/table/driver.manifest.json",
+          "sha256": "e972e357031703cbcfd203a746515e207a23cbd60b3e097b9a3f7fce1ac0fcc1",
+          "bytes": 1215,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/canonical-packages/table/inspect.stderr.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/canonical-packages/table/inspect.stdout.txt",
+          "sha256": "9e7456f455660f77f8cc38d7cd3fdbd8399242b52f0e6d82a4355fd5affc2646",
+          "bytes": 1052,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/canonical-packages/table/pack.stderr.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/canonical-packages/table/pack.stdout.txt",
+          "sha256": "9291da5a732c3576e5ba21f35be56e295c59425985cca2a3e4888c4c7ce9270a",
+          "bytes": 86,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/consumers/report.json",
+          "sha256": "f3e7e2d8eeb918661826746fb3ffd1ee7c600003d194c61fbe71bb41f7a4c1a4",
+          "bytes": 4709,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/consumers/scene-build-inputs.json",
+          "sha256": "84dc9075ad1db191c757f6e4d36dcb74e98233cc8bbb7ffece6297090cfabbab",
+          "bytes": 4499,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/consumers/scene-build.log",
+          "sha256": "d1c1a9a00c5aa066276e7d556e169de706189ff9e8884a50421ad68563f5c151",
+          "bytes": 90560,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/consumers/scene/Cargo.lock",
+          "sha256": "62ed356adb5258fb7df6561be62ff9058013f9cd0b2a456484438dfae4ae8f69",
+          "bytes": 26135,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/consumers/scene/Cargo.toml",
+          "sha256": "1f105f30505702cb69daae55a08e060e650bf0ebbd76f40dd0e10da68870f687",
+          "bytes": 441,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/consumers/table-build-inputs.json",
+          "sha256": "c093b2b48a078519836c69e265366bcaaa35ad430f91a2c61adf6a14041a6d19",
+          "bytes": 4499,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/consumers/table-build.log",
+          "sha256": "c3b434f04ea377b57bfae8dbec9eac9c65aba328e5ad9e6cc1de74332076ef5d",
+          "bytes": 88129,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/consumers/table/Cargo.lock",
+          "sha256": "9aa6c46d0858a1df5c49134826c0493bf8c89b1c95c2ff3386669d78aeee9842",
+          "bytes": 26135,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/consumers/table/Cargo.toml",
+          "sha256": "0386c2bff5d02e4d4d5233eb727afdf83bfb40c9b369deadcbef9c4016f357e2",
+          "bytes": 441,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/execution/FINAL_VALIDATION.json",
+          "sha256": "0ffdeca83aba702776435e30035556db7146ee413438ef0179735d46c8413575",
+          "bytes": 7687,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/execution/identity.json",
+          "sha256": "0898b1baabeb2c21e196b179c706893bdf49b1fa06d51b74e4c34440dec6533f",
+          "bytes": 559,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/execution/source-after.json",
+          "sha256": "74f60b2549948d4323fc02fe3cac26e60947d76df7dd5349f72d1f3c0919194a",
+          "bytes": 6546,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/execution/source-before.json",
+          "sha256": "74f60b2549948d4323fc02fe3cac26e60947d76df7dd5349f72d1f3c0919194a",
+          "bytes": 6546,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/execution/suite-command.json",
+          "sha256": "e882ff83c91c6ee63d5e8a60fd8a17ffb0736936d059a7967e55b18e70a2c1d1",
+          "bytes": 1395,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/execution/tutorial-captures.json",
+          "sha256": "e30628682561a86b095e92d30db30652c7efd95789eeb8d94279c2b4a8072cc8",
+          "bytes": 1861,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/history/development-failure-0704.log",
+          "sha256": "5c071c5b3985fd99be436320fa8b14a6a650365d3152caf8c6aa4a5a443a7b5e",
+          "bytes": 6786,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/history/development-history-0704.json",
+          "sha256": "43545e2edea005939bae2708ad6bc813974262698bd5f896010845ab5cf8efc6",
+          "bytes": 962,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/language/STE_REVIEW.md",
+          "sha256": "beb42593a2f619d9c0a386b4ecca1831c0e1b792d8019fdce9449aea6f7a8812",
+          "bytes": 4012,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/language/ste-review.json",
+          "sha256": "2d68527eb130952a0dc99a67441aff0ea3e916661603e93bacaa4f8fb81cdc7d",
+          "bytes": 8198,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/logs/clean-room.log",
+          "sha256": "f3e7e2d8eeb918661826746fb3ffd1ee7c600003d194c61fbe71bb41f7a4c1a4",
+          "bytes": 4709,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/logs/python-preparation.log",
+          "sha256": "cecc37ff11e770e37d0666451c5fc4cf31036ebfca14810e756dc3cfa1fb3f4e",
+          "bytes": 2461,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/logs/python-tools.log",
+          "sha256": "b26b0884fd957f126acc36e358b885cae389f69bb4c1607e0cc6062d7385470d",
+          "bytes": 1061,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/logs/record-build.log",
+          "sha256": "52bfa2d2c965f0f510b3808d1f262b882108d2b8a5e41e633bb698fdb3468ed1",
+          "bytes": 630,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/logs/sdk-all-targets.log",
+          "sha256": "5bcc170bbe04070f58b2e0bf0c2f1f35b3e09fea0d1007cb97a1de16d354c994",
+          "bytes": 9416,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/logs/tutorial-scene.stderr.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/logs/tutorial-scene.stdout.txt",
+          "sha256": "4b81d34500836a87a00e8593395d3751595db21922020c8910692d1ccc63976a",
+          "bytes": 2917,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/logs/tutorial-table.stderr.txt",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "bytes": 0,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/logs/tutorial-table.stdout.txt",
+          "sha256": "361f2041d24dc45dc784277b36dba6cc0bf4f41ca1b0ae7e3aecee21fd23bd34",
+          "bytes": 2073,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/source/extracted-packaging-tests.json",
+          "sha256": "212094e1f39ea330bdb0608653b27bd18ea53a1b5ada8c12b8df78a6a593acf0",
+          "bytes": 1162,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/source/extracted-packaging-tests.log",
+          "sha256": "2a331307af471fc034184a181728056960f9e282167b0bdfa605269086b8eb87",
+          "bytes": 3573,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/source/source-candidate-verification.json",
+          "sha256": "089b2b5ce0a97821fb122775c216f9a75bf48e1ba2d75ee6c7a93236074d8c37",
+          "bytes": 2054,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "semwright-native-sdk-0.3.0-validation/source/source-plan-20261003T0720.json",
+          "sha256": "ed992f7ed70af22324318ac25e09aa90f525f39a9c11e5ad9a19b5836848ccea",
+          "bytes": 11061,
+          "classification": "HISTORICAL_ONLY",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        }
+      ]
+    },
+    {
+      "kind": "master",
+      "archive_name": "Semwright_Native_SDK_Master_Canonico_v0.1.0.zip",
+      "sha256": "b440d45fe28e3c66c57e3fdff69265e1289164a4af579bfb6defe822bdf97df8",
+      "internal_hashes_verified": 8,
+      "file_count": 9,
+      "files": [
+        {
+          "path": "Semwright_Native_SDK_Master_Canonico_v0.1.0/00_LEEME_PRIMERO.md",
+          "sha256": "114fcfa47299ecdc7e76e9db1519b87d7780c94c4f063a61f6546f8a3051f5b8",
+          "bytes": 2932,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "Semwright_Native_SDK_Master_Canonico_v0.1.0/FUENTES_Y_TRAZABILIDAD.md",
+          "sha256": "81df190e7c35bb8c2ae7294054e51f72f8aa013687c3dd34209a4ff99317de05",
+          "bytes": 3683,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "Semwright_Native_SDK_Master_Canonico_v0.1.0/INSPECCION_DE_ENTRADAS.md",
+          "sha256": "10b0d82ce6ce5f1a4678be3ef56f7ce1914dd8e203c982e8c8e3e5435196aaa1",
+          "bytes": 8892,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "Semwright_Native_SDK_Master_Canonico_v0.1.0/INVENTARIO_ENTRADAS.json",
+          "sha256": "3f3a36f2dc03468acaf2eaaf6c5f70313c02bf07b567b0537a09cf50ff30453b",
+          "bytes": 25648,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "Semwright_Native_SDK_Master_Canonico_v0.1.0/MASTER_NATIVE_SDK_CANONICO.md",
+          "sha256": "fa13b02b510757139c733bcf3f3b58fd45a4c8768e3d5949a83c702c51a007d5",
+          "bytes": 55397,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "Semwright_Native_SDK_Master_Canonico_v0.1.0/MATRIZ_ACEPTACION.json",
+          "sha256": "9dedaec16a504b62ca3e43849717cb9d29f1f0e477104dcba228be89bc5efdad",
+          "bytes": 26225,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "Semwright_Native_SDK_Master_Canonico_v0.1.0/PROMPT_CONTEXTUAL.md",
+          "sha256": "0d989e0ee7f67803e86b6e2532b7f50f492690cbd479efeb67a78e60cf3cea82",
+          "bytes": 3371,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "Semwright_Native_SDK_Master_Canonico_v0.1.0/SHA256SUMS.txt",
+          "sha256": "db3695d411fe7e4c4121d09e16a1697fa0eeb84542dd25cb2ce7bf9d1e5e8b43",
+          "bytes": 726,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        },
+        {
+          "path": "Semwright_Native_SDK_Master_Canonico_v0.1.0/VALIDACION_DOCUMENTAL.json",
+          "sha256": "0b42648c103e76f56cd9c8a0b43b1e91159e3b7e0292704ed3e0f785e17c7c4a",
+          "bytes": 2592,
+          "classification": "RETAINED_AS_REFERENCE",
+          "migration_status": "NOT_PORTED",
+          "structural_review": "UTF8_CRC_PATH_DUPLICATE_SYMLINK_CHECKED"
+        }
+      ]
+    }
+  ]
+}
