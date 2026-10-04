@@ -8,10 +8,12 @@ receive caller authority, bypass policy, or become an MCP tool surface by itself
 agent -> CLI/MCP -> broker -> policy/audit -> DriverProvider -> sandboxed driver -> application
 ```
 
-Use a driver when an application exposes a richer API than generic AT-SPI/UI automation and
-the integration needs a long-lived connection or application state. Plugins remain appropriate
-for narrow stateless commands: the current plugin host starts one sandboxed process per
-invocation, while a driver process persists for its provider lifetime.
+Use the Driver SDK directly when an integration needs the lower-level persistent provider protocol,
+application identity, Host lifecycle or negotiated driver interfaces. If the application already owns
+its domain model, storage, revisions and transaction boundary, start with the [Native SDK](native-sdk/README.md)
+instead; it adds optional cooperation contracts on top of the same Driver SDK/Driver Host path. Plugins
+remain appropriate for narrow stateless commands: the current plugin host starts one sandboxed process
+per invocation, while a driver process persists for its provider lifetime.
 
 ## Native SDK and Driver SDK
 
