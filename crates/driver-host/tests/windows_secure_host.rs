@@ -112,6 +112,7 @@ fn manifest(executable: PathBuf) -> Manifest {
         secrets: vec![],
         tools: vec![],
         network: false,
+        nvidia_gpu: false,
         loopback_port: None,
         resources: DriverResources {
             open_files: 128,
@@ -316,6 +317,8 @@ async fn secure_windows_driver_sealed_tool_is_staged_immutable_and_executable() 
         mounts: vec![],
         system_config: vec![],
         dependencies: vec![],
+        nvidia_gpu: false,
+        resources: None,
     }];
     let roots = vec![FilesystemGrant {
         name: "fixture-tool-root".into(),
@@ -424,6 +427,8 @@ async fn secure_windows_runtime_tool_cwd_is_bound_to_declared_mounts() {
         mounts: vec!["tool-workspace".into()],
         system_config: vec![],
         dependencies: vec![],
+        nvidia_gpu: false,
+        resources: None,
     }];
     let roots = vec![
         FilesystemGrant {
@@ -548,6 +553,8 @@ async fn secure_windows_v7_runtime_tool_paths_are_mount_and_dependency_scoped() 
             mounts: vec!["tool-workspace".into()],
             system_config: vec![],
             dependencies: vec!["helper".into()],
+            nvidia_gpu: false,
+            resources: None,
         },
         DriverToolMount {
             root: "helper-tool-root".into(),
@@ -556,6 +563,8 @@ async fn secure_windows_v7_runtime_tool_paths_are_mount_and_dependency_scoped() 
             mounts: vec![],
             system_config: vec![],
             dependencies: vec![],
+            nvidia_gpu: false,
+            resources: None,
         },
     ];
     let roots = vec![
@@ -697,6 +706,8 @@ async fn secure_windows_v8_runtime_tool_receives_only_declared_system_config() {
         mounts: vec![],
         system_config: vec!["tool-config-root".into()],
         dependencies: vec![],
+        nvidia_gpu: false,
+        resources: None,
     }];
     let roots = vec![
         FilesystemGrant {
@@ -806,6 +817,8 @@ async fn secure_windows_runtime_tool_jobs_are_detached_session_bound_and_cancell
         mounts: vec!["tool-workspace".into()],
         system_config: vec![],
         dependencies: vec![],
+        nvidia_gpu: false,
+        resources: None,
     }];
     let roots = vec![
         FilesystemGrant {
@@ -1018,6 +1031,8 @@ async fn secure_windows_v8_runtime_tool_sessions_are_provider_scoped_and_reaped(
         mounts: vec!["tool-workspace".into()],
         system_config: vec!["tool-config-root".into()],
         dependencies: vec![],
+        nvidia_gpu: false,
+        resources: None,
     }];
     let roots = vec![
         FilesystemGrant {
@@ -1231,6 +1246,8 @@ async fn secure_windows_driver_sealed_tool_rejects_digest_mismatch() {
         mounts: vec![],
         system_config: vec![],
         dependencies: vec![],
+        nvidia_gpu: false,
+        resources: None,
     }];
     let roots = vec![FilesystemGrant {
         name: "fixture-tool-root".into(),

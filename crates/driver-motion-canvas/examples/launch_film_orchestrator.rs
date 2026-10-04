@@ -189,6 +189,8 @@ mod linux {
                 ],
                 system_config: vec![],
                 dependencies: vec![],
+                nvidia_gpu: false,
+                resources: None,
             }]
         } else {
             vec![]
@@ -212,6 +214,7 @@ mod linux {
             secrets: vec![],
             tools,
             network: false,
+            nvidia_gpu: false,
             loopback_port: None,
             resources: DriverResources {
                 open_files: 512,

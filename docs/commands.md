@@ -2036,7 +2036,7 @@ Idempotency: `idempotent`. Dry run: `true`.
 
 ## `blender.render.settings`
 
-Set bounded resolution and sample settings.
+Set bounded resolution, samples and finite process-local Cycles compute devices.
 
 Idempotency: `idempotent`. Dry run: `true`.
 
@@ -2064,6 +2064,23 @@ Idempotency: `idempotent`. Dry run: `true`.
       "enum": [
         "CYCLES",
         "BLENDER_EEVEE_NEXT"
+      ]
+    },
+    "device": {
+      "type": "string",
+      "enum": [
+        "CPU",
+        "GPU",
+        "BOTH",
+        "AUTO"
+      ]
+    },
+    "backend": {
+      "type": "string",
+      "enum": [
+        "AUTO",
+        "CUDA",
+        "OPTIX"
       ]
     }
   },

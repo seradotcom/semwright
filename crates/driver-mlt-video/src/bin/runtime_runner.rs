@@ -6,7 +6,8 @@
 use semwright_mlt_video::{
     hash::reader_hash,
     runtime::{
-        ProcessSpec, RenderProfile, ServiceCatalog, constrained_environment, render_argv, run,
+        NATIVE_DIAGNOSTIC_FILE, ProcessSpec, RenderProfile, ServiceCatalog,
+        constrained_environment, native_render_diagnostic, render_argv, run,
     },
 };
 use serde_json::{Map, Value, json};
@@ -225,14 +226,34 @@ fn render(
         OsString::from(output_name.clone()),
         &profile,
     );
-    execute(
-        melt,
-        args,
-        &work,
-        Duration::from_secs(120),
-        300,
-        4_294_967_296,
-    )?;
+    // Preserve the actual native result before checked() can discard failed-tool logs.
+    // This uses exactly the existing render argv, environment, deadlines and limits.
+    let project_root = semwright_mlt_video::fs::Root::open(&work, true, true)
+        .map_err(|_| "native render scratch receipt is unavailable".to_string())?;
+    let project_bytes = project_root
+        .read("project.mlt", semwright_mlt_video::xml::MAX_XML)
+        .map_err(|_| "native render XML diagnostic binding is unavailable".to_string())?;
+    let result = run(
+        &ProcessSpec {
+            executable: melt.to_path_buf(),
+            args: args.clone(),
+            cwd: work.clone(),
+            timeout: Duration::from_secs(120),
+            cpu_seconds: 300,
+            address_space_bytes: 4_294_967_296,
+            environment: constrained_environment(),
+        },
+        &AtomicBool::new(false),
+    )
+    .map_err(|error| format!("{}: {}", error.code, error.message))?;
+    let diagnostic = native_render_diagnostic(&project_bytes, &args, &result)
+        .map_err(|_| "native render diagnostic exceeds its contract".to_string())?;
+    project_root
+        .write_new("scratch", NATIVE_DIAGNOSTIC_FILE, &diagnostic)
+        .map_err(|_| "native render diagnostic exclusive save failed".to_string())?;
+    result
+        .checked()
+        .map_err(|error| format!("{}: {}", error.code, error.message))?;
     let metadata = std::fs::symlink_metadata(&output)
         .map_err(|_| "render output is unavailable".to_string())?;
     if !metadata.is_file() || metadata.file_type().is_symlink() {

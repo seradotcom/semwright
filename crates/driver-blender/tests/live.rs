@@ -143,6 +143,8 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
                 ],
                 system_config: vec![],
                 dependencies: vec!["blender".into()],
+                nvidia_gpu: false,
+                resources: None,
                 sha256: digest(&session_runner),
             },
             DriverToolMount {
@@ -151,10 +153,13 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
                 mounts: vec![],
                 system_config: vec![],
                 dependencies: vec![],
+                nvidia_gpu: false,
+                resources: None,
                 sha256: digest(&blender_tool),
             },
         ],
         network: false,
+        nvidia_gpu: false,
         loopback_port: None,
         resources: DriverResources {
             open_files: 256,

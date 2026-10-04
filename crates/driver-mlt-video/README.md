@@ -39,6 +39,20 @@ operations; it verifies runtime entrypoints remain inside the delegated bundle a
 Host-sealed tool bytes before execution. Legacy `Runtime` construction remains available only to
 internal library fixtures/direct-mode tests, not to the production driver entrypoint.
 
+Render staging bounds each `avformat` decoder to one thread in the disposable
+native XML, including independent clip clones and audio producers. This avoids
+decoder thread proliferation under the existing memory limit. Saved project XML,
+timeline clocks, consumer codec settings and strict output validation stay
+unchanged. `render.start` allows up to 120 seconds for synchronous staging before
+returning the owned render job; native render deadlines remain separate.
+
+The runner retains a bounded local render receipt binding the staged XML digest,
+argv, exit status and captured log bytes. A media-validation failure can publish
+a unique `.native-failure-<job>.json` sibling inside the existing output grant,
+with the expected and observed frame clocks. These receipts are limited to
+64 KiB, created exclusively, and never turn a failed output into a video artifact.
+Raw logs remain outside public job snapshots and audit messages.
+
 ```sh
 cargo test -p semwright-mlt-video-driver --all-features
 cargo clippy -p semwright-mlt-video-driver --all-targets --all-features -- -D warnings

@@ -389,6 +389,7 @@ fn sandbox_spec(
         environment: vec![],
         sealed_tools: vec![],
         network: config.network,
+        nvidia_gpu: false,
         limits: Some(ResourceLimits {
             open_files: config.resources.open_files,
             processes: config.resources.processes,

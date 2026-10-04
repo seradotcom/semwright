@@ -179,27 +179,46 @@ async fn spawn_linux_broker_tool(
     dependency_files: Vec<(String, std::fs::File)>,
     cancellation: Option<CancellationToken>,
 ) -> Result<SandboxProcess> {
-    tokio::task::spawn_blocking(move || {
-        if cancellation
-            .as_ref()
-            .is_some_and(CancellationToken::is_cancelled)
-        {
-            return Err(Error::new(
-                ErrorCode::Cancelled,
-                "Linux runtime-tool preparation cancelled",
-            ));
-        }
-        let result = semwright_platform_services::sandbox_spawn(&spec);
-        // The fresh descriptors must live until Bubblewrap has materialized
-        // their sealed bytes, including its bounded child-metadata handshake.
-        drop(dependency_files);
-        result
-    })
-    .await
-    .map_err(|_| {
+    // Linux PR_SET_PDEATHSIG is tied to the thread that created the child.
+    // A Tokio blocking worker may retire after ten idle seconds, causing
+    // Bubblewrap --die-with-parent to kill an otherwise live native session.
+    // Retain a dedicated launcher thread for the exact SandboxProcess lifetime.
+    // Parent-death protection, pidfd cleanup and sandbox limits remain active.
+    let runtime = tokio::runtime::Handle::current();
+    let (release, lifetime) = std::sync::mpsc::channel::<()>();
+    let (result_tx, result_rx) = tokio::sync::oneshot::channel();
+    std::thread::Builder::new()
+        .name("semwright-tool-launcher".into())
+        .spawn(move || {
+            let _entered = runtime.enter();
+            let result = if cancellation
+                .as_ref()
+                .is_some_and(CancellationToken::is_cancelled)
+            {
+                Err(Error::new(
+                    ErrorCode::Cancelled,
+                    "Linux runtime-tool preparation cancelled",
+                ))
+            } else {
+                semwright_platform_services::sandbox_spawn(&spec)
+            }
+            .map(|process| process.with_launcher_guard(release));
+            // The fresh descriptors live through Bubblewrap's bounded materialization handshake.
+            drop(dependency_files);
+            // If the receiver disappeared, dropping the process also releases the launcher.
+            let _ = result_tx.send(result);
+            let _ = lifetime.recv();
+        })
+        .map_err(|_| {
+            Error::new(
+                ErrorCode::Internal,
+                "Linux runtime-tool launcher thread failed",
+            )
+        })?;
+    result_rx.await.map_err(|_| {
         Error::new(
             ErrorCode::Internal,
-            "Linux runtime-tool launcher task failed",
+            "Linux runtime-tool launcher response failed",
         )
     })?
 }
@@ -892,6 +911,42 @@ impl HostToolExecutor for HostToolBroker {
 }
 
 #[cfg(target_os = "linux")]
+fn apply_linux_gpu_tool_resources(
+    spec: &mut SandboxSpec,
+    contract: &DriverToolMount,
+) -> Result<()> {
+    let Some(resources) = &contract.resources else {
+        return Ok(());
+    };
+    if !spec.nvidia_gpu || !contract.nvidia_gpu || contract.name != "blender-session-runner" {
+        return Err(Error::new(
+            ErrorCode::PolicyDenied,
+            "Native address-space override requires the selected authorized GPU runner",
+        ));
+    }
+    let limits = spec.limits.as_mut().ok_or_else(|| {
+        Error::new(
+            ErrorCode::PolicyDenied,
+            "GPU native override requires an existing bounded resource template",
+        )
+    })?;
+    if !(134_217_728..=8_589_934_592).contains(&resources.address_space_bytes)
+        || resources.open_files != limits.open_files
+        || resources.processes != limits.processes
+        || resources.cpu_seconds != limits.cpu_seconds
+        || resources.operation_cpu_seconds != 0
+        || resources.file_size_bytes != limits.file_size_bytes
+    {
+        return Err(Error::new(
+            ErrorCode::PolicyDenied,
+            "GPU native override may change only address space within 8 GiB",
+        ));
+    }
+    limits.address_space_bytes = resources.address_space_bytes;
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
 struct LinuxHostToolBroker {
     tools: BTreeMap<String, LinuxBrokerTool>,
     contracts: BTreeMap<String, DriverToolMount>,
@@ -899,6 +954,7 @@ struct LinuxHostToolBroker {
     system_config_mounts: BTreeMap<String, Mount>,
     template: SandboxSpec,
     operation_cpu_seconds: u64,
+    nvidia_gpu: bool,
 }
 
 #[cfg(target_os = "linux")]
@@ -909,6 +965,7 @@ impl LinuxHostToolBroker {
         contracts: &[DriverToolMount],
         system_config: &[SystemConfigMount],
         operation_cpu_seconds: u64,
+        nvidia_gpu: bool,
     ) -> Result<Self> {
         let mut by_name = BTreeMap::new();
         for tool in tools {
@@ -958,6 +1015,7 @@ impl LinuxHostToolBroker {
         template.environment.clear();
         template.sealed_tools.clear();
         template.network = false;
+        template.nvidia_gpu = false;
         Ok(Self {
             tools: by_name,
             contracts: contract_by_name,
@@ -965,6 +1023,7 @@ impl LinuxHostToolBroker {
             system_config_mounts,
             template,
             operation_cpu_seconds,
+            nvidia_gpu,
         })
     }
 }
@@ -1056,6 +1115,8 @@ impl HostToolExecutor for LinuxHostToolBroker {
         let mut spec = self.template.clone();
         spec.staged_executable = tool.staged.0.clone();
         spec.args = prepared_args;
+        spec.nvidia_gpu = self.nvidia_gpu && contract.nvidia_gpu;
+        apply_linux_gpu_tool_resources(&mut spec, contract)?;
         let mut selected_mounts = contract
             .mounts
             .iter()
@@ -1255,6 +1316,8 @@ impl HostToolExecutor for LinuxHostToolBroker {
         let mut spec = self.template.clone();
         spec.staged_executable = tool.staged.0.clone();
         spec.args = prepared_args;
+        spec.nvidia_gpu = self.nvidia_gpu && contract.nvidia_gpu;
+        apply_linux_gpu_tool_resources(&mut spec, contract)?;
         let mut selected_mounts = contract
             .mounts
             .iter()
@@ -1670,6 +1733,22 @@ fn validate_secret_source(path: &Path) -> Result<()> {
         }
         Ok(())
     }
+}
+
+fn validate_nvidia_gpu_permission(manifest: &Manifest, allow_nvidia_gpu: bool) -> Result<()> {
+    if manifest.nvidia_gpu && !allow_nvidia_gpu {
+        return Err(Error::new(
+            ErrorCode::PolicyDenied,
+            "Driver requests NVIDIA compute but owner configuration denies it",
+        ));
+    }
+    if manifest.nvidia_gpu && !cfg!(target_os = "linux") {
+        return Err(Error::new(
+            ErrorCode::Unsupported,
+            "NVIDIA compute is unavailable on this platform",
+        ));
+    }
+    Ok(())
 }
 
 fn validate_owner_permissions(
@@ -3224,6 +3303,7 @@ fn sandbox_spec(
         environment,
         sealed_tools: sealed_tools.iter().map(SealedTool::sandbox_mount).collect(),
         network: manifest.network,
+        nvidia_gpu: false,
         limits: Some(ResourceLimits {
             open_files: manifest.resources.open_files,
             processes: manifest.resources.processes,
@@ -3350,6 +3430,7 @@ fn sandbox_spec_windows(
         environment,
         sealed_tools: Vec::new(),
         network: manifest.network,
+        nvidia_gpu: false,
         limits: Some(ResourceLimits {
             open_files: manifest.resources.open_files,
             processes: manifest.resources.processes,
@@ -3388,7 +3469,20 @@ impl DriverProvider {
         roots: &[FilesystemGrant],
         allow_network: bool,
     ) -> Result<Arc<Self>> {
+        Self::connect_with_gpu(manifest, state, helper, roots, allow_network, false).await
+    }
+
+    /// Explicit owner gate. Legacy callers preserve the device-free sandbox contract.
+    pub async fn connect_with_gpu(
+        manifest: Manifest,
+        state: &Path,
+        helper: &Path,
+        roots: &[FilesystemGrant],
+        allow_network: bool,
+        allow_nvidia_gpu: bool,
+    ) -> Result<Arc<Self>> {
         validate_owner_permissions(&manifest, roots, allow_network)?;
+        validate_nvidia_gpu_permission(&manifest, allow_nvidia_gpu)?;
         #[cfg(target_os = "windows")]
         {
             semwright_protocol::private_directory(state)?;
@@ -3784,6 +3878,7 @@ impl DriverProvider {
                         &manifest.tools,
                         &manifest.system_config,
                         manifest.resources.operation_cpu_seconds,
+                        manifest.nvidia_gpu && allow_nvidia_gpu,
                     )?))
                 } else {
                     None
@@ -4125,11 +4220,17 @@ impl DriverProvider {
             Response::Failure {
                 id: response_id,
                 error,
-            } if response_id == id => Err(Error::new(
-                error.code,
-                "Driver reported an error; untrusted payload was redacted",
-            )
-            .uncertain()),
+            } if response_id == id => {
+                // Retain existing text redaction. Only a fixed typed, bounded
+                // compatibility field crosses this boundary; it grants no authority.
+                let mut public = Error::new(
+                    error.code,
+                    "Driver reported an error; untrusted payload was redacted",
+                )
+                .uncertain();
+                public.native_diagnostic = error.native_diagnostic.filter(|d| d.is_valid());
+                Err(public)
+            }
             _ => Err(Error::new(
                 ErrorCode::ProtocolMismatch,
                 "Driver returned an unexpected execution response",
@@ -4654,6 +4755,7 @@ mod tests {
             secrets: vec![],
             tools: vec![],
             network: false,
+            nvidia_gpu: false,
             loopback_port: None,
             resources: semwright_driver_sdk::DriverResources::default(),
             request_timeout_ms: 1000,
@@ -4667,6 +4769,122 @@ mod tests {
         assert_eq!(linux_host_tool_cpu_limit(Duration::from_millis(1)), 5);
         assert_eq!(linux_host_tool_cpu_limit(Duration::from_secs(2)), 5);
         assert_eq!(linux_host_tool_cpu_limit(Duration::from_millis(5_001)), 6);
+    }
+
+    #[test]
+    fn nvidia_gpu_owner_gate_and_application_only_handoff_are_independent() {
+        let mut candidate = manifest();
+        assert!(validate_nvidia_gpu_permission(&candidate, false).is_ok());
+        candidate.nvidia_gpu = true;
+        assert_eq!(
+            validate_nvidia_gpu_permission(&candidate, false)
+                .unwrap_err()
+                .code,
+            ErrorCode::PolicyDenied
+        );
+        #[cfg(target_os = "linux")]
+        assert!(validate_nvidia_gpu_permission(&candidate, true).is_ok());
+        #[cfg(not(target_os = "linux"))]
+        assert_eq!(
+            validate_nvidia_gpu_permission(&candidate, true)
+                .unwrap_err()
+                .code,
+            ErrorCode::Unsupported
+        );
+        #[cfg(unix)]
+        {
+            let spec = sandbox_spec(
+                &candidate,
+                Path::new("/tmp/driver"),
+                Path::new("/tmp/helper"),
+                &[],
+                None,
+                &[],
+            )
+            .unwrap();
+            assert!(
+                !spec.nvidia_gpu,
+                "Rust driver must never inherit application GPU authority"
+            );
+            assert!(
+                !spec
+                    .environment
+                    .iter()
+                    .any(|(name, _)| name == "SEMWRIGHT_NVIDIA_GPU")
+            );
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn nvidia_native_tool_resources_preserve_driver_and_other_caps() {
+        let mut candidate = manifest();
+        candidate.resources.address_space_bytes = 4_294_967_296;
+        candidate.resources.cpu_seconds = 300;
+        candidate.resources.open_files = 256;
+        candidate.resources.processes = 128;
+        let mut spec = sandbox_spec(
+            &candidate,
+            Path::new("/tmp/driver"),
+            Path::new("/tmp/helper"),
+            &[],
+            None,
+            &[],
+        )
+        .unwrap();
+        let baseline = spec.clone();
+        let mut resources = candidate.resources.clone();
+        resources.address_space_bytes = 8_589_934_592;
+        let contract = DriverToolMount {
+            root: "blender-session-runner".into(),
+            name: "blender-session-runner".into(),
+            sha256: "a".repeat(64),
+            mounts: vec![],
+            system_config: vec![],
+            dependencies: vec![],
+            nvidia_gpu: true,
+            resources: Some(resources),
+        };
+        assert!(apply_linux_gpu_tool_resources(&mut spec, &contract).is_err());
+        assert_eq!(
+            spec.limits.as_ref().unwrap().address_space_bytes,
+            4_294_967_296
+        );
+        spec.nvidia_gpu = true;
+        apply_linux_gpu_tool_resources(&mut spec, &contract).unwrap();
+        let limits = spec.limits.as_ref().unwrap();
+        let original = baseline.limits.as_ref().unwrap();
+        assert_eq!(limits.address_space_bytes, 8_589_934_592);
+        assert_eq!(original.address_space_bytes, 4_294_967_296);
+        assert_eq!(limits.cpu_seconds, 300);
+        assert_eq!(limits.open_files, original.open_files);
+        assert_eq!(limits.processes, original.processes);
+        assert_eq!(limits.file_size_bytes, original.file_size_bytes);
+        for change in 0..4 {
+            let mut denied = contract.clone();
+            match change {
+                0 => denied.nvidia_gpu = false,
+                1 => denied.name = "mlt-render".into(),
+                2 => denied.resources.as_mut().unwrap().address_space_bytes += 1,
+                _ => denied.resources.as_mut().unwrap().processes += 1,
+            }
+            let mut child = baseline.clone();
+            child.nvidia_gpu = true;
+            assert!(apply_linux_gpu_tool_resources(&mut child, &denied).is_err());
+            assert_eq!(
+                child.limits.as_ref().unwrap().address_space_bytes,
+                4_294_967_296
+            );
+        }
+        let mut ordinary = contract.clone();
+        ordinary.nvidia_gpu = false;
+        ordinary.resources = None;
+        let mut child = baseline.clone();
+        apply_linux_gpu_tool_resources(&mut child, &ordinary).unwrap();
+        assert_eq!(
+            child.limits.as_ref().unwrap().address_space_bytes,
+            4_294_967_296
+        );
     }
 
     #[test]

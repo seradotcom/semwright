@@ -45,6 +45,7 @@ fn manifest(executable: PathBuf) -> Manifest {
         secrets: vec![],
         tools: vec![],
         network: false,
+        nvidia_gpu: false,
         loopback_port: None,
         resources: DriverResources {
             open_files: 128,

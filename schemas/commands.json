@@ -8413,7 +8413,7 @@
   {
     "name": "blender.render.settings",
     "version": "1.0",
-    "description": "Set bounded resolution and sample settings.",
+    "description": "Set bounded resolution, samples and finite process-local Cycles compute devices.",
     "input_schema": {
       "type": "object",
       "properties": {
@@ -8438,6 +8438,23 @@
             "CYCLES",
             "BLENDER_EEVEE_NEXT"
           ]
+        },
+        "device": {
+          "type": "string",
+          "enum": [
+            "CPU",
+            "GPU",
+            "BOTH",
+            "AUTO"
+          ]
+        },
+        "backend": {
+          "type": "string",
+          "enum": [
+            "AUTO",
+            "CUDA",
+            "OPTIX"
+          ]
         }
       },
       "required": [],
@@ -8453,6 +8470,63 @@
         "engine": {
           "type": "string",
           "maxLength": 128
+        },
+        "device": {
+          "type": "string",
+          "enum": [
+            "CPU",
+            "GPU",
+            "BOTH"
+          ]
+        },
+        "backend": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "CUDA",
+            "OPTIX",
+            null
+          ]
+        },
+        "devices": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "maxLength": 256
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "CPU",
+                  "CUDA",
+                  "OPTIX"
+                ]
+              },
+              "id": {
+                "type": "string",
+                "maxLength": 256
+              }
+            },
+            "required": [
+              "name",
+              "type",
+              "id"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "fallback": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 1024
         }
       },
       "required": [

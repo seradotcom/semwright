@@ -69,8 +69,11 @@ fn manifest(executable: PathBuf, tool_digest: String, protocol: u32) -> Manifest
             mounts: vec!["tool-workspace".into()],
             system_config: vec![],
             dependencies: vec![],
+            nvidia_gpu: false,
+            resources: None,
         }],
         network: false,
+        nvidia_gpu: false,
         loopback_port: None,
         resources: DriverResources {
             open_files: 128,
@@ -104,6 +107,8 @@ fn manifest_v7(executable: PathBuf, probe_digest: String, helper_digest: String)
         mounts: vec![],
         system_config: vec![],
         dependencies: vec![],
+        nvidia_gpu: false,
+        resources: None,
     });
     candidate
 }
@@ -614,6 +619,11 @@ async fn linux_v8_runtime_tool_sessions_are_provider_scoped_and_reaped() {
         tokio::time::sleep(std::time::Duration::from_millis(25)).await;
     }
     assert!(started_marker.exists(), "persistent tool must start");
+
+    // Tokio's default blocking-worker idle timeout is ten seconds. A persistent
+    // native session must survive its launcher's retirement window before its
+    // next frame, while retaining parent-death protection and owned cleanup.
+    tokio::time::sleep(std::time::Duration::from_secs(12)).await;
 
     let frame = run(
         "session-b",

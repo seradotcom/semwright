@@ -227,6 +227,8 @@ fn manifest(executable: PathBuf, runtime_sha256: String) -> Manifest {
                 mounts: vec!["godot-authoring-artifacts".into()],
                 system_config: vec![],
                 dependencies: vec![],
+                nvidia_gpu: false,
+                resources: None,
             },
             DriverToolMount {
                 root: "godot-export-runtime".into(),
@@ -235,9 +237,12 @@ fn manifest(executable: PathBuf, runtime_sha256: String) -> Manifest {
                 mounts: vec!["godot-authoring-artifacts".into()],
                 system_config: vec![],
                 dependencies: vec!["godot".into()],
+                nvidia_gpu: false,
+                resources: None,
             },
         ],
         network: false,
+        nvidia_gpu: false,
         loopback_port: None,
         resources: DriverResources {
             open_files: 128,

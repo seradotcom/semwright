@@ -128,3 +128,52 @@ production. The job is expected to run:
 
 Mocked add-on tests remain useful regression coverage but are not used as evidence for this live
 driver.
+
+## Cycles GPU sessions
+
+`driver.blender.render.settings` accepts the finite process-local compute selector
+documented in `../../adapters/blender/README.md`. For a production GPU session,
+request `{"engine":"CYCLES","device":"GPU","backend":"CUDA"}` explicitly and
+verify its returned device identities. `AUTO` permits an explicit CPU fallback;
+it is unsuitable when GPU usage must be guaranteed.
+
+GPU authority is disabled by default and belongs to the Host-owned Blender
+session-runner tool. The owner must enable `driver_nvidia_gpu` in the daemon,
+`nvidia_gpu` in the driver manifest, and `nvidia_gpu` on the
+`blender-session-runner` tool contract. The Rust driver itself receives no GPU
+device nodes. Network, filesystem grants, sealed executables and resource limits
+remain independently enforced.
+
+The runner starts every Blender session from factory settings. Compute selection
+must therefore be repeated after each native session reopen. No user preferences
+file is read or written, and persistent semantic authoring does not gain a general
+preferences interface. GPU and CPU may produce numerical pixel differences;
+benchmark a representative shot with unchanged cameras, lighting, samples,
+denoising and bounce settings before adopting a new execution revision. A typed
+device-selection response proves enumeration and enabled settings; an actual
+native render and its receipt are still required to prove GPU execution.
+
+The Linux compute grant currently selects `/dev/nvidia0`, `nvidiactl`, and
+`nvidia-uvm`, plus `nvidia-uvm-tools` when present. Host verification requires
+root-owned character devices and refuses symlinks. Other GPU vendors, additional
+GPU indices, and non-Linux platforms are unsupported by this grant.
+
+For CUDA workloads that exceed the ordinary 4 GiB address-space limit, the owner
+may add a `resources` object to the `blender-session-runner` tool contract. It
+must match every enclosing driver resource except `address_space_bytes`, which
+may be at most `8589934592` (8 GiB). The driver keeps its original limits; CPU
+tools, network access, process counts and other limits receive no expansion.
+The GPU override requires `operation_cpu_seconds = 0`.
+
+The runner sets process-local `MALLOC_CONF=narenas:4,retain:false` for Blender's
+allocator and confines GPU caches to its private session. It passes an immutable
+Host policy to the fixed native helper, which applies Landlock before Blender
+starts. NVIDIA thread naming needs write/truncate access under this native
+process's own `/proc/<pid>/task` subtree; this also covers other own-thread
+metadata subject to kernel permissions. It grants no other PID tree or proc
+driver-state writes.
+
+Native transport failures retain at most 8 KiB of log tail in a private local
+`.semwright-native-failures` directory before deleting session scratch. Public
+errors expose only the validated failure phase, exit status, byte count and
+digest; they remain uncertain and carry no raw log text or local path.

@@ -2,6 +2,7 @@
 
 pub mod continuity;
 use async_trait::async_trait;
+pub use semwright_platform_api::launch::NVIDIA_BLENDER_EXECUTABLE;
 use semwright_platform_api::launch::{
     HOST_TOOL_ARG_PREFIX, MountClass, SANDBOX_MOUNTS_ENV, SANDBOX_TOOLS_ENV,
     decode_materialized_mounts, decode_materialized_tools,
@@ -476,9 +477,25 @@ pub struct DriverToolMount {
     /// Other owner-pinned tools that may be exposed read-only+execute to this tool child.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub dependencies: Vec<String>,
+    /// Linux-only compute authority for the Blender session runner. Owner policy must also grant it.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub nvidia_gpu: bool,
+    /// GPU-only native-tool override. All fields except address space must
+    /// equal the enclosing driver resources; the driver keeps its own limits.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub resources: Option<DriverResources>,
 }
 impl DriverToolMount {
     fn validate(&self) -> Result<()> {
+        if let Some(resources) = &self.resources {
+            if !self.nvidia_gpu || self.name != "blender-session-runner" {
+                return Err(Error::new(
+                    ErrorCode::PolicyDenied,
+                    "Tool resource overrides require the NVIDIA Blender session runner",
+                ));
+            }
+            resources.validate_with_nvidia_compute(true)?;
+        }
         let unique_mounts = self.mounts.iter().collect::<BTreeSet<_>>();
         let unique_system_config = self.system_config.iter().collect::<BTreeSet<_>>();
         let unique_dependencies = self.dependencies.iter().collect::<BTreeSet<_>>();
@@ -586,6 +603,14 @@ impl Default for DriverResources {
 }
 impl DriverResources {
     fn validate(&self) -> Result<()> {
+        self.validate_with_nvidia_compute(false)
+    }
+    fn validate_with_nvidia_compute(&self, nvidia_compute: bool) -> Result<()> {
+        let address_space_maximum = if nvidia_compute {
+            8_589_934_592
+        } else {
+            4_294_967_296
+        };
         if !(32..=1024).contains(&self.open_files)
             || !(8..=256).contains(&self.processes)
             || !(5..=86_400).contains(&self.cpu_seconds)
@@ -593,7 +618,7 @@ impl DriverResources {
                 && (!(1..=300).contains(&self.operation_cpu_seconds)
                     || self.operation_cpu_seconds > self.cpu_seconds))
             || (self.cpu_seconds > 300 && self.operation_cpu_seconds == 0)
-            || !(134_217_728..=4_294_967_296).contains(&self.address_space_bytes)
+            || !(134_217_728..=address_space_maximum).contains(&self.address_space_bytes)
             || !(1_048_576..=1_073_741_824).contains(&self.file_size_bytes)
         {
             return Err(Error::invalid(
@@ -626,6 +651,9 @@ pub struct Manifest {
     pub tools: Vec<DriverToolMount>,
     #[serde(default)]
     pub network: bool,
+    /// Opt-in NVIDIA compute authority, forwarded only to the designated Host-mediated tool.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub nvidia_gpu: bool,
     /// Optional owner-selected TCP port exposed through a Host-managed loopback proxy.
     /// This does not grant the driver a network namespace.
     #[serde(default)]
@@ -660,6 +688,28 @@ impl Manifest {
         self.identity()?;
         self.application.validate()?;
         self.resources.validate()?;
+        if self.nvidia_gpu
+            && (self.id != "blender" || self.protocol < 8 || !self.interfaces.host_tools)
+        {
+            return Err(Error::new(
+                ErrorCode::Unsupported,
+                "NVIDIA compute requires the Blender protocol v8 Host-mediated runner",
+            ));
+        }
+        let gpu_tools = self
+            .tools
+            .iter()
+            .filter(|tool| tool.nvidia_gpu)
+            .collect::<Vec<_>>();
+        if (!self.nvidia_gpu && !gpu_tools.is_empty())
+            || (self.nvidia_gpu
+                && (gpu_tools.len() != 1 || gpu_tools[0].name != "blender-session-runner"))
+        {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "NVIDIA compute must be declared only by the Blender session runner and its manifest",
+            ));
+        }
         if self.network && self.loopback_port.is_some() {
             return Err(Error::new(
                 ErrorCode::PolicyDenied,
@@ -766,6 +816,20 @@ impl Manifest {
         let mut tool_names = BTreeSet::new();
         for tool in &self.tools {
             tool.validate()?;
+            if let Some(resources) = &tool.resources
+                && (!self.nvidia_gpu
+                    || !tool.nvidia_gpu
+                    || resources.open_files != self.resources.open_files
+                    || resources.processes != self.resources.processes
+                    || resources.cpu_seconds != self.resources.cpu_seconds
+                    || resources.operation_cpu_seconds != self.resources.operation_cpu_seconds
+                    || resources.file_size_bytes != self.resources.file_size_bytes)
+            {
+                return Err(Error::new(
+                    ErrorCode::PolicyDenied,
+                    "GPU tool override may change only native address space",
+                ));
+            }
             if !roots.insert(&tool.root) || !tool_names.insert(tool.name.as_str()) {
                 return Err(Error::invalid(
                     "Driver tool roots and names must be unique and non-overlapping",
@@ -2992,6 +3056,7 @@ mod tests {
             secrets: vec![],
             tools: vec![],
             network: false,
+            nvidia_gpu: false,
             loopback_port: None,
             resources: DriverResources::default(),
             request_timeout_ms: 1000,
@@ -3009,6 +3074,116 @@ mod tests {
         value["allow_shell"] = serde_json::json!(true);
         assert!(serde_json::from_value::<Manifest>(value).is_err());
     }
+
+    #[test]
+    fn nvidia_compute_manifest_contract_is_explicit_and_blender_runner_only() {
+        let baseline = manifest();
+        let serialized = serde_json::to_value(&baseline).unwrap();
+        assert!(serialized.get("nvidia_gpu").is_none());
+        let decoded: Manifest = serde_json::from_value(serialized).unwrap();
+        assert!(!decoded.nvidia_gpu);
+        let mut candidate = baseline;
+        candidate.id = "blender".into();
+        candidate.protocol = 8;
+        candidate.interfaces.host_tools = true;
+        candidate.nvidia_gpu = true;
+        candidate.tools = vec![DriverToolMount {
+            root: "blender-session-runner".into(),
+            name: "blender-session-runner".into(),
+            sha256: "a".repeat(64),
+            mounts: vec![],
+            system_config: vec![],
+            dependencies: vec![],
+            nvidia_gpu: true,
+            resources: None,
+        }];
+        candidate.validate().unwrap();
+        let mut denied = candidate.clone();
+        denied.nvidia_gpu = false;
+        assert_eq!(denied.validate().unwrap_err().code, ErrorCode::PolicyDenied);
+        denied = candidate.clone();
+        denied.tools[0].name = "audio-meter".into();
+        assert_eq!(denied.validate().unwrap_err().code, ErrorCode::PolicyDenied);
+        denied = candidate.clone();
+        denied.id = "audio-analysis".into();
+        assert_eq!(denied.validate().unwrap_err().code, ErrorCode::Unsupported);
+        denied = candidate.clone();
+        denied.protocol = 7;
+        assert_eq!(denied.validate().unwrap_err().code, ErrorCode::Unsupported);
+        denied = candidate.clone();
+        denied.tools[0].nvidia_gpu = false;
+        assert_eq!(denied.validate().unwrap_err().code, ErrorCode::PolicyDenied);
+    }
+    #[test]
+    fn nvidia_native_tool_address_space_override_is_scoped_and_bounded() {
+        let mut candidate = manifest();
+        candidate.id = "blender".into();
+        candidate.protocol = 8;
+        candidate.interfaces.host_tools = true;
+        candidate.nvidia_gpu = true;
+        candidate.resources.address_space_bytes = 4_294_967_296;
+        let mut native = candidate.resources.clone();
+        native.address_space_bytes = 8_589_934_592;
+        candidate.tools = vec![DriverToolMount {
+            root: "blender-session-runner".into(),
+            name: "blender-session-runner".into(),
+            sha256: "a".repeat(64),
+            mounts: vec![],
+            system_config: vec![],
+            dependencies: vec![],
+            nvidia_gpu: true,
+            resources: Some(native),
+        }];
+        candidate.validate().unwrap();
+        let encoded = serde_json::to_value(&candidate).unwrap();
+        let decoded: Manifest = serde_json::from_value(encoded).unwrap();
+        assert_eq!(decoded.resources.address_space_bytes, 4_294_967_296);
+        assert_eq!(
+            decoded.tools[0]
+                .resources
+                .as_ref()
+                .unwrap()
+                .address_space_bytes,
+            8_589_934_592
+        );
+        let mut denied = candidate.clone();
+        denied.resources.address_space_bytes = 8_589_934_592;
+        assert!(denied.validate().is_err());
+        denied = candidate.clone();
+        denied.tools[0]
+            .resources
+            .as_mut()
+            .unwrap()
+            .address_space_bytes = 8_589_934_593;
+        assert!(denied.validate().is_err());
+        denied = candidate.clone();
+        denied.tools[0].resources.as_mut().unwrap().open_files += 1;
+        assert_eq!(denied.validate().unwrap_err().code, ErrorCode::PolicyDenied);
+        denied = candidate.clone();
+        denied.tools[0].resources.as_mut().unwrap().processes += 1;
+        assert_eq!(denied.validate().unwrap_err().code, ErrorCode::PolicyDenied);
+        denied = candidate.clone();
+        denied.tools[0].resources.as_mut().unwrap().cpu_seconds += 1;
+        assert_eq!(denied.validate().unwrap_err().code, ErrorCode::PolicyDenied);
+        denied = candidate.clone();
+        denied.tools[0]
+            .resources
+            .as_mut()
+            .unwrap()
+            .operation_cpu_seconds = 1;
+        assert_eq!(denied.validate().unwrap_err().code, ErrorCode::PolicyDenied);
+        denied = candidate.clone();
+        denied.tools[0].resources.as_mut().unwrap().file_size_bytes += 1;
+        assert_eq!(denied.validate().unwrap_err().code, ErrorCode::PolicyDenied);
+        denied = candidate.clone();
+        denied.id = "mlt-video".into();
+        assert_eq!(denied.validate().unwrap_err().code, ErrorCode::Unsupported);
+        denied = candidate.clone();
+        denied.nvidia_gpu = false;
+        denied.tools[0].nvidia_gpu = false;
+        assert_eq!(denied.validate().unwrap_err().code, ErrorCode::PolicyDenied);
+    }
+
     #[test]
     fn protocol_messages_reject_unknown_fields_and_wrong_manifest_version() {
         let mut manifest = manifest();
@@ -3140,6 +3315,8 @@ mod tests {
             mounts: vec![],
             system_config: vec![],
             dependencies: vec![],
+            nvidia_gpu: false,
+            resources: None,
         }];
         valid.validate().unwrap();
 
@@ -3160,6 +3337,8 @@ mod tests {
                 mounts: vec![],
                 system_config: vec![],
                 dependencies: vec![],
+                nvidia_gpu: false,
+                resources: None,
             },
             DriverToolMount {
                 root: "tool-b".into(),
@@ -3168,6 +3347,8 @@ mod tests {
                 mounts: vec![],
                 system_config: vec![],
                 dependencies: vec![],
+                nvidia_gpu: false,
+                resources: None,
             },
         ];
         assert!(duplicate_name.validate().is_err());
@@ -3180,6 +3361,8 @@ mod tests {
             mounts: vec![],
             system_config: vec![],
             dependencies: vec![],
+            nvidia_gpu: false,
+            resources: None,
         }];
         assert!(bad_digest.validate().is_err());
     }
@@ -3201,6 +3384,8 @@ mod tests {
             mounts: vec![],
             system_config: vec![],
             dependencies: vec![],
+            nvidia_gpu: false,
+            resources: None,
         }];
         candidate.validate().unwrap();
 
@@ -3248,6 +3433,8 @@ mod tests {
             mounts: vec!["project".into()],
             system_config: vec![],
             dependencies: vec![],
+            nvidia_gpu: false,
+            resources: None,
         }];
         candidate.validate().unwrap();
 
@@ -3380,6 +3567,8 @@ mod tests {
                 mounts: vec!["project".into()],
                 system_config: vec![],
                 dependencies: vec!["helper".into()],
+                nvidia_gpu: false,
+                resources: None,
             },
             DriverToolMount {
                 root: "helper-root".into(),
@@ -3388,6 +3577,8 @@ mod tests {
                 mounts: vec![],
                 system_config: vec![],
                 dependencies: vec![],
+                nvidia_gpu: false,
+                resources: None,
             },
         ];
         candidate.validate().unwrap();
@@ -3874,6 +4065,8 @@ mod tests {
             mounts: vec![],
             system_config: vec!["font-config".into()],
             dependencies: vec![],
+            nvidia_gpu: false,
+            resources: None,
         }];
         candidate.validate().unwrap();
 

@@ -24,6 +24,7 @@ serde_json.workspace = true
 jsonschema.workspace = true
 tokio.workspace = true
 libc.workspace = true
+sha2.workspace = true
 
 serde.workspace = true
 schemars.workspace = true

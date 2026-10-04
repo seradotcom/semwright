@@ -496,6 +496,8 @@ impl RenderManager {
                 }
                 Err(error) => JobView {
                     state: RenderState::Failed,
+                    failure_class: renderer_failure_class(&tool_output.stdout)
+                        .or_else(|| renderer_stderr_failure_class(&tool_output.stderr)),
                     error: Some(error.message),
                     ..current
                 },
@@ -1493,6 +1495,78 @@ mod runtime_path_tests {
             renderer_status_failure_class(&file_size),
             Some(RenderFailureClass::RuntimeFileSizeLimit)
         );
+    }
+
+    #[tokio::test]
+    async fn nonzero_host_result_preserves_finite_failure_class() {
+        for (stdout, stderr, expected) in [
+            (
+                br#"{"ok":false,"errorClass":"runtime_module_load"}"#.as_slice(),
+                b"".as_slice(),
+                Some(RenderFailureClass::RuntimeModuleLoad),
+            ),
+            (
+                b"".as_slice(),
+                b"EACCES: private local text".as_slice(),
+                Some(RenderFailureClass::RuntimePermission),
+            ),
+            (
+                br#"{"ok":false,"errorClass":"../../private"}"#.as_slice(),
+                b"unclassified private local text".as_slice(),
+                None,
+            ),
+        ] {
+            let manager = RenderManager::new(false, PathBuf::from("/tmp/not-used"));
+            let job_ref = "job:test-nonzero".to_owned();
+            manager.jobs.lock().await.insert(
+                job_ref.clone(),
+                Job {
+                    source_sha256: "a".repeat(64),
+                    view: JobView {
+                        job_ref: job_ref.clone(),
+                        state: RenderState::Rendering,
+                        failure_class: None,
+                        error: None,
+                        artifact: None,
+                    },
+                    failure_code: None,
+                    host_job: None,
+                    authoring: false,
+                    render_input_digest: "b".repeat(64),
+                    plan: serde_json::from_value(json!({"renderer":"motion-canvas-core-renderer-v3.17.2","project_duration_ms":34,"width":32,"height":32,"fps":30,"first_frame":0,"end_frame_exclusive":1,"frame_count":1,"alpha":false,"color_space":"srgb","timeout_ms":1000})).unwrap(),
+                    output: PathBuf::from("/tmp/not-used"),
+                },
+            );
+            let view = manager
+                .apply_host_status(
+                    &job_ref,
+                    RuntimeToolJobStatus::Succeeded {
+                        output: ToolExecutionOutput {
+                            exit_code: 1,
+                            stdout: stdout.to_vec(),
+                            stderr: stderr.to_vec(),
+                        },
+                    },
+                )
+                .await
+                .unwrap();
+            assert_eq!(view.state, RenderState::Failed);
+            assert_eq!(view.failure_class, expected);
+            assert!(view.artifact.is_none());
+            assert!(
+                view.error
+                    .as_ref()
+                    .unwrap()
+                    .starts_with("Motion Canvas renderer exited with code 1")
+            );
+            assert!(!view.error.as_ref().unwrap().contains("private"));
+            let expected_code = if expected == Some(RenderFailureClass::RuntimeModuleLoad) {
+                ErrorCode::PluginProtocolError
+            } else {
+                ErrorCode::BackendFailed
+            };
+            assert_eq!(manager.failure_code(&job_ref).await, Some(expected_code));
+        }
     }
 
     #[tokio::test]

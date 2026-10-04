@@ -24,6 +24,19 @@ Motion Canvas does not provide a documented stable standalone headless render CL
 
 The helper builds a temporary project copy and serves the built files to a dedicated Playwright Firefox page through request interception at the synthetic `semwright.invalid` origin. It does not open a Vite HTTP listener or browser-control socket. Every external page request is aborted.
 
+Render ranges use an integer frame clock with a stable seconds representative for
+the native renderer's ceiling operation. For a singleton range, the exporter
+filters exactly one extra native tail frame after the requested frame has been
+accepted by the awaited Host binding. Duplicate, out-of-order, noninteger and
+other out-of-range frames still fail validation; multi-frame ranges retain the
+ordinary exporter behavior.
+
+Native failures retain an exclusive, private `native-failure-receipt.json` in
+the selected output child, bound to the render input digest. The receipt is at
+most 64 KiB and its local stack is at most 16 KiB. Public stdout and stderr carry
+finite classifications and persistence status; raw stacks and browser details
+stay in the local receipt. Failure to save a receipt cannot authorize an artifact.
+
 On Linux, render execution fails closed unless `SEMWRIGHT_DRIVER_SANDBOX=landlock-bwrap-v1` was established by Driver Host. Node itself is an immutable SHA-pinned Host tool. The owner runtime bundle is read-only with explicit executable authority; the helper resolves Playwright's Firefox path and rejects it if its canonical target escapes that bundle. Bubblewrap + Landlock, explicit per-tool mounts, AppArmor and `network=false` remain authoritative. Node and its browser descendants are owned and reaped by the Host runtime-tool job rather than by a driver-created process group.
 
 ## Project transaction

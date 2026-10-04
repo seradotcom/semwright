@@ -86,10 +86,13 @@ fn manifest(
                 mounts: vec!["godot-project".into()],
                 system_config: vec![],
                 dependencies: vec![],
+                nvidia_gpu: false,
+                resources: None,
             })
             .into_iter()
             .collect(),
         network,
+        nvidia_gpu: false,
         loopback_port,
         // Keep the conformance envelope aligned with driver.manifest.example.json.
         // A much smaller historical fixture can terminate the sandboxed provider before

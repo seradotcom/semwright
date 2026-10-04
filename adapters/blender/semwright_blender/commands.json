@@ -238,6 +238,23 @@
           "CYCLES",
           "BLENDER_EEVEE_NEXT"
         ]
+      },
+      "device": {
+        "type": "string",
+        "enum": [
+          "CPU",
+          "GPU",
+          "BOTH",
+          "AUTO"
+        ]
+      },
+      "backend": {
+        "type": "string",
+        "enum": [
+          "AUTO",
+          "CUDA",
+          "OPTIX"
+        ]
       }
     },
     "required": [],

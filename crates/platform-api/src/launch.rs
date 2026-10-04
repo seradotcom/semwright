@@ -422,6 +422,16 @@ pub enum SandboxKind {
     Plugin,
     ExternalMcp,
 }
+/// Fixed compute nodes only. The optional UVM tools node is never replaced by a broader /dev grant.
+/// Fixed executable identity inside the Host-sealed NVIDIA Blender child.
+pub const NVIDIA_BLENDER_EXECUTABLE: &str = "/plugin/tools/blender";
+pub const NVIDIA_COMPUTE_DEVICE_PATHS: [&str; 4] = [
+    "/dev/nvidia0",
+    "/dev/nvidiactl",
+    "/dev/nvidia-uvm",
+    "/dev/nvidia-uvm-tools",
+];
+pub const NVIDIA_GPU_ENV: &str = "SEMWRIGHT_NVIDIA_GPU";
 #[derive(Clone, Debug)]
 pub struct SandboxSpec {
     pub kind: SandboxKind,
@@ -435,6 +445,8 @@ pub struct SandboxSpec {
     /// Host-created immutable executable files mounted under `/plugin/tools/<name>`.
     pub sealed_tools: Vec<SealedToolMount>,
     pub network: bool,
+    /// Host-owned Linux NVIDIA compute grant. Application runner children only.
+    pub nvidia_gpu: bool,
     pub limits: Option<ResourceLimits>,
 }
 impl SandboxSpec {
@@ -500,6 +512,43 @@ impl SandboxSpec {
             .iter()
             .find(|(name, _)| name == SANDBOX_HOST_TOOL_CHILD_ENV)
             .map(|(_, value)| value.as_str());
+        if self.nvidia_gpu {
+            if !cfg!(target_os = "linux") {
+                return Err(Error::new(
+                    ErrorCode::Unsupported,
+                    "NVIDIA compute is supported only by the Linux sandbox",
+                ));
+            }
+            if self.kind != SandboxKind::Driver || host_tool_child != Some("1") || self.network {
+                return Err(Error::new(
+                    ErrorCode::PolicyDenied,
+                    "NVIDIA compute requires a network-isolated Host-tool child",
+                ));
+            }
+        }
+        if let Some(limits) = &self.limits {
+            let maximum = if self.nvidia_gpu {
+                8_589_934_592
+            } else {
+                4_294_967_296
+            };
+            if limits.address_space_bytes > maximum {
+                return Err(Error::new(
+                    ErrorCode::PolicyDenied,
+                    "Address space above 4 GiB requires the bounded GPU Host-tool grant",
+                ));
+            }
+        }
+        if self
+            .environment
+            .iter()
+            .any(|(name, _)| name == NVIDIA_GPU_ENV)
+        {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "NVIDIA compute environment marker is platform-owned",
+            ));
+        }
         let has_host_tool_cwd = environment_names
             .iter()
             .any(|name| name.as_str() == SANDBOX_HOST_TOOL_CWD_ENV);
@@ -611,6 +660,8 @@ pub struct SandboxProcess {
     stdout: Option<SandboxStdout>,
     control: Box<dyn SandboxChildControl>,
     cpu_accounting: Option<Arc<dyn SandboxCpuAccounting>>,
+    // Dropped after native lifecycle control, retaining a platform launcher thread when needed.
+    _launcher_guard: Option<Box<dyn Send>>,
 }
 
 impl SandboxProcess {
@@ -628,6 +679,7 @@ impl SandboxProcess {
             stdout: Some(stdout),
             control,
             cpu_accounting: None,
+            _launcher_guard: None,
         }
     }
 
@@ -642,6 +694,7 @@ impl SandboxProcess {
             stdout: Some(stdout),
             control,
             cpu_accounting: Some(cpu_accounting),
+            _launcher_guard: None,
         }
     }
 
@@ -669,7 +722,15 @@ impl SandboxProcess {
                 exit_code: None,
             }),
             cpu_accounting: None,
+            _launcher_guard: None,
         })
+    }
+
+    /// Retain a launcher lifetime resource until this exact sandbox process is dropped.
+    /// This carries no policy authority and leaves native kill/reap operations intact.
+    pub fn with_launcher_guard(mut self, guard: impl Send + 'static) -> Self {
+        self._launcher_guard = Some(Box::new(guard));
+        self
     }
 
     pub fn cpu_accounting(&self) -> Option<Arc<dyn SandboxCpuAccounting>> {
@@ -876,6 +937,7 @@ mod tests {
             environment: vec![(SANDBOX_HOST_TOOL_CWD_ENV.into(), "host-only".into())],
             sealed_tools: vec![],
             network: false,
+            nvidia_gpu: false,
             limits: Some(ResourceLimits {
                 open_files: 32,
                 processes: 8,
@@ -926,5 +988,61 @@ mod tests {
             .validate()
             .is_err()
         );
+    }
+
+    #[test]
+    fn nvidia_compute_requires_an_isolated_host_application_child() {
+        let mut spec = SandboxSpec {
+            kind: SandboxKind::Driver,
+            staged_executable: PathBuf::from(if cfg!(windows) {
+                r"C:\Semwright\runner.exe"
+            } else {
+                "/tmp/runner"
+            }),
+            helper: PathBuf::from(if cfg!(windows) {
+                r"C:\Semwright\helper.exe"
+            } else {
+                "/tmp/helper"
+            }),
+            mounts: vec![],
+            args: vec![],
+            environment: vec![],
+            sealed_tools: vec![],
+            network: false,
+            nvidia_gpu: true,
+            limits: Some(ResourceLimits {
+                open_files: 128,
+                processes: 32,
+                cpu_seconds: 300,
+                address_space_bytes: 4_294_967_296,
+                file_size_bytes: 16_777_216,
+            }),
+        };
+        assert!(spec.validate().is_err());
+        spec.environment
+            .push((SANDBOX_HOST_TOOL_CHILD_ENV.into(), "1".into()));
+        #[cfg(target_os = "linux")]
+        {
+            assert!(spec.validate().is_ok());
+            spec.limits.as_mut().unwrap().address_space_bytes = 8_589_934_592;
+            assert!(spec.validate().is_ok());
+            spec.nvidia_gpu = false;
+            assert!(spec.validate().is_err());
+            spec.nvidia_gpu = true;
+            spec.limits.as_mut().unwrap().address_space_bytes += 1;
+            assert!(spec.validate().is_err());
+            spec.limits.as_mut().unwrap().address_space_bytes = 4_294_967_296;
+        }
+        #[cfg(not(target_os = "linux"))]
+        assert_eq!(spec.validate().unwrap_err().code, ErrorCode::Unsupported);
+        spec.network = true;
+        assert!(spec.validate().is_err());
+        spec.network = false;
+        spec.kind = SandboxKind::Plugin;
+        assert!(spec.validate().is_err());
+        spec.nvidia_gpu = false;
+        spec.kind = SandboxKind::Driver;
+        spec.environment.push((NVIDIA_GPU_ENV.into(), "1".into()));
+        assert_eq!(spec.validate().unwrap_err().code, ErrorCode::PolicyDenied);
     }
 }

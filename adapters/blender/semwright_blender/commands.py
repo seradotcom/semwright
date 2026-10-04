@@ -64,6 +64,78 @@ def object_info(obj):
             "collections": [collection.name for collection in obj.users_collection]}
 
 
+def _cycles_devices(preferences):
+    devices = []
+    for item in preferences.devices:
+        if len(devices) == 64:
+            raise CommandError("ResourceExhausted", "Cycles device list exceeds its bounded contract")
+        devices.append(item)
+    return devices
+
+
+def _cycles_device_info(device):
+    result = {"name": device.name, "type": device.type, "id": device.id}
+    if result["type"] not in {"CPU", "CUDA", "OPTIX"}:
+        raise CommandError("Unsupported", "Enabled Cycles device type is unsupported")
+    for key in ("name", "id"):
+        if not isinstance(result[key], str) or len(result[key]) > 256 or "\x00" in result[key]:
+            raise CommandError("ResourceExhausted", "Cycles device identity exceeds its bounded contract")
+    return result
+
+
+def configure_cycles(bpy, scene, device, backend):
+    """Select finite process-local Cycles devices; never save global preferences."""
+    if scene.render.engine != "CYCLES":
+        raise CommandError("Unsupported", "Device selection is supported for Cycles only")
+    if device == "CPU":
+        if backend != "AUTO":
+            raise CommandError("InvalidArgument", "CPU does not use a GPU backend")
+        scene.cycles.device = "CPU"
+        return {"device": "CPU", "backend": None, "devices": [], "fallback": None}
+    addon = bpy.context.preferences.addons.get("cycles")
+    preferences = addon.preferences if addon else None
+    previous_backend = preferences.compute_device_type if preferences else None
+    failures = []
+    if preferences:
+        # CUDA is the conservative automatic choice for NVIDIA, including GTX cards.
+        for candidate in (["CUDA", "OPTIX"] if backend == "AUTO" else [backend]):
+            try:
+                preferences.compute_device_type = candidate
+                preferences.refresh_devices()
+                devices = _cycles_devices(preferences)
+                gpus = [item for item in devices if item.type == candidate]
+                if not gpus:
+                    failures.append(candidate + ": no compatible GPU detected")
+                    continue
+                selected = [item for item in devices
+                            if item.type == candidate or (device == "BOTH" and item.type == "CPU")]
+                # Validate exact identities before changing enabled flags; never truncate IDs.
+                for item in selected:
+                    _cycles_device_info(item)
+                for item in devices:
+                    item.use = item in selected
+                enabled = [item for item in devices if item.use]
+                if enabled != selected or preferences.compute_device_type != candidate:
+                    raise CommandError("BackendFailed", "Cycles device selection readback disagrees")
+                scene.cycles.device = "GPU"
+                return {"device": "BOTH" if device == "BOTH" else "GPU",
+                        "backend": preferences.compute_device_type,
+                        "devices": [_cycles_device_info(item) for item in enabled], "fallback": None}
+            except CommandError:
+                preferences.compute_device_type = previous_backend
+                raise
+            except (TypeError, ValueError, RuntimeError) as error:
+                failures.append(candidate + ": " + str(error).replace("\x00", "")[:256])
+        preferences.compute_device_type = previous_backend
+    else:
+        failures.append("Cycles preferences are unavailable")
+    reason = "; ".join(failures)
+    if device != "AUTO":
+        raise CommandError("Unsupported", "Requested GPU is unavailable: " + reason)
+    scene.cycles.device = "CPU"
+    return {"device": "CPU", "backend": None, "devices": [], "fallback": reason}
+
+
 class Commands:
     def __init__(self, bpy, workspace):
         self.bpy = bpy
@@ -172,6 +244,11 @@ class Commands:
                 obj.data.materials.append(material)
             return {"changed": True}
         if command == "blender.render.settings":
+            target_engine = args.get("engine", scene.render.engine)
+            if ("device" in args or "backend" in args) and target_engine != "CYCLES":
+                raise CommandError("Unsupported", "Device selection is supported for Cycles only")
+            if args.get("device") == "CPU" and args.get("backend", "AUTO") != "AUTO":
+                raise CommandError("InvalidArgument", "CPU does not use a GPU backend")
             if "width" in args:
                 scene.render.resolution_x = args["width"]
             if "height" in args:
@@ -186,7 +263,10 @@ class Commands:
                 if scene.render.engine != "CYCLES":
                     raise CommandError("Unsupported", "Sample setting is supported for Cycles only")
                 scene.cycles.samples = args["samples"]
-            return {"changed": True, "engine": scene.render.engine}
+            selection = {}
+            if "device" in args or "backend" in args:
+                selection = configure_cycles(bpy, scene, args.get("device", "GPU"), args.get("backend", "AUTO"))
+            return {"changed": True, "engine": scene.render.engine, **selection}
         if command == "blender.render":
             target = self.workspace.path(args["path"], ".png")
             previous_path = scene.render.filepath

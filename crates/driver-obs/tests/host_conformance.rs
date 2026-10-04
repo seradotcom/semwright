@@ -148,6 +148,7 @@ async fn obs_driver_runs_through_real_driver_host() {
         secrets: vec![],
         tools: vec![],
         network: true,
+        nvidia_gpu: false,
         loopback_port: None,
         resources: DriverResources {
             cpu_seconds: 60,
@@ -246,6 +247,7 @@ async fn obs_driver_network_requires_owner_opt_in() {
         secrets: vec![],
         tools: vec![],
         network: true,
+        nvidia_gpu: false,
         loopback_port: None,
         resources: DriverResources::default(),
         request_timeout_ms: 2000,

@@ -128,8 +128,11 @@ fn manifest(executable: PathBuf, node_sha256: String) -> Manifest {
             ],
             system_config: vec![],
             dependencies: vec![],
+            nvidia_gpu: false,
+            resources: None,
         }],
         network: false,
+        nvidia_gpu: false,
         loopback_port: None,
         resources: DriverResources {
             open_files: 512,

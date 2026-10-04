@@ -139,6 +139,7 @@ async fn fake_kicad_ipc_runs_through_real_sandboxed_driver_host() {
         secrets: vec![],
         tools: vec![],
         network: false,
+        nvidia_gpu: false,
         loopback_port: None,
         resources: DriverResources {
             address_space_bytes: 2_147_483_648,

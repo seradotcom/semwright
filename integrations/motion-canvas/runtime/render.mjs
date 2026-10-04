@@ -4,10 +4,6 @@ import os from 'node:os';
 import process from 'node:process';
 import {createHash} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
-import {build} from 'vite';
-import motionCanvasModule from '@motion-canvas/vite-plugin';
-
-const motionCanvas = typeof motionCanvasModule === 'function' ? motionCanvasModule : motionCanvasModule.default;
 function fail(message) { throw new Error(message); }
 function unicodeRanges(css) {
   const ranges=[];
@@ -84,6 +80,61 @@ async function containedFile(root, candidate, label) {
   if (!stat.isFile()) fail(`${label} is not a file`);
   return canonical;
 }
+
+// Integer frame clock and strict singleton boundary for Motion Canvas 3.17.2.
+function stableFrameSeconds(frame, fps) {
+  if (!Number.isSafeInteger(frame) || frame < 0 || !Number.isFinite(fps) || fps <= 0) throw new Error('invalid integer frame clock');
+  // An interior representative maps to the same integer under core's Math.ceil.
+  const seconds = frame === 0 ? 0 : (frame - 0.25) / fps;
+  if (!Number.isFinite(seconds) || Math.ceil(seconds * fps) !== frame) throw new Error('integer frame clock roundtrip mismatch');
+  return seconds;
+}
+function installSingletonTailGuard(exporterClass, config, observed) {
+  const expected = config.endFrameExclusive - config.firstFrame;
+  if (expected !== 1) return;
+  if (!exporterClass || typeof exporterClass.create !== 'function') throw new Error('Semwright exporter binding unavailable');
+  const originalCreate = exporterClass.create;
+  exporterClass.create = async function(...createArguments) {
+    const exporter = await originalCreate.apply(this, createArguments);
+    if (!exporter || typeof exporter.handleFrame !== 'function') throw new Error('Semwright exporter binding unavailable');
+    const originalHandleFrame = exporter.handleFrame;
+    const accepted = new Set();
+    let tailFiltered = false;
+    exporter.handleFrame = async function(canvas, frame, sceneFrame, sceneName, signal) {
+      // Core3.17.2 always progresses/exports once before its >=to check.
+      // Drop exactly that singleton tail, only after the requested frame was accepted.
+      if (!signal.aborted && Number.isSafeInteger(frame) && frame === config.endFrameExclusive
+          && accepted.size === expected && accepted.has(config.firstFrame) && !tailFiltered) {
+        tailFiltered = true;
+        observed.singletonTailFiltered = true;
+        return;
+      }
+      // Every other frame still reaches the unchanged strict HOST binding.
+      await originalHandleFrame.call(this, canvas, frame, sceneFrame, sceneName, signal);
+      if (!signal.aborted) accepted.add(frame);
+    };
+    return exporter;
+  };
+}
+function boundedRendererLog(payload) {
+  const truncate = (value, maximum) => {
+    if (typeof value !== 'string') return '';
+    const encoder = new TextEncoder(), decoder = new TextDecoder();
+    let text = decoder.decode(encoder.encode(value.slice(0, maximum)).subarray(0, maximum));
+    while (encoder.encode(text).length > maximum) text = text.slice(0, -1);
+    return text;
+  };
+  // Error fields are commonly non-enumerable: read these scalars explicitly.
+  const read = key => { try { return typeof payload?.[key] === 'string' ? payload[key] : ''; } catch { return ''; } };
+  const diagnostic = {name:truncate(read('name'),128),message:truncate(read('message'),2048),stack:truncate(read('stack'),8192)};
+  while (new TextEncoder().encode(JSON.stringify(diagnostic)).length > 12 * 1024) {
+    if (diagnostic.stack.length) diagnostic.stack = diagnostic.stack.slice(0, Math.floor(diagnostic.stack.length / 2));
+    else if (diagnostic.message.length) diagnostic.message = diagnostic.message.slice(0, Math.floor(diagnostic.message.length / 2));
+    else break;
+  }
+  return diagnostic;
+}
+
 function harnessPlugin(config, entry) {
   const id = '\0semwright-render-entry';
   return {
@@ -97,8 +148,13 @@ function harnessPlugin(config, entry) {
 import project from '/src/project.ts?project';
 import {Renderer, Vector2} from '@motion-canvas/core';
 const config=${JSON.stringify(config)};
+${stableFrameSeconds.toString()}
+${installSingletonTailGuard.toString()}
+${boundedRendererLog.toString()}
+const state={done:false,result:null,frame:config.firstFrame,error:null,errorClass:null,rendererLogClass:null,rendererLogDiagnostic:null,typeErrorDetail:null,singletonTailFiltered:false,phase:'created'};
+const desiredRange=[stableFrameSeconds(config.firstFrame,config.fps),stableFrameSeconds(config.endFrameExclusive-1,config.fps)];
+installSingletonTailGuard(project.meta.rendering.exporter.exporters.find(candidate=>candidate.id==='@semwright/driver/image-sequence'),config,state);
 const renderer=new Renderer(project);
-const state={done:false,result:null,frame:config.firstFrame,error:null,errorClass:null,rendererLogClass:null,typeErrorDetail:null,phase:'created'};
 function classifyAuthoringMessage(message){
   if(typeof message!=='string'||message.length===0)return null;
   if(/^(invalid align|unsupported subject kind|unannounced overlap|overlay anchor unavailable|split requires exactly two layout children|unknown archetype|duplicate logical id|unknown layer|native parent graph cannot be resolved|annotation binding missing|node limit|invalid rational|unsafe color|native scene bounds|caption requires native Txt)$/.test(message))return 'authoring_model';
@@ -172,7 +228,7 @@ function classifyRendererStack(error){
   if(stack.includes('@motion-canvas/2d'))return 'renderer_state_motion_2d';
   return null;
 }
-project.logger.onLogged.subscribe(payload=>{const classified=classifyRendererLog(payload);if(classified)state.rendererLogClass=classified;});
+project.logger.onLogged.subscribe(payload=>{const classified=classifyRendererLog(payload);if(classified){state.rendererLogClass=classified;state.rendererLogDiagnostic=boundedRendererLog(payload);}});
 if(config.authoring){globalThis.__SEMWRIGHT_NATIVE_CONFIG__={fps_num:config.fpsNum,fps_den:config.fpsDen,render_input_digest:config.renderInputDigest,native_stage_version:'3.17.2',font_evidence:config.fontEvidence??[]};}
 window.__SEMWRIGHT_RENDER__={state,abort:()=>renderer.abort()};
 renderer.onFrameChanged.subscribe(frame=>{state.frame=frame;state.phase='frame';});
@@ -192,7 +248,7 @@ renderer.onFinished.subscribe(result=>{state.result=result;});
       colorSpace:config.colorSpace,
       background:config.alpha?null:config.background,
       // Motion Canvas 3.17.2 treats the range end as inclusive; Semwright profiles are half-open.
-      range:[config.firstFrame/config.fps,(config.endFrameExclusive-1)/config.fps],
+      range:desiredRange,
       fps:config.fps,
       exporter:{name:'@semwright/driver/image-sequence',options:{}},
     });
@@ -228,16 +284,73 @@ function contentType(file) {
 }
 let failurePhase = 'startup';
 let failureDetail = null;
+// Keep local failure details bounded and separate from the public classification.
+const DIAGNOSTIC_PHASES = new Set(['startup','arguments','runtime_module_load','font_evidence','project_stage','vite_build','frame_export','browser_launch','page_load','render_wait','render_wait_timeout','renderer_state_authoring_model','renderer_state_authoring_protocol','renderer_state_webgl_unavailable','renderer_state_playback_protocol','renderer_state_invalid_scene','renderer_state_type_error','renderer_state_range_error','renderer_state_semwright_native','renderer_state_semwright_exporter','renderer_state_motion_core','renderer_state_motion_2d','renderer_state_before_first_frame','renderer_state_after_first_frame','renderer_state_error','renderer_log_authoring_model','renderer_log_authoring_protocol','renderer_log_webgl_unavailable','renderer_log_playback_protocol','renderer_log_invalid_scene','renderer_log_type_error','renderer_log_range_error','renderer_log_exporter_missing','renderer_log_async_property','renderer_log_error','render_result_error','render_result_aborted','render_result_unknown','render_nonzero','observation','finalize']);
+let failureOutput = null;
+let failureModule = null;
+const FAILURE_JSON_MAX_BYTES = 64 * 1024;
+const FAILURE_STACK_MAX_BYTES = 16 * 1024;
+function boundedUtf8(value, maximum) {
+  let bounded = Buffer.from(String(value ?? ''), 'utf8').subarray(0, maximum).toString('utf8');
+  while (Buffer.byteLength(bounded, 'utf8') > maximum) bounded = bounded.slice(0, -1);
+  return bounded;
+}
+function failureReceipt(error, errorClass, binding, module) {
+  if (!DIAGNOSTIC_PHASES.has(errorClass) || !/^[a-f0-9]{64}$/.test(binding)) fail('invalid finite failure classification or binding');
+  const names = new Set(['Error','TypeError','RangeError','SyntaxError','AggregateError','TimeoutError']);
+  const codes = new Set(['ERR_MODULE_NOT_FOUND','MODULE_NOT_FOUND','ERR_DLOPEN_FAILED','EACCES','EPERM','ENOMEM']);
+  const modules = new Set(['vite','motion_canvas_vite_plugin','playwright']);
+  const receipt = {version:2,ok:false,render_input_digest:binding,error_class:errorClass,
+    runtime_module:modules.has(module)?module:null,
+    exception_name:names.has(error?.name)?error.name:'OtherError',
+    exception_code:codes.has(error?.code)?error.code:null,
+    local_stack_only:boundedUtf8(error?.stack ?? error, FAILURE_STACK_MAX_BYTES)};
+  let bytes = Buffer.from(JSON.stringify(receipt)+'\n', 'utf8');
+  while (bytes.length > FAILURE_JSON_MAX_BYTES && receipt.local_stack_only.length) {
+    receipt.local_stack_only = receipt.local_stack_only.slice(0, Math.floor(receipt.local_stack_only.length / 2));
+    bytes = Buffer.from(JSON.stringify(receipt)+'\n', 'utf8');
+  }
+  if (bytes.length > FAILURE_JSON_MAX_BYTES) fail('native failure receipt exceeds byte budget');
+  return bytes;
+}
+async function writeFailureReceipt(error, errorClass, selected=failureOutput, module=failureModule) {
+  if (!selected) return false;
+  if (!/^[a-f0-9]{64}$/.test(selected.binding) || !/^render-[a-f0-9]{32}$/.test(selected.relative)) {
+    fail('invalid native failure output binding');
+  }
+  const checked = await childOf(selected.root, selected.relative, 'native failure output');
+  if (checked.root !== selected.root || checked.target !== selected.target
+      || checked.target !== path.join(checked.root, selected.relative)
+      || !(await fs.lstat(checked.target)).isDirectory()) fail('native failure output alias');
+  const bytes = failureReceipt(error,errorClass,selected.binding,module);
+  const handle = await fs.open(path.join(checked.target,'native-failure-receipt.json'),'wx',0o600);
+  try { await handle.writeFile(bytes); await handle.sync(); } finally { await handle.close(); }
+  return true;
+}
+
 async function main() {
   failurePhase = 'arguments';
   const a = args();
+  const config = globalThis.__SEMWRIGHT_RENDER_INPUT__;
+  if(!config||config.renderInputDigest!==a.config||!/^[a-f0-9]{64}$/.test(a.config))fail('render input binding absent or changed');
+  const {root: outputRoot,target: output} = await childOf(a['output-root'], a['output-relative'], 'output');
+  if (!/^render-[a-f0-9]{32}$/.test(a['output-relative'])
+      || output !== path.join(outputRoot,a['output-relative'])
+      || !(await fs.lstat(output)).isDirectory()) fail('native render output is not an ordinary unique child');
+  failureOutput = {root:outputRoot,target:output,relative:a['output-relative'],binding:a.config};
   const runtimeRoot = await fs.realpath(process.cwd());
   // Driver Host intentionally clears ambient environment. Pin Playwright's
   // browser registry to this owner-granted runtime bundle before importing it.
   process.env.PLAYWRIGHT_BROWSERS_PATH = '0';
+  failurePhase = 'runtime_module_load';
+  failureModule = 'vite';
+  const {build} = await import('vite');
+  failureModule = 'motion_canvas_vite_plugin';
+  const {default:motionCanvasModule} = await import('@motion-canvas/vite-plugin');
+  const motionCanvas = typeof motionCanvasModule === 'function' ? motionCanvasModule : motionCanvasModule.default;
+  failureModule = 'playwright';
   const {firefox} = await import('playwright');
-  const config = globalThis.__SEMWRIGHT_RENDER_INPUT__;
-  if(!config||config.renderInputDigest!==a.config)fail('render input binding absent or changed');
+  failureModule = null;
   failurePhase = 'font_evidence';
   const lockBytes=await fs.readFile(await containedFile(runtimeRoot,path.join(runtimeRoot,'package-lock.json'),'dependency lock'));
   if(createHash('sha256').update(lockBytes).digest('hex')!==config.dependencyLockDigest)fail('dependency lock binding changed');
@@ -252,7 +365,6 @@ async function main() {
   if(resourceHash.digest('hex')!==config.fontResourcesDigest)fail('font resource digest binding changed');
   if(config.authoring) config.fontEvidence=await pinnedFontEvidence(runtimeRoot);
   const {target: project} = await childOf(a['project-root'], a['project-relative'], 'project');
-  const {target: output} = await childOf(a['output-root'], a['output-relative'], 'output');
   const fontconfigRoot = await fs.realpath(a['fontconfig-root']);
   if (!(await fs.stat(fontconfigRoot)).isDirectory()) fail('fontconfig root is not a directory');
   const browser = await containedFile(runtimeRoot, firefox.executablePath(), 'Firefox executable');
@@ -364,7 +476,7 @@ async function main() {
       else if(state.result===1)failurePhase=state.rendererLogClass??'render_result_error';
       else failurePhase='render_result_unknown';
       failureDetail=typeof state.typeErrorDetail==='string'?state.typeErrorDetail:null;
-      fail(`renderer result ${state.result}; state=${JSON.stringify(state)} diagnostics=${JSON.stringify(diagnostics)}`);
+      fail(`renderer result ${state.result}; renderer_log_local=${JSON.stringify(state.rendererLogDiagnostic)}; state=${JSON.stringify(state)} diagnostics=${JSON.stringify(diagnostics)}`);
     }
     failurePhase = 'observation';
     if(config.authoring){
@@ -376,10 +488,11 @@ async function main() {
     process.stdout.write(JSON.stringify({ok:true,renderer:'motion-canvas-core-renderer-v3.17.2-firefox',lastFrame:state.frame,files:files.map(file=>`frames/${file}`)})+'\n');
   } finally { await cleanup(); }
 }
-main().catch(error => {
-  const allowed = new Set(['arguments','font_evidence','project_stage','vite_build','frame_export','browser_launch','page_load','render_wait','render_wait_timeout','renderer_state_authoring_model','renderer_state_authoring_protocol','renderer_state_webgl_unavailable','renderer_state_playback_protocol','renderer_state_invalid_scene','renderer_state_type_error','renderer_state_range_error','renderer_state_semwright_native','renderer_state_semwright_exporter','renderer_state_motion_core','renderer_state_motion_2d','renderer_state_before_first_frame','renderer_state_after_first_frame','renderer_state_error','renderer_log_authoring_model','renderer_log_authoring_protocol','renderer_log_webgl_unavailable','renderer_log_playback_protocol','renderer_log_invalid_scene','renderer_log_type_error','renderer_log_range_error','renderer_log_exporter_missing','renderer_log_async_property','renderer_log_error','render_result_error','render_result_aborted','render_result_unknown','render_nonzero','observation','finalize']);
-  const errorClass = allowed.has(failurePhase) ? failurePhase : 'startup';
-  process.stdout.write(JSON.stringify({ok:false,errorClass,detail:failureDetail})+'\n');
-  process.stderr.write(String(error?.stack || error) + '\n');
+main().catch(async error => {
+  const errorClass = DIAGNOSTIC_PHASES.has(failurePhase) ? failurePhase : 'startup';
+  let diagnosticPersisted = false;
+  try { diagnosticPersisted = await writeFailureReceipt(error,errorClass); } catch {}
+  process.stdout.write(JSON.stringify({ok:false,errorClass,detail:failureDetail,diagnosticPersisted})+'\n');
+  process.stderr.write(JSON.stringify({ok:false,errorClass,diagnosticPersisted})+'\n');
   process.exitCode = 1;
 });

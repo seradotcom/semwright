@@ -243,6 +243,8 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
                 mounts: vec![],
                 system_config: vec![],
                 dependencies: vec![],
+                nvidia_gpu: false,
+                resources: None,
             },
             DriverToolMount {
                 root: "ardour-lua-tool".into(),
@@ -252,6 +254,8 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
                 mounts: vec![],
                 system_config: vec![],
                 dependencies: vec![],
+                nvidia_gpu: false,
+                resources: None,
             },
             DriverToolMount {
                 root: "ardour-create-tool".into(),
@@ -261,6 +265,8 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
                 mounts: vec![],
                 system_config: vec![],
                 dependencies: vec![],
+                nvidia_gpu: false,
+                resources: None,
             },
             DriverToolMount {
                 root: "ardour-export-tool".into(),
@@ -270,9 +276,12 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
                 mounts: vec![],
                 system_config: vec![],
                 dependencies: vec![],
+                nvidia_gpu: false,
+                resources: None,
             },
         ],
         network: false,
+        nvidia_gpu: false,
         loopback_port: None,
         resources: DriverResources {
             open_files: 512,
