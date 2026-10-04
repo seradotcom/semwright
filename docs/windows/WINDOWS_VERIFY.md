@@ -8,6 +8,10 @@ Use the exact commit being certified. Keep native CI and interactive-desktop evi
 
 The Windows authority boundary currently includes platform-owned AppContainer/LPAC spawn, Job containment, owner-gated ambient network, Driver workspace/system-config/secret/sealed-tool/loopback authority and Plugin workspace mounts. Governed external MCP spawn is supported, while external MCP filesystem mounts remain `BLOCKED_PORTABLE_PATH_VIRTUALIZATION`.
 
+## Current hosted baseline
+
+Public run `37228279724` on source `04cf0ef7062d134b71206d832375be9545553bb4` completed successfully for native Windows x64, native Windows ARM64, `server2022-x64` sealed-tool compatibility, and `win11-arm-native-host-x64tool` compatibility. This is exact-SHA noninteractive evidence; later platform source changes must rerun the affected Windows lanes rather than inherit this result.
+
 ## Interactive certification
 
 Run on an unlocked disposable Windows desktop from a clean checkout:

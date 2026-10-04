@@ -107,6 +107,61 @@ def evidence_errors(record: dict, root: Path = ROOT) -> list[str]:
     return errors
 
 
+def compact_evidence_errors(root: Path = ROOT) -> list[str]:
+    base = root / "verification/r16-closeout"
+    findings_path = base / "FINDINGS.json"
+    source_path = base / "evidence/SOURCE_VALIDATION_2026-10-03.json"
+    errors = []
+    if not findings_path.is_file():
+        errors.append("compact R16 findings ledger is required")
+    if not source_path.is_file():
+        errors.append("compact R16 source-validation record is required")
+    if errors:
+        return errors
+
+    findings = json.loads(findings_path.read_text(), object_pairs_hook=duplicate_keys)
+    rows = findings.get("findings", [])
+    expected = {f"R-{n:03}" for n in range(1, 11)}
+    if findings.get("schema_version") != 1 or len(rows) != 10:
+        errors.append("R16 findings ledger must contain exactly ten findings")
+    if {row.get("id") for row in rows} != expected:
+        errors.append("R16 findings ledger IDs must be R-001 through R-010")
+    r009 = next((row for row in rows if row.get("id") == "R-009"), None)
+    if not r009 or not str(r009.get("status", "")).startswith("OPEN_"):
+        errors.append("R-009 governance finding must remain explicit while unresolved")
+    observation = findings.get("current_governance_observation", {})
+    if observation.get("finding") != "R-009":
+        errors.append("current governance observation must bind R-009")
+    if observation.get("main_branch_protection") != "NONE":
+        errors.append("recorded R-009 observation must preserve unprotected-main result")
+    if observation.get("repository_rulesets") != []:
+        errors.append("recorded R-009 observation must preserve empty ruleset result")
+    if not SHA.fullmatch(str(observation.get("observed_against_main_sha", ""))):
+        errors.append("R-009 current observation needs an exact main SHA")
+
+    source = json.loads(source_path.read_text(), object_pairs_hook=duplicate_keys)
+    if source.get("schema_version") != 1 or source.get("result") != "PASS_IN_RECORDED_SCOPE":
+        errors.append("R16 source-validation record has an unsupported disposition")
+    for key in ("review_target_sha", "final_source_sha", "final_source_tree", "product_fix_sha"):
+        if not SHA.fullmatch(str(source.get(key, ""))):
+            errors.append(f"R16 source-validation needs full {key}")
+    executions = source.get("executions", [])
+    if len(executions) != 4:
+        errors.append("R16 source-validation must retain four durable executions")
+    for item in executions:
+        if item.get("result") != "PASS":
+            errors.append("retained R16 execution must preserve its PASS result")
+        if not isinstance(item.get("run_id"), int) or item["run_id"] <= 0:
+            errors.append("retained R16 execution needs run_id")
+        if not isinstance(item.get("job_id"), int) or item["job_id"] <= 0:
+            errors.append("retained R16 execution needs job_id")
+        if not SHA.fullmatch(str(item.get("source_sha", ""))):
+            errors.append("retained R16 execution needs exact source SHA")
+        if re.fullmatch(r"[0-9a-f]{64}", str(item.get("log_sha256", ""))) is None:
+            errors.append("retained R16 execution needs log SHA-256")
+    return errors
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--require-report", action="store_true")
@@ -124,6 +179,7 @@ def main() -> int:
     elif args.require_report:
         errors.append("review evidence manifest absent")
     errors.extend(checksum_errors(ROOT))
+    errors.extend(compact_evidence_errors(ROOT))
     print(json.dumps({"validator": "r16-documentary-surface", "result": "FAIL" if errors else "PASS",
                       "documents_checked": len(DOCS), "errors": errors,
                       "external_links_checked": False, "security_verdict": False}, indent=2))

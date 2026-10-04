@@ -82,6 +82,9 @@ class EvidenceTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             json.loads('{"result":"FAIL","result":"PASS"}', object_pairs_hook=MODULE.duplicate_keys)
 
+    def test_compact_retained_evidence_is_valid(self):
+        self.assertEqual(MODULE.compact_evidence_errors(ROOT), [])
+
     def test_checksum_manifest_accepts_matching_file(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)

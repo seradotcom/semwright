@@ -162,6 +162,15 @@ The MCP process does not grant desktop authority, approve mutations or start the
 See [MCP](docs/mcp.md) for socket/session configuration and
 [governed MCP federation](docs/mcp-federation.md) for connecting external MCP providers.
 
+## Native application SDK
+
+Applications that already own their model, persistence and transactions can integrate through the
+[Native SDK](docs/native-sdk/README.md) instead of adopting a Semwright-specific storage model. The
+SDK exposes small optional cooperation contracts, adapts them through the canonical Driver
+SDK/Driver Host, and keeps Broker/Policy, Project Graph and Effect Conformance as the existing
+authorities. Rust and TypeScript surfaces, a file-backed reference profile and an application-owned
+SQLite example are included in the repository.
+
 ## Applications
 
 Semwright has application-specific integrations in addition to generic desktop/platform backends.
@@ -327,6 +336,7 @@ source and environment they actually tested.
 - [Architecture](docs/architecture.md)
 - [Platform support](docs/platforms.md)
 - [Application Driver SDK](docs/drivers.md)
+- [Native application SDK](docs/native-sdk/README.md)
 - [Agent Skills](docs/skills.md)
 - [Events and jobs](docs/events-jobs.md)
 - [Workflow Distillation](docs/workflow-distillation.md)

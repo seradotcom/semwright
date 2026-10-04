@@ -35,8 +35,8 @@ platform certification belong on authorized disposable runners. Standard public 
 are the intended route; do not select paid larger runners, change billing, install tools on
 an owner's device or allocate new paid services as an incidental verification step.
 
-The R documentary workflow uses a standard Ubuntu runner and no Actions cache/artifact
-upload. Its optional positive smoke checks out frozen source separately from R's harness,
+The R16 documentary workflow uses a standard Ubuntu runner and no Actions cache/artifact
+upload. Its optional positive smoke checks out frozen source separately from the review harness,
 builds only the daemon/CLI, runs selected pure contract libraries and executes the existing
 fake recipe. It does not run hostile payloads or replace the full release matrix.
 

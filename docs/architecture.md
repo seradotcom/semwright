@@ -59,6 +59,12 @@ user-session-scoped detached jobs and provider-scoped persistent sessions have d
 lifetimes. Logical mounts, tools and dependencies are resolved by the Host, not by ambient
 executable discovery inside a driver. See [runtime tools](runtime-tools.md).
 
+The [Native SDK](native-sdk/README.md) is an optional cooperation layer for applications that
+already own their domain model, persistence and transaction boundary. It does not replace the
+Driver SDK or create another authority path. Applications expose only the observation, recovery,
+operation, event, snapshot/workspace or publication capabilities they actually support; Driver
+Host still supplies execution context and Broker/Policy still authorizes each operation.
+
 Provider-scoped runtime sessions are deliberately not private per-user-session stores.
 Their handle is not a policy grant. Callers still enter an authorized provider operation;
 the Host enforces tool/mount contracts and resource bounds. Sandboxing a helper process

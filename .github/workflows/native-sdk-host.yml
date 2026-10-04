@@ -1,7 +1,35 @@
 name: Native SDK real Host
 on:
   push:
-    branches: [feat/native-sdk-canonical]
+    branches: [main]
+    paths:
+      - 'crates/native-sdk/**'
+      - 'examples/native/**'
+      - 'examples/native-inventory/**'
+      - 'contracts/native/**'
+      - 'sdk/native-typescript/**'
+      - 'scripts/native-sdk/host_e2e.py'
+      - 'scripts/native-sdk/typescript_suite.py'
+      - 'scripts/native-sdk/run-suite.py'
+      - '.github/workflows/native-sdk-host.yml'
+      - 'crates/core/**'
+      - 'crates/driver-sdk/**'
+      - 'crates/driver-host/**'
+      - 'crates/driver-registry/**'
+      - 'crates/policy/**'
+      - 'crates/daemon/**'
+      - 'crates/mcp/**'
+      - 'crates/protocol/**'
+      - 'crates/types/**'
+      - 'crates/platform-common/**'
+      - 'crates/platform-linux-sys/**'
+      - 'crates/project-graph/**'
+      - 'crates/effect-conformance/**'
+      - 'crates/semantic-composition/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'scripts/dev/ci-driver-bwrap-profile.sh'
+  pull_request:
     paths:
       - 'crates/native-sdk/**'
       - 'examples/native/**'

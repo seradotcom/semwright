@@ -97,7 +97,8 @@ DriverProvider fixtures execute through the production Bubblewrap + Landlock lau
 read-only/write mount boundaries, host-file/PID/loopback isolation, scrubbed environments, driver
 RLIMIT enforcement, watchdog/child cleanup and fail-closed descriptor/version mismatch handling.
 This is executed regression evidence for the configured Linux sandbox boundary, not a formal proof
-against kernel, Bubblewrap, Landlock or native-code vulnerabilities; independent review remains R16.
+against kernel, Bubblewrap, Landlock or native-code vulnerabilities. R16 is closed under its recorded
+repository review; a genuine independent security review remains a separate public-release requirement.
 
 Closed development milestones also include real deep-driver evidence for Chromium, LibreOffice,
 Blender, KiCad/MLT and OBS. These demonstrate Driver SDK generality; they do not imply complete
