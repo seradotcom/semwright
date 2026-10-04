@@ -2889,6 +2889,7 @@ dependencies = [
  "async-trait",
  "base64 0.23.1",
  "futures-util",
+ "hex",
  "libc",
  "proptest",
  "semwright-backend-api",
@@ -2912,6 +2913,7 @@ name = "semwright-ardour-audio-driver"
 version = "0.9.0-dev.1"
 dependencies = [
  "async-trait",
+ "hex",
  "semwright-audio-domain",
  "semwright-backend-api",
  "semwright-core",
@@ -2948,6 +2950,7 @@ dependencies = [
 name = "semwright-audio-domain"
 version = "0.9.0-dev.1"
 dependencies = [
+ "hex",
  "proptest",
  "schemars",
  "serde",
@@ -2961,6 +2964,7 @@ name = "semwright-av-composition"
 version = "0.9.0-dev.1"
 dependencies = [
  "async-trait",
+ "hex",
  "schemars",
  "semwright-audio-authoring",
  "semwright-audio-domain",
@@ -3042,6 +3046,7 @@ name = "semwright-core"
 version = "0.9.0-dev.1"
 dependencies = [
  "async-trait",
+ "hex",
  "libc",
  "proptest",
  "semwright-backend-api",
@@ -3106,6 +3111,7 @@ name = "semwright-driver-blender"
 version = "0.9.0-dev.1"
 dependencies = [
  "async-trait",
+ "hex",
  "jsonschema",
  "libc",
  "proptest",
@@ -3204,6 +3210,7 @@ name = "semwright-driver-host"
 version = "0.9.0-dev.1"
 dependencies = [
  "async-trait",
+ "hex",
  "libc",
  "semwright-backend-api",
  "semwright-driver-sdk",
@@ -3226,6 +3233,7 @@ name = "semwright-driver-libreoffice"
 version = "0.9.0-dev.1"
 dependencies = [
  "async-trait",
+ "hex",
  "libc",
  "semwright-backend-api",
  "semwright-driver-host",
@@ -3245,6 +3253,7 @@ version = "0.9.0-dev.1"
 dependencies = [
  "async-trait",
  "base64 0.23.1",
+ "hex",
  "jsonschema",
  "libc",
  "png",
@@ -3280,6 +3289,7 @@ dependencies = [
  "async-trait",
  "base64 0.23.1",
  "futures-util",
+ "hex",
  "jsonschema",
  "libc",
  "proptest",
@@ -3303,6 +3313,7 @@ dependencies = [
 name = "semwright-driver-registry"
 version = "0.9.0-dev.1"
 dependencies = [
+ "hex",
  "libc",
  "semver",
  "semwright-driver-sdk",
@@ -3320,6 +3331,7 @@ name = "semwright-driver-sdk"
 version = "0.9.0-dev.1"
 dependencies = [
  "async-trait",
+ "hex",
  "libc",
  "schemars",
  "semwright-platform-api",
@@ -3360,6 +3372,7 @@ name = "semwright-faust-audio-driver"
 version = "0.9.0-dev.1"
 dependencies = [
  "async-trait",
+ "hex",
  "semwright-audio-domain",
  "semwright-backend-api",
  "semwright-core",
@@ -3380,6 +3393,7 @@ name = "semwright-federation"
 version = "0.9.0-dev.1"
 dependencies = [
  "async-trait",
+ "hex",
  "libc",
  "rmcp",
  "semwright-backend-api",
@@ -3404,6 +3418,7 @@ name = "semwright-kicad-driver"
 version = "0.9.0-dev.1"
 dependencies = [
  "async-trait",
+ "hex",
  "kicad-ipc",
  "semwright-backend-api",
  "semwright-driver-host",
@@ -3456,6 +3471,7 @@ name = "semwright-mlt-video-driver"
 version = "0.9.0-dev.1"
 dependencies = [
  "async-trait",
+ "hex",
  "libc",
  "semwright-backend-api",
  "semwright-driver-host",
@@ -3486,6 +3502,7 @@ name = "semwright-native-sdk"
 version = "0.9.0-dev.1"
 dependencies = [
  "async-trait",
+ "hex",
  "jsonschema",
  "rustix",
  "schemars",
@@ -3522,6 +3539,7 @@ name = "semwright-platform-common"
 version = "0.9.0-dev.1"
 dependencies = [
  "async-trait",
+ "hex",
  "libc",
  "proptest",
  "semwright-backend-api",
@@ -3563,6 +3581,7 @@ dependencies = [
  "async-trait",
  "calloop",
  "futures-util",
+ "hex",
  "libc",
  "pipewire",
  "png",
@@ -3596,6 +3615,7 @@ name = "semwright-platform-linux-sys"
 version = "0.9.0-dev.1"
 dependencies = [
  "async-trait",
+ "hex",
  "landlock",
  "libc",
  "proptest",
@@ -3631,6 +3651,7 @@ dependencies = [
 name = "semwright-platform-macos-sys"
 version = "0.9.0-dev.1"
 dependencies = [
+ "hex",
  "libc",
  "proptest",
  "semwright-platform-api",
@@ -3679,6 +3700,7 @@ name = "semwright-platform-windows-sys"
 version = "0.9.0-dev.1"
 dependencies = [
  "async-trait",
+ "hex",
  "png",
  "proptest",
  "semwright-platform-api",
@@ -3696,6 +3718,7 @@ dependencies = [
 name = "semwright-plugin-host"
 version = "0.9.0-dev.1"
 dependencies = [
+ "hex",
  "libc",
  "proptest",
  "semwright-platform-api",
@@ -3716,6 +3739,7 @@ dependencies = [
 name = "semwright-plugin-sdk"
 version = "0.9.0-dev.1"
 dependencies = [
+ "hex",
  "proptest",
  "semwright-platform-api",
  "semwright-protocol",
@@ -3731,6 +3755,7 @@ dependencies = [
 name = "semwright-policy"
 version = "0.9.0-dev.1"
 dependencies = [
+ "hex",
  "proptest",
  "semwright-platform-api",
  "semwright-platform-services",
@@ -3795,6 +3820,7 @@ dependencies = [
 name = "semwright-registry"
 version = "0.9.0-dev.1"
 dependencies = [
+ "hex",
  "jsonschema",
  "proptest",
  "regex",
@@ -3821,6 +3847,7 @@ dependencies = [
 name = "semwright-skills"
 version = "0.9.0-dev.1"
 dependencies = [
+ "hex",
  "jsonschema",
  "libc",
  "proptest",
@@ -3868,6 +3895,7 @@ dependencies = [
 name = "semwright-video-domain"
 version = "0.9.0-dev.1"
 dependencies = [
+ "hex",
  "serde",
  "serde_json",
  "sha2 0.11.0",
@@ -3878,6 +3906,7 @@ dependencies = [
 name = "semwright-workflow"
 version = "0.9.0-dev.1"
 dependencies = [
+ "hex",
  "proptest",
  "semwright-recipes",
  "semwright-types",
