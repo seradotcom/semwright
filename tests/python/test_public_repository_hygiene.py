@@ -57,6 +57,17 @@ class PublicRepositoryHygieneTests(unittest.TestCase):
                 with self.subTest(relative=relative, phrase=phrase):
                     self.assertNotIn(phrase, text)
 
+    def test_verification_archive_is_explicitly_historical(self):
+        text = (ROOT / "verification/README.md").read_text()
+        for phrase in (
+            "evidence archive",
+            "exact-SHA scoped",
+            "historical provenance",
+            "Development coordination is not verification evidence",
+        ):
+            with self.subTest(phrase=phrase):
+                self.assertIn(phrase, text)
+
     def test_local_coordination_directories_are_ignored(self):
         ignored = (ROOT / ".gitignore").read_text()
         for entry in (
