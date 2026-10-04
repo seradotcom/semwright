@@ -30,53 +30,58 @@
   <a href="./VERIFY.md"><strong>Verification</strong></a>
 </p>
 
-> **Pre-release:** native candidate bundles are for evaluation; no public v1 has been published.
-> Physical/interactive residuals are explicit post-v1 certification work. Independent security
-> review remains required before public release. [Status and evidence](#status-and-verification).
+> **Pre-v1:** candidate builds are available for evaluation, but Semwright has not published a public v1 yet.
+> Exact support and evidence are tracked in [VERIFY.md](VERIFY.md); independent security review remains a
+> publication gate.
 
 ```text
 AI agent  →  Semwright  →  Blender · Godot · Browser · LibreOffice · Figma · KiCad · …
 ```
 
-## What can I do with it?
+## Why Semwright?
 
-- **Connect compatible agents to real desktop and professional software through one runtime.**
-- **Prefer structured application operations and native APIs over pixels and clicks when available.**
-- **Move verified file-backed artifacts between integrations without bypassing broker policy.**
-- **Keep mutations policy-gated, auditable, and bounded by explicit authority.**
-- **Extend applications with the Driver SDK, or add narrow external commands with the Plugin SDK.**
+AI agents can reason about a task. Reliably operating real software is a different problem: application
+objects have identity and state, UI layouts move, mutations have side effects, and every agent should not
+need its own one-off automation stack.
 
-A Semwright request can discover an application's structured capabilities, perform an authorized
-operation, move an artifact between tools, and verify the result through the same broker.
+Semwright exposes real applications as structured operations behind one authorization boundary. It
+prefers the strongest interface available—application/native APIs first, semantic accessibility and
+governed system interfaces when needed, and controlled input or capture as explicit fallbacks. Every
+operation still passes through the same broker, policy and audit path.
 
-For example, a cross-application workflow can look like this:
+- **Structured operations first.** Use application objects and typed commands instead of reducing every
+  task to screenshots and coordinates.
+- **One authorization boundary.** CLI, MCP, Recipes, drivers and federated providers do not create
+  separate privilege systems.
+- **One runtime across compatible agents.** Change the agent without rebuilding every application
+  integration from scratch.
+- **Read back what happened.** Effects and application observations keep requested, expected and observed
+  outcomes distinct.
+- **Keep project state coherent.** Project Graph can track identity, dependencies and drift across repeated
+  work instead of treating every run as a blank slate.
+- **Local and inspectable.** The OSS runtime can operate locally; discovery is not permission, sensitive
+  actions can require operator approval, and execution is auditable.
+
+A typical path looks like this:
 
 ```text
-Agent
-  |
-  |  "Change this asset and update the project."
-  v
-Semwright
-  |
-  +--> Blender: inspect / author / export
-  |
-  +--> artifact.handoff: verify + transfer
-  |
-  +--> Godot: import / rescan / update
-  |
-  `--> readback + Effects: verify the bounded outcome
+Agent request             Semwright                              Software
+"change this material" → typed operation → policy → readback → Blender
+"update this scene"    → typed operation → policy → readback → Godot
+"export this document" → typed operation → policy → artifact → LibreOffice
+"find the Save button" → semantic query  → policy → reference → accessibility
 ```
 
-The exact operations and evidence depend on each integration. Semwright does not pretend that one
-headless test certifies an entire interactive application.
+Support is scoped per integration; a green fixture does not automatically certify every version or
+interactive environment.
 
-## Install in three steps
+## Try Semwright
 
 ### 1. Install the native bundle — no Rust build required
 
-Use the matching candidate from an exact-SHA **V1 multiplatform distribution** Actions run.
-There is no public v1 download in this closeout. Verify the external checksums, extract the archive,
-and run its included helper:
+Until the first public release, candidate bundles come from exact-SHA **V1 multiplatform distribution**
+Actions runs. Verify the published checksums for that candidate, extract the archive, and run its included
+helper:
 
 | Platform | Bundle | Install from the extracted directory |
 | --- | --- | --- |
@@ -104,10 +109,11 @@ Setup prints the exact broker, doctor, TUI and MCP paths for the current platfor
 then run the printed doctor command from another terminal. `semwright-inspect` opens the read-only
 terminal UI and the generated `mcp-client.json` points at the exact installed `semwright-mcp`.
 
-### Build and try the synthetic desktop
+### Develop from source with the synthetic desktop
 
-The safest first run uses the repository's synthetic desktop. It exercises the real daemon, CLI,
-recipe runner and policy path without connecting to your real desktop or credentials.
+For contributors, the repository also includes a synthetic desktop path. It exercises the real daemon,
+CLI, Recipe runner and policy path without connecting to your real desktop or credentials. This is the
+source-build path, not the normal installation path.
 
 On Ubuntu 24.04 x86_64, install the
 [development prerequisites](docs/installation.md#prerequisites), then:
@@ -139,14 +145,14 @@ flow, use the [installation guide](docs/installation.md).
 Semwright exposes a deliberately small MCP frontend that routes back through the same broker,
 policy, references and audit path as the CLI.
 
-After installing `semwright-mcp` and starting the broker, a compatible MCP client can use an
-absolute executable path such as:
+`semwright setup` writes a ready-to-copy MCP client snippet using the exact installed executable path
+for the current platform. Its shape is:
 
 ```json
 {
   "mcpServers": {
     "semwright": {
-      "command": "/home/YOUR_USER/.local/share/semwright/bin/semwright-mcp"
+      "command": "<absolute path to semwright-mcp>"
     }
   }
 }
@@ -179,65 +185,60 @@ Full details live in the [platform matrix](docs/platforms.md),
 [compatibility matrix](docs/compatibility.md), [Driver SDK guide](docs/drivers.md) and each
 integration's own README.
 
-## Why Semwright?
-
-### Native and structured operations first
-
-When an application exposes a richer semantic interface, Semwright can use it instead of reducing
-every task to screen coordinates. Generic accessibility/input paths remain separate capabilities
-with their own preconditions and evidence.
-
-### One runtime across agents
-
-CLI, MCP, recipes and higher-level workflows enter the same broker. Changing the frontend does not
-silently create another authorization system.
-
-### Persistent project context
-
-Semwright can retain typed project identity, dependencies and drift information so an agent can
-reason about what changed and what became stale rather than rediscovering every project from zero.
-
-### Verified outcomes
-
-A successful process exit is not automatically a successful task. Semwright's Effects/evidence
-model separates requested, expected, observed and unobservable outcomes within an explicit scope.
-
-### Local, inspectable authority
-
-Discovery is not permission. Providers, drivers and federated tools receive bounded identities;
-mutations re-enter policy; sensitive actions can require a separate operator decision; execution is
-audited.
-
 ## How it works
 
 ```text
-                 compatible agent / MCP / CLI
-                           |
-                           v
-                +-----------------------+
-                |       Semwright       |
-                | discovery + schemas   |
-                | policy + approvals    |
-                | refs + jobs + audit   |
-                +-----------+-----------+
-                            |
-                    Provider Runtime
-                            |
-          +-----------------+------------------+
-          |                 |                  |
-          v                 v                  v
-   native/platform      app drivers       federated MCP
-      backends          + plugins          providers
-          |                 |                  |
-          +-----------------+------------------+
-                            |
-                            v
-                    real applications
+compatible agent / MCP / CLI
+            |
+            v
++-----------------------------+
+|          Semwright          |
+| discovery · schemas · refs  |
+| policy · approvals · audit  |
+| jobs · artifacts · Effects  |
++-------------+---------------+
+              |
+       Provider Runtime
+              |
+      strongest available path
+              |
+      +-------+-------------------------------+
+      |                                       |
+      v                                       v
+application/native APIs              semantic/system interfaces
+      |                                       |
+      +-------------------+-------------------+
+                          |
+                          v
+                  controlled fallbacks
+                   (input / capture)
+                          |
+                          v
+                   real applications
 ```
 
 Semwright does **not** replace MCP or an agent SDK. MCP is one way to reach the runtime and one kind
-of provider Semwright can govern. The execution layer is responsible for capability discovery,
-policy, application identity, bounded jobs, references, artifact handoff and audit.
+of provider Semwright can govern. The execution layer is responsible for capability discovery, policy,
+application identity, bounded jobs, references, artifact handoff and audit.
+
+A cross-application workflow can therefore remain explicit instead of hiding the transition between
+tools:
+
+```text
+Agent
+  |
+  |  "Change this asset and update the project."
+  v
+Semwright
+  |
+  +--> Blender: inspect / author / export
+  |
+  +--> artifact.handoff: verify + transfer
+  |
+  +--> Godot: import / rescan / update
+  |
+  `--> readback + Effects: verify the bounded outcome
+```
 
 See [architecture](docs/architecture.md) for the full model.
 
@@ -295,37 +296,29 @@ Read [SECURITY.md](SECURITY.md), [permissions](docs/permissions.md) and the
 [threat model](docs/security.md). Report sensitive vulnerabilities through the repository's enabled
 private vulnerability-reporting channel, not a public issue.
 
-## Status and verification
+## Status
 
-Engineering completion and release certification are deliberately separate states.
+Semwright is **pre-v1** and has not published a public release. The current engineering line is closed
+for staging, and native candidate bundles are produced for Linux x86_64/aarch64, Windows x86_64/ARM64
+and macOS arm64/x86_64.
 
-| Gate | Current state |
+| Track | Current state |
 | --- | --- |
-| **R16** | **CLOSED** after separate revalidation |
-| **R06** | **OPEN — `DEFERRED_TO_POST_V1_ENVIRONMENT_DEPENDENT`** |
-| **R18** | **OPEN — `DEFERRED_TO_POST_V1_ENVIRONMENT_DEPENDENT`** |
-| **V1_ENGINEERING_CLOSEOUT** | **COMPLETE** |
-| **STAGING** | Engineering metadata admitted; native bundles require exact-SHA workflow evidence |
-| **PUBLIC RELEASE** | **NOT PUBLISHED**; **BLOCKED_PENDING_SECURITY_REVIEW** |
+| **Engineering closeout** | Complete for the current pre-v1 line |
+| **Native candidate packages** | Built and validated through exact-SHA distribution workflows |
+| **Physical / interactive certification** | Remaining environment-dependent cases are explicit post-v1 work |
+| **Independent security review** | Required before public v1 |
+| **Public release** | Not published |
 
-R06 still requires the declared physical Hyprland/mixed-display cases. R18 still requires the
-declared unlocked Windows interactive, UIPI/UAC, real-app UIA, mixed-DPI and lifecycle cases.
-Those gaps are not simulated and are not converted into PASS by hosted CI. They are no longer
-prerequisites for the initial-v1 publication decision. Independent security review, explicit
-maintainer authorization and final exact-SHA validation remain mandatory under
-[the release policy](docs/release-policy.md).
+The detailed R06/R16/R18 history, exact run IDs and environment-specific limitations remain in the
+release and verification records rather than dominating this landing page. Nothing deferred is converted
+to PASS, and publication still requires the independent security review, explicit maintainer authorization
+and final exact-SHA validation defined by the [release policy](docs/release-policy.md).
 
-Start with:
-
-- [V1 engineering closeout](V1_ENGINEERING_CLOSEOUT.md)
-- [Post-v1 environment-dependent procedures](POST_V1_BACKLOG.md)
-- [Verification ledger](VERIFY.md)
-- [Release blockers](RELEASE_BLOCKERS.md)
-- [Compatibility and evidence levels](docs/compatibility.md)
-- [Security](SECURITY.md)
-
-Historical records under `verification/` remain evidence for their recorded source and environment;
-they are not approval of later code.
+For exact evidence, use [VERIFY.md](VERIFY.md), [platform support](docs/platforms.md),
+[compatibility](docs/compatibility.md), [release blockers](RELEASE_BLOCKERS.md) and
+[security](SECURITY.md). Historical records under [`verification/`](verification/README.md) preserve the
+source and environment they actually tested.
 
 ## Documentation and contributing
 
