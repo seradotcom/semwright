@@ -439,11 +439,10 @@ satisfy the independent security-review release gate, or authorize publication b
 
 ## Repository governance observation
 
-The retained R16 findings ledger records R-009 as an open governance decision. Re-observation on
-2026-10-04 against `main` `04cf0ef7062d134b71206d832375be9545553bb4` found no
-GitHub branch-protection rule for `main` and no repository rulesets. This is not a runtime
-vulnerability or evidence of an unauthorized change; it means review/status requirements are not
-enforced by those repository settings. See
+The retained R16 findings ledger records R-009 as an open governance decision. Repository API
+re-observation on 2026-10-04 found no GitHub branch-protection rule for `main` and no repository
+rulesets. This is not a runtime vulnerability or evidence of an unauthorized change; it means
+review/status requirements are not enforced by those repository settings. See
 [R16 findings](verification/r16-closeout/FINDINGS.json).
 
 ## Evidence boundaries
@@ -454,8 +453,9 @@ while Godot Parcel Lantern at 9ecf35fd9c3d6fbcbc1f8b72b8d4734c70037ffa records a
 broker route and clean restart. These historical observations are not inherited by current main.
 
 The observed workflows provide hosted regression evidence for their listed source SHAs. The
-older Windows ARM64 fixture failure remains historical evidence, while current-main run
-`37228279724` passes both native Windows architectures and both sealed-tool compatibility jobs. Historical records separately cover GNOME semantic
+older Windows ARM64 fixture failure remains historical evidence, while run `37228279724` on source
+`04cf0ef7062d134b71206d832375be9545553bb4` passed both native Windows architectures and both
+sealed-tool compatibility jobs. Historical records separately cover GNOME semantic
 GTK, nested Hyprland and isolated GNOME/Plasma VM input delivery/cancellation. In particular,
 `verification/live-portal-eis/gnome-vm-keyboard-2026-09-26.json` and
 `verification/live-portal-eis/plasma-kde-portal-notify-vm-2026-09-26.json` record the later isolated
