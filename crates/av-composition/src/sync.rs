@@ -39,10 +39,8 @@ impl SyncSpec {
         for cue in &self.cues {
             bounded_id(&cue.id)?;
             cue.expected_time.validate()?;
-            ensure(
-                seen.insert(&cue.id) && cue.expected_time >= Q::ZERO,
-                "duplicate or negative sync cue",
-            )?;
+            ensure(seen.insert(&cue.id), "duplicate sync cue")?;
+            ensure(cue.expected_time >= Q::ZERO, "negative sync cue time")?;
             if let Some(last) = previous {
                 ensure(cue.expected_time > last, "sync cues must be time ordered")?;
             }
@@ -125,8 +123,12 @@ pub fn verify_sync(spec: &SyncSpec, probe: &DecodedSyncProbe) -> Result<SyncRepo
     let flashes = detections(&probe.flashes)?;
     let impulses = detections(&probe.impulses)?;
     let exhaustive = probe.exhaustive_video && probe.exhaustive_audio;
-    let mut unknown =
-        (spec.require_full_scan && !exhaustive) || probe.source != EvidenceSource::DecodedMedia;
+    let mut unknown = probe.source != EvidenceSource::DecodedMedia;
+    if spec.require_full_scan {
+        if !exhaustive {
+            unknown = true;
+        }
+    }
     let mut failed = false;
     let mut observations = vec![];
     let mut missing = vec![];
@@ -147,19 +149,26 @@ pub fn verify_sync(spec: &SyncSpec, probe: &DecodedSyncProbe) -> Result<SyncRepo
         let audio_error = abs(audio.presentation_time.checked_sub(cue.expected_time)?)?;
         let lower_offset = absolute.checked_sub(uncertainty)?;
         let upper_offset = absolute.checked_add(uncertainty)?;
-        let definite_failure = lower_offset > spec.max_offset
-            || video_error.checked_sub(video.uncertainty)? > spec.max_cue_error
-            || audio_error.checked_sub(audio.uncertainty)? > spec.max_cue_error;
-        let definite_pass = upper_offset <= spec.max_offset
-            && video_error.checked_add(video.uncertainty)? <= spec.max_cue_error
-            && audio_error.checked_add(audio.uncertainty)? <= spec.max_cue_error;
-        let verdict = if definite_failure {
+        let failure_checks = [
+            lower_offset > spec.max_offset,
+            video_error.checked_sub(video.uncertainty)? > spec.max_cue_error,
+            audio_error.checked_sub(audio.uncertainty)? > spec.max_cue_error,
+        ];
+        let pass_checks = [
+            upper_offset <= spec.max_offset,
+            video_error.checked_add(video.uncertainty)? <= spec.max_cue_error,
+            audio_error.checked_add(audio.uncertainty)? <= spec.max_cue_error,
+        ];
+        let verdict = if failure_checks.into_iter().any(|failed_check| failed_check) {
             failed = true;
             Verdict::Fail
-        } else if !definite_pass
-            || video.confidence < spec.confidence_floor
-            || audio.confidence < spec.confidence_floor
-        {
+        } else if !pass_checks.into_iter().all(|passed_check| passed_check) {
+            unknown = true;
+            Verdict::Unknown
+        } else if video.confidence < spec.confidence_floor {
+            unknown = true;
+            Verdict::Unknown
+        } else if audio.confidence < spec.confidence_floor {
             unknown = true;
             Verdict::Unknown
         } else {

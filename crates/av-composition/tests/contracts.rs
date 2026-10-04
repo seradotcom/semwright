@@ -422,6 +422,125 @@ fn active_mutation_needs_a_native_cancel_receipt() {
     assert!(c.cancel_before_dispatch().is_err());
 }
 #[test]
+fn operation_budget_exhausts_at_the_exact_operation_limit() {
+    let mut body = plan().body;
+    body.budget.max_operations = 1;
+    let mut coordinator = AvCoordinator::new(AvPlan::prepare(body).unwrap()).unwrap();
+
+    let call = next(&mut coordinator);
+    coordinator
+        .complete(receipt(
+            &call,
+            NativeResult::DeliveryPlanned {
+                profile_digest: c::canonical_digest(&coordinator.plan().body.spec.delivery)
+                    .unwrap(),
+            },
+        ))
+        .unwrap();
+
+    let stage = coordinator.next_stage().unwrap();
+    let proof = coordinator
+        .plan()
+        .body
+        .services
+        .iter()
+        .find(|value| value.service == stage.service())
+        .unwrap()
+        .clone();
+    let observed = coordinator.expected_base().clone();
+    assert!(coordinator.reserve(&owner(), &proof, &observed).is_err());
+    assert_eq!(coordinator.state(), AvState::Exhausted);
+}
+
+#[test]
+fn native_effect_receipt_count_and_string_limits_are_inclusive() {
+    fn delivery_result(coordinator: &AvCoordinator) -> NativeResult {
+        NativeResult::DeliveryPlanned {
+            profile_digest: c::canonical_digest(&coordinator.plan().body.spec.delivery).unwrap(),
+        }
+    }
+
+    let mut at_count_limit = AvCoordinator::new(plan()).unwrap();
+    let call = next(&mut at_count_limit);
+    let mut value = receipt(&call, delivery_result(&at_count_limit));
+    value.effects = (0..4096).map(|_| "x".to_owned()).collect();
+    at_count_limit.complete(value).unwrap();
+
+    let mut over_count_limit = AvCoordinator::new(plan()).unwrap();
+    let call = next(&mut over_count_limit);
+    let mut value = receipt(&call, delivery_result(&over_count_limit));
+    value.effects = (0..4097).map(|_| "x".to_owned()).collect();
+    assert!(matches!(
+        over_count_limit.complete(value),
+        Err(Error::Limit(_))
+    ));
+    assert_eq!(over_count_limit.state(), AvState::Unknown);
+
+    let mut at_string_limit = AvCoordinator::new(plan()).unwrap();
+    let call = next(&mut at_string_limit);
+    let mut value = receipt(&call, delivery_result(&at_string_limit));
+    value.effects = vec!["x".repeat(512)];
+    at_string_limit.complete(value).unwrap();
+
+    let mut over_string_limit = AvCoordinator::new(plan()).unwrap();
+    let call = next(&mut over_string_limit);
+    let mut value = receipt(&call, delivery_result(&over_string_limit));
+    value.effects = vec!["x".repeat(513)];
+    assert!(matches!(
+        over_string_limit.complete(value),
+        Err(Error::Limit(_))
+    ));
+    assert_eq!(over_string_limit.state(), AvState::Unknown);
+
+    let mut controls = AvCoordinator::new(plan()).unwrap();
+    let call = next(&mut controls);
+    let mut value = receipt(&call, delivery_result(&controls));
+    value.effects = vec![
+        "line
+break"
+            .into(),
+    ];
+    assert!(matches!(controls.complete(value), Err(Error::Limit(_))));
+    assert_eq!(controls.state(), AvState::Unknown);
+}
+
+#[test]
+fn mutating_stage_may_change_only_its_bound_provider_resource() {
+    let mut coordinator = AvCoordinator::new(plan()).unwrap();
+    let delivery = next(&mut coordinator);
+    coordinator
+        .complete(receipt(
+            &delivery,
+            NativeResult::DeliveryPlanned {
+                profile_digest: c::canonical_digest(&coordinator.plan().body.spec.delivery)
+                    .unwrap(),
+            },
+        ))
+        .unwrap();
+
+    let apply_motion = next(&mut coordinator);
+    let mut value = receipt(&apply_motion, NativeResult::Applied);
+    let motion = value
+        .observed_base
+        .0
+        .iter_mut()
+        .find(|state| state.key.provider == "fixture:motion")
+        .unwrap();
+    motion.revision = Revision::Counter(2);
+    coordinator.complete(value).unwrap();
+    assert_eq!(
+        coordinator
+            .expected_base()
+            .0
+            .iter()
+            .find(|state| state.key.provider == "fixture:motion")
+            .unwrap()
+            .revision,
+        Revision::Counter(2)
+    );
+}
+
+#[test]
 fn aligned_presentation_timestamps_pass_sync_math() {
     let report = verify_sync(&sync(), &probe(Q::ZERO)).unwrap();
     assert_eq!(report.verdict, Verdict::Pass);
@@ -441,18 +560,33 @@ fn missing_impulse_is_unknown_not_time_zero() {
     let report = verify_sync(&sync(), &p).unwrap();
     assert_eq!(report.verdict, Verdict::Unknown);
     assert_eq!(report.missing, ["cue-b"]);
+    assert_eq!(report.observed_drift, None);
 }
 #[test]
 fn sampled_decoder_cannot_certify_exhaustive_sync() {
     let mut p = probe(Q::ZERO);
     p.exhaustive_audio = false;
-    assert_eq!(verify_sync(&sync(), &p).unwrap().verdict, Verdict::Unknown);
+    let report = verify_sync(&sync(), &p).unwrap();
+    assert_eq!(report.verdict, Verdict::Unknown);
+    assert!(
+        report
+            .limitations
+            .iter()
+            .any(|value| value.contains("sampled media"))
+    );
 }
 #[test]
 fn fixture_evidence_does_not_certify_native_sync() {
     let mut p = probe(Q::ZERO);
     p.source = EvidenceSource::Fixture;
-    assert_eq!(verify_sync(&sync(), &p).unwrap().verdict, Verdict::Unknown);
+    let report = verify_sync(&sync(), &p).unwrap();
+    assert_eq!(report.verdict, Verdict::Unknown);
+    assert!(
+        report
+            .limitations
+            .iter()
+            .any(|value| value.contains("Non-native decoder evidence"))
+    );
 }
 #[test]
 fn common_shift_does_not_cancel_out_expected_cue_error() {
@@ -480,6 +614,121 @@ fn increasing_drift_is_detected() {
     p.impulses[1].presentation_time = q(202, 100);
     assert_eq!(verify_sync(&sync(), &p).unwrap().verdict, Verdict::Fail);
 }
+#[test]
+fn sampled_decoder_can_pass_when_full_scan_is_not_required() {
+    let mut spec = sync();
+    spec.require_full_scan = false;
+    let mut value = probe(Q::ZERO);
+    value.exhaustive_audio = false;
+    let report = verify_sync(&spec, &value).unwrap();
+    assert_eq!(report.verdict, Verdict::Pass);
+    assert!(!report.exhaustive);
+    assert_eq!(report.limitations.len(), 1);
+}
+
+#[test]
+fn video_and_audio_cue_errors_fail_independently() {
+    for video_side in [true, false] {
+        let mut spec = sync();
+        spec.max_offset = Q::ONE;
+        spec.max_drift = Q::ONE;
+        let mut value = probe(Q::ZERO);
+        if video_side {
+            value.flashes[0].presentation_time = value.flashes[0]
+                .presentation_time
+                .checked_add(q(1, 10))
+                .unwrap();
+        } else {
+            value.impulses[0].presentation_time = value.impulses[0]
+                .presentation_time
+                .checked_add(q(1, 10))
+                .unwrap();
+        }
+        assert_eq!(verify_sync(&spec, &value).unwrap().verdict, Verdict::Fail);
+    }
+}
+
+#[test]
+fn video_and_audio_uncertainty_can_independently_make_sync_unknown() {
+    for video_side in [true, false] {
+        let mut spec = sync();
+        spec.max_offset = Q::ONE;
+        spec.max_drift = Q::ONE;
+        let mut value = probe(Q::ZERO);
+        if video_side {
+            value.flashes[0].uncertainty = q(1, 20);
+        } else {
+            value.impulses[0].uncertainty = q(1, 20);
+        }
+        assert_eq!(
+            verify_sync(&spec, &value).unwrap().verdict,
+            Verdict::Unknown
+        );
+    }
+}
+
+#[test]
+fn cue_error_and_drift_thresholds_are_inclusive() {
+    for video_side in [true, false] {
+        let mut spec = sync();
+        spec.max_offset = Q::ONE;
+        spec.max_drift = Q::ONE;
+        let mut value = probe(Q::ZERO);
+        if video_side {
+            value.flashes[0].presentation_time = value.flashes[0]
+                .presentation_time
+                .checked_add(spec.max_cue_error)
+                .unwrap();
+        } else {
+            value.impulses[0].presentation_time = value.impulses[0]
+                .presentation_time
+                .checked_add(spec.max_cue_error)
+                .unwrap();
+        }
+        assert_eq!(verify_sync(&spec, &value).unwrap().verdict, Verdict::Pass);
+    }
+
+    let mut spec = sync();
+    spec.max_offset = Q::ONE;
+    spec.max_cue_error = Q::ONE;
+    let mut exact_drift = probe(Q::ZERO);
+    exact_drift.impulses[1].presentation_time = exact_drift.impulses[1]
+        .presentation_time
+        .checked_add(spec.max_drift)
+        .unwrap();
+    let report = verify_sync(&spec, &exact_drift).unwrap();
+    assert_eq!(report.verdict, Verdict::Pass);
+    assert_eq!(report.observed_drift, Some(spec.max_drift));
+}
+
+#[test]
+fn drift_plus_uncertainty_equal_to_limit_is_still_pass() {
+    let mut spec = sync();
+    spec.max_offset = Q::ONE;
+    spec.max_cue_error = Q::ONE;
+    let half = q(1, 120);
+    let mut value = probe(Q::ZERO);
+    value.impulses[1].presentation_time = value.impulses[1]
+        .presentation_time
+        .checked_add(half)
+        .unwrap();
+    value.impulses[1].uncertainty = half;
+    let report = verify_sync(&spec, &value).unwrap();
+    assert_eq!(report.verdict, Verdict::Pass);
+    assert_eq!(report.observed_drift, Some(half));
+}
+
+#[test]
+fn sync_spec_rejects_duplicate_ids_and_negative_cue_times_independently() {
+    let mut duplicate = sync();
+    duplicate.cues[1].id = duplicate.cues[0].id.clone();
+    assert!(duplicate.validate().is_err());
+
+    let mut negative = sync();
+    negative.cues[0].expected_time = q(-1, 1);
+    assert!(negative.validate().is_err());
+}
+
 #[test]
 fn publication_paths_are_not_artifact_tokens() {
     let candidate = PublicationCandidate {
@@ -881,6 +1130,146 @@ fn decoded_audio_artifact(plan: &AvPlan, encoded: &t::MediaArtifact) -> t::Media
         license: None,
         retention: t::Retention::PrivateCandidate,
     }
+}
+
+fn advance_to_mux() -> (AvCoordinator, AvPlan) {
+    let plan = plan();
+    let motion = reusable_artifact(
+        "motion",
+        BTreeMap::from([("visual".into(), digest("visual-v1"))]),
+    );
+    let audio = audio_artifact();
+    let mut coordinator = AvCoordinator::new(plan.clone()).unwrap();
+
+    let call = next(&mut coordinator);
+    coordinator
+        .complete(receipt(
+            &call,
+            NativeResult::DeliveryPlanned {
+                profile_digest: c::canonical_digest(&plan.body.spec.delivery).unwrap(),
+            },
+        ))
+        .unwrap();
+
+    for result in [NativeResult::Applied, NativeResult::Applied] {
+        let call = next(&mut coordinator);
+        coordinator.complete(receipt(&call, result)).unwrap();
+    }
+
+    let call = next(&mut coordinator);
+    coordinator
+        .complete(receipt(
+            &call,
+            NativeResult::Rendered {
+                artifact: motion.clone(),
+            },
+        ))
+        .unwrap();
+    let call = next(&mut coordinator);
+    coordinator
+        .complete(receipt(
+            &call,
+            NativeResult::Rendered {
+                artifact: audio.clone(),
+            },
+        ))
+        .unwrap();
+
+    let call = next(&mut coordinator);
+    coordinator
+        .complete(receipt(
+            &call,
+            NativeResult::Verified {
+                artifact_digest: motion.sha256.clone(),
+                report: verification_report(
+                    plan.body.motion.plan_digest.clone(),
+                    plan.body.motion.required_rules.clone(),
+                    EvidenceSource::RendererState,
+                    motion.sha256.clone(),
+                ),
+            },
+        ))
+        .unwrap();
+    let call = next(&mut coordinator);
+    coordinator
+        .complete(receipt(
+            &call,
+            NativeResult::Verified {
+                artifact_digest: audio.sha256.clone(),
+                report: verification_report(
+                    plan.body.audio.plan_digest.clone(),
+                    plan.body.audio.required_rules.clone(),
+                    EvidenceSource::NativeApi,
+                    audio.sha256.clone(),
+                ),
+            },
+        ))
+        .unwrap();
+
+    let call = next(&mut coordinator);
+    coordinator
+        .complete(receipt(
+            &call,
+            NativeResult::Transferred {
+                input: DeliveryInput {
+                    token: "motion-input".into(),
+                    source_digest: motion.sha256.clone(),
+                    artifact_digest: digest("motion-mezzanine"),
+                    owner: owner(),
+                    metadata: motion.metadata.clone(),
+                    operation: TransferKind::LosslessMezzanine,
+                    verification: None,
+                },
+            },
+        ))
+        .unwrap();
+    let call = next(&mut coordinator);
+    coordinator
+        .complete(receipt(
+            &call,
+            NativeResult::Transferred {
+                input: DeliveryInput {
+                    token: "audio-input".into(),
+                    source_digest: audio.sha256.clone(),
+                    artifact_digest: audio.sha256.clone(),
+                    owner: owner(),
+                    metadata: audio.metadata.clone(),
+                    operation: TransferKind::ByteCopy,
+                    verification: None,
+                },
+            },
+        ))
+        .unwrap();
+
+    assert_eq!(coordinator.next_stage(), Some(Stage::Mux));
+    (coordinator, plan)
+}
+
+#[test]
+fn mux_rejects_zero_length_decoded_audio_at_the_exact_boundary() {
+    let (mut coordinator, plan) = advance_to_mux();
+    let encoded = encoded_artifact(&plan);
+    let mut decoded_audio = decoded_audio_artifact(&plan, &encoded);
+    decoded_audio.metadata.audio.as_mut().unwrap().sample_frames = 0;
+    let handoff = ArtifactHandoffHint {
+        version: 1,
+        artifact_digest: decoded_audio.sha256.clone(),
+        relative_path: "encoded-final-audio.wav".into(),
+    };
+    let call = next(&mut coordinator);
+    assert!(
+        coordinator
+            .complete(receipt(
+                &call,
+                NativeResult::Encoded {
+                    artifact: encoded,
+                    decoded_audio: Box::new(decoded_audio),
+                    decoded_audio_handoff: handoff,
+                },
+            ))
+            .is_err()
+    );
+    assert_eq!(coordinator.state(), AvState::Unknown);
 }
 
 #[test]
