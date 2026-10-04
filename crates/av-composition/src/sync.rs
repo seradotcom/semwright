@@ -201,9 +201,6 @@ pub fn verify_sync(spec: &SyncSpec, probe: &DecodedSyncProbe) -> Result<SyncRepo
         }
         Some(drift)
     } else {
-        if spec.cues.len() > 1 {
-            unknown = true;
-        }
         None
     };
     let mut limitations = vec![];

@@ -1175,6 +1175,7 @@ fn advance_to_mux() -> (AvCoordinator, AvPlan) {
         ))
         .unwrap();
 
+    let motion_transcode_digest = digest("motion-transcode");
     let call = next(&mut coordinator);
     coordinator
         .complete(receipt(
@@ -1183,11 +1184,16 @@ fn advance_to_mux() -> (AvCoordinator, AvPlan) {
                 input: DeliveryInput {
                     token: "motion-input".into(),
                     source_digest: motion.sha256.clone(),
-                    artifact_digest: digest("motion-mezzanine"),
+                    artifact_digest: motion_transcode_digest.clone(),
                     owner: owner(),
                     metadata: motion.metadata.clone(),
-                    operation: TransferKind::LosslessMezzanine,
-                    verification: None,
+                    operation: TransferKind::VerifiedTranscode,
+                    verification: Some(verification_report(
+                        plan.digest.clone(),
+                        BTreeSet::from(["decoded-frame-equivalence".into()]),
+                        EvidenceSource::DecodedMedia,
+                        motion_transcode_digest,
+                    )),
                 },
             },
         ))
@@ -1212,6 +1218,42 @@ fn advance_to_mux() -> (AvCoordinator, AvPlan) {
 
     assert_eq!(coordinator.next_stage(), Some(Stage::Mux));
     (coordinator, plan)
+}
+
+#[test]
+fn verified_transcode_is_bound_to_the_motion_mux_slot() {
+    let (mut coordinator, _) = advance_to_mux();
+    let call = next(&mut coordinator);
+    let StagePayload::Mux { motion, audio, .. } = call.payload else {
+        panic!("expected mux payload");
+    };
+    assert_eq!(motion.token, "motion-input");
+    assert!(matches!(motion.operation, TransferKind::VerifiedTranscode));
+    assert_eq!(audio.token, "audio-input");
+    assert!(matches!(audio.operation, TransferKind::ByteCopy));
+}
+
+#[test]
+fn elapsed_budget_is_enforced_by_reserve_not_only_by_the_helper() {
+    let mut body = plan().body;
+    body.budget.max_elapsed_ms = 1;
+    let constrained = AvPlan::prepare(body).unwrap();
+    let mut coordinator = AvCoordinator::new(constrained).unwrap();
+    std::thread::sleep(std::time::Duration::from_millis(10));
+
+    let stage = coordinator.next_stage().unwrap();
+    let proof = coordinator
+        .plan()
+        .body
+        .services
+        .iter()
+        .find(|candidate| candidate.service == stage.service())
+        .unwrap()
+        .clone();
+    let fresh = coordinator.expected_base().clone();
+
+    assert!(coordinator.reserve(&owner(), &proof, &fresh).is_err());
+    assert_eq!(coordinator.state(), AvState::Exhausted);
 }
 
 #[test]
