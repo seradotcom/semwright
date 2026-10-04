@@ -38,12 +38,18 @@ def sanitize_findings(findings: list, snapshot: Path) -> list[dict]:
 
 
 def triage_metadata(finding: dict, source_line: str, entries: list[dict]) -> dict | None:
-    # A new value in the same file must not inherit a reviewed exception.
+    # A new value in the same source identity must not inherit a reviewed exception.
     if finding.get("start_line") != finding.get("end_line"):
         return None
     digest = hashlib.sha256(source_line.strip().encode()).hexdigest()
+    path = str(finding.get("file", ""))
+    path_digest = hashlib.sha256(path.encode()).hexdigest()
     for entry in entries:
-        if (finding.get("file") == entry["file"]
+        file_matches = entry.get("file") == path
+        if "file_sha256" in entry:
+            file_matches = entry["file_sha256"] == path_digest
+        commit_matches = "commit" not in entry or entry["commit"] == finding.get("commit")
+        if (file_matches and commit_matches
                 and finding.get("rule_id") == entry["rule_id"]
                 and digest == entry["line_sha256"]):
             return {"classification": "REVIEWED_NON_SECRET", "line_sha256": digest,
