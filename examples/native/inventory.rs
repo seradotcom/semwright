@@ -12,7 +12,7 @@ use std::time::Duration;
 
 const APP_ID: &str = "native-inventory";
 const DRIVER_VERSION: &str = env!("CARGO_PKG_VERSION");
-const BUNDLE_SHA256: &str = env!("SEMWRIGHT_NATIVE_INVENTORY_BUNDLE_SHA256");
+const BUNDLE_SHA256: Option<&str> = option_env!("SEMWRIGHT_NATIVE_INVENTORY_BUNDLE_SHA256");
 
 fn request_schema() -> semwright_native_sdk::Value {
     json!({
@@ -133,11 +133,16 @@ fn object(
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<()> {
+    let bundle_sha256 = BUNDLE_SHA256.ok_or_else(|| {
+        semwright_native_sdk::Error::invalid(
+            "Native inventory bundle SHA-256 must be pinned when building the runnable bridge",
+        )
+    })?;
     let bridge = NodeBridge::new(NodeBridgeConfig {
         tool: "node".into(),
         bundle_mount: "native-runtime".into(),
         bundle_file: "inventory.cjs".into(),
-        bundle_sha256: BUNDLE_SHA256.into(),
+        bundle_sha256: bundle_sha256.into(),
         data_mount: "inventory-data".into(),
         output_mount: None,
         timeout: Duration::from_secs(8),
