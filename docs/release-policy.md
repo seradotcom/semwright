@@ -92,11 +92,9 @@ Historical sources: [engineering closeout](../V1_ENGINEERING_CLOSEOUT.md),
 [verification ledger](../VERIFY.md), [historical blocker ledger](../RELEASE_BLOCKERS.md),
 [R16 evidence](../verification/r16-closeout/README.md).
 
-## Historical R16 backup preservation
+## Historical R16 evidence
 
-The R16 documentary workflow checks the immutable PR #208 backup with
-`package_r16_closeout.py --historical-check`: all three delivery-file hashes and the embedded
-per-file manifest must match the recorded delivery. The older `--check` mode still tests exact
-reassembly from its matching historical tree; running it after current README/policy changes
-would correctly report a different input tree. This policy update does not regenerate or edit
-any R16 delivery/evidence files.
+The R16 documentary workflow validates the retained exact-SHA evidence manifest, its separate
+revalidation record and `SHA256SUMS`. Generated review-package ZIPs and development-coordination
+snapshots are not part of the public repository; Git history remains the source for obsolete review
+packaging when forensic comparison is necessary.

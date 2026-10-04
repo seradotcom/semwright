@@ -16,7 +16,7 @@ class CandidateCertificationWorkflowTests(unittest.TestCase):
             "security.yml",
             "packaging-certification.yml",
             "supply-chain.yml",
-            "pre-r16.yml",
+            "repository-secret-scan.yml",
             "runtime-tools-portability.yml",
             "mlt-runtime-tools.yml",
             "libreoffice-runtime-v8.yml",

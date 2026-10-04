@@ -10,7 +10,7 @@ Files:
 - `benchmark-config.json` — common three-arm benchmark contract.
 - `design-brief.md` — same creative brief for every arm.
 - `runbook.md` — exact Semwright production sequence.
-- `agent-instructions.md` — model instructions used for dogfood.
+- `model-instructions.md` — model instructions used for dogfood.
 - `benchmark-results.json` — live/product evidence ledger; UNKNOWN/UNEXECUTED is preserved instead of guessed.
 - `build_demo_spec.py` + `semwright-landing.composition.json` — deterministic 73-node secondary fixture used only for fake-runtime structural benchmarking.
 - `convergence_demo.py` — real Driver Protocol plan/apply/validate/repair/reverify/edit/stale-plan acceptance over the repository fake runtime.

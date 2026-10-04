@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Commit-scoped maintainer secret precheck; publish metadata, never matched bodies."""
+"""Repository secret scan; publish metadata, never matched bodies."""
 from __future__ import annotations
 
 import argparse
@@ -52,7 +52,7 @@ def triage_metadata(finding: dict, source_line: str, entries: list[dict]) -> dic
 
 
 def classify_findings(findings: list[dict], snapshot: Path, source_sha: str) -> list[dict]:
-    entries = json.loads((ROOT / "scripts/ci/pre-r16-secret-triage.json").read_text())["entries"]
+    entries = json.loads((ROOT / "scripts/ci/repository-secret-triage.json").read_text())["entries"]
     for finding in findings:
         path = Path(finding["file"])
         line = finding.get("start_line")

@@ -48,7 +48,7 @@ and [verification](VERIFY.md).
 
 The recorded R review targets `6491c0d838fa066938a494524d69ed507aa0dbe8`; its source observations,
 changes and subsequent verification artifacts are separately identified in
-[verification/r16-closeout](verification/r16-closeout/README.md). This AI-assisted repository
+[verification/r16-closeout](verification/r16-closeout/README.md). This repository-scoped
 review is not an external audit. R16 is CLOSED after its separately recorded revalidation,
 but that does not satisfy the independent public-release security review. A successful CI workflow is not
 a security approval, especially when its platform jobs were skipped.

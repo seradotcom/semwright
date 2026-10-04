@@ -14,13 +14,13 @@ This document records engineering completion separately from full platform/relea
 | V1_ENGINEERING_CLOSEOUT | **COMPLETE** |
 | RELEASE_READINESS | **BLOCKED_PENDING_SECURITY_REVIEW**; see `release-readiness.json` |
 
-R16 closed only after a separate reviewer session inspected the R-authored federation pagination fix,
+R16 closed only after a separate revalidation pass inspected the bounded federation pagination fix,
 confirmed that the bounds are applied during pagination, and checked two hosted sandboxed federation
 runs with 7/7 passing tests. The evidence is
-`verification/r16-closeout/evidence/INDEPENDENT_R16_REVALIDATION_2026-10-03.json`.
+`verification/r16-closeout/evidence/SEPARATE_REVALIDATION_2026-10-03.json`.
 
 R06 and R18 remain open because the remaining rows require physical or interactive environments that
-are not available in this mission. They are not marked PASS, CLOSED, simulated, or inferred from
+are not available in hosted CI. They are not marked PASS, CLOSED, simulated, or inferred from
 hosted CI. Exact post-v1 procedures are in `POST_V1_BACKLOG.md`.
 
 ## Why R06/R18 do not prevent engineering closeout

@@ -5,7 +5,7 @@ from pathlib import Path
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
-SPEC = importlib.util.spec_from_file_location("pre_r16_secrets", ROOT / "scripts/ci/pre-r16-secret-scan.py")
+SPEC = importlib.util.spec_from_file_location("repository_secrets", ROOT / "scripts/ci/repository-secret-scan.py")
 SCANNER = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(SCANNER)
 
@@ -44,7 +44,7 @@ class SecretScanEvidenceTests(unittest.TestCase):
             SCANNER.sanitize_findings(["untrusted text"], Path("/tmp/snapshot"))
 
     def test_workflow_is_hosted_read_only_and_history_complete(self):
-        text = (ROOT / ".github/workflows/pre-r16.yml").read_text()
+        text = (ROOT / ".github/workflows/repository-secret-scan.yml").read_text()
         self.assertIn("runs-on: ubuntu-24.04", text)
         self.assertIn("fetch-depth: 0", text)
         self.assertIn("persist-credentials: false", text)

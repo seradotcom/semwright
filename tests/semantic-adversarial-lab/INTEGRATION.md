@@ -31,14 +31,14 @@ Review the raw structured receipts with the read-only collector, not a substring
 
 ## Current tested and open consumers
 
-Exact-SHA lab evidence now covers final Project Graph 74/74, F effect contracts 40/40, Broker routing 12/12, package/Skill hostility 20/20, Audio 30/30, AV 35/35, Figma contracts 17/17, Motion contracts 20/20, lifecycle faults 18/18 and clean-room driver distribution 12/12. These are independent experiments on their frozen product SHAs, not a synthetic combined certification.
+Exact-SHA lab evidence now covers final Project Graph 74/74, Effect Conformance 40/40, Broker routing 12/12, package/Skill hostility 20/20, Audio 30/30, AV 35/35, Figma contracts 17/17, Motion contracts 20/20, lifecycle faults 18/18 and clean-room driver distribution 12/12. These are independent experiments on their frozen product SHAs, not a synthetic combined certification.
 
 Pinned native Godot and Blender were also exercised through real product routes. Godot is green on Godot FIX_SHA 70bd7857 and Blender is green on Blender second FIX_SHA f492f13. Composition is 70/70 PASS on Composition FIX_SHA 7ab43f99. All currently confirmed product findings are closed by exact-SHA lab retests. The remaining gate is an explicit combined-candidate SHA; the lab will not synthesize one from separate subsystem SHAs.
 
-No explicit combined candidate has been supplied. An observed integration branch/certification is retained as context only and is not adopted into combined_candidate_sha. Full-wave candidate testing therefore remains BLOCKED.
+No explicit combined candidate has been supplied. An observed integration branch/certification is retained as context only and is not adopted into combined_candidate_sha. Integrated-candidate testing therefore remains BLOCKED.
 
 ## Retests across target-only commits
 
 Changing `targets.json` creates a new Git suite commit even when the probes and expectations are unchanged. `oracle_identity.py` therefore computes an additional `oracle_tree_sha256` over executable fixtures, registry, mutants, workflow and all non-report inputs, plus contract/runtime/limit/history pins. Only target selection, selected lanes and the combined-candidate pointer are excluded. Both full suite SHAs are still recorded. The collector recomputes the fingerprint from each immutable Git tree; a report-provided matching string is not sufficient provenance.
 
-A target-only commit may retest a FIX_SHA without weakening the oracle. Changed guards, expected outcomes, budgets or runtime/contract pins change the fingerprint and cannot close a finding under the unchanged-oracle protocol; re-establish the before/fix comparison under a deliberately reviewed new oracle revision instead. G-SELF-083–090 cover this distinction.
+A target-only commit may retest a FIX_SHA without weakening the oracle. Changed guards, expected outcomes, budgets or runtime/contract pins change the fingerprint and cannot close a finding under the unchanged-oracle protocol; re-establish the before/fix comparison under a deliberately reviewed new oracle revision instead. The target-only selftests cover this distinction.

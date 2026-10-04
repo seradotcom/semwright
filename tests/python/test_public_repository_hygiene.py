@@ -32,16 +32,19 @@ class PublicRepositoryHygieneTests(unittest.TestCase):
                 with self.subTest(relative=relative, phrase=phrase):
                     self.assertIn(phrase, text)
 
-    def test_verification_archive_is_explicitly_historical(self):
+    def test_verification_archive_is_exact_sha_and_product_facing(self):
         text = (ROOT / "verification/README.md").read_text()
         for phrase in (
-            "evidence archive",
-            "exact-SHA scoped",
-            "historical provenance",
-            "Development coordination is not verification evidence",
+            "durable, exact-SHA technical evidence",
+            "Evidence is exact-SHA scoped",
+            "Only durable technical evidence belongs here",
+            "Current release policy wins over historical observations",
         ):
             with self.subTest(phrase=phrase):
                 self.assertIn(phrase, text)
+        for phrase in ("worktree", "handoff", "branch choreography", "parallel agent"):
+            with self.subTest(forbidden=phrase):
+                self.assertNotIn(phrase, text.lower())
 
     def test_current_ci_and_source_tooling_use_component_names(self):
         circle = (ROOT / ".circleci/config.yml").read_text()
@@ -89,12 +92,26 @@ class PublicRepositoryHygieneTests(unittest.TestCase):
             "Agent E",
             "Agent F",
             "Agent G",
+            "Agent H",
+            "Agent I",
             "other agent's worktree",
             "other agents worktrees",
             "agents were building",
             "agent-owned",
             "Agent-owned",
+            "parallel agents",
             "role-coded",
+            "role R",
+            "role G",
+            "R-authored",
+            "R-owned",
+            "G-owned",
+            "I-owned",
+            "full-wave",
+            "combined-wave",
+            "author-branch certification",
+            "owner handoff",
+            "worktree inventory",
         )
         for path in ROOT.rglob("*"):
             if not path.is_file() or ".git" in path.parts:
@@ -109,6 +126,15 @@ class PublicRepositoryHygieneTests(unittest.TestCase):
             for phrase in forbidden:
                 with self.subTest(relative=relative, phrase=phrase):
                     self.assertNotIn(phrase, text)
+
+    def test_development_coordination_archives_are_not_public(self):
+        for relative in (
+            "verification/pre-r16",
+            "verification/r16-closeout/delivery",
+            "verification/r16-closeout/PR_BRANCH_DISPOSITION.json",
+        ):
+            with self.subTest(relative=relative):
+                self.assertFalse((ROOT / relative).exists(), relative)
 
     def test_product_facing_docs_are_present(self):
         for relative in (
