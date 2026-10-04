@@ -204,7 +204,7 @@ def main():
     write_json(output / "FINDINGS_PRIVATE.json", {"schema_version": 1, "findings": findings})
     write_json(output / "JOB_PROVENANCE.json", {"run_id": run["id"], "attempt": run["run_attempt"],
         "jobs": [{k: j.get(k) for k in ("id", "name", "head_sha", "status", "conclusion", "started_at", "completed_at", "html_url", "steps")} for j in jobs]})
-    lines = ["# G experiment evidence", "", f"Status: **{index['status']}**. Full-wave readiness: **BLOCKED**.",
+    lines = ["# Adversarial experiment evidence", "", f"Status: **{index['status']}**. Integrated-candidate readiness: **BLOCKED**.",
              f"Suite: `{suite}`. Run: {run['id']}, attempt {run['run_attempt']}.", "",
              "| Lane | Requested | Known executed | State | Job |", "|---|---:|---:|---|---|"]
     for row in index["lanes"]:

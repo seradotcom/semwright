@@ -1,4 +1,4 @@
-//! G-owned synthetic PCM/WAVE adversarial inputs; no audio device or playback.
+//! Lab-owned synthetic PCM/WAVE adversarial inputs; no audio device or playback.
 use semwright_audio_domain::{Result, signal_analysis::PcmAnalyzer, time::SampleRate, wav::WaveReader};
 use serde_json::{Value,json};
 use std::io::Cursor;

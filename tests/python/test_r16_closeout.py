@@ -46,7 +46,7 @@ class EvidenceTests(unittest.TestCase):
             root = Path(folder)
             evidence = root / "verification/r16-closeout/evidence"
             evidence.mkdir(parents=True)
-            (evidence / "INDEPENDENT_R16_REVALIDATION_2026-10-03.json").write_text(json.dumps({
+            (evidence / "SEPARATE_REVALIDATION_2026-10-03.json").write_text(json.dumps({
                 "external_audit": False,
                 "fix_sha": "4ef9a06e486cd8d2e3851c298e244435ecef3232",
                 "disposition": {"R16": "CLOSED"},

@@ -1,4 +1,4 @@
-//! G-owned helper for exact-SHA Godot native adversarial receipts.
+//! Lab-owned helper for exact-SHA Godot native adversarial receipts.
 //! It calls only public D authoring/readback APIs; Godot itself is launched by G's Python harness.
 use semwright_godot_driver::authoring::native_observation::{
     NativeObservation, NativeRequest, decode_observation, key_page, persistence_value, track_page,

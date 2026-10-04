@@ -93,11 +93,9 @@ Private project/Graph state and evidence may contain application information eve
 the audit ledger records metadata. Apply owner-controlled storage and retention policies;
 there is no claim that a metadata audit makes all application state non-sensitive.
 
-R's review records source and suite identities separately in
-[the evidence directory](../verification/r16-closeout/README.md). It is an AI-assisted
-repository review, not an external security audit. Direct source observations, historical
-certificates, fresh checks and unexecuted requirements are distinct. Any R-authored
-security-relevant documentation or verification change needs separate review before
+The repository review records source and suite identities separately in
+[the evidence directory](../verification/r16-closeout/README.md). It is a repository review, not an external security audit. Direct source observations, historical
+certificates, fresh checks and unexecuted requirements are distinct. Any security-relevant documentation or verification change needs separate review before
 being relied on for release. R16 is CLOSED under its recorded separate revalidation. Residual
 physical/interactive cases remain OPEN/deferred post-v1; the independent public-release security
 review remains mandatory and pending. See [release policy](release-policy.md).

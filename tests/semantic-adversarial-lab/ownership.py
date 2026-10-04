@@ -9,4 +9,4 @@ paths = subprocess.check_output(["git", "-C", str(repo), "diff", "--name-only", 
 for path in paths:
     if not (path.startswith("tests/semantic-adversarial-lab/") or path == ".github/workflows/semantic-adversarial-lab.yml"):
         raise SystemExit("G must not modify product: " + path)
-print("G-owned changed files:", len(paths))
+print("Lab-owned changed files:", len(paths))

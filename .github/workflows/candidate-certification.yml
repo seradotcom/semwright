@@ -115,7 +115,7 @@ jobs:
   secret_precheck:
     needs: [verify, supply_chain]
     if: ${{ always() && !cancelled() && needs.verify.result == 'success' }}
-    uses: ./.github/workflows/pre-r16.yml
+    uses: ./.github/workflows/repository-secret-scan.yml
 
   runtime_tools:
     needs: [verify, secret_precheck]

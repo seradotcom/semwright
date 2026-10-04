@@ -79,7 +79,7 @@ def evidence_errors(record: dict, root: Path = ROOT) -> list[str]:
             errors.append(f"missing full {key}")
     closed = record.get("r16_closed")
     if closed is True:
-        receipt_path = root / "verification/r16-closeout/evidence/INDEPENDENT_R16_REVALIDATION_2026-10-03.json"
+        receipt_path = root / "verification/r16-closeout/evidence/SEPARATE_REVALIDATION_2026-10-03.json"
         if not receipt_path.is_file():
             errors.append("R16 closure requires a separate revalidation receipt")
         else:
