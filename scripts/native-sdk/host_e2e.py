@@ -441,7 +441,7 @@ class NativeHostTests(unittest.TestCase):
             )
             self.assertEqual(effect["declared_producer_execution_status"], "completed")
 
-            # Continue through the canonical private Project Graph over the same
+            # Continue through the canonical Project Graph over the same
             # daemon/Broker session. Registration reconciles the Broker-admitted
             # immutable bytes; the Native SDK does not own or bypass Graph state.
             project = fixture.invoke("project.create", {"root": "admitted"})["data"]["project"]
@@ -630,8 +630,8 @@ class NativeHostTests(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    if os.getenv("GITHUB_ACTIONS") != "true" or os.getenv("NATIVE_PRIVATE_REPOSITORY") != "true":
-        raise SystemExit("This native Host acceptance runs only in private disposable Actions")
+    if os.getenv("GITHUB_ACTIONS") != "true":
+        raise SystemExit("This native Host acceptance runs only on disposable GitHub Actions runners")
     if os.uname().sysname != "Linux" or not shutil.which("bwrap"):
         raise SystemExit("Linux bubblewrap is required; no skip or trusted fallback is accepted")
     for executable in ["semwright", "semwrightd", "semwright-mcp", "semwright-sandbox", "semwright-native-effects", "examples/native-scene", "examples/native-table", "examples/native-inventory"]:
