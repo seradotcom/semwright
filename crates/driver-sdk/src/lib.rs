@@ -191,7 +191,10 @@ pub async fn execute_materialized_runtime_tool(
         .map_err(|_| Error::invalid("Runtime timeout exceeds bounded contract"))?;
     validate_runtime_tool_execute_request(name, &args, &stdin, milliseconds, cwd)?;
     if cancellation.is_cancelled() {
-        return Err(Error::new(ErrorCode::Cancelled, "Runtime cancelled before launch"));
+        return Err(Error::new(
+            ErrorCode::Cancelled,
+            "Runtime cancelled before launch",
+        ));
     }
     #[cfg(target_os = "linux")]
     {
@@ -201,7 +204,10 @@ pub async fn execute_materialized_runtime_tool(
     }
     #[cfg(not(target_os = "linux"))]
     {
-        Err(Error::new(ErrorCode::Unsupported, "Materialized lifecycle runtimes require the Linux isolated profile"))
+        Err(Error::new(
+            ErrorCode::Unsupported,
+            "Materialized lifecycle runtimes require the Linux isolated profile",
+        ))
     }
 }
 
@@ -4057,20 +4063,47 @@ mod materialized_lifecycle_tests {
     async fn cancelled_lifecycle_never_needs_a_runtime_or_spawns() {
         let cancellation = CancellationToken::new();
         cancellation.cancel();
-        let error = execute_materialized_runtime_tool("node", vec![], vec![], std::time::Duration::from_secs(1), None, cancellation).await.unwrap_err();
+        let error = execute_materialized_runtime_tool(
+            "node",
+            vec![],
+            vec![],
+            std::time::Duration::from_secs(1),
+            None,
+            cancellation,
+        )
+        .await
+        .unwrap_err();
         assert_eq!(error.code, ErrorCode::Cancelled);
         assert!(error.outcome_known);
     }
 
     #[tokio::test]
     async fn lifecycle_reuses_existing_argument_budget_without_expanding_it() {
-        let error = execute_materialized_runtime_tool("node", vec!["x".repeat(MAX_TOOL_ARG_BYTES + 1)], vec![], std::time::Duration::from_secs(1), None, CancellationToken::new()).await.unwrap_err();
+        let error = execute_materialized_runtime_tool(
+            "node",
+            vec!["x".repeat(MAX_TOOL_ARG_BYTES + 1)],
+            vec![],
+            std::time::Duration::from_secs(1),
+            None,
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap_err();
         assert_eq!(error.code, ErrorCode::InvalidArgument);
     }
 
     #[tokio::test]
     async fn lifecycle_rejects_noncanonical_tool_names_before_resolution() {
-        let error = execute_materialized_runtime_tool("../node", vec![], vec![], std::time::Duration::from_secs(1), None, CancellationToken::new()).await.unwrap_err();
+        let error = execute_materialized_runtime_tool(
+            "../node",
+            vec![],
+            vec![],
+            std::time::Duration::from_secs(1),
+            None,
+            CancellationToken::new(),
+        )
+        .await
+        .unwrap_err();
         assert_eq!(error.code, ErrorCode::InvalidArgument);
     }
 }
