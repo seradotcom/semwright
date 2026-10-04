@@ -21,7 +21,7 @@ Boundaries: authenticated Broker to policy/provider; planner to vault/reservatio
 
 Attacks run only on disposable GitHub-hosted Linux. Provisioning is separate from tested subprocesses. Tested processes get cleared environment, private HOME/tmp/output, PID/network namespaces, read-only runtime/source mounts, bounded wall time/CPU/address space/FD/file/output, and process-group cleanup. Independent preflight checks canary visibility, denied write, environment exclusion, and namespace separation. This proves the test enclosure, NOT the product sandbox.
 
-Only synthetic canaries. No user files, real credentials, microphones/playback, external listeners, exfiltration, or tunnels. Failed isolation produces BLOCKED without weaker fallback. Source edits, Git/gh, JSON and syntax checks are local; cargo/npm/native apps/fuzz/mutation are remote only. The lab workstation footprint is capped at 256 MiB; do not delete other authors' data.
+Only synthetic canaries. No user files, real credentials, microphones/playback, external listeners, exfiltration, or tunnels. Failed isolation produces BLOCKED without weaker fallback. Source edits, Git/gh, JSON and syntax checks are local; cargo/npm/native apps/fuzz/mutation are remote only. The lab workstation footprint is capped at 256 MiB; do not delete unrelated workspace data.
 
 ## Claims and independent oracles
 

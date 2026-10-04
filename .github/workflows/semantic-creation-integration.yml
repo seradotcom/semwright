@@ -99,7 +99,7 @@ jobs:
         run: cargo test --locked -p semwright-mlt-video-driver --lib owner_policy_allows_only_explicit_trust_cases -- --nocapture
       - name: AV native artifact and compiled context admission
         run: cargo test --locked -p semwright-av-composition --lib --test contracts
-      - name: A contracts and D reconciliation source regressions
+      - name: Composition contracts and Godot reconciliation source regressions
         run: python3 scripts/semantic-creation/reconciliation_diagnostic.py
       - name: Godot native wire and process-incarnation contracts
         run: cargo test --locked -p semwright-driver-godot --lib --test authoring_native -- --nocapture

@@ -16,21 +16,20 @@ This file is a historical source-controlled integration ledger. Fields marked PE
 - Audio baseline: 93f70241e9fb9d4c99ca76fab55c8517574a9f6f
 - Audio branch: feat/audio-completion
 - Audio consumed C0 through normal Git ancestry: verified locally
-- Previous audio formal handoff: 8ed2d30c8ba797ebd5b8c102d34f8ab5bb3a28b3; superseded after the formal combined E2E exposed a bounded-loudness receipt defect
-- Audio PR/worktree head observed at this checkpoint: df2654bed6d2ac57d547846b69d16ea48b4a9ee3
-- Audio exact-SHA recertification: run 36942574098 PASS with audio-gate PASS and retained final certification artifact; the new AUDIO_READY_FOR_INTEGRATION handoff is still PENDING because B.json has not yet published df2654bed as ready
+- Previous audio-ready checkpoint: 8ed2d30c8ba797ebd5b8c102d34f8ab5bb3a28b3; superseded after the formal combined E2E exposed a bounded-loudness receipt defect
+- Audio source observed at this checkpoint: df2654bed6d2ac57d547846b69d16ea48b4a9ee3
+- Audio exact-SHA recertification: run 36942574098 PASS with audio-gate PASS and retained final certification artifact; the AUDIO_READY_FOR_INTEGRATION status at this checkpoint had not yet been republished for df2654bed
 - Current origin/main reconciled into Composition: e3713e90e87f1caa8f7105c065094d5c724d144e
-- Integration branch/worktree exists at integration/composition-av for private diagnostics.
 - Latest observed diagnostic integration head: 5648dd2da719b4602126f3458c3c266679c67b2a
 - Formal combined candidate: integration/composition-av-formal; the exact commit is bound externally by candidate_sha and CANDIDATE_EVIDENCE so the source tree never self-certifies
 
-PR #183 and native evidence identify recertified audio head df2654bed6d2ac57d547846b69d16ea48b4a9ee3, while the recorded `B.json` checkpoint still marks RECERTIFICATION_PENDING and audio_ready_for_integration=false. That checkpoint therefore exposes no audio-ready SHA for the combined candidate. Historical/private integration candidates remain diagnostic history only; a formal candidate must use a published audio-ready revision and obtain fresh exact-SHA certification.
+PR #183 and native evidence identify recertified audio head `df2654bed6d2ac57d547846b69d16ea48b4a9ee3`, while the recorded audio status at this historical checkpoint remained `RECERTIFICATION_PENDING` with `audio_ready_for_integration=false`. That checkpoint therefore exposed no audio-ready SHA for the combined candidate. Historical diagnostic candidates remain history only; a formal candidate must use a published audio-ready revision and obtain fresh exact-SHA certification.
 
 ## Contract history
 
 C0 provides generic plan/base/evidence/lifecycle and exact media-time primitives. The audio line consumes C0 through normal ancestry rather than a duplicate private copy.
 
-Effect-conformance E0 at `dd6d22d6ec6c7c5ef378da58ed75ca18b25ba5ff` was reviewed against the Composition ownership/authority boundary: effect conformance consumes Composition types and evidence, while PlanVault, canonicalization, lifecycle aggregation and Broker/policy authority remain runtime-owned. The approval is recorded on PR #172 and closes only the corresponding review dependency. The remaining integration gate requires `crates/effect-conformance` through normal workspace ancestry rather than a private worktree/path dependency. PR #183 records the requirement for the production audio consumer to publish the exact effect-conformance SHA it consumes before assembly of the formal combined candidate.
+Effect-conformance E0 at `dd6d22d6ec6c7c5ef378da58ed75ca18b25ba5ff` was reviewed against the Composition ownership/authority boundary: effect conformance consumes Composition types and evidence, while PlanVault, canonicalization, lifecycle aggregation and Broker/policy authority remain runtime-owned. The approval is recorded on PR #172 and closes only the corresponding review dependency. The remaining integration gate requires `crates/effect-conformance` through normal workspace ancestry rather than a private path dependency. PR #183 records the requirement for the production audio consumer to publish the exact effect-conformance SHA it consumes before assembly of the formal combined candidate.
 
 The additive AV consumer contract defines media artifact metadata, audio consumer receipts, service proofs, staged coordination, final decoded sync and manifest publication. The audio subsystem remains a provider of public audio capabilities; the AV layer owns the consumer boundary and must prove it on the exact combined candidate rather than duplicating shared C1 types in the audio implementation.
 
@@ -46,12 +45,12 @@ The full native integration workflow preserves its historical all-backend jobs f
 
 ## Final integration procedure
 
-1. Verify B.json/PR/branch all name the same AUDIO_READY_FOR_INTEGRATION SHA and required native audio jobs.
-2. Verify the announced B SHA descends from C0 and its worktree is clean.
-3. Create/update integration/composition-av in the dedicated Composition/AV worktree from the chosen current-main reconciliation point.
-4. Merge A by normal Git ancestry.
+1. Verify the published `AUDIO_READY_FOR_INTEGRATION` status, source commit and required native audio jobs all name the same exact audio SHA.
+2. Verify the announced audio SHA descends from C0 and identifies a clean source commit.
+3. Create or update a dedicated integration branch from the chosen current-main reconciliation point.
+4. Merge the Composition/AV source by normal Git ancestry.
 5. Merge the exact audio-ready SHA by normal Git ancestry. Resolve Cargo.toml/Cargo.lock/CI/Skills centrally; do not replace the newer lockfile wholesale.
-6. Resolve any C0/C1 overlap structurally and run consumer/schema tests before native jobs. Bind B's verified final-audio artifact receipt to the owner-configured Broker source root/path separately from its provider token; configure the artifact-handoff destination root and the MLT `media` alias to the same delivery storage. Never derive a path from `MediaArtifact.reference`.
+6. Resolve any C0/C1 overlap structurally and run consumer/schema tests before native jobs. Bind the verified final-audio artifact receipt to the owner-configured Broker source root/path separately from its provider token; configure the artifact-handoff destination root and the MLT `media` alias to the same delivery storage. Never derive a path from `MediaArtifact.reference`.
 7. Execute the combined candidate gates on one SHA: common contracts, Figma regression, Motion native, audio native, real `artifact.handoff` audio transfer, AV MLT/decode/sync, targeted security and relevant required repository checks.
 8. Record every run/job/artifact digest in the integration evidence for the exact candidate.
 9. Reconcile with current main once deliberately if needed; any code change creates a new candidate SHA and invalidates affected evidence.
@@ -61,17 +60,17 @@ The full native integration workflow preserves its historical all-backend jobs f
 
 Expected shared conflicts are workspace dependencies, Cargo.lock, Skill inventory/docs and aggregate CI. Preserve all independently required packages/targets. A conflict is not resolved by taking one side's complete lockfile or deleting another integration target.
 
-Unexpected conflicts inside audio-domain/Faust/Ardour are returned to the audio subsystem for explanation. Unexpected conflicts inside Figma/Motion/common contracts remain owned by Composition/AV.
+Unexpected conflicts inside audio-domain/Faust/Ardour require audio-subsystem review. Conflicts inside Figma/Motion/common contracts remain within the Composition/AV integration boundary.
 
 ## Candidate evidence
 
-- A_HEAD_SHA: 65b773f4dd627b860358342f4d40a1ac532566d1
-- A_AFFECTED_DIAGNOSTIC: Composition diagnostics run 36960368022 PASS (Linux/Windows/macOS contracts + Broker session; Skills/package correctly out of scope)
-- PREVIOUS_B_READY_SHA_SUPERSEDED: 8ed2d30c8ba797ebd5b8c102d34f8ab5bb3a28b3
-- B_RECERTIFIED_SHA_AWAITING_FORMAL_HANDOFF: df2654bed6d2ac57d547846b69d16ea48b4a9ee3 (run 36942574098 PASS)
-- B_READY_SHA: PENDING
+- COMPOSITION_HEAD_SHA: 65b773f4dd627b860358342f4d40a1ac532566d1
+- COMPOSITION_AFFECTED_DIAGNOSTIC: Composition diagnostics run 36960368022 PASS (Linux/Windows/macOS contracts + Broker session; Skills/package correctly out of scope)
+- PREVIOUS_AUDIO_READY_SHA_SUPERSEDED: 8ed2d30c8ba797ebd5b8c102d34f8ab5bb3a28b3
+- AUDIO_RECERTIFIED_SHA_AWAITING_READY_STATUS: df2654bed6d2ac57d547846b69d16ea48b4a9ee3 (run 36942574098 PASS)
+- AUDIO_READY_SHA: PENDING
 - C0_SHA: 26602e4b25929be869d69ef28fef4dd9713180d7
-- C1_CONSUMER_BOUNDARY: Composition/AV-owned; exact combined E2E pending
+- C1_CONSUMER_BOUNDARY: AV-owned; exact combined E2E pending
 - INTEGRATION_CANDIDATE_SHA: PENDING
 - COMMON_CONTRACTS: PENDING
 - FIGMA_NATIVE: PENDING

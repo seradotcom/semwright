@@ -16,6 +16,20 @@ class ScopeTests(unittest.TestCase):
         f=scope.classify(["crates/av-composition/src/coordinator.rs"])
         self.assertTrue(f["contracts"]); self.assertTrue(f["fuzz_av"]); self.assertTrue(f["mutants_av"])
         self.assertFalse(f["motion"]); self.assertFalse(f["figma"]); self.assertFalse(f["mlt"])
+    def test_av_nonmutation_source_does_not_run_unrelated_mutation_survey(self):
+        f=scope.classify(["crates/av-composition/src/stage_adapter.rs"])
+        self.assertTrue(f["contracts"]); self.assertTrue(f["fuzz_av"])
+        self.assertFalse(f["mutants_av"])
+    def test_nonmutation_sources_do_not_run_unrelated_mutation_surveys(self):
+        cases=(
+            ("crates/semantic-composition/src/model.rs", "mutants_kernel"),
+            ("crates/motion-authoring/src/model.rs", "mutants_motion"),
+        )
+        for path,flag in cases:
+            with self.subTest(path=path,flag=flag):
+                f=scope.classify([path])
+                self.assertTrue(f["contracts"])
+                self.assertFalse(f[flag])
     def test_skill_only_does_not_trigger_native_drivers(self):
         f=scope.classify(["skills/semwright-av-production/SKILL.md"])
         self.assertTrue(f["skills"])

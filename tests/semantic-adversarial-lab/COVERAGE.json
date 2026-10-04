@@ -367,7 +367,7 @@
         "Project Graph 74/74 PASS receipt ade39f8530472b545734f70ea4db3e49c1405211ae44d0f985d3aa6208898566",
         "Project Graph artifact e0e7b7936b8a51310d00138929abde9f2bb23aea9522832cae19b82dba07b9ed"
       ],
-      "blocker": "Final C exact-SHA Project Graph adversarial scope is clean. G-GRAPH-061 was a G oracle defect corrected without product changes.",
+      "blocker": "The final exact-SHA Project Graph adversarial scope is clean. G-GRAPH-061 was a test-oracle defect corrected without product changes.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },
@@ -560,9 +560,9 @@
         "Audio B 30/30 PASS run 36828527634 receipt 8645feaf7832d87568be589fb6f6547b6858b1119ce698cebf8dd81922d761a2 artifact 14c377db47cf7f816039169c112d0ae4554fd15c3fcf120ed9b36c28a19dc838",
         "AV A 35/35 PASS run 36829254994 receipt 2fd7d1b97d6071fccd2ef006ceacf73ae99c2b2e8ed5b2b0a2fe99258eee7a26 artifact b66d64e3bec8a8317b4a4b80519da3d6df61c9926f83e08732855aa7e7687e17",
         "Figma A 17/17 PASS run 36830114832 receipt eaa8fbea28dff95cfcfccdee648da0c1bc75195cf227d8e5d509a286018f1417 artifact 48d5b14ad60c4b315cc5d2d74bfa7d03a61a8a03595dfc167b74a17341f7386a",
-        "Motion A 20/20 PASS run 36831453438 receipt dd78711fb4c1e9be3f20e558add091eea83ce9e3e3c14b37631d763934bb5520 artifact 8f7bedb807502043114d82cde4d38e2de040bf71d5e9bcafa25330fc486dccc3"
+        "Motion 20/20 PASS run 36831453438 receipt dd78711fb4c1e9be3f20e558add091eea83ce9e3e3c14b37631d763934bb5520 artifact 8f7bedb807502043114d82cde4d38e2de040bf71d5e9bcafa25330fc486dccc3"
       ],
-      "blocker": "Frozen A/B contract snapshots are clean for Audio/AV/Figma/Motion. These are separate exact-SHA experiments and do not certify a combined candidate or untested live/native surfaces.",
+      "blocker": "Frozen Audio/AV/Figma/Motion contract snapshots are clean. These are separate exact-SHA experiments and do not certify a combined candidate or untested live/native surfaces.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },

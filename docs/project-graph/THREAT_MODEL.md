@@ -3,7 +3,7 @@
 ## Assets and trust boundaries
 Protected assets are durable logical identity, immutable revision/receipt history, current knowledge state, private project metadata, query visibility and rebuild reservations. Native application files remain owned by their applications/filesystem grants; Project Graph does not acquire blanket ownership of them.
 
-Trusted boundaries are: authenticated local transport -> Broker policy/context; registered provider receipt/revision adapters; the Composition PlanVault/controller; private GraphStore directory; and scoped filesystem/native resolvers supplied by platform or native application integrations. Agent JSON, imported manifests, RevisionCandidate/ExecutionReceipt wire data, Skill text, locators, content digests, application names and caller-selected IDs are untrusted data.
+Trusted boundaries are: authenticated local transport -> Broker policy/context; registered provider receipt/revision adapters; Composition PlanVault/controller; private GraphStore directory; and scoped filesystem/native resolvers supplied by the platform or Godot/Blender integrations. Agent JSON, imported manifests, RevisionCandidate/ExecutionReceipt wire data, Skill text, locators, content digests, application names and caller-selected IDs are untrusted data.
 
 The graph must preserve distinctions between logical identity, native identity and ephemeral refs. A path, filename, digest, UUID from another owner, session ticket or PID is never promoted to durable ownership.
 
@@ -16,7 +16,7 @@ The graph must preserve distinctions between logical identity, native identity a
 
 **Dependency omission.** Missing fonts, textures, import settings, runtime, descriptor, contract or other determining inputs must not produce cache-safe CURRENT. Coverage tracks incomplete extraction and unknown frontier.
 
-**Rebuild authority escalation.** A stored plan must not become a command or grant. RebuildCatalog is trusted lookup data, proposals are bounded data, A PlanVault binds canonical bytes/session/grants/snapshot/epoch, and every real operation must re-enter Broker policy.
+**Rebuild authority escalation.** A stored plan must not become a command or grant. RebuildCatalog is trusted lookup data, proposals are bounded data, Composition PlanVault binds canonical bytes/session/grants/snapshot/epoch, and every real operation must re-enter Broker policy.
 ## Store and recovery threats
 **Torn/corrupt local state.** Canonical journal rows are hash chained and sequence checked; materialized indexes are rebuildable only after canonical log verification. Transaction fault injection covers multiple commit boundaries. Commit acknowledgment uncertainty poisons the handle until reopen.
 
@@ -34,4 +34,4 @@ SQLite, canonical JSON, manifests and receipts have explicit row/byte/count limi
 ## Current blockers and non-claims
 The candidate exposes bounded graph-state routes through Broker core dispatch and derives durable ownership from the authenticated OS user, while retaining ephemeral sessions for cursors/request evidence. It deliberately exposes neither client receipt admission nor arbitrary rebuild execution. A root read grant alone cannot mutate graph state; `project.manage` is independently required. Root boundaries use resolved paths so symlink retargeting fails closed.
 
-Native projectors, Blender→GLB→Godot acceptance, Composition/Audio AV receipt flow and application-changing ExternalIntent dispatch/reconciliation remain open. Linux confined file observation is best-effort revalidation, not CAS. No distributed ACID, exactly-once execution, universal watcher, hidden background sync, destructive GC, security certification or R16 closure is claimed.
+Godot/Blender native projectors, Blender→GLB→Godot acceptance, Composition/Audio AV receipt flow and application-changing ExternalIntent dispatch/reconciliation remain open. Linux confined file observation is best-effort revalidation, not CAS. No distributed ACID, exactly-once execution, universal watcher, hidden background sync, destructive GC, security certification or R16 closure is claimed.

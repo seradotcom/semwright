@@ -19,7 +19,7 @@ The collector reads source manifests only from the suite commit, validates exact
 
 ## Failure triage
 
-Use the actual job database ID from the index with `gh run view RUN_ID --repo seradotcom/semwright --job JOB_ID --log-failed`. Missing artifacts remain BLOCKED. A compile/setup failure is not a product vulnerability; a failed contract observation is not automatically exploitable. Check the healthy control and source contract, preserve expected/actual, and route the minimal report to the relevant subsystem. Fix only lab test defects here.
+Use the actual job database ID from the index with `gh run view RUN_ID --repo seradotcom/semwright --job JOB_ID --log-failed`. Missing artifacts remain BLOCKED. A compile/setup failure is not a product vulnerability; a failed contract observation is not automatically exploitable. Check the healthy control and source contract, preserve expected/actual, and route the minimal report to the relevant subsystem. Fix only lab test defects in the lab tree.
 
 An unchanged-code retry uses the same run and SHA. A product fix or changed harness requires a new commit and new run. Re-execute the before reproducer and every affected family with the same oracle content on FIX_SHA (record both suite commits); keep prior failed receipts. Do not rely on a green author test or a changed expectation.
 

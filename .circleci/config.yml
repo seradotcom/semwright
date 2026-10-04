@@ -11,6 +11,81 @@ parameters:
     default: false
 
 jobs:
+  native-sdk-metadata-iteration:
+    machine:
+      image: ubuntu-2404:current
+    resource_class: medium
+    steps:
+      - checkout
+      - run:
+          name: Native SDK exact-SHA metadata only
+          command: |
+            set -euo pipefail
+            test "$CIRCLE_BRANCH" = feat/native-sdk-canonical
+            test "$(git rev-parse HEAD)" = "$CIRCLE_SHA1"
+            python3 scripts/native-sdk/run-suite.py repository
+      - store_artifacts:
+          path: verification/native-sdk
+          destination: native-sdk-metadata-iteration
+  native-sdk-binding-iteration:
+    machine:
+      image: ubuntu-2404:current
+    resource_class: medium
+    environment:
+      CARGO_INCREMENTAL: "0"
+      CARGO_PROFILE_DEV_DEBUG: "0"
+      CARGO_PROFILE_TEST_DEBUG: "0"
+      RUSTUP_TOOLCHAIN: "1.88.0"
+    steps:
+      - checkout
+      - run:
+          name: Bind iteration to exact Native SDK SHA
+          command: |
+            set -euo pipefail
+            test "$CIRCLE_BRANCH" = feat/native-sdk-canonical
+            test "$(git rev-parse HEAD)" = "$CIRCLE_SHA1"
+            mkdir -p verification/native-sdk/circleci
+            cat > verification/native-sdk/circleci/NOT_CERTIFICATION.txt <<'EOF'
+            CircleCI Native SDK output is iteration diagnostic evidence only.
+            GitHub Actions remains the final exact-SHA authority.
+            EOF
+      - run:
+          name: Install pinned Rust and Node for Native SDK binding iteration
+          command: |
+            set -euo pipefail
+            if ! command -v rustup >/dev/null 2>&1; then
+              curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+            fi
+            source "$HOME/.cargo/env"
+            rustup toolchain install 1.88.0 --profile minimal
+            if [ -s "$HOME/.nvm/nvm.sh" ]; then
+              . "$HOME/.nvm/nvm.sh"
+            else
+              curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+              . "$HOME/.nvm/nvm.sh"
+            fi
+            nvm install 24.21.0
+            nvm use 24.21.0
+            {
+              echo 'export PATH="$HOME/.cargo/bin:$PATH"'
+              echo 'export RUSTUP_TOOLCHAIN=1.88.0'
+              echo '. "$HOME/.nvm/nvm.sh"'
+              echo 'nvm use 24.21.0 >/dev/null'
+            } >> "$BASH_ENV"
+      - run:
+          name: Install locked TypeScript dependencies
+          command: |
+            set -euo pipefail
+            cd sdk/native-typescript
+            npm ci --ignore-scripts --no-audit --no-fund
+      - run:
+          name: Native SDK binding diagnostic suite
+          command: |
+            set -euo pipefail
+            python3 scripts/native-sdk/run-suite.py binding
+      - store_artifacts:
+          path: verification/native-sdk
+          destination: native-sdk-binding-iteration
   composition-linux-iteration:
     machine:
       image: ubuntu-2404:current
@@ -378,6 +453,16 @@ jobs:
           destination: semwright-composition-circleci-iteration
 
 workflows:
+  native-sdk-iteration:
+    jobs:
+      - native-sdk-metadata-iteration:
+          filters:
+            branches:
+              only: feat/native-sdk-canonical
+      - native-sdk-binding-iteration:
+          filters:
+            branches:
+              only: feat/native-sdk-canonical
   composition-private-iteration:
     jobs:
       - composition-linux-iteration:

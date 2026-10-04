@@ -20,7 +20,7 @@ Production SCCs are computed iteratively and reported explicitly; a cycle yields
 
 ## Reservation and preparation
 
-`reserve_rebuild` recomputes the proposal from targets and current graph state, rejects blocked/empty work, and binds its complete canonical bytes in the caller's existing A `PlanVault`. The reservation includes graph project/snapshot/observation epoch and actual grant/visibility fingerprints. It is ephemeral; importing JSON or restarting the graph cannot reacquire its authority.
+`reserve_rebuild` recomputes the proposal from targets and current graph state, rejects blocked/empty work, and binds its complete canonical bytes in the caller's existing Composition `PlanVault`. The reservation includes graph project/snapshot/observation epoch and actual grant/visibility fingerprints. It is ephemeral; importing JSON or restarting the graph cannot reacquire its authority.
 
 `begin_rebuild_preparation` validates those server-held bytes, owner/session, grants, visibility, snapshot and epoch, checks current catalog bindings again, checks cancellation and then consumes A's `BeginPermit`. Recomputing a client digest, clearing blockers, changing historical parameters, substituting request identity or replaying a consumed reservation does not update the private vault. Expiration and attempt accounting remain A's implementation.
 

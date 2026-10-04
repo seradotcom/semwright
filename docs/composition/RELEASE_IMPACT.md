@@ -38,9 +38,9 @@ Development packages must record source SHA, Cargo.lock/runtime lock digests, pr
 
 ## Evidence invalidated by later integration
 
-Any evidence tied to A alone becomes insufficient for the combined candidate when:
+Any Composition-only evidence becomes insufficient for the combined candidate when:
 
-- B is merged;
+- the audio-ready revision is merged;
 - C0/C1 contracts change;
 - current main is reconciled;
 - Cargo.lock changes;

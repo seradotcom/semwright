@@ -28,4 +28,4 @@ missing final page and unsupported readback remain UNKNOWN or an explicit valida
 Vacuous contracts must never acquire substantive PASS. A's aggregation remains authoritative.
 
 ## Workspace dependency
-Consumers use `semwright-effect-conformance.workspace = true`. The workspace entry is additive; no reverse dependency into Composition is introduced. Effect Conformance consumes Composition types and Project Graph only as a test dependency. Do not point Cargo at another worktree.
+Consumers use `semwright-effect-conformance.workspace = true`. The workspace entry is additive; no reverse dependency into Composition is introduced. Effect Conformance consumes Composition types and Project Graph only as a test dependency. Do not use local path dependencies that bypass the workspace.
