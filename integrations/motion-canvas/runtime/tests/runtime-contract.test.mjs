@@ -82,7 +82,8 @@ test('authoring font evidence is derived from pinned Fontsource resources and br
   assert.equal(pkg.dependencies['@fontsource/ibm-plex-mono'], '5.3.0');
   assert.ok(render.includes('pinnedFontEvidence'));
   assert.ok(render.includes('unicode-range'));
-  assert.ok(render.includes('document.fonts.ready'));
+  assert.ok(render.includes('await fonts.ready'));
+  assert.ok(render.includes('await loadPinnedFontFaces(document.fonts'));
   assert.ok(render.includes('document.fonts.check'));
   assert.ok(render.includes('font_resources_sha256'));
   assert.ok(!render.includes('font_ready:known(true)'));

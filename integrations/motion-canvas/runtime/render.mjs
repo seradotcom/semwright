@@ -135,6 +135,62 @@ function boundedRendererLog(payload) {
   return diagnostic;
 }
 
+// BEGIN PINNED FONT READINESS V04 (browser API mock tests extract exactly these functions).
+async function loadPinnedFontFaces(fonts, timeoutMs) {
+  if (!fonts || typeof fonts.load !== 'function' || typeof fonts.check !== 'function'
+      || !fonts.ready || typeof fonts.ready.then !== 'function' || !Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 10000) {
+    throw new Error('pinned font readiness API or deadline unavailable');
+  }
+  // These exact faces are imported by both compiler routes. CSS pins remain unchanged.
+  // Instrument Sans index.css declares 400..700; IBM Plex Mono400.css declares 400.
+  const specs = [
+    {family:'Instrument Sans Variable',weights:[400,500,600,700]},
+    {family:'IBM Plex Mono',weights:[400]},
+  ];
+  const sample = 'SEMWRIGHT 0123456789';
+  const normalizeFamily = value => typeof value === 'string' ? value.replace(/^(['"])(.*)\1$/, '$2') : '';
+  let timer;
+  const deadline = new Promise((_, reject) => {
+    timer = setTimeout(() => reject(new Error('pinned font readiness deadline exceeded')), timeoutMs);
+  });
+  const work = (async () => {
+    const requests = await Promise.all(specs.flatMap(spec => spec.weights.map(async weight => {
+      const descriptor = String(weight) + ' 16px "' + spec.family + '"';
+      const loaded = await fonts.load(descriptor, sample);
+      if (!Array.isArray(loaded) || loaded.length === 0 || loaded.length > 16) {
+        throw new Error('pinned font load returned an empty or unbounded face set');
+      }
+      const faces = loaded.map(face => {
+        if (normalizeFamily(face.family) !== spec.family || face.status !== 'loaded'
+            || typeof face.weight !== 'string' || face.weight.length > 64
+            || face.style !== 'normal') {
+          throw new Error('pinned font face readback differs');
+        }
+        if (!/^\d{1,4}(?: \d{1,4})?$/.test(face.weight)) throw new Error('pinned font weight readback differs');
+        const range=face.weight.split(' ').map(Number);
+        if (range[0] < 1 || range[range.length-1] > 1000 || range[0] > weight || range[range.length-1] < weight) {
+          throw new Error('pinned font weight readback differs');
+        }
+        return {family:normalizeFamily(face.family),status:face.status,weight:face.weight,style:face.style};
+      });
+      if (fonts.check(descriptor, sample) !== true) throw new Error('pinned font check failed after load');
+      return {family:spec.family,requested_weight:weight,loaded_face_count:faces.length,faces,check_after_load:true};
+    })));
+    await fonts.ready;
+    if (fonts.status !== 'loaded') throw new Error('pinned font set remains pending');
+    for (const request of requests) {
+      const descriptor = String(request.requested_weight) + ' 16px "' + request.family + '"';
+      if (fonts.check(descriptor, sample) !== true) throw new Error('pinned font check failed after ready');
+      request.check_after_ready = true;
+    }
+    return {version:1,method:'actual browser FontFaceSet.load/ready/check and FontFace scalar readbacks',
+      observed_before_renderer_render:true,sample,timeout_ms:timeoutMs,status_after_ready:fonts.status,requests};
+  })();
+  try { return await Promise.race([work, deadline]); }
+  finally { clearTimeout(timer); }
+}
+// END PINNED FONT READINESS V04.
+
 function harnessPlugin(config, entry) {
   const id = '\0semwright-render-entry';
   return {
@@ -151,7 +207,8 @@ const config=${JSON.stringify(config)};
 ${stableFrameSeconds.toString()}
 ${installSingletonTailGuard.toString()}
 ${boundedRendererLog.toString()}
-const state={done:false,result:null,frame:config.firstFrame,error:null,errorClass:null,rendererLogClass:null,rendererLogDiagnostic:null,typeErrorDetail:null,singletonTailFiltered:false,phase:'created'};
+${loadPinnedFontFaces.toString()}
+const state={done:false,result:null,frame:config.firstFrame,error:null,errorClass:null,rendererLogClass:null,rendererLogDiagnostic:null,typeErrorDetail:null,singletonTailFiltered:false,fontReadiness:null,phase:'created'};
 const desiredRange=[stableFrameSeconds(config.firstFrame,config.fps),stableFrameSeconds(config.endFrameExclusive-1,config.fps)];
 installSingletonTailGuard(project.meta.rendering.exporter.exporters.find(candidate=>candidate.id==='@semwright/driver/image-sequence'),config,state);
 const renderer=new Renderer(project);
@@ -235,8 +292,9 @@ renderer.onFrameChanged.subscribe(frame=>{state.frame=frame;state.phase='frame';
 renderer.onFinished.subscribe(result=>{state.result=result;});
 (async()=>{
   try {
+    state.phase='font_loading';
+    state.fontReadiness=await loadPinnedFontFaces(document.fonts,Math.min(config.timeoutMs,10000));
     if(config.authoring){
-      await document.fonts.ready;
       const binding=globalThis.__SEMWRIGHT_NATIVE_CONFIG__;
       binding.font_evidence=binding.font_evidence.map(face=>({...face,face_loaded:face.weights.some(weight=>document.fonts.check(String(weight)+' 16px "'+face.family+'"'))}));
     }
@@ -479,6 +537,18 @@ async function main() {
       fail(`renderer result ${state.result}; renderer_log_local=${JSON.stringify(state.rendererLogDiagnostic)}; state=${JSON.stringify(state)} diagnostics=${JSON.stringify(diagnostics)}`);
     }
     failurePhase = 'observation';
+    if (!state.fontReadiness || state.fontReadiness.observed_before_renderer_render !== true
+        || state.fontReadiness.status_after_ready !== 'loaded' || state.fontReadiness.requests?.length !== 5) fail('native font readiness observation incomplete');
+    const fontReceipt = {version:1,render_input_digest:config.renderInputDigest,
+      font_resources_sha256:config.fontResourcesDigest,first_frame:config.firstFrame,
+      end_frame_exclusive:config.endFrameExclusive,fps_num:config.fpsNum,fps_den:config.fpsDen,
+      authoring:config.authoring === true,readiness:state.fontReadiness,
+      scope:'actual native browser readiness; local receipt only, no reference bitmap identity claim'};
+    const fontReceiptBytes=Buffer.from(JSON.stringify(fontReceipt)+'\n','utf8');
+    if(fontReceiptBytes.length>32768)fail('native font readiness receipt exceeds bounds');
+    const fontReceiptFile=await fs.open(path.join(output,'font-readiness-receipt.json'),'wx',0o600);
+    try { await fontReceiptFile.writeFile(fontReceiptBytes); await fontReceiptFile.sync(); }
+    finally { await fontReceiptFile.close(); }
     if(config.authoring){
       if(observationCount!==config.endFrameExclusive-config.firstFrame)fail('native observation count incomplete');
       await fs.writeFile(path.join(output,'native-observations-receipt.json'),JSON.stringify({version:1,render_input_digest:config.renderInputDigest,font_resources_sha256:config.fontResourcesDigest,sha256:observationHash.digest('hex'),bytes:observationBytes,frames:observationCount,fps_num:config.fpsNum,fps_den:config.fpsDen}),{flag:'wx'});
