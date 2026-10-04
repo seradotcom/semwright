@@ -82,7 +82,6 @@ class PublicRepositoryHygieneTests(unittest.TestCase):
             "docs/skills.md",
             "fuzz/README.md",
             "scripts/dev/skill-smoke.sh",
-            "CHANGELOG.md",
             "README.md",
             "tests/python/test_public_repository_hygiene.py",
         }
@@ -95,7 +94,11 @@ class PublicRepositoryHygieneTests(unittest.TestCase):
             re.compile(r"\bowner handoff\b", re.IGNORECASE),
             re.compile(r"\bworktree inventory\b", re.IGNORECASE),
             re.compile(r"\bbranch choreography\b", re.IGNORECASE),
-            re.compile(r"\bmaster prompts?\b", re.IGNORECASE),
+            re.compile(r"\bmaster[- ]prompts?\b", re.IGNORECASE),
+            re.compile(r"\binternal handoff\b", re.IGNORECASE),
+            re.compile(r"\bdevelopment handoff\b", re.IGNORECASE),
+            re.compile(r"\bconversational scaffolding\b", re.IGNORECASE),
+            re.compile(r"\btemporary development orchestration\b", re.IGNORECASE),
         )
         for path in ROOT.rglob("*"):
             if not path.is_file() or ".git" in path.parts:
