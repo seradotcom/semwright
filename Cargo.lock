@@ -3482,6 +3482,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "semwright-native-sdk"
+version = "0.9.0-dev.1"
+dependencies = [
+ "async-trait",
+ "jsonschema",
+ "rustix",
+ "schemars",
+ "semwright-backend-api",
+ "semwright-core",
+ "semwright-driver-registry",
+ "semwright-driver-sdk",
+ "semwright-effect-conformance",
+ "semwright-policy",
+ "semwright-project-graph",
+ "semwright-types",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "tokio",
+ "tokio-util",
+]
+
+[[package]]
 name = "semwright-platform-api"
 version = "0.9.0-dev.1"
 dependencies = [

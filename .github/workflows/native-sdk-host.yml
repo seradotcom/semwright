@@ -1,0 +1,107 @@
+name: Native SDK real Host
+on:
+  push:
+    branches: [feat/native-sdk-canonical]
+    paths:
+      - 'crates/native-sdk/**'
+      - 'examples/native/**'
+      - 'examples/native-inventory/**'
+      - 'contracts/native/**'
+      - 'sdk/native-typescript/**'
+      - 'scripts/native-sdk/host_e2e.py'
+      - 'scripts/native-sdk/typescript_suite.py'
+      - 'scripts/native-sdk/run-suite.py'
+      - '.github/workflows/native-sdk-host.yml'
+      - 'crates/core/**'
+      - 'crates/driver-sdk/**'
+      - 'crates/driver-host/**'
+      - 'crates/driver-registry/**'
+      - 'crates/policy/**'
+      - 'crates/daemon/**'
+      - 'crates/mcp/**'
+      - 'crates/protocol/**'
+      - 'crates/types/**'
+      - 'crates/platform-common/**'
+      - 'crates/platform-linux-sys/**'
+      - 'crates/project-graph/**'
+      - 'crates/effect-conformance/**'
+      - 'crates/semantic-composition/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'scripts/dev/ci-driver-bwrap-profile.sh'
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Exact immutable source HEAD
+        type: string
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: native-sdk-host-${{ github.ref }}
+  cancel-in-progress: false
+defaults:
+  run:
+    shell: bash
+env:
+  CARGO_INCREMENTAL: '0'
+  CARGO_PROFILE_DEV_DEBUG: '0'
+  CARGO_PROFILE_TEST_DEBUG: '0'
+  EXPECTED_SHA: ${{ inputs.expected_sha || github.sha }}
+  SEMWRIGHT_TEST_DRIVER_SANDBOX: '1'
+  SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox
+jobs:
+  native-host:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Exact checkout and non-relaxed kernel policy
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          test "$(sysctl -n kernel.unprivileged_userns_clone)" = 1
+          test "$(cat /proc/sys/kernel/apparmor_restrict_unprivileged_userns)" = 1
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: native-sdk-real-host-1.98.1
+          cache-on-failure: true
+      - name: Configure existing scoped disposable-runner sandbox profile
+        run: bash scripts/dev/ci-driver-bwrap-profile.sh verification/native-sdk/host-sandbox-profile.txt
+      - name: Install canonical daemon build dependencies on disposable runner
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y libpipewire-0.3-dev pkg-config clang
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24.21.0'
+          cache: npm
+          cache-dependency-path: sdk/native-typescript/package-lock.json
+      - name: Build and test the pinned TypeScript application binding
+        run: |
+          cd sdk/native-typescript
+          npm ci --ignore-scripts --no-audit --no-fund
+          cd ../..
+          python3 scripts/native-sdk/typescript_suite.py
+          bundle_sha="$(python3 -c 'import json; print(json.load(open("verification/native-sdk/typescript/binding.json"))["bundle_sha256"])')"
+          test "$(printf %s "$bundle_sha" | wc -c)" = 64
+          echo "SEMWRIGHT_NATIVE_INVENTORY_BUNDLE_SHA256=$bundle_sha" >> "$GITHUB_ENV"
+      - name: Build exact-SHA daemon, CLI, MCP, sandbox and native applications
+        run: |
+          cargo build --locked -p semwright-daemon -p semwright-cli -p semwright-mcp --bins
+          cargo build --locked -p semwright-plugin-host --bin semwright-sandbox
+          cargo build --locked -p semwright-native-sdk --features file-backed,effects,package --examples --bins
+          cargo build --locked -p semwright-native-sdk --features process-bridge --example native-inventory
+      - name: Real CLI and protocol MCP acceptance without mock Provider
+        run: python3 scripts/native-sdk/run-suite.py native-host
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: native-sdk-real-host-${{ github.sha }}
+          path: verification/native-sdk
+          if-no-files-found: error
+          retention-days: 14

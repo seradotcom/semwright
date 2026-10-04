@@ -1,0 +1,245 @@
+name: Native SDK canonical
+on:
+  push:
+    branches: [feat/native-sdk-canonical]
+    paths:
+      - 'crates/native-sdk/**'
+      - 'examples/native/**'
+      - 'examples/native-inventory/**'
+      - 'sdk/native-typescript/**'
+      - 'Cargo.lock'
+      - 'contracts/native/**'
+      - 'docs/native-sdk/**'
+      - 'scripts/native-sdk/run-suite.py'
+      - 'scripts/native-sdk/typescript_suite.py'
+      - 'scripts/native-sdk/clean_consumers.py'
+      - 'crates/types/**'
+      - 'crates/driver-sdk/**'
+      - 'crates/effect-conformance/**'
+      - 'crates/semantic-composition/**'
+      - 'Cargo.toml'
+      - 'rust-toolchain.toml'
+      - '.github/workflows/native-sdk.yml'
+      - '.circleci/config.yml'
+  workflow_dispatch:
+    inputs:
+      full_portability:
+        description: Run all six native OS/architecture lanes
+        type: boolean
+        default: false
+      expected_sha:
+        description: Exact immutable HEAD
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: native-sdk-${{ github.ref }}
+  cancel-in-progress: false
+defaults:
+  run:
+    shell: bash
+jobs:
+  metadata:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Repository contract validation
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha || github.sha }}
+        run: python3 scripts/native-sdk/run-suite.py repository
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: native-sdk-repository-${{ github.sha }}
+          path: verification/native-sdk
+          if-no-files-found: error
+          retention-days: 7
+  file-profile:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_PROFILE_DEV_DEBUG: '0'
+      CARGO_PROFILE_TEST_DEBUG: '0'
+      EXPECTED_SHA: ${{ inputs.expected_sha || github.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Exact checkout gate
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.88.0
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: native-sdk-msrv
+      - name: Current canonical dependencies and file-profile regression
+        env:
+          RUSTUP_TOOLCHAIN: 1.88.0
+        run: python3 scripts/native-sdk/run-suite.py file-profile
+      - name: Capture formatting diff
+        if: always()
+        env:
+          RUSTUP_TOOLCHAIN: 1.88.0
+        run: |
+          cargo fmt -p semwright-native-sdk
+          mkdir -p verification/native-sdk
+          git diff -- crates/native-sdk examples/native > verification/native-sdk/format.patch
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: native-sdk-file-profile-${{ github.sha }}
+          path: verification/native-sdk
+          if-no-files-found: error
+          retention-days: 7
+  portable:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ${{ fromJSON(inputs.full_portability && '["ubuntu-24.04","ubuntu-24.04-arm","windows-2025","windows-11-arm","macos-15","macos-15-intel"]' || '["ubuntu-24.04"]') }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_PROFILE_DEV_DEBUG: '0'
+      CARGO_PROFILE_TEST_DEBUG: '0'
+      EXPECTED_SHA: ${{ inputs.expected_sha || github.sha }}
+      RUSTUP_TOOLCHAIN: 1.88.0
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Exact checkout gate
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.12'
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.88.0
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: native-sdk-portable-${{ matrix.os }}-1.88
+      - name: No filesystem or runtime feature required
+        run: python scripts/native-sdk/run-suite.py portable
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: native-sdk-portable-${{ matrix.os }}-${{ github.sha }}
+          path: verification/native-sdk
+          if-no-files-found: error
+          retention-days: 7
+  driver:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_PROFILE_DEV_DEBUG: '0'
+      CARGO_PROFILE_TEST_DEBUG: '0'
+      EXPECTED_SHA: ${{ inputs.expected_sha || github.sha }}
+      RUSTUP_TOOLCHAIN: 1.88.0
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.88.0
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: native-sdk-driver-1.88
+      - name: Canonical Driver API contracts without fake Host acceptance
+        run: python3 scripts/native-sdk/run-suite.py driver
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: native-sdk-driver-${{ github.sha }}
+          path: verification/native-sdk
+          if-no-files-found: error
+          retention-days: 7
+
+  binding:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_PROFILE_DEV_DEBUG: '0'
+      CARGO_PROFILE_TEST_DEBUG: '0'
+      EXPECTED_SHA: ${{ inputs.expected_sha || github.sha }}
+      RUSTUP_TOOLCHAIN: 1.88.0
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Exact checkout gate
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24.21.0'
+          cache: npm
+          cache-dependency-path: sdk/native-typescript/package-lock.json
+      - name: Install locked TypeScript binding dependencies
+        working-directory: sdk/native-typescript
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.88.0
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: native-sdk-binding-1.88
+      - name: TypeScript bridge and materialized lifecycle conformance
+        run: python3 scripts/native-sdk/run-suite.py binding
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: native-sdk-binding-${{ github.sha }}
+          path: verification/native-sdk
+          if-no-files-found: error
+          retention-days: 7
+
+  package-clean-room:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_PROFILE_DEV_DEBUG: '0'
+      CARGO_PROFILE_TEST_DEBUG: '0'
+      EXPECTED_SHA: ${{ inputs.expected_sha || github.sha }}
+      RUSTUP_TOOLCHAIN: 1.88.0
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Exact checkout gate
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: '24.21.0'
+          cache: npm
+          cache-dependency-path: sdk/native-typescript/package-lock.json
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.88.0
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: native-sdk-package-clean-room-1.88
+      - name: Exact-SHA package and clean-room consumers
+        run: python3 scripts/native-sdk/run-suite.py package-clean-room
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: native-sdk-package-${{ github.sha }}
+          path: verification/native-sdk
+          if-no-files-found: error
+          retention-days: 7
