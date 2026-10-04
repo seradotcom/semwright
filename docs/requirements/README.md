@@ -6,7 +6,7 @@ policy. Current behavior is documented in the main README and the live documenta
 
 The public tree intentionally retains the durable technical material—product vision, architecture,
 backend strategy, security model, testing strategy and acceptance targets—while temporary build
-orchestration and conversational handoff material is kept outside the repository. Git history
+and operational planning material is kept outside the repository. Git history
 preserves prior revisions for provenance.
 
 Current references:

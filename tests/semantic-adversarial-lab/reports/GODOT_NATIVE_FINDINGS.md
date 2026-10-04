@@ -20,7 +20,7 @@ Godot-native job: 110227589092
 
 Selftest suite on the same lab SHA passed 99/99.
 
-## G-FIND-D-001 — persistence dependency stability
+## G-FIND-GODOT-001 — persistence dependency stability
 
 Case: G-GODOT-006.
 
@@ -40,7 +40,7 @@ G-GODOT-007 remains BLOCKED because a dependency-tamper negative cannot be isola
 
 Reported on the Godot implementation on PR #176.
 
-## G-FIND-D-002 — native observer false-PASS
+## G-FIND-GODOT-002 — native observer false-PASS
 
 Case: G-GODOT-013.
 
@@ -69,4 +69,4 @@ The Godot implementation published FIX_SHA 70bd7857e9700b6f03547a706ff0e6496ffd8
 
 ## Closure retest
 
-Godot FIX_SHA 70bd7857e9700b6f03547a706ff0e6496ffd838e was retested by the lab on suite 366772a088c786f8e9e1f4a1602d0b14778453d4, run 36940490321, Godot-native job 110636591865. Result: 13/13 PASS. G-GODOT-006, G-GODOT-007 and G-GODOT-013 all pass. Receipt SHA-256: 521da5cbe0c65bc84e38c9ab67f088385809f6bcb9f867a98d32c44900b4ddbb. Artifact SHA-256: 183d8686c45d774d1b0061eed28e892417f4dcf414831945c7f90a4b52e23dd6. G-FIND-D-001 and G-FIND-D-002 are CLOSED_RETEST_PASS.
+Godot FIX_SHA 70bd7857e9700b6f03547a706ff0e6496ffd838e was retested by the lab on suite 366772a088c786f8e9e1f4a1602d0b14778453d4, run 36940490321, Godot-native job 110636591865. Result: 13/13 PASS. G-GODOT-006, G-GODOT-007 and G-GODOT-013 all pass. Receipt SHA-256: 521da5cbe0c65bc84e38c9ab67f088385809f6bcb9f867a98d32c44900b4ddbb. Artifact SHA-256: 183d8686c45d774d1b0061eed28e892417f4dcf414831945c7f90a4b52e23dd6. G-FIND-GODOT-001 and G-FIND-GODOT-002 are CLOSED_RETEST_PASS.

@@ -20,7 +20,7 @@ Blender-native job: 110257156669
 
 Selftest on the same lab suite passed 102/102.
 
-## G-FIND-E-001 — GLB export leaves managed source in drift
+## G-FIND-BLENDER-001 — GLB export leaves managed source in drift
 
 Case: G-BLENDER-010.
 

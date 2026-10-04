@@ -1,7 +1,7 @@
 # Browser semantic completeness verification
 
 Baseline: `e543a6bed1497840efdb06ce0f9b96748e9529a1`.
-PR: #121 (`feat/browser-semantic-completeness-chatgpt`).
+PR: #121.
 
 ## Acceptance rule
 

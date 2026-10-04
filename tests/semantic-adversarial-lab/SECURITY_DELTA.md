@@ -30,9 +30,9 @@ The read-only collector binds run/attempt/job to the explicit suite and frozen t
 
 Confirmed product findings from executed exact-SHA families:
 
-- G-FIND-A-001 is CLOSED_RETEST_PASS: Composition FIX_SHA 7ab43f99f4cc62be2a9b0ce9ce1155283a429768 binds permits to private vault/root identities; lab retest run 36938854785 passed 70/70 Composition including G-PLAN-022/023/024.
-- G-FIND-D-001 and G-FIND-D-002 are CLOSED_RETEST_PASS on Godot FIX_SHA 70bd7857: Godot native 13/13 PASS.
-- G-FIND-E-001 is CLOSED_RETEST_PASS on Blender second FIX_SHA f492f13: Blender native 14/14 PASS; G-BLENDER-010 now preserves exact managed source projection while producing the valid hashed GLB and preserving the external sentinel.
+- G-FIND-COMPOSITION-001 is CLOSED_RETEST_PASS: Composition FIX_SHA 7ab43f99f4cc62be2a9b0ce9ce1155283a429768 binds permits to private vault/root identities; lab retest run 36938854785 passed 70/70 Composition including G-PLAN-022/023/024.
+- G-FIND-GODOT-001 and G-FIND-GODOT-002 are CLOSED_RETEST_PASS on Godot FIX_SHA 70bd7857: Godot native 13/13 PASS.
+- G-FIND-BLENDER-001 is CLOSED_RETEST_PASS on Blender second FIX_SHA f492f13: Blender native 14/14 PASS; G-BLENDER-010 now preserves exact managed source projection while producing the valid hashed GLB and preserving the external sentinel.
 
 Godot and Blender findings were reached through pinned real native runtimes and product routes. Their product fixes were retested by the lab on the exact affected families and are now closed; the lab did not patch product implementation branches.
 

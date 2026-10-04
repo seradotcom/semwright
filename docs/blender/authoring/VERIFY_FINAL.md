@@ -48,6 +48,6 @@ The Godot consumer should use the final certified producer evidence above, espec
 
 1. Project Graph records export → handoff → import → verification as distinct activities/revisions.
 2. Effect Conformance binds Godot native observations to the applicable effect evidence.
-3. The wave integrator reconciles the combined candidate and its global gates.
+3. The integration workflow reconciles the combined candidate and its global gates.
 
 No additional Blender authoring work is required unless Godot/Project Graph/Effect Conformance expose a concrete interoperability defect attributable to Blender.

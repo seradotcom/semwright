@@ -2,7 +2,7 @@
 
 After the audio, Project Graph and runtime #201 work completed, integration consolidated the remaining cross-component reconciliation work. Historical component branches and status records remain separate; canonical integration state is bound to exact Git commits and CI evidence.
 
-D11 is implementation-pending-certification. The existing repair.plan capability has a new explicit reconcile_partial_publication mode. Its input still contains only a parent plan ID and a mode; evidence and authority are supplied by the authenticated provider, never by request JSON. Descriptor/schema digests must be generated from the new schema when packaging the integrated candidate.
+Fresh-child reconciliation is implemented and pending certification. The existing repair.plan capability has a new explicit reconcile_partial_publication mode. Its input still contains only a parent plan ID and a mode; evidence and authority are supplied by the authenticated provider, never by request JSON. Descriptor/schema digests must be generated from the new schema when packaging the integrated candidate.
 
 Composition now reserves a read-only reconciliation ticket for the latest Partial/Unknown attempt. It binds the authenticated owner, vault/root incarnation, attempt identity, a trusted current base and declared read scope. Every attempted reconciliation spends the existing observation budget. Completion requires fresh, exhaustive native/file evidence at that exact base/scope. Fixture/simulation evidence, stale/foreign tickets and replay fail closed.
 
