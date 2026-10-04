@@ -154,6 +154,92 @@ fn reconciliation_preserves_unknown_ledger_and_authorizes_only_one_fresh_child()
 }
 
 #[test]
+fn reconciliation_bound_to_one_child_does_not_unlock_a_preissued_sibling() {
+    let alice = owner("alice");
+    let root = json!({"kind":"root"});
+    let repair_a = json!({"kind":"repair-a"});
+    let repair_b = json!({"kind":"repair-b"});
+    let grandchild = json!({"kind":"grandchild"});
+    let b = budget(8);
+    let mut vault = PlanVault::bounded(8, 4, 8);
+
+    vault
+        .issue(&alice, "root", &root, b.clone(), 1, None, false)
+        .unwrap();
+    let permit = vault.begin(&alice, "root", &root, "root-write").unwrap();
+    vault
+        .finish(permit, ExecutionStatus::Completed, vec![])
+        .unwrap();
+
+    vault
+        .issue(
+            &alice,
+            "repair-a",
+            &repair_a,
+            b.clone(),
+            1,
+            Some("root"),
+            true,
+        )
+        .unwrap();
+    vault
+        .issue(
+            &alice,
+            "repair-b",
+            &repair_b,
+            b.clone(),
+            1,
+            Some("root"),
+            true,
+        )
+        .unwrap();
+
+    let permit = vault
+        .begin(&alice, "repair-a", &repair_a, "repair-a-write")
+        .unwrap();
+    vault
+        .finish(permit, ExecutionStatus::Unknown, vec![])
+        .unwrap();
+
+    let evidence = observed();
+    let reconcile = vault
+        .begin_reconciliation(
+            &alice,
+            "repair-a",
+            &repair_a,
+            "repair-a-observe",
+            evidence.base.clone(),
+            evidence.scope.clone(),
+        )
+        .unwrap();
+    vault.finish_reconciliation(reconcile, evidence).unwrap();
+
+    vault
+        .issue(
+            &alice,
+            "grandchild",
+            &grandchild,
+            b,
+            1,
+            Some("repair-a"),
+            true,
+        )
+        .unwrap();
+    assert_eq!(
+        vault.reconciliations(&alice, "repair-a").unwrap()[0]
+            .child_plan_id
+            .as_deref(),
+        Some("grandchild")
+    );
+
+    let error = match vault.begin(&alice, "repair-b", &repair_b, "repair-b-write") {
+        Ok(_) => panic!("a sibling reused reconciliation reserved for another child"),
+        Err(error) => error,
+    };
+    assert!(matches!(error, ContractError::Unknown(_)));
+}
+
+#[test]
 fn reconciliation_never_refunds_operation_budget_or_accepts_foreign_owner() {
     let alice = owner("alice");
     let plan = json!({"kind":"parent"});
