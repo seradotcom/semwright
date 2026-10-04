@@ -2,7 +2,7 @@
 
 Status: implementation published for consumer review; CI evidence belongs to the exact source SHA, not to this document. Composition owns these shared contracts; the audio subsystem owns audio-domain, Faust, Ardour and audio-authoring.
 
-Use workspace dependencies `semwright-semantic-composition` and `semwright-media-time`. No private worktree paths. The core has no application, media backend, audio loudness, filesystem or Broker dependency. Domain intents/operations remain distinct types. `PreparedPlan<I,O>` contains the generic lifecycle envelope, never arbitrary executable strings. A profile is trusted compiled integration code; a descriptor supplied by a client cannot authorize itself.
+Use workspace dependencies `semwright-semantic-composition` and `semwright-media-time`. No private path dependencies. The core has no application, media backend, audio loudness, filesystem or Broker dependency. Domain intents/operations remain distinct types. `PreparedPlan<I,O>` contains the generic lifecycle envelope, never arbitrary executable strings. A profile is trusted compiled integration code; a descriptor supplied by a client cannot authorize itself.
 
 Canonical JSON version is `semwright-json-v1`: UTF-8 strings are preserved, object keys sorted, array ordering retained, serde_json numeric representation. This is not RFC 8785. Decode untrusted bytes with `strict_decode` before typed validation to reject duplicate keys. Domain numeric invariants must be checked before canonical serialization; serde_json alone cannot validate a domain.
 

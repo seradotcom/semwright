@@ -4,7 +4,7 @@ This file records technical sources that directly constrain the Composition/Medi
 
 ## Repository baselines
 
-A implementation baseline was frozen at be375a12e8afa4d779f9dc0de501b0d4a262a682. Common C0 is 26602e4b25929be869d69ef28fef4dd9713180d7.
+The Composition implementation baseline was frozen at `be375a12e8afa4d779f9dc0de501b0d4a262a682`; common C0 is `26602e4b25929be869d69ef28fef4dd9713180d7`.
 
 Relevant existing product surfaces inspected before/while implementing include the Figma semantic authoring driver/plugin, Motion Canvas managed model/compiler/store/renderer, video-domain, MLT driver, Broker/Provider runtime, Driver SDK/Host, artifacts, Recipes and Skills.
 

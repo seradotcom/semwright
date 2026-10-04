@@ -14,7 +14,7 @@ mint a trusted batch, a PASS, completeness or an authenticated principal.
 C: store the A VerificationReport plus pinned contract/evidence coverage; never infer safe.
 D: map Godot native property/projection/fresh-process save/reopen and sentinel inventory.
 E: map Blender native graph/export/GLB decoder and named-collection membership.
-A/B: map typed media units through your existing measurements; no new clock or audio enum.
+Composition/Audio: map typed media units through existing measurements; no new clock or audio enum.
 Fixture/simulation consumers remain contractual; they cannot substitute native Godot/Blender.
 No worktree path dependencies or circular dependency into semantic-composition.
 
@@ -28,4 +28,4 @@ missing final page and unsupported readback remain UNKNOWN or an explicit valida
 Vacuous contracts must never acquire substantive PASS. A's aggregation remains authoritative.
 
 ## Workspace dependency
-Consumers use `semwright-effect-conformance.workspace = true`. The workspace entry is additive; no reverse dependency into Composition is introduced. Effect Conformance consumes Composition types and Project Graph only as a test dependency. Do not point Cargo at another worktree.
+Consumers use `semwright-effect-conformance.workspace = true`. The workspace entry is additive; no reverse dependency into Composition is introduced. Effect Conformance consumes Composition types and Project Graph only as a test dependency. Do not use local path dependencies that bypass the workspace.

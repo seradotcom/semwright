@@ -28,7 +28,7 @@ The read-only collector binds run/attempt/job to the explicit suite and frozen t
 
 ## Current product findings and residual risks
 
-Confirmed owner findings from executed exact-SHA families remain open:
+Confirmed product findings from executed exact-SHA families:
 
 - G-FIND-A-001 is CLOSED_RETEST_PASS: Composition FIX_SHA 7ab43f99f4cc62be2a9b0ce9ce1155283a429768 binds permits to private vault/root identities; lab retest run 36938854785 passed 70/70 Composition including G-PLAN-022/023/024.
 - G-FIND-D-001 and G-FIND-D-002 are CLOSED_RETEST_PASS on Godot FIX_SHA 70bd7857: Godot native 13/13 PASS.
@@ -38,7 +38,7 @@ Godot and Blender findings were reached through pinned real native runtimes and 
 
 Clean contract fixtures still do not establish every live collaboration, OS, device, media-intelligibility or cross-app property. The lab enclosure is Linux/GitHub-hosted only and is not itself the product sandbox. Separate subsystem exact-SHA results cannot be combined into a final integration certification. No explicit combined candidate was supplied to this lab checkpoint.
 
-The public test package contains no real credentials, user documents, private native projects, recordings or public network listeners. Residual risk and severity remain bounded by the tested evidence rather than inferred from green author branches.
+The public test package contains no real credentials, user documents, private native projects, recordings or public network listeners. Residual risk and severity remain bounded by the tested evidence rather than inferred from green implementation branches.
 
 ## Continuation safeguards
 

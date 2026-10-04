@@ -17,10 +17,9 @@ This file is a historical source-controlled integration ledger. Fields marked PE
 - Audio branch: feat/audio-completion
 - Audio consumed C0 through normal Git ancestry: verified locally
 - Previous audio formal handoff: 8ed2d30c8ba797ebd5b8c102d34f8ab5bb3a28b3; superseded after the formal combined E2E exposed a bounded-loudness receipt defect
-- Audio PR/worktree head observed at this checkpoint: df2654bed6d2ac57d547846b69d16ea48b4a9ee3
+- Audio source observed at this checkpoint: df2654bed6d2ac57d547846b69d16ea48b4a9ee3
 - Audio exact-SHA recertification: run 36942574098 PASS with audio-gate PASS and retained final certification artifact; the new AUDIO_READY_FOR_INTEGRATION handoff is still PENDING because B.json has not yet published df2654bed as ready
 - Current origin/main reconciled into Composition: e3713e90e87f1caa8f7105c065094d5c724d144e
-- Integration branch/worktree exists at integration/composition-av for private diagnostics.
 - Latest observed diagnostic integration head: 5648dd2da719b4602126f3458c3c266679c67b2a
 - Formal combined candidate: integration/composition-av-formal; the exact commit is bound externally by candidate_sha and CANDIDATE_EVIDENCE so the source tree never self-certifies
 
@@ -30,7 +29,7 @@ PR #183 and native evidence identify recertified audio head df2654bed6d2ac57d547
 
 C0 provides generic plan/base/evidence/lifecycle and exact media-time primitives. The audio line consumes C0 through normal ancestry rather than a duplicate private copy.
 
-Effect-conformance E0 at `dd6d22d6ec6c7c5ef378da58ed75ca18b25ba5ff` was reviewed against the Composition ownership/authority boundary: effect conformance consumes Composition types and evidence, while PlanVault, canonicalization, lifecycle aggregation and Broker/policy authority remain runtime-owned. The approval is recorded on PR #172 and closes only the corresponding review dependency. The remaining integration gate requires `crates/effect-conformance` through normal workspace ancestry rather than a private worktree/path dependency. PR #183 records the requirement for the production audio consumer to publish the exact effect-conformance SHA it consumes before assembly of the formal combined candidate.
+Effect-conformance E0 at `dd6d22d6ec6c7c5ef378da58ed75ca18b25ba5ff` was reviewed against the Composition ownership/authority boundary: effect conformance consumes Composition types and evidence, while PlanVault, canonicalization, lifecycle aggregation and Broker/policy authority remain runtime-owned. The approval is recorded on PR #172 and closes only the corresponding review dependency. The remaining integration gate requires `crates/effect-conformance` through normal workspace ancestry rather than a private path dependency. PR #183 records the requirement for the production audio consumer to publish the exact effect-conformance SHA it consumes before assembly of the formal combined candidate.
 
 The additive AV consumer contract defines media artifact metadata, audio consumer receipts, service proofs, staged coordination, final decoded sync and manifest publication. The audio subsystem remains a provider of public audio capabilities; the AV layer owns the consumer boundary and must prove it on the exact combined candidate rather than duplicating shared C1 types in the audio implementation.
 
@@ -47,10 +46,10 @@ The full native integration workflow preserves its historical all-backend jobs f
 ## Final integration procedure
 
 1. Verify B.json/PR/branch all name the same AUDIO_READY_FOR_INTEGRATION SHA and required native audio jobs.
-2. Verify the announced B SHA descends from C0 and its worktree is clean.
-3. Create/update integration/composition-av in the dedicated A-owned worktree from the chosen current-main reconciliation point.
-4. Merge A by normal Git ancestry.
-5. Merge the exact B-ready SHA by normal Git ancestry. Resolve Cargo.toml/Cargo.lock/CI/Skills centrally; do not replace the newer lockfile wholesale.
+2. Verify the announced audio SHA descends from C0 and identifies a clean source commit.
+3. Create or update a dedicated integration branch from the chosen current-main reconciliation point.
+4. Merge the Composition/AV source by normal Git ancestry.
+5. Merge the exact audio-ready SHA by normal Git ancestry. Resolve Cargo.toml/Cargo.lock/CI/Skills centrally; do not replace the newer lockfile wholesale.
 6. Resolve any C0/C1 overlap structurally and run consumer/schema tests before native jobs. Bind B's verified final-audio artifact receipt to the owner-configured Broker source root/path separately from its provider token; configure the artifact-handoff destination root and the MLT `media` alias to the same delivery storage. Never derive a path from `MediaArtifact.reference`.
 7. Execute the combined candidate gates on one SHA: common contracts, Figma regression, Motion native, audio native, real `artifact.handoff` audio transfer, AV MLT/decode/sync, targeted security and relevant required repository checks.
 8. Record every run/job/artifact digest in the integration evidence for the exact candidate.
@@ -61,7 +60,7 @@ The full native integration workflow preserves its historical all-backend jobs f
 
 Expected shared conflicts are workspace dependencies, Cargo.lock, Skill inventory/docs and aggregate CI. Preserve all independently required packages/targets. A conflict is not resolved by taking one side's complete lockfile or deleting another integration target.
 
-Unexpected conflicts inside audio-domain/Faust/Ardour are returned to B for explanation. Unexpected conflicts inside Figma/Motion/common contracts remain A-owned.
+Unexpected conflicts inside audio-domain/Faust/Ardour require audio-subsystem review. Conflicts inside Figma/Motion/common contracts remain within the Composition/AV integration boundary.
 
 ## Candidate evidence
 
