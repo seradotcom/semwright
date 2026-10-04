@@ -51,6 +51,6 @@ The candidate must rebuild/retest affected paths on one exact combined SHA. Gree
 
 ## Release blockers
 
-This change does not close or weaken existing RELEASE_BLOCKERS.md items. In particular R16 remains open. The combined candidate must also re-run security/supply-chain/package gates affected by the additional crates, Skill and generated runtime.
+This historical checkpoint did not close or weaken the release blockers that were open at the time; R16 was still open at this point. The combined candidate also had to re-run security/supply-chain/package gates affected by the additional crates, Skill and generated runtime. Current review and release-gate status is recorded in [VERIFY.md](../../VERIFY.md) and [RELEASE_BLOCKERS.md](../../RELEASE_BLOCKERS.md).
 
 READY_FOR_DEMO_PRODUCTION is a product-development gate for the future demo workflow, not a public release declaration.
