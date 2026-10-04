@@ -46,6 +46,12 @@ timeline clocks, consumer codec settings and strict output validation stay
 unchanged. `render.start` allows up to 120 seconds for synchronous staging before
 returning the owned render job; native render deadlines remain separate.
 
+The outer render tool has a 300-second budget matching the driver's declared
+300 CPU seconds. Host also derives the inherited CPU ceiling from that tool
+deadline: a shorter 150-second outer budget could kill a two-thread render
+before its independent 120-second native wall deadline. The CPU ceiling,
+native wall deadline, filesystem grants and output validation remain bounded.
+
 The runner retains a bounded local render receipt binding the staged XML digest,
 argv, exit status and captured log bytes. A media-validation failure can publish
 a unique `.native-failure-<job>.json` sibling inside the existing output grant,
