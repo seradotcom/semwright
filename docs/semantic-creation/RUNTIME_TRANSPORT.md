@@ -24,7 +24,7 @@ Native integrated acceptance and the final exact-SHA campaign remain pending.
 The standalone adversarial suite adapts bootstrap only and records a new oracle identity;
 its registry, mutants, core oracles and Blender attack bodies are unchanged.
 Historical owner/native certificates do not certify the new combined source.
-R16 remains open and main is unchanged.
+At this checkpoint R16 was still open and `main` was unchanged. Current review status is recorded in [VERIFY.md](../../VERIFY.md).
 
 The historical Effect Conformance audit blocker named the yanked `yoke-derive 0.8.3`. The #201
 lockfile already includes `0.8.4` with registry checksum

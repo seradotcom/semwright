@@ -81,4 +81,4 @@ Existing R16 evidence predates these parsers, lifecycle bindings, generated nati
 6. Filesystem publication and artifact provenance.
 7. Dependency/Skill supply-chain changes.
 
-This mission leaves R16 open. Automated CI, fuzzing and sandbox tests are supporting evidence, not the independent review.
+At this checkpoint R16 was still open. Automated CI, fuzzing and sandbox tests were supporting evidence rather than the independent review. Current review status is recorded in [VERIFY.md](../../VERIFY.md).

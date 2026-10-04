@@ -78,8 +78,9 @@ no model comparison was executed, and that evaluation is not an admission gate f
 
 The promotion branch is `integration/semantic-creation-main-promotion`. The actual promoted SHA and affected Windows run are recorded in GitHub's immutable commit/run records. The frozen engineering and evaluation deliveries retain their original identities.
 
-Independent R16 review remains open under
-[the security review contract](../security-review.md). Physical desktop and
+This integration record predates the later R16 repository-review closure. The current review
+status and retained evidence are recorded in [VERIFY.md](../../VERIFY.md) and
+[the R16 evidence directory](../../verification/r16-closeout/README.md). Physical desktop and
 interactive Windows residuals remain in [release blockers](../../RELEASE_BLOCKERS.md).
 This development integration does not declare release readiness.
 

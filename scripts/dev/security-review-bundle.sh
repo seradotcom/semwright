@@ -117,7 +117,7 @@ Preserve the non-claims from reference/docs/security-review.md; do not upgrade t
 - Areas not executed:
 - Reviewer conclusion:
 
-R16 remains open until an independent reviewer completes a dated report tied to the exact baseline and the maintainer records any required remediation SHAs. This template and its generated bundle are not self-attestation.
+The repository-scoped R16 review has a separate retained closeout record under verification/r16-closeout/. Reusing this template for a new review does not inherit that verdict: a new review closes only after an independent reviewer completes a dated report tied to its exact baseline and the maintainer records any required remediation SHAs. This template and its generated bundle are not self-attestation.
 EOF
 
 BASELINE_SHA="$BASELINE_SHA" REPO_URL="$REPO_URL" SOURCE_ARCHIVE="$SOURCE_ARCHIVE" SOURCE_SHA256="$SOURCE_SHA256" python3 - "$OUT/manifest.json" <<'PY'
