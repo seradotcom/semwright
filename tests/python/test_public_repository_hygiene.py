@@ -1,5 +1,6 @@
 """Public repository hygiene checks for durable product and component naming."""
 from pathlib import Path
+import re
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -75,7 +76,7 @@ class PublicRepositoryHygieneTests(unittest.TestCase):
             with self.subTest(entry=entry):
                 self.assertIn(entry, ignored)
 
-    def test_orchestration_role_language_is_not_public_copy(self):
+    def test_temporary_orchestration_labels_are_not_public_copy(self):
         excluded = {
             "docs/skills.md",
             "fuzz/README.md",
@@ -85,33 +86,18 @@ class PublicRepositoryHygieneTests(unittest.TestCase):
             "tests/python/test_public_repository_hygiene.py",
         }
         forbidden = (
-            "Agent A",
-            "Agent B",
-            "Agent C",
-            "Agent D",
-            "Agent E",
-            "Agent F",
-            "Agent G",
-            "Agent H",
-            "Agent I",
-            "other agent's worktree",
-            "other agents worktrees",
-            "agents were building",
-            "agent-owned",
-            "Agent-owned",
-            "parallel agents",
-            "role-coded",
-            "role R",
-            "role G",
-            "R-authored",
-            "R-owned",
-            "G-owned",
-            "I-owned",
-            "full-wave",
-            "combined-wave",
-            "author-branch certification",
-            "owner handoff",
-            "worktree inventory",
+            re.compile(r"\bAgent [A-I]\b"),
+            re.compile(r"\bother agent(?:'s|s)? worktrees?\b", re.IGNORECASE),
+            re.compile(r"\bagents were building\b", re.IGNORECASE),
+            re.compile(r"\bagent-owned\b", re.IGNORECASE),
+            re.compile(r"\bparallel agents\b", re.IGNORECASE),
+            re.compile(r"\brole-coded\b", re.IGNORECASE),
+            re.compile(r"\brole [A-Z]\b"),
+            re.compile(r"\b[A-Z]-(?:authored|owned)\b"),
+            re.compile(r"\b(?:full|combined)-wave\b"),
+            re.compile(r"\bauthor-branch certification\b", re.IGNORECASE),
+            re.compile(r"\bowner handoff\b", re.IGNORECASE),
+            re.compile(r"\bworktree inventory\b", re.IGNORECASE),
         )
         for path in ROOT.rglob("*"):
             if not path.is_file() or ".git" in path.parts:
@@ -123,9 +109,9 @@ class PublicRepositoryHygieneTests(unittest.TestCase):
                 text = path.read_text()
             except (UnicodeDecodeError, OSError):
                 continue
-            for phrase in forbidden:
-                with self.subTest(relative=relative, phrase=phrase):
-                    self.assertNotIn(phrase, text)
+            for pattern in forbidden:
+                with self.subTest(relative=relative, pattern=pattern.pattern):
+                    self.assertIsNone(pattern.search(text))
 
     def test_development_coordination_archives_are_not_public(self):
         for relative in (
