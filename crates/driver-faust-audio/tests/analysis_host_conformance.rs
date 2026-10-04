@@ -101,7 +101,7 @@ async fn broker_host_meter_measures_digest_bound_wav_and_rejects_substitution() 
     let meter_source = required_path("SEMWRIGHT_TEST_AUDIO_METER");
     let root = tempfile::tempdir().unwrap();
     fs::set_permissions(root.path(), fs::Permissions::from_mode(0o700)).unwrap();
-    for dir in ["binary", "state", "input"] {
+    for dir in ["binary", "state", "input", "snapshot"] {
         fs::create_dir(root.path().join(dir)).unwrap();
         fs::set_permissions(root.path().join(dir), fs::Permissions::from_mode(0o700)).unwrap();
     }
@@ -124,7 +124,7 @@ async fn broker_host_meter_measures_digest_bound_wav_and_rejects_substitution() 
 
     let manifest = Manifest {
         manifest_version: 1,
-        protocol: 4,
+        protocol: 7,
         id: "audio-analysis".into(),
         version: env!("CARGO_PKG_VERSION").into(),
         publisher: "semwright-native-tests".into(),
@@ -136,11 +136,23 @@ async fn broker_host_meter_measures_digest_bound_wav_and_rejects_substitution() 
             supported_versions: vec!["libebur128-1.2.6".into()],
         },
         transport: Transport::StdioV1,
-        mounts: vec![DriverMount {
-            root: "analysis-input".into(),
-            read_only: true,
-            execute: false,
-        }],
+        mounts: vec![
+            DriverMount {
+                root: "analysis-input".into(),
+                read_only: true,
+                execute: false,
+            },
+            DriverMount {
+                root: "analysis-scratch".into(),
+                read_only: false,
+                execute: false,
+            },
+            DriverMount {
+                root: "analysis-snapshot".into(),
+                read_only: true,
+                execute: false,
+            },
+        ],
         system_config: vec![],
         secrets: vec![],
         tools: vec![DriverToolMount {
@@ -148,17 +160,20 @@ async fn broker_host_meter_measures_digest_bound_wav_and_rejects_substitution() 
             name: "audio-meter".into(),
             sha256: digest(&meter),
 
-            mounts: vec![],
+            mounts: vec!["analysis-snapshot".into()],
             system_config: vec![],
             dependencies: vec![],
+            nvidia_gpu: false,
+            resources: None,
         }],
         network: false,
+        nvidia_gpu: false,
         loopback_port: None,
         resources: DriverResources {
             open_files: 128,
             processes: 8,
-            cpu_seconds: 90,
-            operation_cpu_seconds: 35,
+            cpu_seconds: 35,
+            operation_cpu_seconds: 0,
             address_space_bytes: 1_073_741_824,
             file_size_bytes: 536_870_912,
         },
@@ -166,6 +181,7 @@ async fn broker_host_meter_measures_digest_bound_wav_and_rejects_substitution() 
         interfaces: DriverInterfaces {
             cooperative_cancellation: true,
             health: true,
+            host_tools: true,
             ..Default::default()
         },
     };
@@ -173,6 +189,18 @@ async fn broker_host_meter_measures_digest_bound_wav_and_rejects_substitution() 
         FilesystemGrant {
             name: "analysis-input".into(),
             path: input.clone(),
+            read: true,
+            write: false,
+        },
+        FilesystemGrant {
+            name: "analysis-scratch".into(),
+            path: root.path().join("snapshot"),
+            read: true,
+            write: true,
+        },
+        FilesystemGrant {
+            name: "analysis-snapshot".into(),
+            path: root.path().join("snapshot"),
             read: true,
             write: false,
         },
@@ -224,6 +252,15 @@ async fn broker_host_meter_measures_digest_bound_wav_and_rejects_substitution() 
     assert_eq!(value["loudness"]["sample_rate"], 48_000);
     assert_eq!(value["loudness"]["channels"], 1);
     assert_eq!(value["pcm_statistics"]["frames"], 192_000);
+    // The temporary snapshot is shared only through the declared alias, and
+    // removed after both native measurement and independent PCM decoding.
+    assert!(
+        fs::read_dir(root.path().join("snapshot"))
+            .unwrap()
+            .next()
+            .is_none()
+    );
+    assert_eq!(digest(&signal), expected);
     let sample_peak = value["pcm_statistics"]["peak_millidbfs"].as_i64().unwrap();
     assert!((-12_200..=-11_800).contains(&sample_peak), "{sample_peak}");
     let integrated = value["loudness"]["integrated_lufs_milli"].as_i64().unwrap();

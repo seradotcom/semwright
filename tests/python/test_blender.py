@@ -353,6 +353,121 @@ class DispatcherTests(unittest.TestCase):
         self.assertFalse(value["arbitrary_python"])
         self.assertEqual(value["protocol"], 1)
 
+    def cycles_devices(self, gpu=True):
+        cpu = types.SimpleNamespace(name="CPU", type="CPU", id="cpu", use=True)
+        card = types.SimpleNamespace(name="GTX 1650", type="CUDA", id="gpu", use=False)
+        preferences = types.SimpleNamespace(compute_device_type="NONE", devices=[cpu, card] if gpu else [cpu], refresh_devices=lambda: None)
+        self.bpy.context.preferences = types.SimpleNamespace(addons={"cycles": types.SimpleNamespace(preferences=preferences)})
+        return cpu, card, preferences
+
+    def test_gpu_selection_excludes_cpu_and_reports_exact_device(self):
+        cpu, card, preferences = self.cycles_devices()
+        result = self.commands("blender.render.settings", {"device": "GPU", "backend": "CUDA"})
+        self.assertEqual(result["backend"], preferences.compute_device_type)
+        self.assertEqual(result["devices"], [{"name": "GTX 1650", "type": "CUDA", "id": "gpu"}])
+        self.assertFalse(cpu.use)
+        self.assertTrue(card.use)
+        self.assertEqual(self.bpy.context.scene.cycles.device, "GPU")
+        self.assertIsNone(result["fallback"])
+
+    def test_backend_only_request_means_explicit_gpu(self):
+        cpu, card, _ = self.cycles_devices()
+        result = self.commands("blender.render.settings", {"backend": "CUDA"})
+        self.assertEqual(result["device"], "GPU")
+        self.assertTrue(card.use)
+        self.assertFalse(cpu.use)
+
+    def test_both_enables_cpu_and_gpu(self):
+        cpu, card, _ = self.cycles_devices()
+        result = self.commands("blender.render.settings", {"device": "BOTH"})
+        self.assertEqual(result["device"], "BOTH")
+        self.assertTrue(cpu.use and card.use)
+        self.assertEqual([item["type"] for item in result["devices"]], ["CPU", "CUDA"])
+
+    def test_auto_fallback_is_reported_and_backend_restored(self):
+        _, _, preferences = self.cycles_devices(gpu=False)
+        result = self.commands("blender.render.settings", {"device": "AUTO"})
+        self.assertEqual(result["device"], "CPU")
+        self.assertEqual(result["devices"], [])
+        self.assertIn("no compatible GPU", result["fallback"])
+        self.assertEqual(preferences.compute_device_type, "NONE")
+
+    def test_explicit_gpu_does_not_silently_fall_back(self):
+        _, _, preferences = self.cycles_devices(gpu=False)
+        self.bpy.context.scene.cycles.device = "CPU"
+        with self.assertRaises(CommandError) as caught:
+            self.commands("blender.render.settings", {"device": "GPU", "backend": "CUDA"})
+        self.assertEqual(caught.exception.code, "Unsupported")
+        self.assertEqual(preferences.compute_device_type, "NONE")
+        self.assertEqual(self.bpy.context.scene.cycles.device, "CPU")
+
+    def test_explicit_unavailable_backend_does_not_switch_to_cuda(self):
+        _, _, preferences = self.cycles_devices()
+        with self.assertRaises(CommandError) as caught:
+            self.commands("blender.render.settings", {"device": "GPU", "backend": "OPTIX"})
+        self.assertEqual(caught.exception.code, "Unsupported")
+        self.assertEqual(preferences.compute_device_type, "NONE")
+
+    def test_auto_backend_uses_optix_only_when_cuda_is_absent(self):
+        cpu, card, preferences = self.cycles_devices()
+        card.type = "OPTIX"
+        result = self.commands("blender.render.settings", {"device": "GPU", "backend": "AUTO"})
+        self.assertEqual(result["backend"], "OPTIX")
+        self.assertTrue(card.use)
+        self.assertFalse(cpu.use)
+
+    def test_cpu_requires_no_gpu_preferences(self):
+        result = self.commands("blender.render.settings", {"device": "CPU"})
+        self.assertEqual(result["device"], "CPU")
+        self.assertIsNone(result["backend"])
+
+    def test_omitting_device_and_backend_preserves_existing_selection(self):
+        cpu, card, preferences = self.cycles_devices()
+        self.bpy.context.scene.cycles.device = "CPU"
+        result = self.commands("blender.render.settings", {"samples": 8, "width": 1920, "height": 828})
+        self.assertEqual(result, {"changed": True, "engine": "CYCLES"})
+        self.assertEqual(preferences.compute_device_type, "NONE")
+        self.assertEqual(self.bpy.context.scene.cycles.device, "CPU")
+        self.assertTrue(cpu.use)
+        self.assertFalse(card.use)
+
+    def test_gpu_rejects_eevee_before_changing_engine_or_size(self):
+        with self.assertRaises(CommandError):
+            self.commands("blender.render.settings", {"engine": "BLENDER_EEVEE_NEXT", "device": "GPU", "width": 1920})
+        self.assertEqual(self.bpy.context.scene.render.engine, "CYCLES")
+        self.assertEqual(self.bpy.context.scene.render.resolution_x, 64)
+
+    def test_cpu_backend_is_rejected_before_changing_size(self):
+        with self.assertRaises(CommandError) as caught:
+            self.commands("blender.render.settings", {"device": "CPU", "backend": "CUDA", "width": 1920})
+        self.assertEqual(caught.exception.code, "InvalidArgument")
+        self.assertEqual(self.bpy.context.scene.render.resolution_x, 64)
+
+    def test_gpu_output_budget_rejects_more_than_64_devices(self):
+        cpu, card, preferences = self.cycles_devices()
+        preferences.devices = [cpu] + [types.SimpleNamespace(name="GPU", type="CUDA", id=str(i), use=False) for i in range(64)]
+        with self.assertRaises(CommandError) as caught:
+            self.commands("blender.render.settings", {"device": "GPU"})
+        self.assertEqual(caught.exception.code, "ResourceExhausted")
+        self.assertEqual(preferences.compute_device_type, "NONE")
+        self.assertTrue(cpu.use)
+
+    def test_gpu_output_rejects_long_identity_before_enabling(self):
+        cpu, card, preferences = self.cycles_devices()
+        card.id = "a" * 257
+        with self.assertRaises(CommandError) as caught:
+            self.commands("blender.render.settings", {"device": "GPU"})
+        self.assertEqual(caught.exception.code, "ResourceExhausted")
+        self.assertEqual(preferences.compute_device_type, "NONE")
+        self.assertFalse(card.use)
+        self.assertTrue(cpu.use)
+
+    def test_gpu_inputs_remain_finite_and_preferences_are_not_exposed(self):
+        for args in ({"device": "custom"}, {"backend": "HIP"}, {"device": "GPU", "python": "forbidden"}, {"device": True}):
+            with self.subTest(args=args), self.assertRaises(CommandError) as caught:
+                self.commands("blender.render.settings", args)
+            self.assertEqual(caught.exception.code, "InvalidArgument")
+
     def test_inspect(self):
         self.assertEqual(self.commands("blender.scene.inspect", {})["name"], "Fixture")
 

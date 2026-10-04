@@ -114,6 +114,7 @@ async fn motion_driver_runs_through_real_driver_host_without_network() {
         secrets: vec![],
         tools: vec![],
         network: false,
+        nvidia_gpu: false,
         loopback_port: None,
         resources: DriverResources {
             open_files: 128,
@@ -225,6 +226,7 @@ async fn manifest_requesting_network_is_denied_without_owner_opt_in() {
         secrets: vec![],
         tools: vec![],
         network: true,
+        nvidia_gpu: false,
         loopback_port: None,
         resources: DriverResources::default(),
         request_timeout_ms: 2000,

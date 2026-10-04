@@ -197,6 +197,7 @@ impl Host {
             environment: vec![],
             sealed_tools: vec![],
             network: manifest.network,
+            nvidia_gpu: false,
             limits: None,
         };
         if cancellation.is_cancelled() {

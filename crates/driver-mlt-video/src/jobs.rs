@@ -429,6 +429,21 @@ pub struct PreparedRenderDocument {
     pub frames: u64,
 }
 
+/// Bound native decoder memory only in the newly staged render graph. Semantic
+/// project/save serialization stays unchanged, as do consumer codec settings.
+fn bound_staged_decoder_threads(document: &mut crate::xml::Node) {
+    for producer in document.elements_mut() {
+        if matches!(producer.name.as_str(), "chain" | "producer")
+            && matches!(
+                producer.property("mlt_service").as_deref(),
+                Some("avformat" | "avformat-novalidate")
+            )
+        {
+            producer.set_property("threads", "1");
+        }
+    }
+}
+
 pub fn prepare_render_document(
     mut project: Project,
     sequence_id: &str,
@@ -445,7 +460,9 @@ pub fn prepare_render_document(
     if let Some(height) = profile.height {
         project.profile.height = height;
     }
-    let xml = crate::xml::serialize(&adapters::write_normal_form(&project, Some(staged))?)?;
+    let mut document = adapters::write_normal_form(&project, Some(staged))?;
+    bound_staged_decoder_threads(&mut document);
+    let xml = crate::xml::serialize(&document)?;
     Ok(PreparedRenderDocument {
         xml,
         expected_profile: project.profile,
@@ -755,7 +772,9 @@ fn render_impl<F: FnOnce()>(
     if let Some(height) = profile.height {
         p.profile.height = height;
     }
-    let xml = crate::xml::serialize(&adapters::write_normal_form(&p, Some(&staged))?)?;
+    let mut document = adapters::write_normal_form(&p, Some(&staged))?;
+    bound_staged_decoder_threads(&mut document);
+    let xml = crate::xml::serialize(&document)?;
     let mut f = inputs.create("project.mlt")?;
     f.write_all(xml.as_bytes())?;
     f.sync_all()?;
@@ -811,4 +830,211 @@ fn render_impl<F: FnOnce()>(
     // Publication is the success linearization point. A cancellation arriving after it does not
     // delete a validated final artifact or relabel success as cancelled.
     Ok((artifact, media))
+}
+
+#[cfg(test)]
+mod native_memory_tests {
+    use super::*;
+    use crate::model::{Clip, Profile, Resource, Timeline, Track};
+    use crate::time::FrameRange;
+    use crate::xml::{self, Node};
+
+    fn producer(tag: &str, id: &str, service: &str) -> Node {
+        let mut node = Node::new(tag).attr("id", id).attr("out", 1436);
+        node.set_property("mlt_service", service);
+        node.set_property("resource", "asset-0.mkv");
+        node
+    }
+
+    fn project() -> Project {
+        let mut project = Project::new(Profile::default()).unwrap();
+        project.assets.insert(
+            "a".into(),
+            MediaAsset {
+                id: "a".into(),
+                name: "source".into(),
+                kind: "video".into(),
+                resource: Resource::Scoped {
+                    root: "media".into(),
+                    path: "fixture.mkv".into(),
+                },
+                frames: Some(1437),
+                service: "avformat".into(),
+                original: None,
+                proxy: None,
+                opaque: false,
+            },
+        );
+        let clip = |id: &str, start: u64, end: u64| Clip {
+            id: id.into(),
+            name: id.into(),
+            asset: "a".into(),
+            start,
+            source: FrameRange::new(start, end).unwrap(),
+            effects: vec![],
+            binding: None,
+            speed: (1, 1),
+        };
+        project.sequences[0].tracks.push(Track {
+            id: "video".into(),
+            name: "video".into(),
+            kind: "av".into(),
+            muted: false,
+            hidden: false,
+            lanes: vec![Timeline {
+                id: "lane_video".into(),
+                clips: vec![clip("first", 0, 345), clip("second", 345, 1437)],
+            }],
+            effects: vec![],
+            opaque: false,
+        });
+        project.validate().unwrap();
+        project
+    }
+
+    #[test]
+    fn every_base_and_clone_avformat_decoder_is_single_threaded() {
+        let mut document = Node::new("mlt");
+        for (tag, id, service) in [
+            ("chain", "base", "avformat"),
+            ("chain", "source_first", "avformat"),
+            ("chain", "source_second", "avformat-novalidate"),
+            ("producer", "audio", "avformat"),
+        ] {
+            document.push(producer(tag, id, service));
+        }
+        bound_staged_decoder_threads(&mut document);
+        assert_eq!(document.elements().count(), 4);
+        for node in document.elements() {
+            assert_eq!(node.property("threads").as_deref(), Some("1"));
+        }
+    }
+
+    #[test]
+    fn generators_images_filters_and_consumer_settings_stay_exact() {
+        let mut document = Node::new("mlt");
+        for (tag, id, service) in [
+            ("producer", "color", "color"),
+            ("producer", "image", "pixbuf"),
+            ("chain", "unknown", "avformat-custom"),
+            ("filter", "filter", "avformat"),
+            ("consumer", "consumer", "avformat"),
+        ] {
+            let mut node = producer(tag, id, service);
+            node.set_property("threads", "2");
+            document.push(node);
+        }
+        let before = document.clone();
+        bound_staged_decoder_threads(&mut document);
+        assert_eq!(document, before);
+    }
+
+    #[test]
+    fn explicit_bound_replaces_auto_once_and_is_idempotent() {
+        let mut document = Node::new("mlt");
+        let mut node = producer("chain", "source", "avformat");
+        node.set_property("threads", "0");
+        document.push(node);
+        bound_staged_decoder_threads(&mut document);
+        let once = document.clone();
+        bound_staged_decoder_threads(&mut document);
+        assert_eq!(document, once);
+        let node = document.elements().next().unwrap();
+        assert_eq!(node.property("threads").as_deref(), Some("1"));
+        assert_eq!(
+            node.elements()
+                .filter(|n| n.name == "property" && n.a("name") == Some("threads"))
+                .count(),
+            1
+        );
+        assert_eq!(node.a("out"), Some("1436"));
+        assert_eq!(node.property("resource").as_deref(), Some("asset-0.mkv"));
+    }
+
+    #[test]
+    fn native_stage_preserves_saved_project_all_entries_and1437_clock() {
+        let project = project();
+        let saved = adapters::save(&project).unwrap();
+        let staged = BTreeMap::from([("a".into(), "asset-0.mkv".into())]);
+        let original = adapters::write_normal_form(&project, Some(&staged)).unwrap();
+        let prepared = prepare_render_document(
+            project.clone(),
+            "sequence0",
+            &RenderProfile::get("h264-1080p").unwrap(),
+            &staged,
+        )
+        .unwrap();
+        assert_eq!(prepared.frames, 1437);
+        assert_eq!(
+            (
+                prepared.expected_profile.width,
+                prepared.expected_profile.height
+            ),
+            (1920, 1080)
+        );
+        assert_eq!(prepared.expected_profile.fps, project.profile.fps);
+        assert_eq!(adapters::save(&project).unwrap(), saved);
+        assert!(!saved.contains("name=\"threads\""));
+        let mut actual = xml::parse(prepared.xml.as_bytes()).unwrap();
+        let mut count = 0;
+        for node in actual
+            .elements_mut()
+            .filter(|n| matches!(n.name.as_str(), "chain" | "producer"))
+        {
+            if node.property("mlt_service").as_deref() == Some("avformat") {
+                assert_eq!(node.property("threads").as_deref(), Some("1"));
+                node.children.retain(|c| !matches!(c, xml::Child::Element(n) if n.name == "property" && n.a("name") == Some("threads")));
+                count += 1;
+            }
+        }
+        assert_eq!(count, 3); // one base producer and both independent clip clones
+        let mut expected = original;
+        let profile = expected
+            .elements_mut()
+            .find(|n| n.name == "profile")
+            .unwrap();
+        profile.set("width", 1920);
+        profile.set("height", 1080);
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn decoder_bound_keeps_audio_and720_profiles_and_source_clock() {
+        let project = project();
+        let staged = BTreeMap::from([("a".into(), "asset-0.mkv".into())]);
+        for id in ["h264-720p", "audio-wav", "lossless"] {
+            let profile = RenderProfile::get(id).unwrap();
+            let prepared =
+                prepare_render_document(project.clone(), "sequence0", &profile, &staged).unwrap();
+            assert_eq!(prepared.frames, 1437);
+            assert_eq!(prepared.expected_profile.fps, project.profile.fps);
+            assert_eq!(prepared.expected_profile.audio_channels, 2);
+            assert_eq!(
+                prepared.expected_profile.width,
+                profile.width.unwrap_or(project.profile.width)
+            );
+            assert_eq!(
+                prepared.expected_profile.height,
+                profile.height.unwrap_or(project.profile.height)
+            );
+            let root = xml::parse(prepared.xml.as_bytes()).unwrap();
+            for node in root
+                .elements()
+                .filter(|n| n.property("mlt_service").as_deref() == Some("avformat"))
+            {
+                assert_eq!(node.property("threads").as_deref(), Some("1"));
+            }
+        }
+    }
+
+    #[test]
+    fn missing_staged_asset_and_sequence_still_fail_closed() {
+        let project = project();
+        let profile = RenderProfile::get("h264-1080p").unwrap();
+        assert!(
+            prepare_render_document(project.clone(), "sequence0", &profile, &BTreeMap::new())
+                .is_err()
+        );
+        assert!(prepare_render_document(project, "missing", &profile, &BTreeMap::new()).is_err());
+    }
 }

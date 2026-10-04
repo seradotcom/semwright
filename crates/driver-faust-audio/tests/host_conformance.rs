@@ -389,8 +389,11 @@ async fn broker_sealed_faust_render_has_pcm_provenance_and_no_overwrite() {
             mounts: vec![],
             system_config: vec![],
             dependencies: vec![],
+            nvidia_gpu: false,
+            resources: None,
         }],
         network: false,
+        nvidia_gpu: false,
         loopback_port: None,
         resources: DriverResources {
             open_files: 256,

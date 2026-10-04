@@ -70,7 +70,7 @@ jobs:
       - run: python -m pip install jsonschema PyYAML
       - run: python scripts/verify-source.py
       - run: python -m unittest discover -s tests/python -v
-      - run: node --test tests/js/bridge.test.mjs
+      - run: node --test tests/js/bridge.test.mjs integrations/motion-canvas/runtime/tests/*.test.mjs
       - run: |
           gcc -Wall -Wextra -Werror -O2 tests/native/openat2.c -o "$RUNNER_TEMP/semwright-openat2"
           fixture=$(mktemp -d)

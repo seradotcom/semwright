@@ -18,6 +18,7 @@ fn spec(network: bool) -> SandboxSpec {
         environment: vec![("SEMWRIGHT_FIXTURE".into(), "native".into())],
         sealed_tools: vec![],
         network,
+        nvidia_gpu: false,
         limits: Some(ResourceLimits {
             open_files: 32,
             processes: 8,

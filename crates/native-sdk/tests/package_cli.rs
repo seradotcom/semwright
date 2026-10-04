@@ -62,6 +62,7 @@ fn manifest(root: &Path, version: &str, payload: &[u8]) -> Manifest {
         secrets: vec![],
         tools: vec![],
         network: false,
+        nvidia_gpu: false,
         loopback_port: None,
         resources: DriverResources::default(),
         request_timeout_ms: 5_000,

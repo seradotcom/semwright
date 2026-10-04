@@ -13,7 +13,11 @@ use semwright_mlt_video::{
         MAX_MEDIA_BYTES, MAX_RETAINED_JOBS, State,
     },
     model::Profile,
-    runtime::{MediaInfo, RenderProfile, ServiceCatalog, validate_render_media},
+    runtime::{
+        MediaInfo, NATIVE_DIAGNOSTIC_FILE, NATIVE_DIAGNOSTIC_LIMIT, RenderProfile, ServiceCatalog,
+        VALIDATION_DIAGNOSTIC_FILE, native_failure_filename, raw_video_probe_observation,
+        validate_render_media,
+    },
 };
 use semwright_types::{Error, ErrorCode, Result};
 use serde_json::Value;
@@ -31,6 +35,13 @@ struct HostRenderJob {
     expected_profile: Profile,
     frames: u64,
     output_file: String,
+}
+
+struct HostRenderDiagnostic<'a> {
+    job_id: &'a str,
+    revision: &'a str,
+    scratch_path: &'a std::path::Path,
+    directory: &'a str,
 }
 
 #[derive(Default)]
@@ -454,6 +465,17 @@ impl MltVideoDriver {
         name: &str,
         context: &DriverExecutionContext,
     ) -> Result<MediaInfo> {
+        self.host_probe_staged_observed(directory, name, context)
+            .await
+            .map(|(media, _)| media)
+    }
+
+    async fn host_probe_staged_observed(
+        &self,
+        directory: &str,
+        name: &str,
+        context: &DriverExecutionContext,
+    ) -> Result<(MediaInfo, Vec<u8>)> {
         let output = context
             .execute_runtime_tool_args(
                 "mlt-runner",
@@ -509,7 +531,8 @@ impl MltVideoDriver {
                 },
             ));
         }
-        host_media_info(&output.stdout)
+        let media = host_media_info(&output.stdout)?;
+        Ok((media, output.stdout))
     }
 
     async fn host_probe_for(
@@ -790,8 +813,7 @@ impl MltVideoDriver {
 
     async fn finalize_host_render(
         &self,
-        scratch_path: &std::path::Path,
-        directory: &str,
+        diagnostic: &HostRenderDiagnostic<'_>,
         output_file: &str,
         output_path: &str,
         profile: &RenderProfile,
@@ -799,10 +821,25 @@ impl MltVideoDriver {
         frames: u64,
         context: &DriverExecutionContext,
     ) -> Result<(semwright_mlt_video::fs::Artifact, MediaInfo)> {
-        let media = self
-            .host_probe_staged(directory, output_file, context)
+        let scratch_path = diagnostic.scratch_path;
+        let (media, raw_probe) = self
+            .host_probe_staged_observed(diagnostic.directory, output_file, context)
             .await?;
-        validate_render_media(&media, profile, expected_profile, frames).map_err(map_error)?;
+        if let Err(error) = validate_render_media(&media, profile, expected_profile, frames) {
+            // Evidence is an additional bounded JSON sibling inside the existing output grant.
+            // Failure to retain it must not erase or soften the original validation failure.
+            let _ = self.persist_native_validation_failure(
+                diagnostic,
+                output_path,
+                profile,
+                expected_profile,
+                frames,
+                &media,
+                &raw_probe,
+                &error,
+            );
+            return Err(map_error(error));
+        }
         let source_root = Root::open(scratch_path, true, false).map_err(map_error)?;
         let source = source_root
             .read_file(output_file, MAX_ARTIFACT_BYTES)
@@ -816,6 +853,82 @@ impl MltVideoDriver {
             .publish("output", output_path, source, MAX_ARTIFACT_BYTES)
             .map_err(map_error)?;
         Ok((artifact, media))
+    }
+
+    fn persist_native_validation_failure(
+        &self,
+        diagnostic: &HostRenderDiagnostic<'_>,
+        output_path: &str,
+        profile: &RenderProfile,
+        expected_profile: &Profile,
+        frames: u64,
+        media: &MediaInfo,
+        raw_probe: &[u8],
+        error: &semwright_mlt_video::Error,
+    ) -> Result<()> {
+        let job_id = diagnostic.job_id;
+        let revision = diagnostic.revision;
+        let scratch_path = diagnostic.scratch_path;
+        let directory = diagnostic.directory;
+        let diagnostic_path = native_failure_filename(output_path, job_id).map_err(map_error)?;
+        let source = Root::open(scratch_path, true, true).map_err(map_error)?;
+        let xml = source
+            .read("project.mlt", semwright_mlt_video::xml::MAX_XML)
+            .map_err(map_error)?;
+        let native_bytes = source
+            .read(NATIVE_DIAGNOSTIC_FILE, NATIVE_DIAGNOSTIC_LIMIT)
+            .map_err(map_error)?;
+        let native: Value = serde_json::from_slice(&native_bytes).map_err(|_| {
+            Error::new(
+                ErrorCode::PluginProtocolError,
+                "Native diagnostic JSON differs",
+            )
+        })?;
+        let xml_sha = sha256(&xml);
+        if native.get("schema").and_then(Value::as_u64) != Some(1)
+            || native.get("operation").and_then(Value::as_str)
+                != Some("mlt-native-render-observation")
+            || native.get("project_xml_sha256").and_then(Value::as_str) != Some(xml_sha.as_str())
+        {
+            return Err(Error::new(
+                ErrorCode::PluginProtocolError,
+                "Native diagnostic staged XML binding differs",
+            ));
+        }
+        let value = serde_json::json!({
+            "schema":1,"operation":"mlt-native-validation-failure","job_id":job_id,
+            "revision":revision,"directory":directory,"output":output_path,"profile":profile.id,
+            "expected_frames":frames,"expected_profile":from_internal(expected_profile.json())?,
+            "observed_media":from_internal(media.json())?,
+            "raw_probe":raw_video_probe_observation(raw_probe).map_err(map_error)?,
+            "staged_xml":{"sha256":xml_sha,"bytes":xml.len()},
+            "native_render_receipt_sha256":sha256(&native_bytes),"native_render":native,
+            "validation_error":{"code":error.code,"message":error.message,"outcome_known":error.outcome_known},
+            "video_artifact_published":false,
+            "scope":"local bounded forensic evidence; raw logs never enter the public JobSnapshot or audit"
+        });
+        let bytes = serde_json::to_vec(&value)?;
+        if bytes.len() > NATIVE_DIAGNOSTIC_LIMIT {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Native failure diagnostic exceeds bounds",
+            ));
+        }
+        source
+            .write_new("scratch", VALIDATION_DIAGNOSTIC_FILE, &bytes)
+            .map_err(map_error)?;
+        self.app
+            .roots
+            .get("output")
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorCode::Unavailable,
+                    "Diagnostic output mount disappeared",
+                )
+            })?
+            .write_new("output", &diagnostic_path, &bytes)
+            .map_err(map_error)?;
+        Ok(())
     }
 
     async fn update_host_render(
@@ -912,8 +1025,12 @@ impl MltVideoDriver {
                 let finalized = match terminal {
                     Ok(()) => {
                         self.finalize_host_render(
-                            &scratch_path,
-                            &directory,
+                            &HostRenderDiagnostic {
+                                job_id: &next.id,
+                                revision: &next.revision,
+                                scratch_path: &scratch_path,
+                                directory: &directory,
+                            },
                             &output_file,
                             &next.output,
                             &profile,

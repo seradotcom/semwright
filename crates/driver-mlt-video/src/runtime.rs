@@ -28,6 +28,118 @@ use std::{
 };
 const RETAIN_LOG: usize = 16_384;
 const TOTAL_LOG: usize = 262_144;
+pub const NATIVE_DIAGNOSTIC_FILE: &str = "native-render-diagnostic.json";
+pub const VALIDATION_DIAGNOSTIC_FILE: &str = "native-validation-diagnostic.json";
+pub const NATIVE_DIAGNOSTIC_LIMIT: usize = 65_536;
+
+/// Raw native logs belong only to a bounded local receipt, never a public envelope.
+pub fn native_render_diagnostic(
+    project: &[u8],
+    args: &[OsString],
+    result: &ProcessResult,
+) -> Result<Vec<u8>> {
+    if project.len() > crate::xml::MAX_XML || args.len() > 32 {
+        return Err(Error::limit("Native diagnostic input exceeds bounds"));
+    }
+    let argv = args
+        .iter()
+        .map(|arg| {
+            arg.to_str()
+                .filter(|arg| arg.len() <= 4096)
+                .map(str::to_owned)
+                .ok_or_else(|| Error::invalid("Native diagnostic argv differs"))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let hex = |bytes: &[u8], maximum: usize| {
+        bytes
+            .iter()
+            .take(maximum)
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>()
+    };
+    let value = serde_json::json!({
+        "schema":1,"operation":"mlt-native-render-observation",
+        "project_xml_sha256":crate::hash::sha256(project),"project_xml_bytes":project.len(),
+        "argv":argv,"exit_code":result.exit_code,"term_signal":result.term_signal,
+        "cancelled":result.cancelled,"timed_out":result.timed_out,"output_exceeded":result.output_exceeded,
+        "stdout_encoding":"hex","stdout_hex":hex(&result.stdout,4096),
+        "stderr_encoding":"hex","stderr_hex":hex(&result.stderr,16384),
+        "stdout_retained_bytes":result.stdout.len(),"stderr_retained_bytes":result.stderr.len(),
+        "stdout_diagnostic_truncated":result.stdout.len()>4096,
+        "stderr_diagnostic_truncated":result.stderr.len()>16384,
+        "capture_scope":"runtime capture retains prefixes; this local receipt is not video validation or publication"
+    });
+    let bytes = serde_json::to_vec(&value)
+        .map_err(|_| Error::invalid("Native diagnostic serialization failed"))?;
+    if bytes.len() > NATIVE_DIAGNOSTIC_LIMIT {
+        return Err(Error::limit("Native diagnostic receipt exceeds bounds"));
+    }
+    Ok(bytes)
+}
+
+pub fn native_failure_filename(output: &str, job: &str) -> Result<String> {
+    crate::fs::validate_relative(output)?;
+    let hex = job
+        .strip_prefix("render:")
+        .ok_or_else(|| Error::invalid("Native diagnostic job identity differs"))?;
+    if hex.len() != 32
+        || !hex
+            .bytes()
+            .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
+    {
+        return Err(Error::invalid("Native diagnostic job identity differs"));
+    }
+    let name = format!("{output}.native-failure-{hex}.json");
+    crate::fs::validate_relative(&name)?;
+    Ok(name)
+}
+
+/// Retain exact scalar fields from the first video stream, independent of audio packets.
+pub fn raw_video_probe_observation(bytes: &[u8]) -> Result<serde_json::Value> {
+    if bytes.len() > 262_144 {
+        return Err(Error::limit("Native probe diagnostic exceeds bounds"));
+    }
+    let value: serde_json::Value = serde_json::from_slice(bytes)
+        .map_err(|_| Error::invalid("Native probe diagnostic is malformed"))?;
+    if value.get("schema").and_then(|v| v.as_u64()) != Some(1)
+        || value.get("operation").and_then(|v| v.as_str()) != Some("probe")
+    {
+        return Err(Error::invalid("Native probe diagnostic envelope differs"));
+    }
+    let media = value
+        .get("media")
+        .ok_or_else(|| Error::invalid("Native probe media absent"))?;
+    let streams = media
+        .get("streams")
+        .and_then(|v| v.as_array())
+        .filter(|v| !v.is_empty() && v.len() <= 16)
+        .ok_or_else(|| Error::invalid("Native probe streams differ"))?;
+    let video = streams
+        .iter()
+        .find(|s| s.get("codec_type").and_then(|v| v.as_str()) == Some("video"))
+        .ok_or_else(|| Error::invalid("Native probe video absent"))?;
+    let select = |object: &serde_json::Value, fields: &[&str]| -> Result<serde_json::Value> {
+        let mut out = serde_json::Map::new();
+        for field in fields {
+            if let Some(v) = object.get(*field) {
+                if v.is_array() || v.is_object() || v.as_str().is_some_and(|s| s.len() > 512) {
+                    return Err(Error::limit(
+                        "Native probe diagnostic scalar exceeds bounds",
+                    ));
+                }
+                out.insert((*field).to_owned(), v.clone());
+            }
+        }
+        Ok(serde_json::Value::Object(out))
+    };
+    Ok(serde_json::json!({
+        "raw_probe_sha256":crate::hash::sha256(bytes),"raw_probe_bytes":bytes.len(),
+        "first_video_stream":select(video,&["codec_type","codec_name","width","height","nb_frames",
+            "r_frame_rate","avg_frame_rate","duration","duration_ts","time_base","start_time","start_pts","pix_fmt"] )?,
+        "format":select(media.get("format").unwrap_or(&serde_json::Value::Null),
+            &["duration","start_time","size","format_name","format_long_name"] )?
+    }))
+}
 #[repr(C)]
 struct Limit {
     current: u64,
@@ -1250,6 +1362,118 @@ fn render_processing_args(profile: &RenderProfile) -> Vec<OsString> {
         vec!["real_time=0".into(), "threads=2".into()]
     } else {
         vec!["real_time=-1".into(), "threads=2".into()]
+    }
+}
+
+#[cfg(test)]
+mod native_diagnostic_tests {
+    use super::*;
+
+    fn process() -> ProcessResult {
+        ProcessResult {
+            exit_code: Some(0),
+            term_signal: None,
+            stdout: vec![0, 255, 10],
+            stderr: vec![b'x'; 20000],
+            cancelled: false,
+            timed_out: false,
+            output_exceeded: false,
+        }
+    }
+    fn probe() -> serde_json::Value {
+        serde_json::json!({"schema":1,"operation":"probe","media":{
+            "streams":[{"codec_type":"audio","nb_frames":"2695"},
+                {"codec_type":"video","nb_frames":"1345","avg_frame_rate":"25/1",
+                 "r_frame_rate":"25/1","duration":"53.800000","duration_ts":688640,
+                 "time_base":"1/12800","start_time":"0.000000","start_pts":0}],
+            "format":{"duration":"53.800000","size":"1234"}}})
+    }
+
+    #[test]
+    fn logs_are_lossless_hex_and_bounded_local_receipt() {
+        let bytes =
+            native_render_diagnostic(b"<mlt/>", &["project.mlt".into()], &process()).unwrap();
+        let value: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert!(bytes.len() <= NATIVE_DIAGNOSTIC_LIMIT);
+        assert_eq!(value["stdout_hex"], "00ff0a");
+        assert_eq!(value["stderr_hex"].as_str().unwrap().len(), 32768);
+        assert_eq!(value["stderr_retained_bytes"], 20000);
+        assert_eq!(value["stderr_diagnostic_truncated"], true);
+        assert_eq!(value["project_xml_sha256"], crate::hash::sha256(b"<mlt/>"));
+    }
+
+    #[test]
+    fn diagnostic_argv_and_xml_caps_fail_closed() {
+        assert!(native_render_diagnostic(b"x", &vec!["a".into(); 33], &process()).is_err());
+        assert!(native_render_diagnostic(b"x", &["a".repeat(4097).into()], &process()).is_err());
+        assert!(
+            native_render_diagnostic(&vec![0; crate::xml::MAX_XML + 1], &[], &process()).is_err()
+        );
+    }
+
+    #[test]
+    fn failure_filename_requires_scoped_output_and_exact_job() {
+        let job = "render:0123456789abcdef0123456789abcdef";
+        assert_eq!(
+            native_failure_filename("output/master.mp4", job).unwrap(),
+            "output/master.mp4.native-failure-0123456789abcdef0123456789abcdef.json"
+        );
+        for output in [
+            "/tmp/foreign.mp4",
+            "../foreign.mp4",
+            "output/../foreign.mp4",
+        ] {
+            assert!(native_failure_filename(output, job).is_err());
+        }
+        for bad in [
+            "0123456789abcdef0123456789abcdef",
+            "render:../foreign",
+            "render:ABCDEF0123456789abcdef0123456789a",
+        ] {
+            assert!(native_failure_filename("output/master.mp4", bad).is_err());
+        }
+    }
+
+    #[test]
+    fn raw_probe_selects_video_and_preserves_clock_without_audio_packet_confusion() {
+        let bytes = serde_json::to_vec(&probe()).unwrap();
+        let value = raw_video_probe_observation(&bytes).unwrap();
+        assert_eq!(value["first_video_stream"]["nb_frames"], "1345");
+        assert_eq!(value["first_video_stream"]["avg_frame_rate"], "25/1");
+        assert_eq!(value["first_video_stream"]["r_frame_rate"], "25/1");
+        assert_eq!(value["first_video_stream"]["duration"], "53.800000");
+        assert_eq!(value["first_video_stream"]["start_pts"], 0);
+        assert_eq!(value["raw_probe_sha256"], crate::hash::sha256(&bytes));
+    }
+
+    #[test]
+    fn raw_probe_envelope_streams_and_scalars_are_bounded() {
+        for value in [
+            serde_json::json!({}),
+            serde_json::json!({"schema":1,"operation":"probe","media":{"streams":[]}}),
+        ] {
+            assert!(raw_video_probe_observation(&serde_json::to_vec(&value).unwrap()).is_err());
+        }
+        let mut value = probe();
+        value["media"]["streams"][1]["duration"] = serde_json::json!("x".repeat(513));
+        assert!(raw_video_probe_observation(&serde_json::to_vec(&value).unwrap()).is_err());
+        assert!(raw_video_probe_observation(&vec![0; 262145]).is_err());
+    }
+
+    #[test]
+    fn local_receipt_write_is_single_link_0600_and_never_replaces() {
+        let scratch = crate::fs::PrivateDir::new(Path::new("/tmp")).unwrap();
+        let root = crate::fs::Root::open(scratch.path(), true, true).unwrap();
+        root.write_new("scratch", NATIVE_DIAGNOSTIC_FILE, b"{}")
+            .unwrap();
+        assert!(
+            root.write_new("scratch", NATIVE_DIAGNOSTIC_FILE, b"changed")
+                .is_err()
+        );
+        let metadata = std::fs::metadata(scratch.path().join(NATIVE_DIAGNOSTIC_FILE)).unwrap();
+        assert_eq!(metadata.mode() & 0o777, 0o600);
+        assert_eq!(metadata.nlink(), 1);
+        assert_eq!(root.read(NATIVE_DIAGNOSTIC_FILE, 2).unwrap(), b"{}");
     }
 }
 

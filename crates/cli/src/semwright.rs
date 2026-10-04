@@ -294,6 +294,7 @@ fn driver_view(manifest: &DriverManifest) -> Result<serde_json::Value> {
         "executable": manifest.executable,
         "sha256": manifest.sha256,
         "network": manifest.network,
+        "nvidia_gpu": manifest.nvidia_gpu,
         "loopback_port": manifest.loopback_port,
         "mounts": manifest.mounts,
         "system_config": manifest.system_config,

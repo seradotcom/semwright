@@ -55,3 +55,32 @@ operations against mocked bpy objects. **No Blender binary or GUI was run.** The
 bridge was not compiled. Disable the add-on in preferences before uninstalling its folder;
 its unregister handler stops the host and removes its socket. Keep project files. Never
 remove a live socket owned by an unrelated process to force startup.
+
+## Finite Cycles compute selection
+
+`blender.render.settings` and the deep-driver equivalent
+`driver.blender.render.settings` accept `device` (`CPU`, `GPU`, `BOTH`, `AUTO`) and
+`backend` (`AUTO`, `CUDA`, `OPTIX`). Omitting both preserves the current selection.
+Supplying only `backend` requests GPU explicitly. CPU requires backend `AUTO`.
+Device selection is supported only for Cycles.
+
+Explicit `GPU` and `BOTH` report `Unsupported` when the requested GPU backend has no
+compatible device. They do not fall back to CPU. `AUTO` tries CUDA, then OptiX,
+and may select CPU with an explicit `fallback` reason. An explicit backend is
+never replaced by another backend. `BOTH` enables CPU and GPU; measure it against
+GPU alone before choosing it for production.
+
+The result reports the selected device, actual backend and exact enabled device
+names, types and IDs. At most 64 devices with names/IDs of at most 256 characters
+are accepted; identities are never silently truncated. A GPU selection verifies
+the backend and enabled flags by reading them back. These settings affect only
+the current Blender process and never save global preferences. No general
+preferences or Python execution interface is added.
+
+```json
+{"engine":"CYCLES","device":"GPU","backend":"CUDA"}
+```
+
+The sandboxed deep driver additionally requires owner-approved GPU authority in
+its daemon, manifest and session-runner tool contract. Host hardware detection or
+mocked adapter tests alone do not certify native GPU rendering.

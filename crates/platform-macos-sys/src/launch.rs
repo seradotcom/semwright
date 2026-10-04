@@ -145,6 +145,7 @@ mod tests {
             environment: vec![],
             sealed_tools: vec![],
             network: false,
+            nvidia_gpu: false,
             limits: Some(semwright_platform_api::launch::ResourceLimits {
                 open_files: 64,
                 processes: 16,

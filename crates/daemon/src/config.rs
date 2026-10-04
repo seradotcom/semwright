@@ -35,6 +35,9 @@ pub struct Config {
     pub drivers: Vec<PathBuf>,
     #[serde(default)]
     pub driver_network: bool,
+    /// Owner opt-in; manifests cannot grant NVIDIA device authority on their own.
+    #[serde(default)]
+    pub driver_nvidia_gpu: bool,
     #[serde(default)]
     pub plugin_network: bool,
     #[serde(default)]
@@ -61,6 +64,7 @@ impl Default for Config {
             plugins: vec![],
             drivers: vec![],
             driver_network: false,
+            driver_nvidia_gpu: false,
             plugin_network: false,
             mcp_network: false,
             audit_max_bytes: audit_bytes(),
@@ -305,5 +309,17 @@ trust_driver_everything = true
             write: true,
         });
         assert!(confine_grants(&c, &[private]).is_err());
+    }
+
+    #[test]
+    fn nvidia_compute_owner_gate_defaults_closed_and_requires_explicit_opt_in() {
+        assert!(!Config::default().driver_nvidia_gpu);
+        let baseline: Config = toml::from_str("").unwrap();
+        assert!(!baseline.driver_nvidia_gpu);
+        let opted_in: Config = toml::from_str("driver_nvidia_gpu = true").unwrap();
+        assert!(opted_in.driver_nvidia_gpu);
+        assert!(!opted_in.driver_network);
+        assert!(!opted_in.plugin_network);
+        assert!(!opted_in.mcp_network);
     }
 }

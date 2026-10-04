@@ -1434,6 +1434,36 @@ fn decode_bridge_response(bytes: &[u8]) -> Result<Value> {
                         "Blender error response is malformed",
                     )
                 })?;
+            if error.get("code").and_then(Value::as_str) == Some("NativeTransportFailed") {
+                if error.len() == 1 {
+                    return Err(Error::new(
+                        ErrorCode::BackendFailed,
+                        "Native Blender transport failed; local diagnostics unavailable",
+                    )
+                    .uncertain());
+                }
+                let diagnostic = if error.len() == 2 {
+                    error.get("diagnostic").cloned().and_then(|v| {
+                        serde_json::from_value::<semwright_types::NativeDiagnostic>(v).ok()
+                    })
+                } else {
+                    None
+                };
+                let diagnostic = diagnostic.filter(|d| d.is_valid()).ok_or_else(|| {
+                    Error::new(
+                        ErrorCode::ProtocolMismatch,
+                        "Invalid native failure diagnostic",
+                    )
+                    .uncertain()
+                })?;
+                let mut failure = Error::new(
+                    ErrorCode::BackendFailed,
+                    "Native Blender transport failed; bounded diagnostic retained",
+                )
+                .uncertain();
+                failure.native_diagnostic = Some(Box::new(diagnostic));
+                return Err(failure);
+            }
             if error.len() != 1 {
                 return Err(Error::new(
                     ErrorCode::ProtocolMismatch,
@@ -1917,6 +1947,37 @@ mod tests {
             capability.descriptor.name.contains("python")
                 || capability.descriptor.name.ends_with("operator.invoke")
         }));
+    }
+
+    #[test]
+    fn cycles_device_selection_has_finite_inputs_and_bounded_output() {
+        let capability = curated_capabilities()
+            .unwrap()
+            .into_iter()
+            .find(|row| row.descriptor.name == "driver.blender.render.settings")
+            .unwrap();
+        let input = &capability.descriptor.input_schema;
+        assert_eq!(
+            input["properties"]["device"]["enum"],
+            json!(["CPU", "GPU", "BOTH", "AUTO"])
+        );
+        assert_eq!(
+            input["properties"]["backend"]["enum"],
+            json!(["AUTO", "CUDA", "OPTIX"])
+        );
+        assert_eq!(input["additionalProperties"], false);
+        let output = &capability.descriptor.output_schema;
+        assert_eq!(output["additionalProperties"], false);
+        assert_eq!(output["properties"]["devices"]["maxItems"], 64);
+        assert_eq!(
+            output["properties"]["devices"]["items"]["additionalProperties"],
+            false
+        );
+        assert_eq!(
+            output["properties"]["devices"]["items"]["properties"]["id"]["maxLength"],
+            256
+        );
+        assert_eq!(output["properties"]["fallback"]["maxLength"], 1024);
     }
 
     #[test]

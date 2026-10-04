@@ -371,6 +371,8 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
                 ],
                 system_config: vec![],
                 dependencies: vec!["melt".into(), "ffprobe".into(), "ffmpeg".into()],
+                nvidia_gpu: false,
+                resources: None,
             },
             DriverToolMount {
                 root: "melt-root".into(),
@@ -379,6 +381,8 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
                 mounts: vec![],
                 system_config: vec![],
                 dependencies: vec![],
+                nvidia_gpu: false,
+                resources: None,
             },
             DriverToolMount {
                 root: "ffprobe-root".into(),
@@ -387,6 +391,8 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
                 mounts: vec![],
                 system_config: vec![],
                 dependencies: vec![],
+                nvidia_gpu: false,
+                resources: None,
             },
             DriverToolMount {
                 root: "ffmpeg-root".into(),
@@ -395,9 +401,12 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
                 mounts: vec![],
                 system_config: vec![],
                 dependencies: vec![],
+                nvidia_gpu: false,
+                resources: None,
             },
         ],
         network: false,
+        nvidia_gpu: false,
         loopback_port: None,
         // Match the launch-film production sandbox budget. These are ceilings,
         // not reservations: H.264/MLT can require materially more virtual address

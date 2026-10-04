@@ -126,6 +126,8 @@ async fn real_libreoffice_driver_runs_inside_sandbox() {
                 mounts: vec!["workspace".into(), "libreoffice-runtime".into()],
                 system_config: vec!["libreoffice-config".into(), "font-config".into()],
                 dependencies: vec!["soffice-bin".into(), "python3".into()],
+                nvidia_gpu: false,
+                resources: None,
             },
             DriverToolMount {
                 root: "libreoffice-soffice-tool".into(),
@@ -134,6 +136,8 @@ async fn real_libreoffice_driver_runs_inside_sandbox() {
                 mounts: vec![],
                 system_config: vec![],
                 dependencies: vec![],
+                nvidia_gpu: false,
+                resources: None,
             },
             DriverToolMount {
                 root: "libreoffice-python-tool".into(),
@@ -142,9 +146,12 @@ async fn real_libreoffice_driver_runs_inside_sandbox() {
                 mounts: vec![],
                 system_config: vec![],
                 dependencies: vec![],
+                nvidia_gpu: false,
+                resources: None,
             },
         ],
         network: false,
+        nvidia_gpu: false,
         loopback_port: None,
         resources: DriverResources {
             address_space_bytes: 2_147_483_648,

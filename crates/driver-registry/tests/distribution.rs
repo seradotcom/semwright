@@ -39,6 +39,7 @@ fn fake_manifest(root: &Path, version: &str, supported: Vec<String>) -> Manifest
         secrets: vec![],
         tools: vec![],
         network: false,
+        nvidia_gpu: false,
         loopback_port: None,
         resources: DriverResources::default(),
         request_timeout_ms: 5_000,

@@ -12,7 +12,7 @@ use std::{
     io::Read,
     os::{
         fd::{AsRawFd, FromRawFd, OwnedFd},
-        unix::fs::{MetadataExt, OpenOptionsExt},
+        unix::fs::{FileTypeExt, MetadataExt, OpenOptionsExt},
     },
     path::Path,
     process::Stdio,
@@ -25,6 +25,47 @@ const MAX_SEALED_TOOL_EXECUTABLE_BYTES: u64 = 256 * 1024 * 1024;
 const MAX_APPLICATION_EXECUTABLE_BYTES: u64 = 512 * 1024 * 1024;
 const SANDBOX_BWRAP_INFO_FD_ENV: &str = "SEMWRIGHT_INTERNAL_BWRAP_INFO_FD";
 const MAX_BWRAP_INFO_BYTES: usize = 16 * 1024;
+const NVIDIA_PROC_PATH: &str = "/proc/driver/nvidia";
+
+fn is_root_owned_character_device(metadata: &std::fs::Metadata) -> bool {
+    metadata.file_type().is_char_device() && metadata.uid() == 0
+}
+
+fn validated_nvidia_compute_sources() -> Result<(Vec<(&'static str, std::fs::File)>, std::fs::File)>
+{
+    use semwright_platform_api::launch::NVIDIA_COMPUTE_DEVICE_PATHS;
+    let mut sources = Vec::new();
+    for (index, path) in NVIDIA_COMPUTE_DEVICE_PATHS.iter().enumerate() {
+        let opened = std::fs::OpenOptions::new()
+            .read(true)
+            .custom_flags(libc::O_PATH | libc::O_NOFOLLOW | libc::O_CLOEXEC)
+            .open(path);
+        match opened {
+            Ok(file) if is_root_owned_character_device(&file.metadata()?) => {
+                sources.push((*path, file))
+            }
+            Err(error) if index == 3 && error.kind() == std::io::ErrorKind::NotFound => {}
+            _ => {
+                return Err(Error::new(
+                    ErrorCode::SandboxDenied,
+                    "NVIDIA compute requires fixed root-owned character device nodes without symlinks",
+                ));
+            }
+        }
+    }
+    let proc = std::fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_PATH | libc::O_NOFOLLOW | libc::O_CLOEXEC)
+        .open(NVIDIA_PROC_PATH)?;
+    let metadata = proc.metadata()?;
+    if !metadata.is_dir() || metadata.file_type().is_symlink() || metadata.uid() != 0 {
+        return Err(Error::new(
+            ErrorCode::SandboxDenied,
+            "NVIDIA compute proc metadata must be a root-owned directory",
+        ));
+    }
+    Ok((sources, proc))
+}
 const BWRAP_INFO_TIMEOUT: Duration = Duration::from_secs(5);
 
 fn parse_bwrap_child_pid(bytes: &[u8]) -> Result<u32> {
@@ -508,6 +549,38 @@ impl SandboxLauncher for LinuxSandbox {
             "--dir",
             "/run/secrets",
         ]);
+        if s.nvidia_gpu {
+            let (nodes, proc) = validated_nvidia_compute_sources()?;
+            let mut pinned_sources = Vec::new();
+            for (path, file) in nodes {
+                p.arg("--dev-bind")
+                    .arg(format!("/proc/self/fd/{}", file.as_raw_fd()))
+                    .arg(path);
+                pinned_sources.push(file);
+            }
+            p.arg("--ro-bind")
+                .arg(format!("/proc/self/fd/{}", proc.as_raw_fd()))
+                .arg(NVIDIA_PROC_PATH);
+            pinned_sources.push(proc);
+            // Hold O_PATH|O_NOFOLLOW descriptors through exec, so namespace construction
+            // binds the verified inode rather than reopening a mutable HOST path.
+            // SAFETY: pre_exec only applies fcntl to live owned descriptors, with no allocation.
+            unsafe {
+                p.pre_exec(move || {
+                    for file in &pinned_sources {
+                        if libc::fcntl(file.as_raw_fd(), libc::F_SETFD, 0) != 0 {
+                            return Err(std::io::Error::last_os_error());
+                        }
+                    }
+                    Ok(())
+                });
+            }
+            p.args([
+                "--setenv",
+                semwright_platform_api::launch::NVIDIA_GPU_ENV,
+                "1",
+            ]);
+        }
         for r in ["/usr", "/lib", "/lib64"] {
             if Path::new(r).exists() {
                 p.args(["--ro-bind", r, r]);
@@ -564,6 +637,13 @@ impl SandboxLauncher for LinuxSandbox {
             .arg(&s.staged_executable)
             .arg("/plugin/bin");
         p.arg("--ro-bind").arg(&s.helper).arg("/plugin/sandbox");
+        if s.nvidia_gpu {
+            // The same trusted helper installs the final policy in Blender's
+            // own PID, before exec, so future CUDA threads remain in its scope.
+            p.arg("--ro-bind")
+                .arg(&s.helper)
+                .arg("/plugin/gpu-native-helper");
+        }
         for m in s.mounts.iter().filter(|m| m.class == MountClass::Workspace) {
             let destination = materialized_destination(m)?;
             p.arg(if m.read_only { "--ro-bind" } else { "--bind" })
@@ -682,6 +762,9 @@ impl SandboxLauncher for LinuxSandbox {
         p.arg("--chdir")
             .arg(&sandbox_cwd)
             .args(["--", "/plugin/sandbox"]);
+        if s.nvidia_gpu {
+            p.arg("--nvidia-gpu");
+        }
         if let Some(l) = &s.limits {
             for (flag, n) in [
                 ("--limit-nofile", l.open_files),
@@ -878,5 +961,36 @@ mod tests {
         assert_eq!(MAX_PROVIDER_EXECUTABLE_BYTES, 64 * 1024 * 1024);
         assert_eq!(MAX_SEALED_TOOL_EXECUTABLE_BYTES, 256 * 1024 * 1024);
         assert_eq!(MAX_APPLICATION_EXECUTABLE_BYTES, 512 * 1024 * 1024);
+    }
+
+    #[test]
+    fn nvidia_compute_nodes_cannot_be_regular_files_symlinks_or_display_grants() {
+        use std::os::unix::fs::symlink;
+        let directory = tempfile::tempdir().unwrap();
+        let file = directory.path().join("nvidia0");
+        std::fs::write(&file, b"fake device").unwrap();
+        let link = directory.path().join("nvidiactl");
+        symlink("/dev/null", &link).unwrap();
+        assert!(!is_root_owned_character_device(
+            &std::fs::symlink_metadata(file).unwrap()
+        ));
+        assert!(!is_root_owned_character_device(
+            &std::fs::symlink_metadata(link).unwrap()
+        ));
+        let paths = semwright_platform_api::launch::NVIDIA_COMPUTE_DEVICE_PATHS;
+        assert_eq!(
+            paths,
+            [
+                "/dev/nvidia0",
+                "/dev/nvidiactl",
+                "/dev/nvidia-uvm",
+                "/dev/nvidia-uvm-tools"
+            ]
+        );
+        assert!(
+            paths
+                .iter()
+                .all(|path| !path.contains("dri") && !path.contains("modeset") && *path != "/dev")
+        );
     }
 }

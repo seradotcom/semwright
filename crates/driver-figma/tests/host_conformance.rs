@@ -120,6 +120,7 @@ fn manifest(executable: PathBuf) -> Manifest {
         secrets: vec![],
         tools: vec![],
         network: true,
+        nvidia_gpu: false,
         loopback_port: None,
         resources: DriverResources {
             cpu_seconds: 60,

@@ -1,9 +1,11 @@
 //! Stable, transport-independent domain model. No operating-system side effects.
 pub mod event;
 pub mod job;
+pub mod native_diagnostic;
 pub mod provider;
 pub use event::{EventEnvelope, semantic_ui_event};
 pub use job::{JobArtifact, JobProgress, JobSnapshot, JobState};
+pub use native_diagnostic::{NativeDiagnostic, NativeFailurePhase, NativeFailureReason};
 pub use provider::{InvocationProvenance, ProviderIdentity, SourceKind};
 use regex::RegexBuilder;
 use schemars::JsonSchema;
@@ -51,6 +53,9 @@ pub struct Error {
     pub outcome_known: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub progress: Option<RecipeProgress>,
+    /// Optional compatibility extension: untrusted bounded data, no raw log text.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub native_diagnostic: Option<Box<NativeDiagnostic>>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 pub struct RecipeProgress {
@@ -66,6 +71,7 @@ impl Error {
             candidates: vec![],
             outcome_known: true,
             progress: None,
+            native_diagnostic: None,
         }
     }
     pub fn invalid(message: impl Into<String>) -> Self {
