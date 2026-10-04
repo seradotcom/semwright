@@ -15,7 +15,7 @@ use std::{
 use tokio_util::sync::CancellationToken;
 
 fn digest(path: &Path) -> String {
-    format!("{:x}", Sha256::digest(std::fs::read(path).unwrap()))
+    hex::encode(Sha256::digest(std::fs::read(path).unwrap()))
 }
 fn fixture() -> Project {
     let mut p = Project::empty("host-fixture".into());

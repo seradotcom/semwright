@@ -15,6 +15,7 @@ name = "semwright-libreoffice-runtime-runner"
 path = "src/bin/runtime_runner.rs"
 
 [dependencies]
+hex.workspace = true
 semwright-driver-sdk.workspace = true
 semwright-types.workspace = true
 async-trait.workspace = true

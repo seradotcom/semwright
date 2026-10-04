@@ -33,6 +33,7 @@ default = []
 test-tools = []
 
 [dependencies]
+hex.workspace = true
 async-trait.workspace = true
 libc.workspace = true
 semwright-driver-sdk.workspace = true

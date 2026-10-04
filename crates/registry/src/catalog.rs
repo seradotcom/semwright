@@ -121,10 +121,7 @@ impl Metadata {
     }
 }
 pub fn descriptor_digest(command: &CommandDescriptor) -> Result<String> {
-    Ok(format!(
-        "{:x}",
-        Sha256::digest(serde_json::to_vec(command)?)
-    ))
+    Ok(hex::encode(Sha256::digest(serde_json::to_vec(command)?)))
 }
 fn default_limit() -> usize {
     20

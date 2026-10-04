@@ -50,7 +50,7 @@ fn manifest(root: &Path, version: &str, payload: &[u8]) -> Manifest {
         version: version.into(),
         publisher: "semwright-native-sdk-tests".into(),
         executable,
-        sha256: format!("{:x}", Sha256::digest(payload)),
+        sha256: hex::encode(Sha256::digest(payload)),
         application: ApplicationMatch {
             desktop_id: Some("org.semwright.NativeClean".into()),
             process_names: vec!["native-clean".into()],

@@ -64,7 +64,7 @@ fn integration_source_sha() -> String {
 }
 
 fn file_sha(path: &Path) -> String {
-    format!("{:x}", Sha256::digest(fs::read(path).unwrap()))
+    hex::encode(Sha256::digest(fs::read(path).unwrap()))
 }
 
 fn required_file(name: &str) -> PathBuf {

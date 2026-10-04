@@ -305,7 +305,7 @@ pub fn load_lock(root: &Path) -> Result<Option<SkillLock>> {
 
 pub fn requirements_digest(requirements: &RequirementsFile) -> Result<String> {
     let bytes = serde_json::to_vec(requirements)?;
-    Ok(format!("{:x}", Sha256::digest(bytes)))
+    Ok(hex::encode(Sha256::digest(bytes)))
 }
 
 pub fn write_lock(root: &Path, lock: &SkillLock) -> Result<()> {

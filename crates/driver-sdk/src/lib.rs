@@ -923,15 +923,12 @@ impl Capability {
 }
 
 pub fn descriptor_digest(descriptor: &CommandDescriptor) -> Result<String> {
-    Ok(format!(
-        "{:x}",
-        Sha256::digest(serde_json::to_vec(descriptor)?)
-    ))
+    Ok(hex::encode(Sha256::digest(serde_json::to_vec(descriptor)?)))
 }
 
 pub fn capabilities_digest(capabilities: &[Capability]) -> Result<String> {
     let bytes = serde_json::to_vec(capabilities)?;
-    Ok(format!("{:x}", Sha256::digest(bytes)))
+    Ok(hex::encode(Sha256::digest(bytes)))
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -316,7 +316,7 @@ mod tests {
         let body = b"#!/bin/sh\necho bad";
         std::fs::write(&p, body).unwrap();
         std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o600)).unwrap();
-        assert!(verify_executable(&p, &format!("{:x}", Sha256::digest(body))).is_err());
+        assert!(verify_executable(&p, &hex::encode(Sha256::digest(body))).is_err());
     }
     #[test]
     #[cfg(target_os = "linux")]
@@ -327,7 +327,7 @@ mod tests {
         std::fs::write(&p, body).unwrap();
         std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o600)).unwrap();
         assert_eq!(
-            verify_executable(&p, &format!("{:x}", Sha256::digest(body))).unwrap(),
+            verify_executable(&p, &hex::encode(Sha256::digest(body))).unwrap(),
             body
         );
     }
@@ -339,7 +339,7 @@ mod tests {
         std::fs::write(&path, body).unwrap();
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o660)).unwrap();
         assert!(
-            matches!(verify_executable(&path, &format!("{:x}", Sha256::digest(body))), Err(error) if error.code == ErrorCode::PermissionDenied)
+            matches!(verify_executable(&path, &hex::encode(Sha256::digest(body))), Err(error) if error.code == ErrorCode::PermissionDenied)
         );
     }
 }

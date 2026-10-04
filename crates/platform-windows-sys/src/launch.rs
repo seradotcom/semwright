@@ -528,7 +528,7 @@ fn verify_materialized_sealed_tool(path: &Path, digest: &str) -> Result<()> {
         ));
     }
     let expected = digest.trim().to_ascii_lowercase();
-    if expected.len() != 64 || format!("{:x}", Sha256::digest(&bytes)) != expected {
+    if expected.len() != 64 || hex::encode(Sha256::digest(&bytes)) != expected {
         return Err(Error::new(
             ErrorCode::PermissionDenied,
             "Materialized Windows sealed tool digest mismatch",
@@ -682,7 +682,7 @@ fn verify_windows_executable(
         ));
     }
     let expected = digest.trim().to_ascii_lowercase();
-    if expected.len() != 64 || format!("{:x}", Sha256::digest(&bytes)) != expected {
+    if expected.len() != 64 || hex::encode(Sha256::digest(&bytes)) != expected {
         return Err(Error::new(
             ErrorCode::PermissionDenied,
             "Executable digest mismatch",
@@ -2716,7 +2716,7 @@ mod verifier_tests {
             "icacls must establish the staged fixture DACL"
         );
 
-        let digest = format!("{:x}", Sha256::digest(&bytes));
+        let digest = hex::encode(Sha256::digest(&bytes));
         let verified = WindowsVerifier
             .verify(&path, &digest)
             .expect("hardened staged Windows executable should satisfy trust policy");

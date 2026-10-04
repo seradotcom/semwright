@@ -7,6 +7,7 @@ license.workspace = true
 description = "Static/local driver index and non-executing verified package installer"
 
 [dependencies]
+hex.workspace = true
 semwright-driver-sdk.workspace = true
 semwright-protocol.workspace = true
 semwright-platform-services.workspace = true

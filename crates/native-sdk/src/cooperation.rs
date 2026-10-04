@@ -725,13 +725,10 @@ pub fn exact_request_digest(domain: &str, value: &Value) -> Result<String> {
     hasher.update(domain.as_bytes());
     hasher.update(b"\n");
     hasher.update(canonical.as_bytes());
-    Ok(format!("{:x}", hasher.finalize()))
+    Ok(hex::encode(hasher.finalize()))
 }
 
 pub fn version_fingerprint(version: &ResourceVersion) -> Result<String> {
     version.validate()?;
-    Ok(format!(
-        "{:x}",
-        Sha256::digest(serde_json::to_vec(version)?)
-    ))
+    Ok(hex::encode(Sha256::digest(serde_json::to_vec(version)?)))
 }

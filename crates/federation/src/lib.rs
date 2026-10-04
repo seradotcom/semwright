@@ -285,7 +285,7 @@ pub fn executable_sha256(program: &std::path::Path) -> Result<String> {
         }
         digest.update(&buffer[..read]);
     }
-    Ok(format!("{:x}", digest.finalize()))
+    Ok(hex::encode(digest.finalize()))
 }
 #[cfg(target_os = "windows")]
 pub fn executable_sha256(program: &std::path::Path) -> Result<String> {
@@ -302,7 +302,7 @@ pub fn executable_sha256(program: &std::path::Path) -> Result<String> {
         ));
     }
     let bytes = std::fs::read(program)?;
-    let digest = format!("{:x}", Sha256::digest(&bytes));
+    let digest = hex::encode(Sha256::digest(&bytes));
     let _ = semwright_platform_services::verify_executable(program, &digest)?;
     Ok(digest)
 }
@@ -571,7 +571,7 @@ impl ExternalMcpProvider {
         if upstream.is_empty() || upstream.len() > 128 || upstream.chars().any(char::is_control) {
             return Err(Error::invalid("MCP tool name exceeds its bounds"));
         }
-        let digest = format!("{:x}", Sha256::digest(upstream.as_bytes()));
+        let digest = hex::encode(Sha256::digest(upstream.as_bytes()));
         let mut normalized = String::new();
         for ch in upstream.chars() {
             let ch = ch.to_ascii_lowercase();

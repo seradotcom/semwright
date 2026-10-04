@@ -82,7 +82,7 @@ impl NativeFixture {
         let executable = package.join("driver");
         fs::copy(env!("CARGO_BIN_EXE_semwright-blender-driver"), &executable).unwrap();
         fs::set_permissions(&executable, fs::Permissions::from_mode(0o700)).unwrap();
-        let digest = |p: &Path| format!("{:x}", Sha256::digest(fs::read(p).unwrap()));
+        let digest = |p: &Path| hex::encode(Sha256::digest(fs::read(p).unwrap()));
         let runtime_sha = digest(&executable);
         let runner = package.join("blender-session-runner");
         fs::copy(
@@ -805,7 +805,7 @@ async fn broker_native_authoring_save_reopen_export_and_owner_denial() {
     eprintln!("ARTICULATED_STAGE export_call_ok");
     let bytes = fs::read(workspace.path().join("articulated.glb")).unwrap();
     assert_eq!(&bytes[0..4], b"glTF");
-    assert_eq!(export["sha256"], format!("{:x}", Sha256::digest(&bytes)));
+    assert_eq!(export["sha256"], hex::encode(Sha256::digest(&bytes)));
     let after_export = fixture
         .call("composition.inspect", json!({"island":island}))
         .await;
@@ -1030,12 +1030,9 @@ async fn hard_surface_and_product_scene_author_through_semwright() {
             let bindings = cable["materials"][0]["texture_bindings"]
                 .as_array()
                 .unwrap();
-            let expected_sha = format!(
-                "{:x}",
-                Sha256::digest(include_bytes!(
-                    "../../../fixtures/blender-authoring/surface.png"
-                ))
-            );
+            let expected_sha = hex::encode(Sha256::digest(include_bytes!(
+                "../../../fixtures/blender-authoring/surface.png"
+            )));
             for role in ["base_color", "roughness", "normal", "emission", "opacity"] {
                 let binding = bindings
                     .iter()
@@ -1326,12 +1323,9 @@ async fn hard_surface_and_product_scene_author_through_semwright() {
         "managed attributes must survive fresh-process save/reopen"
     );
     let cable = items.iter().find(|row| row["entity"] == "cable").unwrap();
-    let expected_sha = format!(
-        "{:x}",
-        Sha256::digest(include_bytes!(
-            "../../../fixtures/blender-authoring/surface.png"
-        ))
-    );
+    let expected_sha = hex::encode(Sha256::digest(include_bytes!(
+        "../../../fixtures/blender-authoring/surface.png"
+    )));
     for binding in cable["materials"][0]["texture_bindings"]
         .as_array()
         .unwrap()
@@ -1436,7 +1430,7 @@ async fn animated_object_export_restores_source_projection_after_reopen() {
         .await;
     let bytes = fs::read(workspace.path().join("export-stability.glb")).unwrap();
     assert_eq!(&bytes[0..4], b"glTF");
-    assert_eq!(export["sha256"], format!("{:x}", Sha256::digest(&bytes)));
+    assert_eq!(export["sha256"], hex::encode(Sha256::digest(&bytes)));
 
     let after = reader
         .call("composition.inspect", json!({"island":island}))

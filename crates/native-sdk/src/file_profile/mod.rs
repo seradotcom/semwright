@@ -88,7 +88,7 @@ struct Document {
 }
 
 pub fn sha256(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
+    hex::encode(Sha256::digest(bytes))
 }
 fn bounded_token(v: &str) -> bool {
     !v.is_empty()

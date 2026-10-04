@@ -101,7 +101,7 @@ impl Backend for ArtifactHandoff {
             .root(source_root)?
             .read(Path::new(source_path), max_bytes as usize)?;
         ctx.check_cancelled()?;
-        let sha256 = format!("{:x}", Sha256::digest(&bytes));
+        let sha256 = hex::encode(Sha256::digest(&bytes));
         if let Some(expected) = args["expected_sha256"].as_str()
             && !expected.eq_ignore_ascii_case(&sha256)
         {
@@ -168,7 +168,7 @@ mod tests {
             },
         ];
         let backend = ArtifactHandoff::new(&grants).unwrap();
-        let expected = format!("{:x}", Sha256::digest(&payload));
+        let expected = hex::encode(Sha256::digest(&payload));
         let result = backend
             .execute(
                 &context(),

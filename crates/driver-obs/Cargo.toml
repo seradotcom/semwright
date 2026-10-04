@@ -16,6 +16,7 @@ name = "semwright-obs-driver"
 path = "src/main.rs"
 
 [dependencies]
+hex.workspace = true
 async-trait.workspace = true
 base64.workspace = true
 futures-util.workspace = true

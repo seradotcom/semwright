@@ -20,7 +20,7 @@ const SOURCE: &str = env!("G_LAB_COMPILED_SOURCE_SHA");
 type ProbeResult<T> = Result<T, Box<dyn std::error::Error>>;
 
 fn digest(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
+    hex::encode(Sha256::digest(bytes))
 }
 
 fn root(tag: &str) -> ProbeResult<PathBuf> {

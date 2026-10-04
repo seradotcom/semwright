@@ -21,7 +21,7 @@ use tokio::process::{Child, Command};
 use tokio_util::sync::CancellationToken;
 
 fn digest(path: &Path) -> String {
-    format!("{:x}", Sha256::digest(std::fs::read(path).unwrap()))
+    hex::encode(Sha256::digest(std::fs::read(path).unwrap()))
 }
 
 fn find<'a>(

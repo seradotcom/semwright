@@ -15,7 +15,7 @@ use tokio_util::sync::CancellationToken;
 
 fn digest(path: &Path) -> String {
     let bytes = std::fs::read(path).unwrap();
-    format!("{:x}", Sha256::digest(bytes))
+    hex::encode(Sha256::digest(bytes))
 }
 
 fn find<'a>(

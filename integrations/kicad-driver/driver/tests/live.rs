@@ -24,7 +24,7 @@ impl Drop for Fixture {
 }
 
 fn digest(path: &Path) -> String {
-    format!("{:x}", Sha256::digest(std::fs::read(path).unwrap()))
+    hex::encode(Sha256::digest(std::fs::read(path).unwrap()))
 }
 
 async fn call(

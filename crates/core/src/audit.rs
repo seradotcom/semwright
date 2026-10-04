@@ -94,10 +94,7 @@ fn open(path: &Path) -> Result<File> {
 fn hash(record: &Record) -> Result<String> {
     let mut unsigned = record.clone();
     unsigned.hash.clear();
-    Ok(format!(
-        "{:x}",
-        Sha256::digest(serde_json::to_vec(&unsigned)?)
-    ))
+    Ok(hex::encode(Sha256::digest(serde_json::to_vec(&unsigned)?)))
 }
 fn safe_id(text: &str) -> String {
     if text.len() == 32 && text.bytes().all(|b| b.is_ascii_hexdigit()) {
@@ -107,7 +104,7 @@ fn safe_id(text: &str) -> String {
     }
 }
 fn tag(session: &str) -> String {
-    format!("{:x}", Sha256::digest(session.as_bytes()))[..16].into()
+    hex::encode(Sha256::digest(session.as_bytes()))[..16].into()
 }
 impl Audit {
     pub fn open(directory: &Path, max_bytes: u64, retention: usize) -> Result<Arc<Self>> {

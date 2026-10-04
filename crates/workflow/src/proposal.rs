@@ -206,14 +206,11 @@ pub fn build_proposal(
         .map(|trace| trace.id.clone())
         .collect::<Vec<_>>();
     source_trace_ids.sort();
-    let proposal_fingerprint = format!(
-        "{:x}",
-        Sha256::digest(serde_json::to_vec(&json!({
-            "version": PROPOSAL_VERSION,
-            "pattern": pattern.fingerprint,
-            "traces": source_trace_ids,
-        }))?)
-    );
+    let proposal_fingerprint = hex::encode(Sha256::digest(serde_json::to_vec(&json!({
+        "version": PROPOSAL_VERSION,
+        "pattern": pattern.fingerprint,
+        "traces": source_trace_ids,
+    }))?));
 
     Ok(ProposalBuild {
         proposal: WorkflowProposal {

@@ -645,7 +645,7 @@ fn render_inputs(snapshot: &Snapshot, plan: &RenderPlan) -> Result<RenderInputs>
         hasher.update(digest.as_bytes());
         hasher.update([0]);
     }
-    let fonts = format!("{:x}", hasher.finalize());
+    let fonts = hex::encode(hasher.finalize());
     let digest = semwright_semantic_composition::canonical_digest(&(
         &snapshot.project,
         plan,

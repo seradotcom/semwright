@@ -193,7 +193,7 @@ fn snapshot_input(source: &Path, file_name: &str) -> Result<(TempDir, PathBuf, S
         ));
     }
     regular(&staged, MAX_INPUT_BYTES)?;
-    Ok((temp, staged, format!("{:x}", hash.finalize()), copied))
+    Ok((temp, staged, hex::encode(hash.finalize()), copied))
 }
 
 fn same_file(before: &fs::Metadata, opened: &fs::Metadata) -> Result<()> {

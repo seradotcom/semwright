@@ -33,7 +33,7 @@ fn executable_sha256(path: &Path) -> TestResult<String> {
         }
         hasher.update(&buffer[..count]);
     }
-    Ok(format!("{:x}", hasher.finalize()))
+    Ok(hex::encode(hasher.finalize()))
 }
 
 async fn fixture(stop: CancellationToken, requests: Arc<Mutex<Vec<String>>>) -> TestResult<String> {

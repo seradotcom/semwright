@@ -90,7 +90,7 @@ pub struct SkillTestReport {
 
 fn schema_digest(descriptor: &CommandDescriptor) -> Result<String> {
     let bytes = serde_json::to_vec(&[&descriptor.input_schema, &descriptor.output_schema])?;
-    Ok(format!("{:x}", Sha256::digest(bytes)))
+    Ok(hex::encode(Sha256::digest(bytes)))
 }
 
 fn requirement_label(requirement: &CapabilityRequirement) -> Result<String> {

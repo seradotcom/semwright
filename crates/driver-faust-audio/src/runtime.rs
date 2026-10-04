@@ -213,7 +213,7 @@ impl Runtime {
         {
             return Err(Error::invalid("Unsupported Faust runtime manifest"));
         }
-        let library_digest = format!("{:x}", Sha256::digest(serde_json::to_vec(&config)?));
+        let library_digest = hex::encode(Sha256::digest(serde_json::to_vec(&config)?));
         let result = Self {
             library_root,
             config,
@@ -905,7 +905,7 @@ fn snapshot_sample_asset(
             ));
         }
     }
-    let actual = format!("{:x}", digest.finalize());
+    let actual = hex::encode(digest.finalize());
     if actual != expected_sha256 {
         return Err(Error::new(
             ErrorCode::Conflict,
@@ -1037,7 +1037,7 @@ fn hash_file(path: &Path, limit: u64) -> Result<String> {
         }
         digest.update(&buffer[..read]);
     }
-    Ok(format!("{:x}", digest.finalize()))
+    Ok(hex::encode(digest.finalize()))
 }
 fn write_midi_schedule(path: &Path, events: &[MidiRuntimeEvent], frames: u64) -> Result<()> {
     if events.is_empty() || events.len() > 100_000 {
@@ -1239,7 +1239,7 @@ mod library_inventory_tests {
         let scratch = tempfile::tempdir().unwrap();
         let source = root.path().join("sample.wav");
         fs::write(&source, b"bounded-sample-fixture").unwrap();
-        let expected = format!("{:x}", Sha256::digest(fs::read(&source).unwrap()));
+        let expected = hex::encode(Sha256::digest(fs::read(&source).unwrap()));
 
         let staged =
             snapshot_sample_asset(root.path(), "sample.wav", &expected, scratch.path()).unwrap();
