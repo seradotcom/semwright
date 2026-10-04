@@ -70,15 +70,15 @@ impl<M: Model> NativeApp<M> {
             ],
         )?;
         validate_optional_ref(args)?;
-        if self.workspace_id.is_none() {
-            if let Some(id) = args.get("workspace_id") {
-                return self
-                    .workspace(
-                        id.as_str()
-                            .ok_or_else(|| Error::invalid("Invalid workspace id"))?,
-                    )?
-                    .operation_get(args);
-            }
+        if self.workspace_id.is_none()
+            && let Some(id) = args.get("workspace_id")
+        {
+            return self
+                .workspace(
+                    id.as_str()
+                        .ok_or_else(|| Error::invalid("Invalid workspace id"))?,
+                )?
+                .operation_get(args);
         }
         if args.get("workspace_id").and_then(Value::as_str) != self.workspace_id.as_deref() {
             return Err(Error::invalid(
@@ -170,7 +170,7 @@ impl<M: Model> NativeApp<M> {
             if name.starts_with(".pending-") {
                 return Err(Error::new(
                     ErrorCode::Conflict,
-                    "Interrupted operation journal requires owner review",
+                    "Interrupted operation journal requires manual review",
                 )
                 .uncertain());
             }
@@ -233,7 +233,7 @@ impl<M: Model> NativeApp<M> {
             {
                 return Err(Error::new(
                     ErrorCode::Conflict,
-                    "Legacy fork key is unknown; owner review required",
+                    "Legacy fork key is unknown; manual review required",
                 )
                 .uncertain());
             }
@@ -248,71 +248,71 @@ impl<M: Model> NativeApp<M> {
     ) -> Result<History> {
         let mut reserved = false;
         let mut found: Option<Receipt> = None;
-        let mut accept = |receipt: &Receipt| -> Result<()> {
-            reserved = true;
-            if receipt.request_digest != binding.request_digest {
-                return Err(Error::new(
-                    ErrorCode::Conflict,
-                    "Operation key was reused with another request",
-                ));
-            }
-            if let Some(error) = &receipt.error {
-                if error.code != ErrorCode::Cancelled
-                    || !error.outcome_known
-                    || !receipt.result.is_null()
+        let records;
+        {
+            let mut accept = |receipt: &Receipt| -> Result<()> {
+                reserved = true;
+                if receipt.request_digest != binding.request_digest {
+                    return Err(Error::new(
+                        ErrorCode::Conflict,
+                        "Operation key was reused with another request",
+                    ));
+                }
+                if let Some(error) = &receipt.error
+                    && (error.code != ErrorCode::Cancelled
+                        || !error.outcome_known
+                        || !receipt.result.is_null())
                 {
                     return Err(Error::invalid("Invalid recorded cancellation"));
                 }
-            }
-            if let Some(actual) = &receipt.binding {
-                if actual != binding
-                    || (receipt.error.is_none()
-                        && (receipt.result["operation_key"] != binding.operation_key
-                            || receipt.result["operation"] != binding.operation))
-                {
-                    return Err(Error::new(
-                        ErrorCode::Conflict,
-                        "Historical operation binding differs",
-                    ));
-                }
-                if let Some(previous) = &found {
-                    if previous.result != receipt.result
-                        || serde_json::to_value(&previous.error)?
-                            != serde_json::to_value(&receipt.error)?
+                if let Some(actual) = &receipt.binding {
+                    if actual != binding
+                        || (receipt.error.is_none()
+                            && (receipt.result["operation_key"] != binding.operation_key
+                                || receipt.result["operation"] != binding.operation))
+                    {
+                        return Err(Error::new(
+                            ErrorCode::Conflict,
+                            "Historical operation binding differs",
+                        ));
+                    }
+                    if let Some(previous) = &found
+                        && (previous.result != receipt.result
+                            || serde_json::to_value(&previous.error)?
+                                != serde_json::to_value(&receipt.error)?)
                     {
                         return Err(
                             Error::new(ErrorCode::Conflict, "Historical results conflict")
                                 .uncertain(),
                         );
                     }
+                    found = Some(receipt.clone());
                 }
-                found = Some(receipt.clone());
+                Ok(())
+            };
+            if let Some(receipt) = doc.receipts.get(&binding.operation_key) {
+                accept(receipt)?;
             }
-            Ok(())
-        };
-        if let Some(receipt) = doc.receipts.get(&binding.operation_key) {
-            accept(receipt)?;
-        }
-        let records = self.journal_records()?;
-        for record in &records {
-            if record.binding.operation_key == binding.operation_key {
-                if &record.binding != binding {
-                    return Err(Error::new(
-                        ErrorCode::Conflict,
-                        "Operation key was reused with another binding",
-                    ));
+            records = self.journal_records()?;
+            for record in &records {
+                if record.binding.operation_key == binding.operation_key {
+                    if &record.binding != binding {
+                        return Err(Error::new(
+                            ErrorCode::Conflict,
+                            "Operation key was reused with another binding",
+                        ));
+                    }
+                    if let Some(receipt) = &record.receipt {
+                        accept(receipt)?;
+                    }
                 }
-                if let Some(receipt) = &record.receipt {
-                    accept(receipt)?;
+            }
+            for origin in self.legacy_origins()? {
+                if origin.result["operation_key"] == binding.operation_key {
+                    accept(&origin)?;
                 }
             }
         }
-        for origin in self.legacy_origins()? {
-            if origin.result["operation_key"] == binding.operation_key {
-                accept(&origin)?;
-            }
-        }
-        drop(accept);
         reserved |= records
             .iter()
             .any(|r| r.binding.operation_key == binding.operation_key);

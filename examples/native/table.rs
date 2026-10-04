@@ -1,4 +1,4 @@
-//! Persistent bounded numeric table. Rebuilt from the documented Native SDK contract.
+//! Persistent bounded numeric table example for the Native SDK.
 use semwright_native_sdk::{Error, ErrorCode, Model, Operation, Result, Value, json, tokio};
 use std::collections::{BTreeMap, BTreeSet};
 

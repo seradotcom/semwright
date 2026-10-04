@@ -433,15 +433,15 @@ impl<M: Model> NativeApp<M> {
     }
     pub fn apply(&self, op: &str, args: &Value, cancelled: impl Fn() -> bool) -> Result<Value> {
         storage_supported()?;
-        if self.workspace_id.is_none() {
-            if let Some(id) = args.get("workspace_id") {
-                return self
-                    .workspace(
-                        id.as_str()
-                            .ok_or_else(|| Error::invalid("Invalid workspace id"))?,
-                    )?
-                    .apply(op, args, cancelled);
-            }
+        if self.workspace_id.is_none()
+            && let Some(id) = args.get("workspace_id")
+        {
+            return self
+                .workspace(
+                    id.as_str()
+                        .ok_or_else(|| Error::invalid("Invalid workspace id"))?,
+                )?
+                .apply(op, args, cancelled);
         }
         known_fields(
             args,
@@ -838,10 +838,10 @@ pub fn mutation_schema(mut parameters: Value) -> Value {
             Value::Object(map) => {
                 for (k, v) in map {
                     if k == "$ref" {
-                        if let Some(reference) = v.as_str() {
-                            if let Some(tail) = reference.strip_prefix("#/") {
-                                *v = Value::String(format!("#/properties/parameters/{tail}"));
-                            }
+                        if let Some(reference) = v.as_str()
+                            && let Some(tail) = reference.strip_prefix("#/")
+                        {
+                            *v = Value::String(format!("#/properties/parameters/{tail}"));
                         }
                     } else {
                         relocate(v);
@@ -878,7 +878,6 @@ impl<M: Model> Driver for NativeApp<M> {
             health: true,
             native_refs: true,
             host_tools: false,
-            ..Default::default()
         }
     }
     async fn capabilities(&mut self) -> Result<Vec<Capability>> {

@@ -1,4 +1,4 @@
-# Rebuilt Effects owned fixtures
+# Effect verification fixtures
 
 These files are authored inputs for independent byte-reader tests.
 A native app did not produce them.

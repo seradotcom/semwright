@@ -48,16 +48,15 @@ impl NodeBridgeConfig {
                 ));
             }
         }
-        if let Some(output) = &self.output_mount {
-            if output.is_empty()
+        if let Some(output) = &self.output_mount
+            && (output.is_empty()
                 || output.len() > 64
                 || !output
                     .bytes()
                     .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
-                || output.starts_with("semwright-internal-")
-            {
-                return Err(Error::invalid("Bridge output grant is invalid"));
-            }
+                || output.starts_with("semwright-internal-"))
+        {
+            return Err(Error::invalid("Bridge output grant is invalid"));
         }
         if self.bundle_file.is_empty()
             || self.bundle_file.len() > 128

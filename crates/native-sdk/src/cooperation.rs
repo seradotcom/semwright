@@ -163,10 +163,10 @@ impl OperationContract {
                 "Reversible descriptor requires an application undo operation",
             ));
         }
-        if let UndoSemantics::ApplicationOperation { command } = &self.undo {
-            if !command.starts_with(&prefix) {
-                return Err(Error::invalid("Undo belongs to another application"));
-            }
+        if let UndoSemantics::ApplicationOperation { command } = &self.undo
+            && !command.starts_with(&prefix)
+        {
+            return Err(Error::invalid("Undo belongs to another application"));
         }
         if self.atomic_revision_cas
             && (self.commit != CommitSemantics::ApplicationTransaction
@@ -239,13 +239,13 @@ impl ObservationPage {
                 "Observation differs from requested resource/scope/budget",
             ));
         }
-        if let Some(previous) = &query.cursor {
-            if previous.version != self.version {
-                return Err(Error::new(
-                    ErrorCode::StaleReference,
-                    "Application revision changed during enumeration",
-                ));
-            }
+        if let Some(previous) = &query.cursor
+            && previous.version != self.version
+        {
+            return Err(Error::new(
+                ErrorCode::StaleReference,
+                "Application revision changed during enumeration",
+            ));
         }
         if self.complete && self.next.is_some() {
             return Err(Error::invalid("Complete page cannot have a continuation"));
@@ -329,10 +329,10 @@ impl RecoveryRecord {
                 "Historical result request binding differs",
             ));
         }
-        if let Self::RetentionExpired { current_epoch, .. } = self {
-            if *current_epoch <= request.epoch || *current_epoch > MAX_SAFE_INTEGER {
-                return Err(Error::invalid("Invalid retention horizon"));
-            }
+        if let Self::RetentionExpired { current_epoch, .. } = self
+            && (*current_epoch <= request.epoch || *current_epoch > MAX_SAFE_INTEGER)
+        {
+            return Err(Error::invalid("Invalid retention horizon"));
         }
         validate_value(&serde_json::to_value(self)?)
     }
