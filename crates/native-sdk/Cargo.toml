@@ -1,0 +1,101 @@
+[package]
+name = "semwright-native-sdk"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+license.workspace = true
+autotests = false
+
+[lints]
+workspace = true
+
+[features]
+default = []
+driver = ["dep:semwright-driver-sdk", "dep:tokio", "dep:jsonschema"]
+process-bridge = ["driver", "dep:tokio-util", "dep:rustix"]
+file-backed = ["driver", "dep:rustix"]
+effects = ["dep:semwright-effect-conformance", "dep:schemars", "dep:rustix"]
+graph = ["dep:semwright-project-graph"]
+package = ["driver", "dep:semwright-driver-registry"]
+host-tests = ["file-backed", "effects", "dep:semwright-core", "dep:semwright-policy", "dep:semwright-backend-api", "dep:tokio-util"]
+
+[dependencies]
+semwright-types.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+async-trait.workspace = true
+semwright-driver-sdk = { workspace = true, optional = true }
+semwright-driver-registry = { workspace = true, optional = true }
+semwright-effect-conformance = { workspace = true, optional = true }
+semwright-project-graph = { workspace = true, optional = true }
+semwright-core = { workspace = true, optional = true }
+semwright-policy = { workspace = true, optional = true }
+semwright-backend-api = { workspace = true, optional = true }
+tokio-util = { workspace = true, optional = true }
+tokio = { workspace = true, optional = true }
+schemars = { workspace = true, optional = true }
+jsonschema = { workspace = true, optional = true }
+
+[target.'cfg(unix)'.dependencies]
+rustix = { workspace = true, optional = true, features = ["fs", "process"] }
+
+[dev-dependencies]
+tempfile.workspace = true
+tokio.workspace = true
+
+[[test]]
+name = "conformance"
+path = "tests/conformance.rs"
+required-features = ["file-backed"]
+[[test]]
+name = "core_reference_contract"
+path = "tests/core_reference_contract.rs"
+required-features = ["host-tests"]
+[[test]]
+name = "export_effects_cli"
+path = "tests/export_effects_cli.rs"
+required-features = ["file-backed", "effects"]
+[[test]]
+name = "effects_conformance"
+path = "tests/effects_conformance.rs"
+required-features = ["effects"]
+[[example]]
+name = "native-scene"
+path = "../../examples/native/scene.rs"
+required-features = ["file-backed"]
+[[example]]
+name = "native-table"
+path = "../../examples/native/table.rs"
+required-features = ["file-backed"]
+[[example]]
+name = "native-counter"
+path = "../../examples/native/counter.rs"
+required-features = ["file-backed"]
+[[example]]
+name = "native-inventory"
+path = "../../examples/native/inventory.rs"
+required-features = ["process-bridge"]
+[[bin]]
+name = "semwright-native-package"
+path = "src/package.rs"
+required-features = ["package"]
+[[bin]]
+name = "semwright-native-effects"
+path = "src/effects.rs"
+required-features = ["effects"]
+
+[[test]]
+name = "cooperation"
+path = "tests/cooperation.rs"
+
+[[test]]
+name = "graph_adapter"
+path = "tests/graph_adapter.rs"
+required-features = ["graph"]
+
+[[test]]
+name = "package_cli"
+path = "tests/package_cli.rs"
+required-features = ["package"]

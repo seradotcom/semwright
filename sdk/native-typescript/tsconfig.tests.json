@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "../..",
+    "outDir": "../../verification/native-sdk/typescript/compiled",
+    "declaration": false
+  },
+  "include": [
+    "src/**/*.ts",
+    "test/**/*.ts",
+    "../../examples/native-inventory/**/*.ts"
+  ]
+}

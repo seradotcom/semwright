@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "resource_version": {
+    "resource": "workspace",
+    "generation": "generation-a",
+    "revision": "opaque:90071992547409930000001"
+  },
+  "request_digest": {
+    "domain": "app/1",
+    "value": {
+      "b": 2,
+      "a": 1
+    },
+    "sha256": "2f6edade2fc3d8a0e6a0d2de77b37decab18277a2fec43fd742ca4fdd4463c87"
+  },
+  "safe_integer": 9007199254740991,
+  "large_integer_string": "9007199254740992"
+}
