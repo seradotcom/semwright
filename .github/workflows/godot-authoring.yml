@@ -5,23 +5,23 @@ on:
   workflow_dispatch:
     inputs:
       expected_sha:
-        description: Exact immutable D candidate SHA to certify (must equal the selected ref SHA)
+        description: Exact immutable Godot candidate SHA to certify (must equal the selected ref SHA)
         required: true
         type: string
-      e_source_sha:
-        description: Exact E source SHA for the cross-app artifact (default preserves the historical owner pin)
+      blender_source_sha:
+        description: Exact Blender source SHA for the cross-app artifact (default preserves the historical pin)
         required: false
         type: string
-      e_run_id:
-        description: Successful exact E certification run
+      blender_run_id:
+        description: Successful exact Blender certification run
         required: false
         type: string
-      e_artifact_id:
-        description: E native authoring artifact ID from that run
+      blender_artifact_id:
+        description: Blender native authoring artifact ID from that run
         required: false
         type: string
-      e_glb_sha256:
-        description: GLB digest from E's verified native-pipeline receipt
+      blender_glb_sha256:
+        description: GLB digest from the verified Blender native-pipeline receipt
         required: false
         type: string
 permissions:
@@ -62,20 +62,20 @@ jobs:
           HEAD_SHA: ${{ github.sha }}
           BASE_SHA: ${{ github.event.before }}
           EXPECTED_SHA: ${{ inputs.expected_sha }}
-          E_SOURCE_SHA: ${{ inputs.e_source_sha }}
-          E_RUN_ID: ${{ inputs.e_run_id }}
-          E_ARTIFACT_ID: ${{ inputs.e_artifact_id }}
-          E_GLB_SHA256: ${{ inputs.e_glb_sha256 }}
+          BLENDER_SOURCE_SHA: ${{ inputs.blender_source_sha }}
+          BLENDER_RUN_ID: ${{ inputs.blender_run_id }}
+          BLENDER_ARTIFACT_ID: ${{ inputs.blender_artifact_id }}
+          BLENDER_GLB_SHA256: ${{ inputs.blender_glb_sha256 }}
           CERTIFY_REQUEST: ${{ github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[godot-certify]') }}
         run: |
           set -euo pipefail
           python3 - <<'PYVALIDATE'
           import os, re
-          values = [os.environ.get(k, "") for k in ("E_SOURCE_SHA", "E_RUN_ID", "E_ARTIFACT_ID", "E_GLB_SHA256")]
+          values = [os.environ.get(k, "") for k in ("BLENDER_SOURCE_SHA", "BLENDER_RUN_ID", "BLENDER_ARTIFACT_ID", "BLENDER_GLB_SHA256")]
           if any(values):
-              assert all(values), "Supply all four exact E artifact pins together"
+              assert all(values), "Supply all four exact Blender artifact pins together"
               assert re.fullmatch(r"[0-9a-f]{40}", values[0])
-              assert values[0] == os.environ["HEAD_SHA"], "Combined E and D must certify one source SHA"
+              assert values[0] == os.environ["HEAD_SHA"], "Combined Blender and Godot must certify one source SHA"
               assert re.fullmatch(r"[0-9]+", values[1]) and re.fullmatch(r"[0-9]+", values[2])
               assert re.fullmatch(r"[0-9a-f]{64}", values[3])
           PYVALIDATE
@@ -213,30 +213,30 @@ jobs:
         if: needs.scope.outputs.cross_app == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          E_SOURCE_SHA: ${{ inputs.e_source_sha || 'e753248ed33b345554b0e7c3c8d521e666751d6f' }}
-          E_RUN_ID: ${{ inputs.e_run_id || '36680849875' }}
-          E_ARTIFACT_ID: ${{ inputs.e_artifact_id || '11082381172' }}
-          E_GLB_SHA256: ${{ inputs.e_glb_sha256 || 'd3a4ba15f14ad6d3fba680c2d1db6d6d7584fb5254d2df8fd1c070870e9b0fd2' }}
+          BLENDER_SOURCE_SHA: ${{ inputs.blender_source_sha || 'e753248ed33b345554b0e7c3c8d521e666751d6f' }}
+          BLENDER_RUN_ID: ${{ inputs.blender_run_id || '36680849875' }}
+          BLENDER_ARTIFACT_ID: ${{ inputs.blender_artifact_id || '11082381172' }}
+          BLENDER_GLB_SHA256: ${{ inputs.blender_glb_sha256 || 'd3a4ba15f14ad6d3fba680c2d1db6d6d7584fb5254d2df8fd1c070870e9b0fd2' }}
         run: |
           set -euo pipefail
-          [[ "$E_SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
-          [[ "$E_GLB_SHA256" =~ ^[0-9a-f]{64}$ ]]
-          [[ "$E_RUN_ID" =~ ^[0-9]+$ && "$E_ARTIFACT_ID" =~ ^[0-9]+$ ]]
-          if [[ "$E_SOURCE_SHA" != e753248ed33b345554b0e7c3c8d521e666751d6f ]]; then
-            test "$E_SOURCE_SHA" = "$GITHUB_SHA"
+          [[ "$BLENDER_SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$BLENDER_GLB_SHA256" =~ ^[0-9a-f]{64}$ ]]
+          [[ "$BLENDER_RUN_ID" =~ ^[0-9]+$ && "$BLENDER_ARTIFACT_ID" =~ ^[0-9]+$ ]]
+          if [[ "$BLENDER_SOURCE_SHA" != e753248ed33b345554b0e7c3c8d521e666751d6f ]]; then
+            test "$BLENDER_SOURCE_SHA" = "$GITHUB_SHA"
           fi
-          export E_ARTIFACT_NAME="blender-authoring-$E_SOURCE_SHA-blender-native-authoring"
-          E_DIR="$RUNNER_TEMP/e-blender-$E_SOURCE_SHA"
+          export BLENDER_ARTIFACT_NAME="blender-authoring-$BLENDER_SOURCE_SHA-blender-native-authoring"
+          BLENDER_DIR="$RUNNER_TEMP/blender-$BLENDER_SOURCE_SHA"
           OUT=verification/godot-authoring/cross-app
-          mkdir -p "$E_DIR" "$OUT/e-source"
-          gh api "repos/seradotcom/semwright/actions/artifacts/$E_ARTIFACT_ID" > "$OUT/e-source/artifact-metadata.json"
-          gh api "repos/seradotcom/semwright/actions/runs/$E_RUN_ID/jobs" > "$OUT/e-source/run-jobs.json"
-          gh api "repos/seradotcom/semwright/actions/artifacts/$E_ARTIFACT_ID/zip" > "$RUNNER_TEMP/e-artifact.zip"
-          unzip -q "$RUNNER_TEMP/e-artifact.zip" -d "$E_DIR"
-          test -f "$E_DIR/articulated.glb"
-          echo "$E_GLB_SHA256  $E_DIR/articulated.glb" | sha256sum -c -
-          cp "$E_DIR/articulated.glb" "$OUT/articulated.glb"
-          python3 - "$E_DIR" "$OUT/e-source" <<'PY2'
+          mkdir -p "$BLENDER_DIR" "$OUT/blender-source"
+          gh api "repos/seradotcom/semwright/actions/artifacts/$BLENDER_ARTIFACT_ID" > "$OUT/blender-source/artifact-metadata.json"
+          gh api "repos/seradotcom/semwright/actions/runs/$BLENDER_RUN_ID/jobs" > "$OUT/blender-source/run-jobs.json"
+          gh api "repos/seradotcom/semwright/actions/artifacts/$BLENDER_ARTIFACT_ID/zip" > "$RUNNER_TEMP/blender-artifact.zip"
+          unzip -q "$RUNNER_TEMP/blender-artifact.zip" -d "$BLENDER_DIR"
+          test -f "$BLENDER_DIR/articulated.glb"
+          echo "$BLENDER_GLB_SHA256  $BLENDER_DIR/articulated.glb" | sha256sum -c -
+          cp "$BLENDER_DIR/articulated.glb" "$OUT/articulated.glb"
+          python3 - "$BLENDER_DIR" "$OUT/blender-source" <<'PY2'
           import hashlib, json, os, pathlib, sys
           root = pathlib.Path(sys.argv[1])
           evidence = pathlib.Path(sys.argv[2])
@@ -250,28 +250,28 @@ jobs:
           source_package = json.loads((root / "source-package.json").read_text())
           skill_bundle = json.loads((root / "skill-bundle.json").read_text())
           skill_validate = json.loads((root / "skill-validate.json").read_text())
-          expected_sha = os.environ["E_SOURCE_SHA"]
-          expected_run = os.environ["E_RUN_ID"]
-          expected_name = os.environ["E_ARTIFACT_NAME"]
-          glb_sha = os.environ["E_GLB_SHA256"]
-          assert metadata["id"] == int(os.environ["E_ARTIFACT_ID"])
+          expected_sha = os.environ["BLENDER_SOURCE_SHA"]
+          expected_run = os.environ["BLENDER_RUN_ID"]
+          expected_name = os.environ["BLENDER_ARTIFACT_NAME"]
+          glb_sha = os.environ["BLENDER_GLB_SHA256"]
+          assert metadata["id"] == int(os.environ["BLENDER_ARTIFACT_ID"])
           assert metadata["name"] == expected_name and metadata["expired"] is False
           assert suite["source_sha"] == suite["suite_sha"] == suite["github_sha"] == expected_sha
           assert str(suite["run_id"]) == expected_run
           assert suite["suite"] == "blender-native-authoring"
-          assert suite["outcome"] == "PASS" and suite["passed"] == (3 if os.environ["E_SOURCE_SHA"] == "e753248ed33b345554b0e7c3c8d521e666751d6f" else 4)
+          assert suite["outcome"] == "PASS" and suite["passed"] == (3 if os.environ["BLENDER_SOURCE_SHA"] == "e753248ed33b345554b0e7c3c8d521e666751d6f" else 4)
           assert suite["failed"] == suite["ignored"] == suite["filtered"] == 0
           assert oracle["result"] == "PASS" and oracle["source_sha256"] == glb_sha
           assert all(oracle["required_checks"].values())
           assert native["native_assertions_completed"] is True
-          assert native["native_authoring_c_f_verified"] is True
+          assert native["native_authoring_graph_effects_verified"] is True
           assert native["glb"]["sha256"] == glb_sha and native["glb"]["bytes"] == (root / "articulated.glb").stat().st_size
           job = next(j for j in jobs["jobs"] if j["name"] == "authoring")
           assert job["status"] == "completed" and job["conclusion"] == "success"
           exact = acceptance["exact_evidence"]
           assert exact["source_sha"] == expected_sha and exact["run_id"] == int(expected_run)
           assert exact["glb_sha256"] == glb_sha
-          assert (exact["model"]["passed"], exact["native"]["passed"]) == ((50, 3) if os.environ["E_SOURCE_SHA"] == "e753248ed33b345554b0e7c3c8d521e666751d6f" else (52, 4))
+          assert (exact["model"]["passed"], exact["native"]["passed"]) == ((50, 3) if os.environ["BLENDER_SOURCE_SHA"] == "e753248ed33b345554b0e7c3c8d521e666751d6f" else (52, 4))
           for key in [
               "fresh_blender_roundtrip",
               "startup_factory_clean_autoexec_disabled",
@@ -312,12 +312,12 @@ jobs:
       - name: D12 Blender replacement through Broker and Driver Host
         if: needs.scope.outputs.cross_app == 'true'
         env:
-          SEMWRIGHT_TEST_E_GLB: ${{ github.workspace }}/verification/godot-authoring/cross-app/articulated.glb
+          SEMWRIGHT_TEST_BLENDER_GLB: ${{ github.workspace }}/verification/godot-authoring/cross-app/articulated.glb
           SEMWRIGHT_TEST_D12_C_RECEIPT_OUT: ${{ github.workspace }}/verification/godot-authoring/cross-app/c-receipt.json
-          E_SOURCE_SHA: ${{ inputs.e_source_sha || 'e753248ed33b345554b0e7c3c8d521e666751d6f' }}
-          E_RUN_ID: ${{ inputs.e_run_id || '36680849875' }}
-          E_ARTIFACT_ID: ${{ inputs.e_artifact_id || '11082381172' }}
-          E_GLB_SHA256: ${{ inputs.e_glb_sha256 || 'd3a4ba15f14ad6d3fba680c2d1db6d6d7584fb5254d2df8fd1c070870e9b0fd2' }}
+          BLENDER_SOURCE_SHA: ${{ inputs.blender_source_sha || 'e753248ed33b345554b0e7c3c8d521e666751d6f' }}
+          BLENDER_RUN_ID: ${{ inputs.blender_run_id || '36680849875' }}
+          BLENDER_ARTIFACT_ID: ${{ inputs.blender_artifact_id || '11082381172' }}
+          BLENDER_GLB_SHA256: ${{ inputs.blender_glb_sha256 || 'd3a4ba15f14ad6d3fba680c2d1db6d6d7584fb5254d2df8fd1c070870e9b0fd2' }}
         run: |
           set -euo pipefail
           export SEMWRIGHT_TEST_SANDBOX_HELPER="$CARGO_TARGET_DIR/debug/semwright-sandbox"
@@ -334,24 +334,24 @@ jobs:
           assert c["receipt_id"].startswith("receipt_")
           assert c["asset"].startswith("asset_")
           assert c["revision"].startswith("rev_")
-          assert c["sha256"] == os.environ["E_GLB_SHA256"]
+          assert c["sha256"] == os.environ["BLENDER_GLB_SHA256"]
           assert c["coverage_complete"] is False
           receipt = {
               "schema_version": 1,
-              "role": "D",
+              "role": "godot-authoring",
               "source_sha": os.environ["GITHUB_SHA"],
-              "e_source_sha": os.environ["E_SOURCE_SHA"],
-              "e_run_id": int(os.environ["E_RUN_ID"]),
-              "e_artifact_id": int(os.environ["E_ARTIFACT_ID"]),
-              "e_glb_sha256": os.environ["E_GLB_SHA256"],
-              "route": "D baseline triangle GLB -> native inspect/play -> E artifact -> Broker artifact.handoff -> incremental D composition.plan/apply -> native inspect/persistence/play -> C composition.verify receipt",
+              "blender_source_sha": os.environ["BLENDER_SOURCE_SHA"],
+              "blender_run_id": int(os.environ["BLENDER_RUN_ID"]),
+              "blender_artifact_id": int(os.environ["BLENDER_ARTIFACT_ID"]),
+              "blender_glb_sha256": os.environ["BLENDER_GLB_SHA256"],
+              "route": "Godot baseline triangle GLB -> native inspect/play -> Blender artifact -> Broker artifact.handoff -> incremental Godot composition.plan/apply -> native inspect/persistence/play -> Project Graph composition.verify receipt",
               "outcome": "PASS",
               "incremental_asset_replacement_verified": True,
               "behavior_bytes_preserved": True,
               "gameplay_collision_mapping_preserved": True,
               "logical_bindings_preserved": True,
-              "cross_app_c_receipt_verified": True,
-              "c_receipt_id": c["receipt_id"],
+              "cross_app_project_graph_receipt_verified": True,
+              "project_graph_receipt_id": c["receipt_id"],
               "c_output_asset": c["asset"],
               "c_output_revision": c["revision"],
               "godot_authoring_ready": False,
@@ -660,7 +660,7 @@ jobs:
           assert all(value == "success" for value in gates.values()), gates
           out = {
               "schema_version": 1,
-              "role": "D",
+              "role": "godot-authoring",
               "kind": "exact_candidate_certification",
               "source_sha": os.environ["GITHUB_SHA"],
               "run_id": int(os.environ["GITHUB_RUN_ID"]),
@@ -687,16 +687,16 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 12
     env:
-      E_SOURCE_SHA: ${{ inputs.e_source_sha || 'e753248ed33b345554b0e7c3c8d521e666751d6f' }}
-      E_RUN_ID: ${{ inputs.e_run_id || '36680849875' }}
-      E_ARTIFACT_ID: ${{ inputs.e_artifact_id || '11082381172' }}
-      E_ARTIFACT_NAME: ${{ format('blender-authoring-{0}-blender-native-authoring', inputs.e_source_sha || 'e753248ed33b345554b0e7c3c8d521e666751d6f') }}
-      E_GLB_SHA256: ${{ inputs.e_glb_sha256 || 'd3a4ba15f14ad6d3fba680c2d1db6d6d7584fb5254d2df8fd1c070870e9b0fd2' }}
+      BLENDER_SOURCE_SHA: ${{ inputs.blender_source_sha || 'e753248ed33b345554b0e7c3c8d521e666751d6f' }}
+      BLENDER_RUN_ID: ${{ inputs.blender_run_id || '36680849875' }}
+      BLENDER_ARTIFACT_ID: ${{ inputs.blender_artifact_id || '11082381172' }}
+      BLENDER_ARTIFACT_NAME: ${{ format('blender-authoring-{0}-blender-native-authoring', inputs.blender_source_sha || 'e753248ed33b345554b0e7c3c8d521e666751d6f') }}
+      BLENDER_GLB_SHA256: ${{ inputs.blender_glb_sha256 || 'd3a4ba15f14ad6d3fba680c2d1db6d6d7584fb5254d2df8fd1c070870e9b0fd2' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - name: Exact D source checkout
+      - name: Exact Godot source checkout
         run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
       - name: Download exact-SHA native D12 evidence
         uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
@@ -714,84 +714,84 @@ jobs:
           test -s "$NATIVE/cross-app/d12-receipt.json"
           test -s "$NATIVE/cross-app/c-receipt.json"
           test -s "$NATIVE/cross-app/articulated.glb"
-          echo "$E_GLB_SHA256  $NATIVE/cross-app/articulated.glb" | sha256sum -c -
-          gh api "repos/seradotcom/semwright/actions/artifacts/$E_ARTIFACT_ID" > "$OUT/e-artifact-metadata.json"
-          gh api "repos/seradotcom/semwright/actions/artifacts/$E_ARTIFACT_ID/zip" > "$RUNNER_TEMP/e-artifact.zip"
-          mkdir -p "$RUNNER_TEMP/e-cross-app"
-          unzip -q "$RUNNER_TEMP/e-artifact.zip" -d "$RUNNER_TEMP/e-cross-app"
-          echo "$E_GLB_SHA256  $RUNNER_TEMP/e-cross-app/articulated.glb" | sha256sum -c -
-          cmp "$NATIVE/cross-app/articulated.glb" "$RUNNER_TEMP/e-cross-app/articulated.glb"
+          echo "$BLENDER_GLB_SHA256  $NATIVE/cross-app/articulated.glb" | sha256sum -c -
+          gh api "repos/seradotcom/semwright/actions/artifacts/$BLENDER_ARTIFACT_ID" > "$OUT/blender-artifact-metadata.json"
+          gh api "repos/seradotcom/semwright/actions/artifacts/$BLENDER_ARTIFACT_ID/zip" > "$RUNNER_TEMP/blender-artifact.zip"
+          mkdir -p "$RUNNER_TEMP/blender-cross-app"
+          unzip -q "$RUNNER_TEMP/blender-artifact.zip" -d "$RUNNER_TEMP/blender-cross-app"
+          echo "$BLENDER_GLB_SHA256  $RUNNER_TEMP/blender-cross-app/articulated.glb" | sha256sum -c -
+          cmp "$NATIVE/cross-app/articulated.glb" "$RUNNER_TEMP/blender-cross-app/articulated.glb"
           for name in blender-native-authoring.json glb-roundtrip-blender.json native-pipeline.json acceptance-final.json acceptance-final-summary.json source-package.json skill-bundle.json skill-validate.json; do
-            test -s "$NATIVE/cross-app/e-source/$name"
-            cmp "$NATIVE/cross-app/e-source/$name" "$RUNNER_TEMP/e-cross-app/$name"
+            test -s "$NATIVE/cross-app/blender-source/$name"
+            cmp "$NATIVE/cross-app/blender-source/$name" "$RUNNER_TEMP/blender-cross-app/$name"
           done
-          python3 - "$NATIVE/cross-app/d12-receipt.json" "$NATIVE/cross-app/c-receipt.json" "$OUT/e-artifact-metadata.json" "$RUNNER_TEMP/e-cross-app" "$OUT/d12-oracle.json" <<'PY2'
+          python3 - "$NATIVE/cross-app/d12-receipt.json" "$NATIVE/cross-app/c-receipt.json" "$OUT/blender-artifact-metadata.json" "$RUNNER_TEMP/blender-cross-app" "$OUT/d12-oracle.json" <<'PY2'
           import hashlib, json, os, pathlib, sys
           d12 = json.loads(pathlib.Path(sys.argv[1]).read_text())
           c = json.loads(pathlib.Path(sys.argv[2]).read_text())
           metadata = json.loads(pathlib.Path(sys.argv[3]).read_text())
-          e_root = pathlib.Path(sys.argv[4])
-          e_suite = json.loads((e_root / "blender-native-authoring.json").read_text())
-          e_oracle = json.loads((e_root / "glb-roundtrip-blender.json").read_text())
-          e_native = json.loads((e_root / "native-pipeline.json").read_text())
-          e_acceptance = json.loads((e_root / "acceptance-final.json").read_text())
-          e_summary = json.loads((e_root / "acceptance-final-summary.json").read_text())
-          e_source_package = json.loads((e_root / "source-package.json").read_text())
-          e_skill_bundle = json.loads((e_root / "skill-bundle.json").read_text())
-          e_skill_validate = json.loads((e_root / "skill-validate.json").read_text())
+          blender_root = pathlib.Path(sys.argv[4])
+          blender_suite = json.loads((blender_root / "blender-native-authoring.json").read_text())
+          blender_oracle = json.loads((blender_root / "glb-roundtrip-blender.json").read_text())
+          blender_native = json.loads((blender_root / "native-pipeline.json").read_text())
+          blender_acceptance = json.loads((blender_root / "acceptance-final.json").read_text())
+          blender_summary = json.loads((blender_root / "acceptance-final-summary.json").read_text())
+          blender_source_package = json.loads((blender_root / "source-package.json").read_text())
+          blender_skill_bundle = json.loads((blender_root / "skill-bundle.json").read_text())
+          blender_skill_validate = json.loads((blender_root / "skill-validate.json").read_text())
           assert d12["source_sha"] == os.environ["GITHUB_SHA"]
-          assert d12["e_source_sha"] == os.environ["E_SOURCE_SHA"]
-          assert d12["e_run_id"] == int(os.environ["E_RUN_ID"])
-          assert d12["e_artifact_id"] == int(os.environ["E_ARTIFACT_ID"])
-          assert d12["e_glb_sha256"] == os.environ["E_GLB_SHA256"]
+          assert d12["blender_source_sha"] == os.environ["BLENDER_SOURCE_SHA"]
+          assert d12["blender_run_id"] == int(os.environ["BLENDER_RUN_ID"])
+          assert d12["blender_artifact_id"] == int(os.environ["BLENDER_ARTIFACT_ID"])
+          assert d12["blender_glb_sha256"] == os.environ["BLENDER_GLB_SHA256"]
           assert d12["outcome"] == "PASS"
           for key in [
               "incremental_asset_replacement_verified",
               "behavior_bytes_preserved",
               "gameplay_collision_mapping_preserved",
               "logical_bindings_preserved",
-              "cross_app_c_receipt_verified",
+              "cross_app_project_graph_receipt_verified",
           ]:
               assert d12[key] is True, key
-          assert d12["c_receipt_id"] == c["receipt_id"]
+          assert d12["project_graph_receipt_id"] == c["receipt_id"]
           assert d12["c_output_asset"] == c["asset"]
           assert d12["c_output_revision"] == c["revision"]
           assert c["operation"] == "driver.godot.composition.apply"
-          assert c["sha256"] == os.environ["E_GLB_SHA256"]
+          assert c["sha256"] == os.environ["BLENDER_GLB_SHA256"]
           assert c["coverage_complete"] is False
-          assert metadata["id"] == int(os.environ["E_ARTIFACT_ID"])
-          assert metadata["name"] == os.environ["E_ARTIFACT_NAME"]
+          assert metadata["id"] == int(os.environ["BLENDER_ARTIFACT_ID"])
+          assert metadata["name"] == os.environ["BLENDER_ARTIFACT_NAME"]
           assert metadata["expired"] is False
-          assert e_suite["source_sha"] == e_suite["suite_sha"] == e_suite["github_sha"] == os.environ["E_SOURCE_SHA"]
-          assert str(e_suite["run_id"]) == os.environ["E_RUN_ID"]
-          assert e_suite["outcome"] == "PASS" and e_suite["passed"] == (3 if os.environ["E_SOURCE_SHA"] == "e753248ed33b345554b0e7c3c8d521e666751d6f" else 4)
-          assert e_suite["failed"] == e_suite["ignored"] == e_suite["filtered"] == 0
-          assert e_oracle["result"] == "PASS" and e_oracle["source_sha256"] == os.environ["E_GLB_SHA256"]
-          assert all(e_oracle["required_checks"].values())
-          assert e_native["native_assertions_completed"] is True
-          assert e_native["native_authoring_c_f_verified"] is True
-          assert e_native["glb"]["sha256"] == os.environ["E_GLB_SHA256"]
-          e_exact = e_acceptance["exact_evidence"]
-          assert e_exact["source_sha"] == os.environ["E_SOURCE_SHA"]
-          assert e_exact["run_id"] == int(os.environ["E_RUN_ID"])
-          assert e_exact["glb_sha256"] == os.environ["E_GLB_SHA256"]
-          assert (e_exact["model"]["passed"], e_exact["native"]["passed"]) == ((50, 3) if os.environ["E_SOURCE_SHA"] == "e753248ed33b345554b0e7c3c8d521e666751d6f" else (52, 4))
-          assert e_summary["source_sha"] == os.environ["E_SOURCE_SHA"]
-          assert str(e_summary["run_id"]) == os.environ["E_RUN_ID"]
-          assert e_summary["blocked"] == ["E11"] and e_summary["partial"] == ["E13"]
-          assert e_source_package["source_sha"] == os.environ["E_SOURCE_SHA"]
-          assert e_source_package["sha256"] == e_exact["source_backup_sha256"]
-          assert e_skill_bundle["sha256"] == e_exact["skill_zip_sha256"]
-          assert e_skill_validate["result"] == "valid" and e_skill_validate["warnings"] == []
+          assert blender_suite["source_sha"] == blender_suite["suite_sha"] == blender_suite["github_sha"] == os.environ["BLENDER_SOURCE_SHA"]
+          assert str(blender_suite["run_id"]) == os.environ["BLENDER_RUN_ID"]
+          assert blender_suite["outcome"] == "PASS" and blender_suite["passed"] == (3 if os.environ["BLENDER_SOURCE_SHA"] == "e753248ed33b345554b0e7c3c8d521e666751d6f" else 4)
+          assert blender_suite["failed"] == blender_suite["ignored"] == blender_suite["filtered"] == 0
+          assert blender_oracle["result"] == "PASS" and blender_oracle["source_sha256"] == os.environ["BLENDER_GLB_SHA256"]
+          assert all(blender_oracle["required_checks"].values())
+          assert blender_native["native_assertions_completed"] is True
+          assert blender_native["native_authoring_graph_effects_verified"] is True
+          assert blender_native["glb"]["sha256"] == os.environ["BLENDER_GLB_SHA256"]
+          blender_exact = blender_acceptance["exact_evidence"]
+          assert blender_exact["source_sha"] == os.environ["BLENDER_SOURCE_SHA"]
+          assert blender_exact["run_id"] == int(os.environ["BLENDER_RUN_ID"])
+          assert blender_exact["glb_sha256"] == os.environ["BLENDER_GLB_SHA256"]
+          assert (blender_exact["model"]["passed"], blender_exact["native"]["passed"]) == ((50, 3) if os.environ["BLENDER_SOURCE_SHA"] == "e753248ed33b345554b0e7c3c8d521e666751d6f" else (52, 4))
+          assert blender_summary["source_sha"] == os.environ["BLENDER_SOURCE_SHA"]
+          assert str(blender_summary["run_id"]) == os.environ["BLENDER_RUN_ID"]
+          assert blender_summary["blocked"] == ["E11"] and blender_summary["partial"] == ["E13"]
+          assert blender_source_package["source_sha"] == os.environ["BLENDER_SOURCE_SHA"]
+          assert blender_source_package["sha256"] == blender_exact["source_backup_sha256"]
+          assert blender_skill_bundle["sha256"] == blender_exact["skill_zip_sha256"]
+          assert blender_skill_validate["result"] == "valid" and blender_skill_validate["warnings"] == []
           out = {
               "schema_version": 1,
-              "role": "D-cross-app-oracle",
+              "role": "godot-cross-app-oracle",
               "source_sha": os.environ["GITHUB_SHA"],
               "outcome": "PASS",
               "native_receipt_sha256": hashlib.sha256(pathlib.Path(sys.argv[1]).read_bytes()).hexdigest(),
-              "c_receipt_sha256": hashlib.sha256(pathlib.Path(sys.argv[2]).read_bytes()).hexdigest(),
-              "e_glb_sha256": os.environ["E_GLB_SHA256"],
-              "c_receipt_id": c["receipt_id"],
+              "project_graph_receipt_sha256": hashlib.sha256(pathlib.Path(sys.argv[2]).read_bytes()).hexdigest(),
+              "blender_glb_sha256": os.environ["BLENDER_GLB_SHA256"],
+              "project_graph_receipt_id": c["receipt_id"],
           }
           pathlib.Path(sys.argv[5]).write_text(json.dumps(out, indent=2) + "\n")
           PY2

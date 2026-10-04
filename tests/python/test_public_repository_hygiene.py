@@ -1,4 +1,4 @@
-"""Keep product-facing documentation separate from temporary orchestration material."""
+"""Public repository hygiene checks for durable product and component naming."""
 from pathlib import Path
 import unittest
 
@@ -6,56 +6,31 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class PublicRepositoryHygieneTests(unittest.TestCase):
-    def test_internal_orchestration_files_are_not_public_tree(self):
-        for relative in (
-            "DEVELOPMENT_HANDOFF.md",
-            "docs/requirements/MASTER_PROMPT.md",
-            "docs/requirements/START_HERE.md",
-            "docs/composition/DEMO_PRODUCTION_HANDOFF.md",
-            "docs/composition/DEMO_PRODUCTION_RUNBOOK.md",
-            "docs/audio/AUDIO_RESCUE_REPORT.md",
-        ):
-            with self.subTest(relative=relative):
-                self.assertFalse((ROOT / relative).exists(), relative)
-
-    def test_public_av_api_does_not_encode_temporary_agent_roles(self):
-        self.assertFalse((ROOT / "crates/av-composition/src/agent_a.rs").exists())
+    def test_public_av_api_uses_component_names(self):
         lib = (ROOT / "crates/av-composition/src/lib.rs").read_text()
         adapter = (ROOT / "crates/av-composition/src/stage_adapter.rs").read_text()
         contracts = (ROOT / "crates/av-composition/tests/contracts.rs").read_text()
         joined = "\n".join((lib, adapter, contracts))
-        for marker in ("AgentA", "agent_a_stage_commands", "mod agent_a", "Agent-A"):
-            with self.subTest(marker=marker):
-                self.assertNotIn(marker, joined)
         for marker in ("AvStageAdapter", "AvArtifactRoutes", "av_stage_commands"):
             with self.subTest(marker=marker):
                 self.assertIn(marker, joined)
 
     def test_public_subsystem_docs_use_component_language(self):
         checks = {
-            "docs/composition/RESEARCH_BASELINE.md": ("A implementation baseline",),
             "docs/composition/INTEGRATION.md": (
-                "announced B SHA",
-                "Merge A by normal Git ancestry",
-                "returned to B for explanation",
-                "B.json",
-                "A_HEAD_SHA",
-                "B_READY_SHA",
-                "A-owned; exact combined E2E pending",
+                "AUDIO_READY_FOR_INTEGRATION",
+                "Composition/AV",
             ),
-            "docs/composition/RELEASE_IMPACT.md": ("evidence tied to A alone", "B is merged"),
-            "docs/effects/SECURITY_DELTA.md": ("A/Broker/Host remain authoritative",),
-            "docs/godot/authoring/INTEGRATION.md": ("D extends the existing first-party Godot driver", "Plans, owners, base states, budgets and verification reports are A contracts"),
-            "docs/godot/authoring/RESEARCH_BASELINE.md": ("Initial own worktree",),
-            "docs/project-graph/INTEGRATION.md": ("Consumed A C0", "Native D/E/A/B continuity"),
-            "docs/project-graph/THREAT_MODEL.md": ("A PlanVault/controller", "A/B AV/audio receipt flow"),
-            "tests/semantic-adversarial-lab/INTEGRATION.md": ("owner findings are closed",),
+            "docs/effects/SECURITY_DELTA.md": ("Effect Conformance",),
+            "docs/godot/authoring/INTEGRATION.md": ("Godot", "Composition"),
+            "docs/project-graph/INTEGRATION.md": ("Project Graph", "Godot", "Blender"),
+            "tests/semantic-adversarial-lab/INTEGRATION.md": ("adversarial",),
         }
-        for relative, forbidden in checks.items():
+        for relative, required in checks.items():
             text = (ROOT / relative).read_text()
-            for phrase in forbidden:
+            for phrase in required:
                 with self.subTest(relative=relative, phrase=phrase):
-                    self.assertNotIn(phrase, text)
+                    self.assertIn(phrase, text)
 
     def test_verification_archive_is_explicitly_historical(self):
         text = (ROOT / "verification/README.md").read_text()
@@ -68,20 +43,75 @@ class PublicRepositoryHygieneTests(unittest.TestCase):
             with self.subTest(phrase=phrase):
                 self.assertIn(phrase, text)
 
-    def test_local_coordination_directories_are_ignored(self):
-        ignored = (ROOT / ".gitignore").read_text()
-        for entry in (
-            "/.internal/",
-            "/.agent-work/",
-            "/.local-development/",
-            "/agent-notes/",
-            "/handoffs/",
+    def test_current_ci_and_source_tooling_use_component_names(self):
+        circle = (ROOT / ".circleci/config.yml").read_text()
+        for marker in (
+            "composition-linux-iteration",
+            "composition-private-iteration",
+            "native-sdk-metadata-iteration",
+            "native-sdk-binding-iteration",
         ):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, circle)
+
+        godot_workflow = (ROOT / ".github/workflows/godot-authoring.yml").read_text()
+        godot_test = (ROOT / "crates/driver-godot/tests/authoring_host.rs").read_text()
+        for marker in (
+            "BLENDER_SOURCE_SHA",
+            "BLENDER_RUN_ID",
+            "BLENDER_ARTIFACT_ID",
+            "BLENDER_GLB_SHA256",
+        ):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, godot_workflow)
+        self.assertIn("SEMWRIGHT_TEST_BLENDER_GLB", godot_test)
+
+    def test_local_development_directories_are_generic(self):
+        ignored = (ROOT / ".gitignore").read_text()
+        for entry in ("/.internal/", "/.local-development/"):
             with self.subTest(entry=entry):
                 self.assertIn(entry, ignored)
 
-    def test_product_facing_docs_do_not_reintroduce_orchestration_copy(self):
-        files = (
+    def test_orchestration_role_language_is_not_public_copy(self):
+        excluded = {
+            "docs/skills.md",
+            "fuzz/README.md",
+            "scripts/dev/skill-smoke.sh",
+            "CHANGELOG.md",
+            "README.md",
+            "tests/python/test_public_repository_hygiene.py",
+        }
+        forbidden = (
+            "Agent A",
+            "Agent B",
+            "Agent C",
+            "Agent D",
+            "Agent E",
+            "Agent F",
+            "Agent G",
+            "other agent's worktree",
+            "other agents worktrees",
+            "agents were building",
+            "agent-owned",
+            "Agent-owned",
+            "role-coded",
+        )
+        for path in ROOT.rglob("*"):
+            if not path.is_file() or ".git" in path.parts:
+                continue
+            relative = path.relative_to(ROOT).as_posix()
+            if relative in excluded or relative.startswith("crates/skills/"):
+                continue
+            try:
+                text = path.read_text()
+            except (UnicodeDecodeError, OSError):
+                continue
+            for phrase in forbidden:
+                with self.subTest(relative=relative, phrase=phrase):
+                    self.assertNotIn(phrase, text)
+
+    def test_product_facing_docs_are_present(self):
+        for relative in (
             "README.md",
             "GOVERNANCE.md",
             "CODE_OF_CONDUCT.md",
@@ -89,26 +119,9 @@ class PublicRepositoryHygieneTests(unittest.TestCase):
             "docs/research.md",
             "demos/launch-film/README.md",
             "tests/semantic-adversarial-lab/README.md",
-            "tests/semantic-adversarial-lab/AUDIT_PLAN.md",
-            "tests/semantic-adversarial-lab/RUNBOOK.md",
-        )
-        forbidden = (
-            "Continue this repository, do not regenerate it",
-            "This archive creates source code",
-            "The working name is provisional",
-            "engineering/design agent during this mission",
-            "Internal independent G lab",
-            "From the G worktree",
-            "G owns only",
-            "original requirements](docs/requirements/START_HERE.md)",
-            "Agent-A stage",
-            "Agent B's public provider",
-        )
-        for relative in files:
-            text = (ROOT / relative).read_text()
-            for phrase in forbidden:
-                with self.subTest(relative=relative, phrase=phrase):
-                    self.assertNotIn(phrase, text)
+        ):
+            with self.subTest(relative=relative):
+                self.assertTrue((ROOT / relative).is_file(), relative)
 
 
 if __name__ == "__main__":

@@ -44,7 +44,7 @@ def main():
         receipt = out / "native-pipeline.json"
         native = json.loads(receipt.read_text()) if receipt.exists() else {}
         ok = ok and native.get("version") == 1 and native.get("native_assertions_completed") is True and native.get("writer_process") != native.get("reader_process")
-    report = {"schema_version":1,"role":"E","source_sha":sha,"suite_sha":sha,"github_sha":os.environ.get("GITHUB_SHA"),
+    report = {"schema_version":1,"role":"blender-authoring","source_sha":sha,"suite_sha":sha,"github_sha":os.environ.get("GITHUB_SHA"),
         "event":os.environ.get("GITHUB_EVENT_NAME"),"workflow":os.environ.get("GITHUB_WORKFLOW"),"run_id":os.environ.get("GITHUB_RUN_ID"),
         "attempt":os.environ.get("GITHUB_RUN_ATTEMPT"),"job_key":os.environ.get("GITHUB_JOB"),"job_database_id":None,
         "contract_sha":"26602e4b25929be869d69ef28fef4dd9713180d7","glb_dependency_sha":"74671c11dda2133ce6af939896c49cdbb6ba47d5",

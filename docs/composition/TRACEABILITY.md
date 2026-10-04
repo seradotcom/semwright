@@ -20,7 +20,7 @@ This file maps the original Composition/AV requirement IDs to implementation and
 | A10 | Temporal DAG, exact rational solver, hard/soft constraints | IMPLEMENTED |
 | A11 | Renderer observations, explicit frame coverage, speed/acceleration | IMPLEMENTED; exact-SHA native evidence pending |
 | A12 | Deterministic validation and bounded repair candidates | IMPLEMENTED; M07 hold/retime regressions added |
-| A13 | Fixed AV graph, public audio receipt boundary, dependency reuse/invalidation | AV-SIDE IMPLEMENTED; previous audio-ready SHA superseded; df2654bed recertified PASS but fresh formal audio-ready revision and combined exact-SHA E2E PENDING |
+| A13 | Fixed AV graph, public audio receipt boundary, dependency reuse/invalidation | IMPLEMENTED; previous audio-ready SHA superseded; df2654bed recertified PASS but fresh formal audio-ready revision and combined exact-SHA E2E PENDING |
 | A14 | Motion render, FFV1 mezzanine, MLT H.264/AAC mux, post-encode audio decode/analysis, full decoded sync | IMPLEMENTED; AV-side backport passed CircleCI private exact-SHA iteration; final candidate certification pending |
 | A15 | Figma, video and fail-closed AV Skills plus production runbook | IMPLEMENTED against public audio capabilities; exact combined Skill evidence PENDING |
 | A16 | Contracts, Figma, Motion, AV, security, fuzz and mutation workflows | IMPLEMENTED; exact-SHA results pending |
@@ -73,9 +73,9 @@ This file maps the original Composition/AV requirement IDs to implementation and
 
 ## AV gates
 
-No AV row is PASS before the exact B-ready SHA is merged and the technical E2E executes on one combined candidate.
+No AV row is PASS before the exact audio-ready SHA is merged and the technical E2E executes on one combined candidate.
 
-| Gate | A-side implementation | Acceptance state |
+| Gate | Composition/AV implementation | Acceptance state |
 |---|---|---|
 | AV01 | Exact Rate/Rational contracts; MLT fps + 48 kHz profile | PENDING combined |
 | AV02 | Full-master flash/impulse decoder + pinned SyncSpec | PENDING combined |
@@ -84,8 +84,8 @@ No AV row is PASS before the exact B-ready SHA is merged and the technical E2E e
 | AV05 | Visual-only change preserves independent audio | CONTRACT TESTED; PENDING combined E2E |
 | AV06 | Coordinator retains prior effects and refuses ready master after failure | IMPLEMENTED; PENDING combined failure E2E |
 | AV07 | Owner/session binding on plans/artifacts/transfers | IMPLEMENTED; PENDING combined |
-| AV08 | Mux re-probes duration/rate/channels/sample count; final audio must be analyzed again | AV-SIDE IMPLEMENTED against public audio analysis; PENDING combined E2E |
-| AV09 | Motion + common audio receipt + artifact.handoff + MLT | AV-SIDE CONNECTED; disposable E2E with corrected audio semantics PASS in run 36948655709; fresh formal audio-ready revision and final combined receipt/E2E PENDING |
+| AV08 | Mux re-probes duration/rate/channels/sample count; final audio must be analyzed again | IMPLEMENTED against public audio analysis; PENDING combined E2E |
+| AV09 | Motion + common audio receipt + artifact.handoff + MLT | CONNECTED; disposable E2E with corrected audio semantics PASS in run 36948655709; fresh formal audio-ready revision and final combined receipt/E2E PENDING |
 | AV10 | Clean-runner package/runtime setup | PENDING combined clean run |
 | AV11 | Cancellation/UNKNOWN semantics and provider cancellation | IMPLEMENTED; PENDING combined |
 | AV12 | Dependency diff/reuse and new evidence after semantic change | CONTRACT TESTED; PENDING combined |
