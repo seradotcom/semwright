@@ -13,6 +13,7 @@ class PublicRepositoryHygieneTests(unittest.TestCase):
             "docs/requirements/START_HERE.md",
             "docs/composition/DEMO_PRODUCTION_HANDOFF.md",
             "docs/composition/DEMO_PRODUCTION_RUNBOOK.md",
+            "docs/audio/AUDIO_RESCUE_REPORT.md",
         ):
             with self.subTest(relative=relative):
                 self.assertFalse((ROOT / relative).exists(), relative)
@@ -29,6 +30,24 @@ class PublicRepositoryHygieneTests(unittest.TestCase):
         for marker in ("AvStageAdapter", "AvArtifactRoutes", "av_stage_commands"):
             with self.subTest(marker=marker):
                 self.assertIn(marker, joined)
+
+    def test_public_subsystem_docs_use_component_language(self):
+        checks = {
+            "docs/composition/RESEARCH_BASELINE.md": ("A implementation baseline",),
+            "docs/composition/INTEGRATION.md": ("announced B SHA", "Merge A by normal Git ancestry", "returned to B for explanation"),
+            "docs/composition/RELEASE_IMPACT.md": ("evidence tied to A alone", "B is merged"),
+            "docs/effects/SECURITY_DELTA.md": ("A/Broker/Host remain authoritative",),
+            "docs/godot/authoring/INTEGRATION.md": ("D extends the existing first-party Godot driver", "Plans, owners, base states, budgets and verification reports are A contracts"),
+            "docs/godot/authoring/RESEARCH_BASELINE.md": ("Initial own worktree",),
+            "docs/project-graph/INTEGRATION.md": ("Consumed A C0", "Native D/E/A/B continuity"),
+            "docs/project-graph/THREAT_MODEL.md": ("A PlanVault/controller", "A/B AV/audio receipt flow"),
+            "tests/semantic-adversarial-lab/INTEGRATION.md": ("owner findings are closed",),
+        }
+        for relative, forbidden in checks.items():
+            text = (ROOT / relative).read_text()
+            for phrase in forbidden:
+                with self.subTest(relative=relative, phrase=phrase):
+                    self.assertNotIn(phrase, text)
 
     def test_local_coordination_directories_are_ignored(self):
         ignored = (ROOT / ".gitignore").read_text()

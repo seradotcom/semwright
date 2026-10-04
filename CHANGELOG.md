@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Rewrote remaining subsystem integration notes in durable component terminology and moved the unreferenced audio-worktree rescue report out of the current public tree; exact source SHAs and verification history remain intact.
 - Replaced temporary agent-role names in the AV composition public API and integration documentation with durable component-oriented names (`AvStageAdapter`, `AvArtifactRoutes`, and `av_stage_commands`).
 - Separated public product/contributor documentation from temporary development orchestration; internal handoff/master-prompt material is no longer part of the current tree, while technical history and exact-SHA evidence remain preserved.
 - Added a bundled three-step cross-platform quick start for native installs; portable installers now lead directly to the safe, idempotent `semwright setup` onboarding path.

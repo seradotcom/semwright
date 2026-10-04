@@ -13,7 +13,7 @@ Inspection date: 2026-09-28. Main frozen at `b736d41b61c4a4146c9e75c16796e251b02
 | `crates/platform-services/src/{lib,unix}.rs` at baseline | Reuse trusted private-directory and OS-selected scoped filesystem; no lexical path-prefix confinement claim. |
 | `crates/workflow/src/store.rs`, `crates/core/src/{lib,workflows}.rs` at baseline | Workflow distillation and Broker re-entry already exist. Graph persistence is separate; reconstruction proposes typed existing capabilities. |
 | `docs/composition/AUDIO_AV_CONTRACT.md` at inspected Composition SHA | C1 adds media receipts/fixed AV/publication. Its native integration must be consumed explicitly; Project Graph does not create a competing publication pointer. |
-| rusqlite 0.40.2 / bundled SQLite, remotely resolved in the C lock lane | Chosen for bounded transactional local state and backup API. C still keeps a canonical event journal and rebuildable indexes; SQLite is not used to claim cross-app ACID. |
+| rusqlite 0.40.2 / bundled SQLite, resolved in the Project Graph lock lane | Chosen for bounded transactional local state and backup API. Project Graph still keeps a canonical event journal and rebuildable indexes; SQLite is not used to claim cross-app ACID. |
 | `crates/skills` + Agent Skills package shape | Continuity guidance stays agent-side; requirements/examples use the real Skills/Registry tooling and never grant Broker authority. |
 
 Runtime/library pins and native method versions will be recorded per integrated lane. Documentation from latest/current is not evidence that a pinned native runtime implements an API. Product-state claims require executed source-SHA-bound reports, not these sources.

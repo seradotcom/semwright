@@ -1,7 +1,7 @@
 # Effect Conformance research baseline — refreshed 2026-09-30
 
 ## Repository evidence
-Frozen base `b736d41b61c4a4146c9e75c16796e251b025e69f`; A C0 `26602e4b25929be869d69ef28fef4dd9713180d7`; C P0 `6ee52b428310370d3ad438a13964086a63f48367`; E0 `dd6d22d6ec6c7c5ef378da58ed75ca18b25ba5ff`.
+Frozen base `b736d41b61c4a4146c9e75c16796e251b025e69f`; Composition C0 `26602e4b25929be869d69ef28fef4dd9713180d7`; Project Graph P0 `6ee52b428310370d3ad438a13964086a63f48367`; E0 `dd6d22d6ec6c7c5ef378da58ed75ca18b25ba5ff`.
 Composition defines reports, vault and canonicalization. Effect Conformance adds effect predicates, evidence/coverage normalization, enumeration audits and driver-quality evaluation without replacing those types.
 Godot #171 scene-only persistence/readback and the fixed Blender Commands/GLB path are treated as conformance subjects, not inherited proof.
 

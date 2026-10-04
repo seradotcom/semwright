@@ -1,6 +1,6 @@
 # Security delta — F
 
-The evaluator is not authorization, a policy engine, a safety certification or a new trust root. A/Broker/Host remain authoritative. R16 remains open.
+The evaluator is not authorization, a policy engine, a safety certification or a new trust root. Composition/Broker/Host remain authoritative. R16 remains open.
 
 ## Implemented controls
 Typed/versioned predicates avoid user eval and arbitrary verifier scripts. Imported observations cannot mint authenticated EvidenceBatch.

@@ -11,7 +11,7 @@ The lab is scoped to `tests/semantic-adversarial-lab/` and `.github/workflows/se
 
 `targets.json` freezes product and contract SHAs. The checked-out lab commit is `LAB_SUITE_SHA`; each product checkout is independently verified as `TESTED_SOURCE_SHA`. A selftest's source is the suite itself, and `product_target_sha` is null. Neither a current branch tip nor a green run for another SHA can replace these identities.
 
-A target update is deliberate: obtain the owner's explicit commit, inspect contract changes, update only the relevant target lock, preserve the old run and expectation registry, commit, push, and execute the relevant lane on a new run. Do not rerun an old workflow expecting it to test a newly pushed fix. No cherry-pick of product types, cross-worktree Cargo path, or private provider call is used by the lab.
+A target update is deliberate: obtain the explicit product fix commit, inspect contract changes, update only the relevant target lock, preserve the old run and expectation registry, commit, push, and execute the relevant lane on a new run. Do not rerun an old workflow expecting it to test a newly pushed fix. No cherry-pick of product types, cross-worktree Cargo path, or private provider call is used by the lab.
 
 ## Integration candidate
 
@@ -33,7 +33,7 @@ Review the raw structured receipts with the read-only collector, not a substring
 
 Exact-SHA lab evidence now covers final Project Graph 74/74, F effect contracts 40/40, Broker routing 12/12, package/Skill hostility 20/20, Audio 30/30, AV 35/35, Figma contracts 17/17, Motion contracts 20/20, lifecycle faults 18/18 and clean-room driver distribution 12/12. These are independent experiments on their frozen product SHAs, not a synthetic combined certification.
 
-Pinned native Godot and Blender were also exercised through real product routes. Godot is green on Godot FIX_SHA 70bd7857 and Blender is green on Blender second FIX_SHA f492f13. Composition is 70/70 PASS on Composition FIX_SHA 7ab43f99. All currently confirmed owner findings are closed by exact-SHA lab retests. The remaining gate is an explicit combined-candidate SHA; the lab will not synthesize one from separate subsystem SHAs.
+Pinned native Godot and Blender were also exercised through real product routes. Godot is green on Godot FIX_SHA 70bd7857 and Blender is green on Blender second FIX_SHA f492f13. Composition is 70/70 PASS on Composition FIX_SHA 7ab43f99. All currently confirmed product findings are closed by exact-SHA lab retests. The remaining gate is an explicit combined-candidate SHA; the lab will not synthesize one from separate subsystem SHAs.
 
 No explicit combined candidate has been supplied. An observed integration branch/certification is retained as context only and is not adopted into combined_candidate_sha. Full-wave candidate testing therefore remains BLOCKED.
 

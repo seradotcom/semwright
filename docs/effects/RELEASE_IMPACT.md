@@ -3,7 +3,7 @@
 No release, tag, main merge, protection change or R16 closure is authorized by this role.
 
 Added package: `semwright-effect-conformance`, inheriting workspace version/license/toolchain. Runtime dependency direction is F -> A semantic-composition; project-graph is dev-only. No duplicate EffectClass, Finding, VerificationReport, clock, vault or policy engine was introduced.
-A C0 `26602e4...` and C P0 `6ee52b4...` are pinned consumed dependencies. Shared A wire/canonical formats remain unchanged. F schemas are additive and versioned.
+Composition C0 `26602e4...` and Project Graph P0 `6ee52b4...` are pinned consumed dependencies. Shared Composition wire/canonical formats remain unchanged. Effect Conformance schemas are additive and versioned.
 
 Implementation source `d2cfd86a2ee064aa5de8f0a8944319edf6dbb060` has:
 - F release 36942492444 PASS on Linux/Windows/macOS; Linux native Godot/Blender, Forbidden-obligation regression and mutations PASS.
