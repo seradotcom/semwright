@@ -1,5 +1,7 @@
 # Verification — Semwright 0.9.0-dev.1
 
+> Historical receipts under [`verification/`](verification/README.md) preserve their original source-scoped terminology and identifiers; they are evidence records, not current governance or product copy.
+
 ## Current staging policy
 
 The [2026-10-03 release policy](docs/release-policy.md) supersedes the older live-matrix
