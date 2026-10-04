@@ -25,7 +25,7 @@ subsystem-only green runs do not certify the integrated runtime.
 
 ## Integration changes requiring acceptance
 
-- Composition/Godot D11 explicit fresh-child reconciliation preserves owner/root incarnation,
+- Composition/Godot explicit fresh-child reconciliation preserves owner/root incarnation,
   the old ledger and aggregate budgets; foreign, stale and replayed authority is
   denied. See [the reconciliation contract](RECONCILIATION.md).
 - The audio production Effect Conformance consumer uses the actual admitted decoded measurements and

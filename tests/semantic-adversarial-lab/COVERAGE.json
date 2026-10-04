@@ -110,7 +110,7 @@
         "artifact 9cdd503ce6e5de968577e9e0ce26d08e2aa9edb13e1bcd0acae2bd4201bcc3aa",
         "G-PLAN-022/023/024 all PASS on the Composition fix SHA"
       ],
-      "blocker": "G-FIND-A-001 is CLOSED_RETEST_PASS. Composition bound BeginPermit to private vault/root identities; revoke/reissue, foreign-vault and expiry/reissue attacks now fail closed. No open Composition finding remains in this tested family.",
+      "blocker": "G-FIND-COMPOSITION-001 is CLOSED_RETEST_PASS. Composition bound BeginPermit to private vault/root identities; revoke/reissue, foreign-vault and expiry/reissue attacks now fail closed. No open Composition finding remains in this tested family.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },
@@ -405,7 +405,7 @@
         "artifact 183d8686c45d774d1b0061eed28e892417f4dcf414831945c7f90a4b52e23dd6",
         "G-GODOT-006/007/013 all PASS"
       ],
-      "blocker": "G-FIND-D-001 and G-FIND-D-002 are CLOSED_RETEST_PASS on the Godot fix SHA 70bd7857. The aggregate selected-gate was cancelled only after both boundaries and immutable artifacts completed, to release lab workflow concurrency; case evidence remains complete.",
+      "blocker": "G-FIND-GODOT-001 and G-FIND-GODOT-002 are CLOSED_RETEST_PASS on the Godot fix SHA 70bd7857. The aggregate selected-gate was cancelled only after both boundaries and immutable artifacts completed, to release lab workflow concurrency; case evidence remains complete.",
       "implementation_suite_sha": "a337709ffdd2e05f40da408e3a78183651dff113",
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },
@@ -446,7 +446,7 @@
         "artifact e7e3d2774b3ba09c92cebfd2e898c3a8c18d6253d1c8b9cdabe852581c1f78b1",
         "G-BLENDER-010 PASS with pre/post source drift=false, valid GLB magic/hash and sentinel preserved"
       ],
-      "blocker": "G-FIND-E-001 is CLOSED_RETEST_PASS on the second Blender fix SHA f492f13. The unchanged 14-case native family is 14/14 PASS; no open Blender finding remains in this tested scope.",
+      "blocker": "G-FIND-BLENDER-001 is CLOSED_RETEST_PASS on the second Blender fix SHA f492f13. The unchanged 14-case native family is 14/14 PASS; no open Blender finding remains in this tested scope.",
       "implementation_suite_sha": "982e5698cc44c2adead9491a2f8590242fd1dbf3",
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },
@@ -675,11 +675,11 @@
       "run_id": 36946146627,
       "job_id": 110652860701,
       "evidence": [
-        "G-FIND-C-001 CLOSED_RETEST_PASS",
-        "G-FIND-A-001 CLOSED_RETEST_PASS",
-        "G-FIND-D-001 CLOSED_RETEST_PASS",
-        "G-FIND-D-002 CLOSED_RETEST_PASS",
-        "G-FIND-E-001 CLOSED_RETEST_PASS"
+        "G-FIND-PROJECT-GRAPH-001 CLOSED_RETEST_PASS",
+        "G-FIND-COMPOSITION-001 CLOSED_RETEST_PASS",
+        "G-FIND-GODOT-001 CLOSED_RETEST_PASS",
+        "G-FIND-GODOT-002 CLOSED_RETEST_PASS",
+        "G-FIND-BLENDER-001 CLOSED_RETEST_PASS"
       ],
       "blocker": "All currently confirmed owner findings have exact fix retests and are closed. Any future combined-candidate finding remains a new experiment.",
       "implementation_suite_sha": null,

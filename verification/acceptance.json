@@ -828,42 +828,42 @@
     },
     {
       "id": "A118",
-      "section": "Final handoff",
+      "section": "Source archive verification",
       "requirement": "ZIP created.",
       "status": "PASS",
       "evidence": "Source archive generated; external archive-check records final SHA/path/CRC verification."
     },
     {
       "id": "A119",
-      "section": "Final handoff",
+      "section": "Source archive verification",
       "requirement": "ZIP opens and contains top-level repo.",
       "status": "PASS",
       "evidence": "Archive checked for CRC errors and exactly one semwright/ top-level directory."
     },
     {
       "id": "A120",
-      "section": "Final handoff",
+      "section": "Source archive verification",
       "requirement": "SHA-256 of ZIP reported.",
       "status": "PASS",
       "evidence": "External .sha256/check metadata accompanies the archive."
     },
     {
       "id": "A121",
-      "section": "Final handoff",
-      "requirement": "Final response links ZIP.",
+      "section": "Source archive verification",
+      "requirement": "Archive location and checksum are documented.",
       "status": "PASS",
-      "evidence": "Final handoff includes a verified sandbox link to the actual archive."
+      "evidence": "Verification records bind the archive path to the checked SHA-256."
     },
     {
       "id": "A122",
-      "section": "Final handoff",
-      "requirement": "Final response summarizes what was actually run.",
+      "section": "Source archive verification",
+      "requirement": "Verification records summarize executed checks.",
       "status": "PASS",
-      "evidence": "Final handoff distinguishes Python/JS/C/CDP checks from uncompiled Rust."
+      "evidence": "VERIFY.md distinguishes exact-commit hosted Rust, source, fake-E2E and Chromium evidence from remaining live gaps."
     },
     {
       "id": "A123",
-      "section": "Final handoff",
+      "section": "Source archive verification",
       "requirement": "Remaining live Linux test steps are listed, not hidden.",
       "status": "PASS",
       "evidence": "docs/manual-testing.md plus RELEASE_BLOCKERS.md."

@@ -98,7 +98,14 @@ class PublicRepositoryHygieneTests(unittest.TestCase):
             re.compile(r"\binternal handoff\b", re.IGNORECASE),
             re.compile(r"\bdevelopment handoff\b", re.IGNORECASE),
             re.compile(r"\bconversational scaffolding\b", re.IGNORECASE),
+            re.compile(r"\bconversational handoff\b", re.IGNORECASE),
             re.compile(r"\btemporary development orchestration\b", re.IGNORECASE),
+            re.compile(r"\bfinal response (?:links|summarizes)\b", re.IGNORECASE),
+            re.compile(r"\bwave integrator\b", re.IGNORECASE),
+            re.compile(r"\bimplemented as source on D\b"),
+            re.compile(r"\bfinal E artifact\b"),
+            re.compile(r"\bG-FIND-[ACDE]-\d+\b"),
+            re.compile(r"browser-semantic-completeness-chatgpt", re.IGNORECASE),
         )
         for path in ROOT.rglob("*"):
             if not path.is_file() or ".git" in path.parts:
@@ -132,6 +139,7 @@ class PublicRepositoryHygieneTests(unittest.TestCase):
             "verification/pre-r16",
             "verification/r16-closeout/delivery",
             "verification/r16-closeout/PR_BRANCH_DISPOSITION.json",
+            "docs/composition/TRACEABILITY.md",
         ):
             with self.subTest(relative=relative):
                 self.assertFalse((ROOT / relative).exists(), relative)

@@ -140,7 +140,7 @@
     {
       "id": "E11",
       "condition": "GLB roundtrip Blender and Godot",
-      "implementation": "Blender exports with the existing GLB capability. Godot now publishes the Broker-facing cross-app artifact handoff/import route, but this checkpoint has no exact-SHA Godot PASS yet for native Godot import/readback/semantic comparison against an authentic final E artifact.",
+      "implementation": "Blender exports with the existing GLB capability. Godot now publishes the Broker-facing cross-app artifact handoff/import route, but this checkpoint has no exact-SHA Godot PASS yet for native Godot import/readback/semantic comparison against an authentic final Blender artifact.",
       "test": null,
       "status": "BLOCKED_DEPENDENCY",
       "open": "Godot must run its public exact-SHA cross-app handoff/import/readback/semantic verification against Blender artifact 11084120677 / GLB 7c070046692e0561c0776646092624c60e4e73c44ebb5b5595808e2e6e0bc60e, followed by Project Graph/Effect Conformance-bound cross-app provenance/evidence.",
