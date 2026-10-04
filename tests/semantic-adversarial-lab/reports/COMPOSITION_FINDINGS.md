@@ -20,7 +20,7 @@ Composition job: 110445685891
 
 Three verification failures (G-VERIFY-009..011) were lab oracle defects: Composition is the generic report aggregator, while the trusted Effect Conformance evaluator owns method/version/source/scope/observability binding before producing the report. They are not product findings.
 
-## G-FIND-A-001 — stale BeginPermit can complete a different attempt incarnation
+## G-FIND-COMPOSITION-001 — stale BeginPermit can complete a different attempt incarnation
 
 Cases: G-PLAN-022, G-PLAN-023, G-PLAN-024.
 

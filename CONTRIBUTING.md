@@ -39,8 +39,8 @@ do not help future contributors.
 Describe the authority/configuration impact and rollback/compatibility implications. A new
 capability or Skill does not confer permissions; preserve owner grants, approval, stale-ref
 checks, output validation and fail-closed unsupported-platform behavior. Security-affecting
-changes need a reviewer other than their author. Do not claim an external audit based on
-AI-assisted review or CI alone.
+changes need a reviewer other than their author. Automated review or CI alone does not constitute
+an external audit.
 
 ## Licenses and history
 

@@ -199,15 +199,15 @@ other commits and local archives is not part of this acceptance decision.
 | A116 | No claim of universal Wayland support. | PASS | Wayland gaps and per-backend validation are explicit. |
 | A117 | No “production-ready” claim if critical compile/tests fail. | PASS | Version is development source; full acceptance/release is blocked. |
 
-## Final handoff
+## Source archive verification
 
 | ID | Original requirement | Status | Evidence / limitation |
 |---|---|---|---|
 | A118 | ZIP created. | PASS | Source archive generated; external archive-check records final SHA/path/CRC verification. |
 | A119 | ZIP opens and contains top-level repo. | PASS | Archive checked for CRC errors and exactly one semwright/ top-level directory. |
 | A120 | SHA-256 of ZIP reported. | PASS | External .sha256/check metadata accompanies the archive. |
-| A121 | Final response links ZIP. | PASS | Final handoff includes a verified sandbox link to the actual archive. |
-| A122 | Final response summarizes what was actually run. | PASS | VERIFY.md distinguishes exact-commit hosted Rust, source, fake-E2E and Chromium evidence from remaining live gaps. |
+| A121 | Archive location and checksum are documented. | PASS | Verification records bind the archive path to the checked SHA-256. |
+| A122 | Verification records summarize executed checks. | PASS | VERIFY.md distinguishes exact-commit hosted Rust, source, fake-E2E and Chromium evidence from remaining live gaps. |
 | A123 | Remaining live Linux test steps are listed, not hidden. | PASS | docs/manual-testing.md plus RELEASE_BLOCKERS.md. |
 
 ## Totals
