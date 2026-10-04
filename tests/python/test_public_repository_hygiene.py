@@ -106,6 +106,9 @@ class PublicRepositoryHygieneTests(unittest.TestCase):
             re.compile(r"\bfinal E artifact\b"),
             re.compile(r"\bG-FIND-[ACDE]-\d+\b"),
             re.compile(r"browser-semantic-completeness-chatgpt", re.IGNORECASE),
+            re.compile(r"\bR\'s (?:snapshot|harness)\b", re.IGNORECASE),
+            re.compile(r"\bI\'s ledger\b", re.IGNORECASE),
+            re.compile(r"\bR branch\b", re.IGNORECASE),
         )
         for path in ROOT.rglob("*"):
             if not path.is_file() or ".git" in path.parts:

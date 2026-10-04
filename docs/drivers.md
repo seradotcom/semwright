@@ -13,6 +13,21 @@ the integration needs a long-lived connection or application state. Plugins rema
 for narrow stateless commands: the current plugin host starts one sandboxed process per
 invocation, while a driver process persists for its provider lifetime.
 
+## Native applications that keep their own state
+
+The [Native SDK](native-sdk/README.md) builds on this Driver SDK for applications that should
+remain authoritative for their own model, storage, revisions and transactions. Instead of
+forcing an application into a Semwright document/database abstraction, it lets the application
+register only the cooperation surfaces it actually supports: observation, explicitly described
+operations, result recovery, events, snapshots/workspaces and private publication are all
+optional.
+
+The Native SDK still enters Semwright through the normal Driver Host execution context. Broker
+policy and approval remain authoritative; Project Graph owns CURRENT/STALE/UNKNOWN; Effect
+Conformance owns findings/verdicts; Host tools and filesystem grants remain Driver Host
+authority. See the [Native SDK quickstart](native-sdk/QUICKSTART.md), [API](native-sdk/API.md)
+and [verification model](native-sdk/VERIFY.md).
+
 ## Protocol versions
 
 The owner supplies a strict manifest. Semwright assigns the provider identity; the child cannot

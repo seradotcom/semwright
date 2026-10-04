@@ -152,7 +152,7 @@
         "Hash chaining is not tamper-proof against a malicious same-UID process.",
         "Documentation fixes are not an external security attestation."
       ],
-      "observation": "Disclosure paths were directly reviewed. Earlier documentation/reporting mismatches were remediated in the R branch; adoption remains independently reviewable.",
+      "observation": "Disclosure paths were directly reviewed. Earlier documentation/reporting mismatches were remediated during the review; adoption remains separately reviewable.",
       "owner": "repository maintainers",
       "review_target_sha": "868446205df36826356483e93c53e5060c46e8aa",
       "source_locations": [
@@ -230,5 +230,8 @@
     "Physical desktop and unlocked Windows certification remain separate environment-dependent release gates.",
     "A passing source review does not by itself authorize a release."
   ],
-  "separate_revalidation": "evidence/SEPARATE_REVALIDATION_2026-10-03.json"
+  "separate_revalidation": "evidence/SEPARATE_REVALIDATION_2026-10-03.json",
+  "findings_record": "FINDINGS.json",
+  "source_validation": "evidence/SOURCE_VALIDATION_2026-10-03.json",
+  "governance_note": "R-009 remains open in FINDINGS.json; current repository settings were rechecked on 2026-10-04."
 }

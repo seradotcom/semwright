@@ -4,13 +4,25 @@ Compatibility is reported by evidence level, not one universal supported flag.
 
 | Surface | Linux x64 | Linux arm64 | Windows x64 | Windows ARM64 | macOS arm64 | macOS x64 |
 |---|---|---|---|---|---|---|
-| base cooperation library | Actions | Actions | Actions | Actions | Actions | Actions |
-| Rust/Graph/contracts portability | Actions | Actions | Actions | Actions | Actions | Actions |
-| real daemon/Broker/Driver Host sandbox E2E | accepted profile only after exact-SHA Host PASS | not claimed | not claimed | not claimed | not claimed | not claimed |
-| materialized Node bridge | Linux Host profile | not physically certified | not claimed | not claimed | not claimed | not claimed |
+| base cooperation library | native CI | native CI | native CI | native CI | native CI | native CI |
+| portable cooperation contract | PASS milestone | PASS milestone | PASS milestone | PASS milestone | PASS milestone | PASS milestone |
+| real daemon/Broker/Driver Host sandbox E2E | PASS | not claimed | not claimed | not claimed | not claimed | not claimed |
+| materialized Node bridge | Linux Host profile | not certified | not claimed | not claimed | not claimed | not claimed |
 
-The full Actions portability run at source SHA `5aa6eafd97946ee7cddfe82f0848b5033acbc086` succeeded on `ubuntu-24.04`, `ubuntu-24.04-arm`, `windows-2025`, `windows-11-arm`, `macos-15`, and `macos-15-intel`. Later source changes require their own exact-SHA rerun before inheriting final closure.
+Public six-runner portability run `37179820287` at source
+`d4c7a7795a8a529b3fb170c52564788579ce19e0` passed on `ubuntu-24.04`,
+`ubuntu-24.04-arm`, `windows-2025`, `windows-11-arm`, `macos-15`, and
+`macos-15-intel`.
 
-The workspace MSRV remains Rust 1.88. Cross-compilation is not counted as native execution. Host certification is not inferred from library portability.
+The final PR #213 public head `09f71d490ac86f8f8e86dcda6c2552f50c59d487` subsequently passed
+canonical Native SDK run `37181039129` and real-Host run `37181039113`. The canonical run
+covered metadata, the Rust 1.88 file-backed profile, Driver/Graph/contracts, TypeScript
+binding/clean consumers, package clean-room and portable Ubuntu. The Host run covered the real
+Linux CLI/MCP -> daemon -> Broker/Policy -> Driver Host -> native application path.
 
-Unknown protocol/descriptor drift is rejected rather than approximated. Driver interfaces such as native refs, Host tools and cancellation are declared only when used.
+The workspace MSRV is Rust 1.88. Cross-compilation is not counted as native execution, and
+library portability is not Host or application certification. Windows/macOS application-specific
+integration evidence is tracked separately from this SDK portability matrix.
+
+Unknown protocol/descriptor drift is rejected rather than approximated. Driver interfaces such
+as native refs, Host tools and cancellation are declared only when used.

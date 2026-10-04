@@ -24,6 +24,12 @@ CircleCI runs the repository-contract and binding lanes for iteration using the 
 
 `package_clean_room.py` archives the exact source SHA, extracts it into a fresh path, builds the TypeScript binding, and executes clean Rust/TypeScript consumers using only public package surfaces.
 
+## Public integration evidence
+
+The Native SDK was merged through PR #213. On the final public branch head `09f71d490ac86f8f8e86dcda6c2552f50c59d487`, canonical run `37181039129` passed metadata, file-profile/MSRV, portable Ubuntu, Driver/Graph/contracts, TypeScript binding/clean consumers and package clean-room jobs; real-Host run `37181039113` also passed.
+
+The six-runner portability milestone is public run `37179820287` at `d4c7a7795a8a529b3fb170c52564788579ce19e0`: Ubuntu x64/ARM64, Windows x64/ARM64 and macOS arm64/x64 all passed. Later source edits on the PR head were rerun through the affected canonical and real-Host lanes. Treat these as exact-source records, not a promise that every application or Host profile is certified on every operating system.
+
 ## Verified baseline
 
 The canonical implementation has been exercised on Rust 1.88 across Ubuntu x64/ARM64, Windows x64/ARM64, and macOS arm64/x64, plus a Linux real-Host lane. Future changes must re-run the affected exact-SHA lanes before merge.

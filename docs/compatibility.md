@@ -1,11 +1,12 @@
 # Compatibility and verification levels
 
 This table separates implementation from evidence. A compile or cross-target check is not a live desktop certificate.
-R's current review snapshot is `6491c0d838fa066938a494524d69ed507aa0dbe8`; the earlier
-`241000c268d1bf1dc29d4e91a913097ac0d020cb` preflight retains its failed Windows result.
-The entries below combine implementation with explicitly historical evidence, not fresh
-execution of every route on R's snapshot. Consult [platforms](platforms.md),
-[verification](../VERIFY.md) and [I's ledger](semantic-creation/INTEGRATION.md).
+The R16 review snapshot is `6491c0d838fa066938a494524d69ed507aa0dbe8`; older failed
+platform observations remain historical evidence rather than current support claims. The entries
+below combine current implementation boundaries with source-scoped execution evidence. Consult
+[platforms](platforms.md), [verification](../VERIFY.md), the
+[semantic-creation integration ledger](semantic-creation/INTEGRATION.md), and the
+[Native SDK compatibility matrix](native-sdk/COMPATIBILITY.md).
 
 | Environment or route | Implementation boundary | Current evidence | Remaining |
 |---|---|---|---|
@@ -21,11 +22,12 @@ execution of every route on R's snapshot. Consult [platforms](platforms.md),
 | macOS ARM64 / Intel | `platform-macos[-sys]` + Swift/C Apple bridge | native hosted macOS CI on Apple Silicon and Intel plus both Darwin target checks | TCC/live interactive Mac acceptance |
 | macOS Accessibility/Input/Capture | AXUIElement / CoreGraphics / ScreenCaptureKit | native hosted builds/noninteractive platform checks; actual TCC-gated operation depends on an authorized desktop | real authorized interactive Mac |
 | macOS arbitrary drivers/plugins | platform launcher boundary | deliberately unavailable | prove supported isolation model before enabling |
+| Native SDK | application-owned state + optional Driver SDK bridge | public canonical/Host CI plus six-runner portability milestone; see `docs/native-sdk/VERIFY.md` | real Host E2E is Linux-scoped; app/platform-specific certification remains separate |
 | Blender / LibreOffice / MLT / KiCad / OBS | first-party DriverProviders | repository-specific tests/integration gates | per-application live matrix varies |
 | Figma | official Plugin API via authenticated loopback DriverProvider bridge | typed/plugin/fake-host tests, sandboxed host CI and historical Figma 126.5.6 driver-protocol proof at 3cd86958 | full CLI/broker and broader Design/FigJam/Motion acceptance are not established by that limited proof |
 | Chromium | private-profile CDP adapter | real hosted browser integration on Linux development line | broader OS matrix |
 | Plugins | platform sandbox service | Linux Bubblewrap/Landlock with executed hostile plugin/driver fixtures; platform-specific Windows authority tests | independent review and broader platform/live coverage |
-| Windows | UIA, input/capture, named-pipe IPC and restricted process-launch host | run 37096430846 passed native x64/ARM64 and selected sealed-tool compatibility jobs on R's snapshot; older fixture failures remain recorded | interactive consent/capture/UIPI/session/display matrix remains open under R18 |
+| Windows | UIA, input/capture, named-pipe IPC, AppContainer/LPAC secure spawn and Job containment | native x64/ARM64 CI and sealed-tool compatibility are exercised by `Platformization and Windows`; exact runs are tracked in `VERIFY.md` and `docs/windows/WINDOWS_VERIFY.md` | unlocked-desktop consent/capture/UIPI/session/display certification remains environment-dependent post-v1 work |
 
 Bridge manifests and source availability are not support guarantees. macOS support must not be announced solely from Linux cross-compilation or hosted noninteractive tests. Windows is implemented, but a hosted job or cross-check does not imply interactive acceptance,
 full Linux-equivalent isolation, or a fallback after a failed target/focus precondition.

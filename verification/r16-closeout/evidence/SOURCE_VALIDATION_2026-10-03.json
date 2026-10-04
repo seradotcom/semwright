@@ -1,0 +1,126 @@
+{
+  "schema_version": 1,
+  "review_date": "2026-10-03",
+  "review_target_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+  "final_source_sha": "868446205df36826356483e93c53e5060c46e8aa",
+  "final_source_tree": "8d698c664f55aefdb7140eaf6cfead1cf97f05b8",
+  "external_audit": false,
+  "executions": [
+    {
+      "name": "R16 positive smoke",
+      "result": "PASS",
+      "run_id": 37101919278,
+      "job_id": 111143010836,
+      "event": "push",
+      "checkout_sha": "868446205df36826356483e93c53e5060c46e8aa",
+      "checkout_tree": "8d698c664f55aefdb7140eaf6cfead1cf97f05b8",
+      "log_sha256": "89ee7402078d1123f06a6135389298831261d9a00e8fd17622158fba0da5bbde",
+      "limitations": [
+        "Selected contract/fake smoke only; not full workspace or live desktop certification."
+      ],
+      "selected_smoke": {
+        "classification": "POSITIVE_SELECTED_CONTRACT_AND_FAKE_SMOKE_ONLY",
+        "source_sha": "868446205df36826356483e93c53e5060c46e8aa",
+        "suite_sha": "868446205df36826356483e93c53e5060c46e8aa",
+        "test_counts": {
+          "semwright-policy": 9,
+          "semwright-protocol": 7,
+          "semwright-semantic-composition": 5
+        },
+        "test_total": 21,
+        "fake_smoke_assertions": [
+          "doctor_explicit_fake",
+          "ambiguous_discovery_two_candidates",
+          "recipe_completed_changed_true",
+          "two_recipe_steps_ok",
+          "audit_ui_invoke_finish_ok"
+        ],
+        "lock_unchanged": true
+      }
+    },
+    {
+      "name": "Native driver-conformance / sandboxed external MCP federation",
+      "result": "PASS",
+      "run_id": 37101922029,
+      "job_id": 111143008612,
+      "event": "pull_request",
+      "checkout_sha": "52c4a7c579c39e5f5699f8b475c473abe2efdcba",
+      "checkout_tree": "8d698c664f55aefdb7140eaf6cfead1cf97f05b8",
+      "log_sha256": "12fb9906626dab4f6c129a8155da274ee8d100add1726ae0f4c3d58535ce89c6",
+      "limitations": [
+        "Executed on the PR synthetic merge commit; exact tree equality with final_source_sha was independently checked."
+      ],
+      "pr_head_sha": "868446205df36826356483e93c53e5060c46e8aa",
+      "tree_identical_to_final_source": true,
+      "federation_tests": {
+        "bounded_pagination_regression_container_test": "invalid_descriptors_duplicate_names_and_bad_results_fail_closed",
+        "executed": 7,
+        "failed": 0,
+        "passed": 7
+      },
+      "artifact": {
+        "bytes": 4051,
+        "expires_at": "2026-10-17T06:09:17Z",
+        "id": 11266447661,
+        "name": "driver-conformance-evidence",
+        "sha256": "b72f59d42ce3d2ae7dd05b8ef3ba9b9f5e40e4e3440285167f51ed87a393ffd0"
+      }
+    },
+    {
+      "name": "Quality source-contracts",
+      "result": "PASS",
+      "run_id": 37101922062,
+      "job_id": 111143005458,
+      "event": "pull_request",
+      "checkout_sha": "52c4a7c579c39e5f5699f8b475c473abe2efdcba",
+      "checkout_tree": "8d698c664f55aefdb7140eaf6cfead1cf97f05b8",
+      "log_sha256": "7770e9964a5c794da23d97ae6bdf74948ae590736103fe8e27310c5ee2773251",
+      "limitations": [
+        "PR synthetic merge tree equals final source tree; this is source-contract evidence, not full Rust certification."
+      ],
+      "pr_head_sha": "868446205df36826356483e93c53e5060c46e8aa",
+      "tree_identical_to_final_source": true,
+      "node_tests": {
+        "executed": 20,
+        "failed": 0,
+        "passed": 20
+      },
+      "python_tests": {
+        "executed": 200,
+        "result": "PASS"
+      },
+      "oss_hygiene": "PASS"
+    },
+    {
+      "name": "Quality static-lints",
+      "result": "PASS",
+      "run_id": 37101922062,
+      "job_id": 111143005373,
+      "event": "pull_request",
+      "checkout_sha": "52c4a7c579c39e5f5699f8b475c473abe2efdcba",
+      "checkout_tree": "8d698c664f55aefdb7140eaf6cfead1cf97f05b8",
+      "log_sha256": "21897f6382f4fe4c16caa223fe55a038ab47bc8314fa9d4fe1d67218db817e34",
+      "limitations": [
+        "No claim that skipped MSRV/full Rust jobs executed for this documentation/federation-scoped PR."
+      ],
+      "pr_head_sha": "868446205df36826356483e93c53e5060c46e8aa",
+      "tree_identical_to_final_source": true,
+      "checks": [
+        "ruff F,E9",
+        "ShellCheck repository scripts",
+        "actionlint workflows and embedded shell"
+      ]
+    }
+  ],
+  "direct_review": {
+    "areas": 12,
+    "manifest": "../R16_EVIDENCE_MANIFEST.json",
+    "result": "COMPLETE_FOR_REPOSITORY_SOURCE_SCOPE"
+  },
+  "limitations": [
+    "Selected R16 smoke evidence is not full workspace, native application, physical desktop or release certification.",
+    "A pull-request synthetic merge execution is identified separately from the branch head; tree equality is recorded where established.",
+    "Skipped jobs are not counted as PASS.",
+    "Physical/interactive platform acceptance and the broader independent security-review release gate remain separate."
+  ]
+}

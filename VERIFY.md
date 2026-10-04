@@ -17,14 +17,17 @@ below do not certify this newer packaging implementation; use the staging PR/run
 The R16 review snapshot is `6491c0d838fa066938a494524d69ed507aa0dbe8`. The integrated
 engineering source is `cd518748f742025a251b78028613aa1b16919e73`; the actual diff is four documentation files and
 the Windows UIA test fixture, not production-source changes. Native Windows run
-[37096430846](https://github.com/seradotcom/semwright/actions/runs/37096430846) passed on R's
-snapshot. The separate global disposition preserves its original failed run and corrected
+[37096430846](https://github.com/seradotcom/semwright/actions/runs/37096430846) passed on the
+review snapshot. The separate global disposition preserves its original failed run and corrected
 fixture retest. None of these records supplies an independent R16 verdict or turns skipped
 main-push jobs into executed gates.
 
 Consult the [integration ledger](docs/semantic-creation/INTEGRATION.md) and
-[R16 evidence directory](verification/r16-closeout/README.md). The bounded R16 smoke is not
-a repeat of every native, supply-chain, physical-desktop or fuzz gate below.
+[R16 evidence directory](verification/r16-closeout/README.md). The compact
+[`FINDINGS.json`](verification/r16-closeout/FINDINGS.json) preserves the ten review findings,
+including the still-open R-009 governance observation that `main` currently has no observed
+branch protection or repository ruleset. The bounded R16 smoke is not a repeat of every native,
+supply-chain, physical-desktop or fuzz gate below.
 
 ## Historical preflight at 241000c268d1bf1dc29d4e91a913097ac0d020cb
 
@@ -48,8 +51,10 @@ blocked checks are never treated as successful execution.
 | Native application integration / Chromium | PASS | Commit checks: `Native application integration` |
 | Native application integration / Driver conformance | PASS | Commit checks: `Native application integration` |
 | Native application integration / Driver distribution | PASS | Commit checks: `Native application integration` |
-| Native application integration / LibreOffice driver | PASS | Commit checks: `Native application integration` |
-| Native application integration / Blender driver | PASS | Commit checks: Native application integration |
+| Native application integration / LibreOffice driver | PASS when affected | Commit checks: `Native application integration` |
+| Native application integration / Blender driver | PASS when affected | Commit checks: Native application integration |
+| Native SDK / canonical contracts, binding, file profile, clean room | PASS when affected | Commit checks: `Native SDK canonical` |
+| Native SDK / real Host E2E | PASS when affected | Commit checks: `Native SDK real Host` |
 | Native application integration / KiCad + MLT drivers | PASS | Commit checks: Native application integration |
 | Native application integration / X11 backend | PASS | Commit checks: Native application integration |
 | Native application integration / AT-SPI GTK | PASS | Commit checks: Native application integration |
@@ -60,9 +65,10 @@ blocked checks are never treated as successful execution.
 | Platformization / native macOS Intel | PASS | Commit checks: Platformization and macOS |
 | Packaging certification / x86_64 | PASS | Commit checks: `Packaging certification` |
 | Packaging certification / ARM64 | PASS | Commit checks: `Packaging certification` |
-| Windows / x64 native noninteractive | PASS | Observed run `36394993424`, job `108839165102`: success |
-| Windows / ARM64 native noninteractive | PASS | Observed run `36394993424`, job `108839165329`: **failure**, stale UIA reference |
-| Windows / sealed-tool compatibility | PASS | Both observed compatibility jobs succeeded; not interactive certification |
+| Windows / x64 native noninteractive | PASS when affected | `Platformization and Windows`; see `docs/windows/WINDOWS_VERIFY.md` |
+| Windows / ARM64 native noninteractive | PASS when affected | `Platformization and Windows`; see `docs/windows/WINDOWS_VERIFY.md` |
+| Windows / sealed-tool compatibility | PASS when affected | Windows platform workflow; still not interactive certification |
+| Windows / unlocked interactive desktop | NOT a hosted-CI PASS | `docs/windows/LIVE_WINDOWS_TEST_MATRIX.md`; environment-dependent post-v1 certification |
 | Supply-chain / Nix, bundles and attestations | PASS | Observed run `36394993370`: success |
 | Godot / conformance and real runtime | PASS | Observed run `36394993332`: success |
 | OBS / protocol, sandbox, real probe and fuzz | PASS | Observed run `36394993299`: success |
@@ -137,6 +143,59 @@ negotiates dynamic capabilities, provider events, progress/artifacts and coopera
 the sandboxed `protocol_v2` fixture exercises event delivery, catalog change, typed artifact
 metadata, monotonic progress and cancellation while v1 remains the compatibility baseline.
 
+## Native SDK closure included in this development line
+
+The canonical Native SDK is now part of `main` under `crates/native-sdk`, with an executable
+TypeScript binding under `sdk/native-typescript` and reference integrations under `examples/native`
+and `examples/native-inventory`. It is for applications that keep their own model, persistence,
+revisions and transaction boundaries while exposing small optional cooperation interfaces to
+Semwright.
+
+The base SDK does not require the file-backed profile. Scene/Table/Counter remain an optional
+reference implementation; the Inventory example owns a SQLite schema and transactions. Operation
+contracts describe actual retry/commit/undo/cancellation/CAS guarantees instead of assuming every
+mutation is idempotent or reversible. Recovery, pagination/events, snapshots/workspaces and private
+publication are optional capabilities rather than universal flags.
+
+The adapter reaches the existing Driver Host rather than creating a second execution authority.
+The real Host acceptance path is CLI/MCP -> daemon -> Broker/Policy -> Driver Host -> native
+application -> persistence/artifacts -> admission/readback -> Project Graph/Effect Conformance.
+Graph and Effects remain canonical owners of their respective evidence/verdict semantics.
+
+Public evidence for PR #213 includes canonical run
+[37181039129](https://github.com/seradotcom/semwright/actions/runs/37181039129) and real-Host run
+[37181039113](https://github.com/seradotcom/semwright/actions/runs/37181039113) on final public
+branch head `09f71d490ac86f8f8e86dcda6c2552f50c59d487`. The public six-runner portability milestone
+[37179820287](https://github.com/seradotcom/semwright/actions/runs/37179820287) passed Ubuntu
+x64/ARM64, Windows x64/ARM64 and macOS arm64/x64 at
+`d4c7a7795a8a529b3fb170c52564788579ce19e0`. Exact current-source verification must still rerun
+the affected lanes after source changes. See [Native SDK verification](docs/native-sdk/VERIFY.md)
+and [compatibility](docs/native-sdk/COMPATIBILITY.md).
+
+## Windows platform closure and evidence boundary
+
+Windows is an implemented native host, not merely a cross-compilation target. The current platform
+contains UI Automation semantics, owner-only Named Pipes, Windows filesystem confinement, secure
+AppContainer/LPAC child spawn, Job Objects, Windows.Graphics.Capture plumbing and platform-owned
+authority profiles for Driver/Plugin/governed stdio MCP execution. Native x64 and ARM64 hosted
+jobs exercise the noninteractive boundary; sealed-tool compatibility is checked separately.
+
+Hosted Windows CI is deliberately **not** labeled interactive desktop certification. Real
+foreground UIA/input behavior, picker consent, UIPI/UAC, lock/wake, mixed-DPI/multi-monitor and
+real-application cases require the unlocked-desktop procedure in
+[`docs/windows/LIVE_WINDOWS_TEST_MATRIX.md`](docs/windows/LIVE_WINDOWS_TEST_MATRIX.md). External
+MCP filesystem mounts also remain fail-closed under
+`BLOCKED_PORTABLE_PATH_VIRTUALIZATION`; Windows does not fabricate a global POSIX-style
+`/workspace/<name>` namespace.
+
+The detailed current Windows contract lives in [`docs/windows/README.md`](docs/windows/README.md)
+and [`docs/windows/WINDOWS_VERIFY.md`](docs/windows/WINDOWS_VERIFY.md). On source
+`04cf0ef7062d134b71206d832375be9545553bb4`, public run
+[37228279724](https://github.com/seradotcom/semwright/actions/runs/37228279724) passed native x64,
+native ARM64, server2022-x64 sealed-tool compatibility and the Windows-11-ARM/native-host-x64-tool
+compatibility job. Historical Windows failures remain useful evidence of what was fixed, but they
+are not the current support statement.
+
 ## Adversarial sandbox and plugin-attestation closure included in this development line
 
 Plugin Protocol v2 now binds the owner-reviewed manifest to the child binary's plugin name, plugin
@@ -179,8 +238,8 @@ signatures are not certified by this local/static v1.
 
 ## LibreOffice deep-driver closure included in this development line
 
-LibreOffice is the first accepted deep application driver built on the public App Driver SDK that
-is neither the browser adapter nor the Blender prototype. The owner-pinned driver runs persistently
+LibreOffice is a first-party deep application driver built on the public App Driver SDK. The
+owner-pinned driver runs persistently
 inside Semwright's Bubblewrap + Landlock path, launches a private headless LibreOffice/UNO process,
 and receives only the workspace plus explicitly granted read-only `/etc/libreoffice` and `/etc/fonts`
 configuration mounts. Driver-requested RLIMITs are bounded again by the sandbox helper.

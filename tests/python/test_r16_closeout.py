@@ -137,6 +137,51 @@ class EvidenceTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             SMOKE.assert_fake_smoke("\n".join(json.dumps(row) for row in lines))
 
+    def test_compact_findings_preserve_open_governance_and_environment_records(self):
+        findings = json.loads((ROOT / "verification/r16-closeout/FINDINGS.json").read_text())
+        rows = {row["id"]: row for row in findings["findings"]}
+        self.assertEqual(set(rows), {f"R-{i:03}" for i in range(1, 11)})
+        self.assertEqual(rows["R-009"]["status"], "OPEN_MAINTAINER_DECISION")
+        self.assertEqual(rows["R-009"]["current_recheck"]["status"], "STILL_OPEN")
+        self.assertEqual(
+            rows["R-009"]["current_recheck"]["main_branch_protection"],
+            "NONE_OBSERVED_HTTP_404",
+        )
+        self.assertEqual(rows["R-009"]["current_recheck"]["repository_rulesets"], [])
+        self.assertEqual(rows["R-010"]["status"], "OPEN_KNOWN_LIMITATION")
+        self.assertIn("not converted to PASS", rows["R-010"]["current_policy"])
+
+    def test_compact_source_validation_preserves_positive_smoke_evidence(self):
+        record = json.loads(
+            (ROOT / "verification/r16-closeout/evidence/SOURCE_VALIDATION_2026-10-03.json").read_text()
+        )
+        smoke = next(item for item in record["executions"] if item["run_id"] == 37101919278)
+        self.assertEqual(smoke["job_id"], 111143010836)
+        self.assertEqual(smoke["result"], "PASS")
+        self.assertEqual(
+            smoke["selected_smoke"]["test_counts"],
+            {
+                "semwright-policy": 9,
+                "semwright-protocol": 7,
+                "semwright-semantic-composition": 5,
+            },
+        )
+        self.assertEqual(smoke["selected_smoke"]["test_total"], 21)
+        self.assertEqual(
+            smoke["selected_smoke"]["fake_smoke_assertions"],
+            [
+                "doctor_explicit_fake",
+                "ambiguous_discovery_two_candidates",
+                "recipe_completed_changed_true",
+                "two_recipe_steps_ok",
+                "audit_ui_invoke_finish_ok",
+            ],
+        )
+        self.assertEqual(
+            smoke["log_sha256"],
+            "89ee7402078d1123f06a6135389298831261d9a00e8fd17622158fba0da5bbde",
+        )
+
     def test_local_links_and_external_exclusion(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)

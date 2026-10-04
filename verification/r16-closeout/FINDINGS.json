@@ -1,0 +1,212 @@
+{
+  "schema_version": 1,
+  "review_id": "R16",
+  "review_target_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+  "final_source_sha": "868446205df36826356483e93c53e5060c46e8aa",
+  "external_audit": false,
+  "summary": {
+    "finding_count": 10,
+    "open_governance_findings": [
+      "R-009"
+    ],
+    "open_environment_limitations": [
+      "R-010"
+    ],
+    "confirmed_product_defects": 1,
+    "confirmed_product_vulnerabilities": 0
+  },
+  "findings": [
+    {
+      "id": "R-001",
+      "title": "Ordinary quickstart invoked initialization despite committed lockfile",
+      "severity": "MEDIUM",
+      "category": "DOCUMENTATION_OVERCLAIM",
+      "status": "REMEDIATED_FUNCTIONALLY_VERIFIED",
+      "affected_source_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+      "fix_sha": "df17366855be487fc22189658f6a3f0cc0f5dfc5",
+      "independent_revalidation": "NOT_CLAIMED",
+      "impact": "The advertised first-run path fails before a normal locked build.",
+      "recommended_remediation": "Use the two-binary locked build and isolated fake recipe; retain lockfile.",
+      "residual_risk": "A later exact-main hosted multiplatform package matrix passed; physical/interactive platform and security release gates remain separate and fail closed.",
+      "evidence": [
+        "README.md and docs/installation.md at review target",
+        "scripts/dev/bootstrap.sh refuses an existing Cargo.lock",
+        "Review smoke run 37099067854/job 111134879759"
+      ]
+    },
+    {
+      "id": "R-002",
+      "title": "Platform and architecture prose lagged the integrated implementation",
+      "severity": "MEDIUM",
+      "category": "DOCUMENTATION_OVERCLAIM",
+      "status": "REMEDIATED_INDEPENDENTLY_REVIEWED",
+      "affected_source_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+      "fix_sha": "868446205df36826356483e93c53e5060c46e8aa",
+      "independent_revalidation": "PASS_SEPARATE_REVIEWER_2026-10-03",
+      "impact": "Future-only or incomplete platform statements can mislead support and security assumptions.",
+      "recommended_remediation": "Adopt the explicit implementation/native/interactive matrix without inferring parity.",
+      "residual_risk": "The corrected platform/support wording passed current-source documentary/source/static validation and separate-reviewer adoption is recorded; broader platform/release certification remains separate.",
+      "evidence": [
+        "Updated README, docs/architecture.md and docs/platforms.md",
+        "Windows run 37096430846 at reviewed source",
+        "verification/r16-closeout/evidence/SEPARATE_REVALIDATION_2026-10-03.json"
+      ]
+    },
+    {
+      "id": "R-003",
+      "title": "Current-commit evidence claim conflicted with historical and skipped jobs",
+      "severity": "MEDIUM",
+      "category": "DOCUMENTATION_OVERCLAIM",
+      "status": "REMEDIATED_INDEPENDENTLY_REVIEWED",
+      "affected_source_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+      "fix_sha": "868446205df36826356483e93c53e5060c46e8aa",
+      "independent_revalidation": "PASS_SEPARATE_REVIEWER_2026-10-03",
+      "impact": "Historical tests or skipped jobs could be mistaken for current executed approval.",
+      "recommended_remediation": "Keep source and suite identities and preserve original failures; scope every current statement.",
+      "residual_risk": "Current evidence separates exact push checkout, PR synthetic-merge checkout, tree equivalence and skipped jobs. This remains a repository-scoped review record, not an external audit.",
+      "evidence": [
+        "RELEASE_BLOCKERS.md prior intro",
+        "VERIFY.md historical preflight",
+        "verification/r16-closeout/evidence/SEPARATE_REVALIDATION_2026-10-03.json"
+      ]
+    },
+    {
+      "id": "R-004",
+      "title": "Contributor reporting instructions did not match available channels",
+      "severity": "LOW",
+      "category": "DOCUMENTATION_OVERCLAIM",
+      "status": "REMEDIATED_FUNCTIONALLY_VERIFIED",
+      "affected_source_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+      "fix_sha": "868446205df36826356483e93c53e5060c46e8aa",
+      "independent_revalidation": "NOT_CLAIMED",
+      "impact": "Confusing channels can delay or misroute reports.",
+      "recommended_remediation": "Use public issues for non-sensitive questions and enabled private vulnerability reporting for sensitive reports.",
+      "residual_risk": "No response SLA, guaranteed triage time or changed disclosure setting is implied.",
+      "evidence": [
+        "Repository API: private vulnerability reporting enabled",
+        "Updated CONTRIBUTING.md, SUPPORT.md, SECURITY.md"
+      ]
+    },
+    {
+      "id": "R-005",
+      "title": "Review smoke selection included zero-test libraries and checked exit codes only",
+      "severity": "MEDIUM",
+      "category": "TEST_OR_EVIDENCE_DEFECT",
+      "status": "REMEDIATED_FUNCTIONALLY_VERIFIED",
+      "affected_source_sha": "df17366855be487fc22189658f6a3f0cc0f5dfc5",
+      "fix_sha": "868446205df36826356483e93c53e5060c46e8aa",
+      "independent_revalidation": "PASS_SEPARATE_REVIEWER_2026-10-03",
+      "impact": "A green harness alone cannot prove every named package was tested or assert the expected fake output.",
+      "recommended_remediation": "Completed: require positive test inventories and structured effect/audit assertions; keep Graph/Effects outside this smoke unless a selector with positive executed counts is used.",
+      "residual_risk": "This bounded smoke is intentionally not a full Graph/Effects or workspace certification. The separate-reviewer receipt closes R-007 for R16 authorship separation without converting the smoke into broader release certification.",
+      "evidence": [
+        "scripts/review/r16-smoke.py at 868446205df36826356483e93c53e5060c46e8aa enumerates each selected library before running and fails on zero tests.",
+        "tests/python/test_r16_closeout.py adds positive and negative structured fake-smoke assertions.",
+        "Actions run 37101919278 job 111143010836: 9 policy, 7 protocol and 5 Composition library tests; structured fake assertions all PASS on exact source 868446205df36826356483e93c53e5060c46e8aa.",
+        "Quality run 37101922062 source-contracts includes the harness unit tests inside 200 Python tests.",
+        "verification/r16-closeout/evidence/SEPARATE_REVALIDATION_2026-10-03.json"
+      ]
+    },
+    {
+      "id": "R-006",
+      "title": "Federated MCP tools/list aggregation was bounded only after unbounded pagination",
+      "severity": "MEDIUM",
+      "category": "PRODUCT_DEFECT_RESOURCE_LIFECYCLE",
+      "status": "REMEDIATED_INDEPENDENTLY_REVALIDATED",
+      "affected_source_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+      "fix_sha": "4ef9a06e486cd8d2e3851c298e244435ecef3232",
+      "independent_revalidation": "PASS_SEPARATE_REVIEWER_2026-10-03",
+      "impact": "The pre-fix path allowed an authorized hostile MCP child to make catalog discovery consume more memory/tool objects than Semwright intended before the aggregate guard ran. No credential exposure or authority escalation was demonstrated.",
+      "recommended_remediation": "Completed. Fix 4ef9a06e applies incremental tool/page/cursor-cycle bounds; a separate reviewer inspected the loop and verified two hosted sandboxed federation runs.",
+      "residual_risk": "The bounded-pagination remediation has separate-authorship revalidation for R16 closure. This does not prove absence of every resource-exhaustion path or make upstream MCPs trusted.",
+      "evidence": [
+        "Cargo.lock pins rmcp 3.4.1.",
+        "rmcp 3.4.1 Peer<RoleClient>::list_all_tools loops over next_cursor and extends one Vec until next_cursor is absent, with no item/page/cursor-cycle bound.",
+        "Pre-fix crates/federation/src/lib.rs called list_all_tools() under a 10-second timeout and checked tools.len() > 512 only after the aggregation returned.",
+        "Fix commit 4ef9a06e486cd8d2e3851c298e244435ecef3232 adds Semwright-owned incremental 512-tool/512-page limits and repeated-cursor rejection.",
+        "Actions run 37101922029 job 111143008612 compiled semwright-federation and passed 7/7 sandboxed federation tests, including the container test with synthetic oversized pagination and cursor-cycle modes; its checkout tree equals final source 868446205df36826356483e93c53e5060c46e8aa.",
+        "Driver-conformance artifact 11266447661 digest sha256:b72f59d42ce3d2ae7dd05b8ef3ba9b9f5e40e4e3440285167f51ed87a393ffd0.",
+        "verification/r16-closeout/evidence/SEPARATE_REVALIDATION_2026-10-03.json"
+      ]
+    },
+    {
+      "id": "R-007",
+      "title": "Security-relevant review changes required separate revalidation",
+      "severity": "HIGH_ASSURANCE_GAP",
+      "category": "TEST_OR_EVIDENCE_DEFECT",
+      "status": "CLOSED_SEPARATE_REVIEW_ADOPTED",
+      "affected_source_sha": "868446205df36826356483e93c53e5060c46e8aa",
+      "fix_sha": null,
+      "independent_revalidation": "PASS_SEPARATE_REVIEWER_2026-10-03",
+      "impact": "The author cannot provide independent release approval for its own security-relevant assurance changes.",
+      "recommended_remediation": "Completed by a separate revalidation pass that reviewed the remediation and closeout wording without claiming an external organizational audit.",
+      "residual_risk": "Separate revalidation is recorded for R16 closure. Broader release/platform certification remains governed by release-readiness.json and the environment-dependent R06/R18 gates.",
+      "evidence": [
+        "Documentation/assurance changes and security fix 4ef9a06e486cd8d2e3851c298e244435ecef3232 were produced during the initial review.",
+        "Current-source hosted checks are green but are not by themselves a separate review.",
+        "The review criteria require separate revalidation before a security-relevant review change counts toward closure.",
+        "verification/r16-closeout/evidence/SEPARATE_REVALIDATION_2026-10-03.json"
+      ]
+    },
+    {
+      "id": "R-008",
+      "title": "Requested review depth was not completed for all mandatory boundaries",
+      "severity": "MEDIUM_ASSURANCE_GAP",
+      "category": "TEST_OR_EVIDENCE_DEFECT",
+      "status": "REMEDIATED_DIRECT_REVIEW_COMPLETE",
+      "affected_source_sha": "868446205df36826356483e93c53e5060c46e8aa",
+      "fix_sha": "868446205df36826356483e93c53e5060c46e8aa",
+      "independent_revalidation": "NOT_CLAIMED",
+      "impact": "The missing direct inspection and unexecuted platform/supply-chain work cannot be converted into a no-findings verdict.",
+      "recommended_remediation": "Completed for the declared repository/source-review scope. Preserve separate revalidation and physical/interactive residuals as separate gates.",
+      "residual_risk": "A repository review is not proof that every runtime/platform defect is absent. Separate-reviewer adoption is recorded for R16 closure; physical/interactive acceptance remains separate under R06/R18.",
+      "evidence": [
+        "The completion pass directly read PlanVault/reconciliation, Graph knowledge/reconcile, Effects evaluator, portal/restore state, Linux/macOS/Windows filesystem boundaries, Driver Host jobs/sessions, Skills authority and AV publication/lost-receipt paths.",
+        "Physical/interactive cases were not relabeled as source-review gaps; they remain R-010/R06/R18."
+      ]
+    },
+    {
+      "id": "R-009",
+      "title": "No main branch protection or ruleset was observed",
+      "severity": "MEDIUM_GOVERNANCE_GAP",
+      "category": "TEST_OR_EVIDENCE_DEFECT",
+      "status": "OPEN_MAINTAINER_DECISION",
+      "affected_source_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+      "fix_sha": null,
+      "independent_revalidation": "NOT_CLAIMED",
+      "impact": "The observed repository settings do not enforce those requirements at the branch level. This is a governance observation, not evidence of an unauthorized change.",
+      "recommended_remediation": "Choose and configure an appropriate branch ruleset/required-check/review policy or document explicit risk acceptance.",
+      "residual_risk": "Repository settings still do not enforce a main-branch ruleset/required-check/review policy. This is a governance observation, not evidence of an unauthorized change.",
+      "evidence": [
+        "Historical review: GitHub main protection endpoint returned 404 Branch not protected.",
+        "Historical review: repository rulesets endpoint returned an empty array.",
+        "2026-10-04 recheck: main protection endpoint again returned HTTP 404 and repository rulesets remained empty."
+      ],
+      "current_recheck": {
+        "checked_at": "2026-10-04",
+        "main_branch_protection": "NONE_OBSERVED_HTTP_404",
+        "repository_rulesets": [],
+        "status": "STILL_OPEN"
+      }
+    },
+    {
+      "id": "R-010",
+      "title": "Physical and interactive platform release gates remain open",
+      "severity": "RELEASE_GATE",
+      "category": "KNOWN_PLATFORM_LIMITATION",
+      "status": "OPEN_KNOWN_LIMITATION",
+      "affected_source_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+      "fix_sha": null,
+      "independent_revalidation": "NOT_CLAIMED",
+      "impact": "Hosted/headless success does not establish the outstanding physical and unlocked-desktop conditions.",
+      "recommended_remediation": "Complete the existing authorized physical/interactive gate matrix before a corresponding release claim.",
+      "residual_risk": "No fake display, shared graphical authority or cross-OS inference is accepted as replacement.",
+      "evidence": [
+        "RELEASE_BLOCKERS.md: R06 and R18",
+        "docs/platforms.md and native Windows source-specific evidence"
+      ],
+      "current_policy": "Environment-dependent physical/interactive cases remain open but are explicitly deferred post-v1 under docs/release-policy.md; they are not converted to PASS."
+    }
+  ],
+  "note": "Compact permanent finding history. Temporary branch/worktree/review-process inventories are intentionally omitted."
+}

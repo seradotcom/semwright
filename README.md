@@ -221,6 +221,11 @@ Semwright does **not** replace MCP or an agent SDK. MCP is one way to reach the 
 of provider Semwright can govern. The execution layer is responsible for capability discovery, policy,
 application identity, bounded jobs, references, artifact handoff and audit.
 
+Applications that need to keep their own domain model, database and transaction boundary can integrate
+through the [Native SDK](docs/native-sdk/README.md). The application remains authoritative for its state;
+Semwright supplies optional cooperation contracts plus the normal Driver Host, Broker/Policy, Graph and
+Effects integration rather than imposing a second storage model.
+
 A cross-application workflow can therefore remain explicit instead of hiding the transition between
 tools:
 
@@ -272,6 +277,7 @@ Choose the surface by what you are trying to connect:
 
 | I want to… | Use |
 | --- | --- |
+| **Expose an application while keeping its own model, storage and transactions** | [Native SDK](docs/native-sdk/README.md) |
 | **Connect an existing application with a rich API or long-lived state** | [Application Driver SDK](docs/drivers.md) |
 | **Add a narrow, stateless external command** | [Plugin SDK](docs/plugins.md) |
 | **Call Semwright from an agent or tool** | [CLI](docs/commands.md) or [MCP frontend](docs/mcp.md) |
@@ -327,6 +333,7 @@ source and environment they actually tested.
 - [Architecture](docs/architecture.md)
 - [Platform support](docs/platforms.md)
 - [Application Driver SDK](docs/drivers.md)
+- [Native SDK](docs/native-sdk/README.md)
 - [Agent Skills](docs/skills.md)
 - [Events and jobs](docs/events-jobs.md)
 - [Workflow Distillation](docs/workflow-distillation.md)
