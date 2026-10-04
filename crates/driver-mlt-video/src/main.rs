@@ -777,9 +777,9 @@ impl MltVideoDriver {
                 Vec::new(),
                 // The Host derives the inherited CPU ceiling from this tool
                 // deadline. A two-thread 1080p render can consume 150 CPU
-                // seconds before its existing 120-second native wall limit.
+                // seconds before its independent native wall limit.
                 // Match the declared 300-CPU-second driver ceiling; the native
-                // runner retains its independent 120-second wall deadline.
+                // runner retains its independent 180-second wall deadline.
                 Duration::from_secs(300),
                 None,
             )

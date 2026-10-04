@@ -49,7 +49,9 @@ returning the owned render job; native render deadlines remain separate.
 The outer render tool has a 300-second budget matching the driver's declared
 300 CPU seconds. Host also derives the inherited CPU ceiling from that tool
 deadline: a shorter 150-second outer budget could kill a two-thread render
-before its independent 120-second native wall deadline. The CPU ceiling,
+before its independent native wall deadline. The native media operation has a
+180-second wall deadline so a full two-thread 1080p master has time to finish
+without exceeding the declared 300 CPU seconds. The CPU ceiling,
 native wall deadline, filesystem grants and output validation remain bounded.
 
 The runner retains a bounded local render receipt binding the staged XML digest,

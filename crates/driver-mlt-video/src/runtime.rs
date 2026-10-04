@@ -561,7 +561,9 @@ impl Runtime {
             ffmpeg,
             // No nested sandbox is invoked: the Host owns this tool's isolation.
             bubblewrap: ffprobe,
-            timeout: Duration::from_secs(120),
+            // Keep the media operation bounded while leaving room for a full
+            // two-thread 1080p master under the 300-CPU-second Host ceiling.
+            timeout: Duration::from_secs(180),
             catalog: ServiceCatalog::default(),
             tools: PrivateDir::new(Path::new("/tmp"))?,
             host_sandboxed: true,
