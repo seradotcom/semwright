@@ -7,6 +7,7 @@ license.workspace = true
 description = "Backend-neutral semantic audio, synthesis, mixing and render domain for Semwright"
 
 [dependencies]
+hex.workspace = true
 schemars.workspace = true
 serde.workspace = true
 serde_json.workspace = true

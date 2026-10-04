@@ -1151,7 +1151,7 @@ fn file_sha256(path: &Path, limit: u64) -> Result<String> {
             })?;
         digest.update(&buffer[..read]);
     }
-    Ok(format!("{:x}", digest.finalize()))
+    Ok(hex::encode(digest.finalize()))
 }
 fn domain_error(error: semwright_audio_domain::Error) -> Error {
     let code = match error.code {

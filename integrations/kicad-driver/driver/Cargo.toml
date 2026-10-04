@@ -7,6 +7,7 @@ license = "GPL-3.0-or-later"
 publish = false
 
 [dependencies]
+hex.workspace = true
 semwright-driver-sdk = { path = "../../../crates/driver-sdk", version = "=0.9.0-dev.1" }
 semwright-types = { path = "../../../crates/types", version = "=0.9.0-dev.1" }
 serde_json.workspace = true

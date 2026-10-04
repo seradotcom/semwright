@@ -402,10 +402,9 @@ mod tests {
         std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o500))
             .expect("application fixture permissions");
         let executable = std::fs::canonicalize(executable).expect("canonical application path");
-        let sha256 = format!(
-            "{:x}",
-            Sha256::digest(std::fs::read(&executable).expect("read application fixture"))
-        );
+        let sha256 = hex::encode(Sha256::digest(
+            std::fs::read(&executable).expect("read application fixture"),
+        ));
         (
             directory,
             Application {

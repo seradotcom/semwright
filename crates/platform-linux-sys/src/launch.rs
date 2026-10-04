@@ -307,7 +307,7 @@ fn verify_executable_bounded(path: &Path, digest: &str, max_bytes: u64) -> Resul
         .take(max_bytes.saturating_add(1))
         .read_to_end(&mut bytes)?;
     if bytes.len() as u64 > max_bytes
-        || format!("{:x}", Sha256::digest(&bytes)) != digest.to_ascii_lowercase()
+        || hex::encode(Sha256::digest(&bytes)) != digest.to_ascii_lowercase()
     {
         return Err(Error::new(
             ErrorCode::PermissionDenied,
@@ -416,7 +416,7 @@ pub fn verify_application_executable(path: &Path, digest: &str) -> Result<()> {
             "Pinned ELF application executable required",
         ));
     }
-    if format!("{:x}", hasher.finalize()) != expected {
+    if hex::encode(hasher.finalize()) != expected {
         return Err(Error::new(
             ErrorCode::PermissionDenied,
             "Application executable digest mismatch",
@@ -823,7 +823,7 @@ mod tests {
         let bytes = b"\x7fELFbounded-verifier-fixture";
         std::fs::write(&executable, bytes).unwrap();
         std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o500)).unwrap();
-        let digest = format!("{:x}", Sha256::digest(bytes));
+        let digest = hex::encode(Sha256::digest(bytes));
 
         assert!(
             verify_executable_bounded(&executable, &digest, bytes.len() as u64).is_ok(),

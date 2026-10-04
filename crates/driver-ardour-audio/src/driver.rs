@@ -112,10 +112,9 @@ impl ArdourAudioDriver {
         let snapshot = ArdourSnapshot { strip_list };
         let report = ArdourSemanticProjection::report(&snapshot).map_err(map_domain_error)?;
         let semantic = report.project.semantic_digest().map_err(map_domain_error)?;
-        let revision = format!(
-            "{:x}",
-            Sha256::digest(format!("{semantic}:{}", self.generation).as_bytes())
-        );
+        let revision = hex::encode(Sha256::digest(
+            format!("{semantic}:{}", self.generation).as_bytes(),
+        ));
         let mut id_to_ssid = BTreeMap::new();
         for strip in &snapshot.strip_list.strips {
             let id = match strip.kind.as_str() {
@@ -375,7 +374,7 @@ impl ArdourAudioDriver {
             ));
         }
         let native_bytes = serde_json::to_vec(&native)?;
-        let revision = format!("{:x}", Sha256::digest(&native_bytes));
+        let revision = hex::encode(Sha256::digest(&native_bytes));
         Ok(json!({
             "revision": revision,
             "project_json": project_json,
@@ -1699,10 +1698,7 @@ fn inspect_schema() -> Value {
 
 fn native_revision(snapshot: &NativeArdourSnapshot) -> Result<String> {
     snapshot.validate().map_err(map_domain_error)?;
-    Ok(format!(
-        "{:x}",
-        Sha256::digest(serde_json::to_vec(snapshot)?)
-    ))
+    Ok(hex::encode(Sha256::digest(serde_json::to_vec(snapshot)?)))
 }
 
 fn deep_mutation(

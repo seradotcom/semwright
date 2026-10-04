@@ -16,6 +16,7 @@ test-tools = []
 workspace = true
 
 [dependencies]
+hex.workspace = true
 semwright-platform-api.workspace = true
 semwright-platform-services.workspace = true
 semwright-policy.workspace = true

@@ -431,7 +431,7 @@ pub fn compile(
                 "Secret-access operations cannot be compiled into learned recipes",
             ));
         }
-        let current_digest = format!("{:x}", Sha256::digest(serde_json::to_vec(&descriptor)?));
+        let current_digest = hex::encode(Sha256::digest(serde_json::to_vec(&descriptor)?));
         if source.descriptor_sha256.is_empty()
             || source.descriptor_sha256 != current_digest
             || source.capability_version != descriptor.version
@@ -542,14 +542,11 @@ pub(crate) fn candidate_fingerprint(
     source_trace_ids: &[String],
     descriptor_digests: &BTreeMap<String, String>,
 ) -> Result<String> {
-    Ok(format!(
-        "{:x}",
-        Sha256::digest(serde_json::to_vec(&json!({
-            "recipe":recipe,
-            "traces":source_trace_ids,
-            "digests":descriptor_digests
-        }))?)
-    ))
+    Ok(hex::encode(Sha256::digest(serde_json::to_vec(&json!({
+        "recipe":recipe,
+        "traces":source_trace_ids,
+        "digests":descriptor_digests
+    }))?)))
 }
 
 pub fn validate_candidate_integrity(candidate: &Candidate) -> Result<()> {
@@ -623,7 +620,7 @@ pub fn verify_drift(candidate: &Candidate, lookup: &dyn DescriptorLookup) -> Res
     let mut current = BTreeMap::new();
     for (command, expected) in &candidate.source_descriptor_sha256 {
         let descriptor = lookup.describe(command)?;
-        let actual = format!("{:x}", Sha256::digest(serde_json::to_vec(&descriptor)?));
+        let actual = hex::encode(Sha256::digest(serde_json::to_vec(&descriptor)?));
         if &actual != expected {
             return Err(Error::new(
                 ErrorCode::Conflict,
@@ -848,10 +845,7 @@ mod tests {
     }
 
     fn digest(descriptor: &CommandDescriptor) -> String {
-        format!(
-            "{:x}",
-            Sha256::digest(serde_json::to_vec(descriptor).unwrap())
-        )
+        hex::encode(Sha256::digest(serde_json::to_vec(descriptor).unwrap()))
     }
 
     fn lookup() -> Lookup {

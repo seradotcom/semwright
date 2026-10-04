@@ -11,6 +11,7 @@ publish = false
 workspace = true
 
 [dependencies]
+hex.workspace = true
 semwright-types.workspace = true
 semwright-registry.workspace = true
 serde.workspace = true

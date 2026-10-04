@@ -21,6 +21,7 @@ package = ["driver", "dep:semwright-driver-registry"]
 host-tests = ["file-backed", "effects", "dep:semwright-core", "dep:semwright-policy", "dep:semwright-backend-api", "dep:tokio-util"]
 
 [dependencies]
+hex.workspace = true
 semwright-types.workspace = true
 serde.workspace = true
 serde_json.workspace = true

@@ -27,7 +27,7 @@ fn fake_manifest(root: &Path, version: &str, supported: Vec<String>) -> Manifest
         version: version.into(),
         publisher: "semwright-tests".into(),
         executable,
-        sha256: format!("{:x}", Sha256::digest(bytes)),
+        sha256: hex::encode(Sha256::digest(bytes)),
         application: ApplicationMatch {
             desktop_id: Some("org.example.Fixture".into()),
             process_names: vec!["fixture".into()],

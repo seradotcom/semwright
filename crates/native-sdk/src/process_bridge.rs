@@ -413,7 +413,7 @@ fn read_pinned(path: &Path, expected: &str) -> Result<Vec<u8>> {
         file.take((MAX_BUNDLE + 1) as u64).read_to_end(&mut bytes)?;
         if bytes.len() > MAX_BUNDLE
             || std::str::from_utf8(&bytes).is_err()
-            || format!("{:x}", Sha256::digest(&bytes)) != expected
+            || hex::encode(Sha256::digest(&bytes)) != expected
         {
             return Err(Error::new(
                 ErrorCode::Conflict,
@@ -476,7 +476,7 @@ mod tests {
         let file = dir.path().join("app.cjs");
         std::fs::write(&file, b"module.exports = {};\n").unwrap();
         let bytes = std::fs::read(&file).unwrap();
-        let hash = format!("{:x}", Sha256::digest(&bytes));
+        let hash = hex::encode(Sha256::digest(&bytes));
         assert_eq!(read_pinned(&file, &hash).unwrap(), bytes);
         assert!(read_pinned(&file, &"0".repeat(64)).is_err());
         let link = dir.path().join("link.cjs");

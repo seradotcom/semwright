@@ -1091,7 +1091,7 @@ fn file_digest(path: &Path) -> Result<String> {
         }
         digest.update(&buf[..n]);
     }
-    Ok(format!("{:x}", digest.finalize()))
+    Ok(hex::encode(digest.finalize()))
 }
 
 fn verify_file(path: &Path, expected: &str) -> Result<()> {

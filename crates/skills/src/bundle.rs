@@ -200,7 +200,7 @@ pub fn bundle(package: &SkillPackage, output: &Path) -> Result<BundleReport> {
         entries.push((format!("{skill_name}/{relative}"), data));
     }
     let bytes = build_zip(entries)?;
-    let digest = format!("{:x}", Sha256::digest(&bytes));
+    let digest = hex::encode(Sha256::digest(&bytes));
     let mut options = fs::OpenOptions::new();
     options.write(true).create_new(true);
     #[cfg(unix)]

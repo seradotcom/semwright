@@ -4691,7 +4691,7 @@ mod tests {
     #[test]
     fn sealed_tool_memfd_is_write_sealed() {
         let source = Path::new("/usr/bin/true");
-        let digest = format!("{:x}", Sha256::digest(std::fs::read(source).unwrap()));
+        let digest = hex::encode(Sha256::digest(std::fs::read(source).unwrap()));
         let tool = seal_verified_tool(source, &digest, "probe").unwrap();
         let fd = tool._file.as_raw_fd();
         let data_fd = tool.data_file.as_raw_fd();
@@ -4732,7 +4732,7 @@ mod tests {
     #[test]
     fn linux_dependency_reopen_has_an_independent_zero_offset() {
         let source = Path::new("/usr/bin/true");
-        let digest = format!("{:x}", Sha256::digest(std::fs::read(source).unwrap()));
+        let digest = hex::encode(Sha256::digest(std::fs::read(source).unwrap()));
         let tool = seal_verified_tool(source, &digest, "dependency").unwrap();
 
         let mut first = fresh_linux_dependency_file(&tool.data_file).unwrap();
@@ -4909,7 +4909,7 @@ mod tests {
         std::fs::write(&helper, b"helper").unwrap();
 
         let source = Path::new("/usr/bin/true");
-        let digest = format!("{:x}", Sha256::digest(std::fs::read(source).unwrap()));
+        let digest = hex::encode(Sha256::digest(std::fs::read(source).unwrap()));
         let tool = seal_verified_tool(source, &digest, "probe").unwrap();
         let command = sandbox_command(&manifest(), &staged, &helper, &[], None, &[tool]).unwrap();
         let args = command
@@ -4940,7 +4940,7 @@ mod tests {
         let body = b"ELFfixture";
         std::fs::write(&path, body).unwrap();
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o660)).unwrap();
-        assert!(verify_owned_executable(&path, &format!("{:x}", Sha256::digest(body))).is_err());
+        assert!(verify_owned_executable(&path, &hex::encode(Sha256::digest(body))).is_err());
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
         assert!(verify_owned_executable(&path, &"0".repeat(64)).is_err());
     }

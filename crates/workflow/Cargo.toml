@@ -6,6 +6,7 @@ rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
+hex.workspace = true
 semwright-types.workspace = true
 semwright-recipes.workspace = true
 serde.workspace = true

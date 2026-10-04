@@ -88,7 +88,7 @@ fn fixture_config(slug: &str) -> StdioUpstreamConfig {
     // Cargo test artifacts can inherit a group-writable umask. Normalize only this disposable
     // fixture; production validation deliberately continues to reject mutable executables.
     std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o755)).unwrap();
-    let sha256 = format!("{:x}", Sha256::digest(std::fs::read(&program).unwrap()));
+    let sha256 = hex::encode(Sha256::digest(std::fs::read(&program).unwrap()));
     StdioUpstreamConfig {
         slug: slug.into(),
         program,

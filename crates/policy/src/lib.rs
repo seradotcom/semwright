@@ -175,7 +175,7 @@ impl Policy {
     pub fn grant_fingerprint(&self) -> String {
         use sha2::{Digest, Sha256};
         let body = serde_json::to_vec(&self.config).unwrap_or_default();
-        format!("{:x}", Sha256::digest(body))
+        hex::encode(Sha256::digest(body))
     }
 }
 /// Select metadata suitable for the trusted operator, never the audit sink.

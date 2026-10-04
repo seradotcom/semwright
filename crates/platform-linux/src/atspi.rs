@@ -471,7 +471,10 @@ fn semantic_event_kind(interface: Option<&str>, member: Option<&str>) -> &'stati
     }
 }
 fn stable_node_id(identity: &str) -> String {
-    format!("ui-node:{:x}", Sha256::digest(identity.as_bytes()))
+    format!(
+        "ui-node:{}",
+        hex::encode(Sha256::digest(identity.as_bytes()))
+    )
 }
 
 fn annotate_table_cell(node: &mut Value, row: usize, column: usize, parent_ref: Value) {

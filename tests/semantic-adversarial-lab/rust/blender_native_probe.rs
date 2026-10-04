@@ -26,7 +26,7 @@ const SOURCE: &str = env!("G_LAB_COMPILED_SOURCE_SHA");
 type AnyResult<T> = Result<T, Box<dyn std::error::Error>>;
 
 fn file_sha(path: &Path) -> AnyResult<String> {
-    Ok(format!("{:x}", Sha256::digest(fs::read(path)?)))
+    Ok(hex::encode(Sha256::digest(fs::read(path)?)))
 }
 
 fn boxed(message: impl Into<String>) -> Box<dyn std::error::Error> {

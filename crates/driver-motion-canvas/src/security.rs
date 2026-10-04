@@ -19,7 +19,7 @@ pub fn digest(value: &str) -> bool {
             .all(|c| c.is_ascii_digit() || (b'a'..=b'f').contains(&c))
 }
 pub fn sha256(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
+    hex::encode(Sha256::digest(bytes))
 }
 
 pub fn relative_path(path: &str) -> Result<()> {
@@ -319,6 +319,6 @@ pub fn inspect_png(bytes: &[u8]) -> Result<PngEvidence> {
         height: output.height,
         min_alpha,
         max_alpha,
-        pixel_sha256: format!("{:x}", hash.finalize()),
+        pixel_sha256: hex::encode(hash.finalize()),
     })
 }

@@ -16,10 +16,7 @@ use tokio::{
 use tokio_util::sync::CancellationToken;
 
 fn digest(path: &Path) -> String {
-    format!(
-        "{:x}",
-        Sha256::digest(std::fs::read(path).expect("read fixture"))
-    )
+    hex::encode(Sha256::digest(std::fs::read(path).expect("read fixture")))
 }
 
 fn harden_fixture(path: &Path) {

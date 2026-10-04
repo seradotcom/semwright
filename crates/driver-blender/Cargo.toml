@@ -15,6 +15,7 @@ name = "semwright-blender-session-runner"
 path = "src/bin/session_runner.rs"
 
 [dependencies]
+hex.workspace = true
 semwright-driver-sdk.workspace = true
 semwright-protocol.workspace = true
 semwright-types.workspace = true

@@ -12,10 +12,9 @@ use std::path::Path;
 use tokio_util::sync::CancellationToken;
 
 fn digest(path: &Path) -> String {
-    format!(
-        "{:x}",
-        Sha256::digest(std::fs::read(path).expect("read plugin fixture"))
-    )
+    hex::encode(Sha256::digest(
+        std::fs::read(path).expect("read plugin fixture"),
+    ))
 }
 
 fn harden_fixture(path: &Path) {

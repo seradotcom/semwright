@@ -59,7 +59,7 @@ mod linux {
         let mut f = fs::File::open(path)?;
         let mut h = Sha256::new();
         std::io::copy(&mut f, &mut DigestWriter(&mut h))?;
-        Ok(format!("{:x}", h.finalize()))
+        Ok(hex::encode(h.finalize()))
     }
     struct DigestWriter<'a>(&'a mut Sha256);
     impl std::io::Write for DigestWriter<'_> {

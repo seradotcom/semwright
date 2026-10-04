@@ -36,7 +36,7 @@ fn verify_executable_bounded(path: &Path, digest: &str, max_bytes: u64) -> Resul
         .take(max_bytes.saturating_add(1))
         .read_to_end(&mut bytes)?;
     if bytes.len() as u64 > max_bytes
-        || format!("{:x}", Sha256::digest(&bytes)) != digest.to_ascii_lowercase()
+        || hex::encode(Sha256::digest(&bytes)) != digest.to_ascii_lowercase()
     {
         return Err(Error::new(
             ErrorCode::PermissionDenied,
@@ -120,7 +120,7 @@ mod tests {
         let bytes = native_fixture();
         std::fs::write(&executable, &bytes).unwrap();
         std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o500)).unwrap();
-        let digest = format!("{:x}", Sha256::digest(&bytes));
+        let digest = hex::encode(Sha256::digest(&bytes));
 
         assert_eq!(MacVerifier.verify(&executable, &digest).unwrap(), bytes);
         assert_eq!(

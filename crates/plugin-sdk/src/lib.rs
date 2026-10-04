@@ -140,10 +140,7 @@ impl Manifest {
     }
 }
 pub fn commands_digest(commands: &[CommandDescriptor]) -> Result<String> {
-    Ok(format!(
-        "{:x}",
-        Sha256::digest(serde_json::to_vec(commands)?)
-    ))
+    Ok(hex::encode(Sha256::digest(serde_json::to_vec(commands)?)))
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

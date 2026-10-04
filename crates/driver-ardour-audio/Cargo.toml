@@ -19,6 +19,7 @@ default = []
 live-tests = []
 
 [dependencies]
+hex.workspace = true
 async-trait.workspace = true
 semwright-audio-domain.workspace = true
 semwright-driver-sdk.workspace = true
