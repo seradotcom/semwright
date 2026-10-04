@@ -28,5 +28,21 @@ preflight keeps its failed Windows result as historical evidence. Consult
 | Plugins | platform sandbox service | Linux Bubblewrap/Landlock with executed hostile plugin/driver fixtures; platform-specific Windows authority tests | independent review and broader platform/live coverage |
 | Windows | UIA, input/capture, named-pipe IPC and restricted process-launch host | run `37228279724` at source `04cf0ef7062d134b71206d832375be9545553bb4` passed native x64/ARM64 and both sealed-tool compatibility jobs; earlier fixture failures remain historical evidence | interactive consent/capture/UIPI/session/display matrix remains open under R18 |
 
+## Evidence anchors
+
+- Native SDK portability: run `37179820287` at `d4c7a7795a8a529b3fb170c52564788579ce19e0`
+  passed Ubuntu x64/ARM64, Windows x64/ARM64 and macOS arm64/x64. The public integration head
+  `09f71d490ac86f8f8e86dcda6c2552f50c59d487` then passed canonical run `37181039129`
+  and Linux real-Host run `37181039113`.
+- Windows native host: run `37228279724` at
+  `04cf0ef7062d134b71206d832375be9545553bb4` passed native x64, native ARM64 and the two
+  sealed-tool compatibility jobs. Interactive certification remains separate.
+- Portable candidate distribution: run `37146331051` at
+  `9954c1f95f68305f32f153fe5ab302441845b7ed` passed the six native bundle lanes and the
+  global manifest job.
+
+These anchors are historical exact-SHA evidence. Later source revisions do not inherit PASS unless
+their affected workflows execute successfully.
+
 Bridge manifests and source availability are not support guarantees. macOS support must not be announced solely from Linux cross-compilation or hosted noninteractive tests. Windows is implemented, but a hosted job or cross-check does not imply interactive acceptance,
 full Linux-equivalent isolation, or a fallback after a failed target/focus precondition.

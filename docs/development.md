@@ -40,6 +40,23 @@ upload. Its optional positive smoke checks out frozen source separately from the
 builds only the daemon/CLI, runs selected pure contract libraries and executes the existing
 fake recipe. It does not run hostile payloads or replace the full release matrix.
 
+## Component-specific lanes
+
+Use the component workflow rather than inferring support from the generic matrix:
+
+- Native SDK changes use `.github/workflows/native-sdk.yml`; changes that affect the real execution
+  route also use `.github/workflows/native-sdk-host.yml`. The manual full-portability input expands
+  the portable SDK lane to Ubuntu x64/ARM64, Windows x64/ARM64 and macOS arm64/x64.
+- Windows platform changes use `.github/workflows/windows-platform.yml`. Interactive unlocked-desktop
+  certification is deliberately separate in `.github/workflows/windows-interactive.yml`.
+- Application-driver changes route through `.github/workflows/native-integrations.yml` and any
+  application-specific workflow selected by `scripts/dev/ci-affected-areas.py`.
+- Portable release-layout changes use `.github/workflows/v1-distribution.yml` and the packaging /
+  supply-chain workflows selected for that diff.
+
+A portable compile is not a live Host or interactive-desktop certificate. Keep the exact source SHA,
+runner/profile and skipped-job disposition with every support claim.
+
 ## Source identity and conclusions
 
 Record full source SHA, harness/suite SHA when different, job/run IDs, attempt, configuration,

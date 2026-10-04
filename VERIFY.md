@@ -12,6 +12,20 @@ The new distribution contract requires complete extracted-bundle install/smoke/u
 on six native architectures, internal checksums and a global exact-SHA manifest. Historical runs
 below do not certify this newer packaging implementation; use the staging PR/run evidence.
 
+## Current verified surfaces at a glance
+
+This is the short index for the implementation that is already in `main`. Each PASS below is
+bounded to the cited source/run; the detailed sections retain the exact limitations.
+
+| Surface | Current state | Evidence anchor | Important boundary |
+|---|---|---|---|
+| Native SDK | Integrated in `main`: Rust SDK, TypeScript binding, optional file-backed profile, app-owned SQLite example, Driver/Graph/Effects adapters | Runs `37181039129` and `37181039113` at `09f71d490ac86f8f8e86dcda6c2552f50c59d487`; six-platform portable run `37179820287` | Real Host E2E is an accepted Linux profile; portable library success is not Host certification on every OS |
+| Windows | Native UIA/input/capture, Named Pipes, filesystem boundary and restricted process-launch host are implemented | Run `37228279724` at `04cf0ef7062d134b71206d832375be9545553bb4`: native x64/ARM64 plus both sealed-tool compatibility jobs passed | Interactive unlocked-desktop consent/UIPI/UAC/session/display coverage remains R18 |
+| macOS | Native platform foundation with AXUIElement, CoreGraphics and ScreenCaptureKit bridges | Native Apple Silicon/Intel hosted lanes and six-platform distribution evidence below | TCC-gated interactive acceptance and arbitrary driver/plugin isolation are separate |
+| First-party application drivers | Chromium, LibreOffice, Blender, Godot, Figma, KiCad, MLT, OBS, Motion Canvas and audio paths are present with component-specific evidence | See the application sections below and `docs/compatibility.md` | Evidence is per application/version/profile; no row implies complete native-API coverage |
+| Portable distribution | Candidate bundles exist for Linux x64/ARM64, Windows x64/ARM64 and macOS arm64/x64 | Exact-main run `37146331051` plus manifest evidence below | Candidate/staging evidence is not public-release authorization |
+| R16 repository review | CLOSED with compact retained evidence and separate remediation revalidation | `verification/r16-closeout/` | This is repository-scoped review evidence, not an external organizational security audit; R-009 governance observation remains open |
+
 ## Historical review snapshot versus historical evidence
 
 The R16 review snapshot is `6491c0d838fa066938a494524d69ed507aa0dbe8`. The integrated
