@@ -927,7 +927,7 @@ pub fn proof(secret: &[u8], bytes: &[u8]) -> Result<String> {
 
 pub fn random_hex(bytes: usize) -> Result<String> {
     let mut out = vec![0u8; bytes];
-    getrandom::getrandom(&mut out)
+    getrandom::fill(&mut out)
         .map_err(|_| Error::new(ErrorCode::Internal, "Secure random source unavailable"))?;
     Ok(hex::encode(out))
 }
