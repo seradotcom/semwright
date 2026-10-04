@@ -81,6 +81,41 @@ async function containedFile(root, candidate, label) {
   return canonical;
 }
 
+// BEGIN SVG RECTANGLE RADII (unit tests extract the exact native adapter).
+function installSvgRectangleRadii(SvgClass, PathClass) {
+  if (!SvgClass || typeof SvgClass.extractElementNodes !== 'function' || typeof PathClass !== 'function') throw new Error('SVG native rectangle binding unavailable');
+  const original = SvgClass.extractElementNodes;
+  SvgClass.extractElementNodes = function*(element, ...arguments_) {
+    for (const shape of original.call(this, element, ...arguments_)) {
+      if (element.tagName !== 'rect') { yield shape; continue; }
+      const width = shape.props.width, height = shape.props.height;
+      const hasX = element.hasAttribute('rx'), hasY = element.hasAttribute('ry');
+      let rx = hasX ? parseFloat(element.getAttribute('rx')) : 0;
+      let ry = hasY ? parseFloat(element.getAttribute('ry')) : 0;
+      if (hasX && !hasY) ry = rx;
+      if (hasY && !hasX) rx = ry;
+      if (![width, height, rx, ry].every(Number.isFinite) || width < 0 || height < 0 || rx < 0 || ry < 0) throw new Error('Invalid SVG rectangle geometry');
+      rx = Math.min(rx, width / 2); ry = Math.min(ry, height / 2);
+      // SVG rx/ry are the two axes of EVERY corner. Motion Canvas 3.17.2
+      // interprets its [rx,ry] array as alternating corner radii instead.
+      if (rx === 0 || ry === 0) shape.props.radius = [0,0,0,0];
+      else if (rx === ry) shape.props.radius = [rx,rx,rx,rx];
+      else {
+        const left = -width/2, right = width/2, top = -height/2, bottom = height/2;
+        const {width:unusedWidth, height:unusedHeight, radius:unusedRadius, ...properties} = shape.props;
+        shape.type = PathClass;
+        shape.props = {...properties, tweenAlignPath:true,
+          data:'M '+(left+rx)+' '+top+' H '+(right-rx)+' A '+rx+' '+ry+' 0 0 1 '+right+' '+(top+ry)+
+            ' V '+(bottom-ry)+' A '+rx+' '+ry+' 0 0 1 '+(right-rx)+' '+bottom+
+            ' H '+(left+rx)+' A '+rx+' '+ry+' 0 0 1 '+left+' '+(bottom-ry)+
+            ' V '+(top+ry)+' A '+rx+' '+ry+' 0 0 1 '+(left+rx)+' '+top+' Z'};
+      }
+      yield shape;
+    }
+  };
+}
+// END SVG RECTANGLE RADII.
+
 // Integer frame clock and strict singleton boundary for Motion Canvas 3.17.2.
 function stableFrameSeconds(frame, fps) {
   if (!Number.isSafeInteger(frame) || frame < 0 || !Number.isFinite(fps) || fps <= 0) throw new Error('invalid integer frame clock');
@@ -203,11 +238,14 @@ function harnessPlugin(config, entry) {
       return `
 import project from '/src/project.ts?project';
 import {Renderer, Vector2} from '@motion-canvas/core';
+import {SVG, Path} from '@motion-canvas/2d';
 const config=${JSON.stringify(config)};
 ${stableFrameSeconds.toString()}
 ${installSingletonTailGuard.toString()}
 ${boundedRendererLog.toString()}
 ${loadPinnedFontFaces.toString()}
+${installSvgRectangleRadii.toString()}
+installSvgRectangleRadii(SVG,Path);
 const state={done:false,result:null,frame:config.firstFrame,error:null,errorClass:null,rendererLogClass:null,rendererLogDiagnostic:null,typeErrorDetail:null,singletonTailFiltered:false,fontReadiness:null,phase:'created'};
 const desiredRange=[stableFrameSeconds(config.firstFrame,config.fps),stableFrameSeconds(config.endFrameExclusive-1,config.fps)];
 installSingletonTailGuard(project.meta.rendering.exporter.exporters.find(candidate=>candidate.id==='@semwright/driver/image-sequence'),config,state);

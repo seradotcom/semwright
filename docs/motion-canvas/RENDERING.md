@@ -12,6 +12,8 @@ The controlled build sets Motion Canvas `buildForEditor: true` only to select up
 
 ## Production path
 
+The pinned native adapter corrects SVG rounded rectangles before rendering: an omitted `rx` or `ry` inherits its partner, radii clamp to half the rectangle dimensions, and an explicit zero produces square corners. Circular radii apply to all four corners; elliptical corners use a native path with four elliptical arcs, preserving the extracted transform and style. This corrects Motion Canvas 3.17.2's interpretation of SVG `[rx, ry]` as alternating corner radii. Source SVG assets remain unchanged.
+
 1. Rust validates `semwright-motion.json` and a bounded `RenderProfile`.
 2. Deterministic generated source is materialized in a content-addressed project tree under the owner-granted `project` root.
 3. Driver Host supplies a SHA-pinned `motion-node` tool plus the exact per-tool `project`, `output`, read-only executable `runtime`, and read-only `fontconfig` grants. No installation path is discovered by the driver.
