@@ -42,7 +42,7 @@ def suite_minimum(name: str, root: Path = Path(".")) -> int:
         and (root / "crates/audio-domain").is_dir()
     ):
         # The certified audio integration adds two AV lib tests and two public
-        # audio-receipt contract tests. Standalone Agent A must not require B,
+        # audio-receipt contract tests. Standalone Composition must not require Audio,
         # while a combined workspace must not silently lose those four tests.
         minimum = max(minimum, 54)
     return minimum

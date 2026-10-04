@@ -500,10 +500,11 @@ async fn broker_native_authoring_save_reopen_export_and_owner_denial() {
         semwright_semantic_composition::Verdict::Pass
     );
     assert!(!admitted.record().coverage.cache_safe());
-    let c_receipt_digest = semwright_semantic_composition::canonical_digest(admitted.record())
-        .unwrap()
-        .as_str()
-        .to_owned();
+    let project_graph_receipt_digest =
+        semwright_semantic_composition::canonical_digest(admitted.record())
+            .unwrap()
+            .as_str()
+            .to_owned();
 
     let replay = fixture
         .raw(
@@ -876,11 +877,11 @@ async fn broker_native_authoring_save_reopen_export_and_owner_denial() {
             "reader_process":reopened["native_session"],
             "glb":export,
             "blend":saved,
-            "c_authoring_receipt_digest":c_receipt_digest,
-            "native_authoring_c_f_verified":true,
+            "project_graph_authoring_receipt_digest":project_graph_receipt_digest,
+            "native_authoring_graph_effects_verified":true,
             "native_assertions_completed":true,
             "godot_reimport_verified":false,
-            "cross_app_c_receipt_verified":false,
+            "cross_app_project_graph_receipt_verified":false,
             "ready":false
         }))
         .unwrap(),

@@ -158,7 +158,7 @@ jobs:
           python scripts/composition/test-candidate-evidence.py
           python scripts/composition/test-ci-scope.py
           python scripts/composition/test-run-suite.py
-      - name: Build and verify Agent-A source handoff
+      - name: Build and verify Composition source package
         run: |
           mkdir -p verification/composition-package
           python scripts/composition/package-dev.py build --output verification/composition-package/semwright-composition-development.zip

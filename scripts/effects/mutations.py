@@ -35,5 +35,5 @@ for name,relative,pattern,replacement,test_file,test_name in mutants:
         if not killed: raise RuntimeError("surviving or invalid mutant: "+name+"\n"+result.stdout[-5000:])
     finally:
         path.write_text(original)
-        (out/"mutations.json").write_text(json.dumps({"schema_version":1,"role":"F","source_sha":sha,"mutants":receipts},indent=2)+"\n")
+        (out/"mutations.json").write_text(json.dumps({"schema_version":1,"role":"effect-conformance","source_sha":sha,"mutants":receipts},indent=2)+"\n")
 print("killed all",len(receipts),"targeted mutants; restored exact original sources")

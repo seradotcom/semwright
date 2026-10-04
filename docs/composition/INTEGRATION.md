@@ -48,9 +48,9 @@ The full native integration workflow preserves its historical all-backend jobs f
 
 1. Verify B.json/PR/branch all name the same AUDIO_READY_FOR_INTEGRATION SHA and required native audio jobs.
 2. Verify the announced B SHA descends from C0 and its worktree is clean.
-3. Create/update integration/composition-av in the dedicated A-owned worktree from the chosen current-main reconciliation point.
+3. Create/update integration/composition-av in the dedicated Composition/AV worktree from the chosen current-main reconciliation point.
 4. Merge A by normal Git ancestry.
-5. Merge the exact B-ready SHA by normal Git ancestry. Resolve Cargo.toml/Cargo.lock/CI/Skills centrally; do not replace the newer lockfile wholesale.
+5. Merge the exact audio-ready SHA by normal Git ancestry. Resolve Cargo.toml/Cargo.lock/CI/Skills centrally; do not replace the newer lockfile wholesale.
 6. Resolve any C0/C1 overlap structurally and run consumer/schema tests before native jobs. Bind B's verified final-audio artifact receipt to the owner-configured Broker source root/path separately from its provider token; configure the artifact-handoff destination root and the MLT `media` alias to the same delivery storage. Never derive a path from `MediaArtifact.reference`.
 7. Execute the combined candidate gates on one SHA: common contracts, Figma regression, Motion native, audio native, real `artifact.handoff` audio transfer, AV MLT/decode/sync, targeted security and relevant required repository checks.
 8. Record every run/job/artifact digest in the integration evidence for the exact candidate.
@@ -61,7 +61,7 @@ The full native integration workflow preserves its historical all-backend jobs f
 
 Expected shared conflicts are workspace dependencies, Cargo.lock, Skill inventory/docs and aggregate CI. Preserve all independently required packages/targets. A conflict is not resolved by taking one side's complete lockfile or deleting another integration target.
 
-Unexpected conflicts inside audio-domain/Faust/Ardour are returned to B for explanation. Unexpected conflicts inside Figma/Motion/common contracts remain A-owned.
+Unexpected conflicts inside audio-domain/Faust/Ardour are returned to the audio subsystem for explanation. Unexpected conflicts inside Figma/Motion/common contracts remain owned by Composition/AV.
 
 ## Candidate evidence
 
@@ -71,7 +71,7 @@ Unexpected conflicts inside audio-domain/Faust/Ardour are returned to B for expl
 - B_RECERTIFIED_SHA_AWAITING_FORMAL_HANDOFF: df2654bed6d2ac57d547846b69d16ea48b4a9ee3 (run 36942574098 PASS)
 - B_READY_SHA: PENDING
 - C0_SHA: 26602e4b25929be869d69ef28fef4dd9713180d7
-- C1_CONSUMER_BOUNDARY: A-owned; exact combined E2E pending
+- C1_CONSUMER_BOUNDARY: Composition/AV-owned; exact combined E2E pending
 - INTEGRATION_CANDIDATE_SHA: PENDING
 - COMMON_CONTRACTS: PENDING
 - FIGMA_NATIVE: PENDING

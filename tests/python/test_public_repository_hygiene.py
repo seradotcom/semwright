@@ -30,6 +30,61 @@ class PublicRepositoryHygieneTests(unittest.TestCase):
             with self.subTest(marker=marker):
                 self.assertIn(marker, joined)
 
+    def test_current_ci_and_source_tooling_use_component_names(self):
+        files = (
+            ".circleci/config.yml",
+            ".github/workflows/blender-authoring.yml",
+            ".github/workflows/composition-av-combined.yml",
+            ".github/workflows/composition-diagnostics.yml",
+            ".github/workflows/godot-authoring.yml",
+            ".github/workflows/semantic-creation-integration.yml",
+            "scripts/audio/package-development.py",
+            "scripts/blender-authoring/package_source.py",
+            "scripts/composition/candidate-evidence.py",
+            "scripts/composition/package-dev.py",
+            "scripts/effects/package_source.py",
+            "scripts/godot-authoring/package_source.py",
+            "scripts/project-graph/run-suite.py",
+            "scripts/semantic-creation/reconciliation_diagnostic.py",
+        )
+        forbidden = (
+            "A-side",
+            "Bind to A branch",
+            "Agent-A",
+            "Combined A+B",
+            "semwright-audio-agent-b-source",
+            "E_SOURCE_SHA",
+            "E_RUN_ID",
+            "E_ARTIFACT_ID",
+            "E_GLB_SHA256",
+            "SEMWRIGHT_TEST_E_GLB",
+            '"E_SOURCE.patch"',
+            '"D_SOURCE.patch"',
+            '"F_SOURCE.patch"',
+            '"role": "C"',
+            '"role": "D"',
+            '"role": "E"',
+            '"role": "F"',
+            '"role": "I"',
+        )
+        for relative in files:
+            text = (ROOT / relative).read_text()
+            for marker in forbidden:
+                with self.subTest(relative=relative, marker=marker):
+                    self.assertNotIn(marker, text)
+
+        godot_workflow = (ROOT / ".github/workflows/godot-authoring.yml").read_text()
+        godot_test = (ROOT / "crates/driver-godot/tests/authoring_host.rs").read_text()
+        for marker in (
+            "BLENDER_SOURCE_SHA",
+            "BLENDER_RUN_ID",
+            "BLENDER_ARTIFACT_ID",
+            "BLENDER_GLB_SHA256",
+        ):
+            with self.subTest(marker=marker):
+                self.assertIn(marker, godot_workflow)
+        self.assertIn("SEMWRIGHT_TEST_BLENDER_GLB", godot_test)
+
     def test_local_coordination_directories_are_ignored(self):
         ignored = (ROOT / ".gitignore").read_text()
         for entry in (

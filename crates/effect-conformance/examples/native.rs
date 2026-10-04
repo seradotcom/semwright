@@ -1,6 +1,6 @@
 //! CI-only adapter conformance: real native subprocesses feed the common evaluator.
 //! This is NOT a Broker bypass or a public capability; product integration stays
-//! owned by D/E. Fixed source scripts and disposable roots never accept user code.
+//! owned by the Godot/Blender integrations. Fixed source scripts and disposable roots never accept user code.
 use semwright_effect_conformance::composition::*;
 use semwright_effect_conformance::*;
 use serde::Deserialize;
@@ -357,7 +357,7 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
         std::fs::write(
             output_dir.join(format!("{backend}-native.json")),
             serde_json::to_vec_pretty(
-                &json!({"schema_version":1,"role":"F","source_sha":source_sha,"cases":receipts}),
+                &json!({"schema_version":1,"role":"effect-conformance","source_sha":source_sha,"cases":receipts}),
             )?,
         )?;
         ensure(

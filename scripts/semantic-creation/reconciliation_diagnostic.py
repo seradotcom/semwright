@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Narrow I source diagnostic; executed exclusively on GitHub-hosted Actions."""
+"""Narrow integration source diagnostic; executed exclusively on GitHub-hosted Actions."""
 import hashlib
 import json
 import os
@@ -57,7 +57,7 @@ def main():
         raise SystemExit("I diagnostics must run on GitHub-hosted Actions")
     OUT.mkdir(parents=True, exist_ok=True)
     sha = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
-    report = {"schema_version": 1, "role": "I", "source_sha": sha,
+    report = {"schema_version": 1, "role": "semantic-creation-integration", "source_sha": sha,
               "github_sha": os.environ.get("GITHUB_SHA"), "run_id": os.environ.get("GITHUB_RUN_ID"),
               "run_attempt": os.environ.get("GITHUB_RUN_ATTEMPT"),
               "lock_sha256": hashlib.sha256((ROOT / "Cargo.lock").read_bytes()).hexdigest(),
