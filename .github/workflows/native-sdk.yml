@@ -1,7 +1,27 @@
 name: Native SDK canonical
 on:
   push:
-    branches: [feat/native-sdk-canonical]
+    branches: [main]
+    paths:
+      - 'crates/native-sdk/**'
+      - 'examples/native/**'
+      - 'examples/native-inventory/**'
+      - 'sdk/native-typescript/**'
+      - 'Cargo.lock'
+      - 'contracts/native/**'
+      - 'docs/native-sdk/**'
+      - 'scripts/native-sdk/run-suite.py'
+      - 'scripts/native-sdk/typescript_suite.py'
+      - 'scripts/native-sdk/clean_consumers.py'
+      - 'crates/types/**'
+      - 'crates/driver-sdk/**'
+      - 'crates/effect-conformance/**'
+      - 'crates/semantic-composition/**'
+      - 'Cargo.toml'
+      - 'rust-toolchain.toml'
+      - '.github/workflows/native-sdk.yml'
+      - '.circleci/config.yml'
+  pull_request:
     paths:
       - 'crates/native-sdk/**'
       - 'examples/native/**'

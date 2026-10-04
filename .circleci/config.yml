@@ -1,6 +1,6 @@
 version: 2.1
 
-# Private Composition iteration accelerator only.
+# CircleCI iteration accelerator only.
 # CircleCI output is diagnostic and MUST NOT be used as release/certification evidence.
 parameters:
   force-motion-native:
@@ -21,7 +21,10 @@ jobs:
           name: Native SDK exact-SHA metadata only
           command: |
             set -euo pipefail
-            test "$CIRCLE_BRANCH" = feat/native-sdk-canonical
+            case "$CIRCLE_BRANCH" in
+              main|*native-sdk*) ;;
+              *) echo "unsupported Native SDK iteration branch: $CIRCLE_BRANCH" >&2; exit 1 ;;
+            esac
             test "$(git rev-parse HEAD)" = "$CIRCLE_SHA1"
             python3 scripts/native-sdk/run-suite.py repository
       - store_artifacts:
@@ -42,7 +45,10 @@ jobs:
           name: Bind iteration to exact Native SDK SHA
           command: |
             set -euo pipefail
-            test "$CIRCLE_BRANCH" = feat/native-sdk-canonical
+            case "$CIRCLE_BRANCH" in
+              main|*native-sdk*) ;;
+              *) echo "unsupported Native SDK iteration branch: $CIRCLE_BRANCH" >&2; exit 1 ;;
+            esac
             test "$(git rev-parse HEAD)" = "$CIRCLE_SHA1"
             mkdir -p verification/native-sdk/circleci
             cat > verification/native-sdk/circleci/NOT_CERTIFICATION.txt <<'EOF'
@@ -458,11 +464,15 @@ workflows:
       - native-sdk-metadata-iteration:
           filters:
             branches:
-              only: feat/native-sdk-canonical
+              only:
+                - main
+                - /.*native-sdk.*/
       - native-sdk-binding-iteration:
           filters:
             branches:
-              only: feat/native-sdk-canonical
+              only:
+                - main
+                - /.*native-sdk.*/
   composition-private-iteration:
     jobs:
       - composition-linux-iteration:

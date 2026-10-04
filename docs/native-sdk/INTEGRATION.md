@@ -15,7 +15,7 @@
 
 The Native SDK must not become an alternate Broker, Graph, scheduler, permission store or publication service.
 
-Private conformance launches the real daemon, CLI, protocol MCP server, sandbox helper, Driver Host and native applications from one exact checkout. CLI and MCP target the same daemon; cross-session refs are rejected.
+Host conformance launches the real daemon, CLI, protocol MCP server, sandbox helper, Driver Host and native applications from one exact checkout. CLI and MCP target the same daemon; cross-session refs are rejected.
 
 ## Launchwright
 

@@ -17,10 +17,13 @@ below do not certify this newer packaging implementation; use the staging PR/run
 The R16 review snapshot is `6491c0d838fa066938a494524d69ed507aa0dbe8`. The integrated
 engineering source is `cd518748f742025a251b78028613aa1b16919e73`; the actual diff is four documentation files and
 the Windows UIA test fixture, not production-source changes. Native Windows run
-[37096430846](https://github.com/seradotcom/semwright/actions/runs/37096430846) passed on R's
-snapshot. The separate global disposition preserves its original failed run and corrected
-fixture retest. None of these records supplies an independent R16 verdict or turns skipped
-main-push jobs into executed gates.
+[37096430846](https://github.com/seradotcom/semwright/actions/runs/37096430846) passed on the
+review snapshot. The separate global disposition preserves its original failed run and corrected
+fixture retest. Current `main` has newer Windows evidence: run
+[37228279724](https://github.com/seradotcom/semwright/actions/runs/37228279724) passed native x64,
+native ARM64 and both sealed-tool compatibility jobs at
+`04cf0ef7062d134b71206d832375be9545553bb4`. None of these records supplies an independent
+R16 verdict or turns skipped main-push jobs into executed gates.
 
 Consult the [integration ledger](docs/semantic-creation/INTEGRATION.md) and
 [R16 evidence directory](verification/r16-closeout/README.md). The bounded R16 smoke is not
@@ -60,9 +63,14 @@ blocked checks are never treated as successful execution.
 | Platformization / native macOS Intel | PASS | Commit checks: Platformization and macOS |
 | Packaging certification / x86_64 | PASS | Commit checks: `Packaging certification` |
 | Packaging certification / ARM64 | PASS | Commit checks: `Packaging certification` |
-| Windows / x64 native noninteractive | PASS | Observed run `36394993424`, job `108839165102`: success |
-| Windows / ARM64 native noninteractive | PASS | Observed run `36394993424`, job `108839165329`: **failure**, stale UIA reference |
-| Windows / sealed-tool compatibility | PASS | Both observed compatibility jobs succeeded; not interactive certification |
+| V1 distribution / six native platforms | PASS | Exact-main run `37146331051` at `9954c1f95f68305f32f153fe5ab302441845b7ed`: Linux x64/ARM64, Windows x64/ARM64 and macOS arm64/x64 success |
+| V1 distribution / manifest | PASS | Run `37146331051`: manifest job success; retained distribution manifest artifact digest `sha256:1fe1f4492e8b4526edc9565bca395e54cc45f551b27b3179a56e65362926bc7f` |
+| Windows / x64 native noninteractive | PASS | Current-main run `37228279724`, job `111512424502`: success |
+| Windows / ARM64 native noninteractive | PASS | Current-main run `37228279724`, job `111512424275`: success |
+| Windows / sealed-tool compatibility | PASS | Run `37228279724`, jobs `111512424435` and `111512424528`: success; not interactive certification |
+| Native SDK / repository, file profile, Driver/Graph, TypeScript binding and clean-room package | PASS | Public integration run `37181039129` at `09f71d490ac86f8f8e86dcda6c2552f50c59d487`: all jobs success |
+| Native SDK / real Host E2E | PASS | Public integration run `37181039113` at the same SHA: `native-host` success |
+| Native SDK / six-platform portable baseline | PASS | Full-portability run `37179820287`: Ubuntu x64/ARM64, Windows x64/ARM64 and macOS arm64/x64 all success |
 | Supply-chain / Nix, bundles and attestations | PASS | Observed run `36394993370`: success |
 | Godot / conformance and real runtime | PASS | Observed run `36394993332`: success |
 | OBS / protocol, sandbox, real probe and fuzz | PASS | Observed run `36394993299`: success |
@@ -136,6 +144,28 @@ executes the broker smoke path and compiles a newly scaffolded driver. Driver Pr
 negotiates dynamic capabilities, provider events, progress/artifacts and cooperative cancellation;
 the sandboxed `protocol_v2` fixture exercises event delivery, catalog change, typed artifact
 metadata, monotonic progress and cancellation while v1 remains the compatibility baseline.
+
+## Native SDK closure included in this development line
+
+The canonical Native SDK is now part of the public workspace under `crates/native-sdk` with the
+TypeScript binding under `sdk/native-typescript`. Applications keep their own domain model,
+storage, revisions and transaction boundaries; the SDK exposes optional cooperation contracts and
+adapts them through the existing Driver SDK/Driver Host rather than creating another broker,
+permission store, Graph or Effects authority.
+
+The public integration line has exact-SHA evidence for repository contracts, the optional
+file-backed Scene/Table/Counter profile, Driver/Graph contracts, executable TypeScript binding,
+clean external consumers, clean-room package consumption and a Linux real-Host path. Full portable
+baseline run `37179820287` passed on Ubuntu x64/ARM64, Windows x64/ARM64 and macOS arm64/x64.
+Runs `37181039129` and `37181039113` passed the final public integration head
+`09f71d490ac86f8f8e86dcda6c2552f50c59d487`, including the real
+CLI/MCP -> daemon -> Broker/Policy -> Driver Host -> native application -> artifact
+admission/readback -> Graph/Effects route.
+
+The Native SDK workflows run for affected pull requests and `main` pushes. Evidence remains
+exact-SHA scoped: a later source change must pass the affected Native SDK lanes rather than inherit
+an earlier result. See [Native SDK verification](docs/native-sdk/VERIFY.md) and
+[compatibility](docs/native-sdk/COMPATIBILITY.md).
 
 ## Adversarial sandbox and plugin-attestation closure included in this development line
 
@@ -341,6 +371,18 @@ The hosted `Packaging certification` workflow runs on native x86_64 and ARM64 Li
 
 This closes Semwright's `release_packaging_validation` gate and the development evidence gap for native tar/deb packaging, reproducibility and user install/uninstall. The separate `Supply-chain certification` workflow now evaluates the pinned Nix derivation, generates normalized reproducible CycloneDX SBOMs for the release binaries, builds x86_64/aarch64 certification bundles and emits GitHub artifact/SBOM attestations with scoped OIDC permissions. This does not claim universal publisher identity or platform notarization, and `release-readiness.json` remains fail-closed for the remaining live/security gates.
 
+## Six-platform distribution closure included in this development line
+
+The V1 distribution workflow produces the current candidate package set for Linux x86_64/aarch64,
+Windows x86_64/ARM64 and macOS arm64/x86_64. The retained exact-main revalidation record
+`verification/v1-engineering-closeout-revalidation.json` binds source
+`9954c1f95f68305f32f153fe5ab302441845b7ed` to Actions run `37146331051`, where all six
+platform jobs and the manifest job succeeded. The record preserves the PR-head/merge distinction,
+package count and manifest digest instead of treating a synthetic PR merge as the source head.
+
+This multiplatform distribution evidence does not close R06/R18 interactive environment cases,
+satisfy the independent security-review release gate, or authorize publication by itself.
+
 ## Verification hardening included in the baseline
 
 - The command schema contract derives its expected descriptors from the checked-in catalog
@@ -353,6 +395,15 @@ This closes Semwright's `release_packaging_validation` gate and the development 
 - The development checkout remains intentionally blocked by `release-readiness.json`; green CI is
   necessary but does not itself authorize a release.
 
+## Repository governance observation
+
+The retained R16 findings ledger records R-009 as an open governance decision. Re-observation on
+2026-10-04 against `main` `04cf0ef7062d134b71206d832375be9545553bb4` found no
+GitHub branch-protection rule for `main` and no repository rulesets. This is not a runtime
+vulnerability or evidence of an unauthorized change; it means review/status requirements are not
+enforced by those repository settings. See
+[R16 findings](verification/r16-closeout/FINDINGS.json).
+
 ## Evidence boundaries
 
 Historical website demonstrations remain exact-SHA observations: Figma Desktop
@@ -360,8 +411,9 @@ Historical website demonstrations remain exact-SHA observations: Figma Desktop
 while Godot Parcel Lantern at 9ecf35fd9c3d6fbcbc1f8b72b8d4734c70037ffa records a bounded
 broker route and clean restart. These historical observations are not inherited by current main.
 
-The observed workflows provide hosted regression evidence for the listed source SHA, with the
-Windows ARM64 failure explicitly retained. Historical records separately cover GNOME semantic
+The observed workflows provide hosted regression evidence for their listed source SHAs. The
+older Windows ARM64 fixture failure remains historical evidence, while current-main run
+`37228279724` passes both native Windows architectures and both sealed-tool compatibility jobs. Historical records separately cover GNOME semantic
 GTK, nested Hyprland and isolated GNOME/Plasma VM input delivery/cancellation. In particular,
 `verification/live-portal-eis/gnome-vm-keyboard-2026-09-26.json` and
 `verification/live-portal-eis/plasma-kde-portal-notify-vm-2026-09-26.json` record the later isolated

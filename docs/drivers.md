@@ -13,6 +13,14 @@ the integration needs a long-lived connection or application state. Plugins rema
 for narrow stateless commands: the current plugin host starts one sandboxed process per
 invocation, while a driver process persists for its provider lifetime.
 
+## Native SDK and Driver SDK
+
+The [Native SDK](native-sdk/README.md) builds on this Driver SDK for applications that already own
+their model, storage and transaction boundary. It provides optional cooperation contracts for
+observation, operations, recovery, events, snapshots/workspaces and application-owned publication;
+it does not introduce a second Driver Host, broker or permission path. Applications that only need
+the lower-level driver protocol can use the Driver SDK directly.
+
 ## Protocol versions
 
 The owner supplies a strict manifest. Semwright assigns the provider identity; the child cannot
