@@ -1,6 +1,6 @@
 use crate::config::{ProjectConfig, is_hex};
 use futures_util::{SinkExt, StreamExt};
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use semwright_driver_sdk::{
     DriverChildEvent,
     continuity::{ConnectionState, ContinuityStamp},

@@ -1,6 +1,6 @@
 use crate::model::{BRIDGE_PROTOCOL_VERSION, MAX_MESSAGE_BYTES};
 use futures_util::{Sink, SinkExt, Stream, StreamExt};
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use rand::RngCore;
 use semwright_driver_sdk::DriverChildEvent;
 use serde::{Deserialize, Serialize};
