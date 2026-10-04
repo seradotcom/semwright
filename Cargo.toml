@@ -27,7 +27,6 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-uti
 tokio-util = { version = "0.7", features = ["rt"] }
 async-trait = "0.1"
 sha2 = "0.11"
-sha2_010 = { package = "sha2", version = "0.10" }
 libc = "0.2"
 rustix = { version = "1", features = ["event"] }
 jsonschema = { version = "0.33", default-features = false }
@@ -47,7 +46,7 @@ url = "2"
 base64 = "0.23"
 anyhow = "1"
 hex = "0.4"
-hmac = "0.12"
+hmac = "0.13"
 rand = "0.9"
 landlock = "=0.4.7"
 clap = { version = "4.5", features = ["derive", "env"] }

@@ -7,7 +7,7 @@ use semwright_driver_sdk::{
 };
 use semwright_types::{Error, ErrorCode, Result};
 use serde_json::{Value, json};
-use sha2_010::Sha256;
+use sha2::Sha256;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::{

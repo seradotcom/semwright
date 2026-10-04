@@ -5,7 +5,7 @@ use rand::RngCore;
 use semwright_driver_sdk::DriverChildEvent;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use sha2_010::Sha256;
+use sha2::Sha256;
 use std::{
     collections::{BTreeMap, BTreeSet},
     io::ErrorKind,
