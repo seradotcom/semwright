@@ -283,11 +283,17 @@ Choose the surface by what you are trying to connect:
 
 | I want to… | Use |
 | --- | --- |
-| **Connect an existing application with a rich API or long-lived state** | [Application Driver SDK](docs/drivers.md) |
+| **Integrate an application that already owns its model, storage, revisions or transactions** | [Native SDK](docs/native-sdk/README.md) |
+| **Build a persistent Semwright provider around an application API or long-lived session** | [Application Driver SDK](docs/drivers.md) |
 | **Add a narrow, stateless external command** | [Plugin SDK](docs/plugins.md) |
 | **Call Semwright from an agent or tool** | [CLI](docs/commands.md) or [MCP frontend](docs/mcp.md) |
 | **Bring an existing MCP server under the same broker** | [Governed MCP federation](docs/mcp-federation.md) |
 | **Move a verified file-backed artifact between integrations** | `artifact.handoff` in the [Driver SDK](docs/drivers.md#cross-driver-artifact-handoff) |
+
+The Native SDK builds on the Driver SDK rather than replacing it. Start with the Native SDK when the
+application remains the source of truth for its own state and only exposes optional cooperation
+contracts. Use the Driver SDK directly when implementing the lower-level persistent provider protocol
+and Host integration.
 
 Drivers and plugins do not get ambient authority by existing. Their manifests, executable identity,
 resource limits and requested filesystem/network surfaces are validated before use, and each
