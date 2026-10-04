@@ -1,4 +1,4 @@
-"""G's additional oracle controls. Execute only inside the hosted enclosure."""
+"""Additional adversarial-lab oracle controls. Execute only inside the hosted enclosure."""
 from __future__ import annotations
 import copy
 import importlib.util

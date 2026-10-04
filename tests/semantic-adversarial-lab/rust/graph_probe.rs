@@ -1,4 +1,4 @@
-//! Independent G Project Graph adversarial contract/store probe.
+//! Independent adversarial-lab Project Graph adversarial contract/store probe.
 //! Synthetic IDs and files live only inside the disposable runner enclosure.
 use rusqlite::Connection;
 use semwright_project_graph::composition::*;

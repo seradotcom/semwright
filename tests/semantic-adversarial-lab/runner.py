@@ -35,7 +35,7 @@ def config():
     return target
 
 def metadata(source_sha: str, suite_sha: str, lane: str) -> dict:
-    return {"schema_version": 1, "role": "G", "lane": lane, "source_sha": source_sha,
+    return {"schema_version": 1, "role": "adversarial-lab", "lane": lane, "source_sha": source_sha,
             "suite_sha": suite_sha, "oracle_tree_sha256": oracle_identity(LAB.parents[1], suite_sha),
             "contract_sha": config()["contract_sha"],
             "product_target_sha": None if lane == "selftest" else source_sha,
@@ -56,7 +56,7 @@ def selftest(source_sha: str, suite_sha: str, cases: list[dict], report: dict):
         historical = config()["harness_history"]
         full_sha(historical["suite_sha"])
         if historical["path"] != "tests/semantic-adversarial-lab/lab_core.py":
-            raise EvidenceError("historical source path outside G lab")
+            raise EvidenceError("historical source path outside adversarial lab")
         blob = subprocess.check_output(["git", "-C", str(LAB.parents[1]), "show",
                                         historical["suite_sha"] + ":" + historical["path"]])
         if digest(blob) != historical["sha256"]:

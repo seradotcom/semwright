@@ -16,7 +16,7 @@ The 64 seeded JSON roundtrips are a bounded deterministic corpus, not broad fuzz
 
 ## Continuation: oracle fixes, audio/AV and evidence ingestion
 
-Run `36502713063` ultimately completed CANCELLED without executing its boundary tests. Run `36503826313` at suite `8ec7a74c3518216feb02ba1b9c55cf3183a0da2a` completed only the selector, then remained queued. The lab requested cancellation at 2026-09-29T01:04Z; both boundary jobs were cancelled without steps. Its empty `always()` selected-gate still held the concurrency slot, so G requested force cancellation after verifying that no boundary process was active. The private cancellation receipt records the actual action; no unrelated run was cancelled.
+Run `36502713063` ultimately completed CANCELLED without executing its boundary tests. Run `36503826313` at suite `8ec7a74c3518216feb02ba1b9c55cf3183a0da2a` completed only the selector, then remained queued. The lab requested cancellation at 2026-09-29T01:04Z; both boundary jobs were cancelled without steps. Its empty `always()` selected-gate still held the concurrency slot, so the lab requested force cancellation after verifying that no boundary process was active. The private cancellation receipt records the actual action; no unrelated run was cancelled.
 
 Suite `85d39e89232c8bbf80e0fce98e097b36e6c05860` added audio/AV and historical oracle controls (189 registered cases). Its run `36505619184` was observed pending and then cancelled after the newer push (the cancelling actor was not independently established); this is not executed evidence.
 

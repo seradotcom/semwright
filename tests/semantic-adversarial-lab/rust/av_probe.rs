@@ -1,4 +1,4 @@
-//! Independent G AV contract fixtures. No render, audio playback or native claim.
+//! Independent adversarial-lab AV contract fixtures. No render, audio playback or native claim.
 use semwright_av_composition::*;
 use semwright_media_time::*;
 use semwright_semantic_composition::*;

@@ -13,7 +13,7 @@ channel for security findings. Do not paste credentials, private documents or li
 
 ## Keep changes reviewable
 
-Use your own branch/worktree and preserve other contributors' work. Separate functional fixes
+Use your own branch or clean checkout and preserve other contributors' work. Separate functional fixes
 from documentary/evidence-only changes. Do not edit historical FAIL into PASS: append the
 fix SHA, new run/job and disposition. Generated command schemas/documentation must remain
 consistent with their generating contracts. Never loosen an assertion or required security
@@ -28,8 +28,8 @@ interchangeable. See [verification](VERIFY.md) and [release blockers](RELEASE_BL
 ## Public documentation and internal coordination
 
 Tracked documentation should be useful to users, contributors or reviewers of the product. Keep
-temporary orchestration notes, master prompts, branch choreography, scratch plans and private
-handoffs outside the repository (or under an ignored local-only directory). When an internal
+temporary planning notes, scratch files and operational coordination outside the repository
+(or under an ignored local-only directory). When an internal
 investigation produces lasting value, rewrite it as an ADR, design note, test plan or evidence
 record before committing it. Preserve technical provenance such as source SHAs, run IDs and failure
 receipts; do not publish conversational scaffolding merely because it helped produce them.

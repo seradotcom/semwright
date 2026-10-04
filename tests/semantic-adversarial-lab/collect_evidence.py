@@ -67,7 +67,7 @@ def pages(endpoint: str, field: str) -> list[dict]:
 
 def frozen_json(sha: str, filename: str):
     if filename not in {"targets.json", "registry.json"}:
-        raise EvidenceError("collector source path is not a G manifest")
+        raise EvidenceError("collector source path is not an adversarial-lab manifest")
     raw = subprocess.check_output(["git", "-C", str(LAB.parents[1]), "show",
                                    sha + ":tests/semantic-adversarial-lab/" + filename])
     return strict_json(raw)
@@ -77,7 +77,7 @@ def validate_lane(report: dict, lane: str, cases: list[dict], lock: dict, suite:
     requested = [c["id"] for c in cases]
     scope = cases[0]["scope"]
     if (report.get("schema_version") != 1 or type(report.get("schema_version")) is not int
-            or report.get("role") != "G" or report.get("lane") != lane
+            or report.get("role") != "adversarial-lab" or report.get("lane") != lane
             or report.get("source_sha") != source or report.get("suite_sha") != suite
             or report.get("github_sha") != suite or str(report.get("run_id")) != str(run["id"])
             or str(report.get("run_attempt")) != str(run["run_attempt"])
@@ -116,7 +116,7 @@ def main():
     if (run["head_sha"] != suite or run["head_branch"] != "test/semantic-adversarial-lab"
             or run.get("path") != ".github/workflows/semantic-adversarial-lab.yml"
             or run.get("event") not in {"push", "workflow_dispatch"}):
-        raise EvidenceError("run does not belong to the explicit G workflow and suite")
+        raise EvidenceError("run does not belong to the explicit adversarial-lab workflow and suite")
     oracle = oracle_identity(LAB.parents[1], suite)
     lock = frozen_json(suite, "targets.json")
     registry = frozen_json(suite, "registry.json")["cases"]
@@ -130,7 +130,7 @@ def main():
     if sum(p.stat().st_size for p in output.rglob("*") if p.is_file() and not p.is_symlink()) > 16 * 1024 * 1024:
         raise EvidenceError("per-run evidence retention budget reached; preserve/archive deliberately before more collection")
     preserve_old_aliases(output, lock["selected_lanes"])
-    index = {"schema_version": 1, "role": "G", "repo": REPO, "suite_sha": suite,
+    index = {"schema_version": 1, "role": "adversarial-lab", "repo": REPO, "suite_sha": suite,
              "run_id": run["id"], "run_attempt": run["run_attempt"], "run_url": run["html_url"],
              "oracle_tree_sha256": oracle, "collector_sha256": digest(Path(__file__).read_bytes()),
              "run_status": run["status"], "run_conclusion": run["conclusion"],

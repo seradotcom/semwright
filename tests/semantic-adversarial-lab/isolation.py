@@ -25,9 +25,9 @@ def _limits(address_space_bytes: int, file_size_bytes: int,
             open_files: int = 128, cpu_seconds: int = 30) -> None:
     import resource
     if not (32 <= open_files <= 1024):
-        raise ValueError("open-files limit outside G hard bounds")
+        raise ValueError("open-files limit outside adversarial-lab hard bounds")
     if not (5 <= cpu_seconds <= 900):
-        raise ValueError("CPU limit outside G hard bounds")
+        raise ValueError("CPU limit outside adversarial-lab hard bounds")
     resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
     resource.setrlimit(resource.RLIMIT_NOFILE, (open_files, open_files))
     resource.setrlimit(resource.RLIMIT_FSIZE, (file_size_bytes, file_size_bytes))

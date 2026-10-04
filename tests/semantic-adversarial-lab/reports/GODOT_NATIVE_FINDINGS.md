@@ -65,7 +65,7 @@ G-GODOT-011 export and G-GODOT-012 standalone launch both PASS in the final run,
 
 ## Owner status
 
-The Godot implementation published FIX_SHA 70bd7857e9700b6f03547a706ff0e6496ffd838e specifically addressing both G native findings. The closure retest below supersedes the earlier owner-open status.
+The Godot implementation published FIX_SHA 70bd7857e9700b6f03547a706ff0e6496ffd838e specifically addressing both adversarial-lab native findings. The closure retest below supersedes the earlier open status.
 
 ## Closure retest
 

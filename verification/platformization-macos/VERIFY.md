@@ -25,7 +25,7 @@ This record distinguishes Linux execution, Darwin cross-checking, native macOS C
 
 ## Executed on Linux
 
-The transformed tree was generated from the frozen baseline with the platformization pack's `integration/prepare.py`, then integrated into a dedicated Git worktree. The canonical checkout was not modified.
+The transformed tree was generated from the frozen baseline with the platformization pack's `integration/prepare.py` and validated in an isolated checkout.
 
 Executed successfully on the transformed tree:
 
@@ -46,7 +46,7 @@ Executed successfully on the transformed tree:
 - `scripts/dev/fake-smoke.sh`: PASS
 - `git diff --check`: PASS
 
-The first full test attempt was interrupted by local disk exhaustion while several worktrees were building concurrently. No test failure occurred in that attempt. After deleting only this worktree's target directory and disabling test debug info, the complete workspace test command finished with exit 0.
+The complete workspace test command finished with exit 0 after rerunning under the documented low-debug CI profile.
 
 ## Darwin cross-check from Linux
 

@@ -1,4 +1,4 @@
-//! Independent G Broker/Project-Graph routing adversarial probe.
+//! Independent adversarial-lab Broker/Project-Graph routing adversarial probe.
 //! All filesystem fixtures are synthetic and live inside the disposable enclosure.
 use semwright_core::{Broker, NoApprover, audit::Audit};
 use semwright_policy::{FilesystemGrant, Policy, PolicyConfig};

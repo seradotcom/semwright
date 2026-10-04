@@ -1,4 +1,4 @@
-//! Independent G clean-room driver distribution/install attacks.
+//! Independent adversarial-lab clean-room driver distribution/install attacks.
 //! Synthetic packages only: no installed payload is executed.
 use semwright_driver_registry::{
     CompanionInput, Index, IndexEntry, InstallRoots, create_package,
@@ -182,7 +182,7 @@ fn probe(id: &str) -> ProbeResult<Value> {
             let f = Fixture::new("companion-traversal")?;
             let manifest = fake_manifest(&f.source, "2.0.0", vec![])?;
             let src = f.source.join("plugin.gd");
-            fs::write(&src, b"G synthetic companion")?;
+            fs::write(&src, b"adversarial synthetic companion")?;
             let out = f.repo.join("traversal.swdp");
             json!({"companion_traversal_rejected":create_package_with_companions(&manifest,&requirement(),&[CompanionInput{destination:"../escape.gd".into(),source:src}],&out).is_err(),"package_absent":!out.exists()})
         }
@@ -190,7 +190,7 @@ fn probe(id: &str) -> ProbeResult<Value> {
             let f = Fixture::new("companion-duplicate")?;
             let manifest = fake_manifest(&f.source, "2.0.0", vec![])?;
             let src = f.source.join("plugin.gd");
-            fs::write(&src, b"G synthetic companion")?;
+            fs::write(&src, b"adversarial synthetic companion")?;
             let out = f.repo.join("duplicate.swdp");
             let inputs = [
                 CompanionInput {
@@ -209,7 +209,7 @@ fn probe(id: &str) -> ProbeResult<Value> {
             let manifest = fake_manifest(&f.source, "2.0.0", vec![])?;
             let src = f.source.join("plugin.gd");
             let link = f.source.join("plugin-link.gd");
-            fs::write(&src, b"G synthetic companion")?;
+            fs::write(&src, b"adversarial synthetic companion")?;
             symlink(&src, &link)?;
             let out = f.repo.join("linked.swdp");
             json!({"symlink_companion_source_rejected":create_package_with_companions(&manifest,&requirement(),&[CompanionInput{destination:"addons/g/plugin.gd".into(),source:link}],&out).is_err(),"package_absent":!out.exists()})

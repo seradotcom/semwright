@@ -18,7 +18,7 @@ Composition job: 110445685891
 - Same-suite selftest: 103/103 PASS.
 - G-MUT-001 and G-MUT-002: KILLED.
 
-Three verification failures (G-VERIFY-009..011) were G oracle defects: Composition is the generic report aggregator, while the trusted Effect Conformance evaluator owns method/version/source/scope/observability binding before producing the report. They are not product findings.
+Three verification failures (G-VERIFY-009..011) were lab oracle defects: Composition is the generic report aggregator, while the trusted Effect Conformance evaluator owns method/version/source/scope/observability binding before producing the report. They are not product findings.
 
 ## G-FIND-A-001 — stale BeginPermit can complete a different attempt incarnation
 
