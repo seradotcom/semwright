@@ -134,6 +134,11 @@ Use whichever interface you need after installation:
 
 Then add only the application integrations you actually need. See [drivers](drivers.md) and the individual application guides for prerequisites, native runtime requirements, and current support.
 
+If you are developing an application that should expose Semwright cooperation while keeping its
+own database/model/transaction boundary, start with the [Native SDK](native-sdk/README.md) rather
+than inventing a custom broker or persistence layer. It is a developer integration surface; normal
+users do not install a second Native SDK runtime alongside the core bundle.
+
 ## Remove or upgrade
 
 Portable installs include a reversible uninstaller. Normal upgrades are intentionally conservative: stop the broker, uninstall the unchanged receipt-owned files, install the new bundle, then rerun `semwright setup`. Existing owner configuration is preserved and setup does not overwrite it.

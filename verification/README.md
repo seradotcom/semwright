@@ -12,4 +12,4 @@ Public repository evidence follows these rules:
 4. Current release policy wins over historical observations. See docs/release-policy.md, VERIFY.md
    and RELEASE_BLOCKERS.md.
 
-R16 retained repository-review evidence is in verification/r16-closeout.
+R16 retained repository-review evidence is in `verification/r16-closeout/`; its README indexes the compact review manifest, findings ledger, source-validation receipt and separate revalidation record.

@@ -147,25 +147,67 @@ metadata, monotonic progress and cancellation while v1 remains the compatibility
 
 ## Native SDK closure included in this development line
 
-The canonical Native SDK is now part of the public workspace under `crates/native-sdk` with the
-TypeScript binding under `sdk/native-typescript`. Applications keep their own domain model,
-storage, revisions and transaction boundaries; the SDK exposes optional cooperation contracts and
-adapts them through the existing Driver SDK/Driver Host rather than creating another broker,
-permission store, Graph or Effects authority.
+The canonical Native SDK is now part of `main` under `crates/native-sdk`, with an executable
+TypeScript binding under `sdk/native-typescript` and reference integrations under `examples/native`
+and `examples/native-inventory`. It is designed for applications that keep their own domain model,
+persistence, revisions and transaction boundaries while exposing small optional cooperation
+interfaces to Semwright.
 
-The public integration line has exact-SHA evidence for repository contracts, the optional
-file-backed Scene/Table/Counter profile, Driver/Graph contracts, executable TypeScript binding,
-clean external consumers, clean-room package consumption and a Linux real-Host path. Full portable
-baseline run `37179820287` passed on Ubuntu x64/ARM64, Windows x64/ARM64 and macOS arm64/x64.
-Runs `37181039129` and `37181039113` passed the final public integration head
-`09f71d490ac86f8f8e86dcda6c2552f50c59d487`, including the real
-CLI/MCP -> daemon -> Broker/Policy -> Driver Host -> native application -> artifact
-admission/readback -> Graph/Effects route.
+The base SDK does not impose the file-backed reference model. Scene/Table/Counter remain an
+optional compatibility/profile example, while the Inventory example owns a SQLite schema and its
+own transactions. Operation contracts describe the guarantees an application actually provides
+(commit point, retry/idempotency, undo, cancellation and revision CAS) rather than treating every
+mutation as reversible or safely retryable. Recovery, pagination/events, snapshots/workspaces and
+private publication are optional capabilities, not universal requirements.
 
-The Native SDK workflows run for affected pull requests and `main` pushes. Evidence remains
+The SDK adapts those application-owned interfaces through the existing Driver SDK and Driver Host.
+It does not create another Broker, permission store, scheduler, Project Graph or Effect Conformance
+authority. The real Host acceptance route is:
+
+```text
+CLI/MCP -> daemon -> Broker/Policy -> Driver Host -> native application
+        -> persistence/artifacts -> admission/readback -> Project Graph/Effect Conformance
+```
+
+Public exact-SHA evidence covers repository contracts, the optional file-backed profile,
+Driver/Graph contracts, executable TypeScript binding, clean external consumers, clean-room package
+consumption and the Linux real-Host path. Full-portability run
+[37179820287](https://github.com/seradotcom/semwright/actions/runs/37179820287) passed Ubuntu
+x64/ARM64, Windows x64/ARM64 and macOS arm64/x64. Runs
+[37181039129](https://github.com/seradotcom/semwright/actions/runs/37181039129) and
+[37181039113](https://github.com/seradotcom/semwright/actions/runs/37181039113) passed the final
+public integration head `09f71d490ac86f8f8e86dcda6c2552f50c59d487`, including the real Host route
+above.
+
+The Native SDK workflows now run for affected pull requests and `main` pushes. Evidence remains
 exact-SHA scoped: a later source change must pass the affected Native SDK lanes rather than inherit
-an earlier result. See [Native SDK verification](docs/native-sdk/VERIFY.md) and
+an earlier result. See [Native SDK overview](docs/native-sdk/README.md),
+[verification](docs/native-sdk/VERIFY.md), and
 [compatibility](docs/native-sdk/COMPATIBILITY.md).
+
+## Windows platform closure and evidence boundary
+
+Windows is an implemented native host, not merely a cross-compilation target. The platform contains
+UI Automation semantics, owner-only Named Pipes, native filesystem confinement, secure
+AppContainer/LPAC child spawn, Job Object containment, Windows.Graphics.Capture plumbing and
+platform-owned authority profiles for supported Driver/Plugin/governed stdio MCP execution.
+
+On source `04cf0ef7062d134b71206d832375be9545553bb4`, public run
+[37228279724](https://github.com/seradotcom/semwright/actions/runs/37228279724) passed native x64,
+native ARM64, `server2022-x64` sealed-tool compatibility and the
+`win11-arm-native-host-x64tool` compatibility job. Historical Windows failures remain useful
+evidence of what was corrected; they are not the current support statement.
+
+Hosted Windows CI is deliberately **not** labeled interactive desktop certification. Foreground
+UIA/input behavior, picker consent, UIPI/UAC, lock/wake, mixed-DPI/multi-monitor and
+real-application cases require the unlocked-desktop procedure in
+[`docs/windows/LIVE_WINDOWS_TEST_MATRIX.md`](docs/windows/LIVE_WINDOWS_TEST_MATRIX.md). External
+MCP filesystem mounts also remain fail-closed under `BLOCKED_PORTABLE_PATH_VIRTUALIZATION` where
+transparent path virtualization is not proven.
+
+See [`docs/windows/README.md`](docs/windows/README.md),
+[`docs/windows/WINDOWS_VERIFY.md`](docs/windows/WINDOWS_VERIFY.md), and
+[platform support](docs/platforms.md) for the detailed platform boundary.
 
 ## Adversarial sandbox and plugin-attestation closure included in this development line
 
@@ -209,8 +251,8 @@ signatures are not certified by this local/static v1.
 
 ## LibreOffice deep-driver closure included in this development line
 
-LibreOffice is the first accepted deep application driver built on the public App Driver SDK that
-is neither the browser adapter nor the Blender prototype. The owner-pinned driver runs persistently
+LibreOffice is a first-party deep application driver built on the public App Driver SDK. The
+owner-pinned driver runs persistently
 inside Semwright's Bubblewrap + Landlock path, launches a private headless LibreOffice/UNO process,
 and receives only the workspace plus explicitly granted read-only `/etc/libreoffice` and `/etc/fonts`
 configuration mounts. Driver-requested RLIMITs are bounded again by the sandbox helper.
