@@ -26,9 +26,6 @@ fn broker_error(error: semwright_types::Error) -> Error {
         | ErrorCode::SandboxDenied => Error::Denied(message),
         ErrorCode::StaleReference | ErrorCode::Conflict => Error::Stale(message),
         ErrorCode::ResourceExhausted => Error::Limit(message),
-        ErrorCode::Cancelled | ErrorCode::Timeout if !error.outcome_known => {
-            Error::Unknown(message)
-        }
         ErrorCode::Cancelled | ErrorCode::Timeout => Error::Unknown(message),
         _ if !error.outcome_known => Error::Unknown(message),
         _ => Error::Invalid(message),

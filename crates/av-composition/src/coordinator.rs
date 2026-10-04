@@ -374,10 +374,25 @@ impl AvCoordinator {
         Ok(())
     }
 
+    fn elapsed_budget_exhausted(elapsed_ms: u128, max_elapsed_ms: u64) -> bool {
+        elapsed_ms > u128::from(max_elapsed_ms)
+    }
+
+    fn operation_budget_exhausted(serial: u64, max_operations: u32) -> bool {
+        serial >= u64::from(max_operations)
+    }
+
     fn budget(&mut self) -> Result<()> {
-        if self.started.elapsed().as_millis() > u128::from(self.plan.body.budget.max_elapsed_ms)
-            || self.serial >= u64::from(self.plan.body.budget.max_operations)
-        {
+        if Self::elapsed_budget_exhausted(
+            self.started.elapsed().as_millis(),
+            self.plan.body.budget.max_elapsed_ms,
+        ) {
+            self.state = AvState::Exhausted;
+            return Err(Error::Limit(
+                "AV cumulative invocation/deadline budget exhausted".into(),
+            ));
+        }
+        if Self::operation_budget_exhausted(self.serial, self.plan.body.budget.max_operations) {
             self.state = AvState::Exhausted;
             return Err(Error::Limit(
                 "AV cumulative invocation/deadline budget exhausted".into(),
@@ -521,7 +536,10 @@ impl AvCoordinator {
             !self.dispatched && canonical_digest(call)? == canonical_digest(reserved)?,
             "stage tampering or dispatch replay",
         )?;
-        if self.started.elapsed().as_millis() > u128::from(self.plan.body.budget.max_elapsed_ms) {
+        if Self::elapsed_budget_exhausted(
+            self.started.elapsed().as_millis(),
+            self.plan.body.budget.max_elapsed_ms,
+        ) {
             self.state = AvState::Exhausted;
             return Err(Error::Limit("AV deadline expired before dispatch".into()));
         }
@@ -538,9 +556,10 @@ impl AvCoordinator {
     }
     pub fn complete(&mut self, receipt: NativeReceipt) -> Result<()> {
         ensure(
-            self.state == AvState::AwaitingReceipt && self.dispatched,
-            "unsolicited or duplicate native receipt",
+            self.state == AvState::AwaitingReceipt,
+            "native receipt arrived outside the awaiting-receipt state",
         )?;
+        ensure(self.dispatched, "native receipt arrived before dispatch")?;
         let call = self
             .reservation
             .as_ref()
@@ -556,14 +575,27 @@ impl AvCoordinator {
                 "native receipt does not bind to the actual dispatched request".into(),
             ));
         }
-        if receipt.effects.len() > 4096
-            || receipt
-                .effects
-                .iter()
-                .any(|s| s.len() > 512 || s.chars().any(char::is_control))
+        if receipt.effects.len() > 4096 {
+            self.state = AvState::Unknown;
+            return Err(Error::Limit(
+                "native effect receipt exceeds count bounds".into(),
+            ));
+        }
+        if receipt.effects.iter().any(|effect| effect.len() > 512) {
+            self.state = AvState::Unknown;
+            return Err(Error::Limit(
+                "native effect receipt exceeds string bounds".into(),
+            ));
+        }
+        if receipt
+            .effects
+            .iter()
+            .any(|effect| effect.chars().any(char::is_control))
         {
             self.state = AvState::Unknown;
-            return Err(Error::Limit("native effect receipt exceeds bounds".into()));
+            return Err(Error::Limit(
+                "native effect receipt contains control characters".into(),
+            ));
         }
         let entry = self.ledger.last_mut().expect("dispatched ledger");
         entry.status = receipt.status;
@@ -643,10 +675,16 @@ impl AvCoordinator {
                     &b.audio
                 };
                 ensure(
-                    artifact.owner == *expected_owner
-                        && artifact.source_plan == subplan.plan_digest
-                        && artifact.metadata.duration == b.spec.delivery.duration,
-                    "render artifact owner/plan/duration mismatch",
+                    artifact.owner == *expected_owner,
+                    "render artifact owner mismatch",
+                )?;
+                ensure(
+                    artifact.source_plan == subplan.plan_digest,
+                    "render artifact plan mismatch",
+                )?;
+                ensure(
+                    artifact.metadata.duration == b.spec.delivery.duration,
+                    "render artifact duration mismatch",
                 )?;
                 ensure(
                     artifact.retention == Retention::PrivateCandidate,
@@ -657,10 +695,16 @@ impl AvCoordinator {
                         Error::Invalid("motion output lacks observed video stream".into())
                     })?;
                     ensure(
-                        video.frame_rate == b.spec.delivery.frame_rate
-                            && video.width == b.spec.delivery.width
-                            && video.height == b.spec.delivery.height,
-                        "motion output profile mismatch",
+                        video.frame_rate == b.spec.delivery.frame_rate,
+                        "motion output frame-rate mismatch",
+                    )?;
+                    ensure(
+                        video.width == b.spec.delivery.width,
+                        "motion output width mismatch",
+                    )?;
+                    ensure(
+                        video.height == b.spec.delivery.height,
+                        "motion output height mismatch",
                     )?;
                     self.outputs.motion = Some(artifact);
                 } else {
@@ -668,9 +712,12 @@ impl AvCoordinator {
                         Error::Invalid("audio output lacks observed audio stream".into())
                     })?;
                     ensure(
-                        audio.sample_rate == b.spec.delivery.sample_rate
-                            && audio.channels == b.spec.delivery.channels,
-                        "audio output profile mismatch",
+                        audio.sample_rate == b.spec.delivery.sample_rate,
+                        "audio output sample-rate mismatch",
+                    )?;
+                    ensure(
+                        audio.channels == b.spec.delivery.channels,
+                        "audio output channel-count mismatch",
                     )?;
                     self.outputs.audio = Some(artifact);
                 }
@@ -712,9 +759,12 @@ impl AvCoordinator {
                     Error::Unknown("verification has no produced artifact".into())
                 })?;
                 ensure(
-                    artifact.sha256 == artifact_digest
-                        && report.validation.plan_digest == *plan_digest,
-                    "verification artifact/plan substitution",
+                    artifact.sha256 == artifact_digest,
+                    "verification artifact substitution",
+                )?;
+                ensure(
+                    report.validation.plan_digest == *plan_digest,
+                    "verification plan substitution",
                 )?;
                 crate::model::require_verified(&report, rules, &sources)?;
                 ensure(
@@ -741,27 +791,42 @@ impl AvCoordinator {
                     self.outputs.audio.as_ref()
                 }
                 .ok_or_else(|| Error::Unknown("transfer without produced artifact".into()))?;
+                ensure(input.owner == *expected_owner, "handoff owner mismatch")?;
                 ensure(
-                    input.owner == *expected_owner && input.source_digest == artifact.sha256,
-                    "handoff owner/source mismatch",
+                    input.source_digest == artifact.sha256,
+                    "handoff source mismatch",
                 )?;
                 match input.operation {
-                    TransferKind::ByteCopy => ensure(
-                        input.artifact_digest == artifact.sha256
-                            && input.metadata == artifact.metadata,
-                        "byte copy changed artifact content or metadata",
-                    )?,
+                    TransferKind::ByteCopy => {
+                        ensure(
+                            input.artifact_digest == artifact.sha256,
+                            "byte copy changed artifact content",
+                        )?;
+                        ensure(
+                            input.metadata == artifact.metadata,
+                            "byte copy changed artifact metadata",
+                        )?;
+                    }
                     TransferKind::LosslessMezzanine => {
                         ensure(
                             stage == Stage::TransferMotion,
                             "lossless frame mezzanine applies only to Motion transfer",
                         )?;
                         ensure(
-                            input.metadata.duration == artifact.metadata.duration
-                                && input.metadata.video == artifact.metadata.video
-                                && input.metadata.audio.is_none()
-                                && input.artifact_digest != artifact.sha256,
-                            "lossless Motion mezzanine changed timeline/profile or did not create a new artifact",
+                            input.metadata.duration == artifact.metadata.duration,
+                            "lossless Motion mezzanine changed duration",
+                        )?;
+                        ensure(
+                            input.metadata.video == artifact.metadata.video,
+                            "lossless Motion mezzanine changed video profile",
+                        )?;
+                        ensure(
+                            input.metadata.audio.is_none(),
+                            "lossless Motion mezzanine unexpectedly contains audio",
+                        )?;
+                        ensure(
+                            input.artifact_digest != artifact.sha256,
+                            "lossless Motion mezzanine did not create a new artifact",
                         )?;
                     }
                     TransferKind::VerifiedTranscode => {
@@ -778,9 +843,12 @@ impl AvCoordinator {
                             &[c::EvidenceSource::DecodedMedia],
                         )?;
                         ensure(
-                            input.metadata.duration == artifact.metadata.duration
-                                && input.metadata.video == artifact.metadata.video,
-                            "transcode changed exact timeline/profile",
+                            input.metadata.duration == artifact.metadata.duration,
+                            "transcode changed exact duration",
+                        )?;
+                        ensure(
+                            input.metadata.video == artifact.metadata.video,
+                            "transcode changed exact video profile",
                         )?;
                         ensure(
                             report
@@ -811,11 +879,20 @@ impl AvCoordinator {
                 decoded_audio.validate()?;
                 decoded_audio_handoff.validate()?;
                 ensure(
-                    artifact.owner == *expected_owner
-                        && artifact.source_plan == self.plan.digest
-                        && artifact.retention == Retention::PrivateCandidate
-                        && artifact.bytes <= b.spec.delivery.max_artifact_bytes,
-                    "mux produced an invalid, public or excessive candidate",
+                    artifact.owner == *expected_owner,
+                    "mux candidate owner mismatch",
+                )?;
+                ensure(
+                    artifact.source_plan == self.plan.digest,
+                    "mux candidate plan mismatch",
+                )?;
+                ensure(
+                    artifact.retention == Retention::PrivateCandidate,
+                    "mux candidate must remain private",
+                )?;
+                ensure(
+                    artifact.bytes <= b.spec.delivery.max_artifact_bytes,
+                    "mux candidate exceeds the artifact budget",
                 )?;
                 let video = artifact
                     .metadata
@@ -830,37 +907,78 @@ impl AvCoordinator {
                 let decoded_video_duration = video.frame_rate.at(i64::try_from(video.frames)
                     .map_err(|_| Error::Limit("decoded video frame count".into()))?)?;
                 ensure(
-                    artifact.metadata.duration == b.spec.delivery.duration
-                        && decoded_video_duration == b.spec.delivery.duration
-                        && video.width == b.spec.delivery.width
-                        && video.height == b.spec.delivery.height
-                        && video.frame_rate == b.spec.delivery.frame_rate
-                        && audio.sample_rate == b.spec.delivery.sample_rate
-                        && audio.channels == b.spec.delivery.channels,
-                    "mux presentation duration or stream profile mismatch",
+                    artifact.metadata.duration == b.spec.delivery.duration,
+                    "mux metadata duration mismatch",
                 )?;
                 ensure(
-                    decoded_audio.owner == *expected_owner
-                        && decoded_audio.source_plan == self.plan.digest
-                        && decoded_audio.retention == Retention::PrivateCandidate
-                        && decoded_audio.metadata.video.is_none()
-                        && matches!(
-                            decoded_audio.media_type.as_str(),
-                            "audio/wav" | "audio/x-wav"
-                        )
-                        && decoded_audio_handoff.artifact_digest == decoded_audio.sha256,
-                    "post-encode decoded audio artifact/handoff mismatch",
+                    decoded_video_duration == b.spec.delivery.duration,
+                    "mux decoded video duration mismatch",
+                )?;
+                ensure(
+                    video.width == b.spec.delivery.width,
+                    "mux video width mismatch",
+                )?;
+                ensure(
+                    video.height == b.spec.delivery.height,
+                    "mux video height mismatch",
+                )?;
+                ensure(
+                    video.frame_rate == b.spec.delivery.frame_rate,
+                    "mux frame-rate mismatch",
+                )?;
+                ensure(
+                    audio.sample_rate == b.spec.delivery.sample_rate,
+                    "mux audio sample-rate mismatch",
+                )?;
+                ensure(
+                    audio.channels == b.spec.delivery.channels,
+                    "mux audio channel-count mismatch",
+                )?;
+                ensure(
+                    decoded_audio.owner == *expected_owner,
+                    "post-encode decoded audio owner mismatch",
+                )?;
+                ensure(
+                    decoded_audio.source_plan == self.plan.digest,
+                    "post-encode decoded audio plan mismatch",
+                )?;
+                ensure(
+                    decoded_audio.retention == Retention::PrivateCandidate,
+                    "post-encode decoded audio must remain private",
+                )?;
+                ensure(
+                    decoded_audio.metadata.video.is_none(),
+                    "post-encode decoded audio unexpectedly contains video",
+                )?;
+                ensure(
+                    matches!(
+                        decoded_audio.media_type.as_str(),
+                        "audio/wav" | "audio/x-wav"
+                    ),
+                    "post-encode decoded audio is not WAV",
+                )?;
+                ensure(
+                    decoded_audio_handoff.artifact_digest == decoded_audio.sha256,
+                    "post-encode decoded audio handoff mismatch",
                 )?;
                 let decoded_stream = decoded_audio.metadata.audio.as_ref().ok_or_else(|| {
                     Error::Invalid("post-encode decoded WAV omitted audio metadata".into())
                 })?;
                 ensure(
-                    decoded_stream.sample_rate == b.spec.delivery.sample_rate
-                        && decoded_stream.channels == b.spec.delivery.channels
-                        && decoded_stream.sample_frames > 0
-                        && decoded_audio.dependencies.get("encoded-master")
-                            == Some(&artifact.sha256),
-                    "post-encode decoded WAV profile/provenance mismatch",
+                    decoded_stream.sample_rate == b.spec.delivery.sample_rate,
+                    "post-encode decoded WAV sample-rate mismatch",
+                )?;
+                ensure(
+                    decoded_stream.channels == b.spec.delivery.channels,
+                    "post-encode decoded WAV channel-count mismatch",
+                )?;
+                ensure(
+                    decoded_stream.sample_frames > 0,
+                    "post-encode decoded WAV has no samples",
+                )?;
+                ensure(
+                    decoded_audio.dependencies.get("encoded-master") == Some(&artifact.sha256),
+                    "post-encode decoded WAV provenance mismatch",
                 )?;
                 self.outputs.encoded = Some(artifact);
                 self.outputs.decoded_final_audio = Some(*decoded_audio);
@@ -877,30 +995,43 @@ impl AvCoordinator {
                     "decoded sync probe is bound to a different encoded artifact",
                 )?;
                 let report = verify_sync(&b.spec.sync, &probe)?;
-                if report.verdict != Verdict::Pass || !report.missing.is_empty() {
+                if report.verdict != Verdict::Pass {
                     return Err(Error::Invalid(format!(
-                        "encoded sync is missing, failed or uncertain: verdict={:?}, missing={:?}, exhaustive={}, observations={:?}, flashes={:?}, impulses={:?}",
+                        "encoded sync failed or is uncertain: verdict={:?}, exhaustive={}, observations={:?}, flashes={:?}, impulses={:?}",
                         report.verdict,
-                        report.missing,
                         report.exhaustive,
                         report.observations,
                         probe.flashes,
                         probe.impulses
                     )));
                 }
+                if !report.missing.is_empty() {
+                    return Err(Error::Invalid(format!(
+                        "encoded sync is missing cues: missing={:?}, observations={:?}",
+                        report.missing, report.observations
+                    )));
+                }
                 ensure(
-                    report.observations.len() == b.spec.sync.cues.len()
-                        && (!b.spec.sync.require_full_scan || report.exhaustive),
-                    "sync coverage does not satisfy the original requirements",
+                    report.observations.len() == b.spec.sync.cues.len(),
+                    "sync observation count does not satisfy the original requirements",
                 )?;
+                if b.spec.sync.require_full_scan {
+                    ensure(
+                        report.exhaustive,
+                        "sync full-scan requirement was not satisfied",
+                    )?;
+                }
                 self.outputs.sync = Some(report);
             }
             (Stage::PreparePublication, NativeResult::PublicationPrepared { candidate }) => {
                 candidate.validate()?;
                 ensure(
-                    candidate.owner == *expected_owner
-                        && candidate.manifest_digest == canonical_digest(&self.manifest()?)?,
-                    "publication candidate content/owner mismatch",
+                    candidate.owner == *expected_owner,
+                    "publication candidate owner mismatch",
+                )?;
+                ensure(
+                    candidate.manifest_digest == canonical_digest(&self.manifest()?)?,
+                    "publication candidate content mismatch",
                 )?;
                 self.outputs.publication = Some(candidate);
             }
@@ -917,8 +1048,11 @@ impl AvCoordinator {
                     .as_ref()
                     .ok_or_else(|| Error::Unknown("publication candidate absent".into()))?;
                 ensure(
-                    candidate.manifest_digest == manifest_digest
-                        && candidate.destination_path == pointer,
+                    candidate.manifest_digest == manifest_digest,
+                    "published manifest differs from the prepared candidate",
+                )?;
+                ensure(
+                    candidate.destination_path == pointer,
                     "published pointer differs from the prepared candidate",
                 )?;
             }
@@ -968,8 +1102,12 @@ impl AvCoordinator {
     }
     pub fn lost_receipt(&mut self) -> Result<()> {
         ensure(
-            self.dispatched && self.state == AvState::AwaitingReceipt,
-            "no active request receipt is outstanding",
+            self.dispatched,
+            "no dispatched request receipt is outstanding",
+        )?;
+        ensure(
+            self.state == AvState::AwaitingReceipt,
+            "coordinator is not awaiting a request receipt",
         )?;
         if let Some(entry) = self.ledger.last_mut() {
             entry.status = ExecutionStatus::Unknown;
@@ -1048,6 +1186,17 @@ fn audio_evidence_bound(evidence: &[c::ObservationRef], master: &Digest) -> bool
 #[cfg(test)]
 mod audio_binding_tests {
     use super::*;
+
+    #[test]
+    fn budget_boundaries_are_strict_and_deterministic() {
+        assert!(!AvCoordinator::elapsed_budget_exhausted(0, 0));
+        assert!(!AvCoordinator::elapsed_budget_exhausted(1_000, 1_000));
+        assert!(AvCoordinator::elapsed_budget_exhausted(1_001, 1_000));
+
+        assert!(!AvCoordinator::operation_budget_exhausted(31, 32));
+        assert!(AvCoordinator::operation_budget_exhausted(32, 32));
+        assert!(AvCoordinator::operation_budget_exhausted(33, 32));
+    }
 
     #[test]
     fn imported_audio_requires_native_artifact_and_consistent_context() {
