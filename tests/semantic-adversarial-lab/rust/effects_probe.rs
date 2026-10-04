@@ -1,4 +1,4 @@
-//! Independent G probes for F's effect/evidence contract. Contractual only; no native claim.
+//! Independent adversarial-lab probes for F's effect/evidence contract. Contractual only; no native claim.
 use semwright_effect_conformance::composition::*;
 use semwright_effect_conformance::*;
 use semwright_types::{CommandDescriptor, Idempotency, Risk};

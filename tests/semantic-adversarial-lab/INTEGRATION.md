@@ -11,7 +11,7 @@ The lab is scoped to `tests/semantic-adversarial-lab/` and `.github/workflows/se
 
 `targets.json` freezes product and contract SHAs. The checked-out lab commit is `LAB_SUITE_SHA`; each product checkout is independently verified as `TESTED_SOURCE_SHA`. A selftest's source is the suite itself, and `product_target_sha` is null. Neither a current branch tip nor a green run for another SHA can replace these identities.
 
-A target update is deliberate: obtain the explicit product fix commit, inspect contract changes, update only the relevant target lock, preserve the old run and expectation registry, commit, push, and execute the relevant lane on a new run. Do not rerun an old workflow expecting it to test a newly pushed fix. No cherry-pick of product types, cross-worktree Cargo path, or private provider call is used by the lab.
+A target update is deliberate: obtain the explicit product fix commit, inspect contract changes, update only the relevant target lock, preserve the old run and expectation registry, commit, push, and execute the relevant lane on a new run. Do not rerun an old workflow expecting it to test a newly pushed fix. No cherry-pick of product types, cross-checkout Cargo path, or private provider call is used by the lab.
 
 ## Integration candidate
 

@@ -55,7 +55,7 @@ def example():
     run = {"id": 17, "run_attempt": 1}
     rows = [{"case_id": "G-PLAN-001", "source_sha": SOURCE, "suite_sha": SUITE,
              "scope": "product_contract", "outcome": "PASS", "isolation_verified": True}]
-    report = {"schema_version": 1, "role": "G", "lane": "composition", "source_sha": SOURCE,
+    report = {"schema_version": 1, "role": "adversarial-lab", "lane": "composition", "source_sha": SOURCE,
               "suite_sha": SUITE, "github_sha": SUITE, "run_id": "17", "run_attempt": "1",
               "requested_cases": ["G-PLAN-001"], "skipped_cases": [], "contract_sha": SOURCE,
               "dependency_shas": lock["targets"], "product_target_sha": SOURCE,

@@ -114,7 +114,7 @@ def godot_spec() -> dict[str, Any]:
     return {
         "version": 1,
         "project": "g_native",
-        "title": "G synthetic native Godot fixture",
+        "title": "Adversarial synthetic native Godot fixture",
         "main_scene": "arena",
         "settings": {"width": 320, "height": 180, "physics_ticks": 60},
         "inputs": [],
@@ -260,7 +260,7 @@ def helper(enclosure: Enclosure, binary: Path, args: list[str], *, expect_succes
         except EvidenceError:
             value = None
     if expect_success and not sound(raw, enclosure):
-        raise EvidenceError("BLOCKED: G Godot helper execution failed: " + raw["stderr"][-4096:].decode(errors="replace"))
+        raise EvidenceError("BLOCKED: Godot adversarial helper execution failed: " + raw["stderr"][-4096:].decode(errors="replace"))
     return raw, value
 
 
@@ -351,7 +351,7 @@ def run_godot(target: Path, source_sha: str, suite_sha: str, cases: list[dict], 
         "binary_sha256": pins["godot_binary_sha256"],
         "template_archive_sha256": pins["godot_template_archive_sha256"],
         "template_sha256": template_sha,
-        "network_during_attacks": "isolated by G enclosure",
+        "network_during_attacks": "isolated by adversarial enclosure",
         "address_space_bytes": native_address_space,
         "file_size_bytes": native_file_size,
     }
@@ -373,7 +373,7 @@ def run_godot(target: Path, source_sha: str, suite_sha: str, cases: list[dict], 
             ["compile", "/out/spec.json", "/out/g_native"],
         )
         if not isinstance(compile_receipt, dict) or compile_receipt.get("source_sha") != source_sha:
-            raise EvidenceError("BLOCKED: G compile helper receipt invalid")
+            raise EvidenceError("BLOCKED: adversarial compile helper receipt invalid")
 
         project = out / "g_native"
         scene = project / "scenes" / "arena.tscn"
@@ -389,7 +389,7 @@ def run_godot(target: Path, source_sha: str, suite_sha: str, cases: list[dict], 
         report.setdefault("setup_processes", {})["import"] = process_receipt(import_raw)
         if not sound(import_raw, enclosure):
             raise EvidenceError(
-                "BLOCKED: pinned Godot could not import G compiled fixture: "
+                "BLOCKED: pinned Godot could not import adversarial compiled fixture: "
                 + import_raw["stderr"][-4096:].decode(errors="replace")
             )
 
@@ -909,7 +909,7 @@ def run_blender(target: Path, source_sha: str, suite_sha: str,
             receipt = strict_json(raw["stdout"])
         except EvidenceError as error:
             raise EvidenceError(
-                "BLOCKED: Blender native G receipt invalid: " + str(error)
+                "BLOCKED: Blender native adversarial receipt invalid: " + str(error)
             ) from error
         expected_fields = {
             "schema_version",
@@ -921,7 +921,7 @@ def run_blender(target: Path, source_sha: str, suite_sha: str,
             "cases",
         }
         if not isinstance(receipt, dict) or set(receipt) != expected_fields:
-            raise EvidenceError("BLOCKED: Blender native G receipt field mismatch")
+            raise EvidenceError("BLOCKED: Blender native adversarial receipt field mismatch")
         if (
             raw["exit_code"] != 0
             or raw["termination_reason"] is not None

@@ -1,4 +1,4 @@
-//! Independent G hostile Skill-package inputs. Synthetic filesystem only.
+//! Independent adversarial-lab hostile Skill-package inputs. Synthetic filesystem only.
 use semwright_skills::{ResourceKind, load, parse_skill_text, validate_archive_path};
 use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
@@ -20,7 +20,7 @@ fn skill(path: &Path, front: &str) -> ProbeResult<()> {
     Ok(())
 }
 fn standard(path: &Path) -> ProbeResult<()> {
-    skill(path, "name: g-skill\ndescription: synthetic G package\n")
+    skill(path, "name: g-skill\ndescription: synthetic adversarial package\n")
 }
 fn cleanup(path: &Path) {
     if let Some(parent) = path.parent() {

@@ -1,4 +1,4 @@
-//! Independent G adversarial probes for the baseline Figma semantic contract.
+//! Independent adversarial-lab adversarial probes for the baseline Figma semantic contract.
 //! No live Figma session, network, or UI is used: only public deterministic contract APIs.
 use semwright_figma_driver::{bridge, design_system, model, motion, prototype, schemas, snapshot};
 use serde_json::{Value, json};

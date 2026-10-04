@@ -1,4 +1,4 @@
-//! Independent G adversarial probes for A's exact-SHA Motion Canvas semantic surface.
+//! Independent adversarial-lab adversarial probes for the exact-SHA Motion Canvas semantic surface.
 use semwright_driver_motion_canvas::{
     ErrorCode, compiler, diff,
     model::{Project, RenderProfile, RenderScale},

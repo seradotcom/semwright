@@ -2,7 +2,7 @@
 
 Sources inform test design, not acceptance. Exact identities are in the target lock.
 
-Read the Composition contracts in `docs/composition/{CONTRACT_HANDOFF,AUDIO_AV_CONTRACT}.md`, `crates/semantic-composition/src/{model,vault,controller,canonical}.rs`, `crates/av-composition/src/sync.rs`, manifests and diagnostics. Canonical integrity is not private vault authority or Broker policy. C1 does not imply integrated audio readiness.
+Read the Composition contracts in `docs/composition/{CONTRACT_HANDOFF,AUDIO_AV_CONTRACT}.md`, `crates/semantic-composition/src/{model,vault,controller,canonical}.rs`, `crates/av-composition/src/sync.rs`, manifests and diagnostics. Canonical integrity is not private vault authority or Broker policy, and it does not imply integrated audio readiness.
 
 Read `crates/audio-domain/src/{lib,units,signal_analysis,wav}.rs` and diagnostics. PCM statistics are not LUFS/intelligibility; preserve undefined silence and distinguish sample peak from true peak.
 
@@ -21,4 +21,4 @@ Continuation sources (2026-09-29 UTC): GitHub REST Actions artifact metadata/dow
 - https://docs.github.com/en/rest/actions/artifacts
 - https://docs.github.com/en/rest/actions/workflow-jobs
 - https://docs.github.com/en/rest/actions/workflow-runs#force-cancel-a-workflow-run
-The continuation did not re-establish every product-source inspection listed in the earlier notes: additional target reads were blocked by the remote tool. Existing frozen code/probes and their future compiler/runtime results remain the experiment basis; no new native acceptance or complete source audit is inferred from inherited notes.
+These sources define the experiment design only. Native acceptance and source-audit claims still require executed evidence against the frozen targets.

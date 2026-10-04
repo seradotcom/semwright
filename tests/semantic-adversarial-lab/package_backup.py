@@ -57,7 +57,7 @@ def main():
     patch = git("diff", "--binary", "--full-index", baseline, commit, "--", PREFIX, WORKFLOW)
     if len(patch) > 4 * 1024 * 1024:
         raise SystemExit("Patch byte budget exceeded")
-    bundle["patches/G-from-baseline.patch"] = patch
+    bundle["patches/lab-from-baseline.patch"] = patch
     bundle["patches/COMMIT_LOG.txt"] = git("log", "--reverse", "--format=%H %s", baseline + ".." + commit)
     experiments = []
     for directory in args.evidence_dir:
@@ -66,8 +66,8 @@ def main():
         if index_path.is_symlink() or not index_path.is_file():
             raise SystemExit("Missing regular experiment index")
         index = json.loads(index_path.read_bytes())
-        if index.get("role") != "G" or index.get("repo") != "seradotcom/semwright":
-            raise SystemExit("Evidence is not from G's authorized repository")
+        if index.get("role") != "adversarial-lab" or index.get("repo") != "seradotcom/semwright":
+            raise SystemExit("Evidence is not from the authorized adversarial-lab repository")
         if not evidence_matches_lock(index, lock):
             raise SystemExit(
                 "Historical target or combined candidate differs; do not mix experiments in this backup"
@@ -94,7 +94,7 @@ def main():
                 raise SystemExit("Duplicate experiment in backup")
             bundle[key] = path.read_bytes()
     registry = json.loads(bundle["source/" + PREFIX + "registry.json"])["cases"]
-    manifest = {"schema_version": 1, "role": "G", "kind": "SOURCE_CHECKPOINT_NOT_AUDIT_ACCEPTANCE",
+    manifest = {"schema_version": 1, "role": "adversarial-lab", "kind": "SOURCE_CHECKPOINT_NOT_AUDIT_ACCEPTANCE",
                 "repository": "seradotcom/semwright", "pull_request": 174,
                 "baseline_sha": baseline, "delivery_commit": commit,
                 "contract_sha": lock["contract_sha"], "targets": lock["targets"],

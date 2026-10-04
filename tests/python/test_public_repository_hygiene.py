@@ -1,5 +1,6 @@
 """Public repository hygiene checks for durable product and component naming."""
 from pathlib import Path
+import json
 import re
 import unittest
 
@@ -43,7 +44,7 @@ class PublicRepositoryHygieneTests(unittest.TestCase):
         ):
             with self.subTest(phrase=phrase):
                 self.assertIn(phrase, text)
-        for phrase in ("worktree", "handoff", "branch choreography", "parallel agent"):
+        for phrase in ("worktree", "handoff", "branch choreography", "temporary orchestration"):
             with self.subTest(forbidden=phrase):
                 self.assertNotIn(phrase, text.lower())
 
@@ -86,11 +87,6 @@ class PublicRepositoryHygieneTests(unittest.TestCase):
             "tests/python/test_public_repository_hygiene.py",
         }
         forbidden = (
-            re.compile(r"\bAgent [A-I]\b"),
-            re.compile(r"\bother agent(?:'s|s)? worktrees?\b", re.IGNORECASE),
-            re.compile(r"\bagents were building\b", re.IGNORECASE),
-            re.compile(r"\bagent-owned\b", re.IGNORECASE),
-            re.compile(r"\bparallel agents\b", re.IGNORECASE),
             re.compile(r"\brole-coded\b", re.IGNORECASE),
             re.compile(r"\brole [A-Z]\b"),
             re.compile(r"\b[A-Z]-(?:authored|owned)\b"),
@@ -98,6 +94,8 @@ class PublicRepositoryHygieneTests(unittest.TestCase):
             re.compile(r"\bauthor-branch certification\b", re.IGNORECASE),
             re.compile(r"\bowner handoff\b", re.IGNORECASE),
             re.compile(r"\bworktree inventory\b", re.IGNORECASE),
+            re.compile(r"\bbranch choreography\b", re.IGNORECASE),
+            re.compile(r"\bmaster prompts?\b", re.IGNORECASE),
         )
         for path in ROOT.rglob("*"):
             if not path.is_file() or ".git" in path.parts:
@@ -112,6 +110,19 @@ class PublicRepositoryHygieneTests(unittest.TestCase):
             for pattern in forbidden:
                 with self.subTest(relative=relative, pattern=pattern.pattern):
                     self.assertIsNone(pattern.search(text))
+
+    def test_adversarial_lab_uses_component_ownership(self):
+        registry = json.loads((ROOT / "tests/semantic-adversarial-lab/registry.json").read_text())
+        coverage = json.loads((ROOT / "tests/semantic-adversarial-lab/COVERAGE.json").read_text())
+        temporary_role = re.compile(r"^[A-I](?:[/ -][A-I])*$")
+        for case in registry["cases"]:
+            with self.subTest(case=case["id"]):
+                self.assertIsNone(temporary_role.fullmatch(case["owner"]))
+        for requirement in coverage["requirements"]:
+            with self.subTest(requirement=requirement["id"]):
+                self.assertIsNone(temporary_role.fullmatch(requirement["owner"]))
+        runner = (ROOT / "tests/semantic-adversarial-lab/runner.py").read_text()
+        self.assertIn('"role": "adversarial-lab"', runner)
 
     def test_development_coordination_archives_are_not_public(self):
         for relative in (

@@ -6,7 +6,7 @@
     {
       "id": "G01",
       "claim": "Independent lab/threat model",
-      "owner": "G",
+      "owner": "adversarial-lab",
       "status": "PASS",
       "implementation": [
         "AUDIT_PLAN.md",
@@ -22,14 +22,14 @@
         "current harness selftest 105/105 PASS receipt e0f263ab7b1540a165ac4d320298013fe15b4fa7656b55a61e5660f53c48953f",
         "current harness artifact 2cd0d8a4050c539bb555e056d389cb21368529e7694db0d07b867102059dd384"
       ],
-      "blocker": "Independent G ownership, immutable target selection, oracle identity and evidence ingestion controls are hosted-executed. This does not certify product readiness.",
+      "blocker": "Independent lab ownership, immutable target selection, oracle identity and evidence ingestion controls are hosted-executed. This does not certify product readiness.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },
     {
       "id": "G02",
       "claim": "Disposable canary isolation",
-      "owner": "G",
+      "owner": "adversarial-lab",
       "status": "PASS",
       "implementation": [
         "isolation.py",
@@ -45,14 +45,14 @@
         "current hosted selftest 105/105 PASS",
         "native Godot and Blender experiments used disposable GitHub-hosted runners with synthetic canaries and fail-closed isolation"
       ],
-      "blocker": "Linux/GitHub-hosted isolation controls passed in tested scope. Windows/macOS G enclosure acceptance is outside this lab.",
+      "blocker": "Linux/GitHub-hosted isolation controls passed in tested scope. Windows/macOS enclosure acceptance is outside this lab.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },
     {
       "id": "G03",
       "claim": "Plan/session/budgets/replay",
-      "owner": "A",
+      "owner": "semantic-composition",
       "status": "PASS",
       "implementation": [
         "rust/composition_probe.rs",
@@ -108,16 +108,16 @@
         "Composition FIX_SHA retest 70/70 PASS",
         "receipt 8623175f1bcc1e4a7f9764698cf2ffa6d5b41fd7e90a932127cb719c07597884",
         "artifact 9cdd503ce6e5de968577e9e0ce26d08e2aa9edb13e1bcd0acae2bd4201bcc3aa",
-        "G-PLAN-022/023/024 all PASS on A FIX_SHA"
+        "G-PLAN-022/023/024 all PASS on the Composition fix SHA"
       ],
-      "blocker": "G-FIND-A-001 is CLOSED_RETEST_PASS. A bound BeginPermit to private vault/root identities; revoke/reissue, foreign-vault and expiry/reissue attacks now fail closed. No open Composition finding remains in this tested family.",
+      "blocker": "G-FIND-A-001 is CLOSED_RETEST_PASS. Composition bound BeginPermit to private vault/root identities; revoke/reissue, foreign-vault and expiry/reissue attacks now fail closed. No open Composition finding remains in this tested family.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },
     {
       "id": "G04",
       "claim": "False PASS/oracle controls/mutation",
-      "owner": "A/F/G",
+      "owner": "semantic-composition / effect-conformance / adversarial-lab",
       "status": "PASS",
       "implementation": [
         "lab_core.py",
@@ -276,7 +276,7 @@
     {
       "id": "G05",
       "claim": "Graph drift/privacy/crash",
-      "owner": "C",
+      "owner": "project-graph",
       "status": "PASS",
       "implementation": [
         "rust/graph_probe.rs",
@@ -374,7 +374,7 @@
     {
       "id": "G06",
       "claim": "Godot readback/persistence/behavior/export",
-      "owner": "D",
+      "owner": "godot",
       "status": "PASS",
       "implementation": [
         "native_apps.py",
@@ -400,19 +400,19 @@
       "run_id": 36940490321,
       "job_id": 110636591865,
       "evidence": [
-        "Godot native 13/13 PASS on D FIX_SHA",
+        "Godot native 13/13 PASS on the Godot fix SHA",
         "receipt 521da5cbe0c65bc84e38c9ab67f088385809f6bcb9f867a98d32c44900b4ddbb",
         "artifact 183d8686c45d774d1b0061eed28e892417f4dcf414831945c7f90a4b52e23dd6",
         "G-GODOT-006/007/013 all PASS"
       ],
-      "blocker": "G-FIND-D-001 and G-FIND-D-002 are CLOSED_RETEST_PASS on D FIX_SHA 70bd7857. The aggregate selected-gate was cancelled only after both boundaries and immutable artifacts completed, to release G branch concurrency; case evidence remains complete.",
+      "blocker": "G-FIND-D-001 and G-FIND-D-002 are CLOSED_RETEST_PASS on the Godot fix SHA 70bd7857. The aggregate selected-gate was cancelled only after both boundaries and immutable artifacts completed, to release lab workflow concurrency; case evidence remains complete.",
       "implementation_suite_sha": "a337709ffdd2e05f40da408e3a78183651dff113",
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },
     {
       "id": "G07",
       "claim": "Blender export/dependencies/shared data",
-      "owner": "E",
+      "owner": "blender",
       "status": "PASS",
       "implementation": [
         "native_apps.py",
@@ -446,14 +446,14 @@
         "artifact e7e3d2774b3ba09c92cebfd2e898c3a8c18d6253d1c8b9cdabe852581c1f78b1",
         "G-BLENDER-010 PASS with pre/post source drift=false, valid GLB magic/hash and sentinel preserved"
       ],
-      "blocker": "G-FIND-E-001 is CLOSED_RETEST_PASS on E second FIX_SHA f492f13. The unchanged 14-case native family is 14/14 PASS; no open Blender finding remains in this tested scope.",
+      "blocker": "G-FIND-E-001 is CLOSED_RETEST_PASS on the second Blender fix SHA f492f13. The unchanged 14-case native family is 14/14 PASS; no open Blender finding remains in this tested scope.",
       "implementation_suite_sha": "982e5698cc44c2adead9491a2f8590242fd1dbf3",
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },
     {
       "id": "G08",
       "claim": "Figma/Motion/Audio/AV",
-      "owner": "A/B",
+      "owner": "figma / motion-canvas / audio / av-composition",
       "status": "PASS",
       "implementation": [
         "rust/audio_probe.rs",
@@ -569,7 +569,7 @@
     {
       "id": "G09",
       "claim": "Lifecycle/cancellation/resources",
-      "owner": "A-F",
+      "owner": "provider-runtime",
       "status": "PASS",
       "implementation": [
         "isolation.py",
@@ -585,14 +585,14 @@
         "lifecycle 18/18 PASS receipt 9ae4eec88d66c2f7bea4df234c4b5a490a7a09ef39bbe33bcd16fd734bd8f01c",
         "lifecycle artifact 589ab235a52a50085d16b6de5d641e0ec5b0795bbaba391c42143222b3fa79bc"
       ],
-      "blocker": "Lifecycle/cancellation/resource fault scope is clean after correcting the G LIFE-015 audience oracle.",
+      "blocker": "Lifecycle/cancellation/resource fault scope is clean after correcting the G-LIFE-015 audience oracle.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     },
     {
       "id": "G10",
       "claim": "CI/package/supply chain",
-      "owner": "G/A-F",
+      "owner": "ci / driver-distribution",
       "status": "PASS",
       "implementation": [
         "artifact_io.py",
@@ -651,7 +651,7 @@
     {
       "id": "G11",
       "claim": "Owner findings and exact-fix retests",
-      "owner": "G/A-F",
+      "owner": "product subsystems",
       "status": "PASS",
       "implementation": [
         "lab_core.py",
@@ -688,7 +688,7 @@
     {
       "id": "G12",
       "claim": "Readiness/residual risks/no R16",
-      "owner": "G",
+      "owner": "adversarial-lab",
       "status": "BLOCKED",
       "implementation": [
         "SECURITY_DELTA.md",
@@ -707,7 +707,7 @@
         "all known owner findings are CLOSED_RETEST_PASS",
         "combined_candidate_sha remains null"
       ],
-      "blocker": "No explicit I combined-candidate handoff exists. G is prepared to route the joint SHA through every product lane, but separate owner results cannot certify an integrated candidate. R16/demo/security guarantee remain out of scope.",
+      "blocker": "No explicit combined-candidate handoff exists. The lab is prepared to route a joint SHA through every product lane, but separate owner results cannot certify an integrated candidate. R16/demo/security guarantee remain out of scope.",
       "implementation_suite_sha": null,
       "implementation_commit_ref": "Delivery MANIFEST.json delivery_commit"
     }

@@ -84,9 +84,9 @@ class BuildCopy:
             self.overlay = self.source / "crates" / self.crate / "examples" / "g_adversarial_probe.rs"
             self.binary = self.root / "target" / "debug" / "examples" / "g_adversarial_probe"
         else:
-            raise EvidenceError("unsupported G build target kind")
+            raise EvidenceError("unsupported adversarial build target kind")
         if self.overlay.exists():
-            raise EvidenceError("G overlay would overwrite target source")
+            raise EvidenceError("adversarial overlay would overwrite target source")
         self.overlay.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(LAB / "rust" / probe_name, self.overlay)
         self.lock_digest = hashed(self.source / "Cargo.lock")
@@ -144,7 +144,7 @@ class BuildCopy:
         self.builds.append(receipt)
         if exit_code or reason:
             receipt["diagnostic_tail"] = raw[-32768:].decode(errors="replace")
-            raise EvidenceError("BLOCKED: G probe build did not complete; inspect build receipt")
+            raise EvidenceError("BLOCKED: adversarial probe build did not complete; inspect build receipt")
         found = []
         for line in raw.splitlines():
             try:
@@ -156,7 +156,7 @@ class BuildCopy:
         if found != [self.binary.resolve()] or not self.binary.is_file():
             raise EvidenceError("BLOCKED: build lacks exact declared executable artifact")
         if hashed(self.source / "Cargo.lock") != self.lock_digest:
-            raise EvidenceError("locked dependencies changed during G build")
+            raise EvidenceError("locked dependencies changed during adversarial build")
         receipt.update(binary_sha256=hashed(self.binary), binary_source="Cargo compiler-artifact exact build-copy path")
         return receipt
 
@@ -213,7 +213,7 @@ class BuildCopy:
         self.builds.append(receipt)
         if exit_code or reason:
             receipt["diagnostic_tail"] = raw[-32768:].decode(errors="replace")
-            raise EvidenceError("BLOCKED: G auxiliary binary build did not complete; inspect build receipt")
+            raise EvidenceError("BLOCKED: adversarial auxiliary binary build did not complete; inspect build receipt")
         found: list[Path] = []
         for line in raw.splitlines():
             try:
@@ -229,7 +229,7 @@ class BuildCopy:
         if len(found) != 1 or not found[0].is_file():
             raise EvidenceError("BLOCKED: auxiliary build lacks exact declared executable artifact")
         if hashed(self.source / "Cargo.lock") != self.lock_digest:
-            raise EvidenceError("locked dependencies changed during auxiliary G build")
+            raise EvidenceError("locked dependencies changed during auxiliary adversarial build")
         receipt.update(
             binary_sha256=hashed(found[0]),
             binary_source="Cargo compiler-artifact exact build-copy path",

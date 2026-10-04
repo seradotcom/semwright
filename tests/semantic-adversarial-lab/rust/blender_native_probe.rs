@@ -1,4 +1,4 @@
-//! Independent G Blender native adversarial probe.
+//! Independent adversarial-lab Blender native adversarial probe.
 //! Runs only on disposable hosted runners; product Blender processes execute through Driver Host.
 use semwright_backend_api::Provider;
 use semwright_core::{Broker, NoApprover, audit::Audit};
@@ -330,7 +330,7 @@ async fn run() -> AnyResult<Value> {
     let spec: Value = serde_json::from_slice(&fs::read(&args[4])?)?;
 
     let sentinel = workspace.join("g-external-sentinel.txt");
-    let sentinel_bytes = b"G synthetic sentinel must stay unchanged";
+    let sentinel_bytes = b"adversarial synthetic sentinel must stay unchanged";
     fs::write(&sentinel, sentinel_bytes)?;
 
     let fixture = NativeFixture::start(&workspace, &blender_root, &driver, &sandbox, true).await?;
@@ -742,7 +742,7 @@ async fn main() {
     match run().await {
         Ok(value) => println!(
             "{}",
-            serde_json::to_string(&value).expect("serialize G receipt")
+            serde_json::to_string(&value).expect("serialize adversarial receipt")
         ),
         Err(error) => {
             eprintln!("g blender-native helper: {error}");

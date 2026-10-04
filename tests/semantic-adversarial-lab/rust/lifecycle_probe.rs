@@ -1,4 +1,4 @@
-//! Independent G lifecycle/fault-injection probes for A's Broker/provider runtime.
+//! Independent adversarial-lab lifecycle/fault-injection probes for the Broker/provider runtime.
 //! Synthetic in-memory provider only: no external network, UI, secrets or user data.
 use async_trait::async_trait;
 use semwright_backend_api::{
@@ -32,7 +32,7 @@ fn descriptor(identity: &ProviderIdentity, suffix: &str) -> CommandDescriptor {
     CommandDescriptor {
         name: format!("{}{suffix}", identity.namespace),
         version: "1".into(),
-        description: "G synthetic lifecycle fixture".into(),
+        description: "adversarial synthetic lifecycle fixture".into(),
         input_schema: json!({"type":"object","properties":{},"additionalProperties":false}),
         output_schema: json!({
             "type":"object",
@@ -130,7 +130,7 @@ impl Provider for SyntheticProvider {
                     &self.identity.id,
                     &command.name,
                     true,
-                    "G synthetic provider",
+                    "adversarial synthetic provider",
                     "none",
                 )
             })
@@ -181,7 +181,7 @@ impl Provider for SyntheticProvider {
         if self.blocked.load(Ordering::SeqCst) {
             tokio::select! {
                 _ = context.cancellation.cancelled() => {
-                    return Err(Error::new(ErrorCode::Cancelled, "G fixture cancelled"));
+                    return Err(Error::new(ErrorCode::Cancelled, "adversarial fixture cancelled"));
                 }
                 _ = self.release.notified() => {}
             }
@@ -197,7 +197,7 @@ impl Provider for SyntheticProvider {
                 progress: JobProgress {
                     completed: 2,
                     total: Some(2),
-                    message: Some("G fixture complete".into()),
+                    message: Some("adversarial fixture complete".into()),
                 },
                 artifacts: vec![JobArtifact {
                     name: "preview".into(),

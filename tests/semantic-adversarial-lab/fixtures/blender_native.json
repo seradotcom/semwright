@@ -13,7 +13,7 @@
   "entities": [
     {
       "id": "product",
-      "name": "G Product",
+      "name": "Adversarial Product",
       "shape": {
         "kind": "cylinder",
         "radius": 0.35,
@@ -30,7 +30,7 @@
     },
     {
       "id": "instance",
-      "name": "G Instance",
+      "name": "Adversarial Instance",
       "shape": {
         "kind": "mesh_instance",
         "source": "product"
@@ -45,7 +45,7 @@
     },
     {
       "id": "rig",
-      "name": "G Rig",
+      "name": "Adversarial Rig",
       "shape": {
         "kind": "armature",
         "bones": [
@@ -67,7 +67,7 @@
     },
     {
       "id": "marker",
-      "name": "G Marker",
+      "name": "Adversarial Marker",
       "shape": {
         "kind": "empty"
       },
