@@ -1,18 +1,30 @@
 # Release blockers — 0.9.0-dev.1
 
-**Baseline for all statements below: the exact Git commit containing this document.**
+> **Current admission policy (2026-10-03):** see [staging and publication policy](docs/release-policy.md).
+> R16 is CLOSED. R06/R18 residuals remain OPEN/deferred post-v1 certification, not initial-v1
+> admission blockers. Staging is separate from public publication; the latter remains
+> BLOCKED_PENDING_SECURITY_REVIEW. The older release-readiness descriptions below are historical.
 
-The hosted source, Rust, dependency, coverage, bounded-fuzz, fake-E2E, native application,
-driver-distribution, X11, AT-SPI, PipeWire and platformization jobs are green on the certified
-development line. Provider Runtime, governed stdio MCP federation, persistent App Driver SDK,
-deep application drivers, EIS transport, AT-SPI delta recovery, X11 lifecycle hardening,
-PipeWire frame capture and portal restore/clipboard persistence all have executed evidence.
-This remains a development snapshot and is not a release candidate.
+
+**This is a historical blocker ledger, not evidence that every gate ran on its containing commit.**
+
+The R16 review snapshot is `6491c0d838fa066938a494524d69ed507aa0dbe8`. Integrated engineering
+certificates retain source `cd518748f742025a251b78028613aa1b16919e73`, their suite SHAs and
+explicit job dispositions. Native Windows run `37096430846` passed on the review snapshot;
+that does not make skipped main-push jobs executed or close interactive R18.
+See [integrated evidence](docs/semantic-creation/INTEGRATION.md), [verification](VERIFY.md)
+and the [R16 evidence directory](verification/r16-closeout/README.md).
+
+The closure notes below retain their recorded historical scope. R16 is CLOSED after separate
+revalidation; R06 and R18 remain OPEN — DEFERRED_TO_POST_V1_ENVIRONMENT_DEPENDENT.
+`V1_ENGINEERING_CLOSEOUT` is COMPLETE because no known software defect is being hidden behind those
+environment gaps. `release-readiness.json` is unchanged and remains fail-closed, so full platform /
+release certification is still blocked. This remains development software.
 
 | ID | Remaining blocker | Completion evidence needed |
 |---|---|---|
 | R06 | Cross-desktop live evidence now includes GNOME Wayland, Plasma/KWin Wayland, headless Sway, Openbox/EWMH X11 and a hardware-backed nested Hyprland 0.56.2 run on a real AMD render node. The Hyprland run certifies native socket discovery/focus/move/resize, stale-reference rejection, cleanup and a synthetic second output at scale 1.25. A real owner GNOME Wayland login additionally certifies bridge disable/enable reconnect: capability moved from SUPPORTED to UNAVAILABLE while the extension was absent and recovered to backend `gnome` within about 62 ms after re-enable. An isolated real-login Plasma/KWin 5.27 VM certifies a full `plasma-kwin_wayland.service` restart: the compositor PID changed and Semwright automatically recovered backend `kwin` in about 246 ms without a manual post-restart script reload. An independent KVM GNOME 46 real-login guest now also certifies a full GDM/graphical-session restart through the production systemd-user lifecycle: graphical session 22→59, GNOME Shell PID 3027→10009 and Semwright service PID 8909→10281, followed by automatic broker/bridge ownership recovery and a successful `window.list` through backend `gnome` against a new Wayland fixture. Plasma focus-drift and in-flight cancellation are covered by the isolated portal keyboard evidence. The physical host had only one connected eDP panel; HDMI/DP were disconnected, so physical mixed-scale/multi-monitor could not be exercised without inventing hardware. | Execute only the remaining physical cases that require conditions not presently available without disrupting the owner: a physical Hyprland login, and physical mixed-scale/multi-monitor when a second display is actually connected. |
-| R16 | No independent security review has closed the remaining host/application attack surface. | Peer review of authorization, prompt-injection containment, cancellation, stale identity, sandbox boundaries and disclosure behavior. |
+| R16 | **CLOSED.** A separate reviewer session inspected/adopted the R-authored bounded MCP pagination remediation and R16 assurance wording. This is not represented as an external organizational audit. | No remaining R16 action. Preserve `verification/r16-closeout/evidence/INDEPENDENT_R16_REVALIDATION_2026-10-03.json`; broader platform/release gates remain separate. |
 | R18 | Windows native CI now proves secure spawn and the implemented authority profiles, but no exact-commit unlocked-desktop certification bundle exists yet. External MCP filesystem mounts also remain deliberately fail-closed because Windows lacks a proven transparent `/workspace/<name>` path-virtualization contract for third-party MCPs. | Run `scripts/windows/run-interactive-certification.ps1` (or the self-hosted `windows-interactive.yml` workflow) on a disposable unlocked Windows desktop; attach the evidence bundle; complete the remaining UIPI/UAC, mixed-DPI/multi-monitor, session lifecycle, UIA virtualization/events and real-app rows. Keep external MCP mounts blocked unless a separately reviewed portable virtualization design is proven. |
 
 Closed development blocker **R02**: portal-granted keyboard control now has target-delivery evidence on two supported Wayland desktops inside isolated authority boundaries. GNOME Shell 46 uses `ConnectToEIS`; an independent KVM GNOME guest delivered 4096/4096 uppercase characters in one call, demonstrated cooperative in-flight cancellation with no post-result growth or stuck Shift, and stopped to an inactive EIS state. Plasma/KWin 5.27.11 on Ubuntu 24.04.5 exposes RemoteDesktop v2 but not `ConnectToEIS`, so Semwright correctly uses the explicit `portal_notify` fallback. With sustained pacing at four characters per 8 ms, the exact candidate commit delivered 4096/4096 uppercase characters in 9.595 s, cancellation after about 20 ms settled at one character with a successful lowercase follow-up, focus drift was rejected with `Conflict` and no fallback or target mutation, and explicit stop left the portal inactive. Evidence: `verification/live-portal-eis/gnome-vm-keyboard-2026-09-26.json` and `verification/live-portal-eis/plasma-kde-portal-notify-vm-2026-09-26.json`. Non-isolated direct-login and shared-authority nested-shell keyboard methods remain invalidated. Broader physical/real-login, restart and mixed-scale coverage remains R06 rather than being relabeled as R02.

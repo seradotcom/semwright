@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "role": "C",
+  "role": "project-graph",
   "project_graph_ready": false,
   "requirements": [
     {
@@ -9,7 +9,7 @@
       "status": "PASS",
       "implementation": [
         "crates/project-graph/src/{identity,knowledge,model}.rs",
-        "docs/project-graph/P0_HANDOFF.md"
+        "docs/project-graph/P0_CONTRACT.md"
       ],
       "tests": [
         "tests/p0.rs"
@@ -161,7 +161,7 @@
         "crates/registry/src/{lib,catalog,dynamic}.rs trusted preparation relationships",
         "crates/core/src/project_graph.rs RebuildCatalogSnapshot + execute_rebuild_preparation host adapter",
         "crates/core/src/lib.rs existing Broker core dispatch",
-        "docs/project-graph/P1_REBUILD_HANDOFF.md"
+        "docs/project-graph/P1_REBUILD_CONTRACT.md"
       ],
       "tests": [
         "altered_reservation_cannot_be_promoted_even_with_a_recomputed_digest",
@@ -248,34 +248,34 @@
       "condition": "Native Blender GLB Godot pipeline",
       "status": "PASS",
       "implementation": [
-        "C RevisionAdapter/AdmittedRevision and ReceiptAdapter on source 504ad2c6632305b580b51703a60b0a194865780d",
-        "E final source e753248ed33b345554b0e7c3c8d521e666751d6f run 36680849875 artifact 11082381172",
-        "D final source 7eaf8de059bb871d525dd5a72b617a9bc6f1d0f6 run 36829474317 cross-app artifact 11146548136"
+        "Project Graph RevisionAdapter/AdmittedRevision and ReceiptAdapter on source 504ad2c6632305b580b51703a60b0a194865780d",
+        "Blender final source e753248ed33b345554b0e7c3c8d521e666751d6f run 36680849875 artifact 11082381172",
+        "Godot final source 7eaf8de059bb871d525dd5a72b617a9bc6f1d0f6 run 36829474317 cross-app artifact 11146548136"
       ],
       "tests": [
         "registered_revision_adapter_assigns_revision_without_creating_activity",
         "revision_adapter_rejects_method_project_generation_and_source_substitution",
         "admitted_partial_native_revision_remains_unknown_not_cache_safe",
-        "D godot-cross-app-glb exact oracle PASS with matching C apply receipt"
+        "Godot cross-app GLB exact oracle PASS with matching Project Graph apply receipt"
       ],
       "tested_sha": "7eaf8de059bb871d525dd5a72b617a9bc6f1d0f6",
       "run_id": 36829474317,
       "job_id": 110266033953,
-      "evidence": "D exact certification 36829474317 PASS at 7eaf8de with E final e753248 artifact 11082381172/GLB d3a4ba15f14ad6d3fba680c2d1db6d6d7584fb5254d2df8fd1c070870e9b0fd2. Cross-app artifact 11146548136 contains oracle PASS and matching C receipt receipt_bfc4f193c59c4e839582bc1e443665bf for driver.godot.composition.apply; logical bindings, behavior bytes, gameplay collision mapping, skeleton/skin/materials/animation and exact GLB bytes are verified. coverage_complete remains false rather than being promoted to certainty."
+      "evidence": "Godot exact certification 36829474317 PASS at 7eaf8de with Blender final e753248 artifact 11082381172/GLB d3a4ba15f14ad6d3fba680c2d1db6d6d7584fb5254d2df8fd1c070870e9b0fd2. Cross-app artifact 11146548136 contains oracle PASS and matching C receipt receipt_bfc4f193c59c4e839582bc1e443665bf for driver.godot.composition.apply; logical bindings, behavior bytes, gameplay collision mapping, skeleton/skin/materials/animation and exact GLB bytes are verified. coverage_complete remains false rather than being promoted to certainty."
     },
     {
       "requirement": "C14",
       "condition": "Native motion/AV/audio integration",
       "status": "BLOCKED",
       "implementation": [
-        "A PR #168 composition-media source 7ab43f99f4cc62be2a9b0ce9ce1155283a429768 inspected",
-        "B PR #183 certified audio source 8ed2d30c8ba797ebd5b8c102d34f8ab5bb3a28b3 run 36744494536"
+        "Composition PR #168 source 7ab43f99f4cc62be2a9b0ce9ce1155283a429768 inspected",
+        "Audio PR #183 certified source 8ed2d30c8ba797ebd5b8c102d34f8ab5bb3a28b3 run 36744494536"
       ],
       "tests": [],
       "tested_sha": null,
       "run_id": null,
       "job_id": null,
-      "evidence": "B audio candidate 8ed2d30 is certified, but its PR explicitly requires A to consume that exact B SHA and rerun relevant AV/audio/final gates on one combined integration SHA. A current 7ab43f9 still states B has not consumed/been consumed for the combined AV candidate and exposes no tested A/B -> C ExecutionReceipt/reconcile bridge. C does not transplant B evidence to A or create a competing publication pointer."
+      "evidence": "Audio candidate 8ed2d30 is certified, but its PR explicitly requires the AV integration to consume that exact audio SHA and rerun relevant AV/audio/final gates on one combined integration SHA. Composition revision 7ab43f9 still records that the audio candidate has not been consumed for the combined AV candidate and exposes no tested Composition/Audio → Project Graph ExecutionReceipt/reconcile bridge. Project Graph does not transplant audio evidence into Composition or create a competing publication pointer."
     },
     {
       "requirement": "C15",

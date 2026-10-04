@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- Standardized CI, source-packaging/evidence tooling and cross-app pins on durable component names for Composition, Audio, Project Graph, Godot, Blender and Effect Conformance.
+- Rewrote remaining subsystem integration notes in durable component terminology and moved the unreferenced audio-worktree rescue report out of the current public tree; exact source SHAs and verification history remain intact.
+- Standardized the AV composition public API and integration documentation around durable component names (`AvStageAdapter`, `AvArtifactRoutes`, and `av_stage_commands`).
+- Separated public product/contributor documentation from temporary development orchestration; internal handoff/master-prompt material is no longer part of the current tree, while technical history and exact-SHA evidence remain preserved.
+- Added a bundled three-step cross-platform quick start for native installs; portable installers now lead directly to the safe, idempotent `semwright setup` onboarding path.
+- Added `semwright setup` for safe cross-platform first-run configuration and MCP snippet generation; installers now point directly to this onboarding path.
 - Integrated portable platform contracts and native macOS/Windows hosts, preserving distinct
   hosted, interactive and physical-hardware verification levels.
 - Added Provider Runtime, governed sandboxed MCP federation, persistent Driver Protocol v2,
@@ -30,7 +36,7 @@
   network/PID isolation, environment scrubbing and timeout descendant cleanup.
 
 
-## 0.9.0-dev.1 — 2026-09-21 — source handoff, unreleased
+## 0.9.0-dev.1 — 2026-09-21 — initial development snapshot, unreleased
 
 Added source implementations for the Rust capability broker, framed Unix protocol,
 registry/policy/reference model, redacted audit, cancellation, CLI/MCP/inspector, declarative

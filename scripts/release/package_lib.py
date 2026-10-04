@@ -11,7 +11,9 @@ import tarfile
 import tomllib
 from pathlib import Path
 
-BINS = ("semwright", "semwrightd", "semwright-mcp", "semwright-inspect", "semwright-sandbox")
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from bundle_contract import BINS, add_bundle_files, write_checksums, verify_checksums  # noqa: E402,F401
 MACHINES = {"x86_64": 62, "aarch64": 183}
 DEB_ARCH = {"x86_64": "amd64", "aarch64": "arm64"}
 MAX_BINARY = 256 * 1024 * 1024
@@ -184,12 +186,14 @@ def build_packages(
             _write_regular(stage / "bin" / name, body, 0o755, epoch)
             checks[name] = hashlib.sha256(body).hexdigest()
 
-        for name in ("README.md", "VERIFY.md", "LICENSE-MIT", "LICENSE-APACHE", "SECURITY.md"):
-            _copy_regular(root / name, stage / name, 0o644, epoch)
-        _copy_tree(root / "packaging", stage / "packaging", epoch)
-        _copy_tree(root / "config", stage / "config", epoch)
-        sums = "".join(f"{digest}  bin/{name}\n" for name, digest in checks.items())
-        _write_regular(stage / "SHA256SUMS", sums.encode(), 0o644, epoch)
+        add_bundle_files(root, stage, 'linux', epoch)
+        notes = ("# Linux portable bundle\n\n"
+                 "Native Ubuntu 24.04 build; matching system libraries are required.\n"
+                 "Run ./install.sh as your normal user. No service or permissions are enabled.\n"
+                 "R06 physical Hyprland/mixed-display certification is deferred to post-v1, not PASS.\n"
+                 "Additional apps/drivers are not bundled or automatically installed.\n")
+        _write_regular(stage / 'PLATFORM-NOTES.md', notes.encode(), 0o644, epoch)
+        write_checksums(stage, epoch)
         _normalize_tree_times(stage, epoch)
 
         tar_path = output / f"{stage.name}.tar.gz"
@@ -206,8 +210,10 @@ def build_packages(
             docs.chmod(0o755)
             for name in BINS:
                 _copy_regular(stage / "bin" / name, debroot / "usr/bin" / name, 0o755, epoch)
-            for name in ("LICENSE-MIT", "LICENSE-APACHE", "README.md"):
+            for name in ("LICENSE-MIT", "LICENSE-APACHE", "README.md", "SECURITY.md", "SUPPORT.md", "V1_ENGINEERING_CLOSEOUT.md", "POST_V1_BACKLOG.md"):
                 _copy_regular(root / name, docs / name, 0o644, epoch)
+            _copy_regular(root / "docs/quickstart.md", docs / "QUICKSTART.md", 0o644, epoch)
+            _copy_regular(root / "docs/installation.md", docs / "INSTALL.md", 0o644, epoch)
             control = (
                 "Package: semwright\n"
                 f"Version: {version.replace('-', '~')}\n"

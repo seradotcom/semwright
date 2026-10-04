@@ -12,4 +12,4 @@
 
 Portable compilation does not imply native runtime support. Unsupported native platforms fail closed instead of launching unsandboxed fallbacks.
 
-The declared production/native target for this mission is Linux with pinned runtimes. Final A+B integration should compile the portable crates on the repository's normal Linux/Windows/macOS matrix and run native audio acceptance only where its isolation/runtime prerequisites are supported.
+The declared production/native target for this mission is Linux with pinned runtimes. Final Composition+Audio integration should compile the portable crates on the repository's normal Linux/Windows/macOS matrix and run native audio acceptance only where its isolation/runtime prerequisites are supported.

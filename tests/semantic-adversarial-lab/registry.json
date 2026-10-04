@@ -1618,7 +1618,7 @@
       "requirement": "G04",
       "lane": "composition",
       "scope": "product_contract",
-      "description": "A bare ValidationReport does not authenticate observation method version; F owns that trusted binding before aggregation",
+      "description": "A bare ValidationReport does not authenticate observation method version; Effect Conformance owns that trusted binding before aggregation",
       "expected": {
         "bare_aggregator_passes_without_method_binding": true
       }
@@ -1629,7 +1629,7 @@
       "requirement": "G04",
       "lane": "composition",
       "scope": "product_contract",
-      "description": "A bare ValidationReport does not authenticate effect observation scope; F owns trusted invocation/scope binding before aggregation",
+      "description": "A bare ValidationReport does not authenticate effect observation scope; Effect Conformance owns trusted invocation/scope binding before aggregation",
       "expected": {
         "bare_aggregator_passes_without_scope_binding": true
       }

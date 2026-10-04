@@ -1483,7 +1483,7 @@ fn diagnose_frames_encode(harness: &Harness, call: &StageCall, proof: &ServicePr
 
 async fn execute_native_stage(
     coordinator: &mut AvCoordinator,
-    adapter: &mut AgentAStageAdapter,
+    adapter: &mut AvStageAdapter,
     executor: &dyn Executor,
     harness: &Harness,
 ) {
@@ -1730,12 +1730,12 @@ async fn combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_s
     let mut coordinator = AvCoordinator::new(plan.clone()).unwrap();
     coordinator.import_audio_receipt(audio.clone()).unwrap();
 
-    let routes = AgentAArtifactRoutes {
+    let routes = AvArtifactRoutes {
         audio_source_root: "audio-output".into(),
         handoff_destination_root: "av-delivery".into(),
         mlt_media_root: "media".into(),
     };
-    let mut adapter = AgentAStageAdapter::with_artifact_routes(plan, Some(routes)).unwrap();
+    let mut adapter = AvStageAdapter::with_artifact_routes(plan, Some(routes)).unwrap();
     adapter.bind_audio_consumer_receipt(&audio).unwrap();
 
     assert_eq!(coordinator.next_stage(), Some(Stage::PlanDelivery));
@@ -1994,7 +1994,7 @@ async fn combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_s
             },
             pg::Determinant {
                 class: pg::DependencyClass::External,
-                key: "c14-mux-agent-b-source".into(),
+                key: "c14-mux-audio-source".into(),
                 digest: Digest::of_bytes(integration_source_sha().as_bytes()),
             },
         ],

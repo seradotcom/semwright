@@ -24,7 +24,7 @@ sha = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
 if sha != (os.environ.get("EXPECTED_SHA") or os.environ["GITHUB_SHA"]):
     raise SystemExit("checkout does not match expected source SHA")
 start = time.monotonic()
-report = {"schema_version": 1, "role": "C", "source_sha": sha, "workflow_sha": os.environ["GITHUB_SHA"], "contract_sha": "26602e4b25929be869d69ef28fef4dd9713180d7", "workflow": os.environ.get("GITHUB_WORKFLOW"), "run_id": os.environ.get("GITHUB_RUN_ID"), "attempt": os.environ.get("GITHUB_RUN_ATTEMPT"), "job": os.environ.get("GITHUB_JOB"), "event": os.environ.get("GITHUB_EVENT_NAME"), "suite": suite, "scope": "lock-resolution-only" if suite == "lockfile" else "portable-model-not-native", "native": False, "outcome": "UNKNOWN", "requested_tests": 0, "executed_tests": 0, "ignored_tests": 0, "job_id": None, "runtime_versions": {}, "steps": []}
+report = {"schema_version": 1, "role": "project-graph", "source_sha": sha, "workflow_sha": os.environ["GITHUB_SHA"], "contract_sha": "26602e4b25929be869d69ef28fef4dd9713180d7", "workflow": os.environ.get("GITHUB_WORKFLOW"), "run_id": os.environ.get("GITHUB_RUN_ID"), "attempt": os.environ.get("GITHUB_RUN_ATTEMPT"), "job": os.environ.get("GITHUB_JOB"), "event": os.environ.get("GITHUB_EVENT_NAME"), "suite": suite, "scope": "lock-resolution-only" if suite == "lockfile" else "portable-model-not-native", "native": False, "outcome": "UNKNOWN", "requested_tests": 0, "executed_tests": 0, "ignored_tests": 0, "job_id": None, "runtime_versions": {}, "steps": []}
 def run(name, command, print_output=True, check=True):
     report["active_step"] = name
     result = subprocess.run(command, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)

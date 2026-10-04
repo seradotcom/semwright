@@ -156,7 +156,7 @@ jobs:
             install -m 0500 "target/debug/$name" "$RUNNER_TEMP/composition-av-binaries/$name"
           done
           sha256sum "$RUNNER_TEMP/composition-av-binaries/"* > verification/composition-av/prepared-binaries.sha256
-      - name: Combined A+B native AV E2E
+      - name: Combined Composition + Audio native AV E2E
         env:
           SEMWRIGHT_TEST_COMBINED_AV: '1'
           SEMWRIGHT_TEST_COMBINED_MOTION_DRIVER: ${{ runner.temp }}/composition-av-binaries/semwright-motion-canvas-driver

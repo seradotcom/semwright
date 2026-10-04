@@ -48,7 +48,6 @@ class DevelopmentPackageTests(unittest.TestCase):
                 )
                 paths = {entry["path"] for entry in metadata["entries"]}
                 for required in [
-                    "docs/composition/DEMO_PRODUCTION_HANDOFF.md",
                     "skills/semwright-video-production/SKILL.md",
                     "skills/semwright-av-production/SKILL.md",
                     "skills/semwright-audio-production/SKILL.md",

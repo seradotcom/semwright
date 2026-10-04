@@ -1,247 +1,347 @@
-# Semwright
+<h1 align="center"><img src="./docs/assets/semwright-mark.svg" alt="" width="44" height="44" />&nbsp;semwright</h1>
 
-**A cross-platform semantic capability broker that turns applications and desktops into typed commands—not a stream of guessed clicks.**
+<p align="center">
+  <strong>Use real software from any AI agent.</strong>
+</p>
 
-> **Development snapshot, 0.9.0-dev.1. Not a verified release candidate.**
-> The repository includes a committed `Cargo.lock`, Rust 1.98.1 as the development pin,
-> and Rust 1.88 as its declared minimum supported Rust version. Hosted workflows exercise
-> the core, native application integrations, platform hosts, packaging and supply chain.
-> A workflow's existence or an older successful run is not evidence for a new commit.
-> The pre-R16 observation of `241000c268d1bf1dc29d4e91a913097ac0d020cb` found 11 successful
-> workflows and a failing Windows ARM64 native fixture. Independent security review remains
-> **R16 OPEN**; physical Hyprland/mixed-display evidence remains limited under R06.
-> Read [VERIFY.md](VERIFY.md), [RELEASE_BLOCKERS.md](RELEASE_BLOCKERS.md), and the
-> [pre-R16 state map](verification/pre-r16/PRE_R16_STATE_MAP.md) before granting desktop access.
+<p align="center">
+  An open runtime that connects AI agents to desktop and professional applications through<br />
+  structured operations, native APIs, and governed system interfaces.
+</p>
+
+<p align="center">
+  Connect your tools once. Use them from any compatible agent.
+</p>
+
+<p align="center">
+  <a href="./LICENSE-MIT"><img alt="License: MIT OR Apache-2.0" src="https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-234ea2"></a>
+  <a href="./Cargo.toml"><img alt="Rust" src="https://img.shields.io/badge/Rust-runtime-000000?logo=rust&logoColor=white"></a>
+  <a href="./docs/installation.md"><img alt="Native bundles: Linux, macOS, Windows" src="https://img.shields.io/badge/native%20bundles-Linux%20%7C%20macOS%20%7C%20Windows-234ea2"></a>
+  <a href="./docs/mcp.md"><img alt="MCP frontend" src="https://img.shields.io/badge/MCP-frontend-6f42c1"></a>
+  <a href="./docs/installation.md"><img alt="Status: pre-v1" src="https://img.shields.io/badge/status-pre--v1-e67e22"></a>
+  <a href="./VERIFY.md"><img alt="Verification documented" src="https://img.shields.io/badge/verification-documented-2ea44f"></a>
+</p>
+
+<p align="center">
+  <a href="./docs/quickstart.md"><strong>Quick start</strong></a> ·
+  <a href="./docs/installation.md"><strong>Installation</strong></a> ·
+  <a href="https://semwright.com/docs/"><strong>Documentation</strong></a> ·
+  <a href="./docs/drivers.md"><strong>Drivers</strong></a> ·
+  <a href="./VERIFY.md"><strong>Verification</strong></a>
+</p>
+
+> **Pre-v1:** candidate builds are available for evaluation, but Semwright has not published a public v1 yet.
+> Exact support and evidence are tracked in [VERIFY.md](VERIFY.md); independent security review remains a
+> publication gate.
 
 ```text
-Agent intent                 Semwright authority                 Linux / application
-"find the Export button"  →  schema → policy → exact selector  →  AT-SPI
-"create a cube"           →  schema → policy → typed operation →  Blender API
-"focus this window"       →  schema → policy → live reference →  compositor IPC
-"do it again safely"      →  validated recipe → same broker   →  same narrow commands
+AI agent  →  Semwright  →  Blender · Godot · Browser · LibreOffice · Figma · KiCad · …
 ```
 
-The project contains source implementations of a Rust daemon, CLI, MCP frontend,
-terminal inspector, command registry, Provider Runtime, MCP federation client, persistent
-App Driver SDK/host, reference store, policy engine, metadata audit, recipe runner,
-sandboxed plugin host, desktop backends, and application adapters. The runtime is now split
-behind explicit platform contracts with Linux, macOS and Windows host implementations.
-Linux has hosted native application/compositor evidence. Native macOS and Windows hosted
-checks are distinct from interactive, consented desktop certification; their isolation
-models and tested feature coverage are not interchangeable.
-No model, cloud account, default shell, remote desktop service, arbitrary Python/JS
-command, telemetry client, or root daemon is part of the product.
+## Why Semwright?
 
-## What the interface looks like
+AI agents can reason about a task. Reliably operating real software is a different problem: application
+objects have identity and state, UI layouts move, mutations have side effects, and every agent should not
+need its own one-off automation stack.
 
-These are intended CLI examples, **not a captured successful Rust run**:
+Semwright exposes real applications as structured operations behind one authorization boundary. It
+prefers the strongest interface available—application/native APIs first, semantic accessibility and
+governed system interfaces when needed, and controlled input or capture as explicit fallbacks. Every
+operation still passes through the same broker, policy and audit path.
+
+- **Structured operations first.** Use application objects and typed commands instead of reducing every
+  task to screenshots and coordinates.
+- **One authorization boundary.** CLI, MCP, Recipes, drivers and federated providers do not create
+  separate privilege systems.
+- **One runtime across compatible agents.** Change the agent without rebuilding every application
+  integration from scratch.
+- **Read back what happened.** Effects and application observations keep requested, expected and observed
+  outcomes distinct.
+- **Keep project state coherent.** Project Graph can track identity, dependencies and drift across repeated
+  work instead of treating every run as a blank slate.
+- **Local and inspectable.** The OSS runtime can operate locally; discovery is not permission, sensitive
+  actions can require operator approval, and execution is auditable.
+
+A typical path looks like this:
+
+```text
+Agent request             Semwright                              Software
+"change this material" → typed operation → policy → readback → Blender
+"update this scene"    → typed operation → policy → readback → Godot
+"export this document" → typed operation → policy → artifact → LibreOffice
+"find the Save button" → semantic query  → policy → reference → accessibility
+```
+
+Support is scoped per integration; a green fixture does not automatically certify every version or
+interactive environment.
+
+## Try Semwright
+
+### 1. Install the native bundle — no Rust build required
+
+Until the first public release, candidate bundles come from exact-SHA **V1 multiplatform distribution**
+Actions runs. Verify the published checksums for that candidate, extract the archive, and run its included
+helper:
+
+| Platform | Bundle | Install from the extracted directory |
+| --- | --- | --- |
+| Linux x86_64 / aarch64 | `.tar.gz` or `.deb` | `./install.sh` (or the system package manager for `.deb`) |
+| Windows x86_64 / ARM64 | `.zip` | `.\Install-Semwright.ps1` |
+| macOS Apple Silicon / Intel | `.tar.gz` | `./install.sh` |
+
+Every portable bundle includes the matched CLI, daemon, MCP frontend, TUI and sandbox helper,
+plus checksums and reversible user-local installers. **Install the core once and choose which
+interface to use; CLI/TUI/MCP are not separate versioned downloads.** Optional application
+integrations remain separate.
+
+[**Three-step quick start →**](docs/quickstart.md) ·
+[Full installation, checksums and removal →](docs/installation.md#install-a-candidate-bundle)
+
+### 2. Run `semwright setup`
+
+The installer prints the exact installed command, so onboarding does not depend on PATH. Setup is
+local, idempotent and non-overwriting: it creates an observe-only config plus a ready-to-copy MCP
+snippet, but grants no desktop authority and starts no background service.
+
+### 3. Start the broker and verify
+
+Setup prints the exact broker, doctor, TUI and MCP paths for the current platform. Start the broker,
+then run the printed doctor command from another terminal. `semwright-inspect` opens the read-only
+terminal UI and the generated `mcp-client.json` points at the exact installed `semwright-mcp`.
+
+### Develop from source with the synthetic desktop
+
+For contributors, the repository also includes a synthetic desktop path. It exercises the real daemon,
+CLI, Recipe runner and policy path without connecting to your real desktop or credentials. This is the
+source-build path, not the normal installation path.
+
+On Ubuntu 24.04 x86_64, install the
+[development prerequisites](docs/installation.md#prerequisites), then:
 
 ```sh
-semwright doctor
-semwright --json capabilities list
-semwright --json ui find --app org.gnome.TextEditor --role button --name Save
-semwright commands describe ui.invoke
-semwright ui invoke 'ui:<reference returned by this session>' --action click
-semwright recipe run recipes/fake-export.yaml
+git clone https://github.com/seradotcom/semwright.git
+cd semwright
 
-# Owner-only MCP definition management; this does NOT grant broker policy authority:
-semwright mcp upstream list
-
-# Driver authoring/verification remains local owner tooling:
-semwright --json driver validate ./driver.json
-semwright --json driver conformance ./driver.json
-
-# Static/local distribution is also owner-only and never grants driver policy authority:
-semwright --json driver index validate ./registry/index.json
-semwright --json --dry-run driver install ./registry/index.json libreoffice \
-  --application-version 24.2
+cargo build --locked -p semwright-daemon -p semwright-cli --bins
+BIN_DIR=target/debug ./scripts/dev/fake-smoke.sh
 ```
 
-References are opaque, session-scoped, short-lived values. Do not paste the illustrative
-reference above literally. A discovery result with two matching buttons remains two
-candidates. The broker does not choose one and click it. Invocation requires a current
-explicit reference and an action the target advertises.
+The smoke will:
 
-## Agent Skills
+1. start an isolated fake Semwright daemon;
+2. discover one exact `Export` control;
+3. run a typed recipe through normal policy and dispatch;
+4. report the observed `changed` result and audit metadata;
+5. stop the daemon and remove the temporary runtime.
 
-Semwright interoperates with the open Agent Skills package shape without turning Skill prose into execution authority. Skills teach an agent when and how to combine Semwright capabilities; the Broker remains the single schema/policy/provenance/audit boundary.
+This is a functional first-use path, **not** live-desktop certification or a security verdict.
 
-```sh
-semwright skill validate ./skills/semwright-core
-semwright skill inspect ./skills/semwright-core
-semwright skill doctor ./skills/semwright-cross-app-artifacts
-semwright skill test ./skills/semwright-workflow-distillation
-semwright skill lock ./my-skill
-semwright skill bundle ./my-skill ./my-skill.zip
-```
+`Cargo.lock` is committed. Keep it and use `--locked`; do not run `scripts/dev/bootstrap.sh` on an
+ordinary checkout. For the full build, per-user installation, portable package layout and uninstall
+flow, use the [installation guide](docs/installation.md).
 
-A standard Skill without `.semwright/` metadata remains valid. Optional requirements/locks support deterministic compatibility and descriptor-drift checks but never grant permissions. Semwright never auto-executes a Skill's `scripts/`. Repeated successful Skill-guided execution can instead be distilled through the existing Workflow Distillation path into a verified `recipe.<slug>.run` capability. See [Agent Skills](docs/skills.md).
+## Connect your agent
 
-## Why not screenshot-first?
+Semwright exposes a deliberately small MCP frontend that routes back through the same broker,
+policy, references and audit path as the CLI.
 
-Semantic interfaces expose identity, roles, names, actions and state. Semwright starts
-there, or with a richer application API. Input fallback is a distinct capability and
-must prove the intended window is focused. No failed mutation automatically falls back
-to another backend. Interactive screenshot capture is separate; there is no vision model.
-
-The distinguishing design is the **shared authorization boundary**: CLI, MCP, inspector,
-recipes, providers, and plugin commands cannot obtain a more privileged execution path
-by choosing a different frontend. Passing compiler and CI gates is not a substitute for
-the independent security review and live-system evidence still listed as blockers.
-
-## Build and first validation
-
-For the verified Linux path, use a disposable Linux account or VM first. Do not use `sudo` to run the daemon.
-Use the repository-pinned Rust toolchain and the committed lockfile. Network access may
-still be required to populate an empty Cargo cache.
-
-```sh
-# From this source tree:
-./scripts/dev/bootstrap.sh
-cargo fmt --all -- --check
-cargo check --locked --workspace --all-targets --all-features
-cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
-cargo test --locked --workspace --all-targets --all-features
-./scripts/dev/fake-smoke.sh
-```
-
-Do not mark a failed gate as optional or delete a test to get a green result.
-The full gate script also requires `cargo-audit` and `cargo-deny`:
-
-```sh
-./scripts/ci/rust-gates.sh
-```
-
-Source-only checks that do not compile Rust can be repeated with:
-
-```sh
-python -m pip install jsonschema PyYAML websocket-client
-python scripts/verify-local.py --with-chromium
-```
-
-That command intentionally returns nonzero when required tools are absent, even when
-all available component checks pass. See [development](docs/development.md).
-
-## Fake-desktop path, after a successful build
-
-The [fake smoke script](scripts/dev/fake-smoke.sh) creates a private temporary runtime,
-starts **only** the fake backend, runs discovery and a complete export recipe, prints
-metadata audit, stops its own broker, and removes its own temporary directory. It does
-not touch the live desktop or leave an unattended process running.
-
-For a live observe-only run after that succeeds:
-
-```sh
-mkdir -p "$HOME/.config/semwright"
-chmod 700 "$HOME/.config/semwright"
-install -m 600 config/observe.toml "$HOME/.config/semwright/daemon.toml"
-target/debug/semwrightd --config "$HOME/.config/semwright/daemon.toml"
-# A second terminal, in the same graphical login session:
-target/debug/semwright --json doctor
-target/debug/semwright ui snapshot --max-nodes 100
-```
-
-Do not overwrite an existing configuration using this example. A foreground daemon
-with `--approval-console` is required for actions classified as sensitive. The operator
-responds on the daemon's own terminal—not through an agent-accessible confirmation tool.
-
-## Components and evidence
-
-| Component | Delivered | Evidence boundary |
-|---|---|---|
-| Core, CLI, MCP, inspector, policy and refs | Typed broker and common authority path | Linux x86_64/ARM64 unit/property/integration gates; exact-SHA outcomes are recorded separately |
-| Platform contracts | Portable API, shared services and Linux/macOS/Windows hosts | Cross-compilation is not native acceptance; native hosted runs are not interactive certification |
-| macOS | AX/CoreGraphics/ScreenCaptureKit/NSPasteboard and native host services | Intel/Apple Silicon hosted build and noninteractive checks; authorized TCC/live acceptance remains separate |
-| Windows | UIA, input/capture/IPC and restricted process-launch implementation | Native x64/ARM64 and compatibility jobs exist; the preflight snapshot has an ARM64 UIA failure, and interactive certification is not claimed |
-| AT-SPI, X11, Sway, GNOME/KWin, Hyprland | Native semantic and compositor backends, revisioned refs and recovery | Hosted GTK/Qt, Xvfb/Openbox, headless Sway and Plasma jobs; historical real-login/nested evidence has explicit environment/SHA limits |
-| Portal, EIS and PipeWire | Consented sessions, restore tokens, clipboard, input sender and bounded frame capture | Private D-Bus/EIS fixtures and a real synthetic PipeWire stream; historical isolated GNOME/Plasma VM keyboard evidence is not physical multi-display certification |
-| Filesystem and artifact handoff | Explicit source/destination grants, platform confinement and bounded binary transfer | Linux openat2 and grant/digest regressions; no claim that every OS implements the same confinement mechanism |
-| Plugins and Driver Host | Pinned identities/descriptors, resource limits and platform sandbox admission | Executed Linux hostile fixtures; Windows has separate native authority tests and limitations; neither is independent security review |
-| MCP federation | Sandboxed stdio upstreams and owner-only registry | Executed real protocol fixtures, central policy, cancellation and catalog/crash tests; launch fails closed without the required sandbox |
-| Driver distribution | Non-executing packages, static indexes and bounded companion files | Integrity/compatibility and install/update/remove checks; package hashes do not establish remote publisher identity |
-| Blender | Sandboxed deep DriverProvider plus legacy main-thread add-on | Real Blender hosted smoke, typed operations/RNA inspection and render/save; active owner-runtime/export changes are not part of the observed baseline |
-| Chromium | Private-profile CDP adapter and semantic browser surface | Real browser navigation, multi-frame/ref/download limits and cleanup fixtures; origin restrictions are not a firewall |
-| LibreOffice, MLT, KiCad and OBS | Application-specific DriverProviders | Separate curated/native/fake-protocol matrices; consult each driver's verification record rather than inferring complete native-API coverage |
-| Figma | Authenticated loopback bridge to the official Plugin API | Typed/plugin/fake-host evidence plus a historical Figma 126.5.6 driver-protocol public proof; the latter does not certify the full CLI/broker route or all Figma surfaces |
-| Godot and Motion Canvas | Typed application/project providers | Driver-specific conformance and real-runtime workflows; no generic arbitrary-code execution or blanket application certification claim |
-| Events, jobs and Workflow Distillation | Session-scoped jobs/events, progress/artifacts, MCP Tasks and gated learned recipes | Broker re-entry, privacy, cancellation, drift and promotion tests; recipes are not transactions and do not grant permissions |
-| Packaging and supply chain | Reproducible native tar/deb, Nix, SBOMs and scoped attestations | Executed hosted jobs; release admission remains blocked by independent/live evidence requirements |
-
-Full details: [compatibility](docs/compatibility.md), [manual tests](docs/manual-testing.md),
-[acceptance resolution](ACCEPTANCE.md), [verification](VERIFY.md).
-
-## MCP
-
-The frontend uses the official `rmcp` Rust SDK. It deliberately presents a small
-discovery/gateway surface instead of exposing every internal capability as a static MCP
-tool. Tool discovery returns the same registry schemas used by the broker. A generic
-local MCP client configuration after installing:
+`semwright setup` writes a ready-to-copy MCP client snippet using the exact installed executable path
+for the current platform. Its shape is:
 
 ```json
 {
   "mcpServers": {
     "semwright": {
-      "command": "/home/YOUR_USER/.local/bin/semwright-mcp"
+      "command": "<absolute path to semwright-mcp>"
     }
   }
 }
 ```
 
-Start the broker separately in the same user session. The configuration above does not
-start it, authorize mutations, or approve portal dialogs. See [MCP](docs/mcp.md).
+The MCP process does not grant desktop authority, approve mutations or start the broker for you.
+See [MCP](docs/mcp.md) for socket/session configuration and
+[governed MCP federation](docs/mcp-federation.md) for connecting external MCP providers.
 
-Semwright also has a governed [MCP federation](docs/mcp-federation.md) provider.
-Owner-configured stdio servers are imported into the same capability registry and remain
-subject to normal broker policy, operator approval, provenance and audit. Operators manage
-definitions locally with `semwright mcp upstream ...`; those local commands never add a
-policy grant, so registering a server is distinct from authorizing its tools. The initial
-launcher stages digest-verified bytes, scrubs inherited environment and requires the platform
-sandbox. Network and filesystem authority are separate owner grants; unavailable isolation
-fails closed. This does not protect the broker from an unrelated hostile process already
-running outside the sandbox with the same UID, nor make the OS sandbox a formal kernel proof.
+## Applications
 
-## Install, extend, inspect
+Semwright has application-specific integrations in addition to generic desktop/platform backends.
+The table below is intentionally compact; it describes the integration path, **not a blanket support
+certificate**.
 
-[Installation](docs/installation.md) covers local binaries, the optional user service,
-checksums, uninstall, Debian packaging and the Nix expression. No installer silently
-uses `sudo`, enables a plugin, requests portal consent, or downloads an opaque binary.
+| Application / domain | Semwright path | Evidence boundary today |
+| --- | --- | --- |
+| **Blender** | First-party driver and semantic authoring/export | Driver/native authoring evidence exists; live/version coverage remains scoped |
+| **Godot** | Driver + EditorPlugin + pinned runner | Production driver is exercised through Driver Host and pinned Godot CI; broader editor interaction remains scoped |
+| **Chromium** | Private-profile CDP adapter | Real hosted browser integration exists on the Linux development line |
+| **Figma** | Official Plugin API through authenticated loopback driver | Typed/fake-host/sandboxed CI exists; real Figma acceptance is separate |
+| **LibreOffice** | First-party driver | Repository integration exists; per-application live coverage varies |
+| **OBS Studio** | `obs-websocket` driver | Fake-server, sandbox and disposable read-only OBS paths are exercised |
+| **MLT video** | Offline timeline/render driver | Semantic/render tests exist; arbitrary Kdenlive/Shotcut round trips are not implied |
+| **KiCad** | Curated driver integration | Deterministic IPC/conformance exists; fake IPC is not a real KiCad interoperability certificate |
+| **Motion Canvas** | Typed project/render driver | Deterministic model generation and bounded render jobs |
+| **Audio** | Faust + Ardour drivers | Curated synthesis, analysis and managed-session paths with explicit coverage gaps |
 
-[Recipes](docs/recipes.md) replace repeated improvisation with typed bindings and explicit
-assertions. [Plugins](docs/plugins.md) add narrow one-shot sandboxed commands. The
-[App Driver SDK](docs/drivers.md) adds persistent application providers with owner-assigned
-identity, digest-pinned capabilities and executable conformance. [Driver distribution](docs/driver-distribution.md)
-adds non-executing local packages and static indexes without granting policy authority.
-[Events and jobs](docs/events-jobs.md) document source-bound event delivery and bounded long-operation
-lifecycle. [Semantic video domain](docs/video-domain.md) defines the backend-neutral timeline,
-edit and conformance core reused by concrete video drivers. [The inspector](docs/inspector.md)
-is read-only and uses the same broker socket.
-Application instructions: [Blender](adapters/blender/README.md),
-[Chromium](adapters/chromium/README.md), [LibreOffice](crates/driver-libreoffice/README.md),
-[MLT video](crates/driver-mlt-video/README.md), [Figma](crates/driver-figma/README.md),
-[Godot](crates/driver-godot/README.md), and [KiCad](integrations/kicad-driver/README.md).
-Desktop bridges: [GNOME](bridges/gnome/README.md),
-[KWin](bridges/kwin/README.md).
+Full details live in the [platform matrix](docs/platforms.md),
+[compatibility matrix](docs/compatibility.md), [Driver SDK guide](docs/drivers.md) and each
+integration's own README.
 
-## Security boundary
+## How it works
 
-Observe is the default. Clipboard content, screenshots, raw input, application launching,
-plugins and app-native mutation each require explicit permissions. Destructive, secret,
-code-execution and privilege-sensitive requests additionally require an external operator.
+```text
+compatible agent / MCP / CLI
+            |
+            v
++-----------------------------+
+|          Semwright          |
+| discovery · schemas · refs  |
+| policy · approvals · audit  |
+| jobs · artifacts · Effects  |
++-------------+---------------+
+              |
+       Provider Runtime
+              |
+      strongest available path
+              |
+      +-------+-------------------------------+
+      |                                       |
+      v                                       v
+application/native APIs              semantic/system interfaces
+      |                                       |
+      +-------------------+-------------------+
+                          |
+                          v
+                  controlled fallbacks
+                   (input / capture)
+                          |
+                          v
+                   real applications
+```
 
-A Unix UID is **not** a sandbox against another malicious process with that same UID.
-An agent separately given an unrestricted shell can bypass this product's mediated
-command surface. A browser origin list is not a network firewall. Existing application
-processes such as Blender are not sandboxed by the broker. See [SECURITY.md](SECURITY.md)
-and [permissions](docs/permissions.md) before granting access.
+Semwright does **not** replace MCP or an agent SDK. MCP is one way to reach the runtime and one kind
+of provider Semwright can govern. The execution layer is responsible for capability discovery, policy,
+application identity, bounded jobs, references, artifact handoff and audit.
 
-## Project status and licensing
+A cross-application workflow can therefore remain explicit instead of hiding the transition between
+tools:
 
-Semwright is a working name; namespace/trademark clearance and publication are unfinished.
-This archive does not represent an existing public GitHub release or a promised popularity
-outcome. Original core source is dual-licensed **MIT OR Apache-2.0**. The isolated
-`integrations/kicad-driver` subtree is **GPL-3.0-or-later** and carries its own notices; it is
-not relicensed as core source. `Cargo.lock` and `deny.toml` anchor the dependency/license checks;
-their successful execution does not close R16.
-[Contributing](CONTRIBUTING.md), [governance](GOVERNANCE.md),
-[changelog](CHANGELOG.md), and [the original requirements](docs/requirements/START_HERE.md)
-make the requested scope and unfinished work explicit.
+```text
+Agent
+  |
+  |  "Change this asset and update the project."
+  v
+Semwright
+  |
+  +--> Blender: inspect / author / export
+  |
+  +--> artifact.handoff: verify + transfer
+  |
+  +--> Godot: import / rescan / update
+  |
+  `--> readback + Effects: verify the bounded outcome
+```
+
+See [architecture](docs/architecture.md) for the full model.
+
+## Reuse work and keep projects coherent
+
+### Recipes — reuse a successful procedure
+
+A typed Recipe captures a bounded multi-step procedure. Every step still re-enters normal broker
+policy and reference validation.
+
+[Learn about Recipes →](docs/recipes.md)
+
+### Project Graph — know what became stale
+
+Project Graph records persistent project identity, dependencies, derivations and drift. It can tell
+higher-level workflows which outputs depend on which sources without turning stored identity into
+permission.
+
+[Learn about Project Graph →](docs/project-graph/INTEGRATION.md)
+
+### Effects — verify what actually happened
+
+Effects evaluates observations inside a declared scope. Missing readback stays unknown instead of
+being promoted to a global success claim.
+
+[Learn about Effects →](docs/effects/INTEGRATION.md)
+
+## Build an integration
+
+Choose the surface by what you are trying to connect:
+
+| I want to… | Use |
+| --- | --- |
+| **Connect an existing application with a rich API or long-lived state** | [Application Driver SDK](docs/drivers.md) |
+| **Add a narrow, stateless external command** | [Plugin SDK](docs/plugins.md) |
+| **Call Semwright from an agent or tool** | [CLI](docs/commands.md) or [MCP frontend](docs/mcp.md) |
+| **Bring an existing MCP server under the same broker** | [Governed MCP federation](docs/mcp-federation.md) |
+| **Move a verified file-backed artifact between integrations** | `artifact.handoff` in the [Driver SDK](docs/drivers.md#cross-driver-artifact-handoff) |
+
+Drivers and plugins do not get ambient authority by existing. Their manifests, executable identity,
+resource limits and requested filesystem/network surfaces are validated before use, and each
+capability still enters broker policy.
+
+## Security
+
+Semwright is designed so that **discovery does not imply permission** and an agent cannot approve
+its own sensitive request.
+
+Observe is the default. Input, clipboard contents, screenshots, application launching, plugins and
+application-native mutation require explicit authority. A separately granted unrestricted shell can
+bypass this mediated surface; sandboxing a child does not sandbox an already-running application;
+there is no claim of universal prompt-injection immunity.
+
+Read [SECURITY.md](SECURITY.md), [permissions](docs/permissions.md) and the
+[threat model](docs/security.md). Report sensitive vulnerabilities through the repository's enabled
+private vulnerability-reporting channel, not a public issue.
+
+## Status
+
+Semwright is **pre-v1** and has not published a public release. The current engineering line is closed
+for staging, and native candidate bundles are produced for Linux x86_64/aarch64, Windows x86_64/ARM64
+and macOS arm64/x86_64.
+
+| Track | Current state |
+| --- | --- |
+| **Engineering closeout** | Complete for the current pre-v1 line |
+| **Native candidate packages** | Built and validated through exact-SHA distribution workflows |
+| **Physical / interactive certification** | Remaining environment-dependent cases are explicit post-v1 work |
+| **Independent security review** | Required before public v1 |
+| **Public release** | Not published |
+
+The detailed R06/R16/R18 history, exact run IDs and environment-specific limitations remain in the
+release and verification records rather than dominating this landing page. Nothing deferred is converted
+to PASS, and publication still requires the independent security review, explicit maintainer authorization
+and final exact-SHA validation defined by the [release policy](docs/release-policy.md).
+
+For exact evidence, use [VERIFY.md](VERIFY.md), [platform support](docs/platforms.md),
+[compatibility](docs/compatibility.md), [release blockers](RELEASE_BLOCKERS.md) and
+[security](SECURITY.md). Historical records under [`verification/`](verification/README.md) preserve the
+source and environment they actually tested.
+
+## Documentation and contributing
+
+- [Installation and removal](docs/installation.md)
+- [Troubleshooting](docs/troubleshooting.md)
+- [Architecture](docs/architecture.md)
+- [Platform support](docs/platforms.md)
+- [Application Driver SDK](docs/drivers.md)
+- [Agent Skills](docs/skills.md)
+- [Events and jobs](docs/events-jobs.md)
+- [Workflow Distillation](docs/workflow-distillation.md)
+- [Development](docs/development.md)
+- [Contributing](CONTRIBUTING.md)
+- [Support](SUPPORT.md)
+
+Focused pull requests are welcome. Keep technical and verification claims bound to the exact source,
+environment and scope that produced the evidence.
+
+## License
+
+Original core source is **MIT OR Apache-2.0**.
+
+The isolated `integrations/kicad-driver` subtree is **GPL-3.0-or-later** with its own notices.
+
+See [governance](GOVERNANCE.md), [changelog](CHANGELOG.md) and the
+[architecture documentation](docs/architecture.md).

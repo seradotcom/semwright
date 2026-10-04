@@ -1,49 +1,46 @@
 # Semantic creation integration
 
-The integrator owns branch `integration/semantic-creation-i-20261001`. All
-original owners have stopped. Their source and delivered artifacts are retained;
-the integrator resolves remaining cross-owner work on this isolated branch.
+The historical integration branch is `integration/semantic-creation-i-20261001`.
+Subsystem source and delivered artifacts are retained while integration resolves
+remaining cross-component work on an isolated branch.
 
-The current immutable candidate, run IDs and readiness state are published in
-`semantic-creation/I.json` in the coordination directory. A working branch tip is
-not a final candidate. Readiness requires fresh evidence for one published full
-SHA; historical owner certificates retain their original source and scope.
+The immutable candidate, run IDs and readiness state are bound to exact Git commits and hosted CI records. A working branch tip is not a final candidate. Readiness requires fresh evidence for one published full SHA; historical subsystem certificates retain their original source and scope.
 
 ## Consumed source ancestry
 
-| Owner | Source |
+| Component | Source |
 | --- | --- |
-| A | `65b773f4dd627b860358342f4d40a1ac532566d1` |
-| B | `df2654bed6d2ac57d547846b69d16ea48b4a9ee3` |
-| C | `77b34d8abad50f242c4c8494e280fe82d5cbcf55` |
-| C14 integration | `28eba9d733d254289255b33a9c14d409fad3e2e2` |
-| D | `70bd7857e9700b6f03547a706ff0e6496ffd838e` |
-| E | `f492f13a028f781d9ca55631764578f5b327eb1b` |
-| F | `eadd5caf9b3f47f24158de530b87ad07e597f25e` |
-| Original G suite | `a88e80f9de4aa2883b233d009a4b41ecdde08a0b` |
+| Composition / AV | `65b773f4dd627b860358342f4d40a1ac532566d1` |
+| Audio | `df2654bed6d2ac57d547846b69d16ea48b4a9ee3` |
+| Project Graph | `77b34d8abad50f242c4c8494e280fe82d5cbcf55` |
+| Project Graph C14 integration | `28eba9d733d254289255b33a9c14d409fad3e2e2` |
+| Godot | `70bd7857e9700b6f03547a706ff0e6496ffd838e` |
+| Blender | `f492f13a028f781d9ca55631764578f5b327eb1b` |
+| Effect Conformance | `eadd5caf9b3f47f24158de530b87ad07e597f25e` |
+| Original adversarial suite | `a88e80f9de4aa2883b233d009a4b41ecdde08a0b` |
 | Runtime #201 | `733037145c374d28cb7d0e3d51dc76c64f223ad4` |
 
 The runtime merge and native transport adaptation require new certification;
-owner-only green runs do not certify the integrated runtime.
+subsystem-only green runs do not certify the integrated runtime.
 
 ## Integration changes requiring acceptance
 
-- A/D11 explicit fresh-child reconciliation preserves owner/root incarnation,
+- Composition/Godot D11 explicit fresh-child reconciliation preserves owner/root incarnation,
   the old ledger and aggregate budgets; foreign, stale and replayed authority is
-  denied. See [the reconciliation contract](I_RECONCILIATION.md).
-- B's production F consumer uses the actual admitted decoded measurements and
+  denied. See [the reconciliation contract](RECONCILIATION.md).
+- The audio production Effect Conformance consumer uses the actual admitted decoded measurements and
   attempt through `validate_plan`, `collect`, `evaluate`. See
-  [the audio consumer contract](I_AUDIO_EFFECT_CONSUMER.md).
+  [the audio consumer contract](AUDIO_EFFECT_CONSUMER.md).
 - AV admission requires each audio check to carry native evidence naming its
   master digest. Contextual contract observations may omit a future artifact
   pin only alongside that native evidence with matching base, scope and
-  exhaustive flag. Foreign artifacts and context-only checks fail. F's strict
+  exhaustive flag. Foreign artifacts and context-only checks fail. Effect Conformance strict
   artifact matching and evaluated observations remain unchanged.
 - Blender/Godot/Motion/MLT use the integrated Host transport; audio retains its
   bounded shared SDK compatibility route and original CPU limits. Pinned font
   reads allow only the fixed font packages and retain filesystem containment,
   non-symlink regular-file checks and byte budgets. See
-  [the native transport contract](I_RUNTIME_TRANSPORT.md).
+  [the native transport contract](RUNTIME_TRANSPORT.md).
 
 ## Integrated engineering closure
 
@@ -56,11 +53,11 @@ executed on a later commit.
 | Combined AV, decoded audio, exhaustive sync and C publication | [37077508380](https://github.com/seradotcom/semwright/actions/runs/37077508380) | PASS |
 | Blender native authoring and export | [37074959691](https://github.com/seradotcom/semwright/actions/runs/37074959691) | PASS |
 | Godot native authoring and cross-app consumption | [37075910269](https://github.com/seradotcom/semwright/actions/runs/37075910269) | PASS |
-| B audio, three operating systems and native engines | [37077804879](https://github.com/seradotcom/semwright/actions/runs/37077804879) | PASS |
-| A Composition and native consumers | [37080028165](https://github.com/seradotcom/semwright/actions/runs/37080028165) | PASS |
-| C Project Graph, Broker, rebuild, fuzz and scale | [37080806793](https://github.com/seradotcom/semwright/actions/runs/37080806793) | PASS |
-| F effects, native consumers, fault cases and mutants | [37081317102](https://github.com/seradotcom/semwright/actions/runs/37081317102) | PASS |
-| Frozen G suite against the combined source | [37074787747](https://github.com/seradotcom/semwright/actions/runs/37074787747) | 480/480 PASS |
+| Audio, three operating systems and native engines | [37077804879](https://github.com/seradotcom/semwright/actions/runs/37077804879) | PASS |
+| Composition and native consumers | [37080028165](https://github.com/seradotcom/semwright/actions/runs/37080028165) | PASS |
+| Project Graph, Broker, rebuild, fuzz and scale | [37080806793](https://github.com/seradotcom/semwright/actions/runs/37080806793) | PASS |
+| Effects, native consumers, fault cases and mutants | [37081317102](https://github.com/seradotcom/semwright/actions/runs/37081317102) | PASS |
+| Frozen adversarial suite against the combined source | [37074787747](https://github.com/seradotcom/semwright/actions/runs/37074787747) | 480/480 PASS |
 | Global job disposition including corrected ARM64 fixture | [37088550848](https://github.com/seradotcom/semwright/actions/runs/37088550848) | PASS with explicit original-failure disposition |
 | Reproducible engineering review package | [37088728581](https://github.com/seradotcom/semwright/actions/runs/37088728581) | PASS |
 
@@ -74,16 +71,12 @@ baseline are documentation, formal AV ancestry and this test fixture.
 
 ## Main promotion and deferred work
 
-The user explicitly authorized merging the completed A–G/runtime integration
-into `main` and deferred H benchmarks to separate future work. H is preserved
-on `eval/semantic-productivity-lab` at
-`6fe1994d9ab25f44631ef8c41e9dad8f05aee0ca`; no model comparison was executed.
-H is not an admission gate for this development integration.
+The completed subsystem/runtime integration was authorized for promotion to `main`; benchmark
+work was deferred to a separate evaluation track. The historical evaluation branch is preserved
+on `eval/semantic-productivity-lab` at `6fe1994d9ab25f44631ef8c41e9dad8f05aee0ca`;
+no model comparison was executed, and that evaluation is not an admission gate for this integration.
 
-The promotion branch is `integration/semantic-creation-main-promotion`. The
-actual promoted SHA and affected Windows run are recorded in the coordination
-directory's `I_MAIN_PROMOTION.json` and in GitHub's immutable commit/run records.
-The frozen engineering and H deliveries retain their original identities.
+The promotion branch is `integration/semantic-creation-main-promotion`. The actual promoted SHA and affected Windows run are recorded in GitHub's immutable commit/run records. The frozen engineering and evaluation deliveries retain their original identities.
 
 Independent R16 review remains open under
 [the security review contract](../security-review.md). Physical desktop and

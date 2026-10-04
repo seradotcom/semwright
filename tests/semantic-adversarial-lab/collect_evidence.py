@@ -197,7 +197,7 @@ def main():
     index["status"] = ("BLOCKED" if any(r["status"] == "BLOCKED" for r in index["lanes"])
                        else "AUDIT_COMPLETE_WITH_FINDINGS" if findings else "NO_OPEN_BLOCKING_FINDINGS_IN_TESTED_SCOPE")
     index["full_wave_readiness"] = "BLOCKED"
-    index["untested"] = ["combined I candidate", "Project Graph", "F E0 effects adapter", "Godot native",
+    index["untested"] = ["combined semantic-creation candidate", "Project Graph", "Effect Conformance adapter", "Godot native",
                           "Blender native", "Figma collaborative native", "Motion native renders",
                           "audio devices/plugins/native apps", "full lifecycle fault injection", "product package/install boundaries"]
     write_json(output / "EXPERIMENT_INDEX.json", index)

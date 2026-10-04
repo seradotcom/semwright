@@ -21,3 +21,6 @@ demos/launch-film/output/
 
 /verification/one-pass/
 /verification/windows-interactive/
+# Local-only coordination and scratch material (never product documentation)
+/.internal/
+/.local-development/

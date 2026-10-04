@@ -100,7 +100,7 @@ jobs:
       - name: Ruff semantic Python lint
         run: ruff check . --select F,E9
       - name: ShellCheck repository scripts
-        run: find scripts platforms -type f -name '*.sh' -print0 | sort -z | xargs -0 shellcheck
+        run: find scripts platforms packaging/portable -type f -name '*.sh' -print0 | sort -z | xargs -0 shellcheck
       - name: actionlint workflows and embedded shell
         run: actionlint
 

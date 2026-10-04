@@ -14,11 +14,11 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[2]
 OWNED = ("crates/effect-conformance/", "scripts/effects/", "docs/effects/")
 WORKFLOW = ".github/workflows/effect-conformance.yml"
-A_CONTRACT = "26602e4b25929be869d69ef28fef4dd9713180d7"
+COMPOSITION_CONTRACT = "26602e4b25929be869d69ef28fef4dd9713180d7"
 DEFAULT_BASE = "a6b5bebbb022ae1e29c2b8e1ec3d4358cee7fb35"
-DEPENDENCY_VERSION = 4
-A_COMPONENT_SOURCE = "6e1261d645699e99fe94ad902b5fb26956f92102"
-HOST_COMPONENT_SOURCE = "a6b5bebbb022ae1e29c2b8e1ec3d4358cee7fb35"
+DEPENDENCY_VERSION = 5
+COMPOSITION_COMPONENT_SOURCE = "6e1261d645699e99fe94ad902b5fb26956f92102"
+HOST_COMPONENT_SOURCE = "95a3031469c014a29b57cb6109e0c3dd283cc234"
 
 
 def git(*args):
@@ -34,10 +34,10 @@ def build(source, base, output):
         if not re.fullmatch(r"[a-f0-9]{40}", value):
             raise ValueError("source and base must be full immutable SHA-1 commit IDs")
         git("cat-file", "-e", value + "^{commit}")
-    if git("rev-parse", source + ":crates/semantic-composition") != git("rev-parse", A_COMPONENT_SOURCE + ":crates/semantic-composition"):
-        raise ValueError("A shared contract changed; review and version the backup dependency first")
+    if git("rev-parse", source + ":crates/semantic-composition") != git("rev-parse", COMPOSITION_COMPONENT_SOURCE + ":crates/semantic-composition"):
+        raise ValueError("Composition shared contract changed; review and version the backup dependency first")
     if git("rev-parse", source + ":crates/project-graph") != git("rev-parse", base + ":crates/project-graph"):
-        raise ValueError("C P0 changed; review the backup dependency first")
+        raise ValueError("Project Graph P0 changed; review and version the backup dependency first")
     for path in ["crates/driver-sdk", "crates/driver-host"]:
         if git("rev-parse", source + ":" + path) != git("rev-parse", HOST_COMPONENT_SOURCE + ":" + path):
             raise ValueError("Reviewed Host transport changed; review and version the backup dependency first")
@@ -59,7 +59,7 @@ def build(source, base, output):
     patch = git("diff", "--no-ext-diff", "--no-textconv", "--binary", "--full-index", base, source, "--", *selected)
     lock = git("show", source + ":Cargo.lock")
     workspace = git("show", source + ":Cargo.toml")
-    with tempfile.TemporaryDirectory(prefix="F-patch-reconstruction-") as temp:
+    with tempfile.TemporaryDirectory(prefix="effect-conformance-patch-reconstruction-") as temp:
         root = Path(temp)
         for name in selected:
             found = subprocess.run(["git", "-C", str(ROOT), "show", base + ":" + name], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
@@ -73,10 +73,10 @@ def build(source, base, output):
         for name, expected in {**files, "Cargo.toml": workspace, "Cargo.lock": lock}.items():
             if (root / name).read_bytes() != expected:
                 raise ValueError("restored source mismatch: " + name)
-    manifest = {"schema_version": 1, "role": "F", "source_sha": source,
-                "patch_base_sha": base, "contract_sha": A_CONTRACT,
+    manifest = {"schema_version": 1, "role": "effect-conformance", "source_sha": source,
+                "patch_base_sha": base, "contract_sha": COMPOSITION_CONTRACT,
                 "dependency_version": DEPENDENCY_VERSION,
-                "a_component_source": A_COMPONENT_SOURCE,
+                "composition_component_source": COMPOSITION_COMPONENT_SOURCE,
                 "host_component_source": HOST_COMPONENT_SOURCE,
                 "main_baseline_sha": "b736d41b61c4a4146c9e75c16796e251b025e69f",
                 "files": {name: sha(data) for name, data in files.items()},
@@ -84,25 +84,25 @@ def build(source, base, output):
                 "reconstruction": "git apply --check and byte-for-byte source comparison passed",
                 "build_or_native_execution": False,
                 "acceptance": "NOT_ESTABLISHED_BY_PACKAGING"}
-    readme = f"""# F source backup — not an accepted release
+    readme = f"""# Effect Conformance source backup — not an accepted release
 
-This is a reconstructive patch ZIP, not a full repository checkout. F_SOURCE.patch contains all {len(files)} F-owned implementation, contract, test, native harness, CI and documentation files plus the Cargo.toml/Cargo.lock deltas. SOURCE_MANIFEST.json records exact source hashes.
+This is a reconstructive patch ZIP, not a full repository checkout. EFFECT_CONFORMANCE_SOURCE.patch contains all {len(files)} Effect Conformance implementation, contract, test, native harness, CI and documentation files plus the Cargo.toml/Cargo.lock deltas. SOURCE_MANIFEST.json records exact source hashes.
 
 Source: {source}
 Patch base: {base}
-Historical A contract: {A_CONTRACT}
-Reviewed A implementation: {A_COMPONENT_SOURCE}
+Historical Composition contract: {COMPOSITION_CONTRACT}
+Reviewed Composition implementation: {COMPOSITION_COMPONENT_SOURCE}
 Reviewed Host transport: {HOST_COMPONENT_SOURCE}
 Dependency version: {DEPENDENCY_VERSION}
 PR: https://github.com/seradotcom/semwright/pull/172
 
-Prefer continuing the existing effect-conformance worktree and branch. Do not reset it, change another branch, or apply this patch over existing F files. In a separate owned worktree based exactly on the patch base, run git apply --check /path/F_SOURCE.patch before git apply /path/F_SOURCE.patch. Check all restored file hashes against SOURCE_MANIFEST.json. Source-only reconstruction was already verified in a disposable temporary folder; that is not a build, installation, native acceptance or security claim.
+To reconstruct the source package, start from a clean checkout at exactly the recorded patch base. Run `git apply --check /path/EFFECT_CONFORMANCE_SOURCE.patch` before applying the patch, then verify restored file hashes against `SOURCE_MANIFEST.json`. Source-only reconstruction establishes package integrity only; it is not a build, installation, native acceptance or security claim.
 
 All Cargo/build/test, Godot, Blender, fuzz and mutation workloads belong in GitHub-hosted Actions. Use the registered selector in scripts/effects/lane.json and verify the exact tested SHA. Re-running an older workflow does not test newer code. Reports distinguish contractual consumers, native-adapter conformance and production Broker E2E.
 
-Historical docs and CI receipts apply only to their stated source SHA. Packaging establishes no current-SHA acceptance. Owner A review, D/E production adapters, final A/B/C receipts, native negative cases, portability, targeted mutations, audit/license and clean-install evidence must be checked separately. No main merge, release, demo, R16 closure, official trust badge, global noninterference, crash durability or cross-app rollback is authorized by this backup.
+Historical docs and CI receipts apply only to their stated source SHA. Packaging establishes no current-SHA acceptance. Composition review, Godot/Blender production adapters, final Composition/Audio/Project Graph receipts, native negative cases, portability, targeted mutations, audit/license and clean-install evidence must be checked separately. No main merge, release, demo, R16 closure, official trust badge, global noninterference, crash durability or cross-app rollback is authorized by this backup.
 """
-    payloads = {"F_SOURCE.patch": patch,
+    payloads = {"EFFECT_CONFORMANCE_SOURCE.patch": patch,
                 "SOURCE_MANIFEST.json": (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode(),
                 "RESTORE.md": readme.encode()}
     output = Path(output)

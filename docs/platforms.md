@@ -1,33 +1,60 @@
 # Platform architecture and support status
 
-Semwright's architecture is **portable core + platform hosts**. Portability means the command, provider, policy, audit, recipe and driver semantics remain stable while OS-specific mechanics are implemented behind explicit contracts. It does not mean every operating system has identical security primitives or live support.
+Current policy separates **native package availability**, **hosted automated verification** and
+**physical/interactive certification**. The initial-v1 package set targets Linux x86_64/aarch64,
+Windows x86_64/ARM64 and macOS arm64/x86_64. Candidate availability is not a public release or a
+universal desktop-support guarantee. R06/R18 residuals are OPEN/deferred post-v1 and no longer
+initial-v1 admission prerequisites; independent security review remains mandatory. See
+[release policy](release-policy.md) and [installation](installation.md).
 
-| Layer | Linux | macOS | Windows |
-|---|---|---|---|
-| Semantic platform contracts | implemented | implemented | future |
-| Application/window discovery | native Linux backends | source foundation via native Apple APIs | future |
-| Accessibility | AT-SPI | AXUIElement source foundation | future UI Automation |
-| Synthetic input | Linux backend routes | CoreGraphics source foundation | future |
-| Screen capture | portals/PipeWire routes | ScreenCaptureKit source foundation | future |
-| Clipboard | Linux session backend | NSPasteboard source foundation | future |
-| Scoped filesystem | openat2 pinned-root confinement | conservative descriptor-relative source foundation | future |
-| Driver/plugin isolation | bubblewrap + Landlock | fail-closed while supported isolation model is unresolved | future |
-| Service lifecycle | systemd user service | LaunchAgent/SMAppService packaging foundation | future |
+## Recorded implementation/evidence matrix
+
+
+Semwright has a portable core and Linux, macOS and Windows hosts. Implementation, native
+CI and interactive desktop certification are separate claims. This matrix describes source
+`6491c0d838fa066938a494524d69ed507aa0dbe8`, not every later revision.
+
+| Surface | Linux | macOS | Windows |
+| --- | --- | --- | --- |
+| Shared broker/policy/provider contracts | Implemented | Implemented | Implemented |
+| Desktop/application interfaces | AT-SPI and compositor/X11 backends | AX/CoreGraphics host | UIA/native host |
+| Capture/clipboard | Portal/PipeWire/session routes | ScreenCaptureKit/NSPasteboard, subject to consent | Native capture/clipboard; interactive acceptance separate |
+| Filesystem services | Pinned-root/openat2 | Native descriptor-relative mechanisms and limits | Native root-relative mechanisms and limits |
+| Driver/plugin execution | Bubblewrap + Landlock admission | Arbitrary payload execution remains fail-closed | Restricted/AppContainer profiles with native authority tests |
+| Secondary runtime tools | Host-mediated tools/jobs/sessions | Verification does not authorize execution | Host-mediated profiles, explicit unsupported combinations |
+| Real desktop evidence | Hosted and historical real-login cases; R06 physical residuals | Interactive TCC matrix pending | Unlocked-desktop R18 certification pending |
+
+Windows is not a future-only platform. Run
+[37096430846](https://github.com/seradotcom/semwright/actions/runs/37096430846) passed at the
+exact snapshot, covering x64/ARM64 and selected sealed-tool compatibility jobs. It does not
+close R18. The earlier ARM64 fixture failure remains historical evidence; a corrected run
+does not rewrite that failure.
+
+Engineering source `cd518748f742025a251b78028613aa1b16919e73` has separate domain/application
+certificates. Read the [integration ledger](semantic-creation/INTEGRATION.md) without
+relabeling them as executions on this snapshot. Linux evidence never certifies macOS or
+Windows. A hosted UI fixture does not certify physical mixed-DPI displays.
 
 ## Evidence levels
 
-Do not collapse these into one status:
+Source review establishes what a revision implements and requires. Build/cross-checks
+establish compilation for their recorded toolchain/target. Native hosted execution proves
+only the exercised runtime and fixtures. Interactive acceptance requires an authorized
+login session, native consent and actual display/input conditions. Physical hardware and
+model-based productivity evaluation are separate scopes.
 
-1. **portable cross-check** — Rust-only shared crates type-check for a Darwin target;
-2. **native CI** — code is compiled/linked/tested on GitHub-hosted macOS with an Apple SDK;
-3. **live Mac acceptance** — Accessibility, input, ScreenCaptureKit, TCC, multi-display and service behaviour are exercised in an interactive authorized user session.
+A job can be skipped while its workflow concludes successfully. Inspect job status,
+checkout SHA, test selection and artifact provenance rather than a badge or workflow name.
 
-Linux is the verified runtime host. macOS remains experimental until levels 2 and 3 have adequate evidence. A green hosted build must not be represented as TCC/live-desktop certification.
+## Unsupported boundaries
 
-## Security parity
+macOS must not modify TCC databases, disable SIP or use private sandbox facilities to
+manufacture parity. Verification is not execution isolation. Linux retains required
+confinement instead of falling back to direct launch. Windows external MCP mounts remain
+blocked where transparent path virtualization is not proven. Runtime sessions cannot
+approximate unsupported aggregate per-operation CPU accounting.
 
-The common layer expresses policy intent; the host uses the strongest supported enforcement available on that OS. Linux keeps openat2, bubblewrap and Landlock. macOS must not use private Seatbelt APIs, TCC database modification, SIP bypass or `sandbox-exec` as a claimed production equivalent. Where a third-party driver cannot be isolated with a supported mechanism, execution is denied rather than silently downgraded.
-
-## Driver portability
-
-Application protocol logic should avoid OS assumptions. Blender, LibreOffice, OBS, MLT and other drivers should carry application semantics independently of whether the Driver Host runs on Linux or a future validated macOS host. Binary verification, process launch, filesystem mounts and sandboxing belong to the platform host.
+See [runtime tools](runtime-tools.md), [Windows verification](windows/WINDOWS_VERIFY.md),
+[release blockers](../RELEASE_BLOCKERS.md), [compatibility](compatibility.md) and
+[manual acceptance](manual-testing.md). Support is development-only; no production SLA
+or universal application certification is implied.

@@ -1,0 +1,87 @@
+{
+  "checks": [
+    {
+      "command": [
+        "cargo",
+        "build",
+        "--locked",
+        "-p",
+        "semwright-daemon",
+        "-p",
+        "semwright-cli",
+        "--bins"
+      ],
+      "returncode": 0,
+      "seconds": 53.017
+    },
+    {
+      "command": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "semwright-policy",
+        "-p",
+        "semwright-protocol",
+        "-p",
+        "semwright-semantic-composition",
+        "-p",
+        "semwright-project-graph",
+        "-p",
+        "semwright-effect-conformance",
+        "--lib"
+      ],
+      "returncode": 0,
+      "seconds": 11.253
+    },
+    {
+      "command": [
+        "bash",
+        "scripts/dev/fake-smoke.sh"
+      ],
+      "returncode": 0,
+      "seconds": 1.166
+    }
+  ],
+  "classification": "POSITIVE_CONTRACT_AND_FAKE_SMOKE_ONLY",
+  "lock_unchanged": true,
+  "r16_closed": false,
+  "result": "PASS",
+  "schema_version": 1,
+  "source_sha": "6491c0d838fa066938a494524d69ed507aa0dbe8",
+  "source_unchanged": true,
+  "suite_sha": "df17366855be487fc22189658f6a3f0cc0f5dfc5",
+  "run_id": 37099067854,
+  "job_id": 111134879759,
+  "log_sha256": "362f8b47a66519c4691a55c00e4ff5584e5cfd996cd38eb2b3c6a8b38d5837e7",
+  "test_results": [
+    "ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+    "ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s",
+    "ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.19s",
+    "ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s"
+  ],
+  "actual_library_test_counts": {
+    "semwright-policy": 9,
+    "semwright-protocol": 7,
+    "semwright-semantic-composition": 5,
+    "semwright-project-graph": 0,
+    "semwright-effect-conformance": 0
+  },
+  "actual_test_total": 21,
+  "automatic_gate_limitations": [
+    "Exit codes are checked; the harness does not reject zero-test package selections.",
+    "The expected fake result below was inspected by R in the job log, not asserted by r16-smoke.py."
+  ],
+  "observed_fake_result": {
+    "ok": true,
+    "completed": true,
+    "outputs": {
+      "changed": true
+    },
+    "successful_recipe_steps": 2,
+    "fake_backend": true,
+    "native_application": false,
+    "observation_method": "R inspected the source job log"
+  }
+}

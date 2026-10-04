@@ -1,44 +1,101 @@
 name: Release artifacts (fail-closed)
-# Explicit Bash enables pipefail so tee cannot mask a failing producer.
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_sha:
+        description: Exact 40-character SHA of the selected ref
+        type: string
+        required: true
+      publish:
+        description: Explicit maintainer authorization to upload assets to an existing v-tag release
+        type: boolean
+        default: false
+      review_run_id:
+        description: Completed same-repository run containing the independently supplied security-review.json artifact
+        type: string
+        required: false
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
 defaults:
   run:
     shell: bash
-on:
-  workflow_dispatch:
-  push:
-    tags: ['v*']
-permissions:
-  contents: read
+
 jobs:
-  release-admission:
+  staging-admission:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - run: python3 scripts/release/assert-ready.py
-  build:
-    needs: release-admission
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: ubuntu-24.04
-            arch: x86_64
-          - runner: ubuntu-24.04-arm
-            arch: aarch64
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 45
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Enforce engineering staging readiness, never publication authorization
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" == workflow_dispatch ]]; then
+            [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]
+            test "$CANDIDATE_SHA" = "$(git rev-parse HEAD)"
+          fi
+          python3 scripts/release/assert-ready.py --mode staging
+
+  multiplatform-distribution:
+    needs: staging-admission
+    uses: ./.github/workflows/v1-distribution.yml
+
+  publish-release-assets:
+    needs: multiplatform-distribution
+    # A tag push alone NEVER publishes. The maintainer must dispatch this job explicitly.
+    if: github.event_name == 'workflow_dispatch' && inputs.publish == true && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+      REVIEW_RUN_ID: ${{ inputs.review_run_id }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # master
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          toolchain: 1.98.1
-          components: rustfmt, clippy
-      - run: cargo install --locked cargo-audit cargo-deny
-      - run: scripts/ci/rust-gates.sh
-      - run: python3 scripts/release/package.py --bin-dir target/release --arch '${{ matrix.arch }}' --deb
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
-          name: semwright-${{ matrix.arch }}
-          path: dist/
-  # Publication/signing are intentionally absent until a real repository owner,
-  # immutable action SHAs, acceptance evidence and release keys are established.
+          pattern: semwright-v1-*-${{ github.sha }}
+          path: release-assets
+      - name: Obtain independent review handoff, not a self-attestation
+        run: |
+          set -euo pipefail
+          [[ "$REVIEW_RUN_ID" =~ ^[0-9]+$ ]]
+          test "$CANDIDATE_SHA" = "$(git rev-parse HEAD)"
+          test "$(gh run view "$REVIEW_RUN_ID" --json headSha --jq .headSha)" = "$CANDIDATE_SHA"
+          test "$(gh run view "$REVIEW_RUN_ID" --json conclusion --jq .conclusion)" = success
+          gh run download "$REVIEW_RUN_ID" -n independent-security-review -D review
+          test -f review/security-review.json
+      - name: Revalidate exact packages and public admission at the publication boundary
+        run: |
+          set -euo pipefail
+          python3 scripts/release/distribution_manifest.py \
+            --input release-assets --source-sha "$CANDIDATE_SHA" --output validated-manifest
+          python3 scripts/release/assert-ready.py --mode publish \
+            --candidate-sha "$CANDIDATE_SHA" --maintainer-approved \
+            --review-report review/security-review.json \
+            --distribution-manifest validated-manifest/V1_DISTRIBUTION_MANIFEST.json
+      - name: Assemble immutable certified native assets
+        run: |
+          set -euo pipefail
+          mkdir publish
+          find release-assets -type f \( -name '*.tar.gz' -o -name '*.deb' -o -name '*.zip' \) -print0 |
+            while IFS= read -r -d '' file; do cp "$file" publish/; done
+          cp validated-manifest/V1_DISTRIBUTION_MANIFEST.json publish/
+          cp validated-manifest/SHA256SUMS publish/
+          (cd publish && sha256sum -c SHA256SUMS)
+      - name: Require pre-existing GitHub Release for this exact tag
+        run: gh release view "$GITHUB_REF_NAME" >/dev/null
+      - name: Publish certified assets only after explicit approval and all gates
+        run: gh release upload "$GITHUB_REF_NAME" publish/*

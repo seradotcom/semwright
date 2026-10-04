@@ -1,7 +1,7 @@
-# G Godot native adversarial findings
+# Godot native adversarial findings
 
 Exact product target: e6bd9489d7983d275fd1454dd7ab26916d3fbb15
-G suite: a337709ffdd2e05f40da408e3a78183651dff113
+Lab suite: a337709ffdd2e05f40da408e3a78183651dff113
 Run: 36818122155
 Godot-native job: 110227589092
 
@@ -18,13 +18,13 @@ Godot-native job: 110227589092
 - Receipt SHA-256: 7c4b1dadc37c97c43e9e7a29f6af8b709cb4c94d21e2b01a557303259e59ea48
 - Artifact SHA-256: 3813bc488c953f32740c1b8df43bfd7f369ae8f8c5a3cf496c1074c31881fcd7
 
-Selftest suite on the same G SHA passed 99/99.
+Selftest suite on the same lab SHA passed 99/99.
 
 ## G-FIND-D-001 — persistence dependency stability
 
 Case: G-GODOT-006.
 
-Both save-candidate and reopen-candidate observations are from fresh Godot processes and individually pass D decode_observation. D persistence_value rejects the pair because normalized dependency sentinels differ.
+Both save-candidate and reopen-candidate observations are from fresh Godot processes and individually pass the Godot decode_observation contract. The Godot persistence_value contract rejects the pair because normalized dependency sentinels differ.
 
 Writer dependencies: 4. Reader dependencies: 3.
 
@@ -38,7 +38,7 @@ Observed result: fresh_process=true, persistence_verified=false.
 
 G-GODOT-007 remains BLOCKED because a dependency-tamper negative cannot be isolated while baseline persistence is red.
 
-Reported to owner D on PR #176.
+Reported on the Godot implementation on PR #176.
 
 ## G-FIND-D-002 — native observer false-PASS
 
@@ -55,18 +55,18 @@ Observed:
 - observer_reported_failures_empty=true
 - script_errors_absent=false
 
-Reported to owner D on PR #176.
+Reported on the Godot implementation on PR #176.
 
-## Closed G harness noise
+## Closed lab harness noise
 
-Earlier failures before case execution were G-owned and are not product findings: helper crate identity, font/xdg sandbox visibility, native address-space/file-size bounds, managed-store identity materialization, save/reopen process orchestration, and AppArmor execution paths.
+Earlier failures before case execution were lab-owned and are not product findings: helper crate identity, font/xdg sandbox visibility, native address-space/file-size bounds, managed-store identity materialization, save/reopen process orchestration, and AppArmor execution paths.
 
 G-GODOT-011 export and G-GODOT-012 standalone launch both PASS in the final run, so export harness noise is closed.
 
 ## Owner status
 
-D published FIX_SHA 70bd7857e9700b6f03547a706ff0e6496ffd838e specifically addressing both G native findings. The closure retest below supersedes the earlier owner-open status.
+The Godot implementation published FIX_SHA 70bd7857e9700b6f03547a706ff0e6496ffd838e specifically addressing both G native findings. The closure retest below supersedes the earlier owner-open status.
 
 ## Closure retest
 
-D FIX_SHA 70bd7857e9700b6f03547a706ff0e6496ffd838e was retested by G on suite 366772a088c786f8e9e1f4a1602d0b14778453d4, run 36940490321, Godot-native job 110636591865. Result: 13/13 PASS. G-GODOT-006, G-GODOT-007 and G-GODOT-013 all pass. Receipt SHA-256: 521da5cbe0c65bc84e38c9ab67f088385809f6bcb9f867a98d32c44900b4ddbb. Artifact SHA-256: 183d8686c45d774d1b0061eed28e892417f4dcf414831945c7f90a4b52e23dd6. G-FIND-D-001 and G-FIND-D-002 are CLOSED_RETEST_PASS.
+Godot FIX_SHA 70bd7857e9700b6f03547a706ff0e6496ffd838e was retested by the lab on suite 366772a088c786f8e9e1f4a1602d0b14778453d4, run 36940490321, Godot-native job 110636591865. Result: 13/13 PASS. G-GODOT-006, G-GODOT-007 and G-GODOT-013 all pass. Receipt SHA-256: 521da5cbe0c65bc84e38c9ab67f088385809f6bcb9f867a98d32c44900b4ddbb. Artifact SHA-256: 183d8686c45d774d1b0061eed28e892417f4dcf414831945c7f90a4b52e23dd6. G-FIND-D-001 and G-FIND-D-002 are CLOSED_RETEST_PASS.

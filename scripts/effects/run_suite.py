@@ -22,10 +22,10 @@ sha = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
 if sha != os.environ.get("EXPECTED_SHA"):
     raise SystemExit("checkout differs from expected source SHA")
 started = time.monotonic()
-receipt = {"schema_version": 1, "role": "F", "source_sha": sha,
+receipt = {"schema_version": 1, "role": "effect-conformance", "source_sha": sha,
            "suite_sha": sha, "event_sha": os.environ.get("GITHUB_SHA"),
            "contract_sha": "26602e4b25929be869d69ef28fef4dd9713180d7",
-           "dependency_shas": {"A_C0":"26602e4b25929be869d69ef28fef4dd9713180d7","C_P0":"6ee52b428310370d3ad438a13964086a63f48367"},
+           "dependency_shas": {"composition_c0":"26602e4b25929be869d69ef28fef4dd9713180d7","project_graph_p0":"6ee52b428310370d3ad438a13964086a63f48367"},
            "runner_os": os.environ.get("RUNNER_OS"), "runner_arch": os.environ.get("RUNNER_ARCH"),
            "suite": sys.argv[1], "workflow": os.environ.get("GITHUB_WORKFLOW"),
            "run_id": os.environ.get("GITHUB_RUN_ID"), "attempt": os.environ.get("GITHUB_RUN_ATTEMPT"),

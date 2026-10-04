@@ -1,9 +1,11 @@
 # Compatibility and verification levels
 
 This table separates implementation from evidence. A compile or cross-target check is not a live desktop certificate.
-The pre-R16 observation is `241000c268d1bf1dc29d4e91a913097ac0d020cb`; historical records retain
-independent environment/SHA limits. Consult `../verification/pre-r16/` for observed gate failures
-and unresolved work before treating any later commit as a review candidate.
+R's current review snapshot is `6491c0d838fa066938a494524d69ed507aa0dbe8`; the earlier
+`241000c268d1bf1dc29d4e91a913097ac0d020cb` preflight retains its failed Windows result.
+The entries below combine implementation with explicitly historical evidence, not fresh
+execution of every route on R's snapshot. Consult [platforms](platforms.md),
+[verification](../VERIFY.md) and [I's ledger](semantic-creation/INTEGRATION.md).
 
 | Environment or route | Implementation boundary | Current evidence | Remaining |
 |---|---|---|---|
@@ -23,7 +25,7 @@ and unresolved work before treating any later commit as a review candidate.
 | Figma | official Plugin API via authenticated loopback DriverProvider bridge | typed/plugin/fake-host tests, sandboxed host CI and historical Figma 126.5.6 driver-protocol proof at 3cd86958 | full CLI/broker and broader Design/FigJam/Motion acceptance are not established by that limited proof |
 | Chromium | private-profile CDP adapter | real hosted browser integration on Linux development line | broader OS matrix |
 | Plugins | platform sandbox service | Linux Bubblewrap/Landlock with executed hostile plugin/driver fixtures; platform-specific Windows authority tests | independent review and broader platform/live coverage |
-| Windows | UIA, input/capture, named-pipe IPC and restricted process-launch host | native x64/ARM64 and sealed-tool compatibility jobs; observed ARM64 UIA fixture failed on a stale reference | resolve the exact-SHA fixture failure; interactive consent/capture/UIPI/session/display matrix remains separately limited |
+| Windows | UIA, input/capture, named-pipe IPC and restricted process-launch host | run 37096430846 passed native x64/ARM64 and selected sealed-tool compatibility jobs on R's snapshot; older fixture failures remain recorded | interactive consent/capture/UIPI/session/display matrix remains open under R18 |
 
 Bridge manifests and source availability are not support guarantees. macOS support must not be announced solely from Linux cross-compilation or hosted noninteractive tests. Windows is implemented, but a hosted job or cross-check does not imply interactive acceptance,
 full Linux-equivalent isolation, or a fallback after a failed target/focus precondition.

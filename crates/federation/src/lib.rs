@@ -3,7 +3,9 @@ pub mod upstreams;
 use async_trait::async_trait;
 use rmcp::{
     ClientHandler, RoleClient, ServiceExt,
-    model::{CallToolRequest, CallToolRequestParams, ClientRequest, ServerResult},
+    model::{
+        CallToolRequest, CallToolRequestParams, ClientRequest, PaginatedRequestParams, ServerResult,
+    },
     service::{NotificationContext, Peer, PeerRequestOptions, RunningServiceCancellationToken},
 };
 use semwright_backend_api::{
@@ -44,6 +46,9 @@ fn default_enabled() -> bool {
 fn default_read_only() -> bool {
     true
 }
+
+const MAX_IMPORTED_MCP_TOOLS: usize = 512;
+const MAX_MCP_TOOL_LIST_PAGES: usize = 512;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -600,17 +605,44 @@ impl ExternalMcpProvider {
         ))
     }
 
-    async fn refresh_tools(&self) -> Result<Vec<ProvidedCapability>> {
-        let tools = tokio::time::timeout(Duration::from_secs(10), self.peer.list_all_tools())
-            .await
-            .map_err(|_| Error::new(ErrorCode::Timeout, "MCP tools/list timed out"))?
-            .map_err(|_| Error::new(ErrorCode::BackendFailed, "MCP tools/list failed"))?;
-        if tools.len() > 512 {
-            return Err(Error::new(
-                ErrorCode::ResourceExhausted,
-                "MCP upstream exposes too many tools",
-            ));
+    async fn list_tools_bounded(&self) -> Result<Vec<rmcp::model::Tool>> {
+        let mut tools = Vec::new();
+        let mut cursor = None;
+        let mut seen_cursors = BTreeSet::new();
+        for _ in 0..MAX_MCP_TOOL_LIST_PAGES {
+            let result = self
+                .peer
+                .list_tools(Some(PaginatedRequestParams::default().with_cursor(cursor)))
+                .await
+                .map_err(|_| Error::new(ErrorCode::BackendFailed, "MCP tools/list failed"))?;
+            if result.tools.len() > MAX_IMPORTED_MCP_TOOLS.saturating_sub(tools.len()) {
+                return Err(Error::new(
+                    ErrorCode::ResourceExhausted,
+                    "MCP upstream exceeds the bounded tool catalog",
+                ));
+            }
+            tools.extend(result.tools);
+            let Some(next_cursor) = result.next_cursor else {
+                return Ok(tools);
+            };
+            if !seen_cursors.insert(next_cursor.clone()) {
+                return Err(Error::new(
+                    ErrorCode::Conflict,
+                    "MCP upstream repeated a tools/list cursor",
+                ));
+            }
+            cursor = Some(next_cursor);
         }
+        Err(Error::new(
+            ErrorCode::ResourceExhausted,
+            "MCP upstream exceeds the tools/list page budget",
+        ))
+    }
+
+    async fn refresh_tools(&self) -> Result<Vec<ProvidedCapability>> {
+        let tools = tokio::time::timeout(Duration::from_secs(10), self.list_tools_bounded())
+            .await
+            .map_err(|_| Error::new(ErrorCode::Timeout, "MCP tools/list timed out"))??;
         let mut names = BTreeSet::new();
         let mut capabilities = Vec::with_capacity(tools.len());
         let mut imported = BTreeMap::new();

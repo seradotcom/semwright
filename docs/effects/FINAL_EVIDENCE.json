@@ -1,14 +1,14 @@
 {
   "schema_version": 1,
-  "role": "F",
+  "role": "effect-conformance",
   "state": "NATIVE_COMPLETE_CONSUMER_RECONCILIATION_PENDING",
   "baseline_sha": "b736d41b61c4a4146c9e75c16796e251b025e69f",
   "implementation_source_sha": "d2cfd86a2ee064aa5de8f0a8944319edf6dbb060",
   "e0_sha": "dd6d22d6ec6c7c5ef378da58ed75ca18b25ba5ff",
   "contract_sha": "26602e4b25929be869d69ef28fef4dd9713180d7",
   "dependencies": {
-    "A_C0": "26602e4b25929be869d69ef28fef4dd9713180d7",
-    "C_P0": "6ee52b428310370d3ad438a13964086a63f48367"
+    "composition_c0": "26602e4b25929be869d69ef28fef4dd9713180d7",
+    "project_graph_p0": "6ee52b428310370d3ad438a13964086a63f48367"
   },
   "effect_conformance": {
     "run_id": 36942492444,
@@ -49,11 +49,11 @@
     "supply_chain": {"run_id": 36683883597, "conclusion": "success", "attestation": "skipped_not_claimed"}
   },
   "consumers": {
-    "A": "PreparedPlan compile/binding consumer PASS; E0 ownership boundary APPROVED by A final 7ab43f99 / PR #172 issuecomment-5942070000",
-    "C": "P0 receipt consumer PASS",
-    "D": "production EvidenceAdapter/collect/evaluate; exact certification 655a233 / run 36742703497 PASS",
-    "E": "exact head f492f13 contains both requested F semantic fixes; authoring run 36942759168 SUCCESS",
-    "B": "contractual Audio compatibility only; production consumer pending after df2654b audio recertification"
+    "Composition": "PreparedPlan compile/binding consumer PASS; E0 ownership boundary APPROVED by Composition final 7ab43f99 / PR #172 issuecomment-5942070000",
+    "Project Graph": "P0 receipt consumer PASS",
+    "Godot": "production EvidenceAdapter/collect/evaluate; exact certification 655a233 / run 36742703497 PASS",
+    "Blender": "exact head f492f13 contains both requested Effect Conformance semantic fixes; authoring run 36942759168 SUCCESS",
+    "Audio": "contractual compatibility only; production consumer pending after df2654b audio recertification"
   },
   "requirements": {
     "F01": "PASS",
@@ -72,7 +72,7 @@
     "F14": "PASS"
   },
   "backup": {
-    "path": "docs/effects/backup/semwright-effect-conformance-F-d2cfd86.zip",
+    "path": "docs/effects/backup/semwright-effect-conformance-d2cfd86.zip",
     "sha256": "31536b484a3fc9e54fce7d3c570fa41440a1ccb043e4313b13c078061342f542",
     "format": "reconstructive-source-zip"
   },

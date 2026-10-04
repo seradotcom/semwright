@@ -1,6 +1,6 @@
 # Driver Quality Contract — workflow-scoped dimensions
 
-`workflow_quality` produces nine orthogonal dimensions, each using A's Verdict and evaluated RuleResults. There is no score, capability-count ranking or official trust badge. The identity includes driver/version/runtime/OS/workflow/fixture/source SHA and distinguishes contractual, native-adapter and native-Broker evidence.
+`workflow_quality` produces nine orthogonal dimensions, each using the shared Composition Verdict and evaluated RuleResults. There is no score, capability-count ranking or official trust badge. The identity includes driver/version/runtime/OS/workflow/fixture/source SHA and distinguishes contractual, native-adapter and native-Broker evidence.
 
 | Dimension | Required observation |
 |---|---|
@@ -20,4 +20,4 @@ The read-after-write route may be a native property, graph projection, independe
 
 The Godot probe exercises scene-only SaveOps, native ReadbackOps, fresh reopen, external material/animation bytes and a bounded inventory. The Blender probe exercises fixed Commands authoring, collection-limited GLB, fresh .blend reopen, decoded GLB node membership and receipt-vs-file digest. Four cases per backend include the positive path, content mutants and a fixed post-write readback fault; that fault must remain UNKNOWN with no evidence. It does not prove crash durability or recovery. Exact implementation source `d2cfd86a2ee064aa5de8f0a8944319edf6dbb060` passed these native cases in Actions run 36942492444, together with the explicit Forbidden-obligation regression.
 
-Current gaps: B production integration in the later A/B media graph, exact-head validation of E's resolved preservation obligation/scope findings, Godot-native enumeration for mutable multi-page app state, and actual crash/recovery evidence. A owner approval is complete. The bounded F Godot/Blender quality matrices and native conformance are confirmed at `d2cfd86`; Recovery must remain UNKNOWN.
+Current gaps at this historical checkpoint: production audio integration in the later AV media graph, exact-head validation of the resolved Blender preservation obligation/scope findings, Godot-native enumeration for mutable multi-page app state, and actual crash/recovery evidence. Composition review is complete. The bounded Effect Conformance Godot/Blender quality matrices and native conformance are confirmed at `d2cfd86`; Recovery must remain UNKNOWN.

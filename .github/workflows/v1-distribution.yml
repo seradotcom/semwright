@@ -1,0 +1,248 @@
+name: V1 multiplatform distribution
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'release-readiness.json'
+      - 'tests/python/test_release_admission.py'
+      - 'tests/python/test_staging_bundle.py'
+      - 'scripts/release/**'
+      - 'packaging/**'
+      - 'docs/installation.md'
+      - 'README.md'
+      - 'SECURITY.md'
+      - 'SUPPORT.md'
+      - 'V1_ENGINEERING_CLOSEOUT.md'
+      - 'POST_V1_BACKLOG.md'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/v1-distribution.yml'
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: v1-distribution-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_RELEASE_DEBUG: 0
+
+jobs:
+  staging-admission:
+    name: Staging admission (not publication)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - run: python3 scripts/release/assert-ready.py --mode staging
+      - run: python3 -m unittest discover -s tests/python -p test_release_admission.py -v
+      - run: python3 -m unittest discover -s tests/python -p test_staging_bundle.py -v
+
+  linux:
+    needs: staging-admission
+    name: Linux ${{ matrix.arch }} packages
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: x86_64
+          - runner: ubuntu-24.04-arm
+            arch: aarch64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: v1-dist-linux-${{ matrix.arch }}
+      - name: Install Linux packaging dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y libpipewire-0.3-dev dpkg-dev
+      - name: Build release binaries
+        run: |
+          cargo build --locked --release \
+            -p semwright-cli --bin semwright \
+            -p semwright-daemon --bin semwrightd \
+            -p semwright-mcp --bin semwright-mcp \
+            -p semwright-tui --bin semwright-inspect \
+            -p semwright-plugin-host --bin semwright-sandbox
+      - name: Certify Linux package contracts
+        run: |
+          mkdir -p dist
+          python3 scripts/release/certify-packaging.py \
+            --bin-dir target/release \
+            --arch "${{ matrix.arch }}" \
+            --report "dist/certification-linux-${{ matrix.arch }}.json"
+          python3 scripts/release/build-certification-packages.py \
+            --bin-dir target/release \
+            --arch "${{ matrix.arch }}" \
+            --output dist \
+            --report "dist/build-linux-${{ matrix.arch }}.json"
+          python3 scripts/release/certify_deb_install.py \
+            --report "dist/certification-linux-${{ matrix.arch }}.json"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: semwright-v1-linux-${{ matrix.arch }}-${{ github.sha }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30
+
+  windows:
+    needs: staging-admission
+    name: Windows ${{ matrix.arch }} portable ZIP
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include:
+          - runner: windows-2025
+            arch: x86_64
+            runner_arch: X64
+          - runner: windows-11-arm
+            arch: arm64
+            runner_arch: ARM64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 55
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: v1-dist-windows-${{ matrix.arch }}
+      - name: Verify native Windows architecture
+        run: |
+          set -euo pipefail
+          test "$RUNNER_ARCH" = "${{ matrix.runner_arch }}"
+          rustc -vV
+      - name: Build Windows release binaries
+        run: |
+          cargo build --locked --release \
+            -p semwright-cli --bin semwright \
+            -p semwright-daemon --bin semwrightd \
+            -p semwright-mcp --bin semwright-mcp \
+            -p semwright-tui --bin semwright-inspect \
+            -p semwright-plugin-host --bin semwright-sandbox
+      - name: Certify PE architecture and portable ZIP
+        run: |
+          python scripts/release/portable_package.py \
+            --bin-dir target/release \
+            --platform windows \
+            --arch "${{ matrix.arch }}" \
+            --output dist \
+            --report "dist/certification-windows-${{ matrix.arch }}.json"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: semwright-v1-windows-${{ matrix.arch }}-${{ github.sha }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30
+
+  macos:
+    needs: staging-admission
+    name: macOS ${{ matrix.arch }} portable archive
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        include:
+          - runner: macos-15
+            arch: arm64
+            uname_arch: arm64
+          - runner: macos-15-intel
+            arch: x86_64
+            uname_arch: x86_64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 55
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: v1-dist-macos-${{ matrix.arch }}
+      - name: Verify native macOS architecture
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = "${{ matrix.uname_arch }}"
+          sw_vers
+          rustc -vV
+      - name: Build macOS release binaries
+        run: |
+          cargo build --locked --release \
+            -p semwright-cli --bin semwright \
+            -p semwright-daemon --bin semwrightd \
+            -p semwright-mcp --bin semwright-mcp \
+            -p semwright-tui --bin semwright-inspect \
+            -p semwright-plugin-host --bin semwright-sandbox
+      - name: Certify Mach-O architecture and portable archive
+        run: |
+          python3 scripts/release/portable_package.py \
+            --bin-dir target/release \
+            --platform macos \
+            --arch "${{ matrix.arch }}" \
+            --output dist \
+            --report "dist/certification-macos-${{ matrix.arch }}.json"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: semwright-v1-macos-${{ matrix.arch }}-${{ github.sha }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30
+
+  manifest:
+    name: V1 distribution manifest
+    needs: [linux, windows, macos]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          pattern: semwright-v1-*-${{ github.sha }}
+          path: downloaded
+      - name: Verify all six native package gates and build global manifest
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          python3 scripts/release/distribution_manifest.py \
+            --input downloaded --source-sha "$SOURCE_SHA" --output distribution-manifest
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: semwright-v1-distribution-manifest-${{ github.sha }}
+          path: distribution-manifest/
+          if-no-files-found: error
+          retention-days: 30

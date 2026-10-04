@@ -19,6 +19,8 @@ enum FixtureMode {
     Normal,
     DuplicateTools,
     MalformedSchema,
+    OversizedPagination,
+    CursorCycle,
 }
 
 #[derive(Clone, Default)]
@@ -31,7 +33,12 @@ fn schema(value: Value) -> Arc<serde_json::Map<String, Value>> {
     Arc::new(value.as_object().expect("schema object").clone())
 }
 
-fn tool(name: &'static str, description: &'static str, input: Value, output: Value) -> Tool {
+fn tool(
+    name: impl Into<std::borrow::Cow<'static, str>>,
+    description: impl Into<std::borrow::Cow<'static, str>>,
+    input: Value,
+    output: Value,
+) -> Tool {
     Tool::new(name, description, schema(input))
         .with_raw_output_schema(schema(output))
         .with_annotations(
@@ -57,9 +64,46 @@ impl ServerHandler for Fixture {
 
     async fn list_tools(
         &self,
-        _request: Option<PaginatedRequestParams>,
+        request: Option<PaginatedRequestParams>,
         _context: RequestContext<RoleServer>,
     ) -> std::result::Result<ListToolsResult, ErrorData> {
+        if self.mode == FixtureMode::OversizedPagination {
+            let cursor = request.as_ref().and_then(|params| params.cursor.as_deref());
+            let (start, count, next_cursor) = match cursor {
+                None => (0usize, 256usize, Some("bulk-page-2")),
+                Some("bulk-page-2") => (256usize, 257usize, None),
+                Some(_) => return Err(ErrorData::invalid_params("unknown fixture cursor", None)),
+            };
+            let tools = (start..start + count)
+                .map(|index| {
+                    tool(
+                        format!("bulk_{index:03}"),
+                        "Synthetic paginated catalog entry",
+                        json!({"type":"object","additionalProperties":false}),
+                        json!({"type":"object","additionalProperties":false}),
+                    )
+                })
+                .collect();
+            let mut result = ListToolsResult::with_all_items(tools);
+            result.next_cursor = next_cursor.map(str::to_owned);
+            return Ok(result);
+        }
+        if self.mode == FixtureMode::CursorCycle {
+            let page = usize::from(
+                request
+                    .as_ref()
+                    .and_then(|params| params.cursor.as_deref())
+                    .is_some(),
+            );
+            let mut result = ListToolsResult::with_all_items(vec![tool(
+                format!("cycle_{page}"),
+                "Synthetic cursor-cycle catalog entry",
+                json!({"type":"object","additionalProperties":false}),
+                json!({"type":"object","additionalProperties":false}),
+            )]);
+            result.next_cursor = Some("loop".into());
+            return Ok(result);
+        }
         let mut tools = vec![
             tool(
                 "echo",
@@ -333,6 +377,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         None => FixtureMode::Normal,
         Some("--duplicate-tools") => FixtureMode::DuplicateTools,
         Some("--malformed-schema") => FixtureMode::MalformedSchema,
+        Some("--oversized-pagination") => FixtureMode::OversizedPagination,
+        Some("--cursor-cycle") => FixtureMode::CursorCycle,
         Some(_) => return Err("unknown fixture mode".into()),
     };
     let service = Fixture {

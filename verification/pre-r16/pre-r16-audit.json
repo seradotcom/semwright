@@ -265,7 +265,7 @@
     "composition_media": 5876417178
   },
   "scope_exclusions": [
-    "no edits to other agents worktrees",
+    "no edits to unrelated active worktrees",
     "no canonical checkout implementation",
     "no heavy compilation or dependency installs on connected device",
     "no new feature campaign",

@@ -76,13 +76,13 @@ jobs:
           python3 scripts/blender-authoring/classify_iteration.py --self-test
           python3 -m json.tool .ci/blender-authoring.json >/dev/null
 
-      - name: Preflight integrated D and F source backup dependencies
+      - name: Preflight integrated Godot and Effect Conformance source backup dependencies
         if: steps.plan.outputs.certification == 'true'
         run: |
           python3 scripts/godot-authoring/package_source.py --source "$GITHUB_SHA" --output "$RUNNER_TEMP/integrated-D-source-preflight.zip" > evidence/blender-authoring/d-source-preflight.json
           python3 scripts/effects/package_source.py --source "$GITHUB_SHA" --output "$RUNNER_TEMP/integrated-F-source-preflight.zip" > evidence/blender-authoring/f-source-preflight.json
 
-      - name: Reproducible E source backup
+      - name: Reproducible Blender authoring source backup
         if: steps.plan.outputs.package == 'true'
         run: |
           set -o pipefail

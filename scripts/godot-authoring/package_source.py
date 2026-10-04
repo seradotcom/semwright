@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministic D source backup from immutable Git objects.
+"""Deterministic Godot authoring source backup from immutable Git objects.
 
 Packaging is source reconstruction only. It does not establish native acceptance,
 release readiness, security certification, or R16 closure.
@@ -17,13 +17,13 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[2]
 PATCH_BASE = "a6b5bebbb022ae1e29c2b8e1ec3d4358cee7fb35"
 DEPENDENCY_VERSION = 4
-A_COMPONENT_SOURCE = "6e1261d645699e99fe94ad902b5fb26956f92102"
+COMPOSITION_COMPONENT_SOURCE = "6e1261d645699e99fe94ad902b5fb26956f92102"
 HOST_COMPONENT_SOURCE = "a6b5bebbb022ae1e29c2b8e1ec3d4358cee7fb35"
-A_C0 = "26602e4b25929be869d69ef28fef4dd9713180d7"
-A_FINAL = "65b773f4dd627b860358342f4d40a1ac532566d1"
-C_P0 = "6ee52b428310370d3ad438a13964086a63f48367"
-C_FINAL = "77b34d8abad50f242c4c8494e280fe82d5cbcf55"
-F_SOURCE = "eadd5caf9b3f47f24158de530b87ad07e597f25e"
+COMPOSITION_C0 = "26602e4b25929be869d69ef28fef4dd9713180d7"
+COMPOSITION_FINAL = "65b773f4dd627b860358342f4d40a1ac532566d1"
+PROJECT_GRAPH_P0 = "6ee52b428310370d3ad438a13964086a63f48367"
+PROJECT_GRAPH_FINAL = "77b34d8abad50f242c4c8494e280fe82d5cbcf55"
+EFFECT_CONFORMANCE_SOURCE = "eadd5caf9b3f47f24158de530b87ad07e597f25e"
 PR = 176
 OWNED = (
     "crates/driver-godot/",
@@ -89,17 +89,17 @@ def zip_entry(archive, name, data, executable=False):
 def build(source, output):
     if os.environ.get("GITHUB_ACTIONS") != "true" or os.environ.get("RUNNER_ENVIRONMENT") != "github-hosted":
         raise ValueError("D packaging is restricted to GitHub-hosted Actions")
-    for commit in [source, PATCH_BASE, A_C0, A_FINAL, C_P0, C_FINAL, F_SOURCE, A_COMPONENT_SOURCE, HOST_COMPONENT_SOURCE]:
+    for commit in [source, PATCH_BASE, COMPOSITION_C0, COMPOSITION_FINAL, PROJECT_GRAPH_P0, PROJECT_GRAPH_FINAL, EFFECT_CONFORMANCE_SOURCE, COMPOSITION_COMPONENT_SOURCE, HOST_COMPONENT_SOURCE]:
         if not re.fullmatch(r"[a-f0-9]{40}", commit):
             raise ValueError("dependency IDs must be full immutable commit SHAs")
         run_git("cat-file", "-e", commit + "^{commit}")
     if git("rev-parse", "HEAD").decode().strip() != source or os.environ.get("GITHUB_SHA") != source:
         raise ValueError("package source must equal exact Actions checkout")
-    if tree(source, "crates/semantic-composition") != tree(A_COMPONENT_SOURCE, "crates/semantic-composition"):
+    if tree(source, "crates/semantic-composition") != tree(COMPOSITION_COMPONENT_SOURCE, "crates/semantic-composition"):
         raise ValueError("A Composition tree changed")
-    if tree(source, "crates/project-graph") != tree(C_FINAL, "crates/project-graph"):
+    if tree(source, "crates/project-graph") != tree(PROJECT_GRAPH_FINAL, "crates/project-graph"):
         raise ValueError("C final Project Graph tree changed")
-    if tree(source, "crates/effect-conformance") != tree(F_SOURCE, "crates/effect-conformance"):
+    if tree(source, "crates/effect-conformance") != tree(EFFECT_CONFORMANCE_SOURCE, "crates/effect-conformance"):
         raise ValueError("F consumed source changed")
 
     for path in ["crates/driver-sdk", "crates/driver-host"]:
@@ -108,7 +108,7 @@ def build(source, output):
 
     names = current_files(source)
     if not names or len(names) > 384:
-        raise ValueError("unexpected D source file count")
+        raise ValueError("unexpected Godot source file count")
     files = {}
     total = 0
     for name in names:
@@ -118,7 +118,7 @@ def build(source, output):
         total += len(data)
         files[name] = data
     if total > 16_777_216:
-        raise ValueError("D source package exceeds 16 MiB source budget")
+        raise ValueError("Godot source package exceeds 16 MiB source budget")
 
     pathspec = [*OWNED, *SINGLES]
     patch = git(
@@ -163,20 +163,20 @@ def build(source, output):
 
     manifest = {
         "schema_version": 1,
-        "role": "D",
+        "role": "godot-authoring",
         "source_sha": source,
         "pr": PR,
         "baseline_sha": "b736d41b61c4a4146c9e75c16796e251b025e69f",
         "patch_base_sha": PATCH_BASE,
         "dependency_version": DEPENDENCY_VERSION,
         "dependencies": {
-            "a_c0": A_C0,
-            "a_final": A_FINAL,
-            "a_component_source": A_COMPONENT_SOURCE,
+            "composition_c0": COMPOSITION_C0,
+            "composition_final": COMPOSITION_FINAL,
+            "composition_component_source": COMPOSITION_COMPONENT_SOURCE,
             "host_component_source": HOST_COMPONENT_SOURCE,
-            "c_p0": C_P0,
-            "c_final": C_FINAL,
-            "f_source": F_SOURCE,
+            "project_graph_p0": PROJECT_GRAPH_P0,
+            "project_graph_final": PROJECT_GRAPH_FINAL,
+            "effect_conformance_source": EFFECT_CONFORMANCE_SOURCE,
         },
         "files": {
             name: {"sha256": sha(data), "bytes": len(data)}
@@ -188,17 +188,17 @@ def build(source, output):
         "build_or_native_execution": False,
         "godot_authoring_ready": False,
     }
-    restore_md = f"""# Semwright Godot authoring D source backup
+    restore_md = f"""# Semwright Godot authoring source backup
 
 Source SHA: {source}
 Patch base: {PATCH_BASE}
 PR: https://github.com/seradotcom/semwright/pull/{PR}
 
 This deterministic ZIP is a source backup, not a release or acceptance result.
-Use a separate owned checkout at exactly PATCH_BASE, verify D_SOURCE.patch with
+Use a separate owned checkout at exactly PATCH_BASE, verify GODOT_AUTHORING_SOURCE.patch with
 git apply --check, apply it, then compare selected paths to SOURCE_MANIFEST.json.
 
-A/C/F dependencies are pinned in the manifest and are not duplicated as alternate
+Composition/Project Graph/Effect Conformance dependencies are pinned in the manifest and are not duplicated as alternate
 authorities. No .git, target/, native runtimes, import caches, export binaries,
 credentials, user files or prior backup ZIPs are included. Build, Godot, export,
 hostile and final exact-SHA validation remain GitHub-hosted Actions obligations.
@@ -206,7 +206,7 @@ hostile and final exact-SHA validation remain GitHub-hosted Actions obligations.
     output = Path(output)
     output.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
-        zip_entry(archive, "D_SOURCE.patch", patch)
+        zip_entry(archive, "GODOT_AUTHORING_SOURCE.patch", patch)
         zip_entry(
             archive, "SOURCE_MANIFEST.json",
             (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode(),

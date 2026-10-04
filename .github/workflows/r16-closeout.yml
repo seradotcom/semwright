@@ -1,0 +1,93 @@
+name: R16 documentary closeout
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/r16-closeout.yml'
+      - 'README.md'
+      - 'V1_ENGINEERING_CLOSEOUT.md'
+      - 'POST_V1_BACKLOG.md'
+      - 'release-readiness.json'
+      - 'docs/installation.md'
+      - 'scripts/review/**'
+      - 'tests/python/test_r16_closeout.py'
+      - 'verification/r16-closeout/**'
+      - 'verification/v1-engineering-closeout*.json'
+  push:
+    branches: [main, audit/r16-release-closeout]
+    paths:
+      - '.github/workflows/r16-closeout.yml'
+      - 'README.md'
+      - 'V1_ENGINEERING_CLOSEOUT.md'
+      - 'POST_V1_BACKLOG.md'
+      - 'release-readiness.json'
+      - 'docs/installation.md'
+      - 'scripts/review/**'
+      - 'tests/python/test_r16_closeout.py'
+      - 'verification/r16-closeout/**'
+      - 'verification/v1-engineering-closeout*.json'
+  workflow_dispatch:
+    inputs:
+      run_smoke:
+        description: Run bounded frozen-source positive tests and fake quickstart
+        type: boolean
+        default: false
+      source_sha:
+        description: Exact 40-character source SHA to test; blank uses this workflow ref
+        type: string
+        required: false
+        default: ''
+permissions:
+  contents: read
+concurrency:
+  group: r16-closeout-${{ github.ref }}
+  cancel-in-progress: false
+defaults:
+  run:
+    shell: bash
+jobs:
+  documentary:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - run: python3 scripts/review/validate_r16.py
+      - run: python3 -m unittest discover -s tests/python -p test_r16_closeout.py -v
+      - run: python3 scripts/review/package_r16_closeout.py --historical-check
+      - run: python3 scripts/verify-oss-hygiene.py
+  positive-smoke:
+    needs: documentary
+    if: (github.event_name == 'workflow_dispatch' && inputs.run_smoke == true) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[r16-smoke]'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_PROFILE_DEV_DEBUG: '0'
+      CARGO_PROFILE_TEST_DEBUG: '0'
+      CARGO_TERM_COLOR: never
+      REVIEW_SUITE_SHA: ${{ github.sha }}
+      REVIEW_SOURCE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.source_sha || github.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          path: suite
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.source_sha || github.sha }}
+          path: source
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: 1.98.1
+      - name: Install ordinary build prerequisites on disposable runner
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y build-essential pkg-config clang libpipewire-0.3-dev
+      - name: Record environment and execute positive source checks
+        run: |
+          rustc --version --verbose
+          cargo --version
+          uname -srmo
+          python3 suite/scripts/review/r16-smoke.py             --source source             --expected-source-sha "$REVIEW_SOURCE_SHA"             --suite-sha "$REVIEW_SUITE_SHA"

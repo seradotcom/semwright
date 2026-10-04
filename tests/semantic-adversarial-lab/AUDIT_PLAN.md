@@ -1,12 +1,12 @@
-# G — independent adversarial conformance lab
+# Independent adversarial conformance lab
 
 ## Authority and immutable targets
 
-This laboratory is internal adversarial preparation, not product implementation or R16 closure. G owns only `tests/semantic-adversarial-lab/` and its dedicated workflow. Do not alter product code, author worktrees, main, permissions, secrets, billing, or releases.
+This laboratory is an independent test surface, not product implementation or release authorization. Its scope is limited to `tests/semantic-adversarial-lab/` and the dedicated workflow; product code, permissions, secrets, billing and release state are outside the lab boundary.
 
 Base: `b736d41b61c4a4146c9e75c16796e251b025e69f`.
-A contract snapshot: `7ed5b848e4d2e7af235d6166e6f93e0cf0bac90d` (PR 168).
-B snapshot: `11b40fb0c59473bc0f007a879bf44c732d22b700`.
+Composition contract snapshot: `7ed5b848e4d2e7af235d6166e6f93e0cf0bac90d` (PR 168).
+Audio snapshot: `11b40fb0c59473bc0f007a879bf44c732d22b700`.
 No integrated candidate has been supplied. Early snapshots are separate experiments, not a mosaic of evidence certifying a combined revision. The initial main inventory included a failed AT-SPI check; no baseline is declared universally green. Blender export PR 154 remained open at `74671c11dda2133ce6af939896c49cdbb6ba47d5` and is not presumed merged.
 
 ## Threat model
@@ -21,7 +21,7 @@ Boundaries: authenticated Broker to policy/provider; planner to vault/reservatio
 
 Attacks run only on disposable GitHub-hosted Linux. Provisioning is separate from tested subprocesses. Tested processes get cleared environment, private HOME/tmp/output, PID/network namespaces, read-only runtime/source mounts, bounded wall time/CPU/address space/FD/file/output, and process-group cleanup. Independent preflight checks canary visibility, denied write, environment exclusion, and namespace separation. This proves the test enclosure, NOT the product sandbox.
 
-Only synthetic canaries. No user files, real credentials, microphones/playback, external listeners, exfiltration, or tunnels. Failed isolation produces BLOCKED without weaker fallback. Source edits, Git/gh, JSON and syntax checks are local; cargo/npm/native apps/fuzz/mutation are remote only. G's incremental workstation footprint is capped at 256 MiB; do not delete other authors' data.
+Only synthetic canaries. No user files, real credentials, microphones/playback, external listeners, exfiltration, or tunnels. Failed isolation produces BLOCKED without weaker fallback. Source edits, Git/gh, JSON and syntax checks are local; cargo/npm/native apps/fuzz/mutation are remote only. The lab workstation footprint is capped at 256 MiB; do not delete unrelated workspace data.
 
 ## Claims and independent oracles
 
@@ -41,6 +41,6 @@ Contract probes exercise public APIs through declared test examples in a disposa
 
 ## Findings and retests
 
-Findings record stable ID, target/runtime, boundary/actor, class (bug/weakness/known unsupported/upstream/test defect/documentation overclaim), impact/reachability, claim, expected/actual, minimal synthetic reproduction, hashes, and prerequisites. Owners: A kernel/Figma/Motion/AV; B audio; C graph; D Godot; E Blender; F effects. Do not silently patch product code.
+Findings record stable ID, target/runtime, boundary/actor, class (bug/weakness/known unsupported/upstream/test defect/documentation overclaim), impact/reachability, claim, expected/actual, minimal synthetic reproduction, hashes, and prerequisites. Subsystem mapping: Composition/Figma/Motion/AV; Audio; Project Graph; Godot; Blender; Effect Conformance. Do not silently patch product code.
 
 Sensitive unfixed details stay private; sanitized public reproduction requires coordination. Severity is not lowered for a deadline. Before/fix/after evidence and the affected family on FIX_SHA are mandatory for closure. Failed experiments remain in history. The final status declares tested and untested scope; no security guarantee, demonstration, or automatic R16 certification.

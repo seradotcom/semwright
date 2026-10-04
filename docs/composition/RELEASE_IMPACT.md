@@ -4,7 +4,7 @@ Status: development integration. No release/tag/publication is authorized by thi
 
 ## Source additions
 
-The A branch adds or extends:
+The Composition/AV branch adds or extends:
 
 - semantic-composition;
 - media-time;
@@ -16,7 +16,7 @@ The A branch adds or extends:
 - targeted Composition/driver diagnostics;
 - benchmark and production handoff documentation.
 
-Audio-domain, Faust, Ardour, audio-authoring and the audio production Skill remain owned by agent B and are not imported into A until B publishes AUDIO_READY_FOR_INTEGRATION.
+Audio-domain, Faust, Ardour, audio-authoring and the audio production Skill remain owned by the audio subsystem and are not imported into the AV integration until an AUDIO_READY_FOR_INTEGRATION revision is published.
 
 ## Compatibility
 
@@ -38,9 +38,9 @@ Development packages must record source SHA, Cargo.lock/runtime lock digests, pr
 
 ## Evidence invalidated by later integration
 
-Any evidence tied to A alone becomes insufficient for the combined candidate when:
+Any Composition-only evidence becomes insufficient for the combined candidate when:
 
-- B is merged;
+- the audio-ready revision is merged;
 - C0/C1 contracts change;
 - current main is reconciled;
 - Cargo.lock changes;
