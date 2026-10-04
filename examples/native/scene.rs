@@ -104,6 +104,7 @@ impl Model for Scene {
         Ok(result)
     }
 }
+#[allow(dead_code)]
 #[tokio::main(worker_threads = 2)]
 async fn main() {
     if let Err(e) = semwright_native_sdk::run(Scene).await {

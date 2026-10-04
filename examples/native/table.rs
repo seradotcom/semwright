@@ -235,6 +235,7 @@ impl Model for Table {
     }
 }
 
+#[allow(dead_code)]
 #[tokio::main(worker_threads = 2)]
 async fn main() {
     if let Err(error) = semwright_native_sdk::run(Table).await {
