@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "role": "D",
+  "role": "godot-authoring",
   "baseline_sha": "b736d41b61c4a4146c9e75c16796e251b025e69f",
   "ready": false,
   "requirements": [
@@ -8,11 +8,11 @@
       "id": "D01",
       "requirement": "Cn production consumer",
       "state": "PASS",
-      "implementation": "A PreparedPlan/PlanVault plus C final Project Graph history through 504ad2c6632305b580b51703a60b0a194865780d and F EffectContract are consumed without forking their kernels. Store identities remain C LogicalAssetId/AssetRevision; current source also constructs C RevisionCandidate for native read-only evidence using the trusted host-supplied binding generation.",
+      "implementation": "Composition PreparedPlan/PlanVault plus final Project Graph history through 504ad2c6632305b580b51703a60b0a194865780d and Effect Conformance EffectContract are consumed without forking their kernels. Store identities remain Project Graph LogicalAssetId/AssetRevision; current source also constructs C RevisionCandidate for native read-only evidence using the trusted host-supplied binding generation.",
       "tests": [
-        "authoring_profile empty-root A/C/F consumer",
-        "managed source file exposes C asset/revision identity",
-        "C RevisionAdapter admit/accept consumer with stale-generation rejection"
+        "authoring_profile empty-root Composition/Project Graph/Effect Conformance consumer",
+        "managed source file exposes Project Graph asset/revision identity",
+        "Project Graph RevisionAdapter admit/accept consumer with stale-generation rejection"
       ],
       "tested_sha": "a3c2180c6406f3664e9e8c4870438cfeb20655dd",
       "run_id": 36824957800,
@@ -185,7 +185,7 @@
       "id": "D11",
       "requirement": "authorized repair/no overwrite",
       "state": "PARTIAL_REPAIR_CERTIFIED_A_RECONCILIATION_BLOCKED",
-      "implementation": "authorized missing-managed-source repair remains budget/lineage-bound; D now consumes A final 7ab43f99, including vault/root-incarnation-bound permits, but A final still has no explicit Partial/Unknown reconciliation transition after a non-Completed attempt, so D keeps partial-publication recovery internal/fail-closed",
+      "implementation": "authorized missing-managed-source repair remains budget/lineage-bound; Godot now consumes Composition final 7ab43f99, including vault/root-incarnation-bound permits, but Composition final still has no explicit Partial/Unknown reconciliation transition after a non-Completed attempt, so D keeps partial-publication recovery internal/fail-closed",
       "tests": [
         "owner-bound one-shot apply",
         "bounded missing-source repair with original intent/budget",
@@ -198,16 +198,16 @@
       "job_id": 110248504930,
       "evidence": [
         "godot-authoring exact-SHA certification a3c2180c/run 36824957800: hostile PASS",
-        "A PlanVault still has no explicit reconciliation transition after a non-Completed attempt; Partial/Unknown retry authority remains upstream-blocked and is not synthesized by D"
+        "The shared PlanVault still has no explicit reconciliation transition after a non-Completed attempt; Partial/Unknown retry authority remains upstream-blocked and is not synthesized by Godot"
       ]
     },
     {
       "id": "D12",
       "requirement": "Blender GLB preserved gameplay",
       "state": "PASS",
-      "implementation": "incremental replacement on one managed 3D game: baseline triangle.glb -> native inspect/play -> pinned E native articulated.glb artifact (E e753248/run 36680849875/artifact 11082381172) via Broker artifact.handoff -> replan/apply same logical asset slot -> native inspect/persistence/play -> composition.verify C receipt that pins the articulated GLB LogicalAssetId/AssetRevision/bytes; the heavy route runs in the already-attested native-authoring runner and a dependent cross-app job independently revalidates receipts and E bytes",
+      "implementation": "incremental replacement on one managed 3D game: baseline triangle.glb -> native inspect/play -> pinned Blender native articulated.glb artifact (Blender e753248/run 36680849875/artifact 11082381172) via Broker artifact.handoff -> replan/apply same logical asset slot -> native inspect/persistence/play -> composition.verify C receipt that pins the articulated GLB LogicalAssetId/AssetRevision/bytes; the heavy route runs in the already-attested native-authoring runner and a dependent cross-app job independently revalidates receipts and E bytes",
       "tests": [
-        "E native/oracle/hostile provenance verification",
+        "Blender native/oracle/hostile provenance verification",
         "baseline triangle GLB native import and gameplay",
         "Broker artifact.handoff with expected_sha256",
         "incremental replacement preserves logical bindings and generated behavior bytes",
@@ -215,34 +215,34 @@
         "Godot skeleton/bones/skin/material/animation native readback",
         "fresh-process persistence",
         "technical gameplay playtest before and after replacement",
-        "C ExecutionReceipt for replacement apply pins articulated GLB asset/revision/SHA",
-        "independent cross-app oracle redownloads E artifact and compares exact bytes"
+        "Project Graph ExecutionReceipt for replacement apply pins articulated GLB asset/revision/SHA",
+        "independent cross-app oracle redownloads the Blender artifact and compares exact bytes"
       ],
       "tested_sha": "a3c2180c6406f3664e9e8c4870438cfeb20655dd",
       "run_id": 36824957800,
       "job_id": 110250572108,
       "evidence": [
         "godot-authoring exact-SHA certification a3c2180c/run 36824957800: cross PASS",
-        "final E e753248 artifact 11082381172 / GLB d3a4ba15... passed Broker handoff, native Godot import/reopen/play, C composition.verify receipt and independent cross-app oracle"
+        "final Blender e753248 artifact 11082381172 / GLB d3a4ba15... passed Broker handoff, native Godot import/reopen/play, Project Graph composition.verify receipt and independent cross-app oracle"
       ]
     },
     {
       "id": "D13",
-      "requirement": "C/F integration",
+      "requirement": "Project Graph / Effect Conformance integration",
       "state": "PASS",
-      "implementation": "Source and native verification use F EvidenceAdapter/evaluator and apply/export use C ExecutionReceipt. Current source consumes C final trusted revision-admission contract: D derives an untrusted RevisionCandidate from authenticated native readback, stable LogicalAssetId and projection, while binding_generation is supplied only by the trusted Project Graph host; C RevisionAdapter/accept_revision retain promotion authority.",
+      "implementation": "Source and native verification use Effect Conformance EvidenceAdapter/evaluator and apply/export use Project Graph ExecutionReceipt. Current source consumes the final Project Graph trusted revision-admission contract: Godot derives an untrusted RevisionCandidate from authenticated native readback, stable LogicalAssetId and projection, while binding_generation is supplied only by the trusted Project Graph host; C RevisionAdapter/accept_revision retain promotion authority.",
       "tests": [
-        "A/C/F consumer test",
-        "native F readback/runtime/persistence evaluation",
-        "D12 replacement composition.verify C receipt/output pin",
-        "C native RevisionCandidate consumer: admit/accept plus stale generation rejection"
+        "Composition/Project Graph/Effect Conformance consumer test",
+        "native Effect Conformance readback/runtime/persistence evaluation",
+        "D12 replacement composition.verify Project Graph receipt/output pin",
+        "Project Graph native RevisionCandidate consumer: admit/accept plus stale generation rejection"
       ],
       "tested_sha": "a3c2180c6406f3664e9e8c4870438cfeb20655dd",
       "run_id": 36824957800,
       "job_id": 110248504897,
       "evidence": [
         "godot-authoring exact-SHA certification a3c2180c/run 36824957800: native PASS",
-        "model 47/47 includes C RevisionCandidate admit/accept plus stale-generation rejection; native F readback/runtime/persistence and real C apply receipt are exact-SHA green"
+        "model 47/47 includes Project Graph RevisionCandidate admit/accept plus stale-generation rejection; native Effect Conformance readback/runtime/persistence and real Project Graph apply receipt are exact-SHA green"
       ]
     },
     {
@@ -269,7 +269,7 @@
       "implementation": "production Skill plus exact-SHA CLI validate/inspect/bundle and deterministic reconstructable source package. Iteration pushes run only affected lanes and emit scope evidence; delivery/package is certification-only and requires one exact candidate SHA with model/native/persistence/export/hostile/cross-app all successful",
       "tests": [
         "scope selector self-tests and per-push scope.json evidence",
-        "six prerequisite D acceptance jobs must succeed on one certification SHA",
+        "six prerequisite Godot acceptance jobs must succeed on one certification SHA",
         "semwright skill validate/inspect/bundle",
         "package_source.py reconstruction/checksums plus certification.json gate manifest"
       ],
@@ -284,7 +284,7 @@
       "id": "D16",
       "requirement": "171 regression/hostile/gates",
       "state": "PASS",
-      "implementation": "#171 real-Godot readback/scene-save previously green; current D gates rerun readback in godot-native-authoring and the expanded scene-save persistence contract in godot-persistence on the exact D SHA, with hostile/fuzz/cross-app/export/package still independently required",
+      "implementation": "#171 real-Godot readback/scene-save previously green; current Godot gates rerun readback in godot-native-authoring and the expanded scene-save persistence contract in godot-persistence on the exact Godot SHA, with hostile/fuzz/cross-app/export/package still independently required",
       "tests": [
         "Godot driver integration real-godot historical regression",
         "godot-native-authoring #171 readback contract",
@@ -301,5 +301,5 @@
   ],
   "candidate_sha": "a3c2180c6406f3664e9e8c4870438cfeb20655dd",
   "current_run_id": 36824957800,
-  "status_note": "D consumes A final 7ab43f99 plus final C/F/E handoffs. D01-D10 and D12-D16 were previously exact-certified; current-head certification must be re-issued after the G finding fixes/A-final merge. D11 remains PARTIAL solely because A final exposes no explicit Partial/Unknown reconciliation transition; GODOT_AUTHORING_READY and R16 remain false."
+  "status_note": "Godot consumes Composition final 7ab43f99 plus final Project Graph/Effect Conformance/Blender inputs. Godot requirements D01-D10 and D12-D16 were previously exact-certified; current-head certification must be re-issued after the adversarial finding fixes/Composition-final merge. D11 remains PARTIAL solely because A final exposes no explicit Partial/Unknown reconciliation transition; GODOT_AUTHORING_READY and R16 remain false."
 }

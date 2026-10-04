@@ -51,7 +51,7 @@ for report, expected_suite, minimum in [
     require(report["ignored"] == 0 and report["filtered"] == 0, f"{expected_suite} incomplete contract execution")
 
 require(pipeline["native_assertions_completed"] is True, "native assertions incomplete")
-require(pipeline["native_authoring_c_f_verified"] is True, "native C/F evidence incomplete")
+require(pipeline["native_authoring_graph_effects_verified"] is True, "native Project Graph/Effect Conformance evidence incomplete")
 require(pipeline["writer_process"] != pipeline["reader_process"], "reopen was not fresh-process")
 require(roundtrip["result"] == "PASS", "fresh Blender GLB oracle did not PASS")
 require(roundtrip["source_sha256"] == pipeline["glb"]["sha256"], "GLB oracle digest mismatch")
@@ -104,14 +104,14 @@ for requirement in matrix["requirements"]:
     elif rid == "E11":
         requirement["status"] = "BLOCKED_DEPENDENCY"
         requirement["open"] = (
-            "Godot-side import/native semantic verification remains D-owned; "
+            "Godot-side import/native semantic verification remains owned by the Godot integration; "
             "E does not infer PASS before D's exact-SHA cross-app lane succeeds."
         )
     elif rid == "E13":
         requirement["status"] = "PARTIAL"
         requirement["open"] = (
-            "Blender-native C/F authoring evidence PASS; cross-app C activities/receipts "
-            "remain dependent on a successful D import/verification activity and C-owned admission/provenance."
+            "Blender-native Project Graph/Effect Conformance authoring evidence PASS; cross-app Project Graph activities/receipts "
+            "remain dependent on a successful Godot import/verification activity and Project Graph admission/provenance."
         )
     else:
         raise SystemExit(f"unexpected acceptance requirement: {rid}")
@@ -124,7 +124,7 @@ matrix["exact_evidence"] = {
     "native": {"passed": native["passed"], "log_sha256": native["log_sha256"]},
     "glb_sha256": pipeline["glb"]["sha256"],
     "blend_sha256": pipeline["blend"]["sha256"],
-    "c_authoring_receipt_digest": pipeline["c_authoring_receipt_digest"],
+    "project_graph_authoring_receipt_digest": pipeline["project_graph_authoring_receipt_digest"],
     "skill_zip_sha256": skill_sum,
     "source_backup_sha256": source_sum,
     "hostile_cases": 9,
@@ -139,7 +139,7 @@ matrix["exact_evidence"] = {
 }
 matrix["blender_authoring_ready"] = False
 matrix["readiness_blocker"] = (
-    "E11 Godot-side verification and E13 cross-app provenance remain D/C dependencies."
+    "E11 Godot-side verification and E13 cross-app provenance remain Godot/Project Graph dependencies."
 )
 (EVIDENCE / "acceptance-final.json").write_text(
     json.dumps(matrix, indent=2, sort_keys=True) + "\n"

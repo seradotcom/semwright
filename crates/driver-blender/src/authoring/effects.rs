@@ -1,7 +1,7 @@
 //! Blender adapter for F's published E0 contract. Evaluation remains data-only;
 //! native observation happens through the existing authenticated driver channel.
 //! Preservation is scoped to the explicit unmanaged whole-scene projection; PlanVault
-//! execution authority and permit-incarnation semantics remain A-owned.
+//! execution authority and permit-incarnation semantics remain owned by the shared Composition layer.
 use super::*;
 use semwright_effect_conformance as effects;
 use semwright_semantic_composition::*;

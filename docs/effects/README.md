@@ -16,7 +16,7 @@ The Linux Effect Conformance artifact requested/executed 40/40 tests with zero s
 ## Reconstructive backup
 `backup/semwright-effect-conformance-d2cfd86.zip` is the CI-produced source backup for the tested implementation SHA.
 SHA-256: `31536b484a3fc9e54fce7d3c570fa41440a1ccb043e4313b13c078061342f542`.
-It contains `F_SOURCE.patch`, `SOURCE_MANIFEST.json` and `RESTORE.md`; fixed timestamps make the source package reproducible.
+The preserved historical archive contains the legacy internal filename `F_SOURCE.patch` together with `SOURCE_MANIFEST.json` and `RESTORE.md`; fixed timestamps make that exact source package reproducible. Newly generated packages use component-oriented filenames.
 
 ## Open review gates
 Composition revision `7ab43f99f4cc62be2a9b0ce9ce1155283a429768` explicitly approved E0, so the initial review dependency is closed. The recorded production-consumer gate remains partial only because Audio is still contractual: Project Graph/Godot are accepted and Blender head `f492f13` passed run 36942759168 with both Effect Conformance findings resolved. Separately, the recorded repo-wide dependency audit is red because `yoke-derive 0.8.3` was yanked; this subsystem does not alter the global lockfile.

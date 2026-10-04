@@ -40,7 +40,7 @@ This file maps the original Composition/AV requirement IDs to implementation and
 | G06 | Freshness/partial/unknown/cancel/budgets | IMPLEMENTED; revoke/expiry/cross-vault permit regressions added; exact-SHA G/native evidence pending |
 | G07 | Inventory, mapping and evidence remain distinct | IMPLEMENTED |
 | G08 | Heavy work hosted; no heavy generated outputs committed | IMPLEMENTED; final hygiene evidence pending |
-| G09 | Composition+Audio integration on one SHA | Previous combined ancestry used a superseded audio checkpoint; current PR #204 rebuild awaits fresh B-ready publication before cutting and certifying the new combined SHA |
+| G09 | Composition+Audio integration on one SHA | Previous combined ancestry used a superseded audio checkpoint; current PR #204 rebuild awaits fresh audio-ready publication before cutting and certifying the new combined SHA |
 | G10 | Production runbook present; no promo video/R16 closure | IMPLEMENTED; final candidate prerequisites pending |
 
 ## Figma gates
@@ -73,9 +73,9 @@ This file maps the original Composition/AV requirement IDs to implementation and
 
 ## AV gates
 
-No AV row is PASS before the exact B-ready SHA is merged and the technical E2E executes on one combined candidate.
+No AV row is PASS before the exact audio-ready SHA is merged and the technical E2E executes on one combined candidate.
 
-| Gate | A-side implementation | Acceptance state |
+| Gate | AV-side implementation | Acceptance state |
 |---|---|---|
 | AV01 | Exact Rate/Rational contracts; MLT fps + 48 kHz profile | PENDING combined |
 | AV02 | Full-master flash/impulse decoder + pinned SyncSpec | PENDING combined |
@@ -84,7 +84,7 @@ No AV row is PASS before the exact B-ready SHA is merged and the technical E2E e
 | AV05 | Visual-only change preserves independent audio | CONTRACT TESTED; PENDING combined E2E |
 | AV06 | Coordinator retains prior effects and refuses ready master after failure | IMPLEMENTED; PENDING combined failure E2E |
 | AV07 | Owner/session binding on plans/artifacts/transfers | IMPLEMENTED; PENDING combined |
-| AV08 | Mux re-probes duration/rate/channels/sample count; final audio must be analyzed again | A-SIDE IMPLEMENTED against public B analysis; PENDING combined E2E |
+| AV08 | Mux re-probes duration/rate/channels/sample count; final audio must be analyzed again | AV-SIDE IMPLEMENTED against public audio analysis; PENDING combined E2E |
 | AV09 | Motion + B common receipt + artifact.handoff + MLT | AV-SIDE CONNECTED; disposable E2E with corrected audio semantics PASS in run 36948655709; fresh formal audio-ready revision and final combined receipt/E2E PENDING |
 | AV10 | Clean-runner package/runtime setup | PENDING combined clean run |
 | AV11 | Cancellation/UNKNOWN semantics and provider cancellation | IMPLEMENTED; PENDING combined |

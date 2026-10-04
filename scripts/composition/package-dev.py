@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build or verify the deterministic combined Composition/Audio development bundle.
 
-This is a source/development handoff artifact for the exact A+B integration lineage, not a Semwright release package.
+This is a source/development package for the exact Composition+Audio integration lineage, not a Semwright release package.
 It never installs dependencies, executes drivers, changes policy, or downloads tools.
 """
 from __future__ import annotations
@@ -206,7 +206,7 @@ def build(output: Path, root: Path, explicit_sha: str | None, explicit_epoch: in
         "entries": entries,
         "limitations": [
             "source/development bundle only; no executable authority or release admission",
-            "the recorded A/B source lineage does not transfer PASS evidence to another candidate SHA",
+            "the recorded Composition/Audio source lineage does not transfer PASS evidence to another candidate SHA",
             "runtime.json is generated only after pinned native tools are installed in CI",
         ],
     }

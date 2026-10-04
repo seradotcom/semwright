@@ -18,7 +18,7 @@ out.mkdir(parents=True, exist_ok=True)
 sha = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
 if sha != (os.environ.get("EXPECTED_SHA") or os.environ["GITHUB_SHA"]):
     raise SystemExit("fuzz source SHA mismatch")
-report = {"version": 1, "source_sha": sha, "role": "C", "native_app_acceptance": False, "scope": "parser, declaration traversal and private synthetic store", "outcome": "UNKNOWN", "targets": []}
+report = {"version": 1, "source_sha": sha, "role": "project-graph", "native_app_acceptance": False, "scope": "parser, declaration traversal and private synthetic store", "outcome": "UNKNOWN", "targets": []}
 started = time.monotonic()
 def execute(name, command, env=None):
     result = subprocess.run(command, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env)

@@ -1,6 +1,6 @@
 # Audio development packaging
 
-GitHub Actions builds three real SWDP driver packages: faust-audio, audio-analysis and ardour-audio. It also creates a deterministic `semwright-audio-production` Skill ZIP, a deterministic `semwright-audio-agent-b-source.zip` recovery bundle with an internal per-file SHA-256 manifest, and a `PACKAGES.json` digest manifest.
+GitHub Actions builds three real SWDP driver packages: faust-audio, audio-analysis and ardour-audio. It also creates a deterministic `semwright-audio-production` Skill ZIP, a deterministic `semwright-audio-source.zip` recovery bundle with an internal per-file SHA-256 manifest, and a `PACKAGES.json` digest manifest.
 
 SWDP v2 establishes driver executable integrity and compatibility; it does not grant driver scopes and does not execute conformance during installation.
 
