@@ -12,7 +12,7 @@ def generated():
              "Run `semwright doctor` and consult `compatibility.md` and `../VERIFY.md`.", "",
              "Every command accepts only its documented properties. Use `commands describe NAME`",
              "for the authoritative input/output schema. Return schemas are intentionally broad",
-             "for many backends in this development handoff; strengthening them is a release gate.", "",
+             "for many backends at this stage; strengthening them is a release gate.", "",
              "| Command | Required capability | Risk | Timeout | Candidate backends |",
              "|---|---|---|---:|---|"]
     for c in commands:

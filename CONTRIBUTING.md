@@ -25,14 +25,14 @@ separate. Record source SHA, suite SHA where different, test selection/counts, r
 artifact digests. Skips, filtered tests, fixtures and native application runs are not
 interchangeable. See [verification](VERIFY.md) and [release blockers](RELEASE_BLOCKERS.md).
 
-## Public documentation and internal coordination
+## Repository documentation
 
-Tracked documentation should be useful to users, contributors or reviewers of the product. Keep
-temporary planning notes, scratch files and operational coordination outside the repository
-(or under an ignored local-only directory). When an internal
-investigation produces lasting value, rewrite it as an ADR, design note, test plan or evidence
-record before committing it. Preserve technical provenance such as source SHAs, run IDs and failure
-receipts; do not publish conversational scaffolding merely because it helped produce them.
+Tracked documentation should be useful to users, contributors, maintainers or reviewers. Keep
+temporary planning notes, scratch files and short-lived operational notes outside the repository
+(or under an ignored local-only directory). When an investigation produces lasting value, rewrite
+it as an ADR, design note, test plan or evidence record before committing it. Preserve technical
+provenance such as source SHAs, run IDs and failure receipts, and omit transient working notes that
+do not help future contributors.
 
 ## Security-sensitive changes
 
