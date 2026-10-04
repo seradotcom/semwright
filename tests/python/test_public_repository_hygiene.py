@@ -34,7 +34,15 @@ class PublicRepositoryHygieneTests(unittest.TestCase):
     def test_public_subsystem_docs_use_component_language(self):
         checks = {
             "docs/composition/RESEARCH_BASELINE.md": ("A implementation baseline",),
-            "docs/composition/INTEGRATION.md": ("announced B SHA", "Merge A by normal Git ancestry", "returned to B for explanation"),
+            "docs/composition/INTEGRATION.md": (
+                "announced B SHA",
+                "Merge A by normal Git ancestry",
+                "returned to B for explanation",
+                "B.json",
+                "A_HEAD_SHA",
+                "B_READY_SHA",
+                "A-owned; exact combined E2E pending",
+            ),
             "docs/composition/RELEASE_IMPACT.md": ("evidence tied to A alone", "B is merged"),
             "docs/effects/SECURITY_DELTA.md": ("A/Broker/Host remain authoritative",),
             "docs/godot/authoring/INTEGRATION.md": ("D extends the existing first-party Godot driver", "Plans, owners, base states, budgets and verification reports are A contracts"),
