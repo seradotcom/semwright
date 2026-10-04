@@ -176,11 +176,11 @@ release-blocking findings. The maintainer then records the report reference and 
 SHAs in RELEASE_BLOCKERS.md/VERIFY.md. Absence of findings from automated tools alone is not
 an independent security review.
 
-## Machine-readable handoff for the publication boundary
+## Machine-readable review record for the publication boundary
 
-The genuine separate reviewer supplies the full report and a small JSON handoff. It is stored
-outside the reviewed source commit to avoid a self-referential SHA. No maintainer/packaging agent
-may generate an approval on the reviewer's behalf. An unreviewed template must remain UNREVIEWED.
+The independent reviewer supplies the full report and a small JSON review record. It is stored
+outside the reviewed source commit to avoid a self-referential SHA. Maintainers and packaging
+automation must not generate an approval on the reviewer's behalf. An unreviewed template must remain UNREVIEWED.
 
 Required fields are `reviewed_sha` (full exact candidate SHA), `reviewer` (nonempty identity),
 `reviewed_at` (ISO date, not in the future), `report_reference` (full report/evidence location),
