@@ -46,7 +46,7 @@ Executed successfully on the transformed tree:
 - `scripts/dev/fake-smoke.sh`: PASS
 - `git diff --check`: PASS
 
-The first full test attempt was interrupted by local disk exhaustion while several agents were building concurrently. No test failure occurred in that attempt. After deleting only this worktree's private target directory and disabling test debug info, the complete workspace test command finished with exit 0.
+The first full test attempt was interrupted by local disk exhaustion while several worktrees were building concurrently. No test failure occurred in that attempt. After deleting only this worktree's target directory and disabling test debug info, the complete workspace test command finished with exit 0.
 
 ## Darwin cross-check from Linux
 

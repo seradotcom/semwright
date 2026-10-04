@@ -72,6 +72,44 @@ class PublicRepositoryHygieneTests(unittest.TestCase):
             with self.subTest(entry=entry):
                 self.assertIn(entry, ignored)
 
+    def test_orchestration_role_language_is_not_public_copy(self):
+        excluded = {
+            "docs/skills.md",
+            "fuzz/README.md",
+            "scripts/dev/skill-smoke.sh",
+            "CHANGELOG.md",
+            "README.md",
+            "tests/python/test_public_repository_hygiene.py",
+        }
+        forbidden = (
+            "Agent A",
+            "Agent B",
+            "Agent C",
+            "Agent D",
+            "Agent E",
+            "Agent F",
+            "Agent G",
+            "other agent's worktree",
+            "other agents worktrees",
+            "agents were building",
+            "agent-owned",
+            "Agent-owned",
+            "role-coded",
+        )
+        for path in ROOT.rglob("*"):
+            if not path.is_file() or ".git" in path.parts:
+                continue
+            relative = path.relative_to(ROOT).as_posix()
+            if relative in excluded or relative.startswith("crates/skills/"):
+                continue
+            try:
+                text = path.read_text()
+            except (UnicodeDecodeError, OSError):
+                continue
+            for phrase in forbidden:
+                with self.subTest(relative=relative, phrase=phrase):
+                    self.assertNotIn(phrase, text)
+
     def test_product_facing_docs_are_present(self):
         for relative in (
             "README.md",
