@@ -14,7 +14,7 @@ GitHub Actions/CLI documentation: reruns preserve the original SHA, so every cod
 ## Runtime pins and observed evidence
 Godot archive pin: 4.7.2-stable; CI records extracted binary SHA-256 `8d106cbe6144c2dc7e881d61d2429c1a8a76e6b22ef48bd5e48dcf934953f71e`.
 Blender runtime: 4.5.14 LTS; CI records binary SHA-256 `050c02562f81fe80ba616a80198fa02d381e60f8b61b8d39add881f4bca0d7d8`.
-Rust: 1.98.1. F release 36942492444 is exact to implementation SHA `d2cfd86a2ee064aa5de8f0a8944319edf6dbb060`; this SHA adds only the explicit Forbidden-obligation regression over the prior production implementation.
+Rust: 1.98.1. Effect Conformance release 36942492444 is exact to implementation SHA `d2cfd86a2ee064aa5de8f0a8944319edf6dbb060`; this SHA adds only the explicit Forbidden-obligation regression over the prior production implementation.
 Official documentation informs expected semantics; only the exact-SHA executable evidence above proves this implementation exercised them.
 
 No dependency upgrades or copied third-party implementation code were introduced by F. Workspace cargo-audit/cargo-deny and packaging/supply-chain gates for the tested SHA are recorded in RELEASE_IMPACT.md.

@@ -26,7 +26,7 @@ on:
   workflow_dispatch:
     inputs:
       candidate_sha:
-        description: Immutable integration SHA for owner contracts and transport compile checks
+        description: Immutable integration SHA for subsystem contracts and transport compile checks
         required: true
         type: string
       native_godot_probe:
@@ -99,11 +99,11 @@ jobs:
         run: cargo test --locked -p semwright-mlt-video-driver --lib owner_policy_allows_only_explicit_trust_cases -- --nocapture
       - name: AV native artifact and compiled context admission
         run: cargo test --locked -p semwright-av-composition --lib --test contracts
-      - name: A contracts and D reconciliation source regressions
+      - name: Composition contracts and Godot reconciliation source regressions
         run: python3 scripts/semantic-creation/reconciliation_diagnostic.py
       - name: Godot native wire and process-incarnation contracts
         run: cargo test --locked -p semwright-driver-godot --lib --test authoring_native -- --nocapture
-      - name: Strict A/D lints
+      - name: Strict Composition/Godot lints
         run: cargo clippy --locked -p semwright-semantic-composition -p semwright-driver-godot -p semwright-audio-authoring -p semwright-effect-conformance -p semwright-driver-sdk -p semwright-driver-blender -p semwright-driver-motion-canvas -p semwright-mlt-video-driver -p semwright-faust-audio-driver -p semwright-ardour-audio-driver -p semwright-av-composition --all-targets --no-deps --features semwright-driver-blender/authoring-native -- -D warnings
       - name: Preserve exact-source identity after checks
         run: |

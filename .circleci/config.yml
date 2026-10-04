@@ -1,6 +1,6 @@
 version: 2.1
 
-# Private A-side iteration accelerator only.
+# Private Composition iteration accelerator only.
 # CircleCI output is diagnostic and MUST NOT be used as release/certification evidence.
 parameters:
   force-motion-native:
@@ -86,7 +86,7 @@ jobs:
       - store_artifacts:
           path: verification/native-sdk
           destination: native-sdk-binding-iteration
-  a-linux-iteration:
+  composition-linux-iteration:
     machine:
       image: ubuntu-2404:current
     resource_class: medium
@@ -105,14 +105,14 @@ jobs:
       - checkout
 
       - run:
-          name: Bind to A branch and compute affected scope
+          name: Bind to Composition iteration branch and compute affected scope
           command: |
             set -euo pipefail
             test "$CIRCLECI" = true
             test -z "${GITHUB_ACTIONS:-}"
             case "$CIRCLE_BRANCH" in
               feat/composition-media|integration/composition-av) ;;
-              *) echo "unsupported A iteration branch: $CIRCLE_BRANCH" >&2; exit 1 ;;
+              *) echo "unsupported Composition iteration branch: $CIRCLE_BRANCH" >&2; exit 1 ;;
             esac
             test "$(git rev-parse HEAD)" = "$CIRCLE_SHA1"
 
@@ -195,13 +195,13 @@ jobs:
 
       - restore_cache:
           keys:
-            - a-circle-cargo-v2-{{ arch }}-{{ checksum "Cargo.lock" }}
-            - a-circle-cargo-v2-{{ arch }}-
+            - composition-circle-cargo-v2-{{ arch }}-{{ checksum "Cargo.lock" }}
+            - composition-circle-cargo-v2-{{ arch }}-
 
       - restore_cache:
           keys:
-            - a-circle-npm-v2-{{ arch }}-{{ checksum "integrations/motion-canvas/runtime/package-lock.json" }}
-            - a-circle-npm-v2-{{ arch }}-
+            - composition-circle-npm-v2-{{ arch }}-{{ checksum "integrations/motion-canvas/runtime/package-lock.json" }}
+            - composition-circle-npm-v2-{{ arch }}-
 
       - run:
           name: Install pinned Rust only when product work is selected
@@ -438,19 +438,19 @@ jobs:
             cat verification/circleci-composition/motion/sandbox-denials.log
 
       - save_cache:
-          key: a-circle-cargo-v2-{{ arch }}-{{ checksum "Cargo.lock" }}
+          key: composition-circle-cargo-v2-{{ arch }}-{{ checksum "Cargo.lock" }}
           paths:
             - ~/.cargo/registry
             - ~/.cargo/git
 
       - save_cache:
-          key: a-circle-npm-v2-{{ arch }}-{{ checksum "integrations/motion-canvas/runtime/package-lock.json" }}
+          key: composition-circle-npm-v2-{{ arch }}-{{ checksum "integrations/motion-canvas/runtime/package-lock.json" }}
           paths:
             - ~/.npm
 
       - store_artifacts:
           path: verification/circleci-composition
-          destination: semwright-a-circleci-iteration
+          destination: semwright-composition-circleci-iteration
 
 workflows:
   native-sdk-iteration:
@@ -463,9 +463,9 @@ workflows:
           filters:
             branches:
               only: feat/native-sdk-canonical
-  a-private-iteration:
+  composition-private-iteration:
     jobs:
-      - a-linux-iteration:
+      - composition-linux-iteration:
           filters:
             branches:
               only:

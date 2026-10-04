@@ -7,11 +7,11 @@ assert SPEC and SPEC.loader
 mod=importlib.util.module_from_spec(SPEC);SPEC.loader.exec_module(mod)
 def base():
     return {
-      "schema_version":1,"candidate_sha":"a"*40,"a_sha":"b"*40,"b_sha":"c"*40,
-      "c0_sha":"26602e4b25929be869d69ef28fef4dd9713180d7",
-      "combined_candidate":False,"b_audio_ready_for_integration":False,
+      "schema_version":1,"candidate_sha":"a"*40,"composition_sha":"b"*40,"audio_sha":"c"*40,
+      "composition_composition_c0_sha":"26602e4b25929be869d69ef28fef4dd9713180d7",
+      "combined_candidate":False,"audio_ready_for_integration":False,
       "ready_for_demo_production":False,"ready_for":[],
-      "not_ready_for":["audio handoff pending"],
+      "not_ready_for":["audio-ready revision pending"],
       "figma_required_for_workflow":True,"r16_closed":False,"promotional_video_created":False,
       "required_gates":{key:"PENDING" for key in mod.REQUIRED},"workflow_evidence":[]
     }
@@ -19,7 +19,7 @@ class Tests(unittest.TestCase):
     def test_pending_is_valid_but_not_ready(self):
         out=mod.validate(base());self.assertFalse(out["ready_for_demo_production"])
     def test_ready_cannot_mix_shas(self):
-        v=base();v.update(combined_candidate=True,b_audio_ready_for_integration=True,ready_for_demo_production=True,
+        v=base();v.update(combined_candidate=True,audio_ready_for_integration=True,ready_for_demo_production=True,
             ready_for=["verified-rendered-av-v1"],not_ready_for=[])
         v["required_gates"]={key:"PASS" for key in mod.REQUIRED}
         v["workflow_evidence"]=[{"workflow":"combined","run_id":1,"job_ids":[2],"tested_sha":"d"*40,
@@ -33,7 +33,7 @@ class Tests(unittest.TestCase):
           "status":"PASS","artifacts":[],"limitations":[]}]
         with self.assertRaises(mod.Invalid):mod.validate(v)
     def test_non_figma_workflow_may_mark_figma_not_applicable(self):
-        v=base();v.update(combined_candidate=True,b_audio_ready_for_integration=True,
+        v=base();v.update(combined_candidate=True,audio_ready_for_integration=True,
             ready_for_demo_production=True,ready_for=["verified-rendered-av-v1"],
             not_ready_for=[],figma_required_for_workflow=False)
         v["required_gates"]={key:"PASS" for key in mod.REQUIRED}
@@ -44,7 +44,7 @@ class Tests(unittest.TestCase):
         self.assertTrue(out["ready_for_demo_production"])
         self.assertTrue(out["all_required_gates_pass"])
     def test_figma_required_workflow_cannot_mark_figma_not_applicable(self):
-        v=base();v.update(combined_candidate=True,b_audio_ready_for_integration=True,
+        v=base();v.update(combined_candidate=True,audio_ready_for_integration=True,
             ready_for_demo_production=True,ready_for=["verified-rendered-av-v1"],not_ready_for=[])
         v["required_gates"]={key:"PASS" for key in mod.REQUIRED}
         v["required_gates"]["figma_regression"]="NOT_APPLICABLE"

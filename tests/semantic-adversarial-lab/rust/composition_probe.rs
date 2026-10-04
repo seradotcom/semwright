@@ -1,4 +1,4 @@
-//! Independent G contract probe; synthetic values do not prove native acceptance.
+//! Independent adversarial contract probe; synthetic values do not prove native acceptance.
 //! Compiled as a declared example overlay in a disposable, exact-SHA build copy.
 use semwright_semantic_composition::*;
 use serde_json::{Value, json};

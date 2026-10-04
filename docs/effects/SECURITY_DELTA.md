@@ -1,4 +1,4 @@
-# Security delta — F
+# Security delta — Effect Conformance
 
 The evaluator is not authorization, a policy engine, a safety certification or a new trust root. Composition/Broker/Host remain authoritative. R16 remains open.
 
@@ -17,5 +17,5 @@ This proves only the declared synthetic roots/workflows. It does not enclose an 
 Post-hoc checks detect forbidden effects after execution; OS/Host enforcement is required when prevention is possible.
 Fresh reopen proves the observed persistence path, not fsync/atomic crash durability. Quality reports retain Recovery=UNKNOWN and receipts record crash_durability=NOT_TESTED.
 Attribution is isolated/ordered only where the harness establishes it; no cross-app causal or rollback guarantee is made.
-E exact head `f492f13a028f781d9ca55631764578f5b327eb1b` classifies unmanaged preservation as Forbidden and represents the whole-scene check with an explicit unmanaged-scene/source-projection address; dedicated authoring run 36942759168 is SUCCESS.
+The Blender authoring candidate at exact head `f492f13a028f781d9ca55631764578f5b327eb1b` classifies unmanaged preservation as Forbidden and represents the whole-scene check with an explicit unmanaged-scene/source-projection address; dedicated authoring run 36942759168 is SUCCESS.
 Composition review is complete. Independent R16 review remains an external gate.

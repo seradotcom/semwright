@@ -20,9 +20,9 @@ def sha(value,label):
 def validate(value:dict)->dict:
     need(isinstance(value,dict),"candidate evidence root must be an object")
     need(value.get("schema_version")==1,"schema_version must be 1")
-    for field in ("candidate_sha","a_sha","b_sha","c0_sha"): sha(value.get(field),field)
-    need(value.get("c0_sha")=="26602e4b25929be869d69ef28fef4dd9713180d7","unexpected C0 contract SHA")
-    for field in ("combined_candidate","b_audio_ready_for_integration","ready_for_demo_production",
+    for field in ("candidate_sha","composition_sha","audio_sha","composition_composition_c0_sha"): sha(value.get(field),field)
+    need(value.get("composition_composition_c0_sha")=="26602e4b25929be869d69ef28fef4dd9713180d7","unexpected C0 contract SHA")
+    for field in ("combined_candidate","audio_ready_for_integration","ready_for_demo_production",
                   "figma_required_for_workflow","r16_closed","promotional_video_created"):
         need(isinstance(value.get(field),bool),f"{field} must be boolean")
     need(value["r16_closed"] is False,"this mission cannot close R16")
@@ -48,8 +48,8 @@ def validate(value:dict)->dict:
         need(isinstance(row["artifacts"],list) and len(row["artifacts"])<=128,"artifact evidence invalid")
         need(isinstance(row["limitations"],list) and len(row["limitations"])<=64,"limitations invalid")
     if value["ready_for_demo_production"]:
-        need(value["combined_candidate"],"READY requires a combined A+B candidate")
-        need(value["b_audio_ready_for_integration"],"READY requires B's formal audio handoff")
+        need(value["combined_candidate"],"READY requires a combined Composition+Audio candidate")
+        need(value["audio_ready_for_integration"],"READY requires an audio-ready revision")
         for gate, state in gates.items():
             if gate == "figma_regression" and not value["figma_required_for_workflow"]:
                 need(state in {"PASS","NOT_APPLICABLE"},"non-Figma workflow may only mark Figma PASS or NOT_APPLICABLE")
@@ -68,7 +68,7 @@ def validate(value:dict)->dict:
       "candidate_sha":value["candidate_sha"],
       "ready_for_demo_production":value["ready_for_demo_production"],
       "combined_candidate":value["combined_candidate"],
-      "b_audio_ready_for_integration":value["b_audio_ready_for_integration"],
+      "audio_ready_for_integration":value["audio_ready_for_integration"],
       "all_required_gates_pass":all(
           state=="PASS" or (
               gate=="figma_regression"

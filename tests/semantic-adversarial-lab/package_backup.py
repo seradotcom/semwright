@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Create a deterministic, bounded G source/evidence backup; no test execution."""
+"""Create a deterministic, bounded adversarial-lab source/evidence backup; no test execution."""
 from __future__ import annotations
 import argparse
 import hashlib
@@ -52,7 +52,7 @@ def main():
             raise SystemExit("Nonregular or out-of-scope source in backup")
         blob = git("show", commit + ":" + name)
         if len(blob) > 1024 * 1024:
-            raise SystemExit("Unexpected large G source file")
+            raise SystemExit("Unexpected large adversarial-lab source file")
         bundle["source/" + name] = blob
     patch = git("diff", "--binary", "--full-index", baseline, commit, "--", PREFIX, WORKFLOW)
     if len(patch) > 4 * 1024 * 1024:

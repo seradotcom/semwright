@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build a deterministic E source-only backup from immutable Git objects.
+"""Build a deterministic Blender authoring source-only backup from immutable Git objects.
 
 Packaging is not a build, native acceptance, release, or security certification.
 """
@@ -16,12 +16,12 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[2]
 PATCH_BASE = "a6b5bebbb022ae1e29c2b8e1ec3d4358cee7fb35"
 DEPENDENCY_VERSION = 4
-A_COMPONENT_SOURCE = "6e1261d645699e99fe94ad902b5fb26956f92102"
-C_COMPONENT_SOURCE = "77b34d8abad50f242c4c8494e280fe82d5cbcf55"
+COMPOSITION_COMPONENT_SOURCE = "6e1261d645699e99fe94ad902b5fb26956f92102"
+PROJECT_GRAPH_COMPONENT_SOURCE = "77b34d8abad50f242c4c8494e280fe82d5cbcf55"
 HOST_COMPONENT_SOURCE = "a6b5bebbb022ae1e29c2b8e1ec3d4358cee7fb35"
-A_C0 = "26602e4b25929be869d69ef28fef4dd9713180d7"
-C_P0 = "6ee52b428310370d3ad438a13964086a63f48367"
-F_SOURCE = "eadd5caf9b3f47f24158de530b87ad07e597f25e"
+COMPOSITION_C0 = "26602e4b25929be869d69ef28fef4dd9713180d7"
+PROJECT_GRAPH_P0 = "6ee52b428310370d3ad438a13964086a63f48367"
+EFFECT_CONFORMANCE_SOURCE = "eadd5caf9b3f47f24158de530b87ad07e597f25e"
 GLB_SOURCE = "74671c11dda2133ce6af939896c49cdbb6ba47d5"
 OWNED = (
     "crates/driver-blender/",
@@ -100,18 +100,18 @@ def zip_entry(archive, name, data, executable=False):
 
 def build(source, output):
     if os.environ.get("GITHUB_ACTIONS") != "true" or os.environ.get("RUNNER_ENVIRONMENT") != "github-hosted":
-        raise ValueError("E source packaging is restricted to GitHub-hosted Actions")
-    for commit in [source, PATCH_BASE, A_C0, C_P0, F_SOURCE, GLB_SOURCE, A_COMPONENT_SOURCE, C_COMPONENT_SOURCE, HOST_COMPONENT_SOURCE]:
+        raise ValueError("Blender source packaging is restricted to GitHub-hosted Actions")
+    for commit in [source, PATCH_BASE, COMPOSITION_C0, PROJECT_GRAPH_P0, EFFECT_CONFORMANCE_SOURCE, GLB_SOURCE, COMPOSITION_COMPONENT_SOURCE, PROJECT_GRAPH_COMPONENT_SOURCE, HOST_COMPONENT_SOURCE]:
         if not re.fullmatch(r"[a-f0-9]{40}", commit):
             raise ValueError("all dependency IDs must be full immutable commit SHAs")
         git("cat-file", "-e", commit + "^{commit}")
     if git("rev-parse", "HEAD").decode().strip() != source or os.environ.get("GITHUB_SHA") != source:
         raise ValueError("package source must equal the exact Actions checkout")
-    if tree(source, "crates/semantic-composition") != tree(A_COMPONENT_SOURCE, "crates/semantic-composition"):
+    if tree(source, "crates/semantic-composition") != tree(COMPOSITION_COMPONENT_SOURCE, "crates/semantic-composition"):
         raise ValueError("Reviewed A component tree changed; version/review before packaging E")
-    if tree(source, "crates/project-graph") != tree(C_COMPONENT_SOURCE, "crates/project-graph"):
+    if tree(source, "crates/project-graph") != tree(PROJECT_GRAPH_COMPONENT_SOURCE, "crates/project-graph"):
         raise ValueError("Reviewed C component tree changed; version/review before packaging E")
-    if tree(source, "crates/effect-conformance") != tree(F_SOURCE, "crates/effect-conformance"):
+    if tree(source, "crates/effect-conformance") != tree(EFFECT_CONFORMANCE_SOURCE, "crates/effect-conformance"):
         raise ValueError("F consumed source changed; reconcile before packaging E")
 
     for path in ["crates/driver-sdk", "crates/driver-host"]:
@@ -120,7 +120,7 @@ def build(source, output):
 
     names = source_files(source)
     if not names or len(names) > 256:
-        raise ValueError("unexpected E source file count")
+        raise ValueError("unexpected Blender source file count")
     files = {}
     total = 0
     for name in names:
@@ -130,7 +130,7 @@ def build(source, output):
         total += len(data)
         files[name] = data
     if total > 8_388_608:
-        raise ValueError("E source package exceeds 8 MiB source budget")
+        raise ValueError("Blender source package exceeds 8 MiB source budget")
 
     patch = git(
         "diff",
@@ -172,18 +172,18 @@ def build(source, output):
 
     manifest = {
         "schema_version": 1,
-        "role": "E",
+        "role": "blender-authoring",
         "source_sha": source,
         "pr": 175,
         "patch_base_sha": PATCH_BASE,
         "dependency_version": DEPENDENCY_VERSION,
         "dependencies": {
-            "a_c0": A_C0,
-            "a_component_source": A_COMPONENT_SOURCE,
-            "c_component_source": C_COMPONENT_SOURCE,
+            "composition_c0": COMPOSITION_C0,
+            "composition_component_source": COMPOSITION_COMPONENT_SOURCE,
+            "project_graph_component_source": PROJECT_GRAPH_COMPONENT_SOURCE,
             "host_component_source": HOST_COMPONENT_SOURCE,
-            "c_p0": C_P0,
-            "f_source": F_SOURCE,
+            "project_graph_p0": PROJECT_GRAPH_P0,
+            "effect_conformance_source": EFFECT_CONFORMANCE_SOURCE,
             "glb_source": GLB_SOURCE,
         },
         "files": {name: {"sha256": sha(data), "bytes": len(data)} for name, data in files.items()},
@@ -193,28 +193,27 @@ def build(source, output):
         "build_or_native_execution": False,
         "blender_authoring_ready": False,
     }
-    restore = f"""# Semwright Blender authoring E source backup
+    restore = f"""# Semwright Blender authoring source backup
 
 Source SHA: {source}
 Patch base: {PATCH_BASE}
 PR: https://github.com/seradotcom/semwright/pull/175
 
 This ZIP is a deterministic source backup, not a release or acceptance result.
-The version 3 patch base contains the reviewed integrated A/C/F/Host dependencies documented in
-SOURCE_MANIFEST.json. Prefer the existing E branch/worktree. To reconstruct in a
-separate owned checkout at exactly PATCH_BASE, verify E_SOURCE.patch with
+The version 3 patch base contains the reviewed integrated Composition/Project Graph/Effect Conformance/Host dependencies documented in
+SOURCE_MANIFEST.json. To reconstruct from a clean checkout at exactly PATCH_BASE, verify BLENDER_AUTHORING_SOURCE.patch with
 `git apply --check` before applying it, then compare every selected path against
 SOURCE_MANIFEST.json.
 
 The archive contains no .git directory, target/, native runtime, render frames,
 credentials, user files, or prior backup ZIPs. Heavy build, Blender, fuzz, and
 native validation still belong in GitHub-hosted Actions on the exact source SHA.
-Godot roundtrip remains a separate D-owned public integration gate.
+Godot roundtrip remains a separate public integration gate owned by the Godot integration.
 """
     output = Path(output)
     output.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
-        zip_entry(archive, "E_SOURCE.patch", patch)
+        zip_entry(archive, "BLENDER_AUTHORING_SOURCE.patch", patch)
         zip_entry(
             archive,
             "SOURCE_MANIFEST.json",

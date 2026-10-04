@@ -106,7 +106,7 @@ def build_source_bundle(output: Path, tested_sha: str):
         info.compress_type = zipfile.ZIP_DEFLATED
         archive.writestr(info, manifest_bytes)
     return {
-        "id": "semwright-audio-agent-b-source",
+        "id": "semwright-audio-source",
         "package_sha256": digest(output),
         "package_bytes": output.stat().st_size,
         "source_file_count": len(entries),
@@ -297,7 +297,7 @@ def main():
         "package_bytes": bundle.stat().st_size,
         "runtime_model": "skill_bundle_non_authoritative",
     })
-    source_bundle = out / "semwright-audio-agent-b-source.zip"
+    source_bundle = out / "semwright-audio-source.zip"
     receipts.append(build_source_bundle(source_bundle, tested_sha))
     (out / "PACKAGES.json").write_text(json.dumps({
         "schema_version": 1,

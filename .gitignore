@@ -23,7 +23,4 @@ demos/launch-film/output/
 /verification/windows-interactive/
 # Local-only coordination and scratch material (never product documentation)
 /.internal/
-/.agent-work/
 /.local-development/
-/agent-notes/
-/handoffs/

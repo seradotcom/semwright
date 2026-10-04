@@ -22,5 +22,5 @@ includes it, while application-specific validation remains with the owning lane.
 The Figma codec correction from PR #156 is merged: plugin runtime code uses Figma-native base64 operations
 and bounded UTF-8 byte handling rather than test-only browser globals. It changes no capability or permission surface.
 
-No other agent's worktree is to be edited or deleted by the audit lane. R16 remains a separate independent review
+No unrelated active worktree is to be edited or deleted by the audit lane. R16 remains a separate independent review
 after an exact main candidate is admitted.

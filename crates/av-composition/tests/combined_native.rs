@@ -1994,7 +1994,7 @@ async fn combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_s
             },
             pg::Determinant {
                 class: pg::DependencyClass::External,
-                key: "c14-mux-agent-b-source".into(),
+                key: "c14-mux-audio-source".into(),
                 digest: Digest::of_bytes(integration_source_sha().as_bytes()),
             },
         ],

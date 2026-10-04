@@ -154,7 +154,7 @@ jobs:
       - name: Driver Protocol semantic authoring E2E
         run: |
           BIN_DIR="$GITHUB_WORKSPACE/target/debug"             python3 crates/driver-figma/tools/e2e_driver.py             | tee verification/figma-semantic-authoring/e2e.log
-      - name: Semantic convergence demo and structural A/B/C benchmark
+      - name: Semantic convergence demo and structural benchmark scenarios
         run: |
           python3 demos/figma-semantic-authoring/build_demo_spec.py
           git diff --exit-code -- demos/figma-semantic-authoring/semwright-landing.composition.json
