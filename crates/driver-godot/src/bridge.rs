@@ -1,13 +1,13 @@
 use crate::config::{ProjectConfig, is_hex};
 use futures_util::{SinkExt, StreamExt};
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit, Mac};
 use semwright_driver_sdk::{
     DriverChildEvent,
     continuity::{ConnectionState, ContinuityStamp},
 };
 use semwright_types::{Error, ErrorCode, Result};
 use serde_json::{Value, json};
-use sha2_010::Sha256;
+use sha2::Sha256;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 use std::{
