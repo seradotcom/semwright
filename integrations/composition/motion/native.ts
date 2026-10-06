@@ -134,7 +134,11 @@ function createShot(shot:NativeShot,d:NativeSceneData,urls:AssetUrls,nodes:Map<s
  const a=archetypes[shot.archetype];requireValue(a,'unknown archetype');
  const portrait=d.aspect==='portrait';const gap=d.editorial.spacing.block??d.editorial.spacing.base??24;
  const inset=d.safe_area;
- const root=new Layout({layout:true,size:[d.width,d.height],padding:[inset.top,inset.right,inset.bottom,inset.left],direction:portrait?'column':a.direction,justifyContent:a.justify,alignItems:a.align,gap,opacity:0});
+ // Motion Canvas can export frame 0 before a delay(0) task gets its first turn.
+ // Materialize any shot already active at the scene boundary before the first
+ // renderer yield so native frame evidence matches the Film half-open schedule.
+ const initiallyActive=sec(shot.start)<=sec(d.start)+1e-9&&sec(d.start)<sec(shot.end)-1e-9;
+ const root=new Layout({layout:true,size:[d.width,d.height],padding:[inset.top,inset.right,inset.bottom,inset.left],direction:portrait?'column':a.direction,justifyContent:a.justify,alignItems:a.align,gap,opacity:initiallyActive?1:0});
  nodes.set(`sw-shot-${shot.id}`,root);
  const byId=new Map(shot.subjects.map(s=>[s.id,s]));
  const pending=new Map(byId);let count=0;

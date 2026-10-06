@@ -362,6 +362,16 @@ mod tests {
         assert!(exporter.contains("__SEMWRIGHT_NATIVE_PROBE__"));
     }
     #[test]
+    fn runtime_materializes_scene_start_shot_before_first_renderer_yield() {
+        let source = std::str::from_utf8(runtime_source()).unwrap();
+        assert!(source.contains(
+            "const initiallyActive=sec(shot.start)<=sec(d.start)+1e-9&&sec(d.start)<sec(shot.end)-1e-9;"
+        ));
+        assert!(source.contains("opacity:initiallyActive?1:0"));
+        assert!(source.contains("tasks.push(delay(sec(shot.start)-start"));
+    }
+
+    #[test]
     fn derived_model_drift_is_rejected() {
         let (mut p, _) = project(&film(), None).unwrap();
         p.scenes[0].nodes[0].name = "external-change".into();
