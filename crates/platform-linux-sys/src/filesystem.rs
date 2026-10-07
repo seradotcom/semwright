@@ -377,14 +377,20 @@ impl Root {
             let inject_cleanup_failure = false;
             let cleanup_errno = if inject_cleanup_failure {
                 Some(libc::EACCES)
-            } else if unsafe { libc::unlinkat(parent_fd.as_raw_fd(), temporary.as_ptr(), 0) } != 0 {
-                Some(
-                    std::io::Error::last_os_error()
-                        .raw_os_error()
-                        .unwrap_or(libc::EIO),
-                )
             } else {
-                None
+                // SAFETY: parent_fd is live and temporary is our valid basename;
+                // unlinkat only removes that entry in the pinned directory.
+                let removed =
+                    unsafe { libc::unlinkat(parent_fd.as_raw_fd(), temporary.as_ptr(), 0) } == 0;
+                if removed {
+                    None
+                } else {
+                    Some(
+                        std::io::Error::last_os_error()
+                            .raw_os_error()
+                            .unwrap_or(libc::EIO),
+                    )
+                }
             };
             if no_replace && !published && cleanup_errno.is_some_and(|errno| errno != libc::ENOENT)
             {
@@ -462,11 +468,14 @@ fn no_replace_error(errno: i32) -> Error {
     }
 }
 #[cfg(test)]
+type BeforePublishHook = std::cell::RefCell<Option<Box<dyn FnOnce()>>>;
+
+#[cfg(test)]
 thread_local! {
     static NO_REPLACE_RENAME_ERRNO: std::cell::Cell<Option<i32>> = const { std::cell::Cell::new(None) };
     static NO_REPLACE_SYNC_FAILURE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
     static NO_REPLACE_CLEANUP_FAILURE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
-    static NO_REPLACE_BEFORE_PUBLISH: std::cell::RefCell<Option<Box<dyn FnOnce()>>> = const { std::cell::RefCell::new(None) };
+    static NO_REPLACE_BEFORE_PUBLISH: BeforePublishHook = const { std::cell::RefCell::new(None) };
 }
 
 /// Factory passed through the platform contract; callers never inspect native fds.
