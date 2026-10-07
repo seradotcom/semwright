@@ -298,3 +298,28 @@ of a driver in the workspace does not by itself certify every application versio
 path: each integration still needs application-specific conformance and real execution evidence.
 Further drivers such as Krita/GIMP can reuse the same provider, policy and sandbox contracts
 without adding application-specific branches to the broker.
+
+
+### Atomic no-replace artifact publication
+
+`artifact.handoff` version 1.1 accepts optional Boolean `overwrite`. Omit it or
+set it to `true` to keep replacement behavior. Set it to `false` to require a new
+file without replacing an existing destination. The destination parent must
+already exist in its granted root. This option does not create directories or
+expand grants. Null, strings and numbers are invalid values.
+
+Linux uses the existing confined, pinned parent descriptor and
+`renameat2(RENAME_NOREPLACE)`. It syncs the temporary file before publication and
+the parent directory afterward. There is no replacement or copy fallback.
+Other backends default to `Unsupported` for this explicit mode. An unsupported
+kernel, filesystem or syscall policy remains an explicit refusal. Descriptor
+availability does not prove this mode is accepted by a particular deployment.
+
+An existing destination returns `Conflict`, even if its bytes equal the source.
+A successful rename followed by a directory-sync failure has an unknown outcome:
+the error sets `outcome_known:false`, and the destination remains intact. Cleanup
+only removes the owned temporary file. Keep the original operation intent and
+observe the destination under current authority; do not issue a fresh copy after
+an uncertain response. A file hash does not establish which operation created it.
+These rules do not erase earlier effects in a multi-step workflow or supply a
+semantic verification verdict or Project Graph receipt.

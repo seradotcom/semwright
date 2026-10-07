@@ -246,6 +246,14 @@ impl Root {
     }
 
     pub fn write_atomic(&self, path: &Path, bytes: &[u8]) -> Result<()> {
+        self.write_atomic_mode(path, bytes, false)
+    }
+
+    pub fn write_new_atomic(&self, path: &Path, bytes: &[u8]) -> Result<()> {
+        self.write_atomic_mode(path, bytes, true)
+    }
+
+    fn write_atomic_mode(&self, path: &Path, bytes: &[u8], no_replace: bool) -> Result<()> {
         if !self.writable {
             return Err(Error::new(ErrorCode::PolicyDenied, "Root is not writable"));
         }
@@ -283,25 +291,27 @@ impl Root {
             .file_name()
             .ok_or_else(|| Error::invalid("File basename missing"))?;
         let name = cstring(basename)?;
-        // Existing symlinks/hardlinks are rejected, not followed. Rename remains
-        // relative to this pinned directory even if ancestors are moved later.
-        match open_beneath(
-            &parent_fd,
-            Path::new(basename),
-            libc::O_RDONLY | libc::O_NONBLOCK,
-            0,
-        ) {
-            Ok(fd) => {
-                let m = File::from(fd).metadata()?;
-                if !m.is_file() || m.nlink() != 1 {
-                    return Err(Error::new(
-                        ErrorCode::PolicyDenied,
-                        "Unsafe replacement target",
-                    ));
+        if !no_replace {
+            // Existing symlinks/hardlinks are rejected, not followed. Rename remains
+            // relative to this pinned directory even if ancestors are moved later.
+            match open_beneath(
+                &parent_fd,
+                Path::new(basename),
+                libc::O_RDONLY | libc::O_NONBLOCK,
+                0,
+            ) {
+                Ok(fd) => {
+                    let m = File::from(fd).metadata()?;
+                    if !m.is_file() || m.nlink() != 1 {
+                        return Err(Error::new(
+                            ErrorCode::PolicyDenied,
+                            "Unsafe replacement target",
+                        ));
+                    }
                 }
+                Err(e) if e.code == ErrorCode::NotFound => (),
+                Err(e) => return Err(e),
             }
-            Err(e) if e.code == ErrorCode::NotFound => (),
-            Err(e) => return Err(e),
         }
         let temporary = CString::new(format!(".semwright-{}", uuid::Uuid::new_v4().simple()))
             .map_err(|_| Error::invalid("Invalid temporary name"))?;
@@ -312,33 +322,74 @@ impl Root {
             libc::O_WRONLY | libc::O_CREAT | libc::O_EXCL,
             0o600,
         )?;
+        let mut published = false;
         let result = (|| -> Result<()> {
             let mut file = File::from(fd);
             file.write_all(bytes)?;
             file.sync_all()?;
-            // SAFETY: all fds are live, both names are valid C strings. renameat
-            // changes directory entries only and does not follow target symlinks.
-            let rc = unsafe {
-                libc::renameat(
-                    parent_fd.as_raw_fd(),
-                    temporary.as_ptr(),
-                    parent_fd.as_raw_fd(),
-                    name.as_ptr(),
-                )
-            };
-            if rc != 0 {
-                return Err(std::io::Error::last_os_error().into());
+            if no_replace {
+                #[cfg(test)]
+                NO_REPLACE_BEFORE_PUBLISH.with(|hook| {
+                    let callback = hook.borrow_mut().take();
+                    if let Some(callback) = callback {
+                        callback();
+                    }
+                });
+                publish_new(&parent_fd, &temporary, &name)?;
+            } else {
+                // SAFETY: descriptors are live; renameat changes directory entries
+                // and does not follow the destination basename.
+                if unsafe {
+                    libc::renameat(
+                        parent_fd.as_raw_fd(),
+                        temporary.as_ptr(),
+                        parent_fd.as_raw_fd(),
+                        name.as_ptr(),
+                    )
+                } != 0
+                {
+                    return Err(std::io::Error::last_os_error().into());
+                }
             }
-            // SAFETY: parent_fd refers to an open directory suitable for fsync.
+            published = true;
+            #[cfg(test)]
+            if no_replace && NO_REPLACE_SYNC_FAILURE.with(|fault| fault.replace(false)) {
+                return Err(Error::new(
+                    ErrorCode::BackendFailed,
+                    "Injected directory sync failure",
+                )
+                .uncertain());
+            }
+            // SAFETY: the same pinned directory descriptor is fsync-capable.
             if unsafe { libc::fsync(parent_fd.as_raw_fd()) } != 0 {
-                return Err(std::io::Error::last_os_error().into());
+                let error: Error = std::io::Error::last_os_error().into();
+                return Err(if no_replace { error.uncertain() } else { error });
             }
             Ok(())
         })();
         if result.is_err() {
-            // SAFETY: delete only our unpredictable temporary basename relative
-            // to the same pinned directory. Failure is harmless if rename succeeded.
-            unsafe { libc::unlinkat(parent_fd.as_raw_fd(), temporary.as_ptr(), 0) };
+            // SAFETY: cleanup names only our temporary in the pinned parent.
+            // A published destination is never deleted, even after a sync error.
+            #[cfg(test)]
+            let inject_cleanup_failure =
+                no_replace && NO_REPLACE_CLEANUP_FAILURE.with(|fault| fault.replace(false));
+            #[cfg(not(test))]
+            let inject_cleanup_failure = false;
+            let cleanup_errno = if inject_cleanup_failure {
+                Some(libc::EACCES)
+            } else if unsafe { libc::unlinkat(parent_fd.as_raw_fd(), temporary.as_ptr(), 0) } != 0 {
+                Some(
+                    std::io::Error::last_os_error()
+                        .raw_os_error()
+                        .unwrap_or(libc::EIO),
+                )
+            } else {
+                None
+            };
+            if no_replace && !published && cleanup_errno.is_some_and(|errno| errno != libc::ENOENT)
+            {
+                return result.map_err(|error| error.uncertain());
+            }
         }
         result
     }
@@ -360,6 +411,62 @@ impl semwright_platform_api::filesystem::ScopedRoot for Root {
     fn write_atomic(&self, path: &Path, bytes: &[u8]) -> Result<()> {
         Root::write_atomic(self, path, bytes)
     }
+    fn write_new_atomic(&self, path: &Path, bytes: &[u8]) -> Result<()> {
+        Root::write_new_atomic(self, path, bytes)
+    }
+}
+
+// This primitive has no replacement fallback. Errors with an ambiguous storage
+// outcome stay uncertain rather than authorizing another publication attempt.
+fn publish_new(parent: &OwnedFd, temporary: &CString, name: &CString) -> Result<()> {
+    #[cfg(test)]
+    if let Some(errno) = NO_REPLACE_RENAME_ERRNO.with(|fault| fault.replace(None)) {
+        return Err(no_replace_error(errno));
+    }
+    // SAFETY: live pinned directory, valid basenames, and the fixed kernel flag.
+    let rc = unsafe {
+        libc::syscall(
+            libc::SYS_renameat2,
+            parent.as_raw_fd(),
+            temporary.as_ptr(),
+            parent.as_raw_fd(),
+            name.as_ptr(),
+            libc::RENAME_NOREPLACE,
+        )
+    };
+    if rc == 0 {
+        return Ok(());
+    }
+    Err(no_replace_error(
+        std::io::Error::last_os_error()
+            .raw_os_error()
+            .unwrap_or(libc::EIO),
+    ))
+}
+fn no_replace_error(errno: i32) -> Error {
+    match errno {
+        libc::EEXIST => Error::new(ErrorCode::Conflict, "Destination already exists"),
+        libc::ENOSYS | libc::EINVAL | libc::EOPNOTSUPP => Error::new(
+            ErrorCode::Unsupported,
+            "Atomic no-replace publication is unsupported",
+        ),
+        libc::EPERM | libc::EACCES => Error::new(
+            ErrorCode::PermissionDenied,
+            "Atomic no-replace publication was denied",
+        ),
+        _ => Error::new(
+            ErrorCode::BackendFailed,
+            "Atomic no-replace publication failed",
+        )
+        .uncertain(),
+    }
+}
+#[cfg(test)]
+thread_local! {
+    static NO_REPLACE_RENAME_ERRNO: std::cell::Cell<Option<i32>> = const { std::cell::Cell::new(None) };
+    static NO_REPLACE_SYNC_FAILURE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    static NO_REPLACE_CLEANUP_FAILURE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    static NO_REPLACE_BEFORE_PUBLISH: std::cell::RefCell<Option<Box<dyn FnOnce()>>> = const { std::cell::RefCell::new(None) };
 }
 
 /// Factory passed through the platform contract; callers never inspect native fds.
@@ -408,6 +515,209 @@ mod tests {
         std::fs::hard_link(a.path().join("secret"), b.path().join("link")).unwrap();
         let r = Root::open(b.path(), true, false).unwrap();
         assert!(r.read(Path::new("link"), 10).is_err());
+    }
+    fn no_temporary_files(path: &Path) {
+        assert!(std::fs::read_dir(path).unwrap().all(|e| {
+            !e.unwrap()
+                .file_name()
+                .to_string_lossy()
+                .starts_with(".semwright-")
+        }));
+    }
+    #[test]
+    fn write_new_atomic_creates_and_never_replaces_existing_bytes() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = Root::open(dir.path(), true, true).unwrap();
+        root.write_new_atomic(Path::new("result"), b"first")
+            .unwrap();
+        let error = root
+            .write_new_atomic(Path::new("result"), b"second")
+            .unwrap_err();
+        assert_eq!(error.code, ErrorCode::Conflict);
+        assert!(error.outcome_known);
+        assert_eq!(root.read(Path::new("result"), 100).unwrap(), b"first");
+        no_temporary_files(dir.path());
+        root.write_atomic(Path::new("result"), b"legacy replacement")
+            .unwrap();
+        assert_eq!(
+            root.read(Path::new("result"), 100).unwrap(),
+            b"legacy replacement"
+        );
+    }
+    #[test]
+    fn write_new_atomic_concurrent_publishers_have_one_winner() {
+        let dir = tempfile::tempdir().unwrap();
+        let barrier = std::sync::Arc::new(std::sync::Barrier::new(2));
+        let handles = [b"first".to_vec(), b"second".to_vec()].map(|bytes| {
+            let path = dir.path().to_path_buf();
+            let barrier = barrier.clone();
+            std::thread::spawn(move || {
+                let root = Root::open(&path, true, true).unwrap();
+                NO_REPLACE_BEFORE_PUBLISH.with(|hook| {
+                    *hook.borrow_mut() = Some(Box::new(move || {
+                        barrier.wait();
+                    }))
+                });
+                (
+                    bytes.clone(),
+                    root.write_new_atomic(Path::new("winner"), &bytes),
+                )
+            })
+        });
+        let results = handles.map(|h| h.join().unwrap());
+        assert_eq!(results.iter().filter(|(_, r)| r.is_ok()).count(), 1);
+        let (winner, _) = results.iter().find(|(_, r)| r.is_ok()).unwrap();
+        let (_, loser) = results.iter().find(|(_, r)| r.is_err()).unwrap();
+        assert_eq!(loser.as_ref().unwrap_err().code, ErrorCode::Conflict);
+        assert_eq!(std::fs::read(dir.path().join("winner")).unwrap(), *winner);
+        no_temporary_files(dir.path());
+    }
+    #[test]
+    fn write_new_atomic_rejects_existing_symlink_hardlink_and_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("original"), b"preserved").unwrap();
+        std::os::unix::fs::symlink("original", dir.path().join("symlink")).unwrap();
+        std::fs::hard_link(dir.path().join("original"), dir.path().join("hardlink")).unwrap();
+        std::fs::create_dir(dir.path().join("directory")).unwrap();
+        let root = Root::open(dir.path(), true, true).unwrap();
+        for name in ["symlink", "hardlink", "directory"] {
+            assert_eq!(
+                root.write_new_atomic(Path::new(name), b"new")
+                    .unwrap_err()
+                    .code,
+                ErrorCode::Conflict
+            );
+        }
+        assert_eq!(
+            std::fs::read(dir.path().join("original")).unwrap(),
+            b"preserved"
+        );
+        assert!(
+            std::fs::symlink_metadata(dir.path().join("symlink"))
+                .unwrap()
+                .file_type()
+                .is_symlink()
+        );
+        assert!(dir.path().join("directory").is_dir());
+        no_temporary_files(dir.path());
+    }
+    #[test]
+    fn write_new_atomic_refuses_ungranted_or_unconfined_parent() {
+        let dir = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        let readonly = Root::open(dir.path(), true, false).unwrap();
+        assert_eq!(
+            readonly
+                .write_new_atomic(Path::new("new"), b"new")
+                .unwrap_err()
+                .code,
+            ErrorCode::PolicyDenied
+        );
+        std::os::unix::fs::symlink(outside.path(), dir.path().join("parent")).unwrap();
+        let root = Root::open(dir.path(), true, true).unwrap();
+        for name in ["../new", "parent/new", "absent/new"] {
+            assert!(root.write_new_atomic(Path::new(name), b"new").is_err());
+        }
+        assert_eq!(std::fs::read_dir(outside.path()).unwrap().count(), 0);
+        no_temporary_files(dir.path());
+    }
+    #[test]
+    fn write_new_atomic_keeps_the_parent_descriptor_after_path_replacement() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir(dir.path().join("parent")).unwrap();
+        let path = dir.path().to_path_buf();
+        let root = Root::open(&path, true, true).unwrap();
+        NO_REPLACE_BEFORE_PUBLISH.with(|hook| {
+            *hook.borrow_mut() = Some(Box::new(move || {
+                std::fs::rename(path.join("parent"), path.join("original-parent")).unwrap();
+                std::fs::create_dir(path.join("parent")).unwrap();
+            }))
+        });
+        root.write_new_atomic(Path::new("parent/result"), b"pinned")
+            .unwrap();
+        assert!(!dir.path().join("parent/result").exists());
+        assert_eq!(
+            std::fs::read(dir.path().join("original-parent/result")).unwrap(),
+            b"pinned"
+        );
+        no_temporary_files(&dir.path().join("original-parent"));
+    }
+    #[test]
+    fn write_new_atomic_unsupported_and_denied_never_fall_back() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = Root::open(dir.path(), true, true).unwrap();
+        for errno in [
+            libc::ENOSYS,
+            libc::EINVAL,
+            libc::EOPNOTSUPP,
+            libc::EPERM,
+            libc::EIO,
+        ] {
+            NO_REPLACE_RENAME_ERRNO.with(|fault| fault.set(Some(errno)));
+            let error = root
+                .write_new_atomic(Path::new("result"), b"never published")
+                .unwrap_err();
+            assert_eq!(
+                error.code,
+                match errno {
+                    libc::EPERM => ErrorCode::PermissionDenied,
+                    libc::EIO => ErrorCode::BackendFailed,
+                    _ => ErrorCode::Unsupported,
+                }
+            );
+            assert_eq!(error.outcome_known, errno != libc::EIO);
+            assert!(!dir.path().join("result").exists());
+            no_temporary_files(dir.path());
+        }
+    }
+    #[test]
+    fn write_new_atomic_post_publication_sync_error_preserves_unknown_destination() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = Root::open(dir.path(), true, true).unwrap();
+        NO_REPLACE_SYNC_FAILURE.with(|fault| fault.set(true));
+        let error = root
+            .write_new_atomic(Path::new("result"), b"published")
+            .unwrap_err();
+        assert_eq!(error.code, ErrorCode::BackendFailed);
+        assert!(!error.outcome_known);
+        assert_eq!(root.read(Path::new("result"), 100).unwrap(), b"published");
+        assert_eq!(
+            root.write_new_atomic(Path::new("result"), b"retry")
+                .unwrap_err()
+                .code,
+            ErrorCode::Conflict
+        );
+        assert_eq!(root.read(Path::new("result"), 100).unwrap(), b"published");
+        no_temporary_files(dir.path());
+    }
+    #[test]
+    fn write_new_atomic_cleanup_failure_keeps_original_conflict_and_uncertainty() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = Root::open(dir.path(), true, true).unwrap();
+        std::fs::write(dir.path().join("result"), b"untouched").unwrap();
+        NO_REPLACE_CLEANUP_FAILURE.with(|fault| fault.set(true));
+        let error = root
+            .write_new_atomic(Path::new("result"), b"temporary only")
+            .unwrap_err();
+        assert_eq!(error.code, ErrorCode::Conflict);
+        assert_eq!(error.message, "Destination already exists");
+        assert!(!error.outcome_known);
+        assert_eq!(root.read(Path::new("result"), 100).unwrap(), b"untouched");
+        let temporary: Vec<_> = std::fs::read_dir(dir.path())
+            .unwrap()
+            .map(|entry| entry.unwrap())
+            .filter(|entry| {
+                entry
+                    .file_name()
+                    .to_string_lossy()
+                    .starts_with(".semwright-")
+            })
+            .collect();
+        assert_eq!(temporary.len(), 1);
+        assert_eq!(
+            std::fs::read(temporary[0].path()).unwrap(),
+            b"temporary only"
+        );
     }
     proptest! {#[test]fn parent_prefix_never_passes(s in "[a-z]{1,100}"){let path = format!("../{s}"); prop_assert!(validate_relative_path(Path::new(&path)).is_err());}}
 }

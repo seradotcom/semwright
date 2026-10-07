@@ -7187,8 +7187,8 @@
   },
   {
     "name": "artifact.handoff",
-    "version": "1.0",
-    "description": "Copy a bounded binary artifact between two explicitly granted filesystem roots without exposing host absolute paths.",
+    "version": "1.1",
+    "description": "Copy a bounded binary artifact between explicitly granted roots. Explicit overwrite:false requires atomic no-replace support; omitted or true preserves replacement behavior.",
     "input_schema": {
       "type": "object",
       "properties": {
@@ -7228,6 +7228,11 @@
           "type": "string",
           "maxLength": 128,
           "pattern": "^[A-Za-z0-9][A-Za-z0-9.+-]*/[A-Za-z0-9][A-Za-z0-9.+-]*$"
+        },
+        "overwrite": {
+          "type": "boolean",
+          "default": true,
+          "description": "False requires atomic no-replace publication. Unsupported backends refuse without fallback."
         }
       },
       "required": [

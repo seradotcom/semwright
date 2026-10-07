@@ -399,4 +399,39 @@ mod tests {
             ErrorCode::PolicyDenied
         );
     }
+    #[test]
+    fn artifact_handoff_no_replace_schema_preserves_old_and_strict_boolean_inputs() {
+        let registry = Registry::builtin().unwrap();
+        let base = serde_json::json!({"source_root":"source","source_path":"in.bin",
+            "destination_root":"destination","destination_path":"out.bin"});
+        assert_eq!(
+            registry.describe("artifact.handoff").unwrap().version,
+            "1.1"
+        );
+        registry.validate_input("artifact.handoff", &base).unwrap();
+        for flag in [true, false] {
+            let mut args = base.clone();
+            args["overwrite"] = serde_json::json!(flag);
+            registry.validate_input("artifact.handoff", &args).unwrap();
+        }
+        for flag in [
+            Value::Null,
+            serde_json::json!("false"),
+            serde_json::json!(0),
+        ] {
+            let mut args = base.clone();
+            args["overwrite"] = flag;
+            assert!(registry.validate_input("artifact.handoff", &args).is_err());
+        }
+        let mut extra = base.clone();
+        extra["fallback"] = serde_json::json!(true);
+        assert!(registry.validate_input("artifact.handoff", &extra).is_err());
+        let result = serde_json::json!({"copied":true,"bytes":5,"sha256":"0".repeat(64),
+            "source":{"root":"source","path":"in.bin"},
+            "destination":{"root":"destination","path":"out.bin"},
+            "semantic_type":null,"media_type":null,"atomic":true});
+        registry
+            .validate_output("artifact.handoff", &result)
+            .unwrap();
+    }
 }

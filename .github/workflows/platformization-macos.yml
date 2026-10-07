@@ -127,7 +127,7 @@ jobs:
       - name: Run native platform contract tests
         run: |
           set -euo pipefail
-          cargo test --locked             -p semwright-platform-api             -p semwright-platform-macos             -p semwright-platform-macos-sys             -p semwright-platform-services             -p semwright-platform-host             --all-features             2>&1 | tee "verification/platform-ci/platform-tests-${{ matrix.arch }}.log"
+          cargo test --locked             -p semwright-platform-api             -p semwright-platform-common             -p semwright-platform-macos             -p semwright-platform-macos-sys             -p semwright-platform-services             -p semwright-platform-host             --all-features             2>&1 | tee "verification/platform-ci/platform-tests-${{ matrix.arch }}.log"
 
       - name: Link daemon and frontends
         run: |
