@@ -367,7 +367,7 @@ impl Root {
             }
             Ok(())
         })();
-        if result.is_err() {
+        if result.is_err() && (!no_replace || !published) {
             // SAFETY: cleanup names only our temporary in the pinned parent.
             // A published destination is never deleted, even after a sync error.
             #[cfg(test)]
@@ -684,11 +684,14 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let root = Root::open(dir.path(), true, true).unwrap();
         NO_REPLACE_SYNC_FAILURE.with(|fault| fault.set(true));
+        // Publication consumed our temporary entry; cleanup must never be entered.
+        NO_REPLACE_CLEANUP_FAILURE.with(|fault| fault.set(true));
         let error = root
             .write_new_atomic(Path::new("result"), b"published")
             .unwrap_err();
         assert_eq!(error.code, ErrorCode::BackendFailed);
         assert!(!error.outcome_known);
+        assert!(NO_REPLACE_CLEANUP_FAILURE.with(|fault| fault.replace(false)));
         assert_eq!(root.read(Path::new("result"), 100).unwrap(), b"published");
         assert_eq!(
             root.write_new_atomic(Path::new("result"), b"retry")
