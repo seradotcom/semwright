@@ -172,9 +172,11 @@ user data must be redacted.
 
 The public `security_review` gate may be approved only after an independent reviewer supplies a dated report tied to
 the reviewed commit, covers every required area above, and identifies any unresolved
-release-blocking findings. The maintainer then records the report reference and remediation
-SHAs in RELEASE_BLOCKERS.md/VERIFY.md. Absence of findings from automated tools alone is not
-an independent security review.
+release-blocking findings. The maintainer records the report reference and remediation
+SHAs in external release evidence bound to the frozen reviewed commit. The handoff and
+publication runs retain that record; no edit to RELEASE_BLOCKERS.md/VERIFY.md is required
+after approval. A later source or ledger commit is a different candidate if selected for release.
+Absence of findings from automated tools alone is not an independent security review.
 
 ## Machine-readable review record for the publication boundary
 

@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-## 1.0.0 — release candidate
+## 1.0.0
 
 Public publication remains gated by genuine independent exact-SHA security review,
 final distribution/certification and explicit maintainer authorization.

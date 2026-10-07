@@ -13,8 +13,9 @@ release ledgers; it does not rewrite their observations or turn an unexecuted te
 | Physical/interactive certification | Actual execution and review in each required environment | Only the support claims exercised in that environment |
 
 R16 is **CLOSED** under its recorded separate revalidation. It is not an external audit or a
-substitute for the broader independent `security_review` gate. That gate is currently **false**;
-public release remains **BLOCKED_PENDING_SECURITY_REVIEW**.
+substitute for the broader independent `security_review` gate. The source metadata retains
+**false** and **BLOCKED_PENDING_SECURITY_REVIEW**; publication requires the genuine external
+review and the other exact-SHA requirements below.
 
 The remaining R06 physical Hyprland/mixed-display and R18 unlocked-Windows interactive cases are
 **OPEN — DEFERRED_TO_POST_V1_ENVIRONMENT_DEPENDENT**. They do **not** block preparing or publishing
