@@ -305,7 +305,7 @@ export function createAuthoringScene(data:NativeSceneData,urls:AssetUrls){
   const start=sec(data.start),end=sec(data.end);const tasks:ThreadGenerator[]=[];
   for(const shot of data.shots){
    const root=nodes.get(`sw-shot-${shot.id}`)!;
-   tasks.push(delay(sec(shot.start)-start,(function*(){root.opacity(1);for(const s of shot.subjects){const n=nodes.get(s.id);if(n instanceof Video)n.play();else n?.findAll(x=>x instanceof Video).forEach(x=>(x as Video).play());}yield* waitFor(sec(shot.end)-sec(shot.start));root.opacity(0);for(const s of shot.subjects){const n=nodes.get(s.id);if(n instanceof Video)n.pause();else n?.findAll(x=>x instanceof Video).forEach(x=>(x as Video).pause());}})()));
+   tasks.push(delay(sec(shot.start)-start,(function*(){root.opacity(1);for(const s of shot.subjects){const n=nodes.get(s.id);if(n instanceof Video)n.play();else n?.findAll(x=>x instanceof Video).forEach(x=>(x as Video).play());}yield* waitFor(sec(shot.end)-sec(shot.start));if(Math.abs(sec(shot.end)-end)>1e-9)root.opacity(0);for(const s of shot.subjects){const n=nodes.get(s.id);if(n instanceof Video)n.pause();else n?.findAll(x=>x instanceof Video).forEach(x=>(x as Video).pause());}})()));
    for(const caption of shot.captions){const cue=data.cues[caption.cue_id];const node=nodes.get(caption.subject);requireValue(node instanceof Txt,'caption requires native Txt');node.opacity(0);
     if(cue?.status==='resolved')tasks.push(delay(sec(cue.start)-start,(function*(){node.text(caption.text);node.opacity(1);reg.captionActive.set(caption.id,true);yield* waitFor(sec(cue.end)-sec(cue.start));node.opacity(0);reg.captionActive.set(caption.id,false);})()));
    }
