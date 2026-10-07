@@ -461,6 +461,7 @@ async fn composition_authoring_runs_through_broker_driver_host_and_native_render
             .expect("fixture label");
         label["parent"] = json!("nested_group");
         label["layout"]["position"] = json!({"x":0.0,"y":0.0});
+        label["layout"]["size"] = json!({"width":200.0,"height":80.0});
         subjects.insert(
             0,
             json!({
@@ -469,7 +470,7 @@ async fn composition_authoring_runs_through_broker_driver_host_and_native_render
                 "parent":null,
                 "layer":"content",
                 "content":{"kind":"group"},
-                "layout":{"kind":"fixed","position":{"x":0.0,"y":0.0},"size":{"width":500.0,"height":240.0}},
+                "layout":{"kind":"fixed","position":{"x":0.0,"y":0.0},"size":{"width":240.0,"height":180.0}},
                 "initially_visible":true,
                 "clip_intentional":false
             }),
