@@ -12,6 +12,8 @@ final distribution/certification and explicit maintainer authorization.
 - Use public release bundles as the normal installation path, with source builds secondary.
 - Correct publication admission to consume external exact-SHA review without mutating the
   approved candidate; independent review and every other publication requirement remain mandatory.
+- Preserve audiovisual synchronization verdicts while consolidating identical branches required
+  by the Clippy release gate; check low-confidence video/audio and failure precedence.
 
 - Standardized CI, source-packaging/evidence tooling and cross-app pins on durable component names for Composition, Audio, Project Graph, Godot, Blender and Effect Conformance.
 - Rewrote remaining subsystem integration notes in durable component terminology and removed an unreferenced internal audio recovery report from the current public tree; exact source SHAs and verification history remain intact.
