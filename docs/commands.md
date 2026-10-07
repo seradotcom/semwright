@@ -1582,7 +1582,7 @@ Idempotency: `idempotent`. Dry run: `true`.
 
 ## `artifact.handoff`
 
-Copy a bounded binary artifact between two explicitly granted filesystem roots without exposing host absolute paths.
+Copy a bounded binary artifact between explicitly granted roots. Explicit overwrite:false requires atomic no-replace support; omitted or true preserves replacement behavior.
 
 Idempotency: `idempotent`. Dry run: `true`.
 
@@ -1626,6 +1626,11 @@ Idempotency: `idempotent`. Dry run: `true`.
       "type": "string",
       "maxLength": 128,
       "pattern": "^[A-Za-z0-9][A-Za-z0-9.+-]*/[A-Za-z0-9][A-Za-z0-9.+-]*$"
+    },
+    "overwrite": {
+      "type": "boolean",
+      "default": true,
+      "description": "False requires atomic no-replace publication. Unsupported backends refuse without fallback."
     }
   },
   "required": [

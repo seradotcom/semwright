@@ -9,7 +9,7 @@ members = [
 exclude = ["fuzz", "fixtures/windows-uia"]
 
 [workspace.package]
-version = "0.9.0-dev.1"
+version = "1.0.0"
 edition = "2024"
 rust-version = "1.88"
 license = "MIT OR Apache-2.0"
@@ -62,46 +62,46 @@ proptest = "1"
 tempfile = "3"
 semver = "1"
 unicode-normalization = "0.1"
-semwright-types = { path = "crates/types", version = "=0.9.0-dev.1" }
-semwright-project-graph = { path = "crates/project-graph", version = "=0.9.0-dev.1" }
-semwright-effect-conformance = { path = "crates/effect-conformance", version = "=0.9.0-dev.1" }
-semwright-semantic-composition = { path = "crates/semantic-composition", version = "=0.9.0-dev.1" }
-semwright-av-composition = { path = "crates/av-composition", version = "=0.9.0-dev.1" }
-semwright-motion-authoring = { path = "crates/motion-authoring", version = "=0.9.0-dev.1" }
-semwright-media-time = { path = "crates/media-time", version = "=0.9.0-dev.1" }
-semwright-audio-authoring = { path = "crates/audio-authoring", version = "=0.9.0-dev.1" }
-semwright-audio-domain = { path = "crates/audio-domain", version = "=0.9.0-dev.1" }
-semwright-video-domain = { path = "crates/video-domain", version = "=0.9.0-dev.1" }
-semwright-protocol = { path = "crates/protocol", version = "=0.9.0-dev.1" }
-semwright-registry = { path = "crates/registry", version = "=0.9.0-dev.1" }
-semwright-skills = { path = "crates/skills", version = "=0.9.0-dev.1" }
-semwright-policy = { path = "crates/policy", version = "=0.9.0-dev.1" }
-semwright-recipes = { path = "crates/recipes", version = "=0.9.0-dev.1" }
-semwright-workflow = { path = "crates/workflow", version = "=0.9.0-dev.1" }
-semwright-plugin-sdk = { path = "crates/plugin-sdk", version = "=0.9.0-dev.1" }
-semwright-plugin-host = { path = "crates/plugin-host", version = "=0.9.0-dev.1" }
-semwright-driver-sdk = { path = "crates/driver-sdk", version = "=0.9.0-dev.1" }
-semwright-driver-host = { path = "crates/driver-host", version = "=0.9.0-dev.1" }
-semwright-driver-registry = { path = "crates/driver-registry", version = "=0.9.0-dev.1" }
-semwright-backend-api = { path = "crates/backend-api", version = "=0.9.0-dev.1" }
-semwright-backends = { path = "crates/backends", version = "=0.9.0-dev.1" }
-semwright-adapters = { path = "crates/adapters", version = "=0.9.0-dev.1" }
-semwright-core = { path = "crates/core", version = "=0.9.0-dev.1" }
-semwright-daemon = { path = "crates/daemon", version = "=0.9.0-dev.1" }
-semwright-cli = { path = "crates/cli", version = "=0.9.0-dev.1" }
-semwright-mcp = { path = "crates/mcp", version = "=0.9.0-dev.1" }
-semwright-federation = { path = "crates/federation", version = "=0.9.0-dev.1" }
-semwright-tui = { path = "crates/tui", version = "=0.9.0-dev.1" }
-semwright-platform-api = { path = "crates/platform-api", version = "=0.9.0-dev.1" }
-semwright-platform-common = { path = "crates/platform-common", version = "=0.9.0-dev.1" }
-semwright-platform-host = { path = "crates/platform-host", version = "=0.9.0-dev.1" }
-semwright-platform-linux = { path = "crates/platform-linux", version = "=0.9.0-dev.1" }
-semwright-platform-linux-sys = { path = "crates/platform-linux-sys", version = "=0.9.0-dev.1" }
-semwright-platform-macos = { path = "crates/platform-macos", version = "=0.9.0-dev.1" }
-semwright-platform-macos-sys = { path = "crates/platform-macos-sys", version = "=0.9.0-dev.1" }
-semwright-platform-windows = { path = "crates/platform-windows", version = "=0.9.0-dev.1" }
-semwright-platform-windows-sys = { path = "crates/platform-windows-sys", version = "=0.9.0-dev.1" }
-semwright-platform-services = { path = "crates/platform-services", version = "=0.9.0-dev.1" }
+semwright-types = { path = "crates/types", version = "=1.0.0" }
+semwright-project-graph = { path = "crates/project-graph", version = "=1.0.0" }
+semwright-effect-conformance = { path = "crates/effect-conformance", version = "=1.0.0" }
+semwright-semantic-composition = { path = "crates/semantic-composition", version = "=1.0.0" }
+semwright-av-composition = { path = "crates/av-composition", version = "=1.0.0" }
+semwright-motion-authoring = { path = "crates/motion-authoring", version = "=1.0.0" }
+semwright-media-time = { path = "crates/media-time", version = "=1.0.0" }
+semwright-audio-authoring = { path = "crates/audio-authoring", version = "=1.0.0" }
+semwright-audio-domain = { path = "crates/audio-domain", version = "=1.0.0" }
+semwright-video-domain = { path = "crates/video-domain", version = "=1.0.0" }
+semwright-protocol = { path = "crates/protocol", version = "=1.0.0" }
+semwright-registry = { path = "crates/registry", version = "=1.0.0" }
+semwright-skills = { path = "crates/skills", version = "=1.0.0" }
+semwright-policy = { path = "crates/policy", version = "=1.0.0" }
+semwright-recipes = { path = "crates/recipes", version = "=1.0.0" }
+semwright-workflow = { path = "crates/workflow", version = "=1.0.0" }
+semwright-plugin-sdk = { path = "crates/plugin-sdk", version = "=1.0.0" }
+semwright-plugin-host = { path = "crates/plugin-host", version = "=1.0.0" }
+semwright-driver-sdk = { path = "crates/driver-sdk", version = "=1.0.0" }
+semwright-driver-host = { path = "crates/driver-host", version = "=1.0.0" }
+semwright-driver-registry = { path = "crates/driver-registry", version = "=1.0.0" }
+semwright-backend-api = { path = "crates/backend-api", version = "=1.0.0" }
+semwright-backends = { path = "crates/backends", version = "=1.0.0" }
+semwright-adapters = { path = "crates/adapters", version = "=1.0.0" }
+semwright-core = { path = "crates/core", version = "=1.0.0" }
+semwright-daemon = { path = "crates/daemon", version = "=1.0.0" }
+semwright-cli = { path = "crates/cli", version = "=1.0.0" }
+semwright-mcp = { path = "crates/mcp", version = "=1.0.0" }
+semwright-federation = { path = "crates/federation", version = "=1.0.0" }
+semwright-tui = { path = "crates/tui", version = "=1.0.0" }
+semwright-platform-api = { path = "crates/platform-api", version = "=1.0.0" }
+semwright-platform-common = { path = "crates/platform-common", version = "=1.0.0" }
+semwright-platform-host = { path = "crates/platform-host", version = "=1.0.0" }
+semwright-platform-linux = { path = "crates/platform-linux", version = "=1.0.0" }
+semwright-platform-linux-sys = { path = "crates/platform-linux-sys", version = "=1.0.0" }
+semwright-platform-macos = { path = "crates/platform-macos", version = "=1.0.0" }
+semwright-platform-macos-sys = { path = "crates/platform-macos-sys", version = "=1.0.0" }
+semwright-platform-windows = { path = "crates/platform-windows", version = "=1.0.0" }
+semwright-platform-windows-sys = { path = "crates/platform-windows-sys", version = "=1.0.0" }
+semwright-platform-services = { path = "crates/platform-services", version = "=1.0.0" }
 uiautomation = { version = "=0.25.1", default-features = false, features = ["control", "pattern", "event", "input"] }
 windows-sys = { version = ">=0.59, <=0.61", features = ["Win32_Foundation", "Win32_Graphics_Gdi", "Win32_Security", "Win32_Security_Authorization", "Win32_Storage_FileSystem", "Win32_System_Com", "Win32_System_DataExchange", "Win32_System_Diagnostics_Debug", "Win32_System_JobObjects", "Win32_System_Memory", "Win32_System_Pipes", "Win32_System_ProcessStatus", "Win32_System_Threading", "Win32_UI_Accessibility", "Win32_UI_HiDpi", "Win32_UI_Input_KeyboardAndMouse", "Win32_System_StationsAndDesktops", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
 

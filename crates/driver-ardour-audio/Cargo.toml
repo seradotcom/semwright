@@ -37,7 +37,7 @@ semwright-driver-host.workspace = true
 semwright-policy.workspace = true
 semwright-registry.workspace = true
 semwright-skills.workspace = true
-semwright-faust-audio-driver = { path = "../driver-faust-audio", version = "=0.9.0-dev.1" }
+semwright-faust-audio-driver = { path = "../driver-faust-audio", version = "=1.0.0" }
 tokio-util.workspace = true
 
 [lints]

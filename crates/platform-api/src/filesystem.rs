@@ -37,6 +37,14 @@ pub trait ScopedRoot: Send + Sync {
     fn confinement(&self) -> Confinement;
     fn read(&self, path: &Path, limit: usize) -> Result<Vec<u8>>;
     fn write_atomic(&self, path: &Path, bytes: &[u8]) -> Result<()>;
+    /// Publish a new file atomically without replacing any existing destination.
+    /// Unsupported backends must refuse; replacement is never a fallback.
+    fn write_new_atomic(&self, _path: &Path, _bytes: &[u8]) -> Result<()> {
+        Err(Error::new(
+            ErrorCode::Unsupported,
+            "Atomic no-replace publication is unavailable",
+        ))
+    }
 }
 pub trait ScopedFilesystem: Send + Sync {
     fn open_root(&self, path: &Path, read: bool, write: bool) -> Result<Box<dyn ScopedRoot>>;
@@ -67,4 +75,33 @@ pub fn validate_relative_path(path: &Path) -> Result<()> {
         ));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod no_replace_tests {
+    use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    struct ReplacementOnly(AtomicUsize);
+    impl ScopedRoot for ReplacementOnly {
+        fn confinement(&self) -> Confinement {
+            Confinement::PinnedRootSingleChild
+        }
+        fn read(&self, _: &Path, _: usize) -> Result<Vec<u8>> {
+            panic!("read must not run")
+        }
+        fn write_atomic(&self, _: &Path, _: &[u8]) -> Result<()> {
+            self.0.fetch_add(1, Ordering::SeqCst);
+            Ok(())
+        }
+    }
+    #[test]
+    fn default_no_replace_refuses_without_replacement_io() {
+        let root = ReplacementOnly(AtomicUsize::new(0));
+        let error = root
+            .write_new_atomic(Path::new("owned.bin"), b"bytes")
+            .unwrap_err();
+        assert_eq!(error.code, ErrorCode::Unsupported);
+        assert!(error.outcome_known);
+        assert_eq!(root.0.load(Ordering::SeqCst), 0);
+    }
 }

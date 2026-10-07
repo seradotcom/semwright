@@ -1620,12 +1620,20 @@ fn sync_boundaries_are_inclusive_and_confidence_floor_is_exact() {
         Verdict::Pass
     );
 
-    let mut below = exact_confidence;
-    below.impulses[0].confidence = spec.confidence_floor - 1;
-    assert_eq!(
-        verify_sync(&spec, &below).unwrap().verdict,
-        Verdict::Unknown
-    );
+    for video_side in [true, false] {
+        let mut below = exact_confidence.clone();
+        if video_side {
+            below.flashes[0].confidence = spec.confidence_floor - 1;
+        } else {
+            below.impulses[0].confidence = spec.confidence_floor - 1;
+        }
+        assert_eq!(
+            verify_sync(&spec, &below).unwrap().verdict,
+            Verdict::Unknown
+        );
+        below.impulses[0].presentation_time = q(3, 2);
+        assert_eq!(verify_sync(&spec, &below).unwrap().verdict, Verdict::Fail);
+    }
 }
 
 #[test]

@@ -124,10 +124,8 @@ pub fn verify_sync(spec: &SyncSpec, probe: &DecodedSyncProbe) -> Result<SyncRepo
     let impulses = detections(&probe.impulses)?;
     let exhaustive = probe.exhaustive_video && probe.exhaustive_audio;
     let mut unknown = probe.source != EvidenceSource::DecodedMedia;
-    if spec.require_full_scan {
-        if !exhaustive {
-            unknown = true;
-        }
+    if spec.require_full_scan && !exhaustive {
+        unknown = true;
     }
     let mut failed = false;
     let mut observations = vec![];
@@ -162,13 +160,10 @@ pub fn verify_sync(spec: &SyncSpec, probe: &DecodedSyncProbe) -> Result<SyncRepo
         let verdict = if failure_checks.into_iter().any(|failed_check| failed_check) {
             failed = true;
             Verdict::Fail
-        } else if !pass_checks.into_iter().all(|passed_check| passed_check) {
-            unknown = true;
-            Verdict::Unknown
-        } else if video.confidence < spec.confidence_floor {
-            unknown = true;
-            Verdict::Unknown
-        } else if audio.confidence < spec.confidence_floor {
+        } else if !pass_checks.into_iter().all(|passed_check| passed_check)
+            || video.confidence < spec.confidence_floor
+            || audio.confidence < spec.confidence_floor
+        {
             unknown = true;
             Verdict::Unknown
         } else {

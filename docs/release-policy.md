@@ -13,8 +13,9 @@ release ledgers; it does not rewrite their observations or turn an unexecuted te
 | Physical/interactive certification | Actual execution and review in each required environment | Only the support claims exercised in that environment |
 
 R16 is **CLOSED** under its recorded separate revalidation. It is not an external audit or a
-substitute for the broader independent `security_review` gate. That gate is currently **false**;
-public release remains **BLOCKED_PENDING_SECURITY_REVIEW**.
+substitute for the broader independent `security_review` gate. The source metadata retains
+**false** and **BLOCKED_PENDING_SECURITY_REVIEW**; publication requires the genuine external
+review and the other exact-SHA requirements below.
 
 The remaining R06 physical Hyprland/mixed-display and R18 unlocked-Windows interactive cases are
 **OPEN — DEFERRED_TO_POST_V1_ENVIRONMENT_DEPENDENT**. They do **not** block preparing or publishing
@@ -39,6 +40,15 @@ Staging prints **NOT PUBLIC RELEASE AUTHORIZATION**. The second command intentio
 the current checkout. Publication also requires an exact candidate SHA, a separately supplied
 review record, a complete distribution manifest and explicit authorization. Neither a status
 string nor a boolean in the repository authenticates a reviewer.
+
+The frozen source may retain `BLOCKED_PENDING_SECURITY_REVIEW` and
+`security_review=false` in both modes. At the publication boundary, a genuine external
+exact-SHA review satisfies the security gate without changing that source commit.
+`READY_FOR_RELEASE_VALIDATION` still requires `security_review=true`; pending status
+still requires literal `false`. Neither state removes the external review, zero blocking
+findings, exact-SHA distribution validation or explicit maintainer authorization.
+Do not commit a readiness boolean change after approval: that creates a new candidate
+requiring distribution, certification and review/revalidation again.
 
 The public review record is described in [security-review.md](security-review.md). A maintainer
 must verify the report, reviewer independence, scope, findings/remediation and artifact provenance.
@@ -67,9 +77,9 @@ assembly from the same input binaries; it does not claim bit-identical independe
 
 Artifacts remain in Actions with 30-day retention. **This repository is public: Actions artifacts
 are not confidential/private storage.** No credentials or private project data may enter a bundle.
-This mission creates no tag, GitHub Release or release assets, and changes no repository visibility.
+Staging alone creates no tag, GitHub Release or release assets.
 
-## Later publication, not part of this closeout
+## Final publication
 
 Complete the remaining demo/polish work, select a final source SHA and complete all required engineering
 and independent review gates for that SHA. Record the review decision without claiming that older
@@ -82,6 +92,10 @@ can build candidates but **never** invoke the publication job. Publication requi
 same-repository `review_run_id` carrying an `independent-security-review` artifact with the genuine
 `security-review.json` handoff. The workflow rechecks the review binding, native certificates and
 package hashes before upload, and requires that the GitHub Release already exists.
+
+The manual `independent-security-review-handoff.yml` transports only an externally supplied record
+after explicit maintainer provenance verification; see [the handoff procedure](security-review.md).
+It binds the record and final distribution run to the frozen checkout without changing source.
 
 Review handoff/provenance must be independently checked by the maintainer; an arbitrary successful
 Actions run is not a trusted reviewer. The workflow does not create that report, tag or release and

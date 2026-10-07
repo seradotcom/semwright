@@ -78,7 +78,9 @@ def validate(root: Path, mode: str = 'publish') -> list[str]:
             failures.append('readiness document keys')
         if type(readiness.get('schema_version')) is not int or readiness['schema_version'] != 2:
             failures.append('readiness schema version')
-        allowed_statuses = {READY_STATUS, PENDING_STATUS} if mode == 'staging' else {READY_STATUS}
+        # The independent review is external to the immutable candidate. Both modes
+        # validate honest source metadata; publication_errors requires the review.
+        allowed_statuses = {READY_STATUS, PENDING_STATUS}
         if readiness.get('status') not in allowed_statuses:
             failures.append('readiness status')
         post_v1 = readiness.get('post_v1_certification')
@@ -93,8 +95,7 @@ def validate(root: Path, mode: str = 'publish') -> list[str]:
                 failures.append('required gate set is incomplete or contains unknown names')
             if any(type(value) is not bool for value in gates.values()):
                 failures.append('gates must be literal booleans')
-            required = ENGINEERING_GATES if mode == 'staging' else REQUIRED_GATES
-            failures.extend(name for name in sorted(required) if gates.get(name) is not True)
+            failures.extend(name for name in sorted(ENGINEERING_GATES) if gates.get(name) is not True)
             if readiness.get('status') == READY_STATUS and gates.get('security_review') is not True:
                 failures.append('ready status cannot hide pending security review')
             if readiness.get('status') == PENDING_STATUS and gates.get('security_review') is not False:

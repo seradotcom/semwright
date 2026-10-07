@@ -2,7 +2,7 @@
   "manifest_version": 1,
   "protocol": 8,
   "id": "blender",
-  "version": "0.9.0-dev.1",
+  "version": "1.0.0",
   "publisher": "semwright",
   "executable": "/ABSOLUTE/PATH/TO/semwright-blender-driver",
   "sha256": "0000000000000000000000000000000000000000000000000000000000000000",

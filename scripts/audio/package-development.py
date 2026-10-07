@@ -199,7 +199,7 @@ def main():
         run([str(args.semwright), "--json", "driver", "validate", str(mf)])
         package = out / f"{name}.swdp"
         command = [str(args.semwright), "--json", "driver", "package", "create",
-                   str(mf), str(package), "--semwright", ">=0.9.0-dev.1"]
+                   str(mf), str(package), "--semwright", ">=1.0.0"]
         if runtime_manifest:
             command += ["--companion", f"runtime/semwright-runtime.json={runtime_manifest}"]
         run(command)

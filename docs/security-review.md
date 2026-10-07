@@ -172,15 +172,22 @@ user data must be redacted.
 
 The public `security_review` gate may be approved only after an independent reviewer supplies a dated report tied to
 the reviewed commit, covers every required area above, and identifies any unresolved
-release-blocking findings. The maintainer then records the report reference and remediation
-SHAs in RELEASE_BLOCKERS.md/VERIFY.md. Absence of findings from automated tools alone is not
-an independent security review.
+release-blocking findings. The maintainer records the report reference and remediation
+SHAs in external release evidence bound to the frozen reviewed commit. The handoff and
+publication runs retain that record; no edit to RELEASE_BLOCKERS.md/VERIFY.md is required
+after approval. A later source or ledger commit is a different candidate if selected for release.
+Absence of findings from automated tools alone is not an independent security review.
 
 ## Machine-readable review record for the publication boundary
 
 The independent reviewer supplies the full report and a small JSON review record. It is stored
 outside the reviewed source commit to avoid a self-referential SHA. Maintainers and packaging
 automation must not generate an approval on the reviewer's behalf. An unreviewed template must remain UNREVIEWED.
+
+The reviewed source can keep `security_review=false` and
+`BLOCKED_PENDING_SECURITY_REVIEW`. Publication validates the external review against that
+immutable SHA; no subsequent commit changing the boolean is required or authorized by
+the review. Any source change creates a new review target.
 
 Required fields are `reviewed_sha` (full exact candidate SHA), `reviewer` (nonempty identity),
 `reviewed_at` (ISO date, not in the future), `report_reference` (full report/evidence location),
@@ -191,4 +198,25 @@ actual approval), `unresolved_blocking_findings` (empty only after remediation/r
 The maintainer verifies authorship, independence, report provenance, coverage and remediation
 before authorizing publication. Schema validation cannot authenticate a reviewer and is not an
 attestation service. Later source changes require review/revalidation of the new SHA. See
-[the publication procedure](release-policy.md); this staging mission leaves `security_review=false`.
+[the publication procedure](release-policy.md); the frozen source may leave `security_review=false`.
+
+### Transport the genuine external record without changing source
+
+After the maintainer has verified authorship, independence, coverage, provenance and remediation,
+the manual `Independent security review handoff (external record only)` workflow accepts the
+reviewer's original JSON. It requires the frozen SHA and a successful final distribution run bound
+to that same SHA. It validates the existing publication contract, then retains the supplied record
+as `independent-security-review`; it never generates a verdict or commits a readiness change.
+
+```sh
+gh workflow run independent-security-review-handoff.yml --ref main \
+  -f candidate_sha="$FINAL_SHA" \
+  -f distribution_run_id="$DISTRIBUTION_RUN_ID" \
+  -F review_record=@/external/security-review.json \
+  -f maintainer_verified_provenance=true
+```
+
+Do not dispatch this with a synthetic fixture or an unreviewed template. The provenance input is an
+explicit maintainer confirmation, not an authentication service or a reviewer conclusion. Use the
+successful handoff run ID as `review_run_id` in `release.yml`. Record expiry or any source change
+requires a fresh valid handoff; a different source SHA also requires review/revalidation.

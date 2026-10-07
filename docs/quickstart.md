@@ -14,7 +14,7 @@ The portable bundle contains:
 
 Application integrations have their own runtime requirements and evidence. Third-party applications, optional driver packages, and models are **not** silently downloaded by core setup.
 
-> Pre-v1 candidate artifacts come from an exact-SHA V1 distribution run. A public Semwright release must use the same certified package set. Verify the release checksum before extracting a bundle.
+> Download the matching bundle and `SHA256SUMS` from [Semwright v1.0.0](https://github.com/seradotcom/semwright/releases/tag/v1.0.0). Public downloads activate after the final release gates pass. Verify the checksum before extracting a bundle.
 
 ## 1. Install and run safe setup
 
@@ -30,7 +30,7 @@ After extracting the matching `x86_64` or `aarch64` archive:
 On Debian/Ubuntu, the `.deb` is an alternative:
 
 ```sh
-sudo apt install ./semwright_<version>_amd64.deb
+sudo apt install ./semwright_1.0.0_amd64.deb
 semwright setup
 ```
 

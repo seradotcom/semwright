@@ -649,8 +649,16 @@ impl Portal {
                     .enumerate()
                     .map(|(index, stream)| stream.value(index))
                     .collect::<Vec<_>>();
+                let mut consent = self.screencast_consent.lock().await;
+                if session.closed.load(std::sync::atomic::Ordering::SeqCst) {
+                    *consent = ConsentState::Expired;
+                    return Err(Error::new(
+                        ErrorCode::ConsentRequired,
+                        "ScreenCast session was revoked while consent was pending",
+                    ));
+                }
+                *consent = transition(*consent, "grant")?;
                 *guard = Some(session);
-                *self.screencast_consent.lock().await = ConsentState::Granted;
                 Ok(json!({
                     "consent":"granted",
                     "active":true,
@@ -660,7 +668,10 @@ impl Portal {
                 }))
             }
             Err(error) => {
-                *self.screencast_consent.lock().await = ConsentState::Denied;
+                let mut consent = self.screencast_consent.lock().await;
+                if *consent == ConsentState::Pending {
+                    *consent = ConsentState::Denied;
+                }
                 Err(error)
             }
         }
@@ -795,6 +806,12 @@ impl Portal {
                 RequestBody::Start(path.clone(), options)
             })
             .await?;
+        if session.closed.load(std::sync::atomic::Ordering::SeqCst) {
+            return Err(Error::new(
+                ErrorCode::ConsentRequired,
+                "ScreenCast session was revoked while consent was pending",
+            ));
+        }
         session.streams = parse_screencast_streams(&results)?;
         Ok(session)
     }
@@ -1132,8 +1149,16 @@ impl Portal {
                 let restore_saved = session.restore_saved;
                 let restore_attempted = session.restore_attempted;
                 let clipboard_enabled = session.clipboard_enabled;
+                let mut consent = self.consent.lock().await;
+                if session.closed.load(std::sync::atomic::Ordering::SeqCst) {
+                    *consent = ConsentState::Expired;
+                    return Err(Error::new(
+                        ErrorCode::ConsentRequired,
+                        "Portal input session was revoked while consent was pending",
+                    ));
+                }
+                *consent = transition(*consent, "grant")?;
                 *guard = Some(session);
-                *self.consent.lock().await = ConsentState::Granted;
                 Ok(json!({
                     "consent":"granted",
                     "devices":devices,
@@ -1147,7 +1172,10 @@ impl Portal {
                 }))
             }
             Err(e) => {
-                *self.consent.lock().await = ConsentState::Denied;
+                let mut consent = self.consent.lock().await;
+                if *consent == ConsentState::Pending {
+                    *consent = ConsentState::Denied;
+                }
                 Err(e)
             }
         }
@@ -1282,6 +1310,12 @@ impl Portal {
         let results = self
             .request(ctx, REMOTE, "Start", |opts| RequestBody::Start(path, opts))
             .await?;
+        if session.closed.load(std::sync::atomic::Ordering::SeqCst) {
+            return Err(Error::new(
+                ErrorCode::ConsentRequired,
+                "Portal input session was revoked while consent was pending",
+            ));
+        }
         let devices = results
             .get("devices")
             .and_then(|v| v.try_clone().ok())

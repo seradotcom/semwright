@@ -1560,7 +1560,7 @@ dependencies = [
 
 [[package]]
 name = "kicad-ipc"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "serde_json",
 ]
@@ -2899,7 +2899,7 @@ checksum = "8a7852d02fc848982e0c167ef163aaff9cd91dc640ba85e263cb1ce46fae51cd"
 
 [[package]]
 name = "semwright-adapters"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "base64 0.23.1",
@@ -2925,7 +2925,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-ardour-audio-driver"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "hex",
@@ -2949,7 +2949,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-audio-authoring"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "proptest",
  "schemars",
@@ -2963,7 +2963,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-audio-domain"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "hex",
  "proptest",
@@ -2976,7 +2976,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-av-composition"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "hex",
@@ -3006,7 +3006,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-backend-api"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "proptest",
@@ -3019,7 +3019,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-backends"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "semwright-platform-common",
  "semwright-platform-linux",
@@ -3028,7 +3028,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-cli"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "clap",
  "clap_complete",
@@ -3058,7 +3058,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-core"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "hex",
@@ -3089,7 +3089,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-daemon"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "clap",
@@ -3123,7 +3123,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-driver-blender"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "hex",
@@ -3153,7 +3153,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-driver-figma"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -3188,7 +3188,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-driver-godot"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "futures-util",
@@ -3222,7 +3222,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-driver-host"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "hex",
@@ -3245,7 +3245,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-driver-libreoffice"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "hex",
@@ -3264,7 +3264,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-driver-motion-canvas"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "base64 0.23.1",
@@ -3299,7 +3299,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-driver-obs"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "base64 0.23.1",
@@ -3326,7 +3326,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-driver-registry"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "hex",
  "libc",
@@ -3343,7 +3343,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-driver-sdk"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "hex",
@@ -3361,7 +3361,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-effect-conformance"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "proptest",
  "schemars",
@@ -3374,7 +3374,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-example-plugin"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "semwright-plugin-sdk",
  "semwright-types",
@@ -3384,7 +3384,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-faust-audio-driver"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "hex",
@@ -3405,7 +3405,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-federation"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "hex",
@@ -3430,7 +3430,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-kicad-driver"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "hex",
@@ -3449,7 +3449,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-mcp"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "chrono",
  "clap",
@@ -3472,7 +3472,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-media-time"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "schemars",
  "semwright-semantic-composition",
@@ -3483,7 +3483,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-mlt-video-driver"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "hex",
@@ -3503,7 +3503,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-motion-authoring"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "schemars",
  "semwright-media-time",
@@ -3514,7 +3514,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-native-sdk"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "hex",
@@ -3539,7 +3539,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-platform-api"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "semwright-backend-api",
@@ -3551,7 +3551,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-platform-common"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "hex",
@@ -3574,7 +3574,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-platform-host"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "semwright-adapters",
  "semwright-platform-api",
@@ -3591,7 +3591,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-platform-linux"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "calloop",
@@ -3627,7 +3627,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-platform-linux-sys"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "hex",
@@ -3645,7 +3645,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-platform-macos"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "proptest",
@@ -3664,7 +3664,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-platform-macos-sys"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "hex",
  "libc",
@@ -3679,7 +3679,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-platform-services"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "libc",
  "semwright-platform-api",
@@ -3693,7 +3693,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-platform-windows"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "proptest",
@@ -3712,7 +3712,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-platform-windows-sys"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "hex",
@@ -3731,7 +3731,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-plugin-host"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "hex",
  "libc",
@@ -3752,7 +3752,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-plugin-sdk"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "hex",
  "proptest",
@@ -3768,7 +3768,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-policy"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "hex",
  "proptest",
@@ -3784,7 +3784,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-project-graph"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "libc",
  "proptest",
@@ -3803,7 +3803,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-protocol"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "libc",
  "proptest",
@@ -3818,7 +3818,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-recipes"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "async-trait",
  "proptest",
@@ -3833,7 +3833,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-registry"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "hex",
  "jsonschema",
@@ -3848,7 +3848,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-semantic-composition"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "hex",
  "schemars",
@@ -3860,7 +3860,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-skills"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "hex",
  "jsonschema",
@@ -3879,7 +3879,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-tui"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "clap",
  "crossterm",
@@ -3894,7 +3894,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-types"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "proptest",
  "regex",
@@ -3908,7 +3908,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-video-domain"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "hex",
  "serde",
@@ -3919,7 +3919,7 @@ dependencies = [
 
 [[package]]
 name = "semwright-workflow"
-version = "0.9.0-dev.1"
+version = "1.0.0"
 dependencies = [
  "hex",
  "proptest",

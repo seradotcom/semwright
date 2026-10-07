@@ -2,7 +2,7 @@
   "manifest_version": 1,
   "protocol": 1,
   "id": "kicad",
-  "version": "0.9.0-dev.1",
+  "version": "1.0.0",
   "publisher": "semwright-kicad-gpl-integration",
   "executable": "/REPLACE_WITH_OWNER_PINNED_ELF/semwright-kicad-driver",
   "sha256": "0000000000000000000000000000000000000000000000000000000000000000",

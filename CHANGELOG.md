@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+## 1.0.0
+
+Public publication remains gated by genuine independent exact-SHA security review,
+final distribution/certification and explicit maintainer authorization.
+
+- Reject portal Start responses revoked while consent was pending and preserve expired consent state.
+- Add optional atomic no-replace artifact handoff on Linux; unsupported backends refuse the explicit mode without replacement.
+- Prepare the canonical 1.0.0 core, internal dependencies, Native SDK and packaging metadata.
+- Feature the 60-second Blender → Motion Canvas → MLT demo with a lightweight poster.
+- Use public release bundles as the normal installation path, with source builds secondary.
+- Correct publication admission to consume external exact-SHA review without mutating the
+  approved candidate; independent review and every other publication requirement remain mandatory.
+- Preserve audiovisual synchronization verdicts while consolidating identical branches required
+  by the Clippy release gate; check low-confidence video/audio and failure precedence.
+- Add manual transport of a genuinely external security-review record to the artifact required
+  by publication, with explicit provenance verification and exact-SHA distribution binding.
+
 - Standardized CI, source-packaging/evidence tooling and cross-app pins on durable component names for Composition, Audio, Project Graph, Godot, Blender and Effect Conformance.
 - Rewrote remaining subsystem integration notes in durable component terminology and removed an unreferenced internal audio recovery report from the current public tree; exact source SHAs and verification history remain intact.
 - Standardized the AV composition public API and integration documentation around durable component names (`AvStageAdapter`, `AvArtifactRoutes`, and `av_stage_commands`).

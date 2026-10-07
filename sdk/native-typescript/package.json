@@ -1,6 +1,6 @@
 {
   "name": "@semwright/native-sdk",
-  "version": "0.9.0-dev.1",
+  "version": "1.0.0",
   "description": "Optional application-owned cooperation interfaces and pinned process bridge",
   "type": "module",
   "exports": {

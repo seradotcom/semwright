@@ -1890,7 +1890,7 @@ mod tests {
         let manifest_bytes = include_bytes!("../driver.manifest.example.json");
         assert_eq!(
             crate::security::sha256(manifest_bytes),
-            "726d7efb97f281e793b794d6a991cf9f8704d278aa1541e1a2af40f190546d8b"
+            "0bf90f749aaf961b8e876cf2bdafb282a32ed60e745a2cbb61ba85d3b78c830b"
         );
         let manifest: semwright_driver_sdk::Manifest =
             serde_json::from_slice(manifest_bytes).unwrap();

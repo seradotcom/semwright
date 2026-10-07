@@ -3,17 +3,26 @@
 Want the shortest path? Start with the **[three-step quick start](quickstart.md)**. This page is the
 complete reference for package selection, checksums, custom prefixes, source builds and removal.
 
-Semwright is development software. R16 is CLOSED after separate revalidation. R06/R18 residual
-physical/interactive cases remain OPEN — DEFERRED_TO_POST_V1_ENVIRONMENT_DEPENDENT, not initial-v1
-publication prerequisites. Independent security review and explicit maintainer authorization remain
-required before public release. See [release policy](release-policy.md). There is no `curl | sh` installer.
+## Install a release bundle
 
-## Install a candidate bundle
+The normal installation path is the [Semwright v1.0.0 public release](https://github.com/seradotcom/semwright/releases/tag/v1.0.0):
+download the matching bundle and `SHA256SUMS`, verify, install, run `semwright setup`, then copy the
+printed MCP configuration into your client. No Rust build is required.
 
-No public v1 release is created by this work. Obtain the native candidate from the maintainer's
-exact-SHA **V1 multiplatform distribution** Actions run, together with its global manifest and
-external `SHA256SUMS`. Match OS and architecture; do not select a package by filename alone.
-Artifacts in this public repository are not confidential storage and expire after 30 days.
+The 1.0.0 source is prepared for final validation; these public download destinations activate
+only after independent security review and the final exact-SHA release gates pass.
+Build from source below remains a secondary contributor path.
+
+| Platform | Architecture | Public package |
+| --- | --- | --- |
+| Linux | x86_64 | [tar.gz](https://github.com/seradotcom/semwright/releases/download/v1.0.0/semwright-1.0.0-x86_64.tar.gz) · [amd64 deb](https://github.com/seradotcom/semwright/releases/download/v1.0.0/semwright_1.0.0_amd64.deb) |
+| Linux | aarch64 | [tar.gz](https://github.com/seradotcom/semwright/releases/download/v1.0.0/semwright-1.0.0-aarch64.tar.gz) · [arm64 deb](https://github.com/seradotcom/semwright/releases/download/v1.0.0/semwright_1.0.0_arm64.deb) |
+| macOS | Intel x86_64 | [tar.gz](https://github.com/seradotcom/semwright/releases/download/v1.0.0/semwright-1.0.0-macos-x86_64.tar.gz) |
+| macOS | Apple Silicon arm64 | [tar.gz](https://github.com/seradotcom/semwright/releases/download/v1.0.0/semwright-1.0.0-macos-arm64.tar.gz) |
+| Windows | x86_64 | [zip](https://github.com/seradotcom/semwright/releases/download/v1.0.0/semwright-1.0.0-windows-x86_64.zip) |
+| Windows | ARM64 | [zip](https://github.com/seradotcom/semwright/releases/download/v1.0.0/semwright-1.0.0-windows-arm64.zip) |
+
+[Download SHA256SUMS](https://github.com/seradotcom/semwright/releases/download/v1.0.0/SHA256SUMS).
 
 Each portable bundle contains all five commands (`semwright`, `semwrightd`, `semwright-mcp`,
 `semwright-inspect`, `semwright-sandbox`), required packaged macOS native libraries where applicable,
@@ -29,13 +38,13 @@ an operating-system or organization security policy.
 
 ### Linux — x86_64 or aarch64
 
-Substitute the actual package version and architecture:
+Choose the matching architecture; the examples below use 1.0.0:
 
 ```sh
-sha256sum semwright-<version>-x86_64.tar.gz
+sha256sum semwright-1.0.0-x86_64.tar.gz
 # Compare with the matching entry in the external SHA256SUMS.
-tar -xzf semwright-<version>-x86_64.tar.gz
-cd semwright-<version>-x86_64
+tar -xzf semwright-1.0.0-x86_64.tar.gz
+cd semwright-1.0.0-x86_64
 ./install.sh
 "$HOME/.local/share/semwright/bin/semwright" setup
 ```
@@ -48,7 +57,7 @@ baseline; other Linux distributions/library versions require separate compatibil
 On compatible Debian/Ubuntu systems, the matching `.deb` is an alternative:
 
 ```sh
-sudo apt install ./semwright_<version>_amd64.deb
+sudo apt install ./semwright_1.0.0_amd64.deb
 semwright --help
 # Later, to remove the package:
 sudo apt remove semwright
@@ -62,9 +71,9 @@ it does not enable a service or give the daemon root authority. Never run the da
 Check the ZIP's SHA-256 against the matching external manifest entry, then extract it:
 
 ```powershell
-Get-FileHash .\semwright-<version>-windows-x86_64.zip -Algorithm SHA256
-Expand-Archive .\semwright-<version>-windows-x86_64.zip -DestinationPath .\candidate
-Set-Location .\candidate\semwright-<version>-windows-x86_64
+Get-FileHash .\semwright-1.0.0-windows-x86_64.zip -Algorithm SHA256
+Expand-Archive .\semwright-1.0.0-windows-x86_64.zip -DestinationPath .\semwright-release
+Set-Location .\semwright-release\semwright-1.0.0-windows-x86_64
 .\Install-Semwright.ps1
 & "$env:LOCALAPPDATA\Semwright\bin\semwright.exe" setup
 ```
@@ -81,10 +90,10 @@ evaluation/distribution method. No reputation or signing claim is made.
 Use `macos-arm64` for Apple Silicon and `macos-x86_64` for Intel:
 
 ```sh
-shasum -a 256 semwright-<version>-macos-arm64.tar.gz
+shasum -a 256 semwright-1.0.0-macos-arm64.tar.gz
 # Compare with the matching entry in the external SHA256SUMS.
-tar -xzf semwright-<version>-macos-arm64.tar.gz
-cd semwright-<version>-macos-arm64
+tar -xzf semwright-1.0.0-macos-arm64.tar.gz
+cd semwright-1.0.0-macos-arm64
 ./install.sh
 "$HOME/Library/Application Support/Semwright/bin/semwright" setup
 ```

@@ -2,7 +2,7 @@
   "manifest_version": 1,
   "protocol": 1,
   "id": "obs",
-  "version": "0.9.0-dev.1",
+  "version": "1.0.0",
   "publisher": "owner-reviewed",
   "executable": "<ABSOLUTE_RELEASE_ELF_PATH>",
   "sha256": "<COMPUTE_FROM_INSTALLED_ELF>",
