@@ -14,6 +14,7 @@ fn force_next_rotation_failure(audit: &Arc<Audit>, directory: &Path) {
     for _ in 0..1024 {
         if std::fs::metadata(directory.join("audit.jsonl")).unwrap().len() >= 65536 {
             std::fs::create_dir(directory.join("audit.jsonl.1")).unwrap();
+            assert!(audit.begin("reviewer.fixture.probe", &unique_id(), "reviewer-fault").is_err(), "fixture must prove rotation writes fail");
             return;
         }
         let mut record = audit.begin("reviewer.fixture.padding", &unique_id(), "reviewer-fault").unwrap();
@@ -22,6 +23,7 @@ fn force_next_rotation_failure(audit: &Arc<Audit>, directory: &Path) {
             // Keep this synthetic unfinished scope from triggering rotation during Drop.
             // It is one bounded fixture allocation reclaimed at process exit.
             std::mem::forget(record);
+            assert!(audit.begin("reviewer.fixture.probe", &unique_id(), "reviewer-fault").is_err(), "fixture must prove rotation writes fail");
             return;
         }
         record.finish(&Ok(json!({}))).unwrap();
@@ -61,7 +63,7 @@ async fn call(broker: &Arc<Broker>, session: &str, command: &str, args: Value) -
 async fn reviewer_audit_failure_before_dispatch_has_zero_effects() {
     let root = tempfile::tempdir().unwrap();
     let directory = root.path().join("audit");
-    let audit = Audit::open(&directory, 65536, 2).unwrap();
+    let audit = Audit::open(&directory, 65536, 1).unwrap();
     let desktop = Arc::new(FakeDesktop::new());
     let broker = Broker::new(Policy::new(PolicyConfig { profile: Profile::Desktop, ..Default::default() }).unwrap(),
         vec![desktop.clone()], audit.clone(), Arc::new(NoApprover), None, json!({"fixture":true}), true).unwrap();
@@ -80,7 +82,7 @@ async fn reviewer_audit_failure_before_dispatch_has_zero_effects() {
 async fn reviewer_audit_failure_after_effect_returns_uncertain_without_retry() {
     let root = tempfile::tempdir().unwrap();
     let directory = root.path().join("audit");
-    let audit = Audit::open(&directory, 65536, 2).unwrap();
+    let audit = Audit::open(&directory, 65536, 1).unwrap();
     let desktop = Arc::new(FakeDesktop::new());
     let backend = Arc::new(PostEffectAuditFault { desktop: desktop.clone(), audit: audit.clone(), directory });
     let broker = Broker::new(Policy::new(PolicyConfig { profile: Profile::Desktop, ..Default::default() }).unwrap(),
