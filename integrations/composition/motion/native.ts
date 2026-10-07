@@ -130,17 +130,25 @@ function finishLayouts(subjects:Subject[],nodes:Map<string,Node>,d:NativeSceneDa
   }
  }
 }
-function createShot(shot:NativeShot,d:NativeSceneData,urls:AssetUrls,nodes:Map<string,Node>):Layout {
+function createShot(shot:NativeShot,d:NativeSceneData,urls:AssetUrls,nodes:Map<string,Node>,reg:ReturnType<typeof registration>):Layout {
  const a=archetypes[shot.archetype];requireValue(a,'unknown archetype');
  const portrait=d.aspect==='portrait';const gap=d.editorial.spacing.block??d.editorial.spacing.base??24;
  const inset=d.safe_area;
- const root=new Layout({layout:true,size:[d.width,d.height],padding:[inset.top,inset.right,inset.bottom,inset.left],direction:portrait?'column':a.direction,justifyContent:a.justify,alignItems:a.align,gap,opacity:0});
+ // Motion Canvas can export frame 0 before a delay(0) task gets its first turn.
+ // Materialize any shot already active at the scene boundary before the first
+ // renderer yield so native frame evidence matches the Film half-open schedule.
+ const initiallyActive=sec(shot.start)<=sec(d.start)+1e-9&&sec(d.start)<sec(shot.end)-1e-9;
+ const root=new Layout({layout:true,size:[d.width,d.height],padding:[inset.top,inset.right,inset.bottom,inset.left],direction:portrait?'column':a.direction,justifyContent:a.justify,alignItems:a.align,gap,opacity:initiallyActive?1:0});
  nodes.set(`sw-shot-${shot.id}`,root);
  const byId=new Map(shot.subjects.map(s=>[s.id,s]));
  const pending=new Map(byId);let count=0;
  while(pending.size){let progress=false;
   for(const [id,s] of pending){if(s.parent&&!nodes.has(s.parent))continue;
    requireValue(!nodes.has(id),'duplicate logical id');const n=newSubject(s,d,urls);nodes.set(id,n);
+   // Instrument before attaching the node. Motion Canvas may populate a render
+   // cache as soon as a subtree is attached; wrapping after view.add can miss
+   // the first native frame and make deterministic bounds appear UNKNOWN.
+   instrument(n,id,reg);
    const parent=s.parent?nodes.get(s.parent)!:root;
    // A camera renders its scene via the native scene signal, not ordinary children.
    if(parent instanceof Camera){let scene=parent.scene();if(!scene){scene=new Node({});parent.scene(scene);}scene.add(n);}else parent.add(n);
@@ -285,17 +293,19 @@ export function createAuthoringScene(data:NativeSceneData,urls:AssetUrls){
  requireValue(data.version===1&&data.shots.length<=128&&data.instructions.length<=8192,'native scene bounds');
  return makeScene2D(function*(view){
   const nodes=new Map<string,Node>();const reg=registration(data,nodes);sceneRegistrations.set(data.id,reg);
-  for(const shot of data.shots)view.add(createShot(shot,data,urls,nodes));
+  // Capture the stage canvas before any authored subtree is attached, then
+  // instrument each subject inside createShot before parent.add/view.add can
+  // prime Motion Canvas caches.
   const originalRender=view.render.bind(view);
   view.render=(ctx:CanvasRenderingContext2D)=>{reg.canvas=ctx.canvas;reg.draws.clear();reg.rendered.clear();reg.drawSerial=0;return originalRender(ctx);};
-  for(const [id,n] of nodes)instrument(n,id,reg);
+  for(const shot of data.shots)view.add(createShot(shot,data,urls,nodes,reg));
   // Native dependency resolution participates in renderer startup; fonts and
   // media are awaited by native promises, never set ready from the desired model.
   yield view.toPromise();yield document.fonts.ready;
   const start=sec(data.start),end=sec(data.end);const tasks:ThreadGenerator[]=[];
   for(const shot of data.shots){
    const root=nodes.get(`sw-shot-${shot.id}`)!;
-   tasks.push(delay(sec(shot.start)-start,(function*(){root.opacity(1);for(const s of shot.subjects){const n=nodes.get(s.id);if(n instanceof Video)n.play();else n?.findAll(x=>x instanceof Video).forEach(x=>(x as Video).play());}yield* waitFor(sec(shot.end)-sec(shot.start));root.opacity(0);for(const s of shot.subjects){const n=nodes.get(s.id);if(n instanceof Video)n.pause();else n?.findAll(x=>x instanceof Video).forEach(x=>(x as Video).pause());}})()));
+   tasks.push(delay(sec(shot.start)-start,(function*(){root.opacity(1);for(const s of shot.subjects){const n=nodes.get(s.id);if(n instanceof Video)n.play();else n?.findAll(x=>x instanceof Video).forEach(x=>(x as Video).play());}yield* waitFor(sec(shot.end)-sec(shot.start));if(Math.abs(sec(shot.end)-end)>1e-9)root.opacity(0);for(const s of shot.subjects){const n=nodes.get(s.id);if(n instanceof Video)n.pause();else n?.findAll(x=>x instanceof Video).forEach(x=>(x as Video).pause());}})()));
    for(const caption of shot.captions){const cue=data.cues[caption.cue_id];const node=nodes.get(caption.subject);requireValue(node instanceof Txt,'caption requires native Txt');node.opacity(0);
     if(cue?.status==='resolved')tasks.push(delay(sec(cue.start)-start,(function*(){node.text(caption.text);node.opacity(1);reg.captionActive.set(caption.id,true);yield* waitFor(sec(cue.end)-sec(cue.start));node.opacity(0);reg.captionActive.set(caption.id,false);})()));
    }

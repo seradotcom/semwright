@@ -449,11 +449,52 @@ async fn composition_authoring_runs_through_broker_driver_host_and_native_render
         "../../../fixtures/composition/motion/technical.json"
     ))
     .unwrap();
-    // Native pipeline proof is intentionally taste-neutral: keep lifecycle/cue/
-    // transition checks and omit the fixture's optional geometry rule.
-    film["sequences"][0]["beats"][0]["shots"][0]["constraints"] = json!([]);
-    film["output"]["width"] = json!(640);
-    film["output"]["height"] = json!(360);
+    // Keep a geometry rule in the real native pipeline. The nested fixed group
+    // mirrors production authoring where a semantic container owns text and both
+    // must be observable on the first and final in-range frames.
+    {
+        let shot = &mut film["sequences"][0]["beats"][0]["shots"][0];
+        let subjects = shot["subjects"].as_array_mut().expect("fixture subjects");
+        let label = subjects
+            .iter_mut()
+            .find(|subject| subject["id"] == "label")
+            .expect("fixture label");
+        label["parent"] = json!("nested_group");
+        label["layout"]["position"] = json!({"x":0.0,"y":0.0});
+        label["layout"]["size"] = json!({"width":200.0,"height":80.0});
+        subjects.insert(
+            0,
+            json!({
+                "id":"nested_group",
+                "role":"primary",
+                "parent":null,
+                "layer":"content",
+                "content":{"kind":"group"},
+                "layout":{"kind":"fixed","position":{"x":0.0,"y":0.0},"size":{"width":240.0,"height":180.0}},
+                "initially_visible":true,
+                "clip_intentional":false
+            }),
+        );
+        shot["constraints"] = json!([
+            {"rule":"safe_area","subject":"nested_group","tolerance":0.0},
+            {"rule":"safe_area","subject":"label","tolerance":0.0}
+        ]);
+    }
+    // Exercise the exact half-open terminal boundary used by Motionwright:
+    // two seconds at 30 fps must keep authored subjects observable through frame 59.
+    film["timing"]["duration"] = json!({"num":"2","den":"1"});
+    for span in film["timing"]["spans"]
+        .as_array_mut()
+        .expect("fixture timing spans")
+    {
+        if span["id"] == "sequence-span" || span["id"] == "shot-span" {
+            span["minimum"] = json!({"num":"2","den":"1"});
+            span["preferred"] = json!({"num":"2","den":"1"});
+            span["maximum"] = json!({"num":"2","den":"1"});
+        }
+    }
+    film["output"]["width"] = json!(1920);
+    film["output"]["height"] = json!(1080);
     film["output"]["aspect"] = json!("landscape");
 
     let planned = broker_call(
@@ -507,7 +548,7 @@ async fn composition_authoring_runs_through_broker_driver_host_and_native_render
             "expected_fingerprint": fingerprint,
             "profile": {
                 "first_frame": 0,
-                "end_frame_exclusive": 90,
+                "end_frame_exclusive": 60,
                 "scale": "full",
                 "transparent": false,
                 "timeout_ms": 120000
@@ -533,7 +574,7 @@ async fn composition_authoring_runs_through_broker_driver_host_and_native_render
         }
     };
     assert_eq!(terminal["state"], "succeeded", "terminal: {terminal:#}");
-    assert_eq!(terminal["artifact"]["frame_count"], 90);
+    assert_eq!(terminal["artifact"]["frame_count"], 60);
 
     let rendered = broker_call(
         &broker,
@@ -552,8 +593,8 @@ async fn composition_authoring_runs_through_broker_driver_host_and_native_render
         .unwrap(),
     )
     .unwrap();
-    assert_eq!(first_manifest["plan"]["width"], 640);
-    assert_eq!(first_manifest["plan"]["height"], 360);
+    assert_eq!(first_manifest["plan"]["width"], 1920);
+    assert_eq!(first_manifest["plan"]["height"], 1080);
 
     let verified = broker_call(
         &broker,
@@ -596,8 +637,8 @@ async fn composition_authoring_runs_through_broker_driver_host_and_native_render
         .collect::<Vec<_>>();
     let mut reflow_evidence = vec![json!({
         "aspect":"landscape",
-        "width":640,
-        "height":360,
+        "width":1920,
+        "height":1080,
         "source_fingerprint":fingerprint.clone(),
         "render":rendered.clone(),
         "verification":verified.clone()
@@ -657,7 +698,7 @@ async fn composition_authoring_runs_through_broker_driver_host_and_native_render
                 "expected_fingerprint":reflow_fingerprint,
                 "profile":{
                     "first_frame":0,
-                    "end_frame_exclusive":90,
+                    "end_frame_exclusive":60,
                     "scale":"full",
                     "transparent":false,
                     "timeout_ms":120000

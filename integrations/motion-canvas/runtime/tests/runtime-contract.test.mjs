@@ -107,6 +107,11 @@ test('native observation never forces layout geometry before the native draw', (
   assert.ok(!nativeAuthoring.includes('local_size:n instanceof Layout&&n.width()>0'));
 });
 
+test('terminal authored shots stay visible through the final half-open frame', () => {
+  assert.ok(nativeAuthoring.includes("if(Math.abs(sec(shot.end)-end)>1e-9)root.opacity(0)"));
+  assert.ok(nativeAuthoring.includes("time<sec(r.data.end)-1e-9"));
+});
+
 test('native text probe normalizes DOMRectList before iteration', () => {
   assert.ok(nativeAuthoring.includes('Array.from(range.getClientRects())'));
   assert.ok(!nativeAuthoring.includes('[...range.getClientRects()]'));
