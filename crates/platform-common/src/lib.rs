@@ -16,3 +16,18 @@ pub struct Application {
     pub args: Vec<String>,
     pub cwd: Option<PathBuf>,
 }
+
+#[cfg(test)]
+fn fixture_root(path: &std::path::Path) -> PathBuf {
+    #[cfg(target_os = "windows")]
+    {
+        // Windows confinement accepts ordinary absolute drive paths; canonicalize
+        // returns device syntax that the production boundary deliberately refuses.
+        assert!(path.is_absolute());
+        path.to_path_buf()
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        path.canonicalize().unwrap()
+    }
+}

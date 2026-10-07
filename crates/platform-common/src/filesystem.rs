@@ -123,7 +123,7 @@ mod tests {
         let directory = tempdir().unwrap();
         let grant = FilesystemGrant {
             name: "workspace".into(),
-            path: std::fs::canonicalize(directory.path()).unwrap(),
+            path: crate::fixture_root(directory.path()),
             read: true,
             write: true,
         };

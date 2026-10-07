@@ -166,13 +166,13 @@ mod tests {
         let grants = vec![
             FilesystemGrant {
                 name: "blender-output".into(),
-                path: std::fs::canonicalize(source.path()).unwrap(),
+                path: crate::fixture_root(source.path()),
                 read: true,
                 write: false,
             },
             FilesystemGrant {
                 name: "godot-project".into(),
-                path: std::fs::canonicalize(destination.path()).unwrap(),
+                path: crate::fixture_root(destination.path()),
                 read: true,
                 write: true,
             },
@@ -210,13 +210,13 @@ mod tests {
         let grants = vec![
             FilesystemGrant {
                 name: "source".into(),
-                path: std::fs::canonicalize(source.path()).unwrap(),
+                path: crate::fixture_root(source.path()),
                 read: true,
                 write: false,
             },
             FilesystemGrant {
                 name: "destination".into(),
-                path: std::fs::canonicalize(destination.path()).unwrap(),
+                path: crate::fixture_root(destination.path()),
                 read: true,
                 write: true,
             },
@@ -412,13 +412,13 @@ mod tests {
         let grants = vec![
             FilesystemGrant {
                 name: "source".into(),
-                path: source.path().canonicalize().unwrap(),
+                path: crate::fixture_root(source.path()),
                 read: true,
                 write: false,
             },
             FilesystemGrant {
                 name: "destination".into(),
-                path: destination.path().canonicalize().unwrap(),
+                path: crate::fixture_root(destination.path()),
                 read: true,
                 write: true,
             },
@@ -462,13 +462,13 @@ mod tests {
         let grants = vec![
             FilesystemGrant {
                 name: "source".into(),
-                path: source.path().canonicalize().unwrap(),
+                path: crate::fixture_root(source.path()),
                 read: true,
                 write: false,
             },
             FilesystemGrant {
                 name: "destination".into(),
-                path: destination.path().canonicalize().unwrap(),
+                path: crate::fixture_root(destination.path()),
                 read: true,
                 write: true,
             },
