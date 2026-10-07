@@ -547,6 +547,19 @@ fn semantic_capabilities() -> Vec<Capability> {
             Idempotency::ReadOnly,
         ),
         semantic_descriptor(
+            "driver.blender.mesh.geometry.initialize",
+            "Initialize bounded topology on one fresh, unlinked, empty Mesh without overwriting existing geometry",
+            json!({"type":"object","properties":{
+                "mesh_ref":semantic_ref_schema(),
+                "vertices":{"type":"array","maxItems":10000,"items":{"type":"array","minItems":3,"maxItems":3,"items":{"type":"number","minimum":-1000000,"maximum":1000000}}},
+                "edges":{"type":"array","maxItems":30000,"items":{"type":"array","minItems":2,"maxItems":2,"items":{"type":"integer","minimum":0,"maximum":9999}}},
+                "faces":{"type":"array","maxItems":10000,"items":{"type":"array","minItems":3,"maxItems":64,"items":{"type":"integer","minimum":0,"maximum":9999}}}
+            },"required":["mesh_ref","vertices","edges","faces"],"additionalProperties":false}),
+            json!({"type":"object","properties":{"ref":semantic_ref_schema(),"vertices":{"type":"integer","minimum":0},"edges":{"type":"integer","minimum":0},"faces":{"type":"integer","minimum":0},"changed":{"const":true},"generation":{"type":"integer","minimum":1}},"required":["ref","vertices","edges","faces","changed","generation"],"additionalProperties":false}),
+            Risk::Mutating,
+            Idempotency::NonIdempotent,
+        ),
+        semantic_descriptor(
             "driver.blender.mesh.geometry.replace",
             "Replace one bounded Mesh topology with validated vertex/edge/face data",
             json!({"type":"object","properties":{
@@ -1926,6 +1939,31 @@ mod tests {
         }
         assert!(!validator.is_valid(&Value::Null));
         assert!(!validator.is_valid(&json!({"x":1})));
+    }
+
+    #[test]
+    fn mesh_initialize_is_non_sensitive_while_replace_stays_destructive() {
+        let capabilities = semantic_capabilities();
+        let initialize = capabilities
+            .iter()
+            .find(|capability| {
+                capability.descriptor.name == "driver.blender.mesh.geometry.initialize"
+            })
+            .expect("mesh initialize capability");
+        let replace = capabilities
+            .iter()
+            .find(|capability| capability.descriptor.name == "driver.blender.mesh.geometry.replace")
+            .expect("mesh replace capability");
+
+        assert_eq!(initialize.descriptor.risk, Risk::Mutating);
+        assert_eq!(
+            initialize.descriptor.idempotency,
+            Idempotency::NonIdempotent
+        );
+        assert!(!initialize.descriptor.risk.sensitive());
+        assert_eq!(replace.descriptor.risk, Risk::Destructive);
+        assert_eq!(replace.descriptor.idempotency, Idempotency::Idempotent);
+        assert!(replace.descriptor.risk.sensitive());
     }
 
     #[test]
