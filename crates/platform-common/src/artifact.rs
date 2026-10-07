@@ -319,7 +319,7 @@ mod tests {
                 .unwrap();
             assert_eq!(result["copied"], true);
             assert_eq!(result["atomic"], true);
-            assert_eq!(result["sha256"], format!("{:x}", Sha256::digest(b"owned")));
+            assert_eq!(result["sha256"], hex::encode(Sha256::digest(b"owned")));
             assert_eq!(
                 *calls.lock().unwrap(),
                 vec![
@@ -480,7 +480,7 @@ mod tests {
             .execute(&context(), "artifact.handoff", &args)
             .await
             .unwrap();
-        assert_eq!(first["sha256"], format!("{:x}", Sha256::digest(b"first")));
+        assert_eq!(first["sha256"], hex::encode(Sha256::digest(b"first")));
         assert_eq!(first["bytes"], 5);
         std::fs::write(source.path().join("input.bin"), b"second").unwrap();
         assert_eq!(
