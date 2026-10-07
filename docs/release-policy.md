@@ -92,6 +92,10 @@ same-repository `review_run_id` carrying an `independent-security-review` artifa
 `security-review.json` handoff. The workflow rechecks the review binding, native certificates and
 package hashes before upload, and requires that the GitHub Release already exists.
 
+The manual `independent-security-review-handoff.yml` transports only an externally supplied record
+after explicit maintainer provenance verification; see [the handoff procedure](security-review.md).
+It binds the record and final distribution run to the frozen checkout without changing source.
+
 Review handoff/provenance must be independently checked by the maintainer; an arbitrary successful
 Actions run is not a trusted reviewer. The workflow does not create that report, tag or release and
 cannot turn pending security review into approval. The public guard's default mode is publication,

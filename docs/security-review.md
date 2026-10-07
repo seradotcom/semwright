@@ -196,4 +196,25 @@ actual approval), `unresolved_blocking_findings` (empty only after remediation/r
 The maintainer verifies authorship, independence, report provenance, coverage and remediation
 before authorizing publication. Schema validation cannot authenticate a reviewer and is not an
 attestation service. Later source changes require review/revalidation of the new SHA. See
-[the publication procedure](release-policy.md); this staging mission leaves `security_review=false`.
+[the publication procedure](release-policy.md); the frozen source may leave `security_review=false`.
+
+### Transport the genuine external record without changing source
+
+After the maintainer has verified authorship, independence, coverage, provenance and remediation,
+the manual `Independent security review handoff (external record only)` workflow accepts the
+reviewer's original JSON. It requires the frozen SHA and a successful final distribution run bound
+to that same SHA. It validates the existing publication contract, then retains the supplied record
+as `independent-security-review`; it never generates a verdict or commits a readiness change.
+
+```sh
+gh workflow run independent-security-review-handoff.yml --ref main \
+  -f candidate_sha="$FINAL_SHA" \
+  -f distribution_run_id="$DISTRIBUTION_RUN_ID" \
+  -F review_record=@/external/security-review.json \
+  -f maintainer_verified_provenance=true
+```
+
+Do not dispatch this with a synthetic fixture or an unreviewed template. The provenance input is an
+explicit maintainer confirmation, not an authentication service or a reviewer conclusion. Use the
+successful handoff run ID as `review_run_id` in `release.yml`. Record expiry or any source change
+requires a fresh valid handoff; a different source SHA also requires review/revalidation.

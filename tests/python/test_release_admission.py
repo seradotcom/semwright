@@ -224,6 +224,33 @@ class ReleaseAdmissionTests(unittest.TestCase):
 
 
 class PublicationWorkflowTests(unittest.TestCase):
+    def test_review_transport_needs_external_record_provenance_and_exact_sha_distribution(self):
+        import yaml
+
+        path = ROOT / '.github/workflows/independent-security-review-handoff.yml'
+        text = path.read_text()
+        workflow = yaml.safe_load(text)
+        event = workflow.get('on', workflow.get(True))
+        self.assertEqual(set(event), {'workflow_dispatch'})
+        inputs = event['workflow_dispatch']['inputs']
+        self.assertTrue(inputs['review_record']['required'])
+        self.assertFalse(inputs['maintainer_verified_provenance']['default'])
+        self.assertEqual(workflow['permissions'], {'contents': 'read', 'actions': 'read'})
+        for required in (
+            'test "$MAINTAINER_VERIFIED_PROVENANCE" = true',
+            'test "$CANDIDATE_SHA" = "$(git rev-parse HEAD)"',
+            '--json headSha --jq .headSha)" = "$CANDIDATE_SHA"',
+            '--json conclusion --jq .conclusion)" = success',
+            "record = os.environ['REVIEW_RECORD']", "len(record.encode('utf-8')) > 131072",
+            '--review-report external-review/security-review.json',
+            '--distribution-manifest distribution/V1_DISTRIBUTION_MANIFEST.json',
+            'name: independent-security-review',
+        ):
+            self.assertIn(required, text)
+        self.assertNotIn('git commit', text)
+        self.assertNotIn('APPROVED_FOR_PUBLIC_RELEASE', text)
+        self.assertNotIn('security_review=true', text)
+
     def test_publication_keeps_external_review_bound_to_frozen_source(self):
         text = (ROOT / '.github/workflows/release.yml').read_text()
         for required in (
