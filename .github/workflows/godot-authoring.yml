@@ -699,7 +699,7 @@ jobs:
       - name: Exact Godot source checkout
         run: test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
       - name: Download exact-SHA native D12 evidence
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: godot-native-authoring-${{ github.sha }}
           path: verification/godot-cross-app/native
