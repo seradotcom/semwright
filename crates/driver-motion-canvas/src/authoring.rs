@@ -368,6 +368,23 @@ mod tests {
             "const initiallyActive=sec(shot.start)<=sec(d.start)+1e-9&&sec(d.start)<sec(shot.end)-1e-9;"
         ));
         assert!(source.contains("opacity:initiallyActive?1:0"));
+        assert!(source.contains("instrument(n,id,reg);"));
+        let render_hook = source
+            .find("const originalRender=view.render.bind(view);")
+            .unwrap();
+        let attach = source
+            .find("view.add(createShot(shot,data,urls,nodes,reg))")
+            .unwrap();
+        assert!(
+            render_hook < attach,
+            "stage render instrumentation must precede subtree attachment"
+        );
+        let instrument = source.find("instrument(n,id,reg);").unwrap();
+        let parent_add = source.find("else parent.add(n);").unwrap();
+        assert!(
+            instrument < parent_add,
+            "subject instrumentation must precede parent attachment"
+        );
         assert!(source.contains("tasks.push(delay(sec(shot.start)-start"));
     }
 
