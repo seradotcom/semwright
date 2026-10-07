@@ -449,9 +449,36 @@ async fn composition_authoring_runs_through_broker_driver_host_and_native_render
         "../../../fixtures/composition/motion/technical.json"
     ))
     .unwrap();
-    // Native pipeline proof is intentionally taste-neutral: keep lifecycle/cue/
-    // transition checks and omit the fixture's optional geometry rule.
-    film["sequences"][0]["beats"][0]["shots"][0]["constraints"] = json!([]);
+    // Keep a geometry rule in the real native pipeline. The nested fixed group
+    // mirrors production authoring where a semantic container owns text and both
+    // must be observable on the first and final in-range frames.
+    {
+        let shot = &mut film["sequences"][0]["beats"][0]["shots"][0];
+        let subjects = shot["subjects"].as_array_mut().expect("fixture subjects");
+        let label = subjects
+            .iter_mut()
+            .find(|subject| subject["id"] == "label")
+            .expect("fixture label");
+        label["parent"] = json!("nested_group");
+        label["layout"]["position"] = json!({"x":0.0,"y":0.0});
+        subjects.insert(
+            0,
+            json!({
+                "id":"nested_group",
+                "role":"primary",
+                "parent":null,
+                "layer":"content",
+                "content":{"kind":"group"},
+                "layout":{"kind":"fixed","position":{"x":0.0,"y":0.0},"size":{"width":500.0,"height":240.0}},
+                "initially_visible":true,
+                "clip_intentional":false
+            }),
+        );
+        shot["constraints"] = json!([
+            {"rule":"safe_area","subject":"nested_group","tolerance":0.0},
+            {"rule":"safe_area","subject":"label","tolerance":0.0}
+        ]);
+    }
     film["output"]["width"] = json!(640);
     film["output"]["height"] = json!(360);
     film["output"]["aspect"] = json!("landscape");
