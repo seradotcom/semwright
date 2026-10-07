@@ -2555,8 +2555,7 @@ class SemanticStore:
             "shape_keys": len(mesh.shape_keys.key_blocks) if mesh.shape_keys else 0,
         }
 
-    def mesh_geometry_replace(self, mesh_ref, vertices, edges, faces):
-        root, name, path, mesh = self._require_mesh(mesh_ref)
+    def _validated_mesh_geometry(self, vertices, edges, faces):
         if not isinstance(vertices, list) or len(vertices) > 10000:
             raise SemanticError("InvalidArgument", "Mesh vertex list exceeds bounded size")
         if not isinstance(edges, list) or len(edges) > 30000:
@@ -2581,6 +2580,42 @@ class SemanticStore:
             if len(set(face)) < 3:
                 raise SemanticError("InvalidArgument", "Mesh face must contain at least three distinct vertices")
             clean_faces.append(face)
+        return clean_vertices, clean_edges, clean_faces
+
+    def mesh_geometry_initialize(self, mesh_ref, vertices, edges, faces):
+        root, name, path, mesh = self._require_mesh(mesh_ref)
+        if (
+            root != "meshes"
+            or path
+            or getattr(mesh, "users", 0) != 0
+            or len(mesh.vertices) != 0
+            or len(mesh.edges) != 0
+            or len(mesh.polygons) != 0
+            or mesh.shape_keys is not None
+        ):
+            raise SemanticError(
+                "Conflict",
+                "Mesh geometry initialize requires a fresh, unlinked, empty Mesh datablock",
+            )
+        clean_vertices, clean_edges, clean_faces = self._validated_mesh_geometry(vertices, edges, faces)
+        try:
+            mesh.from_pydata(clean_vertices, clean_edges, clean_faces)
+            mesh.update()
+        except Exception as error:
+            raise SemanticError("InvalidArgument", "Blender rejected bounded mesh topology") from error
+        self.changed()
+        return {
+            "ref": self._ref(root, name, path),
+            "vertices": len(mesh.vertices),
+            "edges": len(mesh.edges),
+            "faces": len(mesh.polygons),
+            "changed": True,
+            "generation": self.generation,
+        }
+
+    def mesh_geometry_replace(self, mesh_ref, vertices, edges, faces):
+        root, name, path, mesh = self._require_mesh(mesh_ref)
+        clean_vertices, clean_edges, clean_faces = self._validated_mesh_geometry(vertices, edges, faces)
         try:
             mesh.clear_geometry()
             mesh.from_pydata(clean_vertices, clean_edges, clean_faces)

@@ -1476,12 +1476,44 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
     .await
     .unwrap();
     let mesh_ref = mesh["ref"].as_str().unwrap().to_owned();
+    let initialized = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.mesh.geometry.initialize",
+        json!({
+            "mesh_ref":mesh_ref,
+            "vertices":[[0.0,0.0,0.0],[1.0,0.0,0.0],[0.0,1.0,0.0]],
+            "edges":[[0,1],[1,2],[2,0]],
+            "faces":[[0,1,2]]
+        }),
+    )
+    .await
+    .unwrap();
+    assert_eq!(initialized["vertices"], 3);
+    assert_eq!(initialized["edges"], 3);
+    assert_eq!(initialized["faces"], 1);
+    let initialized_ref = initialized["ref"].as_str().unwrap().to_owned();
+    let reinitialize = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.blender.mesh.geometry.initialize",
+        json!({
+            "mesh_ref":initialized_ref.clone(),
+            "vertices":[[0.0,0.0,0.0],[1.0,0.0,0.0],[0.0,1.0,0.0]],
+            "edges":[[0,1],[1,2],[2,0]],
+            "faces":[[0,1,2]]
+        }),
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(reinitialize.code, semwright_types::ErrorCode::Conflict);
+
     let replaced = call(
         provider.as_ref(),
         &capabilities,
         "driver.blender.mesh.geometry.replace",
         json!({
-            "mesh_ref":mesh_ref,
+            "mesh_ref":initialized_ref,
             "vertices":[[0.0,0.0,0.0],[1.0,0.0,0.0],[0.0,1.0,0.0]],
             "edges":[[0,1],[1,2],[2,0]],
             "faces":[[0,1,2]]
