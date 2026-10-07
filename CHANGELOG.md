@@ -7,6 +7,7 @@
 Public publication remains gated by genuine independent exact-SHA security review,
 final distribution/certification and explicit maintainer authorization.
 
+- Reject portal Start responses revoked while consent was pending and preserve expired consent state.
 - Prepare the canonical 1.0.0 core, internal dependencies, Native SDK and packaging metadata.
 - Feature the 60-second Blender → Motion Canvas → MLT demo with a lightweight poster.
 - Use public release bundles as the normal installation path, with source builds secondary.
