@@ -228,7 +228,8 @@ impl Entry {
         if let Some(error) = self.input.iter_errors(value).next() {
             return Err(Error::invalid(format!(
                 "Godot capability input violates schema at {}: {:?}",
-                error.instance_path, error.kind
+                error.instance_path(),
+                error.kind()
             )));
         }
         Ok(())
@@ -239,7 +240,8 @@ impl Entry {
                 ErrorCode::ProtocolMismatch,
                 format!(
                     "Godot plugin output violates schema at {}: {:?}",
-                    error.instance_path, error.kind
+                    error.instance_path(),
+                    error.kind()
                 ),
             ));
         }

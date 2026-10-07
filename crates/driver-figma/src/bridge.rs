@@ -1,7 +1,7 @@
 use crate::model::{BRIDGE_PROTOCOL_VERSION, MAX_MESSAGE_BYTES};
 use futures_util::{Sink, SinkExt, Stream, StreamExt};
 use hmac::{Hmac, KeyInit, Mac};
-use rand::RngCore;
+use rand::Rng;
 use semwright_driver_sdk::DriverChildEvent;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
