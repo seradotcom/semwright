@@ -182,6 +182,11 @@ The independent reviewer supplies the full report and a small JSON review record
 outside the reviewed source commit to avoid a self-referential SHA. Maintainers and packaging
 automation must not generate an approval on the reviewer's behalf. An unreviewed template must remain UNREVIEWED.
 
+The reviewed source can keep `security_review=false` and
+`BLOCKED_PENDING_SECURITY_REVIEW`. Publication validates the external review against that
+immutable SHA; no subsequent commit changing the boolean is required or authorized by
+the review. Any source change creates a new review target.
+
 Required fields are `reviewed_sha` (full exact candidate SHA), `reviewer` (nonempty identity),
 `reviewed_at` (ISO date, not in the future), `report_reference` (full report/evidence location),
 `independent` (true only when established), `conclusion` (APPROVED_FOR_PUBLIC_RELEASE only after

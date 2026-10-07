@@ -5,7 +5,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "app",
       "close"
@@ -18,7 +18,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "app",
       "launch"
@@ -31,7 +31,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "app",
       "list"
@@ -48,7 +48,7 @@
     ],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "artifact",
       "handoff",
@@ -62,7 +62,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "audit",
       "tail"
@@ -77,7 +77,7 @@
     ],
     "provider": "blender-native",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "blender",
       "collection"
@@ -92,7 +92,7 @@
     ],
     "provider": "blender-native",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "blender",
       "collection"
@@ -107,7 +107,7 @@
     ],
     "provider": "blender-native",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "blender",
       "collection"
@@ -120,7 +120,7 @@
     "object_types": [],
     "provider": "blender-native",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "blender",
       "file"
@@ -133,7 +133,7 @@
     "object_types": [],
     "provider": "blender-native",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "blender",
       "file"
@@ -148,7 +148,7 @@
     ],
     "provider": "blender-native",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "blender",
       "material"
@@ -163,7 +163,7 @@
     ],
     "provider": "blender-native",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "blender",
       "material"
@@ -178,7 +178,7 @@
     ],
     "provider": "blender-native",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "blender",
       "material"
@@ -193,7 +193,7 @@
     ],
     "provider": "blender-native",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "blender",
       "object"
@@ -208,7 +208,7 @@
     ],
     "provider": "blender-native",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "blender",
       "object"
@@ -223,7 +223,7 @@
     ],
     "provider": "blender-native",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "blender",
       "object"
@@ -238,7 +238,7 @@
     ],
     "provider": "blender-native",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "blender",
       "object"
@@ -253,7 +253,7 @@
     ],
     "provider": "blender-native",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "blender",
       "object"
@@ -266,7 +266,7 @@
     "object_types": [],
     "provider": "blender-native",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "blender",
       "render"
@@ -279,7 +279,7 @@
     "object_types": [],
     "provider": "blender-native",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "blender",
       "render"
@@ -294,7 +294,7 @@
     ],
     "provider": "blender-native",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "blender",
       "scene"
@@ -307,7 +307,7 @@
     "object_types": [],
     "provider": "blender-native",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "blender",
       "status"
@@ -320,7 +320,7 @@
     "object_types": [],
     "provider": "browser-cdp",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "browser",
       "diagnostics"
@@ -333,7 +333,7 @@
     "object_types": [],
     "provider": "browser-cdp",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "browser",
       "dom"
@@ -346,7 +346,7 @@
     "object_types": [],
     "provider": "browser-cdp",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "browser",
       "dom"
@@ -359,7 +359,7 @@
     "object_types": [],
     "provider": "browser-cdp",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "browser",
       "dom"
@@ -372,7 +372,7 @@
     "object_types": [],
     "provider": "browser-cdp",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "browser",
       "dom"
@@ -385,7 +385,7 @@
     "object_types": [],
     "provider": "browser-cdp",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "browser",
       "downloads"
@@ -398,7 +398,7 @@
     "object_types": [],
     "provider": "browser-cdp",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "browser",
       "launch"
@@ -411,7 +411,7 @@
     "object_types": [],
     "provider": "browser-cdp",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "browser",
       "navigate"
@@ -424,7 +424,7 @@
     "object_types": [],
     "provider": "browser-cdp",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "browser",
       "screenshot"
@@ -437,7 +437,7 @@
     "object_types": [],
     "provider": "browser-cdp",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "browser",
       "status"
@@ -452,7 +452,7 @@
     ],
     "provider": "browser-cdp",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "browser",
       "tab"
@@ -467,7 +467,7 @@
     ],
     "provider": "browser-cdp",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "browser",
       "tab"
@@ -482,7 +482,7 @@
     ],
     "provider": "browser-cdp",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "browser",
       "tab"
@@ -497,7 +497,7 @@
     ],
     "provider": "browser-cdp",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "browser",
       "tab"
@@ -510,7 +510,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "capabilities",
       "describe"
@@ -523,7 +523,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "capabilities",
       "list"
@@ -536,7 +536,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "capabilities",
       "search"
@@ -549,7 +549,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "clipboard",
       "read"
@@ -562,7 +562,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "clipboard",
       "write"
@@ -575,7 +575,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "commands",
       "describe"
@@ -588,7 +588,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "commands",
       "search"
@@ -601,7 +601,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "doctor"
     ],
@@ -613,7 +613,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "filesystem",
       "read"
@@ -626,7 +626,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "filesystem",
       "write"
@@ -639,7 +639,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "input",
       "key"
@@ -652,7 +652,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "input",
       "type"
@@ -667,7 +667,7 @@
     ],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "jobs",
       "cancel"
@@ -682,7 +682,7 @@
     ],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "jobs",
       "get"
@@ -697,7 +697,7 @@
     ],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "jobs",
       "list"
@@ -712,7 +712,7 @@
     ],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "jobs",
       "start"
@@ -725,7 +725,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "network",
       "status"
@@ -738,7 +738,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "notifications",
       "send"
@@ -751,7 +751,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "plugin",
       "describe"
@@ -764,7 +764,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "plugin",
       "doctor"
@@ -777,7 +777,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "plugin",
       "install"
@@ -790,7 +790,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "plugin",
       "list"
@@ -803,7 +803,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "plugin",
       "remove"
@@ -816,7 +816,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "pointer",
       "click"
@@ -829,7 +829,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "pointer",
       "move"
@@ -842,7 +842,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "pointer",
       "scroll"
@@ -855,7 +855,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "portal",
       "restore"
@@ -868,7 +868,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "portal",
       "start"
@@ -881,7 +881,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "portal",
       "status"
@@ -894,7 +894,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "portal",
       "stop"
@@ -907,7 +907,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "process",
       "list"
@@ -920,7 +920,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "process",
       "signal"
@@ -933,7 +933,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "recipe",
       "list"
@@ -946,7 +946,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "recipe",
       "run"
@@ -959,7 +959,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "recipe",
       "validate"
@@ -972,7 +972,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "screen",
       "capture"
@@ -985,7 +985,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "screen",
       "stream",
@@ -999,7 +999,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "screen",
       "stream",
@@ -1013,7 +1013,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "screen",
       "stream",
@@ -1027,7 +1027,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "screen",
       "stream_info"
@@ -1040,7 +1040,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "systemd",
       "user"
@@ -1053,7 +1053,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "ui",
       "expand"
@@ -1066,7 +1066,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "ui",
       "find"
@@ -1079,7 +1079,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "ui",
       "get_value"
@@ -1092,7 +1092,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "ui",
       "hit_test",
@@ -1109,7 +1109,7 @@
     ],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "ui",
       "inspect",
@@ -1124,7 +1124,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "ui",
       "invoke"
@@ -1137,7 +1137,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "ui",
       "read_text"
@@ -1150,7 +1150,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "ui",
       "select"
@@ -1163,7 +1163,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "ui",
       "set_text"
@@ -1176,7 +1176,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "ui",
       "set_value"
@@ -1189,7 +1189,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "ui",
       "snapshot"
@@ -1202,7 +1202,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "ui",
       "toggle"
@@ -1215,7 +1215,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "window",
       "close"
@@ -1228,7 +1228,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "window",
       "focus"
@@ -1241,7 +1241,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "window",
       "list"
@@ -1254,7 +1254,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "window",
       "move"
@@ -1267,7 +1267,7 @@
     "object_types": [],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "window",
       "resize"
@@ -1282,7 +1282,7 @@
     ],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "workflow",
       "list",
@@ -1298,7 +1298,7 @@
     ],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "workflow",
       "delete"
@@ -1313,7 +1313,7 @@
     ],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "workflow",
       "get"
@@ -1328,7 +1328,7 @@
     ],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "workflow",
       "compile"
@@ -1343,7 +1343,7 @@
     ],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "workflow",
       "demote"
@@ -1358,7 +1358,7 @@
     ],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "workflow",
       "promote"
@@ -1373,7 +1373,7 @@
     ],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "workflow",
       "list"
@@ -1388,7 +1388,7 @@
     ],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "workflow",
       "start"
@@ -1403,7 +1403,7 @@
     ],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "workflow",
       "stop"
@@ -1418,7 +1418,7 @@
     ],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "workflow",
       "replay"
@@ -1433,7 +1433,7 @@
     ],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "workflow",
       "delete"
@@ -1448,7 +1448,7 @@
     ],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "workflow",
       "get"
@@ -1463,7 +1463,7 @@
     ],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "workflow",
       "list"
@@ -1478,7 +1478,7 @@
     ],
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "workflow",
       "verify"
@@ -1488,7 +1488,7 @@
   "workflow.patterns.list": {
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": null,
     "aliases": [],
     "object_types": [
@@ -1504,7 +1504,7 @@
   "workflow.pattern.get": {
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": null,
     "aliases": [],
     "object_types": [
@@ -1520,7 +1520,7 @@
   "workflow.suggestions.list": {
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": null,
     "aliases": [],
     "object_types": [
@@ -1536,7 +1536,7 @@
   "workflow.suggestion.get": {
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": null,
     "aliases": [],
     "object_types": [
@@ -1552,7 +1552,7 @@
   "workflow.suggestion.dismiss": {
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": null,
     "aliases": [],
     "object_types": [
@@ -1568,7 +1568,7 @@
   "workflow.suggestion.restore": {
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": null,
     "aliases": [],
     "object_types": [
@@ -1584,7 +1584,7 @@
   "workflow.suggestion.compile": {
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": null,
     "aliases": [],
     "object_types": [
@@ -1600,7 +1600,7 @@
   "workflow.proposals.list": {
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": null,
     "aliases": [],
     "object_types": ["workflow"],
@@ -1610,7 +1610,7 @@
   "workflow.proposal.get": {
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": null,
     "aliases": [],
     "object_types": ["workflow"],
@@ -1620,7 +1620,7 @@
   "workflow.proposal.plan": {
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": null,
     "aliases": [],
     "object_types": ["workflow"],
@@ -1630,7 +1630,7 @@
   "workflow.proposal.accept": {
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": null,
     "aliases": [],
     "object_types": ["workflow"],
@@ -1640,7 +1640,7 @@
   "workflow.proposal.dismiss": {
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": null,
     "aliases": [],
     "object_types": ["workflow"],
@@ -1650,7 +1650,7 @@
   "browser.page.reload": {
     "provider": "browser-cdp",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": "org.semwright.Chromium",
     "aliases": [],
     "object_types": [],
@@ -1660,7 +1660,7 @@
   "browser.page.stop": {
     "provider": "browser-cdp",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": "org.semwright.Chromium",
     "aliases": [],
     "object_types": [],
@@ -1670,7 +1670,7 @@
   "browser.page.back": {
     "provider": "browser-cdp",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": "org.semwright.Chromium",
     "aliases": [],
     "object_types": [],
@@ -1680,7 +1680,7 @@
   "browser.page.forward": {
     "provider": "browser-cdp",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": "org.semwright.Chromium",
     "aliases": [],
     "object_types": [],
@@ -1690,7 +1690,7 @@
   "browser.frame.list": {
     "provider": "browser-cdp",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": "org.semwright.Chromium",
     "aliases": [],
     "object_types": [],
@@ -1700,7 +1700,7 @@
   "browser.semantic.snapshot": {
     "provider": "browser-cdp",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": "org.semwright.Chromium",
     "aliases": [],
     "object_types": [],
@@ -1710,7 +1710,7 @@
   "browser.semantic.query": {
     "provider": "browser-cdp",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": "org.semwright.Chromium",
     "aliases": [],
     "object_types": [],
@@ -1720,7 +1720,7 @@
   "browser.semantic.inspect": {
     "provider": "browser-cdp",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": "org.semwright.Chromium",
     "aliases": [],
     "object_types": [],
@@ -1730,7 +1730,7 @@
   "browser.element.focus": {
     "provider": "browser-cdp",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": "org.semwright.Chromium",
     "aliases": [],
     "object_types": [],
@@ -1740,7 +1740,7 @@
   "browser.element.scroll": {
     "provider": "browser-cdp",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": "org.semwright.Chromium",
     "aliases": [],
     "object_types": [],
@@ -1750,7 +1750,7 @@
   "browser.element.click": {
     "provider": "browser-cdp",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": "org.semwright.Chromium",
     "aliases": [],
     "object_types": [],
@@ -1760,7 +1760,7 @@
   "browser.element.fill": {
     "provider": "browser-cdp",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": "org.semwright.Chromium",
     "aliases": [],
     "object_types": [],
@@ -1770,7 +1770,7 @@
   "browser.element.hover": {
     "provider": "browser-cdp",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": "org.semwright.Chromium",
     "aliases": [],
     "object_types": [],
@@ -1780,7 +1780,7 @@
   "browser.element.press": {
     "provider": "browser-cdp",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": "org.semwright.Chromium",
     "aliases": [],
     "object_types": [],
@@ -1790,7 +1790,7 @@
   "browser.element.check": {
     "provider": "browser-cdp",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": "org.semwright.Chromium",
     "aliases": [],
     "object_types": [],
@@ -1800,7 +1800,7 @@
   "browser.element.select": {
     "provider": "browser-cdp",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": "org.semwright.Chromium",
     "aliases": [],
     "object_types": [],
@@ -1810,7 +1810,7 @@
   "browser.semantic.wait": {
     "provider": "browser-cdp",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": "org.semwright.Chromium",
     "aliases": [],
     "object_types": [],
@@ -1820,7 +1820,7 @@
   "browser.dialog.status": {
     "provider": "browser-cdp",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": "org.semwright.Chromium",
     "aliases": [],
     "object_types": [],
@@ -1830,7 +1830,7 @@
   "browser.dialog.respond": {
     "provider": "browser-cdp",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": "org.semwright.Chromium",
     "aliases": [],
     "object_types": [],
@@ -1840,7 +1840,7 @@
   "browser.element.drag_to": {
     "provider": "browser-cdp",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": "org.semwright.Chromium",
     "aliases": [],
     "object_types": [],
@@ -1850,7 +1850,7 @@
   "browser.element.upload": {
     "provider": "browser-cdp",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": "org.semwright.Chromium",
     "aliases": [],
     "object_types": [],
@@ -1860,7 +1860,7 @@
   "browser.page.scroll": {
     "provider": "browser-cdp",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": "org.semwright.Chromium",
     "aliases": [],
     "object_types": [],
@@ -1875,7 +1875,7 @@
     ],
     "provider": "blender-native",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "tags": [
       "blender",
       "export",
@@ -1886,7 +1886,7 @@
   "project.create": {
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": null,
     "aliases": [],
     "object_types": [
@@ -1901,7 +1901,7 @@
   "project.asset.register": {
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": null,
     "aliases": [],
     "object_types": [
@@ -1917,7 +1917,7 @@
   "project.asset.inspect": {
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": null,
     "aliases": [],
     "object_types": [
@@ -1933,7 +1933,7 @@
   "project.asset.rename": {
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": null,
     "aliases": [],
     "object_types": [
@@ -1949,7 +1949,7 @@
   "project.asset.reconcile": {
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": null,
     "aliases": [],
     "object_types": [
@@ -1966,7 +1966,7 @@
   "project.asset.rebind": {
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": null,
     "aliases": [],
     "object_types": [
@@ -1982,7 +1982,7 @@
   "project.asset.tombstone": {
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": null,
     "aliases": [],
     "object_types": [
@@ -1998,7 +1998,7 @@
   "project.query": {
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": null,
     "aliases": [],
     "object_types": [
@@ -2014,7 +2014,7 @@
   "project.impact": {
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": null,
     "aliases": [],
     "object_types": [
@@ -2031,7 +2031,7 @@
   "project.revisions": {
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": null,
     "aliases": [],
     "object_types": [
@@ -2047,7 +2047,7 @@
   "project.edge.declare": {
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": null,
     "aliases": [],
     "object_types": [
@@ -2063,7 +2063,7 @@
   "project.manifest.export": {
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": null,
     "aliases": [],
     "object_types": [
@@ -2080,7 +2080,7 @@
   "project.manifest.import": {
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": null,
     "aliases": [],
     "object_types": [
@@ -2097,7 +2097,7 @@
   "project.asset.provenance": {
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": null,
     "aliases": [],
     "object_types": [
@@ -2115,7 +2115,7 @@
   "project.gc.preview": {
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": null,
     "aliases": [],
     "object_types": [
@@ -2133,7 +2133,7 @@
   "project.gc.collect": {
     "provider": "semwright-core",
     "source": "builtin",
-    "source_version": "0.9.0-dev.1",
+    "source_version": "1.0.0",
     "app": null,
     "aliases": [],
     "object_types": [

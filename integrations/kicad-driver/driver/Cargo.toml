@@ -8,20 +8,20 @@ publish = false
 
 [dependencies]
 hex.workspace = true
-semwright-driver-sdk = { path = "../../../crates/driver-sdk", version = "=0.9.0-dev.1" }
-semwright-types = { path = "../../../crates/types", version = "=0.9.0-dev.1" }
+semwright-driver-sdk = { path = "../../../crates/driver-sdk", version = "=1.0.0" }
+semwright-types = { path = "../../../crates/types", version = "=1.0.0" }
 serde_json.workspace = true
 async-trait.workspace = true
 tokio.workspace = true
-kicad-ipc = { path = "../kicad-ipc", version = "=0.9.0-dev.1" }
+kicad-ipc = { path = "../kicad-ipc", version = "=1.0.0" }
 
 [lints]
 workspace = true
 
 [dev-dependencies]
-semwright-backend-api = { path = "../../../crates/backend-api", version = "=0.9.0-dev.1" }
-semwright-driver-host = { path = "../../../crates/driver-host", version = "=0.9.0-dev.1" }
-semwright-policy = { path = "../../../crates/policy", version = "=0.9.0-dev.1" }
+semwright-backend-api = { path = "../../../crates/backend-api", version = "=1.0.0" }
+semwright-driver-host = { path = "../../../crates/driver-host", version = "=1.0.0" }
+semwright-policy = { path = "../../../crates/policy", version = "=1.0.0" }
 sha2.workspace = true
 tempfile.workspace = true
 tokio-util.workspace = true

@@ -40,6 +40,15 @@ the current checkout. Publication also requires an exact candidate SHA, a separa
 review record, a complete distribution manifest and explicit authorization. Neither a status
 string nor a boolean in the repository authenticates a reviewer.
 
+The frozen source may retain `BLOCKED_PENDING_SECURITY_REVIEW` and
+`security_review=false` in both modes. At the publication boundary, a genuine external
+exact-SHA review satisfies the security gate without changing that source commit.
+`READY_FOR_RELEASE_VALIDATION` still requires `security_review=true`; pending status
+still requires literal `false`. Neither state removes the external review, zero blocking
+findings, exact-SHA distribution validation or explicit maintainer authorization.
+Do not commit a readiness boolean change after approval: that creates a new candidate
+requiring distribution, certification and review/revalidation again.
+
 The public review record is described in [security-review.md](security-review.md). A maintainer
 must verify the report, reviewer independence, scope, findings/remediation and artifact provenance.
 The JSON validator only checks required fields and SHA binding; generating a syntactically valid
@@ -67,9 +76,9 @@ assembly from the same input binaries; it does not claim bit-identical independe
 
 Artifacts remain in Actions with 30-day retention. **This repository is public: Actions artifacts
 are not confidential/private storage.** No credentials or private project data may enter a bundle.
-This mission creates no tag, GitHub Release or release assets, and changes no repository visibility.
+Staging alone creates no tag, GitHub Release or release assets.
 
-## Later publication, not part of this closeout
+## Final publication
 
 Complete the remaining demo/polish work, select a final source SHA and complete all required engineering
 and independent review gates for that SHA. Record the review decision without claiming that older

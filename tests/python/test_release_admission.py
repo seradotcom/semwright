@@ -74,7 +74,47 @@ class ReleaseAdmissionTests(unittest.TestCase):
         result = self.invoke(mode='staging', approved=False, records=False)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn('NOT PUBLIC RELEASE AUTHORIZATION', result.stdout)
+        self.assert_blocked(self.invoke(records=False))
+
+    def test_external_review_satisfies_pending_security_without_changing_source_sha(self):
+        self.document['status'] = 'BLOCKED_PENDING_SECURITY_REVIEW'
+        self.document['gates']['security_review'] = False
+        (self.root / 'release-readiness.json').write_text(json.dumps(self.document))
+        subprocess.run(['git', '-C', str(self.root), 'add', 'release-readiness.json'], check=True)
+        subprocess.run(['git', '-C', str(self.root), '-c', 'user.name=Fixture',
+                        '-c', 'user.email=fixture@example.invalid', '-c', 'commit.gpgsign=false',
+                        'commit', '-qm', 'immutable pending candidate'], check=True)
+        self.sha = subprocess.check_output(
+            ['git', '-C', str(self.root), 'rev-parse', 'HEAD'], text=True).strip()
+        self.review['reviewed_sha'] = self.sha
+        self.manifest['source_sha'] = self.sha
+        result = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(subprocess.check_output(
+            ['git', '-C', str(self.root), 'rev-parse', 'HEAD'], text=True).strip(), self.sha)
+        self.assert_blocked(self.invoke(approved=False))
+        self.assert_blocked(self.invoke(records=False))
+        self.review['reviewed_sha'] = 'b' * 40
         self.assert_blocked(self.invoke())
+
+    def test_pending_source_cannot_bypass_independent_review_requirements(self):
+        self.document['status'] = 'BLOCKED_PENDING_SECURITY_REVIEW'
+        self.document['gates']['security_review'] = False
+        for key, value in [('independent', False), ('reviewer', ''), ('areas', []),
+                           ('conclusion', 'UNREVIEWED'), ('reviewed_at', '2999-01-01'),
+                           ('unresolved_blocking_findings', ['OPEN'])]:
+            previous = self.review[key]
+            self.review[key] = value
+            self.assert_blocked(self.invoke())
+            self.review[key] = previous
+
+    def test_ready_and_pending_status_must_agree_with_security_boolean_in_both_modes(self):
+        for status, security in [('READY_FOR_RELEASE_VALIDATION', False),
+                                 ('BLOCKED_PENDING_SECURITY_REVIEW', True)]:
+            self.document['status'] = status
+            self.document['gates']['security_review'] = security
+            for mode in ('staging', 'publish'):
+                self.assert_blocked(self.invoke(mode=mode))
 
     def test_empty_gate_set_is_rejected_in_both_modes(self):
         self.document['gates'] = {}
@@ -181,6 +221,25 @@ class ReleaseAdmissionTests(unittest.TestCase):
             result = subprocess.run([sys.executable, '-I', '-S', str(ROOT / 'scripts/release/assert-ready.py'),
                                      '--mode', mode], capture_output=True, text=True, timeout=5)
             self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
+
+
+class PublicationWorkflowTests(unittest.TestCase):
+    def test_publication_keeps_external_review_bound_to_frozen_source(self):
+        text = (ROOT / '.github/workflows/release.yml').read_text()
+        for required in (
+            "inputs.publish == true", "startsWith(github.ref, 'refs/tags/v')",
+            'test "$CANDIDATE_SHA" = "$(git rev-parse HEAD)"',
+            '--json headSha --jq .headSha)" = "$CANDIDATE_SHA"',
+            '--json conclusion --jq .conclusion)" = success',
+            '-n independent-security-review', '--mode publish',
+            '--candidate-sha "$CANDIDATE_SHA" --maintainer-approved',
+            '--review-report review/security-review.json',
+            '--distribution-manifest validated-manifest/V1_DISTRIBUTION_MANIFEST.json',
+            'gh release view "$GITHUB_REF_NAME"',
+        ):
+            self.assertIn(required, text)
+        self.assertNotIn('git commit', text)
+        self.assertNotIn('security_review=true', text)
 
 
 if __name__ == '__main__':

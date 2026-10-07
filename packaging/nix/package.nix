@@ -9,7 +9,7 @@ assert lib.assertMsg (builtins.pathExists ../../Cargo.lock)
 
 rustPlatform.buildRustPackage {
   pname = "semwright";
-  version = "0.9.0-dev.1";
+  version = "1.0.0";
 
   src = lib.cleanSource ../..;
   cargoLock.lockFile = ../../Cargo.lock;

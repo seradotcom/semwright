@@ -18,7 +18,7 @@
   <a href="./Cargo.toml"><img alt="Rust" src="https://img.shields.io/badge/Rust-runtime-000000?logo=rust&logoColor=white"></a>
   <a href="./docs/installation.md"><img alt="Native bundles: Linux, macOS, Windows" src="https://img.shields.io/badge/native%20bundles-Linux%20%7C%20macOS%20%7C%20Windows-234ea2"></a>
   <a href="./docs/mcp.md"><img alt="MCP frontend" src="https://img.shields.io/badge/MCP-frontend-6f42c1"></a>
-  <a href="./docs/installation.md"><img alt="Status: pre-v1" src="https://img.shields.io/badge/status-pre--v1-e67e22"></a>
+  <a href="./docs/installation.md"><img alt="Version: 1.0.0" src="https://img.shields.io/badge/version-1.0.0-234ea2"></a>
   <a href="./VERIFY.md"><img alt="Verification documented" src="https://img.shields.io/badge/verification-documented-2ea44f"></a>
 </p>
 
@@ -30,13 +30,19 @@
   <a href="./VERIFY.md"><strong>Verification</strong></a>
 </p>
 
-> **Pre-v1:** candidate builds are available for evaluation, but Semwright has not published a public v1 yet.
-> Exact support and evidence are tracked in [VERIFY.md](VERIFY.md); independent security review remains a
-> publication gate.
-
 ```text
 AI agent  →  Semwright  →  Blender · Godot · Browser · LibreOffice · Figma · KiCad · …
 ```
+
+## One prompt. A connected creative workflow.
+
+Watch Semwright update an aircraft’s materials in Blender, render a new camera shot, generate branded titles in Motion Canvas, and assemble the video with audio through MLT—all using Semwright’s drivers.
+
+[![Watch the 60-second demo.](docs/assets/semwright-demo-60s-poster.webp)](https://github.com/seradotcom/semwright/releases/download/v1.0.0/semwright-demo-60s-audio-r03.mp4)
+
+Recorded in one take using an existing aircraft project. Waiting periods are accelerated; the final playback runs at normal speed. The workflow produces a new video and an editable timeline.
+
+[**Watch the 60-second demo.**](https://github.com/seradotcom/semwright/releases/download/v1.0.0/semwright-demo-60s-audio-r03.mp4)
 
 ## Why Semwright?
 
@@ -79,9 +85,8 @@ interactive environment.
 
 ### 1. Install the native bundle — no Rust build required
 
-Until the first public release, candidate bundles come from exact-SHA **V1 multiplatform distribution**
-Actions runs. Verify the published checksums for that candidate, extract the archive, and run its included
-helper:
+Download the matching bundle and `SHA256SUMS` from [Semwright v1.0.0](https://github.com/seradotcom/semwright/releases/tag/v1.0.0).
+Verify its checksum, extract the archive, and run its included helper:
 
 | Platform | Bundle | Install from the extracted directory |
 | --- | --- | --- |
@@ -95,7 +100,7 @@ interface to use; CLI/TUI/MCP are not separate versioned downloads.** Optional a
 integrations remain separate.
 
 [**Three-step quick start →**](docs/quickstart.md) ·
-[Full installation, checksums and removal →](docs/installation.md#install-a-candidate-bundle)
+[Full installation, checksums and removal →](docs/installation.md#install-a-release-bundle)
 
 ### 2. Run `semwright setup`
 
@@ -315,22 +320,20 @@ private vulnerability-reporting channel, not a public issue.
 
 ## Status
 
-Semwright is **pre-v1** and has not published a public release. The current engineering line is closed
-for staging, and native candidate bundles are produced for Linux x86_64/aarch64, Windows x86_64/ARM64
-and macOS arm64/x86_64.
+Semwright 1.0.0 provides native bundle formats for Linux x86_64/aarch64, Windows x86_64/ARM64
+and macOS arm64/x86_64. Application support stays scoped to each driver’s verified operations.
 
-| Track | Current state |
-| --- | --- |
-| **Engineering closeout** | Complete for the current pre-v1 line |
-| **Native candidate packages** | Built and validated through exact-SHA distribution workflows |
-| **Physical / interactive certification** | Remaining environment-dependent cases are explicit post-v1 work |
-| **Independent security review** | Required before public v1 |
-| **Public release** | Not published |
+The 1.0.0 source is prepared for final release validation. Public assets become available only
+after final exact-SHA distribution/certification and genuine independent security review pass.
+Until publication, the release and demo download links above are reserved destinations.
 
-The detailed R06/R16/R18 history, exact run IDs and environment-specific limitations remain in the
-release and verification records rather than dominating this landing page. Nothing deferred is converted
-to PASS, and publication still requires the independent security review, explicit maintainer authorization
-and final exact-SHA validation defined by the [release policy](docs/release-policy.md).
+Physical Hyprland and unlocked-Windows interactive certification remain explicit post-v1 work.
+Windows external-MCP filesystem mounts remain fail-closed where path virtualization is unproven;
+macOS TCC, signing and notarization are separate from hosted package validation.
+
+The [release policy](docs/release-policy.md) requires an authentic external review of the frozen SHA,
+zero blocking findings, explicit maintainer authorization and final installation validation.
+Green CI alone does not approve publication or establish a formal security guarantee.
 
 For exact evidence, use [VERIFY.md](VERIFY.md), [platform support](docs/platforms.md),
 [compatibility](docs/compatibility.md), [release blockers](RELEASE_BLOCKERS.md) and

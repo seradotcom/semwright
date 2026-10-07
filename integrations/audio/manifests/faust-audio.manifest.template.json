@@ -1,7 +1,7 @@
 {
   "manifest_version": 1,
   "protocol": 4,
-  "version": "0.9.0-dev.1",
+  "version": "1.0.0",
   "publisher": "semwright-development",
   "transport": "stdio_v1",
   "system_config": [],
