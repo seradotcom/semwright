@@ -803,7 +803,7 @@ mod files {
         let mut file = File::from(
             open(
                 "/",
-                OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+                OFlags::PATH | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
                 Mode::empty(),
             )
             .map_err(err)?,
@@ -815,7 +815,7 @@ mod files {
                     openat(
                         &file,
                         name,
-                        OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+                        OFlags::PATH | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
                         Mode::empty(),
                     )
                     .map_err(err)?,
@@ -843,7 +843,7 @@ mod files {
                     openat(
                         &dir,
                         *name,
-                        OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+                        OFlags::PATH | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
                         Mode::empty(),
                     )
                     .map_err(err)?,
@@ -1067,5 +1067,37 @@ mod budget_tests {
             elapsed_budget(limit + std::time::Duration::from_nanos(1)),
             Err(ContractError::Limit(_))
         ));
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn descriptor_walk_needs_search_but_not_readdir_on_parent_directories() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let temp = tempfile::tempdir().unwrap();
+        let mount = temp.path().join("mounted-root");
+        let nested = mount.join("nested");
+        std::fs::create_dir(&mount).unwrap();
+        std::fs::create_dir(&nested).unwrap();
+        let artifact = nested.join("value.json");
+        std::fs::write(&artifact, br#"{"ok":true}"#).unwrap();
+        std::fs::set_permissions(&artifact, std::fs::Permissions::from_mode(0o600)).unwrap();
+
+        // Driver Host/Landlock grants search of the exact mount path without
+        // granting ReadDir over its parents. O_PATH directory descriptors must
+        // therefore be sufficient for the descriptor-relative walk.
+        for directory in [temp.path(), mount.as_path(), nested.as_path()] {
+            std::fs::set_permissions(directory, std::fs::Permissions::from_mode(0o111)).unwrap();
+        }
+
+        let root = files::directory(&mount).expect("search-only parent traversal");
+        let bytes = files::read(&root, "nested/value.json", 1024, false)
+            .expect("descriptor-relative read below search-only directory");
+        assert_eq!(bytes, br#"{"ok":true}"#);
+
+        // Restore owner permissions so TempDir cleanup is deterministic.
+        for directory in [nested.as_path(), mount.as_path(), temp.path()] {
+            std::fs::set_permissions(directory, std::fs::Permissions::from_mode(0o700)).unwrap();
+        }
     }
 }
