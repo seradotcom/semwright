@@ -458,6 +458,10 @@ def dispatch(command, args):
         if set(args) != {"mesh_ref"}:
             raise CommandError("InvalidArgument", "Mesh summary requires mesh_ref")
         return semantic.mesh_summary(args["mesh_ref"])
+    if command == "driver.blender.mesh.geometry.initialize":
+        if set(args) != {"mesh_ref", "vertices", "edges", "faces"}:
+            raise CommandError("InvalidArgument", "Mesh geometry initialize requires mesh_ref, vertices, edges and faces")
+        return semantic.mesh_geometry_initialize(args["mesh_ref"], args["vertices"], args["edges"], args["faces"])
     if command == "driver.blender.mesh.geometry.replace":
         if set(args) != {"mesh_ref", "vertices", "edges", "faces"}:
             raise CommandError("InvalidArgument", "Mesh geometry replace requires mesh_ref, vertices, edges and faces")
