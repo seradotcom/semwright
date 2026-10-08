@@ -309,7 +309,6 @@ where
     }
     let mut previous = None;
     let mut observed = 0;
-    let mut exhaustive = true;
     let mut cue_failure = false;
     let mut caption_failure = false;
     let transition_required = film
@@ -329,9 +328,6 @@ where
         )?;
         if let Some(prev) = previous {
             ensure(frame.frame > prev, "duplicate/unordered native frame")?;
-            exhaustive &= frame.frame == prev + 1;
-        } else {
-            exhaustive &= frame.frame == coverage.first_frame;
         }
         previous = Some(frame.frame);
         observed += 1;
@@ -463,9 +459,11 @@ where
                 } => {
                     if let Some(s) = o.local_size.value() {
                         (
-                            verdict(
-                                s.height > 0.0 && (s.width / s.height - ratio).abs() <= *tolerance,
-                            ),
+                            verdict(if s.height == 0.0 {
+                                false
+                            } else {
+                                (s.width / s.height - ratio).abs() <= *tolerance
+                            }),
                             "observed aspect ratio differs from declared ratio",
                         )
                     } else {
@@ -509,7 +507,10 @@ where
                             "finite-difference speed exceeds configured profile bound",
                         )
                     } else {
-                        (Verdict::Unknown, "at least two frames needed for speed")
+                        // The initial frame has no velocity yet. Defer missing
+                        // evidence until the stream ends; otherwise its UNKNOWN
+                        // would prevent a complete, valid trajectory from passing.
+                        (Verdict::Pass, "speed evidence pending subsequent frames")
                     }
                 }
             };
@@ -559,8 +560,11 @@ where
             }
         }
     }
-    exhaustive &= observed == coverage.end_frame_exclusive - coverage.first_frame
-        && previous == Some(coverage.end_frame_exclusive - 1);
+    // Every frame has already proved that its integer index is in range and
+    // strictly increasing. Such a sequence covers the entire range exactly
+    // when its cardinality equals the range length; separate first/last/gap
+    // checks would duplicate this invariant.
+    let exhaustive = observed == coverage.end_frame_exclusive - coverage.first_frame;
     transition_unknown |= !transition_required.is_subset(&transition_observed);
     // Full-Film rules cannot PASS from a partial range even when that range is exhaustive.
     let full = coverage.first_frame == 0
@@ -568,6 +572,13 @@ where
     coverage.observed_frames = observed;
     coverage.exhaustive = exhaustive;
     for (name, _, rule) in &rules {
+        if let VisualConstraint::MaximumSpeed { subject, .. } = rule
+            && metrics[subject].summary.maximum_speed.is_none()
+        {
+            let state = states.get_mut(name).expect("rule");
+            state.unknown += 1;
+            state.reason = "at least two consecutive frames needed for speed".into();
+        }
         if let VisualConstraint::MinimumVisible { subject, duration } = rule {
             let m = &metrics[subject].summary;
             let state = states.get_mut(name).expect("rule");
