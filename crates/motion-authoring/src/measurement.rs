@@ -309,7 +309,6 @@ where
     }
     let mut previous = None;
     let mut observed = 0;
-    let mut exhaustive = true;
     let mut cue_failure = false;
     let mut caption_failure = false;
     let transition_required = film
@@ -329,9 +328,6 @@ where
         )?;
         if let Some(prev) = previous {
             ensure(frame.frame > prev, "duplicate/unordered native frame")?;
-            exhaustive &= frame.frame == prev + 1;
-        } else {
-            exhaustive &= frame.frame == coverage.first_frame;
         }
         previous = Some(frame.frame);
         observed += 1;
@@ -564,8 +560,11 @@ where
             }
         }
     }
-    exhaustive &= observed == coverage.end_frame_exclusive - coverage.first_frame
-        && previous == Some(coverage.end_frame_exclusive - 1);
+    // Every frame has already proved that its integer index is in range and
+    // strictly increasing. Such a sequence covers the entire range exactly
+    // when its cardinality equals the range length; separate first/last/gap
+    // checks would duplicate this invariant.
+    let exhaustive = observed == coverage.end_frame_exclusive - coverage.first_frame;
     transition_unknown |= !transition_required.is_subset(&transition_observed);
     // Full-Film rules cannot PASS from a partial range even when that range is exhaustive.
     let full = coverage.first_frame == 0

@@ -1109,3 +1109,72 @@ fn observed_incomplete_transition_after_its_interval_is_a_failure() {
         c::Verdict::Fail
     );
 }
+
+#[test]
+fn partial_range_can_be_exhaustive_without_claiming_full_film_evidence() {
+    let film = film();
+    for (first, end) in [(0, 2), (1, 3), (1, 2)] {
+        let mut range = coverage();
+        range.first_frame = first;
+        range.end_frame_exclusive = end;
+        let result = measure(
+            &film,
+            c::Digest::of_bytes(b"plan"),
+            base(),
+            range,
+            (first..end).map(|i| Ok(frame(i))),
+        )
+        .unwrap();
+        assert!(result.coverage.exhaustive);
+        assert_eq!(result.coverage.observed_frames, end - first);
+        assert_eq!(
+            rule_verdict(&result, "native-frame-coverage"),
+            c::Verdict::Unknown
+        );
+        assert!(
+            result
+                .validation
+                .checks
+                .iter()
+                .all(|check| !check.evidence[0].exhaustive)
+        );
+    }
+}
+
+#[test]
+fn check_explanations_match_findings_and_passing_checks_have_no_failure_reason() {
+    let film = with_rule(VisualConstraint::SafeArea {
+        subject: "box_a".into(),
+        tolerance: 0.0,
+    });
+    let result = measured(
+        &film,
+        repeated(vec![subject("box_a", bounds(24.0, 24.0, 10.0, 10.0))]),
+    );
+    assert!(result.findings.is_empty());
+    assert!(
+        result
+            .validation
+            .checks
+            .iter()
+            .all(|check| check.verdict == c::Verdict::Pass && check.reason.is_none())
+    );
+    for observations in [vec![subject("box_a", bounds(0.0, 0.0, 10.0, 10.0))], vec![]] {
+        let result = measured(&film, repeated(observations));
+        let check = result
+            .validation
+            .checks
+            .iter()
+            .find(|check| check.rule == "shot:constraint:0")
+            .unwrap();
+        assert!(matches!(
+            check.verdict,
+            c::Verdict::Fail | c::Verdict::Unknown
+        ));
+        assert_eq!(
+            check.reason.as_deref(),
+            Some(result.findings[0].reason.as_str())
+        );
+        assert!(!result.findings[0].reason.is_empty());
+    }
+}
