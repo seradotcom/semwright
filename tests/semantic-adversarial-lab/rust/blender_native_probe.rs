@@ -94,6 +94,7 @@ impl NativeFixture {
                 destination: "/etc/fonts".into(),
             }],
             tools: vec![DriverToolMount {
+                sealed_executable_profile: semwright_driver_sdk::SealedExecutableProfile::Standard,
                 name: "blender".into(),
                 root: "blender-executable".into(),
                 sha256: blender_sha,

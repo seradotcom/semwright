@@ -133,6 +133,7 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
         secrets: vec![],
         tools: vec![
             DriverToolMount {
+                sealed_executable_profile: semwright_driver_sdk::SealedExecutableProfile::Standard,
                 root: "blender-session-runner".into(),
                 name: "blender-session-runner".into(),
                 mounts: vec![
@@ -148,6 +149,7 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
                 sha256: digest(&session_runner),
             },
             DriverToolMount {
+                sealed_executable_profile: semwright_driver_sdk::SealedExecutableProfile::Standard,
                 root: "blender-executable".into(),
                 name: "blender".into(),
                 mounts: vec![],

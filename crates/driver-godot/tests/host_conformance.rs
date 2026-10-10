@@ -80,6 +80,7 @@ fn manifest(
         }],
         tools: tool_sha256
             .map(|sha256| DriverToolMount {
+                sealed_executable_profile: semwright_driver_sdk::SealedExecutableProfile::Standard,
                 root: "godot-runtime".into(),
                 name: "godot".into(),
                 sha256,

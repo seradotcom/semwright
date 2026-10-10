@@ -156,6 +156,7 @@ async fn broker_host_meter_measures_digest_bound_wav_and_rejects_substitution() 
         system_config: vec![],
         secrets: vec![],
         tools: vec![DriverToolMount {
+            sealed_executable_profile: semwright_driver_sdk::SealedExecutableProfile::Standard,
             root: "audio-meter-tool".into(),
             name: "audio-meter".into(),
             sha256: digest(&meter),

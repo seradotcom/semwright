@@ -461,12 +461,30 @@ impl SystemConfigMount {
 }
 
 /// Owner-granted executable verified and staged immutably by Driver Host.
+/// Standard tools retain the unchanged 256 MiB Host limit. The explicitly
+/// owner-reviewed Linux browser profile admits a bounded 320 MiB executable
+/// without changing filesystem, network or sandbox grants.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SealedExecutableProfile {
+    #[default]
+    Standard,
+    LinuxBrowser320Mib,
+}
+fn is_standard_sealed_profile(profile: &SealedExecutableProfile) -> bool {
+    *profile == SealedExecutableProfile::Standard
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DriverToolMount {
     pub root: String,
     pub name: String,
     pub sha256: String,
+    /// Explicit owner-reviewed size class. Omitted fields remain Standard.
+    /// Browser executables are still SHA-pinned Host-sealed binary mounts.
+    #[serde(default, skip_serializing_if = "is_standard_sealed_profile")]
+    pub sealed_executable_profile: SealedExecutableProfile,
     /// Workspace mounts this tool may receive when Host-mediated.
     /// Empty preserves the v4 zero-mount tool-child contract.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -487,6 +505,19 @@ pub struct DriverToolMount {
 }
 impl DriverToolMount {
     fn validate(&self) -> Result<()> {
+        if self.sealed_executable_profile == SealedExecutableProfile::LinuxBrowser320Mib
+            && (self.name != "chromium"
+                || !self.dependencies.is_empty()
+                || !self.mounts.is_empty()
+                || !self.system_config.is_empty()
+                || self.nvidia_gpu
+                || self.resources.is_some())
+        {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Large sealed-browser profile requires a Chromium dependency with zero ambient mounts/privileges",
+            ));
+        }
         if let Some(resources) = &self.resources {
             if !self.nvidia_gpu || self.name != "blender-session-runner" {
                 return Err(Error::new(
@@ -694,6 +725,15 @@ impl Manifest {
             return Err(Error::new(
                 ErrorCode::Unsupported,
                 "NVIDIA compute requires the Blender protocol v8 Host-mediated runner",
+            ));
+        }
+        if self.tools.iter().any(|tool| {
+            tool.sealed_executable_profile == SealedExecutableProfile::LinuxBrowser320Mib
+        }) && (!self.interfaces.host_tools || self.protocol < 8 || self.network)
+        {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Large sealed Chromium dependencies require protocol-v8 Host tools without network",
             ));
         }
         let gpu_tools = self
@@ -3088,6 +3128,7 @@ mod tests {
         candidate.interfaces.host_tools = true;
         candidate.nvidia_gpu = true;
         candidate.tools = vec![DriverToolMount {
+            sealed_executable_profile: SealedExecutableProfile::Standard,
             root: "blender-session-runner".into(),
             name: "blender-session-runner".into(),
             sha256: "a".repeat(64),
@@ -3125,6 +3166,7 @@ mod tests {
         let mut native = candidate.resources.clone();
         native.address_space_bytes = 8_589_934_592;
         candidate.tools = vec![DriverToolMount {
+            sealed_executable_profile: SealedExecutableProfile::Standard,
             root: "blender-session-runner".into(),
             name: "blender-session-runner".into(),
             sha256: "a".repeat(64),
@@ -3306,9 +3348,77 @@ mod tests {
     }
 
     #[test]
+    fn owner_reviewed_large_browser_class_is_explicit_and_never_grants_ambient_tool_privilege() {
+        let mut manifest = manifest();
+        let browser = DriverToolMount {
+            root: "owner-chromium-bin".into(),
+            name: "chromium".into(),
+            sha256: "a".repeat(64),
+            sealed_executable_profile: SealedExecutableProfile::LinuxBrowser320Mib,
+            mounts: vec![],
+            system_config: vec![],
+            dependencies: vec![],
+            nvidia_gpu: false,
+            resources: None,
+        };
+        manifest.tools = vec![browser.clone()];
+        manifest.protocol = 8;
+        manifest.interfaces.host_tools = true;
+        manifest.validate().unwrap();
+        let typed = serde_json::to_value(&manifest).unwrap();
+        assert_eq!(
+            typed["tools"][0]["sealed_executable_profile"],
+            "linux_browser320_mib"
+        );
+        let restored: Manifest = serde_json::from_value(typed).unwrap();
+        assert_eq!(
+            restored.tools[0].sealed_executable_profile,
+            SealedExecutableProfile::LinuxBrowser320Mib
+        );
+        let mut old = manifest.clone();
+        old.tools[0].sealed_executable_profile = SealedExecutableProfile::Standard;
+        assert!(
+            serde_json::to_value(&old).unwrap()["tools"][0]
+                .get("sealed_executable_profile")
+                .is_none()
+        );
+
+        for fail in [
+            ("other", vec![], vec![]),
+            ("chromium", vec!["project".into()], vec![]),
+            ("chromium", vec![], vec!["node".into()]),
+        ] {
+            let mut denied = manifest.clone();
+            denied.tools[0].name = fail.0.into();
+            denied.tools[0].mounts = fail.1;
+            denied.tools[0].dependencies = fail.2;
+            assert_eq!(denied.validate().unwrap_err().code, ErrorCode::PolicyDenied);
+        }
+        let mut denied = manifest.clone();
+        denied.protocol = 7;
+        assert_eq!(denied.validate().unwrap_err().code, ErrorCode::PolicyDenied);
+        denied = manifest.clone();
+        denied.interfaces.host_tools = false;
+        assert_eq!(denied.validate().unwrap_err().code, ErrorCode::PolicyDenied);
+        denied = manifest.clone();
+        denied.network = true;
+        assert_eq!(denied.validate().unwrap_err().code, ErrorCode::PolicyDenied);
+        denied = manifest.clone();
+        denied.tools[0].nvidia_gpu = true;
+        assert_eq!(denied.validate().unwrap_err().code, ErrorCode::PolicyDenied);
+        denied = manifest.clone();
+        denied.tools[0].resources = Some(DriverResources::default());
+        assert_eq!(denied.validate().unwrap_err().code, ErrorCode::PolicyDenied);
+        let mut json = serde_json::to_value(&manifest).unwrap();
+        json["tools"][0]["sealed_executable_profile"] = serde_json::json!("unlimited");
+        assert!(serde_json::from_value::<Manifest>(json).is_err());
+    }
+
+    #[test]
     fn tool_mounts_are_digest_pinned_unique_and_separate_from_other_grants() {
         let mut valid = manifest();
         valid.tools = vec![DriverToolMount {
+            sealed_executable_profile: SealedExecutableProfile::Standard,
             root: "godot-runtime".into(),
             name: "godot".into(),
             sha256: "a".repeat(64),
@@ -3331,6 +3441,7 @@ mod tests {
         let mut duplicate_name = manifest();
         duplicate_name.tools = vec![
             DriverToolMount {
+                sealed_executable_profile: SealedExecutableProfile::Standard,
                 root: "tool-a".into(),
                 name: "godot".into(),
                 sha256: "a".repeat(64),
@@ -3341,6 +3452,7 @@ mod tests {
                 resources: None,
             },
             DriverToolMount {
+                sealed_executable_profile: SealedExecutableProfile::Standard,
                 root: "tool-b".into(),
                 name: "godot".into(),
                 sha256: "b".repeat(64),
@@ -3355,6 +3467,7 @@ mod tests {
 
         let mut bad_digest = manifest();
         bad_digest.tools = vec![DriverToolMount {
+            sealed_executable_profile: SealedExecutableProfile::Standard,
             root: "tool".into(),
             name: "godot".into(),
             sha256: "not-a-digest".into(),
@@ -3378,6 +3491,7 @@ mod tests {
         assert!(candidate.validate().is_err());
 
         candidate.tools = vec![DriverToolMount {
+            sealed_executable_profile: SealedExecutableProfile::Standard,
             root: "tool-root".into(),
             name: "probe".into(),
             sha256: "a".repeat(64),
@@ -3427,6 +3541,7 @@ mod tests {
             execute: false,
         });
         candidate.tools = vec![DriverToolMount {
+            sealed_executable_profile: SealedExecutableProfile::Standard,
             root: "godot-runtime".into(),
             name: "godot".into(),
             sha256: "a".repeat(64),
@@ -3561,6 +3676,7 @@ mod tests {
         });
         candidate.tools = vec![
             DriverToolMount {
+                sealed_executable_profile: SealedExecutableProfile::Standard,
                 root: "probe-root".into(),
                 name: "probe".into(),
                 sha256: "a".repeat(64),
@@ -3571,6 +3687,7 @@ mod tests {
                 resources: None,
             },
             DriverToolMount {
+                sealed_executable_profile: SealedExecutableProfile::Standard,
                 root: "helper-root".into(),
                 name: "helper".into(),
                 sha256: "b".repeat(64),
@@ -4059,6 +4176,7 @@ mod tests {
             destination: "/etc/fonts".into(),
         }];
         candidate.tools = vec![DriverToolMount {
+            sealed_executable_profile: SealedExecutableProfile::Standard,
             root: "tool-root".into(),
             name: "probe".into(),
             sha256: "a".repeat(64),
