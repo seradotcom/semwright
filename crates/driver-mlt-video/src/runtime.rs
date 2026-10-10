@@ -1256,7 +1256,6 @@ impl Runtime {
     ) -> Result<MediaInfo> {
         let filename = format!("partial.{}", profile.extension);
         let mut info = self.probe(work, work, &filename, cancel)?;
-        validate_render_media(&info, profile, expected, frames)?;
         if profile.id == "lossless-video-only" {
             // A Matroska FFprobe header is not proof of frame count: many
             // Matroska streams omit nb_frames entirely. The new opt-in AV
@@ -1271,6 +1270,7 @@ impl Runtime {
             }
             info.frames = Some(observed);
         }
+        validate_render_media(&info, profile, expected, frames)?;
         Ok(info)
     }
 
@@ -1315,7 +1315,7 @@ impl Runtime {
 /// Check exactly one independently decoded video stream, never trusting
 /// the estimated Matroska duration or its often-missing nb_frames metadata.
 /// This returns only a count; raw media paths and decoder text stay private.
-fn parse_exact_ffv1_decoded_frame_count(bytes: &[u8]) -> Result<u64> {
+pub fn parse_exact_ffv1_decoded_frame_count(bytes: &[u8]) -> Result<u64> {
     if bytes.is_empty() || bytes.len() > 4096 {
         return Err(Error::limit(
             "Decoded video-only frame evidence is absent or unbounded",
@@ -1426,7 +1426,10 @@ pub fn validate_render_media(
         _ => {}
     }
     if profile.id == "lossless-video-only"
-        && (!info.video || info.codecs.len() != 1 || info.codecs[0] != "ffv1")
+        && (!info.video
+            || info.frames != Some(frames)
+            || info.codecs.len() != 1
+            || info.codecs[0] != "ffv1")
     {
         return Err(Error::new(
             "BackendFailed",
@@ -1930,7 +1933,7 @@ mod tool_owner_tests {
         let mut measured = super::MediaInfo {
             width: Some(160),
             height: Some(90),
-            frames: None,
+            frames: Some(50),
             duration_num: 2,
             duration_den: 1,
             video: true,
@@ -1951,6 +1954,8 @@ mod tool_owner_tests {
         measured.frames = Some(49);
         assert!(super::validate_render_media(&measured, &profile, &expected, 50).is_err());
         measured.frames = None;
+        assert!(super::validate_render_media(&measured, &profile, &expected, 50).is_err());
+        measured.frames = Some(50);
         measured.duration_num = 1;
         assert!(super::validate_render_media(&measured, &profile, &expected, 50).is_err());
         measured.duration_num = 2;

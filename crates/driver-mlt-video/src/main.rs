@@ -465,7 +465,7 @@ impl MltVideoDriver {
         name: &str,
         context: &DriverExecutionContext,
     ) -> Result<MediaInfo> {
-        self.host_probe_staged_observed(directory, name, context)
+        self.host_probe_staged_observed(directory, name, false, context)
             .await
             .map(|(media, _)| media)
     }
@@ -474,50 +474,61 @@ impl MltVideoDriver {
         &self,
         directory: &str,
         name: &str,
+        count_video_frames: bool,
         context: &DriverExecutionContext,
     ) -> Result<(MediaInfo, Vec<u8>)> {
+        let mut args = vec![
+            RuntimeToolArg::Literal {
+                value: "probe".into(),
+            },
+            RuntimeToolArg::Literal {
+                value: "--runtime-root".into(),
+            },
+            RuntimeToolArg::MountPath {
+                mount: "mlt-runtime".into(),
+                relative: String::new(),
+            },
+            RuntimeToolArg::Literal {
+                value: "--ffprobe-sealed".into(),
+            },
+            RuntimeToolArg::ToolPath {
+                tool: "ffprobe".into(),
+            },
+            RuntimeToolArg::Literal {
+                value: "--scratch-root".into(),
+            },
+            RuntimeToolArg::MountPath {
+                mount: "scratch".into(),
+                relative: String::new(),
+            },
+            RuntimeToolArg::Literal {
+                value: "--directory".into(),
+            },
+            RuntimeToolArg::Literal {
+                value: directory.to_owned(),
+            },
+            RuntimeToolArg::Literal {
+                value: "--name".into(),
+            },
+            RuntimeToolArg::Literal {
+                value: name.to_owned(),
+            },
+        ];
+        if count_video_frames {
+            args.push(RuntimeToolArg::Literal {
+                value: "--count-video-frames".into(),
+            });
+        }
         let output = context
             .execute_runtime_tool_args(
                 "mlt-runner",
-                vec![
-                    RuntimeToolArg::Literal {
-                        value: "probe".into(),
-                    },
-                    RuntimeToolArg::Literal {
-                        value: "--runtime-root".into(),
-                    },
-                    RuntimeToolArg::MountPath {
-                        mount: "mlt-runtime".into(),
-                        relative: String::new(),
-                    },
-                    RuntimeToolArg::Literal {
-                        value: "--ffprobe-sealed".into(),
-                    },
-                    RuntimeToolArg::ToolPath {
-                        tool: "ffprobe".into(),
-                    },
-                    RuntimeToolArg::Literal {
-                        value: "--scratch-root".into(),
-                    },
-                    RuntimeToolArg::MountPath {
-                        mount: "scratch".into(),
-                        relative: String::new(),
-                    },
-                    RuntimeToolArg::Literal {
-                        value: "--directory".into(),
-                    },
-                    RuntimeToolArg::Literal {
-                        value: directory.to_owned(),
-                    },
-                    RuntimeToolArg::Literal {
-                        value: "--name".into(),
-                    },
-                    RuntimeToolArg::Literal {
-                        value: name.to_owned(),
-                    },
-                ],
+                args,
                 Vec::new(),
-                std::time::Duration::from_secs(30),
+                if count_video_frames {
+                    std::time::Duration::from_secs(150)
+                } else {
+                    std::time::Duration::from_secs(30)
+                },
                 None,
             )
             .await?;
@@ -827,9 +838,37 @@ impl MltVideoDriver {
         context: &DriverExecutionContext,
     ) -> Result<(semwright_mlt_video::fs::Artifact, MediaInfo)> {
         let scratch_path = diagnostic.scratch_path;
-        let (media, raw_probe) = self
-            .host_probe_staged_observed(diagnostic.directory, output_file, context)
+        let (mut media, raw_probe) = self
+            .host_probe_staged_observed(
+                diagnostic.directory,
+                output_file,
+                profile.id == "lossless-video-only",
+                context,
+            )
             .await?;
+        if profile.id == "lossless-video-only" {
+            // The Host passed the exact --count-video-frames argument to
+            // FFprobe in the *same* confined runner. Require nb_read_frames:
+            // ordinary Matroska nb_frames is not proof of a full decode.
+            // Independently inspect all streams before publishing anything.
+            let envelope: Value = serde_json::from_slice(&raw_probe).map_err(|_| {
+                Error::new(
+                    ErrorCode::PluginProtocolError,
+                    "MLT decoded frame envelope is malformed",
+                )
+            })?;
+            let observation = envelope.get("media").ok_or_else(|| {
+                Error::new(
+                    ErrorCode::PluginProtocolError,
+                    "MLT decoder has no complete stream evidence",
+                )
+            })?;
+            let bytes = serde_json::to_vec(observation)?;
+            let observed =
+                semwright_mlt_video::runtime::parse_exact_ffv1_decoded_frame_count(&bytes)
+                    .map_err(map_error)?;
+            media.frames = Some(observed);
+        }
         if let Err(error) = validate_render_media(&media, profile, expected_profile, frames) {
             // Evidence is an additional bounded JSON sibling inside the existing output grant.
             // Failure to retain it must not erase or soften the original validation failure.
