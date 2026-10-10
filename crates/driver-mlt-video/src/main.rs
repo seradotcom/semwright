@@ -519,19 +519,33 @@ impl MltVideoDriver {
                 value: "--count-video-frames".into(),
             });
         }
-        let output = context
-            .execute_runtime_tool_args(
-                "mlt-runner",
-                args,
-                Vec::new(),
-                if count_video_frames {
-                    std::time::Duration::from_secs(150)
-                } else {
-                    std::time::Duration::from_secs(30)
-                },
-                None,
-            )
-            .await?;
+        let output = if count_video_frames {
+            // Full frame decoding is bounded but may exceed 30 seconds for
+            // 36k FFV1 frames. Protocol v7 synchronous tools have a strict
+            // 30-second ceiling; use its *existing* Host-owned detached job
+            // with cancellation and reap-on-error semantics. Never weaken
+            // the protocol or run a consumer-side ffmpeg process.
+            let job = context
+                .start_runtime_tool_job_args(
+                    "mlt-runner",
+                    args,
+                    Vec::new(),
+                    std::time::Duration::from_secs(150),
+                    None,
+                )
+                .await?;
+            context.wait_runtime_tool_job(&job).await?
+        } else {
+            context
+                .execute_runtime_tool_args(
+                    "mlt-runner",
+                    args,
+                    Vec::new(),
+                    std::time::Duration::from_secs(30),
+                    None,
+                )
+                .await?
+        };
         if output.exit_code != 0 {
             let detail = host_runner_failure(&output.stdout);
             return Err(Error::new(
