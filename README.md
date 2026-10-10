@@ -1,16 +1,12 @@
 <h1 align="center"><img src="./docs/assets/semwright-mark.svg" alt="" width="44" height="44" />&nbsp;semwright</h1>
 
 <p align="center">
-  <strong>Use real software from any AI agent.</strong>
+  <strong>Use real software from your AI agent.</strong>
 </p>
 
 <p align="center">
-  An open runtime that connects AI agents to desktop and professional applications through<br />
-  structured operations, native APIs, and governed system interfaces.
-</p>
-
-<p align="center">
-  Connect your tools once. Use them from any compatible agent.
+  Semwright connects MCP-compatible agents to desktop and professional applications.<br />
+  Work with application objects, control what can run, and inspect the result.
 </p>
 
 <p align="center">
@@ -18,351 +14,169 @@
   <a href="./Cargo.toml"><img alt="Rust" src="https://img.shields.io/badge/Rust-runtime-000000?logo=rust&logoColor=white"></a>
   <a href="./docs/installation.md"><img alt="Native bundles: Linux, macOS, Windows" src="https://img.shields.io/badge/native%20bundles-Linux%20%7C%20macOS%20%7C%20Windows-234ea2"></a>
   <a href="./docs/mcp.md"><img alt="MCP frontend" src="https://img.shields.io/badge/MCP-frontend-6f42c1"></a>
-  <a href="./docs/installation.md"><img alt="Version: 1.0.0" src="https://img.shields.io/badge/version-1.0.0-234ea2"></a>
+  <a href="https://github.com/seradotcom/semwright/releases/tag/v1.0.0"><img alt="Version: 1.0.0" src="https://img.shields.io/badge/version-1.0.0-234ea2"></a>
   <a href="./VERIFY.md"><img alt="Verification documented" src="https://img.shields.io/badge/verification-documented-2ea44f"></a>
 </p>
 
 <p align="center">
-  <a href="./docs/quickstart.md"><strong>Quick start</strong></a> ·
-  <a href="./docs/installation.md"><strong>Installation</strong></a> ·
+  <a href="#get-started"><strong>Get started</strong></a> ·
+  <a href="#mcp-and-semwright"><strong>MCP and Semwright</strong></a> ·
   <a href="https://semwright.com/docs/"><strong>Documentation</strong></a> ·
-  <a href="./docs/drivers.md"><strong>Drivers</strong></a> ·
-  <a href="./VERIFY.md"><strong>Verification</strong></a>
+  <a href="#choose-an-application"><strong>Applications</strong></a> ·
+  <a href="#build-an-integration"><strong>Build an integration</strong></a>
 </p>
 
-```text
-AI agent  →  Semwright  →  Blender · Godot · Browser · LibreOffice · Figma · KiCad · …
+## See it in action
+
+One prompt updates an aircraft's materials in **Blender**, renders a camera shot, creates titles in **Motion Canvas**, and assembles the video with audio through **MLT**.
+
+[![Watch the 60-second Semwright demo.](docs/assets/semwright-demo-60s-poster.webp)](https://github.com/seradotcom/semwright/releases/download/v1.0.0/semwright-demo-60s-audio-r03.mp4)
+
+[**Watch the demo →**](https://github.com/seradotcom/semwright/releases/download/v1.0.0/semwright-demo-60s-audio-r03.mp4)
+
+Recorded in one take using an existing aircraft project. Waiting periods are accelerated; final playback runs at normal speed. The workflow produces a video and an editable timeline.
+
+The recorded workflow, simplified:
+
+```mermaid
+flowchart LR
+  Blender["Blender: materials and camera"] --> Shot["Rendered shot"]
+  Shot --> MLT["MLT: assemble video"]
+  Motion["Motion Canvas: titles"] --> MLT
+  Audio["Audio"] --> MLT
+  MLT --> Output["Video and editable timeline"]
 ```
 
-## One prompt. A connected creative workflow.
+## Get started
 
-Watch Semwright update an aircraft’s materials in Blender, render a new camera shot, generate branded titles in Motion Canvas, and assemble the video with audio through MLT—all using Semwright’s drivers.
+You need an **MCP-compatible agent** and a **Linux, macOS or Windows computer**. Install Semwright once; the agent and the applications you want to use are installed separately.
 
-[![Watch the 60-second demo.](docs/assets/semwright-demo-60s-poster.webp)](https://github.com/seradotcom/semwright/releases/download/v1.0.0/semwright-demo-60s-audio-r03.mp4)
+### 1. Install and start Semwright
 
-Recorded in one take using an existing aircraft project. Waiting periods are accelerated; the final playback runs at normal speed. The workflow produces a new video and an editable timeline.
+Download the package for your system and `SHA256SUMS` from the [1.0.0 release](https://github.com/seradotcom/semwright/releases/tag/v1.0.0). Verify the checksum, extract the archive, then run the installer inside it:
 
-[**Watch the 60-second demo.**](https://github.com/seradotcom/semwright/releases/download/v1.0.0/semwright-demo-60s-audio-r03.mp4)
+| System | Command inside the extracted bundle |
+| --- | --- |
+| Linux | `./install.sh` |
+| macOS | `./install.sh` |
+| Windows (PowerShell) | `.\Install-Semwright.ps1` |
+
+Run the **setup command printed by the installer**. Setup creates your local configuration and agent connection file, beginning with read-only permissions.
+
+Next, run the **Broker command printed by setup** and leave that terminal open. This starts the local process that handles your agent's requests.
+
+[Package selection, checksum commands and installation help →](docs/installation.md#install-a-release-bundle)
+
+### 2. Connect your agent
+
+Setup creates **`mcp-client.json`** with the installed connection command. In your agent's MCP settings, add a **local / stdio** server named **`semwright`**, using the `command` path from that file. If your client accepts `mcpServers` JSON, merge the generated entry with your existing servers.
+
+Restart or reconnect the agent to load the tools. Keep the Semwright terminal running.
+
+[Find your connection file →](docs/quickstart.md#3-connect-an-agent-through-mcp) · [MCP configuration →](docs/mcp.md)
+
+### 3. Try your first request
+
+Send this to your agent:
+
+> Use Semwright to list the capabilities available in this session. Explain what I can try next. Do not modify any files or applications.
+
+The agent should report what is available in your environment. This checks the connection. Application workflows need their own integrations and permissions; setup does not install them or authorize edits.
+
+Next, [choose the application you want to use](#choose-an-application). If the connection fails, run the **Doctor command printed by setup** and follow the [troubleshooting guide](docs/troubleshooting.md).
 
 ## Why Semwright?
 
-AI agents can reason about a task. Reliably operating real software is a different problem: application
-objects have identity and state, UI layouts move, mutations have side effects, and every agent should not
-need its own one-off automation stack.
+Semwright is an open runtime that runs locally between your agent and your software.
 
-Semwright exposes real applications as structured operations behind one authorization boundary. It
-prefers the strongest interface available—application/native APIs first, semantic accessibility and
-governed system interfaces when needed, and controlled input or capture as explicit fallbacks. Every
-operation still passes through the same broker, policy and audit path.
+- **Work with application objects.** Use typed operations for scenes, documents and other objects. Semwright prefers application APIs, with semantic desktop interfaces and explicit input/capture fallbacks where needed.
+- **Keep access explicit.** Agent, CLI and application requests share the same permissions and approval checks. Discovering an operation does not grant permission to run it.
+- **Inspect what happened.** Readback and execution evidence distinguish what was requested from what was observed. Missing evidence stays unknown.
 
-- **Structured operations first.** Use application objects and typed commands instead of reducing every
-  task to screenshots and coordinates.
-- **One authorization boundary.** CLI, MCP, Recipes, drivers and federated providers do not create
-  separate privilege systems.
-- **One runtime across compatible agents.** Change the agent without rebuilding every application
-  integration from scratch.
-- **Read back what happened.** Effects and application observations keep requested, expected and observed
-  outcomes distinct.
-- **Keep project state coherent.** Project Graph can track identity, dependencies and drift across repeated
-  work instead of treating every run as a blank slate.
-- **Local and inspectable.** The OSS runtime can operate locally; discovery is not permission, sensitive
-  actions can require operator approval, and execution is auditable.
+An operation follows this path:
 
-A typical path looks like this:
-
-```text
-Agent request             Semwright                              Software
-"change this material" → typed operation → policy → readback → Blender
-"update this scene"    → typed operation → policy → readback → Godot
-"export this document" → typed operation → policy → artifact → LibreOffice
-"find the Save button" → semantic query  → policy → reference → accessibility
+```mermaid
+flowchart LR
+  Request["Requested operation"] --> Gate{"Authorized?"}
+  Gate -->|No| Stop["Refuse or request approval"]
+  Gate -->|Yes| Run["Run the scoped operation"]
+  Run --> Result["Return observations and evidence"]
 ```
 
-Support is scoped per integration; a green fixture does not automatically certify every version or
-interactive environment.
+Observations describe the available evidence; they do not automatically prove that every intended change succeeded. [Read how it works →](docs/architecture.md)
 
-## Try Semwright
+## MCP and Semwright
 
-### 1. Install the native bundle — no Rust build required
+[**Model Context Protocol (MCP)**](https://modelcontextprotocol.io/docs/learn/architecture) defines how an AI application connects to servers that expose tools, resources and prompts. The server implements what its tools actually do.
 
-Download the matching bundle and `SHA256SUMS` from [Semwright v1.0.0](https://github.com/seradotcom/semwright/releases/tag/v1.0.0).
-Verify its checksum, extract the archive, and run its included helper:
+**Semwright provides the application runtime behind those calls:** application integrations, permissions, object references, bounded jobs and execution evidence. Its MCP frontend lets your existing agent use that runtime.
 
-| Platform | Bundle | Install from the extracted directory |
-| --- | --- | --- |
-| Linux x86_64 / aarch64 | `.tar.gz` or `.deb` | `./install.sh` (or the system package manager for `.deb`) |
-| Windows x86_64 / ARM64 | `.zip` | `.\Install-Semwright.ps1` |
-| macOS Apple Silicon / Intel | `.tar.gz` | `./install.sh` |
+| Component | Role |
+| --- | --- |
+| **MCP** | The communication protocol for discovering and calling tools, and exchanging context. |
+| **An MCP server** | A program that exposes tools and context using that protocol. |
+| **Semwright** | An application execution runtime, reachable through its MCP server or directly through CLI and Recipes. |
 
-Every portable bundle includes the matched CLI, daemon, MCP frontend, TUI and sandbox helper,
-plus checksums and reversible user-local installers. **Install the core once and choose which
-interface to use; CLI/TUI/MCP are not separate versioned downloads.** Optional application
-integrations remain separate.
-
-[**Three-step quick start →**](docs/quickstart.md) ·
-[Full installation, checksums and removal →](docs/installation.md#install-a-release-bundle)
-
-### 2. Run `semwright setup`
-
-The installer prints the exact installed command, so onboarding does not depend on PATH. Setup is
-local, idempotent and non-overwriting: it creates an observe-only config plus a ready-to-copy MCP
-snippet, but grants no desktop authority and starts no background service.
-
-### 3. Start the broker and verify
-
-Setup prints the exact broker, doctor, TUI and MCP paths for the current platform. Start the broker,
-then run the printed doctor command from another terminal. `semwright-inspect` opens the read-only
-terminal UI and the generated `mcp-client.json` points at the exact installed `semwright-mcp`.
-
-### Develop from source with the synthetic desktop
-
-For contributors, the repository also includes a synthetic desktop path. It exercises the real daemon,
-CLI, Recipe runner and policy path without connecting to your real desktop or credentials. This is the
-source-build path, not the normal installation path.
-
-On Ubuntu 24.04 x86_64, install the
-[development prerequisites](docs/installation.md#prerequisites), then:
-
-```sh
-git clone https://github.com/seradotcom/semwright.git
-cd semwright
-
-cargo build --locked -p semwright-daemon -p semwright-cli --bins
-BIN_DIR=target/debug ./scripts/dev/fake-smoke.sh
+```mermaid
+flowchart TB
+  Agent["Your AI agent"] <-->|MCP| Frontend["Semwright MCP frontend"]
+  Frontend <--> Runtime["Semwright runtime: permissions, objects and audit"]
+  CLI["CLI / Recipes"] --> Runtime
+  Runtime <--> Drivers["Application integrations"]
+  Drivers <--> Blender["Blender"]
+  Drivers <--> Browser["Chromium"]
+  Drivers <--> Documents["LibreOffice"]
 ```
 
-The smoke will:
+**They work together.** Use MCP to connect your agent; use Semwright to discover and run supported application operations through a shared execution and permission model. An MCP server can implement permissions and application logic of its own; Semwright supplies that runtime across its integrations.
 
-1. start an isolated fake Semwright daemon;
-2. discover one exact `Export` control;
-3. run a typed recipe through normal policy and dispatch;
-4. report the observed `changed` result and audit metadata;
-5. stop the daemon and remove the temporary runtime.
+Already have an MCP server? Semwright can also bring an **owner-configured local stdio server** into the same permission and audit path. [MCP connection guide →](docs/mcp.md) · [Governed MCP federation →](docs/mcp-federation.md)
 
-This is a functional first-use path, **not** live-desktop certification or a security verdict.
+## Choose an application
 
-`Cargo.lock` is committed. Keep it and use `--locked`; do not run `scripts/dev/bootstrap.sh` on an
-ordinary checkout. For the full build, per-user installation, portable package layout and uninstall
-flow, use the [installation guide](docs/installation.md).
+These integrations expose selected operations. Coverage varies by application, version, platform and environment; a listed driver does not imply full application support.
 
-## Connect your agent
+| Application | Integration guide |
+| --- | --- |
+| Blender | [Scene authoring and export](crates/driver-blender/README.md) |
+| Godot | [Editor and project operations](crates/driver-godot/README.md) |
+| Chromium | [Browser operations through CDP](adapters/chromium/README.md) |
+| LibreOffice | [Selected Writer, Calc and PDF operations](crates/driver-libreoffice/README.md) |
+| Figma | [Plugin API integration](crates/driver-figma/README.md) |
+| OBS Studio | [WebSocket integration](crates/driver-obs/README.md) |
+| Motion Canvas and MLT | [Motion design](docs/motion-canvas/INTEGRATION.md) · [Video rendering](crates/driver-mlt-video/README.md) |
+| KiCad | [Curated IPC integration](integrations/kicad-driver/README.md) |
+| Faust and Ardour | [Audio synthesis](crates/driver-faust-audio/README.md) · [Managed audio sessions](crates/driver-ardour-audio/README.md) |
 
-Semwright exposes a deliberately small MCP frontend that routes back through the same broker,
-policy, references and audit path as the CLI.
-
-`semwright setup` writes a ready-to-copy MCP client snippet using the exact installed executable path
-for the current platform. Its shape is:
-
-```json
-{
-  "mcpServers": {
-    "semwright": {
-      "command": "<absolute path to semwright-mcp>"
-    }
-  }
-}
-```
-
-The MCP process does not grant desktop authority, approve mutations or start the broker for you.
-See [MCP](docs/mcp.md) for socket/session configuration and
-[governed MCP federation](docs/mcp-federation.md) for connecting external MCP providers.
-
-## Native application SDK
-
-Applications that already own their model, persistence and transactions can integrate through the
-[Native SDK](docs/native-sdk/README.md) instead of adopting a Semwright-specific storage model. The
-SDK exposes small optional cooperation contracts, adapts them through the canonical Driver
-SDK/Driver Host, and keeps Broker/Policy, Project Graph and Effect Conformance as the existing
-authorities. Rust and TypeScript surfaces, a file-backed reference profile and an application-owned
-SQLite example are included in the repository. The portable SDK baseline has executed on Linux,
-Windows and macOS across x64/ARM64 where native hosted runners are available; the real Host E2E is
-currently an accepted Linux profile. See the [Native SDK verification](docs/native-sdk/VERIFY.md).
-
-## Applications
-
-Semwright has application-specific integrations in addition to generic desktop/platform backends.
-The table below is intentionally compact; it describes the integration path, **not a blanket support
-certificate**.
-
-| Application / domain | Semwright path | Evidence boundary today |
-| --- | --- | --- |
-| **Blender** | First-party driver and semantic authoring/export | Real Blender 4.5.14 DriverProvider and add-on evidence exists; broader version/desktop coverage remains scoped |
-| **Godot** | Driver + EditorPlugin + pinned runner | Production driver is exercised through Driver Host and pinned Godot CI; broader editor interaction remains scoped |
-| **Chromium** | Private-profile CDP adapter | Real hosted browser integration exists on the Linux development line |
-| **Figma** | Official Plugin API through authenticated loopback driver | Typed/fake-host/sandboxed CI exists; real Figma acceptance is separate |
-| **LibreOffice** | First-party sandboxed UNO driver | Real hosted Writer/Calc/PDF operations execute through CLI -> daemon -> Broker -> DriverProvider; the curated surface is not the full UNO API |
-| **OBS Studio** | `obs-websocket` driver | Fake-server, sandbox and disposable read-only OBS paths are exercised |
-| **MLT video** | Offline timeline/render driver | Semantic/render tests exist; arbitrary Kdenlive/Shotcut round trips are not implied |
-| **KiCad** | Curated driver integration | Deterministic IPC/conformance exists; fake IPC is not a real KiCad interoperability certificate |
-| **Motion Canvas** | Typed project/render driver | Deterministic model generation and bounded render jobs |
-| **Audio** | Faust + Ardour drivers | Curated synthesis, analysis and managed-session paths with explicit coverage gaps |
-
-Full details live in the [platform matrix](docs/platforms.md),
-[compatibility matrix](docs/compatibility.md), [Driver SDK guide](docs/drivers.md) and each
-integration's own README.
-
-## How it works
-
-```text
-compatible agent / MCP / CLI
-            |
-            v
-+-----------------------------+
-|          Semwright          |
-| discovery · schemas · refs  |
-| policy · approvals · audit  |
-| jobs · artifacts · Effects  |
-+-------------+---------------+
-              |
-       Provider Runtime
-              |
-      strongest available path
-              |
-      +-------+-------------------------------+
-      |                                       |
-      v                                       v
-application/native APIs              semantic/system interfaces
-      |                                       |
-      +-------------------+-------------------+
-                          |
-                          v
-                  controlled fallbacks
-                   (input / capture)
-                          |
-                          v
-                   real applications
-```
-
-Semwright does **not** replace MCP or an agent SDK. MCP is one way to reach the runtime and one kind
-of provider Semwright can govern. The execution layer is responsible for capability discovery, policy,
-application identity, bounded jobs, references, artifact handoff and audit.
-
-A cross-application workflow can therefore remain explicit instead of hiding the transition between
-tools:
-
-```text
-Agent
-  |
-  |  "Change this asset and update the project."
-  v
-Semwright
-  |
-  +--> Blender: inspect / author / export
-  |
-  +--> artifact.handoff: verify + transfer
-  |
-  +--> Godot: import / rescan / update
-  |
-  `--> readback + Effects: verify the bounded outcome
-```
-
-See [architecture](docs/architecture.md) for the full model.
-
-## Reuse work and keep projects coherent
-
-### Recipes — reuse a successful procedure
-
-A typed Recipe captures a bounded multi-step procedure. Every step still re-enters normal broker
-policy and reference validation.
-
-[Learn about Recipes →](docs/recipes.md)
-
-### Project Graph — know what became stale
-
-Project Graph records persistent project identity, dependencies, derivations and drift. It can tell
-higher-level workflows which outputs depend on which sources without turning stored identity into
-permission.
-
-[Learn about Project Graph →](docs/project-graph/INTEGRATION.md)
-
-### Effects — verify what actually happened
-
-Effects evaluates observations inside a declared scope. Missing readback stays unknown instead of
-being promoted to a global success claim.
-
-[Learn about Effects →](docs/effects/INTEGRATION.md)
+[Platform requirements →](docs/platforms.md) · [Verified coverage and limits →](docs/compatibility.md)
 
 ## Build an integration
 
-Choose the surface by what you are trying to connect:
-
-| I want to… | Use |
+| What you want to connect | Start here |
 | --- | --- |
-| **Integrate an application that already owns its model, storage, revisions or transactions** | [Native SDK](docs/native-sdk/README.md) |
-| **Build a persistent Semwright provider around an application API or long-lived session** | [Application Driver SDK](docs/drivers.md) |
-| **Add a narrow, stateless external command** | [Plugin SDK](docs/plugins.md) |
-| **Call Semwright from an agent or tool** | [CLI](docs/commands.md) or [MCP frontend](docs/mcp.md) |
-| **Bring an existing MCP server under the same broker** | [Governed MCP federation](docs/mcp-federation.md) |
-| **Move a verified file-backed artifact between integrations** | `artifact.handoff` in the [Driver SDK](docs/drivers.md#cross-driver-artifact-handoff) |
+| An application that owns its model, storage and transactions | [Native application SDK](docs/native-sdk/README.md) |
+| An application API or persistent session | [Application Driver SDK](docs/drivers.md) |
+| A narrow external command | [Plugin SDK](docs/plugins.md) |
+| An agent or existing MCP server | [CLI](docs/commands.md) · [MCP](docs/mcp.md) · [Governed MCP federation](docs/mcp-federation.md) |
 
-The Native SDK builds on the Driver SDK rather than replacing it. Start with the Native SDK when the
-application remains the source of truth for its own state and only exposes optional cooperation
-contracts. Use the Driver SDK directly when implementing the lower-level persistent provider protocol
-and Host integration.
+The Native SDK builds on the Driver SDK and lets the application remain the source of truth for its own state. Integrations use the same permissions and audit path as the core runtime.
 
-Drivers and plugins do not get ambient authority by existing. Their manifests, executable identity,
-resource limits and requested filesystem/network surfaces are validated before use, and each
-capability still enters broker policy.
+For reusable procedures and project state, see [Recipes](docs/recipes.md), [Project Graph](docs/project-graph/INTEGRATION.md) and [Effects](docs/effects/INTEGRATION.md).
 
-## Security
+## Security and verification
 
-Semwright is designed so that **discovery does not imply permission** and an agent cannot approve
-its own sensitive request.
+Setup starts with read-only permissions. Editing applications and other sensitive actions require explicit authority; an agent cannot approve its own sensitive request.
 
-Observe is the default. Input, clipboard contents, screenshots, application launching, plugins and
-application-native mutation require explicit authority. A separately granted unrestricted shell can
-bypass this mediated surface; sandboxing a child does not sandbox an already-running application;
-there is no claim of universal prompt-injection immunity.
+The release's hosted package tests do not certify every interactive desktop or application version. macOS signing/notarization, physical Hyprland certification and unlocked Windows desktop certification have separate limits. See the [release notes](https://github.com/seradotcom/semwright/releases/tag/v1.0.0) for the published version's evidence and limits.
 
-Read [SECURITY.md](SECURITY.md), [permissions](docs/permissions.md) and the
-[threat model](docs/security.md). Report sensitive vulnerabilities through the repository's enabled
-private vulnerability-reporting channel, not a public issue.
+[Security policy and private reporting](SECURITY.md) · [Permissions](docs/permissions.md) · [Threat model](docs/security.md) · [Verification records](VERIFY.md)
 
-## Status
+## Contribute
 
-Semwright 1.0.0 provides native bundle formats for Linux x86_64/aarch64, Windows x86_64/ARM64
-and macOS arm64/x86_64. Application support stays scoped to each driver’s verified operations.
+For source builds and the synthetic-desktop smoke test, start with [development](docs/development.md). The [installation reference](docs/installation.md#development-quickstart) includes the commands and prerequisites.
 
-The 1.0.0 source is prepared for final release validation. Public assets become available only
-after final exact-SHA distribution/certification and genuine independent security review pass.
-Until publication, the release and demo download links above are reserved destinations.
-
-Physical Hyprland and unlocked-Windows interactive certification remain explicit post-v1 work.
-Windows external-MCP filesystem mounts remain fail-closed where path virtualization is unproven;
-macOS TCC, signing and notarization are separate from hosted package validation.
-
-The [release policy](docs/release-policy.md) requires an authentic external review of the frozen SHA,
-zero blocking findings, explicit maintainer authorization and final installation validation.
-Green CI alone does not approve publication or establish a formal security guarantee.
-
-For exact evidence, use [VERIFY.md](VERIFY.md), [platform support](docs/platforms.md),
-[compatibility](docs/compatibility.md), [release blockers](RELEASE_BLOCKERS.md) and
-[security](SECURITY.md). Historical records under [`verification/`](verification/README.md) preserve the
-source and environment they actually tested.
-
-## Documentation and contributing
-
-- [Installation and removal](docs/installation.md)
-- [Troubleshooting](docs/troubleshooting.md)
-- [Architecture](docs/architecture.md)
-- [Platform support](docs/platforms.md)
-- [Application Driver SDK](docs/drivers.md)
-- [Native application SDK](docs/native-sdk/README.md)
-- [Agent Skills](docs/skills.md)
-- [Events and jobs](docs/events-jobs.md)
-- [Workflow Distillation](docs/workflow-distillation.md)
-- [Development](docs/development.md)
-- [Contributing](CONTRIBUTING.md)
-- [Support](SUPPORT.md)
-
-Focused pull requests are welcome. Keep technical and verification claims bound to the exact source,
-environment and scope that produced the evidence.
+[Contributing](CONTRIBUTING.md) · [Support](SUPPORT.md) · [Changelog](CHANGELOG.md) · [Documentation](https://semwright.com/docs/)
 
 ## License
 
-Original core source is **MIT OR Apache-2.0**.
-
-The isolated `integrations/kicad-driver` subtree is **GPL-3.0-or-later** with its own notices.
-
-See [governance](GOVERNANCE.md), [changelog](CHANGELOG.md) and the
-[architecture documentation](docs/architecture.md).
+The original core source is **MIT OR Apache-2.0**. The isolated `integrations/kicad-driver` subtree is **GPL-3.0-or-later**, with its own notices. See [licenses and notices](NOTICE) and [governance](GOVERNANCE.md).
