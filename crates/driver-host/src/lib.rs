@@ -14,7 +14,7 @@ use semwright_driver_sdk::{
     validate_runtime_tool_job_start,
 };
 #[cfg(any(target_os = "linux", target_os = "windows"))]
-use semwright_driver_sdk::{DriverToolMount, SystemConfigMount};
+use semwright_driver_sdk::{DriverToolMount, SealedExecutableProfile, SystemConfigMount};
 #[cfg(any(target_os = "linux", target_os = "windows"))]
 use semwright_platform_api::launch::{
     HostToolArgRef, Mount, MountClass, ResourceLimits, SANDBOX_HOST_TOOL_CWD_ENV,
@@ -110,6 +110,7 @@ struct LinuxBrokerTool {
     name: String,
     staged: Arc<StagedFile>,
     sha256: String,
+    sealed_executable_profile: SealedExecutableProfile,
     dependency_file: Arc<std::fs::File>,
 }
 #[cfg(target_os = "linux")]
@@ -158,10 +159,28 @@ impl LinuxBrokerTool {
 // are blocking preparation. Keep both off the protocol executor so bounded
 // job/session controls remain responsive while the original checks run.
 #[cfg(target_os = "linux")]
+fn verify_owned_sealed_tool(
+    path: &Path,
+    digest: &str,
+    profile: SealedExecutableProfile,
+) -> Result<Vec<u8>> {
+    match profile {
+        SealedExecutableProfile::Standard => {
+            semwright_platform_services::verify_sealed_tool_executable(path, digest)
+        }
+        SealedExecutableProfile::LinuxBrowser320Mib => {
+            semwright_platform_services::verify_owner_reviewed_linux_browser_executable(
+                path, digest,
+            )
+        }
+    }
+}
+
+#[cfg(target_os = "linux")]
 async fn verify_linux_broker_tool(tool: &LinuxBrokerTool) -> Result<()> {
     let tool = tool.clone();
     tokio::task::spawn_blocking(move || {
-        semwright_platform_services::verify_sealed_tool_executable(&tool.staged.0, &tool.sha256)
+        verify_owned_sealed_tool(&tool.staged.0, &tool.sha256, tool.sealed_executable_profile)
             .map(|_| ())
     })
     .await
@@ -1397,8 +1416,9 @@ fn stage_linux_broker_tool(
     name: &str,
     state: &Path,
     dependency_file: std::fs::File,
+    profile: SealedExecutableProfile,
 ) -> Result<LinuxBrokerTool> {
-    let bytes = semwright_platform_services::verify_sealed_tool_executable(path, digest)?;
+    let bytes = verify_owned_sealed_tool(path, digest, profile)?;
     let staged_path = state.join(format!("driver-host-tool-{name}-{}", unique_id()));
     let staged = Arc::new(StagedFile(staged_path.clone()));
     let mut file = std::fs::OpenOptions::new()
@@ -1410,17 +1430,30 @@ fn stage_linux_broker_tool(
     file.sync_all()?;
     file.set_permissions(std::fs::Permissions::from_mode(0o500))?;
     drop(file);
-    let _ = semwright_platform_services::verify_sealed_tool_executable(&staged_path, digest)?;
+    let _ = verify_owned_sealed_tool(&staged_path, digest, profile)?;
     Ok(LinuxBrokerTool {
         name: name.to_owned(),
         staged,
         sha256: digest.to_ascii_lowercase(),
+        sealed_executable_profile: profile,
         dependency_file: Arc::new(dependency_file),
     })
 }
 
 #[cfg(target_os = "windows")]
-fn seal_verified_tool(path: &Path, digest: &str, name: &str, state: &Path) -> Result<SealedTool> {
+fn seal_verified_tool(
+    path: &Path,
+    digest: &str,
+    name: &str,
+    state: &Path,
+    profile: SealedExecutableProfile,
+) -> Result<SealedTool> {
+    if profile != SealedExecutableProfile::Standard {
+        return Err(Error::new(
+            ErrorCode::Unsupported,
+            "Linux-only large sealed-browser executable profile is unavailable on Windows",
+        ));
+    }
     let bytes = semwright_platform_services::verify_sealed_tool_executable(path, digest)?;
     let staged_path = state.join(format!("driver-tool-{name}-{}.exe", unique_id()));
     let staged = Arc::new(StagedFile(staged_path.clone()));
@@ -1442,8 +1475,13 @@ fn seal_verified_tool(path: &Path, digest: &str, name: &str, state: &Path) -> Re
 }
 
 #[cfg(target_os = "linux")]
-fn seal_verified_tool(path: &Path, digest: &str, name: &str) -> Result<SealedTool> {
-    let bytes = semwright_platform_services::verify_sealed_tool_executable(path, digest)?;
+fn seal_verified_tool(
+    path: &Path,
+    digest: &str,
+    name: &str,
+    profile: SealedExecutableProfile,
+) -> Result<SealedTool> {
+    let bytes = verify_owned_sealed_tool(path, digest, profile)?;
     let label = CString::new(format!("semwright-tool-{name}"))
         .map_err(|_| Error::invalid("Invalid tool name"))?;
     // SAFETY: label is a live NUL-terminated CString and flags contain no pointers.
@@ -1507,7 +1545,12 @@ fn seal_verified_tool(path: &Path, digest: &str, name: &str) -> Result<SealedToo
 }
 
 #[cfg(all(unix, not(target_os = "linux")))]
-fn seal_verified_tool(_path: &Path, _digest: &str, _name: &str) -> Result<SealedTool> {
+fn seal_verified_tool(
+    _path: &Path,
+    _digest: &str,
+    _name: &str,
+    _profile: SealedExecutableProfile,
+) -> Result<SealedTool> {
     Err(Error::new(
         ErrorCode::Unsupported,
         "Sealed Driver Host tools are not implemented on this platform",
@@ -3518,7 +3561,13 @@ impl DriverProvider {
                         .ok_or_else(|| {
                             Error::new(ErrorCode::PolicyDenied, "Driver tool grant disappeared")
                         })?;
-                    seal_verified_tool(&grant.path, &tool.sha256, &tool.name, state)
+                    seal_verified_tool(
+                        &grant.path,
+                        &tool.sha256,
+                        &tool.name,
+                        state,
+                        tool.sealed_executable_profile,
+                    )
                 })
                 .collect::<Result<Vec<_>>>()?;
             let loopback = match manifest.loopback_port {
@@ -3814,7 +3863,12 @@ impl DriverProvider {
                         .ok_or_else(|| {
                             Error::new(ErrorCode::PolicyDenied, "Driver tool grant disappeared")
                         })?;
-                    seal_verified_tool(&grant.path, &tool.sha256, &tool.name)
+                    seal_verified_tool(
+                        &grant.path,
+                        &tool.sha256,
+                        &tool.name,
+                        tool.sealed_executable_profile,
+                    )
                 })
                 .collect::<Result<Vec<_>>>()?;
             #[cfg(target_os = "linux")]
@@ -3845,6 +3899,7 @@ impl DriverProvider {
                             &tool.name,
                             state,
                             sealed.duplicate_data_file_inheritable()?,
+                            tool.sealed_executable_profile,
                         )
                     })
                     .collect::<Result<Vec<_>>>()?
@@ -4836,6 +4891,7 @@ mod tests {
         let mut resources = candidate.resources.clone();
         resources.address_space_bytes = 8_589_934_592;
         let contract = DriverToolMount {
+            sealed_executable_profile: semwright_driver_sdk::SealedExecutableProfile::Standard,
             root: "blender-session-runner".into(),
             name: "blender-session-runner".into(),
             sha256: "a".repeat(64),
@@ -4910,7 +4966,8 @@ mod tests {
     fn sealed_tool_memfd_is_write_sealed() {
         let source = Path::new("/usr/bin/true");
         let digest = hex::encode(Sha256::digest(std::fs::read(source).unwrap()));
-        let tool = seal_verified_tool(source, &digest, "probe").unwrap();
+        let tool = seal_verified_tool(source, &digest, "probe", SealedExecutableProfile::Standard)
+            .unwrap();
         let fd = tool._file.as_raw_fd();
         let data_fd = tool.data_file.as_raw_fd();
         // SAFETY: F_GETFD reads scalar flags from the live sealed memfd descriptor.
@@ -4951,7 +5008,13 @@ mod tests {
     fn linux_dependency_reopen_has_an_independent_zero_offset() {
         let source = Path::new("/usr/bin/true");
         let digest = hex::encode(Sha256::digest(std::fs::read(source).unwrap()));
-        let tool = seal_verified_tool(source, &digest, "dependency").unwrap();
+        let tool = seal_verified_tool(
+            source,
+            &digest,
+            "dependency",
+            SealedExecutableProfile::Standard,
+        )
+        .unwrap();
 
         let mut first = fresh_linux_dependency_file(&tool.data_file).unwrap();
         let mut second = fresh_linux_dependency_file(&tool.data_file).unwrap();
@@ -5128,7 +5191,8 @@ mod tests {
 
         let source = Path::new("/usr/bin/true");
         let digest = hex::encode(Sha256::digest(std::fs::read(source).unwrap()));
-        let tool = seal_verified_tool(source, &digest, "probe").unwrap();
+        let tool = seal_verified_tool(source, &digest, "probe", SealedExecutableProfile::Standard)
+            .unwrap();
         let command = sandbox_command(&manifest(), &staged, &helper, &[], None, &[tool]).unwrap();
         let args = command
             .as_std()

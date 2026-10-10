@@ -41,3 +41,41 @@ Application executables have a separate 512 MiB verification budget because real
 The remaining platform gap is macOS execution of arbitrary Host-mediated secondary tools. macOS verifies secondary-tool digest, ownership and native architecture through the shared verifier, but execution remains fail-closed until Semwright has a supported platform isolation primitive with equivalent guarantees. This candidate does not treat verification as runtime-tool acceptance on macOS.
 
 `scripts/verify-driver-runtime-tools.py` is a zero-baseline ratchet for production first-party driver sources (including `integrations/*/driver/src`) and built-in adapter sources. It rejects embedded common OS installation paths, ambient `which`/`command -v` discovery, direct driver `tool_path()`, private `runtime.json` resolvers and `/plugin/tools/` assumptions; there are no tolerated production exceptions. Test fixtures, developer scripts and explicitly bounded compatibility backends remain outside that production resolver guard.
+
+## Owner-reviewed Linux large-browser sealed tool (candidate for security review)
+
+A real pinned Chromium Headless Shell can be larger than 256 MiB. Do not
+execute it from a source, asset or workspace data mount, substitute ambient
+PATH discovery, or change the default secondary-tool byte cap. A narrowly
+admitted **Linux-only** manifest size class, `linux_browser320_mib`, may be
+declared only on a distinct owner-approved tool named `chromium`.
+
+The class requires protocol v8 Host-mediated tools, `network=false`, an exact
+SHA-256 in the same owner-approved manifest, **no independent mounts**, no
+system-config roots, no dependencies, no NVIDIA authority and no resource
+override on that browser tool. The invoking owner-approved primary runner
+may list `chromium` as an explicitly pinned dependency and reference its
+sealed Host path through the existing typed `ToolPath` argument contract.
+
+For the browser dependency entry, the additional field is:
+
+    "sealed_executable_profile": "linux_browser320_mib"
+
+This is a size/ownership contract, **not** a new capability to run arbitrary
+source. On Linux, the Host bounds this class to 320 MiB and applies the same
+strict regular-file, ownership, permissions, SHA, ELF, private staging, memfd
+sealing, no-network and Bubblewrap/AppArmor checks as before. Each Host stage
+and subsequent invocation re-attests the exact bytes with the profile's
+own bound. Other driver tools remain capped at **256 MiB**, the provider
+itself remains at **64 MiB**, and application launches remain a different
+owner-scoped **512 MiB** authority. Browser tool size does not change
+default process, CPU, output-file or memory budgets.
+
+This is a proposed product/security extension; it is not an automatic
+approval of any browser runtime. Driver manifests and owner grants still
+require explicit review and installation. The Windows Host rejects the
+Linux-only class, rather than treating it as a larger generic executable
+exception. An older Semwright Host rejects this unknown manifest field
+instead of silently executing a data-only browser. Browser binaries and
+frames must pass live end-to-end conformance before a product can claim
+availability, and no independently reviewed creative output is implied.

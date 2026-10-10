@@ -117,6 +117,7 @@ fn manifest(executable: PathBuf, node_sha256: String) -> Manifest {
         system_config: vec![],
         secrets: vec![],
         tools: vec![DriverToolMount {
+            sealed_executable_profile: semwright_driver_sdk::SealedExecutableProfile::Standard,
             root: "motion-node-tool".into(),
             name: "motion-node".into(),
             sha256: node_sha256,

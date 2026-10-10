@@ -359,6 +359,7 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
         secrets: vec![],
         tools: vec![
             DriverToolMount {
+                sealed_executable_profile: semwright_driver_sdk::SealedExecutableProfile::Standard,
                 root: "mlt-runner-root".into(),
                 name: "mlt-runner".into(),
                 sha256: digest(&runtime_runner),
@@ -375,6 +376,7 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
                 resources: None,
             },
             DriverToolMount {
+                sealed_executable_profile: semwright_driver_sdk::SealedExecutableProfile::Standard,
                 root: "melt-root".into(),
                 name: "melt".into(),
                 sha256: digest(&melt),
@@ -385,6 +387,7 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
                 resources: None,
             },
             DriverToolMount {
+                sealed_executable_profile: semwright_driver_sdk::SealedExecutableProfile::Standard,
                 root: "ffprobe-root".into(),
                 name: "ffprobe".into(),
                 sha256: digest(&ffprobe),
@@ -395,6 +398,7 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
                 resources: None,
             },
             DriverToolMount {
+                sealed_executable_profile: semwright_driver_sdk::SealedExecutableProfile::Standard,
                 root: "ffmpeg-root".into(),
                 name: "ffmpeg".into(),
                 sha256: digest(&ffmpeg),

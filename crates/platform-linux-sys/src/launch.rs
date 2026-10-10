@@ -22,6 +22,7 @@ use tokio::process::{Child, Command};
 
 const MAX_PROVIDER_EXECUTABLE_BYTES: u64 = 64 * 1024 * 1024;
 const MAX_SEALED_TOOL_EXECUTABLE_BYTES: u64 = 256 * 1024 * 1024;
+const MAX_OWNER_REVIEWED_LINUX_BROWSER_BYTES: u64 = 320 * 1024 * 1024;
 const MAX_APPLICATION_EXECUTABLE_BYTES: u64 = 512 * 1024 * 1024;
 const SANDBOX_BWRAP_INFO_FD_ENV: &str = "SEMWRIGHT_INTERNAL_BWRAP_INFO_FD";
 const MAX_BWRAP_INFO_BYTES: usize = 16 * 1024;
@@ -374,6 +375,15 @@ impl ExecutableVerifier for LinuxVerifier {
 
 pub fn verify_sealed_tool_executable(path: &Path, digest: &str) -> Result<Vec<u8>> {
     verify_executable_bounded(path, digest, MAX_SEALED_TOOL_EXECUTABLE_BYTES)
+}
+/// Separate owner-reviewed large-browser size class. The default verifier
+/// remains 256 MiB; the Host selects this only from an explicit approved
+/// sealed_executable_profile in the immutable manifest tool descriptor.
+pub fn verify_owner_reviewed_linux_browser_executable(
+    path: &Path,
+    digest: &str,
+) -> Result<Vec<u8>> {
+    verify_executable_bounded(path, digest, MAX_OWNER_REVIEWED_LINUX_BROWSER_BYTES)
 }
 fn merged_usr_alias(path: &Path, target: &Path) -> bool {
     std::fs::read_link(path).is_ok_and(|link| {
@@ -960,7 +970,40 @@ mod tests {
     fn sealed_tool_budget_is_distinct_from_provider_budget() {
         assert_eq!(MAX_PROVIDER_EXECUTABLE_BYTES, 64 * 1024 * 1024);
         assert_eq!(MAX_SEALED_TOOL_EXECUTABLE_BYTES, 256 * 1024 * 1024);
+        assert_eq!(MAX_OWNER_REVIEWED_LINUX_BROWSER_BYTES, 320 * 1024 * 1024);
         assert_eq!(MAX_APPLICATION_EXECUTABLE_BYTES, 512 * 1024 * 1024);
+    }
+
+    #[test]
+    fn owner_browser_bound_is_separate_and_an_oversized_file_fails_before_digest_read() {
+        use std::os::unix::fs::PermissionsExt;
+        let tmp = tempfile::tempdir().unwrap();
+        let source = tmp.path().join("small-browser-elf");
+        let source_bytes = b"\x7fELF\x02\x01synthetic-byte-fixture";
+        std::fs::write(&source, source_bytes).unwrap();
+        std::fs::set_permissions(&source, std::fs::Permissions::from_mode(0o500)).unwrap();
+        let digest = hex::encode(sha2::Sha256::digest(source_bytes));
+        assert!(verify_sealed_tool_executable(&source, &digest).is_ok());
+        assert!(verify_owner_reviewed_linux_browser_executable(&source, &digest).is_ok());
+
+        let oversized = tmp.path().join("oversized-browser-elf");
+        let file = std::fs::File::create(&oversized).unwrap();
+        file.set_len(MAX_OWNER_REVIEWED_LINUX_BROWSER_BYTES + 1)
+            .unwrap();
+        drop(file);
+        std::fs::set_permissions(&oversized, std::fs::Permissions::from_mode(0o500)).unwrap();
+        assert_eq!(
+            verify_owner_reviewed_linux_browser_executable(&oversized, &digest)
+                .unwrap_err()
+                .code,
+            ErrorCode::PermissionDenied
+        );
+        assert_eq!(
+            verify_sealed_tool_executable(&oversized, &digest)
+                .unwrap_err()
+                .code,
+            ErrorCode::PermissionDenied
+        );
     }
 
     #[test]

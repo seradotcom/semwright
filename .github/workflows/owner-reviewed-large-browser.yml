@@ -1,0 +1,60 @@
+name: Owner-reviewed large sealed browser candidate
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['ci/owner-reviewed-large-browser']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sealed-browser-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scoped-browser-security-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      CARGO_INCREMENTAL: 0
+      CARGO_PROFILE_DEV_DEBUG: 0
+      CARGO_PROFILE_TEST_DEBUG: 0
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de
+        with:
+          toolchain: '1.98.1'
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: host-owner-reviewed-browser-320mib-1.98.1
+          cache-on-failure: true
+      - name: Verify existing default tool cap and explicit owner policy
+        run: |
+          set -euo pipefail
+          cargo fmt --all -- --check
+          cargo test --locked -p semwright-driver-sdk owner_reviewed_large_browser_class_is_explicit
+          cargo test --locked -p semwright-platform-linux-sys owner_browser_bound_is_separate
+      - name: Check typed driver source/Host without local heavyweight builds
+        run: |
+          set -euo pipefail
+          cargo clippy --locked -p semwright-driver-sdk -p semwright-driver-host -p semwright-platform-linux-sys -p semwright-platform-services --all-targets -- -D warnings
+          cargo test --locked -p semwright-driver-host --lib
+      - name: Document the candidate approval boundary
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          sdk=Path('crates/driver-sdk/src/lib.rs').read_text()
+          linux=Path('crates/platform-linux-sys/src/launch.rs').read_text()
+          host=Path('crates/driver-host/src/lib.rs').read_text()
+          assert 'LinuxBrowser320Mib' in sdk
+          assert 'MAX_SEALED_TOOL_EXECUTABLE_BYTES: u64 = 256 * 1024 * 1024' in linux
+          assert 'MAX_OWNER_REVIEWED_LINUX_BROWSER_BYTES: u64 = 320 * 1024 * 1024' in linux
+          assert 'verify_owner_reviewed_linux_browser_executable' in host
+          assert 'Linux-only large sealed-browser executable profile is unavailable on Windows' in host
+          print('owner-reviewed-size-profile=SOURCE-CONTRACT-CHECK-OK')
+          PY
