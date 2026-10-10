@@ -166,26 +166,39 @@ fn probe(
     scratch_root: &Path,
     directory: &str,
     name: &str,
+    count_video_frames: bool,
 ) -> Result<Value, String> {
     let (work, target) = scratch_file(scratch_root, directory, name)?;
-    let args = [
-        "-v",
-        "error",
-        "-show_streams",
-        "-show_format",
-        "-of",
-        "json",
-    ]
-    .into_iter()
-    .map(OsString::from)
-    .chain(std::iter::once(target.into_os_string()))
-    .collect();
+    let mut args = vec![OsString::from("-v"), OsString::from("error")];
+    if count_video_frames {
+        // Exact opt-in: independently decode *all* video frames while
+        // retaining the entire stream list, so unexpected audio remains
+        // visible to the Host and can never be hidden by select_streams.
+        args.push(OsString::from("-count_frames"));
+    }
+    if count_video_frames {
+        // Keep a small, closed observation document. Importantly do NOT
+        // select only video streams: any unexpected audio remains visible.
+        args.extend([
+            "-show_streams", "-show_format",
+            "-show_entries",
+            "stream=codec_name,codec_type,width,height,nb_frames,nb_read_frames,channels,sample_rate:format=duration",
+            "-of", "json",
+        ].map(OsString::from));
+    } else {
+        args.extend(["-show_streams", "-show_format", "-of", "json"].map(OsString::from));
+    }
+    args.push(target.into_os_string());
     let (stdout, _stderr) = execute(
         ffprobe,
         args,
         &work,
-        Duration::from_secs(5),
-        30,
+        if count_video_frames {
+            Duration::from_secs(120)
+        } else {
+            Duration::from_secs(5)
+        },
+        if count_video_frames { 180 } else { 30 },
         1_073_741_824,
     )?;
     let media: Value = serde_json::from_slice(&stdout)
@@ -464,11 +477,19 @@ fn parse() -> Result<Value, String> {
             let scratch_root = PathBuf::from(required_flag(&mut args, "--scratch-root", "probe")?);
             let directory = required_flag(&mut args, "--directory", "probe")?;
             let name = required_flag(&mut args, "--name", "probe")?;
-            if args.next().is_some() {
-                return Err("runtime runner received unexpected arguments".into());
-            }
+            let count_video_frames = match args.next() {
+                None => false,
+                Some(flag) if flag == "--count-video-frames" && args.next().is_none() => true,
+                _ => return Err("runtime runner received unexpected arguments".into()),
+            };
             let ffprobe = runtime_entry(&runtime_root, &sealed_ffprobe, "ffprobe")?;
-            probe(&ffprobe, &scratch_root, &directory, &name)
+            probe(
+                &ffprobe,
+                &scratch_root,
+                &directory,
+                &name,
+                count_video_frames,
+            )
         }
         "render" => {
             let runtime_root = PathBuf::from(required_flag(&mut args, "--runtime-root", "render")?);

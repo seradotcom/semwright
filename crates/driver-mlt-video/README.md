@@ -89,3 +89,39 @@ bounded staging, native decoder checks and safe output publication. The runner
 receives project/media roots read-only and the output root writable through typed
 Host arguments. It never accepts arbitrary executables, environment or shell
 commands. Compatibility fixture `Runtime` paths do not select production tools.
+
+
+## Explicit video-only lossless FFV1 for downstream native A/V mux
+
+The existing `lossless` render profile remains **FFV1 + PCM s16le audio**.
+The separate, opt-in `lossless-video-only` profile produces Matroska FFV1
+**without any audio stream**, even if the semantic MLT timeline has an audio
+track. This supports the separately authorized `driver.mlt-video.av.mux`,
+which demands video-only material plus a distinct measured 48 kHz stereo WAV.
+
+This is not a generic encoder override. The profile is selectable only
+through the existing typed `render.plan` → `render.start` →
+`render.status` → `render.result` Broker/Driver Host path. The pinned
+MLT `avformat` consumer receives `an=1` rather than a silent PCM track;
+capabilities cannot supply an executable, shell command, arbitrary filter,
+encoder flags or external output root.
+
+The confined native render validates that exactly one FFV1 video stream and
+**no audio** is present, matches source geometry and bounded duration, and
+then **independently decodes and counts every frame** using a pinned FFprobe
+`-count_frames` operation inside the existing Host sandbox. A missing
+Matroska header `nb_frames` is not treated as success. The exact counted
+value must equal the project plan (1–36,000 frames). This check runs
+*before* existing exclusive/no-overwrite owner-root publication, preserving
+artifact SHA-256, cancellation limits and source revision authority.
+
+The original `lossless`, H.264/AAC and `audio-wav` profiles are unchanged.
+A video-only intermediate is not an H.264/AAC master, voice quality verdict
+or human acceptance.
+
+Linux Host/MLT E2E exercises both the original lossless and the new
+video-only profile on the **same 50-frame semantic timeline** (which includes
+an audio source). It also runs independent host FFprobe on the new output,
+requiring exactly one FFV1 video stream and 50 decoded frames. Rust unit
+tests reject forged profiles, unexpected PCM/audio, wrong frame counts,
+codec substitutions, malformed decoder output and out-of-budget metadata.

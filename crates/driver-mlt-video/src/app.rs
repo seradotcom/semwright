@@ -1540,7 +1540,7 @@ impl App {
             width: Some(width),
             height: Some(height),
             video_codec: Some("libx264"),
-            audio_codec: "aac",
+            audio_codec: Some("aac"),
             container: "mp4",
             extension: "mp4",
         };
