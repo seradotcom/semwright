@@ -1254,15 +1254,118 @@ impl Runtime {
         frames: u64,
         cancel: &AtomicBool,
     ) -> Result<MediaInfo> {
-        let info = self.probe(
-            work,
-            work,
-            &format!("partial.{}", profile.extension),
-            cancel,
-        )?;
+        let filename = format!("partial.{}", profile.extension);
+        let mut info = self.probe(work, work, &filename, cancel)?;
         validate_render_media(&info, profile, expected, frames)?;
+        if profile.id == "lossless-video-only" {
+            // A Matroska FFprobe header is not proof of frame count: many
+            // Matroska streams omit nb_frames entirely. The new opt-in AV
+            // input profile must actually decode and count *every* frame
+            // inside the existing confined runtime before publishing bytes.
+            let observed = self.decoded_ffv1_video_frame_count(work, &filename, cancel)?;
+            if observed != frames {
+                return Err(Error::new(
+                    "BackendFailed",
+                    "Decoded video-only FFV1 frame count differs from the source cut",
+                ));
+            }
+            info.frames = Some(observed);
+        }
         Ok(info)
     }
+
+    fn decoded_ffv1_video_frame_count(
+        &self,
+        work: &Path,
+        name: &str,
+        cancel: &AtomicBool,
+    ) -> Result<u64> {
+        crate::fs::validate_relative(name)?;
+        if name.contains('/') {
+            return Err(Error::invalid(
+                "Decoded frame count requires an owned basename",
+            ));
+        }
+        let args = [
+            "-v",
+            "error",
+            "-count_frames",
+            "-select_streams",
+            "v:0",
+            "-show_entries",
+            "stream=codec_name,codec_type,width,height,nb_read_frames",
+            "-of",
+            "json",
+        ]
+        .into_iter()
+        .map(OsString::from)
+        .chain(std::iter::once(
+            self.input_path(work, name).into_os_string(),
+        ))
+        .collect();
+        let observed = run(
+            &self.spec("ffprobe", args, work, work, self.timeout)?,
+            cancel,
+        )?
+        .checked()?;
+        parse_exact_ffv1_decoded_frame_count(&observed.stdout)
+    }
+}
+
+/// Check exactly one independently decoded video stream, never trusting
+/// the estimated Matroska duration or its often-missing nb_frames metadata.
+/// This returns only a count; raw media paths and decoder text stay private.
+fn parse_exact_ffv1_decoded_frame_count(bytes: &[u8]) -> Result<u64> {
+    if bytes.is_empty() || bytes.len() > 4096 {
+        return Err(Error::limit(
+            "Decoded video-only frame evidence is absent or unbounded",
+        ));
+    }
+    let doc: serde_json::Value = serde_json::from_slice(bytes)
+        .map_err(|_| Error::invalid("Decoded video-only frame evidence is malformed"))?;
+    let streams = doc
+        .get("streams")
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| Error::invalid("Decoded video-only frame evidence has no stream list"))?;
+    if streams.len() != 1 {
+        return Err(Error::new(
+            "BackendFailed",
+            "Decoded video-only evidence must have one stream",
+        ));
+    }
+    let stream = &streams[0];
+    if stream.get("codec_type").and_then(serde_json::Value::as_str) != Some("video")
+        || stream.get("codec_name").and_then(serde_json::Value::as_str) != Some("ffv1")
+        || !stream
+            .get("width")
+            .and_then(serde_json::Value::as_u64)
+            .is_some_and(|n| (16..=8192).contains(&n))
+        || !stream
+            .get("height")
+            .and_then(serde_json::Value::as_u64)
+            .is_some_and(|n| (16..=8192).contains(&n))
+    {
+        return Err(Error::new(
+            "BackendFailed",
+            "Decoded video-only stream codec or geometry differs",
+        ));
+    }
+    let text = stream
+        .get("nb_read_frames")
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| Error::new("BackendFailed", "Decoder did not count video frames"))?;
+    if text.is_empty() || text.len() > 6 || !text.bytes().all(|b| b.is_ascii_digit()) {
+        return Err(Error::invalid("Decoded frame count is not bounded decimal"));
+    }
+    let frames: u64 = text
+        .parse()
+        .map_err(|_| Error::invalid("Decoded frame count cannot be parsed"))?;
+    if !(1..=36_000).contains(&frames) {
+        return Err(Error::limit(
+            "Decoded frame count is outside the render budget",
+        ));
+    }
+    Ok(frames)
 }
 
 pub fn validate_render_media(
@@ -1307,10 +1410,27 @@ pub fn validate_render_media(
             ),
         ));
     }
-    if !info.audio {
+    match profile.audio_codec {
+        Some(_) if !info.audio => {
+            return Err(Error::new(
+                "BackendFailed",
+                "Curated audio-bearing render profile requires an audio stream",
+            ));
+        }
+        None if info.audio => {
+            return Err(Error::new(
+                "BackendFailed",
+                "Video-only lossless render unexpectedly contains audio",
+            ));
+        }
+        _ => {}
+    }
+    if profile.id == "lossless-video-only"
+        && (!info.video || info.codecs.len() != 1 || info.codecs[0] != "ffv1")
+    {
         return Err(Error::new(
             "BackendFailed",
-            "Curated render profile requires an audio stream",
+            "Video-only lossless render must contain only FFV1 video",
         ));
     }
     Ok(())
@@ -1337,7 +1457,13 @@ pub fn render_argv(
     } else {
         args.push("vn=1".into());
     }
-    args.push(format!("acodec={}", profile.audio_codec).into());
+    if let Some(codec) = profile.audio_codec {
+        args.push(format!("acodec={codec}").into());
+    } else {
+        // MLT avformat consumer: omit audio frames altogether. This is not
+        // the same as an encoded silent PCM stream and is checked post-render.
+        args.push("an=1".into());
+    }
     args
 }
 
@@ -1485,7 +1611,8 @@ pub struct RenderProfile {
     pub width: Option<u32>,
     pub height: Option<u32>,
     pub video_codec: Option<&'static str>,
-    pub audio_codec: &'static str,
+    /// None explicitly disables the MLT avformat consumer's audio stream.
+    pub audio_codec: Option<&'static str>,
     pub container: &'static str,
     pub extension: &'static str,
 }
@@ -1497,7 +1624,7 @@ impl RenderProfile {
                 width: Some(1920),
                 height: Some(1080),
                 video_codec: Some("libx264"),
-                audio_codec: "aac",
+                audio_codec: Some("aac"),
                 container: "mp4",
                 extension: "mp4",
             },
@@ -1506,7 +1633,7 @@ impl RenderProfile {
                 width: Some(1280),
                 height: Some(720),
                 video_codec: Some("libx264"),
-                audio_codec: "aac",
+                audio_codec: Some("aac"),
                 container: "mp4",
                 extension: "mp4",
             },
@@ -1515,7 +1642,19 @@ impl RenderProfile {
                 width: None,
                 height: None,
                 video_codec: Some("ffv1"),
-                audio_codec: "pcm_s16le",
+                audio_codec: Some("pcm_s16le"),
+                container: "matroska",
+                extension: "mkv",
+            },
+            Self {
+                // A separate, explicitly opt-in profile for semantic MLT
+                // cuts that will become the video input to native av.mux.
+                // The existing "lossless" PCM transport output is unchanged.
+                id: "lossless-video-only",
+                width: None,
+                height: None,
+                video_codec: Some("ffv1"),
+                audio_codec: None,
                 container: "matroska",
                 extension: "mkv",
             },
@@ -1524,7 +1663,7 @@ impl RenderProfile {
                 width: None,
                 height: None,
                 video_codec: None,
-                audio_codec: "pcm_s16le",
+                audio_codec: Some("pcm_s16le"),
                 container: "wav",
                 extension: "wav",
             },
@@ -1545,7 +1684,7 @@ impl RenderProfile {
                     codec.to_owned()
                 }
             }),
-            audio_codec: Some(self.audio_codec.to_owned()),
+            audio_codec: self.audio_codec.map(str::to_owned),
             container: self.container.to_owned(),
             extension: self.extension.to_owned(),
         }
@@ -1559,7 +1698,9 @@ impl RenderProfile {
     }
     pub fn available(&self, catalog: &ServiceCatalog) -> bool {
         catalog.has("consumers", "avformat")
-            && catalog.has("audio_codecs", self.audio_codec)
+            && self
+                .audio_codec
+                .is_none_or(|codec| catalog.has("audio_codecs", codec))
             && self
                 .video_codec
                 .is_none_or(|v| catalog.has("video_codecs", v))
@@ -1583,7 +1724,10 @@ impl RenderProfile {
                 "video_codec",
                 self.video_codec.map_or(Value::Null, Into::into),
             ),
-            ("audio_codec", self.audio_codec.into()),
+            (
+                "audio_codec",
+                self.audio_codec.map_or(Value::Null, Into::into),
+            ),
             ("container", self.container.into()),
             ("extension", self.extension.into()),
         ])
@@ -1745,6 +1889,118 @@ mod tool_owner_tests {
     use std::path::Path;
 
     #[test]
+    fn video_only_profile_is_opt_in_and_preserves_legacy_audio_profiles() {
+        let only = RenderProfile::get("lossless-video-only").unwrap();
+        assert_eq!(only.video_codec, Some("ffv1"));
+        assert_eq!(only.audio_codec, None);
+        assert_eq!(only.semantic().audio_codec, None);
+        let command = super::render_argv("project.mlt", "intermediate.mkv", &only)
+            .iter()
+            .map(|value| value.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+        assert!(command.iter().any(|value| value == "an=1"));
+        assert!(command.iter().any(|value| value == "vcodec=ffv1"));
+        assert!(!command.iter().any(|value| value.starts_with("acodec=")));
+
+        let legacy = RenderProfile::get("lossless").unwrap();
+        assert_eq!(legacy.audio_codec, Some("pcm_s16le"));
+        assert_eq!(legacy.semantic().audio_codec.as_deref(), Some("pcm_s16le"));
+        let original = super::render_argv("project.mlt", "original.mkv", &legacy)
+            .iter()
+            .map(|value| value.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+        assert!(original.iter().any(|value| value == "acodec=pcm_s16le"));
+        assert!(!original.iter().any(|value| value == "an=1"));
+    }
+
+    #[test]
+    fn strict_video_only_receipts_refuse_pcm_and_forged_profiles() {
+        let profile = RenderProfile::get("lossless-video-only").unwrap();
+        let original = RenderProfile::get("lossless").unwrap();
+        let expected = crate::model::Profile {
+            width: 160,
+            height: 90,
+            fps: crate::time::FrameRate::new(25, 1).unwrap(),
+            progressive: true,
+            sample_aspect: (1, 1),
+            display_aspect: (16, 9),
+            colorspace: 709,
+            audio_channels: 2,
+        };
+        let mut measured = super::MediaInfo {
+            width: Some(160),
+            height: Some(90),
+            frames: None,
+            duration_num: 2,
+            duration_den: 1,
+            video: true,
+            audio: false,
+            codecs: vec!["ffv1".into()],
+            ..Default::default()
+        };
+        assert!(super::validate_render_media(&measured, &profile, &expected, 50).is_ok());
+        assert!(super::validate_render_media(&measured, &original, &expected, 50).is_err());
+        measured.audio = true;
+        measured.codecs.push("pcm_s16le".into());
+        assert!(super::validate_render_media(&measured, &profile, &expected, 50).is_err());
+        assert!(super::validate_render_media(&measured, &original, &expected, 50).is_ok());
+        measured.audio = false;
+        measured.codecs = vec!["aac".into()];
+        assert!(super::validate_render_media(&measured, &profile, &expected, 50).is_err());
+        measured.codecs = vec!["ffv1".into()];
+        measured.frames = Some(49);
+        assert!(super::validate_render_media(&measured, &profile, &expected, 50).is_err());
+        measured.frames = None;
+        measured.duration_num = 1;
+        assert!(super::validate_render_media(&measured, &profile, &expected, 50).is_err());
+        measured.duration_num = 2;
+        measured.width = Some(1920);
+        assert!(super::validate_render_media(&measured, &profile, &expected, 50).is_err());
+    }
+
+    #[test]
+    fn decoded_frame_counter_requires_exact_bounded_ffv1_observation() {
+        let fixture = serde_json::json!({
+            "streams": [{"codec_type":"video","codec_name":"ffv1",
+                         "width":160,"height":90,"nb_read_frames":"50"}]
+        });
+        let correct = serde_json::to_vec(&fixture).unwrap();
+        assert_eq!(
+            super::parse_exact_ffv1_decoded_frame_count(&correct).unwrap(),
+            50
+        );
+        let mut mutated = fixture;
+        for (field, value) in [
+            ("nb_read_frames", serde_json::json!("N/A")),
+            ("nb_read_frames", serde_json::json!("0")),
+            ("nb_read_frames", serde_json::json!("36001")),
+            ("nb_read_frames", serde_json::Value::Null),
+            ("codec_name", serde_json::json!("h264")),
+            ("width", serde_json::json!(0)),
+            ("height", serde_json::json!(9000)),
+        ] {
+            mutated["streams"][0][field] = value;
+            assert!(
+                super::parse_exact_ffv1_decoded_frame_count(&serde_json::to_vec(&mutated).unwrap())
+                    .is_err(),
+                "bad field {field} passed"
+            );
+            mutated = serde_json::json!({
+                "streams": [{"codec_type":"video","codec_name":"ffv1",
+                             "width":160,"height":90,"nb_read_frames":"50"}]
+            });
+        }
+        let duplicate = mutated["streams"][0].clone();
+        mutated["streams"].as_array_mut().unwrap().push(duplicate);
+        assert!(
+            super::parse_exact_ffv1_decoded_frame_count(&serde_json::to_vec(&mutated).unwrap())
+                .is_err()
+        );
+        assert!(super::parse_exact_ffv1_decoded_frame_count(&vec![b'x'; 4097]).is_err());
+        assert!(super::parse_exact_ffv1_decoded_frame_count(b"{}").is_err());
+    }
+
+    #[test]
     fn h264_profile_uses_bounded_fast_high_quality_encoding() {
         let args = h264_encoding_args();
         let args = args.iter().map(|v| v.to_string_lossy()).collect::<Vec<_>>();
@@ -1758,7 +2014,7 @@ mod tool_owner_tests {
             let args = args.iter().map(|v| v.to_string_lossy()).collect::<Vec<_>>();
             assert_eq!(args, ["real_time=0", "threads=2"], "profile {id}");
         }
-        for id in ["lossless", "audio-wav"] {
+        for id in ["lossless", "lossless-video-only", "audio-wav"] {
             let args = render_processing_args(&RenderProfile::get(id).unwrap());
             let args = args.iter().map(|v| v.to_string_lossy()).collect::<Vec<_>>();
             assert_eq!(args, ["real_time=-1", "threads=2"], "profile {id}");

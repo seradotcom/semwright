@@ -879,7 +879,7 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
     )
     .await
     .unwrap();
-    for id in ["lossless", "h264-1080p"] {
+    for id in ["lossless", "lossless-video-only", "h264-1080p"] {
         assert!(
             profiles["profiles"]
                 .as_array()
@@ -959,6 +959,107 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
     let artifact = output.path().join("real-runtime.mkv");
     assert!(artifact.is_file());
     assert!(std::fs::metadata(&artifact).unwrap().len() > 100);
+
+    // Exercise the new opt-in video-only *semantic* MLT render on exactly the
+    // same audio-bearing editorial project. It must strip audio in the pinned
+    // consumer rather than publish silence, and independently count every
+    // real decoded FFV1 frame before the Broker releases the artifact.
+    let video_only_sequence = sequence_ref(provider.as_ref(), &capabilities, &project_ref).await;
+    let video_only_plan = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.mlt-video.render.plan",
+        json!({
+            "project":project_ref, "sequence":video_only_sequence,
+            "profile":"lossless-video-only", "output":"video-only-runtime.mkv"
+        }),
+    )
+    .await
+    .unwrap();
+    assert_eq!(video_only_plan["runnable"], true);
+    assert_eq!(video_only_plan["frames"], 50);
+    let video_only_started = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.mlt-video.render.start",
+        json!({
+            "project":project_ref, "expected_revision":revision,
+            "sequence":video_only_sequence, "profile":"lossless-video-only",
+            "output":"video-only-runtime.mkv"
+        }),
+    )
+    .await
+    .unwrap();
+    let video_only_job = video_only_started["job"].as_str().unwrap();
+    let video_only_terminal = loop {
+        let status = call(
+            provider.as_ref(),
+            &capabilities,
+            "driver.mlt-video.render.status",
+            json!({"job":video_only_job}),
+        )
+        .await
+        .unwrap();
+        match status["state"].as_str().unwrap() {
+            "succeeded" | "failed" | "cancelled" | "unknown" => break status,
+            _ => tokio::time::sleep(Duration::from_millis(50)).await,
+        }
+    };
+    assert_eq!(
+        video_only_terminal["state"], "succeeded",
+        "{video_only_terminal:#}"
+    );
+    let video_only_result = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.mlt-video.render.result",
+        json!({"job":video_only_job}),
+    )
+    .await
+    .unwrap();
+    assert_eq!(video_only_result["profile"], "lossless-video-only");
+    assert_eq!(video_only_result["state"], "succeeded");
+    assert_eq!(video_only_result["project_revision"], revision);
+    assert_eq!(
+        video_only_result["artifact"]["path"],
+        "video-only-runtime.mkv"
+    );
+    assert_eq!(video_only_result["media"]["video"], true);
+    assert_eq!(video_only_result["media"]["audio"], false);
+    assert_eq!(video_only_result["media"]["frames"], 50);
+    assert_eq!(video_only_result["media"]["codecs"], json!(["ffv1"]));
+    let video_only_artifact = output.path().join("video-only-runtime.mkv");
+    assert!(video_only_artifact.is_file());
+    assert!(std::fs::metadata(&video_only_artifact).unwrap().len() > 100);
+    assert_eq!(
+        video_only_result["artifact"]["sha256"],
+        digest(&video_only_artifact)
+    );
+
+    // Keep an independently invoked *real* ffprobe check in this
+    // owner-controlled CI test; a declared vendor receipt is not enough.
+    let frame_probe = Command::new(&ffprobe)
+        .args([
+            "-v",
+            "error",
+            "-count_frames",
+            "-show_streams",
+            "-of",
+            "json",
+        ])
+        .arg(&video_only_artifact)
+        .output()
+        .unwrap();
+    assert!(
+        frame_probe.status.success(),
+        "Independent FFprobe decode failed"
+    );
+    let checked_streams: Value = serde_json::from_slice(&frame_probe.stdout).unwrap();
+    let checked_streams = checked_streams["streams"].as_array().unwrap();
+    assert_eq!(checked_streams.len(), 1, "Audio must be absent, not silent");
+    assert_eq!(checked_streams[0]["codec_type"], "video");
+    assert_eq!(checked_streams[0]["codec_name"], "ffv1");
+    assert_eq!(checked_streams[0]["nb_read_frames"], "50");
 
     // Exercise the same curated H.264 consumer used by the launch film in a
     // separate project born at 1920x1080/30. Reprofiling the earlier 160x90/25
