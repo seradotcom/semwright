@@ -6,6 +6,7 @@ use async_trait::async_trait;
 use semwright_backend_api::{
     Context, ProvidedCapability, Provider, ProviderInterfaces, ProviderSignal,
 };
+use semwright_driver_sdk::SealedExecutableProfile;
 use semwright_driver_sdk::{
     DriverInterfaces, DriverRequestContext, MAX_TOOL_SESSION_REQUEST_TIMEOUT_MS, Manifest, Request,
     Response, RuntimeToolArg, RuntimeToolCwd, RuntimeToolJob, RuntimeToolJobStatus,
@@ -14,7 +15,7 @@ use semwright_driver_sdk::{
     validate_runtime_tool_job_start,
 };
 #[cfg(any(target_os = "linux", target_os = "windows"))]
-use semwright_driver_sdk::{DriverToolMount, SealedExecutableProfile, SystemConfigMount};
+use semwright_driver_sdk::{DriverToolMount, SystemConfigMount};
 #[cfg(any(target_os = "linux", target_os = "windows"))]
 use semwright_platform_api::launch::{
     HostToolArgRef, Mount, MountClass, ResourceLimits, SANDBOX_HOST_TOOL_CWD_ENV,
