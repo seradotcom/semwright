@@ -7806,7 +7806,10 @@
                   "maxLength": 256
                 },
                 "audio_codec": {
-                  "type": "string",
+                  "type": [
+                    "string",
+                    "null"
+                  ],
                   "maxLength": 256
                 },
                 "container": {
@@ -7830,7 +7833,7 @@
               ],
               "additionalProperties": false
             },
-            "maxItems": 4
+            "maxItems": 5
           },
           "mlt_version": {
             "type": [
