@@ -11,3 +11,5 @@ Hosted Windows CI is not an interactive desktop certificate. Real UIA physical-p
 Use `scripts/windows/run-interactive-certification.ps1` directly on such a session, or manually dispatch `.github/workflows/windows-interactive.yml` to a self-hosted Windows runner. The harness itself rejects service/noninteractive sessions, and the workflow cannot run on GitHub-hosted runners.
 
 Status vocabulary: `IMPLEMENTED_SOURCE` means code is present; `PASS_WINDOWS_NATIVE_CI` requires native Actions evidence; `PASS_WINDOWS_INTERACTIVE` requires evidence from an actual unlocked Windows desktop; `WINDOWS_INTERACTIVE_PENDING` means the interactive row has not been certified; `BLOCKED_*` means the authority remains deliberately unavailable.
+
+See [Figma Bridge setup](FIGMA_BRIDGE.md) for owner-controlled installation, foreground approval and AppContainer-safe plugin connectivity.

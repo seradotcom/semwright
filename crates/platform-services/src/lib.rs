@@ -13,6 +13,8 @@ pub use semwright_platform_linux_sys::filesystem::Root;
 #[cfg(target_os = "macos")]
 pub use semwright_platform_macos_sys::filesystem::Root;
 #[cfg(target_os = "windows")]
+pub use semwright_platform_windows_sys::console::ConsoleTerminal;
+#[cfg(target_os = "windows")]
 pub use semwright_platform_windows_sys::filesystem::Root;
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]

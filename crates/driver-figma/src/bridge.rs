@@ -14,8 +14,15 @@ use std::{
     time::Duration,
 };
 use thiserror::Error;
+#[cfg(test)]
+use tokio::net::TcpStream;
+#[cfg(unix)]
+use tokio::net::UnixListener;
+#[cfg(windows)]
+use tokio::net::windows::named_pipe::{ClientOptions, NamedPipeClient};
 use tokio::{
-    net::{TcpListener, TcpStream},
+    io::{AsyncRead, AsyncWrite},
+    net::TcpListener,
     sync::{Mutex, RwLock, mpsc, oneshot},
     task::JoinHandle,
     time::{Instant, MissedTickBehavior, interval, timeout},
@@ -404,7 +411,97 @@ impl BridgeHub {
             .map(|raw| raw.parse::<u16>().map_err(|_| BridgeError::Protocol))
             .transpose()?
             .unwrap_or(DEFAULT_PORT);
+        #[cfg(windows)]
+        if let Some(path) = std::env::var_os("SEMWRIGHT_DRIVER_LOOPBACK_PIPE") {
+            let path = path.into_string().map_err(|_| BridgeError::Protocol)?;
+            return Self::start_pipe(port, path, Some(events));
+        }
+        #[cfg(unix)]
+        if let Some(path) = std::env::var_os("SEMWRIGHT_DRIVER_LOOPBACK_SOCKET") {
+            let path = path.into_string().map_err(|_| BridgeError::Protocol)?;
+            return Self::start_socket(port, path, Some(events)).await;
+        }
         Self::start_on(port, Some(events)).await
+    }
+
+    #[cfg(windows)]
+    fn start_pipe(
+        port: u16,
+        path: String,
+        events: Option<mpsc::UnboundedSender<DriverChildEvent>>,
+    ) -> Result<Self, BridgeError> {
+        if !path.starts_with(r"\\.\pipe\semwright-loopback-") || path.len() > 256 {
+            return Err(BridgeError::Protocol);
+        }
+        let secret = PairingSecret::random();
+        let state = Arc::new(RwLock::new(HubState::default()));
+        let accept_state = state.clone();
+        let accept_secret = secret.clone();
+        let task = tokio::spawn(async move {
+            // Child connections live only as long as the Host-selected transport task.
+            let mut connections = tokio::task::JoinSet::new();
+            loop {
+                while connections.try_join_next().is_some() {}
+                let pipe = match connect_loopback_pipe(&path).await {
+                    Ok(pipe) => pipe,
+                    Err(_) => {
+                        tokio::time::sleep(Duration::from_millis(50)).await;
+                        continue;
+                    }
+                };
+                let state = accept_state.clone();
+                let secret = accept_secret.clone();
+                let events = events.clone();
+                connections.spawn(async move {
+                    let _ = serve_connection(pipe, None, state, secret, events).await;
+                });
+            }
+        });
+        Ok(Self {
+            addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port),
+            listen_hosts: vec![IpAddr::V4(Ipv4Addr::LOCALHOST)],
+            secret,
+            state,
+            tasks: vec![task],
+        })
+    }
+
+    #[cfg(unix)]
+    async fn start_socket(
+        port: u16,
+        path: String,
+        events: Option<mpsc::UnboundedSender<DriverChildEvent>>,
+    ) -> Result<Self, BridgeError> {
+        use std::os::unix::fs::PermissionsExt;
+        if path != "/workspace/semwright-internal-loopback/bridge.sock" {
+            return Err(BridgeError::Protocol);
+        }
+        let listener = UnixListener::bind(&path).map_err(|_| BridgeError::Io)?;
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))
+            .map_err(|_| BridgeError::Io)?;
+        let secret = PairingSecret::random();
+        let state = Arc::new(RwLock::new(HubState::default()));
+        let accept_state = state.clone();
+        let accept_secret = secret.clone();
+        let task = tokio::spawn(async move {
+            let mut connections = tokio::task::JoinSet::new();
+            while let Ok((stream, _)) = listener.accept().await {
+                while connections.try_join_next().is_some() {}
+                let state = accept_state.clone();
+                let secret = accept_secret.clone();
+                let events = events.clone();
+                connections.spawn(async move {
+                    let _ = serve_connection(stream, None, state, secret, events).await;
+                });
+            }
+        });
+        Ok(Self {
+            addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), port),
+            listen_hosts: vec![IpAddr::V4(Ipv4Addr::LOCALHOST)],
+            secret,
+            state,
+            tasks: vec![task],
+        })
     }
 
     async fn start_on(
@@ -432,7 +529,8 @@ impl BridgeHub {
                     let secret = accept_secret.clone();
                     let events = accept_events.clone();
                     tokio::spawn(async move {
-                        let _ = serve_connection(stream, state, secret, events).await;
+                        let peer = Some(peer.to_string());
+                        let _ = serve_connection(stream, peer, state, secret, events).await;
                     });
                 }
             }));
@@ -694,13 +792,36 @@ enum AuthMode {
     Resume { resume_id: String, token: [u8; 32] },
 }
 
-async fn serve_connection(
-    stream: TcpStream,
+#[cfg(windows)]
+async fn connect_loopback_pipe(path: &str) -> Result<NamedPipeClient, BridgeError> {
+    let deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        match ClientOptions::new().open(path) {
+            Ok(pipe) => return Ok(pipe),
+            Err(error)
+                if (matches!(
+                    error.kind(),
+                    ErrorKind::NotFound | ErrorKind::PermissionDenied | ErrorKind::WouldBlock
+                ) || error.raw_os_error() == Some(231))
+                    && Instant::now() < deadline =>
+            {
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+            Err(_) => return Err(BridgeError::Io),
+        }
+    }
+}
+
+async fn serve_connection<S>(
+    stream: S,
+    peer_addr: Option<String>,
     state: Arc<RwLock<HubState>>,
     secret: PairingSecret,
     events: Option<mpsc::UnboundedSender<DriverChildEvent>>,
-) -> Result<(), BridgeError> {
-    let peer_addr = stream.peer_addr().ok().map(|peer| peer.to_string());
+) -> Result<(), BridgeError>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
     let ws = match accept_async(stream).await {
         Ok(ws) => ws,
         Err(error) => {
