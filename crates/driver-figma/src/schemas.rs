@@ -613,6 +613,7 @@ fn pairing_output() -> Value {
     json!({
         "type":"object",
         "properties":{
+            "bridge_protocol":{"type":"integer","const":crate::model::BRIDGE_PROTOCOL_VERSION},
             "listen_host":{"type":"string","const":"127.0.0.1"},
             "listen_hosts":{
                 "type":"array",
@@ -626,7 +627,7 @@ fn pairing_output() -> Value {
             "pairing_code_ephemeral":{"type":"boolean"},
             "sessions":bounded_array(64, bounded_object(16))
         },
-        "required":["listen_host","listen_hosts","listen_port","pairing_code","pairing_code_ephemeral","sessions"],
+        "required":["bridge_protocol","listen_host","listen_hosts","listen_port","pairing_code","pairing_code_ephemeral","sessions"],
         "additionalProperties":false
     })
 }
@@ -822,6 +823,15 @@ mod tests {
             assert!(!validator.is_valid(&invalid));
             invalid = response.clone();
             invalid["pairing_code"] = json!("invalid");
+            assert!(!validator.is_valid(&invalid));
+            invalid = response.clone();
+            invalid["bridge_protocol"] = json!(0);
+            assert!(!validator.is_valid(&invalid));
+            invalid = response.clone();
+            invalid
+                .as_object_mut()
+                .expect("pairing object")
+                .remove("bridge_protocol");
             assert!(!validator.is_valid(&invalid));
         }
     }

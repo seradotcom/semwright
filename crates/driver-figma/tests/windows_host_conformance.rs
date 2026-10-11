@@ -61,7 +61,7 @@ async fn figma_authenticates_and_mutates_through_the_windows_host_pipe() {
             .clone();
         let provider = provider.clone();
         async move {
-            Provider::execute(
+            let result = Provider::execute(
                 provider.as_ref(),
                 &Context {
                     session: "windows-figma-fixture".into(),
@@ -72,7 +72,16 @@ async fn figma_authenticates_and_mutates_through_the_windows_host_pipe() {
                 &args,
             )
             .await
-            .expect("synthetic Figma capability")
+            .expect("synthetic Figma capability");
+            if name == "driver.figma.pairing.begin" {
+                let validator = jsonschema::validator_for(&descriptor.output_schema)
+                    .expect("pinned pairing output schema");
+                assert!(
+                    validator.is_valid(&result),
+                    "Windows pairing result must pass Broker validation"
+                );
+            }
+            result
         }
     };
     // Provider-only fixture access retrieves a synthetic pairing secret; production callers
