@@ -116,6 +116,18 @@ def private_console_fixture():
     broker = None
     requests = []
     seen = set()
+    def next_challenge(request, label):
+        deadline = time.monotonic() + 5
+        while True:
+            challenges = set(re.findall(r"Type exactly: approve ([0-9a-f]{12})", screen())) - seen
+            if challenges:
+                challenge = challenges.pop()
+                seen.add(challenge)
+                return challenge
+            if request.poll() is not None or time.monotonic() >= deadline:
+                raise RuntimeError("Approval prompt missing for " + label)
+            time.sleep(0.02)
+
     try:
         with tempfile.TemporaryDirectory(prefix="semwright-console-") as directory:
             config = Path(directory) / "daemon.toml"
@@ -142,17 +154,8 @@ def private_console_fixture():
                     stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
                 )
                 requests.append(request)
-                deadline = time.monotonic() + 5
-                while True:
-                    challenges = set(re.findall(r"Type exactly: approve ([0-9a-f]{12})", screen())) - seen
-                    if challenges:
-                        challenge = challenges.pop()
-                        break
-                    if request.poll() is not None or time.monotonic() >= deadline:
-                        raise RuntimeError("Approval prompt missing for " + mode)
-                    time.sleep(0.02)
                 previous = next(iter(seen), "000000000000")
-                seen.add(challenge)
+                challenge = next_challenge(request, mode)
                 # Redirected stdin must never become an affirmative approval source.
                 broker.stdin.write(f"approve {challenge}\n")
                 broker.stdin.flush()
@@ -162,12 +165,17 @@ def private_console_fixture():
                 if mode == "cancel":
                     request.kill()
                     request.communicate(timeout=3)
-                    # A read request proves cancellation released the Broker I/O lock.
-                    read = subprocess.run(
+                    # The read has its own SecretAccess approval. Its prompt proves the
+                    # cancelled request released the Broker I/O lock.
+                    read = subprocess.Popen(
                         [str(cli), "--socket", socket, "--json", "execute", "clipboard.read"],
-                        capture_output=True, text=True, timeout=3,
+                        stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
                     )
-                    value = json.loads(read.stdout)
+                    requests.append(read)
+                    read_challenge = next_challenge(read, "read after cancellation")
+                    type_fixture(f"approve {read_challenge}\r")
+                    read_stdout, read_stderr = read.communicate(timeout=3)
+                    value = json.loads(read_stdout)
                     if not value["ok"] or value["data"]["text"] == "synthetic console fixture":
                         raise RuntimeError("Cancelled approval dispatched a mutation")
                     # Queue a stale line after cancellation. The next prompt must discard it.
