@@ -5,7 +5,8 @@ use windows_sys::Win32::{
     Foundation::HANDLE,
     System::{
         Console::{
-            FlushConsoleInputBuffer, GetConsoleMode, INPUT_RECORD, KEY_EVENT, WriteConsoleW,
+            FlushConsoleInputBuffer, GetConsoleMode, GetConsoleWindow, INPUT_RECORD, KEY_EVENT,
+            WriteConsoleW,
         },
         LibraryLoader::{GetModuleHandleW, GetProcAddress},
     },
@@ -31,6 +32,11 @@ fn unavailable() -> Error {
 impl ConsoleTerminal {
     /// Open the attached console itself. Pipes and files cannot supply an approval response.
     pub fn open() -> Result<Self> {
+        // SAFETY: this process-global query has no pointer parameters. CREATE_NO_WINDOW
+        // still supplies console devices but no human-visible window/ConPTY console handle.
+        if unsafe { GetConsoleWindow() }.is_null() {
+            return Err(unavailable());
+        }
         let input = std::fs::OpenOptions::new()
             .read(true)
             .write(true)

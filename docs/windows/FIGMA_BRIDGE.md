@@ -20,7 +20,7 @@ The helper copies the executable into a fresh owner/SYSTEM-only directory under 
 In the owner's `daemon.toml`, append the returned manifest path to the top-level `drivers` array, preserving existing drivers and policy settings. TOML literal strings accept Windows backslashes directly:
 
 ```toml
-drivers = ['C:\Users\OWNER\AppData\Local\Semwright\drivers\figma\INSTALL_ID\driver.json']
+drivers = ['C:\Users\owner\AppData\Local\Semwright\drivers\figma\INSTALL_ID\driver.json']
 ```
 
 This entry belongs before `[policy]` or any other table header. Keep `driver_network=false` unless a separate driver already has an owner-approved network requirement. Local Figma bridging does not need that setting enabled.
@@ -33,7 +33,7 @@ Stop the previous broker normally, then start the updated broker in a dedicated 
 & 'C:\path\to\semwrightd.exe' --config "$env:APPDATA\Semwright\config\daemon.toml" --approval-console
 ```
 
-Keep that window open. Services and detached processes are refused when `--approval-console` is selected. Approval reads `CONIN$` and writes `CONOUT$`; redirected stdin, MCP and Named Pipe requests cannot provide the affirmative response. Each request gets a fresh challenge, an exact ASCII answer and a 120-second deadline. Application text is escaped and buffered responses are discarded on exit.
+Keep that window open. Services, detached processes and windowless consoles are refused when `--approval-console` is selected. Approval reads `CONIN$` and writes `CONOUT$`; redirected stdin, MCP and Named Pipe requests cannot provide the affirmative response. Each request gets a fresh challenge, an exact ASCII answer and a 120-second deadline. Application text is escaped and buffered responses are discarded on exit.
 
 In another PowerShell window, request the pairing code:
 
@@ -43,12 +43,12 @@ In another PowerShell window, request the pairing code:
 
 If policy permits this operation and requires human confirmation, type the exact `approve <challenge>` response in the broker window. Keep the returned pairing code private.
 
-Build `crates/driver-figma/plugin` with `npm ci --ignore-scripts` and `npm run build`. In Figma Desktop, import its `manifest.json` through Plugins > Development > Import plugin from manifest, open a disposable file, then run **Semwright Figma Bridge**. Enter the pairing code and use `ws://127.0.0.1:38471` as the bridge address. Verify the connection with `driver.figma.session.list` before authorizing mutations.
+Build `crates/driver-figma/plugin` with `npm ci --ignore-scripts` and `npm run build`. In Figma Desktop, import its `manifest.json` through Plugins > Development > Import plugin from manifest, open a disposable file, then run **Semwright Figma Bridge**. Enter the pairing code and keep the **Loopback port** field at `38471`; the plugin constructs its localhost WebSocket address. Verify the connection with `driver.figma.session.list` before authorizing mutations.
 
 The helper does not broaden the default observe policy. Existing mutation and SecretAccess approval gates still apply. A policy denial requires an explicit owner policy decision, not a transport bypass.
 
 ## Automated evidence
 
-The Windows platform workflow runs detached-startup rejection and a hidden, fixture-owned console against a `--fake` broker. It checks redirected-stdin rejection, exact approval, whitespace/Unicode/length rejection and challenge replay rejection. The Figma authoring workflow installs the production driver into a private directory, launches it through AppContainer with network disabled, authenticates an independent fake plugin through Host loopback and verifies an observable semantic mutation.
+The Windows platform workflow runs detached-startup rejection and a hidden, fixture-owned console against a `--fake` broker. It checks redirected-stdin rejection, exact approval, whitespace/Unicode/length rejection, challenge replay rejection, cancellation without dispatch and stale buffered-input cleanup. The 120-second expiry path is implemented but not exercised by this bounded fixture. The Figma authoring workflow installs the production driver into a private directory, launches it through AppContainer with network disabled, authenticates an independent fake plugin through Host loopback and verifies an observable semantic mutation.
 
 These fixtures do not certify a real Figma account, plugin UI, document or unlocked interactive desktop. Real application acceptance remains a separate disposable-file check.

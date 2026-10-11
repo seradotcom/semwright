@@ -11,6 +11,12 @@ import uuid
 @unittest.skipUnless(os.name == "nt", "Windows console admission contract")
 class WindowsApprovalConsoleTests(unittest.TestCase):
     def test_detached_broker_cannot_use_redirected_input_for_approval(self):
+        self.assert_unavailable_console(subprocess.DETACHED_PROCESS)
+
+    def test_windowless_console_cannot_offer_human_approval(self):
+        self.assert_unavailable_console(subprocess.CREATE_NO_WINDOW)
+
+    def assert_unavailable_console(self, creationflags):
         daemon = Path(os.environ.get("SEMWRIGHT_TEST_DAEMON", "target/debug/semwrightd.exe"))
         self.assertTrue(daemon.is_file(), f"Build the daemon before running this test: {daemon}")
         result = subprocess.run(
@@ -19,7 +25,7 @@ class WindowsApprovalConsoleTests(unittest.TestCase):
             input="approve attacker-controlled-input\n",
             text=True,
             capture_output=True,
-            creationflags=subprocess.CREATE_NO_WINDOW,
+            creationflags=creationflags,
             timeout=15,
         )
         self.assertNotEqual(result.returncode, 0)
@@ -31,7 +37,7 @@ class WindowsApprovalConsoleTests(unittest.TestCase):
     def test_private_console_approval_with_redirected_stdio(self):
         result = subprocess.run(
             [sys.executable, str(Path(__file__).resolve()), "--private-console-fixture"],
-            capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW, timeout=50,
+            capture_output=True, text=True, creationflags=subprocess.DETACHED_PROCESS, timeout=50,
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("private console approval PASS", result.stdout)
@@ -130,7 +136,7 @@ def private_console_fixture():
                     raise RuntimeError("Broker readiness timed out")
                 time.sleep(0.05)
 
-            for mode in ("whitespace", "unicode", "long", "approve", "replay"):
+            for mode in ("cancel", "whitespace", "unicode", "long", "approve", "replay"):
                 request = subprocess.Popen(
                     [str(cli), "--socket", socket, "--json", "execute", "clipboard.write", "--args-json", '{"text":"synthetic console fixture"}'],
                     stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
@@ -153,6 +159,20 @@ def private_console_fixture():
                 time.sleep(0.05)
                 if request.poll() is not None:
                     raise RuntimeError("Redirected stdin supplied approval")
+                if mode == "cancel":
+                    request.kill()
+                    request.communicate(timeout=3)
+                    # A read request proves cancellation released the Broker I/O lock.
+                    read = subprocess.run(
+                        [str(cli), "--socket", socket, "--json", "execute", "clipboard.read"],
+                        capture_output=True, text=True, timeout=3,
+                    )
+                    value = json.loads(read.stdout)
+                    if not value["ok"] or value["data"]["text"] == "synthetic console fixture":
+                        raise RuntimeError("Cancelled approval dispatched a mutation")
+                    # Queue a stale line after cancellation. The next prompt must discard it.
+                    type_fixture(f"approve {challenge}\r")
+                    continue
                 answer = {
                     "whitespace": f" approve {challenge}\r",
                     "unicode": "\u00e9\r",
