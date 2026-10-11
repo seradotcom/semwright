@@ -179,6 +179,41 @@ jobs:
           path: verification/figma-semantic-authoring
           retention-days: 14
 
+  windows-bridge:
+    needs: scope
+    if: ${{ needs.scope.outputs.figma == 'true' }}
+    runs-on: windows-2025
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067
+        with:
+          toolchain: 1.98.1
+          components: clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          key: figma-windows-bridge
+      - name: Build native Figma driver, fake plugin and sandbox helper
+        run: cargo build --locked -p semwright-driver-figma --features test-tools --bins -p semwright-plugin-host --bin semwright-sandbox
+      - name: Check Windows Figma targets
+        run: cargo clippy --locked -p semwright-driver-figma --all-targets --all-features -- -D warnings
+      - name: Authenticate and mutate through AppContainer and Host loopback
+        env:
+          SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox.exe
+        run: cargo test --locked -p semwright-driver-figma --features test-tools --test windows_host_conformance -- --nocapture
+      - name: Record Windows driver digest
+        run: sha256sum target/debug/semwright-figma-driver.exe > target/debug/figma-driver.sha256
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: semwright-figma-windows-x64-${{ github.sha }}
+          path: |
+            target/debug/semwright-figma-driver.exe
+            target/debug/figma-driver.sha256
+          if-no-files-found: error
+          retention-days: 14
+
   fuzz:
     needs: scope
     if: ${{ needs.scope.outputs.figma == 'true' }}

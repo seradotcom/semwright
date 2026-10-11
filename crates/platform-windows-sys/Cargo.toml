@@ -21,7 +21,7 @@ serde_json.workspace = true
 
 [target.'cfg(target_os = "windows")'.dependencies]
 png.workspace = true
-windows-sys.workspace = true
+windows-sys = { workspace = true, features = ["Win32_System_Console", "Win32_System_LibraryLoader"] }
 windows = { version = "0.62.2", features = [
     "Win32_Foundation",
     "Win32_Security",

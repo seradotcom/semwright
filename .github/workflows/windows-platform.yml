@@ -18,6 +18,8 @@ on:
       - 'docs/windows/**'
       - 'schemas/commands.json'
       - 'tests/python/test_windows_contracts.py'
+      - 'tests/python/test_windows_approval_console.py'
+      - 'scripts/windows/prepare-figma-driver.ps1'
       - 'Cargo.toml'
       - 'Cargo.lock'
       - '.github/workflows/windows-platform.yml'
@@ -150,6 +152,10 @@ jobs:
           -p semwright-driver-host
           -p semwright-plugin-host
           -p semwright-daemon
+      - name: Foreground Windows approval with private console fixtures
+        run: |
+          cargo build --locked -p semwright-daemon --bin semwrightd -p semwright-cli --bin semwright
+          python tests/python/test_windows_approval_console.py -v
       - name: Secure Windows Driver workspace grants
         run: cargo test --locked -p semwright-driver-host --test windows_secure_host -- secure_windows_driver_workspace --nocapture
       - name: Secure Windows Driver secret grants

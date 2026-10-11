@@ -8,6 +8,8 @@ pub mod capture;
 #[cfg(target_os = "windows")]
 pub mod clipboard;
 #[cfg(target_os = "windows")]
+pub mod console;
+#[cfg(target_os = "windows")]
 pub mod dll;
 #[cfg(target_os = "windows")]
 pub mod filesystem;

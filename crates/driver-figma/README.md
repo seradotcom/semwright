@@ -40,7 +40,7 @@ cd crates/driver-figma/plugin
 npm ci && npm test && npm run typecheck && npm run build
 ```
 
-Hosted native integration additionally runs the DriverProvider through the real Linux Driver Host sandbox. Heavy Rust, fuzz, coverage and conformance gates are expected to run in GitHub Actions.
+Hosted native integration additionally runs the DriverProvider through the real Linux Driver Host sandbox and Windows AppContainer with Host-mediated loopback. See [Windows Figma Bridge setup](../../docs/windows/FIGMA_BRIDGE.md). Heavy Rust, fuzz, coverage and conformance gates are expected to run in GitHub Actions.
 
 ## Security and acceptance boundary
 
