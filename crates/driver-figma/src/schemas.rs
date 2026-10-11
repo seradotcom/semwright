@@ -805,6 +805,28 @@ mod tests {
     use super::*;
 
     #[test]
+    fn pairing_response_matches_pinned_schema() {
+        let schema = output_schema("pairing.begin");
+        let validator = jsonschema::validator_for(&schema).expect("pairing schema");
+        for hosts in [
+            vec!["127.0.0.1".into()],
+            vec!["127.0.0.1".into(), "::1".into()],
+        ] {
+            let response = crate::bridge::pairing_status(38471, &"a".repeat(64), &[], &hosts);
+            assert!(
+                validator.is_valid(&response),
+                "actual pairing response must pass Broker validation"
+            );
+            let mut invalid = response.clone();
+            invalid["unexpected"] = json!(true);
+            assert!(!validator.is_valid(&invalid));
+            invalid = response.clone();
+            invalid["pairing_code"] = json!("invalid");
+            assert!(!validator.is_valid(&invalid));
+        }
+    }
+
+    #[test]
     fn supported_inputs_reject_unknown_properties() {
         for name in [
             "document.status",
