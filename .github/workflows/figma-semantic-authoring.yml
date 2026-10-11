@@ -203,6 +203,16 @@ jobs:
         env:
           SEMWRIGHT_TEST_SANDBOX_HELPER: ${{ github.workspace }}/target/debug/semwright-sandbox.exe
         run: cargo test --locked -p semwright-driver-figma --features test-tools --test windows_host_conformance -- --nocapture
+      - name: Record Windows driver digest
+        run: sha256sum target/debug/semwright-figma-driver.exe > target/debug/figma-driver.sha256
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: semwright-figma-windows-x64-${{ github.sha }}
+          path: |
+            target/debug/semwright-figma-driver.exe
+            target/debug/figma-driver.sha256
+          if-no-files-found: error
+          retention-days: 14
 
   fuzz:
     needs: scope
