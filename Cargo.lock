@@ -3198,6 +3198,7 @@ dependencies = [
  "futures-util",
  "hex",
  "hmac",
+ "jsonschema",
  "libc",
  "proptest",
  "rand 0.10.3",
