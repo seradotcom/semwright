@@ -72,7 +72,7 @@ jobs:
           SEMWRIGHT_TEST_GODOT=1 \
           SEMWRIGHT_TEST_SANDBOX_HELPER="$GITHUB_WORKSPACE/target/debug/semwright-sandbox" \
             cargo test --locked -p semwright-driver-godot --test host_conformance -- --ignored --nocapture 2>&1 | tee verification/godot-ci/host-conformance.log
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
           name: godot-conformance-evidence
@@ -134,7 +134,7 @@ jobs:
           set -o pipefail
           python3 -u crates/driver-godot/tools/e2e_real.py 2>&1 | tee verification/godot-real-ci/godot-real-e2e.log
           ! grep -E "ERROR:|SCRIPT ERROR:|Parse Error:" verification/godot-real-ci/godot-real-trace.json
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
           name: godot-real-evidence

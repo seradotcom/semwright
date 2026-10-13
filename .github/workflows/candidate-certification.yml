@@ -75,7 +75,7 @@ jobs:
             tee -a "$GITHUB_OUTPUT"
           git diff --name-only "$BASE_SHA" "$SOURCE_SHA" |
             python3 scripts/dev/ci-affected-areas.py --json             > verification/candidate-certification/AFFECTED_AREAS.json
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: candidate-scope-${{ inputs.source_sha }}
           path: verification/candidate-certification
@@ -274,7 +274,7 @@ jobs:
           PY
           sha256sum verification/candidate-certification/CERTIFICATION.json             > verification/candidate-certification/SHA256SUMS.txt
           cat verification/candidate-certification/CERTIFICATION.json
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: candidate-certification-${{ inputs.source_sha }}
           path: verification/candidate-certification
