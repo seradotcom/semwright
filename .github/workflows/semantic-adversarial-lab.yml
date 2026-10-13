@@ -126,7 +126,7 @@ jobs:
         run: python3 tests/semantic-adversarial-lab/runner.py "$LANE" --target-checkout audit-target
       - name: Preserve bounded evidence even after failure
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: semantic-adversarial-${{ matrix.lane }}-${{ github.sha }}
           path: ${{ runner.temp }}/g-lab-evidence

@@ -126,7 +126,7 @@ jobs:
           cargo build --locked -p semwright-native-sdk --features process-bridge --example native-inventory
       - name: Real CLI and protocol MCP acceptance without mock Provider
         run: python3 scripts/native-sdk/run-suite.py native-host
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
           name: native-sdk-real-host-${{ github.sha }}

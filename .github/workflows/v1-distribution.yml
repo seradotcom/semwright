@@ -98,7 +98,7 @@ jobs:
             --report "dist/build-linux-${{ matrix.arch }}.json"
           python3 scripts/release/certify_deb_install.py \
             --report "dist/certification-linux-${{ matrix.arch }}.json"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: semwright-v1-linux-${{ matrix.arch }}-${{ github.sha }}
           path: dist/
@@ -155,7 +155,7 @@ jobs:
             --arch "${{ matrix.arch }}" \
             --output dist \
             --report "dist/certification-windows-${{ matrix.arch }}.json"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: semwright-v1-windows-${{ matrix.arch }}-${{ github.sha }}
           path: dist/
@@ -213,7 +213,7 @@ jobs:
             --arch "${{ matrix.arch }}" \
             --output dist \
             --report "dist/certification-macos-${{ matrix.arch }}.json"
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: semwright-v1-macos-${{ matrix.arch }}-${{ github.sha }}
           path: dist/
@@ -240,7 +240,7 @@ jobs:
           set -euo pipefail
           python3 scripts/release/distribution_manifest.py \
             --input downloaded --source-sha "$SOURCE_SHA" --output distribution-manifest
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: semwright-v1-distribution-manifest-${{ github.sha }}
           path: distribution-manifest/

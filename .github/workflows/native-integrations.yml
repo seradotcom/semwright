@@ -95,7 +95,7 @@ jobs:
           SEMWRIGHT_TEST_CHROMIUM: /opt/google/chrome/chrome
         run: |
           cargo test --locked --workspace --all-targets --all-features real_chromium_ -- --ignored --nocapture 2>&1 | tee verification/native-ci/chromium.log
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
           name: real-chromium-evidence
@@ -193,7 +193,7 @@ jobs:
         run: |
           cargo test --locked -p semwright-federation --test federation -- --nocapture \
             2>&1 | tee verification/native-ci/mcp-federation-sandbox.log
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
           name: driver-conformance-evidence
@@ -222,7 +222,7 @@ jobs:
         run: |
           cargo build --locked -p semwright-cli --bin semwright
           BIN_DIR=target/debug scripts/dev/driver-registry-smoke.sh 2>&1 | tee verification/native-ci/driver-distribution-smoke.log
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
           name: driver-distribution-evidence
@@ -305,7 +305,7 @@ jobs:
       - name: Broker, policy, CLI and LibreOffice end-to-end
         run: |
           BIN_DIR=target/debug scripts/dev/libreoffice-driver-smoke.sh 2>&1 | tee verification/native-ci/libreoffice-broker-smoke.log
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
           name: libreoffice-driver-evidence
@@ -458,7 +458,7 @@ jobs:
         run: |
           set -o pipefail
           BIN_DIR=target/debug BLENDER_BIN="$SEMWRIGHT_TEST_BLENDER_ROOT/blender" scripts/dev/blender-addon-live-smoke.sh 2>&1 | tee verification/native-ci/blender-addon-live.log
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
           name: blender-driver-evidence
@@ -557,7 +557,7 @@ jobs:
         run: |
           cargo test --locked -p semwright-driver-figma --features test-tools \
             --test host_conformance -- --ignored --nocapture 2>&1 | tee verification/native-ci/figma-host-conformance.log
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
           name: figma-driver-evidence
@@ -622,7 +622,7 @@ jobs:
             -p semwright-kicad-driver --bin semwright-kicad-driver
           cargo test --locked -p semwright-mlt-video-driver real_mlt_video_driver_runs_inside_sandbox -- --ignored --nocapture 2>&1 | tee verification/native-ci/mlt-driver-live.log
           cargo test --locked -p semwright-kicad-driver fake_kicad_ipc_runs_through_real_sandboxed_driver_host -- --ignored --nocapture 2>&1 | tee verification/native-ci/kicad-driver-live.log
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
           name: kicad-mlt-driver-evidence
@@ -651,7 +651,7 @@ jobs:
           mkdir -p verification/native-ci
           bash -n scripts/dev/pipewire-screencast-smoke.sh
           dbus-run-session -- bash scripts/dev/pipewire-screencast-smoke.sh             2>&1 | tee verification/native-ci/pipewire-screencast.log
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
           name: pipewire-screencast-evidence
@@ -683,7 +683,7 @@ jobs:
           SEMWRIGHT_TEST_X11: "1"
         run: |
           xvfb-run -a -s "-screen 0 1280x720x24 -nolisten tcp"             cargo test --locked -p semwright-backends               real_x11_window_ref_is_focus_checked_and_stales_after_destroy               -- --ignored --nocapture 2>&1 | tee verification/native-ci/x11-backend.log
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
           name: real-x11-backend-evidence
@@ -729,7 +729,7 @@ jobs:
           SEMWRIGHT_TEST_ATSPI: "1"
           SEMWRIGHT_TEST_GTK_FIXTURE: ${{ runner.temp }}/atspi-gtk-fixture
         run: scripts/dev/atspi-live-ci.sh gtk
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
           name: real-atspi-gtk-evidence
@@ -804,7 +804,7 @@ jobs:
           done
           xdpyinfo -display "$DISPLAY" >/dev/null
           SEMWRIGHT_ATSPI_INNER=1 dbus-run-session -- scripts/dev/atspi-live-ci.sh qt
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
           name: real-atspi-qt-evidence
@@ -882,7 +882,7 @@ jobs:
               -- --ignored --nocapture --test-threads=1 \
             2>&1 | tee verification/native-ci/sway-backend.log
           EOF
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
           name: real-sway-backend-evidence

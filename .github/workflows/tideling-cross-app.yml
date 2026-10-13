@@ -60,7 +60,7 @@ jobs:
           assert receipt['status']=='PASS'
           assert receipt['gameplay']['passed']
           PY
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         if: always()
         with:
           name: Tideling-cross-app-${{ github.sha }}
@@ -88,7 +88,7 @@ jobs:
           printf '%s\n' "$GITHUB_SHA" > verification/tideling-release/SOURCE_SHA.txt
           cd verification/tideling-release
           sha256sum Tideling-BlueGold-Linux.tar.gz Tideling-preview.mp4 preview.log preview-duration.txt RECEIPT.json operations.jsonl descriptors.jsonl glb-inspection.json SOURCE_SHA.txt > SHA256SUMS.txt
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: Tideling-release-${{ github.sha }}
           path: verification/tideling-release
