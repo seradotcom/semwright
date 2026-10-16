@@ -629,6 +629,11 @@ async fn composition_authoring_runs_through_broker_driver_host_and_native_render
         "native verification did not fully pass: {verified:#}"
     );
 
+    // Exercise genuine pinned native caption timing using the same already
+    // authenticated, disposable owner Broker and Driver Host. A failed
+    // half-open cue must never pass as an observed native caption.
+    assert_source_bound_native_caption_frames(&broker, film.clone(), h.output.path()).await;
+
     let expected_subject_ids = film["sequences"][0]["beats"][0]["shots"][0]["subjects"]
         .as_array()
         .unwrap()
@@ -786,4 +791,217 @@ async fn composition_authoring_runs_through_broker_driver_host_and_native_render
     }
 
     broker.shutdown().await;
+}
+
+/// A second explicitly authored native project revision in the existing
+/// disposable Broker session, never a retry of the original baseline render.
+/// These two synthetic text cues mirror Motionwright's exact 30 fps bounds,
+/// without importing any user media or alternate renderer.
+async fn assert_source_bound_native_caption_frames(
+    broker: &Arc<Broker>,
+    mut film: Value,
+    private_owner_output: &Path,
+) {
+    let shot = &mut film["sequences"][0]["beats"][0]["shots"][0];
+    shot["layers"].as_array_mut().unwrap().push(json!({
+        "id":"caption-overlay","order":1,"intentional_overlay":true
+    }));
+    film["editorial"]["type_scale"]["mw-caption"] = json!(44.0);
+
+    let source =
+        semwright_semantic_composition::Digest::of_bytes(b"CI-only-synthetic-caption-source");
+    for (id, start, duration, label) in [
+        ("a", ("1", "2"), ("1", "2"), "REAL NATIVE CAPTION PROOF"),
+        ("b", ("6", "5"), ("2", "5"), "SECOND SOURCE-BOUND CUE"),
+    ] {
+        let wrapper = format!("native-caption-wrapper-{id}");
+        let text_id = format!("native-caption-text-{id}");
+        let cue_id = format!("native-caption-cue-{id}");
+        let shot = &mut film["sequences"][0]["beats"][0]["shots"][0];
+        shot["subjects"].as_array_mut().unwrap().push(json!({
+            "id":wrapper,"role":"caption-overlay-root","parent":null,
+            "layer":"caption-overlay","content":{"kind":"group"},
+            "layout":{"kind":"fixed","position":{"x":0.0,"y":350.0},
+                      "size":{"width":1400.0,"height":160.0}},
+            "initially_visible":true,"clip_intentional":false
+        }));
+        shot["subjects"].as_array_mut().unwrap().push(json!({
+            "id":text_id,"role":"caption","parent":wrapper,
+            "layer":"caption-overlay",
+            "content":{"kind":"text","runs":[{"text":label,"weight":600,
+                      "color":"#223344","emphasis":false}],
+                       "style":"mw-caption","direction":"auto","language":"en",
+                       "wrap":true,"truncate":false},
+            "layout":{"kind":"fixed","position":{"x":0.0,"y":0.0},
+                      "size":{"width":1400.0,"height":160.0}},
+            "initially_visible":false,"clip_intentional":false
+        }));
+        shot["captions"].as_array_mut().unwrap().push(json!({
+            "id":format!("native-caption-{id}"),"subject":text_id,
+            "cue_id":cue_id,"language":"en","text":label
+        }));
+        film["cues"]["cues"].as_array_mut().unwrap().push(json!({
+            "id":cue_id,
+            "anchor":{"kind":"absolute","time":{"num":start.0,"den":start.1}},
+            "duration":{"num":duration.0,"den":duration.1},
+            "source":source,"method":"manual-timing",
+            "version":1,"confidence":null
+        }));
+    }
+
+    // Real authoritative Film parser checks native object grammar and exact
+    // temporal cue boundaries before any Broker-backed mutating apply.
+    let typed: semwright_motion_authoring::Film =
+        semwright_semantic_composition::strict_decode(&serde_json::to_vec(&film).unwrap())
+            .expect("native caption fixture must be canonical typed Film");
+    typed.validate().expect("native source fixture validation");
+    let resolved = semwright_motion_authoring::realize(&typed)
+        .expect("native caption source schedule realization");
+    assert_eq!(resolved.schedule.frame_count(&typed.output).unwrap(), 60);
+    assert_eq!(typed.cues.cues.len(), 2);
+
+    let planned = broker_call(
+        broker,
+        "driver.motion-canvas.composition.plan",
+        json!({
+            "film":film,
+            "budget":{"max_iterations":4,"max_operations":128,
+                      "max_findings":128,"max_observations":16,
+                      "max_elapsed_ms":120000}
+        }),
+    )
+    .await;
+    let plan_ref = planned["plan_ref"]
+        .as_str()
+        .expect("host-bound caption plan")
+        .to_owned();
+    let applied = broker_call(
+        broker,
+        "driver.motion-canvas.composition.apply",
+        json!({"plan_ref":plan_ref, "dry_run":false}),
+    )
+    .await;
+    assert_eq!(applied["execution_status"], "completed");
+    let fingerprint = applied["fingerprint"]
+        .as_str()
+        .expect("caption source fingerprint");
+
+    let start = broker_call(
+        broker,
+        "driver.motion-canvas.render.start",
+        json!({
+            "expected_fingerprint":fingerprint,
+            "profile":{"first_frame":0,"end_frame_exclusive":60,"scale":"full",
+                       "transparent":false,"timeout_ms":120000}
+        }),
+    )
+    .await;
+    let job_ref = start["job_ref"]
+        .as_str()
+        .expect("unique caption render job")
+        .to_owned();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(180);
+    let terminal = loop {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "native caption render did not reach terminal state"
+        );
+        let status = broker_call(
+            broker,
+            "driver.motion-canvas.render.status",
+            json!({"job_ref":job_ref}),
+        )
+        .await;
+        match status["state"].as_str() {
+            Some("succeeded") | Some("failed") | Some("cancelled") => break status,
+            _ => tokio::time::sleep(Duration::from_millis(100)).await,
+        }
+    };
+    assert_eq!(
+        terminal["state"], "succeeded",
+        "native caption render must finish"
+    );
+    let result = broker_call(
+        broker,
+        "driver.motion-canvas.render.result",
+        json!({"job_ref":job_ref}),
+    )
+    .await;
+    assert_eq!(result["state"], "succeeded");
+
+    let verified = broker_call(
+        broker,
+        "driver.motion-canvas.composition.verify",
+        json!({"plan_ref":plan_ref,"job_ref":job_ref}),
+    )
+    .await;
+    assert_eq!(verified["report"]["support_level"], "native");
+    let checks = verified["measurement"]["validation"]["checks"]
+        .as_array()
+        .expect("actual native rule set");
+    let timing = checks
+        .iter()
+        .find(|row| row["rule"] == "caption-timing")
+        .expect("caption timing is a mandatory native rule");
+    let findings = verified["measurement"]["findings"].as_array().unwrap();
+    if timing["verdict"] != "PASS" {
+        // Examine the HOST-OWNED ORIGINAL native observation bytes on this
+        // disposable test runner. Only integer frame indices are surfaced;
+        // no captions, sessions, paths, fonts or source media are printed.
+        let relative = result["artifact"]["directory"]
+            .as_str()
+            .expect("original render directory");
+        assert!(!relative.starts_with('/') && !relative.contains(".."));
+        let private = private_owner_output
+            .join(relative)
+            .join("native-observations.ndjson");
+        let metadata = std::fs::symlink_metadata(&private).expect("private observation metadata");
+        assert!(
+            metadata.is_file()
+                && !metadata.file_type().is_symlink()
+                && metadata.len() <= 64 * 1024 * 1024
+        );
+        let original = std::fs::read(private).expect("genuine owner native observation file");
+        let mut wrong_a = vec![];
+        let mut wrong_b = vec![];
+        let mut observed = 0_u64;
+        for line in original
+            .split(|byte| *byte == b'\n')
+            .filter(|line| !line.is_empty())
+        {
+            let item: Value =
+                serde_json::from_slice(line).expect("typed observation from native renderer");
+            let frame = item["frame"].as_u64().expect("native frame index");
+            observed += 1;
+            for (id, begin, end, failures) in [
+                ("native-caption-a", 15_u64, 30_u64, &mut wrong_a),
+                ("native-caption-b", 36_u64, 48_u64, &mut wrong_b),
+            ] {
+                let active = item["captions"]
+                    .as_array()
+                    .and_then(|captions| captions.iter().find(|caption| caption["id"] == id))
+                    .and_then(|caption| caption["active"]["value"].as_bool());
+                if active != Some((begin..end).contains(&frame)) {
+                    failures.push(frame);
+                }
+            }
+        }
+        assert_eq!(observed, 60);
+        eprintln!(
+            "native source-free caption mismatched frame indices: A={wrong_a:?}; B={wrong_b:?}"
+        );
+        let finding = findings.iter().find(|row| row["rule"] == "caption-timing");
+        let first = finding.and_then(|v| v["first_frame"].as_u64());
+        let affected = finding.and_then(|v| v["affected_frames"].as_u64());
+        // Numeric, source-free diagnostic. The test FAILS; no bypass or
+        // implied native text/pixel acceptance is allowed.
+        panic!(
+            "native caption half-open timing FAILED, first_frame={first:?}, affected_frames={affected:?}"
+        );
+    }
+    assert!(findings.iter().all(|row| row["rule"] != "caption-timing"));
+    assert!(
+        checks.iter().all(|row| row["verdict"] == "PASS"),
+        "another original native verification rule failed"
+    );
 }

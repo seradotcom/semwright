@@ -3,7 +3,7 @@
  * semwright-motion-authoring before it enters this module; runtime guards remain.
  */
 import {Node,Layout,Rect,Circle,Line,Txt,Code,Img,Video,Camera,makeScene2D,lines,LezerHighlighter} from '@motion-canvas/2d';
-import {Vector2,all,delay,waitFor,tween,linear,easeInCubic,easeOutCubic,easeInOutCubic,easeOutBack,easeOutExpo,easeInOutSine,easeOutElastic,useTime} from '@motion-canvas/core';
+import {Vector2,all,delay,waitFor,tween,linear,easeInCubic,easeOutCubic,easeInOutCubic,easeOutBack,easeOutExpo,easeInOutSine,easeOutElastic,useTime,useThread} from '@motion-canvas/core';
 import type {ThreadGenerator,TimingFunction} from '@motion-canvas/core';
 import {parser as jsParser} from '@lezer/javascript';
 import {parser as pythonParser} from '@lezer/python';
@@ -289,6 +289,20 @@ async function probeScene(reg:ReturnType<typeof registration>,canvas:HTMLCanvasE
  const captions=reg.data.shots.flatMap(s=>s.captions.map(c=>{const cue=reg.data.cues[c.cue_id];return{id:c.id,active:known((reg.captionActive.get(c.id)??false)&&reg.draws.has(c.subject)&&reg.nodes.get(c.subject)!.absoluteOpacity()>0&&(reg.nodes.get(c.subject) as Txt).text()===c.text),cue_start:cue?.status==='resolved'?known(cue.start):unknown('unresolved cue'),cue_end:cue?.status==='resolved'?known(cue.end):unknown('unresolved cue')};}));
  return {frame,subjects:output,transitions,captions,unresolved_cues:Object.entries(reg.data.cues).filter(([,v])=>v.status!=='resolved').map(([k])=>k)};
 }
+/**
+ * Motion Canvas 3.17.2 waitFor intentionally resumes generators as much as
+ * one frame ahead of the fixed animation clock. Authored subtitle opacity,
+ * unlike tween precomputation, MUST NOT change before the true cue boundary.
+ * Use the engine's own fixed frame time to gate the actual paint mutation.
+ * There is no fabricated observation or parallel timeline.
+ */
+function* captionAtNativeFrame(absoluteTime:number):ThreadGenerator{
+ const thread=useThread();const at=finite(absoluteTime,'native caption cue frame');
+ if(at>thread.time())yield* waitFor(at-thread.time());
+ // Sub-nanosecond tolerance only absorbs IEEE-754 frame accumulation error.
+ // The authoritative native frame is still required to reach the cue time.
+ while(thread.fixed+1e-9<at)yield;
+}
 export function createAuthoringScene(data:NativeSceneData,urls:AssetUrls){
  requireValue(data.version===1&&data.shots.length<=128&&data.instructions.length<=8192,'native scene bounds');
  return makeScene2D(function*(view){
@@ -302,12 +316,20 @@ export function createAuthoringScene(data:NativeSceneData,urls:AssetUrls){
   // Native dependency resolution participates in renderer startup; fonts and
   // media are awaited by native promises, never set ready from the desired model.
   yield view.toPromise();yield document.fonts.ready;
-  const start=sec(data.start),end=sec(data.end);const tasks:ThreadGenerator[]=[];
+  const start=sec(data.start),end=sec(data.end);const sceneThreadBase=useTime();const tasks:ThreadGenerator[]=[];
   for(const shot of data.shots){
    const root=nodes.get(`sw-shot-${shot.id}`)!;
    tasks.push(delay(sec(shot.start)-start,(function*(){root.opacity(1);for(const s of shot.subjects){const n=nodes.get(s.id);if(n instanceof Video)n.play();else n?.findAll(x=>x instanceof Video).forEach(x=>(x as Video).play());}yield* waitFor(sec(shot.end)-sec(shot.start));if(Math.abs(sec(shot.end)-end)>1e-9)root.opacity(0);for(const s of shot.subjects){const n=nodes.get(s.id);if(n instanceof Video)n.pause();else n?.findAll(x=>x instanceof Video).forEach(x=>(x as Video).pause());}})()));
    for(const caption of shot.captions){const cue=data.cues[caption.cue_id];const node=nodes.get(caption.subject);requireValue(node instanceof Txt,'caption requires native Txt');node.opacity(0);
-    if(cue?.status==='resolved')tasks.push(delay(sec(cue.start)-start,(function*(){node.text(caption.text);node.opacity(1);reg.captionActive.set(caption.id,true);yield* waitFor(sec(cue.end)-sec(cue.start));node.opacity(0);reg.captionActive.set(caption.id,false);})()));
+    if(cue?.status==='resolved')tasks.push((function*(){
+     const begin=sceneThreadBase+sec(cue.start)-start;
+     const finish=sceneThreadBase+sec(cue.end)-start;
+     requireValue(finish>begin,'invalid native caption span');
+     yield* captionAtNativeFrame(begin);
+     node.text(caption.text);node.opacity(1);reg.captionActive.set(caption.id,true);
+     yield* captionAtNativeFrame(finish);
+     node.opacity(0);reg.captionActive.set(caption.id,false);
+    })());
    }
   }
   const groups=new Map<string,Instruction[]>();for(const i of data.instructions){const values=groups.get(i.invocation)??[];values.push(i);groups.set(i.invocation,values);}
