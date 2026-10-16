@@ -1053,9 +1053,13 @@ fn captions_obey_half_open_cues_and_any_wrong_frame_remains_a_failure() {
             value
         })
         .collect::<Vec<_>>();
-    assert_eq!(
-        rule_verdict(&measured(&film, correct.clone()), "caption-timing"),
-        c::Verdict::Pass
+    let clean = measured(&film, correct.clone());
+    assert_eq!(rule_verdict(&clean, "caption-timing"), c::Verdict::Pass);
+    assert!(
+        clean
+            .findings
+            .iter()
+            .all(|finding| finding.rule != "caption-timing")
     );
     for index in 0..3 {
         for change in 0..4 {
@@ -1066,11 +1070,21 @@ fn captions_obey_half_open_cues_and_any_wrong_frame_remains_a_failure() {
                 2 => frames[index].captions.clear(),
                 _ => frames[index].captions[0].id = "other-caption".into(),
             }
+            let failed = measured(&film, frames);
             assert_eq!(
-                rule_verdict(&measured(&film, frames), "caption-timing"),
+                rule_verdict(&failed, "caption-timing"),
                 c::Verdict::Fail,
                 "index={index} change={change}"
             );
+            let diagnostic = failed
+                .findings
+                .iter()
+                .find(|finding| finding.rule == "caption-timing")
+                .expect("a strict failure must yield one bounded diagnostic");
+            assert_eq!(diagnostic.verdict, c::Verdict::Fail);
+            assert_eq!(diagnostic.first_frame, Some(index as u64));
+            assert_eq!(diagnostic.affected_frames, 1);
+            assert_eq!(diagnostic.subject, "native-caption-observation");
         }
         let mut frames = correct.clone();
         frames[index].unresolved_cues.push("unresolved".into());
@@ -1079,6 +1093,19 @@ fn captions_obey_half_open_cues_and_any_wrong_frame_remains_a_failure() {
             c::Verdict::Fail
         );
     }
+    let mut two_bad_frames = correct.clone();
+    two_bad_frames[0].captions[0].active = Known::Known { value: true };
+    two_bad_frames[2].captions[0].active = Known::Known { value: true };
+    let two = measured(&film, two_bad_frames);
+    let bounded = two
+        .findings
+        .iter()
+        .find(|finding| finding.rule == "caption-timing")
+        .expect("two failures must preserve a single source-free diagnostic");
+    assert_eq!(bounded.first_frame, Some(0));
+    assert_eq!(bounded.affected_frames, 2);
+    assert_eq!(rule_verdict(&two, "caption-timing"), c::Verdict::Fail);
+
     film.cues.cues[0].anchor = Anchor::Unknown {
         reason: "unavailable".into(),
     };

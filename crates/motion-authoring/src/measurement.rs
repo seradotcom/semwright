@@ -311,6 +311,10 @@ where
     let mut observed = 0;
     let mut cue_failure = false;
     let mut caption_failure = false;
+    // Redacted per-frame diagnostic only. No text, source path, cue or provider
+    // reference is stored, and a mismatch still fails native verification.
+    let mut caption_first_mismatch = None;
+    let mut caption_mismatch_frames = 0_u64;
     let transition_required = film
         .shots()
         .flat_map(|shot| shot.motion.iter().map(|invocation| invocation.id.clone()))
@@ -517,6 +521,7 @@ where
             combine(state, v, frame.frame, reason);
         }
         cue_failure |= !frame.unresolved_cues.is_empty();
+        let mut frame_caption_mismatch = false;
         for shot in film.shots() {
             if !realized.schedule.interval(&shot.span_id)?.contains(now) {
                 continue;
@@ -529,7 +534,7 @@ where
                     continue;
                 };
                 let expected = *start <= now && now < *end;
-                caption_failure |= frame
+                frame_caption_mismatch |= frame
                     .captions
                     .iter()
                     .find(|c| c.id == caption.id)
@@ -558,6 +563,13 @@ where
                     }
                 }
             }
+        }
+        if frame_caption_mismatch {
+            caption_failure = true;
+            caption_first_mismatch.get_or_insert(frame.frame);
+            caption_mismatch_frames = caption_mismatch_frames
+                .checked_add(1)
+                .ok_or_else(|| c::ContractError::Limit("caption diagnostic frame count".into()))?;
         }
     }
     // Every frame has already proved that its integer index is in range and
@@ -643,6 +655,21 @@ where
                 reason: state.reason,
             });
         }
+    }
+    if caption_failure {
+        // This diagnostic is intentionally source-neutral and bounded by the
+        // requested native frame range. It never stores caption text, source
+        // voice data, user paths, opaque provider refs or a claimed PASS.
+        findings.push(MotionFinding {
+            id: "caption-timing".into(),
+            rule: "caption-timing".into(),
+            subject: "native-caption-observation".into(),
+            verdict: Verdict::Fail,
+            evidence_class: c::EvidenceClass::Deterministic,
+            first_frame: caption_first_mismatch,
+            affected_frames: caption_mismatch_frames,
+            reason: "caption state differs from resolved cue".into(),
+        });
     }
     for (name, passed, reason) in [
         (
