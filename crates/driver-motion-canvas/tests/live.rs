@@ -632,7 +632,7 @@ async fn composition_authoring_runs_through_broker_driver_host_and_native_render
     // Exercise genuine pinned native caption timing using the same already
     // authenticated, disposable owner Broker and Driver Host. A failed
     // half-open cue must never pass as an observed native caption.
-    assert_source_bound_native_caption_frames(&broker, film.clone()).await;
+    assert_source_bound_native_caption_frames(&broker, film.clone(), h.output.path()).await;
 
     let expected_subject_ids = film["sequences"][0]["beats"][0]["shots"][0]["subjects"]
         .as_array()
@@ -797,7 +797,11 @@ async fn composition_authoring_runs_through_broker_driver_host_and_native_render
 /// disposable Broker session, never a retry of the original baseline render.
 /// These two synthetic text cues mirror Motionwright's exact 30 fps bounds,
 /// without importing any user media or alternate renderer.
-async fn assert_source_bound_native_caption_frames(broker: &Arc<Broker>, mut film: Value) {
+async fn assert_source_bound_native_caption_frames(
+    broker: &Arc<Broker>,
+    mut film: Value,
+    private_owner_output: &Path,
+) {
     let shot = &mut film["sequences"][0]["beats"][0]["shots"][0];
     shot["layers"].as_array_mut().unwrap().push(json!({
         "id":"caption-overlay","order":1,"intentional_overlay":true
@@ -941,6 +945,51 @@ async fn assert_source_bound_native_caption_frames(broker: &Arc<Broker>, mut fil
         .expect("caption timing is a mandatory native rule");
     let findings = verified["measurement"]["findings"].as_array().unwrap();
     if timing["verdict"] != "PASS" {
+        // Examine the HOST-OWNED ORIGINAL native observation bytes on this
+        // disposable test runner. Only integer frame indices are surfaced;
+        // no captions, sessions, paths, fonts or source media are printed.
+        let relative = result["artifact"]["directory"]
+            .as_str()
+            .expect("original render directory");
+        assert!(!relative.starts_with('/') && !relative.contains(".."));
+        let private = private_owner_output
+            .join(relative)
+            .join("native-observations.ndjson");
+        let metadata = std::fs::symlink_metadata(&private).expect("private observation metadata");
+        assert!(
+            metadata.is_file()
+                && !metadata.file_type().is_symlink()
+                && metadata.len() <= 64 * 1024 * 1024
+        );
+        let original = std::fs::read(private).expect("genuine owner native observation file");
+        let mut wrong_a = vec![];
+        let mut wrong_b = vec![];
+        let mut observed = 0_u64;
+        for line in original
+            .split(|byte| *byte == b'\n')
+            .filter(|line| !line.is_empty())
+        {
+            let item: Value =
+                serde_json::from_slice(line).expect("typed observation from native renderer");
+            let frame = item["frame"].as_u64().expect("native frame index");
+            observed += 1;
+            for (id, begin, end, failures) in [
+                ("native-caption-a", 15_u64, 30_u64, &mut wrong_a),
+                ("native-caption-b", 36_u64, 48_u64, &mut wrong_b),
+            ] {
+                let active = item["captions"]
+                    .as_array()
+                    .and_then(|captions| captions.iter().find(|caption| caption["id"] == id))
+                    .and_then(|caption| caption["active"]["value"].as_bool());
+                if active != Some((begin..end).contains(&frame)) {
+                    failures.push(frame);
+                }
+            }
+        }
+        assert_eq!(observed, 60);
+        eprintln!(
+            "native source-free caption mismatched frame indices: A={wrong_a:?}; B={wrong_b:?}"
+        );
         let finding = findings.iter().find(|row| row["rule"] == "caption-timing");
         let first = finding.and_then(|v| v["first_frame"].as_u64());
         let affected = finding.and_then(|v| v["affected_frames"].as_u64());
