@@ -83,6 +83,8 @@ jobs:
         run: |
           set -euo pipefail
           pwsh -NoProfile -NonInteractive -File ./scripts/windows/validate-interactive-certification.ps1
+      - name: File ACL regression tests
+        run: cargo test --locked -p semwright-platform-windows-sys --test file_acl --test private_data
       - name: Native Windows runtime check
         run: >-
           cargo check --locked
