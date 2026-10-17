@@ -91,14 +91,14 @@ fn check_private_acl(inherited: bool, rights: &str, accepted: bool) {
 
 #[test]
 fn executable_accepts_explicit_read_execute_and_metadata() {
-    for rights in ["R", "RX", "RC", "S"] {
+    for rights in ["R", "RX", "RA", "REA", "RC", "S"] {
         check_executable_acl(false, rights, true);
     }
 }
 
 #[test]
 fn executable_accepts_inherited_read_execute_and_metadata() {
-    for rights in ["R", "RX", "RC", "S"] {
+    for rights in ["R", "RX", "RA", "REA", "RC", "S"] {
         check_executable_acl(true, rights, true);
     }
 }
@@ -134,7 +134,7 @@ fn private_data_accepts_inherited_metadata_only() {
 #[test]
 fn private_data_rejects_explicit_read_and_write() {
     for rights in [
-        "R", "RX", "RD", "WD", "AD", "WEA", "WA", "D", "WDAC", "WO", "W", "M", "F",
+        "R", "RX", "RD", "RA", "REA", "WD", "AD", "WEA", "WA", "D", "WDAC", "WO", "W", "M", "F",
     ] {
         check_private_acl(false, rights, false);
     }
@@ -143,7 +143,7 @@ fn private_data_rejects_explicit_read_and_write() {
 #[test]
 fn private_data_rejects_inherited_read_and_write() {
     for rights in [
-        "R", "RX", "RD", "WD", "AD", "WEA", "WA", "D", "WDAC", "WO", "W", "M", "F",
+        "R", "RX", "RD", "RA", "REA", "WD", "AD", "WEA", "WA", "D", "WDAC", "WO", "W", "M", "F",
     ] {
         check_private_acl(true, rights, false);
     }

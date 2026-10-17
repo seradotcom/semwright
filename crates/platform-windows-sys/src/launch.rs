@@ -71,7 +71,7 @@ use windows::Win32::{
         FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_NORMAL, FILE_ATTRIBUTE_REPARSE_POINT,
         FILE_DELETE_CHILD, FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT,
         FILE_GENERIC_EXECUTE, FILE_GENERIC_READ, FILE_GENERIC_WRITE, FILE_READ_ATTRIBUTES,
-        FILE_READ_DATA, FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE,
+        FILE_READ_DATA, FILE_READ_EA, FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE,
         FILE_WRITE_ATTRIBUTES, FILE_WRITE_DATA, FILE_WRITE_EA, GetFileInformationByHandle,
         OPEN_EXISTING, WRITE_DAC, WRITE_OWNER,
     },
@@ -395,6 +395,8 @@ fn verify_trusted_file_acl(file: &File, kind: &str, private_data: bool) -> Resul
         ));
     }
 
+    // Expanded FILE_GENERIC_* masks also contain READ_CONTROL and SYNCHRONIZE.
+    // Those shared standard rights do not authorize data access or mutation.
     let mutation = FILE_WRITE_DATA.0
         | FILE_APPEND_DATA.0
         | FILE_WRITE_EA.0
@@ -402,10 +404,10 @@ fn verify_trusted_file_acl(file: &File, kind: &str, private_data: bool) -> Resul
         | DELETE.0
         | WRITE_DAC.0
         | WRITE_OWNER.0
-        | FILE_GENERIC_WRITE.0
         | GENERIC_WRITE.0
         | GENERIC_ALL.0;
-    let confidential = FILE_READ_DATA.0 | FILE_GENERIC_READ.0 | GENERIC_READ.0 | GENERIC_ALL.0;
+    let confidential =
+        FILE_READ_DATA.0 | FILE_READ_EA.0 | FILE_READ_ATTRIBUTES.0 | GENERIC_READ.0 | GENERIC_ALL.0;
     let restricted = if private_data {
         mutation | confidential
     } else {
