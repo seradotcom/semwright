@@ -266,6 +266,54 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
         .status()
         .unwrap();
     assert!(status.success(), "failed to create Motion frame oracle");
+    // CI-only original source fixture: produce ONE authored glyph-like box
+    // on native frame 3 and keep 2/4 perfectly unchanged. The native driver
+    // *never* draws glyphs; it must independently inspect FFV1 and MP4.
+    let overlay = motion_frames.join("original-caption-overlay.png");
+    let status = Command::new(&ffmpeg)
+        .args(["-hide_banner", "-loglevel", "error", "-y", "-i"])
+        .arg(motion_frames.join("000003.png"))
+        .args([
+            "-vf",
+            "drawbox=x=20:y=58:w=35:h=20:color=yellow:t=fill",
+            "-frames:v",
+            "1",
+            "-update",
+            "1",
+        ])
+        .arg(&overlay)
+        .status()
+        .unwrap();
+    assert!(
+        status.success(),
+        "failed to author original synthetic caption fixture"
+    );
+    std::fs::rename(overlay, motion_frames.join("000003.png")).unwrap();
+
+    let caption_wav = media.path().join("caption-audio.wav");
+    let status = Command::new(&ffmpeg)
+        .args([
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "anullsrc=r=48000:cl=stereo",
+            "-t",
+            "0.2",
+            "-c:a",
+            "pcm_s16le",
+        ])
+        .arg(&caption_wav)
+        .status()
+        .unwrap();
+    assert!(
+        status.success(),
+        "failed to produce bounded synthetic stereo WAV"
+    );
+
     let frame_rows = (0..6u64)
         .map(|index| {
             let path = motion_frames.join(format!("{index:06}.png"));
@@ -574,6 +622,118 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
         semwright_types::ErrorCode::StaleReference
     );
     assert!(!output.path().join("stale-mezzanine.mkv").exists());
+
+    // The same original six source PNGs now flow through the *real* pinned
+    // FFV1 driver + MLT H264/AAC mux, followed by the brand-new read-only
+    // sealed Host observer. No fake observations, OCR or simulated frame
+    // claims; the observer sees actual original owner-root files.
+    let original_ffv1 = output.path().join("motion-mezzanine.mkv");
+    let original_sha = digest(&original_ffv1);
+    let caption_master = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.mlt-video.av.mux",
+        json!({
+            "video_root":"output",
+            "video_path":"motion-mezzanine.mkv",
+            "video_sha256":original_sha,
+            "audio_root":"media",
+            "audio_path":"caption-audio.wav",
+            "audio_sha256":digest(&caption_wav),
+            "width":160,"height":90,"fps_num":30,"fps_den":1,
+            "frame_count":6,"sample_rate":48000,"channels":2,
+            "profile":"h264-aac-mp4",
+            "output_path":"caption-oracle-master.mp4",
+            "max_bytes":67108864
+        }),
+    )
+    .await
+    .unwrap();
+    assert_eq!(caption_master["profile"], "h264-aac-mp4");
+    assert_eq!(caption_master["frame_count"], 6);
+    let master_mp4 = output.path().join("caption-oracle-master.mp4");
+    let original_master_sha = digest(&master_mp4);
+    let owner_args = json!({
+        "source_path":"motion-mezzanine.mkv",
+        "source_sha256":original_sha,
+        "source_bytes":std::fs::metadata(&original_ffv1).unwrap().len(),
+        "master_path":"caption-oracle-master.mp4",
+        "master_sha256":original_master_sha,
+        "master_bytes":std::fs::metadata(&master_mp4).unwrap().len(),
+        "width":160,"height":90,"fps_num":30,"fps_den":1,
+        "frame_count":6,
+        "cues":[{"start_frame":3,"end_frame_exclusive":4}]
+    });
+    let observed = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.mlt-video.av.caption_pixels.verify",
+        owner_args.clone(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(observed["status"], "PASS");
+    assert_eq!(observed["frame_count"], 6);
+    assert_eq!(observed["source_sha256"], original_sha);
+    assert_eq!(observed["master_sha256"], original_master_sha);
+    assert_eq!(observed["human_readability"], "NOT_RUN");
+    assert_eq!(observed["speech_identity"], "NOT_VERIFIED");
+    assert_eq!(observed["publication_authorized"], false);
+    assert!(
+        observed["sampled_frames"][0]["glyph_mask_pixels"]
+            .as_u64()
+            .unwrap()
+            >= 50
+    );
+    assert!(!observed.to_string().contains("caption-audio.wav"));
+    assert!(!observed.to_string().contains("caption-oracle-master.mp4"));
+    let _source_len = std::fs::metadata(&original_ffv1).unwrap().len();
+    let stale = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.mlt-video.av.caption_pixels.verify",
+        {
+            let mut forged = owner_args.clone();
+            forged["source_sha256"] = json!("0".repeat(64));
+            forged
+        },
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(stale.code, semwright_types::ErrorCode::StaleReference);
+    // The upstream Broker may conservatively classify Host tool errors as
+    // unknown. That flag cannot turn a rejected read-only observation into
+    // approval or authorize a render retry.
+    assert!(!stale.message.contains("caption-oracle-master.mp4"));
+    let denied = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.mlt-video.av.caption_pixels.verify",
+        {
+            let mut forged = owner_args.clone();
+            forged["source_path"] = json!("../private/master.mkv");
+            forged
+        },
+    )
+    .await
+    .unwrap_err();
+    // The existing Host AV envelope currently maps runtime-tool denial to
+    // BackendFailed rather than granting any filesystem access.
+    assert_eq!(denied.code, semwright_types::ErrorCode::BackendFailed);
+    let invalid = call(
+        provider.as_ref(),
+        &capabilities,
+        "driver.mlt-video.av.caption_pixels.verify",
+        {
+            let mut forged = owner_args;
+            forged["cues"] = json!([{"start_frame":0,"end_frame_exclusive":1}]);
+            forged
+        },
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(invalid.code, semwright_types::ErrorCode::InvalidArgument);
+    assert_eq!(digest(&master_mp4), original_master_sha);
 
     let sync_digest = digest(&sync_source);
     let sync = call(
