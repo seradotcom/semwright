@@ -182,6 +182,7 @@ fn motion_manifest(executable: &Path, node: &Path) -> Manifest {
         system_config: vec![],
         secrets: vec![],
         tools: vec![DriverToolMount {
+            sealed_executable_profile: semwright_driver_sdk::SealedExecutableProfile::Standard,
             root: "motion-node-tool".into(),
             name: "motion-node".into(),
             sha256: file_sha(node),
@@ -247,6 +248,7 @@ fn faust_manifest(executable: &Path, helper: &Path, version: &str) -> Manifest {
         system_config: vec![],
         secrets: vec![],
         tools: vec![DriverToolMount {
+            sealed_executable_profile: semwright_driver_sdk::SealedExecutableProfile::Standard,
             root: "faust-tool".into(),
             name: "faust-interpreter".into(),
             sha256: file_sha(helper),
@@ -302,6 +304,7 @@ fn analysis_manifest(executable: &Path, meter: &Path) -> Manifest {
         system_config: vec![],
         secrets: vec![],
         tools: vec![DriverToolMount {
+            sealed_executable_profile: semwright_driver_sdk::SealedExecutableProfile::Standard,
             root: "audio-meter-tool".into(),
             name: "audio-meter".into(),
             sha256: file_sha(meter),
@@ -373,6 +376,7 @@ fn mlt_manifest(h: &Harness) -> Manifest {
         secrets: vec![],
         tools: vec![
             DriverToolMount {
+                sealed_executable_profile: semwright_driver_sdk::SealedExecutableProfile::Standard,
                 root: "mlt-runner-tool".into(),
                 name: "mlt-runner".into(),
                 sha256: file_sha(&h.mlt_runner),
@@ -388,6 +392,7 @@ fn mlt_manifest(h: &Harness) -> Manifest {
                 system_config: vec![],
             },
             DriverToolMount {
+                sealed_executable_profile: semwright_driver_sdk::SealedExecutableProfile::Standard,
                 root: "melt-tool".into(),
                 name: "melt".into(),
                 sha256: file_sha(&h.melt),
@@ -398,6 +403,7 @@ fn mlt_manifest(h: &Harness) -> Manifest {
                 system_config: vec![],
             },
             DriverToolMount {
+                sealed_executable_profile: semwright_driver_sdk::SealedExecutableProfile::Standard,
                 root: "ffprobe-tool".into(),
                 name: "ffprobe".into(),
                 sha256: file_sha(&h.ffprobe),
@@ -408,6 +414,7 @@ fn mlt_manifest(h: &Harness) -> Manifest {
                 system_config: vec![],
             },
             DriverToolMount {
+                sealed_executable_profile: semwright_driver_sdk::SealedExecutableProfile::Standard,
                 root: "ffmpeg-tool".into(),
                 name: "ffmpeg".into(),
                 sha256: file_sha(&h.ffmpeg),

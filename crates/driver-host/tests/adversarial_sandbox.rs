@@ -134,6 +134,7 @@ async fn hostile_driver_is_confined_and_descendants_die_with_provider() {
         system_config: vec![],
         secrets: vec![],
         tools: vec![DriverToolMount {
+            sealed_executable_profile: semwright_driver_sdk::SealedExecutableProfile::Standard,
             root: "probe-tool".into(),
             name: "probe".into(),
             mounts: vec![],

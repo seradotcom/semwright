@@ -141,6 +141,8 @@ impl NativeFixture {
             system_config: vec![],
             tools: vec![
                 DriverToolMount {
+                    sealed_executable_profile:
+                        semwright_driver_sdk::SealedExecutableProfile::Standard,
                     name: "blender-session-runner".into(),
                     root: "blender-session-runner-executable".into(),
                     sha256: digest(&runner),
@@ -156,6 +158,8 @@ impl NativeFixture {
                     resources: None,
                 },
                 DriverToolMount {
+                    sealed_executable_profile:
+                        semwright_driver_sdk::SealedExecutableProfile::Standard,
                     name: "blender".into(),
                     root: "blender-executable".into(),
                     sha256: digest(&blender),

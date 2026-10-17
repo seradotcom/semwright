@@ -220,6 +220,7 @@ fn manifest(executable: PathBuf, runtime_sha256: String) -> Manifest {
         secrets: vec![],
         tools: vec![
             DriverToolMount {
+                sealed_executable_profile: semwright_driver_sdk::SealedExecutableProfile::Standard,
                 root: "godot-authoring-runtime".into(),
                 name: "godot".into(),
                 sha256: runtime_sha256,
@@ -231,6 +232,7 @@ fn manifest(executable: PathBuf, runtime_sha256: String) -> Manifest {
                 resources: None,
             },
             DriverToolMount {
+                sealed_executable_profile: semwright_driver_sdk::SealedExecutableProfile::Standard,
                 root: "godot-export-runtime".into(),
                 name: "godot-export".into(),
                 sha256: digest(&executable),

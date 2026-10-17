@@ -237,6 +237,7 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
         secrets: vec![],
         tools: vec![
             DriverToolMount {
+                sealed_executable_profile: semwright_driver_sdk::SealedExecutableProfile::Standard,
                 root: "ardour-runner-tool".into(),
                 name: "ardour-runtime-runner".into(),
                 sha256: digest(&runtime_runner),
@@ -247,6 +248,7 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
                 resources: None,
             },
             DriverToolMount {
+                sealed_executable_profile: semwright_driver_sdk::SealedExecutableProfile::Standard,
                 root: "ardour-lua-tool".into(),
                 name: "ardour-lua".into(),
                 sha256: digest(&lua),
@@ -258,6 +260,7 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
                 resources: None,
             },
             DriverToolMount {
+                sealed_executable_profile: semwright_driver_sdk::SealedExecutableProfile::Standard,
                 root: "ardour-create-tool".into(),
                 name: "ardour-new-session".into(),
                 sha256: digest(&create),
@@ -269,6 +272,7 @@ async fn broker_host_ardour_create_edit_save_reopen_export_is_native_and_fail_cl
                 resources: None,
             },
             DriverToolMount {
+                sealed_executable_profile: semwright_driver_sdk::SealedExecutableProfile::Standard,
                 root: "ardour-export-tool".into(),
                 name: "ardour-export".into(),
                 sha256: digest(&export),
