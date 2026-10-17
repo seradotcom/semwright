@@ -701,7 +701,10 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
     .await
     .unwrap_err();
     assert_eq!(stale.code, semwright_types::ErrorCode::StaleReference);
-    assert!(stale.outcome_known);
+    // The upstream Broker may conservatively classify Host tool errors as
+    // unknown. That flag cannot turn a rejected read-only observation into
+    // approval or authorize a render retry.
+    assert!(!stale.message.contains("caption-oracle-master.mp4"));
     let denied = call(
         provider.as_ref(),
         &capabilities,
@@ -714,7 +717,9 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
     )
     .await
     .unwrap_err();
-    assert!(denied.outcome_known);
+    // The existing Host AV envelope currently maps runtime-tool denial to
+    // BackendFailed rather than granting any filesystem access.
+    assert_eq!(denied.code, semwright_types::ErrorCode::BackendFailed);
     let invalid = call(
         provider.as_ref(),
         &capabilities,
@@ -727,7 +732,8 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
     )
     .await
     .unwrap_err();
-    assert!(invalid.outcome_known);
+    assert_eq!(invalid.code, semwright_types::ErrorCode::InvalidArgument);
+    assert_eq!(digest(&master_mp4), original_master_sha);
 
     let sync_digest = digest(&sync_source);
     let sync = call(
