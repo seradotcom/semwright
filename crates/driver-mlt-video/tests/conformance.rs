@@ -72,6 +72,7 @@ fn capability_namespace_unique_and_bounded() {
     assert!(caps.len() >= 70);
     for required in [
         "driver.mlt-video.av.mux",
+        "driver.mlt-video.av.caption_pixels.verify",
         "driver.mlt-video.frames.encode",
         "driver.mlt-video.sync.probe",
     ] {
@@ -117,6 +118,40 @@ fn schemas_reject_unknown_arguments() {
     );
     assert!(doctor.input(&obj([])).is_ok());
 }
+#[test]
+fn native_caption_glyph_observer_is_read_only_and_closed_world() {
+    let capabilities = catalog::capabilities().unwrap();
+    let action = capabilities
+        .iter()
+        .find(|action| action.name == "driver.mlt-video.av.caption_pixels.verify")
+        .unwrap();
+    assert!(!action.mutates());
+    assert_eq!(action.descriptor.str("risk").unwrap(), "read_only");
+    assert_eq!(action.descriptor.str("idempotency").unwrap(), "read_only");
+    assert!(
+        !action
+            .descriptor
+            .get("interactive_consent")
+            .unwrap()
+            .boolean()
+            .unwrap()
+    );
+    for untrusted in [
+        obj([("shell", "ffmpeg -vf drawtext".into())]),
+        obj([("root", "arbitrary-local-filesystem".into())]),
+        obj([("approval", true.into())]),
+        obj([]),
+    ] {
+        assert!(action.input(&untrusted).is_err());
+    }
+    assert!(action.output(&obj([("status", "PASS".into())])).is_err());
+    assert!(
+        action
+            .output(&obj([("status", "NOT_VERIFIED".into())]))
+            .is_err()
+    );
+}
+
 #[test]
 fn doctor_satisfies_actual_output_schema() {
     let mut app = App::new(BTreeMap::new(), None).unwrap();

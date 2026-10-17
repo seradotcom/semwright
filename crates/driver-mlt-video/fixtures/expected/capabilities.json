@@ -1429,6 +1429,224 @@
   },
   {
     "descriptor": {
+      "name": "driver.mlt-video.av.caption_pixels.verify",
+      "version": "0.1.0",
+      "description": "Read-only Host-mediated original owner FFV1 and H264/AAC decoded caption glyph conformance; digest, length, output frame clock and authored half-open cue boundaries must match. No render, output, permission grant, transcript, source pixels, arbitrary argv or human legibility claim.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "source_path": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "source_sha256": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "source_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 268435456
+          },
+          "master_path": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "master_sha256": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "master_bytes": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 268435456
+          },
+          "width": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 1920
+          },
+          "height": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 1080
+          },
+          "fps_num": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 240000
+          },
+          "fps_den": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000
+          },
+          "frame_count": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 900
+          },
+          "cues": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "start_frame": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 899
+                },
+                "end_frame_exclusive": {
+                  "type": "integer",
+                  "minimum": 2,
+                  "maximum": 900
+                }
+              },
+              "required": [
+                "start_frame",
+                "end_frame_exclusive"
+              ],
+              "additionalProperties": false
+            },
+            "minItems": 1,
+            "maxItems": 8
+          }
+        },
+        "required": [
+          "source_path",
+          "source_sha256",
+          "source_bytes",
+          "master_path",
+          "master_sha256",
+          "master_bytes",
+          "width",
+          "height",
+          "fps_num",
+          "fps_den",
+          "frame_count",
+          "cues"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "PASS"
+          },
+          "evidence_scope": {
+            "type": "string",
+            "const": "original-confined-ffv1-h264-decoded-caption-glyphs-not-human-reading"
+          },
+          "source_sha256": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "master_sha256": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "frame_count": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 900
+          },
+          "sampled_frames": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 16,
+            "items": {
+              "type": "object",
+              "properties": {
+                "frame_index": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 899
+                },
+                "glyph_mask_pixels": {
+                  "type": "integer",
+                  "minimum": 50,
+                  "maximum": 100000
+                },
+                "lossy_master_error_milli": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 255000
+                },
+                "inactive_reference_error_milli": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 255000
+                },
+                "static_control_error_milli": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 750
+                }
+              },
+              "required": [
+                "frame_index",
+                "glyph_mask_pixels",
+                "lossy_master_error_milli",
+                "inactive_reference_error_milli",
+                "static_control_error_milli"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "human_readability": {
+            "type": "string",
+            "const": "NOT_RUN"
+          },
+          "speech_identity": {
+            "type": "string",
+            "const": "NOT_VERIFIED"
+          },
+          "publication_authorized": {
+            "type": "boolean",
+            "const": false
+          }
+        },
+        "required": [
+          "status",
+          "evidence_scope",
+          "source_sha256",
+          "master_sha256",
+          "frame_count",
+          "sampled_frames",
+          "human_readability",
+          "speech_identity",
+          "publication_authorized"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:mlt-video"
+      ],
+      "risk": "read_only",
+      "idempotency": "read_only",
+      "timeout_ms": 300000,
+      "dry_run": true,
+      "interactive_consent": false,
+      "backends": [
+        "driver:mlt-video"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "video",
+      "offline",
+      "mlt",
+      "caption",
+      "verification"
+    ],
+    "object_types": [
+      "video-project"
+    ]
+  },
+  {
+    "descriptor": {
       "name": "driver.mlt-video.av.mux",
       "version": "0.1.0",
       "description": "Mux one digest-pinned video-only Motion mezzanine and one digest-pinned audio-only final mix into a bounded H.264/AAC MP4 through the pinned confined MLT runtime, then publish a digest-bound 48 kHz stereo PCM WAV decoded from that exact master for post-encode analysis; no effects, gain, ducking, arbitrary argv or filter graph.",

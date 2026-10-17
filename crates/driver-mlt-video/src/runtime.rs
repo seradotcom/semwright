@@ -1167,6 +1167,72 @@ impl Runtime {
         Ok(info)
     }
 
+    /// Strict original decoded-frame readback using the same owner-pinned
+    /// FFmpeg binary and confined runtime as FFV1 encoding / AV mux.
+    /// No caller-provided filters, argv, absolute paths or output filename.
+    pub fn decoded_native_rgb_frame(
+        &self,
+        inputs: &Path,
+        video: &str,
+        frame: u64,
+        width: u32,
+        height: u32,
+        cancel: &AtomicBool,
+    ) -> Result<Vec<u8>> {
+        crate::fs::validate_relative(video)?;
+        if !matches!(video, "original.mkv" | "master.mp4")
+            || frame >= crate::caption_pixels::MAX_FRAMES
+            || width == 0
+            || width > crate::caption_pixels::MAX_WIDTH
+            || height == 0
+            || height > crate::caption_pixels::MAX_HEIGHT
+        {
+            return Err(Error::invalid(
+                "Native caption frame decoder input is unsupported",
+            ));
+        }
+        let size = usize::try_from(u64::from(width) * u64::from(height) * 3)
+            .map_err(|_| Error::limit("Decoded RGB size overflow"))?;
+        let work = PrivateDir::new(Path::new("/tmp"))?;
+        let frame_ref = self.input_path(inputs, video);
+        let target = self.work_path(work.path(), "caption.rgb");
+        let args = vec![
+            "-v".into(),
+            "error".into(),
+            "-nostdin".into(),
+            "-i".into(),
+            frame_ref.into_os_string(),
+            "-an".into(),
+            "-sn".into(),
+            "-dn".into(),
+            "-vf".into(),
+            format!("select=eq(n\\,{frame})").into(),
+            "-vsync".into(),
+            "0".into(),
+            "-frames:v".into(),
+            "1".into(),
+            "-pix_fmt".into(),
+            "rgb24".into(),
+            "-f".into(),
+            "rawvideo".into(),
+            target.into_os_string(),
+        ];
+        run(
+            &self.spec("ffmpeg", args, inputs, work.path(), Duration::from_secs(25))?,
+            cancel,
+        )?
+        .checked()?;
+        let output = crate::fs::Root::open(work.path(), true, false)?;
+        let frame = output.read("caption.rgb", size + 1)?;
+        if frame.len() != size {
+            return Err(Error::new(
+                "Conflict",
+                "Decoded original media frame was absent or did not match output geometry",
+            ));
+        }
+        Ok(frame)
+    }
+
     pub fn extract_audio(
         &self,
         inputs: &Path,

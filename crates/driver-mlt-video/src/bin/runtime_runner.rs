@@ -374,6 +374,7 @@ fn av_operation(
         command,
         "driver.mlt-video.frames.encode"
             | "driver.mlt-video.av.mux"
+            | "driver.mlt-video.av.caption_pixels.verify"
             | "driver.mlt-video.sync.probe"
     ) {
         return Err("AV operation is not allowlisted".into());

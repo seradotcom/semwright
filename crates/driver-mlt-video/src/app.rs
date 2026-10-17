@@ -323,6 +323,7 @@ impl App {
             }
             "frames.encode" => return self.frames_encode(a),
             "av.mux" => return self.av_mux(a),
+            "av.caption_pixels.verify" => return self.av_caption_pixels_verify(a),
             "sync.probe" => return self.sync_probe(a),
             "render.profiles" => {
                 return Ok(obj([
@@ -1307,6 +1308,266 @@ impl App {
             proxy: None,
             opaque: false,
         })
+    }
+
+    /// Host-mediated, fully read-only observation of the *original* generated
+    /// FFV1 and H.264/AAC files. All caller fields are source constraints,
+    /// NEVER an executable, output path, filter, public image or permission.
+    /// Only static source-free PASS evidence is permitted across the bridge.
+    fn av_caption_pixels_verify(&self, a: &Value) -> Result<Value> {
+        a.strict(
+            &[
+                "source_path",
+                "source_sha256",
+                "source_bytes",
+                "master_path",
+                "master_sha256",
+                "master_bytes",
+                "width",
+                "height",
+                "fps_num",
+                "fps_den",
+                "frame_count",
+                "cues",
+            ],
+            &[
+                "source_path",
+                "source_sha256",
+                "source_bytes",
+                "master_path",
+                "master_sha256",
+                "master_bytes",
+                "width",
+                "height",
+                "fps_num",
+                "fps_den",
+                "frame_count",
+                "cues",
+            ],
+        )?;
+        let source_path = a.str("source_path")?;
+        let master_path = a.str("master_path")?;
+        crate::fs::validate_relative(source_path)?;
+        crate::fs::validate_relative(master_path)?;
+        if !source_path.ends_with(".mkv")
+            || !master_path.ends_with(".mp4")
+            || source_path == master_path
+        {
+            return Err(Error::invalid(
+                "Caption observer requires distinct original FFV1 and actual MP4 owner artifacts",
+            ));
+        }
+        let source_sha = a.str("source_sha256")?;
+        let master_sha = a.str("master_sha256")?;
+        if !valid_digest(source_sha) || !valid_digest(master_sha) {
+            return Err(Error::invalid(
+                "Original caption media SHA-256 is malformed",
+            ));
+        }
+        let source_bytes = a.uint("source_bytes")?;
+        let master_bytes = a.uint("master_bytes")?;
+        if source_bytes == 0
+            || master_bytes == 0
+            || source_bytes > crate::caption_pixels::MAX_SOURCE_BYTES
+            || master_bytes > crate::caption_pixels::MAX_SOURCE_BYTES
+        {
+            return Err(Error::limit(
+                "Read-only original caption source byte budget",
+            ));
+        }
+        let width =
+            u32::try_from(a.uint("width")?).map_err(|_| Error::limit("Caption observer width"))?;
+        let height = u32::try_from(a.uint("height")?)
+            .map_err(|_| Error::limit("Caption observer height"))?;
+        if !(2..=crate::caption_pixels::MAX_WIDTH).contains(&width)
+            || !(2..=crate::caption_pixels::MAX_HEIGHT).contains(&height)
+            || u64::from(width) * u64::from(height) > 2_073_600
+        {
+            return Err(Error::limit(
+                "Caption observer resolution is not within bounded grammar",
+            ));
+        }
+        let fps_num = u32::try_from(a.uint("fps_num")?)
+            .map_err(|_| Error::limit("Caption observer fps numerator"))?;
+        let fps_den = u32::try_from(a.uint("fps_den")?)
+            .map_err(|_| Error::limit("Caption observer fps denominator"))?;
+        let rate = FrameRate::new(fps_num, fps_den)?;
+        let frame_count = a.uint("frame_count")?;
+        let cues = crate::caption_pixels::admit_cues(a.get("cues")?, frame_count)?;
+
+        // Existing FD-relative owner grant makes symlinks, hardlinks, foreign
+        // mount names, traversal and missing input fail BEFORE any ffmpeg.
+        let root = self.roots.get("output").ok_or_else(|| {
+            Error::new(
+                "PermissionDenied",
+                "Native caption owner output root is unavailable",
+            )
+        })?;
+        let inputs = PrivateDir::new(Path::new("/tmp"))?;
+        for (path, expected_hash, expected_bytes, staged_name) in [
+            (source_path, source_sha, source_bytes, "original.mkv"),
+            (master_path, master_sha, master_bytes, "master.mp4"),
+        ] {
+            let mut original = root.read_file(path, crate::caption_pixels::MAX_SOURCE_BYTES)?;
+            if original.metadata()?.len() != expected_bytes {
+                return Err(Error::new(
+                    "StaleReference",
+                    "Original owner caption video changed its declared byte length",
+                ));
+            }
+            let mut writer = inputs.create(staged_name)?;
+            let mut hasher = Sha256::new();
+            let mut copied = 0u64;
+            let mut chunk = [0u8; 65_536];
+            loop {
+                let n = original.read(&mut chunk)?;
+                if n == 0 {
+                    break;
+                }
+                copied = copied
+                    .checked_add(n as u64)
+                    .filter(|size| *size <= expected_bytes)
+                    .ok_or_else(|| {
+                        Error::limit("Captioned original media changed during staging")
+                    })?;
+                hasher.update(&chunk[..n]);
+                writer.write_all(&chunk[..n])?;
+            }
+            writer.sync_all()?;
+            drop(writer);
+            if copied != expected_bytes || hasher.finish() != expected_hash {
+                return Err(Error::new(
+                    "StaleReference",
+                    "Original caption media SHA-256 changed while staged from owner FD",
+                ));
+            }
+            inputs.seal(staged_name)?;
+        }
+        let runtime = self.runtime.as_ref().ok_or_else(|| {
+            Error::new(
+                "Unavailable",
+                "Pinned confined native caption decoder is unavailable",
+            )
+        })?;
+        let cancel = AtomicBool::new(false);
+        let metadata_work = PrivateDir::new(Path::new("/tmp"))?;
+        let original =
+            runtime.probe(inputs.path(), metadata_work.path(), "original.mkv", &cancel)?;
+        let final_media =
+            runtime.probe(inputs.path(), metadata_work.path(), "master.mp4", &cancel)?;
+        if !original.video
+            || original.audio
+            || original.width != Some(width)
+            || original.height != Some(height)
+            || !original.codecs.iter().any(|c| c == "ffv1")
+            || original.frames.is_some_and(|frames| frames != frame_count)
+            || media_frames(&original, rate)? != frame_count
+            || !final_media.video
+            || !final_media.audio
+            || final_media.width != Some(width)
+            || final_media.height != Some(height)
+            || !final_media.codecs.iter().any(|c| c == "h264")
+            || !final_media.codecs.iter().any(|c| c == "aac")
+            || final_media.sample_rate != Some(48_000)
+            || final_media.channels != Some(2)
+            || final_media
+                .frames
+                .is_some_and(|frames| frames != frame_count)
+            || media_frames(&final_media, rate)? != frame_count
+        {
+            return Err(Error::new(
+                "Conflict",
+                "Owner FFV1 or H.264/AAC decoded media does not match the bounded source clock and stream grammar",
+            ));
+        }
+
+        let mut samples = Vec::new();
+        for cue in cues {
+            let prior = runtime.decoded_native_rgb_frame(
+                inputs.path(),
+                "original.mkv",
+                cue.start - 1,
+                width,
+                height,
+                &cancel,
+            )?;
+            let source = runtime.decoded_native_rgb_frame(
+                inputs.path(),
+                "original.mkv",
+                cue.start,
+                width,
+                height,
+                &cancel,
+            )?;
+            let master = runtime.decoded_native_rgb_frame(
+                inputs.path(),
+                "master.mp4",
+                cue.start,
+                width,
+                height,
+                &cancel,
+            )?;
+            samples.push(crate::caption_pixels::verify_mask(
+                &prior, &source, &master, width, height, cue.start,
+            )?);
+            if cue.end - cue.start > 1 {
+                let final_source = runtime.decoded_native_rgb_frame(
+                    inputs.path(),
+                    "original.mkv",
+                    cue.end - 1,
+                    width,
+                    height,
+                    &cancel,
+                )?;
+                let final_master = runtime.decoded_native_rgb_frame(
+                    inputs.path(),
+                    "master.mp4",
+                    cue.end - 1,
+                    width,
+                    height,
+                    &cancel,
+                )?;
+                samples.push(crate::caption_pixels::verify_mask(
+                    &prior,
+                    &final_source,
+                    &final_master,
+                    width,
+                    height,
+                    cue.end - 1,
+                )?);
+            }
+            if cue.end < frame_count {
+                let inactive_source = runtime.decoded_native_rgb_frame(
+                    inputs.path(),
+                    "original.mkv",
+                    cue.end,
+                    width,
+                    height,
+                    &cancel,
+                )?;
+                let inactive_master = runtime.decoded_native_rgb_frame(
+                    inputs.path(),
+                    "master.mp4",
+                    cue.end,
+                    width,
+                    height,
+                    &cancel,
+                )?;
+                crate::caption_pixels::verify_inactive(
+                    &prior,
+                    &inactive_source,
+                    &inactive_master,
+                    width,
+                    height,
+                )?;
+            }
+        }
+        Ok(crate::caption_pixels::proof(
+            source_sha,
+            master_sha,
+            frame_count,
+            &samples,
+        ))
     }
 
     fn av_mux(&self, a: &Value) -> Result<Value> {

@@ -444,7 +444,10 @@ impl MltVideoDriver {
             let mut error = host_av_operation_failure(&result.stdout);
             // The tool may have published before an error or cancellation. The
             // original artifact is reconciled by its digest; never assume rollback.
-            error.outcome_known = command == "driver.mlt-video.sync.probe";
+            error.outcome_known = matches!(
+                command,
+                "driver.mlt-video.sync.probe" | "driver.mlt-video.av.caption_pixels.verify"
+            );
             return Err(error);
         }
         let value: Value = serde_json::from_slice(&result.stdout).map_err(|_| {
@@ -1255,6 +1258,7 @@ impl Driver for MltVideoDriver {
             command,
             "driver.mlt-video.frames.encode"
                 | "driver.mlt-video.av.mux"
+                | "driver.mlt-video.av.caption_pixels.verify"
                 | "driver.mlt-video.sync.probe"
         ) {
             return self

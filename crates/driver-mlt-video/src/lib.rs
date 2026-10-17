@@ -9,6 +9,7 @@
 )]
 pub mod adapters;
 pub mod app;
+pub mod caption_pixels;
 pub mod catalog;
 pub mod domain;
 pub mod edit;
