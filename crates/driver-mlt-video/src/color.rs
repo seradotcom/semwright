@@ -23,6 +23,79 @@ pub fn require_srgb_plan(plan: &serde_json::Map<String, Value>) -> Result<()> {
     }
     Ok(())
 }
+const PNG_CRC_TABLE: [u32; 256] = {
+    let mut table = [0u32; 256];
+    let mut index = 0;
+    while index < table.len() {
+        let mut value = index as u32;
+        let mut bit = 0;
+        while bit < 8 {
+            value = if value & 1 == 0 {
+                value >> 1
+            } else {
+                (value >> 1) ^ 0xedb8_8320
+            };
+            bit += 1;
+        }
+        table[index] = value;
+        index += 1;
+    }
+    table
+};
+
+fn png_chunk_crc(bytes: &[u8]) -> u32 {
+    let mut crc = u32::MAX;
+    for byte in bytes {
+        let index = ((crc ^ u32::from(*byte)) & 0xff) as usize;
+        crc = PNG_CRC_TABLE[index] ^ (crc >> 8);
+    }
+    !crc
+}
+
+/// Check every chunk checksum and the terminal boundary before pixel admission.
+/// The Motion Canvas verifier remains the only decoder of pixel data.
+fn inspect_png_chunks(
+    bytes: &[u8],
+    mut inspect: impl FnMut(&[u8], &[u8]) -> Result<()>,
+) -> Result<()> {
+    if bytes.len() < 8 || bytes.len() > PNG_LIMIT || &bytes[..8] != b"\x89PNG\r\n\x1a\n" {
+        return Err(Error::invalid("PNG signature or byte budget"));
+    }
+    let mut offset = 8usize;
+    while offset < bytes.len() {
+        if bytes.len() - offset < 12 {
+            return Err(Error::invalid("Truncated PNG chunk"));
+        }
+        let n = u32::from_be_bytes(bytes[offset..offset + 4].try_into().unwrap()) as usize;
+        let end = offset
+            .checked_add(n)
+            .and_then(|v| v.checked_add(12))
+            .filter(|end| *end <= bytes.len())
+            .ok_or_else(|| Error::invalid("PNG chunk length"))?;
+        let kind = &bytes[offset + 4..offset + 8];
+        let payload = &bytes[offset + 8..end - 4];
+        if (offset == 8 && (kind != b"IHDR" || n != 13)) || (offset != 8 && kind == b"IHDR") {
+            return Err(Error::invalid("PNG header chunk identity"));
+        }
+        let expected = u32::from_be_bytes(bytes[end - 4..end].try_into().unwrap());
+        if png_chunk_crc(&bytes[offset + 4..end - 4]) != expected {
+            return Err(Error::invalid("PNG chunk checksum"));
+        }
+        inspect(kind, payload)?;
+        if kind == b"IEND" {
+            if !payload.is_empty() {
+                return Err(Error::invalid("PNG end marker payload"));
+            }
+            if end != bytes.len() {
+                return Err(Error::invalid("PNG trailing data"));
+            }
+            return Ok(());
+        }
+        offset = end;
+    }
+    Err(Error::invalid("PNG end marker missing"))
+}
+
 pub fn inspect_source_png(bytes: &[u8], width: u32, height: u32) -> Result<()> {
     if bytes.len() < 33
         || bytes.len() > PNG_LIMIT
@@ -36,21 +109,8 @@ pub fn inspect_source_png(bytes: &[u8], width: u32, height: u32) -> Result<()> {
             "Only original RGB8/RGBA8 Motion PNG is admitted",
         ));
     }
-    let mut offset = 8usize;
-    let mut saw_end = false;
     let mut color_chunks = std::collections::BTreeSet::new();
-    while offset < bytes.len() {
-        if bytes.len() - offset < 12 {
-            return Err(Error::invalid("Truncated PNG chunk"));
-        }
-        let n = u32::from_be_bytes(bytes[offset..offset + 4].try_into().unwrap()) as usize;
-        let end = offset
-            .checked_add(n)
-            .and_then(|v| v.checked_add(12))
-            .filter(|end| *end <= bytes.len())
-            .ok_or_else(|| Error::invalid("PNG chunk length"))?;
-        let kind = &bytes[offset + 4..offset + 8];
-        let payload = &bytes[offset + 8..end - 4];
+    inspect_png_chunks(bytes, |kind, payload| {
         if matches!(kind, b"iCCP" | b"cICP" | b"gAMA" | b"cHRM" | b"sRGB")
             && !color_chunks.insert(kind.to_vec())
         {
@@ -81,17 +141,8 @@ pub fn inspect_source_png(bytes: &[u8], width: u32, height: u32) -> Result<()> {
                 "Source PNG profile conflicts with explicit sRGB admission",
             ));
         }
-        if kind == b"IEND" {
-            saw_end = true;
-            if end != bytes.len() {
-                return Err(Error::invalid("PNG trailing data"));
-            }
-        }
-        offset = end;
-    }
-    if !saw_end {
-        return Err(Error::invalid("PNG end marker missing"));
-    }
+        Ok(())
+    })?;
     let observed = semwright_driver_motion_canvas::security::inspect_png(bytes)
         .map_err(|_| Error::invalid("Original Motion PNG failed complete decoding"))?;
     if observed.width != width
@@ -547,6 +598,7 @@ pub fn inspect_decoded_png(
     if bytes.len() < 33 || bytes.len() > PNG_LIMIT || bytes[24] != 8 || bytes[25] != 6 {
         return Err(Error::invalid("Decoded PNG must be RGBA8 within budget"));
     }
+    inspect_png_chunks(bytes, |_, _| Ok(()))?;
     let p = semwright_driver_motion_canvas::security::inspect_png(bytes)
         .map_err(|_| Error::new("BackendFailed", "Complete decoded PNG verification failed"))?;
     if p.width != width || p.height != height || p.min_alpha != 255 || p.max_alpha != 255 {

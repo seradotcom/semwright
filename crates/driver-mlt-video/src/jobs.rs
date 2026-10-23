@@ -799,7 +799,7 @@ fn render_impl<F: FnOnce(&Path)>(
             ));
         }
     }
-    let mut native_sources = Vec::new();
+    let mut native_staged_sources = Vec::new();
     let mut staged = BTreeMap::new();
     let mut total = 0;
     for id in &asset_ids {
@@ -842,12 +842,15 @@ fn render_impl<F: FnOnce(&Path)>(
             ));
         }
         if selected.is_some() {
-            native_sources.push(Artifact {
-                root: root.clone(),
-                path: path.clone(),
-                sha256: staged_sha256,
-                bytes: size,
-            });
+            native_staged_sources.push((
+                Artifact {
+                    root: root.clone(),
+                    path: path.clone(),
+                    sha256: staged_sha256,
+                    bytes: size,
+                },
+                name.clone(),
+            ));
         }
         destination.sync_all()?;
         drop(destination);
@@ -880,6 +883,10 @@ fn render_impl<F: FnOnce(&Path)>(
         }
         staged.insert(id.clone(), runtime.input_reference(inputs.path(), &name));
     }
+    let native_sources = native_staged_sources
+        .iter()
+        .map(|(source, _)| source.clone())
+        .collect::<Vec<_>>();
     p.sequences = vec![seq];
     p.assets.retain(|id, _| asset_ids.contains(id));
     if let Some(width) = profile.width {
@@ -902,11 +909,27 @@ fn render_impl<F: FnOnce(&Path)>(
     } else {
         None
     };
+    let native_identity = native_before
+        .as_ref()
+        .map(|bytes| (sha256(bytes), bytes.len() as u64));
+    let verify_native_inputs = || -> Result<()> {
+        if let Some((digest, bytes)) = &native_identity {
+            crate::color::verify_staged_native_inputs(
+                &input_root,
+                digest,
+                *bytes,
+                &native_staged_sources,
+            )?;
+        }
+        Ok(())
+    };
     check_cancel(cancel)?;
     let deadline = Instant::now() + runtime.timeout;
     on_running(inputs.path());
+    verify_native_inputs()?;
     runtime.render(inputs.path(), work.path(), profile, cancel, deadline)?;
     check_cancel(cancel)?;
+    verify_native_inputs()?;
     let validated = runtime.validate_output(
         work.path(),
         profile,
@@ -949,6 +972,7 @@ fn render_impl<F: FnOnce(&Path)>(
             "source_kind":"mlt_render_project_bytes","root":"output","path":retained.path,
             "sha256":retained.sha256,"bytes":retained.bytes,"source_first_frame":0,
         });
+        verify_native_inputs()?;
         color_observation = Some(crate::color::publish_observation(
             observed,
             &work_root,

@@ -552,7 +552,10 @@ fn close_frame_readback(
         ));
     }
     let roster = crate::color::rgba_roster_digest(frames)?;
-    let _ = (deadline, cancel);
+    remaining_color_budget(deadline)?;
+    if cancel.load(Ordering::Acquire) {
+        return Err(Error::new("Cancelled", "Complete frame readback cancelled"));
+    }
     Ok(roster)
 }
 
@@ -927,6 +930,34 @@ impl Runtime {
         name: &str,
         cancel: &AtomicBool,
     ) -> Result<MediaInfo> {
+        self.probe_with_timeout(inputs, work, name, cancel, Duration::from_secs(5))
+    }
+
+    fn probe_before_deadline(
+        &self,
+        inputs: &Path,
+        work: &Path,
+        name: &str,
+        cancel: &AtomicBool,
+        deadline: Instant,
+    ) -> Result<MediaInfo> {
+        let timeout = remaining_color_budget(deadline)?.min(Duration::from_secs(5));
+        let media = self.probe_with_timeout(inputs, work, name, cancel, timeout)?;
+        remaining_color_budget(deadline)?;
+        if cancel.load(Ordering::Acquire) {
+            return Err(Error::new("Cancelled", "Complete media probe cancelled"));
+        }
+        Ok(media)
+    }
+
+    fn probe_with_timeout(
+        &self,
+        inputs: &Path,
+        work: &Path,
+        name: &str,
+        cancel: &AtomicBool,
+        timeout: Duration,
+    ) -> Result<MediaInfo> {
         crate::fs::validate_relative(name)?;
         if name.contains('/') {
             return Err(Error::invalid("Probe accepts one staged basename"));
@@ -945,11 +976,7 @@ impl Runtime {
             self.input_path(inputs, name).into_os_string(),
         ))
         .collect();
-        let r = run(
-            &self.spec("ffprobe", args, inputs, work, Duration::from_secs(5))?,
-            cancel,
-        )?
-        .checked()?;
+        let r = run(&self.spec("ffprobe", args, inputs, work, timeout)?, cancel)?.checked()?;
         MediaInfo::parse(&r.stdout)
     }
     pub fn sync_probe(
@@ -1240,7 +1267,7 @@ impl Runtime {
             cancel,
         )?
         .checked()?;
-        let info = self.probe(work, work, "mezzanine.mkv", cancel)?;
+        let info = self.probe_before_deadline(work, work, "mezzanine.mkv", cancel, deadline)?;
         if !info.video
             || info.audio
             || info.width != Some(width)
@@ -1637,7 +1664,7 @@ impl Runtime {
     ) -> Result<ValidatedOutput> {
         remaining_color_budget(deadline)?;
         let filename = format!("partial.{}", profile.extension);
-        let mut info = self.probe(work, work, &filename, cancel)?;
+        let mut info = self.probe_before_deadline(work, work, &filename, cancel, deadline)?;
         remaining_color_budget(deadline)?;
         let observation = if let Some(selected) = complete_observation_profile(profile) {
             let observed = self.observe_video_file(
