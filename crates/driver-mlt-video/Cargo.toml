@@ -37,6 +37,7 @@ hex.workspace = true
 async-trait.workspace = true
 libc.workspace = true
 semwright-driver-sdk.workspace = true
+semwright-driver-motion-canvas = { path = "../driver-motion-canvas" }
 semwright-types.workspace = true
 semwright-video-domain.workspace = true
 serde_json.workspace = true

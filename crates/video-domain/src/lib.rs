@@ -11,6 +11,7 @@ pub mod edit;
 pub mod error;
 pub mod hash;
 pub mod model;
+pub mod native_observation;
 pub mod refs;
 pub mod render;
 pub mod support;

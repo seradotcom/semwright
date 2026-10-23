@@ -979,6 +979,33 @@ fn validate_artifacts(
         samples.dedup();
         samples
     };
+    let canvas_color_bytes = crate::store::read_granted_file(
+        output,
+        "canvas-color-observations.json",
+        16 * 1024 * 1024,
+    )?;
+    let canvas_colors: serde_json::Value = serde_json::from_slice(&canvas_color_bytes)?;
+    if canvas_colors.as_object().is_none_or(|o| o.len() != 3)
+        || canvas_colors
+            .get("schema")
+            .and_then(serde_json::Value::as_str)
+            != Some("semwright.motion-canvas-context-color/1")
+        || canvas_colors
+            .get("render_input_digest")
+            .and_then(serde_json::Value::as_str)
+            != Some(render_input_digest)
+    {
+        return Err(Error::invalid("Native canvas color receipt mismatch"));
+    }
+    let color_frames = canvas_colors
+        .get("frames")
+        .and_then(serde_json::Value::as_array)
+        .filter(|rows| rows.len() == entries.len())
+        .ok_or_else(|| Error::invalid("Native canvas color observation count mismatch"))?;
+    let expected_space = match plan.color_space {
+        crate::model::ColorSpace::Srgb => "srgb",
+        crate::model::ColorSpace::DisplayP3 => "display-p3",
+    };
     let mut manifest = Vec::with_capacity(entries.len());
     let mut saw_transparency = false;
     for (index, entry) in entries.iter().enumerate() {
@@ -991,6 +1018,27 @@ fn validate_artifacts(
             ));
         }
         let bytes = fs::read(entry.path())?;
+        let canvas_row = &color_frames[index];
+        if canvas_row.as_object().is_none_or(|o| o.len() != 4)
+            || canvas_row.get("index").and_then(serde_json::Value::as_u64) != Some(index as u64)
+            || canvas_row.get("frame").and_then(serde_json::Value::as_u64)
+                != Some(plan.first_frame + index as u64)
+            || canvas_row
+                .get("png_sha256")
+                .and_then(serde_json::Value::as_str)
+                != Some(security::sha256(&bytes).as_str())
+        {
+            return Err(Error::invalid("Native canvas color/frame binding mismatch"));
+        }
+        let canvas_color = canvas_row
+            .get("canvas")
+            .ok_or_else(|| Error::invalid("Native canvas attributes missing"))?;
+        security::validate_canvas_color_evidence(
+            canvas_color,
+            plan.width,
+            plan.height,
+            expected_space,
+        )?;
         let deep = pixel_samples.contains(&index);
         let pixels = if deep {
             Some(security::inspect_png(&bytes)?)
@@ -1017,6 +1065,7 @@ fn validate_artifacts(
             "file": format!("frames/{name}"),
             "bytes": bytes.len(),
             "sha256": security::sha256(&bytes),
+            "canvas_color":canvas_color,
             "pixel_sha256": pixels.as_ref().map(|png| png.pixel_sha256.as_str()),
             "min_alpha": pixels.as_ref().map(|png| png.min_alpha),
             "max_alpha": pixels.as_ref().map(|png| png.max_alpha),
@@ -1061,6 +1110,8 @@ fn validate_artifacts(
     };
     let manifest_bytes = serde_json::to_vec_pretty(&json!({
         "native_observations":native_observations,
+        "canvas_color_observation":{"path":"canvas-color-observations.json",
+            "sha256":security::sha256(&canvas_color_bytes),"bytes":canvas_color_bytes.len()},
         "renderer": "motion-canvas-core-renderer-v3.17.2",
         "plan": plan,
         "pixel_validation": {

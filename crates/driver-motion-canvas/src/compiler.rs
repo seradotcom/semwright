@@ -601,7 +601,14 @@ pub fn compile(project: &Project) -> Result<Generated> {
         br#"// Fixed Semwright exporter. Frame bytes leave the browser only through an owner-controlled Playwright binding.
 import {ObjectMetaField} from '@motion-canvas/core';
 import type {Exporter, Plugin, Project, RendererSettings} from '@motion-canvas/core';
-declare global { var __SEMWRIGHT_EXPORT_FRAME__: undefined | ((frame: {frame:number; data:string}) => Promise<void>); }
+declare global { var __SEMWRIGHT_EXPORT_FRAME__: undefined | ((frame: {frame:number; data:string; canvas_color:unknown}) => Promise<void>); }
+function observeCanvasColor(canvas: HTMLCanvasElement){
+  const context=canvas.getContext('2d');
+  if(!context||typeof context.getContextAttributes!=='function')throw new Error('native canvas color attributes unavailable');
+  const actual=context.getContextAttributes();
+  if(!actual||(actual.colorSpace!=='srgb'&&actual.colorSpace!=='display-p3')||typeof actual.alpha!=='boolean')throw new Error('native canvas color attributes unknown');
+  return {api:'CanvasRenderingContext2D.getContextAttributes',color_space:actual.colorSpace,alpha:actual.alpha,width:canvas.width,height:canvas.height};
+}
 class SemwrightImageExporter implements Exporter {
   static readonly id='@semwright/driver/image-sequence';
   static readonly displayName='Semwright image sequence';
@@ -611,7 +618,7 @@ class SemwrightImageExporter implements Exporter {
     if(signal.aborted) return;
     const send=globalThis.__SEMWRIGHT_EXPORT_FRAME__;
     if(typeof send !== 'function') throw new Error('Semwright exporter binding unavailable');
-    await send({frame,data:canvas.toDataURL('image/png')});
+    await send({frame,data:canvas.toDataURL('image/png'),canvas_color:observeCanvasColor(canvas)});
   }
 }
 export const semwrightExporterPlugin: Plugin={name:'semwright-driver-exporter-v1',exporters:()=>[SemwrightImageExporter]};
@@ -624,8 +631,8 @@ export const semwrightExporterPlugin: Plugin={name:'semwright-driver-exporter-v1
         let mut code =
             String::from_utf8(exporter.clone()).map_err(|_| Error::invalid("exporter UTF-8"))?;
         code = code.replace(
-            "await send({frame,data:canvas.toDataURL('image/png')});",
-            "const g=globalThis as unknown as {__SEMWRIGHT_NATIVE_FRAME_CLOCK__?:{frame:number;fps_num:number;fps_den:number};__SEMWRIGHT_NATIVE_CONFIG__?:{fps_num:number;fps_den:number;render_input_digest:string;native_stage_version:'3.17.2';font_evidence:import('./semwright-authoring-native').FontEvidence[]};__SEMWRIGHT_NATIVE_PROBE__?:typeof import('./semwright-authoring-native').nativeProbeType}; const config=g.__SEMWRIGHT_NATIVE_CONFIG__; if(!config||!g.__SEMWRIGHT_NATIVE_PROBE__)throw new Error('native authoring probe unavailable'); g.__SEMWRIGHT_NATIVE_FRAME_CLOCK__={frame,fps_num:config.fps_num,fps_den:config.fps_den}; const observation=await g.__SEMWRIGHT_NATIVE_PROBE__(canvas,frame,config); await (send as (payload:unknown)=>Promise<void>)({frame,data:canvas.toDataURL('image/png'),observation});"
+            "await send({frame,data:canvas.toDataURL('image/png'),canvas_color:observeCanvasColor(canvas)});",
+            "const g=globalThis as unknown as {__SEMWRIGHT_NATIVE_FRAME_CLOCK__?:{frame:number;fps_num:number;fps_den:number};__SEMWRIGHT_NATIVE_CONFIG__?:{fps_num:number;fps_den:number;render_input_digest:string;native_stage_version:'3.17.2';font_evidence:import('./semwright-authoring-native').FontEvidence[]};__SEMWRIGHT_NATIVE_PROBE__?:typeof import('./semwright-authoring-native').nativeProbeType}; const config=g.__SEMWRIGHT_NATIVE_CONFIG__; if(!config||!g.__SEMWRIGHT_NATIVE_PROBE__)throw new Error('native authoring probe unavailable'); g.__SEMWRIGHT_NATIVE_FRAME_CLOCK__={frame,fps_num:config.fps_num,fps_den:config.fps_den}; const observation=await g.__SEMWRIGHT_NATIVE_PROBE__(canvas,frame,config); await (send as (payload:unknown)=>Promise<void>)({frame,data:canvas.toDataURL('image/png'),canvas_color:observeCanvasColor(canvas),observation});"
         );
         *exporter = code.into_bytes();
     }

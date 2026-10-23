@@ -1810,7 +1810,7 @@ impl App {
             ("av-audio".into(), audio_sha256.into()),
         ]);
         let cancel = AtomicBool::new(false);
-        let (artifact, media) = jobs::render_sync_pinned(
+        let native = jobs::render_sync_pinned(
             runtime,
             project,
             "sequence0",
@@ -1821,6 +1821,17 @@ impl App {
             &pins,
             max_bytes,
         )?;
+        let jobs::RenderedOutput {
+            artifact,
+            media,
+            native_input,
+            native_input_sources,
+            color_observation,
+        } = native;
+        let native_input =
+            native_input.ok_or_else(|| Error::invalid("AV native input was not retained"))?;
+        let color_observation =
+            color_observation.ok_or_else(|| Error::invalid("AV full video observation missing"))?;
         if !media.video
             || !media.audio
             || media.width != Some(width)
@@ -1892,6 +1903,12 @@ impl App {
 
         Ok(obj([
             ("artifact", artifact.json()),
+            ("native_input", native_input.json()),
+            (
+                "native_input_sources",
+                array(native_input_sources.iter().map(crate::fs::Artifact::json)),
+            ),
+            ("color_observation", color_observation.json()),
             ("decoded_audio", decoded_artifact.json()),
             ("decoded_audio_media", decoded_media.json()),
             (
@@ -1987,6 +2004,7 @@ impl App {
             .get("plan")
             .and_then(serde_json::Value::as_object)
             .ok_or_else(|| Error::invalid("Motion frame manifest omitted render plan"))?;
+        crate::color::require_srgb_plan(plan)?;
         let required_u64 = |name: &str| -> Result<u64> {
             plan.get(name)
                 .and_then(serde_json::Value::as_u64)
@@ -2024,15 +2042,59 @@ impl App {
                 "Motion frame manifest count does not match its render plan",
             ));
         }
+        let observation_budget = crate::color::observation_budget(width, height, frame_count)?;
+        let output = self
+            .roots
+            .get("output")
+            .ok_or_else(|| Error::new("Unavailable", "Output mount is absent"))?;
+        if !output.readable || !output.writable {
+            return Err(Error::new(
+                "PermissionDenied",
+                "Complete readback requires readable/writable output",
+            ));
+        }
+        crate::color::preflight_observation_output(
+            output,
+            output_path,
+            width,
+            height,
+            frame_count,
+            false,
+        )?;
         let parent = manifest_path
             .rsplit_once('/')
             .map(|(parent, _)| parent)
             .unwrap_or("");
         let inputs = PrivateDir::new(Path::new("/tmp"))?;
         let work = PrivateDir::new(Path::new("/tmp"))?;
+        let staged_root = Root::open(inputs.path(), true, false)?;
+        let work_root = Root::open(work.path(), true, false)?;
+        if work_root.available_bytes_for("mezzanine.mkv")? < observation_budget.peak_free_bytes {
+            return Err(Error::limit(
+                "Scratch filesystem lacks complete-readback peak space",
+            ));
+        }
         let mut total = 0u64;
         for (index, frame) in frames.iter().enumerate() {
             let index_u64 = index as u64;
+            let actual_canvas = frame.get("canvas_color").ok_or_else(|| {
+                Error::new(
+                    "Unsupported",
+                    "Original Motion manifest lacks actual canvas color observations",
+                )
+            })?;
+            semwright_driver_motion_canvas::security::validate_canvas_color_evidence(
+                actual_canvas,
+                width,
+                height,
+                "srgb",
+            )
+            .map_err(|_| {
+                Error::new(
+                    "Unsupported",
+                    "Original Motion canvas is not observed sRGB; no color inferred from plan",
+                )
+            })?;
             if frame.get("index").and_then(serde_json::Value::as_u64) != Some(index_u64) {
                 return Err(Error::invalid(
                     "Motion frame manifest index is not contiguous",
@@ -2107,8 +2169,11 @@ impl App {
                 ));
             }
             inputs.seal(&destination_name)?;
+            let original_png = staged_root.read(&destination_name, crate::color::PNG_LIMIT)?;
+            crate::color::inspect_source_png(&original_png, width, height)?;
         }
-        let media = runtime.encode_frames(
+        let cancel = AtomicBool::new(false);
+        let encoded = runtime.encode_frames(
             inputs.path(),
             work.path(),
             first_frame,
@@ -2117,25 +2182,48 @@ impl App {
             fps_den,
             width,
             height,
-            &AtomicBool::new(false),
+            &cancel,
         )?;
-        let output = self
-            .roots
-            .get("output")
-            .ok_or_else(|| Error::new("Unavailable", "Output mount is absent"))?;
-        let source = Root::open(work.path(), true, false)?.read_file("mezzanine.mkv", max_bytes)?;
-        let artifact = output.publish("output", output_path, source, max_bytes)?;
+        let observed = &encoded.observation;
+        let work_root = Root::open(work.path(), true, false)?;
+        let source_binding = serde_json::json!({
+            "source_kind":"motion_canvas_frame_manifest_bytes","root":root_name,
+            "path":manifest_path,"sha256":expected_manifest_sha256,"bytes":manifest_bytes.len(),
+            "source_first_frame":first_frame,
+        });
+        let observation = crate::color::publish_observation(
+            observed,
+            &work_root,
+            output,
+            output_path,
+            source_binding,
+            None,
+            (width, height),
+            fps_num,
+            fps_den,
+            &cancel,
+        )?;
+        let artifact = output.publish_verified(
+            "output",
+            output_path,
+            work_root.read_file("mezzanine.mkv", max_bytes)?,
+            max_bytes,
+            &observed.video_sha256,
+            observed.video_bytes,
+        )?;
+        crate::color::verify_published_video(output, &artifact)?;
         Ok(obj([
             ("artifact", artifact.json()),
+            ("color_observation", observation.json()),
             ("source_manifest_sha256", expected_manifest_sha256.into()),
             ("codec", "ffv1".into()),
             ("container", "matroska".into()),
-            ("frame_count", frame_count.into()),
+            ("frame_count", (observed.frames.len() as u64).into()),
             ("width", u64::from(width).into()),
             ("height", u64::from(height).into()),
             ("fps_num", u64::from(fps_num).into()),
             ("fps_den", u64::from(fps_den).into()),
-            ("media", media.json()),
+            ("media", encoded.media.json()),
         ]))
     }
 

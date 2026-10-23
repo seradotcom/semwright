@@ -3528,6 +3528,7 @@ dependencies = [
  "libc",
  "semwright-backend-api",
  "semwright-driver-host",
+ "semwright-driver-motion-canvas",
  "semwright-driver-sdk",
  "semwright-policy",
  "semwright-types",

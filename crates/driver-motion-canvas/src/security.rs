@@ -322,3 +322,80 @@ pub fn inspect_png(bytes: &[u8]) -> Result<PngEvidence> {
         pixel_sha256: hex::encode(hash.finalize()),
     })
 }
+
+/// Validates actual context attributes captured by the fixed native exporter.
+/// This data does not confer provider/Host authority; the manifest receipt does.
+pub fn validate_canvas_color_evidence(
+    value: &serde_json::Value,
+    width: u32,
+    height: u32,
+    expected_space: &str,
+) -> Result<()> {
+    use serde_json::Value;
+    let Some(object) = value.as_object() else {
+        return Err(Error::invalid(
+            "Native canvas color observation must be an object",
+        ));
+    };
+    let fields = ["api", "color_space", "alpha", "width", "height"];
+    if object.len() != fields.len()
+        || fields.iter().any(|key| !object.contains_key(*key))
+        || !matches!(expected_space, "srgb" | "display-p3")
+        || value.get("api").and_then(Value::as_str)
+            != Some("CanvasRenderingContext2D.getContextAttributes")
+        || value.get("color_space").and_then(Value::as_str) != Some(expected_space)
+        || value.get("alpha").and_then(Value::as_bool).is_none()
+        || value.get("width").and_then(Value::as_u64) != Some(u64::from(width))
+        || value.get("height").and_then(Value::as_u64) != Some(u64::from(height))
+    {
+        return Err(Error::invalid(
+            "Native canvas color attributes differ or are unknown",
+        ));
+    }
+    // Context alpha capability is observed, not equated with pixel opacity.
+    // Full PNG decoding establishes the actual alpha of the exported pixels.
+    Ok(())
+}
+
+#[cfg(test)]
+mod canvas_color_tests {
+    use super::*;
+    use serde_json::json;
+    fn observed() -> serde_json::Value {
+        json!({"api":"CanvasRenderingContext2D.getContextAttributes","color_space":"srgb",
+            "alpha":true,"width":1920,"height":1080})
+    }
+    #[test]
+    fn observed_canvas_color_accepts_real_context_alpha_capability() {
+        assert!(validate_canvas_color_evidence(&observed(), 1920, 1080, "srgb").is_ok());
+        let mut p3 = observed();
+        p3["color_space"] = json!("display-p3");
+        assert!(validate_canvas_color_evidence(&p3, 1920, 1080, "display-p3").is_ok());
+        assert!(validate_canvas_color_evidence(&p3, 1920, 1080, "srgb").is_err());
+    }
+    #[test]
+    fn observed_canvas_color_refuses_missing_config_substitutes_and_wrong_types() {
+        for v in [
+            json!(null),
+            json!({}),
+            json!({"color_space":"srgb","alpha":false}),
+            json!({"api":"requested-profile","color_space":"srgb","alpha":false,"width":1920,"height":1080}),
+        ] {
+            assert!(validate_canvas_color_evidence(&v, 1920, 1080, "srgb").is_err());
+        }
+        for (field, bad) in [
+            ("alpha", json!(null)),
+            ("width", json!("1920")),
+            ("height", json!(1079)),
+            ("color_space", json!("unknown")),
+            ("api", json!(null)),
+        ] {
+            let mut v = observed();
+            v[field] = bad;
+            assert!(validate_canvas_color_evidence(&v, 1920, 1080, "srgb").is_err());
+        }
+        let mut v = observed();
+        v["extra"] = json!(1);
+        assert!(validate_canvas_color_evidence(&v, 1920, 1080, "srgb").is_err());
+    }
+}

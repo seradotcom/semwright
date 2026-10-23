@@ -5,12 +5,12 @@ use semwright_driver_sdk::{
 };
 use semwright_mlt_video::{
     app::{App, RenderRequest},
-    catalog,
-    fs::{PrivateDir, Root},
-    hash::{random_id, sha256},
+    catalog, color,
+    fs::{Artifact, PrivateDir, Root},
+    hash::{random_id, reader_hash, sha256},
     jobs::{
         self, JobSnapshot, MAX_ACTIVE_JOBS, MAX_ARTIFACT_BYTES, MAX_JOB_INPUT_BYTES,
-        MAX_MEDIA_BYTES, MAX_RETAINED_JOBS, State,
+        MAX_MEDIA_BYTES, MAX_RETAINED_JOBS, RenderedOutput, State,
     },
     model::Profile,
     runtime::{
@@ -35,6 +35,7 @@ struct HostRenderJob {
     expected_profile: Profile,
     frames: u64,
     output_file: String,
+    observation_request: Option<Vec<u8>>,
 }
 
 struct HostRenderDiagnostic<'a> {
@@ -104,30 +105,365 @@ fn now_ms() -> u64 {
         .map_or(0, |duration| duration.as_millis() as u64)
 }
 
-fn host_render_result(bytes: &[u8], expected_output: &str) -> Result<()> {
-    let value: Value = serde_json::from_slice(bytes).map_err(|_| {
-        Error::new(
-            ErrorCode::PluginProtocolError,
-            "MLT runtime runner returned invalid render JSON",
-        )
-    })?;
-    let object = value.as_object().ok_or_else(|| {
-        Error::new(
-            ErrorCode::PluginProtocolError,
-            "MLT runtime runner render result must be an object",
-        )
-    })?;
-    if object.len() != 3
-        || object.get("schema").and_then(Value::as_u64) != Some(1)
-        || object.get("operation").and_then(Value::as_str) != Some("render")
-        || object.get("output").and_then(Value::as_str) != Some(expected_output)
+const NATIVE_HOST_CUSTODY_LIMIT: usize = 16_384;
+struct OriginalHostTerminal<'a> {
+    render_job: &'a str,
+    revision: &'a str,
+    output_path: &'a str,
+    runtime_job: &'a RuntimeToolJob,
+    exit_code: i32,
+    request: &'a [u8],
+    stdout: &'a [u8],
+}
+fn host_custody_readback_uncertain() -> Error {
+    let mut error = Error::new(
+        ErrorCode::BackendFailed,
+        "Original Host custody was published but its readback is uncertain",
+    );
+    error.outcome_known = false;
+    error
+}
+// Called once from the original Host completion. No renderer, reconstructed
+// request, process inspection, argv/environment capture, or retry exists here.
+fn retain_original_host_custody(
+    work: &Root,
+    output: &Root,
+    original: &OriginalHostTerminal<'_>,
+) -> Result<Artifact> {
+    original.runtime_job.validate()?;
+    let job = original
+        .render_job
+        .strip_prefix("render:")
+        .filter(|s| {
+            !s.is_empty()
+                && s.len() <= 73
+                && s.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-')
+        })
+        .ok_or_else(host_render_protocol_error)?;
+    let _ = job;
+    if original.exit_code != 0
+        || !semwright_mlt_video::hash::valid_digest(original.revision)
+        || original.request.is_empty()
+        || original.request.len() > color::NATIVE_OBSERVATION_REQUEST_LIMIT
     {
+        return Err(host_render_protocol_error());
+    }
+    let descriptor = host_render_result(original.stdout, "partial.mkv", Some(original.request))?
+        .ok_or_else(host_render_protocol_error)?;
+    let bound = bind_host_native_observation(work, original.request, &descriptor)?;
+    if bound.request.output_path != original.output_path {
+        return Err(host_render_protocol_error());
+    }
+    let request_file = Artifact {
+        root: "output".into(),
+        path: format!("{}.native-host-request.json", original.output_path),
+        sha256: sha256(original.request),
+        bytes: original.request.len() as u64,
+    };
+    let terminal_file = Artifact {
+        root: "output".into(),
+        path: format!("{}.native-host-terminal.json", original.output_path),
+        sha256: sha256(original.stdout),
+        bytes: original.stdout.len() as u64,
+    };
+    let original_observation = Artifact {
+        root: "output".into(),
+        path: format!("{}.native-host-observation.json", original.output_path),
+        sha256: sha256(&bound.report),
+        bytes: bound.report.len() as u64,
+    };
+    let planned_input = Artifact {
+        root: "output".into(),
+        path: format!("{}.native-input.mlt", original.output_path),
+        sha256: bound.request.project_sha256.clone(),
+        bytes: bound.request.project_bytes,
+    };
+    let planned_report = Artifact {
+        root: "output".into(),
+        path: format!("{}.color-observation.json", original.output_path),
+        sha256: original_observation.sha256.clone(),
+        bytes: original_observation.bytes,
+    };
+    let planned_video = Artifact {
+        root: "output".into(),
+        path: original.output_path.into(),
+        sha256: bound.video_sha256.clone(),
+        bytes: bound.video_bytes,
+    };
+    let document = serde_json::json!({
+        "schema":"semwright.mlt-native-host-custody/1",
+        "render_job":original.render_job, "project_revision":original.revision,
+        "profile":"lossless-video-only", "output_path":original.output_path,
+        "runtime_job_id":original.runtime_job.id, "host_exit_code":original.exit_code,
+        "stage":"original-host-terminal-before-final-publication",
+        "request":from_internal(request_file.json())?,
+        "terminal":from_internal(terminal_file.json())?,
+        "observation":from_internal(descriptor.json())?,
+        "original_observation":from_internal(original_observation.json())?,
+        "publication_plan":{
+            "scope":"planned-destinations-not-commit-observations",
+            "native_input":from_internal(planned_input.json())?,
+            "color_observation":from_internal(planned_report.json())?,
+            "video":from_internal(planned_video.json())?,
+            "decoded_frame_count":bound.request.frames,
+            "decoded_frame_prefix":format!("{}.decoded-",original.output_path),
+            "decoded_frame_suffix":".png", "decoded_frame_index_width":6,
+            "frame_descriptors":"original_observation.frames"
+        },
+        "final_video_commit_observed":false, "native_execution_retried":false
+    });
+    let document = serde_json::to_vec(&document)?;
+    if document.len() > NATIVE_HOST_CUSTODY_LIMIT {
         return Err(Error::new(
-            ErrorCode::PluginProtocolError,
-            "MLT runtime runner render envelope is invalid",
+            ErrorCode::ResourceExhausted,
+            "Original Host custody metadata exceeds its closed bound",
+        ));
+    }
+    // Admission precedes every write; descriptor-relative no-replace/fsync
+    // retains partial originals independently of the final native effect.
+    for (file, bytes, maximum) in [
+        (
+            &request_file,
+            original.request,
+            color::NATIVE_OBSERVATION_REQUEST_LIMIT as u64,
+        ),
+        (&terminal_file, original.stdout, 4096u64),
+        (
+            &original_observation,
+            bound.report.as_slice(),
+            color::REPORT_LIMIT as u64,
+        ),
+    ] {
+        output
+            .publish_verified(
+                "output",
+                &file.path,
+                bytes,
+                maximum,
+                &file.sha256,
+                file.bytes,
+            )
+            .map_err(map_error)?;
+        let actual = output
+            .read(&file.path, maximum as usize)
+            .map_err(|_| host_custody_readback_uncertain())?;
+        if actual != bytes {
+            return Err(host_custody_readback_uncertain());
+        }
+    }
+    let path = format!("{}.native-host-custody.json", original.output_path);
+    let retained = output
+        .publish_verified(
+            "output",
+            &path,
+            document.as_slice(),
+            NATIVE_HOST_CUSTODY_LIMIT as u64,
+            &sha256(&document),
+            document.len() as u64,
+        )
+        .map_err(map_error)?;
+    if output
+        .read(&path, NATIVE_HOST_CUSTODY_LIMIT)
+        .map_err(|_| host_custody_readback_uncertain())?
+        != document
+    {
+        return Err(host_custody_readback_uncertain());
+    }
+    Ok(retained)
+}
+// Retention never replaces the original native error or turns UNKNOWN into cancel.
+fn record_original_host_custody(snapshot: &mut JobSnapshot, result: Result<Artifact>) {
+    snapshot.native_host_custody = Some(match result {
+        Ok(file) => jobs::NativeHostCustody::Retained(file),
+        Err(error) => jobs::NativeHostCustody::Unretained(to_internal_error(error)),
+    });
+}
+// Previous partial or uncertain originals remain; a new native attempt needs
+// a new output destination. This function never removes or replays them.
+fn preflight_native_host_custody(output: &Root, path: &str) -> Result<()> {
+    semwright_mlt_video::fs::validate_relative(path).map_err(map_error)?;
+    for suffix in [
+        ".native-host-request.json",
+        ".native-host-terminal.json",
+        ".native-host-observation.json",
+        ".native-host-custody.json",
+    ] {
+        if output
+            .exists(&format!("{path}{suffix}"))
+            .map_err(map_error)?
+        {
+            return Err(Error::new(
+                ErrorCode::Conflict,
+                "Original Host custody already exists; use a new output destination",
+            ));
+        }
+    }
+    let reserve = color::REPORT_LIMIT as u64
+        + color::NATIVE_OBSERVATION_REQUEST_LIMIT as u64
+        + 4096
+        + NATIVE_HOST_CUSTODY_LIMIT as u64;
+    if output.available_bytes_for(path).map_err(map_error)? < reserve {
+        return Err(Error::new(
+            ErrorCode::ResourceExhausted,
+            "Output lacks the bounded original Host custody reserve",
         ));
     }
     Ok(())
+}
+
+fn host_render_protocol_error() -> Error {
+    Error::new(
+        ErrorCode::PluginProtocolError,
+        "MLT render result differs from the original Host request",
+    )
+}
+
+// Accepted only for this original Host job. Stand-alone JSON is not authority.
+fn host_render_result(
+    bytes: &[u8],
+    expected_output: &str,
+    original_request: Option<&[u8]>,
+) -> Result<Option<Artifact>> {
+    if bytes.len() > 4096 {
+        return Err(host_render_protocol_error());
+    }
+    semwright_mlt_video::json::parse(bytes).map_err(|_| host_render_protocol_error())?;
+    let value: Value = serde_json::from_slice(bytes).map_err(|_| host_render_protocol_error())?;
+    let object = value.as_object().ok_or_else(host_render_protocol_error)?;
+    let fields = if original_request.is_some() { 5 } else { 3 };
+    if object.len() != fields
+        || value["schema"].as_u64() != Some(1)
+        || value["operation"].as_str() != Some("render")
+        || value["output"].as_str() != Some(expected_output)
+    {
+        return Err(host_render_protocol_error());
+    }
+    let Some(request) = original_request else {
+        return Ok(None);
+    };
+    if value["request_sha256"].as_str() != Some(sha256(request).as_str()) {
+        return Err(host_render_protocol_error());
+    }
+    let descriptor = value["observation"]
+        .as_object()
+        .ok_or_else(host_render_protocol_error)?;
+    let digest = descriptor
+        .get("sha256")
+        .and_then(Value::as_str)
+        .filter(|s| semwright_mlt_video::hash::valid_digest(s))
+        .ok_or_else(host_render_protocol_error)?;
+    let size = descriptor
+        .get("bytes")
+        .and_then(Value::as_u64)
+        .filter(|n| *n > 0 && *n <= color::REPORT_LIMIT as u64)
+        .ok_or_else(host_render_protocol_error)?;
+    if descriptor.len() != 4
+        || descriptor.get("root").and_then(Value::as_str) != Some("scratch")
+        || descriptor.get("path").and_then(Value::as_str) != Some(color::NATIVE_OBSERVATION_FILE)
+    {
+        return Err(host_render_protocol_error());
+    }
+    Ok(Some(Artifact {
+        root: "scratch".into(),
+        path: color::NATIVE_OBSERVATION_FILE.into(),
+        sha256: digest.into(),
+        bytes: size,
+    }))
+}
+
+fn verify_host_native_request(
+    work: &Root,
+    original: &[u8],
+) -> Result<color::NativeObservationRequest> {
+    let actual = work
+        .read(
+            color::NATIVE_OBSERVATION_REQUEST_FILE,
+            color::NATIVE_OBSERVATION_REQUEST_LIMIT,
+        )
+        .map_err(map_error)?;
+    if actual != original {
+        return Err(Error::new(
+            ErrorCode::StaleReference,
+            "Native observation request changed after Host staging",
+        ));
+    }
+    let request = color::NativeObservationRequest::parse(original).map_err(map_error)?;
+    request.verify_staged(work).map_err(map_error)?;
+    Ok(request)
+}
+
+struct BoundHostObservation {
+    request: color::NativeObservationRequest,
+    report: Vec<u8>,
+    video_sha256: String,
+    video_bytes: u64,
+}
+
+fn bind_host_native_observation(
+    work: &Root,
+    original: &[u8],
+    descriptor: &Artifact,
+) -> Result<BoundHostObservation> {
+    let request = verify_host_native_request(work, original)?;
+    if descriptor.root != "scratch"
+        || descriptor.path != color::NATIVE_OBSERVATION_FILE
+        || descriptor.bytes == 0
+        || descriptor.bytes > color::REPORT_LIMIT as u64
+        || !semwright_mlt_video::hash::valid_digest(&descriptor.sha256)
+    {
+        return Err(host_render_protocol_error());
+    }
+    let report = work
+        .read(color::NATIVE_OBSERVATION_FILE, color::REPORT_LIMIT)
+        .map_err(map_error)?;
+    if report.len() as u64 != descriptor.bytes || sha256(&report) != descriptor.sha256 {
+        return Err(Error::new(
+            ErrorCode::StaleReference,
+            "Complete observation differs from the original terminal Host result",
+        ));
+    }
+    let parsed =
+        color::parse_complete_observation(&report).map_err(|error| map_error(error.into()))?;
+    request.verify_report(&parsed).map_err(map_error)?;
+    let doc = parsed.document();
+    let video_sha256 = doc["artifact"]["sha256"]
+        .as_str()
+        .ok_or_else(host_render_protocol_error)?
+        .to_owned();
+    let video_bytes = doc["artifact"]["bytes"]
+        .as_u64()
+        .ok_or_else(host_render_protocol_error)?;
+    Ok(BoundHostObservation {
+        request,
+        report,
+        video_sha256,
+        video_bytes,
+    })
+}
+
+// The existing token is checked during the final copy. After commit,
+// cancellation cannot erase an UNKNOWN durability or readback outcome.
+struct HostRenderReader<F> {
+    file: std::fs::File,
+    cancelled: F,
+}
+impl<F: Fn() -> bool> Read for HostRenderReader<F> {
+    fn read(&mut self, bytes: &mut [u8]) -> std::io::Result<usize> {
+        if (self.cancelled)() {
+            return Err(std::io::Error::other("Host render publication cancelled"));
+        }
+        self.file.read(bytes)
+    }
+}
+
+fn host_render_failure_state(error: &semwright_mlt_video::Error) -> State {
+    if !error.outcome_known {
+        State::Unknown
+    } else if error.code == "Cancelled" {
+        State::Cancelled
+    } else {
+        State::Failed
+    }
 }
 
 fn internal_job_error(
@@ -673,18 +1009,43 @@ impl MltVideoDriver {
         let directory = scratch
             .path()
             .file_name()
-            .and_then(|value| value.to_str())
-            .filter(|value| !value.is_empty() && value.len() <= 128)
+            .and_then(|v| v.to_str())
+            .filter(|v| !v.is_empty() && v.len() <= 128)
             .ok_or_else(|| Error::new(ErrorCode::Internal, "MLT scratch directory is invalid"))?
             .to_owned();
-
         let sequence = request
             .project
             .sequence(&request.sequence)
             .map_err(map_error)?
             .clone();
+        let complete = request.profile.id == "lossless-video-only";
+        let output_root = self
+            .app
+            .roots
+            .get("output")
+            .ok_or_else(|| Error::new(ErrorCode::Unavailable, "Output mount disappeared"))?;
+        if complete {
+            preflight_native_host_custody(output_root, &request.output)?;
+            color::preflight_observation_output(
+                output_root,
+                &request.output,
+                request
+                    .profile
+                    .width
+                    .unwrap_or(request.project.profile.width),
+                request
+                    .profile
+                    .height
+                    .unwrap_or(request.project.profile.height),
+                sequence.duration(),
+                true,
+            )
+            .map_err(map_error)?;
+        }
         let (asset_ids, _) = jobs::required(&request.project, &sequence).map_err(map_error)?;
+        let input_root = Root::open(scratch.path(), true, false).map_err(map_error)?;
         let mut staged = BTreeMap::new();
+        let mut staged_sources = Vec::new();
         let mut total = 0u64;
         for asset_id in asset_ids {
             context.check_cancelled()?;
@@ -707,22 +1068,37 @@ impl MltVideoDriver {
             let mut source = root.read_file(&path, MAX_MEDIA_BYTES).map_err(map_error)?;
             let name = format!("asset-{}.bin", &sha256(asset_id.as_bytes())[..24]);
             let mut destination = scratch.create(&name).map_err(map_error)?;
-            let copied = std::io::copy(
-                &mut (&mut source).take(MAX_MEDIA_BYTES.saturating_add(1)),
-                &mut destination,
-            )
-            .map_err(|_| {
-                Error::new(
-                    ErrorCode::BackendFailed,
-                    "Failed to stage bounded MLT render input",
-                )
-            })?;
-            total = total.saturating_add(copied);
-            if copied > MAX_MEDIA_BYTES || total > MAX_JOB_INPUT_BYTES {
-                return Err(Error::new(
-                    ErrorCode::ResourceExhausted,
-                    "Staged MLT render inputs exceed their byte budget",
-                ));
+            let mut copied = 0u64;
+            let mut buffer = [0u8; 65536];
+            loop {
+                context.check_cancelled()?;
+                let n = source.read(&mut buffer).map_err(|_| {
+                    Error::new(
+                        ErrorCode::BackendFailed,
+                        "Failed to read bounded MLT render input",
+                    )
+                })?;
+                if n == 0 {
+                    break;
+                }
+                copied = copied.checked_add(n as u64).ok_or_else(|| {
+                    Error::new(ErrorCode::ResourceExhausted, "MLT input size overflow")
+                })?;
+                total = total.checked_add(n as u64).ok_or_else(|| {
+                    Error::new(ErrorCode::ResourceExhausted, "MLT input total overflow")
+                })?;
+                if copied > MAX_MEDIA_BYTES || total > MAX_JOB_INPUT_BYTES {
+                    return Err(Error::new(
+                        ErrorCode::ResourceExhausted,
+                        "Staged MLT render inputs exceed their byte budget",
+                    ));
+                }
+                destination.write_all(&buffer[..n]).map_err(|_| {
+                    Error::new(
+                        ErrorCode::BackendFailed,
+                        "Failed to stage bounded MLT render input",
+                    )
+                })?;
             }
             destination.flush().map_err(|_| {
                 Error::new(
@@ -738,12 +1114,35 @@ impl MltVideoDriver {
             })?;
             drop(destination);
             scratch.seal(&name).map_err(map_error)?;
+            if complete {
+                let actual = reader_hash(
+                    input_root
+                        .read_file(&name, MAX_MEDIA_BYTES)
+                        .map_err(map_error)?,
+                    MAX_MEDIA_BYTES,
+                )
+                .map_err(map_error)?;
+                if actual.1 != copied {
+                    return Err(Error::new(
+                        ErrorCode::StaleReference,
+                        "Staged native input length changed before Host request",
+                    ));
+                }
+                staged_sources.push((
+                    Artifact {
+                        root: root_name,
+                        path,
+                        sha256: actual.0,
+                        bytes: actual.1,
+                    },
+                    name.clone(),
+                ));
+            }
             let info = self.host_probe_staged(&directory, &name, context).await?;
             jobs::validate_staged_asset(&request.project, &sequence, &asset_id, &info)
                 .map_err(map_error)?;
             staged.insert(asset_id, name);
         }
-
         let prepared = jobs::prepare_render_document(
             request.project,
             &request.sequence,
@@ -760,61 +1159,100 @@ impl MltVideoDriver {
             .map_err(|_| Error::new(ErrorCode::BackendFailed, "Failed to sync project.mlt"))?;
         drop(project_file);
         scratch.seal("project.mlt").map_err(map_error)?;
-
-        let output_file = format!("partial.{}", request.profile.extension);
+        let observation_request = if complete {
+            let bytes = color::native_observation_request(
+                &request.output,
+                prepared.xml.as_bytes(),
+                &prepared.expected_profile,
+                prepared.frames,
+                &staged_sources,
+            )
+            .map_err(map_error)?;
+            let budget = color::observation_budget(
+                prepared.expected_profile.width,
+                prepared.expected_profile.height,
+                prepared.frames,
+            )
+            .map_err(|error| map_error(error.into()))?;
+            if input_root
+                .available_bytes_for("decoded-000000.png")
+                .map_err(map_error)?
+                < budget.peak_free_bytes + 2 * semwright_mlt_video::xml::MAX_XML as u64
+            {
+                return Err(Error::new(
+                    ErrorCode::ResourceExhausted,
+                    "Host scratch lacks complete observation free-space budget",
+                ));
+            }
+            let mut f = scratch
+                .create(color::NATIVE_OBSERVATION_REQUEST_FILE)
+                .map_err(map_error)?;
+            f.write_all(&bytes).map_err(|_| {
+                Error::new(
+                    ErrorCode::BackendFailed,
+                    "Failed to stage native observation request",
+                )
+            })?;
+            f.sync_all().map_err(|_| {
+                Error::new(
+                    ErrorCode::BackendFailed,
+                    "Failed to sync native observation request",
+                )
+            })?;
+            drop(f);
+            scratch
+                .seal(color::NATIVE_OBSERVATION_REQUEST_FILE)
+                .map_err(map_error)?;
+            verify_host_native_request(&input_root, &bytes)?;
+            Some(bytes)
+        } else {
+            None
+        };
+        let literal = |value: &str| RuntimeToolArg::Literal {
+            value: value.into(),
+        };
+        let tool = |name: &str| RuntimeToolArg::ToolPath { tool: name.into() };
+        let mount = |name: &str| RuntimeToolArg::MountPath {
+            mount: name.into(),
+            relative: String::new(),
+        };
+        let mut argv = vec![
+            literal("render"),
+            literal("--runtime-root"),
+            mount("mlt-runtime"),
+            literal("--melt-sealed"),
+            tool("melt"),
+            literal("--scratch-root"),
+            mount("scratch"),
+            literal("--directory"),
+            literal(&directory),
+            literal("--profile"),
+            literal(request.profile.id),
+        ];
+        if complete {
+            argv.extend([
+                literal("--complete-observation"),
+                literal("--ffprobe-sealed"),
+                tool("ffprobe"),
+                literal("--ffmpeg-sealed"),
+                tool("ffmpeg"),
+            ]);
+        }
+        // Allocate fallible local state before starting the Host job.
+        let id = format!("render:{}", random_id().map_err(map_error)?);
+        context.check_cancelled()?;
         let host_job = context
             .start_runtime_tool_job_args(
                 "mlt-runner",
-                vec![
-                    RuntimeToolArg::Literal {
-                        value: "render".into(),
-                    },
-                    RuntimeToolArg::Literal {
-                        value: "--runtime-root".into(),
-                    },
-                    RuntimeToolArg::MountPath {
-                        mount: "mlt-runtime".into(),
-                        relative: String::new(),
-                    },
-                    RuntimeToolArg::Literal {
-                        value: "--melt-sealed".into(),
-                    },
-                    RuntimeToolArg::ToolPath {
-                        tool: "melt".into(),
-                    },
-                    RuntimeToolArg::Literal {
-                        value: "--scratch-root".into(),
-                    },
-                    RuntimeToolArg::MountPath {
-                        mount: "scratch".into(),
-                        relative: String::new(),
-                    },
-                    RuntimeToolArg::Literal {
-                        value: "--directory".into(),
-                    },
-                    RuntimeToolArg::Literal {
-                        value: directory.clone(),
-                    },
-                    RuntimeToolArg::Literal {
-                        value: "--profile".into(),
-                    },
-                    RuntimeToolArg::Literal {
-                        value: request.profile.id.into(),
-                    },
-                ],
+                argv,
                 Vec::new(),
-                // The Host derives the inherited CPU ceiling from this tool
-                // deadline. A two-thread 1080p render can consume 150 CPU
-                // seconds before its independent native wall limit.
-                // Match the declared 300-CPU-second driver ceiling; the native
-                // runner retains its independent 180-second wall deadline.
+                // Existing Host CPU ceiling; one native render+observation deadline.
                 Duration::from_secs(300),
                 None,
             )
             .await?;
-
-        let id = format!("render:{}", random_id().map_err(map_error)?);
         let now = now_ms();
+        let output_file = format!("partial.{}", request.profile.extension);
         let snapshot = JobSnapshot {
             id: id.clone(),
             revision: request.revision,
@@ -826,6 +1264,10 @@ impl MltVideoDriver {
             completed_at: None,
             artifact: None,
             media: None,
+            native_input: None,
+            native_input_sources: Vec::new(),
+            color_observation: None,
+            native_host_custody: None,
             error: None,
             cancellation_requested: false,
         };
@@ -839,6 +1281,7 @@ impl MltVideoDriver {
                 expected_profile: prepared.expected_profile,
                 frames: prepared.frames,
                 output_file,
+                observation_request,
             },
         );
         Ok(snapshot)
@@ -852,9 +1295,29 @@ impl MltVideoDriver {
         profile: &RenderProfile,
         expected_profile: &Profile,
         frames: u64,
+        observation: Option<(&[u8], &Artifact)>,
         context: &DriverExecutionContext,
-    ) -> Result<(semwright_mlt_video::fs::Artifact, MediaInfo)> {
+    ) -> Result<RenderedOutput> {
         let scratch_path = diagnostic.scratch_path;
+        context.check_cancelled()?;
+        let source_root = Root::open(scratch_path, true, false).map_err(map_error)?;
+        let native = match (profile.id == "lossless-video-only", observation) {
+            (true, Some((request, descriptor))) => {
+                let bound = bind_host_native_observation(&source_root, request, descriptor)?;
+                if bound.request.output_path != output_path
+                    || bound.request.width != expected_profile.width
+                    || bound.request.height != expected_profile.height
+                    || bound.request.fps_num != expected_profile.fps.num
+                    || bound.request.fps_den != expected_profile.fps.den
+                    || bound.request.frames != frames
+                {
+                    return Err(host_render_protocol_error());
+                }
+                Some(bound)
+            }
+            (false, None) => None,
+            _ => return Err(host_render_protocol_error()),
+        };
         let (mut media, raw_probe) = self
             .host_probe_staged_observed(
                 diagnostic.directory,
@@ -901,19 +1364,98 @@ impl MltVideoDriver {
             );
             return Err(map_error(error));
         }
-        let source_root = Root::open(scratch_path, true, false).map_err(map_error)?;
-        let source = source_root
-            .read_file(output_file, MAX_ARTIFACT_BYTES)
-            .map_err(map_error)?;
         let output_root = self
             .app
             .roots
             .get("output")
             .ok_or_else(|| Error::new(ErrorCode::Unavailable, "Output mount disappeared"))?;
-        let artifact = output_root
-            .publish("output", output_path, source, MAX_ARTIFACT_BYTES)
-            .map_err(map_error)?;
-        Ok((artifact, media))
+        let mut native_input = None;
+        let mut native_input_sources = Vec::new();
+        let mut color_observation = None;
+        if let Some(bound) = &native {
+            context.check_cancelled()?;
+            bound
+                .request
+                .verify_staged(&source_root)
+                .map_err(map_error)?;
+            let retained = output_root
+                .publish_verified(
+                    "output",
+                    &format!("{output_path}.native-input.mlt"),
+                    source_root
+                        .read_file("project.mlt", semwright_mlt_video::xml::MAX_XML as u64)
+                        .map_err(map_error)?,
+                    semwright_mlt_video::xml::MAX_XML as u64,
+                    &bound.request.project_sha256,
+                    bound.request.project_bytes,
+                )
+                .map_err(map_error)?;
+            if output_root
+                .digest(&retained.path, semwright_mlt_video::xml::MAX_XML as u64)
+                .map_err(map_error)?
+                != retained.sha256
+            {
+                return Err(Error::new(
+                    ErrorCode::StaleReference,
+                    "Retained native XML changed before video publication",
+                ));
+            }
+            color_observation = Some(
+                color::publish_complete_observation_checked(
+                    &bound.report,
+                    &source_root,
+                    output_root,
+                    output_path,
+                    || context.check_cancelled().map_err(to_internal_error),
+                )
+                .map_err(map_error)?,
+            );
+            native_input_sources = bound.request.sources();
+            native_input = Some(retained);
+            // Recheck original request and sources immediately before final publication.
+            verify_host_native_request(
+                &source_root,
+                observation.ok_or_else(host_render_protocol_error)?.0,
+            )?;
+        }
+        context.check_cancelled()?;
+        let token = context.cancellation();
+        let source = HostRenderReader {
+            file: source_root
+                .read_file(output_file, MAX_ARTIFACT_BYTES)
+                .map_err(map_error)?,
+            cancelled: || token.is_cancelled(),
+        };
+        let publication = match &native {
+            Some(bound) => output_root.publish_verified(
+                "output",
+                output_path,
+                source,
+                MAX_ARTIFACT_BYTES,
+                &bound.video_sha256,
+                bound.video_bytes,
+            ),
+            None => output_root.publish("output", output_path, source, MAX_ARTIFACT_BYTES),
+        };
+        let artifact = match publication {
+            Ok(artifact) => artifact,
+            Err(error) if !error.outcome_known => return Err(map_error(error)),
+            Err(error) => {
+                context.check_cancelled()?;
+                return Err(map_error(error));
+            }
+        };
+        // No cancellation check after final-name commit. Preserve UNKNOWN.
+        if native.is_some() {
+            color::verify_published_video(output_root, &artifact).map_err(map_error)?;
+        }
+        Ok(RenderedOutput {
+            artifact,
+            media,
+            native_input,
+            native_input_sources,
+            color_observation,
+        })
     }
 
     fn persist_native_validation_failure(
@@ -1007,6 +1549,7 @@ impl MltVideoDriver {
             expected_profile,
             frames,
             output_file,
+            observation_request,
         ) = {
             let job = self.host_render_jobs.entries.get(job_id).ok_or_else(|| {
                 Error::new(
@@ -1033,6 +1576,7 @@ impl MltVideoDriver {
                 job.expected_profile.clone(),
                 job.frames,
                 job.output_file.clone(),
+                job.observation_request.clone(),
             )
         };
 
@@ -1081,10 +1625,43 @@ impl MltVideoDriver {
                         },
                     ))
                 } else {
-                    host_render_result(&output.stdout, &output_file)
+                    host_render_result(&output.stdout, &output_file, observation_request.as_deref())
                 };
+
+                if let Some(request) = observation_request.as_deref() {
+                    let custody = if output.exit_code == 0
+                        && terminal.as_ref().is_ok_and(|value| value.is_some())
+                    {
+                        (|| -> Result<Artifact> {
+                            let work = Root::open(&scratch_path, true, false).map_err(map_error)?;
+                            let destination = self.app.roots.get("output").ok_or_else(|| {
+                                Error::new(ErrorCode::Unavailable, "Output mount disappeared")
+                            })?;
+                            retain_original_host_custody(
+                                &work,
+                                destination,
+                                &OriginalHostTerminal {
+                                    render_job: &next.id,
+                                    revision: &next.revision,
+                                    output_path: &next.output,
+                                    runtime_job: &host_job,
+                                    exit_code: output.exit_code,
+                                    request,
+                                    stdout: &output.stdout,
+                                },
+                            )
+                        })()
+                    } else {
+                        Err(Error::new(
+                            ErrorCode::Unavailable,
+                            "No closed successful original Host terminal is available",
+                        ))
+                    };
+                    record_original_host_custody(&mut next, custody);
+                }
+
                 let finalized = match terminal {
-                    Ok(()) => {
+                    Ok(descriptor) => {
                         self.finalize_host_render(
                             &HostRenderDiagnostic {
                                 job_id: &next.id,
@@ -1097,6 +1674,7 @@ impl MltVideoDriver {
                             &profile,
                             &expected_profile,
                             frames,
+                            observation_request.as_deref().zip(descriptor.as_ref()),
                             context,
                         )
                         .await
@@ -1104,25 +1682,37 @@ impl MltVideoDriver {
                     Err(error) => Err(error),
                 };
                 match finalized {
-                    Ok((artifact, media)) => {
+                    Ok(rendered) => {
                         next.state = State::Succeeded;
                         next.completed_at = Some(now_ms());
-                        next.artifact = Some(artifact);
-                        next.media = Some(media);
+                        next.artifact = Some(rendered.artifact);
+                        next.media = Some(rendered.media);
+                        next.native_input = rendered.native_input;
+                        next.native_input_sources = rendered.native_input_sources;
+                        next.color_observation = rendered.color_observation;
                         next.error = None;
                     }
                     Err(error) => {
                         let internal = to_internal_error(error);
-                        next.state = if internal.outcome_known {
-                            State::Failed
-                        } else {
-                            State::Unknown
-                        };
+                        next.state = host_render_failure_state(&internal);
                         next.completed_at = Some(now_ms());
                         next.error = Some(internal);
                     }
                 }
             }
+        }
+
+        if observation_request.is_some()
+            && next.state.terminal()
+            && next.native_host_custody.is_none()
+        {
+            record_original_host_custody(
+                &mut next,
+                Err(Error::new(
+                    ErrorCode::Unavailable,
+                    "No closed successful original Host terminal is available",
+                )),
+            );
         }
 
         let job = self
@@ -1458,6 +2048,636 @@ mod tests {
                 .tags
                 .iter()
                 .any(|tag| tag == "artifact-out:video/clip")
+        );
+    }
+}
+
+#[cfg(test)]
+mod host_native_observation_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn original_request_fixture() -> (PrivateDir, Root, Vec<u8>) {
+        let directory = PrivateDir::new(std::path::Path::new("/tmp")).unwrap();
+        let work = Root::open(directory.path(), true, true).unwrap();
+        let xml = b"<mlt>one</mlt>";
+        let source = b"original-native-source";
+        let staged = format!("asset-{}.bin", "a".repeat(24));
+        work.write_new("scratch", "project.mlt", xml).unwrap();
+        work.write_new("scratch", &staged, source).unwrap();
+        let request = serde_json::to_vec(&json!({
+            "schema":"semwright.mlt-native-observation-request/1",
+            "output_path":"fixture.mkv", "project_sha256":sha256(xml),
+            "project_bytes":xml.len(), "width":16, "height":16,
+            "fps_num":30, "fps_den":1, "frames":1,
+            "staged_sources":[{"root":"media","path":"source.bin",
+                "sha256":sha256(source),"bytes":source.len(),"staged_name":staged}]
+        }))
+        .unwrap();
+        work.write_new("scratch", color::NATIVE_OBSERVATION_REQUEST_FILE, &request)
+            .unwrap();
+        (directory, work, request)
+    }
+
+    // Synthetic observed-data fixture, never evidence of native execution.
+    // Production publication still decodes the actual PNG bytes.
+    fn complete_report_fixture(work: &Root, original: &[u8]) -> (Vec<u8>, Artifact) {
+        complete_report_fixture_with_png(work, original, None)
+    }
+
+    fn complete_report_fixture_with_png(
+        work: &Root,
+        original: &[u8],
+        png: Option<&[u8]>,
+    ) -> (Vec<u8>, Artifact) {
+        let request = verify_host_native_request(work, original).unwrap();
+        let mut stream = json!({"index":0,"codec_type":"video","codec_name":"ffv1",
+            "width":16,"height":16,"pix_fmt":"yuv444p","r_frame_rate":"30/1",
+            "avg_frame_rate":"30/1","time_base":"1/1000",
+            "sample_aspect_ratio":"1:1","field_order":"progressive"});
+        let mut frame = json!({"media_type":"video","stream_index":0,"pts":0,"duration":33,
+            "width":16,"height":16,"pix_fmt":"yuv444p","sample_aspect_ratio":"1:1",
+            "interlaced_frame":0,"top_field_first":0,"repeat_pict":0,
+            "crop_top":0,"crop_bottom":0,"crop_left":0,"crop_right":0});
+        for target in [&mut stream, &mut frame] {
+            target.as_object_mut().unwrap().extend(
+                json!({"color_range":"tv",
+                "color_space":"bt709","color_primaries":"bt709","color_transfer":"bt709",
+                "side_data_list":[]})
+                .as_object()
+                .unwrap()
+                .clone(),
+            );
+        }
+        let raw = serde_json::to_vec(&json!({"streams":[stream],"frames":[frame],
+            "program_version":{"version":"fixture-only-no-native-execution"},
+            "library_versions":[{"name":"libavcodec","major":60,"minor":31,"micro":102}]
+        }))
+        .unwrap();
+        let probe = color::parse_probe_profile(
+            color::ObservationProfile::MltVisualFfv1,
+            &raw,
+            16,
+            16,
+            1,
+            30,
+            1,
+        )
+        .unwrap();
+        let frames = if let Some(png) = png {
+            let actual = color::inspect_decoded_png(png, 0, 16, 16).unwrap();
+            work.write_new("scratch", &actual.file, png).unwrap();
+            vec![actual]
+        } else {
+            vec![color::DecodedPng {
+                file: "decoded-000000.png".into(),
+                bytes: 100,
+                sha256: sha256(&[0u8; 100]),
+                rgba_sha256: "b".repeat(64),
+                alpha_min: 255,
+                alpha_max: 255,
+            }]
+        };
+        let retained_png_bytes: u64 = frames.iter().map(|frame| frame.bytes).sum();
+        let rgba_roster_sha256 = color::rgba_roster_digest(&frames).unwrap();
+        let observed = semwright_mlt_video::runtime::EncodedFramesObservation {
+            video_sha256: "c".repeat(64),
+            video_bytes: 256,
+            probe,
+            frames,
+            retained_png_bytes,
+            rgba_roster_sha256,
+            ffmpeg_version: "ffmpeg version fixture-only-no-native-execution".into(),
+            ffmpeg_sha256: "d".repeat(64),
+            ffprobe_sha256: "e".repeat(64),
+        };
+        let sources = request.sources();
+        let report = color::build_observation_report(
+            &observed,
+            &request.output_path,
+            request.source_binding(),
+            Some(&sources),
+            16,
+            16,
+            30,
+            1,
+        )
+        .unwrap();
+        let descriptor = work
+            .write_new("scratch", color::NATIVE_OBSERVATION_FILE, &report)
+            .unwrap();
+        (report, descriptor)
+    }
+
+    #[test]
+    fn host_terminal_receipt_requires_the_original_request_and_closed_descriptor() {
+        let request = b"original-host-request";
+        let legacy = json!({"schema":1,"operation":"render","output":"partial.mkv"});
+        let legacy_bytes = serde_json::to_vec(&legacy).unwrap();
+        assert!(
+            host_render_result(&legacy_bytes, "partial.mkv", None)
+                .unwrap()
+                .is_none()
+        );
+        assert!(host_render_result(&legacy_bytes, "partial.mkv", Some(request)).is_err());
+        let mut complete = legacy;
+        complete["request_sha256"] = json!(sha256(request));
+        complete["observation"] = json!({"root":"scratch","path":color::NATIVE_OBSERVATION_FILE,
+            "sha256":"a".repeat(64),"bytes":100});
+        let encoded = serde_json::to_vec(&complete).unwrap();
+        assert!(
+            host_render_result(&encoded, "partial.mkv", Some(request))
+                .unwrap()
+                .is_some()
+        );
+        assert!(host_render_result(&encoded, "partial.mkv", None).is_err());
+        assert!(host_render_result(&encoded, "partial.mkv", Some(b"another-host-job")).is_err());
+        assert!(host_render_result(&encoded, "other.mkv", Some(request)).is_err());
+        for (field, bad) in [
+            ("root", json!("output")),
+            ("path", json!("../report.json")),
+            ("sha256", json!("not-a-digest")),
+            ("bytes", json!(0)),
+            ("bytes", json!(color::REPORT_LIMIT as u64 + 1)),
+        ] {
+            let mut altered = complete.clone();
+            altered["observation"][field] = bad;
+            assert!(
+                host_render_result(
+                    &serde_json::to_vec(&altered).unwrap(),
+                    "partial.mkv",
+                    Some(request)
+                )
+                .is_err()
+            );
+        }
+        complete["extra"] = json!(true);
+        assert!(
+            host_render_result(
+                &serde_json::to_vec(&complete).unwrap(),
+                "partial.mkv",
+                Some(request)
+            )
+            .is_err()
+        );
+        assert!(
+            host_render_result(
+                br#"{"schema":1,"schema":1,"operation":"render","output":"partial.mkv"}"#,
+                "partial.mkv",
+                None
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn host_original_request_rejects_xml_media_and_request_substitution() {
+        for target in ["xml", "media", "request"] {
+            let (directory, work, original) = original_request_fixture();
+            verify_host_native_request(&work, &original).unwrap();
+            let name = match target {
+                "xml" => "project.mlt".to_owned(),
+                "media" => format!("asset-{}.bin", "a".repeat(24)),
+                _ => color::NATIVE_OBSERVATION_REQUEST_FILE.to_owned(),
+            };
+            let mut bytes = work
+                .read(&name, color::NATIVE_OBSERVATION_REQUEST_LIMIT)
+                .unwrap();
+            let i = bytes.len() - 1;
+            bytes[i] ^= 1;
+            std::fs::write(directory.path().join(&name), &bytes).unwrap();
+            let error = verify_host_native_request(&work, &original).err().unwrap();
+            assert_eq!(error.code, ErrorCode::StaleReference, "{target}");
+            assert!(!work.exists("fixture.mkv").unwrap());
+        }
+    }
+
+    #[test]
+    fn host_binder_accepts_the_exact_complete_report_and_original_sources() {
+        let (_directory, work, original) = original_request_fixture();
+        let (report, descriptor) = complete_report_fixture(&work, &original);
+        let bound = bind_host_native_observation(&work, &original, &descriptor).unwrap();
+        assert_eq!(bound.report, report);
+        assert_eq!(bound.video_sha256, "c".repeat(64));
+        assert_eq!(bound.video_bytes, 256);
+        assert_eq!(bound.request.sources().len(), 1);
+        let document = color::parse_complete_observation(&report).unwrap();
+        assert!(document.document()["stream"]["chroma_location"].is_null());
+        assert_eq!(document.document()["stream"]["side_data_types"], json!([]));
+    }
+
+    #[test]
+    fn host_binder_rejects_swapped_terminal_report_payload() {
+        let (_directory, work, original) = original_request_fixture();
+        let (_report, mut descriptor) = complete_report_fixture(&work, &original);
+        descriptor.sha256 = sha256(b"a-different-terminal-payload");
+        let error = bind_host_native_observation(&work, &original, &descriptor)
+            .err()
+            .unwrap();
+        assert_eq!(error.code, ErrorCode::StaleReference);
+    }
+
+    #[test]
+    fn host_binder_rejects_self_consistent_report_from_other_source() {
+        let (directory, work, original) = original_request_fixture();
+        let (report, mut descriptor) = complete_report_fixture(&work, &original);
+        let mut doc: Value = serde_json::from_slice(&report).unwrap();
+        doc["source_binding"]["sha256"] = json!("f".repeat(64));
+        let replacement = serde_json::to_vec(&doc).unwrap();
+        // Internally valid; only original Host source identity rejects it.
+        color::parse_complete_observation(&replacement).unwrap();
+        std::fs::write(
+            directory.path().join(color::NATIVE_OBSERVATION_FILE),
+            &replacement,
+        )
+        .unwrap();
+        descriptor.sha256 = sha256(&replacement);
+        descriptor.bytes = replacement.len() as u64;
+        let error = bind_host_native_observation(&work, &original, &descriptor)
+            .err()
+            .unwrap();
+        assert_eq!(error.code, ErrorCode::StaleReference);
+        assert!(!work.exists("fixture.mkv").unwrap());
+    }
+
+    #[test]
+    fn complete_report_cannot_replace_actual_png_decoding() {
+        let (_directory, work, original) = original_request_fixture();
+        let (report, _descriptor) = complete_report_fixture(&work, &original);
+        // SHA/size matches, but the payload has no decoded PNG pixels.
+        work.write_new("scratch", "decoded-000000.png", &[0u8; 100])
+            .unwrap();
+        assert!(
+            color::publish_complete_observation_checked(
+                &report,
+                &work,
+                &work,
+                "fixture.mkv",
+                || Ok(())
+            )
+            .is_err()
+        );
+        assert!(!work.exists("fixture.mkv.decoded-000000.png").unwrap());
+        assert!(!work.exists("fixture.mkv.color-observation.json").unwrap());
+    }
+
+    #[test]
+    fn host_copy_cancellation_is_not_an_interrupted_retry_loop() {
+        let (_directory, work, _original) = original_request_fixture();
+        let mut reader = HostRenderReader {
+            file: work.read_file("project.mlt", 1024).unwrap(),
+            cancelled: || true,
+        };
+        let error = std::io::copy(&mut reader, &mut Vec::new()).unwrap_err();
+        assert_eq!(error.kind(), std::io::ErrorKind::Other);
+    }
+
+    #[test]
+    fn unknown_publication_precedes_cancellation_state() {
+        let mut error = semwright_mlt_video::Error::new("Cancelled", "fixture");
+        assert_eq!(host_render_failure_state(&error), State::Cancelled);
+        error.outcome_known = false;
+        assert_eq!(host_render_failure_state(&error), State::Unknown);
+    }
+
+    fn custody_terminal(request: &[u8], descriptor: &Artifact) -> Vec<u8> {
+        let mut bytes = serde_json::to_vec_pretty(&json!({
+            "schema":1,"operation":"render","output":"partial.mkv",
+            "request_sha256":sha256(request),
+            "observation":from_internal(descriptor.json()).unwrap()
+        }))
+        .unwrap();
+        bytes.push(b'\n');
+        bytes
+    }
+    fn retain_fixture_custody(
+        work: &Root,
+        output: &Root,
+        request: &[u8],
+        stdout: &[u8],
+    ) -> Result<Artifact> {
+        let runtime = RuntimeToolJob {
+            id: "original-runtime-job-1".into(),
+        };
+        let revision = "a".repeat(64);
+        retain_original_host_custody(
+            work,
+            output,
+            &OriginalHostTerminal {
+                render_job: "render:original-custody",
+                revision: &revision,
+                output_path: "fixture.mkv",
+                runtime_job: &runtime,
+                exit_code: 0,
+                request,
+                stdout,
+            },
+        )
+    }
+    fn custody_snapshot() -> JobSnapshot {
+        JobSnapshot {
+            id: "render:original-custody".into(),
+            revision: "a".repeat(64),
+            profile: "lossless-video-only".into(),
+            output: "fixture.mkv".into(),
+            state: State::Succeeded,
+            created_at: 1,
+            started_at: Some(2),
+            completed_at: Some(3),
+            artifact: None,
+            media: None,
+            native_input: None,
+            native_input_sources: vec![],
+            color_observation: None,
+            native_host_custody: None,
+            error: None,
+            cancellation_requested: false,
+        }
+    }
+    #[test]
+    fn host_custody_retains_exact_original_request_and_terminal() {
+        let (_work_directory, work, request) = original_request_fixture();
+        let (report, descriptor) = complete_report_fixture(&work, &request);
+        let stdout = custody_terminal(&request, &descriptor);
+        let output_directory = PrivateDir::new(std::path::Path::new("/tmp")).unwrap();
+        let output = Root::open(output_directory.path(), true, true).unwrap();
+        let retained = retain_fixture_custody(&work, &output, &request, &stdout).unwrap();
+        assert_eq!(
+            output
+                .read(
+                    "fixture.mkv.native-host-request.json",
+                    color::NATIVE_OBSERVATION_REQUEST_LIMIT
+                )
+                .unwrap(),
+            request
+        );
+        assert_eq!(
+            output
+                .read("fixture.mkv.native-host-terminal.json", 4096)
+                .unwrap(),
+            stdout
+        );
+        assert_eq!(
+            output
+                .read(
+                    "fixture.mkv.native-host-observation.json",
+                    color::REPORT_LIMIT
+                )
+                .unwrap(),
+            report
+        );
+        let raw = output
+            .read(&retained.path, NATIVE_HOST_CUSTODY_LIMIT)
+            .unwrap();
+        assert_eq!(retained.sha256, sha256(&raw));
+        assert_eq!(retained.bytes, raw.len() as u64);
+        let value: Value = serde_json::from_slice(&raw).unwrap();
+        assert_eq!(value["schema"], "semwright.mlt-native-host-custody/1");
+        assert_eq!(value["runtime_job_id"], "original-runtime-job-1");
+        assert_eq!(value["render_job"], "render:original-custody");
+        assert_eq!(value["request"]["sha256"], sha256(&request));
+        assert_eq!(value["terminal"]["sha256"], sha256(&stdout));
+        assert_eq!(value["original_observation"]["sha256"], sha256(&report));
+        assert_eq!(
+            value["stage"],
+            "original-host-terminal-before-final-publication"
+        );
+        assert_eq!(value["final_video_commit_observed"], false);
+        assert_eq!(value["native_execution_retried"], false);
+        assert_eq!(
+            value["publication_plan"]["scope"],
+            "planned-destinations-not-commit-observations"
+        );
+        assert_eq!(value["publication_plan"]["decoded_frame_count"], 1);
+        assert_eq!(
+            value["publication_plan"]["frame_descriptors"],
+            "original_observation.frames"
+        );
+        for forbidden in ["pid", "argv", "environment", "stderr"] {
+            assert!(value.get(forbidden).is_none());
+        }
+        assert!(!output.exists("fixture.mkv").unwrap());
+    }
+    #[test]
+    fn host_custody_rejects_substituted_request_or_terminal_before_writes() {
+        let (_work_directory, work, request) = original_request_fixture();
+        let (_report, descriptor) = complete_report_fixture(&work, &request);
+        let stdout = custody_terminal(&request, &descriptor);
+        let mut changed_request = request.clone();
+        changed_request.push(b' ');
+        let mut bad_hash: Value = serde_json::from_slice(&stdout).unwrap();
+        bad_hash["request_sha256"] = json!("f".repeat(64));
+        let mut extra: Value = serde_json::from_slice(&stdout).unwrap();
+        extra["argv"] = json!(["forbidden"]);
+        let cases = [
+            (changed_request, stdout.clone()),
+            (request.clone(), serde_json::to_vec(&bad_hash).unwrap()),
+            (request.clone(), serde_json::to_vec(&extra).unwrap()),
+        ];
+        for (input, terminal) in cases {
+            let directory = PrivateDir::new(std::path::Path::new("/tmp")).unwrap();
+            let output = Root::open(directory.path(), true, true).unwrap();
+            assert!(retain_fixture_custody(&work, &output, &input, &terminal).is_err());
+            for suffix in ["request", "terminal", "observation", "custody"] {
+                assert!(
+                    !output
+                        .exists(&format!("fixture.mkv.native-host-{suffix}.json"))
+                        .unwrap()
+                );
+            }
+        }
+    }
+    #[test]
+    fn host_custody_never_replaces_existing_originals() {
+        let (_work_directory, work, request) = original_request_fixture();
+        let (_report, descriptor) = complete_report_fixture(&work, &request);
+        let stdout = custody_terminal(&request, &descriptor);
+        let directory = PrivateDir::new(std::path::Path::new("/tmp")).unwrap();
+        let output = Root::open(directory.path(), true, true).unwrap();
+        retain_fixture_custody(&work, &output, &request, &stdout).unwrap();
+        let paths = ["request", "terminal", "observation", "custody"];
+        let before = paths
+            .iter()
+            .map(|suffix| {
+                output
+                    .read(
+                        &format!("fixture.mkv.native-host-{suffix}.json"),
+                        color::REPORT_LIMIT,
+                    )
+                    .unwrap()
+            })
+            .collect::<Vec<_>>();
+        let error = retain_fixture_custody(&work, &output, &request, &stdout).unwrap_err();
+        assert!(error.outcome_known);
+        for (suffix, bytes) in paths.iter().zip(before) {
+            assert_eq!(
+                output
+                    .read(
+                        &format!("fixture.mkv.native-host-{suffix}.json"),
+                        color::REPORT_LIMIT
+                    )
+                    .unwrap(),
+                bytes
+            );
+        }
+        assert!(preflight_native_host_custody(&output, "fixture.mkv").is_err());
+    }
+    #[test]
+    fn host_custody_failure_preserves_original_native_terminal() {
+        for state in [
+            State::Succeeded,
+            State::Failed,
+            State::Cancelled,
+            State::Unknown,
+        ] {
+            for known in [false, true] {
+                let mut snapshot = custody_snapshot();
+                snapshot.state = state;
+                if state != State::Succeeded {
+                    let mut native = semwright_mlt_video::Error::new(
+                        if state == State::Cancelled {
+                            "Cancelled"
+                        } else {
+                            "BackendFailed"
+                        },
+                        "the original native cause",
+                    );
+                    native.outcome_known = state != State::Unknown;
+                    snapshot.error = Some(native);
+                }
+                let before = from_internal(snapshot.json()).unwrap();
+                let mut secondary = Error::new(ErrorCode::BackendFailed, "secondary custody cause");
+                secondary.outcome_known = known;
+                record_original_host_custody(&mut snapshot, Err(secondary));
+                let mut after = from_internal(snapshot.json()).unwrap();
+                let retained = after
+                    .as_object_mut()
+                    .unwrap()
+                    .remove("native_host_custody")
+                    .unwrap();
+                assert_eq!(after, before);
+                assert_eq!(
+                    retained["state"],
+                    if known {
+                        "failed_known"
+                    } else {
+                        "outcome_unknown"
+                    }
+                );
+                assert_eq!(retained["error"]["outcome_known"], known);
+                assert_eq!(retained["artifact"], Value::Null);
+                assert!(retained["error"].get("message").is_none());
+            }
+        }
+    }
+    #[test]
+    fn host_custody_is_absent_from_other_profiles() {
+        for profile in ["lossless", "h264-high", "lossless-video-only"] {
+            let mut snapshot = custody_snapshot();
+            snapshot.profile = profile.into();
+            let value = from_internal(snapshot.json()).unwrap();
+            assert!(value.get("native_host_custody").is_none());
+            assert!(value.get("native_input").is_some());
+            assert!(value.get("color_observation").is_some());
+        }
+    }
+    #[test]
+    fn host_custody_keeps_partial_publication_and_requires_new_destination() {
+        let (_work_directory, work, request) = original_request_fixture();
+        // A real 16 x 16 RGBA8 PNG exercises the production decoder before
+        // cancellation; synthetic metadata alone cannot publish this artifact.
+        let png = hex::decode(
+            "89504e470d0a1a0a0000000d49484452000000100000001008060000001ff3ff610000001949444154789c631094d5fe4f0966183560d4805103868b010080e75810a5d6b5980000000049454e44ae426082"
+        ).unwrap();
+        assert_eq!(
+            sha256(&png),
+            "ce8cde8f22d50a5da9396a1b3ec383a725b8cd2c8f0b83d4030758f685921687"
+        );
+        let (report, descriptor) = complete_report_fixture_with_png(&work, &request, Some(&png));
+        let stdout = custody_terminal(&request, &descriptor);
+        let directory = PrivateDir::new(std::path::Path::new("/tmp")).unwrap();
+        let output = Root::open(directory.path(), true, true).unwrap();
+        let retained = retain_fixture_custody(&work, &output, &request, &stdout).unwrap();
+        let xml = work
+            .read("project.mlt", semwright_mlt_video::xml::MAX_XML)
+            .unwrap();
+        output
+            .write_new("output", "fixture.mkv.native-input.mlt", &xml)
+            .unwrap();
+        let mut checks = 0usize;
+        let error = color::publish_complete_observation_checked(
+            &report,
+            &work,
+            &output,
+            "fixture.mkv",
+            || {
+                checks += 1;
+                if checks == 3 {
+                    Err(semwright_mlt_video::Error::new(
+                        "Cancelled",
+                        "original cancellation",
+                    ))
+                } else {
+                    Ok(())
+                }
+            },
+        )
+        .unwrap_err();
+        assert_eq!(checks, 3);
+        assert_eq!(error.code, "Cancelled");
+        let frame_path = "fixture.mkv.decoded-000000.png";
+        let published_png = output.read(frame_path, color::PNG_LIMIT).unwrap();
+        assert_eq!(published_png, png);
+        let report_value: Value = serde_json::from_slice(&report).unwrap();
+        assert_eq!(
+            report_value["frames"][0]["png_sha256"],
+            sha256(&published_png)
+        );
+        assert_eq!(
+            report_value["frames"][0]["png_bytes"],
+            published_png.len() as u64
+        );
+        assert_eq!(
+            report_value["frames"][0]["rgba_sha256"],
+            "f3da8dcf7a5442f1b542259a2f47d5e2cfaa970faec152c8c41db7efe1679a1e"
+        );
+        assert_eq!(
+            output
+                .read(
+                    "fixture.mkv.native-input.mlt",
+                    semwright_mlt_video::xml::MAX_XML
+                )
+                .unwrap(),
+            xml
+        );
+        let capsule: Value = serde_json::from_slice(
+            &output
+                .read(&retained.path, NATIVE_HOST_CUSTODY_LIMIT)
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            capsule["publication_plan"]["native_input"]["sha256"],
+            sha256(&xml)
+        );
+        assert!(!output.exists("fixture.mkv").unwrap());
+        assert!(!output.exists("fixture.mkv.color-observation.json").unwrap());
+        assert!(preflight_native_host_custody(&output, "fixture.mkv").is_err());
+        assert!(
+            color::preflight_observation_output(&output, "fixture.mkv", 16, 16, 1, true).is_err()
+        );
+        preflight_native_host_custody(&output, "different-destination.mkv").unwrap();
+        color::preflight_observation_output(&output, "different-destination.mkv", 16, 16, 1, true)
+            .unwrap();
+        assert_eq!(output.read(frame_path, color::PNG_LIMIT).unwrap(), png);
+        assert_eq!(
+            output
+                .read(
+                    "fixture.mkv.native-input.mlt",
+                    semwright_mlt_video::xml::MAX_XML
+                )
+                .unwrap(),
+            xml
         );
     }
 }

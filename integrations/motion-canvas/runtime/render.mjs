@@ -513,6 +513,7 @@ async function main() {
     page.on('pageerror', error => note('pageerror', error));
     page.on('console', message => { if (['error','warning'].includes(message.type())) note(`console:${message.type()}`, message.text()); });
     const written = new Set();
+    const canvasColorRecords = new Map();
     let observationBytes=0;
     const observationHash=createHash('sha256');
     let observationCount=0;
@@ -526,6 +527,15 @@ async function main() {
       if (written.has(payload.frame)) fail('duplicate frame payload');
       const bytes = Buffer.from(payload.data.slice('data:image/png;base64,'.length), 'base64');
       if (bytes.length < 8 || bytes.length > 32 * 1024 * 1024 || bytes.subarray(0,8).toString('hex') !== '89504e470d0a1a0a') fail('invalid PNG payload');
+      const actual=payload.canvas_color;
+      if(!actual||typeof actual!=='object'||Array.isArray(actual)
+          ||Object.keys(actual).sort().join(',')!=='alpha,api,color_space,height,width'
+          ||actual.api!=='CanvasRenderingContext2D.getContextAttributes'
+          ||!['srgb','display-p3'].includes(actual.color_space)||typeof actual.alpha!=='boolean'
+          ||!Number.isSafeInteger(actual.width)||!Number.isSafeInteger(actual.height)
+          ||actual.width<1||actual.width>4096||actual.height<1||actual.height>4096)fail('native canvas color observation incomplete');
+      canvasColorRecords.set(payload.frame,{index:payload.frame-config.firstFrame,frame:payload.frame,
+        png_sha256:createHash('sha256').update(bytes).digest('hex'),canvas:actual});
       written.add(payload.frame);
       if(config.authoring){
         if(!payload.observation||payload.observation.frame!==payload.frame)fail('native observation/frame mismatch');
@@ -591,6 +601,14 @@ async function main() {
       if(observationCount!==config.endFrameExclusive-config.firstFrame)fail('native observation count incomplete');
       await fs.writeFile(path.join(output,'native-observations-receipt.json'),JSON.stringify({version:1,render_input_digest:config.renderInputDigest,font_resources_sha256:config.fontResourcesDigest,sha256:observationHash.digest('hex'),bytes:observationBytes,frames:observationCount,fps_num:config.fpsNum,fps_den:config.fpsDen}),{flag:'wx'});
     }
+    if(canvasColorRecords.size!==config.endFrameExclusive-config.firstFrame)fail('native canvas color observation count mismatch');
+    const canvasColors=Buffer.from(JSON.stringify({schema:'semwright.motion-canvas-context-color/1',
+      render_input_digest:config.renderInputDigest,
+      frames:[...canvasColorRecords.entries()].sort((a,b)=>a[0]-b[0]).map(entry=>entry[1])})+'\n','utf8');
+    if(canvasColors.length>16*1024*1024)fail('native canvas color observation exceeds bounds');
+    const canvasColorsFile=await fs.open(path.join(output,'canvas-color-observations.json'),'wx',0o600);
+    try { await canvasColorsFile.writeFile(canvasColors); await canvasColorsFile.sync(); }
+    finally { await canvasColorsFile.close(); }
     failurePhase = 'finalize';
     const files = (await fs.readdir(path.join(output,'frames'))).sort();
     process.stdout.write(JSON.stringify({ok:true,renderer:'motion-canvas-core-renderer-v3.17.2-firefox',lastFrame:state.frame,files:files.map(file=>`frames/${file}`)})+'\n');

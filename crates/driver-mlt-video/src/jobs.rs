@@ -58,6 +58,44 @@ impl State {
         )
     }
 }
+
+/// Optional original Host custody, independent of the native state/error.
+#[derive(Clone, Debug)]
+pub enum NativeHostCustody {
+    Retained(Artifact),
+    Unretained(Error),
+}
+impl NativeHostCustody {
+    pub fn json(&self) -> Value {
+        match self {
+            Self::Retained(file) => obj([
+                ("state", "retained".into()),
+                ("artifact", file.json()),
+                ("error", Value::Null),
+            ]),
+            Self::Unretained(error) => obj([
+                (
+                    "state",
+                    (if error.outcome_known {
+                        "failed_known"
+                    } else {
+                        "outcome_unknown"
+                    })
+                    .into(),
+                ),
+                ("artifact", Value::Null),
+                (
+                    "error",
+                    obj([
+                        ("code", error.code.clone().into()),
+                        ("outcome_known", error.outcome_known.into()),
+                    ]),
+                ),
+            ]),
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct JobSnapshot {
     pub id: String,
@@ -70,12 +108,16 @@ pub struct JobSnapshot {
     pub completed_at: Option<u64>,
     pub artifact: Option<Artifact>,
     pub media: Option<MediaInfo>,
+    pub native_input: Option<Artifact>,
+    pub native_input_sources: Vec<Artifact>,
+    pub color_observation: Option<Artifact>,
+    pub native_host_custody: Option<NativeHostCustody>,
     pub error: Option<Error>,
     pub cancellation_requested: bool,
 }
 impl JobSnapshot {
     pub fn json(&self) -> Value {
-        obj([
+        let mut value = obj([
             ("job", self.id.clone().into()),
             ("project_revision", self.revision.clone().into()),
             ("profile", self.profile.clone().into()),
@@ -100,11 +142,31 @@ impl JobSnapshot {
                 self.media.as_ref().map_or(Value::Null, MediaInfo::json),
             ),
             (
+                "native_input",
+                self.native_input
+                    .as_ref()
+                    .map_or(Value::Null, Artifact::json),
+            ),
+            (
+                "native_input_sources",
+                array(self.native_input_sources.iter().map(Artifact::json)),
+            ),
+            (
+                "color_observation",
+                self.color_observation
+                    .as_ref()
+                    .map_or(Value::Null, Artifact::json),
+            ),
+            (
                 "error",
                 self.error.as_ref().map_or(Value::Null, Error::json),
             ),
             ("cancellation_requested", self.cancellation_requested.into()),
-        ])
+        ]);
+        if let (Value::Object(fields), Some(custody)) = (&mut value, &self.native_host_custody) {
+            fields.insert("native_host_custody".into(), custody.json());
+        }
+        value
     }
 }
 struct Job {
@@ -221,6 +283,10 @@ impl Jobs {
             completed_at: None,
             artifact: None,
             media: None,
+            native_input: None,
+            native_input_sources: vec![],
+            color_observation: None,
+            native_host_custody: None,
             error: None,
             cancellation_requested: false,
         };
@@ -255,10 +321,13 @@ impl Jobs {
             if let Ok(mut s) = shared_worker.lock() {
                 s.completed_at = Some(now());
                 match result {
-                    Ok((artifact, media)) => {
+                    Ok(result) => {
                         s.state = State::Succeeded;
-                        s.artifact = Some(artifact);
-                        s.media = Some(media);
+                        s.artifact = Some(result.artifact);
+                        s.media = Some(result.media);
+                        s.native_input = result.native_input;
+                        s.native_input_sources = result.native_input_sources;
+                        s.color_observation = result.color_observation;
                     }
                     Err(error) => {
                         s.state = if error.code == "Cancelled" {
@@ -592,6 +661,14 @@ fn check_cancel(cancel: &AtomicBool) -> Result<()> {
         Ok(())
     }
 }
+pub struct RenderedOutput {
+    pub artifact: Artifact,
+    pub media: MediaInfo,
+    pub native_input: Option<Artifact>,
+    pub native_input_sources: Vec<Artifact>,
+    pub color_observation: Option<Artifact>,
+}
+
 pub(crate) fn render_sync_pinned(
     runtime: &Runtime,
     project: Project,
@@ -602,7 +679,7 @@ pub(crate) fn render_sync_pinned(
     cancel: &AtomicBool,
     expected_sha256: &BTreeMap<String, String>,
     artifact_limit: u64,
-) -> Result<(Artifact, MediaInfo)> {
+) -> Result<RenderedOutput> {
     render_impl(
         runtime,
         project,
@@ -613,7 +690,7 @@ pub(crate) fn render_sync_pinned(
         cancel,
         Some(expected_sha256),
         artifact_limit,
-        || {},
+        |_| {},
     )
 }
 
@@ -626,7 +703,7 @@ fn render_worker(
     roots: &BTreeMap<String, Arc<Root>>,
     cancel: &AtomicBool,
     snapshot: &Arc<Mutex<JobSnapshot>>,
-) -> Result<(Artifact, MediaInfo)> {
+) -> Result<RenderedOutput> {
     render_impl(
         runtime,
         project,
@@ -637,7 +714,7 @@ fn render_worker(
         cancel,
         None,
         MAX_ARTIFACT_BYTES,
-        || {
+        |_| {
             if let Ok(mut state) = snapshot.lock() {
                 state.state = State::Running;
             }
@@ -645,7 +722,7 @@ fn render_worker(
     )
 }
 
-fn render_impl<F: FnOnce()>(
+fn render_impl<F: FnOnce(&Path)>(
     runtime: &Runtime,
     mut p: Project,
     sequence: &str,
@@ -656,13 +733,27 @@ fn render_impl<F: FnOnce()>(
     expected_sha256: Option<&BTreeMap<String, String>>,
     artifact_limit: u64,
     on_running: F,
-) -> Result<(Artifact, MediaInfo)> {
+) -> Result<RenderedOutput> {
     if artifact_limit == 0 || artifact_limit > MAX_ARTIFACT_BYTES {
         return Err(Error::limit("Render artifact limit is outside bounds"));
     }
     check_cancel(cancel)?;
     let seq = p.sequence(sequence)?.clone();
     let (asset_ids, groups) = required(&p, &seq)?;
+    let selected = crate::runtime::complete_observation_profile(profile);
+    let output_root = roots
+        .get("output")
+        .ok_or_else(|| Error::new("Unavailable", "Output mount disappeared"))?;
+    if selected.is_some() {
+        crate::color::preflight_observation_output(
+            output_root,
+            output,
+            profile.width.unwrap_or(p.profile.width),
+            profile.height.unwrap_or(p.profile.height),
+            seq.duration(),
+            true,
+        )?;
+    }
     if let Some(pins) = expected_sha256 {
         let required_pins = asset_ids
             .iter()
@@ -693,6 +784,22 @@ fn render_impl<F: FnOnce()>(
     }
     let inputs = PrivateDir::new(Path::new("/tmp"))?;
     let work = PrivateDir::new(Path::new("/tmp"))?;
+    if selected.is_some() {
+        let budget = crate::color::observation_budget(
+            profile.width.unwrap_or(p.profile.width),
+            profile.height.unwrap_or(p.profile.height),
+            seq.duration(),
+        )?;
+        let scratch = Root::open(work.path(), true, false)?;
+        if scratch.available_bytes_for("decoded-000000.png")?
+            < budget.peak_free_bytes + 2 * crate::xml::MAX_XML as u64
+        {
+            return Err(Error::limit(
+                "Native scratch lacks complete observation free-space budget",
+            ));
+        }
+    }
+    let mut native_sources = Vec::new();
     let mut staged = BTreeMap::new();
     let mut total = 0;
     for id in &asset_ids {
@@ -725,13 +832,22 @@ fn render_impl<F: FnOnce()>(
             staged_hash.update(&buf[..n]);
             destination.write_all(&buf[..n])?;
         }
+        let staged_sha256 = staged_hash.finish();
         if let Some(expected) = expected_sha256.and_then(|pins| pins.get(id))
-            && staged_hash.finish() != *expected
+            && staged_sha256 != *expected
         {
             return Err(Error::new(
                 "StaleReference",
                 "Staged media bytes changed after the AV plan was prepared",
             ));
+        }
+        if selected.is_some() {
+            native_sources.push(Artifact {
+                root: root.clone(),
+                path: path.clone(),
+                sha256: staged_sha256,
+                bytes: size,
+            });
         }
         destination.sync_all()?;
         drop(destination);
@@ -780,17 +896,73 @@ fn render_impl<F: FnOnce()>(
     f.sync_all()?;
     drop(f);
     inputs.seal("project.mlt")?;
+    let input_root = Root::open(inputs.path(), true, false)?;
+    let native_before = if selected.is_some() {
+        Some(input_root.read("project.mlt", crate::xml::MAX_XML)?)
+    } else {
+        None
+    };
     check_cancel(cancel)?;
-    on_running();
-    runtime.render(inputs.path(), work.path(), profile, cancel)?;
+    let deadline = Instant::now() + runtime.timeout;
+    on_running(inputs.path());
+    runtime.render(inputs.path(), work.path(), profile, cancel, deadline)?;
     check_cancel(cancel)?;
-    let media = runtime.validate_output(
+    let validated = runtime.validate_output(
         work.path(),
         profile,
         &p.profile,
         p.sequences[0].duration(),
         cancel,
+        deadline,
     )?;
+    let media = validated.media;
+    let work_root = Root::open(work.path(), true, false)?;
+    let mut native_input = None;
+    let mut color_observation = None;
+    if let Some(observed) = &validated.observation {
+        let before = native_before
+            .as_ref()
+            .ok_or_else(|| Error::invalid("Original native input bytes missing"))?;
+        let after = input_root.read("project.mlt", crate::xml::MAX_XML)?;
+        if after != *before {
+            return Err(Error::new(
+                "StaleReference",
+                "Actual native XML changed during render",
+            ));
+        }
+        let source_sha256 = sha256(&after);
+        let retained = output_root.publish_verified(
+            "output",
+            &format!("{output}.native-input.mlt"),
+            input_root.read_file("project.mlt", crate::xml::MAX_XML as u64)?,
+            crate::xml::MAX_XML as u64,
+            &source_sha256,
+            after.len() as u64,
+        )?;
+        if output_root.digest(&retained.path, crate::xml::MAX_XML as u64)? != retained.sha256 {
+            return Err(Error::new(
+                "StaleReference",
+                "Actual native XML retention changed",
+            ));
+        }
+        let source_binding = serde_json::json!({
+            "source_kind":"mlt_render_project_bytes","root":"output","path":retained.path,
+            "sha256":retained.sha256,"bytes":retained.bytes,"source_first_frame":0,
+        });
+        color_observation = Some(crate::color::publish_observation(
+            observed,
+            &work_root,
+            output_root,
+            output,
+            source_binding,
+            Some(&native_sources),
+            (p.profile.width, p.profile.height),
+            p.profile.fps.num,
+            p.profile.fps.den,
+            cancel,
+        )?);
+        native_input = Some(retained);
+    }
     check_cancel(cancel)?;
     let source = Root::open(work.path(), true, false)?
         .read_file(&format!("partial.{}", profile.extension), artifact_limit)?;
@@ -809,27 +981,44 @@ fn render_impl<F: FnOnce()>(
             self.file.read(b)
         }
     }
-    let output_root = roots
-        .get("output")
-        .ok_or_else(|| Error::new("Unavailable", "Output mount disappeared"))?;
-    let artifact = match output_root.publish(
-        "output",
-        output,
-        CancelReader {
-            file: source,
-            cancel,
-        },
-        artifact_limit,
-    ) {
+    let reader = CancelReader {
+        file: source,
+        cancel,
+    };
+    let publication = if let Some(observed) = &validated.observation {
+        output_root.publish_verified(
+            "output",
+            output,
+            reader,
+            artifact_limit,
+            &observed.video_sha256,
+            observed.video_bytes,
+        )
+    } else {
+        output_root.publish("output", output, reader, artifact_limit)
+    };
+    let artifact = match publication {
         Ok(a) => a,
         Err(e) => {
+            if !e.outcome_known {
+                return Err(e);
+            }
             check_cancel(cancel)?;
             return Err(e);
         }
     };
     // Publication is the success linearization point. A cancellation arriving after it does not
     // delete a validated final artifact or relabel success as cancelled.
-    Ok((artifact, media))
+    if validated.observation.is_some() {
+        crate::color::verify_published_video(output_root, &artifact)?;
+    }
+    Ok(RenderedOutput {
+        artifact,
+        media,
+        native_input,
+        native_input_sources: native_sources,
+        color_observation,
+    })
 }
 
 #[cfg(test)]
@@ -1036,5 +1225,124 @@ mod native_memory_tests {
                 .is_err()
         );
         assert!(prepare_render_document(project, "missing", &profile, &BTreeMap::new()).is_err());
+    }
+}
+
+#[cfg(all(test, feature = "test-tools"))]
+mod native_staging_closure_tests {
+    use super::*;
+    use crate::model::{Clip, Profile, Resource, Timeline, Track};
+    use crate::time::FrameRange;
+    use std::cell::Cell;
+
+    const ORIGINAL: &[u8] = b"original-native-media";
+
+    fn staged_render(tamper: impl FnOnce(&Path)) -> Error {
+        let (runtime, _tools) = crate::runtime::native_closure_test_tools::runtime();
+        let media = tempfile::tempdir().unwrap();
+        let output = tempfile::tempdir().unwrap();
+        std::fs::write(media.path().join("fixture.mkv"), ORIGINAL).unwrap();
+        let roots = BTreeMap::from([
+            (
+                "media".into(),
+                Arc::new(Root::open(media.path(), true, false).unwrap()),
+            ),
+            (
+                "output".into(),
+                Arc::new(Root::open(output.path(), true, true).unwrap()),
+            ),
+        ]);
+        let mut project = Project::new(Profile {
+            width: 160,
+            height: 90,
+            ..Profile::default()
+        })
+        .unwrap();
+        project.assets.insert(
+            "a".into(),
+            MediaAsset {
+                id: "a".into(),
+                name: "source".into(),
+                kind: "video".into(),
+                resource: Resource::Scoped {
+                    root: "media".into(),
+                    path: "fixture.mkv".into(),
+                },
+                frames: Some(50),
+                service: "avformat".into(),
+                original: None,
+                proxy: None,
+                opaque: false,
+            },
+        );
+        project.sequences[0].tracks.push(Track {
+            id: "video".into(),
+            name: "video".into(),
+            kind: "av".into(),
+            muted: false,
+            hidden: false,
+            lanes: vec![Timeline {
+                id: "lane_video".into(),
+                clips: vec![Clip {
+                    id: "first".into(),
+                    name: "first".into(),
+                    asset: "a".into(),
+                    start: 0,
+                    source: FrameRange::new(0, 50).unwrap(),
+                    effects: vec![],
+                    binding: None,
+                    speed: (1, 1),
+                }],
+            }],
+            effects: vec![],
+            opaque: false,
+        });
+        project.validate().unwrap();
+        let entered = Cell::new(false);
+        let result = render_impl(
+            &runtime,
+            project,
+            "sequence0",
+            &RenderProfile::get("lossless-video-only").unwrap(),
+            "result.mkv",
+            &roots,
+            &AtomicBool::new(false),
+            Some(&BTreeMap::from([("a".into(), sha256(ORIGINAL))])),
+            MAX_ARTIFACT_BYTES,
+            |inputs| {
+                entered.set(true);
+                let xml = std::fs::read(inputs.join("project.mlt")).unwrap();
+                let staged = inputs.join(format!("asset-{}.bin", &sha256(b"a")[..24]));
+                assert_eq!(std::fs::read(&staged).unwrap(), ORIGINAL);
+                tamper(&staged);
+                assert_eq!(std::fs::read(inputs.join("project.mlt")).unwrap(), xml);
+            },
+        );
+        assert!(
+            entered.get(),
+            "fixture must reach the actual staged render boundary"
+        );
+        assert_eq!(std::fs::read_dir(output.path()).unwrap().count(), 0);
+        result
+            .err()
+            .expect("fixture does not produce an accepted native render")
+    }
+
+    #[test]
+    fn unchanged_staging_reaches_the_native_process() {
+        // fake-melt rejects the absolute Host render argv. This control proves
+        // staging completed, without pretending the fixture is a video encoder.
+        assert_eq!(staged_render(|_| {}).code, "BackendFailed");
+    }
+
+    #[test]
+    fn replaced_staged_media_is_rejected_with_identical_xml() {
+        let error = staged_render(|path| {
+            let replacement = b"tampered-native-media";
+            assert_eq!(replacement.len(), ORIGINAL.len());
+            std::fs::remove_file(path).unwrap();
+            std::fs::write(path, replacement).unwrap();
+        });
+        assert_eq!(error.code, "StaleReference");
     }
 }

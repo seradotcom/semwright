@@ -183,6 +183,30 @@ impl Root {
             Ok((self.dir.try_clone()?, path.into()))
         }
     }
+    /// Read-only free-space preflight on the exact existing output parent.
+    /// This is not a quota reservation; the existing Host scheduler owns concurrency.
+    pub fn available_bytes_for(&self, path: &str) -> Result<u64> {
+        let (parent, _) = self.parent(path)?;
+        let mut raw = std::mem::MaybeUninit::<libc::statvfs>::uninit();
+        // SAFETY: parent pins an open directory; fstatvfs initializes the struct on success.
+        if unsafe { libc::fstatvfs(parent.as_raw_fd(), raw.as_mut_ptr()) } != 0 {
+            return Err(std::io::Error::last_os_error().into());
+        }
+        // SAFETY: the successful fstatvfs call above initialized every field of raw.
+        let observed = unsafe { raw.assume_init() };
+        let block = u128::from(observed.f_frsize);
+        if block == 0 {
+            return Err(Error::new(
+                "Unavailable",
+                "Filesystem block size unavailable",
+            ));
+        }
+        u128::from(observed.f_bavail)
+            .checked_mul(block)
+            .and_then(|bytes| u64::try_from(bytes).ok())
+            .ok_or_else(|| Error::limit("Filesystem available-byte overflow"))
+    }
+
     pub fn write_new(&self, root_name: &str, path: &str, bytes: &[u8]) -> Result<Artifact> {
         self.publish(root_name, path, bytes, bytes.len() as u64)
     }
@@ -191,8 +215,45 @@ impl Root {
         &self,
         root_name: &str,
         path: &str,
+        reader: impl Read,
+        limit: u64,
+    ) -> Result<Artifact> {
+        self.publish_inner(root_name, path, reader, limit, None)
+    }
+    /// Verify measured source identity before the same no-replace publication.
+    /// A hash/size disagreement never publishes the final target.
+    pub fn publish_verified(
+        &self,
+        root_name: &str,
+        path: &str,
+        reader: impl Read,
+        limit: u64,
+        expected_sha256: &str,
+        expected_bytes: u64,
+    ) -> Result<Artifact> {
+        if !crate::hash::valid_digest(expected_sha256)
+            || expected_bytes == 0
+            || expected_bytes > limit
+        {
+            return Err(Error::invalid(
+                "Verified publication requires bounded measured identity",
+            ));
+        }
+        self.publish_inner(
+            root_name,
+            path,
+            reader,
+            limit,
+            Some((expected_sha256, expected_bytes)),
+        )
+    }
+    fn publish_inner(
+        &self,
+        root_name: &str,
+        path: &str,
         mut reader: impl Read,
         limit: u64,
+        expected: Option<(&str, u64)>,
     ) -> Result<Artifact> {
         if !self.writable {
             return Err(Error::new("PermissionDenied", "Root is not writable"));
@@ -219,6 +280,15 @@ impl Root {
                 }
                 file.write_all(&buf[..n])?;
                 hash.update(&buf[..n]);
+            }
+            let digest = hash.finish();
+            if expected
+                .is_some_and(|(want_sha, want_bytes)| digest != want_sha || size != want_bytes)
+            {
+                return Err(Error::new(
+                    "StaleReference",
+                    "Source changed before no-replace publication",
+                ));
             }
             file.sync_all()?;
             // SAFETY: both names are live C strings, FDs pin the same parent; NOREPLACE never follows or overwrites a target.
@@ -249,7 +319,7 @@ impl Root {
             Ok(Artifact {
                 root: root_name.into(),
                 path: path.into(),
-                sha256: hash.finish(),
+                sha256: digest,
                 bytes: size,
             })
         })();

@@ -8,3 +8,9 @@
 *.yml text eol=lf
 *.yaml text eol=lf
 Cargo.lock text eol=lf
+
+# Preserve the recorded bytes of native MLT interoperability fixtures.
+crates/driver-mlt-video/fixtures/kdenlive/*.kdenlive text eol=lf
+crates/driver-mlt-video/fixtures/mlt/*.mlt text eol=lf
+crates/driver-mlt-video/fixtures/shotcut/*.mlt text eol=lf
+crates/driver-mlt-video/fixtures/shotcut/*.xml text eol=lf

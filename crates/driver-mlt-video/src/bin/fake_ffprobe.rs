@@ -18,6 +18,21 @@ fn main() {
         eprintln!("fake ffprobe input is unavailable");
         std::process::exit(3);
     }
+    // This exact byte fixture is private to test-tools. Production argv and
+    // ordinary probe fixtures keep their existing behavior.
+    const DELAY_FIXTURE: &[u8] = b"semwright-probe-delay-fixture/1\n";
+    if std::fs::metadata(input).unwrap().len() == DELAY_FIXTURE.len() as u64 {
+        use std::io::Read;
+        let mut bytes = vec![0; DELAY_FIXTURE.len()];
+        std::fs::File::open(input)
+            .unwrap()
+            .read_exact(&mut bytes)
+            .unwrap();
+        if bytes == DELAY_FIXTURE {
+            std::thread::sleep(std::time::Duration::from_secs(2));
+            std::fs::write(input.with_extension("probe-finished"), b"complete\n").unwrap();
+        }
+    }
     print!(
         r#"{{"streams":[{{"codec_type":"video","codec_name":"ffv1","width":160,"height":90,"duration_ts":50,"time_base":"1/25","nb_frames":"50"}},{{"codec_type":"audio","codec_name":"pcm_s16le","duration_ts":96000,"time_base":"1/48000"}}],"format":{{"duration":"2.000000000"}}}}"#
     );

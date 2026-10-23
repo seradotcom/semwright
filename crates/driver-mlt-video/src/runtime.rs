@@ -536,6 +536,65 @@ pub fn constrained_environment() -> BTreeMap<String, String> {
     ])
 }
 
+fn close_frame_readback(
+    reader: impl Read,
+    video_sha256: &str,
+    video_bytes: u64,
+    frames: &[crate::color::DecodedPng],
+    deadline: Instant,
+    cancel: &AtomicBool,
+) -> Result<String> {
+    let (after_sha256, after_bytes) = reader_hash(reader, crate::jobs::MAX_ARTIFACT_BYTES)?;
+    if after_sha256 != video_sha256 || after_bytes != video_bytes {
+        return Err(Error::new(
+            "StaleReference",
+            "Encoded artifact changed during complete decode",
+        ));
+    }
+    let roster = crate::color::rgba_roster_digest(frames)?;
+    let _ = (deadline, cancel);
+    Ok(roster)
+}
+
+fn remaining_color_budget(deadline: Instant) -> Result<Duration> {
+    deadline
+        .checked_duration_since(Instant::now())
+        .filter(|v| !v.is_zero())
+        .ok_or_else(|| Error::new("Timeout", "Shared encode/readback deadline exceeded"))
+}
+
+#[derive(Debug)]
+pub struct EncodedFramesObservation {
+    pub video_sha256: String,
+    pub video_bytes: u64,
+    pub probe: crate::color::Probe,
+    pub frames: Vec<crate::color::DecodedPng>,
+    pub retained_png_bytes: u64,
+    pub rgba_roster_sha256: String,
+    pub ffmpeg_version: String,
+    pub ffmpeg_sha256: String,
+    pub ffprobe_sha256: String,
+}
+pub struct ValidatedOutput {
+    pub media: MediaInfo,
+    pub observation: Option<EncodedFramesObservation>,
+}
+/// Existing opt-in native routes; unrelated legacy profiles keep their contract.
+pub fn complete_observation_profile(
+    profile: &RenderProfile,
+) -> Option<crate::color::ObservationProfile> {
+    match profile.id {
+        "lossless-video-only" => Some(crate::color::ObservationProfile::MltVisualFfv1),
+        "av-h264-aac" => Some(crate::color::ObservationProfile::MltH264AacMaster),
+        _ => None,
+    }
+}
+
+pub struct EncodedFrames {
+    pub media: MediaInfo,
+    pub observation: EncodedFramesObservation,
+}
+
 pub struct Runtime {
     pub melt: Tool,
     pub ffprobe: Tool,
@@ -1084,7 +1143,8 @@ impl Runtime {
         width: u32,
         height: u32,
         cancel: &AtomicBool,
-    ) -> Result<MediaInfo> {
+    ) -> Result<EncodedFrames> {
+        let deadline = Instant::now() + self.timeout;
         if frame_count == 0
             || frame_count > 36_000
             || fps_num == 0
@@ -1107,12 +1167,31 @@ impl Runtime {
                 "Frame encode cancelled before start",
             ));
         }
+        crate::color::observation_budget(width, height, frame_count)?;
+        let help = run(
+            &self.spec(
+                "ffmpeg",
+                vec!["-hide_banner".into(), "-h".into(), "filter=zscale".into()],
+                inputs,
+                work,
+                remaining_color_budget(deadline)?.min(Duration::from_secs(5)),
+            )?,
+            cancel,
+        )?
+        .checked()?;
+        if !String::from_utf8_lossy(&help.stdout).contains("Filter zscale") {
+            return Err(Error::new(
+                "Unsupported",
+                "Pinned FFmpeg lacks reviewed zscale conversion",
+            ));
+        }
         let pattern = self.input_path(inputs, "%06d.png");
         let output = self.work_path(work, "mezzanine.mkv");
         let args = vec![
             "-v".into(),
             "error".into(),
             "-nostdin".into(),
+            "-n".into(),
             "-framerate".into(),
             format!("{fps_num}/{fps_den}").into(),
             "-start_number".into(),
@@ -1122,6 +1201,20 @@ impl Runtime {
             "-frames:v".into(),
             frame_count.to_string().into(),
             "-an".into(),
+            "-filter_threads".into(),
+            "1".into(),
+            "-vf".into(),
+            crate::color::ENCODE_FILTER.into(),
+            "-colorspace".into(),
+            "bt709".into(),
+            "-color_primaries".into(),
+            "bt709".into(),
+            "-color_trc".into(),
+            "bt709".into(),
+            "-color_range".into(),
+            "tv".into(),
+            "-map_metadata".into(),
+            "-1".into(),
             "-c:v".into(),
             "ffv1".into(),
             "-level".into(),
@@ -1137,7 +1230,13 @@ impl Runtime {
             output.into_os_string(),
         ];
         run(
-            &self.spec("ffmpeg", args, inputs, work, self.timeout)?,
+            &self.spec(
+                "ffmpeg",
+                args,
+                inputs,
+                work,
+                remaining_color_budget(deadline)?,
+            )?,
             cancel,
         )?
         .checked()?;
@@ -1164,7 +1263,215 @@ impl Runtime {
                 "FFV1 mezzanine duration differs by more than one source frame",
             ));
         }
-        Ok(info)
+        let observation = self.observe_video_file(
+            work,
+            "mezzanine.mkv",
+            crate::color::ObservationProfile::MotionCanvasFfv1,
+            (width, height),
+            frame_count,
+            fps_num,
+            fps_den,
+            deadline,
+            cancel,
+        )?;
+        Ok(EncodedFrames {
+            media: info,
+            observation,
+        })
+    }
+
+    /// Complete post-encode observation. Reuses this Runtime's sealed tools,
+    /// supervisor, limits and custody; no second decoder runtime or scheduler.
+    /// Reused by the existing Host render runner; observations confer no authority.
+    pub fn observe_video_file(
+        &self,
+        work: &Path,
+        name: &str,
+        profile: crate::color::ObservationProfile,
+        dimensions: (u32, u32),
+        frame_count: u64,
+        fps_num: u32,
+        fps_den: u32,
+        deadline: Instant,
+        cancel: &AtomicBool,
+    ) -> Result<EncodedFramesObservation> {
+        use crate::{color, fs::Root};
+        let (width, height) = dimensions;
+        crate::fs::validate_relative(name)?;
+        if name.contains('/') {
+            return Err(Error::invalid(
+                "Complete readback requires an owned basename",
+            ));
+        }
+        let budget = color::observation_budget(width, height, frame_count)?;
+        let root = Root::open(work, true, false)?;
+        let (video_sha256, video_bytes) = reader_hash(
+            root.read_file(name, crate::jobs::MAX_ARTIFACT_BYTES)?,
+            crate::jobs::MAX_ARTIFACT_BYTES,
+        )?;
+        let entries = "stream=index,codec_type,codec_name,width,height,pix_fmt,chroma_location,sample_fmt,sample_rate,channels,channel_layout,r_frame_rate,avg_frame_rate,time_base,start_pts,duration_ts,sample_aspect_ratio,field_order,color_range,color_space,color_transfer,color_primaries:frame=media_type,stream_index,pts,duration,nb_samples,sample_fmt,channels,channel_layout,width,height,pix_fmt,chroma_location,sample_aspect_ratio,interlaced_frame,top_field_first,repeat_pict,crop_top,crop_bottom,crop_left,crop_right,color_range,color_space,color_transfer,color_primaries:frame_side_data=side_data_type:stream_side_data=side_data_type";
+        let args = [
+            "-v",
+            "error",
+            "-show_program_version",
+            "-show_library_versions",
+            "-show_streams",
+            "-show_frames",
+            "-show_entries",
+            entries,
+            "-of",
+            "json",
+        ]
+        .into_iter()
+        .map(OsString::from)
+        .chain(std::iter::once(
+            self.input_path(work, name).into_os_string(),
+        ))
+        .collect();
+        let result = run_with_output_limits(
+            &self.spec(
+                "ffprobe",
+                args,
+                work,
+                work,
+                remaining_color_budget(deadline)?,
+            )?,
+            cancel,
+            color::REPORT_LIMIT,
+            color::REPORT_LIMIT,
+        )?
+        .checked()?;
+        let probe = color::parse_probe_profile(
+            profile,
+            &result.stdout,
+            width,
+            height,
+            frame_count,
+            fps_num,
+            fps_den,
+        )?;
+        let readback_filter = color::readback_filter(
+            profile,
+            probe.stream["pixel_format"]
+                .as_str()
+                .ok_or_else(|| Error::invalid("Observed pixel format"))?,
+            probe.stream["chroma_location"].as_str(),
+        )?;
+        let version = run(
+            &self.spec(
+                "ffmpeg",
+                vec!["-version".into()],
+                work,
+                work,
+                remaining_color_budget(deadline)?.min(Duration::from_secs(5)),
+            )?,
+            cancel,
+        )?
+        .checked()?;
+        let version = std::str::from_utf8(&version.stdout)
+            .ok()
+            .and_then(|v| v.lines().next())
+            .filter(|v| v.starts_with("ffmpeg version ") && v.len() <= 256)
+            .ok_or_else(|| Error::new("BackendFailed", "Decoder version observation missing"))?
+            .to_owned();
+        // No output-fps rewriting. +1 detects a disagreement with the independent
+        // complete ffprobe decode; normal completion reaches EOF before that limit.
+        let args = vec![
+            "-v".into(),
+            "error".into(),
+            "-nostdin".into(),
+            "-n".into(),
+            "-threads".into(),
+            "2".into(),
+            "-i".into(),
+            self.input_path(work, name).into_os_string(),
+            "-map".into(),
+            "0:v:0".into(),
+            "-an".into(),
+            "-sn".into(),
+            "-dn".into(),
+            "-map_metadata".into(),
+            "-1".into(),
+            "-vsync".into(),
+            "0".into(),
+            "-filter_threads".into(),
+            "1".into(),
+            "-vf".into(),
+            readback_filter.into(),
+            "-frames:v".into(),
+            (frame_count + 1).to_string().into(),
+            "-c:v".into(),
+            "png".into(),
+            "-pix_fmt".into(),
+            "rgba".into(),
+            "-compression_level".into(),
+            "9".into(),
+            "-threads".into(),
+            "2".into(),
+            "-start_number".into(),
+            "0".into(),
+            "-f".into(),
+            "image2".into(),
+            self.work_path(work, "decoded-%06d.png").into_os_string(),
+        ];
+        run(
+            &self.spec(
+                "ffmpeg",
+                args,
+                work,
+                work,
+                remaining_color_budget(deadline)?,
+            )?,
+            cancel,
+        )?
+        .checked()?;
+        if root.exists(&format!("decoded-{frame_count:06}.png"))? {
+            return Err(Error::new(
+                "BackendFailed",
+                "FFmpeg decoded more frames than the complete observation",
+            ));
+        }
+        let mut frames = Vec::with_capacity(frame_count as usize);
+        let mut total = 0u64;
+        for index in 0..frame_count {
+            remaining_color_budget(deadline)?;
+            if cancel.load(Ordering::Acquire) {
+                return Err(Error::new("Cancelled", "Complete frame readback cancelled"));
+            }
+            let png = root.read(&format!("decoded-{index:06}.png"), color::PNG_LIMIT)?;
+            let observed = color::inspect_decoded_png(&png, index, width, height)?;
+            if observed.bytes > budget.png_bytes_upper_bound {
+                return Err(Error::limit("Decoded PNG exceeds reviewed encoder bound"));
+            }
+            total = total
+                .checked_add(observed.bytes)
+                .ok_or_else(|| Error::limit("PNG total overflow"))?;
+            if total > color::RETAINED_PNG_LIMIT {
+                return Err(Error::limit(
+                    "Decoded PNG aggregate exceeds observation budget",
+                ));
+            }
+            frames.push(observed);
+        }
+        let roster = close_frame_readback(
+            root.read_file(name, crate::jobs::MAX_ARTIFACT_BYTES)?,
+            &video_sha256,
+            video_bytes,
+            &frames,
+            deadline,
+            cancel,
+        )?;
+        Ok(EncodedFramesObservation {
+            video_sha256,
+            video_bytes,
+            probe,
+            frames,
+            retained_png_bytes: total,
+            rgba_roster_sha256: roster,
+            ffmpeg_version: version,
+            ffmpeg_sha256: self.ffmpeg.sha256.clone(),
+            ffprobe_sha256: self.ffprobe.sha256.clone(),
+        })
     }
 
     /// Strict original decoded-frame readback using the same owner-pinned
@@ -1299,6 +1606,7 @@ impl Runtime {
         work: &Path,
         profile: &RenderProfile,
         cancel: &AtomicBool,
+        deadline: Instant,
     ) -> Result<ProcessResult> {
         let args = render_argv(
             self.input_path(inputs, "project.mlt").into_os_string(),
@@ -1307,7 +1615,13 @@ impl Runtime {
             profile,
         );
         run(
-            &self.spec("melt", args, inputs, work, self.timeout)?,
+            &self.spec(
+                "melt",
+                args,
+                inputs,
+                work,
+                remaining_color_budget(deadline)?,
+            )?,
             cancel,
         )?
         .checked()
@@ -1319,62 +1633,34 @@ impl Runtime {
         expected: &Profile,
         frames: u64,
         cancel: &AtomicBool,
-    ) -> Result<MediaInfo> {
+        deadline: Instant,
+    ) -> Result<ValidatedOutput> {
+        remaining_color_budget(deadline)?;
         let filename = format!("partial.{}", profile.extension);
         let mut info = self.probe(work, work, &filename, cancel)?;
-        if profile.id == "lossless-video-only" {
-            // A Matroska FFprobe header is not proof of frame count: many
-            // Matroska streams omit nb_frames entirely. The new opt-in AV
-            // input profile must actually decode and count *every* frame
-            // inside the existing confined runtime before publishing bytes.
-            let observed = self.decoded_ffv1_video_frame_count(work, &filename, cancel)?;
-            if observed != frames {
-                return Err(Error::new(
-                    "BackendFailed",
-                    "Decoded video-only FFV1 frame count differs from the source cut",
-                ));
-            }
-            info.frames = Some(observed);
-        }
+        remaining_color_budget(deadline)?;
+        let observation = if let Some(selected) = complete_observation_profile(profile) {
+            let observed = self.observe_video_file(
+                work,
+                &filename,
+                selected,
+                (expected.width, expected.height),
+                frames,
+                expected.fps.num,
+                expected.fps.den,
+                deadline,
+                cancel,
+            )?;
+            info.frames = Some(observed.frames.len() as u64);
+            Some(observed)
+        } else {
+            None
+        };
         validate_render_media(&info, profile, expected, frames)?;
-        Ok(info)
-    }
-
-    fn decoded_ffv1_video_frame_count(
-        &self,
-        work: &Path,
-        name: &str,
-        cancel: &AtomicBool,
-    ) -> Result<u64> {
-        crate::fs::validate_relative(name)?;
-        if name.contains('/') {
-            return Err(Error::invalid(
-                "Decoded frame count requires an owned basename",
-            ));
-        }
-        let args = [
-            "-v",
-            "error",
-            "-count_frames",
-            "-select_streams",
-            "v:0",
-            "-show_entries",
-            "stream=codec_name,codec_type,width,height,nb_read_frames",
-            "-of",
-            "json",
-        ]
-        .into_iter()
-        .map(OsString::from)
-        .chain(std::iter::once(
-            self.input_path(work, name).into_os_string(),
-        ))
-        .collect();
-        let observed = run(
-            &self.spec("ffprobe", args, work, work, self.timeout)?,
-            cancel,
-        )?
-        .checked()?;
-        parse_exact_ffv1_decoded_frame_count(&observed.stdout)
+        Ok(ValidatedOutput {
+            media: info,
+            observation,
+        })
     }
 }
 
@@ -2136,5 +2422,194 @@ mod tool_owner_tests {
             1000,
             None
         ));
+    }
+}
+
+#[cfg(all(test, feature = "test-tools"))]
+pub(crate) mod native_closure_test_tools {
+    use super::*;
+
+    pub(crate) const DELAY_FIXTURE: &[u8] = b"semwright-probe-delay-fixture/1\n";
+
+    pub(crate) fn runtime() -> (Runtime, PrivateDir) {
+        // These are the existing test-tools binaries, built before the library tests.
+        // Copies retain the production single-link and owner-executable requirements.
+        let executable = std::env::current_exe().unwrap();
+        let directory = executable.parent().unwrap().parent().unwrap();
+        let tools = PrivateDir::new(Path::new("/tmp")).unwrap();
+        let pinned = |name: &str| {
+            let source = std::fs::canonicalize(directory.join(name)).unwrap();
+            let path = tools.path().join(name);
+            std::fs::copy(source, &path).unwrap();
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o500)).unwrap();
+            let (sha256, _) = reader_hash(File::open(&path).unwrap(), 64 * 1024 * 1024).unwrap();
+            Tool { path, sha256 }
+        };
+        let melt = pinned("fake-melt");
+        let ffprobe = pinned("fake-ffprobe");
+        let runtime = Runtime::from_host_tools(melt.clone(), ffprobe, melt).unwrap();
+        (runtime, tools)
+    }
+}
+
+#[cfg(test)]
+mod native_closure_tests {
+    use super::*;
+    use std::io::Cursor;
+
+    fn frames() -> Vec<crate::color::DecodedPng> {
+        vec![crate::color::DecodedPng {
+            file: "decoded-000000.png".into(),
+            bytes: 100,
+            sha256: "b".repeat(64),
+            rgba_sha256: "a".repeat(64),
+            alpha_min: 255,
+            alpha_max: 255,
+        }]
+    }
+
+    struct AtEof<R, F> {
+        reader: R,
+        effect: Option<F>,
+    }
+    impl<R: Read, F: FnOnce()> Read for AtEof<R, F> {
+        fn read(&mut self, buffer: &mut [u8]) -> std::io::Result<usize> {
+            let size = self.reader.read(buffer)?;
+            if size == 0
+                && let Some(effect) = self.effect.take()
+            {
+                effect();
+            }
+            Ok(size)
+        }
+    }
+
+    #[test]
+    fn final_readback_preserves_unchanged_artifact_roster() {
+        let data = b"observed artifact";
+        let frames = frames();
+        let roster = close_frame_readback(
+            Cursor::new(data),
+            &crate::hash::sha256(data),
+            data.len() as u64,
+            &frames,
+            Instant::now() + Duration::from_secs(2),
+            &AtomicBool::new(false),
+        )
+        .unwrap();
+        assert_eq!(roster, crate::color::rgba_roster_digest(&frames).unwrap());
+    }
+
+    #[test]
+    fn final_readback_preserves_changed_artifact_rejection() {
+        let data = b"observed artifact";
+        let error = close_frame_readback(
+            Cursor::new(b"replaced artifact"),
+            &crate::hash::sha256(data),
+            data.len() as u64,
+            &frames(),
+            Instant::now() + Duration::from_secs(2),
+            &AtomicBool::new(false),
+        )
+        .unwrap_err();
+        assert_eq!(error.code, "StaleReference");
+    }
+
+    #[test]
+    fn final_readback_rejects_cancellation_arriving_at_hash_eof() {
+        let data = b"observed artifact";
+        let cancel = AtomicBool::new(false);
+        let reader = AtEof {
+            reader: Cursor::new(data),
+            effect: Some(|| cancel.store(true, Ordering::Release)),
+        };
+        let result = close_frame_readback(
+            reader,
+            &crate::hash::sha256(data),
+            data.len() as u64,
+            &frames(),
+            Instant::now() + Duration::from_secs(2),
+            &cancel,
+        );
+        assert!(cancel.load(Ordering::Acquire));
+        assert_eq!(result.unwrap_err().code, "Cancelled");
+    }
+
+    #[test]
+    fn final_readback_rejects_deadline_expiring_at_hash_eof() {
+        let data = b"observed artifact";
+        let deadline = Instant::now() + Duration::from_millis(50);
+        let reader = AtEof {
+            reader: Cursor::new(data),
+            effect: Some(|| {
+                thread::sleep(deadline.saturating_duration_since(Instant::now()));
+                assert!(Instant::now() >= deadline);
+            }),
+        };
+        let result = close_frame_readback(
+            reader,
+            &crate::hash::sha256(data),
+            data.len() as u64,
+            &frames(),
+            deadline,
+            &AtomicBool::new(false),
+        );
+        assert_eq!(result.unwrap_err().code, "Timeout");
+    }
+
+    #[cfg(feature = "test-tools")]
+    #[test]
+    fn probe_fixture_completion_is_observable_with_its_own_budget() {
+        let (runtime, _tools) = native_closure_test_tools::runtime();
+        let work = tempfile::tempdir().unwrap();
+        let input = work.path().join("partial.mkv");
+        std::fs::write(&input, native_closure_test_tools::DELAY_FIXTURE).unwrap();
+        let media = runtime
+            .probe(
+                work.path(),
+                work.path(),
+                "partial.mkv",
+                &AtomicBool::new(false),
+            )
+            .unwrap();
+        assert!(media.video && media.audio);
+        assert!(input.with_extension("probe-finished").is_file());
+    }
+
+    #[cfg(feature = "test-tools")]
+    #[test]
+    fn output_probe_cannot_complete_past_the_shared_deadline() {
+        let (runtime, _tools) = native_closure_test_tools::runtime();
+        let work = tempfile::tempdir().unwrap();
+        let input = work.path().join("partial.mkv");
+        std::fs::write(&input, native_closure_test_tools::DELAY_FIXTURE).unwrap();
+        let expected = Profile {
+            width: 160,
+            height: 90,
+            fps: crate::time::FrameRate::new(25, 1).unwrap(),
+            progressive: true,
+            sample_aspect: (1, 1),
+            display_aspect: (16, 9),
+            colorspace: 709,
+            audio_channels: 2,
+        };
+        let result = runtime.validate_output(
+            work.path(),
+            &RenderProfile::get("lossless").unwrap(),
+            &expected,
+            50,
+            &AtomicBool::new(false),
+            Instant::now() + Duration::from_millis(500),
+        );
+        assert_eq!(
+            result.err().expect("shared deadline must expire").code,
+            "Timeout"
+        );
+        // The fixture completes after 2 s. Observe its effect rather than impose
+        // a fragile wall-clock threshold on a loaded CI runner.
+        assert!(
+            !input.with_extension("probe-finished").exists(),
+            "the media probe completed after the shared deadline",
+        );
     }
 }

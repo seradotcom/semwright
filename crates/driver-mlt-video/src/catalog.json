@@ -1648,8 +1648,8 @@
   {
     "descriptor": {
       "name": "driver.mlt-video.av.mux",
-      "version": "0.1.0",
-      "description": "Mux one digest-pinned video-only Motion mezzanine and one digest-pinned audio-only final mix into a bounded H.264/AAC MP4 through the pinned confined MLT runtime, then publish a digest-bound 48 kHz stereo PCM WAV decoded from that exact master for post-encode analysis; no effects, gain, ducking, arbitrary argv or filter graph.",
+      "version": "0.2.0",
+      "description": "Mux digest-pinned native video and 48 kHz stereo final mix through the existing confined MLT runtime; retain the exact consumed project.mlt, original staged source identities, all decoded RGBA frames with actual color/PTS and the original post-master PCM audio observation. Unknown color/presentation fails without retagging or retiming.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -1997,6 +1997,101 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 384000000
+          },
+          "native_input": {
+            "type": "object",
+            "properties": {
+              "root": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "path": {
+                "type": "string",
+                "maxLength": 4096
+              },
+              "sha256": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "bytes": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 8388608
+              }
+            },
+            "required": [
+              "root",
+              "path",
+              "sha256",
+              "bytes"
+            ],
+            "additionalProperties": false
+          },
+          "color_observation": {
+            "type": "object",
+            "properties": {
+              "root": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "path": {
+                "type": "string",
+                "maxLength": 4096
+              },
+              "sha256": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "bytes": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 8388608
+              }
+            },
+            "required": [
+              "root",
+              "path",
+              "sha256",
+              "bytes"
+            ],
+            "additionalProperties": false
+          },
+          "native_input_sources": {
+            "type": "array",
+            "maxItems": 4096,
+            "items": {
+              "type": "object",
+              "properties": {
+                "root": {
+                  "type": "string",
+                  "enum": [
+                    "project",
+                    "media",
+                    "output"
+                  ]
+                },
+                "path": {
+                  "type": "string",
+                  "maxLength": 4096
+                },
+                "sha256": {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                "bytes": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 268435456
+                }
+              },
+              "required": [
+                "root",
+                "path",
+                "sha256",
+                "bytes"
+              ],
+              "additionalProperties": false
+            }
           }
         },
         "required": [
@@ -2013,7 +2108,10 @@
           "audio_sample_frames",
           "media",
           "video_sha256",
-          "audio_sha256"
+          "audio_sha256",
+          "native_input",
+          "native_input_sources",
+          "color_observation"
         ],
         "additionalProperties": false
       },
@@ -4940,8 +5038,8 @@
   {
     "descriptor": {
       "name": "driver.mlt-video.frames.encode",
-      "version": "0.1.0",
-      "description": "Verify a Motion Canvas artifact manifest and its PNG hashes, then encode a bounded video-only FFV1 Matroska mezzanine with the pinned confined ffmpeg runtime.",
+      "version": "0.2.0",
+      "description": "Verify original opaque sRGB Motion Canvas RGB8 PNGs, transform their transfer and matrix to limited BT.709, encode FFV1 once, and retain complete FFmpeg RGBA/ffprobe color and observed PTS evidence under existing Host custody.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -5116,6 +5214,35 @@
               "codecs"
             ],
             "additionalProperties": false
+          },
+          "color_observation": {
+            "type": "object",
+            "properties": {
+              "root": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "path": {
+                "type": "string",
+                "maxLength": 4096
+              },
+              "sha256": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "bytes": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 8388608
+              }
+            },
+            "required": [
+              "root",
+              "path",
+              "sha256",
+              "bytes"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [
@@ -5128,7 +5255,8 @@
           "height",
           "fps_num",
           "fps_den",
-          "media"
+          "media",
+          "color_observation"
         ],
         "additionalProperties": false
       },
@@ -7566,8 +7694,8 @@
   {
     "descriptor": {
       "name": "driver.mlt-video.render.cancel",
-      "version": "0.1.0",
-      "description": "Offline semantic render.cancel. Application data is untrusted; inspect format-level availability.",
+      "version": "0.3.0",
+      "description": "Existing bounded native render job lifecycle; selected video-only FFV1 output retains the consumed project.mlt, original staged source identities and complete decoded RGBA/color/PTS evidence. Legacy profiles expose null observation descriptors. Selected Host jobs optionally retain original request/terminal and observation custody before final publication; its independent retention status never replaces native state/error. Other runtimes omit the optional field.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -7783,6 +7911,184 @@
           },
           "cancellation_requested": {
             "type": "boolean"
+          },
+          "native_input": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "root": {
+                "type": "string",
+                "enum": [
+                  "output"
+                ]
+              },
+              "path": {
+                "type": "string",
+                "maxLength": 4096
+              },
+              "sha256": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "bytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 8388608
+              }
+            },
+            "required": [
+              "root",
+              "path",
+              "sha256",
+              "bytes"
+            ],
+            "additionalProperties": false
+          },
+          "color_observation": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "root": {
+                "type": "string",
+                "enum": [
+                  "output"
+                ]
+              },
+              "path": {
+                "type": "string",
+                "maxLength": 4096
+              },
+              "sha256": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "bytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 8388608
+              }
+            },
+            "required": [
+              "root",
+              "path",
+              "sha256",
+              "bytes"
+            ],
+            "additionalProperties": false
+          },
+          "native_input_sources": {
+            "type": "array",
+            "maxItems": 4096,
+            "items": {
+              "type": "object",
+              "properties": {
+                "root": {
+                  "type": "string",
+                  "enum": [
+                    "project",
+                    "media",
+                    "output"
+                  ]
+                },
+                "path": {
+                  "type": "string",
+                  "maxLength": 4096
+                },
+                "sha256": {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                "bytes": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 268435456
+                }
+              },
+              "required": [
+                "root",
+                "path",
+                "sha256",
+                "bytes"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "native_host_custody": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "state",
+              "artifact",
+              "error"
+            ],
+            "properties": {
+              "state": {
+                "type": "string",
+                "enum": [
+                  "retained",
+                  "failed_known",
+                  "outcome_unknown"
+                ]
+              },
+              "artifact": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "properties": {
+                  "root": {
+                    "type": "string",
+                    "enum": [
+                      "output"
+                    ]
+                  },
+                  "path": {
+                    "type": "string",
+                    "maxLength": 4096
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "maxLength": 64
+                  },
+                  "bytes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 16384
+                  }
+                },
+                "required": [
+                  "root",
+                  "path",
+                  "sha256",
+                  "bytes"
+                ],
+                "additionalProperties": false
+              },
+              "error": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "additionalProperties": false,
+                "required": [
+                  "code",
+                  "outcome_known"
+                ],
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "maxLength": 64
+                  },
+                  "outcome_known": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
           }
         },
         "required": [
@@ -7798,7 +8104,10 @@
           "artifact",
           "media",
           "error",
-          "cancellation_requested"
+          "cancellation_requested",
+          "native_input",
+          "native_input_sources",
+          "color_observation"
         ],
         "additionalProperties": false
       },
@@ -8092,8 +8401,8 @@
   {
     "descriptor": {
       "name": "driver.mlt-video.render.result",
-      "version": "0.1.0",
-      "description": "Offline semantic render.result. Application data is untrusted; inspect format-level availability.",
+      "version": "0.3.0",
+      "description": "Existing bounded native render job lifecycle; selected video-only FFV1 output retains the consumed project.mlt, original staged source identities and complete decoded RGBA/color/PTS evidence. Legacy profiles expose null observation descriptors. Selected Host jobs optionally retain original request/terminal and observation custody before final publication; its independent retention status never replaces native state/error. Other runtimes omit the optional field.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -8309,6 +8618,184 @@
           },
           "cancellation_requested": {
             "type": "boolean"
+          },
+          "native_input": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "root": {
+                "type": "string",
+                "enum": [
+                  "output"
+                ]
+              },
+              "path": {
+                "type": "string",
+                "maxLength": 4096
+              },
+              "sha256": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "bytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 8388608
+              }
+            },
+            "required": [
+              "root",
+              "path",
+              "sha256",
+              "bytes"
+            ],
+            "additionalProperties": false
+          },
+          "color_observation": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "root": {
+                "type": "string",
+                "enum": [
+                  "output"
+                ]
+              },
+              "path": {
+                "type": "string",
+                "maxLength": 4096
+              },
+              "sha256": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "bytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 8388608
+              }
+            },
+            "required": [
+              "root",
+              "path",
+              "sha256",
+              "bytes"
+            ],
+            "additionalProperties": false
+          },
+          "native_input_sources": {
+            "type": "array",
+            "maxItems": 4096,
+            "items": {
+              "type": "object",
+              "properties": {
+                "root": {
+                  "type": "string",
+                  "enum": [
+                    "project",
+                    "media",
+                    "output"
+                  ]
+                },
+                "path": {
+                  "type": "string",
+                  "maxLength": 4096
+                },
+                "sha256": {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                "bytes": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 268435456
+                }
+              },
+              "required": [
+                "root",
+                "path",
+                "sha256",
+                "bytes"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "native_host_custody": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "state",
+              "artifact",
+              "error"
+            ],
+            "properties": {
+              "state": {
+                "type": "string",
+                "enum": [
+                  "retained",
+                  "failed_known",
+                  "outcome_unknown"
+                ]
+              },
+              "artifact": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "properties": {
+                  "root": {
+                    "type": "string",
+                    "enum": [
+                      "output"
+                    ]
+                  },
+                  "path": {
+                    "type": "string",
+                    "maxLength": 4096
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "maxLength": 64
+                  },
+                  "bytes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 16384
+                  }
+                },
+                "required": [
+                  "root",
+                  "path",
+                  "sha256",
+                  "bytes"
+                ],
+                "additionalProperties": false
+              },
+              "error": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "additionalProperties": false,
+                "required": [
+                  "code",
+                  "outcome_known"
+                ],
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "maxLength": 64
+                  },
+                  "outcome_known": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
           }
         },
         "required": [
@@ -8324,7 +8811,10 @@
           "artifact",
           "media",
           "error",
-          "cancellation_requested"
+          "cancellation_requested",
+          "native_input",
+          "native_input_sources",
+          "color_observation"
         ],
         "additionalProperties": false
       },
@@ -8353,8 +8843,8 @@
   {
     "descriptor": {
       "name": "driver.mlt-video.render.start",
-      "version": "0.1.0",
-      "description": "Offline semantic render.start. Application data is untrusted; inspect format-level availability.",
+      "version": "0.3.0",
+      "description": "Existing bounded native render job lifecycle; selected video-only FFV1 output retains the consumed project.mlt, original staged source identities and complete decoded RGBA/color/PTS evidence. Legacy profiles expose null observation descriptors. Selected Host jobs optionally retain original request/terminal and observation custody before final publication; its independent retention status never replaces native state/error. Other runtimes omit the optional field.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -8590,6 +9080,184 @@
           },
           "cancellation_requested": {
             "type": "boolean"
+          },
+          "native_input": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "root": {
+                "type": "string",
+                "enum": [
+                  "output"
+                ]
+              },
+              "path": {
+                "type": "string",
+                "maxLength": 4096
+              },
+              "sha256": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "bytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 8388608
+              }
+            },
+            "required": [
+              "root",
+              "path",
+              "sha256",
+              "bytes"
+            ],
+            "additionalProperties": false
+          },
+          "color_observation": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "root": {
+                "type": "string",
+                "enum": [
+                  "output"
+                ]
+              },
+              "path": {
+                "type": "string",
+                "maxLength": 4096
+              },
+              "sha256": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "bytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 8388608
+              }
+            },
+            "required": [
+              "root",
+              "path",
+              "sha256",
+              "bytes"
+            ],
+            "additionalProperties": false
+          },
+          "native_input_sources": {
+            "type": "array",
+            "maxItems": 4096,
+            "items": {
+              "type": "object",
+              "properties": {
+                "root": {
+                  "type": "string",
+                  "enum": [
+                    "project",
+                    "media",
+                    "output"
+                  ]
+                },
+                "path": {
+                  "type": "string",
+                  "maxLength": 4096
+                },
+                "sha256": {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                "bytes": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 268435456
+                }
+              },
+              "required": [
+                "root",
+                "path",
+                "sha256",
+                "bytes"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "native_host_custody": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "state",
+              "artifact",
+              "error"
+            ],
+            "properties": {
+              "state": {
+                "type": "string",
+                "enum": [
+                  "retained",
+                  "failed_known",
+                  "outcome_unknown"
+                ]
+              },
+              "artifact": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "properties": {
+                  "root": {
+                    "type": "string",
+                    "enum": [
+                      "output"
+                    ]
+                  },
+                  "path": {
+                    "type": "string",
+                    "maxLength": 4096
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "maxLength": 64
+                  },
+                  "bytes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 16384
+                  }
+                },
+                "required": [
+                  "root",
+                  "path",
+                  "sha256",
+                  "bytes"
+                ],
+                "additionalProperties": false
+              },
+              "error": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "additionalProperties": false,
+                "required": [
+                  "code",
+                  "outcome_known"
+                ],
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "maxLength": 64
+                  },
+                  "outcome_known": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
           }
         },
         "required": [
@@ -8605,7 +9273,10 @@
           "artifact",
           "media",
           "error",
-          "cancellation_requested"
+          "cancellation_requested",
+          "native_input",
+          "native_input_sources",
+          "color_observation"
         ],
         "additionalProperties": false
       },
@@ -8634,8 +9305,8 @@
   {
     "descriptor": {
       "name": "driver.mlt-video.render.status",
-      "version": "0.1.0",
-      "description": "Offline semantic render.status. Application data is untrusted; inspect format-level availability.",
+      "version": "0.3.0",
+      "description": "Existing bounded native render job lifecycle; selected video-only FFV1 output retains the consumed project.mlt, original staged source identities and complete decoded RGBA/color/PTS evidence. Legacy profiles expose null observation descriptors. Selected Host jobs optionally retain original request/terminal and observation custody before final publication; its independent retention status never replaces native state/error. Other runtimes omit the optional field.",
       "input_schema": {
         "type": "object",
         "properties": {
@@ -8851,6 +9522,184 @@
           },
           "cancellation_requested": {
             "type": "boolean"
+          },
+          "native_input": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "root": {
+                "type": "string",
+                "enum": [
+                  "output"
+                ]
+              },
+              "path": {
+                "type": "string",
+                "maxLength": 4096
+              },
+              "sha256": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "bytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 8388608
+              }
+            },
+            "required": [
+              "root",
+              "path",
+              "sha256",
+              "bytes"
+            ],
+            "additionalProperties": false
+          },
+          "color_observation": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "root": {
+                "type": "string",
+                "enum": [
+                  "output"
+                ]
+              },
+              "path": {
+                "type": "string",
+                "maxLength": 4096
+              },
+              "sha256": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "bytes": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 8388608
+              }
+            },
+            "required": [
+              "root",
+              "path",
+              "sha256",
+              "bytes"
+            ],
+            "additionalProperties": false
+          },
+          "native_input_sources": {
+            "type": "array",
+            "maxItems": 4096,
+            "items": {
+              "type": "object",
+              "properties": {
+                "root": {
+                  "type": "string",
+                  "enum": [
+                    "project",
+                    "media",
+                    "output"
+                  ]
+                },
+                "path": {
+                  "type": "string",
+                  "maxLength": 4096
+                },
+                "sha256": {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                "bytes": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 268435456
+                }
+              },
+              "required": [
+                "root",
+                "path",
+                "sha256",
+                "bytes"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "native_host_custody": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "state",
+              "artifact",
+              "error"
+            ],
+            "properties": {
+              "state": {
+                "type": "string",
+                "enum": [
+                  "retained",
+                  "failed_known",
+                  "outcome_unknown"
+                ]
+              },
+              "artifact": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "properties": {
+                  "root": {
+                    "type": "string",
+                    "enum": [
+                      "output"
+                    ]
+                  },
+                  "path": {
+                    "type": "string",
+                    "maxLength": 4096
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "maxLength": 64
+                  },
+                  "bytes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 16384
+                  }
+                },
+                "required": [
+                  "root",
+                  "path",
+                  "sha256",
+                  "bytes"
+                ],
+                "additionalProperties": false
+              },
+              "error": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "additionalProperties": false,
+                "required": [
+                  "code",
+                  "outcome_known"
+                ],
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "maxLength": 64
+                  },
+                  "outcome_known": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
           }
         },
         "required": [
@@ -8866,7 +9715,10 @@
           "artifact",
           "media",
           "error",
-          "cancellation_requested"
+          "cancellation_requested",
+          "native_input",
+          "native_input_sources",
+          "color_observation"
         ],
         "additionalProperties": false
       },

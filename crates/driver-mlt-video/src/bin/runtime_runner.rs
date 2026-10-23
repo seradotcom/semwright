@@ -17,7 +17,7 @@ use std::{
     path::{Path, PathBuf},
     sync::Arc,
     sync::atomic::AtomicBool,
-    time::Duration,
+    time::{Duration, Instant},
 };
 
 const GROUPS: [&str; 6] = [
@@ -213,11 +213,20 @@ fn probe(
     }))
 }
 
+fn require_render_deadline(deadline: Instant) -> Result<(), String> {
+    if Instant::now() >= deadline {
+        Err("Timeout: shared native render and observation deadline expired".into())
+    } else {
+        Ok(())
+    }
+}
+
 fn render(
     melt: &Path,
     scratch_root: &Path,
     directory: &str,
     profile_id: &str,
+    observation_runtime: Option<&semwright_mlt_video::runtime::Runtime>,
 ) -> Result<Value, String> {
     let work = scratch_dir(scratch_root, directory)?;
     let project = work.join("project.mlt");
@@ -246,6 +255,30 @@ fn render(
     let project_bytes = project_root
         .read("project.mlt", semwright_mlt_video::xml::MAX_XML)
         .map_err(|_| "native render XML diagnostic binding is unavailable".to_string())?;
+    let complete_request = if observation_runtime.is_some() {
+        if profile.id != "lossless-video-only" {
+            return Err(
+                "Complete Host observation is restricted to the existing visual profile".into(),
+            );
+        }
+        let bytes = project_root
+            .read(
+                semwright_mlt_video::color::NATIVE_OBSERVATION_REQUEST_FILE,
+                semwright_mlt_video::color::NATIVE_OBSERVATION_REQUEST_LIMIT,
+            )
+            .map_err(|e| format!("{}: {}", e.code, e.message))?;
+        let request = semwright_mlt_video::color::NativeObservationRequest::parse(&bytes)
+            .map_err(|e| format!("{}: {}", e.code, e.message))?;
+        request
+            .verify_staged(&project_root)
+            .map_err(|e| format!("{}: {}", e.code, e.message))?;
+        Some((bytes, request))
+    } else {
+        None
+    };
+    // Retain the actual original 120-second render ceiling. The complete
+    // observation shares that deadline; the enclosing Host ceiling stays300s.
+    let deadline = Instant::now() + Duration::from_secs(120);
     let result = run(
         &ProcessSpec {
             executable: melt.to_path_buf(),
@@ -272,11 +305,64 @@ fn render(
     if !metadata.is_file() || metadata.file_type().is_symlink() {
         return Err("render output must be a regular non-symlink file".into());
     }
-    Ok(json!({
+    let mut result = json!({
         "schema": 1,
         "operation": "render",
         "output": output_name,
-    }))
+    });
+    if let (Some(runtime), Some((request_bytes, request))) = (observation_runtime, complete_request)
+    {
+        request
+            .verify_staged(&project_root)
+            .map_err(|e| format!("{}: {}", e.code, e.message))?;
+        require_render_deadline(deadline)?;
+        let observed = runtime
+            .observe_video_file(
+                &work,
+                &output_name,
+                semwright_mlt_video::color::ObservationProfile::MltVisualFfv1,
+                (request.width, request.height),
+                request.frames,
+                request.fps_num,
+                request.fps_den,
+                deadline,
+                &AtomicBool::new(false),
+            )
+            .map_err(|e| format!("{}: {}", e.code, e.message))?;
+        require_render_deadline(deadline)?;
+        let sources = request.sources();
+        let report = semwright_mlt_video::color::build_observation_report(
+            &observed,
+            &request.output_path,
+            request.source_binding(),
+            Some(&sources),
+            request.width,
+            request.height,
+            request.fps_num,
+            request.fps_den,
+        )
+        .map_err(|e| format!("{}: {}", e.code, e.message))?;
+        let parsed = semwright_mlt_video::color::parse_complete_observation(&report)
+            .map_err(|e| format!("{}: {}", e.code, e.message))?;
+        request
+            .verify_report(&parsed)
+            .map_err(|e| format!("{}: {}", e.code, e.message))?;
+        request
+            .verify_staged(&project_root)
+            .map_err(|e| format!("{}: {}", e.code, e.message))?;
+        require_render_deadline(deadline)?;
+        let descriptor = project_root
+            .write_new(
+                "scratch",
+                semwright_mlt_video::color::NATIVE_OBSERVATION_FILE,
+                &report,
+            )
+            .map_err(|e| format!("{}: {}", e.code, e.message))?;
+        result["observation"] = serde_json::from_str(&descriptor.json().encode())
+            .map_err(|_| "Native observation descriptor serialization")?;
+        result["request_sha256"] = json!(semwright_mlt_video::hash::sha256(&request_bytes));
+    }
+    Ok(result)
 }
 
 fn discover(melt: &Path) -> Result<Value, String> {
@@ -343,16 +429,37 @@ fn required_flag(
         .ok_or_else(|| format!("{description} requires a value for {expected}"))
 }
 
+/// Reuse the same Host-sealed dependency binding for render and AV operations.
+fn host_runtime(
+    runtime_root: &Path,
+    sealed: [&Path; 3],
+) -> Result<semwright_mlt_video::runtime::Runtime, String> {
+    use semwright_mlt_video::runtime::{Runtime, Tool};
+    let mut tools = Vec::new();
+    for (name, sealed) in ["melt", "ffprobe", "ffmpeg"].into_iter().zip(sealed) {
+        // Compare the delegated runtime entry with the Host-sealed dependency,
+        // then execute the sealed bytes. The read-only runtime alias can expose
+        // an unmapped owner UID inside the namespace; it is not the executable
+        // identity delivered by ToolPath. Do not broaden Tool's owner policy.
+        runtime_entry(runtime_root, sealed, name)?;
+        let path = sealed.to_path_buf();
+        let (sha256, _) = reader_hash(
+            std::fs::File::open(&path).map_err(|_| "AV dependency unreadable")?,
+            64 * 1024 * 1024,
+        )
+        .map_err(|e| format!("{}: {}", e.code, e.message))?;
+        tools.push(Tool { path, sha256 });
+    }
+    Runtime::from_host_tools(tools[0].clone(), tools[1].clone(), tools[2].clone())
+        .map_err(|e| format!("{}: {}", e.code, e.message))
+}
+
 fn av_operation(
     runtime_root: &Path,
     sealed: [&Path; 3],
     roots: [&Path; 3],
 ) -> Result<Value, String> {
-    use semwright_mlt_video::{
-        app::App,
-        fs::Root,
-        runtime::{Runtime, Tool},
-    };
+    use semwright_mlt_video::{app::App, fs::Root};
     let mut bytes = Vec::new();
     std::io::stdin()
         .take(65_537)
@@ -399,23 +506,7 @@ fn av_operation(
             ),
         );
     }
-    let mut tools = Vec::new();
-    for (name, sealed) in ["melt", "ffprobe", "ffmpeg"].into_iter().zip(sealed) {
-        // Compare the delegated runtime entry with the Host-sealed dependency,
-        // then execute the sealed bytes. The read-only runtime alias can expose
-        // an unmapped owner UID inside the namespace; it is not the executable
-        // identity delivered by ToolPath. Do not broaden Tool's owner policy.
-        runtime_entry(runtime_root, sealed, name)?;
-        let path = sealed.to_path_buf();
-        let (sha256, _) = reader_hash(
-            std::fs::File::open(&path).map_err(|_| "AV dependency unreadable")?,
-            64 * 1024 * 1024,
-        )
-        .map_err(|e| format!("{}: {}", e.code, e.message))?;
-        tools.push(Tool { path, sha256 });
-    }
-    let runtime = Runtime::from_host_tools(tools[0].clone(), tools[1].clone(), tools[2].clone())
-        .map_err(|e| format!("{}: {}", e.code, e.message))?;
+    let runtime = host_runtime(runtime_root, sealed)?;
     let mut app = App::new(delegated, Some(Arc::new(runtime)))
         .map_err(|e| format!("{}: {}", e.code, e.message))?;
     let args = semwright_mlt_video::json::parse(object["args"].to_string().as_bytes())
@@ -499,11 +590,45 @@ fn parse() -> Result<Value, String> {
             let scratch_root = PathBuf::from(required_flag(&mut args, "--scratch-root", "render")?);
             let directory = required_flag(&mut args, "--directory", "render")?;
             let profile = required_flag(&mut args, "--profile", "render")?;
-            if args.next().is_some() {
-                return Err("runtime runner received unexpected arguments".into());
-            }
-            let melt = runtime_entry(&runtime_root, &sealed_melt, "melt")?;
-            render(&melt, &scratch_root, &directory, &profile)
+            let observation_runtime = match args.next().as_deref() {
+                None => None,
+                Some("--complete-observation") => {
+                    if profile != "lossless-video-only" {
+                        return Err("Complete observation profile is not selected".into());
+                    }
+                    let ffprobe = dependency_path(&required_flag(
+                        &mut args,
+                        "--ffprobe-sealed",
+                        "render observation",
+                    )?)?;
+                    let ffmpeg = dependency_path(&required_flag(
+                        &mut args,
+                        "--ffmpeg-sealed",
+                        "render observation",
+                    )?)?;
+                    if args.next().is_some() {
+                        return Err("runtime runner received unexpected arguments".into());
+                    }
+                    Some(host_runtime(
+                        &runtime_root,
+                        [&sealed_melt, &ffprobe, &ffmpeg],
+                    )?)
+                }
+                Some(_) => return Err("runtime runner received unexpected arguments".into()),
+            };
+            let melt = if let Some(runtime) = &observation_runtime {
+                // Execute exactly the sealed ToolPath identity checked above.
+                runtime.melt.path.clone()
+            } else {
+                runtime_entry(&runtime_root, &sealed_melt, "melt")?
+            };
+            render(
+                &melt,
+                &scratch_root,
+                &directory,
+                &profile,
+                observation_runtime.as_ref(),
+            )
         }
         _ => Err("runtime operation is unsupported".into()),
     }
@@ -540,5 +665,15 @@ fn main() {
             );
             std::process::exit(1);
         }
+    }
+}
+
+#[cfg(test)]
+mod host_observation_deadline_tests {
+    use super::*;
+    #[test]
+    fn complete_observation_does_not_reset_the_native_deadline() {
+        assert!(require_render_deadline(Instant::now() - Duration::from_secs(1)).is_err());
+        assert!(require_render_deadline(Instant::now() + Duration::from_secs(60)).is_ok());
     }
 }

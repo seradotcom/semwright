@@ -62,7 +62,7 @@ def main() -> None:
         "descriptor_sha256": descriptors,
     }
     (EXPECTED / "digests.json").write_text(
-        json.dumps(digests, indent=2, sort_keys=False) + "\n"
+        json.dumps(digests, indent=2, sort_keys=False) + "\n", newline="\n"
     )
 
     sums = json.loads(SUMS.read_text())
@@ -72,7 +72,7 @@ def main() -> None:
         "expected/digests.json",
     ]:
         sums[relative] = sha((DRIVER / "fixtures" / relative).read_bytes())
-    SUMS.write_text(json.dumps(dict(sorted(sums.items())), indent=2) + "\n")
+    SUMS.write_text(json.dumps(dict(sorted(sums.items())), indent=2) + "\n", newline="\n")
     print(json.dumps({
         "capabilities": len(catalog),
         "catalog_sha256": digests["catalog_sha256"],

@@ -11,6 +11,7 @@ pub mod adapters;
 pub mod app;
 pub mod caption_pixels;
 pub mod catalog;
+pub mod color;
 pub mod domain;
 pub mod edit;
 pub mod error;
