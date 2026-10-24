@@ -87,7 +87,7 @@ impl NativeHostCustody {
                 (
                     "error",
                     obj([
-                        ("code", error.code.clone().into()),
+                        ("code", error.code.into()),
                         ("outcome_known", error.outcome_known.into()),
                     ]),
                 ),
