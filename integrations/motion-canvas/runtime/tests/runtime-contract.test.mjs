@@ -84,7 +84,8 @@ test('authoring font evidence is derived from pinned Fontsource resources and br
   assert.ok(render.includes('unicode-range'));
   assert.ok(render.includes('await fonts.ready'));
   assert.ok(render.includes('await loadPinnedFontFaces(document.fonts'));
-  assert.ok(render.includes('document.fonts.check'));
+  assert.ok(render.includes("if (fonts.check(descriptor, requestedSample) !== true) throw new Error('pinned font check failed after load');"));
+  assert.ok(render.includes("if (fonts.check(descriptor, request.sample) !== true) throw new Error('pinned font check failed after ready');"));
   assert.ok(render.includes('font_resources_sha256'));
   assert.ok(!render.includes('font_ready:known(true)'));
 });

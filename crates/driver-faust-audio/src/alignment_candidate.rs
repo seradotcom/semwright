@@ -290,7 +290,7 @@ fn canonical_request(value: &Value, output: &mut Vec<u8>) -> Result<()> {
         Value::Object(object) => {
             output.push(b'{');
             let mut fields: Vec<_> = object.iter().collect();
-            fields.sort_unstable_by(|(a, _), (b, _)| a.cmp(b));
+            fields.sort_unstable_by_key(|(a, _)| *a);
             for (index, (key, value)) in fields.into_iter().enumerate() {
                 if index > 0 {
                     output.push(b',');
