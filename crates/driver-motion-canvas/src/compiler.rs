@@ -267,7 +267,7 @@ fn node_source(
             .map(|filter| format!("{}({})", filter_name(filter.kind), filter.value))
             .collect::<Vec<_>>()
             .join(",");
-        out.push_str(&format!(" filters={{[{}]}}", rendered));
+        out.push_str(&format!(" filters={{[{rendered}]}}"));
     }
     for (key, value) in [("fill", &p.fill), ("stroke", &p.stroke)] {
         if let Some(value) = value {
