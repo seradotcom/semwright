@@ -37,8 +37,8 @@ impl Sha256 {
     }
     fn block(&mut self, data: &[u8; 64]) {
         let mut w = [0u32; 64];
-        for (i, bytes) in data.chunks_exact(4).enumerate() {
-            w[i] = u32::from_be_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
+        for (i, bytes) in data.as_chunks::<4>().0.iter().enumerate() {
+            w[i] = u32::from_be_bytes(*bytes);
         }
         for i in 16..64 {
             let x = w[i - 15];
