@@ -2,11 +2,7 @@
 //! Linux confinement is a separate module. All native application support is conservatively gated.
 // The imported bounded parsers intentionally use sequential guards so every rejected condition
 // keeps its own error classification. Collapsing them would make that review surface less clear.
-#![allow(
-    clippy::chunks_exact_to_as_chunks,
-    clippy::collapsible_if,
-    clippy::type_complexity
-)]
+#![allow(clippy::collapsible_if, clippy::type_complexity)]
 pub mod adapters;
 pub mod app;
 pub mod caption_pixels;
