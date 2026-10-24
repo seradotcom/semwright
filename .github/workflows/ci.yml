@@ -110,6 +110,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     env:
+      RUSTUP_TOOLCHAIN: '1.88.0'
       CARGO_INCREMENTAL: 0
       CARGO_PROFILE_DEV_DEBUG: 0
       CARGO_PROFILE_TEST_DEBUG: 0
@@ -119,6 +120,53 @@ jobs:
         with:
           toolchain: 1.88.0
           components: rustfmt, clippy
+      - name: Verify actual MSRV toolchain before cache
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/msrv-toolchain"
+          mkdir "$evidence"
+          set +e
+          (
+            set -euo pipefail
+            test "$RUSTUP_TOOLCHAIN" = '1.88.0'
+            {
+              date -u +'%Y-%m-%dT%H:%M:%SZ'
+              printf 'repository=%s\nsource_sha=%s\nrun_id=%s\nrun_attempt=%s\njob=%s\n' \
+                "$GITHUB_REPOSITORY" "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$GITHUB_JOB"
+              printf 'checkout_sha=%s\ntree_sha=%s\nRUSTUP_TOOLCHAIN=%s\n' \
+                "$(git rev-parse HEAD)" "$(git rev-parse 'HEAD^{tree}')" "$RUSTUP_TOOLCHAIN"
+            } > "$evidence/identity.txt"
+            test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+            sha256sum .github/workflows/ci.yml rust-toolchain.toml Cargo.lock > "$evidence/source-files.sha256"
+            rustup show active-toolchain | tee "$evidence/active-toolchain.stdout.log"
+            grep -Eq '^1\.88\.0-x86_64-unknown-linux-gnu([[:space:]]|$)' "$evidence/active-toolchain.stdout.log"
+            for tool in rustc cargo; do
+              command -v "$tool"
+              selected=$(rustup which "$tool")
+              expected=$(rustup which --toolchain 1.88.0 "$tool")
+              physical=$(readlink -e "$selected")
+              test "$physical" = "$(readlink -e "$expected")"
+              test -f "$physical"
+              test -x "$physical"
+              printf '%s=%s\n' "$tool" "$physical" >> "$evidence/physical-paths.txt"
+              sha256sum "$physical" >> "$evidence/tool-binaries.sha256"
+              "$tool" --version --verbose > "$evidence/$tool-active.stdout.log"
+              "$physical" --version --verbose > "$evidence/$tool-physical.stdout.log"
+              cmp "$evidence/$tool-active.stdout.log" "$evidence/$tool-physical.stdout.log"
+              cat "$evidence/$tool-active.stdout.log"
+            done
+            grep -Fx 'release: 1.88.0' "$evidence/rustc-active.stdout.log"
+            grep -Fx 'host: x86_64-unknown-linux-gnu' "$evidence/rustc-active.stdout.log"
+            grep -Eq '^cargo 1\.88\.0[[:space:]]' "$evidence/cargo-active.stdout.log"
+            sha256sum -c "$evidence/tool-binaries.sha256"
+          ) > "$evidence/stdout.original.log" 2> "$evidence/stderr.original.log"
+          status=$?
+          set -e
+          printf '%s\n' "$status" > "$evidence/exit-code.txt"
+          (cd "$evidence" && shopt -s nullglob && sha256sum -- *.log *.txt *.sha256 > SHA256SUMS)
+          cat "$evidence/stdout.original.log"
+          cat "$evidence/stderr.original.log" >&2
+          exit "$status"
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
         with:
           key: msrv-1.88
@@ -145,6 +193,14 @@ jobs:
       - run: scripts/dev/federation-smoke.sh
         env:
           BIN_DIR: target/release
+      - name: Preserve MSRV toolchain originals
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: msrv-toolchain-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/msrv-toolchain
+          retention-days: 7
+          if-no-files-found: error
 
   rust:
     needs: scope
