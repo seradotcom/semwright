@@ -369,10 +369,7 @@ fn effect_rule_passes(response: &Value, rule: &str) -> bool {
         } else {
             Value::Null
         };
-        eprintln!(
-            "EFFECT_RULE_NOT_PASS rule={rule} check={} reopened={}",
-            check, reopened
-        );
+        eprintln!("EFFECT_RULE_NOT_PASS rule={rule} check={check} reopened={reopened}");
     }
     verdict == Some("PASS")
 }
