@@ -355,7 +355,7 @@ async fn manage_driver(cli: &Cli, command: &DriverCommand) -> Result<()> {
                 .ok_or_else(|| Error::invalid("SDK path has no crates directory"))?;
             std::fs::create_dir(output)?;
             std::fs::create_dir(output.join("src"))?;
-            let package = format!("semwright-{}-driver", name);
+            let package = format!("semwright-{name}-driver");
             let cargo = format!(
                 "[package]\nname = {}\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[dependencies]\nsemwright-driver-sdk = {{ path = {} }}\nsemwright-types = {{ path = {} }}\nasync-trait = \"0.1\"\nserde_json = \"1\"\ntokio = {{ version = \"1\", features = [\"macros\",\"rt-multi-thread\"] }}\n",
                 serde_json::to_string(&package)?,
