@@ -564,9 +564,10 @@ mod tests {
         }
         assert!(changed > 0, "fixture must exercise authored text weights");
         let before_intent = authored.clone();
-        let error = project(&authored, Some(&base))
-            .err()
-            .expect("weight must be refused before planning");
+        let error = match project(&authored, Some(&base)) {
+            Err(error) => error,
+            Ok(_) => panic!("weight must be refused before planning"),
+        };
         assert_eq!(error.code, semwright_types::ErrorCode::Unsupported);
         assert_eq!(
             base, before_base,
