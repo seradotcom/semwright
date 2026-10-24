@@ -48,7 +48,7 @@ impl FaustAudioDriver {
             }),
             Err(error) => Ok(Self {
                 runtime: None,
-                runtime_reason: format!("{}", error),
+                runtime_reason: format!("{error}"),
             }),
         }
     }
