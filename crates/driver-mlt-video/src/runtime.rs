@@ -1075,14 +1075,13 @@ impl Runtime {
             }
             (
                 Some(run_probe(
-                    format!("movie=filename='{}',signalstats", input_text),
+                    format!("movie=filename='{input_text}',signalstats"),
                     "lavfi.signalstats.YAVG",
                     true,
                 )?),
                 Some(run_probe(
                     format!(
-                        "amovie=filename='{}',asetnsamples=n=512:p=0,astats=metadata=1:reset=1",
-                        input_text
+                        "amovie=filename='{input_text}',asetnsamples=n=512:p=0,astats=metadata=1:reset=1"
                     ),
                     "lavfi.astats.Overall.Peak_level",
                     true,
