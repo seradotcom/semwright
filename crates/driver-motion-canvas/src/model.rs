@@ -715,6 +715,7 @@ pub enum AssetKind {
     Svg,
     Video,
     Audio,
+    Font,
 }
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
 #[serde(deny_unknown_fields)]

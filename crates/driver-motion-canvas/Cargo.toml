@@ -29,6 +29,7 @@ semwright-types.workspace = true
 jsonschema.workspace = true
 png = "0.18.0"
 roxmltree = "0.21.1"
+ttf-parser = { version = "=0.25.1", default-features = false, features = ["std", "variable-fonts"] }
 
 [target.'cfg(unix)'.dependencies]
 rustix = { version = "1.1.5", features = ["fs"] }

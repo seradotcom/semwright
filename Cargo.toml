@@ -23,7 +23,7 @@ thiserror = "2"
 regex = "1"
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "stream"] }
 uuid = { version = "1", features = ["v4", "serde"] }
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "io-std", "sync", "time", "process", "signal", "fs"] }
+tokio = { version = "1.53.3", features = ["rt-multi-thread", "macros", "net", "io-util", "io-std", "sync", "time", "process", "signal", "fs"] }
 tokio-util = { version = "0.7", features = ["rt"] }
 async-trait = "0.1"
 sha2 = "0.11"

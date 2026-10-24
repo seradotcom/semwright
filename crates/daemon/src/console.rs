@@ -29,7 +29,14 @@ fn terminal() -> Result<AsyncFd<File>> {
             "Approval descriptor is not a terminal",
         ));
     }
-    AsyncFd::new(file).map_err(Into::into)
+    // SAFETY: file owns the open /dev/tty descriptor and is moved into
+    // registration. Once registered, the File is never extracted or replaced.
+    // get_ref().as_raw_fd() only borrows its descriptor for read, write, and
+    // tcflush; none closes it. The File keeps the descriptor open and unchanged
+    // throughout the AsyncFd's lifetime.
+    unsafe { AsyncFd::register(file) }
+        .map_err(io::Error::from)
+        .map_err(Into::into)
 }
 async fn write(fd: &AsyncFd<File>, mut bytes: &[u8]) -> Result<()> {
     while !bytes.is_empty() {
@@ -106,6 +113,21 @@ async fn line(fd: &AsyncFd<File>) -> Result<String> {
         }
     }
 }
+async fn wait_for_answer(fd: &AsyncFd<File>, cancellation: &CancellationToken) -> Result<String> {
+    tokio::select! {
+        _ = cancellation.cancelled() => Err(Error::new(
+            ErrorCode::Cancelled,
+            "Approval request cancelled before dispatch",
+        )),
+        value = tokio::time::timeout(std::time::Duration::from_secs(120), line(fd)) => {
+            value.unwrap_or_else(|_| Err(Error::new(
+                ErrorCode::ConsentRequired,
+                "Approval expired before dispatch",
+            )))
+        },
+    }
+}
+
 #[async_trait]
 impl Approver for Console {
     async fn approve(&self, approval: Approval, cancellation: CancellationToken) -> Result<bool> {
@@ -123,10 +145,7 @@ impl Approver for Console {
             approval.command, approval.backend, approval.risk, summary, challenge
         );
         write(&fd, message.as_bytes()).await?;
-        let answer = tokio::select! {
-            _=cancellation.cancelled()=>Err(Error::new(ErrorCode::Cancelled,"Approval request cancelled before dispatch")),
-            value=tokio::time::timeout(std::time::Duration::from_secs(120),line(&fd))=>value.unwrap_or_else(|_|Err(Error::new(ErrorCode::ConsentRequired,"Approval expired before dispatch"))),
-        };
+        let answer = wait_for_answer(&fd, &cancellation).await;
         // SAFETY: flushing unread input on this controlling terminal prevents an expired response
         // from being interpreted as approval for a later, different operation.
         let _ = unsafe { libc::tcflush(fd.get_ref().as_raw_fd(), libc::TCIFLUSH) };
@@ -141,5 +160,115 @@ impl Approver for Console {
         )
         .await?;
         Ok(granted)
+    }
+}
+
+#[cfg(all(test, unix))]
+mod console_ownership_tests {
+    use super::*;
+    use std::{
+        future::{Future, poll_fn},
+        net::Shutdown,
+        os::{fd::OwnedFd, unix::net::UnixStream},
+        task::Poll,
+        time::Duration,
+    };
+
+    const TEST_BOUND: Duration = Duration::from_secs(1);
+
+    fn register_socket(stream: UnixStream) -> AsyncFd<File> {
+        stream
+            .set_nonblocking(true)
+            .expect("test socket must become nonblocking");
+        let owned: OwnedFd = stream.into();
+        let file = File::from(owned);
+        // SAFETY: UnixStream -> OwnedFd -> File transfers sole ownership of
+        // the same open descriptor through safe conversions. Registration
+        // takes this File; these tests only borrow it for I/O and close it by
+        // dropping the AsyncFd. They never extract, replace, or independently
+        // close its fd.
+        unsafe { AsyncFd::register(file) }.expect("test socket must register with Tokio")
+    }
+
+    fn socket_pair() -> (AsyncFd<File>, UnixStream) {
+        let (owner, peer) = UnixStream::pair().expect("test socket pair must open");
+        (register_socket(owner), peer)
+    }
+    async fn bounded_line(fd: &AsyncFd<File>) -> Result<String> {
+        tokio::time::timeout(TEST_BOUND, line(fd))
+            .await
+            .expect("test line read must finish before its deadline")
+    }
+    async fn bounded_write(fd: &AsyncFd<File>, bytes: &[u8]) {
+        tokio::time::timeout(TEST_BOUND, write(fd, bytes))
+            .await
+            .expect("test write must finish before its deadline")
+            .expect("test write must succeed");
+    }
+
+    #[tokio::test]
+    async fn input_eof_denies_without_closing_the_owned_descriptor() {
+        let (owner, peer) = socket_pair();
+        peer.shutdown(Shutdown::Write)
+            .expect("test peer must half-close its output");
+        let peer = register_socket(peer);
+        let error = bounded_line(&owner)
+            .await
+            .expect_err("EOF must deny an approval input");
+        assert!(matches!(error.code, ErrorCode::ConsentRequired));
+        // EOF is an input result, not a transfer or close of the File owner.
+        bounded_write(&owner, b"owner-still-open\n").await;
+        let observed = bounded_line(&peer)
+            .await
+            .expect("peer must still receive output from the retained owner");
+        assert_eq!(observed, "owner-still-open\n");
+    }
+
+    #[tokio::test]
+    async fn cancellation_drops_pending_answer_without_closing_or_retaining_a_reader() {
+        let (owner, peer) = socket_pair();
+        let peer = register_socket(peer);
+        let cancellation = CancellationToken::new();
+        let error = {
+            let answer = wait_for_answer(&owner, &cancellation);
+            tokio::pin!(answer);
+            poll_fn(|cx| match answer.as_mut().poll(cx) {
+                Poll::Pending => Poll::Ready(()),
+                Poll::Ready(_) => panic!("empty live input must leave the answer pending"),
+            })
+            .await;
+            cancellation.cancel();
+            tokio::time::timeout(TEST_BOUND, answer.as_mut())
+                .await
+                .expect("cancelled answer must finish before its test deadline")
+                .expect_err("cancellation must deny the answer")
+        };
+        assert!(matches!(error.code, ErrorCode::Cancelled));
+        // Only write after the cancelled wait is gone. A new real line() must
+        // receive all subsequent input through the same retained AsyncFd.
+        bounded_write(&peer, b"input-after-cancellation\n").await;
+        let observed = bounded_line(&owner)
+            .await
+            .expect("retained owner must remain readable after cancellation");
+        assert_eq!(observed, "input-after-cancellation\n");
+    }
+
+    #[tokio::test]
+    async fn dropping_the_async_fd_owner_exposes_eof_to_the_peer() {
+        let (owner, peer) = socket_pair();
+        let peer = register_socket(peer);
+        let peer_line = line(&peer);
+        tokio::pin!(peer_line);
+        poll_fn(|cx| match peer_line.as_mut().poll(cx) {
+            Poll::Pending => Poll::Ready(()),
+            Poll::Ready(_) => panic!("live owner must leave the empty peer input pending"),
+        })
+        .await;
+        drop(owner);
+        let error = tokio::time::timeout(TEST_BOUND, peer_line.as_mut())
+            .await
+            .expect("owner drop must expose EOF before the test deadline")
+            .expect_err("peer EOF must deny the line read");
+        assert!(matches!(error.code, ErrorCode::ConsentRequired));
     }
 }

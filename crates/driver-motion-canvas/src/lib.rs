@@ -5,6 +5,7 @@ pub mod compiler;
 pub mod diff;
 pub mod driver;
 pub mod edit;
+pub mod fonts;
 pub mod model;
 pub mod refs;
 pub mod renderer;

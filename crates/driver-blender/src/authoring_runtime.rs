@@ -957,8 +957,8 @@ pub(super) async fn execute(
                             composition::ExecutionStatus::Unknown,
                             vec!["partial-effects-require-reconciliation".into()],
                         )
-                        .map_err(common_error)?;
-                    Err(error)
+                        .map_err(|error| common_error(error).uncertain())?;
+                    Err(error.uncertain())
                 }
             }
         }

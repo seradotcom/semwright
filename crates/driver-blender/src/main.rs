@@ -10,7 +10,11 @@ use semwright_driver_sdk::{
 };
 use semwright_types::{CommandDescriptor, Error, ErrorCode, Idempotency, Result, Risk};
 use serde_json::{Value, json};
-use std::{collections::BTreeMap, time::Duration};
+use std::{
+    collections::BTreeMap,
+    sync::atomic::{AtomicBool, Ordering},
+    time::Duration,
+};
 
 mod authoring_runtime;
 
@@ -1501,20 +1505,93 @@ fn decode_bridge_response(bytes: &[u8]) -> Result<Value> {
     }
 }
 
+// One monotonic budget covers the entire composition call, including session
+// discovery already spent before the first authoring request. The enclosing
+// Host descriptor/manifest remains authoritative; this does not enlarge it.
+const COMPOSITION_REPLY_AND_CLOSE_RESERVE_MS: u64 = 8_000;
+
+#[derive(Clone, Copy, Debug)]
+struct NativeRequestDeadline {
+    end: std::time::Instant,
+}
+
+impl NativeRequestDeadline {
+    fn for_descriptor(start: std::time::Instant, descriptor_ms: u64) -> Result<Self> {
+        let usable_ms = descriptor_ms
+            .checked_sub(COMPOSITION_REPLY_AND_CLOSE_RESERVE_MS)
+            .filter(|value| *value != 0)
+            .ok_or_else(|| Error::invalid("composition timeout has no bounded native budget"))?;
+        let end = start
+            .checked_add(Duration::from_millis(usable_ms))
+            .ok_or_else(|| Error::invalid("composition deadline cannot be represented"))?;
+        Ok(Self { end })
+    }
+
+    fn timeout_ms(&self, requested_ms: u64) -> Result<u64> {
+        self.timeout_ms_at(std::time::Instant::now(), requested_ms)
+    }
+
+    fn timeout_ms_at(&self, now: std::time::Instant, requested_ms: u64) -> Result<u64> {
+        let remaining_ms = self.end.saturating_duration_since(now).as_millis();
+        // Do not round a sub-millisecond remainder up: exchange's defensive
+        // minimum must never turn an expired composition into another request.
+        if remaining_ms == 0 || requested_ms == 0 {
+            return Err(Error::new(
+                ErrorCode::Timeout,
+                "composition native budget exhausted; no further request was sent",
+            ));
+        }
+        Ok(remaining_ms.min(u128::from(requested_ms)) as u64)
+    }
+}
+
+// Only a Timeout observed from the Host transport invalidates this handle.
+// A local budget rejection occurs before the callback, and a typed native
+// rejection arrives inside a successful frame and cannot set this marker.
+async fn bounded_native_request<F, Fut>(
+    deadline: &NativeRequestDeadline,
+    requested_ms: u64,
+    transport_timed_out: &AtomicBool,
+    exchange: F,
+) -> Result<Value>
+where
+    F: FnOnce(u64) -> Fut,
+    Fut: std::future::Future<Output = Result<Vec<u8>>>,
+{
+    let timeout_ms = deadline.timeout_ms(requested_ms)?;
+    let response = exchange(timeout_ms).await;
+    if response
+        .as_ref()
+        .is_err_and(|error| error.code == ErrorCode::Timeout)
+    {
+        transport_timed_out.store(true, Ordering::Relaxed);
+    }
+    decode_bridge_response(&response?)
+}
+
 // This wrapper carries no filesystem or process authority; all exchange and cleanup use
 // the authenticated Execute context and its opaque Host-owned runtime handle.
 struct NativeSession<'a> {
     context: &'a DriverExecutionContext,
     session: &'a RuntimeToolSession,
+    deadline: NativeRequestDeadline,
+    transport_timed_out: AtomicBool,
 }
 impl NativeSession<'_> {
     async fn request(&self, command: &str, args: Value, seconds: u64) -> Result<Value> {
-        BlenderDriver::exchange(
-            self.context,
-            self.session,
-            command,
-            args,
+        bounded_native_request(
+            &self.deadline,
             seconds.saturating_mul(1000),
+            &self.transport_timed_out,
+            |timeout_ms| {
+                BlenderDriver::exchange_transport(
+                    self.context,
+                    self.session,
+                    command,
+                    args,
+                    timeout_ms,
+                )
+            },
         )
         .await
     }
@@ -1545,6 +1622,18 @@ impl BlenderDriver {
         args: Value,
         timeout_ms: u64,
     ) -> Result<Value> {
+        let response =
+            Self::exchange_transport(context, session, command, args, timeout_ms).await?;
+        decode_bridge_response(&response)
+    }
+
+    async fn exchange_transport(
+        context: &DriverExecutionContext,
+        session: &RuntimeToolSession,
+        command: &str,
+        args: Value,
+        timeout_ms: u64,
+    ) -> Result<Vec<u8>> {
         let payload = serde_json::to_vec(&json!({"command":command,"args":args}))?;
         if payload.is_empty() || payload.len() > 256 * 1024 {
             return Err(Error::new(
@@ -1552,19 +1641,19 @@ impl BlenderDriver {
                 "Blender session request exceeds its bounded contract",
             ));
         }
-        let response = context
+        context
             .runtime_tool_session_request(
                 session,
                 payload,
                 Duration::from_millis(timeout_ms.max(1)),
             )
-            .await?;
-        decode_bridge_response(&response)
+            .await
     }
 
     async fn ensure_session(
         &mut self,
         context: &DriverExecutionContext,
+        deadline: Option<&NativeRequestDeadline>,
     ) -> Result<RuntimeToolSession> {
         if let Some(session) = self.sessions.get(context.session()) {
             return Ok(session.clone());
@@ -1587,13 +1676,20 @@ impl BlenderDriver {
             )
             .await?;
 
-        let summary = match Self::exchange(
-            context,
-            &session,
-            "driver.blender.introspect.summary",
-            json!({}),
-            20_000,
-        )
+        let summary = match async {
+            let timeout_ms = match deadline {
+                Some(deadline) => deadline.timeout_ms(20_000)?,
+                None => 20_000,
+            };
+            Self::exchange(
+                context,
+                &session,
+                "driver.blender.introspect.summary",
+                json!({}),
+                timeout_ms,
+            )
+            .await
+        }
         .await
         {
             Ok(summary) => summary,
@@ -1602,7 +1698,7 @@ impl BlenderDriver {
                 return Err(error);
             }
         };
-        let version = summary
+        let Some(version) = summary
             .get("version")
             .and_then(Value::as_array)
             .filter(|values| values.len() == 3)
@@ -1613,12 +1709,13 @@ impl BlenderDriver {
                     values[2].as_u64()?,
                 ])
             })
-            .ok_or_else(|| {
-                Error::new(
-                    ErrorCode::ProtocolMismatch,
-                    "Blender summary omitted its bounded semantic version",
-                )
-            })?;
+        else {
+            let _ = context.close_runtime_tool_session(&session).await;
+            return Err(Error::new(
+                ErrorCode::ProtocolMismatch,
+                "Blender summary omitted its bounded semantic version",
+            ));
+        };
         if version != SUPPORTED_BLENDER_VERSION {
             let _ = context.close_runtime_tool_session(&session).await;
             return Err(Error::unavailable(
@@ -1715,6 +1812,7 @@ impl Driver for BlenderDriver {
         args: Value,
         context: DriverExecutionContext,
     ) -> Result<Value> {
+        let started = std::time::Instant::now();
         context.check_cancelled()?;
         let capability = Self::validate_call(command, digest, &args)?;
         if self
@@ -1726,11 +1824,21 @@ impl Driver for BlenderDriver {
                 "Native attempt has an uncertain outcome; reconnect and reconcile",
             ));
         }
-        let session = self.ensure_session(&context).await?;
-        if authoring_runtime::handles(command) {
+        let deadline = if authoring_runtime::handles(command) {
+            Some(NativeRequestDeadline::for_descriptor(
+                started,
+                capability.descriptor.timeout_ms,
+            )?)
+        } else {
+            None
+        };
+        let session = self.ensure_session(&context, deadline.as_ref()).await?;
+        if let Some(deadline) = deadline {
             let channel = NativeSession {
                 context: &context,
                 session: &session,
+                deadline,
+                transport_timed_out: AtomicBool::new(false),
             };
             let state = self
                 .authoring
@@ -1738,9 +1846,17 @@ impl Driver for BlenderDriver {
                 .or_default();
             let result =
                 authoring_runtime::execute(state, &channel, command, digest, args, &context).await;
-            if state.poisoned() {
+            let poisoned = state.poisoned();
+            let transport_timed_out = channel.transport_timed_out.load(Ordering::Relaxed);
+            if poisoned || transport_timed_out {
                 self.sessions.remove(context.session());
                 self.versions.remove(context.session());
+            }
+            if transport_timed_out && !poisoned {
+                // apply's unknown-outcome branch already attempted its one close.
+                // An observation timeout also discards the reaped or uncertain
+                // handle; this cleanup never retries the authoring operation.
+                let _ = channel.close().await;
             }
             let value = result?;
             Self::validate_output(&capability, &value)?;
@@ -2079,5 +2195,142 @@ mod authoring_transport_tests {
         ] {
             assert!(source.contains(flag), "Host runner must retain {flag}");
         }
+    }
+}
+
+#[cfg(test)]
+mod composition_deadline_tests {
+    use super::*;
+    use std::time::Instant;
+
+    #[test]
+    fn composition_subrequests_share_startup_and_prior_request_elapsed_time() {
+        let start = Instant::now();
+        let deadline = NativeRequestDeadline::for_descriptor(start, 60_000).unwrap();
+        assert_eq!(deadline.timeout_ms_at(start, 62_000).unwrap(), 52_000);
+        // A new helper request after startup and prior work receives only the
+        // remainder; a per-request 62-second timeout cannot reset this budget.
+        assert_eq!(
+            deadline
+                .timeout_ms_at(start + Duration::from_secs(10), 62_000)
+                .unwrap(),
+            42_000
+        );
+        assert_eq!(
+            deadline
+                .timeout_ms_at(start + Duration::from_millis(51_500), 62_000)
+                .unwrap(),
+            500
+        );
+        assert_eq!(
+            deadline
+                .timeout_ms_at(start + Duration::from_secs(52), 62_000)
+                .unwrap_err()
+                .code,
+            ErrorCode::Timeout
+        );
+    }
+
+    #[test]
+    fn composition_keeps_shorter_helper_limit_and_caps_large_requested_timeout() {
+        let start = Instant::now();
+        let deadline = NativeRequestDeadline::for_descriptor(start, 60_000).unwrap();
+        assert_eq!(deadline.timeout_ms_at(start, 1_000).unwrap(), 1_000);
+        assert_eq!(deadline.timeout_ms_at(start, u64::MAX).unwrap(), 52_000);
+    }
+
+    #[test]
+    fn composition_rejects_expired_submillisecond_and_zero_request_budgets() {
+        let start = Instant::now();
+        let deadline = NativeRequestDeadline::for_descriptor(start, 60_000).unwrap();
+        for now in [
+            deadline.end - Duration::from_micros(999),
+            deadline.end,
+            deadline.end + Duration::from_secs(1),
+        ] {
+            assert_eq!(
+                deadline.timeout_ms_at(now, 1_000).unwrap_err().code,
+                ErrorCode::Timeout
+            );
+        }
+        assert_eq!(
+            deadline.timeout_ms_at(start, 0).unwrap_err().code,
+            ErrorCode::Timeout
+        );
+    }
+
+    #[test]
+    fn composition_requires_room_for_reply_and_close_without_unsigned_underflow() {
+        let start = Instant::now();
+        for invalid in [
+            0,
+            1,
+            COMPOSITION_REPLY_AND_CLOSE_RESERVE_MS - 1,
+            COMPOSITION_REPLY_AND_CLOSE_RESERVE_MS,
+        ] {
+            assert!(NativeRequestDeadline::for_descriptor(start, invalid).is_err());
+        }
+        let shortest = NativeRequestDeadline::for_descriptor(
+            start,
+            COMPOSITION_REPLY_AND_CLOSE_RESERVE_MS + 1,
+        )
+        .unwrap();
+        assert_eq!(shortest.timeout_ms_at(start, 10).unwrap(), 1);
+    }
+}
+
+#[cfg(test)]
+mod composition_transport_deadline_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn local_expiration_never_calls_host_or_invalidates_the_session() {
+        let deadline = NativeRequestDeadline {
+            end: std::time::Instant::now(),
+        };
+        let sent = AtomicBool::new(false);
+        let invalidated = AtomicBool::new(false);
+        let error = bounded_native_request(&deadline, 62_000, &invalidated, |_| {
+            sent.store(true, Ordering::Relaxed);
+            async { Ok(br#"{"ok":true,"data":{}}"#.to_vec()) }
+        })
+        .await
+        .unwrap_err();
+        assert_eq!(error.code, ErrorCode::Timeout);
+        assert!(error.outcome_known);
+        assert!(!sent.load(Ordering::Relaxed));
+        assert!(!invalidated.load(Ordering::Relaxed));
+    }
+
+    #[tokio::test]
+    async fn host_transport_timeout_marks_the_session_without_reissuing() {
+        let deadline =
+            NativeRequestDeadline::for_descriptor(std::time::Instant::now(), 60_000).unwrap();
+        let calls = std::sync::atomic::AtomicUsize::new(0);
+        let invalidated = AtomicBool::new(false);
+        let error = bounded_native_request(&deadline, 62_000, &invalidated, |timeout_ms| {
+            assert!((1..=52_000).contains(&timeout_ms));
+            calls.fetch_add(1, Ordering::Relaxed);
+            async { Err(Error::new(ErrorCode::Timeout, "synthetic Host timeout")) }
+        })
+        .await
+        .unwrap_err();
+        assert_eq!(error.code, ErrorCode::Timeout);
+        assert!(invalidated.load(Ordering::Relaxed));
+        assert_eq!(calls.load(Ordering::Relaxed), 1);
+    }
+
+    #[tokio::test]
+    async fn typed_native_timeout_is_not_a_host_transport_timeout() {
+        let deadline =
+            NativeRequestDeadline::for_descriptor(std::time::Instant::now(), 60_000).unwrap();
+        let invalidated = AtomicBool::new(false);
+        let error = bounded_native_request(&deadline, 62_000, &invalidated, |_| async {
+            Ok(br#"{"ok":false,"error":{"code":"Timeout"}}"#.to_vec())
+        })
+        .await
+        .unwrap_err();
+        assert_eq!(error.code, ErrorCode::Timeout);
+        assert!(!invalidated.load(Ordering::Relaxed));
     }
 }

@@ -12,14 +12,30 @@ pub const DRIVER_SCOPE: &str = "driver:audio-analysis";
 pub struct AudioAnalysisDriver {
     runtime: Option<AnalysisRuntime>,
     capabilities: Vec<Capability>,
+    alignment_candidate: bool,
 }
 impl AudioAnalysisDriver {
     pub fn production() -> Result<Self> {
         Ok(Self {
             runtime: AnalysisRuntime::load()?,
             capabilities: capability_catalog(),
+            alignment_candidate: false,
         })
     }
+    /// Candidate producer for an explicitly selected owner profile.
+    /// This constructor neither installs nor admits that profile.
+    pub fn production_alignment_candidate() -> Result<Self> {
+        let mut driver = Self::production()?;
+        driver.alignment_candidate = true;
+        if let Some(runtime) = driver.runtime.as_mut() {
+            runtime.enable_host_snapshot_meter();
+        }
+        driver
+            .capabilities
+            .push(crate::alignment_runtime::capability());
+        Ok(driver)
+    }
+
     fn verify_digest(&self, command: &str, digest: &str) -> Result<()> {
         let capability = self
             .capabilities
@@ -43,6 +59,21 @@ impl AudioAnalysisDriver {
         context: Option<&DriverExecutionContext>,
     ) -> Result<Value> {
         match command {
+            crate::alignment_candidate::COMMAND if self.alignment_candidate => {
+                let context = context.ok_or_else(|| {
+                    Error::new(
+                        ErrorCode::Unsupported,
+                        "Alignment requires an authenticated Driver execution context",
+                    )
+                })?;
+                let runtime = self.runtime.as_ref().ok_or_else(|| {
+                    Error::new(
+                        ErrorCode::Unavailable,
+                        "Pinned audio alignment candidate runtime is unavailable",
+                    )
+                })?;
+                crate::alignment_runtime::align(runtime, args, context).await
+            }
             "driver.audio-analysis.doctor" => Ok(json!({
                 "runtime_available": self.runtime.is_some(),
                 "meter": "libebur128",
@@ -226,4 +257,51 @@ fn text<'a>(args: &'a Value, key: &str, max: usize) -> Result<&'a str> {
             !value.is_empty() && value.len() <= max && !value.chars().any(char::is_control)
         })
         .ok_or_else(|| Error::invalid(format!("Invalid audio analysis {key}")))
+}
+
+#[cfg(test)]
+mod alignment_route_tests {
+    use super::*;
+
+    #[test]
+    fn ordinary_analysis_catalog_does_not_advertise_alignment() {
+        let capabilities = capability_catalog();
+        let names: Vec<_> = capabilities
+            .iter()
+            .map(|capability| capability.descriptor.name.as_str())
+            .collect();
+        assert_eq!(
+            names,
+            vec![
+                "driver.audio-analysis.doctor",
+                "driver.audio-analysis.artifact.measure",
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn candidate_route_requires_context_and_is_absent_from_the_ordinary_driver() {
+        let mut capabilities = capability_catalog();
+        capabilities.push(crate::alignment_runtime::capability());
+        let driver = AudioAnalysisDriver {
+            runtime: None,
+            capabilities,
+            alignment_candidate: true,
+        };
+        let error = driver
+            .execute_inner(crate::alignment_candidate::COMMAND, &json!({}), None)
+            .await
+            .expect_err("context is required before runtime or request decoding");
+        assert_eq!(error.code, ErrorCode::Unsupported);
+        let ordinary = AudioAnalysisDriver {
+            runtime: None,
+            capabilities: capability_catalog(),
+            alignment_candidate: false,
+        };
+        let error = ordinary
+            .execute_inner(crate::alignment_candidate::COMMAND, &json!({}), None)
+            .await
+            .expect_err("ordinary driver does not expose this route");
+        assert_eq!(error.code, ErrorCode::NotFound);
+    }
 }

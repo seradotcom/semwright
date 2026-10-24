@@ -138,7 +138,11 @@ jobs:
                 crates/driver-ardour-audio/*)
                   ardour=true
                   ;;
-                crates/driver-faust-audio/*|integrations/audio/faust-runtime/*)
+                crates/driver-faust-audio/*)
+                  faust=true
+                  analysis=true
+                  ;;
+                integrations/audio/faust-runtime/*)
                   faust=true
                   ;;
                 integrations/audio/analysis-runtime/*)

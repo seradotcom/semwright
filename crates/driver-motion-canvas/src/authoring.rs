@@ -14,7 +14,7 @@ use serde::Serialize;
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 
-pub const COMPILER_EXTENSION_VERSION: u32 = 1;
+pub const COMPILER_EXTENSION_VERSION: u32 = 2;
 fn contract(e: impl std::fmt::Display) -> Error {
     Error::invalid(e.to_string())
 }
@@ -50,32 +50,39 @@ pub fn check_binding(project: &Project) -> Result<()> {
     }
     Ok(())
 }
+/// Source-only extension of the managed registry for the existing asset.import
+/// transaction. It preserves Film intent/realization and refuses prior drift.
+pub(crate) fn register_asset(project: &Project, asset: crate::model::Asset) -> Result<Project> {
+    check_binding(project)?;
+    ensure(
+        !project
+            .assets
+            .iter()
+            .any(|existing| existing.id == asset.id || existing.path == asset.path),
+        "managed asset identity already exists",
+    )?;
+    let mut next = project.clone();
+    next.assets.push(asset);
+    next.revision = next
+        .revision
+        .checked_add(1)
+        .ok_or_else(|| Error::invalid("project revision overflow"))?;
+    if next.authoring.is_some() {
+        let digest = projection_digest(&next)?;
+        next.authoring.as_mut().expect("checked").projection_digest = digest;
+    }
+    validate::project_valid(&next)?;
+    Ok(next)
+}
+
 /// Planning creates no native nodes, does not render and does not write a file.
 /// Assets must have entered the managed project through its existing authorized
 /// import/handoff path. An artifact reference is never used as a filesystem path.
 pub fn project(film: &Film, base: Option<&Project>) -> Result<(Project, Realization)> {
-    for font in [&film.editorial.font, &film.editorial.mono_font] {
-        ensure(
-            matches!(
-                font.family.as_str(),
-                "Instrument Sans Variable" | "IBM Plex Mono"
-            ),
-            "Motion Canvas backend only supports its two digest-pinned bundled font families",
-        )?;
-        ensure(
-            font.asset_digest.is_none(),
-            "Motion Canvas custom font assets are not supported until a native font import path is verified",
-        )?;
-        for fallback in &font.permitted_fallbacks {
-            ensure(
-                matches!(
-                    fallback.as_str(),
-                    "Instrument Sans Variable" | "IBM Plex Mono"
-                ),
-                "Motion Canvas fallback family is not part of the pinned runtime",
-            )?;
-        }
-    }
+    crate::fonts::requests(
+        film,
+        base.map(|project| project.assets.as_slice()).unwrap_or(&[]),
+    )?;
     let realization = a::realize(film).map_err(contract)?;
     if let Some(p) = base {
         check_binding(p)?;
@@ -454,5 +461,162 @@ mod tests {
         let mut denied_fallback = film();
         denied_fallback.editorial.font.permitted_fallbacks = vec!["IBM Plex Mono".into()];
         assert!(project(&denied_fallback, None).is_err());
+    }
+    #[test]
+    fn managed_font_registry_import_preserves_sealed_editable_intent() {
+        let intent = film();
+        let (initial, _) = project(&intent, None).unwrap();
+        let bytes = include_bytes!("../tests/fixtures/managed-font-source.ttf");
+        let asset = crate::model::Asset {
+            id: "brand-font".into(),
+            kind: crate::model::AssetKind::Font,
+            path: "assets/brand-font.ttf".into(),
+            sha256: security::sha256(bytes),
+            bytes: bytes.len() as u64,
+            dimensions: None,
+            duration_ms: None,
+            provenance: Some("ttf-parser-0.25.1 original test font".into()),
+            license: Some("Apache-2.0".into()),
+        };
+        let next = register_asset(&initial, asset.clone()).unwrap();
+        assert_eq!(next.authoring.as_ref().unwrap().intent, intent);
+        assert_eq!(
+            next.authoring.as_ref().unwrap().realization,
+            initial.authoring.as_ref().unwrap().realization
+        );
+        assert_eq!(next.generation, initial.generation);
+        assert_eq!(next.revision, initial.revision + 1);
+        assert_eq!(next.assets, vec![asset.clone()]);
+        assert_ne!(
+            projection_digest(&initial).unwrap(),
+            projection_digest(&next).unwrap()
+        );
+        assert!(register_asset(&next, asset.clone()).is_err());
+        let mut drifted = initial.clone();
+        drifted.settings.width += 2;
+        assert!(register_asset(&drifted, asset).is_err());
+    }
+
+    #[test]
+    fn managed_font_source_planning_requires_imported_digest_and_no_fallback() {
+        let bytes = include_bytes!("../tests/fixtures/managed-font-source.ttf");
+        let mut intent = film();
+        let digest = Digest::of_bytes(bytes);
+        intent.editorial.font = a::FontSpec {
+            family: "COLRv1 Static Test Glyphs".into(),
+            asset_digest: Some(digest.clone()),
+            fallback: a::FontFallback::Deny,
+            permitted_fallbacks: vec![],
+        };
+        intent.assets.push(a::AssetRef {
+            id: "brand-font".into(),
+            sha256: digest,
+            media_type: "font/ttf".into(),
+            provenance: None,
+            license: Some("Apache-2.0".into()),
+        });
+        assert!(project(&intent, None).is_err());
+        let mut base = Project::empty(intent.id.clone());
+        base.assets.push(crate::model::Asset {
+            id: "brand-font".into(),
+            kind: crate::model::AssetKind::Font,
+            path: "assets/brand-font.ttf".into(),
+            sha256: security::sha256(bytes),
+            bytes: bytes.len() as u64,
+            dimensions: None,
+            duration_ms: None,
+            provenance: None,
+            license: Some("Apache-2.0".into()),
+        });
+        let (planned, _) = project(&intent, Some(&base)).unwrap();
+        let css = String::from_utf8(crate::fonts::stylesheet(&planned).unwrap().unwrap()).unwrap();
+        assert!(css.contains("COLRv1 Static Test Glyphs"));
+        assert!(css.contains("../assets/brand-font.ttf"));
+        assert!(!css.contains("local("));
+        assert!(!css.contains("https:"));
+        let mut wrong = base.clone();
+        wrong.assets[0].sha256 = "b".repeat(64);
+        assert!(project(&intent, Some(&wrong)).is_err());
+        intent.editorial.font.fallback = a::FontFallback::AllowAndReport;
+        assert!(project(&intent, Some(&base)).is_err());
+    }
+
+    fn assert_bundled_weight_refused_before_plan(weight: u16) {
+        let original = film();
+        let (base, _) = project(&original, None).unwrap();
+        let before_base = base.clone();
+        let mut authored = original;
+        authored.editorial.font.family = "Instrument Sans Variable".into();
+        let mut changed = 0;
+        for sequence in &mut authored.sequences {
+            for beat in &mut sequence.beats {
+                for shot in &mut beat.shots {
+                    for subject in &mut shot.subjects {
+                        if let a::SubjectContent::Text { runs, .. } = &mut subject.content {
+                            for run in runs {
+                                run.weight = weight;
+                                changed += 1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        assert!(changed > 0, "fixture must exercise authored text weights");
+        let before_intent = authored.clone();
+        let error = project(&authored, Some(&base))
+            .err()
+            .expect("weight must be refused before planning");
+        assert_eq!(error.code, semwright_types::ErrorCode::Unsupported);
+        assert_eq!(
+            base, before_base,
+            "saved editable project must remain unchanged"
+        );
+        assert_eq!(
+            authored, before_intent,
+            "authored weight must never be clamped or replaced"
+        );
+    }
+    #[test]
+    fn bundled_instrument_weight_100_is_unsupported_before_plan_without_source_change() {
+        assert_bundled_weight_refused_before_plan(100);
+    }
+    #[test]
+    fn bundled_instrument_weight_300_is_unsupported_before_plan_without_source_change() {
+        assert_bundled_weight_refused_before_plan(300);
+    }
+    #[test]
+    fn bundled_instrument_weight_800_is_unsupported_before_plan_without_source_change() {
+        assert_bundled_weight_refused_before_plan(800);
+    }
+    #[test]
+    fn bundled_instrument_weight_900_is_unsupported_before_plan_without_source_change() {
+        assert_bundled_weight_refused_before_plan(900);
+    }
+    #[test]
+    fn bundled_instrument_observed_weight_set_remains_source_plannable() {
+        for weight in [400, 500, 600, 700] {
+            let mut authored = film();
+            authored.editorial.font.family = "Instrument Sans Variable".into();
+            let mut changed = 0;
+            for sequence in &mut authored.sequences {
+                for beat in &mut sequence.beats {
+                    for shot in &mut beat.shots {
+                        for subject in &mut shot.subjects {
+                            if let a::SubjectContent::Text { runs, .. } = &mut subject.content {
+                                for run in runs {
+                                    run.weight = weight;
+                                    changed += 1;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            assert!(changed > 0);
+            let before = authored.clone();
+            assert!(project(&authored, None).is_ok(), "weight={weight}");
+            assert_eq!(authored, before);
+        }
     }
 }

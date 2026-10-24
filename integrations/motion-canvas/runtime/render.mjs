@@ -22,7 +22,7 @@ function unicodeRanges(css) {
 }
 async function pinnedFontEvidence(runtimeRoot){
   const specs=[
-    {family:'Instrument Sans Variable',css:'node_modules/@fontsource-variable/instrument-sans/index.css',weights:[100,200,300,400,500,600,700,800,900]},
+    {family:'Instrument Sans Variable',css:'node_modules/@fontsource-variable/instrument-sans/index.css',weights:[400,500,600,700]},
     {family:'IBM Plex Mono',css:'node_modules/@fontsource/ibm-plex-mono/400.css',weights:[400]},
   ];
   const evidence=[];
@@ -42,6 +42,65 @@ async function pinnedFontEvidence(runtimeRoot){
   }
   return evidence;
 }
+// BEGIN MANAGED FONT CONFIG V1 (pure configuration tests extract these functions).
+function validateManagedFontConfig(fonts) {
+  if (!Array.isArray(fonts) || fonts.length > 2) throw new Error('managed font budget');
+  const families = new Set();
+  const digests = new Set();
+  for (const font of fonts) {
+    if (!font || typeof font.family !== 'string' || font.family.length < 1 || font.family.length > 128
+        || /[\u0000-\u001f\u007f]/.test(font.family)
+        || ['instrument sans variable','ibm plex mono'].includes(font.family.toLowerCase())
+        || families.has(font.family.toLowerCase()) || !/^[a-f0-9]{64}$/.test(font.sha256)
+        || typeof font.path !== 'string' || !/^assets\/[a-z0-9_-]+\.(?:ttf|otf)$/.test(font.path)
+        || !Number.isSafeInteger(font.bytes) || font.bytes < 1 || font.bytes > 16*1024*1024
+        || font.face_loaded !== false) throw new Error('managed font identity differs');
+    families.add(font.family.toLowerCase());
+    // One file can serve both primary and mono roles; Rust deduplicates it.
+    if (digests.has(font.sha256)) throw new Error('managed font digest is ambiguous');
+    digests.add(font.sha256);
+    const metadata = font.metadata;
+    if (!metadata || metadata.normal !== true || !Array.isArray(metadata.family_names)
+        || !metadata.family_names.includes(font.family) || metadata.family_names.length > 16
+        || !Number.isInteger(metadata.weight_min) || !Number.isInteger(metadata.weight_max)
+        || metadata.weight_min < 1 || metadata.weight_max > 1000 || metadata.weight_min > metadata.weight_max
+        || !Number.isInteger(metadata.glyph_count) || metadata.glyph_count < 1
+        || !Number.isInteger(metadata.embedding_rights) || metadata.embedding_rights < 0
+        || metadata.embedding_rights > 65535 || (metadata.embedding_rights & 0x0200) !== 0
+        || ![0,8].includes(metadata.embedding_rights & 0x000f)) {
+      throw new Error('managed font parsed metadata differs');
+    }
+    if (!Array.isArray(font.weights) || font.weights.length < 1 || font.weights.length > 16
+        || font.weights.some((weight,index) => !Number.isInteger(weight)
+          || weight < metadata.weight_min || weight > metadata.weight_max
+          || (index > 0 && font.weights[index-1] >= weight))) {
+      throw new Error('managed font weight coverage differs');
+    }
+    if (!Array.isArray(font.codepoints) || font.codepoints.length > 256
+        || font.codepoints.some((range,index) => !Array.isArray(range) || range.length !== 2
+          || !range.every(Number.isInteger) || range[0] < 33 || range[1] < range[0] || range[1] > 0x10ffff
+          || (range[0] <= 0xdfff && range[1] >= 0xd800)
+          || (index > 0 && font.codepoints[index-1][1] >= range[0]))) {
+      throw new Error('managed font cmap coverage differs');
+    }
+    if (typeof font.sample !== 'string' || [...font.sample].length !== 1
+        || (font.codepoints.length === 0 ? font.sample !== ' '
+          : !font.codepoints.some(([a,b]) => a <= font.sample.codePointAt(0) && font.sample.codePointAt(0) <= b))) {
+      throw new Error('managed font readiness sample differs');
+    }
+  }
+  return fonts;
+}
+// END MANAGED FONT CONFIG V1.
+async function verifyManagedFontFiles(root, fonts) {
+  for (const font of validateManagedFontConfig(fonts)) {
+    const bytes = await fs.readFile(await containedFile(root,path.join(root,font.path),'managed font'));
+    if (bytes.length !== font.bytes || createHash('sha256').update(bytes).digest('hex') !== font.sha256) {
+      fail('managed font bytes changed');
+    }
+  }
+}
+
 function args() {
   const out = {};
   for (let i = 2; i < process.argv.length; i += 2) {
@@ -171,17 +230,32 @@ function boundedRendererLog(payload) {
 }
 
 // BEGIN PINNED FONT READINESS V04 (browser API mock tests extract exactly these functions).
-async function loadPinnedFontFaces(fonts, timeoutMs) {
+async function loadPinnedFontFaces(fonts, timeoutMs, managedFonts = []) {
   if (!fonts || typeof fonts.load !== 'function' || typeof fonts.check !== 'function'
       || !fonts.ready || typeof fonts.ready.then !== 'function' || !Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 10000) {
     throw new Error('pinned font readiness API or deadline unavailable');
   }
   // These exact faces are imported by both compiler routes. CSS pins remain unchanged.
-  // Instrument Sans index.css declares 400..700; IBM Plex Mono400.css declares 400.
+  // Readiness evidence covers the weights requested here, not a font's full weight axis.
   const specs = [
     {family:'Instrument Sans Variable',weights:[400,500,600,700]},
     {family:'IBM Plex Mono',weights:[400]},
   ];
+  if (!Array.isArray(managedFonts) || managedFonts.length > 2) throw new Error('managed font readiness budget');
+  const managedFamilies = new Set();
+  for (const font of managedFonts) {
+    if (!font || typeof font.family !== 'string' || font.family.length < 1 || font.family.length > 128
+        || /[\u0000-\u001f\u007f]/.test(font.family)
+        || specs.some(spec => spec.family.toLowerCase() === font.family.toLowerCase())
+        || managedFamilies.has(font.family.toLowerCase()) || !/^[a-f0-9]{64}$/.test(font.sha256)
+        || !Array.isArray(font.weights) || font.weights.length < 1 || font.weights.length > 16
+        || font.weights.some((w,i) => !Number.isInteger(w) || w < 1 || w > 1000 || (i > 0 && font.weights[i-1] >= w))
+        || typeof font.sample !== 'string' || [...font.sample].length !== 1) {
+      throw new Error('managed font readiness request differs');
+    }
+    managedFamilies.add(font.family.toLowerCase());
+    specs.push({family:font.family,weights:font.weights,sample:font.sample,sha256:font.sha256});
+  }
   const sample = 'SEMWRIGHT 0123456789';
   const normalizeFamily = value => typeof value === 'string' ? value.replace(/^(['"])(.*)\1$/, '$2') : '';
   let timer;
@@ -190,9 +264,11 @@ async function loadPinnedFontFaces(fonts, timeoutMs) {
   });
   const work = (async () => {
     const requests = await Promise.all(specs.flatMap(spec => spec.weights.map(async weight => {
-      const descriptor = String(weight) + ' 16px "' + spec.family + '"';
-      const loaded = await fonts.load(descriptor, sample);
-      if (!Array.isArray(loaded) || loaded.length === 0 || loaded.length > 16) {
+      const descriptor = String(weight) + ' 16px ' + JSON.stringify(spec.family);
+      const requestedSample = spec.sample ?? sample;
+      const loaded = await fonts.load(descriptor, requestedSample);
+      if (!Array.isArray(loaded) || loaded.length === 0 || loaded.length > 16
+          || (spec.sha256 && loaded.length !== 1)) {
         throw new Error('pinned font load returned an empty or unbounded face set');
       }
       const faces = loaded.map(face => {
@@ -208,14 +284,16 @@ async function loadPinnedFontFaces(fonts, timeoutMs) {
         }
         return {family:normalizeFamily(face.family),status:face.status,weight:face.weight,style:face.style};
       });
-      if (fonts.check(descriptor, sample) !== true) throw new Error('pinned font check failed after load');
-      return {family:spec.family,requested_weight:weight,loaded_face_count:faces.length,faces,check_after_load:true};
+      if (fonts.check(descriptor, requestedSample) !== true) throw new Error('pinned font check failed after load');
+      return {family:spec.family,requested_weight:weight,sample:requestedSample,
+        ...(spec.sha256 ? {asset_sha256:spec.sha256} : {}),
+        loaded_face_count:faces.length,faces,check_after_load:true};
     })));
     await fonts.ready;
     if (fonts.status !== 'loaded') throw new Error('pinned font set remains pending');
     for (const request of requests) {
-      const descriptor = String(request.requested_weight) + ' 16px "' + request.family + '"';
-      if (fonts.check(descriptor, sample) !== true) throw new Error('pinned font check failed after ready');
+      const descriptor = String(request.requested_weight) + ' 16px ' + JSON.stringify(request.family);
+      if (fonts.check(descriptor, request.sample) !== true) throw new Error('pinned font check failed after ready');
       request.check_after_ready = true;
     }
     return {version:1,method:'actual browser FontFaceSet.load/ready/check and FontFace scalar readbacks',
@@ -331,10 +409,13 @@ renderer.onFinished.subscribe(result=>{state.result=result;});
 (async()=>{
   try {
     state.phase='font_loading';
-    state.fontReadiness=await loadPinnedFontFaces(document.fonts,Math.min(config.timeoutMs,10000));
+    state.fontReadiness=await loadPinnedFontFaces(document.fonts,Math.min(config.timeoutMs,10000),config.managedFonts??[]);
     if(config.authoring){
       const binding=globalThis.__SEMWRIGHT_NATIVE_CONFIG__;
-      binding.font_evidence=binding.font_evidence.map(face=>({...face,face_loaded:face.weights.some(weight=>document.fonts.check(String(weight)+' 16px "'+face.family+'"'))}));
+      binding.font_evidence=binding.font_evidence.map(face=>({...face,
+        face_loaded:face.weights.every(weight=>state.fontReadiness.requests.some(request=>
+          request.family===face.family && request.requested_weight===weight && request.check_after_ready
+          && (!(config.managedFonts??[]).some(font=>font.family===face.family) || request.asset_sha256===face.sha256)))}));
     }
     state.phase='rendering';
     await renderer.render({
@@ -458,9 +539,16 @@ async function main() {
     if(bytes.length===0||bytes.length>16*1024*1024||createHash('sha256').update(bytes).digest('hex')!==pin.sha256)fail('font resource binding changed');
     resourceHash.update(pin.path);resourceHash.update(Buffer.from([0]));resourceHash.update(pin.sha256);resourceHash.update(Buffer.from([0]));
   }
-  if(resourceHash.digest('hex')!==config.fontResourcesDigest)fail('font resource digest binding changed');
-  if(config.authoring) config.fontEvidence=await pinnedFontEvidence(runtimeRoot);
+  const managedFonts = validateManagedFontConfig(config.managedFonts??[]);
   const {target: project} = await childOf(a['project-root'], a['project-relative'], 'project');
+  await verifyManagedFontFiles(project,managedFonts);
+  for(const font of managedFonts){
+    resourceHash.update(Buffer.from('managed-font\0'));
+    resourceHash.update(font.path);resourceHash.update(Buffer.from([0]));
+    resourceHash.update(font.sha256);resourceHash.update(Buffer.from([0]));
+  }
+  if(resourceHash.digest('hex')!==config.fontResourcesDigest)fail('font resource digest binding changed');
+  if(config.authoring) config.fontEvidence=[...await pinnedFontEvidence(runtimeRoot),...managedFonts];
   const fontconfigRoot = await fs.realpath(a['fontconfig-root']);
   if (!(await fs.stat(fontconfigRoot)).isDirectory()) fail('fontconfig root is not a directory');
   const browser = await containedFile(runtimeRoot, firefox.executablePath(), 'Firefox executable');
@@ -475,6 +563,7 @@ async function main() {
   try {
     failurePhase = 'project_stage';
     await fs.cp(project, work, {recursive:true,dereference:false,errorOnExist:false});
+    await verifyManagedFontFiles(work,managedFonts);
     await fs.rm(path.join(work, 'node_modules'), {recursive:true,force:true});
     await fs.symlink(path.join(runtimeRoot, 'node_modules'), path.join(work, 'node_modules'), 'dir');
     await fs.writeFile(path.join(work, 'semwright-render.html'), '<!doctype html><meta charset="utf-8"><script type="module" src="/semwright-entry.js"></script>');
@@ -586,11 +675,12 @@ async function main() {
     }
     failurePhase = 'observation';
     if (!state.fontReadiness || state.fontReadiness.observed_before_renderer_render !== true
-        || state.fontReadiness.status_after_ready !== 'loaded' || state.fontReadiness.requests?.length !== 5) fail('native font readiness observation incomplete');
+        || state.fontReadiness.status_after_ready !== 'loaded'
+        || state.fontReadiness.requests?.length !== 5+managedFonts.reduce((sum,font)=>sum+font.weights.length,0)) fail('native font readiness observation incomplete');
     const fontReceipt = {version:1,render_input_digest:config.renderInputDigest,
       font_resources_sha256:config.fontResourcesDigest,first_frame:config.firstFrame,
       end_frame_exclusive:config.endFrameExclusive,fps_num:config.fpsNum,fps_den:config.fpsDen,
-      authoring:config.authoring === true,readiness:state.fontReadiness,
+      authoring:config.authoring === true,readiness:state.fontReadiness,managed_fonts:managedFonts,
       scope:'actual native browser readiness; local receipt only, no reference bitmap identity claim'};
     const fontReceiptBytes=Buffer.from(JSON.stringify(fontReceipt)+'\n','utf8');
     if(fontReceiptBytes.length>32768)fail('native font readiness receipt exceeds bounds');

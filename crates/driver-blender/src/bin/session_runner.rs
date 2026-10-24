@@ -8,8 +8,9 @@ mod linux {
     use std::{
         fs::{self, File, OpenOptions},
         io::{self, Read, Write},
-        os::fd::{AsRawFd, FromRawFd},
+        os::fd::{AsRawFd, FromRawFd, OwnedFd},
         os::unix::{
+            ffi::OsStrExt,
             fs::{OpenOptionsExt, PermissionsExt},
             net::UnixStream,
             process::CommandExt,
@@ -372,21 +373,190 @@ mod linux {
         })
     }
 
-    fn send_socket_frame(socket: &Path, payload: &[u8]) -> io::Result<Vec<u8>> {
-        if payload.is_empty() || payload.len() > MAX_FRAME {
+    const NATIVE_EXCHANGE_TIMEOUT: Duration = Duration::from_secs(300);
+    const NATIVE_WRITE_TIMEOUT: Duration = Duration::from_secs(30);
+    const STARTUP_TIMEOUT: Duration = Duration::from_secs(20);
+
+    fn socket_remaining(deadline: Instant) -> io::Result<Duration> {
+        deadline
+            .checked_duration_since(Instant::now())
+            .filter(|remaining| !remaining.is_zero())
+            .ok_or_else(|| {
+                io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    "Blender native socket deadline expired",
+                )
+            })
+    }
+
+    fn wait_socket(
+        stream: &UnixStream,
+        events: libc::c_short,
+        deadline: Instant,
+    ) -> io::Result<()> {
+        loop {
+            let remaining = socket_remaining(deadline)?;
+            let millis = remaining
+                .as_nanos()
+                .div_ceil(1_000_000)
+                .min(i32::MAX as u128) as i32;
+            let mut descriptor = libc::pollfd {
+                fd: stream.as_raw_fd(),
+                events,
+                revents: 0,
+            };
+            // SAFETY: descriptor is live writable storage for one pollfd;
+            // stream owns the borrowed fd throughout this bounded call.
+            let ready = unsafe { libc::poll(&mut descriptor, 1, millis) };
+            if ready < 0 {
+                let error = io::Error::last_os_error();
+                if error.kind() == io::ErrorKind::Interrupted {
+                    continue;
+                }
+                return Err(error);
+            }
+            socket_remaining(deadline)?;
+            if ready == 0 {
+                continue;
+            }
+            if descriptor.revents & libc::POLLNVAL != 0 {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "Blender native socket descriptor is invalid",
+                ));
+            }
+            if descriptor.revents & (events | libc::POLLERR | libc::POLLHUP) != 0 {
+                return Ok(());
+            }
+        }
+    }
+
+    fn connect_socket_until(socket: &Path, deadline: Instant) -> io::Result<UnixStream> {
+        socket_remaining(deadline)?;
+        let bytes = socket.as_os_str().as_bytes();
+        // SAFETY: all-zero bytes are valid for sockaddr_un; the address is
+        // initialized below before connect borrows it.
+        let mut address: libc::sockaddr_un = unsafe { std::mem::zeroed() };
+        if bytes.is_empty() || bytes.contains(&0) || bytes.len() >= address.sun_path.len() {
             return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "session request frame is out of bounds",
+                io::ErrorKind::InvalidInput,
+                "Blender native socket path is out of bounds",
             ));
         }
-        let mut stream = UnixStream::connect(socket)?;
-        stream.set_read_timeout(Some(Duration::from_secs(300)))?;
-        stream.set_write_timeout(Some(Duration::from_secs(30)))?;
-        stream.write_all(&(payload.len() as u32).to_be_bytes())?;
-        stream.write_all(payload)?;
-        stream.flush()?;
+        address.sun_family = libc::AF_UNIX as libc::sa_family_t;
+        for (target, byte) in address.sun_path.iter_mut().zip(bytes) {
+            *target = *byte as libc::c_char;
+        }
+        let address_len = std::mem::offset_of!(libc::sockaddr_un, sun_path) + bytes.len() + 1;
+        // SAFETY: fixed domain/type/protocol create a new owned Unix socket.
+        let raw = unsafe {
+            libc::socket(
+                libc::AF_UNIX,
+                libc::SOCK_STREAM | libc::SOCK_NONBLOCK | libc::SOCK_CLOEXEC,
+                0,
+            )
+        };
+        if raw < 0 {
+            return Err(io::Error::last_os_error());
+        }
+        // SAFETY: socket returned a fresh descriptor; this is its sole owner.
+        let owned = unsafe { OwnedFd::from_raw_fd(raw) };
+        let stream = UnixStream::from(owned);
+        socket_remaining(deadline)?;
+        // SAFETY: address is an initialized pathname sockaddr_un with a
+        // terminating NUL, and stream owns its nonblocking socket descriptor.
+        let result = unsafe {
+            libc::connect(
+                stream.as_raw_fd(),
+                std::ptr::addr_of!(address).cast(),
+                address_len as libc::socklen_t,
+            )
+        };
+        if result != 0 {
+            let error = io::Error::last_os_error();
+            // In particular, do not treat Unix backlog EAGAIN as a connected
+            // socket or retry connect inside an existing native exchange.
+            if error.raw_os_error() != Some(libc::EINPROGRESS) {
+                return Err(error);
+            }
+            wait_socket(&stream, libc::POLLOUT, deadline)?;
+            if let Some(error) = stream.take_error()? {
+                return Err(error);
+            }
+        }
+        socket_remaining(deadline)?;
+        Ok(stream)
+    }
+
+    fn write_socket_until(
+        stream: &mut UnixStream,
+        mut bytes: &[u8],
+        deadline: Instant,
+    ) -> io::Result<()> {
+        while !bytes.is_empty() {
+            socket_remaining(deadline)?;
+            match stream.write(bytes) {
+                Ok(0) => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::WriteZero,
+                        "Blender native socket stopped accepting request bytes",
+                    ));
+                }
+                Ok(count) => bytes = &bytes[count..],
+                Err(error) if error.kind() == io::ErrorKind::Interrupted => {}
+                Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                    wait_socket(stream, libc::POLLOUT, deadline)?;
+                }
+                Err(error) => return Err(error),
+            }
+        }
+        socket_remaining(deadline)?;
+        Ok(())
+    }
+
+    fn read_socket_until(
+        stream: &mut UnixStream,
+        bytes: &mut [u8],
+        deadline: Instant,
+    ) -> io::Result<()> {
+        let mut received = 0;
+        while received < bytes.len() {
+            socket_remaining(deadline)?;
+            match stream.read(&mut bytes[received..]) {
+                Ok(0) => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::UnexpectedEof,
+                        "truncated Blender response frame",
+                    ));
+                }
+                Ok(count) => received += count,
+                Err(error) if error.kind() == io::ErrorKind::Interrupted => {}
+                Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                    wait_socket(stream, libc::POLLIN, deadline)?;
+                }
+                Err(error) => return Err(error),
+            }
+        }
+        socket_remaining(deadline)?;
+        Ok(())
+    }
+
+    fn exchange_socket_frame(
+        stream: &mut UnixStream,
+        payload: &[u8],
+        deadline: Instant,
+    ) -> io::Result<Vec<u8>> {
+        // The write phase retains its existing thirty-second ceiling while
+        // sharing the caller's absolute deadline with connect and the reply.
+        let write_deadline = deadline.min(Instant::now() + NATIVE_WRITE_TIMEOUT);
+        write_socket_until(
+            stream,
+            &(payload.len() as u32).to_be_bytes(),
+            write_deadline,
+        )?;
+        write_socket_until(stream, payload, write_deadline)?;
         let mut header = [0u8; 4];
-        stream.read_exact(&mut header)?;
+        read_socket_until(stream, &mut header, deadline)?;
         let length = u32::from_be_bytes(header) as usize;
         if length == 0 || length > MAX_FRAME {
             return Err(io::Error::new(
@@ -395,30 +565,54 @@ mod linux {
             ));
         }
         let mut body = vec![0u8; length];
-        stream.read_exact(&mut body)?;
+        read_socket_until(stream, &mut body, deadline)?;
         Ok(body)
     }
 
-    fn wait_until_ready(child: &mut BlenderChild, socket: &Path) -> io::Result<()> {
-        let deadline = Instant::now() + Duration::from_secs(20);
+    fn send_socket_frame_until(
+        socket: &Path,
+        payload: &[u8],
+        deadline: Instant,
+    ) -> io::Result<Vec<u8>> {
+        if payload.is_empty() || payload.len() > MAX_FRAME {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "session request frame is out of bounds",
+            ));
+        }
+        let mut stream = connect_socket_until(socket, deadline)?;
+        exchange_socket_frame(&mut stream, payload, deadline)
+    }
+
+    fn send_socket_frame(socket: &Path, payload: &[u8]) -> io::Result<Vec<u8>> {
+        send_socket_frame_until(socket, payload, Instant::now() + NATIVE_EXCHANGE_TIMEOUT)
+    }
+
+    fn wait_until_ready_before(
+        child: &mut BlenderChild,
+        socket: &Path,
+        deadline: Instant,
+    ) -> io::Result<()> {
         let probe = br#"{"command":"driver.blender.introspect.summary","args":{}}"#;
+        let startup_expired =
+            || io::Error::new(io::ErrorKind::TimedOut, "Blender session startup timed out");
         loop {
+            socket_remaining(deadline).map_err(|_| startup_expired())?;
             if let Some(status) = child.child.try_wait()? {
                 return Err(io::Error::other(format!(
                     "Blender exited during session startup: {status}"
                 )));
             }
-            if socket.exists() && send_socket_frame(socket, probe).is_ok() {
+            if socket.exists() && send_socket_frame_until(socket, probe, deadline).is_ok() {
                 return Ok(());
             }
-            if Instant::now() >= deadline {
-                return Err(io::Error::new(
-                    io::ErrorKind::TimedOut,
-                    "Blender session startup timed out",
-                ));
-            }
-            thread::sleep(Duration::from_millis(50));
+            let remaining = socket_remaining(deadline).map_err(|_| startup_expired())?;
+            thread::sleep(remaining.min(Duration::from_millis(50)));
         }
+    }
+
+    fn wait_until_ready(child: &mut BlenderChild, socket: &Path) -> io::Result<()> {
+        wait_until_ready_before(child, socket, Instant::now() + STARTUP_TIMEOUT)
     }
 
     fn read_host_frame(input: &mut impl Read) -> io::Result<Option<Vec<u8>>> {
@@ -697,6 +891,242 @@ mod linux {
             server.join().unwrap();
             assert!(workspace.path().join(".semwright-native-failures").is_dir());
         }
+        fn accept_deadline_peer(listener: &std::os::unix::net::UnixListener) -> UnixStream {
+            listener.set_nonblocking(true).unwrap();
+            let deadline = Instant::now() + Duration::from_secs(3);
+            loop {
+                match listener.accept() {
+                    Ok((peer, _)) => return peer,
+                    Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                        assert!(Instant::now() < deadline, "fixture received no connection");
+                        thread::sleep(Duration::from_millis(1));
+                    }
+                    Err(error) => panic!("fixture accept failed: {error}"),
+                }
+            }
+        }
+
+        fn deadline_pair() -> (UnixStream, UnixStream) {
+            let (client, peer) = UnixStream::pair().unwrap();
+            client.set_nonblocking(true).unwrap();
+            peer.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+            peer.set_write_timeout(Some(Duration::from_secs(3)))
+                .unwrap();
+            (client, peer)
+        }
+
+        fn assert_stalled_reply_times_out(prefix: &[u8]) {
+            let (mut client, mut peer) = deadline_pair();
+            let prefix = prefix.to_vec();
+            let (release, hold) = std::sync::mpsc::channel();
+            let server = thread::spawn(move || {
+                assert_eq!(read_host_frame(&mut peer).unwrap().unwrap(), b"request");
+                peer.write_all(&prefix).unwrap();
+                let _ = hold.recv_timeout(Duration::from_secs(3));
+            });
+            let error = exchange_socket_frame(
+                &mut client,
+                b"request",
+                Instant::now() + Duration::from_millis(200),
+            )
+            .unwrap_err();
+            let _ = release.send(());
+            server.join().unwrap();
+            assert_eq!(error.kind(), io::ErrorKind::TimedOut);
+        }
+
+        #[test]
+        fn native_socket_deadline_roundtrip_uses_the_existing_frame_wire() {
+            let workspace = tempfile::Builder::new()
+                .prefix("mw-socket-")
+                .tempdir_in("/tmp")
+                .unwrap();
+            let socket = workspace.path().join("bridge.sock");
+            let listener = std::os::unix::net::UnixListener::bind(&socket).unwrap();
+            let server = thread::spawn(move || {
+                let mut peer = accept_deadline_peer(&listener);
+                peer.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+                peer.set_write_timeout(Some(Duration::from_secs(3)))
+                    .unwrap();
+                assert_eq!(read_host_frame(&mut peer).unwrap().unwrap(), b"request");
+                write_host_frame(&mut peer, br#"{"ok":true,"value":"fixture"}"#).unwrap();
+            });
+            let response = send_socket_frame_until(
+                &socket,
+                b"request",
+                Instant::now() + Duration::from_secs(2),
+            )
+            .unwrap();
+            server.join().unwrap();
+            assert_eq!(response, br#"{"ok":true,"value":"fixture"}"#);
+        }
+
+        #[test]
+        fn native_socket_deadline_expired_before_connect_has_no_peer() {
+            let workspace = tempfile::Builder::new()
+                .prefix("mw-socket-")
+                .tempdir_in("/tmp")
+                .unwrap();
+            let socket = workspace.path().join("bridge.sock");
+            let listener = std::os::unix::net::UnixListener::bind(&socket).unwrap();
+            listener.set_nonblocking(true).unwrap();
+            let error = send_socket_frame_until(&socket, b"request", Instant::now()).unwrap_err();
+            assert_eq!(error.kind(), io::ErrorKind::TimedOut);
+            assert_eq!(
+                listener.accept().unwrap_err().kind(),
+                io::ErrorKind::WouldBlock
+            );
+        }
+
+        #[test]
+        fn native_socket_deadline_expired_before_send_transmits_no_header() {
+            let (mut client, mut peer) = deadline_pair();
+            peer.set_nonblocking(true).unwrap();
+            let error = exchange_socket_frame(&mut client, b"request", Instant::now()).unwrap_err();
+            assert_eq!(error.kind(), io::ErrorKind::TimedOut);
+            let mut byte = [0];
+            assert_eq!(
+                peer.read(&mut byte).unwrap_err().kind(),
+                io::ErrorKind::WouldBlock
+            );
+        }
+
+        #[test]
+        fn native_socket_deadline_partial_header_cannot_wait_three_hundred_seconds() {
+            assert_stalled_reply_times_out(&[0, 0]);
+        }
+
+        #[test]
+        fn native_socket_deadline_partial_body_cannot_wait_three_hundred_seconds() {
+            assert_stalled_reply_times_out(&[0, 0, 0, 4, b'x']);
+        }
+
+        #[test]
+        fn native_socket_deadline_header_and_body_share_the_same_budget() {
+            let (mut client, mut peer) = deadline_pair();
+            let (stop, stopped) = std::sync::mpsc::channel();
+            let server = thread::spawn(move || {
+                assert_eq!(read_host_frame(&mut peer).unwrap().unwrap(), b"request");
+                peer.write_all(&[0, 0]).unwrap();
+                if stopped.recv_timeout(Duration::from_millis(180)).is_ok() {
+                    return;
+                }
+                if peer.write_all(&[0, 2, b'a']).is_err() {
+                    return;
+                }
+                if stopped.recv_timeout(Duration::from_millis(180)).is_ok() {
+                    return;
+                }
+                let _ = peer.write_all(b"b");
+            });
+            let error = exchange_socket_frame(
+                &mut client,
+                b"request",
+                Instant::now() + Duration::from_millis(300),
+            )
+            .unwrap_err();
+            let _ = stop.send(());
+            server.join().unwrap();
+            assert_eq!(error.kind(), io::ErrorKind::TimedOut);
+        }
+
+        #[test]
+        fn native_socket_deadline_partial_progress_does_not_restart_the_clock() {
+            let (mut client, mut peer) = deadline_pair();
+            let (stop, stopped) = std::sync::mpsc::channel();
+            let server = thread::spawn(move || {
+                assert_eq!(read_host_frame(&mut peer).unwrap().unwrap(), b"request");
+                peer.write_all(&[0, 0, 0, 8, b'a']).unwrap();
+                for byte in b"bcdefgh" {
+                    if stopped.recv_timeout(Duration::from_millis(80)).is_ok() {
+                        return;
+                    }
+                    if peer.write_all(&[*byte]).is_err() {
+                        return;
+                    }
+                }
+            });
+            let error = exchange_socket_frame(
+                &mut client,
+                b"request",
+                Instant::now() + Duration::from_millis(300),
+            )
+            .unwrap_err();
+            let _ = stop.send(());
+            server.join().unwrap();
+            assert_eq!(error.kind(), io::ErrorKind::TimedOut);
+        }
+
+        #[test]
+        fn native_socket_deadline_backpressure_bounds_a_partially_written_request() {
+            let (mut client, mut peer) = deadline_pair();
+            let capacity: libc::c_int = 4096;
+            // SAFETY: client owns the socket, capacity is valid readable
+            // storage, and SO_SNDBUF accepts exactly one c_int.
+            let configured = unsafe {
+                libc::setsockopt(
+                    client.as_raw_fd(),
+                    libc::SOL_SOCKET,
+                    libc::SO_SNDBUF,
+                    std::ptr::addr_of!(capacity).cast(),
+                    std::mem::size_of_val(&capacity) as libc::socklen_t,
+                )
+            };
+            assert_eq!(configured, 0);
+            let payload = vec![b'x'; MAX_FRAME];
+            let error = exchange_socket_frame(
+                &mut client,
+                &payload,
+                Instant::now() + Duration::from_millis(200),
+            )
+            .unwrap_err();
+            assert_eq!(error.kind(), io::ErrorKind::TimedOut);
+            drop(client);
+            let mut observed = Vec::new();
+            peer.read_to_end(&mut observed).unwrap();
+            assert!(observed.len() >= 4);
+            assert!(observed.len() < payload.len() + 4);
+            assert_eq!(&observed[..4], &(MAX_FRAME as u32).to_be_bytes());
+            assert!(observed[4..].iter().all(|byte| *byte == b'x'));
+        }
+
+        #[test]
+        fn native_socket_deadline_startup_probe_is_clamped_to_the_startup_deadline() {
+            let workspace = tempfile::Builder::new()
+                .prefix("mw-socket-")
+                .tempdir_in("/tmp")
+                .unwrap();
+            let socket = workspace.path().join("bridge.sock");
+            let listener = std::os::unix::net::UnixListener::bind(&socket).unwrap();
+            let (release, hold) = std::sync::mpsc::channel();
+            let server = thread::spawn(move || {
+                let mut peer = accept_deadline_peer(&listener);
+                peer.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+                let request = read_host_frame(&mut peer).unwrap().unwrap();
+                assert_eq!(
+                    request,
+                    br#"{"command":"driver.blender.introspect.summary","args":{}}"#
+                );
+                peer.write_all(&[0, 0]).unwrap();
+                let _ = hold.recv_timeout(Duration::from_secs(3));
+            });
+            let mut child = fake(workspace.path(), "sleep 30");
+            let error = wait_until_ready_before(
+                &mut child,
+                &socket,
+                Instant::now() + Duration::from_millis(200),
+            )
+            .unwrap_err();
+            let _ = release.send(());
+            server.join().unwrap();
+            assert_eq!(error.kind(), io::ErrorKind::TimedOut);
+            assert_eq!(error.to_string(), "Blender session startup timed out");
+            assert_eq!(STARTUP_TIMEOUT, Duration::from_secs(20));
+            assert_eq!(NATIVE_EXCHANGE_TIMEOUT, Duration::from_secs(300));
+            assert_eq!(NATIVE_WRITE_TIMEOUT, Duration::from_secs(30));
+            drop(child);
+        }
+
         #[test]
         fn private_audit_symlink_is_refused_and_no_public_raw_fallback() {
             let workspace = tempfile::tempdir().unwrap();

@@ -107,6 +107,8 @@ struct AssetImportArgs {
     kind: AssetKind,
     source: String,
     #[serde(default)]
+    expected_sha256: Option<String>,
+    #[serde(default)]
     provenance: Option<String>,
     #[serde(default)]
     license: Option<String>,
@@ -370,6 +372,10 @@ fn imported_asset(
         AssetKind::Image if extension == "png" => {
             let evidence = security::inspect_png(bytes)?;
             Some([evidence.width, evidence.height])
+        }
+        AssetKind::Font if matches!(extension.as_str(), "ttf" | "otf") => {
+            crate::fonts::inspect(bytes)?;
+            None
         }
         AssetKind::Svg if extension == "svg" => {
             let text = std::str::from_utf8(bytes)
@@ -1410,6 +1416,14 @@ impl MotionDriver {
                     Error::new(ErrorCode::Unavailable, "Media grant is not mounted")
                 })?;
                 let bytes = crate::store::read_granted_file(media, &input.source, MAX_ASSET_BYTES)?;
+                if let Some(expected) = &input.expected_sha256 {
+                    if !security::digest(expected) || security::sha256(&bytes) != *expected {
+                        return Err(Error::new(
+                            ErrorCode::StaleReference,
+                            "Imported media bytes do not match the expected content digest",
+                        ));
+                    }
+                }
                 let asset = imported_asset(
                     &input.id,
                     input.kind,
@@ -1435,12 +1449,7 @@ impl MotionDriver {
                         "Managed asset destination already exists on disk",
                     ));
                 }
-                let mut project = current.project.clone();
-                project.assets.push(asset.clone());
-                project.revision = project.revision.checked_add(1).ok_or_else(|| {
-                    Error::new(ErrorCode::ResourceExhausted, "Project revision exhausted")
-                })?;
-                validate::project_valid(&project)?;
+                let project = crate::authoring::register_asset(&current.project, asset.clone())?;
                 let generated = crate::compiler::compile(&project)?;
                 let diff = crate::diff::between(&current.project, &project)?;
                 if input.dry_run {
@@ -2746,5 +2755,120 @@ mod driver_tests {
             .await
             .unwrap_err();
         assert_eq!(err.code, ErrorCode::InvalidArgument);
+    }
+    #[tokio::test]
+    async fn managed_font_import_checks_expected_digest_before_any_install() {
+        let project_dir = tempfile::tempdir().unwrap();
+        let media_dir = tempfile::tempdir().unwrap();
+        let project_root = std::fs::canonicalize(project_dir.path()).unwrap();
+        let media_root = std::fs::canonicalize(media_dir.path()).unwrap();
+        let bytes = include_bytes!("../tests/fixtures/managed-font-source.ttf");
+        std::fs::write(media_root.join("brand.ttf"), bytes).unwrap();
+        let mut driver =
+            MotionDriver::for_project_and_media_roots(&project_root, &media_root).unwrap();
+        call(
+            &mut driver,
+            "driver.motion-canvas.project.create",
+            json!({"project":fixture(),"dry_run":false}),
+        )
+        .await
+        .unwrap();
+        let before = call(
+            &mut driver,
+            "driver.motion-canvas.project.inspect",
+            json!({}),
+        )
+        .await
+        .unwrap();
+        let fingerprint = before["fingerprint"].as_str().unwrap().to_owned();
+        let wrong = call(
+            &mut driver,
+            "driver.motion-canvas.asset.import",
+            json!({
+                "expected_fingerprint":fingerprint,"id":"brand","kind":"font","source":"brand.ttf",
+                "expected_sha256":"b".repeat(64),"dry_run":false,
+            }),
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(wrong.code, ErrorCode::StaleReference);
+        assert!(!project_root.join("assets/brand.ttf").exists());
+        let after = call(
+            &mut driver,
+            "driver.motion-canvas.project.inspect",
+            json!({}),
+        )
+        .await
+        .unwrap();
+        assert_eq!(after["fingerprint"], before["fingerprint"]);
+        let dry = call(
+            &mut driver,
+            "driver.motion-canvas.asset.import",
+            json!({
+                "expected_fingerprint":fingerprint,"id":"brand","kind":"font","source":"brand.ttf",
+                "expected_sha256":security::sha256(bytes),"license":"Apache-2.0","dry_run":true,
+            }),
+        )
+        .await
+        .unwrap();
+        assert_eq!(dry["applied"], false);
+        assert!(!project_root.join("assets/brand.ttf").exists());
+        let applied = call(
+            &mut driver,
+            "driver.motion-canvas.asset.import",
+            json!({
+                "expected_fingerprint":fingerprint,"id":"brand","kind":"font","source":"brand.ttf",
+                "expected_sha256":security::sha256(bytes),"license":"Apache-2.0","dry_run":false,
+            }),
+        )
+        .await
+        .unwrap();
+        assert_eq!(applied["applied"], true);
+        assert_eq!(
+            std::fs::read(project_root.join("assets/brand.ttf")).unwrap(),
+            bytes
+        );
+        let observed = call(&mut driver, "driver.motion-canvas.asset.list", json!({}))
+            .await
+            .unwrap();
+        assert_eq!(observed["items"][0]["kind"], "font");
+        assert_eq!(observed["items"][0]["sha256"], security::sha256(bytes));
+    }
+
+    #[test]
+    fn managed_font_import_never_accepts_mislabeled_or_wrapped_bytes() {
+        assert!(
+            imported_asset(
+                "bad",
+                AssetKind::Font,
+                "font.ttf",
+                b"not-a-font",
+                None,
+                None
+            )
+            .is_err()
+        );
+        assert!(
+            imported_asset(
+                "bad",
+                AssetKind::Font,
+                "font.woff2",
+                include_bytes!("../tests/fixtures/managed-font-source.ttf"),
+                None,
+                None
+            )
+            .is_err()
+        );
+        assert!(
+            imported_asset(
+                "bad",
+                AssetKind::Image,
+                "font.ttf",
+                include_bytes!("../tests/fixtures/managed-font-source.ttf"),
+                None,
+                None
+            )
+            .is_err()
+        );
     }
 }

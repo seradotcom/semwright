@@ -585,6 +585,7 @@ struct RenderInputs {
     lock: String,
     fonts: String,
     pins: Vec<serde_json::Value>,
+    managed_fonts: Vec<crate::fonts::ManagedFontEvidence>,
 }
 fn render_inputs(snapshot: &Snapshot, plan: &RenderPlan) -> Result<RenderInputs> {
     let runtime = semwright_driver_sdk::workspace_mount(RUNTIME_MOUNT)?;
@@ -640,11 +641,31 @@ fn render_inputs(snapshot: &Snapshot, plan: &RenderPlan) -> Result<RenderInputs>
             return Err(Error::invalid("Font stylesheet has no WOFF2 resources"));
         }
     }
+    let uses_managed_fonts = snapshot.project.authoring.as_ref().is_some_and(|binding| {
+        binding.intent.editorial.font.asset_digest.is_some()
+            || binding.intent.editorial.mono_font.asset_digest.is_some()
+    });
+    let managed_fonts = if uses_managed_fonts {
+        let root = snapshot
+            .generated_dir
+            .as_deref()
+            .ok_or_else(|| Error::invalid("Managed font source has not been materialized"))?;
+        crate::fonts::evidence(&snapshot.project, root)?
+    } else {
+        Vec::new()
+    };
     let mut hasher = Sha256::new();
     for (path, digest) in &resources {
         hasher.update(path.as_bytes());
         hasher.update([0]);
         hasher.update(digest.as_bytes());
+        hasher.update([0]);
+    }
+    for font in &managed_fonts {
+        hasher.update(b"managed-font\0");
+        hasher.update(font.path.as_bytes());
+        hasher.update([0]);
+        hasher.update(font.sha256.as_bytes());
         hasher.update([0]);
     }
     let fonts = hex::encode(hasher.finalize());
@@ -655,6 +676,7 @@ fn render_inputs(snapshot: &Snapshot, plan: &RenderPlan) -> Result<RenderInputs>
         security::sha256(RENDER_HELPER.as_bytes()),
         &lock,
         &fonts,
+        &managed_fonts,
     ))
     .map_err(|e| Error::invalid(e.to_string()))?
     .as_str()
@@ -668,6 +690,7 @@ fn render_inputs(snapshot: &Snapshot, plan: &RenderPlan) -> Result<RenderInputs>
         lock,
         fonts,
         pins,
+        managed_fonts,
     })
 }
 
@@ -686,6 +709,7 @@ fn host_args(
         "dependencyLockDigest": inputs.lock,
         "fontResourcesDigest": inputs.fonts,
         "fontResourcePins": inputs.pins,
+        "managedFonts": inputs.managed_fonts,
         "name": "frames",
         "width": plan.width,
         "height": plan.height,

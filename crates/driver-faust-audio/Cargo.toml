@@ -18,11 +18,21 @@ path = "src/main.rs"
 name = "semwright-audio-analysis-driver"
 path = "src/analysis_main.rs"
 
+[[bin]]
+name = "semwright-audio-alignment-driver"
+path = "src/alignment_main.rs"
+
+[[bin]]
+name = "semwright-audio-meter-snapshot"
+path = "src/meter_snapshot_main.rs"
+
 [features]
 default = []
 live-tests = []
 
 [dependencies]
+libc.workspace = true
+base64.workspace = true
 hex.workspace = true
 async-trait.workspace = true
 semwright-audio-domain.workspace = true
@@ -36,6 +46,7 @@ tokio.workspace = true
 tokio-util.workspace = true
 
 [dev-dependencies]
+semwright-protocol.workspace = true
 semwright-core.workspace = true
 semwright-driver-host.workspace = true
 semwright-backend-api.workspace = true

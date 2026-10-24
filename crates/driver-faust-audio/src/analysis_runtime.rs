@@ -1,7 +1,9 @@
 use semwright_audio_domain::{
     analysis::LoudnessAnalysis, signal_analysis::SignalStatistics, wav::WaveReader,
 };
-use semwright_driver_sdk::{DriverExecutionContext, workspace_mount};
+use semwright_driver_sdk::{
+    DriverExecutionContext, RuntimeToolArg, RuntimeToolMode, workspace_mount,
+};
 use semwright_types::{Error, ErrorCode, Result};
 use sha2::{Digest, Sha256};
 use std::{
@@ -13,12 +15,13 @@ use std::{
 use tempfile::TempDir;
 
 pub const METER_NAME: &str = "audio-meter";
-const MAX_INPUT_BYTES: u64 = 512 * 1024 * 1024;
+pub(crate) const MAX_INPUT_BYTES: u64 = 512 * 1024 * 1024;
 const MAX_OUTPUT_BYTES: usize = 128 * 1024;
 
 #[derive(Debug)]
 pub struct AnalysisRuntime {
     input_root: PathBuf,
+    host_snapshot_meter: bool,
 }
 #[derive(Debug)]
 pub struct AnalysisReceipt {
@@ -41,7 +44,29 @@ impl AnalysisRuntime {
                 "Audio analysis input grant must be a real directory",
             ));
         }
-        Ok(Some(Self { input_root }))
+        Ok(Some(Self {
+            input_root,
+            host_snapshot_meter: false,
+        }))
+    }
+
+    pub(crate) fn enable_host_snapshot_meter(&mut self) {
+        self.host_snapshot_meter = true;
+    }
+
+    pub(crate) fn snapshot_alignment(
+        &self,
+        file_name: &str,
+    ) -> Result<(TempDir, PathBuf, String, u64)> {
+        validate_name(file_name)?;
+        if !file_name.ends_with(".wav") {
+            return Err(Error::invalid("Alignment input must be WAV"));
+        }
+        snapshot_input_bounded(
+            &self.input_root.join(file_name),
+            file_name,
+            crate::alignment_candidate::MAX_WAV,
+        )
     }
 
     pub async fn measure(
@@ -69,7 +94,9 @@ impl AnalysisRuntime {
                 "Audio analysis input digest changed",
             ));
         }
-        let loudness = self.run_meter(context, &staged, layout).await?;
+        let loudness = self
+            .run_meter(context, &staged, file_name, &sha256, bytes, layout)
+            .await?;
         let statistics = if file_name.ends_with(".wav") {
             let file = File::open(&staged)?;
             let reader = WaveReader::open(file, MAX_INPUT_BYTES).map_err(domain_error)?;
@@ -109,6 +136,9 @@ impl AnalysisRuntime {
         &self,
         context: Option<&DriverExecutionContext>,
         staged: &Path,
+        file_name: &str,
+        expected_sha256: &str,
+        expected_bytes: u64,
         layout: &str,
     ) -> Result<LoudnessAnalysis> {
         let context = context.ok_or_else(|| {
@@ -118,18 +148,58 @@ impl AnalysisRuntime {
             )
         })?;
         context.check_cancelled()?;
-        let output = context
-            .execute_runtime_tool(
-                METER_NAME,
-                vec![
-                    "analyze".into(),
-                    staged.to_string_lossy().into_owned(),
-                    layout.into(),
-                ],
-                Vec::new(),
-                Duration::from_secs(30),
-            )
-            .await?;
+        let output = if self.host_snapshot_meter
+            && context.runtime_tool_mode(METER_NAME)? == RuntimeToolMode::HostMediated
+        {
+            context
+                .execute_runtime_tool_args(
+                    crate::meter_snapshot::TOOL_NAME,
+                    vec![
+                        RuntimeToolArg::Literal {
+                            value: "--input-root".into(),
+                        },
+                        RuntimeToolArg::MountPath {
+                            mount: "analysis-input".into(),
+                            relative: String::new(),
+                        },
+                        RuntimeToolArg::Literal {
+                            value: "--meter".into(),
+                        },
+                        RuntimeToolArg::ToolPath {
+                            tool: METER_NAME.into(),
+                        },
+                        RuntimeToolArg::Literal {
+                            value: format!("--file-name={file_name}"),
+                        },
+                        RuntimeToolArg::Literal {
+                            value: format!("--expected-sha256={expected_sha256}"),
+                        },
+                        RuntimeToolArg::Literal {
+                            value: format!("--expected-bytes={expected_bytes}"),
+                        },
+                        RuntimeToolArg::Literal {
+                            value: format!("--layout={layout}"),
+                        },
+                    ],
+                    Vec::new(),
+                    Duration::from_secs(30),
+                    None,
+                )
+                .await?
+        } else {
+            context
+                .execute_runtime_tool(
+                    METER_NAME,
+                    vec![
+                        "analyze".into(),
+                        staged.to_string_lossy().into_owned(),
+                        layout.into(),
+                    ],
+                    Vec::new(),
+                    Duration::from_secs(30),
+                )
+                .await?
+        };
         if output.stdout.len() > MAX_OUTPUT_BYTES || output.stderr.len() > MAX_OUTPUT_BYTES {
             return Err(Error::new(
                 ErrorCode::ResourceExhausted,
@@ -152,8 +222,16 @@ impl AnalysisRuntime {
 }
 
 fn snapshot_input(source: &Path, file_name: &str) -> Result<(TempDir, PathBuf, String, u64)> {
+    snapshot_input_bounded(source, file_name, MAX_INPUT_BYTES)
+}
+
+pub(crate) fn snapshot_input_bounded(
+    source: &Path,
+    file_name: &str,
+    max_bytes: u64,
+) -> Result<(TempDir, PathBuf, String, u64)> {
     let before = fs::symlink_metadata(source)?;
-    regular_metadata(&before, MAX_INPUT_BYTES)?;
+    regular_metadata(&before, max_bytes)?;
     let mut input = File::open(source)?;
     let opened = input.metadata()?;
     same_file(&before, &opened)?;
@@ -175,7 +253,7 @@ fn snapshot_input(source: &Path, file_name: &str) -> Result<(TempDir, PathBuf, S
         }
         copied = copied
             .checked_add(count as u64)
-            .filter(|size| *size <= MAX_INPUT_BYTES)
+            .filter(|size| *size <= max_bytes)
             .ok_or_else(|| {
                 Error::new(
                     ErrorCode::ResourceExhausted,
@@ -192,7 +270,7 @@ fn snapshot_input(source: &Path, file_name: &str) -> Result<(TempDir, PathBuf, S
             "Audio input changed while taking an immutable snapshot",
         ));
     }
-    regular(&staged, MAX_INPUT_BYTES)?;
+    regular(&staged, max_bytes)?;
     Ok((temp, staged, hex::encode(hash.finalize()), copied))
 }
 
@@ -240,7 +318,7 @@ fn regular_metadata(metadata: &fs::Metadata, limit: u64) -> Result<()> {
     }
     Ok(())
 }
-fn validate_name(value: &str) -> Result<()> {
+pub(crate) fn validate_name(value: &str) -> Result<()> {
     if value.is_empty()
         || value.len() > 200
         || value.starts_with('.')
@@ -254,7 +332,7 @@ fn validate_name(value: &str) -> Result<()> {
     }
     Ok(())
 }
-fn validate_digest(value: &str) -> Result<()> {
+pub(crate) fn validate_digest(value: &str) -> Result<()> {
     if value.len() != 64
         || !value
             .bytes()
