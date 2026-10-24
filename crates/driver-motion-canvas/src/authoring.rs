@@ -67,9 +67,9 @@ pub(crate) fn register_asset(project: &Project, asset: crate::model::Asset) -> R
         .revision
         .checked_add(1)
         .ok_or_else(|| Error::invalid("project revision overflow"))?;
-    if next.authoring.is_some() {
-        let digest = projection_digest(&next)?;
-        next.authoring.as_mut().expect("checked").projection_digest = digest;
+    if let Some(mut binding) = next.authoring.take() {
+        binding.projection_digest = projection_digest(&next)?;
+        next.authoring = Some(binding);
     }
     validate::project_valid(&next)?;
     Ok(next)

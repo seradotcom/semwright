@@ -1416,13 +1416,13 @@ impl MotionDriver {
                     Error::new(ErrorCode::Unavailable, "Media grant is not mounted")
                 })?;
                 let bytes = crate::store::read_granted_file(media, &input.source, MAX_ASSET_BYTES)?;
-                if let Some(expected) = &input.expected_sha256 {
-                    if !security::digest(expected) || security::sha256(&bytes) != *expected {
-                        return Err(Error::new(
-                            ErrorCode::StaleReference,
-                            "Imported media bytes do not match the expected content digest",
-                        ));
-                    }
+                if let Some(expected) = &input.expected_sha256
+                    && (!security::digest(expected) || security::sha256(&bytes) != *expected)
+                {
+                    return Err(Error::new(
+                        ErrorCode::StaleReference,
+                        "Imported media bytes do not match the expected content digest",
+                    ));
                 }
                 let asset = imported_asset(
                     &input.id,
