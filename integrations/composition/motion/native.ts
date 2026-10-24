@@ -151,7 +151,13 @@ function createShot(shot:NativeShot,d:NativeSceneData,urls:AssetUrls,nodes:Map<s
    instrument(n,id,reg);
    const parent=s.parent?nodes.get(s.parent)!:root;
    // A camera renders its scene via the native scene signal, not ordinary children.
-   if(parent instanceof Camera){let scene=parent.scene();if(!scene){scene=new Node({});parent.scene(scene);}scene.add(n);}else parent.add(n);
+   // Fixed Txt keeps its DOM-enabled inline runs. A non-layout parent makes
+   // its own position signal authoritative while preserving the logical Txt.
+   // The attachment follows the later layer assignment and any zIndex change.
+   const attachment=s.layout.kind==='fixed'&&n instanceof Txt
+    ?new Layout({layout:false,position:[0,0],rotation:0,scale:[1,1],
+      opacity:1,clip:false,zIndex:()=>n.zIndex(),children:[n]}):n;
+   if(parent instanceof Camera){let scene=parent.scene();if(!scene){scene=new Node({});parent.scene(scene);}scene.add(attachment);}else parent.add(attachment);
    const layer=shot.layers.find(l=>l.id===s.layer);requireValue(layer,'unknown layer');n.zIndex(layer.order);
    if(!s.parent&&n instanceof Layout&&s.layout.kind==='flow'){
     if(['primary','secondary','media','evidence','code','metric'].includes(s.role)){n.grow(s.role==='metric'?Math.max(1,a.titleGrow):1);n.shrink(1);n.basis(0);}

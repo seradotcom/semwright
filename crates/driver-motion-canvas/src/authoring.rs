@@ -387,10 +387,23 @@ mod tests {
             "stage render instrumentation must precede subtree attachment"
         );
         let instrument = source.find("instrument(n,id,reg);").unwrap();
-        let parent_add = source.find("else parent.add(n);").unwrap();
+        let parent_add = source.find("else parent.add(").unwrap();
         assert!(
             instrument < parent_add,
             "subject instrumentation must precede parent attachment"
+        );
+        let first_attachment = [
+            source.find("children:[n]"),
+            source.find("scene.add("),
+            Some(parent_add),
+        ]
+        .into_iter()
+        .flatten()
+        .min()
+        .unwrap();
+        assert!(
+            instrument < first_attachment,
+            "subject instrumentation must precede first attachment"
         );
         assert!(source.contains("tasks.push(delay(sec(shot.start)-start"));
     }
