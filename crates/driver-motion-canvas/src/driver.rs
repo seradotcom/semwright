@@ -1891,9 +1891,58 @@ mod tests {
     fn capability_catalog_and_manifest_are_stable_goldens() {
         let catalog = MotionDriver::catalog().unwrap();
         let digest = semwright_driver_sdk::capabilities_digest(&catalog).unwrap();
+
+        // The reviewed font import extension changes only AssetKind::Font and
+        // the optional expected_sha256 input. Recover the prior catalog through
+        // exactly those schema deltas before accepting its new fixed golden.
+        let mut legacy_catalog = catalog.clone();
+        let mut font_schema_owners = Vec::new();
+        let mut digest_input_count = 0;
+        for capability in &mut legacy_catalog {
+            let name = capability.descriptor.name.clone();
+            for (direction, schema) in [
+                ("input", &mut capability.descriptor.input_schema),
+                ("output", &mut capability.descriptor.output_schema),
+            ] {
+                if let Some(kinds) = schema.pointer_mut("/$defs/AssetKind/enum") {
+                    assert_eq!(*kinds, json!(["image", "svg", "video", "audio", "font"]));
+                    *kinds = json!(["image", "svg", "video", "audio"]);
+                    font_schema_owners.push(format!("{name}:{direction}"));
+                }
+                if name == "driver.motion-canvas.asset.import" && direction == "input" {
+                    let properties = schema
+                        .get_mut("properties")
+                        .and_then(Value::as_object_mut)
+                        .expect("asset.import input properties");
+                    assert_eq!(properties.len(), 8);
+                    assert_eq!(
+                        properties.remove("expected_sha256"),
+                        Some(json!({"default":null,"type":["string","null"]}))
+                    );
+                    digest_input_count += 1;
+                }
+            }
+        }
+        font_schema_owners.sort_unstable();
+        assert_eq!(
+            font_schema_owners,
+            [
+                "driver.motion-canvas.asset.import:input",
+                "driver.motion-canvas.asset.list:output",
+                "driver.motion-canvas.project.create:input",
+                "driver.motion-canvas.project.inspect:output",
+                "driver.motion-canvas.project.island.create:input",
+            ]
+        );
+        assert_eq!(digest_input_count, 1);
+        assert_eq!(
+            semwright_driver_sdk::capabilities_digest(&legacy_catalog).unwrap(),
+            "d7a1bc53c1cc25bfb839edbb99b81c03bf720441f050e86144fd6c9aa672a5a5",
+            "catalog changes beyond the reviewed font import extension"
+        );
         assert_eq!(
             digest,
-            "d7a1bc53c1cc25bfb839edbb99b81c03bf720441f050e86144fd6c9aa672a5a5"
+            "0562a2275cf4e4ef6bcf3cbac0dc16f606a4fd2d726bada6f9ef43e5582fc2ee"
         );
 
         let manifest_bytes = include_bytes!("../driver.manifest.example.json");
