@@ -665,9 +665,9 @@ where
                                     .get("nonce")
                                     .and_then(Value::as_str)
                                     .ok_or_else(|| Error::invalid("Godot heartbeat pong is missing nonce"))?;
-                                if !pending_ping
+                                if pending_ping
                                     .as_ref()
-                                    .is_some_and(|(expected, _)| expected == nonce)
+                                    .is_none_or(|(expected, _)| expected != nonce)
                                 {
                                     return Err(Error::new(
                                         ErrorCode::ProtocolMismatch,
@@ -721,9 +721,9 @@ where
                                 .get("nonce")
                                 .and_then(Value::as_str)
                                 .ok_or_else(|| Error::invalid("Godot heartbeat pong is missing nonce"))?;
-                            if !pending_ping
+                            if pending_ping
                                 .as_ref()
-                                .is_some_and(|(expected, _)| expected == nonce)
+                                .is_none_or(|(expected, _)| expected != nonce)
                             {
                                 return Err(Error::new(
                                     ErrorCode::ProtocolMismatch,
