@@ -468,8 +468,8 @@ pub(crate) fn read_pinned_font_file(root: &Path, relative: &str, limit: usize) -
     .find_map(|prefix| relative.strip_prefix(prefix))
     .ok_or_else(|| Error::invalid("Font resource is outside the pinned packages"))?;
     security::relative_path(suffix)?;
-    if !matches!(suffix, "index.css" | "400.css")
-        && !(suffix.starts_with("files/") && suffix.ends_with(".woff2"))
+    if !(matches!(suffix, "index.css" | "400.css")
+        || suffix.starts_with("files/") && suffix.ends_with(".woff2"))
     {
         return Err(Error::invalid("Unsupported pinned font resource"));
     }
