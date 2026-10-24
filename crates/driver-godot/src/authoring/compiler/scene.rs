@@ -169,7 +169,7 @@ pub(super) fn generate(
                     ));
                 }
                 for (index, transition) in transitions.iter().enumerate() {
-                    let transition_id = format!("{}_transition_{index}", root_id);
+                    let transition_id = format!("{root_id}_transition_{index}");
                     resources.push_str(&format!(
                         "\n[sub_resource type=\"AnimationNodeStateMachineTransition\" id={}]\nswitch_mode={}\nadvance_mode=1\nxfade_time={:?}\nreset={}\n",
                         quoted(&transition_id),
@@ -200,7 +200,7 @@ pub(super) fn generate(
                             quoted(&transition.to),
                             format!(
                                 "SubResource({})",
-                                quoted(&format!("{}_transition_{index}", root_id))
+                                quoted(&format!("{root_id}_transition_{index}"))
                             ),
                         ]
                     })
@@ -208,7 +208,7 @@ pub(super) fn generate(
                     .join(", ");
                 machine.push_str(&format!("transitions=[{transition_rows}]\n"));
                 resources.push_str(&machine);
-                let playback_id = format!("{}_playback", root_id);
+                let playback_id = format!("{root_id}_playback");
                 resources.push_str(&format!(
                     "\n[sub_resource type=\"AnimationNodeStateMachinePlayback\" id={}]\nresource_local_to_scene=true\n",
                     quoted(&playback_id)
