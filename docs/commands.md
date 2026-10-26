@@ -2,7 +2,7 @@
 
 Generated from `schemas/commands.json`; do not edit by hand.
 
-159 built-in descriptors. A descriptor is not proof of live backend support.
+161 built-in descriptors. A descriptor is not proof of live backend support.
 Run `semwright doctor` and consult `compatibility.md` and `../VERIFY.md`.
 
 Every command accepts only its documented properties. Use `commands describe NAME`
@@ -170,6 +170,8 @@ for many backends at this stage; strengthening them is a release gate.
 | `project.asset.provenance` | `filesystem.read:root` | read_only | 10000 ms | core |
 | `project.gc.preview` | `filesystem.read:root` | read_only | 10000 ms | core |
 | `project.gc.collect` | `filesystem.read:root`, `project.manage` | mutating | 10000 ms | core |
+| `providers.mount.observe` | `filesystem.read` | read_only | 10000 ms | core |
+| `providers.execute_bound` | `providers.execute_bound` | mutating | 300000 ms | core |
 
 ## `doctor`
 
@@ -4940,5 +4942,86 @@ Idempotency: `non_idempotent`. Dry run: `false`.
     "project",
     "assets"
   ]
+}
+```
+
+## `providers.mount.observe`
+
+Observe the actual DriverHost workspace instance and issue a short-lived session binding. Paths and mount flags are facts, not a local-write capability or project ACL.
+
+Idempotency: `non_idempotent`. Dry run: `false`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "provider": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "root": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    }
+  },
+  "required": [
+    "provider",
+    "root"
+  ],
+  "additionalProperties": false
+}
+```
+
+## `providers.execute_bound`
+
+Execute one original direct DriverHost command against an opaque live mount binding. Original policy, confirmation, audit, uncertainty and non-retry semantics remain authoritative.
+
+Idempotency: `non_idempotent`. Dry run: `true`.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "binding_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "request": {
+      "type": "object",
+      "required": [
+        "command"
+      ],
+      "properties": {
+        "command": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "args": {
+          "type": "object",
+          "maxProperties": 128
+        },
+        "dry_run": {
+          "type": "boolean"
+        },
+        "backend": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 128
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "binding_ref",
+    "request"
+  ],
+  "additionalProperties": false
 }
 ```
