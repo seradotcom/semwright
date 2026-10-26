@@ -140,6 +140,321 @@ pub fn raw_video_probe_observation(bytes: &[u8]) -> Result<serde_json::Value> {
             &["duration","start_time","size","format_name","format_long_name"] )?
     }))
 }
+
+// Bounded originals from the existing FFV1 Runtime. These records never grant
+// authority, run another process, change arguments, or prove stream EOF.
+pub const FFV1_CUSTODY_STREAM_PREFIX: usize = 16_384;
+pub const FFV1_CUSTODY_HOST_STREAM: usize = 262_144;
+pub const FFV1_CUSTODY_STDIN: usize = 65_536;
+pub const FFV1_CUSTODY_METADATA: usize = 65_536;
+pub const FFV1_CUSTODY_STAGES: [&str; 6] = [
+    "zscale-help",
+    "encode",
+    "media-probe",
+    "complete-probe",
+    "decoder-version",
+    "decode",
+];
+pub const FFV1_CUSTODY_HOST_SUFFIXES: [&str; 8] = [
+    ".ffv1-host.stdin.original.bin",
+    ".ffv1-host.stdout.original.bin",
+    ".ffv1-host.stderr.original.bin",
+    ".ffv1-host.terminal.original.json",
+    ".ffv1-catalog.stdin.original.bin",
+    ".ffv1-catalog.stdout.original.bin",
+    ".ffv1-catalog.stderr.original.bin",
+    ".ffv1-catalog.terminal.original.json",
+];
+const FFV1_CUSTODY_SUMMARY: &str = ".ffv1-process-custody.original.json";
+
+pub fn ffv1_custody_paths(output_path: &str, host: bool) -> Result<Vec<String>> {
+    crate::fs::validate_relative(output_path)?;
+    if !output_path.ends_with(".mkv") {
+        return Err(Error::invalid(
+            "FFV1 custody requires the original .mkv destination",
+        ));
+    }
+    let mut paths = Vec::with_capacity(27);
+    if host {
+        paths.extend(
+            FFV1_CUSTODY_HOST_SUFFIXES
+                .iter()
+                .map(|s| format!("{output_path}{s}")),
+        );
+    }
+    for stage in FFV1_CUSTODY_STAGES {
+        for suffix in [
+            "stdout.original.bin",
+            "stderr.original.bin",
+            "terminal.original.json",
+        ] {
+            paths.push(format!("{output_path}.ffv1-{stage}.{suffix}"));
+        }
+    }
+    paths.push(format!("{output_path}{FFV1_CUSTODY_SUMMARY}"));
+    for path in &paths {
+        crate::fs::validate_relative(path)?;
+    }
+    Ok(paths)
+}
+
+pub fn preflight_ffv1_custody(output: &crate::fs::Root, path: &str, host: bool) -> Result<()> {
+    if !output.readable || !output.writable {
+        return Err(Error::new(
+            "PermissionDenied",
+            "FFV1 custody requires the existing read/write output grant",
+        ));
+    }
+    for member in ffv1_custody_paths(path, host)? {
+        if output.exists(&member)? {
+            return Err(Error::new(
+                "Conflict",
+                "Original FFV1 custody exists; preserve it and use a new destination",
+            ));
+        }
+    }
+    // Read-only space check, never a reservation or a replacement scheduler.
+    let native =
+        6 * (2 * FFV1_CUSTODY_STREAM_PREFIX + FFV1_CUSTODY_METADATA) + FFV1_CUSTODY_METADATA;
+    let host_bytes = if host {
+        2 * (FFV1_CUSTODY_STDIN + 2 * FFV1_CUSTODY_HOST_STREAM + FFV1_CUSTODY_METADATA)
+    } else {
+        0
+    };
+    if output.available_bytes_for(path)? < (native + host_bytes) as u64 {
+        return Err(Error::limit("Output lacks the closed FFV1 custody budget"));
+    }
+    Ok(())
+}
+
+fn ffv1_custody_uncertain(message: &str) -> Error {
+    let mut error = Error::new("BackendFailed", message);
+    error.outcome_known = false;
+    error
+}
+
+/// Root::write_new uses the existing FD-relative NOREPLACE/fsync publisher and
+/// admits empty originals. publish_verified intentionally rejects zero bytes.
+pub fn retain_ffv1_original(
+    output: &crate::fs::Root,
+    path: &str,
+    bytes: &[u8],
+    maximum: usize,
+) -> Result<crate::fs::Artifact> {
+    if bytes.len() > maximum {
+        return Err(Error::limit(
+            "FFV1 original exceeds its closed retention budget",
+        ));
+    }
+    let file = output.write_new("output", path, bytes)?;
+    if file.bytes != bytes.len() as u64 || file.sha256 != crate::hash::sha256(bytes) {
+        return Err(ffv1_custody_uncertain(
+            "Original FFV1 publication identity differs",
+        ));
+    }
+    let actual = output
+        .read(path, maximum)
+        .map_err(|_| ffv1_custody_uncertain("Original FFV1 custody readback is uncertain"))?;
+    if actual != bytes {
+        return Err(ffv1_custody_uncertain(
+            "Original FFV1 custody readback differs",
+        ));
+    }
+    Ok(file)
+}
+
+fn ffv1_hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
+fn ffv1_spec_original(spec: &ProcessSpec) -> Result<serde_json::Value> {
+    use std::os::unix::ffi::OsStrExt;
+    if spec.args.len() > 128 {
+        return Err(Error::limit("FFV1 original argv count"));
+    }
+    let mut total = 0usize;
+    let mut argv = Vec::with_capacity(spec.args.len());
+    for arg in &spec.args {
+        let bytes = arg.as_os_str().as_bytes();
+        total = total
+            .checked_add(bytes.len())
+            .ok_or_else(|| Error::limit("FFV1 argv overflow"))?;
+        if bytes.len() > 4096 || total > 16_384 {
+            return Err(Error::limit("FFV1 original argv byte budget"));
+        }
+        argv.push(ffv1_hex(bytes));
+    }
+    let executable = spec.executable.as_os_str().as_bytes();
+    let cwd = spec.cwd.as_os_str().as_bytes();
+    if executable.len() > 4096 || cwd.len() > 4096 {
+        return Err(Error::limit("FFV1 original process path budget"));
+    }
+    Ok(serde_json::json!({
+        "encoding":"unix-os-bytes-hex", "executable":ffv1_hex(executable),
+        "argv":argv, "cwd":ffv1_hex(cwd), "timeout_millis":spec.timeout.as_millis(),
+        "cpu_seconds":spec.cpu_seconds, "address_space_bytes":spec.address_space_bytes,
+        "environment_included":false, "native_execution_retried":false
+    }))
+}
+
+pub(crate) struct Ffv1ProcessCustody<'a> {
+    output: &'a crate::fs::Root,
+    output_path: &'a str,
+    manifest_sha256: &'a str,
+    stages: std::cell::RefCell<Vec<&'static str>>,
+    failures: std::cell::RefCell<Vec<&'static str>>,
+}
+
+impl<'a> Ffv1ProcessCustody<'a> {
+    pub(crate) fn new(
+        output: &'a crate::fs::Root,
+        output_path: &'a str,
+        manifest_sha256: &'a str,
+    ) -> Result<Self> {
+        if !valid_digest(manifest_sha256) {
+            return Err(Error::invalid("FFV1 custody source manifest identity"));
+        }
+        preflight_ffv1_custody(output, output_path, false)?;
+        Ok(Self {
+            output,
+            output_path,
+            manifest_sha256,
+            stages: std::cell::RefCell::new(Vec::new()),
+            failures: std::cell::RefCell::new(Vec::new()),
+        })
+    }
+
+    fn failed(&self, code: &'static str) {
+        let mut failures = self.failures.borrow_mut();
+        if failures.len() < 32 {
+            failures.push(code);
+        }
+    }
+
+    fn stream(&self, stage: &str, name: &str, bytes: &[u8]) -> serde_json::Value {
+        let prefix = &bytes[..bytes.len().min(FFV1_CUSTODY_STREAM_PREFIX)];
+        let path = format!("{}.ffv1-{stage}.{name}.original.bin", self.output_path);
+        let retained =
+            retain_ffv1_original(self.output, &path, prefix, FFV1_CUSTODY_STREAM_PREFIX).is_ok();
+        if !retained {
+            self.failed("stream-retention");
+        }
+        serde_json::json!({
+            "root":"output", "path":path, "sha256":crate::hash::sha256(prefix),
+            "bytes":prefix.len(), "returned_buffer_bytes":bytes.len(),
+            "returned_buffer_sha256":crate::hash::sha256(bytes),
+            "diagnostic_prefix_truncated":bytes.len()>prefix.len(), "retained":retained,
+            "upstream_stream_eof_attested":false
+        })
+    }
+
+    fn record(
+        &self,
+        stage: &'static str,
+        spec: &ProcessSpec,
+        result: &Result<ProcessResult>,
+        retained_limit: usize,
+        total_limit: usize,
+    ) {
+        let next = self.stages.borrow().len();
+        if FFV1_CUSTODY_STAGES.get(next).copied() != Some(stage) {
+            self.failed("stage-order");
+            return;
+        }
+        self.stages.borrow_mut().push(stage);
+        let spec = match ffv1_spec_original(spec) {
+            Ok(spec) => spec,
+            Err(_) => {
+                self.failed("spec-retention");
+                serde_json::Value::Null
+            }
+        };
+        let terminal = match result {
+            Ok(result) => serde_json::json!({
+                "process_result_received":true, "exit_code":result.exit_code,
+                "term_signal":result.term_signal, "cancelled":result.cancelled,
+                "timed_out":result.timed_out, "output_exceeded":result.output_exceeded,
+                "stdout":self.stream(stage,"stdout",&result.stdout),
+                "stderr":self.stream(stage,"stderr",&result.stderr), "original_error":null
+            }),
+            Err(error) => serde_json::json!({
+                "process_result_received":false, "exit_code":null, "term_signal":null,
+                "cancelled":null, "timed_out":null, "output_exceeded":null,
+                "stdout":null, "stderr":null,
+                "original_error":{"code":error.code,"message":error.message,"outcome_known":error.outcome_known}
+            }),
+        };
+        let document = serde_json::json!({
+            "schema":"semwright.ffv1-process-original/1", "stage":stage,
+            "output_path":self.output_path,"source_manifest_sha256":self.manifest_sha256,
+            "source_capture_retained_limit":retained_limit,"source_capture_total_limit":total_limit,
+            "diagnostic_prefix_limit":FFV1_CUSTODY_STREAM_PREFIX,"spec":spec,"terminal":terminal,
+            "native_execution_retried":false,"stream_eof_attested":false,
+            "capture_scope":"existing-ProcessResult-before-checked-or-parse",
+            "physical_acceptance":false
+        });
+        let bytes = match serde_json::to_vec(&document) {
+            Ok(bytes) => bytes,
+            Err(_) => {
+                self.failed("terminal-serialization");
+                return;
+            }
+        };
+        let path = format!("{}.ffv1-{stage}.terminal.original.json", self.output_path);
+        if retain_ffv1_original(self.output, &path, &bytes, FFV1_CUSTODY_METADATA).is_err() {
+            self.failed("terminal-retention");
+        }
+    }
+
+    pub(crate) fn complete<T>(&self, original: Result<T>) -> Result<T> {
+        if original.is_ok() && self.stages.borrow().as_slice() != FFV1_CUSTODY_STAGES {
+            self.failed("stage-coverage");
+        }
+        let document = serde_json::json!({
+            "schema":"semwright.ffv1-process-custody/1", "output_path":self.output_path,
+            "source_manifest_sha256":self.manifest_sha256,
+            "observed_stages":*self.stages.borrow(), "secondary_failures":*self.failures.borrow(),
+            "original_operation_succeeded":original.is_ok(),
+            "original_error":original.as_ref().err().map(|e| serde_json::json!({"code":e.code,"message":e.message,"outcome_known":e.outcome_known})),
+            "stream_eof_attested":false,"native_execution_retried":false,"physical_acceptance":false
+        });
+        let retained = serde_json::to_vec(&document).ok().is_some_and(|bytes| {
+            retain_ffv1_original(
+                self.output,
+                &format!("{}{FFV1_CUSTODY_SUMMARY}", self.output_path),
+                &bytes,
+                FFV1_CUSTODY_METADATA,
+            )
+            .is_ok()
+        });
+        if !retained {
+            self.failed("summary-retention");
+        }
+        // A custody failure must never replace the original native/domain error.
+        match original {
+            Err(error) => Err(error),
+            Ok(value) if self.failures.borrow().is_empty() => Ok(value),
+            Ok(_) => Err(ffv1_custody_uncertain(
+                "FFV1 execution returned but original custody is incomplete",
+            )),
+        }
+    }
+}
+
+fn checked_ffv1_original(
+    custody: Option<&Ffv1ProcessCustody<'_>>,
+    stage: &'static str,
+    spec: &ProcessSpec,
+    result: Result<ProcessResult>,
+    retained_limit: usize,
+    total_limit: usize,
+) -> Result<ProcessResult> {
+    if let Some(custody) = custody {
+        custody.record(stage, spec, &result, retained_limit, total_limit);
+    }
+    result?.checked()
+}
+
 #[repr(C)]
 struct Limit {
     current: u64,
@@ -930,7 +1245,7 @@ impl Runtime {
         name: &str,
         cancel: &AtomicBool,
     ) -> Result<MediaInfo> {
-        self.probe_with_timeout(inputs, work, name, cancel, Duration::from_secs(5))
+        self.probe_with_timeout(inputs, work, name, cancel, Duration::from_secs(5), None)
     }
 
     fn probe_before_deadline(
@@ -940,9 +1255,10 @@ impl Runtime {
         name: &str,
         cancel: &AtomicBool,
         deadline: Instant,
+        custody: Option<&Ffv1ProcessCustody<'_>>,
     ) -> Result<MediaInfo> {
         let timeout = remaining_color_budget(deadline)?.min(Duration::from_secs(5));
-        let media = self.probe_with_timeout(inputs, work, name, cancel, timeout)?;
+        let media = self.probe_with_timeout(inputs, work, name, cancel, timeout, custody)?;
         remaining_color_budget(deadline)?;
         if cancel.load(Ordering::Acquire) {
             return Err(Error::new("Cancelled", "Complete media probe cancelled"));
@@ -957,6 +1273,7 @@ impl Runtime {
         name: &str,
         cancel: &AtomicBool,
         timeout: Duration,
+        custody: Option<&Ffv1ProcessCustody<'_>>,
     ) -> Result<MediaInfo> {
         crate::fs::validate_relative(name)?;
         if name.contains('/') {
@@ -976,7 +1293,15 @@ impl Runtime {
             self.input_path(inputs, name).into_os_string(),
         ))
         .collect();
-        let r = run(&self.spec("ffprobe", args, inputs, work, timeout)?, cancel)?.checked()?;
+        let spec = self.spec("ffprobe", args, inputs, work, timeout)?;
+        let r = checked_ffv1_original(
+            custody,
+            "media-probe",
+            &spec,
+            run(&spec, cancel),
+            RETAIN_LOG,
+            TOTAL_LOG,
+        )?;
         MediaInfo::parse(&r.stdout)
     }
     pub fn sync_probe(
@@ -1170,6 +1495,34 @@ impl Runtime {
         height: u32,
         cancel: &AtomicBool,
     ) -> Result<EncodedFrames> {
+        self.encode_frames_observed(
+            inputs,
+            work,
+            first_frame,
+            frame_count,
+            fps_num,
+            fps_den,
+            width,
+            height,
+            cancel,
+            None,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn encode_frames_observed(
+        &self,
+        inputs: &Path,
+        work: &Path,
+        first_frame: u64,
+        frame_count: u64,
+        fps_num: u32,
+        fps_den: u32,
+        width: u32,
+        height: u32,
+        cancel: &AtomicBool,
+        custody: Option<&Ffv1ProcessCustody<'_>>,
+    ) -> Result<EncodedFrames> {
         let deadline = Instant::now() + self.timeout;
         if frame_count == 0
             || frame_count > 36_000
@@ -1194,17 +1547,21 @@ impl Runtime {
             ));
         }
         crate::color::observation_budget(width, height, frame_count)?;
-        let help = run(
-            &self.spec(
-                "ffmpeg",
-                vec!["-hide_banner".into(), "-h".into(), "filter=zscale".into()],
-                inputs,
-                work,
-                remaining_color_budget(deadline)?.min(Duration::from_secs(5)),
-            )?,
-            cancel,
-        )?
-        .checked()?;
+        let spec = self.spec(
+            "ffmpeg",
+            vec!["-hide_banner".into(), "-h".into(), "filter=zscale".into()],
+            inputs,
+            work,
+            remaining_color_budget(deadline)?.min(Duration::from_secs(5)),
+        )?;
+        let help = checked_ffv1_original(
+            custody,
+            "zscale-help",
+            &spec,
+            run(&spec, cancel),
+            RETAIN_LOG,
+            TOTAL_LOG,
+        )?;
         if !String::from_utf8_lossy(&help.stdout).contains("Filter zscale") {
             return Err(Error::new(
                 "Unsupported",
@@ -1255,18 +1612,23 @@ impl Runtime {
             "matroska".into(),
             output.into_os_string(),
         ];
-        run(
-            &self.spec(
-                "ffmpeg",
-                args,
-                inputs,
-                work,
-                remaining_color_budget(deadline)?,
-            )?,
-            cancel,
-        )?
-        .checked()?;
-        let info = self.probe_before_deadline(work, work, "mezzanine.mkv", cancel, deadline)?;
+        let spec = self.spec(
+            "ffmpeg",
+            args,
+            inputs,
+            work,
+            remaining_color_budget(deadline)?,
+        )?;
+        checked_ffv1_original(
+            custody,
+            "encode",
+            &spec,
+            run(&spec, cancel),
+            RETAIN_LOG,
+            TOTAL_LOG,
+        )?;
+        let info =
+            self.probe_before_deadline(work, work, "mezzanine.mkv", cancel, deadline, custody)?;
         if !info.video
             || info.audio
             || info.width != Some(width)
@@ -1289,7 +1651,7 @@ impl Runtime {
                 "FFV1 mezzanine duration differs by more than one source frame",
             ));
         }
-        let observation = self.observe_video_file(
+        let observation = self.observe_video_file_observed(
             work,
             "mezzanine.mkv",
             crate::color::ObservationProfile::MotionCanvasFfv1,
@@ -1299,6 +1661,7 @@ impl Runtime {
             fps_den,
             deadline,
             cancel,
+            custody,
         )?;
         Ok(EncodedFrames {
             media: info,
@@ -1320,6 +1683,34 @@ impl Runtime {
         fps_den: u32,
         deadline: Instant,
         cancel: &AtomicBool,
+    ) -> Result<EncodedFramesObservation> {
+        self.observe_video_file_observed(
+            work,
+            name,
+            profile,
+            dimensions,
+            frame_count,
+            fps_num,
+            fps_den,
+            deadline,
+            cancel,
+            None,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn observe_video_file_observed(
+        &self,
+        work: &Path,
+        name: &str,
+        profile: crate::color::ObservationProfile,
+        dimensions: (u32, u32),
+        frame_count: u64,
+        fps_num: u32,
+        fps_den: u32,
+        deadline: Instant,
+        cancel: &AtomicBool,
+        custody: Option<&Ffv1ProcessCustody<'_>>,
     ) -> Result<EncodedFramesObservation> {
         use crate::{color, fs::Root};
         let (width, height) = dimensions;
@@ -1354,19 +1745,21 @@ impl Runtime {
             self.input_path(work, name).into_os_string(),
         ))
         .collect();
-        let result = run_with_output_limits(
-            &self.spec(
-                "ffprobe",
-                args,
-                work,
-                work,
-                remaining_color_budget(deadline)?,
-            )?,
-            cancel,
+        let spec = self.spec(
+            "ffprobe",
+            args,
+            work,
+            work,
+            remaining_color_budget(deadline)?,
+        )?;
+        let result = checked_ffv1_original(
+            custody,
+            "complete-probe",
+            &spec,
+            run_with_output_limits(&spec, cancel, color::REPORT_LIMIT, color::REPORT_LIMIT),
             color::REPORT_LIMIT,
             color::REPORT_LIMIT,
-        )?
-        .checked()?;
+        )?;
         let probe = color::parse_probe_profile(
             profile,
             &result.stdout,
@@ -1383,17 +1776,21 @@ impl Runtime {
                 .ok_or_else(|| Error::invalid("Observed pixel format"))?,
             probe.stream["chroma_location"].as_str(),
         )?;
-        let version = run(
-            &self.spec(
-                "ffmpeg",
-                vec!["-version".into()],
-                work,
-                work,
-                remaining_color_budget(deadline)?.min(Duration::from_secs(5)),
-            )?,
-            cancel,
-        )?
-        .checked()?;
+        let spec = self.spec(
+            "ffmpeg",
+            vec!["-version".into()],
+            work,
+            work,
+            remaining_color_budget(deadline)?.min(Duration::from_secs(5)),
+        )?;
+        let version = checked_ffv1_original(
+            custody,
+            "decoder-version",
+            &spec,
+            run(&spec, cancel),
+            RETAIN_LOG,
+            TOTAL_LOG,
+        )?;
         let version = std::str::from_utf8(&version.stdout)
             .ok()
             .and_then(|v| v.lines().next())
@@ -1440,17 +1837,21 @@ impl Runtime {
             "image2".into(),
             self.work_path(work, "decoded-%06d.png").into_os_string(),
         ];
-        run(
-            &self.spec(
-                "ffmpeg",
-                args,
-                work,
-                work,
-                remaining_color_budget(deadline)?,
-            )?,
-            cancel,
-        )?
-        .checked()?;
+        let spec = self.spec(
+            "ffmpeg",
+            args,
+            work,
+            work,
+            remaining_color_budget(deadline)?,
+        )?;
+        checked_ffv1_original(
+            custody,
+            "decode",
+            &spec,
+            run(&spec, cancel),
+            RETAIN_LOG,
+            TOTAL_LOG,
+        )?;
         if root.exists(&format!("decoded-{frame_count:06}.png"))? {
             return Err(Error::new(
                 "BackendFailed",
@@ -1663,7 +2064,7 @@ impl Runtime {
     ) -> Result<ValidatedOutput> {
         remaining_color_budget(deadline)?;
         let filename = format!("partial.{}", profile.extension);
-        let mut info = self.probe_before_deadline(work, work, &filename, cancel, deadline)?;
+        let mut info = self.probe_before_deadline(work, work, &filename, cancel, deadline, None)?;
         remaining_color_budget(deadline)?;
         let observation = if let Some(selected) = complete_observation_profile(profile) {
             let observed = self.observe_video_file(
@@ -2636,6 +3037,302 @@ mod native_closure_tests {
         assert!(
             !input.with_extension("probe-finished").exists(),
             "the media probe completed after the shared deadline",
+        );
+    }
+}
+
+#[cfg(test)]
+mod ffv1_original_custody_tests {
+    use super::*;
+    use crate::fs::Root;
+
+    fn fixture() -> (PrivateDir, Root) {
+        let directory = PrivateDir::new(Path::new("/tmp")).unwrap();
+        let root = Root::open(directory.path(), true, true).unwrap();
+        (directory, root)
+    }
+    fn spec(directory: &Path) -> ProcessSpec {
+        ProcessSpec {
+            executable: "/never-executed/ffmpeg".into(),
+            args: vec!["-version".into()],
+            cwd: directory.into(),
+            timeout: Duration::from_secs(1),
+            cpu_seconds: 1,
+            address_space_bytes: 134_217_728,
+            environment: BTreeMap::new(),
+        }
+    }
+    fn result(code: i32) -> ProcessResult {
+        ProcessResult {
+            exit_code: Some(code),
+            term_signal: None,
+            stdout: vec![b'o', 0xff, 0],
+            stderr: vec![b'e', 0, 0xfe],
+            cancelled: false,
+            timed_out: false,
+            output_exceeded: false,
+        }
+    }
+    fn document(root: &Root, name: &str) -> serde_json::Value {
+        serde_json::from_slice(&root.read(name, FFV1_CUSTODY_METADATA).unwrap()).unwrap()
+    }
+    #[test]
+    fn ffv1_binary_originals_precede_native_nonzero_classification() {
+        let (directory, root) = fixture();
+        let pin = "a".repeat(64);
+        let custody = Ffv1ProcessCustody::new(&root, "first.mkv", &pin).unwrap();
+        let original = checked_ffv1_original(
+            Some(&custody),
+            "zscale-help",
+            &spec(directory.path()),
+            Ok(result(7)),
+            RETAIN_LOG,
+            TOTAL_LOG,
+        );
+        let error = custody.complete(original).unwrap_err();
+        assert_eq!(error.code, "BackendFailed");
+        assert!(error.message.contains("Some(7)"));
+        assert_eq!(
+            root.read("first.mkv.ffv1-zscale-help.stdout.original.bin", 16384)
+                .unwrap(),
+            vec![b'o', 0xff, 0]
+        );
+        assert_eq!(
+            root.read("first.mkv.ffv1-zscale-help.stderr.original.bin", 16384)
+                .unwrap(),
+            vec![b'e', 0, 0xfe]
+        );
+        let saved = document(&root, "first.mkv.ffv1-zscale-help.terminal.original.json");
+        assert_eq!(saved["terminal"]["exit_code"], 7);
+        assert_eq!(saved["stream_eof_attested"], false);
+        assert_eq!(saved["source_capture_retained_limit"], 16384);
+        assert_eq!(saved["source_capture_total_limit"], 262144);
+    }
+    #[test]
+    fn ffv1_custody_conflict_does_not_replace_original_error_or_original_file() {
+        let (directory, root) = fixture();
+        let pin = "b".repeat(64);
+        let custody = Ffv1ProcessCustody::new(&root, "first.mkv", &pin).unwrap();
+        root.write_new(
+            "output",
+            "first.mkv.ffv1-zscale-help.stdout.original.bin",
+            b"existing",
+        )
+        .unwrap();
+        let error = custody
+            .complete(checked_ffv1_original(
+                Some(&custody),
+                "zscale-help",
+                &spec(directory.path()),
+                Ok(result(9)),
+                RETAIN_LOG,
+                TOTAL_LOG,
+            ))
+            .unwrap_err();
+        assert_eq!(error.code, "BackendFailed");
+        assert!(error.message.contains("Some(9)"));
+        assert_eq!(
+            root.read("first.mkv.ffv1-zscale-help.stdout.original.bin", 16384)
+                .unwrap(),
+            b"existing"
+        );
+        assert_eq!(
+            document(&root, "first.mkv.ffv1-zscale-help.terminal.original.json")["terminal"]["stdout"]
+                ["retained"],
+            false
+        );
+    }
+    #[test]
+    fn ffv1_missing_process_result_never_fabricates_exit_or_empty_stream() {
+        let (directory, root) = fixture();
+        let pin = "c".repeat(64);
+        let custody = Ffv1ProcessCustody::new(&root, "first.mkv", &pin).unwrap();
+        let mut original = Error::new("BackendFailed", "original-spawn-or-wait-error");
+        original.outcome_known = false;
+        let error = custody
+            .complete(checked_ffv1_original(
+                Some(&custody),
+                "zscale-help",
+                &spec(directory.path()),
+                Err(original),
+                RETAIN_LOG,
+                TOTAL_LOG,
+            ))
+            .unwrap_err();
+        assert_eq!(error.message, "original-spawn-or-wait-error");
+        assert!(!error.outcome_known);
+        let saved = document(&root, "first.mkv.ffv1-zscale-help.terminal.original.json");
+        assert_eq!(saved["terminal"]["process_result_received"], false);
+        assert!(saved["terminal"]["exit_code"].is_null());
+        assert!(saved["terminal"]["stdout"].is_null());
+        assert!(
+            !root
+                .exists("first.mkv.ffv1-zscale-help.stdout.original.bin")
+                .unwrap()
+        );
+    }
+    #[test]
+    fn ffv1_cancel_timeout_and_overflow_keep_their_original_cause() {
+        for (field, want) in [(0, "Cancelled"), (1, "Timeout"), (2, "ResourceExhausted")] {
+            let (directory, root) = fixture();
+            let pin = "d".repeat(64);
+            let custody = Ffv1ProcessCustody::new(&root, "first.mkv", &pin).unwrap();
+            let mut observed = result(0);
+            match field {
+                0 => observed.cancelled = true,
+                1 => observed.timed_out = true,
+                _ => observed.output_exceeded = true,
+            }
+            let error = custody
+                .complete(checked_ffv1_original(
+                    Some(&custody),
+                    "zscale-help",
+                    &spec(directory.path()),
+                    Ok(observed),
+                    RETAIN_LOG,
+                    TOTAL_LOG,
+                ))
+                .unwrap_err();
+            assert_eq!(error.code, want);
+        }
+    }
+    #[test]
+    fn ffv1_probe_bytes_are_retained_before_a_later_parser_error() {
+        let (directory, root) = fixture();
+        let pin = "e".repeat(64);
+        let custody = Ffv1ProcessCustody::new(&root, "first.mkv", &pin).unwrap();
+        let mut observed = result(0);
+        observed.stdout = b"not-json\0\xff".to_vec();
+        let returned = checked_ffv1_original(
+            Some(&custody),
+            "zscale-help",
+            &spec(directory.path()),
+            Ok(observed),
+            RETAIN_LOG,
+            TOTAL_LOG,
+        )
+        .unwrap();
+        let parsed: Result<serde_json::Value> = serde_json::from_slice(&returned.stdout)
+            .map_err(|_| Error::invalid("original-parser-refusal"));
+        assert_eq!(
+            custody.complete(parsed).unwrap_err().message,
+            "original-parser-refusal"
+        );
+        assert_eq!(
+            root.read("first.mkv.ffv1-zscale-help.stdout.original.bin", 16384)
+                .unwrap(),
+            b"not-json\0\xff"
+        );
+    }
+    #[test]
+    fn ffv1_six_closed_stages_preserve_exact_returned_buffers_without_execution() {
+        let (directory, root) = fixture();
+        let pin = "f".repeat(64);
+        let custody = Ffv1ProcessCustody::new(&root, "first.mkv", &pin).unwrap();
+        for stage in FFV1_CUSTODY_STAGES {
+            let output = checked_ffv1_original(
+                Some(&custody),
+                stage,
+                &spec(directory.path()),
+                Ok(result(0)),
+                RETAIN_LOG,
+                TOTAL_LOG,
+            )
+            .unwrap();
+            assert_eq!(output.stdout, vec![b'o', 0xff, 0]);
+        }
+        assert_eq!(custody.complete(Ok(37)).unwrap(), 37);
+        let saved = document(&root, "first.mkv.ffv1-process-custody.original.json");
+        assert_eq!(
+            saved["observed_stages"],
+            serde_json::json!(FFV1_CUSTODY_STAGES)
+        );
+        assert_eq!(saved["physical_acceptance"], false);
+    }
+    #[test]
+    fn ffv1_prefix_is_explicit_and_never_claims_upstream_eof() {
+        let (directory, root) = fixture();
+        let pin = "a".repeat(64);
+        let custody = Ffv1ProcessCustody::new(&root, "first.mkv", &pin).unwrap();
+        let mut observed = result(0);
+        observed.stdout = vec![0xff; FFV1_CUSTODY_STREAM_PREFIX + 1];
+        let output = checked_ffv1_original(
+            Some(&custody),
+            "zscale-help",
+            &spec(directory.path()),
+            Ok(observed),
+            32768,
+            65536,
+        )
+        .unwrap();
+        assert_eq!(output.stdout.len(), 16385);
+        let saved = document(&root, "first.mkv.ffv1-zscale-help.terminal.original.json");
+        assert_eq!(saved["terminal"]["stdout"]["bytes"], 16384);
+        assert_eq!(
+            saved["terminal"]["stdout"]["diagnostic_prefix_truncated"],
+            true
+        );
+        assert_eq!(
+            saved["terminal"]["stdout"]["upstream_stream_eof_attested"],
+            false
+        );
+        assert_eq!(saved["source_capture_retained_limit"], 32768);
+        assert_eq!(saved["source_capture_total_limit"], 65536);
+    }
+    #[test]
+    fn ffv1_existing_sidecar_refuses_preflight_without_overwrite() {
+        let (_directory, root) = fixture();
+        root.write_new(
+            "output",
+            "first.mkv.ffv1-host.stdin.original.bin",
+            b"old-unknown",
+        )
+        .unwrap();
+        assert!(preflight_ffv1_custody(&root, "first.mkv", true).is_err());
+        assert_eq!(
+            root.read("first.mkv.ffv1-host.stdin.original.bin", 64)
+                .unwrap(),
+            b"old-unknown"
+        );
+        assert!(ffv1_custody_paths("../outside.mkv", true).is_err());
+        assert_eq!(ffv1_custody_paths("first.mkv", true).unwrap().len(), 27);
+    }
+    #[test]
+    fn ffv1_empty_original_uses_existing_atomic_root_api() {
+        let (_directory, root) = fixture();
+        let file = retain_ffv1_original(&root, "empty.original.bin", b"", 0).unwrap();
+        assert_eq!(file.bytes, 0);
+        assert_eq!(file.sha256, crate::hash::sha256(b""));
+        assert_eq!(root.read("empty.original.bin", 0).unwrap(), b"");
+    }
+    #[test]
+    fn ffv1_success_does_not_hide_incomplete_custody() {
+        let (directory, root) = fixture();
+        let pin = "a".repeat(64);
+        let custody = Ffv1ProcessCustody::new(&root, "first.mkv", &pin).unwrap();
+        root.write_new(
+            "output",
+            "first.mkv.ffv1-zscale-help.stdout.original.bin",
+            b"retained-before",
+        )
+        .unwrap();
+        for stage in FFV1_CUSTODY_STAGES {
+            checked_ffv1_original(
+                Some(&custody),
+                stage,
+                &spec(directory.path()),
+                Ok(result(0)),
+                RETAIN_LOG,
+                TOTAL_LOG,
+            )
+            .unwrap();
+        }
+        let error = custody.complete(Ok(())).unwrap_err();
+        assert!(!error.outcome_known);
+        assert_eq!(
+            root.read("first.mkv.ffv1-zscale-help.stdout.original.bin", 64)
+                .unwrap(),
+            b"retained-before"
         );
     }
 }

@@ -2173,7 +2173,11 @@ impl App {
             crate::color::inspect_source_png(&original_png, width, height)?;
         }
         let cancel = AtomicBool::new(false);
-        let encoded = runtime.encode_frames(
+        // Uses only the already-admitted output Root. Stage originals are
+        // published before PrivateDir drops, including the original error path.
+        let custody =
+            crate::runtime::Ffv1ProcessCustody::new(output, output_path, expected_manifest_sha256)?;
+        let original = runtime.encode_frames_observed(
             inputs.path(),
             work.path(),
             first_frame,
@@ -2183,7 +2187,9 @@ impl App {
             width,
             height,
             &cancel,
-        )?;
+            Some(&custody),
+        );
+        let encoded = custody.complete(original)?;
         let observed = &encoded.observation;
         let work_root = Root::open(work.path(), true, false)?;
         let source_binding = serde_json::json!({
