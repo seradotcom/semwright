@@ -163,16 +163,6 @@ impl Broker {
             parent_request_id: None,
         })
     }
-
-    #[cfg(all(test, target_os = "linux"))]
-    pub(super) fn resolve_bound_provider_for_owner_operation_test(
-        &self,
-        session: &str,
-        reference_id: &str,
-    ) -> Result<BoundProvider> {
-        self.resolve_bound_provider(session, reference_id)
-    }
-
     pub(super) fn check_bound_provider(
         &self,
         session: &str,

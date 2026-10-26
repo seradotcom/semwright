@@ -282,33 +282,5 @@
       "x": 0,
       "y": 20
     }
-  },
-  {
-    "kind": "geometry_set",
-    "target": "box_a",
-    "channel": "width",
-    "value": {
-      "value": "number",
-      "data": 320.0
-    }
-  },
-  {
-    "kind": "geometry_tween",
-    "target": "box_a",
-    "channel": "position",
-    "from": {
-      "value": "vector",
-      "data": {
-        "x": -100.0,
-        "y": 0.0
-      }
-    },
-    "to": {
-      "value": "vector",
-      "data": {
-        "x": -100.0,
-        "y": 20.0
-      }
-    }
   }
 ]

@@ -44,7 +44,6 @@ struct LocalPermit {
     handle: String,
     logical_mount: String,
     identity: Arc<()>,
-    channel_closed: Arc<AtomicBool>,
     phase: Mutex<Phase>,
     output: mpsc::UnboundedSender<Response>,
     cancellation: CancellationToken,
@@ -102,10 +101,7 @@ impl OperationPermit {
     }
     pub(crate) fn try_enter(&self) -> Result<OperationPermitGuard<'_>> {
         let mut phase = self.state.phase.lock().map_err(|_| unavailable())?;
-        if self.state.channel_closed.load(Ordering::SeqCst)
-            || self.state.cancellation.is_cancelled()
-            || self.state.output.is_closed()
-        {
+        if self.state.cancellation.is_cancelled() || self.state.output.is_closed() {
             return Err(cancelled());
         }
         match *phase {
@@ -138,7 +134,6 @@ impl OperationPermitGuard<'_> {
         let state = &self.permit.state;
         let phase = state.phase.lock().map_err(|_| unavailable())?;
         if *phase != Phase::Borrowed
-            || state.channel_closed.load(Ordering::SeqCst)
             || state.cancellation.is_cancelled()
             || state.output.is_closed()
         {
@@ -161,7 +156,7 @@ struct Pending {
 }
 #[derive(Default)]
 pub(crate) struct PermitChannel {
-    closed: Arc<AtomicBool>,
+    closed: AtomicBool,
     pending: Mutex<BTreeMap<String, Pending>>,
     active: Mutex<BTreeMap<String, Weak<LocalPermit>>>,
 }
@@ -276,7 +271,6 @@ impl PermitChannel {
             handle: handle.to_owned(),
             logical_mount: logical_mount.to_owned(),
             identity: pending.identity,
-            channel_closed: self.closed.clone(),
             phase: Mutex::new(Phase::Available),
             output: output.clone(),
             cancellation: pending.cancellation,

@@ -20,14 +20,6 @@ struct GateState {
 pub(super) struct OperationGate {
     state: Mutex<GateState>,
     changed: Notify,
-    #[cfg(test)]
-    refresh_publish_pause: Mutex<Option<Arc<RefreshPublishPause>>>,
-}
-#[cfg(test)]
-#[derive(Default)]
-pub(super) struct RefreshPublishPause {
-    pub(super) entered: Notify,
-    pub(super) proceed: Notify,
 }
 struct OperationScope {
     session: String,
@@ -48,18 +40,6 @@ fn poisoned() -> Error {
     )
 }
 impl OperationGate {
-    #[cfg(test)]
-    pub(super) fn pause_next_refresh_publish(&self, pause: Arc<RefreshPublishPause>) {
-        *self.refresh_publish_pause.lock().unwrap() = Some(pause);
-    }
-    #[cfg(test)]
-    pub(super) async fn refresh_publish_checkpoint(&self) {
-        let pause = self.refresh_publish_pause.lock().unwrap().take();
-        if let Some(pause) = pause {
-            pause.entered.notify_one();
-            pause.proceed.notified().await;
-        }
-    }
     fn scope(
         self: &Arc<Self>,
         session: &str,

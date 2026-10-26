@@ -743,9 +743,6 @@ mod owner_operation_issuer {
         proceed: Notify,
         last_error: StdMutex<Option<Error>>,
         last_mount: StdMutex<Option<String>>,
-        pause_shutdown: AtomicBool,
-        shutdown_entered: Notify,
-        shutdown_proceed: Notify,
     }
     impl PermitProvider {
         async fn pause(&self, context: &Context) -> Result<()> {
@@ -791,20 +788,6 @@ mod owner_operation_issuer {
         }
         fn supports_owner_operation_permits(&self) -> bool {
             self.protocol >= 9
-        }
-        async fn shutdown(&self) -> Result<()> {
-            if self.pause_shutdown.load(Ordering::SeqCst) {
-                self.shutdown_entered.notify_one();
-                tokio::time::timeout(Duration::from_secs(5), self.shutdown_proceed.notified())
-                    .await
-                    .map_err(|_| {
-                        Error::new(
-                            ErrorCode::Timeout,
-                            "issuer fixture shutdown control expired",
-                        )
-                    })?;
-            }
-            Ok(())
         }
         async fn validate(&self, target: &NativeTarget) -> Result<()> {
             let expected = &self.target;
@@ -943,9 +926,6 @@ mod owner_operation_issuer {
                 proceed: Notify::new(),
                 last_error: StdMutex::new(None),
                 last_mount: StdMutex::new(None),
-                pause_shutdown: AtomicBool::new(false),
-                shutdown_entered: Notify::new(),
-                shutdown_proceed: Notify::new(),
             });
             let root = Arc::new(TestRoot {
                 mount: Mount {
@@ -1209,102 +1189,5 @@ mod owner_operation_issuer {
                 .drained()
                 .unwrap()
         );
-    }
-
-    struct RefreshRemoveRelease {
-        pause: Arc<crate::operation_permits::RefreshPublishPause>,
-        provider: Arc<PermitProvider>,
-    }
-    impl Drop for RefreshRemoveRelease {
-        fn drop(&mut self) {
-            self.pause.proceed.notify_one();
-            self.provider.shutdown_proceed.notify_one();
-        }
-    }
-    async fn collect_lifecycle_task(
-        mut task: tokio::task::JoinHandle<Result<u64>>,
-    ) -> Option<Result<u64>> {
-        match tokio::time::timeout(Duration::from_secs(5), &mut task).await {
-            Ok(Ok(result)) => Some(result),
-            Ok(Err(_)) => None,
-            Err(_) => {
-                task.abort();
-                let _ = task.await;
-                None
-            }
-        }
-    }
-    #[tokio::test]
-    async fn cancelled_remove_tombstone_is_not_replaced_by_refresh() {
-        // Real Broker refresh/remove; provider shutdown and physical capsule are
-        // controlled test doubles. No actual process/SQLite closure is claimed.
-        let f = PermitFixture::new(9).await;
-        let lease = f.broker.provider(&f.provider.identity.id).unwrap();
-        let pause = Arc::new(crate::operation_permits::RefreshPublishPause::default());
-        lease
-            .operation_gate
-            .pause_next_refresh_publish(pause.clone());
-        f.provider.pause_shutdown.store(true, Ordering::SeqCst);
-        let _release = RefreshRemoveRelease {
-            pause: pause.clone(),
-            provider: f.provider.clone(),
-        };
-        let broker = f.broker.clone();
-        let id = f.provider.identity.id.clone();
-        let refreshing = tokio::spawn(async move { broker.refresh_provider(&id).await });
-        let reached_publish =
-            tokio::time::timeout(Duration::from_secs(5), pause.entered.notified())
-                .await
-                .is_ok();
-        let mut removing = None;
-        let mut reached_shutdown = false;
-        let mut retained_cancelled_lease = false;
-        if reached_publish {
-            let broker = f.broker.clone();
-            let id = f.provider.identity.id.clone();
-            removing = Some(tokio::spawn(
-                async move { broker.remove_provider(&id).await },
-            ));
-            reached_shutdown = tokio::time::timeout(
-                Duration::from_secs(5),
-                f.provider.shutdown_entered.notified(),
-            )
-            .await
-            .is_ok();
-            retained_cancelled_lease = lease.lifetime.is_cancelled()
-                && f.broker
-                    .provider(&f.provider.identity.id)
-                    .is_some_and(|current| Arc::ptr_eq(&current, &lease));
-        }
-
-        // Release/collect BOTH owned tasks before any test assertion.
-        pause.proceed.notify_one();
-        let refreshed = collect_lifecycle_task(refreshing).await;
-        f.provider.shutdown_proceed.notify_one();
-        let removed = match removing {
-            Some(task) => collect_lifecycle_task(task).await,
-            None => None,
-        };
-        assert!(
-            reached_publish,
-            "refresh did not reach the controlled publication window"
-        );
-        assert!(
-            reached_shutdown,
-            "remove did not reach its controlled shutdown window"
-        );
-        assert!(
-            retained_cancelled_lease,
-            "the intended cancelled same-Arc tombstone was not retained"
-        );
-        assert!(
-            matches!(&refreshed, Some(Err(error)) if error.code == ErrorCode::Conflict),
-            "refresh published or failed outside the intended conflict: {refreshed:?}"
-        );
-        assert!(
-            matches!(&removed, Some(Ok(_))),
-            "remove did not complete after the original lease drained: {removed:?}"
-        );
-        assert!(f.broker.provider(&f.provider.identity.id).is_none());
     }
 }

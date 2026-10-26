@@ -495,8 +495,6 @@ impl Broker {
         }
         candidate.providers.insert(id.into(), updated.clone());
         let revision = candidate.revision();
-        #[cfg(test)]
-        lease.operation_gate.refresh_publish_checkpoint().await;
         {
             let mut catalog = self
                 .registry
@@ -507,8 +505,6 @@ impl Broker {
                     .providers
                     .get(id)
                     .is_some_and(|p| Arc::ptr_eq(p, &lease))
-                || !lease.active()
-                || !updated.active()
             {
                 return Err(Error::new(
                     ErrorCode::Conflict,
