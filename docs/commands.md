@@ -4964,6 +4964,22 @@ Idempotency: `non_idempotent`. Dry run: `false`.
       "type": "string",
       "minLength": 1,
       "maxLength": 128
+    },
+    "profile": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "name": {
+          "const": "voice-alignment"
+        }
+      },
+      "required": [
+        "version",
+        "name"
+      ],
+      "additionalProperties": false
     }
   },
   "required": [

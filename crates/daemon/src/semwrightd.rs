@@ -235,50 +235,26 @@ async fn run(args: Args) -> Result<()> {
     }
     for path in &config.drivers {
         #[cfg(not(feature = "private-host-stdin-custody"))]
-        let manifest = config::driver_manifest(path)?;
+        let retained = config::retained_driver_manifest(path)?;
         #[cfg(feature = "private-host-stdin-custody")]
-        let manifest = match &stdin_custody {
-            Some(custody) => custody.manifest(path)?,
-            None => config::driver_manifest(path)?,
+        let retained = match &stdin_custody {
+            Some(custody) => custody.retained_manifest(path)?,
+            None => config::retained_driver_manifest(path)?,
         };
         #[cfg(feature = "private-host-stdin-custody")]
         let custody_sink = stdin_custody
             .as_ref()
-            .and_then(|custody| custody.sink_for(&manifest));
-        #[cfg(feature = "private-host-stdin-custody")]
-        let provider = match custody_sink {
-            Some(sink) => {
-                DriverProvider::connect_with_gpu_and_stdin_custody(
-                    manifest,
-                    &state.join("drivers"),
-                    &sandbox_helper,
-                    &config.policy.filesystem,
-                    config.driver_network,
-                    config.driver_nvidia_gpu,
-                    Some(sink),
-                )
-                .await?
-            }
-            None => {
-                DriverProvider::connect_with_gpu(
-                    manifest,
-                    &state.join("drivers"),
-                    &sandbox_helper,
-                    &config.policy.filesystem,
-                    config.driver_network,
-                    config.driver_nvidia_gpu,
-                )
-                .await?
-            }
-        };
+            .and_then(|custody| custody.sink_for(retained.parsed()));
         #[cfg(not(feature = "private-host-stdin-custody"))]
-        let provider = DriverProvider::connect_with_gpu(
-            manifest,
+        let custody_sink = None;
+        let provider = DriverProvider::connect_with_gpu_and_retained_manifest(
+            retained.into_parts(),
             &state.join("drivers"),
             &sandbox_helper,
             &config.policy.filesystem,
             config.driver_network,
             config.driver_nvidia_gpu,
+            custody_sink,
         )
         .await?;
         broker.mount_driver_provider(provider).await?;

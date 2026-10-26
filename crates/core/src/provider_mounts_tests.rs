@@ -1308,3 +1308,112 @@ mod owner_operation_issuer {
         assert!(f.broker.provider(&f.provider.identity.id).is_none());
     }
 }
+
+#[tokio::test]
+async fn profile_requirement_survives_omission_and_preserves_ordinary_binding() {
+    let f = Fixture::new(|_| {}, Arc::new(NoApprover)).await;
+    let lease = f.broker.provider(&f.provider.identity.id).unwrap();
+    let required =
+        semwright_types::ProviderMountProfileRequirement::voice_alignment_v1_from_host([7; 32]);
+    let profile_binding = f
+        .broker
+        .references
+        .lock()
+        .unwrap()
+        .insert_provider_mount_with_profile(
+            "s",
+            &f.provider.identity.id,
+            &lease.connection,
+            lease.generation,
+            "manim-runtime",
+            Some(required.clone()),
+        )
+        .unwrap();
+    // The same plain wrapper carries no repeated client profile parameter.
+    let rejected = f.call("s", f.bound(&profile_binding, false)).await;
+    assert_eq!(rejected.error.unwrap().code, ErrorCode::StaleReference);
+    assert_eq!(f.provider.calls.load(Ordering::SeqCst), 0);
+    let retained = f
+        .broker
+        .references
+        .lock()
+        .unwrap()
+        .get_provider_mount(&profile_binding, "s")
+        .unwrap();
+    assert_eq!(retained.profile_requirement.as_ref(), Some(&required));
+    let ordinary = f.issue().await;
+    let accepted = f.call("s", f.bound(&ordinary, false)).await;
+    assert!(accepted.ok, "{:?}", accepted.error);
+    assert_eq!(f.provider.calls.load(Ordering::SeqCst), 1);
+    let rejected = f.call("s", f.bound(&profile_binding, false)).await;
+    assert_eq!(rejected.error.unwrap().code, ErrorCode::StaleReference);
+    assert_eq!(f.provider.calls.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn unsupported_profile_observation_allocates_no_reference() {
+    let f = Fixture::new(|_| {}, Arc::new(NoApprover)).await;
+    *f.broker.references.lock().unwrap() = RefStore::new(Duration::from_secs(30), 1);
+    let result = f
+        .execute(
+            "s",
+            "providers.mount.observe",
+            json!({
+                "provider":f.provider.identity.id,"root":"manim-runtime",
+                "profile":{"version":1,"name":"voice-alignment"}
+            }),
+            false,
+        )
+        .await;
+    assert_eq!(result.error.unwrap().code, ErrorCode::Unsupported);
+    assert_eq!(f.provider.calls.load(Ordering::SeqCst), 0);
+    let ordinary = f.issue().await;
+    assert!(
+        f.broker
+            .references
+            .lock()
+            .unwrap()
+            .get_provider_mount(&ordinary, "s")
+            .unwrap()
+            .profile_requirement
+            .is_none()
+    );
+}
+
+#[tokio::test]
+async fn profile_selector_rejects_caller_authority_before_allocation() {
+    let f = Fixture::new(|_| {}, Arc::new(NoApprover)).await;
+    for profile in [
+        json!({"version":1,"name":"voice-alignment","capsule_sha256":"00".repeat(32)}),
+        json!({"version":1,"name":"voice-alignment","execution_admission":"ready"}),
+        json!({"version":1,"name":"voice-alignment","ready":true}),
+        json!({"version":2,"name":"voice-alignment"}),
+        json!({"version":1,"name":"other"}),
+        Value::Null,
+    ] {
+        *f.broker.references.lock().unwrap() = RefStore::new(Duration::from_secs(30), 1);
+        let result = f
+            .execute(
+                "s",
+                "providers.mount.observe",
+                json!({
+                    "provider":f.provider.identity.id,"root":"manim-runtime","profile":profile
+                }),
+                false,
+            )
+            .await;
+        assert_eq!(result.error.unwrap().code, ErrorCode::InvalidArgument);
+        assert_eq!(f.provider.calls.load(Ordering::SeqCst), 0);
+        let ordinary = f.issue().await;
+        assert!(
+            f.broker
+                .references
+                .lock()
+                .unwrap()
+                .get_provider_mount(&ordinary, "s")
+                .unwrap()
+                .profile_requirement
+                .is_none()
+        );
+    }
+}

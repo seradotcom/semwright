@@ -2,7 +2,9 @@
 #[cfg(any(unix, windows))]
 mod loopback;
 mod operation_permits;
+mod profile_observation;
 mod stdin_custody;
+pub use profile_observation::HostProfileObservation;
 
 pub use stdin_custody::{
     HostStdinCapture, HostStdinCustody, HostStdinCustodyLosses, HostStdinCustodyReceiver,
@@ -74,6 +76,7 @@ impl Drop for StagedFile {
 #[cfg(unix)]
 struct SealedTool {
     name: String,
+    sha256: String,
     // Own the immutable sealed memfd for the full provider lifetime.
     _file: std::fs::File,
     // Read-only descriptor inherited only by Bubblewrap so --file can
@@ -1452,7 +1455,7 @@ fn seal_verified_tool(path: &Path, digest: &str, name: &str, state: &Path) -> Re
     Ok(SealedTool {
         name: name.to_owned(),
         staged,
-        sha256: digest.to_ascii_lowercase(),
+        sha256: profile_observation::sha256_bytes(&bytes),
     })
 }
 
@@ -1518,6 +1521,7 @@ fn seal_verified_tool(path: &Path, digest: &str, name: &str) -> Result<SealedToo
         name: name.to_owned(),
         _file: file,
         data_file,
+        sha256: profile_observation::sha256_bytes(&bytes),
     })
 }
 
@@ -3550,6 +3554,7 @@ fn sandbox_spec_windows(
 }
 
 pub struct DriverProvider {
+    profile_observation: Option<Arc<HostProfileObservation>>,
     workspace_mounts: Result<Vec<Arc<dyn semwright_platform_api::launch::WorkspaceMountBinding>>>,
     identity: ProviderIdentity,
     manifest: Manifest,
@@ -3568,7 +3573,7 @@ pub struct DriverProvider {
     #[cfg(any(unix, windows))]
     _loopback: Option<Arc<loopback::LoopbackProxy>>,
     #[cfg(any(unix, target_os = "windows"))]
-    _tools: Vec<SealedTool>,
+    _tools: Arc<Vec<SealedTool>>,
 }
 
 impl DriverProvider {
@@ -3616,6 +3621,56 @@ impl DriverProvider {
         allow_nvidia_gpu: bool,
         stdin_custody: Option<HostStdinCustody>,
     ) -> Result<Arc<Self>> {
+        Self::connect_with_gpu_and_observations(
+            manifest,
+            state,
+            helper,
+            roots,
+            allow_network,
+            allow_nvidia_gpu,
+            (None, stdin_custody),
+        )
+        .await
+    }
+
+    /// Trusted owner bootstrap retaining the same bounded original manifest input.
+    /// The pair is validated before any launch; it grants no execution readiness.
+    pub async fn connect_with_gpu_and_retained_manifest(
+        retained_manifest: (Manifest, Arc<[u8]>),
+        state: &Path,
+        helper: &Path,
+        roots: &[FilesystemGrant],
+        allow_network: bool,
+        allow_nvidia_gpu: bool,
+        stdin_custody: Option<HostStdinCustody>,
+    ) -> Result<Arc<Self>> {
+        let (manifest, original) = retained_manifest;
+        let retained = profile_observation::validate_retained_manifest(&manifest, original)?;
+        Self::connect_with_gpu_and_observations(
+            manifest,
+            state,
+            helper,
+            roots,
+            allow_network,
+            allow_nvidia_gpu,
+            (Some(retained), stdin_custody),
+        )
+        .await
+    }
+
+    async fn connect_with_gpu_and_observations(
+        manifest: Manifest,
+        state: &Path,
+        helper: &Path,
+        roots: &[FilesystemGrant],
+        allow_network: bool,
+        allow_nvidia_gpu: bool,
+        observations: (
+            Option<profile_observation::ValidatedManifestInput>,
+            Option<HostStdinCustody>,
+        ),
+    ) -> Result<Arc<Self>> {
+        let (retained_manifest, stdin_custody) = observations;
         validate_owner_permissions(&manifest, roots, allow_network)?;
         validate_nvidia_gpu_permission(&manifest, allow_nvidia_gpu)?;
         if let Some(custody) = stdin_custody.as_ref() {
@@ -3659,6 +3714,17 @@ impl DriverProvider {
                     seal_verified_tool(&grant.path, &tool.sha256, &tool.name, state)
                 })
                 .collect::<Result<Vec<_>>>()?;
+            let prepared_profile = retained_manifest
+                .map(|input| {
+                    profile_observation::prepare_profile_observation(
+                        input,
+                        &manifest,
+                        &identity,
+                        &bytes,
+                        &sealed_tools,
+                    )
+                })
+                .transpose()?;
             let loopback = match manifest.loopback_port {
                 Some(port) => Some(loopback::start(state, port).await?),
                 None => None,
@@ -3941,7 +4007,11 @@ impl DriverProvider {
                 drop(monitor_staged);
             });
 
+            let sealed_tools = Arc::new(sealed_tools);
+            let profile_observation = prepared_profile
+                .map(|profile| profile.retain(staged.clone(), sealed_tools.clone()));
             Ok(Arc::new(Self {
+                profile_observation,
                 workspace_mounts,
                 identity,
                 manifest,
@@ -3991,6 +4061,17 @@ impl DriverProvider {
                     seal_verified_tool(&grant.path, &tool.sha256, &tool.name)
                 })
                 .collect::<Result<Vec<_>>>()?;
+            let prepared_profile = retained_manifest
+                .map(|input| {
+                    profile_observation::prepare_profile_observation(
+                        input,
+                        &manifest,
+                        &identity,
+                        &bytes,
+                        &sealed_tools,
+                    )
+                })
+                .transpose()?;
             #[cfg(target_os = "linux")]
             let broker_tools = if manifest.protocol >= 5 && manifest.interfaces.host_tools {
                 manifest
@@ -4303,7 +4384,11 @@ impl DriverProvider {
                 drop(monitor_staged);
             });
 
+            let sealed_tools = Arc::new(sealed_tools);
+            let profile_observation = prepared_profile
+                .map(|profile| profile.retain(staged.clone(), sealed_tools.clone()));
             Ok(Arc::new(Self {
+                profile_observation,
                 workspace_mounts,
                 identity,
                 manifest,
@@ -4327,6 +4412,12 @@ impl DriverProvider {
 
     pub fn manifest(&self) -> &Manifest {
         &self.manifest
+    }
+
+    /// The same immutable Host capture retained by this concrete provider instance.
+    /// Ordinary constructors deliberately provide no source provenance.
+    pub fn profile_observation(&self) -> Option<Arc<HostProfileObservation>> {
+        self.profile_observation.clone()
     }
 
     /// Produced only by this instance's platform child after the real driver handshake.

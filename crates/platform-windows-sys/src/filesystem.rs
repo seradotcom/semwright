@@ -1,18 +1,21 @@
 use semwright_platform_api::filesystem::{
-    Confinement, MAX_SCOPED_BINARY_BYTES, ScopedFilesystem, ScopedRoot, validate_relative_path,
+    Confinement, MAX_SCOPED_BINARY_BYTES, RetainedFileStage, RetainedStageError,
+    RetainedStageResult, RetainedStageState, ScopedFileObservation, ScopedFilesystem, ScopedRoot,
+    validate_relative_path,
 };
 use semwright_types::{Error, ErrorCode, Result};
 use std::{
     ffi::{OsStr, OsString},
     fs::File,
-    io::{Read, Write},
+    io::{Read, Seek, SeekFrom, Write},
     mem::{offset_of, size_of},
     os::windows::{
         ffi::OsStrExt,
         fs::OpenOptionsExt,
         io::{AsRawHandle, FromRawHandle},
     },
-    path::{Component, Path},
+    path::{Component, Path, PathBuf, Prefix},
+    sync::Mutex,
 };
 use windows::{
     Wdk::{
@@ -49,6 +52,7 @@ const MAX_COMPONENTS: usize = 64;
 struct FileIdentity {
     volume: u32,
     index: u64,
+    created_100ns: u64,
 }
 
 fn handle(file: &File) -> HANDLE {
@@ -71,7 +75,23 @@ fn identity(info: &BY_HANDLE_FILE_INFORMATION) -> FileIdentity {
     FileIdentity {
         volume: info.dwVolumeSerialNumber,
         index: ((info.nFileIndexHigh as u64) << 32) | info.nFileIndexLow as u64,
+        created_100ns: filetime_ticks(info.ftCreationTime),
     }
+}
+
+fn filetime_ticks(time: windows::Win32::Foundation::FILETIME) -> u64 {
+    ((time.dwHighDateTime as u64) << 32) | time.dwLowDateTime as u64
+}
+
+fn file_size(info: &BY_HANDLE_FILE_INFORMATION) -> u64 {
+    ((info.nFileSizeHigh as u64) << 32) | info.nFileSizeLow as u64
+}
+
+fn native_identity(kind: &str, value: FileIdentity) -> String {
+    format!(
+        "windows-{kind}:{:08x}:{:016x}:{:016x}",
+        value.volume, value.index, value.created_100ns
+    )
 }
 
 fn safe_root_syntax(path: &Path) -> Result<()> {
@@ -285,6 +305,71 @@ fn validate_regular_file(
     Ok(info)
 }
 
+/// Open a drive anchor, then each component relative to the previously retained
+/// directory. Opening the final absolute pathname would follow ancestor reparses.
+fn open_pinned_root(path: &Path, writable: bool) -> Result<(Vec<File>, File, FileIdentity)> {
+    safe_root_syntax(path)?;
+    let mut parts = path.components();
+    let Some(Component::Prefix(prefix)) = parts.next() else {
+        return Err(Error::invalid("Windows scoped root has no drive anchor"));
+    };
+    let Prefix::Disk(drive) = prefix.kind() else {
+        return Err(Error::new(
+            ErrorCode::PolicyDenied,
+            "Only drive-absolute roots are supported",
+        ));
+    };
+    if !matches!(parts.next(), Some(Component::RootDir)) {
+        return Err(Error::invalid("Windows scoped root is not drive-absolute"));
+    }
+    let mut names = Vec::new();
+    for part in parts {
+        let Component::Normal(name) = part else {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Root traversal is forbidden",
+            ));
+        };
+        validate_component(name)?;
+        names.push(name.to_os_string());
+        if names.len() > MAX_COMPONENTS {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Scoped root exceeds component budget",
+            ));
+        }
+    }
+    if names.is_empty() {
+        return Err(Error::invalid("Scoped root must be below the drive anchor"));
+    }
+    let anchor_path = PathBuf::from(format!("{}:\\", char::from(drive)));
+    let anchor = open_no_reparse(&anchor_path, true, false)?;
+    let volume = information(&anchor)?.dwVolumeSerialNumber;
+    validate_directory(&anchor, volume)?;
+    let count = names.len();
+    let mut ancestors = vec![anchor];
+    for (index, name) in names.into_iter().enumerate() {
+        let mut access = FILE_READ_ATTRIBUTES | FILE_TRAVERSE | SYNCHRONIZE;
+        if writable && index + 1 == count {
+            access |= FILE_ADD_FILE;
+        }
+        let next = nt_open_relative(
+            ancestors.last().expect("drive anchor is retained"),
+            &name,
+            access,
+            NT_FILE_OPEN,
+            FILE_DIRECTORY_FILE,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+            "Windows root component open failed",
+        )?;
+        validate_directory(&next, volume)?;
+        ancestors.push(next);
+    }
+    let root = ancestors.pop().expect("root component is retained");
+    let root_identity = identity(&information(&root)?);
+    Ok((ancestors, root, root_identity))
+}
+
 fn mark_delete_on_close(file: &File) -> Result<()> {
     let disposition = FILE_DISPOSITION_INFO { DeleteFile: true };
     // SAFETY: file is a live temp HANDLE and disposition is a correctly sized input buffer.
@@ -305,7 +390,7 @@ fn mark_delete_on_close(file: &File) -> Result<()> {
     })
 }
 
-fn rename_relative(file: &File, parent: &File, name: &OsStr) -> Result<()> {
+fn rename_relative(file: &File, parent: &File, name: &OsStr, replace: bool) -> Result<()> {
     validate_component(name)?;
     let wide = name.encode_wide().collect::<Vec<_>>();
     let name_bytes = wide
@@ -336,7 +421,7 @@ fn rename_relative(file: &File, parent: &File, name: &OsStr) -> Result<()> {
     // SAFETY: storage is pointer-aligned and large enough for FILE_RENAME_INFORMATION plus
     // every UTF-16 unit. The destination parent HANDLE remains live for the synchronous call.
     let status = unsafe {
-        (*info).Anonymous.ReplaceIfExists = true;
+        (*info).Anonymous.ReplaceIfExists = replace;
         (*info).RootDirectory = handle(parent);
         (*info).FileNameLength = name_bytes;
         std::ptr::copy_nonoverlapping(wide.as_ptr(), (*info).FileName.as_mut_ptr(), wide.len());
@@ -351,12 +436,24 @@ fn rename_relative(file: &File, parent: &File, name: &OsStr) -> Result<()> {
     if status.is_err() {
         return Err(nt_error(status, "Windows root-relative rename failed"));
     }
+    #[cfg(test)]
+    if take_stage_fault(StageFault::AfterNativeRenameBeforeAcknowledgment) {
+        // Synthetic lost acknowledgment after the real native effect. This
+        // exercises the caller's attempted=true / renamed=false branch; it
+        // is not evidence that the operating system returned this error.
+        return Err(Error::new(
+            ErrorCode::BackendFailed,
+            "Injected native rename acknowledgment loss",
+        ));
+    }
     Ok(())
 }
 
 pub struct Root {
     root: File,
     root_identity: FileIdentity,
+    ancestors: Vec<File>,
+    original_path: PathBuf,
     readable: bool,
     writable: bool,
 }
@@ -369,22 +466,19 @@ impl Root {
                 "Windows scoped root must grant read or write authority",
             ));
         }
-        safe_root_syntax(path)?;
-        let root = open_no_reparse(path, true, writable)?;
-        let info = information(&root)?;
-        if info.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY.0 == 0 {
-            return Err(Error::invalid("Windows scoped root must be a directory"));
-        }
-        let root_identity = identity(&info);
+        let (ancestors, root, root_identity) = open_pinned_root(path, writable)?;
         Ok(Self {
             root,
             root_identity,
+            ancestors,
+            original_path: path.to_path_buf(),
             readable,
             writable,
         })
     }
 
     fn root_still_pinned(&self) -> Result<()> {
+        validate_directory(&self.root, self.root_identity.volume)?;
         if identity(&information(&self.root)?) != self.root_identity {
             return Err(Error::new(
                 ErrorCode::StaleReference,
@@ -395,12 +489,17 @@ impl Root {
     }
 
     fn open_parent(&self, path: &Path, for_write: bool) -> Result<(File, OsString)> {
+        let (mut parents, basename) = self.open_parent_chain(path, for_write)?;
+        Ok((parents.pop().expect("root parent is retained"), basename))
+    }
+
+    fn open_parent_chain(&self, path: &Path, for_write: bool) -> Result<(Vec<File>, OsString)> {
         let mut components = validated_components(path)?;
         let basename = components
             .pop()
             .ok_or_else(|| Error::invalid("Confined path basename missing"))?;
         let parent_count = components.len();
-        let mut parent = self.root.try_clone()?;
+        let mut parents = vec![self.root.try_clone()?];
         for (index, component) in components.into_iter().enumerate() {
             self.root_still_pinned()?;
             let mut desired = FILE_READ_ATTRIBUTES | FILE_TRAVERSE | SYNCHRONIZE;
@@ -408,7 +507,7 @@ impl Root {
                 desired |= FILE_ADD_FILE;
             }
             let next = nt_open_relative(
-                &parent,
+                parents.last().expect("root parent is retained"),
                 &component,
                 desired,
                 NT_FILE_OPEN,
@@ -417,10 +516,10 @@ impl Root {
                 "Windows root-relative directory open failed",
             )?;
             validate_directory(&next, self.root_identity.volume)?;
-            parent = next;
+            parents.push(next);
         }
         self.root_still_pinned()?;
-        Ok((parent, basename))
+        Ok((parents, basename))
     }
 
     fn open_existing_file(
@@ -491,7 +590,78 @@ impl Root {
         Ok(bytes)
     }
 
-    fn write_inner(&self, path: &Path, bytes: &[u8]) -> Result<()> {
+    fn observe_inner(&self, path: &Path, limit: usize) -> Result<ScopedFileObservation> {
+        if !self.readable {
+            return Err(Error::new(ErrorCode::PolicyDenied, "Root is not readable"));
+        }
+        if limit == 0 || limit > MAX_SCOPED_BINARY_BYTES {
+            return Err(Error::invalid("Read limit exceeds scoped binary budget"));
+        }
+        self.root_still_pinned()?;
+        let (parents, basename) = self.open_parent_chain(path, false)?;
+        let parent = parents.last().expect("observation parent is retained");
+        let mut file = nt_open_relative(
+            parent,
+            &basename,
+            FILE_GENERIC_READ | SYNCHRONIZE,
+            NT_FILE_OPEN,
+            FILE_NON_DIRECTORY_FILE,
+            // Permit observation beside an existing owner-retained stage's
+            // WRITE-access file object without dropping that custody. Its own
+            // share mode still denies third-party writes/deletion. Standalone
+            // observation does not exclude writers or seal their bytes.
+            FILE_SHARE_READ | FILE_SHARE_WRITE,
+            "Windows file-instance observation open failed",
+        )?;
+        let before = validate_regular_file(&file, self.root_identity.volume, true)?;
+        let expected = identity(&before);
+        let size = file_size(&before);
+        if size > limit as u64 {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Observed file exceeds read budget",
+            ));
+        }
+        #[cfg(test)]
+        run_observation_open_hook();
+        let mut bytes = Vec::with_capacity(size as usize);
+        (&mut file).take(limit as u64 + 1).read_to_end(&mut bytes)?;
+        let after = validate_regular_file(&file, self.root_identity.volume, true)?;
+        if bytes.len() > limit {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Observed file grew beyond read budget",
+            ));
+        }
+        if bytes.len() as u64 != size
+            || file_size(&after) != size
+            || identity(&after) != expected
+            || filetime_ticks(after.ftLastWriteTime) != filetime_ticks(before.ftLastWriteTime)
+        {
+            return Err(Error::new(
+                ErrorCode::StaleReference,
+                "Observed file changed during its retained read",
+            ));
+        }
+        let (_, entry) = self.inspect_existing_file(parent, &basename, true)?;
+        if identity(&entry) != expected {
+            return Err(Error::new(
+                ErrorCode::StaleReference,
+                "Observed entry changed during its retained read",
+            ));
+        }
+        self.root_still_pinned()?;
+        // Size/time checks are change detectors, not a proof of immutable
+        // snapshot bytes: writable mappings can outlive their creating handle.
+        Ok(ScopedFileObservation {
+            bytes,
+            instance_identity: native_identity("file", expected),
+            method: "windows-handle-relative-file-instance",
+            method_version: 1,
+        })
+    }
+
+    fn write_inner(&self, path: &Path, bytes: &[u8], replace: bool) -> Result<()> {
         if !self.writable {
             return Err(Error::new(ErrorCode::PolicyDenied, "Root is not writable"));
         }
@@ -504,10 +674,12 @@ impl Root {
         self.root_still_pinned()?;
         let (parent, basename) = self.open_parent(path, true)?;
 
-        match self.inspect_existing_file(&parent, &basename, true) {
-            Ok(_) => {}
-            Err(error) if error.code == ErrorCode::NotFound => {}
-            Err(error) => return Err(error),
+        if replace {
+            match self.inspect_existing_file(&parent, &basename, true) {
+                Ok(_) => {}
+                Err(error) if error.code == ErrorCode::NotFound => {}
+                Err(error) => return Err(error),
+            }
         }
 
         let temporary = OsString::from(format!(".semwright-{}.tmp", uuid::Uuid::new_v4().simple()));
@@ -529,12 +701,30 @@ impl Root {
         };
         let temp_identity = identity(&temp_info);
         let mut renamed = false;
+        let mut publication_attempted = false;
         let result = (|| -> Result<()> {
             temp.write_all(bytes)?;
             temp.sync_all()?;
             self.root_still_pinned()?;
-            rename_relative(&temp, &parent, &basename)?;
+            publication_attempted = true;
+            rename_relative(&temp, &parent, &basename, replace).map_err(|error| {
+                // A collision confirms no replacement. Other publication errors
+                // preserve the original object and remain unresolved.
+                if error.code == ErrorCode::Conflict {
+                    error
+                } else {
+                    error.uncertain()
+                }
+            })?;
             renamed = true;
+            #[cfg(test)]
+            if take_stage_fault(StageFault::AfterPublication) {
+                return Err(Error::new(
+                    ErrorCode::BackendFailed,
+                    "Injected publication verification failure",
+                )
+                .uncertain());
+            }
 
             let (committed, committed_info) = self
                 .inspect_existing_file(&parent, &basename, true)
@@ -556,17 +746,330 @@ impl Root {
                 .uncertain());
             }
             drop(committed);
-            self.root_still_pinned()?;
+            self.root_still_pinned().map_err(Error::uncertain)?;
             Ok(())
         })();
-        if result.is_err() && !renamed {
+        let known_no_publication = !publication_attempted
+            || result
+                .as_ref()
+                .is_err_and(|error| error.code == ErrorCode::Conflict && error.outcome_known);
+        if result.is_err() && !renamed && known_no_publication {
             mark_delete_on_close(&temp)?;
         }
         result
     }
+
+    fn stage_new_inner(&self, path: &Path, bytes: &[u8]) -> RetainedStageResult {
+        let prepared = (|| -> Result<(Vec<File>, Vec<File>, OsString)> {
+            if !self.writable {
+                return Err(Error::new(ErrorCode::PolicyDenied, "Root is not writable"));
+            }
+            if bytes.len() > MAX_SCOPED_BINARY_BYTES {
+                return Err(Error::new(
+                    ErrorCode::ResourceExhausted,
+                    "Write exceeds scoped binary budget",
+                ));
+            }
+            self.root_still_pinned()?;
+            let (parents, basename) = self.open_parent_chain(path, true)?;
+            let ancestors = self
+                .ancestors
+                .iter()
+                .map(File::try_clone)
+                .collect::<std::io::Result<Vec<_>>>()?;
+            Ok((ancestors, parents, basename))
+        })();
+        let (ancestors, parents, basename) = prepared.map_err(|error| RetainedStageError {
+            error,
+            retained: None,
+        })?;
+        let file = nt_open_relative(
+            parents.last().expect("parent is retained"),
+            &basename,
+            FILE_GENERIC_READ | FILE_GENERIC_WRITE | SYNCHRONIZE,
+            NT_FILE_CREATE,
+            FILE_NON_DIRECTORY_FILE,
+            // Protect newly owned bytes and the leaf identity while custody is
+            // retained. No write/delete sharing or delete-on-close is granted.
+            FILE_SHARE_READ,
+            "Windows retained stage creation failed",
+        )
+        .map_err(|error| RetainedStageError {
+            error,
+            retained: None,
+        })?;
+        // Construct custody immediately after successful creation. Every later
+        // failure returns this exact object; no path-based cleanup occurs.
+        let mut stage = RetainedStage {
+            file,
+            file_identity: None,
+            _ancestors: ancestors,
+            parents,
+            root_identity: self.root_identity,
+            root_path: self.original_path.clone(),
+            relative_path: path.to_path_buf(),
+            basename,
+            read_lock: Mutex::new(()),
+            state: RetainedStageState {
+                created: true,
+                requested_bytes: bytes.len() as u64,
+                confirmed_written_bytes: 0,
+                partial: !bytes.is_empty(),
+                synced: false,
+                entry_verified: false,
+            },
+        };
+        match stage.populate(bytes) {
+            Ok(()) => Ok(Box::new(stage)),
+            Err(error) => Err(RetainedStageError {
+                error: error.uncertain(),
+                retained: Some(Box::new(stage)),
+            }),
+        }
+    }
+}
+
+struct RetainedStage {
+    file: File,
+    file_identity: Option<FileIdentity>,
+    _ancestors: Vec<File>,
+    parents: Vec<File>,
+    root_identity: FileIdentity,
+    root_path: PathBuf,
+    relative_path: PathBuf,
+    basename: OsString,
+    read_lock: Mutex<()>,
+    state: RetainedStageState,
+}
+
+impl RetainedStage {
+    fn populate(&mut self, bytes: &[u8]) -> Result<()> {
+        self.file_identity = Some(identity(&validate_regular_file(
+            &self.file,
+            self.root_identity.volume,
+            true,
+        )?));
+        #[cfg(test)]
+        if take_stage_fault(StageFault::PartialWrite) {
+            let prefix = bytes.len().min(3);
+            self.file.write_all(&bytes[..prefix])?;
+            self.state.confirmed_written_bytes = prefix as u64;
+            self.state.partial = prefix != bytes.len();
+            return Err(Error::new(
+                ErrorCode::BackendFailed,
+                "Injected partial write failure",
+            ));
+        }
+        while (self.state.confirmed_written_bytes as usize) < bytes.len() {
+            match self
+                .file
+                .write(&bytes[self.state.confirmed_written_bytes as usize..])
+            {
+                Ok(0) => {
+                    return Err(Error::new(
+                        ErrorCode::BackendFailed,
+                        "Retained stage write made no progress",
+                    ));
+                }
+                Ok(count) => {
+                    self.state.confirmed_written_bytes += count as u64;
+                    self.state.partial = self.state.confirmed_written_bytes != bytes.len() as u64;
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
+                Err(error) => return Err(error.into()),
+            }
+        }
+        #[cfg(test)]
+        if take_stage_fault(StageFault::BeforeSync) {
+            return Err(Error::new(
+                ErrorCode::BackendFailed,
+                "Injected stage sync failure",
+            ));
+        }
+        self.file.sync_all()?;
+        self.state.synced = true;
+        #[cfg(test)]
+        if take_stage_fault(StageFault::BeforeEntryVerification) {
+            return Err(Error::new(
+                ErrorCode::BackendFailed,
+                "Injected stage verification failure",
+            ));
+        }
+        self.verify_entry()?;
+        self.state.entry_verified = true;
+        Ok(())
+    }
+
+    fn pinned_identity(&self) -> Result<FileIdentity> {
+        let expected = self.file_identity.ok_or_else(|| {
+            Error::new(
+                ErrorCode::StaleReference,
+                "Retained stage identity was not confirmed",
+            )
+        })?;
+        if identity(&information(self.parents.first().expect("root retained"))?)
+            != self.root_identity
+        {
+            return Err(Error::new(
+                ErrorCode::StaleReference,
+                "Retained stage root changed",
+            ));
+        }
+        let observed = identity(&validate_regular_file(
+            &self.file,
+            self.root_identity.volume,
+            true,
+        )?);
+        if observed != expected {
+            return Err(Error::new(
+                ErrorCode::StaleReference,
+                "Retained stage identity changed",
+            ));
+        }
+        Ok(expected)
+    }
+}
+
+impl RetainedFileStage for RetainedStage {
+    fn state(&self) -> RetainedStageState {
+        self.state
+    }
+
+    fn observe(&self, limit: usize) -> Result<ScopedFileObservation> {
+        if limit == 0 || limit > MAX_SCOPED_BINARY_BYTES {
+            return Err(Error::invalid("Read limit exceeds scoped binary budget"));
+        }
+        let _reader = self.read_lock.lock().map_err(|_| {
+            Error::new(
+                ErrorCode::BackendFailed,
+                "Retained stage reader lock is unavailable",
+            )
+        })?;
+        let expected = self.pinned_identity()?;
+        let before = information(&self.file)?;
+        let size = file_size(&before);
+        if size > limit as u64 {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Retained stage exceeds read budget",
+            ));
+        }
+        let mut file = &self.file;
+        file.seek(SeekFrom::Start(0))?;
+        let mut bytes = Vec::with_capacity(size as usize);
+        file.take(limit as u64 + 1).read_to_end(&mut bytes)?;
+        if bytes.len() > limit {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Retained stage grew beyond read budget",
+            ));
+        }
+        if bytes.len() as u64 != size || self.pinned_identity()? != expected {
+            return Err(Error::new(
+                ErrorCode::StaleReference,
+                "Retained stage changed during observation",
+            ));
+        }
+        Ok(ScopedFileObservation {
+            bytes,
+            instance_identity: native_identity("file", expected),
+            method: "windows-retained-stage-handle",
+            method_version: 1,
+        })
+    }
+
+    fn verify_entry(&self) -> Result<()> {
+        let expected = self.pinned_identity()?;
+        let entry = nt_open_relative(
+            self.parents.last().expect("parent retained"),
+            &self.basename,
+            FILE_READ_ATTRIBUTES | SYNCHRONIZE,
+            NT_FILE_OPEN,
+            FILE_NON_DIRECTORY_FILE,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+            "Windows retained stage entry verification failed",
+        )?;
+        let actual = identity(&validate_regular_file(
+            &entry,
+            self.root_identity.volume,
+            true,
+        )?);
+        if expected != actual {
+            return Err(Error::new(
+                ErrorCode::StaleReference,
+                "Retained stage entry names a different file",
+            ));
+        }
+        Ok(())
+    }
+
+    fn verify_handoff_path(&self) -> Result<()> {
+        let expected = self.pinned_identity()?;
+        // This intentionally differs from verify_entry: downstream pathname
+        // consumers must not silently follow a renamed/replaced root.
+        let current = Root::open(&self.root_path, true, false)?;
+        if current.root_identity != self.root_identity {
+            return Err(Error::new(
+                ErrorCode::StaleReference,
+                "Retained stage handoff root was replaced",
+            ));
+        }
+        let (parent, name) = current.open_parent(&self.relative_path, false)?;
+        let (_, info) = current.inspect_existing_file(&parent, &name, true)?;
+        if identity(&info) != expected {
+            return Err(Error::new(
+                ErrorCode::StaleReference,
+                "Retained stage handoff path was replaced",
+            ));
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum StageFault {
+    PartialWrite,
+    BeforeSync,
+    BeforeEntryVerification,
+    AfterNativeRenameBeforeAcknowledgment,
+    AfterPublication,
+}
+#[cfg(test)]
+thread_local! {
+    static STAGE_FAULT: std::cell::Cell<Option<StageFault>> = const { std::cell::Cell::new(None) };
+    static OBSERVATION_OPEN_HOOK: std::cell::RefCell<Option<Box<dyn FnOnce()>>> =
+        const { std::cell::RefCell::new(None) };
+}
+#[cfg(test)]
+fn run_observation_open_hook() {
+    let hook = OBSERVATION_OPEN_HOOK.with(|slot| slot.borrow_mut().take());
+    if let Some(hook) = hook {
+        hook();
+    }
+}
+#[cfg(test)]
+fn take_stage_fault(expected: StageFault) -> bool {
+    STAGE_FAULT.with(|fault| {
+        if fault.get() == Some(expected) {
+            fault.set(None);
+            true
+        } else {
+            false
+        }
+    })
 }
 
 impl ScopedRoot for Root {
+    fn root_instance_identity(&self) -> Result<String> {
+        self.root_still_pinned()?;
+        Ok(native_identity("directory", self.root_identity))
+    }
+
+    fn observe_file(&self, path: &Path, limit: usize) -> Result<ScopedFileObservation> {
+        self.observe_inner(path, limit)
+    }
+
     fn confinement(&self) -> Confinement {
         Confinement::WindowsHandleRelativeNoReparse
     }
@@ -576,7 +1079,15 @@ impl ScopedRoot for Root {
     }
 
     fn write_atomic(&self, path: &Path, bytes: &[u8]) -> Result<()> {
-        self.write_inner(path, bytes)
+        self.write_inner(path, bytes, true)
+    }
+
+    fn write_new_atomic(&self, path: &Path, bytes: &[u8]) -> Result<()> {
+        self.write_inner(path, bytes, false)
+    }
+
+    fn stage_new_retained(&self, path: &Path, bytes: &[u8]) -> RetainedStageResult {
+        self.stage_new_inner(path, bytes)
     }
 }
 
@@ -721,5 +1232,647 @@ mod tests {
             std::fs::read(renamed.join("nested").join("new.txt")).unwrap(),
             b"new"
         );
+    }
+
+    struct FaultGuard;
+    impl FaultGuard {
+        fn set(fault: StageFault) -> Self {
+            STAGE_FAULT.with(|slot| assert!(slot.replace(Some(fault)).is_none()));
+            Self
+        }
+    }
+    impl Drop for FaultGuard {
+        fn drop(&mut self) {
+            STAGE_FAULT.with(|slot| slot.set(None));
+        }
+    }
+    struct ObservationHookGuard;
+    impl ObservationHookGuard {
+        fn set(hook: impl FnOnce() + 'static) -> Self {
+            OBSERVATION_OPEN_HOOK.with(|slot| {
+                assert!(slot.borrow_mut().replace(Box::new(hook)).is_none());
+            });
+            Self
+        }
+    }
+    impl Drop for ObservationHookGuard {
+        fn drop(&mut self) {
+            OBSERVATION_OPEN_HOOK.with(|slot| *slot.borrow_mut() = None);
+        }
+    }
+    fn failed_stage(result: RetainedStageResult) -> RetainedStageError {
+        match result {
+            Ok(_) => panic!("expected a failed retained stage"),
+            Err(error) => error,
+        }
+    }
+
+    #[test]
+    fn root_open_rejects_a_reparse_ancestor_not_only_the_leaf() {
+        let holder = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        std::fs::create_dir(outside.path().join("workspace")).unwrap();
+        let link = holder.path().join("redirect");
+        junction(&link, outside.path());
+        assert!(Root::open(&link.join("workspace"), true, true).is_err());
+    }
+
+    #[test]
+    fn retained_root_ancestor_swap_does_not_redirect_reads_or_new_staging() {
+        let holder = tempfile::tempdir().unwrap();
+        let original = holder.path().join("container");
+        let retained = holder.path().join("retained-container");
+        let workspace = original.join("workspace");
+        std::fs::create_dir_all(&workspace).unwrap();
+        std::fs::write(workspace.join("data.txt"), b"owned").unwrap();
+        let foreign = tempfile::tempdir().unwrap();
+        std::fs::create_dir(foreign.path().join("workspace")).unwrap();
+        std::fs::write(foreign.path().join("workspace/data.txt"), b"foreign").unwrap();
+        let root = Root::open(&workspace, true, true).unwrap();
+        std::fs::rename(&original, &retained).unwrap();
+        junction(&original, foreign.path());
+        assert_eq!(root.read(Path::new("data.txt"), 16).unwrap(), b"owned");
+        let stage = root
+            .stage_new_retained(Path::new("new.bin"), b"new-owned")
+            .unwrap();
+        assert!(stage.verify_entry().is_ok());
+        assert!(stage.verify_handoff_path().is_err());
+        assert_eq!(stage.observe(64).unwrap().bytes, b"new-owned");
+        assert!(!foreign.path().join("workspace/new.bin").exists());
+        drop(stage);
+        assert_eq!(
+            std::fs::read(retained.join("workspace/new.bin")).unwrap(),
+            b"new-owned"
+        );
+    }
+
+    #[test]
+    fn atomic_no_replace_preserves_existing_destination() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = Root::open(directory.path(), true, true).unwrap();
+        root.write_new_atomic(Path::new("owned.bin"), b"first")
+            .unwrap();
+        let error = root
+            .write_new_atomic(Path::new("owned.bin"), b"second")
+            .unwrap_err();
+        assert_eq!(error.code, ErrorCode::Conflict);
+        assert!(error.outcome_known);
+        assert_eq!(root.read(Path::new("owned.bin"), 64).unwrap(), b"first");
+        assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn atomic_no_replace_race_has_one_winner_and_preserves_its_bytes() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = std::sync::Arc::new(Root::open(directory.path(), true, true).unwrap());
+        let start = std::sync::Arc::new(std::sync::Barrier::new(2));
+        let workers: Vec<_> = [b"first".as_slice(), b"second".as_slice()]
+            .into_iter()
+            .map(|bytes| {
+                let root = root.clone();
+                let start = start.clone();
+                std::thread::spawn(move || {
+                    start.wait();
+                    (bytes, root.write_new_atomic(Path::new("race.bin"), bytes))
+                })
+            })
+            .collect();
+        let results: Vec<_> = workers
+            .into_iter()
+            .map(|worker| worker.join().unwrap())
+            .collect();
+        assert_eq!(
+            results.iter().filter(|(_, result)| result.is_ok()).count(),
+            1
+        );
+        let winner = results.iter().find(|(_, result)| result.is_ok()).unwrap().0;
+        let error = results
+            .iter()
+            .find_map(|(_, result)| result.as_ref().err())
+            .unwrap();
+        assert_eq!(error.code, ErrorCode::Conflict);
+        assert!(error.outcome_known);
+        assert_eq!(root.read(Path::new("race.bin"), 64).unwrap(), winner);
+    }
+
+    #[test]
+    fn atomic_no_replace_after_publication_failure_is_unknown_and_preserved() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = Root::open(directory.path(), true, true).unwrap();
+        let _fault = FaultGuard::set(StageFault::AfterPublication);
+        let error = root
+            .write_new_atomic(Path::new("committed.bin"), b"committed")
+            .unwrap_err();
+        assert!(!error.outcome_known);
+        assert_eq!(
+            root.read(Path::new("committed.bin"), 64).unwrap(),
+            b"committed"
+        );
+    }
+
+    #[test]
+    fn atomic_no_replace_lost_native_acknowledgment_preserves_published_object() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = Root::open(directory.path(), true, true).unwrap();
+        let _fault = FaultGuard::set(StageFault::AfterNativeRenameBeforeAcknowledgment);
+        let error = root
+            .write_new_atomic(Path::new("unacknowledged.bin"), b"committed")
+            .unwrap_err();
+        assert_eq!(error.code, ErrorCode::BackendFailed);
+        assert!(!error.outcome_known);
+        // The helper failed before the caller set `renamed`. Deleting the
+        // original temporary HANDLE here would delete this published file.
+        assert_eq!(
+            std::fs::read(directory.path().join("unacknowledged.bin")).unwrap(),
+            b"committed"
+        );
+        assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn readonly_root_refuses_both_new_write_paths_without_creation() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = Root::open(directory.path(), true, false).unwrap();
+        assert_eq!(
+            root.write_new_atomic(Path::new("a.bin"), b"x")
+                .unwrap_err()
+                .code,
+            ErrorCode::PolicyDenied
+        );
+        let error = failed_stage(root.stage_new_retained(Path::new("b.bin"), b"x"));
+        assert_eq!(error.error.code, ErrorCode::PolicyDenied);
+        assert!(error.error.outcome_known);
+        assert!(error.retained.is_none());
+        assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 0);
+    }
+
+    #[test]
+    fn retained_stage_roundtrip_does_not_grant_other_file_reads() {
+        let directory = tempfile::tempdir().unwrap();
+        std::fs::write(directory.path().join("other.bin"), b"other").unwrap();
+        let root = Root::open(directory.path(), false, true).unwrap();
+        let stage = root
+            .stage_new_retained(Path::new("new.bin"), b"retained")
+            .unwrap();
+        assert_eq!(
+            stage.state(),
+            RetainedStageState {
+                created: true,
+                requested_bytes: 8,
+                confirmed_written_bytes: 8,
+                partial: false,
+                synced: true,
+                entry_verified: true,
+            }
+        );
+        assert_eq!(stage.observe(8).unwrap().bytes, b"retained");
+        assert!(stage.verify_entry().is_ok());
+        assert!(stage.verify_handoff_path().is_ok());
+        assert!(root.read(Path::new("other.bin"), 32).is_err());
+        assert_eq!(
+            stage.observe(7).unwrap_err().code,
+            ErrorCode::ResourceExhausted
+        );
+        drop(stage);
+        assert_eq!(
+            std::fs::read(directory.path().join("new.bin")).unwrap(),
+            b"retained"
+        );
+    }
+
+    #[test]
+    fn partial_stage_failure_returns_exact_retained_prefix_and_never_deletes_it() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = Root::open(directory.path(), true, true).unwrap();
+        let _fault = FaultGuard::set(StageFault::PartialWrite);
+        let error = failed_stage(root.stage_new_retained(Path::new("partial.bin"), b"abcdefgh"));
+        assert!(!error.error.outcome_known);
+        let stage = error.retained.expect("partial file custody");
+        assert_eq!(
+            stage.state(),
+            RetainedStageState {
+                created: true,
+                requested_bytes: 8,
+                confirmed_written_bytes: 3,
+                partial: true,
+                synced: false,
+                entry_verified: false,
+            }
+        );
+        assert_eq!(stage.observe(8).unwrap().bytes, b"abc");
+        assert!(stage.verify_entry().is_ok());
+        drop(stage);
+        assert_eq!(
+            std::fs::read(directory.path().join("partial.bin")).unwrap(),
+            b"abc"
+        );
+    }
+
+    #[test]
+    fn stage_sync_failure_retains_complete_unsynced_bytes() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = Root::open(directory.path(), true, true).unwrap();
+        let _fault = FaultGuard::set(StageFault::BeforeSync);
+        let error = failed_stage(root.stage_new_retained(Path::new("unsynced.bin"), b"complete"));
+        assert!(!error.error.outcome_known);
+        let stage = error.retained.unwrap();
+        assert_eq!(stage.state().confirmed_written_bytes, 8);
+        assert!(!stage.state().partial);
+        assert!(!stage.state().synced);
+        assert!(!stage.state().entry_verified);
+        assert_eq!(stage.observe(8).unwrap().bytes, b"complete");
+    }
+
+    #[test]
+    fn stage_verification_failure_retains_synced_original_without_claiming_entry() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = Root::open(directory.path(), true, true).unwrap();
+        let _fault = FaultGuard::set(StageFault::BeforeEntryVerification);
+        let error = failed_stage(root.stage_new_retained(Path::new("verify.bin"), b"complete"));
+        assert!(!error.error.outcome_known);
+        let stage = error.retained.unwrap();
+        assert!(stage.state().synced);
+        assert!(!stage.state().entry_verified);
+        assert_eq!(stage.observe(8).unwrap().bytes, b"complete");
+        assert!(stage.verify_entry().is_ok());
+    }
+
+    #[test]
+    fn retained_stage_collision_returns_no_borrowed_custody() {
+        let directory = tempfile::tempdir().unwrap();
+        std::fs::write(directory.path().join("existing.bin"), b"original").unwrap();
+        let root = Root::open(directory.path(), true, true).unwrap();
+        let error = failed_stage(root.stage_new_retained(Path::new("existing.bin"), b"changed"));
+        assert_eq!(error.error.code, ErrorCode::Conflict);
+        assert!(error.error.outcome_known);
+        assert!(error.retained.is_none());
+        assert_eq!(
+            std::fs::read(directory.path().join("existing.bin")).unwrap(),
+            b"original"
+        );
+    }
+
+    #[test]
+    fn retained_stage_rejects_junction_parent_without_outside_creation() {
+        let directory = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        junction(&directory.path().join("escape"), outside.path());
+        let root = Root::open(directory.path(), true, true).unwrap();
+        let error = failed_stage(root.stage_new_retained(Path::new("escape/new.bin"), b"blocked"));
+        assert!(error.retained.is_none());
+        assert!(!outside.path().join("new.bin").exists());
+    }
+
+    #[test]
+    fn retained_stage_prevents_external_write_until_custody_is_released() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = Root::open(directory.path(), true, true).unwrap();
+        let stage = root
+            .stage_new_retained(Path::new("held.bin"), b"original")
+            .unwrap();
+        assert!(std::fs::write(directory.path().join("held.bin"), b"replacement").is_err());
+        assert_eq!(stage.observe(8).unwrap().bytes, b"original");
+        drop(stage);
+        assert_eq!(
+            std::fs::read(directory.path().join("held.bin")).unwrap(),
+            b"original"
+        );
+    }
+
+    #[test]
+    fn retained_stage_outlives_the_root_and_rejects_external_delete_and_rename() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = Root::open(directory.path(), false, true).unwrap();
+        let stage = root
+            .stage_new_retained(Path::new("held.bin"), b"owned")
+            .unwrap();
+        drop(root);
+        let original = directory.path().join("held.bin");
+        let renamed = directory.path().join("renamed.bin");
+        assert!(std::fs::remove_file(&original).is_err());
+        assert!(std::fs::rename(&original, &renamed).is_err());
+        assert!(!renamed.exists());
+        assert!(stage.verify_entry().is_ok());
+        assert!(stage.verify_handoff_path().is_ok());
+        assert_eq!(stage.observe(5).unwrap().bytes, b"owned");
+        drop(stage);
+        assert_eq!(std::fs::read(&original).unwrap(), b"owned");
+        // Releasing custody only closes handles; ordinary deletion/rename is
+        // possible afterward and the file was not deleted by Drop.
+        std::fs::rename(&original, &renamed).unwrap();
+        assert_eq!(std::fs::read(&renamed).unwrap(), b"owned");
+        std::fs::remove_file(&renamed).unwrap();
+    }
+
+    #[test]
+    fn retained_stage_keeps_custody_during_root_rename_attempt() {
+        let holder = tempfile::tempdir().unwrap();
+        let original = holder.path().join("workspace");
+        let retained = holder.path().join("retained-workspace");
+        std::fs::create_dir(&original).unwrap();
+        let root = Root::open(&original, false, true).unwrap();
+        let stage = root
+            .stage_new_retained(Path::new("held.bin"), b"owned")
+            .unwrap();
+        drop(root);
+        assert_stage_custody_during_parent_rename(stage, &original, &retained);
+    }
+
+    #[test]
+    fn retained_stage_keeps_custody_during_nested_parent_rename_attempt() {
+        let directory = tempfile::tempdir().unwrap();
+        let original = directory.path().join("nested");
+        let retained = directory.path().join("retained-nested");
+        std::fs::create_dir(&original).unwrap();
+        let root = Root::open(directory.path(), false, true).unwrap();
+        let stage = root
+            .stage_new_retained(Path::new("nested/held.bin"), b"owned")
+            .unwrap();
+        drop(root);
+        assert_stage_custody_during_parent_rename(stage, &original, &retained);
+    }
+
+    fn assert_stage_custody_during_parent_rename(
+        stage: Box<dyn RetainedFileStage>,
+        original: &Path,
+        retained: &Path,
+    ) {
+        match std::fs::rename(original, retained) {
+            Ok(()) => {
+                eprintln!("retained-stage parent rename: moved while retained");
+                std::fs::create_dir(original).unwrap();
+                std::fs::write(original.join("held.bin"), b"foreign").unwrap();
+                assert!(stage.verify_entry().is_ok());
+                assert!(stage.verify_handoff_path().is_err());
+                assert_eq!(stage.observe(5).unwrap().bytes, b"owned");
+                drop(stage);
+                assert_eq!(std::fs::read(retained.join("held.bin")).unwrap(), b"owned");
+                assert_eq!(
+                    std::fs::read(original.join("held.bin")).unwrap(),
+                    b"foreign"
+                );
+            }
+            Err(error) => {
+                // Windows may deny parent rename while a descendant forbids
+                // delete sharing. Accept only that concrete protection branch,
+                // and prove causality by releasing solely the retained capsule.
+                assert!(
+                    matches!(error.raw_os_error(), Some(5 | 32)),
+                    "unexpected rename error: {error}"
+                );
+                eprintln!(
+                    "retained-stage parent rename: denied while retained (error={:?})",
+                    error.raw_os_error()
+                );
+                assert!(original.is_dir());
+                assert!(!retained.exists());
+                assert!(stage.verify_entry().is_ok());
+                assert!(stage.verify_handoff_path().is_ok());
+                assert_eq!(stage.observe(5).unwrap().bytes, b"owned");
+                drop(stage);
+                std::fs::rename(original, retained).unwrap();
+                assert_eq!(std::fs::read(retained.join("held.bin")).unwrap(), b"owned");
+                assert!(!original.exists());
+            }
+        }
+    }
+
+    #[test]
+    fn retained_empty_stage_has_complete_zero_byte_state() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = Root::open(directory.path(), true, true).unwrap();
+        let stage = root
+            .stage_new_retained(Path::new("empty.bin"), b"")
+            .unwrap();
+        assert_eq!(stage.state().confirmed_written_bytes, 0);
+        assert!(!stage.state().partial);
+        assert!(stage.state().synced);
+        assert!(stage.state().entry_verified);
+        assert!(stage.observe(1).unwrap().bytes.is_empty());
+    }
+
+    #[test]
+    fn expected_identity_compares_the_opened_root_before_any_write() {
+        let parent = tempfile::tempdir().unwrap();
+        let original = parent.path().join("workspace");
+        let retained = parent.path().join("owned-workspace");
+        std::fs::create_dir(&original).unwrap();
+        let owned = Root::open(&original, true, true).unwrap();
+        let expected = owned.root_instance_identity().unwrap();
+        let reopened = WindowsFilesystem
+            .open_root_with_identity(&original, true, true, &expected)
+            .unwrap();
+        assert_eq!(reopened.root_instance_identity().unwrap(), expected);
+        drop(reopened);
+        std::fs::rename(&original, &retained).unwrap();
+        std::fs::create_dir(&original).unwrap();
+        let result = WindowsFilesystem.open_root_with_identity(&original, true, true, &expected);
+        let Err(error) = result else {
+            panic!("a replacement directory must be rejected")
+        };
+        assert_eq!(error.code, ErrorCode::StaleReference);
+        assert_eq!(owned.root_instance_identity().unwrap(), expected);
+        assert_eq!(std::fs::read_dir(&original).unwrap().count(), 0);
+        // The previously captured object remains usable even after the path
+        // names a different directory. No reopening occurs on this path.
+        owned
+            .write_new_atomic(Path::new("owned.bin"), b"owned")
+            .unwrap();
+        assert_eq!(std::fs::read(retained.join("owned.bin")).unwrap(), b"owned");
+        assert!(!original.join("owned.bin").exists());
+    }
+
+    #[test]
+    fn file_instance_observation_binds_equal_bytes_to_the_actual_file() {
+        let directory = tempfile::tempdir().unwrap();
+        let source = directory.path().join("source.bin");
+        std::fs::write(&source, b"same-bytes").unwrap();
+        let root = Root::open(directory.path(), true, false).unwrap();
+        let first = root.observe_file(Path::new("source.bin"), 32).unwrap();
+        assert_eq!(first.bytes, b"same-bytes");
+        assert_eq!(first.method, "windows-handle-relative-file-instance");
+        assert_eq!(first.method_version, 1);
+        std::fs::rename(&source, directory.path().join("old-source.bin")).unwrap();
+        std::fs::write(&source, b"same-bytes").unwrap();
+        let replacement = root.observe_file(Path::new("source.bin"), 32).unwrap();
+        assert_eq!(replacement.bytes, first.bytes);
+        assert_ne!(replacement.instance_identity, first.instance_identity);
+    }
+
+    #[test]
+    fn file_instance_observation_keeps_original_root_after_path_replacement() {
+        let holder = tempfile::tempdir().unwrap();
+        let original = holder.path().join("workspace");
+        let retained = holder.path().join("retained-workspace");
+        std::fs::create_dir(&original).unwrap();
+        std::fs::write(original.join("source.bin"), b"owned").unwrap();
+        let root = Root::open(&original, true, false).unwrap();
+        let first = root.observe_file(Path::new("source.bin"), 32).unwrap();
+        let directory_identity = root.root_instance_identity().unwrap();
+        std::fs::rename(&original, &retained).unwrap();
+        std::fs::create_dir(&original).unwrap();
+        std::fs::write(original.join("source.bin"), b"foreign").unwrap();
+        let second = root.observe_file(Path::new("source.bin"), 32).unwrap();
+        assert_eq!(second.instance_identity, first.instance_identity);
+        assert_eq!(second.bytes, b"owned");
+        assert_eq!(root.root_instance_identity().unwrap(), directory_identity);
+        assert_eq!(
+            std::fs::read(original.join("source.bin")).unwrap(),
+            b"foreign"
+        );
+    }
+
+    #[test]
+    fn file_instance_observation_enforces_read_authority_and_exact_budget() {
+        let directory = tempfile::tempdir().unwrap();
+        std::fs::write(directory.path().join("source.bin"), b"owned").unwrap();
+        let write_only = Root::open(directory.path(), false, true).unwrap();
+        assert_eq!(
+            write_only
+                .observe_file(Path::new("source.bin"), 5)
+                .unwrap_err()
+                .code,
+            ErrorCode::PolicyDenied
+        );
+        let readable = Root::open(directory.path(), true, false).unwrap();
+        assert_eq!(
+            readable
+                .observe_file(Path::new("source.bin"), 4)
+                .unwrap_err()
+                .code,
+            ErrorCode::ResourceExhausted
+        );
+        assert!(readable.observe_file(Path::new("source.bin"), 0).is_err());
+        assert!(
+            readable
+                .observe_file(Path::new("source.bin"), MAX_SCOPED_BINARY_BYTES + 1)
+                .is_err()
+        );
+        assert_eq!(
+            readable
+                .observe_file(Path::new("source.bin"), 5)
+                .unwrap()
+                .bytes,
+            b"owned"
+        );
+    }
+
+    #[test]
+    fn file_instance_observation_rejects_hardlinks_and_junction_traversal() {
+        let directory = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        std::fs::write(outside.path().join("source.bin"), b"foreign").unwrap();
+        junction(&directory.path().join("escape"), outside.path());
+        std::fs::hard_link(
+            outside.path().join("source.bin"),
+            directory.path().join("hard.bin"),
+        )
+        .unwrap();
+        let root = Root::open(directory.path(), true, false).unwrap();
+        assert!(
+            root.observe_file(Path::new("escape/source.bin"), 32)
+                .is_err()
+        );
+        assert!(root.observe_file(Path::new("hard.bin"), 32).is_err());
+        assert_eq!(
+            std::fs::read(outside.path().join("source.bin")).unwrap(),
+            b"foreign"
+        );
+    }
+
+    #[test]
+    fn file_instance_observation_detects_concurrent_length_change() {
+        let directory = tempfile::tempdir().unwrap();
+        let source = directory.path().join("source.bin");
+        let renamed = directory.path().join("renamed.bin");
+        std::fs::write(&source, b"owned").unwrap();
+        let root = Root::open(directory.path(), true, false).unwrap();
+        let attempts = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let count = attempts.clone();
+        let during_source = source.clone();
+        let during_renamed = renamed.clone();
+        let _hook = ObservationHookGuard::set(move || {
+            std::thread::spawn(move || {
+                // A generic observer must remain share-compatible with a
+                // legitimate retained stage; it does not exclude writers.
+                std::fs::write(&during_source, b"replacement").unwrap();
+                count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                let errors = [
+                    std::fs::remove_file(&during_source).unwrap_err(),
+                    std::fs::rename(&during_source, &during_renamed).unwrap_err(),
+                ];
+                for error in errors {
+                    assert!(
+                        matches!(error.raw_os_error(), Some(5 | 32)),
+                        "unexpected mutation error: {error}"
+                    );
+                    count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                }
+            })
+            .join()
+            .unwrap();
+        });
+        let error = root.observe_file(Path::new("source.bin"), 32).unwrap_err();
+        assert_eq!(attempts.load(std::sync::atomic::Ordering::SeqCst), 3);
+        assert_eq!(error.code, ErrorCode::StaleReference);
+        assert!(!renamed.exists());
+        assert_eq!(std::fs::read(&source).unwrap(), b"replacement");
+        // The observer's no-delete sharing ends when the failed observation
+        // releases its handle. Metadata checks are not an immutable file seal.
+        std::fs::rename(&source, &renamed).unwrap();
+        std::fs::remove_file(&renamed).unwrap();
+    }
+
+    #[test]
+    fn retained_stage_is_observable_from_readonly_root_without_releasing_custody() {
+        let directory = tempfile::tempdir().unwrap();
+        let output = Root::open(directory.path(), false, true).unwrap();
+        let media = Root::open(directory.path(), true, false).unwrap();
+        let stage = output
+            .stage_new_retained(Path::new("owned.bin"), b"owned")
+            .unwrap();
+        let owned = stage.observe(32).unwrap();
+        drop(output);
+        let source = directory.path().join("owned.bin");
+        let renamed = directory.path().join("renamed.bin");
+        let attempts = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let count = attempts.clone();
+        let during_source = source.clone();
+        let during_renamed = renamed.clone();
+        let _hook = ObservationHookGuard::set(move || {
+            std::thread::spawn(move || {
+                let errors = [
+                    std::fs::write(&during_source, b"replacement").unwrap_err(),
+                    std::fs::remove_file(&during_source).unwrap_err(),
+                    std::fs::rename(&during_source, &during_renamed).unwrap_err(),
+                ];
+                for error in errors {
+                    assert!(
+                        matches!(error.raw_os_error(), Some(5 | 32)),
+                        "unexpected mutation error: {error}"
+                    );
+                    count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                }
+            })
+            .join()
+            .unwrap();
+        });
+        // This independently opened read-only root must read the same actual
+        // file while the stage retains its original WRITE-access file object.
+        let observed = media.observe_file(Path::new("owned.bin"), 32).unwrap();
+        assert_eq!(attempts.load(std::sync::atomic::Ordering::SeqCst), 3);
+        assert_eq!(observed.bytes, owned.bytes);
+        assert_eq!(observed.instance_identity, owned.instance_identity);
+        assert!(stage.verify_entry().is_ok());
+        assert_eq!(stage.observe(32).unwrap().bytes, b"owned");
+        assert!(std::fs::write(&source, b"replacement").is_err());
+        assert!(std::fs::remove_file(&source).is_err());
+        assert!(std::fs::rename(&source, &renamed).is_err());
+        drop(stage);
+        // Only releasing the original stage permits these mutations. No
+        // handle reopening or custody downgrade was used for observation.
+        std::fs::write(&source, b"replacement").unwrap();
+        std::fs::rename(&source, &renamed).unwrap();
+        std::fs::remove_file(&renamed).unwrap();
     }
 }

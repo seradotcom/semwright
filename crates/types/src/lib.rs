@@ -283,6 +283,26 @@ pub struct Reference {
     pub target: NativeTarget,
     pub expires: Instant,
 }
+/// Typed requirement captured by DriverHost and stored in the existing mount admission.
+/// A digest identifies an immutable capture; it never grants execution on its own.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProviderMountProfileRequirement {
+    capsule_sha256: [u8; 32],
+}
+impl ProviderMountProfileRequirement {
+    pub fn voice_alignment_v1_from_host(capsule_sha256: [u8; 32]) -> Self {
+        Self { capsule_sha256 }
+    }
+    pub fn contract_id(&self) -> &'static str {
+        "voice-alignment"
+    }
+    pub fn version(&self) -> u32 {
+        1
+    }
+    pub fn capsule_sha256(&self) -> &[u8; 32] {
+        &self.capsule_sha256
+    }
+}
 /// Broker-held admission record; never deserialized from a provider or caller.
 #[derive(Debug, Clone)]
 pub struct ProviderMountReference {
@@ -291,6 +311,7 @@ pub struct ProviderMountReference {
     pub connection: String,
     pub generation: u64,
     pub mount: String,
+    pub profile_requirement: Option<ProviderMountProfileRequirement>,
     pub expires: Instant,
     // Expiry is not revocation; later removal remains visible to an in-flight holder.
     revoked: std::sync::Arc<std::sync::atomic::AtomicBool>,
@@ -306,6 +327,7 @@ impl ProviderMountReference {
             && self.connection == other.connection
             && self.generation == other.generation
             && self.mount == other.mount
+            && self.profile_requirement == other.profile_requirement
             && self.expires == other.expires
     }
     fn has_holder(&self) -> bool {
@@ -410,6 +432,19 @@ impl RefStore {
         generation: u64,
         mount: &str,
     ) -> Result<String> {
+        self.insert_provider_mount_with_profile(
+            session, backend, connection, generation, mount, None,
+        )
+    }
+    pub fn insert_provider_mount_with_profile(
+        &mut self,
+        session: &str,
+        backend: &str,
+        connection: &str,
+        generation: u64,
+        mount: &str,
+        profile_requirement: Option<ProviderMountProfileRequirement>,
+    ) -> Result<String> {
         let now = self.prepare_insert()?;
         let id = format!("provider-mount:{}", Uuid::new_v4().simple());
         self.entries.insert(
@@ -420,6 +455,7 @@ impl RefStore {
                 connection: connection.into(),
                 generation,
                 mount: mount.into(),
+                profile_requirement,
                 expires: now + self.ttl,
                 revoked: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
             }),
@@ -1169,5 +1205,99 @@ mod tests {
             let e = Error::invalid(msg); let bytes = serde_json::to_vec(&e).unwrap();
             let back: Error = serde_json::from_slice(&bytes).unwrap(); prop_assert_eq!(e.message, back.message);
         }
+    }
+}
+
+#[cfg(test)]
+mod provider_profile_reference_tests {
+    use super::*;
+    #[test]
+    fn plain_lookup_cannot_downgrade_profile_reference() {
+        let mut store = RefStore::new(Duration::from_secs(30), 8);
+        let required = ProviderMountProfileRequirement::voice_alignment_v1_from_host([7; 32]);
+        let id = store
+            .insert_provider_mount_with_profile(
+                "s",
+                "p",
+                "c",
+                4,
+                "workspace",
+                Some(required.clone()),
+            )
+            .unwrap();
+        let admitted = store.get_provider_mount(&id, "s").unwrap();
+        assert_eq!(admitted.profile_requirement.as_ref(), Some(&required));
+        let mut stripped = admitted.clone();
+        stripped.profile_requirement = None;
+        assert!(!admitted.same_admission(&stripped));
+        let actual = store.get_provider_mount(&id, "s").unwrap();
+        assert!(actual.same_admission(&admitted));
+        assert!(!actual.same_admission(&stripped));
+        assert_eq!(actual.profile_requirement.as_ref(), Some(&required));
+    }
+    #[test]
+    fn substituting_capsule_digest_changes_admission() {
+        let mut store = RefStore::new(Duration::from_secs(30), 8);
+        let id = store
+            .insert_provider_mount_with_profile(
+                "s",
+                "p",
+                "c",
+                4,
+                "workspace",
+                Some(ProviderMountProfileRequirement::voice_alignment_v1_from_host([7; 32])),
+            )
+            .unwrap();
+        let admitted = store.get_provider_mount(&id, "s").unwrap();
+        let mut changed = admitted.clone();
+        changed.profile_requirement =
+            Some(ProviderMountProfileRequirement::voice_alignment_v1_from_host([8; 32]));
+        assert!(!admitted.same_admission(&changed));
+    }
+    #[test]
+    fn ordinary_reference_does_not_acquire_a_profile_requirement() {
+        let mut store = RefStore::new(Duration::from_secs(30), 8);
+        let id = store
+            .insert_provider_mount("s", "p", "c", 4, "workspace")
+            .unwrap();
+        let admitted = store.get_provider_mount(&id, "s").unwrap();
+        assert!(admitted.profile_requirement.is_none());
+        assert!(admitted.same_admission(&admitted.clone()));
+    }
+    #[test]
+    fn profile_reference_preserves_expiry_capacity_and_revocation() {
+        let mut store = RefStore::new(Duration::ZERO, 1);
+        let requirement = ProviderMountProfileRequirement::voice_alignment_v1_from_host([9; 32]);
+        let id = store
+            .insert_provider_mount_with_profile(
+                "s",
+                "p",
+                "c",
+                4,
+                "workspace",
+                Some(requirement.clone()),
+            )
+            .unwrap();
+        let held = store.get_provider_mount_for_completion(&id, "s").unwrap();
+        assert_eq!(
+            store.get_provider_mount(&id, "s").unwrap_err().code,
+            ErrorCode::StaleReference
+        );
+        assert_eq!(held.profile_requirement.as_ref(), Some(&requirement));
+        assert_eq!(
+            store
+                .insert_provider_mount("s", "p", "c", 4, "workspace")
+                .unwrap_err()
+                .code,
+            ErrorCode::ResourceExhausted
+        );
+        assert!(
+            store
+                .get_provider_mount_for_completion(&id, "other")
+                .is_err()
+        );
+        store.revoke_session("s");
+        assert!(held.is_revoked());
+        assert!(store.get_provider_mount_for_completion(&id, "s").is_err());
     }
 }

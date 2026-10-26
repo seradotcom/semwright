@@ -17,6 +17,22 @@ struct BoundRequest {
     binding_ref: String,
     request: ExecuteRequest,
 }
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ProfileObservationRequest {
+    version: u32,
+    name: String,
+}
+fn requested_voice_profile(args: &Value) -> Result<bool> {
+    let Some(value) = args.get("profile") else {
+        return Ok(false);
+    };
+    let profile: ProfileObservationRequest = serde_json::from_value(value.clone())?;
+    if profile.version != 1 || profile.name != "voice-alignment" {
+        return Err(Error::invalid("Unsupported provider observation profile"));
+    }
+    Ok(true)
+}
 impl Broker {
     pub(super) fn validate_owner_workspace_bindings(&self, bindings: &MountBindings) -> Result<()> {
         let mut names = std::collections::BTreeSet::new();
@@ -109,26 +125,49 @@ impl Broker {
         Ok(binding)
     }
     pub(super) fn observe_provider_mount(&self, session: &str, args: &Value) -> Result<Value> {
+        let requested_profile = requested_voice_profile(args)?;
         let route = arg_str(args, "provider")?;
         let root = arg_str(args, "root")?;
         let lease = self.provider(route).ok_or_else(|| {
             Error::new(ErrorCode::NotFound, "Requested provider is not connected")
         })?;
         let binding = self.mount_binding(&lease, root)?;
+        // Resolve facts before allocating the ordinary bounded reference slot.
+        let (profile_requirement, profile_view) = if requested_profile {
+            let capture = lease.profile_observation.as_ref().ok_or_else(|| {
+                Error::new(
+                    ErrorCode::Unsupported,
+                    "This provider has no retained Host profile observation",
+                )
+            })?;
+            let view = capture.observe_voice_alignment(&lease.identity, root)?;
+            (Some(capture.requirement()), Some(view))
+        } else {
+            (None, None)
+        };
         let reference_id = self
             .references
             .lock()
             .map_err(|_| Error::new(ErrorCode::Internal, "Reference store lock poisoned"))?
-            .insert_provider_mount(session, route, &lease.connection, lease.generation, root)?;
+            .insert_provider_mount_with_profile(
+                session,
+                route,
+                &lease.connection,
+                lease.generation,
+                root,
+                profile_requirement,
+            )?;
         let bound = self.resolve_bound_provider(session, &reference_id)?;
-        self.check_bound_provider(session, &bound, Some(&lease))?;
+        // Factual observation may report unavailable execution. All dispatch callers
+        // use check_bound_provider, which also enforces the stored requirement.
+        self.check_bound_provider_observation(session, &bound, Some(&lease))?;
         let reference = self
             .references
             .lock()
             .map_err(|_| Error::new(ErrorCode::Internal, "Reference store lock poisoned"))?
             .get_provider_mount(&reference_id, session)?;
         let mount = binding.mount();
-        Ok(json!({
+        let mut result = json!({
             "binding_ref": reference_id,
             "provider": lease.identity.id,
             "provider_generation": lease.generation,
@@ -137,7 +176,36 @@ impl Broker {
                 "read":true,"write":!mount.read_only,"execute":mount.execute},
             "admission_ttl_ms": reference.expires.saturating_duration_since(Instant::now())
                 .as_millis().min(u64::MAX as u128) as u64,
-        }))
+        });
+        if let Some(profile) = profile_view {
+            result
+                .as_object_mut()
+                .expect("mount observation is an object")
+                .insert("profile".into(), profile);
+        }
+        Ok(result)
+    }
+    fn check_bound_profile(
+        lease: &Arc<ProviderLease>,
+        reference: &ProviderMountReference,
+    ) -> Result<()> {
+        if let Some(requirement) = &reference.profile_requirement {
+            let capture = lease.profile_observation.as_ref().ok_or_else(|| {
+                Error::new(
+                    ErrorCode::StaleReference,
+                    "Bound provider lost its retained profile capture",
+                )
+            })?;
+            capture
+                .check_profile_admission(&lease.identity, &reference.mount, requirement)
+                .map_err(|_| {
+                    Error::new(
+                        ErrorCode::StaleReference,
+                        "Bound profile capture no longer matches its admission",
+                    )
+                })?;
+        }
+        Ok(())
     }
     fn resolve_bound_provider(&self, session: &str, reference_id: &str) -> Result<BoundProvider> {
         // Drop the store lock before consulting the catalog or validating native root identity.
@@ -156,6 +224,7 @@ impl Broker {
             ));
         }
         self.mount_binding(&lease, &reference.mount)?;
+        Self::check_bound_profile(&lease, &reference)?;
         Ok(BoundProvider {
             reference_id: reference_id.into(),
             lease,
@@ -174,6 +243,30 @@ impl Broker {
     }
 
     pub(super) fn check_bound_provider(
+        &self,
+        session: &str,
+        expected: &BoundProvider,
+        selected: Option<&Arc<ProviderLease>>,
+    ) -> Result<()> {
+        self.check_bound_provider_observation(session, expected, selected)?;
+        if expected.admission.profile_requirement.is_some() {
+            // The immutable lease already retains the exact capsule Arc. The caller
+            // cannot omit or downgrade the requirement in providers.execute_bound.
+            expected
+                .lease
+                .profile_observation
+                .as_ref()
+                .ok_or_else(|| {
+                    Error::new(
+                        ErrorCode::StaleReference,
+                        "Bound provider lost its retained profile capture",
+                    )
+                })?
+                .require_execution_readiness()?;
+        }
+        Ok(())
+    }
+    fn check_bound_provider_observation(
         &self,
         session: &str,
         expected: &BoundProvider,
@@ -226,6 +319,9 @@ impl Broker {
             ));
         }
         self.mount_binding(&current, &record.mount)?;
+        // Arc::ptr_eq above retains the same immutable lease and therefore the
+        // same Host capsule Arc; independently revalidate its typed requirement.
+        Self::check_bound_profile(&current, &record)?;
         if expected.admission.is_revoked() {
             return Err(Error::new(
                 ErrorCode::StaleReference,

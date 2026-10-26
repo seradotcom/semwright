@@ -1,6 +1,7 @@
 //! Explicit owner diagnostic for the existing daemon-owned DriverProvider.
 //! Feature and CLI opt-in are required. This is custody, never execution authority.
 use clap::Args;
+use semwright_daemon::config::RetainedDriverManifest;
 use semwright_driver_host::{
     HostStdinCapture, HostStdinCustody, HostStdinCustodyLosses, HostStdinCustodyReceiver,
     HostStdinWriteTerminal,
@@ -73,17 +74,34 @@ fn setup_error(error: Error) -> Error {
     sanitized
 }
 
-struct Plan {
-    manifests: Vec<(PathBuf, Manifest)>,
+trait PlannedManifest {
+    fn parsed_manifest(&self) -> &Manifest;
+}
+impl PlannedManifest for RetainedDriverManifest {
+    fn parsed_manifest(&self) -> &Manifest {
+        self.parsed()
+    }
+}
+// Parsed-only policy fixtures cannot enter Bootstrap's retained-source Plan.
+#[cfg(test)]
+impl PlannedManifest for Manifest {
+    fn parsed_manifest(&self) -> &Manifest {
+        self
+    }
+}
+
+struct Plan<M = RetainedDriverManifest> {
+    manifests: Vec<(PathBuf, M)>,
     selected: ProviderIdentity,
     driver_sha256: String,
     tool: String,
     tool_sha256: String,
 }
 
-impl Plan {
-    fn select(manifests: Vec<(PathBuf, Manifest)>, request: &Request) -> Result<Self> {
-        let mut matches = manifests.iter().filter_map(|(_, manifest)| {
+impl<M: PlannedManifest> Plan<M> {
+    fn select(manifests: Vec<(PathBuf, M)>, request: &Request) -> Result<Self> {
+        let mut matches = manifests.iter().filter_map(|(_, retained)| {
+            let manifest = retained.parsed_manifest();
             manifest
                 .identity()
                 .ok()
@@ -255,7 +273,7 @@ impl Bootstrap {
         let manifests = paths
             .iter()
             .map(|path| {
-                semwright_daemon::config::driver_manifest(path)
+                semwright_daemon::config::retained_driver_manifest(path)
                     .map(|manifest| (path.clone(), manifest))
             })
             .collect::<Result<Vec<_>>>()?;
@@ -323,7 +341,7 @@ impl Bootstrap {
         &self.directory
     }
 
-    pub(super) fn manifest(&self, path: &Path) -> Result<Manifest> {
+    pub(super) fn retained_manifest(&self, path: &Path) -> Result<RetainedDriverManifest> {
         self.plan
             .manifests
             .iter()

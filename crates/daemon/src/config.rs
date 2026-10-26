@@ -15,6 +15,7 @@ use std::{
     collections::BTreeMap,
     io::Read,
     path::{Path, PathBuf},
+    sync::Arc,
 };
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -131,10 +132,32 @@ pub fn load(path: Option<&Path>) -> Result<Config> {
         None => Ok(Config::default()),
     }
 }
-pub fn driver_manifest(path: &Path) -> Result<DriverManifest> {
-    let manifest: DriverManifest = serde_json::from_str(&owner_text(path, 1_048_576)?)?;
+/// Parsed manifest and exact UTF-8 bytes from one bounded owner-controlled read.
+/// This is source custody, not a Host profile observation or execution authority.
+#[derive(Clone)]
+pub struct RetainedDriverManifest {
+    manifest: DriverManifest,
+    original: Arc<[u8]>,
+}
+impl RetainedDriverManifest {
+    pub fn parsed(&self) -> &DriverManifest {
+        &self.manifest
+    }
+    pub fn into_parts(self) -> (DriverManifest, Arc<[u8]>) {
+        (self.manifest, self.original)
+    }
+}
+pub fn retained_driver_manifest(path: &Path) -> Result<RetainedDriverManifest> {
+    let original = owner_text(path, 1_048_576)?;
+    let manifest: DriverManifest = serde_json::from_str(&original)?;
     manifest.validate()?;
-    Ok(manifest)
+    Ok(RetainedDriverManifest {
+        manifest,
+        original: Arc::from(original.into_bytes()),
+    })
+}
+pub fn driver_manifest(path: &Path) -> Result<DriverManifest> {
+    retained_driver_manifest(path).map(|retained| retained.manifest)
 }
 pub fn manifest(path: &Path) -> Result<Manifest> {
     let manifest: Manifest = serde_json::from_str(&owner_text(path, 1_048_576)?)?;

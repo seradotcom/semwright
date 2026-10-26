@@ -1,25 +1,42 @@
 use super::*;
 
-fn fixture_manifest() -> Manifest {
-    let executable = if cfg!(windows) {
-        r"C:\semwright\driver.exe"
+fn fixture_manifest_source() -> Vec<u8> {
+    let executable_json = if cfg!(windows) {
+        r#""C:\\semwright\\driver.exe""#
     } else {
-        "/tmp/semwright-fixture-driver"
+        r#""/tmp/semwright-fixture-driver""#
     };
-    let manifest: Manifest = serde_json::from_value(json!({
-        "manifest_version": 1,
-        "protocol": 7,
-        "id": "fixture",
-        "version": "1.0",
-        "publisher": "semwright-tests",
-        "executable": executable,
-        "sha256": "a".repeat(64),
-        "application": {"desktop_id": "org.example.Fixture"},
-        "transport": "stdio_v1",
-        "tools": [{"root":"node","name":"node","sha256":"b".repeat(64),"mounts":[]}],
-        "interfaces": {"host_tools":true}
-    }))
-    .unwrap();
+    format!(
+        r#"
+{{
+    "manifest_version": 1,
+    "protocol": 7,
+    "id": "fixture",
+    "version": "1.0",
+    "publisher": "semwright-tests",
+    "executable": {executable_json},
+    "sha256": "{driver_sha256}",
+    "application": {{ "desktop_id": "org.example.Fixture" }},
+    "transport": "stdio_v1",
+    "tools": [
+        {{
+            "root": "node",
+            "name": "node",
+            "sha256": "{tool_sha256}",
+            "mounts": []
+        }}
+    ],
+    "interfaces": {{ "host_tools": true }}
+}}
+"#,
+        driver_sha256 = "a".repeat(64),
+        tool_sha256 = "b".repeat(64),
+    )
+    .into_bytes()
+}
+
+fn fixture_manifest() -> Manifest {
+    let manifest: Manifest = serde_json::from_slice(&fixture_manifest_source()).unwrap();
     manifest.validate().unwrap();
     manifest
 }
@@ -253,8 +270,10 @@ async fn retained_manifest_and_drop_do_not_fabricate_native_terminals() {
     use std::os::unix::fs::PermissionsExt;
     let (parent, directory) = private_fixture();
     let manifest_path = parent.path().join("driver.json");
-    let original = fixture_manifest();
-    std::fs::write(&manifest_path, serde_json::to_vec(&original).unwrap()).unwrap();
+    let original_bytes = fixture_manifest_source();
+    let original: Manifest = serde_json::from_slice(&original_bytes).unwrap();
+    original.validate().unwrap();
+    std::fs::write(&manifest_path, &original_bytes).unwrap();
     std::fs::set_permissions(&manifest_path, std::fs::Permissions::from_mode(0o600)).unwrap();
     let options = Options {
         host_stdin_custody_dir: Some(directory.clone()),
@@ -264,18 +283,36 @@ async fn retained_manifest_and_drop_do_not_fabricate_native_terminals() {
     let mut bootstrap = Bootstrap::prepare(&options, false, std::slice::from_ref(&manifest_path))
         .unwrap()
         .unwrap();
-    let mut changed = original.clone();
-    changed.version = "2.0".into();
-    changed.sha256 = "c".repeat(64);
-    std::fs::write(&manifest_path, serde_json::to_vec(&changed).unwrap()).unwrap();
-    let retained = bootstrap.manifest(&manifest_path).unwrap();
-    assert_eq!(retained.version, original.version);
-    assert_eq!(retained.sha256, original.sha256);
-    assert!(bootstrap.sink_for(&retained).is_some());
+    let (_, cached_original) = bootstrap
+        .retained_manifest(&manifest_path)
+        .unwrap()
+        .into_parts();
+    assert_eq!(cached_original.as_ref(), original_bytes.as_slice());
+    let changed_bytes = String::from_utf8(original_bytes.clone())
+        .unwrap()
+        .replacen("\"version\": \"1.0\"", "\"version\": \"2.0\"", 1)
+        .replacen(&"a".repeat(64), &"c".repeat(64), 1)
+        .into_bytes();
+    let changed: Manifest = serde_json::from_slice(&changed_bytes).unwrap();
+    changed.validate().unwrap();
+    assert_eq!(changed.version, "2.0");
+    assert_eq!(changed.sha256, "c".repeat(64));
+    std::fs::write(&manifest_path, &changed_bytes).unwrap();
+    let retained = bootstrap.retained_manifest(&manifest_path).unwrap();
+    assert_eq!(retained.parsed().version, original.version);
+    assert_eq!(retained.parsed().sha256, original.sha256);
+    assert!(bootstrap.sink_for(retained.parsed()).is_some());
     assert!(bootstrap.sink_for(&changed).is_none());
+    let retained_clone = retained.clone();
+    let (_, retained_bytes) = retained.into_parts();
+    let (_, cloned_bytes) = retained_clone.into_parts();
+    assert_eq!(retained_bytes.as_ref(), original_bytes.as_slice());
+    assert_ne!(retained_bytes.as_ref(), changed_bytes.as_slice());
+    assert!(Arc::ptr_eq(&cached_original, &retained_bytes));
+    assert!(Arc::ptr_eq(&retained_bytes, &cloned_bytes));
     assert!(
         bootstrap
-            .manifest(&parent.path().join("unselected.json"))
+            .retained_manifest(&parent.path().join("unselected.json"))
             .is_err()
     );
     let finished = bootstrap.worker.take().unwrap();

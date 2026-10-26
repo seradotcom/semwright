@@ -31,6 +31,7 @@ pub(super) struct ProviderLease {
     pub binding_epoch: CancellationToken,
     pub operation_gate: Arc<crate::operation_permits::OperationGate>,
     pub workspace_mounts: Result<MountBindings>,
+    pub profile_observation: Option<Arc<semwright_driver_host::HostProfileObservation>>,
 }
 impl Deref for ProviderLease {
     type Target = dyn Provider;
@@ -105,6 +106,7 @@ impl ProviderCatalog {
                     binding_epoch: epoch.child_token(),
                     operation_gate: Arc::new(crate::operation_permits::OperationGate::default()),
                     epoch,
+                    profile_observation: None,
                     workspace_mounts: Err(Error::new(
                         ErrorCode::Unsupported,
                         "This provider was not registered by DriverHost",
@@ -233,12 +235,23 @@ impl Broker {
         provider: Arc<semwright_driver_host::DriverProvider>,
     ) -> Result<u64> {
         let bindings = provider.workspace_mount_bindings();
-        self.mount_provider_with_workspace(provider, bindings).await
+        let profile = provider.profile_observation();
+        self.mount_provider_with_workspace_and_profile(provider, bindings, profile)
+            .await
     }
     pub(super) async fn mount_provider_with_workspace(
         self: &Arc<Self>,
         provider: Arc<dyn Provider>,
         workspace_mounts: Result<MountBindings>,
+    ) -> Result<u64> {
+        self.mount_provider_with_workspace_and_profile(provider, workspace_mounts, None)
+            .await
+    }
+    async fn mount_provider_with_workspace_and_profile(
+        self: &Arc<Self>,
+        provider: Arc<dyn Provider>,
+        workspace_mounts: Result<MountBindings>,
+        profile_observation: Option<Arc<semwright_driver_host::HostProfileObservation>>,
     ) -> Result<u64> {
         let workspace_mounts = workspace_mounts.and_then(|bindings| {
             self.validate_owner_workspace_bindings(&bindings)
@@ -306,6 +319,7 @@ impl Broker {
             epoch,
             lifetime,
             workspace_mounts,
+            profile_observation,
         });
         if !lease.active() {
             return Err(Error::unavailable(
@@ -489,6 +503,7 @@ impl Broker {
             operation_gate: Arc::new(crate::operation_permits::OperationGate::default()),
             epoch,
             workspace_mounts: lease.workspace_mounts.clone(),
+            profile_observation: lease.profile_observation.clone(),
         });
         if !updated.active() {
             return Err(Error::unavailable("Provider is no longer connected"));
@@ -655,6 +670,7 @@ impl Broker {
                 operation_gate: Arc::new(crate::operation_permits::OperationGate::default()),
                 epoch,
                 workspace_mounts: previous.workspace_mounts.clone(),
+                profile_observation: previous.profile_observation.clone(),
             });
             if !updated.active() {
                 return Err(Error::unavailable("Provider is no longer connected"));

@@ -20165,6 +20165,22 @@
           "type": "string",
           "minLength": 1,
           "maxLength": 128
+        },
+        "profile": {
+          "type": "object",
+          "properties": {
+            "version": {
+              "const": 1
+            },
+            "name": {
+              "const": "voice-alignment"
+            }
+          },
+          "required": [
+            "version",
+            "name"
+          ],
+          "additionalProperties": false
         }
       },
       "required": [
@@ -20230,6 +20246,152 @@
         "admission_ttl_ms": {
           "type": "integer",
           "minimum": 0
+        },
+        "profile": {
+          "type": "object",
+          "properties": {
+            "version": {
+              "const": 1
+            },
+            "name": {
+              "const": "voice-alignment"
+            },
+            "state": {
+              "const": "unavailable"
+            },
+            "capsule_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "scope": {
+              "type": "object",
+              "properties": {
+                "root": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                }
+              },
+              "required": [
+                "root"
+              ],
+              "additionalProperties": false
+            },
+            "manifest": {
+              "type": "object",
+              "properties": {
+                "state": {
+                  "const": "observed"
+                },
+                "basis": {
+                  "const": "retained-input"
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "bytes": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 1048576
+                }
+              },
+              "required": [
+                "state",
+                "basis",
+                "sha256",
+                "bytes"
+              ],
+              "additionalProperties": false
+            },
+            "driver": {
+              "type": "object",
+              "properties": {
+                "state": {
+                  "const": "observed"
+                },
+                "basis": {
+                  "const": "verified-input"
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                },
+                "bytes": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "state",
+                "basis",
+                "sha256",
+                "bytes"
+              ],
+              "additionalProperties": false
+            },
+            "launcher": {
+              "type": "object",
+              "properties": {
+                "state": {
+                  "const": "observed"
+                },
+                "basis": {
+                  "const": "verified-input"
+                },
+                "name": {
+                  "const": "audio-alignment-launcher"
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              },
+              "required": [
+                "state",
+                "basis",
+                "name",
+                "sha256"
+              ],
+              "additionalProperties": false
+            },
+            "execution": {
+              "type": "object",
+              "properties": {
+                "state": {
+                  "const": "not-observed"
+                },
+                "admission": {
+                  "const": "blocked"
+                }
+              },
+              "required": [
+                "state",
+                "admission"
+              ],
+              "additionalProperties": false
+            },
+            "unavailable": {
+              "const": [
+                "runtime-resources",
+                "model-resources",
+                "tool-child-linkage"
+              ]
+            }
+          },
+          "required": [
+            "version",
+            "name",
+            "state",
+            "capsule_sha256",
+            "scope",
+            "manifest",
+            "driver",
+            "launcher",
+            "execution",
+            "unavailable"
+          ],
+          "additionalProperties": false
         }
       },
       "required": [
