@@ -53,6 +53,17 @@ pub struct ProviderInterfaces {
     /// Provider can emit broker-internal NativeTarget markers and validate them before reuse.
     pub native_refs: bool,
 }
+/// Issued only by the canonical Core for an already admitted invocation.
+/// Host retains the lease until matched release or confirmed owned-process exit.
+pub trait OwnerOperationLease: Send + Sync {
+    fn check_current(&self) -> Result<()>;
+    fn closing(&self) -> CancellationToken;
+    /// Immutable identity from the admitted Core binding; never a path or ACL.
+    fn logical_mount(&self) -> &str;
+}
+pub trait OwnerOperationAuthority: Send + Sync {
+    fn acquire(&self) -> Result<Box<dyn OwnerOperationLease>>;
+}
 #[async_trait]
 pub trait Provider: Send + Sync {
     fn identity(&self) -> &ProviderIdentity;
@@ -94,6 +105,18 @@ pub trait Provider: Send + Sync {
         descriptor: &CommandDescriptor,
         args: &Value,
     ) -> Result<Value>;
+    fn supports_owner_operation_permits(&self) -> bool {
+        false
+    }
+    async fn execute_with_owner_scope(
+        &self,
+        context: &Context,
+        descriptor: &CommandDescriptor,
+        args: &Value,
+        _scope: Option<Arc<dyn OwnerOperationAuthority>>,
+    ) -> Result<Value> {
+        self.execute(context, descriptor, args).await
+    }
     fn emits_native_refs(&self) -> bool {
         self.interfaces().native_refs
     }

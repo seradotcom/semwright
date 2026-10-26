@@ -721,3 +721,590 @@ async fn ordinary_unbound_execution_still_records_one_original_step() {
         trace_id
     );
 }
+
+// Real Broker/Core issuer with test-only Provider/capsule, no physical Host/SQLite claim.
+mod owner_operation_issuer {
+    use super::*;
+    use semwright_backend_api::provider::OwnerOperationAuthority;
+    use std::sync::Mutex as StdMutex;
+    struct PermitProvider {
+        identity: ProviderIdentity,
+        observe: CommandDescriptor,
+        apply: CommandDescriptor,
+        target: NativeTarget,
+        protocol: u32,
+        ordinary_calls: AtomicUsize,
+        owner_dispatches: AtomicUsize,
+        guarded_actions: AtomicUsize,
+        before_acquire: AtomicBool,
+        after_acquire: AtomicBool,
+        dispatched: Notify,
+        acquired: Notify,
+        proceed: Notify,
+        last_error: StdMutex<Option<Error>>,
+        last_mount: StdMutex<Option<String>>,
+        pause_shutdown: AtomicBool,
+        shutdown_entered: Notify,
+        shutdown_proceed: Notify,
+    }
+    impl PermitProvider {
+        async fn pause(&self, context: &Context) -> Result<()> {
+            tokio::select! {
+                biased;
+                _ = context.cancellation.cancelled() => Err(Error::new(
+                    ErrorCode::Cancelled, "issuer fixture cancelled")),
+                _ = self.proceed.notified() => Ok(()),
+                _ = tokio::time::sleep(Duration::from_secs(5)) => Err(Error::new(
+                    ErrorCode::Timeout, "issuer fixture control expired")),
+            }
+        }
+        fn rejected(&self, error: Error) -> Error {
+            *self.last_error.lock().unwrap() = Some(error.clone());
+            error
+        }
+    }
+    #[async_trait]
+    impl Provider for PermitProvider {
+        fn identity(&self) -> &ProviderIdentity {
+            &self.identity
+        }
+        fn supports(&self, name: &str) -> bool {
+            name == self.observe.name || name == self.apply.name
+        }
+        async fn capabilities(&self) -> Result<Vec<ProvidedCapability>> {
+            Ok(vec![self.observe.clone().into(), self.apply.clone().into()])
+        }
+        async fn probe(&self) -> Vec<Feature> {
+            [&self.observe, &self.apply]
+                .iter()
+                .map(|descriptor| {
+                    feature(&self.identity.id, &descriptor.name, true, "test", "test")
+                })
+                .collect()
+        }
+        fn interfaces(&self) -> ProviderInterfaces {
+            ProviderInterfaces {
+                cooperative_cancellation: true,
+                native_refs: true,
+                ..Default::default()
+            }
+        }
+        fn supports_owner_operation_permits(&self) -> bool {
+            self.protocol >= 9
+        }
+        async fn shutdown(&self) -> Result<()> {
+            if self.pause_shutdown.load(Ordering::SeqCst) {
+                self.shutdown_entered.notify_one();
+                tokio::time::timeout(Duration::from_secs(5), self.shutdown_proceed.notified())
+                    .await
+                    .map_err(|_| {
+                        Error::new(
+                            ErrorCode::Timeout,
+                            "issuer fixture shutdown control expired",
+                        )
+                    })?;
+            }
+            Ok(())
+        }
+        async fn validate(&self, target: &NativeTarget) -> Result<()> {
+            let expected = &self.target;
+            if target.kind == expected.kind
+                && target.identity == expected.identity
+                && target.revision == expected.revision
+                && target.fingerprint == expected.fingerprint
+                && target.app == expected.app
+            {
+                Ok(())
+            } else {
+                Err(Error::new(
+                    ErrorCode::StaleReference,
+                    "fixture observation changed",
+                ))
+            }
+        }
+        async fn execute(
+            &self,
+            _: &Context,
+            descriptor: &CommandDescriptor,
+            _: &Value,
+        ) -> Result<Value> {
+            if descriptor.name == self.observe.name {
+                return Ok(json!({"ref":{"$ref":self.target}}));
+            }
+            self.ordinary_calls.fetch_add(1, Ordering::SeqCst);
+            Ok(json!({"done":true,"owner_permit":false}))
+        }
+        async fn execute_with_owner_scope(
+            &self,
+            context: &Context,
+            descriptor: &CommandDescriptor,
+            args: &Value,
+            authority: Option<Arc<dyn OwnerOperationAuthority>>,
+        ) -> Result<Value> {
+            let Some(authority) = authority else {
+                return self.execute(context, descriptor, args).await;
+            };
+            if descriptor.name != self.apply.name {
+                return Err(Error::new(
+                    ErrorCode::Internal,
+                    "Read-only observation unexpectedly received owner authority",
+                ));
+            }
+            self.owner_dispatches.fetch_add(1, Ordering::SeqCst);
+            self.dispatched.notify_one();
+            if self.before_acquire.load(Ordering::SeqCst) {
+                self.pause(context).await?;
+            }
+            let lease = authority.acquire().map_err(|error| self.rejected(error))?;
+            *self.last_mount.lock().unwrap() = Some(lease.logical_mount().to_owned());
+            if lease.logical_mount() != "motionwright-data" {
+                return Err(self.rejected(Error::new(
+                    ErrorCode::PermissionDenied,
+                    "Owner permit targets a different logical workspace",
+                )));
+            }
+            lease
+                .check_current()
+                .map_err(|error| self.rejected(error))?;
+            self.acquired.notify_one();
+            if self.after_acquire.load(Ordering::SeqCst) {
+                self.pause(context).await?;
+            }
+            lease
+                .check_current()
+                .map_err(|error| self.rejected(error))?;
+            self.guarded_actions.fetch_add(1, Ordering::SeqCst);
+            drop(lease);
+            Ok(json!({"done":true,"owner_permit":true}))
+        }
+    }
+    struct PermitFixture {
+        broker: Arc<Broker>,
+        provider: Arc<PermitProvider>,
+        root: Arc<TestRoot>,
+        _dir: tempfile::TempDir,
+    }
+    impl PermitFixture {
+        async fn new(protocol: u32) -> Self {
+            let dir = tempfile::tempdir().unwrap();
+            let identity =
+                ProviderIdentity::external(SourceKind::Driver, "owner-permit-test", "1").unwrap();
+            let observe = CommandDescriptor {
+                name: format!("{}observe", identity.namespace),
+                version: "1".into(),
+                description: "Test native observation".into(),
+                input_schema: json!({"type":"object","properties":{},"additionalProperties":false}),
+                output_schema: json!({"type":"object","properties":{"ref":{"type":"string"}},
+                    "required":["ref"],"additionalProperties":false}),
+                requires: vec![identity.id.clone()],
+                risk: Risk::ReadOnly,
+                idempotency: Idempotency::ReadOnly,
+                timeout_ms: 10000,
+                dry_run: false,
+                interactive_consent: false,
+                backends: vec![identity.id.clone()],
+            };
+            let apply = CommandDescriptor {
+                name: format!("{}apply", identity.namespace),
+                version: "1".into(),
+                description: "Test owner-guarded action".into(),
+                input_schema: json!({"type":"object","properties":{"ref":{"type":"string"}},
+                    "required":["ref"],"additionalProperties":false}),
+                output_schema: json!({"type":"object","properties":{
+                    "done":{"type":"boolean"},"owner_permit":{"type":"boolean"}},
+                    "required":["done","owner_permit"],"additionalProperties":false}),
+                requires: vec![identity.id.clone()],
+                risk: Risk::MutatingReversible,
+                idempotency: Idempotency::NonIdempotent,
+                timeout_ms: 10000,
+                dry_run: false,
+                interactive_consent: false,
+                backends: vec![identity.id.clone()],
+            };
+            let provider = Arc::new(PermitProvider {
+                identity,
+                observe,
+                apply,
+                target: NativeTarget {
+                    kind: "native".into(),
+                    identity: "fixture-project:1".into(),
+                    revision: 1,
+                    fingerprint: "a".repeat(64),
+                    app: "owner-permit-test".into(),
+                },
+                protocol,
+                ordinary_calls: AtomicUsize::new(0),
+                owner_dispatches: AtomicUsize::new(0),
+                guarded_actions: AtomicUsize::new(0),
+                before_acquire: AtomicBool::new(false),
+                after_acquire: AtomicBool::new(false),
+                dispatched: Notify::new(),
+                acquired: Notify::new(),
+                proceed: Notify::new(),
+                last_error: StdMutex::new(None),
+                last_mount: StdMutex::new(None),
+                pause_shutdown: AtomicBool::new(false),
+                shutdown_entered: Notify::new(),
+                shutdown_proceed: Notify::new(),
+            });
+            let root = Arc::new(TestRoot {
+                mount: Mount {
+                    source: dir.path().to_path_buf(),
+                    class: MountClass::Workspace,
+                    logical_name: "motionwright-data".into(),
+                    read_only: false,
+                    execute: false,
+                },
+                valid: AtomicBool::new(true),
+            });
+            let other_dir = dir.path().join("other-scope");
+            std::fs::create_dir(&other_dir).unwrap();
+            let other_root = Arc::new(TestRoot {
+                mount: Mount {
+                    source: other_dir.clone(),
+                    class: MountClass::Workspace,
+                    logical_name: "other-data".into(),
+                    read_only: false,
+                    execute: false,
+                },
+                valid: AtomicBool::new(true),
+            });
+            let config = PolicyConfig {
+                allow: [
+                    provider.identity.id.clone(),
+                    "providers.execute_bound".into(),
+                ]
+                .into(),
+                filesystem: vec![
+                    FilesystemGrant {
+                        name: "motionwright-data".into(),
+                        path: dir.path().into(),
+                        read: true,
+                        write: true,
+                    },
+                    FilesystemGrant {
+                        name: "other-data".into(),
+                        path: other_dir,
+                        read: true,
+                        write: true,
+                    },
+                ],
+                ..Default::default()
+            };
+            let audit = audit::Audit::open(&dir.path().join("audit"), 65536, 2).unwrap();
+            let broker = Broker::new(
+                Policy::new(config).unwrap(),
+                vec![],
+                audit,
+                Arc::new(NoApprover),
+                None,
+                json!({}),
+                false,
+            )
+            .unwrap();
+            broker
+                .mount_provider_with_workspace(provider.clone(), Ok(vec![root.clone(), other_root]))
+                .await
+                .unwrap();
+            Self {
+                broker,
+                provider,
+                root,
+                _dir: dir,
+            }
+        }
+        async fn call(&self, request: ExecuteRequest) -> Envelope {
+            self.broker
+                .clone()
+                .execute("s".into(), unique_id(), request, CancellationToken::new())
+                .await
+        }
+        fn direct(&self, command: &str, args: Value) -> ExecuteRequest {
+            ExecuteRequest {
+                command: command.into(),
+                args,
+                dry_run: false,
+                backend: None,
+            }
+        }
+        async fn observed_refs(&self) -> (String, String) {
+            let binding = self
+                .call(self.direct(
+                    "providers.mount.observe",
+                    json!({
+                        "provider":self.provider.identity.id,"root":"motionwright-data",
+                    }),
+                ))
+                .await;
+            assert!(binding.ok, "{:?}", binding.error);
+            let binding = binding.data.unwrap()["binding_ref"]
+                .as_str()
+                .unwrap()
+                .to_owned();
+            let native = self
+                .call(self.direct(&self.provider.observe.name, json!({})))
+                .await;
+            assert!(native.ok, "{:?}", native.error);
+            let native = native.data.unwrap()["ref"].as_str().unwrap().to_owned();
+            assert!(native.starts_with("native:"));
+            (binding, native)
+        }
+        fn request(&self, binding: &str, native: &str, bound: bool) -> ExecuteRequest {
+            if !bound {
+                return self.direct(&self.provider.apply.name, json!({"ref":native}));
+            }
+            self.direct(
+                "providers.execute_bound",
+                json!({
+                    "binding_ref":binding,"request":{
+                        "command":self.provider.apply.name,"args":{"ref":native},"dry_run":false,
+                    },
+                }),
+            )
+        }
+        fn spawn(&self, request: ExecuteRequest) -> tokio::task::JoinHandle<Envelope> {
+            tokio::spawn(self.broker.clone().execute(
+                "s".into(),
+                unique_id(),
+                request,
+                CancellationToken::new(),
+            ))
+        }
+    }
+    async fn terminal(mut task: tokio::task::JoinHandle<Envelope>) -> Envelope {
+        match tokio::time::timeout(Duration::from_secs(5), &mut task).await {
+            Ok(Ok(envelope)) => envelope,
+            Ok(Err(error)) => panic!("issuer fixture task failed: {error}"),
+            Err(_) => {
+                task.abort();
+                let _ = task.await;
+                panic!("issuer fixture terminal deadline exceeded; owned task aborted");
+            }
+        }
+    }
+    #[tokio::test]
+    async fn bound_native_dispatch_receives_real_core_authority_and_retains_its_gate() {
+        let f = PermitFixture::new(9).await;
+        let (binding, native) = f.observed_refs().await;
+        f.provider.after_acquire.store(true, Ordering::SeqCst);
+        let task = f.spawn(f.request(&binding, &native, true));
+        let arrived = tokio::time::timeout(Duration::from_secs(5), f.provider.acquired.notified())
+            .await
+            .is_ok();
+        let lease = f.broker.provider(&f.provider.identity.id).unwrap();
+        let held_before_action = !lease.operation_gate.drained().unwrap();
+        let actions_before_release = f.provider.guarded_actions.load(Ordering::SeqCst);
+        f.provider.proceed.notify_one();
+        let result = terminal(task).await;
+        assert!(arrived, "real Core acquire never completed");
+        assert!(held_before_action);
+        assert_eq!(actions_before_release, 0);
+        assert!(result.ok, "{:?}", result.error);
+        assert_eq!(result.data.unwrap()["result"]["data"]["owner_permit"], true);
+        assert_eq!(
+            f.provider.last_mount.lock().unwrap().as_deref(),
+            Some("motionwright-data")
+        );
+        assert_eq!(f.provider.owner_dispatches.load(Ordering::SeqCst), 1);
+        assert_eq!(f.provider.ordinary_calls.load(Ordering::SeqCst), 0);
+        assert_eq!(f.provider.guarded_actions.load(Ordering::SeqCst), 1);
+        assert!(lease.operation_gate.drained().unwrap());
+    }
+    #[tokio::test]
+    async fn unbound_and_legacy_dispatch_keep_ordinary_behavior_without_an_issuer() {
+        for (protocol, bound) in [(9, false), (7, true)] {
+            let f = PermitFixture::new(protocol).await;
+            let (binding, native) = f.observed_refs().await;
+            let result = terminal(f.spawn(f.request(&binding, &native, bound))).await;
+            assert!(result.ok, "{:?}", result.error);
+            let value = if bound {
+                &result.data.as_ref().unwrap()["result"]["data"]
+            } else {
+                result.data.as_ref().unwrap()
+            };
+            assert_eq!(value["owner_permit"], false);
+            assert_eq!(f.provider.owner_dispatches.load(Ordering::SeqCst), 0);
+            assert_eq!(f.provider.ordinary_calls.load(Ordering::SeqCst), 1);
+            assert_eq!(f.provider.guarded_actions.load(Ordering::SeqCst), 0);
+        }
+    }
+    #[tokio::test]
+    async fn owner_change_after_dispatch_but_before_acquire_prevents_guarded_action() {
+        for revoke_session in [true, false] {
+            let f = PermitFixture::new(9).await;
+            let (binding, native) = f.observed_refs().await;
+            f.provider.before_acquire.store(true, Ordering::SeqCst);
+            let task = f.spawn(f.request(&binding, &native, true));
+            let arrived =
+                tokio::time::timeout(Duration::from_secs(5), f.provider.dispatched.notified())
+                    .await
+                    .is_ok();
+            if arrived {
+                if revoke_session {
+                    f.broker.revoke_session("s");
+                } else {
+                    f.root.valid.store(false, Ordering::SeqCst);
+                }
+            }
+            f.provider.proceed.notify_one();
+            let result = terminal(task).await;
+            assert!(
+                arrived,
+                "provider did not reach the controlled pre-acquire point"
+            );
+            assert!(!result.ok);
+            assert_eq!(f.provider.owner_dispatches.load(Ordering::SeqCst), 1);
+            assert_eq!(f.provider.ordinary_calls.load(Ordering::SeqCst), 0);
+            assert_eq!(f.provider.guarded_actions.load(Ordering::SeqCst), 0);
+            assert_eq!(
+                f.provider.last_error.lock().unwrap().as_ref().unwrap().code,
+                ErrorCode::StaleReference
+            );
+            assert!(
+                f.broker
+                    .provider(&f.provider.identity.id)
+                    .unwrap()
+                    .operation_gate
+                    .drained()
+                    .unwrap()
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn another_valid_mount_of_same_provider_is_not_the_data_commit_scope() {
+        let f = PermitFixture::new(9).await;
+        let (_, native) = f.observed_refs().await;
+        let observed = f
+            .call(f.direct(
+                "providers.mount.observe",
+                json!({
+                    "provider":f.provider.identity.id,"root":"other-data",
+                }),
+            ))
+            .await;
+        assert!(observed.ok, "{:?}", observed.error);
+        let other_binding = observed.data.unwrap()["binding_ref"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+        let result = terminal(f.spawn(f.request(&other_binding, &native, true))).await;
+        assert!(!result.ok);
+        assert_eq!(f.provider.owner_dispatches.load(Ordering::SeqCst), 1);
+        assert_eq!(f.provider.ordinary_calls.load(Ordering::SeqCst), 0);
+        assert_eq!(
+            f.provider.last_mount.lock().unwrap().as_deref(),
+            Some("other-data")
+        );
+        assert_eq!(
+            f.provider.last_error.lock().unwrap().as_ref().unwrap().code,
+            ErrorCode::PermissionDenied
+        );
+        assert_eq!(f.provider.guarded_actions.load(Ordering::SeqCst), 0);
+        assert!(
+            f.broker
+                .provider(&f.provider.identity.id)
+                .unwrap()
+                .operation_gate
+                .drained()
+                .unwrap()
+        );
+    }
+
+    struct RefreshRemoveRelease {
+        pause: Arc<crate::operation_permits::RefreshPublishPause>,
+        provider: Arc<PermitProvider>,
+    }
+    impl Drop for RefreshRemoveRelease {
+        fn drop(&mut self) {
+            self.pause.proceed.notify_one();
+            self.provider.shutdown_proceed.notify_one();
+        }
+    }
+    async fn collect_lifecycle_task(
+        mut task: tokio::task::JoinHandle<Result<u64>>,
+    ) -> Option<Result<u64>> {
+        match tokio::time::timeout(Duration::from_secs(5), &mut task).await {
+            Ok(Ok(result)) => Some(result),
+            Ok(Err(_)) => None,
+            Err(_) => {
+                task.abort();
+                let _ = task.await;
+                None
+            }
+        }
+    }
+    #[tokio::test]
+    async fn cancelled_remove_tombstone_is_not_replaced_by_refresh() {
+        // Real Broker refresh/remove; provider shutdown and physical capsule are
+        // controlled test doubles. No actual process/SQLite closure is claimed.
+        let f = PermitFixture::new(9).await;
+        let lease = f.broker.provider(&f.provider.identity.id).unwrap();
+        let pause = Arc::new(crate::operation_permits::RefreshPublishPause::default());
+        lease
+            .operation_gate
+            .pause_next_refresh_publish(pause.clone());
+        f.provider.pause_shutdown.store(true, Ordering::SeqCst);
+        let _release = RefreshRemoveRelease {
+            pause: pause.clone(),
+            provider: f.provider.clone(),
+        };
+        let broker = f.broker.clone();
+        let id = f.provider.identity.id.clone();
+        let refreshing = tokio::spawn(async move { broker.refresh_provider(&id).await });
+        let reached_publish =
+            tokio::time::timeout(Duration::from_secs(5), pause.entered.notified())
+                .await
+                .is_ok();
+        let mut removing = None;
+        let mut reached_shutdown = false;
+        let mut retained_cancelled_lease = false;
+        if reached_publish {
+            let broker = f.broker.clone();
+            let id = f.provider.identity.id.clone();
+            removing = Some(tokio::spawn(
+                async move { broker.remove_provider(&id).await },
+            ));
+            reached_shutdown = tokio::time::timeout(
+                Duration::from_secs(5),
+                f.provider.shutdown_entered.notified(),
+            )
+            .await
+            .is_ok();
+            retained_cancelled_lease = lease.lifetime.is_cancelled()
+                && f.broker
+                    .provider(&f.provider.identity.id)
+                    .is_some_and(|current| Arc::ptr_eq(&current, &lease));
+        }
+
+        // Release/collect BOTH owned tasks before any test assertion.
+        pause.proceed.notify_one();
+        let refreshed = collect_lifecycle_task(refreshing).await;
+        f.provider.shutdown_proceed.notify_one();
+        let removed = match removing {
+            Some(task) => collect_lifecycle_task(task).await,
+            None => None,
+        };
+        assert!(
+            reached_publish,
+            "refresh did not reach the controlled publication window"
+        );
+        assert!(
+            reached_shutdown,
+            "remove did not reach its controlled shutdown window"
+        );
+        assert!(
+            retained_cancelled_lease,
+            "the intended cancelled same-Arc tombstone was not retained"
+        );
+        assert!(
+            matches!(&refreshed, Some(Err(error)) if error.code == ErrorCode::Conflict),
+            "refresh published or failed outside the intended conflict: {refreshed:?}"
+        );
+        assert!(
+            matches!(&removed, Some(Ok(_))),
+            "remove did not complete after the original lease drained: {removed:?}"
+        );
+        assert!(f.broker.provider(&f.provider.identity.id).is_none());
+    }
+}

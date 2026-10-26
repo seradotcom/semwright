@@ -4,6 +4,9 @@ mod catalog;
 mod jobs;
 mod project_graph;
 pub use project_graph::RebuildCatalogSnapshot;
+mod operation_permits;
+#[cfg(all(test, target_os = "linux"))]
+mod owner_operation_process_tests;
 mod provider_mounts;
 mod providers;
 use provider_mounts::BoundProvider;
@@ -152,6 +155,12 @@ impl Broker {
     pub fn revoke_session(&self, session: &str) {
         if let Ok(mut store) = self.references.lock() {
             store.revoke_session(session);
+        }
+        // This starts Closing; synchronous cleanup does not acknowledge drain.
+        if let Ok(catalog) = self.registry.read() {
+            for lease in catalog.providers.values() {
+                lease.operation_gate.revoke_session(session);
+            }
         }
         if let Ok(mut jobs) = self.jobs.lock() {
             jobs.revoke_session(session);
@@ -1087,6 +1096,15 @@ impl Broker {
             request_id: request_id.into(),
             cancellation: cancellation.child_token(),
         };
+        let owner_scope = operation_permits::authority(
+            self,
+            &context,
+            descriptor,
+            request.args.get("ref").and_then(Value::as_str),
+            reference.as_ref(),
+            selected_provider.as_ref(),
+            bound.as_ref(),
+        )?;
         let effect_started = std::sync::atomic::AtomicBool::new(false);
         let action = async {
             context.check_cancelled()?;
@@ -1117,7 +1135,7 @@ impl Broker {
                 selected_provider
                     .as_ref()
                     .ok_or_else(|| Error::unavailable("Selected provider missing"))?
-                    .execute(&context, descriptor, &args)
+                    .execute_with_owner_scope(&context, descriptor, &args, owner_scope)
                     .await?
             };
             if request.command != "ui.find" {
@@ -1475,6 +1493,9 @@ impl Broker {
 
     pub async fn shutdown(&self) {
         self.runtime_stop.cancel();
+        for lease in self.providers() {
+            let _ = lease.operation_gate.close();
+        }
         self.job_tasks.close();
         let _ = tokio::time::timeout(Duration::from_secs(5), self.job_tasks.wait()).await;
         self.provider_tasks.close();
@@ -1482,6 +1503,18 @@ impl Broker {
         for backend in self.providers() {
             let _ = tokio::time::timeout(Duration::from_secs(5), backend.shutdown()).await;
         }
+    }
+}
+impl Drop for Broker {
+    fn drop(&mut self) {
+        self.runtime_stop.cancel();
+        if let Ok(catalog) = self.registry.get_mut() {
+            for lease in catalog.providers.values() {
+                let _ = lease.operation_gate.close();
+            }
+        }
+        // Drop starts Closing only; it cannot await, confirm drain or release
+        // a reservation whose native terminal remains unknown.
     }
 }
 fn event_time() -> u64 {

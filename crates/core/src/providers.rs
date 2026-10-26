@@ -29,6 +29,7 @@ pub(super) struct ProviderLease {
     pub lifetime: CancellationToken,
     pub epoch: CancellationToken,
     pub binding_epoch: CancellationToken,
+    pub operation_gate: Arc<crate::operation_permits::OperationGate>,
     pub workspace_mounts: Result<MountBindings>,
 }
 impl Deref for ProviderLease {
@@ -102,6 +103,7 @@ impl ProviderCatalog {
                     connection: unique_id(),
                     lifetime,
                     binding_epoch: epoch.child_token(),
+                    operation_gate: Arc::new(crate::operation_permits::OperationGate::default()),
                     epoch,
                     workspace_mounts: Err(Error::new(
                         ErrorCode::Unsupported,
@@ -300,6 +302,7 @@ impl Broker {
             generation: candidate.revision(),
             connection: unique_id(),
             binding_epoch: epoch.child_token(),
+            operation_gate: Arc::new(crate::operation_permits::OperationGate::default()),
             epoch,
             lifetime,
             workspace_mounts,
@@ -377,6 +380,7 @@ impl Broker {
                 "Native provider lifecycle is owned by the broker",
             ));
         }
+        lease.operation_gate.close()?;
         let previous = catalog.revision();
         let revision = catalog.touch(previous)?;
         lease.epoch.cancel();
@@ -445,6 +449,35 @@ impl Broker {
                 return Err(error);
             }
         };
+        {
+            let catalog = self
+                .registry
+                .write()
+                .map_err(|_| Error::new(ErrorCode::Internal, "Catalog lock poisoned"))?;
+            if catalog.revision() != expected
+                || !catalog
+                    .providers
+                    .get(id)
+                    .is_some_and(|p| Arc::ptr_eq(p, &lease))
+                || !lease.active()
+            {
+                return Err(Error::new(
+                    ErrorCode::Conflict,
+                    "Provider lease changed before owner-operation drain",
+                ));
+            }
+            lease.operation_gate.close()?;
+        }
+        // Never await while holding locks; only admitted owner commits are drained.
+        tokio::time::timeout(Duration::from_secs(5), lease.operation_gate.wait_drained())
+            .await
+            .map_err(|_| {
+                Error::new(
+                    ErrorCode::Timeout,
+                    "Provider refresh is blocked by an undrained owner operation",
+                )
+                .uncertain()
+            })??;
         let epoch = lease.lifetime.child_token();
         let updated = Arc::new(ProviderLease {
             provider: lease.provider.clone(),
@@ -453,6 +486,7 @@ impl Broker {
             connection: lease.connection.clone(),
             lifetime: lease.lifetime.clone(),
             binding_epoch: epoch.child_token(),
+            operation_gate: Arc::new(crate::operation_permits::OperationGate::default()),
             epoch,
             workspace_mounts: lease.workspace_mounts.clone(),
         });
@@ -461,6 +495,8 @@ impl Broker {
         }
         candidate.providers.insert(id.into(), updated.clone());
         let revision = candidate.revision();
+        #[cfg(test)]
+        lease.operation_gate.refresh_publish_checkpoint().await;
         {
             let mut catalog = self
                 .registry
@@ -471,6 +507,8 @@ impl Broker {
                     .providers
                     .get(id)
                     .is_some_and(|p| Arc::ptr_eq(p, &lease))
+                || !lease.active()
+                || !updated.active()
             {
                 return Err(Error::new(
                     ErrorCode::Conflict,
@@ -489,8 +527,8 @@ impl Broker {
         Ok(revision)
     }
     pub async fn remove_provider(&self, id: &str) -> Result<u64> {
-        let (lease, revision) = {
-            let mut catalog = self
+        let lease = {
+            let catalog = self
                 .registry
                 .write()
                 .map_err(|_| Error::new(ErrorCode::Internal, "Catalog lock poisoned"))?;
@@ -499,21 +537,49 @@ impl Broker {
                 .get(id)
                 .cloned()
                 .ok_or_else(|| Error::new(ErrorCode::NotFound, "Provider not found"))?;
+            lease.operation_gate.close()?;
+            lease.lifetime.cancel();
+            lease
+        };
+        tokio::time::timeout(Duration::from_secs(5), async {
+            tokio::try_join!(lease.shutdown(), lease.operation_gate.wait_drained())?;
+            Ok::<(), Error>(())
+        })
+        .await
+        .map_err(|_| {
+            Error::new(
+                ErrorCode::Timeout,
+                "Provider removal is pending unconfirmed owner-operation closure",
+            )
+            .uncertain()
+        })??;
+        let revision = {
+            let mut catalog = self
+                .registry
+                .write()
+                .map_err(|_| Error::new(ErrorCode::Internal, "Catalog lock poisoned"))?;
+            if !catalog
+                .providers
+                .get(id)
+                .is_some_and(|p| Arc::ptr_eq(p, &lease))
+            {
+                return Err(Error::new(
+                    ErrorCode::Conflict,
+                    "Provider lease changed during removal",
+                ));
+            }
+            if !lease.operation_gate.drained()? {
+                return Err(Error::new(
+                    ErrorCode::Conflict,
+                    "Provider still has an admitted owner operation",
+                ));
+            }
             let previous = catalog.revision();
             let revision = catalog.remove_provider_catalog(&lease.identity, previous)?;
-            lease.lifetime.cancel();
             catalog.providers.remove(id);
-            (lease, revision)
+            revision
         };
         self.provider_lifecycle("provider.removed", &lease, revision);
-        tokio::time::timeout(Duration::from_secs(5), lease.shutdown())
-            .await
-            .map_err(|_| {
-                Error::new(
-                    ErrorCode::Timeout,
-                    "Provider was removed but shutdown timed out",
-                )
-            })??;
         Ok(revision)
     }
     pub(super) fn start_builtin_provider_watchers(self: &Arc<Self>) -> Result<()> {
@@ -568,6 +634,13 @@ impl Broker {
                 .cloned()
                 .filter(|provider| provider.connection == connection && provider.active())
                 .ok_or_else(|| Error::new(ErrorCode::Conflict, "Provider connection changed"))?;
+            previous.operation_gate.close()?;
+            if !previous.operation_gate.drained()? {
+                return Err(Error::new(
+                    ErrorCode::Conflict,
+                    "Provider generation still has an admitted owner operation",
+                ));
+            }
             let mut candidate = catalog.clone();
             let expected = candidate.revision();
             let revision = candidate.touch(expected)?;
@@ -579,6 +652,7 @@ impl Broker {
                 connection: previous.connection.clone(),
                 lifetime: previous.lifetime.clone(),
                 binding_epoch: epoch.child_token(),
+                operation_gate: Arc::new(crate::operation_permits::OperationGate::default()),
                 epoch,
                 workspace_mounts: previous.workspace_mounts.clone(),
             });

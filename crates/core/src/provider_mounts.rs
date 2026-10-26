@@ -6,9 +6,9 @@ use semwright_platform_api::launch::{MountClass, WorkspaceMountBinding};
 pub(super) type MountBindings = Vec<Arc<dyn WorkspaceMountBinding>>;
 #[derive(Clone)]
 pub(super) struct BoundProvider {
-    reference_id: String,
-    lease: Arc<ProviderLease>,
-    admission: ProviderMountReference,
+    pub(super) reference_id: String,
+    pub(super) lease: Arc<ProviderLease>,
+    pub(super) admission: ProviderMountReference,
     pub(super) parent_request_id: Option<String>,
 }
 #[derive(Deserialize)]

@@ -75,6 +75,10 @@ name = "native-counter"
 path = "../../examples/native/counter.rs"
 required-features = ["file-backed"]
 [[example]]
+name = "owner-operation-permit-fixture"
+path = "../../examples/native/owner_operation_fixture.rs"
+required-features = ["driver"]
+[[example]]
 name = "native-inventory"
 path = "../../examples/native/inventory.rs"
 required-features = ["process-bridge"]

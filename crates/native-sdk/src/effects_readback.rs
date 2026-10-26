@@ -120,6 +120,22 @@ fn relative(path: &str) -> Result<()> {
         "artifact path characters",
     )
 }
+
+/// Validate the declared Linux target namespace without consulting the host OS.
+/// Keep the supplied bytes: preparation does not resolve, open, or authorize a root.
+fn target_linux_root(path: &str) -> Result<()> {
+    ensure(
+        path.starts_with('/')
+            && !path.contains('\\')
+            && !path.chars().any(char::is_control)
+            && (path == "/"
+                || path[1..]
+                    .split('/')
+                    .all(|part| !part.is_empty() && part != "." && part != "..")),
+        "normalized absolute Linux target path required",
+    )
+}
+
 fn absolute(path: &Path) -> Result<()> {
     ensure(
         path.is_absolute()
@@ -218,7 +234,7 @@ fn validate_definition(d: &SpecificationInput) -> Result<()> {
         "application root count",
     )?;
     for p in &d.application_roots {
-        absolute(Path::new(p))?;
+        target_linux_root(p)?;
     }
     ensure(
         (1..=16).contains(&d.artifacts.len()) && (1..=64).contains(&d.checks.len()),
@@ -320,7 +336,9 @@ fn validate_definition(d: &SpecificationInput) -> Result<()> {
     }
     ensure(used.len() == artifacts.len(), "unused artifact binding")
 }
-/// Pure canonical data preparation. It does not inspect or execute an application,
+/// Pure canonical data preparation for the Linux descriptor-relative read profile.
+/// Application roots name the target Linux namespace on every preparation host.
+/// It does not inspect or execute an application,
 /// grant filesystem access, or authenticate the supplied context declarations.
 pub fn prepare_spec(definition: SpecificationInput) -> Result<ProtectedSpec> {
     validate_definition(&definition)?;
@@ -1099,5 +1117,103 @@ mod budget_tests {
         for directory in [nested.as_path(), mount.as_path(), temp.path()] {
             std::fs::set_permissions(directory, std::fs::Permissions::from_mode(0o700)).unwrap();
         }
+    }
+}
+
+#[cfg(test)]
+mod target_linux_preparation_tests {
+    use super::*;
+
+    fn definition(root: &str) -> SpecificationInput {
+        let bytes = br#"{"value":true}"#;
+        SpecificationInput {
+            owner: Owner {
+                session: "preparation-contract".into(),
+                principal: PrincipalBinding::Named("test-author".into()),
+            },
+            request_id: "target_linux".into(),
+            source_digest: Digest::of_bytes(b"declared-source"),
+            runtime_digest: Digest::of_bytes(b"declared-runtime"),
+            declared_producer_execution_status: ExecutionStatus::Unknown,
+            application_roots: vec![root.into()],
+            artifacts: vec![ArtifactBinding {
+                slot: "output".into(),
+                path: "artifact.json".into(),
+                sha256: Digest::of_bytes(bytes),
+                bytes: bytes.len() as u64,
+                mime_type: "application/json".into(),
+            }],
+            checks: vec![PropertyCheck {
+                id: "value_true".into(),
+                artifact_slot: "output".into(),
+                selector: Selector::Json {
+                    pointer: "/value".into(),
+                    scalar: ScalarKind::Bool,
+                },
+                predicate: Predicate::Equals {
+                    expected: ObservedValue::Bool { value: true },
+                },
+            }],
+        }
+    }
+
+    #[test]
+    fn target_linux_preparation_is_host_independent_and_preserves_canonical_root() {
+        for root in [
+            "/",
+            "/var/lib/motionwright/project",
+            "/data/proyecto-\u{00f1}",
+        ] {
+            let spec = prepare_spec(definition(root)).expect("pure Linux-target preparation");
+            spec.validate().unwrap();
+            assert_eq!(spec.definition.application_roots, [root]);
+            assert_eq!(spec.plan.body.intent["application_roots"][0], root);
+            assert_eq!(
+                spec.definition.declared_producer_execution_status,
+                ExecutionStatus::Unknown
+            );
+            let repeated = prepare_spec(spec.definition.clone()).unwrap();
+            assert_eq!(
+                canonical_bytes(&spec).unwrap(),
+                canonical_bytes(&repeated).unwrap()
+            );
+        }
+    }
+
+    #[test]
+    fn preparation_rejects_host_prefixes_traversal_and_ambiguous_linux_paths() {
+        for root in [
+            "",
+            "relative/root",
+            r"C:\project",
+            "C:/project",
+            r"\\server\share",
+            "//server/share",
+            "/data/../project",
+            "/data/./project",
+            "/data//project",
+            "/data/project/",
+            "/data\\project",
+            "/data/\0project",
+            "/data/\nproject",
+        ] {
+            assert!(
+                prepare_spec(definition(root)).is_err(),
+                "accepted invalid target root {root:?}"
+            );
+        }
+    }
+
+    #[cfg(not(target_os = "linux"))]
+    #[test]
+    fn successful_preparation_does_not_enable_non_linux_physical_verification() {
+        let spec = prepare_spec(definition("/data/project")).unwrap();
+        let encoded = canonical_bytes(&spec).unwrap();
+        let result = verify(
+            Path::new("/not-opened/spec"),
+            &Digest::of_bytes(&encoded),
+            Path::new("/not-opened/artifacts"),
+        );
+        assert!(matches!(result, Err(ContractError::Denied(_))));
     }
 }
