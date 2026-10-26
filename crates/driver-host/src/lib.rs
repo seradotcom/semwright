@@ -2100,19 +2100,27 @@ fn register_host_tool_call(
     true
 }
 
+struct V2ReaderProtocol {
+    interfaces: DriverInterfaces,
+    version: u32,
+}
+
 fn spawn_v2_reader(
     mut output: SandboxStdout,
     input: Arc<Mutex<SandboxStdin>>,
     pending: Arc<Mutex<BTreeMap<String, PendingResponse>>>,
     signals: broadcast::Sender<ProviderSignal>,
-    interfaces: DriverInterfaces,
-    protocol: u32,
+    reader_protocol: V2ReaderProtocol,
     tool_broker: Option<Arc<dyn HostToolExecutor>>,
     stdin_custody: Option<stdin_custody::BoundHostStdinCustody>,
     owner_operations: Arc<operation_permits::OwnerOperations>,
     closed: CancellationToken,
     terminate: CancellationToken,
 ) {
+    let V2ReaderProtocol {
+        interfaces,
+        version: protocol,
+    } = reader_protocol;
     let tool_calls = Arc::new(Mutex::new(BTreeSet::<String>::new()));
     let tool_parents = Arc::new(Mutex::new(BTreeSet::<String>::new()));
     let host_tool_jobs = Arc::new(Mutex::new(BTreeMap::<String, HostToolJobEntry>::new()));
@@ -3878,8 +3886,10 @@ impl DriverProvider {
                     input.clone(),
                     pending.clone(),
                     signals.clone(),
-                    manifest.interfaces,
-                    manifest.protocol,
+                    V2ReaderProtocol {
+                        interfaces: manifest.interfaces,
+                        version: manifest.protocol,
+                    },
                     tool_broker,
                     stdin_custody
                         .as_ref()
@@ -4238,8 +4248,10 @@ impl DriverProvider {
                     input.clone(),
                     pending.clone(),
                     signals.clone(),
-                    manifest.interfaces,
-                    manifest.protocol,
+                    V2ReaderProtocol {
+                        interfaces: manifest.interfaces,
+                        version: manifest.protocol,
+                    },
                     tool_broker,
                     stdin_custody
                         .as_ref()
