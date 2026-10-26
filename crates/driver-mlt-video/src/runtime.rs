@@ -532,7 +532,8 @@ impl AudioDerivativeProfile {
     pub(crate) fn output_frames(self, source_frames: u64) -> Result<u64> {
         match self {
             Self::Stereo48ToMono16V1
-                if (1_200..=384_000).contains(&source_frames) && source_frames % 3 == 0 =>
+                if (1_200..=384_000).contains(&source_frames)
+                    && source_frames.is_multiple_of(3) =>
             {
                 Ok(source_frames / 3)
             }
@@ -1528,7 +1529,7 @@ fn run_with_output_limits_inner(
     }
     let stdout = a.finish();
     let stderr = b.finish();
-    if let Some(observation) = observation.as_deref_mut() {
+    if let Some(observation) = observation {
         observation.stdout = Some(stdout.clone());
         observation.stderr = Some(stderr.clone());
         observation.output_exceeded = Some(overflow.load(Ordering::Acquire));
