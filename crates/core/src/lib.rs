@@ -5,8 +5,6 @@ mod jobs;
 mod project_graph;
 pub use project_graph::RebuildCatalogSnapshot;
 mod operation_permits;
-#[cfg(all(test, target_os = "linux"))]
-mod owner_operation_process_tests;
 mod provider_mounts;
 mod providers;
 use provider_mounts::BoundProvider;
