@@ -16,6 +16,9 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
+#[path = "support/fixed_text_fixtures_v4.rs"]
+mod fixed_text_fixtures;
+
 type Result<T> = std::result::Result<T, String>;
 
 const MAX_INPUT_BYTES: u64 = 4 * 1024 * 1024;
@@ -316,7 +319,116 @@ fn write_packet(output: &Path, film: &Input, base: &Input, compiled: &Compiled) 
     Ok(receipt)
 }
 
+fn write_fixture_set(
+    output: &Path,
+    template: &Input,
+    base: &Input,
+    caption: &Input,
+) -> Result<Value> {
+    require(output.is_absolute(), "Output path must be absolute")?;
+    let source: Film = strict_decode(&template.bytes)
+        .map_err(|error| format!("Invalid fixture source Film: {error:?}"))?;
+    let fixtures = fixed_text_fixtures::build_fixtures(&source, &caption.bytes)?;
+    require(
+        fixtures.len() == 12,
+        "FixedTxt requires all twelve fixtures",
+    )?;
+    let mut prepared = Vec::with_capacity(fixtures.len());
+    let mut authored_bytes = 0_u64;
+    // Validate every complete input before publishing the set.
+    for fixture in fixtures {
+        let film_bytes = encode(&fixture.film)?;
+        let compiled = compile_inputs(&film_bytes, &base.bytes)?;
+        let fingerprint = compiled
+            .generated
+            .fingerprint()
+            .map_err(|error| format!("Fixture compiler fingerprint failed: {error:?}"))?;
+        let expectations = encode(&json!({
+            "schema": "motionwright-fixedtxt-film-expectations/4",
+            "key": &fixture.key,
+            "aliases": &fixture.aliases,
+            "expected": &fixture.expected,
+            "film_sha256": sha256(&film_bytes),
+        }))?;
+        authored_bytes = authored_bytes
+            .checked_add(film_bytes.len() as u64)
+            .and_then(|value| value.checked_add(expectations.len() as u64))
+            .ok_or_else(|| "Fixture set byte count overflow".to_owned())?;
+        require(
+            authored_bytes <= MAX_GENERATED_BYTES,
+            "Fixture set exceeds the 32 MiB source bound",
+        )?;
+        prepared.push((fixture.key, film_bytes, expectations, fingerprint));
+    }
+    template.require_same_bytes()?;
+    base.require_same_bytes()?;
+    caption.require_same_bytes()?;
+    create_directory(output)?;
+    write_new(
+        output,
+        "evidence/template-film.original.json",
+        &template.bytes,
+    )?;
+    write_new(
+        output,
+        "evidence/managed-project.original.json",
+        &base.bytes,
+    )?;
+    write_new(
+        output,
+        "evidence/caption-source.original.txt",
+        &caption.bytes,
+    )?;
+    let mut roster = Vec::with_capacity(12);
+    for (key, film_bytes, expectations, fingerprint) in prepared {
+        let film_path = format!("fixtures/{key}/film.original.json");
+        let expected_path = format!("fixtures/{key}/expectations.json");
+        write_new(output, &film_path, &film_bytes)?;
+        write_new(output, &expected_path, &expectations)?;
+        roster.push(json!({
+            "key": key,
+            "film": {"path": film_path, "bytes": film_bytes.len(), "sha256": sha256(&film_bytes)},
+            "expectations": {"path": expected_path, "bytes": expectations.len(), "sha256": sha256(&expectations)},
+            "canonical_validation_generated_fingerprint": fingerprint,
+            "expected_frames": 180,
+        }));
+    }
+    template.require_same_bytes()?;
+    base.require_same_bytes()?;
+    caption.require_same_bytes()?;
+    let receipt = json!({
+        "schema": "motionwright-fixedtxt-film-fixture-set/4",
+        "status": "AUTHORED_FILM_FIXTURES_WRITTEN",
+        "template_film_original": template.descriptor(),
+        "managed_project_original": base.descriptor(),
+        "caption_source_original": caption.descriptor(),
+        "caption_timing_method": "manual-timing",
+        "fixture_count": 12,
+        "fixtures": roster,
+        "compiler": {
+            "version": compiler::COMPILER_VERSION,
+            "runtime_source_sha256": sha256(authoring::runtime_source()),
+        },
+        "canonical_source_pipeline_checked": true,
+        "source_inputs_unchanged": true,
+        "fonts_assets_copied_from_original_film": true,
+        "managed_fonts_lifetime_verified": false,
+        "host_stdin_capture_verified": false,
+        "native_render_performed": false,
+        "physical_fidelity_verified": false,
+        "human_acceptance": false,
+        "formal_acceptance": false,
+    });
+    write_new(
+        output,
+        "evidence/fixture-set-component.json",
+        &encode(&receipt)?,
+    )?;
+    Ok(receipt)
+}
+
 fn parse_args(arguments: impl IntoIterator<Item = OsString>) -> Result<BTreeMap<String, PathBuf>> {
+    const USAGE: &str = "Usage: --film ABSOLUTE_JSON --managed-project ABSOLUTE_JSON --output FRESH_ABSOLUTE_DIR; or --fixtures ORIGINAL_FILM --managed-project ORIGINAL_PROJECT --caption-source ORIGINAL_UTF8 --output FRESH_ABSOLUTE_DIR";
     let mut arguments = arguments.into_iter();
     let mut paths = BTreeMap::new();
     while let Some(flag) = arguments.next() {
@@ -324,8 +436,11 @@ fn parse_args(arguments: impl IntoIterator<Item = OsString>) -> Result<BTreeMap<
             .into_string()
             .map_err(|_| "Argument names must be UTF-8".to_owned())?;
         require(
-            matches!(key.as_str(), "--film" | "--managed-project" | "--output"),
-            "Usage: --film ABSOLUTE_JSON --managed-project ABSOLUTE_JSON --output FRESH_ABSOLUTE_DIR",
+            matches!(
+                key.as_str(),
+                "--film" | "--fixtures" | "--managed-project" | "--caption-source" | "--output"
+            ),
+            USAGE,
         )?;
         require(!paths.contains_key(&key), "An argument was repeated")?;
         let value = arguments
@@ -333,16 +448,35 @@ fn parse_args(arguments: impl IntoIterator<Item = OsString>) -> Result<BTreeMap<
             .ok_or_else(|| format!("Missing path after {key}"))?;
         paths.insert(key, PathBuf::from(value));
     }
-    require(paths.len() == 3, "All three named arguments are required")?;
+    let compile = paths.len() == 3
+        && ["--film", "--managed-project", "--output"]
+            .iter()
+            .all(|key| paths.contains_key(*key));
+    let fixtures = paths.len() == 4
+        && [
+            "--fixtures",
+            "--managed-project",
+            "--caption-source",
+            "--output",
+        ]
+        .iter()
+        .all(|key| paths.contains_key(*key));
+    require(compile || fixtures, USAGE)?;
     Ok(paths)
 }
 
 fn run() -> Result<()> {
     let paths = parse_args(env::args_os().skip(1))?;
-    let film = Input::read(&paths["--film"])?;
     let base = Input::read(&paths["--managed-project"])?;
-    let compiled = compile_inputs(&film.bytes, &base.bytes)?;
-    let receipt = write_packet(&paths["--output"], &film, &base, &compiled)?;
+    let receipt = if let Some(path) = paths.get("--fixtures") {
+        let template = Input::read(path)?;
+        let caption = Input::read(&paths["--caption-source"])?;
+        write_fixture_set(&paths["--output"], &template, &base, &caption)?
+    } else {
+        let film = Input::read(&paths["--film"])?;
+        let compiled = compile_inputs(&film.bytes, &base.bytes)?;
+        write_packet(&paths["--output"], &film, &base, &compiled)?
+    };
     println!(
         "{}",
         serde_json::to_string(&receipt)
@@ -503,5 +637,90 @@ mod tests {
             b"earlier attempt remains unchanged"
         );
         assert_eq!(fs::read_dir(&output).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn fixture_mode_and_compile_mode_have_disjoint_closed_argument_sets() {
+        let compile = [
+            "--film",
+            "film.json",
+            "--managed-project",
+            "project.json",
+            "--output",
+            "out",
+        ];
+        assert!(parse_args(compile.map(OsString::from)).is_ok());
+        let fixtures = [
+            "--fixtures",
+            "template.json",
+            "--managed-project",
+            "project.json",
+            "--caption-source",
+            "caption.txt",
+            "--output",
+            "out",
+        ];
+        assert!(parse_args(fixtures.map(OsString::from)).is_ok());
+        let mixed = [
+            "--film",
+            "film.json",
+            "--fixtures",
+            "template.json",
+            "--managed-project",
+            "project.json",
+            "--caption-source",
+            "caption.txt",
+            "--output",
+            "out",
+        ];
+        assert!(parse_args(mixed.map(OsString::from)).is_err());
+        let extra = [
+            "--film",
+            "film.json",
+            "--managed-project",
+            "project.json",
+            "--caption-source",
+            "caption.txt",
+            "--output",
+            "out",
+        ];
+        assert!(parse_args(extra.map(OsString::from)).is_err());
+        let repeated = [
+            "--fixtures",
+            "template.json",
+            "--fixtures",
+            "other.json",
+            "--managed-project",
+            "project.json",
+            "--caption-source",
+            "caption.txt",
+            "--output",
+            "out",
+        ];
+        assert!(parse_args(repeated.map(OsString::from)).is_err());
+    }
+    #[test]
+    fn fixture_mode_refuses_unadmitted_fonts_before_creating_output() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path().canonicalize().unwrap();
+        let mut original = film(6);
+        let (_, base_bytes) = inputs(&original);
+        // Keep the valid original managed base; only the authored Film input
+        // changes to an unpinned family after its setup has succeeded.
+        original.editorial.font.family = "Unpinned test face".into();
+        original.editorial.font.asset_digest = None;
+        original.validate().unwrap();
+        let film_bytes = encode(&original).unwrap();
+        let (template, base) = packet_inputs(&root, &film_bytes, &base_bytes);
+        let caption_path = root.join("caption.txt");
+        fs::write(&caption_path, fixed_text_fixtures::CAPTION_TEXT.as_bytes()).unwrap();
+        let caption = Input::read(&caption_path).unwrap();
+        let output = root.join("fixture-set-must-not-exist");
+        let error = write_fixture_set(&output, &template, &base, &caption).unwrap_err();
+        assert_eq!(error, "An unpinned font must be an original bundled family");
+        assert!(!output.exists());
+        assert_eq!(fs::read(&template.path).unwrap(), template.bytes);
+        assert_eq!(fs::read(&base.path).unwrap(), base.bytes);
+        assert_eq!(fs::read(&caption.path).unwrap(), caption.bytes);
     }
 }
