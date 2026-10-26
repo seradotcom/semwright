@@ -241,24 +241,35 @@ pub fn retain_ffv1_original(
     bytes: &[u8],
     maximum: usize,
 ) -> Result<crate::fs::Artifact> {
+    retain_process_original(output, path, bytes, maximum, "FFV1")
+}
+
+fn retain_process_original(
+    output: &crate::fs::Root,
+    path: &str,
+    bytes: &[u8],
+    maximum: usize,
+    scope: &str,
+) -> Result<crate::fs::Artifact> {
     if bytes.len() > maximum {
-        return Err(Error::limit(
-            "FFV1 original exceeds its closed retention budget",
-        ));
+        return Err(Error::limit(format!(
+            "{scope} original exceeds its closed retention budget"
+        )));
     }
+    let uncertain = |detail: &str| {
+        let mut error = Error::new("BackendFailed", format!("Original {scope} {detail}"));
+        error.outcome_known = false;
+        error
+    };
     let file = output.write_new("output", path, bytes)?;
     if file.bytes != bytes.len() as u64 || file.sha256 != crate::hash::sha256(bytes) {
-        return Err(ffv1_custody_uncertain(
-            "Original FFV1 publication identity differs",
-        ));
+        return Err(uncertain("publication identity differs"));
     }
     let actual = output
         .read(path, maximum)
-        .map_err(|_| ffv1_custody_uncertain("Original FFV1 custody readback is uncertain"))?;
+        .map_err(|_| uncertain("custody readback is uncertain"))?;
     if actual != bytes {
-        return Err(ffv1_custody_uncertain(
-            "Original FFV1 custody readback differs",
-        ));
+        return Err(uncertain("custody readback differs"));
     }
     Ok(file)
 }
@@ -268,9 +279,13 @@ fn ffv1_hex(bytes: &[u8]) -> String {
 }
 
 fn ffv1_spec_original(spec: &ProcessSpec) -> Result<serde_json::Value> {
+    process_spec_original(spec, "FFV1")
+}
+
+fn process_spec_original(spec: &ProcessSpec, scope: &str) -> Result<serde_json::Value> {
     use std::os::unix::ffi::OsStrExt;
     if spec.args.len() > 128 {
-        return Err(Error::limit("FFV1 original argv count"));
+        return Err(Error::limit(format!("{scope} original argv count")));
     }
     let mut total = 0usize;
     let mut argv = Vec::with_capacity(spec.args.len());
@@ -278,16 +293,18 @@ fn ffv1_spec_original(spec: &ProcessSpec) -> Result<serde_json::Value> {
         let bytes = arg.as_os_str().as_bytes();
         total = total
             .checked_add(bytes.len())
-            .ok_or_else(|| Error::limit("FFV1 argv overflow"))?;
+            .ok_or_else(|| Error::limit(format!("{scope} argv overflow")))?;
         if bytes.len() > 4096 || total > 16_384 {
-            return Err(Error::limit("FFV1 original argv byte budget"));
+            return Err(Error::limit(format!("{scope} original argv byte budget")));
         }
         argv.push(ffv1_hex(bytes));
     }
     let executable = spec.executable.as_os_str().as_bytes();
     let cwd = spec.cwd.as_os_str().as_bytes();
     if executable.len() > 4096 || cwd.len() > 4096 {
-        return Err(Error::limit("FFV1 original process path budget"));
+        return Err(Error::limit(format!(
+            "{scope} original process path budget"
+        )));
     }
     Ok(serde_json::json!({
         "encoding":"unix-os-bytes-hex", "executable":ffv1_hex(executable),
@@ -455,6 +472,516 @@ fn checked_ffv1_original(
     result?.checked()
 }
 
+pub const AUDIO_DERIVATIVE_STDIN_LIMIT: usize = 65_536;
+pub const AUDIO_DERIVATIVE_METADATA_LIMIT: usize = 65_536;
+pub const AUDIO_DERIVATIVE_STREAM_LIMIT: usize = 262_144;
+pub const AUDIO_DERIVATIVE_COMMAND: &str = "driver.mlt-video.audio.derive";
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum AudioDerivativeProfile {
+    Stereo48ToMono16V1,
+    Mono16ToDualMono48V1,
+}
+
+impl AudioDerivativeProfile {
+    pub(crate) fn parse(value: &str) -> Result<Self> {
+        match value {
+            "pcm16-stereo48-to-mono16-v1" => Ok(Self::Stereo48ToMono16V1),
+            "pcm16-mono16-to-dualmono48-v1" => Ok(Self::Mono16ToDualMono48V1),
+            _ => Err(Error::unsupported(
+                "Audio derivative profile is not supported",
+            )),
+        }
+    }
+
+    pub(crate) fn id(self) -> &'static str {
+        match self {
+            Self::Stereo48ToMono16V1 => "pcm16-stereo48-to-mono16-v1",
+            Self::Mono16ToDualMono48V1 => "pcm16-mono16-to-dualmono48-v1",
+        }
+    }
+
+    pub(crate) fn input_limit(self) -> usize {
+        match self {
+            Self::Stereo48ToMono16V1 => 2 << 20,
+            Self::Mono16ToDualMono48V1 => 6 << 20,
+        }
+    }
+
+    pub(crate) fn output_limit(self) -> usize {
+        match self {
+            Self::Stereo48ToMono16V1 => 1 << 20,
+            Self::Mono16ToDualMono48V1 => 40 << 20,
+        }
+    }
+
+    pub(crate) fn source_layout(self) -> (u32, u16) {
+        match self {
+            Self::Stereo48ToMono16V1 => (48_000, 2),
+            Self::Mono16ToDualMono48V1 => (16_000, 1),
+        }
+    }
+
+    pub(crate) fn target_layout(self) -> (u32, u16) {
+        match self {
+            Self::Stereo48ToMono16V1 => (16_000, 1),
+            Self::Mono16ToDualMono48V1 => (48_000, 2),
+        }
+    }
+
+    pub(crate) fn output_frames(self, source_frames: u64) -> Result<u64> {
+        match self {
+            Self::Stereo48ToMono16V1
+                if (1_200..=384_000).contains(&source_frames) && source_frames % 3 == 0 =>
+            {
+                Ok(source_frames / 3)
+            }
+            Self::Mono16ToDualMono48V1 if (16_000..=2_880_000).contains(&source_frames) => {
+                source_frames
+                    .checked_mul(3)
+                    .ok_or_else(|| Error::limit("Audio frame count overflow"))
+            }
+            _ => Err(Error::unsupported(
+                "Audio derivative duration or integral sample clock differs",
+            )),
+        }
+    }
+
+    fn filter(self) -> &'static str {
+        match self {
+            Self::Stereo48ToMono16V1 => {
+                "pan=mono|c0=0.5*c0+0.5*c1,aresample=16000:async=0:dither_method=none"
+            }
+            Self::Mono16ToDualMono48V1 => {
+                "pan=stereo|c0=c0|c1=c0,aresample=48000:async=0:dither_method=none"
+            }
+        }
+    }
+
+    pub(crate) fn recipe_sha256(self) -> Result<String> {
+        let args = audio_derivative_args(self, Path::new("SOURCE_PCM"), Path::new("TARGET_PCM"));
+        let template = args
+            .iter()
+            .map(|arg| {
+                arg.to_str()
+                    .ok_or_else(|| Error::invalid("Audio recipe template is not UTF-8"))
+            })
+            .collect::<Result<Vec<_>>>()?;
+        let bytes = serde_json::to_vec(&serde_json::json!({
+            "schema":"semwright.mlt-audio-recipe/1", "profile":self.id(), "argv_template":template
+        }))
+        .map_err(|_| Error::invalid("Audio recipe serialization failed"))?;
+        Ok(crate::hash::sha256(&bytes))
+    }
+
+    pub(crate) fn inspect_source(self, bytes: &[u8], frames: u64) -> Result<AudioPcmObservation> {
+        self.output_frames(frames)?;
+        inspect_audio_pcm16(
+            bytes,
+            self.input_limit(),
+            self.source_layout(),
+            frames,
+            false,
+        )
+    }
+
+    pub(crate) fn inspect_target(
+        self,
+        bytes: &[u8],
+        source_frames: u64,
+    ) -> Result<AudioPcmObservation> {
+        let frames = self.output_frames(source_frames)?;
+        inspect_audio_pcm16(
+            bytes,
+            self.output_limit(),
+            self.target_layout(),
+            frames,
+            self == Self::Mono16ToDualMono48V1,
+        )
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct AudioPcmObservation {
+    pub(crate) sample_rate: u32,
+    pub(crate) channels: u16,
+    pub(crate) channel_mask: Option<u32>,
+    pub(crate) sample_frames: u64,
+}
+
+impl AudioPcmObservation {
+    pub(crate) fn json(&self) -> Value {
+        obj([
+            ("sample_rate", u64::from(self.sample_rate).into()),
+            ("channels", u64::from(self.channels).into()),
+            (
+                "channel_mask",
+                self.channel_mask
+                    .map_or(Value::Null, |mask| u64::from(mask).into()),
+            ),
+            ("container_bits", 16u64.into()),
+            ("valid_bits", 16u64.into()),
+            ("ieee_float", false.into()),
+            ("sample_frames", self.sample_frames.into()),
+        ])
+    }
+}
+
+fn inspect_audio_pcm16(
+    bytes: &[u8],
+    maximum: usize,
+    layout: (u32, u16),
+    expected_frames: u64,
+    dual_mono: bool,
+) -> Result<AudioPcmObservation> {
+    use semwright_audio_domain::wav::WaveReader;
+    if bytes.len() < 44 || bytes.len() > maximum {
+        return Err(Error::limit("Audio derivative WAV byte budget differs"));
+    }
+    let mut reader = WaveReader::open(std::io::Cursor::new(bytes), maximum as u64)
+        .map_err(|_| Error::invalid("Audio derivative source is not a bounded WAV"))?;
+    let info = reader.info().clone();
+    let mask = if layout.1 == 1 { 0x4 } else { 0x3 };
+    if info.sample_rate.0 != layout.0
+        || info.channels != layout.1
+        || info.container_bits != 16
+        || info.valid_bits != 16
+        || info.ieee_float
+        || info.frames != expected_frames
+        || info.channel_mask.is_some_and(|observed| observed != mask)
+    {
+        return Err(Error::new(
+            "Conflict",
+            "Audio WAV bytes do not match the closed PCM16 layout and sample clock",
+        ));
+    }
+    let channels = usize::from(info.channels);
+    let mut observed_frames = 0u64;
+    loop {
+        let samples = reader
+            .read_frames(16_384)
+            .map_err(|_| Error::invalid("Audio derivative PCM payload cannot be read"))?;
+        if samples.is_empty() {
+            break;
+        }
+        if samples.len() % channels != 0 {
+            return Err(Error::invalid("Audio derivative PCM frame is incomplete"));
+        }
+        observed_frames = observed_frames
+            .checked_add((samples.len() / channels) as u64)
+            .filter(|count| *count <= expected_frames)
+            .ok_or_else(|| {
+                Error::limit("Audio derivative PCM frame count exceeds its source clock")
+            })?;
+        for frame in samples.chunks_exact(channels) {
+            for value in frame {
+                let sample = value * 32768.0;
+                if !sample.is_finite()
+                    || sample.fract() != 0.0
+                    || !(-32768.0..=32767.0).contains(&sample)
+                {
+                    return Err(Error::invalid(
+                        "Audio derivative contains a non-PCM16 sample",
+                    ));
+                }
+            }
+            if dual_mono && (channels != 2 || frame[0] != frame[1]) {
+                return Err(Error::new(
+                    "Conflict",
+                    "Derived stereo channels are not the declared dual mono",
+                ));
+            }
+        }
+    }
+    if observed_frames != expected_frames {
+        return Err(Error::new(
+            "Conflict",
+            "Decoded PCM sample count differs from the exact audio clock",
+        ));
+    }
+    Ok(AudioPcmObservation {
+        sample_rate: info.sample_rate.0,
+        channels: info.channels,
+        channel_mask: info.channel_mask,
+        sample_frames: observed_frames,
+    })
+}
+
+fn audio_derivative_args(
+    profile: AudioDerivativeProfile,
+    input: &Path,
+    output: &Path,
+) -> Vec<OsString> {
+    let (rate, channels) = profile.target_layout();
+    vec![
+        "-v".into(),
+        "error".into(),
+        "-nostdin".into(),
+        "-n".into(),
+        "-i".into(),
+        input.as_os_str().to_owned(),
+        "-map".into(),
+        "0:a:0".into(),
+        "-vn".into(),
+        "-sn".into(),
+        "-dn".into(),
+        "-map_metadata".into(),
+        "-1".into(),
+        "-af".into(),
+        profile.filter().into(),
+        "-ac".into(),
+        channels.to_string().into(),
+        "-ar".into(),
+        rate.to_string().into(),
+        "-c:a".into(),
+        "pcm_s16le".into(),
+        "-fflags".into(),
+        "+bitexact".into(),
+        "-flags:a".into(),
+        "+bitexact".into(),
+        "-f".into(),
+        "wav".into(),
+        output.as_os_str().to_owned(),
+    ]
+}
+
+pub fn audio_derivative_custody_paths(output_path: &str, host: bool) -> Result<Vec<String>> {
+    crate::fs::validate_relative(output_path)?;
+    if !output_path.ends_with(".wav") || output_path.len() > 3072 {
+        return Err(Error::invalid(
+            "Audio derivative requires a bounded .wav destination",
+        ));
+    }
+    let mut paths = vec![
+        output_path.to_owned(),
+        format!("{output_path}.audio-derive.source.original.wav"),
+        format!("{output_path}.audio-derive.output.original.wav"),
+        format!("{output_path}.audio-derive.ffmpeg.argv.original.json"),
+        format!("{output_path}.audio-derive.ffmpeg.stdout.original.bin"),
+        format!("{output_path}.audio-derive.ffmpeg.stderr.original.bin"),
+        format!("{output_path}.audio-derive.ffmpeg.terminal.original.json"),
+        format!("{output_path}.audio-derive.operation.original.json"),
+    ];
+    if host {
+        for family in ["host", "catalog"] {
+            for suffix in [
+                "stdin.original.bin",
+                "stdout.original.bin",
+                "stderr.original.bin",
+                "terminal.original.json",
+            ] {
+                paths.push(format!("{output_path}.audio-derive-{family}.{suffix}"));
+            }
+        }
+    }
+    for path in &paths {
+        crate::fs::validate_relative(path)?;
+    }
+    Ok(paths)
+}
+
+pub fn preflight_audio_derivative_custody(
+    output: &crate::fs::Root,
+    path: &str,
+    host: bool,
+) -> Result<()> {
+    if !output.readable || !output.writable {
+        return Err(Error::new(
+            "PermissionDenied",
+            "Audio derivative requires the existing read/write output grant",
+        ));
+    }
+    for name in audio_derivative_custody_paths(path, host)? {
+        if output.exists(&name)? {
+            return Err(Error::new(
+                "Conflict",
+                "Audio derivative destination or original custody already exists",
+            ));
+        }
+    }
+    // Upper bound for the two declared profiles, original candidate + final WAV,
+    // retained source and bounded process/Host originals. This is only a
+    // free-space preflight; concurrency and quotas remain owned by Driver Host.
+    if output.available_bytes_for(path)? < 90 * 1024 * 1024 {
+        return Err(Error::limit(
+            "Output lacks the closed audio derivative custody budget",
+        ));
+    }
+    Ok(())
+}
+
+pub fn retain_audio_derivative_original(
+    output: &crate::fs::Root,
+    path: &str,
+    bytes: &[u8],
+    maximum: usize,
+) -> Result<crate::fs::Artifact> {
+    retain_process_original(output, path, bytes, maximum, "Audio derivative")
+}
+
+pub(crate) fn finish_audio_derivative_original<T>(
+    original: Result<T>,
+    retained: Result<()>,
+) -> Result<T> {
+    match original {
+        Err(error) => Err(error),
+        Ok(value) => retained.map(|()| value).map_err(|mut error| {
+            error.outcome_known = false;
+            error
+        }),
+    }
+}
+
+pub(crate) struct AudioDerivativeExecution<'a> {
+    pub(crate) inputs: &'a Path,
+    pub(crate) work: &'a Path,
+    pub(crate) output: &'a crate::fs::Root,
+    pub(crate) output_path: &'a str,
+    pub(crate) source_sha256: &'a str,
+    pub(crate) profile: AudioDerivativeProfile,
+}
+
+pub(crate) struct AudioDerivativeRun {
+    pub(crate) recipe_sha256: String,
+    pub(crate) runtime_sha256: String,
+    pub(crate) originals: Vec<crate::fs::Artifact>,
+}
+
+fn checked_audio_derivative_process(
+    original: Result<ProcessResult>,
+    observation: &ProcessObservation,
+) -> Result<ProcessResult> {
+    let result = original?.checked()?;
+    if !observation.complete() {
+        let mut error = Error::new(
+            "BackendFailed",
+            "Audio process returned without complete original stream/terminal capture",
+        );
+        error.outcome_known = false;
+        return Err(error);
+    }
+    Ok(result)
+}
+
+pub(crate) fn validate_audio_derivative_result(value: &Value) -> Result<()> {
+    let profile = AudioDerivativeProfile::parse(value.str("profile")?)?;
+    let source = value.get("source")?;
+    let target = value.get("target")?;
+    let source_frames = source.uint("sample_frames")?;
+    let target_frames = profile.output_frames(source_frames)?;
+    let layout = |value: &Value, expected: (u32, u16), frames: u64| -> Result<()> {
+        let expected_mask = if expected.1 == 1 { 4 } else { 3 };
+        let mask = value.get("channel_mask")?;
+        if value.uint("sample_rate")? != u64::from(expected.0)
+            || value.uint("channels")? != u64::from(expected.1)
+            || value.uint("sample_frames")? != frames
+            || value.uint("container_bits")? != 16
+            || value.uint("valid_bits")? != 16
+            || value.get("ieee_float")? != &Value::Bool(false)
+            || (mask != &Value::Null && mask.u64()? != expected_mask)
+        {
+            return Err(Error::new(
+                "BackendFailed",
+                "Audio derivative result layout or sample clock differs",
+            ));
+        }
+        Ok(())
+    };
+    layout(source, profile.source_layout(), source_frames)?;
+    layout(target, profile.target_layout(), target_frames)?;
+    if !valid_digest(value.str("source_sha256")?)
+        || !valid_digest(value.str("runtime_sha256")?)
+        || value.str("recipe_sha256")? != profile.recipe_sha256()?
+        || value.get("process_capture_complete")? != &Value::Bool(true)
+    {
+        return Err(Error::new(
+            "BackendFailed",
+            "Audio derivative result identity differs",
+        ));
+    }
+    let artifact = value.get("artifact")?;
+    let path = artifact.str("path")?;
+    crate::fs::validate_relative(path)?;
+    if !path.ends_with(".wav") || path.len() > 3072 {
+        return Err(Error::new(
+            "BackendFailed",
+            "Audio derivative result destination differs",
+        ));
+    }
+    let validate_artifact =
+        |file: &Value, expected_path: &str, minimum: u64, maximum: u64| -> Result<()> {
+            if file.str("root")? != "output"
+                || file.str("path")? != expected_path
+                || !valid_digest(file.str("sha256")?)
+                || !(minimum..=maximum).contains(&file.uint("bytes")?)
+                || (file.uint("bytes")? == 0 && file.str("sha256")? != crate::hash::sha256(&[]))
+            {
+                return Err(Error::new(
+                    "BackendFailed",
+                    "Audio derivative original Artifact differs",
+                ));
+            }
+            Ok(())
+        };
+    let source_minimum = source_frames * u64::from(profile.source_layout().1) * 2 + 44;
+    let target_minimum = target_frames * u64::from(profile.target_layout().1) * 2 + 44;
+    validate_artifact(
+        artifact,
+        path,
+        target_minimum,
+        profile.output_limit() as u64,
+    )?;
+    let original_source = value.get("original_source")?;
+    validate_artifact(
+        original_source,
+        &format!("{path}.audio-derive.source.original.wav"),
+        source_minimum,
+        profile.input_limit() as u64,
+    )?;
+    let original_output = value.get("original_output")?;
+    validate_artifact(
+        original_output,
+        &format!("{path}.audio-derive.output.original.wav"),
+        target_minimum,
+        profile.output_limit() as u64,
+    )?;
+    if original_source.str("sha256")? != value.str("source_sha256")?
+        || original_output.str("sha256")? != artifact.str("sha256")?
+        || original_output.uint("bytes")? != artifact.uint("bytes")?
+    {
+        return Err(Error::new(
+            "BackendFailed",
+            "Audio derivative originals do not bind the published WAV",
+        ));
+    }
+    let originals = value.get("process_originals")?.as_array()?;
+    if originals.len() != 4 {
+        return Err(Error::new(
+            "BackendFailed",
+            "Audio derivative process originals are incomplete",
+        ));
+    }
+    for (file, suffix) in originals.iter().zip([
+        "argv.original.json",
+        "stdout.original.bin",
+        "stderr.original.bin",
+        "terminal.original.json",
+    ]) {
+        let stream = suffix.ends_with(".bin");
+        validate_artifact(
+            file,
+            &format!("{path}.audio-derive.ffmpeg.{suffix}"),
+            if stream { 0 } else { 1 },
+            (if stream {
+                AUDIO_DERIVATIVE_STREAM_LIMIT
+            } else {
+                AUDIO_DERIVATIVE_METADATA_LIMIT
+            }) as u64,
+        )?;
+    }
+    Ok(())
+}
+
 #[repr(C)]
 struct Limit {
     current: u64,
@@ -514,34 +1041,236 @@ impl ProcessResult {
         Ok(self)
     }
 }
+#[derive(Clone, Debug, Default)]
+struct CapturedPipe {
+    retained: Vec<u8>,
+    observed_bytes: u64,
+    eof: bool,
+    read_error: Option<serde_json::Value>,
+    panicked: bool,
+    stopped: bool,
+}
+
+impl CapturedPipe {
+    fn complete(&self) -> bool {
+        self.eof
+            && self.read_error.is_none()
+            && !self.panicked
+            && !self.stopped
+            && self.observed_bytes == self.retained.len() as u64
+    }
+
+    fn metadata(&self) -> serde_json::Value {
+        serde_json::json!({
+            "observed_bytes": self.observed_bytes,
+            "retained_bytes": self.retained.len(),
+            "retained_sha256": crate::hash::sha256(&self.retained),
+            "eof_observed": self.eof,
+            "read_error": self.read_error,
+            "reader_panicked": self.panicked,
+            "drain_stopped": self.stopped,
+            "truncated": self.observed_bytes != self.retained.len() as u64,
+            "complete": self.complete()
+        })
+    }
+}
+
+struct CaptureThread {
+    state: Arc<std::sync::Mutex<CapturedPipe>>,
+    handle: Option<thread::JoinHandle<()>>,
+    stop: Arc<AtomicBool>,
+    interruptible: bool,
+}
+
+impl CaptureThread {
+    fn finished(&self) -> bool {
+        self.handle
+            .as_ref()
+            .is_none_or(thread::JoinHandle::is_finished)
+    }
+
+    fn finish(mut self) -> CapturedPipe {
+        let panicked = self
+            .handle
+            .take()
+            .is_some_and(|handle| handle.join().is_err());
+        let mut state = self
+            .state
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        state.panicked |= panicked;
+        state.clone()
+    }
+}
+
+impl Drop for CaptureThread {
+    fn drop(&mut self) {
+        if let Some(handle) = self.handle.take() {
+            self.stop.store(true, Ordering::Release);
+            if self.interruptible {
+                // Only the observed path sets O_NONBLOCK before starting this
+                // reader. Closing its stop flag cannot wait on an inherited
+                // descendant pipe. The legacy path retains its prior policy.
+                let _ = handle.join();
+            }
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+struct ProcessObservation {
+    spawn_attempted: bool,
+    pid: Option<u32>,
+    terminal_observed: bool,
+    exit_code: Option<i32>,
+    term_signal: Option<i32>,
+    cancelled: Option<bool>,
+    timed_out: Option<bool>,
+    output_exceeded: Option<bool>,
+    drain_stop_reason: Option<&'static str>,
+    stdout: Option<CapturedPipe>,
+    stderr: Option<CapturedPipe>,
+    supervisor_error: Option<serde_json::Value>,
+}
+
+impl ProcessObservation {
+    fn complete(&self) -> bool {
+        self.terminal_observed
+            && self.supervisor_error.is_none()
+            && self.drain_stop_reason.is_none()
+            && self.cancelled == Some(false)
+            && self.timed_out == Some(false)
+            && self.output_exceeded == Some(false)
+            && self.stdout.as_ref().is_some_and(CapturedPipe::complete)
+            && self.stderr.as_ref().is_some_and(CapturedPipe::complete)
+    }
+
+    fn metadata(&self) -> serde_json::Value {
+        serde_json::json!({
+            "spawn_attempted": self.spawn_attempted,
+            "pid": self.pid,
+            "terminal_observed": self.terminal_observed,
+            "exit_code": self.exit_code,
+            "term_signal": self.term_signal,
+            "cancelled": self.cancelled,
+            "timed_out": self.timed_out,
+            "output_exceeded": self.output_exceeded,
+            "drain_stop_reason": self.drain_stop_reason,
+            "stdout": self.stdout.as_ref().map(CapturedPipe::metadata),
+            "stderr": self.stderr.as_ref().map(CapturedPipe::metadata),
+            "supervisor_error": self.supervisor_error,
+            "capture_complete": self.complete(),
+            "native_execution_retried": false
+        })
+    }
+}
+
+fn capture_nonblocking(pipe: &impl std::os::fd::AsRawFd) -> Result<()> {
+    let fd = pipe.as_raw_fd();
+    // SAFETY: fd is borrowed from the still-owned read pipe. These calls only
+    // inspect/change this read end's status flags; they never close the fd.
+    let flags = unsafe { libc::fcntl(fd, libc::F_GETFL) };
+    if flags < 0 {
+        return Err(std::io::Error::last_os_error().into());
+    }
+    // SAFETY: the same live borrowed descriptor is used with the existing flags.
+    if unsafe { libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK) } < 0 {
+        return Err(std::io::Error::last_os_error().into());
+    }
+    Ok(())
+}
+
 fn capture(
     mut reader: impl Read + Send + 'static,
     overflow: Arc<AtomicBool>,
     retained_limit: usize,
     total_limit: usize,
-) -> thread::JoinHandle<Vec<u8>> {
-    thread::spawn(move || {
-        let mut retained = Vec::new();
-        let mut bytes = 0usize;
+    stop: Arc<AtomicBool>,
+    interruptible: bool,
+) -> Result<CaptureThread> {
+    let state = Arc::new(std::sync::Mutex::new(CapturedPipe::default()));
+    let observed = state.clone();
+    let requested_stop = stop.clone();
+    let handle = thread::Builder::new().spawn(move || {
         let mut buf = [0; 4096];
         loop {
+            if requested_stop.load(Ordering::Acquire) {
+                observed.lock().unwrap_or_else(|e| e.into_inner()).stopped = true;
+                break;
+            }
             match reader.read(&mut buf) {
-                Ok(0) => break,
+                Ok(0) => {
+                    observed.lock().unwrap_or_else(|e| e.into_inner()).eof = true;
+                    break;
+                }
                 Ok(n) => {
-                    bytes = bytes.saturating_add(n);
-                    let keep = n.min(retained_limit.saturating_sub(retained.len()));
-                    retained.extend_from_slice(&buf[..keep]);
-                    if bytes > total_limit {
+                    let mut observed = observed.lock().unwrap_or_else(|e| e.into_inner());
+                    observed.observed_bytes = observed.observed_bytes.saturating_add(n as u64);
+                    let keep = n.min(retained_limit.saturating_sub(observed.retained.len()));
+                    observed.retained.extend_from_slice(&buf[..keep]);
+                    if observed.observed_bytes > total_limit as u64 {
                         overflow.store(true, Ordering::Release);
                     }
                 }
-                Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
-                Err(_) => break,
+                Err(error) if error.kind() == std::io::ErrorKind::Interrupted => continue,
+                Err(error) if interruptible && error.kind() == std::io::ErrorKind::WouldBlock => {
+                    thread::sleep(Duration::from_millis(10));
+                }
+                Err(error) => {
+                    observed
+                        .lock()
+                        .unwrap_or_else(|e| e.into_inner())
+                        .read_error = Some(serde_json::json!({
+                        "kind": format!("{:?}", error.kind()),
+                        "raw_os_error": error.raw_os_error(),
+                        "message": error.to_string().chars().take(256).collect::<String>()
+                    }));
+                    break;
+                }
             }
         }
-        retained
+    })?;
+    Ok(CaptureThread {
+        state,
+        handle: Some(handle),
+        stop,
+        interruptible,
     })
 }
+// This drain uses the same executor deadline. A stop after a known leader
+// terminal is recorded separately; it never changes that leader's wait flags.
+fn drain_observed_capture(
+    readers: [&CaptureThread; 2],
+    stop: &AtomicBool,
+    start: Instant,
+    timeout: Duration,
+    cancel: &AtomicBool,
+    overflow: &AtomicBool,
+    wait_failed: bool,
+) -> Option<&'static str> {
+    if wait_failed {
+        stop.store(true, Ordering::Release);
+        return Some("supervisor_error");
+    }
+    while readers.iter().any(|reader| !reader.finished()) {
+        let reason = if start.elapsed() >= timeout {
+            Some("deadline")
+        } else if cancel.load(Ordering::Acquire) {
+            Some("cancelled")
+        } else if overflow.load(Ordering::Acquire) {
+            Some("output_exceeded")
+        } else {
+            None
+        };
+        if reason.is_some() {
+            stop.store(true, Ordering::Release);
+            return reason;
+        }
+        thread::sleep(Duration::from_millis(10));
+    }
+    None
+}
+
 /// Owns the child on every error path, including pipe setup and wait failures.
 struct ChildGuard {
     child: std::process::Child,
@@ -579,6 +1308,39 @@ fn run_with_output_limits(
     cancel: &AtomicBool,
     retained_limit: usize,
     total_limit: usize,
+) -> Result<ProcessResult> {
+    run_with_output_limits_observed(spec, cancel, retained_limit, total_limit, None)
+}
+
+fn run_with_output_limits_observed(
+    spec: &ProcessSpec,
+    cancel: &AtomicBool,
+    retained_limit: usize,
+    total_limit: usize,
+    mut observation: Option<&mut ProcessObservation>,
+) -> Result<ProcessResult> {
+    let result = run_with_output_limits_inner(
+        spec,
+        cancel,
+        retained_limit,
+        total_limit,
+        observation.as_deref_mut(),
+    );
+    if let (Some(observation), Err(error)) = (observation, result.as_ref()) {
+        observation.supervisor_error = Some(serde_json::json!({
+            "code": error.code, "message": error.message,
+            "outcome_known": error.outcome_known
+        }));
+    }
+    result
+}
+
+fn run_with_output_limits_inner(
+    spec: &ProcessSpec,
+    cancel: &AtomicBool,
+    retained_limit: usize,
+    total_limit: usize,
+    mut observation: Option<&mut ProcessObservation>,
 ) -> Result<ProcessResult> {
     if retained_limit == 0 || retained_limit > total_limit || total_limit > 8 * 1024 * 1024 {
         return Err(Error::limit("Process output capture budget is invalid"));
@@ -643,8 +1405,14 @@ fn run_with_output_limits(
             Ok(())
         });
     }
+    if let Some(observation) = observation.as_deref_mut() {
+        observation.spawn_attempted = true;
+    }
     let child = command.spawn()?;
     let pgid = child.id() as i32;
+    if let Some(observation) = observation.as_deref_mut() {
+        observation.pid = Some(child.id());
+    }
     let mut child = ChildGuard {
         child,
         group: pgid,
@@ -658,57 +1426,132 @@ fn run_with_output_limits(
         .stderr
         .take()
         .ok_or_else(|| Error::new("Internal", "stderr pipe missing"))?;
+    let observing = observation.is_some();
+    if observing {
+        capture_nonblocking(&stdout)?;
+        capture_nonblocking(&stderr)?;
+    }
     let overflow = Arc::new(AtomicBool::new(false));
-    let a = capture(stdout, overflow.clone(), retained_limit, total_limit);
-    let b = capture(stderr, overflow.clone(), retained_limit, total_limit);
+    let stop = Arc::new(AtomicBool::new(false));
+    let a = capture(
+        stdout,
+        overflow.clone(),
+        retained_limit,
+        total_limit,
+        stop.clone(),
+        observing,
+    )?;
+    let b = match capture(
+        stderr,
+        overflow.clone(),
+        retained_limit,
+        total_limit,
+        stop.clone(),
+        observing,
+    ) {
+        Ok(reader) => reader,
+        Err(original) => {
+            // End the one owned child before dropping the first reader. In the
+            // observed path its nonblocking read end also honors this stop.
+            drop(child);
+            stop.store(true, Ordering::Release);
+            if let Some(observation) = observation.as_deref_mut() {
+                observation.drain_stop_reason = Some("reader_start_failed");
+                observation.stdout = Some(a.finish());
+            } else {
+                drop(a);
+            }
+            return Err(original);
+        }
+    };
     let start = Instant::now();
     let mut cancelled = false;
     let mut timed_out = false;
-    let status;
-    loop {
-        if let Some(s) = child.try_wait()? {
-            status = s;
-            break;
-        }
-        cancelled = cancel.load(Ordering::Acquire);
-        timed_out = start.elapsed() >= spec.timeout;
-        if cancelled || timed_out || overflow.load(Ordering::Acquire) {
-            // SAFETY: this process group was created for this still-owned child; negative PID targets it.
-            unsafe { kill(-pgid, 15) };
-            let until = Instant::now() + Duration::from_millis(300);
-            while Instant::now() < until {
-                if child.try_wait()?.is_some() {
-                    break;
-                }
-                thread::sleep(Duration::from_millis(10));
+    let mut status = None;
+    let waited = (|| -> Result<()> {
+        loop {
+            if let Some(observed) = child.try_wait()? {
+                status = Some(observed);
+                break;
             }
-            // SAFETY: kill all remaining members of the same owned process group before reaping.
-            unsafe { kill(-pgid, 9) };
-            status = child.wait()?;
-            break;
+            cancelled = cancel.load(Ordering::Acquire);
+            timed_out = start.elapsed() >= spec.timeout;
+            if cancelled || timed_out || overflow.load(Ordering::Acquire) {
+                // SAFETY: the negative PID is the still-owned child group.
+                unsafe { kill(-pgid, 15) };
+                let until = Instant::now() + Duration::from_millis(300);
+                while Instant::now() < until {
+                    if let Some(observed) = child.try_wait()? {
+                        status = Some(observed);
+                        break;
+                    }
+                    thread::sleep(Duration::from_millis(10));
+                }
+                // SAFETY: same owned group; this is the existing termination policy.
+                unsafe { kill(-pgid, 9) };
+                status = Some(child.wait()?);
+                break;
+            }
+            thread::sleep(Duration::from_millis(10));
         }
-        thread::sleep(Duration::from_millis(10));
+        Ok(())
+    })();
+    if let Some(observation) = observation.as_deref_mut() {
+        // Preserve the actual terminal BEFORE either join. A later wait/read/
+        // custody error does not turn a known nonzero exit into a spawn failure.
+        observation.terminal_observed = status.is_some();
+        observation.exit_code = status.as_ref().and_then(std::process::ExitStatus::code);
+        observation.term_signal = status.as_ref().and_then(ExitStatusExt::signal);
+        observation.cancelled = Some(cancelled);
+        observation.timed_out = Some(timed_out);
     }
-    // SAFETY: clean residual same-group descendants even after a successful parent exit.
-    // A production bubblewrap PID namespace also contains descendants that create another group.
+    // SAFETY: preserve the executor's cleanup of residual same-group descendants.
     unsafe { kill(-pgid, 9) };
-    child.armed = false;
-    let stdout = a
-        .join()
-        .map_err(|_| Error::new("Internal", "stdout reader failed"))?;
-    let stderr = b
-        .join()
-        .map_err(|_| Error::new("Internal", "stderr reader failed"))?;
+    if waited.is_ok() {
+        child.armed = false;
+    }
+    drop(child);
+    if !observing && waited.is_err() {
+        // Legacy errors retain their classification and prior detach behavior.
+        return waited.and_then(|()| Err(Error::new("Internal", "Unreachable wait state")));
+    }
+    if let Some(observation) = observation.as_deref_mut() {
+        observation.drain_stop_reason = drain_observed_capture(
+            [&a, &b],
+            &stop,
+            start,
+            spec.timeout,
+            cancel,
+            &overflow,
+            waited.is_err(),
+        );
+    }
+    let stdout = a.finish();
+    let stderr = b.finish();
+    if let Some(observation) = observation.as_deref_mut() {
+        observation.stdout = Some(stdout.clone());
+        observation.stderr = Some(stderr.clone());
+        observation.output_exceeded = Some(overflow.load(Ordering::Acquire));
+    }
+    waited?;
+    if !observing && stdout.panicked {
+        return Err(Error::new("Internal", "stdout reader failed"));
+    }
+    if !observing && stderr.panicked {
+        return Err(Error::new("Internal", "stderr reader failed"));
+    }
+    let status = status.ok_or_else(|| Error::new("Internal", "Process terminal missing"))?;
     Ok(ProcessResult {
         exit_code: status.code(),
         term_signal: status.signal(),
-        stdout,
-        stderr,
+        stdout: stdout.retained,
+        stderr: stderr.retained,
         cancelled,
         timed_out,
         output_exceeded: overflow.load(Ordering::Acquire),
     })
 }
+
 fn overflow_uid() -> Option<u32> {
     std::fs::read_to_string("/proc/sys/kernel/overflowuid")
         .ok()?
@@ -1965,6 +2808,134 @@ impl Runtime {
             ));
         }
         Ok(frame)
+    }
+
+    pub(crate) fn derive_audio(
+        &self,
+        request: AudioDerivativeExecution<'_>,
+        cancel: &AtomicBool,
+    ) -> Result<AudioDerivativeRun> {
+        let recipe_sha256 = request.profile.recipe_sha256()?;
+        let input = self.input_path(request.inputs, "source.wav");
+        let output = self.work_path(request.work, "derived.wav");
+        let spec = self.spec(
+            "ffmpeg",
+            audio_derivative_args(request.profile, &input, &output),
+            request.inputs,
+            request.work,
+            self.timeout,
+        );
+        let mut observation = ProcessObservation::default();
+        let mut originals = Vec::new();
+        let process = match spec {
+            Ok(spec) => {
+                let argv = process_spec_original(&spec, "Audio derivative")
+                    .and_then(|value| {
+                        serde_json::to_vec(&value)
+                            .map_err(|_| Error::invalid("Audio argv serialization failed"))
+                    })
+                    .and_then(|bytes| {
+                        retain_audio_derivative_original(
+                            request.output,
+                            &format!(
+                                "{}.audio-derive.ffmpeg.argv.original.json",
+                                request.output_path
+                            ),
+                            &bytes,
+                            AUDIO_DERIVATIVE_METADATA_LIMIT,
+                        )
+                    });
+                match argv {
+                    Ok(artifact) => {
+                        originals.push(artifact);
+                        run_with_output_limits_observed(
+                            &spec,
+                            cancel,
+                            AUDIO_DERIVATIVE_STREAM_LIMIT,
+                            AUDIO_DERIVATIVE_STREAM_LIMIT,
+                            Some(&mut observation),
+                        )
+                    }
+                    Err(original) => Err(original),
+                }
+            }
+            Err(original) => Err(original),
+        };
+        if observation.supervisor_error.is_none()
+            && let Err(error) = &process
+        {
+            observation.supervisor_error = Some(serde_json::json!({
+                "code":error.code,"message":error.message,"outcome_known":error.outcome_known
+            }));
+        }
+        let mut custody_error = None;
+        for (name, stream) in [
+            ("stdout", &observation.stdout),
+            ("stderr", &observation.stderr),
+        ] {
+            if let Some(stream) = stream {
+                match retain_audio_derivative_original(
+                    request.output,
+                    &format!(
+                        "{}.audio-derive.ffmpeg.{name}.original.bin",
+                        request.output_path
+                    ),
+                    &stream.retained,
+                    AUDIO_DERIVATIVE_STREAM_LIMIT,
+                ) {
+                    Ok(artifact) => originals.push(artifact),
+                    Err(error) => {
+                        if custody_error.is_none() {
+                            custody_error = Some(error);
+                        }
+                    }
+                }
+            }
+        }
+        let terminal = serde_json::json!({
+            "schema":"semwright.audio-derivative-process-original/1",
+            "profile":request.profile.id(),"source_sha256":request.source_sha256,
+            "recipe_sha256":recipe_sha256,"ffmpeg_sha256":self.ffmpeg.sha256,
+            "process":observation.metadata(),
+            "process_result_received":process.is_ok(),
+            "retained_prefix_limit":AUDIO_DERIVATIVE_STREAM_LIMIT,
+            "per_stream_total_limit":AUDIO_DERIVATIVE_STREAM_LIMIT,
+            "custody_error":custody_error.as_ref().map(|error| serde_json::json!({
+                "code":error.code,"message":error.message,"outcome_known":error.outcome_known
+            })),
+            "capture_scope":"same-FFmpeg-spawn-before-checked-and-WAV-validation",
+            "physical_acceptance":false
+        });
+        let retained = serde_json::to_vec(&terminal)
+            .map_err(|_| Error::invalid("Audio process terminal serialization failed"))
+            .and_then(|bytes| {
+                retain_audio_derivative_original(
+                    request.output,
+                    &format!(
+                        "{}.audio-derive.ffmpeg.terminal.original.json",
+                        request.output_path
+                    ),
+                    &bytes,
+                    AUDIO_DERIVATIVE_METADATA_LIMIT,
+                )
+            });
+        match retained {
+            Ok(artifact) => originals.push(artifact),
+            Err(error) => {
+                if custody_error.is_none() {
+                    custody_error = Some(error);
+                }
+            }
+        }
+        // Actual wait/cancel/nonzero classification stays primary. Only a known
+        // successful process can be rejected next for incomplete capture.
+        let original =
+            checked_audio_derivative_process(process, &observation).map(|_| AudioDerivativeRun {
+                recipe_sha256,
+                runtime_sha256: self.ffmpeg.sha256.clone(),
+                originals,
+            });
+        finish_audio_derivative_original(original, custody_error.map_or(Ok(()), Err))
     }
 
     pub fn extract_audio(
@@ -3333,6 +4304,581 @@ mod ffv1_original_custody_tests {
             root.read("first.mkv.ffv1-zscale-help.stdout.original.bin", 64)
                 .unwrap(),
             b"retained-before"
+        );
+    }
+}
+
+#[cfg(test)]
+mod audio_derivative_tests {
+    use super::*;
+    use std::io::Cursor;
+
+    fn wav_data(
+        rate: u32,
+        channels: u16,
+        bits: u16,
+        floating: bool,
+        mask: Option<u32>,
+        data: &[u8],
+    ) -> Vec<u8> {
+        let mut fmt = Vec::new();
+        let tag: u16 = if mask.is_some() {
+            0xfffe
+        } else if floating {
+            3
+        } else {
+            1
+        };
+        fmt.extend_from_slice(&tag.to_le_bytes());
+        fmt.extend_from_slice(&channels.to_le_bytes());
+        fmt.extend_from_slice(&rate.to_le_bytes());
+        let block = channels * (bits / 8);
+        fmt.extend_from_slice(&(rate * u32::from(block)).to_le_bytes());
+        fmt.extend_from_slice(&block.to_le_bytes());
+        fmt.extend_from_slice(&bits.to_le_bytes());
+        if let Some(mask) = mask {
+            fmt.extend_from_slice(&22u16.to_le_bytes());
+            fmt.extend_from_slice(&bits.to_le_bytes());
+            fmt.extend_from_slice(&mask.to_le_bytes());
+            fmt.extend_from_slice(&[
+                1, 0, 0, 0, 0, 0, 0x10, 0, 0x80, 0, 0, 0xaa, 0, 0x38, 0x9b, 0x71,
+            ]);
+        }
+        let mut bytes = b"RIFF\0\0\0\0WAVEfmt ".to_vec();
+        bytes.extend_from_slice(&(fmt.len() as u32).to_le_bytes());
+        bytes.extend_from_slice(&fmt);
+        bytes.extend_from_slice(b"data");
+        bytes.extend_from_slice(&(data.len() as u32).to_le_bytes());
+        bytes.extend_from_slice(data);
+        if data.len() % 2 != 0 {
+            bytes.push(0);
+        }
+        let riff = (bytes.len() - 8) as u32;
+        bytes[4..8].copy_from_slice(&riff.to_le_bytes());
+        bytes
+    }
+
+    fn wav(rate: u32, channels: u16, frames: u32, mask: Option<u32>, unequal: bool) -> Vec<u8> {
+        let mut data = Vec::new();
+        for frame in 0..frames {
+            for channel in 0..channels {
+                let sample =
+                    ((frame % 101) as i16 - 50) * 127 + if unequal && channel == 1 { 1 } else { 0 };
+                data.extend_from_slice(&sample.to_le_bytes());
+            }
+        }
+        wav_data(rate, channels, 16, false, mask, &data)
+    }
+
+    #[test]
+    fn source_clock_boundaries_are_integral_and_profiles_are_closed() {
+        let down = AudioDerivativeProfile::Stereo48ToMono16V1;
+        assert_eq!(down.output_frames(1_200).unwrap(), 400);
+        assert_eq!(down.output_frames(384_000).unwrap(), 128_000);
+        for invalid in [0, 1_199, 1_201, 384_001, 384_003, u64::MAX] {
+            assert!(down.output_frames(invalid).is_err(), "{invalid}");
+        }
+        let up = AudioDerivativeProfile::Mono16ToDualMono48V1;
+        assert_eq!(up.output_frames(16_000).unwrap(), 48_000);
+        assert_eq!(up.output_frames(2_880_000).unwrap(), 8_640_000);
+        for invalid in [0, 15_999, 2_880_001, u64::MAX] {
+            assert!(up.output_frames(invalid).is_err());
+        }
+        assert!(AudioDerivativeProfile::parse("pcm16-mono16-to-stereo48-v1").is_err());
+        assert!(AudioDerivativeProfile::parse("caller-filter").is_err());
+    }
+
+    #[test]
+    fn wave_reader_accepts_original_pcm_chunks_and_observes_every_frame() {
+        let profile = AudioDerivativeProfile::Stereo48ToMono16V1;
+        let mut bytes = wav(48_000, 2, 1_200, None, true);
+        bytes.splice(36..36, b"JUNK\x04\0\0\0keep".iter().copied());
+        let size = (bytes.len() - 8) as u32;
+        bytes[4..8].copy_from_slice(&size.to_le_bytes());
+        let before = bytes.clone();
+        let observation = profile.inspect_source(&bytes, 1_200).unwrap();
+        assert_eq!(observation.sample_frames, 1_200);
+        assert_eq!(observation.channels, 2);
+        assert_eq!(bytes, before);
+        assert!(profile.inspect_source(&bytes, 1_203).is_err());
+        let last = bytes.len() - 1;
+        assert!(profile.inspect_source(&bytes[..last], 1_200).is_err());
+    }
+
+    #[test]
+    fn channel_masks_are_observed_instead_of_inferred_from_channel_count() {
+        let down = AudioDerivativeProfile::Stereo48ToMono16V1;
+        assert!(
+            down.inspect_source(&wav(48_000, 2, 1_200, Some(3), true), 1_200)
+                .is_ok()
+        );
+        for mask in [0, 4, 0x30] {
+            assert!(
+                down.inspect_source(&wav(48_000, 2, 1_200, Some(mask), true), 1_200)
+                    .is_err()
+            );
+        }
+        let up = AudioDerivativeProfile::Mono16ToDualMono48V1;
+        assert!(
+            up.inspect_source(&wav(16_000, 1, 16_000, Some(4), false), 16_000)
+                .is_ok()
+        );
+        for mask in [0, 1, 3] {
+            assert!(
+                up.inspect_source(&wav(16_000, 1, 16_000, Some(mask), false), 16_000)
+                    .is_err()
+            );
+        }
+    }
+
+    #[test]
+    fn well_formed_float_and_pcm24_sources_do_not_enter_the_pcm16_profile() {
+        let floats = (0..16_000)
+            .flat_map(|_| 0.25f32.to_le_bytes())
+            .collect::<Vec<_>>();
+        let wave = wav_data(16_000, 1, 32, true, None, &floats);
+        assert!(semwright_audio_domain::wav::WaveReader::open(Cursor::new(&wave), 1 << 20).is_ok());
+        assert!(
+            AudioDerivativeProfile::Mono16ToDualMono48V1
+                .inspect_source(&wave, 16_000)
+                .is_err()
+        );
+        let pcm24 = vec![0u8; 1_200 * 2 * 3];
+        let wave = wav_data(48_000, 2, 24, false, None, &pcm24);
+        assert!(semwright_audio_domain::wav::WaveReader::open(Cursor::new(&wave), 1 << 20).is_ok());
+        assert!(
+            AudioDerivativeProfile::Stereo48ToMono16V1
+                .inspect_source(&wave, 1_200)
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn derived_dual_mono_checks_both_samples_and_exact_target_count() {
+        let profile = AudioDerivativeProfile::Mono16ToDualMono48V1;
+        let source_frames = 16_000;
+        let valid = wav(48_000, 2, 48_000, Some(3), false);
+        assert!(profile.inspect_target(&valid, source_frames).is_ok());
+        assert!(
+            profile
+                .inspect_target(&wav(48_000, 2, 48_000, None, true), source_frames)
+                .is_err()
+        );
+        assert!(
+            profile
+                .inspect_target(&wav(48_000, 2, 48_001, None, false), source_frames)
+                .is_err()
+        );
+        assert!(
+            profile
+                .inspect_target(&wav(48_000, 1, 48_000, None, false), source_frames)
+                .is_err()
+        );
+        assert!(
+            profile
+                .inspect_target(&wav(16_000, 2, 48_000, None, false), source_frames)
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn recipes_are_fixed_and_do_not_trim_pad_or_normalize_original_samples() {
+        for profile in [
+            AudioDerivativeProfile::Stereo48ToMono16V1,
+            AudioDerivativeProfile::Mono16ToDualMono48V1,
+        ] {
+            let args = audio_derivative_args(
+                profile,
+                Path::new("/input/source.wav"),
+                Path::new("/work/derived.wav"),
+            );
+            let strings = args
+                .iter()
+                .map(|arg| arg.to_str().unwrap())
+                .collect::<Vec<_>>();
+            assert_eq!(strings.iter().filter(|arg| **arg == "-i").count(), 1);
+            assert!(strings.windows(2).any(|a| a == ["-c:a", "pcm_s16le"]));
+            assert!(strings.windows(2).any(|a| a == ["-af", profile.filter()]));
+            assert!(strings.contains(&"-n"));
+            for forbidden in ["-ss", "-t", "-to", "-shortest", "-frames:a"] {
+                assert!(!strings.contains(&forbidden));
+            }
+            assert!(!profile.filter().contains("apad"));
+            assert!(!profile.filter().contains("atrim"));
+            assert!(!profile.filter().contains("loudnorm"));
+            assert!(valid_digest(&profile.recipe_sha256().unwrap()));
+        }
+        assert_ne!(
+            AudioDerivativeProfile::Stereo48ToMono16V1
+                .recipe_sha256()
+                .unwrap(),
+            AudioDerivativeProfile::Mono16ToDualMono48V1
+                .recipe_sha256()
+                .unwrap()
+        );
+    }
+
+    struct PrefixFailure {
+        first: bool,
+        panic: bool,
+    }
+    impl Read for PrefixFailure {
+        fn read(&mut self, bytes: &mut [u8]) -> std::io::Result<usize> {
+            if self.first {
+                self.first = false;
+                bytes[..6].copy_from_slice(b"prefix");
+                return Ok(6);
+            }
+            assert!(!self.panic, "controlled reader panic after original prefix");
+            Err(std::io::Error::from_raw_os_error(libc::EIO))
+        }
+    }
+
+    fn read_fixture(
+        reader: impl Read + Send + 'static,
+        retained: usize,
+        total: usize,
+    ) -> CapturedPipe {
+        capture(
+            reader,
+            Arc::new(AtomicBool::new(false)),
+            retained,
+            total,
+            Arc::new(AtomicBool::new(false)),
+            false,
+        )
+        .unwrap()
+        .finish()
+    }
+
+    #[test]
+    fn original_prefix_survives_read_error_without_fabricating_eof() {
+        let pipe = read_fixture(
+            PrefixFailure {
+                first: true,
+                panic: false,
+            },
+            64,
+            64,
+        );
+        assert_eq!(pipe.retained, b"prefix");
+        assert_eq!(pipe.observed_bytes, 6);
+        assert!(pipe.read_error.is_some());
+        assert!(!pipe.eof);
+        assert!(!pipe.complete());
+    }
+
+    #[test]
+    fn original_prefix_survives_reader_panic_without_becoming_an_empty_pipe() {
+        let pipe = read_fixture(
+            PrefixFailure {
+                first: true,
+                panic: true,
+            },
+            64,
+            64,
+        );
+        assert_eq!(pipe.retained, b"prefix");
+        assert!(pipe.panicked);
+        assert!(!pipe.eof);
+        assert!(!pipe.complete());
+    }
+
+    #[test]
+    fn empty_eof_and_a_truncated_prefix_have_different_observations() {
+        let empty = read_fixture(Cursor::new(Vec::<u8>::new()), 4, 8);
+        assert!(empty.eof && empty.complete());
+        assert!(empty.retained.is_empty());
+        let prefix = read_fixture(Cursor::new(b"123456".to_vec()), 4, 8);
+        assert_eq!(prefix.retained, b"1234");
+        assert_eq!(prefix.observed_bytes, 6);
+        assert!(prefix.eof);
+        assert!(!prefix.complete());
+        assert_eq!(prefix.metadata()["truncated"], true);
+    }
+
+    #[test]
+    fn an_open_descendant_pipe_can_stop_without_a_blocking_join_or_fake_eof() {
+        use std::os::unix::net::UnixStream;
+        let (reader, _still_open_writer) = UnixStream::pair().unwrap();
+        reader.set_nonblocking(true).unwrap();
+        let stop = Arc::new(AtomicBool::new(false));
+        let handle = capture(
+            reader,
+            Arc::new(AtomicBool::new(false)),
+            64,
+            64,
+            stop.clone(),
+            true,
+        )
+        .unwrap();
+        stop.store(true, Ordering::Release);
+        let pipe = handle.finish();
+        assert!(pipe.stopped);
+        assert!(!pipe.eof);
+        assert!(!pipe.complete());
+    }
+
+    #[test]
+    fn known_terminal_remains_separate_from_a_later_drain_stop() {
+        use std::os::unix::net::UnixStream;
+        for reason in ["deadline", "cancelled", "output_exceeded"] {
+            let (reader, writer) = UnixStream::pair().unwrap();
+            capture_nonblocking(&reader).unwrap();
+            let stop = Arc::new(AtomicBool::new(false));
+            let overflow = Arc::new(AtomicBool::new(reason == "output_exceeded"));
+            let cancel = AtomicBool::new(reason == "cancelled");
+            let stdout = capture(reader, overflow.clone(), 64, 64, stop.clone(), true).unwrap();
+            let stderr = capture(
+                Cursor::new(Vec::<u8>::new()),
+                overflow.clone(),
+                64,
+                64,
+                stop.clone(),
+                true,
+            )
+            .unwrap();
+            let start = if reason == "deadline" {
+                Instant::now().checked_sub(Duration::from_secs(1)).unwrap()
+            } else {
+                Instant::now()
+            };
+            let mut observation = ProcessObservation {
+                terminal_observed: true,
+                exit_code: Some(0),
+                cancelled: Some(false),
+                timed_out: Some(false),
+                output_exceeded: Some(overflow.load(Ordering::Acquire)),
+                ..ProcessObservation::default()
+            };
+            observation.drain_stop_reason = drain_observed_capture(
+                [&stdout, &stderr],
+                &stop,
+                start,
+                Duration::from_millis(500),
+                &cancel,
+                &overflow,
+                false,
+            );
+            observation.stdout = Some(stdout.finish());
+            observation.stderr = Some(stderr.finish());
+            // The original writer stays open throughout the actual drain and join.
+            assert!(observation.stdout.as_ref().unwrap().stopped);
+            assert!(!observation.stdout.as_ref().unwrap().eof);
+            assert_eq!(observation.drain_stop_reason, Some(reason));
+            assert_eq!(observation.exit_code, Some(0));
+            assert_eq!(observation.cancelled, Some(false));
+            assert_eq!(observation.timed_out, Some(false));
+            assert!(!observation.complete());
+            let metadata = observation.metadata();
+            assert_eq!(metadata["drain_stop_reason"], reason);
+            assert_eq!(metadata["exit_code"], 0);
+            assert_eq!(metadata["timed_out"], false);
+            // Even if EOF races the stop request, the observed drain stop cannot
+            // be erased by subsequently complete reader states.
+            observation.stdout = Some(CapturedPipe {
+                eof: true,
+                ..CapturedPipe::default()
+            });
+            observation.stderr = Some(CapturedPipe {
+                eof: true,
+                ..CapturedPipe::default()
+            });
+            observation.output_exceeded = Some(false);
+            assert!(!observation.complete());
+            drop(writer);
+        }
+    }
+
+    fn terminal_fixture(
+        code: i32,
+        stdout: Option<CapturedPipe>,
+    ) -> (ProcessResult, ProcessObservation) {
+        let stderr = read_fixture(Cursor::new(b"original stderr".to_vec()), 64, 64);
+        let result = ProcessResult {
+            exit_code: Some(code),
+            term_signal: None,
+            stdout: stdout
+                .as_ref()
+                .map_or_else(Vec::new, |pipe| pipe.retained.clone()),
+            stderr: stderr.retained.clone(),
+            cancelled: false,
+            timed_out: false,
+            output_exceeded: false,
+        };
+        let observation = ProcessObservation {
+            spawn_attempted: true,
+            pid: None,
+            terminal_observed: true,
+            exit_code: Some(code),
+            term_signal: None,
+            cancelled: Some(false),
+            timed_out: Some(false),
+            output_exceeded: Some(false),
+            stdout,
+            stderr: Some(stderr),
+            supervisor_error: None,
+            drain_stop_reason: None,
+        };
+        (result, observation)
+    }
+
+    #[test]
+    fn nonzero_terminal_stays_primary_for_reader_error_panic_or_missing_pipe() {
+        let cases = [
+            Some(read_fixture(
+                PrefixFailure {
+                    first: true,
+                    panic: false,
+                },
+                64,
+                64,
+            )),
+            Some(read_fixture(
+                PrefixFailure {
+                    first: true,
+                    panic: true,
+                },
+                64,
+                64,
+            )),
+            None,
+        ];
+        for pipe in cases {
+            let (result, observation) = terminal_fixture(7, pipe);
+            let error = checked_audio_derivative_process(Ok(result), &observation).unwrap_err();
+            assert_eq!(error.code, "BackendFailed");
+            assert!(error.message.contains("Some(7)"));
+            assert_eq!(observation.exit_code, Some(7));
+            assert!(!observation.complete());
+        }
+    }
+
+    #[test]
+    fn successful_exit_with_incomplete_capture_is_unknown_instead_of_a_derivative() {
+        let pipe = read_fixture(
+            PrefixFailure {
+                first: true,
+                panic: false,
+            },
+            64,
+            64,
+        );
+        let (result, observation) = terminal_fixture(0, Some(pipe));
+        let error = checked_audio_derivative_process(Ok(result), &observation).unwrap_err();
+        assert!(!error.outcome_known);
+        assert_eq!(observation.exit_code, Some(0));
+    }
+
+    #[test]
+    fn custody_failure_keeps_the_original_error_object_and_unknown_flag() {
+        let mut original = Error::new("Cancelled", "retained primary cancellation");
+        original.outcome_known = false;
+        let message = original.message.as_ptr();
+        let error = finish_audio_derivative_original::<()>(
+            Err(original),
+            Err(Error::new("Internal", "secondary write failure")),
+        )
+        .unwrap_err();
+        assert_eq!(error.code, "Cancelled");
+        assert_eq!(error.message.as_ptr(), message);
+        assert!(!error.outcome_known);
+        let success =
+            finish_audio_derivative_original(Ok(()), Err(Error::new("Internal", "write failure")))
+                .unwrap_err();
+        assert!(!success.outcome_known);
+    }
+
+    #[test]
+    fn empty_original_stream_is_published_and_never_overwritten() {
+        let temporary = tempfile::tempdir().unwrap();
+        let path = temporary.path().canonicalize().unwrap();
+        let root = crate::fs::Root::open(&path, true, true).unwrap();
+        let original = retain_audio_derivative_original(&root, "empty.bin", &[], 8).unwrap();
+        assert_eq!(original.bytes, 0);
+        assert_eq!(original.sha256, crate::hash::sha256(&[]));
+        assert_eq!(root.read("empty.bin", 8).unwrap(), b"");
+        assert!(retain_audio_derivative_original(&root, "empty.bin", b"replacement", 16).is_err());
+        assert_eq!(root.read("empty.bin", 8).unwrap(), b"");
+    }
+
+    #[test]
+    fn custody_roster_is_audio_specific_closed_and_disjoint_from_ffv1() {
+        let paths = audio_derivative_custody_paths("voice.wav", true).unwrap();
+        assert_eq!(paths.len(), 16);
+        let unique = paths.iter().collect::<BTreeSet<_>>();
+        assert_eq!(unique.len(), paths.len());
+        assert!(paths.iter().all(|path| !path.contains("ffv1")));
+        assert!(audio_derivative_custody_paths("../voice.wav", true).is_err());
+        assert!(audio_derivative_custody_paths("voice.mp4", true).is_err());
+    }
+
+    // A controlled test-binary child exercises the SAME supervisor. It is not
+    // FFmpeg, a render, or evidence of the runtime audio profiles.
+    #[test]
+    fn audio_capture_child_fixture() {
+        if std::env::var("SEMWRIGHT_AUDIO_CAPTURE_FIXTURE").as_deref() == Ok("one-child") {
+            std::io::stdout()
+                .write_all(b"audio-derive-one-child\n")
+                .unwrap();
+            std::io::stdout().flush().unwrap();
+            std::io::stderr()
+                .write_all(b"audio-derive-original-stderr\n")
+                .unwrap();
+            std::io::stderr().flush().unwrap();
+            std::process::exit(7);
+        }
+    }
+
+    #[test]
+    fn same_supervisor_retains_real_nonzero_exit_and_complete_original_pipes() {
+        let work = tempfile::tempdir().unwrap();
+        let spec = ProcessSpec {
+            executable: std::env::current_exe().unwrap(),
+            args: [
+                "--exact",
+                "runtime::audio_derivative_tests::audio_capture_child_fixture",
+                "--nocapture",
+            ]
+            .into_iter()
+            .map(Into::into)
+            .collect(),
+            cwd: work.path().canonicalize().unwrap(),
+            timeout: Duration::from_secs(10),
+            cpu_seconds: 10,
+            address_space_bytes: 1_073_741_824,
+            environment: BTreeMap::from([(
+                "SEMWRIGHT_AUDIO_CAPTURE_FIXTURE".into(),
+                "one-child".into(),
+            )]),
+        };
+        let mut observation = ProcessObservation::default();
+        let result = run_with_output_limits_observed(
+            &spec,
+            &AtomicBool::new(false),
+            65_536,
+            65_536,
+            Some(&mut observation),
+        )
+        .unwrap();
+        assert_eq!(result.exit_code, Some(7));
+        assert!(observation.pid.is_some());
+        assert!(observation.complete());
+        assert_eq!(observation.exit_code, Some(7));
+        assert_eq!(result.stdout, observation.stdout.as_ref().unwrap().retained);
+        assert_eq!(result.stderr, observation.stderr.as_ref().unwrap().retained);
+        assert_eq!(
+            String::from_utf8_lossy(&result.stdout)
+                .matches("audio-derive-one-child\n")
+                .count(),
+            1
+        );
+        assert!(String::from_utf8_lossy(&result.stderr).contains("audio-derive-original-stderr"));
+        assert_eq!(
+            checked_audio_derivative_process(Ok(result), &observation)
+                .unwrap_err()
+                .code,
+            "BackendFailed"
         );
     }
 }

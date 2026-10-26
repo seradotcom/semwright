@@ -27,33 +27,312 @@ fn configured_tool(variable: &str) -> PathBuf {
     .unwrap()
 }
 
-fn find<'a>(
-    capabilities: &'a [semwright_backend_api::ProvidedCapability],
-    name: &str,
-) -> &'a semwright_backend_api::ProvidedCapability {
-    capabilities
-        .iter()
-        .find(|capability| capability.descriptor.name == name)
-        .unwrap_or_else(|| panic!("missing capability {name}"))
+fn audio_live_custody_sdk_error(after_effect: bool) -> semwright_types::Error {
+    let error = semwright_types::Error::new(
+        semwright_types::ErrorCode::BackendFailed,
+        "MLT live original custody is incomplete; the attempt is stopped without replay",
+    );
+    if after_effect {
+        error.uncertain()
+    } else {
+        error
+    }
+}
+
+impl AudioLiveOriginals {
+    fn begin_call(
+        &self,
+        context: &Context,
+        name: &str,
+        descriptor: &Value,
+        args: &Value,
+    ) -> AudioLiveResult<String> {
+        self.before_effect()?;
+        let index = self
+            .calls
+            .fetch_update(
+                std::sync::atomic::Ordering::SeqCst,
+                std::sync::atomic::Ordering::SeqCst,
+                |value| {
+                    value
+                        .checked_add(1)
+                        .filter(|next| *next <= AUDIO_LIVE_CALL_LIMIT)
+                },
+            )
+            .map_err(|_| std::io::Error::other("Live provider call record budget exhausted"))?
+            + 1;
+        let stem = format!("call-{index:05}");
+        self.record(&format!("{stem}.request.original.json"), &json!({
+            "schema":"semwright.mlt-live-provider-request-original/1",
+            "context":{"session":context.session,"request_id":context.request_id,
+                "cancellation_requested":context.cancellation.is_cancelled()},
+            "capability":name,"descriptor":descriptor,"arguments":args,
+            "capture_scope":"same-public-Context-descriptor-and-Value-before-single-Provider-execute",
+            "wire_bytes_claimed":false,"authority_issued":false,"native_execution_retried":false
+        }))?;
+        Ok(stem)
+    }
+
+    fn finish_call(
+        &self,
+        stem: &str,
+        original: semwright_types::Result<Value>,
+    ) -> semwright_types::Result<Value> {
+        let retained = (|| -> AudioLiveResult<()> {
+            self.record(
+                &format!("{stem}.result.original.json"),
+                &json!({
+                    "schema":"semwright.mlt-live-provider-result-original/1",
+                    "result":serde_json::to_value(&original)?,
+                    "capture_scope":"complete-returned-public-SDK-Result-before-interpretation",
+                    "host_stream_eof_attested":false,"native_execution_retried":false
+                }),
+            )
+        })();
+        match original {
+            Err(original) => {
+                if !original.outcome_known {
+                    self.stop();
+                }
+                if let Err(secondary) = retained {
+                    self.stop();
+                    self.secondary(
+                        &format!("{stem}.custody-error.original.json"),
+                        secondary.as_ref(),
+                    );
+                }
+                // Never reconstruct the original SDK Error or discard its
+                // progress, candidates, context, diagnostic or UNKNOWN state.
+                Err(original)
+            }
+            Ok(value) => match retained {
+                Ok(()) => Ok(value),
+                Err(secondary) => {
+                    self.stop();
+                    self.secondary(
+                        &format!("{stem}.custody-error.original.json"),
+                        secondary.as_ref(),
+                    );
+                    Err(audio_live_custody_sdk_error(true))
+                }
+            },
+        }
+    }
 }
 
 async fn call(
+    originals: &AudioLiveOriginals,
     provider: &DriverProvider,
     capabilities: &[semwright_backend_api::ProvidedCapability],
     name: &str,
     args: Value,
 ) -> semwright_types::Result<Value> {
-    Provider::execute(
-        provider,
-        &Context {
-            session: "mlt-video-live".into(),
-            request_id: semwright_types::unique_id(),
-            cancellation: CancellationToken::new(),
-        },
-        &find(capabilities, name).descriptor,
-        &args,
-    )
-    .await
+    let context = Context {
+        session: "mlt-video-live".into(),
+        request_id: semwright_types::unique_id(),
+        cancellation: CancellationToken::new(),
+    };
+    let capability = capabilities
+        .iter()
+        .find(|capability| capability.descriptor.name == name)
+        .ok_or_else(|| {
+            semwright_types::Error::new(
+                semwright_types::ErrorCode::Unsupported,
+                "Required MLT live capability is absent",
+            )
+        })?;
+    let prepared = (|| -> AudioLiveResult<String> {
+        let descriptor = serde_json::to_value(&capability.descriptor)?;
+        originals.begin_call(&context, name, &descriptor, &args)
+    })();
+    let stem = match prepared {
+        Ok(stem) => stem,
+        Err(secondary) => {
+            originals.stop();
+            originals.secondary(
+                "provider-request-custody-error.original.json",
+                secondary.as_ref(),
+            );
+            return Err(audio_live_custody_sdk_error(false));
+        }
+    };
+    // One existing public dispatcher and one actual Context. Retention never
+    // invokes the provider a second time or manufactures a transport envelope.
+    let original = Provider::execute(provider, &context, &capability.descriptor, &args).await;
+    originals.finish_call(&stem, original)
+}
+
+fn audio_live_expect_known_error(
+    original: semwright_types::Result<Value>,
+) -> AudioLiveResult<semwright_types::Error> {
+    match original {
+        Err(error) if error.outcome_known => Ok(error),
+        Err(error) => Err(Box::new(error)),
+        Ok(_) => {
+            Err(std::io::Error::other("Expected a known rejection from the live provider").into())
+        }
+    }
+}
+
+fn audio_live_observe_case_files(
+    originals: &AudioLiveOriginals,
+    case: AudioLiveCase,
+) -> AudioLiveResult<Value> {
+    use std::io::Read;
+    use std::os::unix::fs::MetadataExt;
+    let name = case.output_name();
+    let files = [
+        (name.clone(), 40 * 1024 * 1024),
+        (
+            format!("{name}.audio-derive.source.original.wav"),
+            6 * 1024 * 1024,
+        ),
+        (
+            format!("{name}.audio-derive.output.original.wav"),
+            40 * 1024 * 1024,
+        ),
+        (
+            format!("{name}.audio-derive.ffmpeg.argv.original.json"),
+            AUDIO_LIVE_METADATA_LIMIT,
+        ),
+        (
+            format!("{name}.audio-derive.ffmpeg.stdout.original.bin"),
+            AUDIO_LIVE_TOOL_PREFIX_LIMIT,
+        ),
+        (
+            format!("{name}.audio-derive.ffmpeg.stderr.original.bin"),
+            AUDIO_LIVE_TOOL_PREFIX_LIMIT,
+        ),
+        (
+            format!("{name}.audio-derive.ffmpeg.terminal.original.json"),
+            AUDIO_LIVE_METADATA_LIMIT,
+        ),
+        (
+            format!("{name}.audio-derive-host.stdin.original.bin"),
+            AUDIO_LIVE_METADATA_LIMIT,
+        ),
+        (
+            format!("{name}.audio-derive-host.stdout.original.bin"),
+            AUDIO_LIVE_TOOL_PREFIX_LIMIT,
+        ),
+        (
+            format!("{name}.audio-derive-host.stderr.original.bin"),
+            AUDIO_LIVE_TOOL_PREFIX_LIMIT,
+        ),
+        (
+            format!("{name}.audio-derive-host.terminal.original.json"),
+            AUDIO_LIVE_METADATA_LIMIT,
+        ),
+        (
+            format!("{name}.audio-derive.operation.original.json"),
+            AUDIO_LIVE_METADATA_LIMIT,
+        ),
+        (
+            format!("{name}.audio-derive-catalog.stdin.original.bin"),
+            semwright_mlt_video::runtime::AUDIO_DERIVATIVE_STDIN_LIMIT,
+        ),
+        (
+            format!("{name}.audio-derive-catalog.stdout.original.bin"),
+            semwright_mlt_video::runtime::AUDIO_DERIVATIVE_STREAM_LIMIT,
+        ),
+        (
+            format!("{name}.audio-derive-catalog.stderr.original.bin"),
+            semwright_mlt_video::runtime::AUDIO_DERIVATIVE_STREAM_LIMIT,
+        ),
+        (
+            format!("{name}.audio-derive-catalog.terminal.original.json"),
+            semwright_mlt_video::runtime::AUDIO_DERIVATIVE_METADATA_LIMIT,
+        ),
+    ];
+    let mut rows = Vec::new();
+    let mut first_error: Option<Box<dyn std::error::Error + Send + Sync>> = None;
+    for (path, maximum) in files {
+        let opened = originals.output.read_file(&path, u64::MAX);
+        let mut file = match opened {
+            Err(error) if error.code == "NotFound" => {
+                rows.push(
+                    json!({"root":"output","path":path,"state":"NOT_PRESENT_AT_OBSERVATION",
+                    "producer_effect_absent_claimed":false}),
+                );
+                continue;
+            }
+            Err(error) => {
+                rows.push(json!({"root":"output","path":path,"state":"OPEN_FAILED",
+                    "original_error":error.to_string(),"bytes":null,"sha256":null}));
+                if first_error.is_none() {
+                    first_error = Some(Box::new(error));
+                }
+                continue;
+            }
+            Ok(file) => file,
+        };
+        let before = file.metadata();
+        let mut bytes = Vec::new();
+        let read = file
+            .by_ref()
+            .take(maximum as u64 + 1)
+            .read_to_end(&mut bytes);
+        let after = file.metadata();
+        let over = bytes.len() > maximum;
+        if over {
+            bytes.truncate(maximum);
+        }
+        let stable = match (&before, &after) {
+            (Ok(before), Ok(after)) => {
+                before.dev() == after.dev()
+                    && before.ino() == after.ino()
+                    && before.len() == after.len()
+                    && after.len() == bytes.len() as u64
+                    && before.mtime() == after.mtime()
+                    && before.mtime_nsec() == after.mtime_nsec()
+                    && before.ctime() == after.ctime()
+                    && before.ctime_nsec() == after.ctime_nsec()
+            }
+            _ => false,
+        };
+        let complete_file_snapshot = read.is_ok() && !over && stable;
+        rows.push(json!({
+            "root":"output","path":path,"state":if complete_file_snapshot {"FILE_SNAPSHOT_OBSERVED"} else {"INCOMPLETE_FILE_SNAPSHOT"},
+            "maximum_inspected_bytes":maximum,"inspected_bytes":bytes.len(),
+            "inspected_sha256":semwright_mlt_video::hash::sha256(&bytes),
+            "metadata_bytes_before":before.as_ref().ok().map(std::fs::Metadata::len),
+            "metadata_bytes_after":after.as_ref().ok().map(std::fs::Metadata::len),
+            "metadata_error_before":before.as_ref().err().map(ToString::to_string),
+            "metadata_error_after":after.as_ref().err().map(ToString::to_string),
+            "read_error":read.as_ref().err().map(ToString::to_string),
+            "over_inspection_limit":over,"same_file_snapshot":stable,
+            "producer_eof_attested":false,"descendant_closure_attested":false,
+            "original_retention_location":"same-owner-output-root-no-recapture"
+        }));
+        if first_error.is_none() {
+            first_error = match read {
+                Err(error) => Some(Box::new(error)),
+                Ok(_) if !complete_file_snapshot => Some(Box::new(std::io::Error::other(
+                    "Audio derive original file snapshot is incomplete",
+                ))),
+                Ok(_) => None,
+            };
+        }
+    }
+    let observation = json!({
+        "schema":"semwright.audio-derive-live-file-observation/1","case":case.id,"files":rows,
+        "captured_before_result_unwrap_or_oracle":true,"native_execution_retried":false
+    });
+    let retained = originals.record(
+        &format!("audio-live-{}.backend-files.original.json", case.id),
+        &observation,
+    );
+    if let Some(original) = first_error {
+        originals.stop();
+        if let Err(secondary) = retained {
+            originals.secondary(
+                &format!("audio-live-{}.file-custody-error.original.json", case.id),
+                secondary.as_ref(),
+            );
+        }
+        return Err(original);
+    }
+    retained.map(|()| observation)
 }
 
 fn created(value: &Value, kind: &str) -> (String, String) {
@@ -81,36 +360,1816 @@ fn page_ref(value: &Value, name: &str) -> String {
 }
 
 async fn sequence_ref(
+    originals: &AudioLiveOriginals,
     provider: &DriverProvider,
     capabilities: &[semwright_backend_api::ProvidedCapability],
     project: &str,
-) -> String {
+) -> AudioLiveResult<String> {
     let sequences = call(
+        originals,
         provider,
         capabilities,
         "driver.mlt-video.sequence.list",
         json!({"project":project,"limit":100}),
     )
-    .await
-    .unwrap();
-    page_ref(&sequences, "Main")
+    .await?;
+    Ok(page_ref(&sequences, "Main"))
+}
+
+// This selects a private test destination created by the external custodian.
+// It grants no tool, filesystem, provider, source or execution authority.
+const AUDIO_LIVE_ORIGINALS_ENV: &str = "SEMWRIGHT_TEST_MLT_VIDEO_EVIDENCE_ROOT";
+const AUDIO_LIVE_COMMAND: &str = "driver.mlt-video.audio.derive";
+const AUDIO_LIVE_METADATA_LIMIT: usize = 65_536;
+const AUDIO_LIVE_CAPABILITIES_LIMIT: usize = 1_048_576;
+const AUDIO_LIVE_RECORDS_LIMIT: u64 = 134_217_728;
+const AUDIO_LIVE_CALL_LIMIT: usize = 16_384;
+const AUDIO_LIVE_TOOL_PREFIX_LIMIT: usize = 262_144;
+const AUDIO_LIVE_ROOTS: [&str; 8] = [
+    "binaries", "project", "media", "output", "runtime", "scratch", "state", "records",
+];
+const AUDIO_LIVE_LEVELS: [i16; 4] = [4096, -8192, 12288, 0];
+const AUDIO_LIVE_LEVEL_ERROR_LSB: i32 = 1;
+type AudioLiveResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
+
+fn audio_live_require(condition: bool, message: &'static str) -> AudioLiveResult<()> {
+    if condition {
+        Ok(())
+    } else {
+        Err(std::io::Error::other(message).into())
+    }
+}
+
+fn audio_live_selector(value: Option<&str>) -> AudioLiveResult<()> {
+    audio_live_require(
+        value == Some("1"),
+        "Explicit ignored live execution requires SEMWRIGHT_TEST_MLT_VIDEO=1",
+    )
+}
+
+fn audio_live_excluded_locations() -> AudioLiveResult<Vec<PathBuf>> {
+    let checkout = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(Path::parent)
+        .ok_or_else(|| std::io::Error::other("SDK checkout root unavailable"))?
+        .canonicalize()?;
+    let workspace = std::env::var_os("GITHUB_WORKSPACE").ok_or_else(|| {
+        std::io::Error::other(
+            "GITHUB_WORKSPACE is required to exclude the CI source workspace before live effects",
+        )
+    })?;
+    let working = std::env::current_dir()?.canonicalize()?;
+    let mut paths = vec![
+        checkout.clone(),
+        checkout.join("target"),
+        working.clone(),
+        PathBuf::from(workspace),
+    ];
+    for name in [
+        "CARGO_TARGET_DIR",
+        "CARGO_HOME",
+        "RUSTUP_HOME",
+        "RUNNER_TOOL_CACHE",
+        "XDG_CACHE_HOME",
+    ] {
+        if let Some(value) = std::env::var_os(name) {
+            paths.push(PathBuf::from(value));
+        }
+    }
+    if let Some(home) = std::env::var_os("HOME") {
+        let home_path = PathBuf::from(home);
+        paths.extend([
+            home_path.join(".cargo"),
+            home_path.join(".rustup"),
+            home_path.join(".cache"),
+        ]);
+    }
+    let mut locations = Vec::new();
+    for path in paths {
+        let path = if path.is_absolute() {
+            path
+        } else {
+            working.join(path)
+        };
+        locations.push(path.clone());
+        match path.canonicalize() {
+            Ok(observed) => locations.push(observed),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(error.into()),
+        }
+    }
+    locations.sort();
+    locations.dedup();
+    Ok(locations)
+}
+
+#[derive(Clone)]
+struct RetainedLiveDirectory {
+    path: PathBuf,
+    handle: std::sync::Arc<std::fs::File>,
+    device: u64,
+    inode: u64,
+    uid: u32,
+    mode: u32,
+}
+
+impl RetainedLiveDirectory {
+    fn path(&self) -> &Path {
+        &self.path
+    }
+
+    fn from_file(path: PathBuf, handle: std::fs::File) -> AudioLiveResult<Self> {
+        use std::os::unix::fs::MetadataExt;
+        let metadata = handle.metadata()?;
+        audio_live_require(metadata.is_dir(), "Live evidence handle is not a directory")?;
+        Ok(Self {
+            path,
+            handle: std::sync::Arc::new(handle),
+            device: metadata.dev(),
+            inode: metadata.ino(),
+            uid: metadata.uid(),
+            mode: metadata.mode(),
+        })
+    }
+
+    fn check(&self) -> AudioLiveResult<()> {
+        use std::os::unix::fs::MetadataExt;
+        let retained = self.handle.metadata()?;
+        let named = std::fs::symlink_metadata(&self.path)?;
+        for metadata in [retained, named] {
+            audio_live_require(
+                metadata.is_dir()
+                    && !metadata.file_type().is_symlink()
+                    && metadata.dev() == self.device
+                    && metadata.ino() == self.inode
+                    && metadata.uid() == self.uid
+                    && metadata.mode() == self.mode,
+                "Live evidence directory binding changed",
+            )?;
+        }
+        Ok(())
+    }
+
+    fn children(&self) -> AudioLiveResult<Vec<std::ffi::OsString>> {
+        use std::os::fd::AsRawFd;
+        let mut names = std::fs::read_dir(format!("/proc/self/fd/{}", self.handle.as_raw_fd()))?
+            .map(|entry| entry.map(|entry| entry.file_name()))
+            .collect::<std::io::Result<Vec<_>>>()?;
+        names.sort();
+        Ok(names)
+    }
+
+    fn observation(&self) -> Value {
+        json!({"path":self.path,"device":self.device,"inode":self.inode,
+            "uid":self.uid,"mode":self.mode,"handle_retained":true})
+    }
+}
+
+// Open every component without following symlinks and retain each directory
+// descriptor. This is destination integrity, not a replacement for SDK grants.
+fn audio_live_open_chain(path: &Path) -> AudioLiveResult<Vec<RetainedLiveDirectory>> {
+    use std::os::{
+        fd::{AsRawFd, FromRawFd},
+        unix::{ffi::OsStrExt, fs::OpenOptionsExt},
+    };
+    audio_live_require(path.is_absolute(), "Live evidence root must be absolute")?;
+    let handle = std::fs::OpenOptions::new()
+        .read(true)
+        .custom_flags(libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC)
+        .open("/")?;
+    let mut chain = vec![RetainedLiveDirectory::from_file(
+        PathBuf::from("/"),
+        handle,
+    )?];
+    let mut named = PathBuf::from("/");
+    for component in path.components() {
+        let name = match component {
+            std::path::Component::RootDir => continue,
+            std::path::Component::Normal(name) => name,
+            _ => return Err(std::io::Error::other("Live evidence root has a path alias").into()),
+        };
+        let name_c = std::ffi::CString::new(name.as_bytes())?;
+        let parent = chain
+            .last()
+            .ok_or_else(|| std::io::Error::other("Missing evidence ancestor"))?;
+        // SAFETY: parent FD and NUL-terminated component remain alive; success
+        // returns one owned descriptor. O_DIRECTORY cannot open a FIFO.
+        let descriptor = unsafe {
+            libc::openat(
+                parent.handle.as_raw_fd(),
+                name_c.as_ptr(),
+                libc::O_RDONLY | libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC,
+            )
+        };
+        if descriptor < 0 {
+            return Err(std::io::Error::last_os_error().into());
+        }
+        // SAFETY: descriptor is newly returned by the successful openat above.
+        let handle = unsafe { std::fs::File::from_raw_fd(descriptor) };
+        named.push(name);
+        chain.push(RetainedLiveDirectory::from_file(named.clone(), handle)?);
+    }
+    for directory in &chain {
+        directory.check()?;
+    }
+    Ok(chain)
+}
+
+struct AudioLiveOriginals {
+    media_path: RetainedLiveDirectory,
+    output_path: RetainedLiveDirectory,
+    media: semwright_mlt_video::fs::Root,
+    output: semwright_mlt_video::fs::Root,
+    records: semwright_mlt_video::fs::Root,
+    directories: Vec<RetainedLiveDirectory>,
+    ancestors: Vec<RetainedLiveDirectory>,
+    excluded_locations: Vec<PathBuf>,
+    calls: std::sync::atomic::AtomicUsize,
+    record_bytes: std::sync::atomic::AtomicU64,
+    blocked: std::sync::atomic::AtomicBool,
+}
+
+impl AudioLiveOriginals {
+    fn open(selected: Option<PathBuf>) -> AudioLiveResult<Self> {
+        let path = selected.ok_or_else(|| {
+            std::io::Error::other(
+                "SEMWRIGHT_TEST_MLT_VIDEO_EVIDENCE_ROOT is required for explicit live execution",
+            )
+        })?;
+        let excluded = audio_live_excluded_locations()?;
+        Self::open_with_exclusions(path, &excluded)
+    }
+
+    fn open_with_exclusions(path: PathBuf, excluded: &[PathBuf]) -> AudioLiveResult<Self> {
+        use std::os::{
+            fd::{AsRawFd, FromRawFd},
+            unix::fs::MetadataExt,
+        };
+        audio_live_require(
+            path.is_absolute() && path != Path::new("/"),
+            "Audio live evidence root must be an absolute non-root directory",
+        )?;
+        audio_live_require(
+            !excluded.is_empty() && excluded.iter().all(|value| value.is_absolute()),
+            "Audio live checkout/cache exclusions must be explicit absolute locations",
+        )?;
+        audio_live_require(
+            !excluded.iter().any(|value| path.starts_with(value)),
+            "Audio live evidence must be outside checkouts and caches",
+        )?;
+        let ancestors = audio_live_open_chain(&path)?;
+        let root = ancestors
+            .last()
+            .ok_or_else(|| std::io::Error::other("Missing evidence root"))?;
+        // SAFETY: geteuid only reads the current process's effective identity.
+        let owner = unsafe { libc::geteuid() };
+        let root_metadata = root.handle.metadata()?;
+        audio_live_require(
+            root.uid == owner
+                && root_metadata.mode() & 0o7777 == 0o700
+                && path.canonicalize()? == path,
+            "Audio live evidence root is not a private canonical owner directory",
+        )?;
+        audio_live_require(
+            root.children()?.is_empty(),
+            "Audio live evidence root must initially be empty",
+        )?;
+        // Every rejection above precedes any directory creation, file copy,
+        // fixture command or provider connection. Partial setup is retained.
+        let mut directories = Vec::new();
+        for name in AUDIO_LIVE_ROOTS {
+            root.check()?;
+            let name_c = std::ffi::CString::new(name)?;
+            // SAFETY: root is retained and each name is a fixed direct basename.
+            if unsafe { libc::mkdirat(root.handle.as_raw_fd(), name_c.as_ptr(), 0o700) } != 0 {
+                return Err(std::io::Error::last_os_error().into());
+            }
+            // SAFETY: successful openat returns a uniquely owned directory FD.
+            let descriptor = unsafe {
+                libc::openat(
+                    root.handle.as_raw_fd(),
+                    name_c.as_ptr(),
+                    libc::O_RDONLY | libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC,
+                )
+            };
+            if descriptor < 0 {
+                return Err(std::io::Error::last_os_error().into());
+            }
+            // SAFETY: descriptor belongs to the successful openat immediately above.
+            let handle = unsafe { std::fs::File::from_raw_fd(descriptor) };
+            let directory = RetainedLiveDirectory::from_file(path.join(name), handle)?;
+            audio_live_require(
+                directory.uid == owner && directory.mode & 0o7777 == 0o700,
+                "Audio live subroot is not private to its owner",
+            )?;
+            directory.check()?;
+            directories.push(directory);
+        }
+        let value = Self {
+            media_path: directories[2].clone(),
+            output_path: directories[3].clone(),
+            media: semwright_mlt_video::fs::Root::open(&path.join("media"), true, true)?,
+            output: semwright_mlt_video::fs::Root::open(&path.join("output"), true, true)?,
+            records: semwright_mlt_video::fs::Root::open(&path.join("records"), true, true)?,
+            directories,
+            ancestors,
+            excluded_locations: excluded.to_vec(),
+            calls: std::sync::atomic::AtomicUsize::new(0),
+            record_bytes: std::sync::atomic::AtomicU64::new(0),
+            blocked: std::sync::atomic::AtomicBool::new(false),
+        };
+        value.check_directories()?;
+        value.record("audio-live-start.original.json", &json!({
+            "schema":"semwright.audio-derive-live-owner-observation/2",
+            "selector":AUDIO_LIVE_ORIGINALS_ENV,"selector_is_authority":false,
+            "root":value.ancestors.last().map(RetainedLiveDirectory::observation),
+            "subroots":value.directories.iter().map(RetainedLiveDirectory::observation).collect::<Vec<_>>(),
+            "excluded_locations_observed":value.excluded_locations,
+            "initially_empty":true,"root_created_by_test":false,
+            "external_source_run_binary_binding_required":true,
+            "external_custody_admitted":false,"external_deadline_attested":false,
+            "external_filesystem_budget_attested":false,
+            "scope":"existing-MLT-live-plus-three-synthetic-PCM16-derivatives",
+            "formal_acceptance":false,"native_execution_retried":false
+        }))?;
+        Ok(value)
+    }
+
+    fn directory(&self, name: &str) -> AudioLiveResult<RetainedLiveDirectory> {
+        let index = AUDIO_LIVE_ROOTS
+            .iter()
+            .position(|candidate| *candidate == name)
+            .ok_or_else(|| std::io::Error::other("Undeclared live subroot"))?;
+        Ok(self.directories[index].clone())
+    }
+
+    fn check_directories(&self) -> AudioLiveResult<()> {
+        for directory in self.ancestors.iter().chain(&self.directories) {
+            directory.check()?;
+        }
+        let root = self
+            .ancestors
+            .last()
+            .ok_or_else(|| std::io::Error::other("Missing evidence root"))?;
+        let mut expected = AUDIO_LIVE_ROOTS.map(std::ffi::OsString::from);
+        expected.sort();
+        audio_live_require(
+            root.children()? == expected,
+            "Audio live top-level root roster changed",
+        )
+    }
+
+    fn before_effect(&self) -> AudioLiveResult<()> {
+        audio_live_require(
+            !self.blocked.load(std::sync::atomic::Ordering::SeqCst),
+            "Audio live attempt is stopped after an uncertain outcome or incomplete custody",
+        )?;
+        self.check_directories()
+    }
+
+    fn stop(&self) {
+        self.blocked
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+    }
+
+    fn new_record_file(&self, name: &str) -> AudioLiveResult<std::fs::File> {
+        use std::os::{
+            fd::{AsRawFd, FromRawFd},
+            unix::fs::MetadataExt,
+        };
+        self.check_directories()?;
+        audio_live_require(
+            !name.is_empty()
+                && name.len() <= 180
+                && name
+                    .bytes()
+                    .all(|value| value.is_ascii_alphanumeric() || b"-_.".contains(&value))
+                && name != "."
+                && name != "..",
+            "Live original record name is not a closed basename",
+        )?;
+        let name = std::ffi::CString::new(name)?;
+        let directory = &self.directories[7];
+        // SAFETY: records FD and CString remain live. O_EXCL never replaces an
+        // original; errors leave any already written prefix in the owner tree.
+        let descriptor = unsafe {
+            libc::openat(
+                directory.handle.as_raw_fd(),
+                name.as_ptr(),
+                libc::O_RDWR | libc::O_CREAT | libc::O_EXCL | libc::O_NOFOLLOW | libc::O_CLOEXEC,
+                0o600,
+            )
+        };
+        if descriptor < 0 {
+            return Err(std::io::Error::last_os_error().into());
+        }
+        // SAFETY: descriptor is uniquely returned by successful openat above.
+        let file = unsafe { std::fs::File::from_raw_fd(descriptor) };
+        let metadata = file.metadata()?;
+        audio_live_require(
+            metadata.is_file()
+                && metadata.nlink() == 1
+                && metadata.uid() == directory.uid
+                && metadata.mode() & 0o7777 == 0o600,
+            "Live original is not a private regular single-link file",
+        )?;
+        Ok(file)
+    }
+
+    fn record_bytes(&self, name: &str, bytes: &[u8], maximum: usize) -> AudioLiveResult<()> {
+        use std::io::Write;
+        let result = (|| -> AudioLiveResult<()> {
+            audio_live_require(
+                bytes.len() <= maximum,
+                "Audio live record exceeds its per-file bound",
+            )?;
+            self.record_bytes
+                .fetch_update(
+                    std::sync::atomic::Ordering::SeqCst,
+                    std::sync::atomic::Ordering::SeqCst,
+                    |current| {
+                        current
+                            .checked_add(bytes.len() as u64)
+                            .filter(|next| *next <= AUDIO_LIVE_RECORDS_LIMIT)
+                    },
+                )
+                .map_err(|_| std::io::Error::other("Audio live record byte budget exhausted"))?;
+            let mut file = self.new_record_file(name)?;
+            // No temporary-file destructor removes prefixes on failure.
+            file.write_all(bytes)?;
+            file.flush()?;
+            file.sync_all()?;
+            self.directories[7].handle.sync_all()?;
+            self.check_directories()?;
+            audio_live_require(
+                self.records.read(name, maximum)? == bytes,
+                "Audio live record readback differs",
+            )?;
+            Ok(())
+        })();
+        if result.is_err() {
+            self.stop();
+        }
+        result
+    }
+
+    fn record_limited(&self, name: &str, value: &Value, maximum: usize) -> AudioLiveResult<()> {
+        let bytes = serde_json::to_vec(value)?;
+        self.record_bytes(name, &bytes, maximum)
+    }
+
+    fn record(&self, name: &str, value: &Value) -> AudioLiveResult<()> {
+        self.record_limited(name, value, AUDIO_LIVE_METADATA_LIMIT)
+    }
+
+    fn secondary(&self, name: &str, error: &(dyn std::error::Error + Send + Sync)) {
+        let result = self.record(
+            name,
+            &json!({
+                "schema":"semwright.audio-derive-live-secondary-error/1",
+                "message":error.to_string(),"primary_error_replaced":false,
+                "native_execution_retried":false
+            }),
+        );
+        if result.is_err() {
+            use std::io::Write;
+            let _ = writeln!(
+                std::io::stderr(),
+                "audio derive live secondary custody failed"
+            );
+        }
+    }
+}
+
+fn audio_live_copy(
+    originals: &AudioLiveOriginals,
+    label: &'static str,
+    source: &Path,
+    destination: &Path,
+) -> AudioLiveResult<()> {
+    originals.before_effect()?;
+    originals.record(
+        &format!("{label}.copy-request.original.json"),
+        &json!({
+            "schema":"semwright.mlt-live-copy-request/1","source":source,"destination":destination,
+            "copy_count":1,"authority_issued":false
+        }),
+    )?;
+    let original = std::fs::copy(source, destination);
+    let retained = originals.record(
+        &format!("{label}.copy-result.original.json"),
+        &json!({
+            "schema":"semwright.mlt-live-copy-result/1",
+            "returned_bytes":original.as_ref().ok(),
+            "original_error":original.as_ref().err().map(ToString::to_string),
+            "destination_preserved_on_failure":true,"copy_retried":false
+        }),
+    );
+    match original {
+        Err(original) => {
+            originals.stop();
+            if let Err(secondary) = retained {
+                originals.secondary(
+                    &format!("{label}.copy-custody-error.original.json"),
+                    secondary.as_ref(),
+                );
+            }
+            Err(Box::new(original))
+        }
+        Ok(_) => retained,
+    }
+}
+
+fn audio_live_tool_stream(
+    originals: &AudioLiveOriginals,
+    name: &str,
+    retained: &std::fs::File,
+) -> (
+    Option<Vec<u8>>,
+    Value,
+    Option<Box<dyn std::error::Error + Send + Sync>>,
+) {
+    use std::io::Read;
+    use std::os::unix::fs::MetadataExt;
+    let opened = originals.records.read_file(name, u64::MAX);
+    let mut file = match opened {
+        Ok(file) => file,
+        Err(error) => {
+            return (
+                None,
+                json!({"path":name,"state":"OPEN_FAILED",
+            "original_error":error.to_string(),"bytes":null,"sha256":null,
+            "stream_eof_attested":false}),
+                Some(Box::new(error)),
+            );
+        }
+    };
+    let retained_metadata = retained.metadata();
+    let before = file.metadata();
+    let mut bytes = Vec::new();
+    let read = file
+        .by_ref()
+        .take(AUDIO_LIVE_TOOL_PREFIX_LIMIT as u64 + 1)
+        .read_to_end(&mut bytes);
+    let after = file.metadata();
+    let over = bytes.len() > AUDIO_LIVE_TOOL_PREFIX_LIMIT;
+    if over {
+        bytes.truncate(AUDIO_LIVE_TOOL_PREFIX_LIMIT);
+    }
+    let same = match (&retained_metadata, &before, &after) {
+        (Ok(retained), Ok(before), Ok(after)) => {
+            retained.dev() == before.dev()
+                && retained.ino() == before.ino()
+                && before.dev() == after.dev()
+                && before.ino() == after.ino()
+                && before.len() == after.len()
+                && after.len() == bytes.len() as u64
+                && before.mtime() == after.mtime()
+                && before.mtime_nsec() == after.mtime_nsec()
+                && before.ctime() == after.ctime()
+                && before.ctime_nsec() == after.ctime_nsec()
+        }
+        _ => false,
+    };
+    let observed = json!({
+        "path":name,"state":if read.is_ok() && !over && same {"FILE_SNAPSHOT_OBSERVED"} else {"INCOMPLETE_FILE_SNAPSHOT"},
+        "inspected_bytes":bytes.len(),"inspected_sha256":semwright_mlt_video::hash::sha256(&bytes),
+        "inspected_prefix_limit":AUDIO_LIVE_TOOL_PREFIX_LIMIT,"hard_capture_limit":null,
+        "file_bytes_before":before.as_ref().ok().map(std::fs::Metadata::len),
+        "file_bytes_after":after.as_ref().ok().map(std::fs::Metadata::len),
+        "over_inspection_limit":over,"retained_descriptor_matches":same,
+        "read_error":read.as_ref().err().map(ToString::to_string),
+        "metadata_error":retained_metadata.as_ref().err().or(before.as_ref().err())
+            .or(after.as_ref().err()).map(ToString::to_string),
+        "stream_eof_attested":false,"descendant_closure_attested":false,
+        "raw_file_preserved":true,"external_file_budget_required":true
+    });
+    let error: Option<Box<dyn std::error::Error + Send + Sync>> = match read {
+        Err(error) => Some(Box::new(error)),
+        Ok(_) if over || !same => Some(Box::new(std::io::Error::other(
+            "Live tool original is partial, changed or exceeds the inspection budget",
+        ))),
+        Ok(_) => None,
+    };
+    (Some(bytes), observed, error)
+}
+
+// Instrument the SIX existing fixture/oracle Command objects. Their process
+// is spawned once, with original bytes written directly to exclusive files.
+// This does not add a runtime executor, sandbox, decoder, timeout or retry.
+// File snapshots do not assert pipe EOF or descendant closure. The existing
+// outer CI owner must supply and observe the finite deadline/filesystem budget.
+fn audio_live_command(
+    originals: &AudioLiveOriginals,
+    label: &'static str,
+    command: &mut Command,
+) -> AudioLiveResult<std::process::Output> {
+    use std::os::unix::{ffi::OsStrExt, process::ExitStatusExt};
+    audio_live_require(
+        [
+            "fixture-h264",
+            "fixture-sync-markers",
+            "fixture-motion-frames",
+            "fixture-caption-overlay",
+            "fixture-caption-audio",
+            "oracle-video-only-ffprobe",
+        ]
+        .contains(&label),
+        "Undeclared live fixture/oracle command",
+    )?;
+    originals.before_effect()?;
+    let stdout_name = format!("{label}.stdout.original.bin");
+    let stderr_name = format!("{label}.stderr.original.bin");
+    let stdout = originals.new_record_file(&stdout_name)?;
+    let stderr = originals.new_record_file(&stderr_name)?;
+    let cwd = match command.get_current_dir() {
+        Some(path) => path.to_path_buf(),
+        None => std::env::current_dir()?,
+    };
+    let argv = json!({
+        "schema":"semwright.mlt-live-command-original/1","label":label,
+        "program_os_bytes":command.get_program().as_bytes(),
+        "argv_os_bytes":command.get_args().map(|value| value.as_bytes().to_vec()).collect::<Vec<_>>(),
+        "cwd_os_bytes":cwd.as_os_str().as_bytes(),
+        "explicit_environment_os_bytes":command.get_envs().map(|(name,value)|
+            json!({"name":name.as_bytes(),"value":value.map(|value| value.as_bytes())})).collect::<Vec<_>>(),
+        "inherited_environment_claimed_captured":false,
+        "stdout_original":stdout_name,"stderr_original":stderr_name,
+        "stream_destination":"exclusive-retained-owner-files",
+        "external_deadline_and_file_budget_required":true,"native_execution_retried":false
+    });
+    originals.record(&format!("{label}.argv.original.json"), &argv)?;
+    command.stdout(std::process::Stdio::from(stdout.try_clone()?));
+    command.stderr(std::process::Stdio::from(stderr.try_clone()?));
+    originals.before_effect()?;
+    let spawned = command.spawn();
+    let mut child = match spawned {
+        Err(original) => {
+            let retained = originals.record(
+                &format!("{label}.terminal.original.json"),
+                &json!({
+                    "schema":"semwright.mlt-live-command-terminal/1","spawn_attempted":true,
+                    "pid":null,"terminal_observed":false,"exit_code":null,"term_signal":null,
+                    "spawn_error":original.to_string(),"wait_error":null,
+                    "stream_eof_attested":false,"descendant_closure_attested":false,
+                    "native_execution_retried":false
+                }),
+            );
+            originals.stop();
+            if let Err(secondary) = retained {
+                originals.secondary(
+                    &format!("{label}.terminal-custody-error.original.json"),
+                    secondary.as_ref(),
+                );
+            }
+            return Err(Box::new(original));
+        }
+        Ok(child) => child,
+    };
+    let pid = child.id();
+    // A PID-record failure must not return with an unobserved live child.
+    let mut custody_error = originals
+        .record(
+            &format!("{label}.spawn.original.json"),
+            &json!({
+                "schema":"semwright.mlt-live-command-spawn/1","pid":pid,"spawn_attempted":true,
+                "terminal_observed":false,"native_execution_retried":false
+            }),
+        )
+        .err();
+    let waited = child.wait();
+    // Store the actual wait result before any sync/read/interpretation.
+    let observed_wait = json!({
+        "exit_code":waited.as_ref().ok().and_then(std::process::ExitStatus::code),
+        "term_signal":waited.as_ref().ok().and_then(ExitStatusExt::signal),
+        "wait_error":waited.as_ref().err().map(ToString::to_string),
+        "terminal_observed":waited.is_ok()
+    });
+    let cleanup = if waited.is_err() {
+        // One cleanup request on this same Child; try_wait is nonblocking.
+        // A missing terminal remains UNKNOWN for the external owner.
+        let killed = child.kill();
+        let reaped = child.try_wait();
+        json!({"kill_attempted":true,"kill_error":killed.as_ref().err().map(ToString::to_string),
+            "wait_error":reaped.as_ref().err().map(ToString::to_string),
+            "terminal_observed":matches!(&reaped, Ok(Some(_))),
+            "exit_code":reaped.as_ref().ok().and_then(Option::as_ref).and_then(std::process::ExitStatus::code),
+            "term_signal":reaped.as_ref().ok().and_then(Option::as_ref).and_then(ExitStatusExt::signal),
+            "descendant_closure_attested":false})
+    } else {
+        Value::Null
+    };
+    for file in [&stdout, &stderr] {
+        if let Err(error) = file.sync_all()
+            && custody_error.is_none()
+        {
+            custody_error = Some(Box::new(error));
+        }
+    }
+    let (stdout_bytes, stdout_observation, stdout_error) =
+        audio_live_tool_stream(originals, &stdout_name, &stdout);
+    let (stderr_bytes, stderr_observation, stderr_error) =
+        audio_live_tool_stream(originals, &stderr_name, &stderr);
+    if custody_error.is_none() {
+        custody_error = stdout_error;
+    }
+    if custody_error.is_none() {
+        custody_error = stderr_error;
+    }
+    let recorded = originals.record(&format!("{label}.terminal.original.json"), &json!({
+        "schema":"semwright.mlt-live-command-terminal/1","pid":pid,"spawn_attempted":true,
+        "wait":observed_wait,"cleanup":cleanup,"stdout":stdout_observation,"stderr":stderr_observation,
+        "custody_error":custody_error.as_ref().map(ToString::to_string),
+        "stream_eof_attested":false,"descendant_closure_attested":false,
+        "external_deadline_attested":false,"external_file_budget_attested":false,
+        "native_execution_retried":false
+    }));
+    if custody_error.is_none() {
+        custody_error = recorded.err();
+    }
+    let status = match waited {
+        Err(original) => {
+            originals.stop();
+            if let Some(secondary) = custody_error {
+                originals.secondary(
+                    &format!("{label}.custody-error.original.json"),
+                    secondary.as_ref(),
+                );
+            }
+            return Err(Box::new(original));
+        }
+        Ok(status) if !status.success() => {
+            originals.stop();
+            if let Some(secondary) = custody_error {
+                originals.secondary(
+                    &format!("{label}.custody-error.original.json"),
+                    secondary.as_ref(),
+                );
+            }
+            return Err(std::io::Error::other(format!(
+                "Original live command failed: {label}: {status}"
+            ))
+            .into());
+        }
+        Ok(status) => status,
+    };
+    if let Some(original) = custody_error {
+        originals.stop();
+        return Err(original);
+    }
+    let stdout = stdout_bytes
+        .ok_or_else(|| std::io::Error::other("Live tool stdout snapshot unavailable"))?;
+    let stderr = stderr_bytes
+        .ok_or_else(|| std::io::Error::other("Live tool stderr snapshot unavailable"))?;
+    Ok(std::process::Output {
+        status,
+        stdout,
+        stderr,
+    })
+}
+
+#[derive(Clone, Copy)]
+struct AudioLiveCase {
+    id: &'static str,
+    profile: &'static str,
+    source_rate: u32,
+    source_channels: u16,
+    source_frames: u64,
+    target_rate: u32,
+    target_channels: u16,
+    target_frames: u64,
+    antiphase: bool,
+}
+
+const AUDIO_LIVE_CASES: [AudioLiveCase; 3] = [
+    AudioLiveCase {
+        id: "down-antiphase",
+        profile: "pcm16-stereo48-to-mono16-v1",
+        source_rate: 48_000,
+        source_channels: 2,
+        source_frames: 384_000,
+        target_rate: 16_000,
+        target_channels: 1,
+        target_frames: 128_000,
+        antiphase: true,
+    },
+    AudioLiveCase {
+        id: "down-control",
+        profile: "pcm16-stereo48-to-mono16-v1",
+        source_rate: 48_000,
+        source_channels: 2,
+        source_frames: 384_000,
+        target_rate: 16_000,
+        target_channels: 1,
+        target_frames: 128_000,
+        antiphase: false,
+    },
+    AudioLiveCase {
+        id: "up-steps",
+        profile: "pcm16-mono16-to-dualmono48-v1",
+        source_rate: 16_000,
+        source_channels: 1,
+        source_frames: 2_880_000,
+        target_rate: 48_000,
+        target_channels: 2,
+        target_frames: 8_640_000,
+        antiphase: false,
+    },
+];
+
+impl AudioLiveCase {
+    fn source_name(self) -> String {
+        format!("audio-derive-{}.source.wav", self.id)
+    }
+    fn output_name(self) -> String {
+        format!("audio-derive-{}.wav", self.id)
+    }
+}
+
+fn audio_live_level(frame: u64, frames: u64) -> i16 {
+    AUDIO_LIVE_LEVELS[((frame * 4) / frames) as usize]
+}
+
+// Technical fixtures only. This constructs RIFF PCM16 bytes; all reading uses
+// the existing public WaveReader and every native conversion uses the Host.
+fn audio_live_fixture(case: AudioLiveCase) -> AudioLiveResult<Vec<u8>> {
+    let payload = case
+        .source_frames
+        .checked_mul(u64::from(case.source_channels))
+        .and_then(|value| value.checked_mul(2))
+        .ok_or_else(|| std::io::Error::other("Audio fixture size overflow"))?;
+    audio_live_require(
+        payload + 44 <= 6 * 1024 * 1024,
+        "Audio fixture exceeds source bound",
+    )?;
+    let payload = u32::try_from(payload)?;
+    let mut bytes = Vec::with_capacity(payload as usize + 44);
+    bytes.extend_from_slice(b"RIFF");
+    bytes.extend_from_slice(&(payload + 36).to_le_bytes());
+    bytes.extend_from_slice(b"WAVEfmt ");
+    bytes.extend_from_slice(&16u32.to_le_bytes());
+    bytes.extend_from_slice(&1u16.to_le_bytes());
+    bytes.extend_from_slice(&case.source_channels.to_le_bytes());
+    bytes.extend_from_slice(&case.source_rate.to_le_bytes());
+    let block = case.source_channels * 2;
+    bytes.extend_from_slice(&(case.source_rate * u32::from(block)).to_le_bytes());
+    bytes.extend_from_slice(&block.to_le_bytes());
+    bytes.extend_from_slice(&16u16.to_le_bytes());
+    bytes.extend_from_slice(b"data");
+    bytes.extend_from_slice(&payload.to_le_bytes());
+    for frame in 0..case.source_frames {
+        let level = audio_live_level(frame, case.source_frames);
+        for channel in 0..case.source_channels {
+            let sample = if case.antiphase && channel == 1 {
+                -level
+            } else {
+                level
+            };
+            bytes.extend_from_slice(&sample.to_le_bytes());
+        }
+    }
+    Ok(bytes)
+}
+
+fn audio_live_pcm_observation(
+    case: AudioLiveCase,
+    bytes: &[u8],
+    source: bool,
+) -> AudioLiveResult<Value> {
+    use semwright_audio_domain::wav::WaveReader;
+    let (rate, channels, frames, maximum) = if source {
+        (
+            case.source_rate,
+            case.source_channels,
+            case.source_frames,
+            6 * 1024 * 1024,
+        )
+    } else {
+        (
+            case.target_rate,
+            case.target_channels,
+            case.target_frames,
+            40 * 1024 * 1024,
+        )
+    };
+    audio_live_require(bytes.len() <= maximum, "Audio live WAV exceeds bound")?;
+    let mut reader = WaveReader::open(std::io::Cursor::new(bytes), maximum as u64)?;
+    let info = reader.info().clone();
+    audio_live_require(
+        info.sample_rate.0 == rate
+            && info.channels == channels
+            && info.frames == frames
+            && info.container_bits == 16
+            && info.valid_bits == 16
+            && !info.ieee_float
+            && info
+                .channel_mask
+                .is_none_or(|mask| mask == if channels == 1 { 4 } else { 3 }),
+        "Audio live WAV layout or exact clock differs",
+    )?;
+    audio_live_require(
+        frames > 0 && frames % 4 == 0,
+        "Audio live fixture clock is not quartered",
+    )?;
+    let mut observed = 0u64;
+    let mut interior_samples = 0u64;
+    let mut max_level_error = 0i32;
+    let mut nonzero = 0u64;
+    loop {
+        let samples = reader.read_frames(16_384)?;
+        if samples.is_empty() {
+            break;
+        }
+        audio_live_require(
+            samples.len() % usize::from(channels) == 0,
+            "Audio live decoded frame is incomplete",
+        )?;
+        for values in samples.chunks_exact(usize::from(channels)) {
+            audio_live_require(observed < frames, "Audio live decoded frame count overflow")?;
+            let expected = i32::from(audio_live_level(observed, frames));
+            let quarter = frames / 4;
+            let within = observed % quarter;
+            let interior = within >= quarter / 4 && within < quarter * 3 / 4;
+            for (channel, value) in values.iter().enumerate() {
+                let scaled = *value * 32768.0;
+                audio_live_require(
+                    scaled.is_finite()
+                        && scaled.fract() == 0.0
+                        && (-32768.0..=32767.0).contains(&scaled),
+                    "Audio live sample is not PCM16",
+                )?;
+                let sample = scaled as i32;
+                nonzero += u64::from(sample != 0);
+                if source {
+                    let expected = if case.antiphase && channel == 1 {
+                        -expected
+                    } else {
+                        expected
+                    };
+                    audio_live_require(
+                        sample == expected,
+                        "Audio live original source bytes differ from the fixed fixture",
+                    )?;
+                } else if case.antiphase {
+                    audio_live_require(
+                        sample == 0,
+                        "Audio live antiphase average is not exactly zero",
+                    )?;
+                } else if interior {
+                    let error = (sample - expected).abs();
+                    max_level_error = max_level_error.max(error);
+                    interior_samples += 1;
+                    audio_live_require(
+                        error <= AUDIO_LIVE_LEVEL_ERROR_LSB,
+                        "Audio live interior level exceeds the fixed one-LSB bound",
+                    )?;
+                }
+            }
+            if !source && channels == 2 {
+                audio_live_require(
+                    values[0] == values[1],
+                    "Audio live dual mono channels differ",
+                )?;
+            }
+            observed += 1;
+        }
+    }
+    audio_live_require(
+        observed == frames,
+        "Audio live decoded sample count differs",
+    )?;
+    if source || !case.antiphase {
+        audio_live_require(nonzero > 0, "Audio live non-silent control was silenced")?;
+    }
+    if !source && !case.antiphase {
+        audio_live_require(
+            interior_samples > 0,
+            "Audio live level observation is empty",
+        )?;
+    }
+    Ok(json!({
+        "sample_rate":rate,"channels":channels,"sample_frames":observed,
+        "channel_mask":info.channel_mask,"container_bits":info.container_bits,"valid_bits":info.valid_bits,
+        "all_payload_frames_read":true,"nonzero_samples":nonzero,
+        "interior_samples":interior_samples,"max_interior_level_error_lsb":max_level_error,
+        "interior_level_limit_lsb":AUDIO_LIVE_LEVEL_ERROR_LSB,
+        "transient_waveform_fidelity_assessed":false,"formal_acceptance":false
+    }))
+}
+
+fn audio_live_stage_sources(originals: &AudioLiveOriginals) -> AudioLiveResult<Vec<Value>> {
+    let mut sources = Vec::new();
+    for case in AUDIO_LIVE_CASES {
+        let bytes = audio_live_fixture(case)?;
+        let artifact = originals
+            .media
+            .write_new("media", &case.source_name(), &bytes)?;
+        audio_live_require(
+            originals.media.read(&case.source_name(), 6 * 1024 * 1024)? == bytes,
+            "Audio live source publication readback differs",
+        )?;
+        let observation = audio_live_pcm_observation(case, &bytes, true)?;
+        sources.push(json!({
+            "id":case.id,"profile":case.profile,"root":"media","path":artifact.path,
+            "sha256":artifact.sha256,"bytes":artifact.bytes,"pcm":observation,
+            "origin":"synthetic-technical-fixture","voice_identity":"NOT_APPLICABLE",
+            "manual_review":false,"levels":AUDIO_LIVE_LEVELS,"antiphase":case.antiphase
+        }));
+    }
+    originals.record(
+        "audio-live-sources.original.json",
+        &json!({
+            "schema":"semwright.audio-derive-live-sources/1","sources":sources,
+            "profile_bounds_changed":false,"native_execution_retried":false
+        }),
+    )?;
+    Ok(sources)
+}
+
+fn audio_live_json(root: &semwright_mlt_video::fs::Root, path: &str) -> AudioLiveResult<Value> {
+    let bytes = root.read(path, AUDIO_LIVE_METADATA_LIMIT)?;
+    Ok(serde_json::from_slice(&bytes)?)
+}
+
+fn audio_live_artifact(
+    root: &semwright_mlt_video::fs::Root,
+    value: &Value,
+    path: &str,
+    maximum: usize,
+) -> AudioLiveResult<Vec<u8>> {
+    audio_live_require(
+        value["root"] == "output" && value["path"] == path,
+        "Audio live Artifact destination differs",
+    )?;
+    let bytes = root.read(path, maximum)?;
+    audio_live_require(
+        value["bytes"].as_u64() == Some(bytes.len() as u64)
+            && value["sha256"] == semwright_mlt_video::hash::sha256(&bytes),
+        "Audio live Artifact bytes differ",
+    )?;
+    Ok(bytes)
+}
+
+fn audio_live_verify_return(
+    originals: &AudioLiveOriginals,
+    case: AudioLiveCase,
+    source: &Value,
+    args: &Value,
+    result: &Value,
+    descriptor: &str,
+    ffmpeg_sha256: &str,
+) -> AudioLiveResult<Value> {
+    originals.check_directories()?;
+    let name = case.output_name();
+    let original_source = originals.media.read(&case.source_name(), 6 * 1024 * 1024)?;
+    audio_live_require(
+        source["sha256"] == semwright_mlt_video::hash::sha256(&original_source)
+            && source["bytes"].as_u64() == Some(original_source.len() as u64),
+        "Audio live source changed during the operation",
+    )?;
+    audio_live_pcm_observation(case, &original_source, true)?;
+    audio_live_require(
+        result["schema"] == "semwright.mlt-audio-derivative/1"
+            && result["profile"] == case.profile
+            && result["source_sha256"] == source["sha256"]
+            && result["runtime_sha256"] == ffmpeg_sha256
+            && result["process_capture_complete"] == true,
+        "Audio live result identity differs",
+    )?;
+    let bytes = audio_live_artifact(
+        &originals.output,
+        &result["artifact"],
+        &name,
+        40 * 1024 * 1024,
+    )?;
+    let retained_source = audio_live_artifact(
+        &originals.output,
+        &result["original_source"],
+        &format!("{name}.audio-derive.source.original.wav"),
+        6 * 1024 * 1024,
+    )?;
+    let retained_candidate = audio_live_artifact(
+        &originals.output,
+        &result["original_output"],
+        &format!("{name}.audio-derive.output.original.wav"),
+        40 * 1024 * 1024,
+    )?;
+    audio_live_require(
+        retained_source == original_source && retained_candidate == bytes,
+        "Audio live original source or native candidate differs from the published artifact",
+    )?;
+    let observed = audio_live_pcm_observation(case, &bytes, false)?;
+    audio_live_require(
+        result["source"]["sample_frames"] == case.source_frames
+            && result["target"]["sample_frames"] == case.target_frames
+            && u128::from(case.source_frames) * u128::from(case.target_rate)
+                == u128::from(case.target_frames) * u128::from(case.source_rate),
+        "Audio live source/result rational duration differs",
+    )?;
+    let process_originals = result["process_originals"]
+        .as_array()
+        .ok_or_else(|| std::io::Error::other("Audio live process original roster is missing"))?;
+    audio_live_require(
+        process_originals.len() == 4,
+        "Audio live process original roster differs",
+    )?;
+    for (index, (suffix, maximum)) in [
+        ("argv.original.json", AUDIO_LIVE_METADATA_LIMIT),
+        ("stdout.original.bin", 262_144),
+        ("stderr.original.bin", 262_144),
+        ("terminal.original.json", AUDIO_LIVE_METADATA_LIMIT),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        audio_live_artifact(
+            &originals.output,
+            &process_originals[index],
+            &format!("{name}.audio-derive.ffmpeg.{suffix}"),
+            maximum,
+        )?;
+    }
+    let process = audio_live_json(
+        &originals.output,
+        &format!("{name}.audio-derive.ffmpeg.terminal.original.json"),
+    )?;
+    audio_live_require(
+        process["schema"] == "semwright.audio-derivative-process-original/1"
+            && process["process_result_received"] == true
+            && process.get("custody_error").is_some_and(Value::is_null)
+            && process["profile"] == case.profile
+            && process["source_sha256"] == source["sha256"]
+            && process["ffmpeg_sha256"] == ffmpeg_sha256
+            && process["recipe_sha256"] == result["recipe_sha256"]
+            && process["process"]["pid"]
+                .as_u64()
+                .is_some_and(|pid| pid > 0)
+            && process["process"]["spawn_attempted"] == true
+            && process["process"]["terminal_observed"] == true
+            && process["process"]["exit_code"] == 0
+            && process["process"]
+                .get("term_signal")
+                .is_some_and(Value::is_null)
+            && process["process"]["cancelled"] == false
+            && process["process"]["timed_out"] == false
+            && process["process"]["output_exceeded"] == false
+            && process["process"]
+                .get("supervisor_error")
+                .is_some_and(Value::is_null)
+            && process["process"]
+                .get("drain_stop_reason")
+                .is_some_and(Value::is_null)
+            && process["process"]["capture_complete"] == true,
+        "Audio live native terminal/capture is incomplete",
+    )?;
+    for stream in ["stdout", "stderr"] {
+        let raw = originals.output.read(
+            &format!("{name}.audio-derive.ffmpeg.{stream}.original.bin"),
+            262_144,
+        )?;
+        let metadata = &process["process"][stream];
+        audio_live_require(
+            metadata["complete"] == true
+                && metadata["eof_observed"] == true
+                && metadata.get("read_error").is_some_and(Value::is_null)
+                && metadata["reader_panicked"] == false
+                && metadata["drain_stopped"] == false
+                && metadata["truncated"] == false
+                && metadata["observed_bytes"].as_u64() == Some(raw.len() as u64)
+                && metadata["retained_bytes"].as_u64() == Some(raw.len() as u64)
+                && metadata["retained_sha256"] == semwright_mlt_video::hash::sha256(&raw),
+            "Audio live original stream metadata differs from its bytes",
+        )?;
+    }
+    let argv = originals.output.read(
+        &format!("{name}.audio-derive.ffmpeg.argv.original.json"),
+        AUDIO_LIVE_METADATA_LIMIT,
+    )?;
+    audio_live_require(!argv.is_empty(), "Audio live original argv is absent")?;
+    let host_input = audio_live_json(
+        &originals.output,
+        &format!("{name}.audio-derive-host.stdin.original.bin"),
+    )?;
+    audio_live_require(
+        host_input["command"] == AUDIO_LIVE_COMMAND
+            && host_input["descriptor_sha256"] == descriptor
+            && host_input["args"] == *args,
+        "Audio live Host original request differs from its only caller",
+    )?;
+    let host_stdout = originals.output.read(
+        &format!("{name}.audio-derive-host.stdout.original.bin"),
+        262_144,
+    )?;
+    audio_live_require(
+        serde_json::from_slice::<Value>(&host_stdout)? == *result,
+        "Audio live Host original output differs from the returned Value",
+    )?;
+    let host_stderr = originals.output.read(
+        &format!("{name}.audio-derive-host.stderr.original.bin"),
+        262_144,
+    )?;
+    let host = audio_live_json(
+        &originals.output,
+        &format!("{name}.audio-derive-host.terminal.original.json"),
+    )?;
+    audio_live_require(
+        host["schema"] == "semwright.audio-derivative-host-original/1"
+            && host["host_stage"] == "host"
+            && host["state"] == "completed"
+            && host["host_exit_code"] == 0
+            && host["stdin_delivery_confirmed"] == true
+            && host["stream_eof_attested"] == false
+            && host.get("original_error").is_some_and(Value::is_null)
+            && host["native_execution_retried"] == false
+            && host["runtime_job_id"]
+                .as_str()
+                .is_some_and(|id| !id.is_empty()),
+        "Audio live Host terminal does not bind its original completed job",
+    )?;
+    for (stream, raw) in [("stdout", host_stdout), ("stderr", host_stderr)] {
+        audio_live_require(
+            host[stream]["retained"] == true
+                && host[stream]["diagnostic_prefix_truncated"] == false
+                && host[stream]["bytes"].as_u64() == Some(raw.len() as u64)
+                && host[stream]["sha256"] == semwright_mlt_video::hash::sha256(&raw),
+            "Audio live Host original stream was not retained completely as delivered",
+        )?;
+    }
+    let operation = audio_live_json(
+        &originals.output,
+        &format!("{name}.audio-derive.operation.original.json"),
+    )?;
+    audio_live_require(
+        operation["schema"] == "semwright.audio-derivative-operation-original/1"
+            && operation["profile"] == case.profile
+            && operation["output_path"] == name
+            && operation["source_sha256"] == source["sha256"]
+            && operation["operation_succeeded"] == true
+            && operation["phase"] == "validated-and-published"
+            && operation.get("original_error").is_some_and(Value::is_null)
+            && operation["native_execution_retried"] == false,
+        "Audio live operation terminal differs",
+    )?;
+    Ok(json!({
+        "id":case.id,"profile":case.profile,"pcm":observed,"artifact":result["artifact"],
+        "host_job_id":host["runtime_job_id"],"native_pid":process["process"]["pid"],
+        "source_sha256":source["sha256"],"source_bytes":source["bytes"],
+        "recipe_sha256":result["recipe_sha256"],"runtime_sha256":result["runtime_sha256"],
+        "native_execution_retried":false,"formal_acceptance":false
+    }))
+}
+
+fn audio_live_case_call_identity(
+    originals: &AudioLiveOriginals,
+    index: usize,
+    args: &Value,
+    descriptor: &Value,
+) -> AudioLiveResult<Value> {
+    audio_live_require(
+        index > 0
+            && index <= AUDIO_LIVE_CALL_LIMIT
+            && originals.calls.load(std::sync::atomic::Ordering::SeqCst) == index,
+        "Audio catalog observation does not identify its single retained caller",
+    )?;
+    let path = format!("call-{index:05}.request.original.json");
+    let bytes = originals.records.read(&path, AUDIO_LIVE_METADATA_LIMIT)?;
+    let request: Value = serde_json::from_slice(&bytes)?;
+    let context = &request["context"];
+    audio_live_require(
+        request["schema"] == "semwright.mlt-live-provider-request-original/1"
+            && request["capability"] == AUDIO_LIVE_COMMAND
+            && request["arguments"] == *args
+            && request["descriptor"] == *descriptor
+            && context["session"] == "mlt-video-live"
+            && context["cancellation_requested"] == false
+            && context["request_id"].as_str().is_some_and(|id| {
+                !id.is_empty() && id.len() <= 256 && !id.chars().any(char::is_control)
+            }),
+        "Audio catalog original caller identity, descriptor or arguments differ",
+    )?;
+    Ok(json!({
+        "session":context["session"],"request_id":context["request_id"],
+        "capability":AUDIO_LIVE_COMMAND,"record_index":index,
+        "request_original":{"root":"records","path":path,"bytes":bytes.len(),
+            "sha256":semwright_mlt_video::hash::sha256(&bytes)},
+        "capture_scope":"original-public-provider-call-not-a-reconstructed-Host-envelope"
+    }))
+}
+
+fn audio_live_catalog_keys(value: &Value, keys: &[&str]) -> AudioLiveResult<()> {
+    audio_live_require(
+        value.as_object().is_some_and(|object| {
+            object.len() == keys.len() && keys.iter().all(|key| object.contains_key(*key))
+        }),
+        "Audio catalog original metadata shape differs",
+    )
+}
+
+// This observes the four originals only if the SAME existing catalog gate
+// emitted them for this call. It never runs discover or invents cache history.
+fn audio_live_check_catalog(
+    output_name: &str,
+    files: [Option<&[u8]>; 4],
+) -> AudioLiveResult<Value> {
+    let present = files.iter().filter(|file| file.is_some()).count();
+    if present == 0 {
+        return Ok(json!({
+            "state":"ABSENT_AT_OBSERVATION","original_count":0,
+            "absence_scope":"four-fixed-catalog-paths-in-this-call-output-namespace",
+            "gate_source":"ensure_host_catalog returns early when host_catalog_verified or Host tools are absent",
+            "actual_gate_reason":"NOT_EXPOSED_BY_EXISTING_DRIVER",
+            "previous_catalog_observation_inherited":false,
+            "catalog_dispatch_absent_claimed":false,"catalog_acceptance_claimed":false,
+            "native_execution_retried":false
+        }));
+    }
+    audio_live_require(present == 4, "Audio catalog original roster is partial")?;
+    let [
+        Some(stdin),
+        Some(stdout),
+        Some(stderr),
+        Some(terminal_bytes),
+    ] = files
+    else {
+        return Err(std::io::Error::other("Audio catalog originals are unavailable").into());
+    };
+    audio_live_require(
+        stdin.is_empty()
+            && stdout.len() <= semwright_mlt_video::runtime::AUDIO_DERIVATIVE_STREAM_LIMIT
+            && stderr.len() <= semwright_mlt_video::runtime::AUDIO_DERIVATIVE_STREAM_LIMIT
+            && terminal_bytes.len()
+                <= semwright_mlt_video::runtime::AUDIO_DERIVATIVE_METADATA_LIMIT,
+        "Audio catalog original exceeds the existing SDK custody contract",
+    )?;
+    let terminal: Value = serde_json::from_slice(terminal_bytes)?;
+    audio_live_catalog_keys(
+        &terminal,
+        &[
+            "schema",
+            "host_stage",
+            "state",
+            "output_path",
+            "runtime_job_id",
+            "runtime_job_id_exposed",
+            "host_exit_code",
+            "stdin",
+            "stdin_scope",
+            "stdin_delivery_confirmed",
+            "stdout",
+            "stderr",
+            "original_error",
+            "stream_eof_attested",
+            "native_execution_retried",
+            "physical_acceptance",
+            "capture_scope",
+        ],
+    )?;
+    audio_live_require(
+        terminal["schema"] == "semwright.audio-derivative-host-original/1"
+            && terminal["host_stage"] == "catalog"
+            && terminal["state"] == "completed"
+            && terminal["output_path"] == output_name
+            && terminal["runtime_job_id"].is_null()
+            && terminal["runtime_job_id_exposed"] == false
+            && terminal["host_exit_code"] == 0
+            && terminal["stdin_scope"] == "same-empty-Vec-supplied-to-existing-discover-call"
+            && terminal["stdin_delivery_confirmed"] == true
+            && terminal["original_error"].is_null()
+            && terminal["stream_eof_attested"] == false
+            && terminal["native_execution_retried"] == false
+            && terminal["physical_acceptance"] == false
+            && terminal["capture_scope"]
+                == "same-existing-Host-return-before-parse-and-public-redaction",
+        "Audio catalog original terminal does not identify a complete returned Host observation",
+    )?;
+    audio_live_catalog_keys(&terminal["stdin"], &["root", "path", "sha256", "bytes"])?;
+    audio_live_require(
+        terminal["stdin"]["root"] == "output"
+            && terminal["stdin"]["path"]
+                == format!("{output_name}.audio-derive-catalog.stdin.original.bin")
+            && terminal["stdin"]["bytes"] == 0
+            && terminal["stdin"]["sha256"] == semwright_mlt_video::hash::sha256(stdin),
+        "Audio catalog original empty stdin differs",
+    )?;
+    for (label, bytes) in [("stdout", stdout), ("stderr", stderr)] {
+        let metadata = &terminal[label];
+        audio_live_catalog_keys(
+            metadata,
+            &[
+                "root",
+                "path",
+                "sha256",
+                "bytes",
+                "delivered_buffer_bytes",
+                "delivered_buffer_sha256",
+                "diagnostic_prefix_truncated",
+                "retained",
+                "stream_eof_attested",
+            ],
+        )?;
+        let sha256 = semwright_mlt_video::hash::sha256(bytes);
+        audio_live_require(
+            metadata["root"] == "output"
+                && metadata["path"]
+                    == format!("{output_name}.audio-derive-catalog.{label}.original.bin")
+                && metadata["bytes"].as_u64() == Some(bytes.len() as u64)
+                && metadata["sha256"] == sha256
+                && metadata["delivered_buffer_sha256"] == sha256
+                && metadata["delivered_buffer_bytes"].as_u64() == Some(bytes.len() as u64)
+                && metadata["diagnostic_prefix_truncated"] == false
+                && metadata["retained"] == true
+                && metadata["stream_eof_attested"] == false,
+            "Audio catalog buffer was truncated, changed or not retained as delivered",
+        )?;
+    }
+    // Discovery is the MLT ServiceCatalog envelope, not the much larger
+    // CommandDescriptor catalog. The Driver remains its semantic validator.
+    let catalog: Value = serde_json::from_slice(stdout)?;
+    audio_live_catalog_keys(&catalog, &["schema", "operation", "version", "groups"])?;
+    audio_live_require(
+        catalog["schema"] == 1
+            && catalog["operation"] == "discover"
+            && catalog["version"]
+                .as_str()
+                .is_some_and(|value| !value.is_empty() && value.len() <= 512),
+        "Audio catalog original is not the existing MLT discovery envelope",
+    )?;
+    audio_live_catalog_keys(
+        &catalog["groups"],
+        &[
+            "producers",
+            "filters",
+            "transitions",
+            "consumers",
+            "video_codecs",
+            "audio_codecs",
+        ],
+    )?;
+    Ok(json!({
+        "state":"FULL_RETURNED_BUFFERS_OBSERVED","original_count":4,
+        "stdout_bytes":stdout.len(),"stdout_sha256":semwright_mlt_video::hash::sha256(stdout),
+        "stderr_bytes":stderr.len(),"stderr_sha256":semwright_mlt_video::hash::sha256(stderr),
+        "terminal_sha256":semwright_mlt_video::hash::sha256(terminal_bytes),
+        "stream_eof_attested":false,"descendant_closure_attested":false,
+        "previous_catalog_observation_inherited":false,
+        "scope":"same-existing-Host-catalog-return-no-new-discovery",
+        "formal_acceptance":false,"native_execution_retried":false
+    }))
+}
+
+fn audio_live_catalog_originals(
+    originals: &AudioLiveOriginals,
+    case: AudioLiveCase,
+    call_identity: &Value,
+    file_observation: &Value,
+) -> AudioLiveResult<Value> {
+    let name = case.output_name();
+    let observed = (|| -> AudioLiveResult<Value> {
+        audio_live_require(
+            file_observation["schema"] == "semwright.audio-derive-live-file-observation/1"
+                && file_observation["case"] == case.id
+                && file_observation["captured_before_result_unwrap_or_oracle"] == true,
+            "Audio catalog has no original file observation for this call",
+        )?;
+        let rows = file_observation["files"]
+            .as_array()
+            .ok_or_else(|| std::io::Error::other("Audio catalog file observation has no roster"))?;
+        audio_live_require(
+            rows.len() == 16,
+            "Audio catalog file observation roster differs",
+        )?;
+        let mut files = Vec::new();
+        for (suffix, maximum) in [
+            (
+                "stdin.original.bin",
+                semwright_mlt_video::runtime::AUDIO_DERIVATIVE_STDIN_LIMIT,
+            ),
+            (
+                "stdout.original.bin",
+                semwright_mlt_video::runtime::AUDIO_DERIVATIVE_STREAM_LIMIT,
+            ),
+            (
+                "stderr.original.bin",
+                semwright_mlt_video::runtime::AUDIO_DERIVATIVE_STREAM_LIMIT,
+            ),
+            (
+                "terminal.original.json",
+                semwright_mlt_video::runtime::AUDIO_DERIVATIVE_METADATA_LIMIT,
+            ),
+        ] {
+            let path = format!("{name}.audio-derive-catalog.{suffix}");
+            let original = match originals.output.read(&path, maximum) {
+                Ok(bytes) => Some(bytes),
+                Err(error) if error.code == "NotFound" => None,
+                Err(error) => return Err(Box::new(error)),
+            };
+            let mut matching = rows
+                .iter()
+                .filter(|row| row["root"] == "output" && row["path"] == path);
+            let previous = matching.next().ok_or_else(|| {
+                std::io::Error::other("Audio catalog path is absent from its original observation")
+            })?;
+            audio_live_require(
+                matching.next().is_none(),
+                "Audio catalog path is duplicated in its original observation",
+            )?;
+            match &original {
+                None => audio_live_require(
+                    previous["state"] == "NOT_PRESENT_AT_OBSERVATION",
+                    "Audio catalog original disappeared after its first observation",
+                )?,
+                Some(bytes) => audio_live_require(
+                    previous["state"] == "FILE_SNAPSHOT_OBSERVED"
+                        && previous["same_file_snapshot"] == true
+                        && previous["over_inspection_limit"] == false
+                        && previous["inspected_bytes"].as_u64() == Some(bytes.len() as u64)
+                        && previous["inspected_sha256"] == semwright_mlt_video::hash::sha256(bytes),
+                    "Audio catalog original changed after its first observation",
+                )?,
+            }
+            files.push(original);
+        }
+        let value = audio_live_check_catalog(
+            &name,
+            [
+                files[0].as_deref(),
+                files[1].as_deref(),
+                files[2].as_deref(),
+                files[3].as_deref(),
+            ],
+        )?;
+        Ok(json!({
+            "schema":"semwright.audio-derive-live-catalog-observation/1",
+            "case":case.id,"output_path":name,"caller":call_identity,"observation":value,
+            "first_call_assumed_to_discover":false,"native_execution_retried":false
+        }))
+    })();
+    let retained = originals.record(
+        &format!("audio-live-{}.catalog-observation.original.json", case.id),
+        &json!({
+            "observed":observed.as_ref().ok(),
+            "original_error":observed.as_ref().err().map(ToString::to_string),
+            "caller":call_identity,"native_execution_retried":false
+        }),
+    );
+    match observed {
+        Err(original) => {
+            originals.stop();
+            if let Err(secondary) = retained {
+                originals.secondary(
+                    &format!("audio-live-{}.catalog-custody-error.original.json", case.id),
+                    secondary.as_ref(),
+                );
+            }
+            Err(original)
+        }
+        Ok(value) => retained.map(|()| value),
+    }
+}
+
+fn audio_live_finish_observed<T, U>(
+    original: semwright_types::Result<T>,
+    observed: AudioLiveResult<U>,
+    retained: AudioLiveResult<()>,
+) -> AudioLiveResult<(T, U)> {
+    let value = match original {
+        Err(original) => return Err(Box::new(original)),
+        Ok(value) => value,
+    };
+    let observation = observed?;
+    retained?;
+    Ok((value, observation))
+}
+
+fn audio_live_finish_native<T>(
+    original: semwright_types::Result<T>,
+    retained: AudioLiveResult<()>,
+) -> AudioLiveResult<T> {
+    match original {
+        Err(original) => Err(Box::new(original)),
+        Ok(value) => retained.map(|()| value),
+    }
+}
+
+async fn audio_live_cases(
+    originals: &AudioLiveOriginals,
+    provider: &DriverProvider,
+    capabilities: &[semwright_backend_api::ProvidedCapability],
+    sources: &[Value],
+    ffmpeg_sha256: &str,
+) -> AudioLiveResult<()> {
+    let capability = capabilities
+        .iter()
+        .find(|capability| capability.descriptor.name == AUDIO_LIVE_COMMAND)
+        .ok_or_else(|| std::io::Error::other("The composed driver does not expose audio.derive"))?;
+    let canonical = semwright_mlt_video::catalog::capabilities()?
+        .into_iter()
+        .find(|capability| capability.name == AUDIO_LIVE_COMMAND)
+        .ok_or_else(|| {
+            std::io::Error::other("The composed canonical catalog lacks audio.derive")
+        })?;
+    let observed_descriptor = serde_json::to_value(&capability.descriptor)?;
+    let expected_descriptor: Value = serde_json::from_str(&canonical.descriptor.encode())?;
+    originals.record("audio-live-descriptor.original.json", &json!({
+        "descriptor":observed_descriptor,"expected_descriptor":expected_descriptor,
+        "canonical_descriptor_sha256":canonical.digest,"source":"same-compiled-catalog-public-API"
+    }))?;
+    audio_live_require(
+        observed_descriptor == expected_descriptor,
+        "Audio live descriptor differs from the composed canonical catalog",
+    )?;
+    audio_live_require(
+        sources.len() == AUDIO_LIVE_CASES.len(),
+        "Audio live source roster differs",
+    )?;
+    let mut observations = Vec::new();
+    for (case, source) in AUDIO_LIVE_CASES.into_iter().zip(sources) {
+        originals.check_directories()?;
+        let bytes = originals.media.read(&case.source_name(), 6 * 1024 * 1024)?;
+        audio_live_require(
+            source["id"] == case.id
+                && source["sha256"] == semwright_mlt_video::hash::sha256(&bytes)
+                && source["bytes"].as_u64() == Some(bytes.len() as u64),
+            "Audio live prepared source changed before dispatch",
+        )?;
+        let args = json!({
+            "profile":case.profile,
+            "source":{"root":"media","path":case.source_name(),"sha256":source["sha256"],
+                "size_bytes":source["bytes"],"sample_rate":case.source_rate,
+                "channels":case.source_channels,"sample_frames":case.source_frames},
+            "output_path":case.output_name()
+        });
+        originals.record(&format!("audio-live-{}.prepared-request.original.json", case.id), &json!({
+            "command":AUDIO_LIVE_COMMAND,"descriptor_sha256":canonical.digest,"args":args,
+            "capture_scope":"same-caller-Value-before-Provider-execute-not-a-wire-reconstruction"
+        }))?;
+        // The existing helper below owns the only Provider::execute. No new
+        // context factory, dispatcher, Host, native tool or retry is introduced.
+        let call_index = originals
+            .calls
+            .load(std::sync::atomic::Ordering::SeqCst)
+            .checked_add(1)
+            .ok_or_else(|| std::io::Error::other("Audio live caller index overflow"))?;
+        let original = call(
+            originals,
+            provider,
+            capabilities,
+            AUDIO_LIVE_COMMAND,
+            args.clone(),
+        )
+        .await;
+        // Observe all sixteen fixed paths even on an Error before interpreting
+        // the Result. The four catalog paths are conditional on the SAME
+        // existing gate; no second discover and no invented first-call rule.
+        let catalog_observed = audio_live_observe_case_files(originals, case).and_then(|files| {
+            let identity =
+                audio_live_case_call_identity(originals, call_index, &args, &observed_descriptor)?;
+            audio_live_catalog_originals(originals, case, &identity, &files)
+        });
+        let retained = (|| -> AudioLiveResult<()> {
+            let value = serde_json::to_value(&original)?;
+            originals.record(&format!("audio-live-{}.driver-result.original.json", case.id), &json!({
+                "schema":"semwright.audio-derive-live-returned-result/1","result":value,
+                "capture_scope":"original-returned-SDK-Result-raw-Host-pipes-retained-separately"
+            }))
+        })();
+        if (original.is_err() || catalog_observed.is_err())
+            && let Err(secondary) = &retained
+        {
+            originals.secondary(
+                &format!("audio-live-{}.result-custody-error.original.json", case.id),
+                secondary.as_ref(),
+            );
+        }
+        if let Err(secondary) = &catalog_observed {
+            originals.secondary(
+                &format!(
+                    "audio-live-{}.file-observation-error.original.json",
+                    case.id
+                ),
+                secondary.as_ref(),
+            );
+        }
+        // The original SDK Error is primary. After SDK success, an earlier
+        // original-observation error precedes a later Result-custody error.
+        let (result, catalog_observed) =
+            audio_live_finish_observed(original, catalog_observed, retained)?;
+        let observed = audio_live_verify_return(
+            originals,
+            case,
+            source,
+            &args,
+            &result,
+            &canonical.digest,
+            ffmpeg_sha256,
+        )
+        .map(|mut value| {
+            value["catalog_original_observation"] = catalog_observed;
+            value
+        });
+        let retained = match &observed {
+            Ok(value) => originals.record(
+                &format!("audio-live-{}.observation.original.json", case.id),
+                value,
+            ),
+            Err(error) => originals.record(
+                &format!("audio-live-{}.validation-error.original.json", case.id),
+                &json!({"error":error.to_string(),"native_execution_retried":false}),
+            ),
+        };
+        match observed {
+            Err(original) => {
+                if let Err(secondary) = retained {
+                    originals.secondary(
+                        &format!(
+                            "audio-live-{}.validation-custody-error.original.json",
+                            case.id
+                        ),
+                        secondary.as_ref(),
+                    );
+                }
+                return Err(original);
+            }
+            Ok(value) => {
+                retained?;
+                observations.push(value);
+            }
+        }
+    }
+    originals.record(
+        "audio-live-observation.original.json",
+        &json!({
+            "schema":"semwright.audio-derive-live-observation/1","cases":observations,
+            "scope":"exact-sample-clock-and-declared-PCM-properties",
+            "calls":3,"native_execution_retried":false,
+            "voice_identity":"NOT_APPLICABLE","human_manual_review":false,"formal_acceptance":false
+        }),
+    )?;
+    Ok(())
+}
+
+async fn audio_live_shutdown(
+    originals: &AudioLiveOriginals,
+    provider: &DriverProvider,
+    primary: AudioLiveResult<()>,
+) -> AudioLiveResult<()> {
+    let closed = Provider::shutdown(provider).await;
+    let retained = (|| -> AudioLiveResult<()> {
+        originals.record("audio-live-provider-shutdown.original.json", &json!({
+            "schema":"semwright.audio-derive-live-provider-close/1",
+            "result":serde_json::to_value(&closed)?,"original_operation_failed":primary.is_err(),
+            "external_process_cleanup_attested":false
+        }))
+    })();
+    if let Err(original) = primary {
+        if let Err(secondary) = closed {
+            originals.secondary("audio-live-secondary-shutdown.original.json", &secondary);
+        }
+        if let Err(secondary) = retained {
+            originals.secondary(
+                "audio-live-shutdown-custody-error.original.json",
+                secondary.as_ref(),
+            );
+        }
+        return Err(original);
+    }
+    if closed.is_err()
+        && let Err(secondary) = &retained
+    {
+        originals.secondary(
+            "audio-live-shutdown-custody-error.original.json",
+            secondary.as_ref(),
+        );
+    }
+    audio_live_finish_native(closed, retained)
 }
 
 #[tokio::test]
 #[ignore = "requires bubblewrap, real melt and ffprobe on a Linux host"]
-async fn real_mlt_video_driver_runs_inside_sandbox() {
-    if std::env::var_os("SEMWRIGHT_TEST_MLT_VIDEO").is_none() {
-        return;
-    }
+async fn real_mlt_video_driver_runs_inside_sandbox() -> AudioLiveResult<()> {
+    let selector = std::env::var("SEMWRIGHT_TEST_MLT_VIDEO").ok();
+    audio_live_selector(selector.as_deref())?;
+    let audio_originals =
+        AudioLiveOriginals::open(std::env::var_os(AUDIO_LIVE_ORIGINALS_ENV).map(PathBuf::from))?;
 
     let cargo_executable = PathBuf::from(env!("CARGO_BIN_EXE_semwright-mlt-video-driver"));
     let cargo_runtime_runner = PathBuf::from(env!("CARGO_BIN_EXE_semwright-mlt-runtime-runner"));
-    let binary_dir = tempfile::tempdir().unwrap();
+    let binary_dir = audio_originals.directory("binaries")?;
     std::fs::set_permissions(binary_dir.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
     let executable = binary_dir.path().join("semwright-mlt-video-driver");
     let runtime_runner = binary_dir.path().join("semwright-mlt-runtime-runner");
-    std::fs::copy(&cargo_executable, &executable).unwrap();
-    std::fs::copy(&cargo_runtime_runner, &runtime_runner).unwrap();
+    audio_live_copy(
+        &audio_originals,
+        "driver-binary",
+        &cargo_executable,
+        &executable,
+    )?;
+    audio_live_copy(
+        &audio_originals,
+        "runtime-runner-binary",
+        &cargo_runtime_runner,
+        &runtime_runner,
+    )?;
     for binary in [&executable, &runtime_runner] {
         std::fs::set_permissions(binary, std::fs::Permissions::from_mode(0o700)).unwrap();
     }
@@ -130,12 +2189,13 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
         .canonicalize()
         .expect("canonical MLT runtime root");
 
-    let project = tempfile::tempdir().unwrap();
-    let media = tempfile::tempdir().unwrap();
-    let output = tempfile::tempdir().unwrap();
-    let runtime = tempfile::tempdir().unwrap();
-    let scratch = tempfile::tempdir().unwrap();
-    let state = tempfile::tempdir().unwrap();
+    let project = audio_originals.directory("project")?;
+    let media = audio_originals.media_path.clone();
+    let output = audio_originals.output_path.clone();
+    let audio_sources = audio_live_stage_sources(&audio_originals)?;
+    let runtime = audio_originals.directory("runtime")?;
+    let scratch = audio_originals.directory("scratch")?;
+    let state = audio_originals.directory("state")?;
     for directory in [
         project.path(),
         media.path(),
@@ -171,42 +2231,88 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
         "timeout_seconds": 120
     });
     let runtime_file = runtime.path().join("runtime.json");
-    std::fs::write(
-        &runtime_file,
-        serde_json::to_vec_pretty(&runtime_json).unwrap(),
-    )
-    .unwrap();
+    let runtime_bytes = serde_json::to_vec_pretty(&runtime_json)?;
+    audio_originals.record_bytes(
+        "audio-live-runtime-config.original.json",
+        &runtime_bytes,
+        AUDIO_LIVE_METADATA_LIMIT,
+    )?;
+    std::fs::write(&runtime_file, &runtime_bytes)?;
+    let audio_ffmpeg_sha256 = digest(&ffmpeg);
+    audio_live_require(
+        runtime_json["ffmpeg"]["sha256"] == audio_ffmpeg_sha256,
+        "Pinned FFmpeg changed during live preparation",
+    )?;
+    audio_originals.record("audio-live-tool-source-pins.original.json", &json!({
+        "schema":"semwright.audio-derive-live-tool-source-observation/1",
+        "driver_sha256":digest(&executable),"runner_sha256":digest(&runtime_runner),
+        "cargo_driver_path":cargo_executable,"cargo_driver_sha256":digest(&cargo_executable),
+        "cargo_runner_path":cargo_runtime_runner,"cargo_runner_sha256":digest(&cargo_runtime_runner),
+        "sandbox_helper_path":helper,"sandbox_helper_sha256":digest(&helper),
+        "melt_sha256":digest(&melt),"ffprobe_sha256":digest(&ffprobe),
+        "ffmpeg_sha256":audio_ffmpeg_sha256,"bubblewrap_sha256":digest(&bwrap),
+        "catalog_sha256":semwright_mlt_video::catalog::digest(&semwright_mlt_video::catalog::capabilities()?),
+        "compiled_test_source_sha256":{
+            "app.rs":semwright_mlt_video::hash::sha256(include_bytes!("../src/app.rs")),
+            "runtime.rs":semwright_mlt_video::hash::sha256(include_bytes!("../src/runtime.rs")),
+            "main.rs":semwright_mlt_video::hash::sha256(include_bytes!("../src/main.rs")),
+            "runtime_runner.rs":semwright_mlt_video::hash::sha256(include_bytes!("../src/bin/runtime_runner.rs")),
+            "catalog.json":semwright_mlt_video::hash::sha256(include_bytes!("../src/catalog.json")),
+            "Cargo.toml":semwright_mlt_video::hash::sha256(include_bytes!("../Cargo.toml")),
+            "Cargo.lock":semwright_mlt_video::hash::sha256(include_bytes!("../../../Cargo.lock")),
+            "tests/live.rs":semwright_mlt_video::hash::sha256(include_bytes!("live.rs")),
+            "fixtures/expected/capabilities.json":semwright_mlt_video::hash::sha256(include_bytes!("../fixtures/expected/capabilities.json")),
+            "fixtures/expected/catalog-wire.json":semwright_mlt_video::hash::sha256(include_bytes!("../fixtures/expected/catalog-wire.json")),
+            "fixtures/expected/digests.json":semwright_mlt_video::hash::sha256(include_bytes!("../fixtures/expected/digests.json")),
+            "fixtures/SHA256SUMS.json":semwright_mlt_video::hash::sha256(include_bytes!("../fixtures/SHA256SUMS.json"))
+        },
+        "external_source_binding_required":true,"external_source_binding_attested_here":false,
+        "this_record_issues_authority":false,"formal_acceptance":false
+    }))?;
     std::fs::set_permissions(&runtime_file, std::fs::Permissions::from_mode(0o600)).unwrap();
 
     let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/media");
-    std::fs::copy(fixtures.join("red.mkv"), media.path().join("red.mkv")).unwrap();
-    std::fs::copy(fixtures.join("sine.wav"), media.path().join("sine.wav")).unwrap();
+    audio_live_copy(
+        &audio_originals,
+        "fixture-red.mkv",
+        &fixtures.join("red.mkv"),
+        &media.path().join("red.mkv"),
+    )?;
+    audio_live_copy(
+        &audio_originals,
+        "fixture-sine.wav",
+        &fixtures.join("sine.wav"),
+        &media.path().join("sine.wav"),
+    )?;
     let h264_source = media.path().join("h264-source.mp4");
-    let status = Command::new(&ffmpeg)
-        .args([
-            "-hide_banner",
-            "-loglevel",
-            "error",
-            "-y",
-            "-f",
-            "lavfi",
-            "-i",
-            "color=c=red:s=1920x1080:r=30:d=2",
-            "-frames:v",
-            "60",
-            "-c:v",
-            "libx264",
-            "-preset",
-            "veryfast",
-            "-crf",
-            "12",
-            "-pix_fmt",
-            "yuv420p",
-            "-an",
-        ])
-        .arg(&h264_source)
-        .status()
-        .unwrap();
+    let status = audio_live_command(
+        &audio_originals,
+        "fixture-h264",
+        Command::new(&ffmpeg)
+            .args([
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-y",
+                "-f",
+                "lavfi",
+                "-i",
+                "color=c=red:s=1920x1080:r=30:d=2",
+                "-frames:v",
+                "60",
+                "-c:v",
+                "libx264",
+                "-preset",
+                "veryfast",
+                "-crf",
+                "12",
+                "-pix_fmt",
+                "yuv420p",
+                "-an",
+            ])
+            .arg(&h264_source),
+    )?
+    .status;
     assert!(
         status.success(),
         "failed to create 1080p H.264 input fixture"
@@ -216,7 +2322,7 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
     // impulse share the 1.000000 s presentation timestamp. The product under test
     // only receives the finished file plus its digest and expected cue window.
     let sync_source = media.path().join("sync-markers.mkv");
-    let status = Command::new(&ffmpeg)
+    let status = audio_live_command(&audio_originals, "fixture-sync-markers", Command::new(&ffmpeg)
         .args([
             "-hide_banner",
             "-loglevel",
@@ -239,76 +2345,101 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
             "pcm_s16le",
         ])
         .arg(&sync_source)
-        .status()
-        .unwrap();
+    )?.status;
     assert!(status.success(), "failed to create AV sync marker fixture");
 
     let motion_artifact = media.path().join("motion-artifact");
     let motion_frames = motion_artifact.join("frames");
     std::fs::create_dir_all(&motion_frames).unwrap();
     let motion_pattern = motion_frames.join("%06d.png");
-    let status = Command::new(&ffmpeg)
-        .args([
-            "-hide_banner",
-            "-loglevel",
-            "error",
-            "-y",
-            "-f",
-            "lavfi",
-            "-i",
-            "color=c=blue:s=160x90:r=30:d=0.2",
-            "-frames:v",
-            "6",
-            "-start_number",
-            "0",
-        ])
-        .arg(&motion_pattern)
-        .status()
-        .unwrap();
+    let status = audio_live_command(
+        &audio_originals,
+        "fixture-motion-frames",
+        Command::new(&ffmpeg)
+            .args([
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-y",
+                "-f",
+                "lavfi",
+                "-i",
+                "color=c=blue:s=160x90:r=30:d=0.2",
+                "-frames:v",
+                "6",
+                "-start_number",
+                "0",
+            ])
+            .arg(&motion_pattern),
+    )?
+    .status;
     assert!(status.success(), "failed to create Motion frame oracle");
     // CI-only original source fixture: produce ONE authored glyph-like box
     // on native frame 3 and keep 2/4 perfectly unchanged. The native driver
     // *never* draws glyphs; it must independently inspect FFV1 and MP4.
     let overlay = motion_frames.join("original-caption-overlay.png");
-    let status = Command::new(&ffmpeg)
-        .args(["-hide_banner", "-loglevel", "error", "-y", "-i"])
-        .arg(motion_frames.join("000003.png"))
-        .args([
-            "-vf",
-            "drawbox=x=20:y=58:w=35:h=20:color=yellow:t=fill",
-            "-frames:v",
-            "1",
-            "-update",
-            "1",
-        ])
-        .arg(&overlay)
-        .status()
-        .unwrap();
+    let before_overlay = audio_originals
+        .media
+        .read("motion-artifact/frames/000003.png", 16 * 1024 * 1024)?;
+    audio_originals.record_bytes(
+        "fixture-caption-overlay.source-frame.original.png",
+        &before_overlay,
+        16 * 1024 * 1024,
+    )?;
+    let status = audio_live_command(
+        &audio_originals,
+        "fixture-caption-overlay",
+        Command::new(&ffmpeg)
+            .args(["-hide_banner", "-loglevel", "error", "-y", "-i"])
+            .arg(motion_frames.join("000003.png"))
+            .args([
+                "-vf",
+                "drawbox=x=20:y=58:w=35:h=20:color=yellow:t=fill",
+                "-frames:v",
+                "1",
+                "-update",
+                "1",
+            ])
+            .arg(&overlay),
+    )?
+    .status;
     assert!(
         status.success(),
         "failed to author original synthetic caption fixture"
     );
+    let produced_overlay = audio_originals.media.read(
+        "motion-artifact/frames/original-caption-overlay.png",
+        16 * 1024 * 1024,
+    )?;
+    audio_originals.record_bytes(
+        "fixture-caption-overlay.produced-frame.original.png",
+        &produced_overlay,
+        16 * 1024 * 1024,
+    )?;
     std::fs::rename(overlay, motion_frames.join("000003.png")).unwrap();
 
     let caption_wav = media.path().join("caption-audio.wav");
-    let status = Command::new(&ffmpeg)
-        .args([
-            "-hide_banner",
-            "-loglevel",
-            "error",
-            "-y",
-            "-f",
-            "lavfi",
-            "-i",
-            "anullsrc=r=48000:cl=stereo",
-            "-t",
-            "0.2",
-            "-c:a",
-            "pcm_s16le",
-        ])
-        .arg(&caption_wav)
-        .status()
-        .unwrap();
+    let status = audio_live_command(
+        &audio_originals,
+        "fixture-caption-audio",
+        Command::new(&ffmpeg)
+            .args([
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-y",
+                "-f",
+                "lavfi",
+                "-i",
+                "anullsrc=r=48000:cl=stereo",
+                "-t",
+                "0.2",
+                "-c:a",
+                "pcm_s16le",
+            ])
+            .arg(&caption_wav),
+    )?
+    .status;
     assert!(
         status.success(),
         "failed to produce bounded synthetic stereo WAV"
@@ -537,888 +2668,1885 @@ async fn real_mlt_video_driver_runs_inside_sandbox() {
         },
     ];
 
-    let provider = DriverProvider::connect(manifest, state.path(), &helper, &grants, false)
-        .await
-        .unwrap();
-    let capabilities = Provider::capabilities(provider.as_ref()).await.unwrap();
-    assert!(
-        capabilities
-            .iter()
-            .all(|capability| capability.descriptor.name.starts_with("driver.mlt-video."))
-    );
-    for required in [
-        "driver.mlt-video.frames.encode",
-        "driver.mlt-video.sync.probe",
-    ] {
+    audio_originals.before_effect()?;
+    audio_originals.record(
+        "audio-live-provider-connect-request.original.json",
+        &json!({
+            "schema":"semwright.mlt-live-provider-connect-request/1",
+            "manifest":serde_json::to_value(&manifest)?,"state":state.path(),"helper":helper,
+            "filesystem_grants":grants.iter().map(|grant| json!({
+                "name":grant.name,"path":grant.path,"read":grant.read,"write":grant.write
+            })).collect::<Vec<_>>(),"dry_run":false,"authority_issued_by_evidence_root":false
+        }),
+    )?;
+    let connected = DriverProvider::connect(manifest, state.path(), &helper, &grants, false).await;
+    let retained = (|| -> AudioLiveResult<()> {
+        audio_originals.record(
+            "audio-live-provider-connect.original.json",
+            &json!({
+                "schema":"semwright.audio-derive-live-provider-connect/1",
+                "returned_ok":connected.is_ok(),
+                "original_error":serde_json::to_value(connected.as_ref().err())?,
+                "capture_scope":"same-original-connection-return-no-provider-serialization",
+                "native_execution_retried":false
+            }),
+        )
+    })();
+    let provider = match connected {
+        Err(original) => {
+            if let Err(secondary) = retained {
+                audio_originals.secondary(
+                    "audio-live-connect-custody-error.original.json",
+                    secondary.as_ref(),
+                );
+            }
+            return Err(Box::new(original));
+        }
+        Ok(provider) => {
+            if let Err(original) = retained {
+                return audio_live_shutdown(&audio_originals, provider.as_ref(), Err(original))
+                    .await;
+            }
+            provider
+        }
+    };
+    let operations: AudioLiveResult<()> = async {
+        let original_capabilities = Provider::capabilities(provider.as_ref()).await;
+        let retained = (|| -> AudioLiveResult<()> {
+            let value = match &original_capabilities {
+                Ok(capabilities) => json!({"Ok":capabilities.iter().map(|capability| json!({
+                "descriptor":capability.descriptor,"aliases":capability.aliases,
+                "tags":capability.tags,"object_types":capability.object_types
+            })).collect::<Vec<_>>()}),
+                Err(error) => json!({"Err":serde_json::to_value(error)?}),
+            };
+            audio_originals.record_limited(
+                "audio-live-capabilities-return.original.json",
+                &json!({
+                    "schema":"semwright.audio-derive-live-capabilities-return/2","result":value,
+                    "capture_scope":"all-original-ProvidedCapability-fields-not-wire-bytes",
+                    "native_execution_retried":false
+                }),
+                AUDIO_LIVE_CAPABILITIES_LIMIT,
+            )
+        })();
+        if original_capabilities.is_err()
+            && let Err(secondary) = &retained
+        {
+            audio_originals.secondary(
+                "audio-live-capabilities-custody-error.original.json",
+                secondary.as_ref(),
+            );
+        }
+        let capabilities = audio_live_finish_native(original_capabilities, retained)?;
+        audio_live_cases(
+            &audio_originals,
+            provider.as_ref(),
+            &capabilities,
+            &audio_sources,
+            &audio_ffmpeg_sha256,
+        )
+        .await?;
         assert!(
             capabilities
                 .iter()
-                .any(|capability| capability.descriptor.name == required),
-            "missing required delivery capability: {required}"
+                .all(|capability| capability.descriptor.name.starts_with("driver.mlt-video."))
         );
-    }
+        for required in [
+            "driver.mlt-video.frames.encode",
+            "driver.mlt-video.sync.probe",
+        ] {
+            assert!(
+                capabilities
+                    .iter()
+                    .any(|capability| capability.descriptor.name == required),
+                "missing required delivery capability: {required}"
+            );
+        }
 
-    let doctor = call(
-        provider.as_ref(),
-        &capabilities,
-        "driver.mlt-video.doctor",
-        json!({}),
-    )
-    .await
-    .unwrap();
-    assert_eq!(
-        doctor["capabilities"].as_u64().unwrap(),
-        capabilities.len() as u64
-    );
-    assert_eq!(doctor["network"], false);
-    assert_eq!(doctor["render_available"], true, "MLT doctor: {doctor}");
-    assert!(
-        doctor["mlt_version"]
-            .as_str()
-            .is_some_and(|value| !value.is_empty())
-    );
-
-    let mezzanine = call(
-        provider.as_ref(),
-        &capabilities,
-        "driver.mlt-video.frames.encode",
-        json!({
-            "root":"media",
-            "manifest_path":"motion-artifact/artifact-manifest.json",
-            "expected_manifest_sha256":motion_manifest_digest,
-            "output_path":"motion-mezzanine.mkv",
-            "max_bytes":67108864
-        }),
-    )
-    .await
-    .unwrap();
-    assert_eq!(mezzanine["codec"], "ffv1");
-    assert_eq!(mezzanine["container"], "matroska");
-    assert_eq!(mezzanine["frame_count"], 6);
-    assert_eq!(mezzanine["width"], 160);
-    assert_eq!(mezzanine["height"], 90);
-    assert_eq!(mezzanine["media"]["video"], true);
-    assert_eq!(mezzanine["media"]["audio"], false);
-    assert!(
-        output.path().join("motion-mezzanine.mkv").is_file(),
-        "frames.encode did not publish its verified mezzanine"
-    );
-    let stale_frames = call(
-        provider.as_ref(),
-        &capabilities,
-        "driver.mlt-video.frames.encode",
-        json!({
-            "root":"media",
-            "manifest_path":"motion-artifact/artifact-manifest.json",
-            "expected_manifest_sha256":"0".repeat(64),
-            "output_path":"stale-mezzanine.mkv",
-            "max_bytes":67108864
-        }),
-    )
-    .await
-    .unwrap_err();
-    assert_eq!(
-        stale_frames.code,
-        semwright_types::ErrorCode::StaleReference
-    );
-    assert!(!output.path().join("stale-mezzanine.mkv").exists());
-
-    // The same original six source PNGs now flow through the *real* pinned
-    // FFV1 driver + MLT H264/AAC mux, followed by the brand-new read-only
-    // sealed Host observer. No fake observations, OCR or simulated frame
-    // claims; the observer sees actual original owner-root files.
-    let original_ffv1 = output.path().join("motion-mezzanine.mkv");
-    let original_sha = digest(&original_ffv1);
-    let caption_master = call(
-        provider.as_ref(),
-        &capabilities,
-        "driver.mlt-video.av.mux",
-        json!({
-            "video_root":"output",
-            "video_path":"motion-mezzanine.mkv",
-            "video_sha256":original_sha,
-            "audio_root":"media",
-            "audio_path":"caption-audio.wav",
-            "audio_sha256":digest(&caption_wav),
-            "width":160,"height":90,"fps_num":30,"fps_den":1,
-            "frame_count":6,"sample_rate":48000,"channels":2,
-            "profile":"h264-aac-mp4",
-            "output_path":"caption-oracle-master.mp4",
-            "max_bytes":67108864
-        }),
-    )
-    .await
-    .unwrap();
-    assert_eq!(caption_master["profile"], "h264-aac-mp4");
-    assert_eq!(caption_master["frame_count"], 6);
-    let master_mp4 = output.path().join("caption-oracle-master.mp4");
-    let original_master_sha = digest(&master_mp4);
-    let owner_args = json!({
-        "source_path":"motion-mezzanine.mkv",
-        "source_sha256":original_sha,
-        "source_bytes":std::fs::metadata(&original_ffv1).unwrap().len(),
-        "master_path":"caption-oracle-master.mp4",
-        "master_sha256":original_master_sha,
-        "master_bytes":std::fs::metadata(&master_mp4).unwrap().len(),
-        "width":160,"height":90,"fps_num":30,"fps_den":1,
-        "frame_count":6,
-        "cues":[{"start_frame":3,"end_frame_exclusive":4}]
-    });
-    let observed = call(
-        provider.as_ref(),
-        &capabilities,
-        "driver.mlt-video.av.caption_pixels.verify",
-        owner_args.clone(),
-    )
-    .await
-    .unwrap();
-    assert_eq!(observed["status"], "PASS");
-    assert_eq!(observed["frame_count"], 6);
-    assert_eq!(observed["source_sha256"], original_sha);
-    assert_eq!(observed["master_sha256"], original_master_sha);
-    assert_eq!(observed["human_readability"], "NOT_RUN");
-    assert_eq!(observed["speech_identity"], "NOT_VERIFIED");
-    assert_eq!(observed["publication_authorized"], false);
-    assert!(
-        observed["sampled_frames"][0]["glyph_mask_pixels"]
-            .as_u64()
-            .unwrap()
-            >= 50
-    );
-    assert!(!observed.to_string().contains("caption-audio.wav"));
-    assert!(!observed.to_string().contains("caption-oracle-master.mp4"));
-    let _source_len = std::fs::metadata(&original_ffv1).unwrap().len();
-    let stale = call(
-        provider.as_ref(),
-        &capabilities,
-        "driver.mlt-video.av.caption_pixels.verify",
-        {
-            let mut forged = owner_args.clone();
-            forged["source_sha256"] = json!("0".repeat(64));
-            forged
-        },
-    )
-    .await
-    .unwrap_err();
-    assert_eq!(stale.code, semwright_types::ErrorCode::StaleReference);
-    // The upstream Broker may conservatively classify Host tool errors as
-    // unknown. That flag cannot turn a rejected read-only observation into
-    // approval or authorize a render retry.
-    assert!(!stale.message.contains("caption-oracle-master.mp4"));
-    let denied = call(
-        provider.as_ref(),
-        &capabilities,
-        "driver.mlt-video.av.caption_pixels.verify",
-        {
-            let mut forged = owner_args.clone();
-            forged["source_path"] = json!("../private/master.mkv");
-            forged
-        },
-    )
-    .await
-    .unwrap_err();
-    // The existing Host AV envelope currently maps runtime-tool denial to
-    // BackendFailed rather than granting any filesystem access.
-    assert_eq!(denied.code, semwright_types::ErrorCode::BackendFailed);
-    let invalid = call(
-        provider.as_ref(),
-        &capabilities,
-        "driver.mlt-video.av.caption_pixels.verify",
-        {
-            let mut forged = owner_args;
-            forged["cues"] = json!([{"start_frame":0,"end_frame_exclusive":1}]);
-            forged
-        },
-    )
-    .await
-    .unwrap_err();
-    assert_eq!(invalid.code, semwright_types::ErrorCode::InvalidArgument);
-    assert_eq!(digest(&master_mp4), original_master_sha);
-
-    let sync_digest = digest(&sync_source);
-    let sync = call(
-        provider.as_ref(),
-        &capabilities,
-        "driver.mlt-video.sync.probe",
-        json!({
-            "root":"media",
-            "path":"sync-markers.mkv",
-            "expected_sha256":sync_digest,
-            "window_us":100000,
-            "full_scan":true,
-            "cues":[{"id":"technical","expected_us":1000000}]
-        }),
-    )
-    .await
-    .unwrap();
-    assert_eq!(sync["artifact_sha256"], sync_digest);
-    assert_eq!(sync["coverage"], "full_scan");
-    assert_eq!(sync["exhaustive_video"], true);
-    assert_eq!(sync["exhaustive_audio"], true);
-    assert_eq!(sync["missing_video"], json!([]));
-    assert_eq!(sync["missing_audio"], json!([]));
-    let flash = &sync["flashes"][0];
-    let impulse = &sync["impulses"][0];
-    assert!(flash["confidence"].as_u64().unwrap() >= 9000, "{sync:#}");
-    assert!(impulse["confidence"].as_u64().unwrap() >= 9000, "{sync:#}");
-    let flash_us = flash["presentation_time_us"].as_u64().unwrap();
-    let impulse_us = impulse["presentation_time_us"].as_u64().unwrap();
-    assert!(flash_us.abs_diff(1_000_000) <= 35_000, "{sync:#}");
-    assert!(impulse_us.abs_diff(1_000_000) <= 10_000, "{sync:#}");
-    assert!(flash_us.abs_diff(impulse_us) <= 35_000, "{sync:#}");
-
-    let stale_sync = call(
-        provider.as_ref(),
-        &capabilities,
-        "driver.mlt-video.sync.probe",
-        json!({
-            "root":"media",
-            "path":"sync-markers.mkv",
-            "expected_sha256":"0".repeat(64),
-            "window_us":100000,
-            "cues":[{"id":"technical","expected_us":1000000}]
-        }),
-    )
-    .await
-    .unwrap_err();
-    assert_eq!(stale_sync.code, semwright_types::ErrorCode::StaleReference);
-
-    let muxed = call(
-        provider.as_ref(),
-        &capabilities,
-        "driver.mlt-video.av.mux",
-        json!({
-            "video_root":"media",
-            "video_path":"red.mkv",
-            "video_sha256":digest(&media.path().join("red.mkv")),
-            "audio_root":"media",
-            "audio_path":"sine.wav",
-            "audio_sha256":digest(&media.path().join("sine.wav")),
-            "width":160,
-            "height":90,
-            "fps_num":25,
-            "fps_den":1,
-            "frame_count":50,
-            "sample_rate":48000,
-            "channels":2,
-            "profile":"h264-aac-mp4",
-            "output_path":"av-master.mp4",
-            "max_bytes":67108864
-        }),
-    )
-    .await
-    .unwrap();
-    assert_eq!(muxed["profile"], "h264-aac-mp4");
-    assert_eq!(muxed["frame_count"], 50);
-    assert_eq!(muxed["sample_rate"], 48000);
-    assert_eq!(muxed["channels"], 2);
-    assert_eq!(muxed["media"]["video"], true);
-    assert_eq!(muxed["media"]["audio"], true);
-    assert_eq!(muxed["artifact"]["root"], "output");
-    assert_eq!(muxed["artifact"]["path"], "av-master.mp4");
-    assert_eq!(
-        muxed["artifact"]["sha256"],
-        digest(&output.path().join("av-master.mp4"))
-    );
-    assert!(muxed["artifact"]["bytes"].as_u64().unwrap() > 0);
-    assert_eq!(muxed["decoded_audio"]["root"], "output");
-    assert_eq!(muxed["decoded_audio"]["path"], "av-master.decoded.wav");
-    assert_eq!(
-        muxed["decoded_audio"]["sha256"],
-        digest(&output.path().join("av-master.decoded.wav"))
-    );
-    assert!(muxed["decoded_audio"]["bytes"].as_u64().unwrap() > 0);
-    assert_eq!(muxed["decoded_audio_media"]["audio"], true);
-    assert_eq!(muxed["decoded_audio_media"]["video"], false);
-    assert!(
-        muxed["decoded_audio_sample_frames"]
-            .as_u64()
-            .is_some_and(|frames| frames > 0)
-    );
-
-    let stale_mux = call(
-        provider.as_ref(),
-        &capabilities,
-        "driver.mlt-video.av.mux",
-        json!({
-            "video_root":"media",
-            "video_path":"red.mkv",
-            "video_sha256":"0".repeat(64),
-            "audio_root":"media",
-            "audio_path":"sine.wav",
-            "audio_sha256":digest(&media.path().join("sine.wav")),
-            "width":160,
-            "height":90,
-            "fps_num":25,
-            "fps_den":1,
-            "frame_count":50,
-            "sample_rate":48000,
-            "channels":2,
-            "profile":"h264-aac-mp4",
-            "output_path":"stale-av-master.mp4",
-            "max_bytes":67108864
-        }),
-    )
-    .await
-    .unwrap_err();
-    assert_eq!(stale_mux.code, semwright_types::ErrorCode::StaleReference);
-    assert!(!output.path().join("stale-av-master.mp4").exists());
-    assert!(!output.path().join("stale-av-master.decoded.wav").exists());
-
-    let created_project = call(
-        provider.as_ref(),
-        &capabilities,
-        "driver.mlt-video.project.create",
-        json!({
-            "profile": {
-                "width": 160,
-                "height": 90,
-                "fps_num": 25,
-                "fps_den": 1,
-                "progressive": true,
-                "sample_aspect_num": 1,
-                "sample_aspect_den": 1,
-                "display_aspect_num": 16,
-                "display_aspect_den": 9,
-                "colorspace": 709,
-                "audio_channels": 2
-            }
-        }),
-    )
-    .await
-    .unwrap();
-    let mut project_ref = created_project["project"].as_str().unwrap().to_owned();
-    let mut revision = created_project["revision"].as_str().unwrap().to_owned();
-
-    let sequence = call(
-        provider.as_ref(),
-        &capabilities,
-        "driver.mlt-video.sequence.create",
-        json!({"project":project_ref,"expected_revision":revision,"name":"Main"}),
-    )
-    .await
-    .unwrap();
-    let (_, initial_sequence_ref) = created(&sequence, "sequence");
-    assert!(initial_sequence_ref.starts_with("video:"));
-    project_ref = sequence["project"].as_str().unwrap().to_owned();
-    revision = sequence["resulting_revision"].as_str().unwrap().to_owned();
-
-    for (name, path) in [("Video", "red.mkv"), ("Audio", "sine.wav")] {
-        let value = call(
+        let doctor = call(
+            &audio_originals,
             provider.as_ref(),
             &capabilities,
-            "driver.mlt-video.asset.import",
-            json!({
-                "project":project_ref,
-                "expected_revision":revision,
-                "kind":"file",
-                "name":name,
-                "root":"media",
-                "path":path
-            }),
+            "driver.mlt-video.doctor",
+            json!({}),
         )
-        .await
-        .unwrap();
-        project_ref = value["project"].as_str().unwrap().to_owned();
-        revision = value["resulting_revision"].as_str().unwrap().to_owned();
-    }
-
-    for (name, kind) in [("Video Track", "video"), ("Audio Track", "audio")] {
-        let current_sequence = sequence_ref(provider.as_ref(), &capabilities, &project_ref).await;
-        let value = call(
-            provider.as_ref(),
-            &capabilities,
-            "driver.mlt-video.track.create",
-            json!({
-                "project":project_ref,
-                "expected_revision":revision,
-                "sequence":current_sequence,
-                "name":name,
-                "kind":kind
-            }),
-        )
-        .await
-        .unwrap();
-        project_ref = value["project"].as_str().unwrap().to_owned();
-        revision = value["resulting_revision"].as_str().unwrap().to_owned();
-    }
-
-    let assets = call(
-        provider.as_ref(),
-        &capabilities,
-        "driver.mlt-video.asset.list",
-        json!({"project":project_ref,"limit":100}),
-    )
-    .await
-    .unwrap();
-    let current_sequence = sequence_ref(provider.as_ref(), &capabilities, &project_ref).await;
-    let tracks = call(
-        provider.as_ref(),
-        &capabilities,
-        "driver.mlt-video.track.list",
-        json!({"project":project_ref,"sequence":current_sequence,"limit":100}),
-    )
-    .await
-    .unwrap();
-    let video_asset = page_ref(&assets, "Video");
-    let video_track = page_ref(&tracks, "Video Track");
-
-    let video_clip = call(
-        provider.as_ref(),
-        &capabilities,
-        "driver.mlt-video.clip.insert",
-        json!({
-            "project":project_ref,
-            "expected_revision":revision,
-            "sequence":current_sequence,
-            "track":video_track,
-            "asset":video_asset,
-            "start":0,
-            "source_in":0,
-            "source_out":50,
-            "name":"Video Clip"
-        }),
-    )
-    .await
-    .unwrap();
-    project_ref = video_clip["project"].as_str().unwrap().to_owned();
-    revision = video_clip["resulting_revision"]
-        .as_str()
-        .unwrap()
-        .to_owned();
-
-    let assets = call(
-        provider.as_ref(),
-        &capabilities,
-        "driver.mlt-video.asset.list",
-        json!({"project":project_ref,"limit":100}),
-    )
-    .await
-    .unwrap();
-    let current_sequence = sequence_ref(provider.as_ref(), &capabilities, &project_ref).await;
-    let tracks = call(
-        provider.as_ref(),
-        &capabilities,
-        "driver.mlt-video.track.list",
-        json!({"project":project_ref,"sequence":current_sequence,"limit":100}),
-    )
-    .await
-    .unwrap();
-    let audio_asset = page_ref(&assets, "Audio");
-    let audio_track = page_ref(&tracks, "Audio Track");
-
-    let audio_clip = call(
-        provider.as_ref(),
-        &capabilities,
-        "driver.mlt-video.clip.insert",
-        json!({
-            "project":project_ref,
-            "expected_revision":revision,
-            "sequence":current_sequence,
-            "track":audio_track,
-            "asset":audio_asset,
-            "start":0,
-            "source_in":0,
-            "source_out":50,
-            "name":"Audio Clip"
-        }),
-    )
-    .await
-    .unwrap();
-    project_ref = audio_clip["project"].as_str().unwrap().to_owned();
-    revision = audio_clip["resulting_revision"]
-        .as_str()
-        .unwrap()
-        .to_owned();
-
-    let profiles = call(
-        provider.as_ref(),
-        &capabilities,
-        "driver.mlt-video.render.profiles",
-        json!({}),
-    )
-    .await
-    .unwrap();
-    for id in ["lossless", "lossless-video-only", "h264-1080p"] {
+        .await?;
+        assert_eq!(
+            doctor["capabilities"].as_u64().unwrap(),
+            capabilities.len() as u64
+        );
+        assert_eq!(doctor["network"], false);
+        assert_eq!(doctor["render_available"], true, "MLT doctor: {doctor}");
         assert!(
-            profiles["profiles"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .any(|profile| { profile["id"] == id && profile["available"] == true }),
-            "missing live render profile {id}"
+            doctor["mlt_version"]
+                .as_str()
+                .is_some_and(|value| !value.is_empty())
         );
-    }
 
-    let current_sequence = sequence_ref(provider.as_ref(), &capabilities, &project_ref).await;
-    let plan = call(
-        provider.as_ref(),
-        &capabilities,
-        "driver.mlt-video.render.plan",
-        json!({
-            "project":project_ref,
-            "sequence":current_sequence,
-            "profile":"lossless",
-            "output":"real-runtime.mkv"
-        }),
-    )
-    .await
-    .unwrap();
-    assert_eq!(plan["runnable"], true);
-    assert_eq!(plan["frames"], 50);
-
-    let started = call(
-        provider.as_ref(),
-        &capabilities,
-        "driver.mlt-video.render.start",
-        json!({
-            "project":project_ref,
-            "expected_revision":revision,
-            "sequence":current_sequence,
-            "profile":"lossless",
-            "output":"real-runtime.mkv"
-        }),
-    )
-    .await
-    .unwrap();
-    let job = started["job"].as_str().unwrap().to_owned();
-
-    let terminal = loop {
-        let status = call(
+        let mezzanine = call(
+            &audio_originals,
             provider.as_ref(),
             &capabilities,
-            "driver.mlt-video.render.status",
-            json!({"job":job}),
-        )
-        .await
-        .unwrap();
-        match status["state"].as_str().unwrap() {
-            "succeeded" | "failed" | "cancelled" | "unknown" => break status,
-            _ => tokio::time::sleep(Duration::from_millis(50)).await,
-        }
-    };
-    assert_eq!(terminal["state"], "succeeded", "{terminal:#}");
-
-    let result = call(
-        provider.as_ref(),
-        &capabilities,
-        "driver.mlt-video.render.result",
-        json!({"job":job}),
-    )
-    .await
-    .unwrap();
-    assert_eq!(result["state"], "succeeded");
-    assert_eq!(result["artifact"]["root"], "output");
-    assert_eq!(result["artifact"]["path"], "real-runtime.mkv");
-    assert!(result["artifact"]["bytes"].as_u64().unwrap() > 100);
-    assert_eq!(result["media"]["video"], true);
-    assert_eq!(result["media"]["audio"], true);
-    assert_eq!(result["media"]["width"], 160);
-    assert_eq!(result["media"]["height"], 90);
-
-    let artifact = output.path().join("real-runtime.mkv");
-    assert!(artifact.is_file());
-    assert!(std::fs::metadata(&artifact).unwrap().len() > 100);
-
-    // Exercise the new opt-in video-only *semantic* MLT render on exactly the
-    // same audio-bearing editorial project. It must strip audio in the pinned
-    // consumer rather than publish silence, and independently count every
-    // real decoded FFV1 frame before the Broker releases the artifact.
-    let video_only_sequence = sequence_ref(provider.as_ref(), &capabilities, &project_ref).await;
-    let video_only_plan = call(
-        provider.as_ref(),
-        &capabilities,
-        "driver.mlt-video.render.plan",
-        json!({
-            "project":project_ref, "sequence":video_only_sequence,
-            "profile":"lossless-video-only", "output":"video-only-runtime.mkv"
-        }),
-    )
-    .await
-    .unwrap();
-    assert_eq!(video_only_plan["runnable"], true);
-    assert_eq!(video_only_plan["frames"], 50);
-    let video_only_started = call(
-        provider.as_ref(),
-        &capabilities,
-        "driver.mlt-video.render.start",
-        json!({
-            "project":project_ref, "expected_revision":revision,
-            "sequence":video_only_sequence, "profile":"lossless-video-only",
-            "output":"video-only-runtime.mkv"
-        }),
-    )
-    .await
-    .unwrap();
-    let video_only_job = video_only_started["job"].as_str().unwrap();
-    let video_only_terminal = loop {
-        let status = call(
-            provider.as_ref(),
-            &capabilities,
-            "driver.mlt-video.render.status",
-            json!({"job":video_only_job}),
-        )
-        .await
-        .unwrap();
-        match status["state"].as_str().unwrap() {
-            "succeeded" | "failed" | "cancelled" | "unknown" => break status,
-            _ => tokio::time::sleep(Duration::from_millis(50)).await,
-        }
-    };
-    assert_eq!(
-        video_only_terminal["state"], "succeeded",
-        "{video_only_terminal:#}"
-    );
-    let video_only_result = call(
-        provider.as_ref(),
-        &capabilities,
-        "driver.mlt-video.render.result",
-        json!({"job":video_only_job}),
-    )
-    .await
-    .unwrap();
-    assert_eq!(video_only_result["profile"], "lossless-video-only");
-    assert_eq!(video_only_result["state"], "succeeded");
-    assert_eq!(video_only_result["project_revision"], revision);
-    assert_eq!(
-        video_only_result["artifact"]["path"],
-        "video-only-runtime.mkv"
-    );
-    assert_eq!(video_only_result["media"]["video"], true);
-    assert_eq!(video_only_result["media"]["audio"], false);
-    assert_eq!(video_only_result["media"]["frames"], 50);
-    assert_eq!(video_only_result["media"]["codecs"], json!(["ffv1"]));
-    let video_only_artifact = output.path().join("video-only-runtime.mkv");
-    assert!(video_only_artifact.is_file());
-    assert!(std::fs::metadata(&video_only_artifact).unwrap().len() > 100);
-    assert_eq!(
-        video_only_result["artifact"]["sha256"],
-        digest(&video_only_artifact)
-    );
-
-    // Keep an independently invoked *real* ffprobe check in this
-    // owner-controlled CI test; a declared vendor receipt is not enough.
-    let frame_probe = Command::new(&ffprobe)
-        .args([
-            "-v",
-            "error",
-            "-count_frames",
-            "-show_streams",
-            "-of",
-            "json",
-        ])
-        .arg(&video_only_artifact)
-        .output()
-        .unwrap();
-    assert!(
-        frame_probe.status.success(),
-        "Independent FFprobe decode failed"
-    );
-    let checked_streams: Value = serde_json::from_slice(&frame_probe.stdout).unwrap();
-    let checked_streams = checked_streams["streams"].as_array().unwrap();
-    assert_eq!(checked_streams.len(), 1, "Audio must be absent, not silent");
-    assert_eq!(checked_streams[0]["codec_type"], "video");
-    assert_eq!(checked_streams[0]["codec_name"], "ffv1");
-    assert_eq!(checked_streams[0]["nb_read_frames"], "50");
-
-    // Exercise the same curated H.264 consumer used by the launch film in a
-    // separate project born at 1920x1080/30. Reprofiling the earlier 160x90/25
-    // lossless fixture after clips already exist changes the timebase underneath
-    // those clips and does not represent the production launch-film route.
-    let h264_project = call(
-        provider.as_ref(),
-        &capabilities,
-        "driver.mlt-video.project.create",
-        json!({
-            "profile": {
-                "width":1920,
-                "height":1080,
-                "fps_num":30,
-                "fps_den":1,
-                "progressive":true,
-                "sample_aspect_num":1,
-                "sample_aspect_den":1,
-                "display_aspect_num":16,
-                "display_aspect_den":9,
-                "colorspace":709,
-                "audio_channels":2
-            }
-        }),
-    )
-    .await
-    .unwrap();
-    project_ref = h264_project["project"].as_str().unwrap().to_owned();
-    revision = h264_project["revision"].as_str().unwrap().to_owned();
-
-    let h264_sequence = call(
-        provider.as_ref(),
-        &capabilities,
-        "driver.mlt-video.sequence.create",
-        json!({"project":project_ref,"expected_revision":revision,"name":"H264 Main"}),
-    )
-    .await
-    .unwrap();
-    project_ref = h264_sequence["project"].as_str().unwrap().to_owned();
-    revision = h264_sequence["resulting_revision"]
-        .as_str()
-        .unwrap()
-        .to_owned();
-
-    for (name, path) in [
-        ("H264 Video", "h264-source.mp4"),
-        ("H264 Audio", "sine.wav"),
-    ] {
-        let value = call(
-            provider.as_ref(),
-            &capabilities,
-            "driver.mlt-video.asset.import",
+            "driver.mlt-video.frames.encode",
             json!({
-                "project":project_ref,
-                "expected_revision":revision,
-                "kind":"file",
-                "name":name,
                 "root":"media",
-                "path":path
+                "manifest_path":"motion-artifact/artifact-manifest.json",
+                "expected_manifest_sha256":motion_manifest_digest,
+                "output_path":"motion-mezzanine.mkv",
+                "max_bytes":67108864
             }),
         )
-        .await
-        .unwrap();
-        project_ref = value["project"].as_str().unwrap().to_owned();
-        revision = value["resulting_revision"].as_str().unwrap().to_owned();
-    }
+        .await?;
+        assert_eq!(mezzanine["codec"], "ffv1");
+        assert_eq!(mezzanine["container"], "matroska");
+        assert_eq!(mezzanine["frame_count"], 6);
+        assert_eq!(mezzanine["width"], 160);
+        assert_eq!(mezzanine["height"], 90);
+        assert_eq!(mezzanine["media"]["video"], true);
+        assert_eq!(mezzanine["media"]["audio"], false);
+        assert!(
+            output.path().join("motion-mezzanine.mkv").is_file(),
+            "frames.encode did not publish its verified mezzanine"
+        );
+        let stale_frames = audio_live_expect_known_error(
+            call(
+                &audio_originals,
+                provider.as_ref(),
+                &capabilities,
+                "driver.mlt-video.frames.encode",
+                json!({
+                    "root":"media",
+                    "manifest_path":"motion-artifact/artifact-manifest.json",
+                    "expected_manifest_sha256":"0".repeat(64),
+                    "output_path":"stale-mezzanine.mkv",
+                    "max_bytes":67108864
+                }),
+            )
+            .await,
+        )?;
+        assert_eq!(
+            stale_frames.code,
+            semwright_types::ErrorCode::StaleReference
+        );
+        assert!(!output.path().join("stale-mezzanine.mkv").exists());
 
-    for (name, kind) in [("H264 Video Track", "video"), ("H264 Audio Track", "audio")] {
-        let sequence = sequence_ref(provider.as_ref(), &capabilities, &project_ref).await;
-        let value = call(
+        // The same original six source PNGs now flow through the *real* pinned
+        // FFV1 driver + MLT H264/AAC mux, followed by the brand-new read-only
+        // sealed Host observer. No fake observations, OCR or simulated frame
+        // claims; the observer sees actual original owner-root files.
+        let original_ffv1 = output.path().join("motion-mezzanine.mkv");
+        let original_sha = digest(&original_ffv1);
+        let caption_master = call(
+            &audio_originals,
             provider.as_ref(),
             &capabilities,
-            "driver.mlt-video.track.create",
+            "driver.mlt-video.av.mux",
             json!({
-                "project":project_ref,
-                "expected_revision":revision,
-                "sequence":sequence,
-                "name":name,
-                "kind":kind
+                "video_root":"output",
+                "video_path":"motion-mezzanine.mkv",
+                "video_sha256":original_sha,
+                "audio_root":"media",
+                "audio_path":"caption-audio.wav",
+                "audio_sha256":digest(&caption_wav),
+                "width":160,"height":90,"fps_num":30,"fps_den":1,
+                "frame_count":6,"sample_rate":48000,"channels":2,
+                "profile":"h264-aac-mp4",
+                "output_path":"caption-oracle-master.mp4",
+                "max_bytes":67108864
             }),
         )
-        .await
-        .unwrap();
-        project_ref = value["project"].as_str().unwrap().to_owned();
-        revision = value["resulting_revision"].as_str().unwrap().to_owned();
-    }
+        .await?;
+        assert_eq!(caption_master["profile"], "h264-aac-mp4");
+        assert_eq!(caption_master["frame_count"], 6);
+        let master_mp4 = output.path().join("caption-oracle-master.mp4");
+        let original_master_sha = digest(&master_mp4);
+        let owner_args = json!({
+            "source_path":"motion-mezzanine.mkv",
+            "source_sha256":original_sha,
+            "source_bytes":std::fs::metadata(&original_ffv1).unwrap().len(),
+            "master_path":"caption-oracle-master.mp4",
+            "master_sha256":original_master_sha,
+            "master_bytes":std::fs::metadata(&master_mp4).unwrap().len(),
+            "width":160,"height":90,"fps_num":30,"fps_den":1,
+            "frame_count":6,
+            "cues":[{"start_frame":3,"end_frame_exclusive":4}]
+        });
+        let observed = call(
+            &audio_originals,
+            provider.as_ref(),
+            &capabilities,
+            "driver.mlt-video.av.caption_pixels.verify",
+            owner_args.clone(),
+        )
+        .await?;
+        assert_eq!(observed["status"], "PASS");
+        assert_eq!(observed["frame_count"], 6);
+        assert_eq!(observed["source_sha256"], original_sha);
+        assert_eq!(observed["master_sha256"], original_master_sha);
+        assert_eq!(observed["human_readability"], "NOT_RUN");
+        assert_eq!(observed["speech_identity"], "NOT_VERIFIED");
+        assert_eq!(observed["publication_authorized"], false);
+        assert!(
+            observed["sampled_frames"][0]["glyph_mask_pixels"]
+                .as_u64()
+                .unwrap()
+                >= 50
+        );
+        assert!(!observed.to_string().contains("caption-audio.wav"));
+        assert!(!observed.to_string().contains("caption-oracle-master.mp4"));
+        let _source_len = std::fs::metadata(&original_ffv1).unwrap().len();
+        let stale = audio_live_expect_known_error(
+            call(
+                &audio_originals,
+                provider.as_ref(),
+                &capabilities,
+                "driver.mlt-video.av.caption_pixels.verify",
+                {
+                    let mut forged = owner_args.clone();
+                    forged["source_sha256"] = json!("0".repeat(64));
+                    forged
+                },
+            )
+            .await,
+        )?;
+        assert_eq!(stale.code, semwright_types::ErrorCode::StaleReference);
+        // The upstream Broker may conservatively classify Host tool errors as
+        // unknown. That flag cannot turn a rejected read-only observation into
+        // approval or authorize a render retry.
+        assert!(!stale.message.contains("caption-oracle-master.mp4"));
+        let denied = audio_live_expect_known_error(
+            call(
+                &audio_originals,
+                provider.as_ref(),
+                &capabilities,
+                "driver.mlt-video.av.caption_pixels.verify",
+                {
+                    let mut forged = owner_args.clone();
+                    forged["source_path"] = json!("../private/master.mkv");
+                    forged
+                },
+            )
+            .await,
+        )?;
+        // The existing Host AV envelope currently maps runtime-tool denial to
+        // BackendFailed rather than granting any filesystem access.
+        assert_eq!(denied.code, semwright_types::ErrorCode::BackendFailed);
+        let invalid = audio_live_expect_known_error(
+            call(
+                &audio_originals,
+                provider.as_ref(),
+                &capabilities,
+                "driver.mlt-video.av.caption_pixels.verify",
+                {
+                    let mut forged = owner_args;
+                    forged["cues"] = json!([{"start_frame":0,"end_frame_exclusive":1}]);
+                    forged
+                },
+            )
+            .await,
+        )?;
+        assert_eq!(invalid.code, semwright_types::ErrorCode::InvalidArgument);
+        assert_eq!(digest(&master_mp4), original_master_sha);
 
-    for (track_name, asset_name, clip_name) in [
-        ("H264 Video Track", "H264 Video", "H264 Video Clip"),
-        ("H264 Audio Track", "H264 Audio", "H264 Audio Clip"),
-    ] {
+        let sync_digest = digest(&sync_source);
+        let sync = call(
+            &audio_originals,
+            provider.as_ref(),
+            &capabilities,
+            "driver.mlt-video.sync.probe",
+            json!({
+                "root":"media",
+                "path":"sync-markers.mkv",
+                "expected_sha256":sync_digest,
+                "window_us":100000,
+                "full_scan":true,
+                "cues":[{"id":"technical","expected_us":1000000}]
+            }),
+        )
+        .await?;
+        assert_eq!(sync["artifact_sha256"], sync_digest);
+        assert_eq!(sync["coverage"], "full_scan");
+        assert_eq!(sync["exhaustive_video"], true);
+        assert_eq!(sync["exhaustive_audio"], true);
+        assert_eq!(sync["missing_video"], json!([]));
+        assert_eq!(sync["missing_audio"], json!([]));
+        let flash = &sync["flashes"][0];
+        let impulse = &sync["impulses"][0];
+        assert!(flash["confidence"].as_u64().unwrap() >= 9000, "{sync:#}");
+        assert!(impulse["confidence"].as_u64().unwrap() >= 9000, "{sync:#}");
+        let flash_us = flash["presentation_time_us"].as_u64().unwrap();
+        let impulse_us = impulse["presentation_time_us"].as_u64().unwrap();
+        assert!(flash_us.abs_diff(1_000_000) <= 35_000, "{sync:#}");
+        assert!(impulse_us.abs_diff(1_000_000) <= 10_000, "{sync:#}");
+        assert!(flash_us.abs_diff(impulse_us) <= 35_000, "{sync:#}");
+
+        let stale_sync = audio_live_expect_known_error(
+            call(
+                &audio_originals,
+                provider.as_ref(),
+                &capabilities,
+                "driver.mlt-video.sync.probe",
+                json!({
+                    "root":"media",
+                    "path":"sync-markers.mkv",
+                    "expected_sha256":"0".repeat(64),
+                    "window_us":100000,
+                    "cues":[{"id":"technical","expected_us":1000000}]
+                }),
+            )
+            .await,
+        )?;
+        assert_eq!(stale_sync.code, semwright_types::ErrorCode::StaleReference);
+
+        let muxed = call(
+            &audio_originals,
+            provider.as_ref(),
+            &capabilities,
+            "driver.mlt-video.av.mux",
+            json!({
+                "video_root":"media",
+                "video_path":"red.mkv",
+                "video_sha256":digest(&media.path().join("red.mkv")),
+                "audio_root":"media",
+                "audio_path":"sine.wav",
+                "audio_sha256":digest(&media.path().join("sine.wav")),
+                "width":160,
+                "height":90,
+                "fps_num":25,
+                "fps_den":1,
+                "frame_count":50,
+                "sample_rate":48000,
+                "channels":2,
+                "profile":"h264-aac-mp4",
+                "output_path":"av-master.mp4",
+                "max_bytes":67108864
+            }),
+        )
+        .await?;
+        assert_eq!(muxed["profile"], "h264-aac-mp4");
+        assert_eq!(muxed["frame_count"], 50);
+        assert_eq!(muxed["sample_rate"], 48000);
+        assert_eq!(muxed["channels"], 2);
+        assert_eq!(muxed["media"]["video"], true);
+        assert_eq!(muxed["media"]["audio"], true);
+        assert_eq!(muxed["artifact"]["root"], "output");
+        assert_eq!(muxed["artifact"]["path"], "av-master.mp4");
+        assert_eq!(
+            muxed["artifact"]["sha256"],
+            digest(&output.path().join("av-master.mp4"))
+        );
+        assert!(muxed["artifact"]["bytes"].as_u64().unwrap() > 0);
+        assert_eq!(muxed["decoded_audio"]["root"], "output");
+        assert_eq!(muxed["decoded_audio"]["path"], "av-master.decoded.wav");
+        assert_eq!(
+            muxed["decoded_audio"]["sha256"],
+            digest(&output.path().join("av-master.decoded.wav"))
+        );
+        assert!(muxed["decoded_audio"]["bytes"].as_u64().unwrap() > 0);
+        assert_eq!(muxed["decoded_audio_media"]["audio"], true);
+        assert_eq!(muxed["decoded_audio_media"]["video"], false);
+        assert!(
+            muxed["decoded_audio_sample_frames"]
+                .as_u64()
+                .is_some_and(|frames| frames > 0)
+        );
+
+        let stale_mux = audio_live_expect_known_error(
+            call(
+                &audio_originals,
+                provider.as_ref(),
+                &capabilities,
+                "driver.mlt-video.av.mux",
+                json!({
+                    "video_root":"media",
+                    "video_path":"red.mkv",
+                    "video_sha256":"0".repeat(64),
+                    "audio_root":"media",
+                    "audio_path":"sine.wav",
+                    "audio_sha256":digest(&media.path().join("sine.wav")),
+                    "width":160,
+                    "height":90,
+                    "fps_num":25,
+                    "fps_den":1,
+                    "frame_count":50,
+                    "sample_rate":48000,
+                    "channels":2,
+                    "profile":"h264-aac-mp4",
+                    "output_path":"stale-av-master.mp4",
+                    "max_bytes":67108864
+                }),
+            )
+            .await,
+        )?;
+        assert_eq!(stale_mux.code, semwright_types::ErrorCode::StaleReference);
+        assert!(!output.path().join("stale-av-master.mp4").exists());
+        assert!(!output.path().join("stale-av-master.decoded.wav").exists());
+
+        let created_project = call(
+            &audio_originals,
+            provider.as_ref(),
+            &capabilities,
+            "driver.mlt-video.project.create",
+            json!({
+                "profile": {
+                    "width": 160,
+                    "height": 90,
+                    "fps_num": 25,
+                    "fps_den": 1,
+                    "progressive": true,
+                    "sample_aspect_num": 1,
+                    "sample_aspect_den": 1,
+                    "display_aspect_num": 16,
+                    "display_aspect_den": 9,
+                    "colorspace": 709,
+                    "audio_channels": 2
+                }
+            }),
+        )
+        .await?;
+        let mut project_ref = created_project["project"].as_str().unwrap().to_owned();
+        let mut revision = created_project["revision"].as_str().unwrap().to_owned();
+
+        let sequence = call(
+            &audio_originals,
+            provider.as_ref(),
+            &capabilities,
+            "driver.mlt-video.sequence.create",
+            json!({"project":project_ref,"expected_revision":revision,"name":"Main"}),
+        )
+        .await?;
+        let (_, initial_sequence_ref) = created(&sequence, "sequence");
+        assert!(initial_sequence_ref.starts_with("video:"));
+        project_ref = sequence["project"].as_str().unwrap().to_owned();
+        revision = sequence["resulting_revision"].as_str().unwrap().to_owned();
+
+        for (name, path) in [("Video", "red.mkv"), ("Audio", "sine.wav")] {
+            let value = call(
+                &audio_originals,
+                provider.as_ref(),
+                &capabilities,
+                "driver.mlt-video.asset.import",
+                json!({
+                    "project":project_ref,
+                    "expected_revision":revision,
+                    "kind":"file",
+                    "name":name,
+                    "root":"media",
+                    "path":path
+                }),
+            )
+            .await?;
+            project_ref = value["project"].as_str().unwrap().to_owned();
+            revision = value["resulting_revision"].as_str().unwrap().to_owned();
+        }
+
+        for (name, kind) in [("Video Track", "video"), ("Audio Track", "audio")] {
+            let current_sequence = sequence_ref(
+                &audio_originals,
+                provider.as_ref(),
+                &capabilities,
+                &project_ref,
+            )
+            .await?;
+            let value = call(
+                &audio_originals,
+                provider.as_ref(),
+                &capabilities,
+                "driver.mlt-video.track.create",
+                json!({
+                    "project":project_ref,
+                    "expected_revision":revision,
+                    "sequence":current_sequence,
+                    "name":name,
+                    "kind":kind
+                }),
+            )
+            .await?;
+            project_ref = value["project"].as_str().unwrap().to_owned();
+            revision = value["resulting_revision"].as_str().unwrap().to_owned();
+        }
+
         let assets = call(
+            &audio_originals,
             provider.as_ref(),
             &capabilities,
             "driver.mlt-video.asset.list",
             json!({"project":project_ref,"limit":100}),
         )
-        .await
-        .unwrap();
-        let asset = page_ref(&assets, asset_name);
-        let sequence = sequence_ref(provider.as_ref(), &capabilities, &project_ref).await;
+        .await?;
+        let current_sequence = sequence_ref(
+            &audio_originals,
+            provider.as_ref(),
+            &capabilities,
+            &project_ref,
+        )
+        .await?;
         let tracks = call(
+            &audio_originals,
             provider.as_ref(),
             &capabilities,
             "driver.mlt-video.track.list",
-            json!({"project":project_ref,"sequence":sequence,"limit":100}),
+            json!({"project":project_ref,"sequence":current_sequence,"limit":100}),
         )
-        .await
-        .unwrap();
-        let track = page_ref(&tracks, track_name);
-        let value = call(
+        .await?;
+        let video_asset = page_ref(&assets, "Video");
+        let video_track = page_ref(&tracks, "Video Track");
+
+        let video_clip = call(
+            &audio_originals,
             provider.as_ref(),
             &capabilities,
             "driver.mlt-video.clip.insert",
             json!({
                 "project":project_ref,
                 "expected_revision":revision,
-                "sequence":sequence,
-                "track":track,
-                "asset":asset,
+                "sequence":current_sequence,
+                "track":video_track,
+                "asset":video_asset,
                 "start":0,
                 "source_in":0,
-                "source_out":5,
-                "name":clip_name
+                "source_out":50,
+                "name":"Video Clip"
             }),
         )
-        .await
-        .unwrap();
-        project_ref = value["project"].as_str().unwrap().to_owned();
-        revision = value["resulting_revision"].as_str().unwrap().to_owned();
-    }
+        .await?;
+        project_ref = video_clip["project"].as_str().unwrap().to_owned();
+        revision = video_clip["resulting_revision"]
+            .as_str()
+            .unwrap()
+            .to_owned();
 
-    let current_sequence = sequence_ref(provider.as_ref(), &capabilities, &project_ref).await;
-    let h264_plan = call(
-        provider.as_ref(),
-        &capabilities,
-        "driver.mlt-video.render.plan",
-        json!({
-            "project":project_ref,
-            "sequence":current_sequence,
-            "profile":"h264-1080p",
-            "output":"real-runtime-h264.mp4"
-        }),
-    )
-    .await
-    .unwrap();
-    assert_eq!(h264_plan["runnable"], true);
-    assert_eq!(h264_plan["frames"], 5);
-
-    let h264_started = call(
-        provider.as_ref(),
-        &capabilities,
-        "driver.mlt-video.render.start",
-        json!({
-            "project":project_ref,
-            "expected_revision":revision,
-            "sequence":current_sequence,
-            "profile":"h264-1080p",
-            "output":"real-runtime-h264.mp4"
-        }),
-    )
-    .await
-    .unwrap();
-    let h264_job = h264_started["job"].as_str().unwrap().to_owned();
-    let h264_terminal = loop {
-        let status = call(
+        let assets = call(
+            &audio_originals,
             provider.as_ref(),
             &capabilities,
-            "driver.mlt-video.render.status",
+            "driver.mlt-video.asset.list",
+            json!({"project":project_ref,"limit":100}),
+        )
+        .await?;
+        let current_sequence = sequence_ref(
+            &audio_originals,
+            provider.as_ref(),
+            &capabilities,
+            &project_ref,
+        )
+        .await?;
+        let tracks = call(
+            &audio_originals,
+            provider.as_ref(),
+            &capabilities,
+            "driver.mlt-video.track.list",
+            json!({"project":project_ref,"sequence":current_sequence,"limit":100}),
+        )
+        .await?;
+        let audio_asset = page_ref(&assets, "Audio");
+        let audio_track = page_ref(&tracks, "Audio Track");
+
+        let audio_clip = call(
+            &audio_originals,
+            provider.as_ref(),
+            &capabilities,
+            "driver.mlt-video.clip.insert",
+            json!({
+                "project":project_ref,
+                "expected_revision":revision,
+                "sequence":current_sequence,
+                "track":audio_track,
+                "asset":audio_asset,
+                "start":0,
+                "source_in":0,
+                "source_out":50,
+                "name":"Audio Clip"
+            }),
+        )
+        .await?;
+        project_ref = audio_clip["project"].as_str().unwrap().to_owned();
+        revision = audio_clip["resulting_revision"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+
+        let profiles = call(
+            &audio_originals,
+            provider.as_ref(),
+            &capabilities,
+            "driver.mlt-video.render.profiles",
+            json!({}),
+        )
+        .await?;
+        for id in ["lossless", "lossless-video-only", "h264-1080p"] {
+            assert!(
+                profiles["profiles"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .any(|profile| { profile["id"] == id && profile["available"] == true }),
+                "missing live render profile {id}"
+            );
+        }
+
+        let current_sequence = sequence_ref(
+            &audio_originals,
+            provider.as_ref(),
+            &capabilities,
+            &project_ref,
+        )
+        .await?;
+        let plan = call(
+            &audio_originals,
+            provider.as_ref(),
+            &capabilities,
+            "driver.mlt-video.render.plan",
+            json!({
+                "project":project_ref,
+                "sequence":current_sequence,
+                "profile":"lossless",
+                "output":"real-runtime.mkv"
+            }),
+        )
+        .await?;
+        assert_eq!(plan["runnable"], true);
+        assert_eq!(plan["frames"], 50);
+
+        let started = call(
+            &audio_originals,
+            provider.as_ref(),
+            &capabilities,
+            "driver.mlt-video.render.start",
+            json!({
+                "project":project_ref,
+                "expected_revision":revision,
+                "sequence":current_sequence,
+                "profile":"lossless",
+                "output":"real-runtime.mkv"
+            }),
+        )
+        .await?;
+        let job = started["job"].as_str().unwrap().to_owned();
+
+        let terminal = loop {
+            let status = call(
+                &audio_originals,
+                provider.as_ref(),
+                &capabilities,
+                "driver.mlt-video.render.status",
+                json!({"job":job}),
+            )
+            .await?;
+            match status["state"].as_str().unwrap() {
+                "succeeded" | "failed" | "cancelled" | "unknown" => break status,
+                _ => tokio::time::sleep(Duration::from_millis(50)).await,
+            }
+        };
+        assert_eq!(terminal["state"], "succeeded", "{terminal:#}");
+
+        let result = call(
+            &audio_originals,
+            provider.as_ref(),
+            &capabilities,
+            "driver.mlt-video.render.result",
+            json!({"job":job}),
+        )
+        .await?;
+        assert_eq!(result["state"], "succeeded");
+        assert_eq!(result["artifact"]["root"], "output");
+        assert_eq!(result["artifact"]["path"], "real-runtime.mkv");
+        assert!(result["artifact"]["bytes"].as_u64().unwrap() > 100);
+        assert_eq!(result["media"]["video"], true);
+        assert_eq!(result["media"]["audio"], true);
+        assert_eq!(result["media"]["width"], 160);
+        assert_eq!(result["media"]["height"], 90);
+
+        let artifact = output.path().join("real-runtime.mkv");
+        assert!(artifact.is_file());
+        assert!(std::fs::metadata(&artifact).unwrap().len() > 100);
+
+        // Exercise the new opt-in video-only *semantic* MLT render on exactly the
+        // same audio-bearing editorial project. It must strip audio in the pinned
+        // consumer rather than publish silence, and independently count every
+        // real decoded FFV1 frame before the Broker releases the artifact.
+        let video_only_sequence = sequence_ref(
+            &audio_originals,
+            provider.as_ref(),
+            &capabilities,
+            &project_ref,
+        )
+        .await?;
+        let video_only_plan = call(
+            &audio_originals,
+            provider.as_ref(),
+            &capabilities,
+            "driver.mlt-video.render.plan",
+            json!({
+                "project":project_ref, "sequence":video_only_sequence,
+                "profile":"lossless-video-only", "output":"video-only-runtime.mkv"
+            }),
+        )
+        .await?;
+        assert_eq!(video_only_plan["runnable"], true);
+        assert_eq!(video_only_plan["frames"], 50);
+        let video_only_started = call(
+            &audio_originals,
+            provider.as_ref(),
+            &capabilities,
+            "driver.mlt-video.render.start",
+            json!({
+                "project":project_ref, "expected_revision":revision,
+                "sequence":video_only_sequence, "profile":"lossless-video-only",
+                "output":"video-only-runtime.mkv"
+            }),
+        )
+        .await?;
+        let video_only_job = video_only_started["job"].as_str().unwrap();
+        let video_only_terminal = loop {
+            let status = call(
+                &audio_originals,
+                provider.as_ref(),
+                &capabilities,
+                "driver.mlt-video.render.status",
+                json!({"job":video_only_job}),
+            )
+            .await?;
+            match status["state"].as_str().unwrap() {
+                "succeeded" | "failed" | "cancelled" | "unknown" => break status,
+                _ => tokio::time::sleep(Duration::from_millis(50)).await,
+            }
+        };
+        assert_eq!(
+            video_only_terminal["state"], "succeeded",
+            "{video_only_terminal:#}"
+        );
+        let video_only_result = call(
+            &audio_originals,
+            provider.as_ref(),
+            &capabilities,
+            "driver.mlt-video.render.result",
+            json!({"job":video_only_job}),
+        )
+        .await?;
+        assert_eq!(video_only_result["profile"], "lossless-video-only");
+        assert_eq!(video_only_result["state"], "succeeded");
+        assert_eq!(video_only_result["project_revision"], revision);
+        assert_eq!(
+            video_only_result["artifact"]["path"],
+            "video-only-runtime.mkv"
+        );
+        assert_eq!(video_only_result["media"]["video"], true);
+        assert_eq!(video_only_result["media"]["audio"], false);
+        assert_eq!(video_only_result["media"]["frames"], 50);
+        assert_eq!(video_only_result["media"]["codecs"], json!(["ffv1"]));
+        let video_only_artifact = output.path().join("video-only-runtime.mkv");
+        assert!(video_only_artifact.is_file());
+        assert!(std::fs::metadata(&video_only_artifact).unwrap().len() > 100);
+        assert_eq!(
+            video_only_result["artifact"]["sha256"],
+            digest(&video_only_artifact)
+        );
+
+        // Keep an independently invoked *real* ffprobe check in this
+        // owner-controlled CI test; a declared vendor receipt is not enough.
+        let frame_probe = audio_live_command(
+            &audio_originals,
+            "oracle-video-only-ffprobe",
+            Command::new(&ffprobe)
+                .args([
+                    "-v",
+                    "error",
+                    "-count_frames",
+                    "-show_streams",
+                    "-of",
+                    "json",
+                ])
+                .arg(&video_only_artifact),
+        )?;
+        assert!(
+            frame_probe.status.success(),
+            "Independent FFprobe decode failed"
+        );
+        let checked_streams: Value = serde_json::from_slice(&frame_probe.stdout).unwrap();
+        let checked_streams = checked_streams["streams"].as_array().unwrap();
+        assert_eq!(checked_streams.len(), 1, "Audio must be absent, not silent");
+        assert_eq!(checked_streams[0]["codec_type"], "video");
+        assert_eq!(checked_streams[0]["codec_name"], "ffv1");
+        assert_eq!(checked_streams[0]["nb_read_frames"], "50");
+
+        // Exercise the same curated H.264 consumer used by the launch film in a
+        // separate project born at 1920x1080/30. Reprofiling the earlier 160x90/25
+        // lossless fixture after clips already exist changes the timebase underneath
+        // those clips and does not represent the production launch-film route.
+        let h264_project = call(
+            &audio_originals,
+            provider.as_ref(),
+            &capabilities,
+            "driver.mlt-video.project.create",
+            json!({
+                "profile": {
+                    "width":1920,
+                    "height":1080,
+                    "fps_num":30,
+                    "fps_den":1,
+                    "progressive":true,
+                    "sample_aspect_num":1,
+                    "sample_aspect_den":1,
+                    "display_aspect_num":16,
+                    "display_aspect_den":9,
+                    "colorspace":709,
+                    "audio_channels":2
+                }
+            }),
+        )
+        .await?;
+        project_ref = h264_project["project"].as_str().unwrap().to_owned();
+        revision = h264_project["revision"].as_str().unwrap().to_owned();
+
+        let h264_sequence = call(
+            &audio_originals,
+            provider.as_ref(),
+            &capabilities,
+            "driver.mlt-video.sequence.create",
+            json!({"project":project_ref,"expected_revision":revision,"name":"H264 Main"}),
+        )
+        .await?;
+        project_ref = h264_sequence["project"].as_str().unwrap().to_owned();
+        revision = h264_sequence["resulting_revision"]
+            .as_str()
+            .unwrap()
+            .to_owned();
+
+        for (name, path) in [
+            ("H264 Video", "h264-source.mp4"),
+            ("H264 Audio", "sine.wav"),
+        ] {
+            let value = call(
+                &audio_originals,
+                provider.as_ref(),
+                &capabilities,
+                "driver.mlt-video.asset.import",
+                json!({
+                    "project":project_ref,
+                    "expected_revision":revision,
+                    "kind":"file",
+                    "name":name,
+                    "root":"media",
+                    "path":path
+                }),
+            )
+            .await?;
+            project_ref = value["project"].as_str().unwrap().to_owned();
+            revision = value["resulting_revision"].as_str().unwrap().to_owned();
+        }
+
+        for (name, kind) in [("H264 Video Track", "video"), ("H264 Audio Track", "audio")] {
+            let sequence = sequence_ref(
+                &audio_originals,
+                provider.as_ref(),
+                &capabilities,
+                &project_ref,
+            )
+            .await?;
+            let value = call(
+                &audio_originals,
+                provider.as_ref(),
+                &capabilities,
+                "driver.mlt-video.track.create",
+                json!({
+                    "project":project_ref,
+                    "expected_revision":revision,
+                    "sequence":sequence,
+                    "name":name,
+                    "kind":kind
+                }),
+            )
+            .await?;
+            project_ref = value["project"].as_str().unwrap().to_owned();
+            revision = value["resulting_revision"].as_str().unwrap().to_owned();
+        }
+
+        for (track_name, asset_name, clip_name) in [
+            ("H264 Video Track", "H264 Video", "H264 Video Clip"),
+            ("H264 Audio Track", "H264 Audio", "H264 Audio Clip"),
+        ] {
+            let assets = call(
+                &audio_originals,
+                provider.as_ref(),
+                &capabilities,
+                "driver.mlt-video.asset.list",
+                json!({"project":project_ref,"limit":100}),
+            )
+            .await?;
+            let asset = page_ref(&assets, asset_name);
+            let sequence = sequence_ref(
+                &audio_originals,
+                provider.as_ref(),
+                &capabilities,
+                &project_ref,
+            )
+            .await?;
+            let tracks = call(
+                &audio_originals,
+                provider.as_ref(),
+                &capabilities,
+                "driver.mlt-video.track.list",
+                json!({"project":project_ref,"sequence":sequence,"limit":100}),
+            )
+            .await?;
+            let track = page_ref(&tracks, track_name);
+            let value = call(
+                &audio_originals,
+                provider.as_ref(),
+                &capabilities,
+                "driver.mlt-video.clip.insert",
+                json!({
+                    "project":project_ref,
+                    "expected_revision":revision,
+                    "sequence":sequence,
+                    "track":track,
+                    "asset":asset,
+                    "start":0,
+                    "source_in":0,
+                    "source_out":5,
+                    "name":clip_name
+                }),
+            )
+            .await?;
+            project_ref = value["project"].as_str().unwrap().to_owned();
+            revision = value["resulting_revision"].as_str().unwrap().to_owned();
+        }
+
+        let current_sequence = sequence_ref(
+            &audio_originals,
+            provider.as_ref(),
+            &capabilities,
+            &project_ref,
+        )
+        .await?;
+        let h264_plan = call(
+            &audio_originals,
+            provider.as_ref(),
+            &capabilities,
+            "driver.mlt-video.render.plan",
+            json!({
+                "project":project_ref,
+                "sequence":current_sequence,
+                "profile":"h264-1080p",
+                "output":"real-runtime-h264.mp4"
+            }),
+        )
+        .await?;
+        assert_eq!(h264_plan["runnable"], true);
+        assert_eq!(h264_plan["frames"], 5);
+
+        let h264_started = call(
+            &audio_originals,
+            provider.as_ref(),
+            &capabilities,
+            "driver.mlt-video.render.start",
+            json!({
+                "project":project_ref,
+                "expected_revision":revision,
+                "sequence":current_sequence,
+                "profile":"h264-1080p",
+                "output":"real-runtime-h264.mp4"
+            }),
+        )
+        .await?;
+        let h264_job = h264_started["job"].as_str().unwrap().to_owned();
+        let h264_terminal = loop {
+            let status = call(
+                &audio_originals,
+                provider.as_ref(),
+                &capabilities,
+                "driver.mlt-video.render.status",
+                json!({"job":h264_job}),
+            )
+            .await?;
+            match status["state"].as_str().unwrap() {
+                "succeeded" | "failed" | "cancelled" | "unknown" => break status,
+                _ => tokio::time::sleep(Duration::from_millis(50)).await,
+            }
+        };
+        assert_eq!(
+            h264_terminal["state"], "succeeded",
+            "H.264 live render: {h264_terminal:#}"
+        );
+        let h264_result = call(
+            &audio_originals,
+            provider.as_ref(),
+            &capabilities,
+            "driver.mlt-video.render.result",
             json!({"job":h264_job}),
         )
-        .await
-        .unwrap();
-        match status["state"].as_str().unwrap() {
-            "succeeded" | "failed" | "cancelled" | "unknown" => break status,
-            _ => tokio::time::sleep(Duration::from_millis(50)).await,
-        }
-    };
-    assert_eq!(
-        h264_terminal["state"], "succeeded",
-        "H.264 live render: {h264_terminal:#}"
-    );
-    let h264_result = call(
-        provider.as_ref(),
-        &capabilities,
-        "driver.mlt-video.render.result",
-        json!({"job":h264_job}),
-    )
-    .await
-    .unwrap();
-    assert_eq!(h264_result["state"], "succeeded");
-    assert_eq!(h264_result["media"]["video"], true);
-    assert_eq!(h264_result["media"]["audio"], true);
-    assert_eq!(h264_result["media"]["width"], 1920);
-    assert_eq!(h264_result["media"]["height"], 1080);
-    assert_eq!(h264_result["media"]["frames"], 5);
-    let h264_artifact = output.path().join("real-runtime-h264.mp4");
-    assert!(h264_artifact.is_file());
-    assert!(std::fs::metadata(&h264_artifact).unwrap().len() > 100);
+        .await?;
+        assert_eq!(h264_result["state"], "succeeded");
+        assert_eq!(h264_result["media"]["video"], true);
+        assert_eq!(h264_result["media"]["audio"], true);
+        assert_eq!(h264_result["media"]["width"], 1920);
+        assert_eq!(h264_result["media"]["height"], 1080);
+        assert_eq!(h264_result["media"]["frames"], 5);
+        let h264_artifact = output.path().join("real-runtime-h264.mp4");
+        assert!(h264_artifact.is_file());
+        assert!(std::fs::metadata(&h264_artifact).unwrap().len() > 100);
 
-    Provider::shutdown(provider.as_ref()).await.unwrap();
+        Ok(())
+    }
+    .await;
+
+    let body_retained = audio_originals.record(
+        "audio-live-body-return.original.json",
+        &json!({
+            "schema":"semwright.mlt-live-body-return/1","returned_ok":operations.is_ok(),
+            "original_error":operations.as_ref().err().map(ToString::to_string),
+            "provider_call_records":audio_originals.calls.load(std::sync::atomic::Ordering::SeqCst),
+            "external_custody_admitted":false,"external_deadline_attested":false,
+            "external_filesystem_budget_attested":false,"descendant_closure_attested":false,
+            "formal_acceptance":false,"native_execution_retried":false
+        }),
+    );
+    let operations = match operations {
+        Err(original) => {
+            if let Err(secondary) = body_retained {
+                audio_originals.secondary(
+                    "audio-live-body-custody-error.original.json",
+                    secondary.as_ref(),
+                );
+            }
+            Err(original)
+        }
+        Ok(()) => body_retained,
+    };
+    audio_live_shutdown(&audio_originals, provider.as_ref(), operations).await
+}
+
+#[cfg(test)]
+mod audio_live_source_tests {
+    use super::*;
+
+    fn owner_root() -> tempfile::TempDir {
+        let root = tempfile::tempdir().unwrap();
+        std::fs::set_permissions(root.path(), std::fs::Permissions::from_mode(0o700)).unwrap();
+        root
+    }
+
+    #[test]
+    fn audio_live_sources_have_the_original_pcm_clocks_before_any_provider() {
+        let mut digests = std::collections::BTreeSet::new();
+        for case in AUDIO_LIVE_CASES {
+            let bytes = audio_live_fixture(case).unwrap();
+            let observed = audio_live_pcm_observation(case, &bytes, true).unwrap();
+            assert_eq!(observed["sample_frames"], case.source_frames);
+            assert_eq!(observed["sample_rate"], case.source_rate);
+            assert_eq!(observed["all_payload_frames_read"], true);
+            assert!(observed["nonzero_samples"].as_u64().unwrap() > 0);
+            assert!(digests.insert(semwright_mlt_video::hash::sha256(&bytes)));
+        }
+        assert_eq!(digests.len(), 3);
+    }
+
+    #[test]
+    fn audio_live_oracles_reject_silenced_control_and_unequal_dual_mono() {
+        // These are parser/oracle controls made from RIFF fixture bytes. They
+        // do not execute or substitute for an observed native derivative.
+        let case = AudioLiveCase {
+            source_frames: 16_000,
+            target_frames: 48_000,
+            ..AUDIO_LIVE_CASES[2]
+        };
+        let target_shape = AudioLiveCase {
+            source_rate: case.target_rate,
+            source_channels: case.target_channels,
+            source_frames: case.target_frames,
+            ..case
+        };
+        let bytes = audio_live_fixture(target_shape).unwrap();
+        audio_live_pcm_observation(case, &bytes, false).unwrap();
+        let mut silent = bytes.clone();
+        silent[44..].fill(0);
+        assert!(audio_live_pcm_observation(case, &silent, false).is_err());
+        let mut unequal = bytes;
+        let second_channel = 44 + (case.target_frames as usize / 2) * 4 + 2;
+        let sample = i16::from_le_bytes(
+            unequal[second_channel..second_channel + 2]
+                .try_into()
+                .unwrap(),
+        );
+        unequal[second_channel..second_channel + 2].copy_from_slice(&(sample + 1).to_le_bytes());
+        assert!(audio_live_pcm_observation(case, &unequal, false).is_err());
+
+        let antiphase = AudioLiveCase {
+            source_frames: 48_000,
+            target_frames: 16_000,
+            ..AUDIO_LIVE_CASES[0]
+        };
+        let target_shape = AudioLiveCase {
+            source_rate: antiphase.target_rate,
+            source_channels: antiphase.target_channels,
+            source_frames: antiphase.target_frames,
+            antiphase: false,
+            ..antiphase
+        };
+        let mut cancellation = audio_live_fixture(target_shape).unwrap();
+        cancellation[44..].fill(0);
+        audio_live_pcm_observation(antiphase, &cancellation, false).unwrap();
+        cancellation[44..46].copy_from_slice(&1i16.to_le_bytes());
+        assert!(audio_live_pcm_observation(antiphase, &cancellation, false).is_err());
+    }
+
+    #[test]
+    fn audio_live_root_requires_fresh_private_owner_paths_outside_the_checkout() {
+        assert!(AudioLiveOriginals::open(None).is_err());
+        let checkout = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .canonicalize()
+            .unwrap();
+        let error = AudioLiveOriginals::open_with_exclusions(checkout.clone(), &[checkout.clone()])
+            .err()
+            .unwrap();
+        assert!(error.to_string().contains("outside checkouts and caches"));
+        let root = owner_root();
+        let path = root.path().canonicalize().unwrap();
+        let originals =
+            AudioLiveOriginals::open_with_exclusions(path.clone(), &[checkout.clone()]).unwrap();
+        let start = originals
+            .records
+            .read("audio-live-start.original.json", AUDIO_LIVE_METADATA_LIMIT)
+            .unwrap();
+        assert!(
+            AudioLiveOriginals::open_with_exclusions(path.clone(), &[checkout.clone()]).is_err()
+        );
+        assert_eq!(
+            originals
+                .records
+                .read("audio-live-start.original.json", AUDIO_LIVE_METADATA_LIMIT)
+                .unwrap(),
+            start
+        );
+        let alias_owner = tempfile::tempdir().unwrap();
+        let alias = alias_owner.path().join("alias");
+        std::os::unix::fs::symlink(&path, &alias).unwrap();
+        assert!(AudioLiveOriginals::open_with_exclusions(alias, &[checkout.clone()]).is_err());
+        let wide = owner_root();
+        std::fs::set_permissions(wide.path(), std::fs::Permissions::from_mode(0o755)).unwrap();
+        let error = AudioLiveOriginals::open_with_exclusions(
+            wide.path().canonicalize().unwrap(),
+            &[checkout],
+        )
+        .err()
+        .unwrap();
+        assert!(error.to_string().contains("private canonical owner"));
+    }
+
+    #[test]
+    fn audio_live_custody_failure_preserves_the_same_complete_unknown_error() {
+        let mut original = semwright_types::Error::new(
+            semwright_types::ErrorCode::BackendFailed,
+            "original interrupted call",
+        )
+        .uncertain()
+        .recipe_progress(2, "audio-derive");
+        original.candidates = vec!["original-bounded-candidate".into()];
+        let before = serde_json::to_value(&original).unwrap();
+        let message = original.message.as_ptr();
+        let custody: AudioLiveResult<()> =
+            Err(
+                std::io::Error::new(std::io::ErrorKind::PermissionDenied, "custody refusal").into(),
+            );
+        let returned = audio_live_finish_native::<()>(Err(original), custody).unwrap_err();
+        let returned = returned.downcast::<semwright_types::Error>().unwrap();
+        assert_eq!(returned.message.as_ptr(), message);
+        assert_eq!(serde_json::to_value(&returned).unwrap(), before);
+        assert!(!returned.outcome_known);
+        let custody: AudioLiveResult<()> =
+            Err(
+                std::io::Error::new(std::io::ErrorKind::PermissionDenied, "custody refusal").into(),
+            );
+        let failed = audio_live_finish_native(Ok(42), custody).unwrap_err();
+        assert_eq!(
+            failed.downcast_ref::<std::io::Error>().unwrap().kind(),
+            std::io::ErrorKind::PermissionDenied
+        );
+    }
+    fn open_owner(root: &tempfile::TempDir) -> AudioLiveOriginals {
+        let excluded = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .canonicalize()
+            .unwrap();
+        AudioLiveOriginals::open_with_exclusions(root.path().canonicalize().unwrap(), &[excluded])
+            .unwrap()
+    }
+
+    fn context(id: &str) -> Context {
+        Context {
+            session: "mlt-video-live".into(),
+            request_id: id.into(),
+            cancellation: CancellationToken::new(),
+        }
+    }
+
+    #[test]
+    fn audio_live_missing_selector_and_nonempty_root_fail_before_setup() {
+        let owner = owner_root();
+        assert!(audio_live_selector(None).is_err());
+        assert!(audio_live_selector(Some("0")).is_err());
+        assert!(std::fs::read_dir(owner.path()).unwrap().next().is_none());
+        audio_live_selector(Some("1")).unwrap();
+        std::fs::write(owner.path().join("original"), b"keep").unwrap();
+        let error = AudioLiveOriginals::open_with_exclusions(
+            owner.path().canonicalize().unwrap(),
+            &[PathBuf::from("/closed-unrelated-checkout")],
+        )
+        .err()
+        .unwrap();
+        assert!(error.to_string().contains("initially be empty"));
+        assert_eq!(
+            std::fs::read(owner.path().join("original")).unwrap(),
+            b"keep"
+        );
+        assert!(!owner.path().join("records").exists());
+    }
+
+    #[test]
+    fn audio_live_retains_eight_subroots_and_detects_substitution() {
+        let owner = owner_root();
+        let originals = open_owner(&owner);
+        let named = owner.path().canonicalize().unwrap();
+        for name in AUDIO_LIVE_ROOTS {
+            assert!(named.join(name).is_dir());
+            assert_eq!(originals.directory(name).unwrap().path(), named.join(name));
+        }
+        let source = originals
+            .records
+            .read("audio-live-start.original.json", AUDIO_LIVE_METADATA_LIMIT)
+            .unwrap();
+        let displaced = owner.path().join("displaced-output");
+        std::fs::rename(owner.path().join("output"), &displaced).unwrap();
+        std::fs::create_dir(owner.path().join("output")).unwrap();
+        std::fs::set_permissions(
+            owner.path().join("output"),
+            std::fs::Permissions::from_mode(0o700),
+        )
+        .unwrap();
+        assert!(originals.before_effect().is_err());
+        drop(originals);
+        assert!(displaced.is_dir());
+        assert!(named.join("binaries").is_dir());
+        assert!(named.join("state").is_dir());
+        assert_eq!(
+            std::fs::read(named.join("records/audio-live-start.original.json")).unwrap(),
+            source
+        );
+    }
+
+    #[test]
+    fn audio_live_request_and_complete_error_are_originals_before_interpretation() {
+        let owner = owner_root();
+        let originals = open_owner(&owner);
+        let context = context("actual-source-test-request");
+        let descriptor = json!({"name":AUDIO_LIVE_COMMAND,"source_control_only":true});
+        let args = json!({"closed":"synthetic-unit-Value"});
+        let stem = originals
+            .begin_call(&context, AUDIO_LIVE_COMMAND, &descriptor, &args)
+            .unwrap();
+        let request: Value = serde_json::from_slice(
+            &originals
+                .records
+                .read(
+                    &format!("{stem}.request.original.json"),
+                    AUDIO_LIVE_METADATA_LIMIT,
+                )
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(request["context"]["request_id"], context.request_id);
+        assert_eq!(request["context"]["session"], context.session);
+        assert_eq!(request["descriptor"], descriptor);
+        assert_eq!(request["arguments"], args);
+        let mut original = semwright_types::Error::new(
+            semwright_types::ErrorCode::BackendFailed,
+            "original unknown native return",
+        )
+        .uncertain()
+        .recipe_progress(2, "audio-derive");
+        original.candidates = vec!["original-candidate".into()];
+        let expected = serde_json::to_value(&original).unwrap();
+        let pointer = original.message.as_ptr();
+        let returned = originals.finish_call(&stem, Err(original)).unwrap_err();
+        assert_eq!(returned.message.as_ptr(), pointer);
+        let result: Value = serde_json::from_slice(
+            &originals
+                .records
+                .read(
+                    &format!("{stem}.result.original.json"),
+                    AUDIO_LIVE_METADATA_LIMIT,
+                )
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(result["result"]["Err"], expected);
+        assert_eq!(serde_json::to_value(&returned).unwrap(), expected);
+        assert!(originals.before_effect().is_err());
+        assert!(
+            originals
+                .begin_call(&context, AUDIO_LIVE_COMMAND, &descriptor, &args)
+                .is_err()
+        );
+        assert!(
+            !owner
+                .path()
+                .join("records/call-00002.request.original.json")
+                .exists()
+        );
+    }
+
+    #[test]
+    fn audio_live_result_collision_retains_prefix_and_never_replaces_unknown() {
+        use std::io::Write;
+        let owner = owner_root();
+        let originals = open_owner(&owner);
+        let context = context("retained-error");
+        let stem = originals
+            .begin_call(&context, AUDIO_LIVE_COMMAND, &json!({}), &json!({}))
+            .unwrap();
+        let path = format!("{stem}.result.original.json");
+        let mut retained = originals.new_record_file(&path).unwrap();
+        retained.write_all(b"original partial prefix").unwrap();
+        retained.sync_all().unwrap();
+        let original = semwright_types::Error::new(
+            semwright_types::ErrorCode::BackendFailed,
+            "native wait interrupted",
+        )
+        .uncertain();
+        let expected = serde_json::to_value(&original).unwrap();
+        let pointer = original.message.as_ptr();
+        let returned = originals.finish_call(&stem, Err(original)).unwrap_err();
+        assert_eq!(returned.message.as_ptr(), pointer);
+        assert_eq!(serde_json::to_value(&returned).unwrap(), expected);
+        assert_eq!(
+            originals
+                .records
+                .read(&path, AUDIO_LIVE_METADATA_LIMIT)
+                .unwrap(),
+            b"original partial prefix"
+        );
+        assert!(originals.before_effect().is_err());
+        let owner2 = owner_root();
+        let originals2 = open_owner(&owner2);
+        let stem2 = originals2
+            .begin_call(&context, AUDIO_LIVE_COMMAND, &json!({}), &json!({}))
+            .unwrap();
+        originals2
+            .record(
+                &format!("{stem2}.result.original.json"),
+                &json!({"kept":"first"}),
+            )
+            .unwrap();
+        let failed = originals2
+            .finish_call(&stem2, Ok(json!({"native_effect":"returned"})))
+            .unwrap_err();
+        assert!(!failed.outcome_known);
+        assert!(originals2.before_effect().is_err());
+    }
+
+    #[test]
+    fn audio_live_expected_rejection_cannot_consume_unknown_as_a_known_negative() {
+        let original = semwright_types::Error::new(
+            semwright_types::ErrorCode::BackendFailed,
+            "unknown before a negative assertion",
+        )
+        .uncertain();
+        let expected = serde_json::to_value(&original).unwrap();
+        let pointer = original.message.as_ptr();
+        let error = audio_live_expect_known_error(Err(original)).unwrap_err();
+        let error = error.downcast::<semwright_types::Error>().unwrap();
+        assert_eq!(error.message.as_ptr(), pointer);
+        assert_eq!(serde_json::to_value(error).unwrap(), expected);
+        let known = semwright_types::Error::new(
+            semwright_types::ErrorCode::StaleReference,
+            "known stale input",
+        );
+        assert!(
+            audio_live_expect_known_error(Err(known))
+                .unwrap()
+                .outcome_known
+        );
+        assert!(audio_live_expect_known_error(Ok(json!({"unexpected":"success"}))).is_err());
+    }
+
+    #[test]
+    fn audio_live_tool_file_prefix_never_claims_eof_or_truncates_original() {
+        use std::io::Write;
+        let owner = owner_root();
+        let originals = open_owner(&owner);
+        let name = "fixture-h264.stdout.original.bin";
+        let mut raw = originals.new_record_file(name).unwrap();
+        raw.write_all(b"original\0binary\xff").unwrap();
+        raw.sync_all().unwrap();
+        let (bytes, observation, error) = audio_live_tool_stream(&originals, name, &raw);
+        assert!(error.is_none());
+        assert_eq!(bytes.unwrap(), b"original\0binary\xff");
+        assert_eq!(observation["state"], "FILE_SNAPSHOT_OBSERVED");
+        assert_eq!(observation["stream_eof_attested"], false);
+        assert_eq!(observation["descendant_closure_attested"], false);
+        assert!(observation["hard_capture_limit"].is_null());
+        raw.write_all(&vec![b'x'; AUDIO_LIVE_TOOL_PREFIX_LIMIT + 1])
+            .unwrap();
+        raw.sync_all().unwrap();
+        let actual_len = raw.metadata().unwrap().len();
+        let (bytes, observation, error) = audio_live_tool_stream(&originals, name, &raw);
+        assert!(error.is_some());
+        assert_eq!(bytes.unwrap().len(), AUDIO_LIVE_TOOL_PREFIX_LIMIT);
+        assert_eq!(observation["over_inspection_limit"], true);
+        assert_eq!(raw.metadata().unwrap().len(), actual_len);
+        assert_eq!(observation["stream_eof_attested"], false);
+        let (missing, observation, error) =
+            audio_live_tool_stream(&originals, "fixture-h264.stderr.original.bin", &raw);
+        assert!(missing.is_none());
+        assert!(error.is_some());
+        assert!(observation["bytes"].is_null());
+    }
+
+    #[test]
+    fn audio_live_candidate_original_is_observed_even_when_no_success_value_exists() {
+        let owner = owner_root();
+        let originals = open_owner(&owner);
+        let case = AUDIO_LIVE_CASES[0];
+        let candidate = format!("{}.audio-derive.output.original.wav", case.output_name());
+        originals
+            .output
+            .write_new("output", &candidate, b"partial WAV original")
+            .unwrap();
+        audio_live_observe_case_files(&originals, case).unwrap();
+        let record: Value = serde_json::from_slice(
+            &originals
+                .records
+                .read(
+                    &format!("audio-live-{}.backend-files.original.json", case.id),
+                    AUDIO_LIVE_METADATA_LIMIT,
+                )
+                .unwrap(),
+        )
+        .unwrap();
+        let rows = record["files"].as_array().unwrap();
+        assert_eq!(rows.len(), 16);
+        let observed = rows.iter().find(|row| row["path"] == candidate).unwrap();
+        assert_eq!(observed["state"], "FILE_SNAPSHOT_OBSERVED");
+        assert_eq!(
+            observed["inspected_sha256"],
+            semwright_mlt_video::hash::sha256(b"partial WAV original")
+        );
+        assert_eq!(observed["producer_eof_attested"], false);
+        let missing_final = rows
+            .iter()
+            .find(|row| row["path"] == case.output_name())
+            .unwrap();
+        assert_eq!(missing_final["state"], "NOT_PRESENT_AT_OBSERVATION");
+        assert_eq!(missing_final["producer_effect_absent_claimed"], false);
+        assert_eq!(
+            originals.output.read(&candidate, 128).unwrap(),
+            b"partial WAV original"
+        );
+    }
+
+    // Synthetic metadata below tests this reader only. It is never a
+    // substitute for the existing Driver, Host return or native live run.
+    fn catalog_fixture(name: &str) -> [Vec<u8>; 4] {
+        let stdout = serde_json::to_vec(&json!({
+            "schema":1,"operation":"discover","version":"synthetic-reader-control",
+            "groups":{"producers":[],"filters":[],"transitions":[],
+                "consumers":[],"video_codecs":[],"audio_codecs":[]}
+        }))
+        .unwrap();
+        catalog_fixture_with_stdout(name, stdout)
+    }
+
+    fn catalog_fixture_with_stdout(name: &str, stdout: Vec<u8>) -> [Vec<u8>; 4] {
+        let stdin = Vec::new();
+        let stderr = Vec::new();
+        let stream = |label: &str, bytes: &[u8]| {
+            json!({
+                "root":"output","path":format!("{name}.audio-derive-catalog.{label}.original.bin"),
+                "sha256":semwright_mlt_video::hash::sha256(bytes),"bytes":bytes.len(),
+                "delivered_buffer_bytes":bytes.len(),
+                "delivered_buffer_sha256":semwright_mlt_video::hash::sha256(bytes),
+                "diagnostic_prefix_truncated":false,"retained":true,"stream_eof_attested":false
+            })
+        };
+        let terminal = serde_json::to_vec(&json!({
+            "schema":"semwright.audio-derivative-host-original/1",
+            "host_stage":"catalog","state":"completed","output_path":name,
+            "runtime_job_id":null,"runtime_job_id_exposed":false,"host_exit_code":0,
+            "stdin":{"root":"output","path":format!("{name}.audio-derive-catalog.stdin.original.bin"),
+                "sha256":semwright_mlt_video::hash::sha256(&stdin),"bytes":0},
+            "stdin_scope":"same-empty-Vec-supplied-to-existing-discover-call",
+            "stdin_delivery_confirmed":true,"stdout":stream("stdout",&stdout),
+            "stderr":stream("stderr",&stderr),"original_error":null,
+            "stream_eof_attested":false,"native_execution_retried":false,
+            "physical_acceptance":false,
+            "capture_scope":"same-existing-Host-return-before-parse-and-public-redaction"
+        })).unwrap();
+        [stdin, stdout, stderr, terminal]
+    }
+
+    fn check_catalog_fixture(name: &str, files: &[Vec<u8>; 4]) -> AudioLiveResult<Value> {
+        audio_live_check_catalog(
+            name,
+            [
+                Some(&files[0]),
+                Some(&files[1]),
+                Some(&files[2]),
+                Some(&files[3]),
+            ],
+        )
+    }
+
+    fn write_catalog_fixture(
+        originals: &AudioLiveOriginals,
+        case: AudioLiveCase,
+        files: &[Vec<u8>; 4],
+    ) {
+        for (suffix, bytes) in [
+            "stdin.original.bin",
+            "stdout.original.bin",
+            "stderr.original.bin",
+            "terminal.original.json",
+        ]
+        .into_iter()
+        .zip(files)
+        {
+            originals
+                .output
+                .write_new(
+                    "output",
+                    &format!("{}.audio-derive-catalog.{suffix}", case.output_name()),
+                    bytes,
+                )
+                .unwrap();
+        }
+    }
+
+    #[test]
+    fn audio_live_catalog_absence_is_bound_to_the_original_call_without_inventing_cache_history() {
+        let owner = owner_root();
+        let originals = open_owner(&owner);
+        let case = AUDIO_LIVE_CASES[0];
+        let args = json!({"synthetic_reader_case":case.id});
+        let descriptor = json!({"name":AUDIO_LIVE_COMMAND});
+        originals
+            .begin_call(
+                &context("catalog-absence-original"),
+                AUDIO_LIVE_COMMAND,
+                &descriptor,
+                &args,
+            )
+            .unwrap();
+        let identity = audio_live_case_call_identity(&originals, 1, &args, &descriptor).unwrap();
+        let files = audio_live_observe_case_files(&originals, case).unwrap();
+        let observed = audio_live_catalog_originals(&originals, case, &identity, &files).unwrap();
+        assert_eq!(observed["caller"]["request_id"], "catalog-absence-original");
+        assert_eq!(observed["caller"]["record_index"], 1);
+        assert_eq!(observed["observation"]["state"], "ABSENT_AT_OBSERVATION");
+        assert_eq!(observed["observation"]["original_count"], 0);
+        assert_eq!(
+            observed["observation"]["actual_gate_reason"],
+            "NOT_EXPOSED_BY_EXISTING_DRIVER"
+        );
+        assert_eq!(
+            observed["observation"]["catalog_dispatch_absent_claimed"],
+            false
+        );
+        assert_eq!(observed["observation"]["catalog_acceptance_claimed"], false);
+        assert_eq!(observed["first_call_assumed_to_discover"], false);
+        let record: Value = serde_json::from_slice(
+            &originals
+                .records
+                .read(
+                    &format!("audio-live-{}.catalog-observation.original.json", case.id),
+                    AUDIO_LIVE_METADATA_LIMIT,
+                )
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(record["observed"], observed);
+        assert_eq!(originals.calls.load(std::sync::atomic::Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn audio_live_catalog_complete_originals_bind_the_same_output_and_returned_buffers() {
+        let name = AUDIO_LIVE_CASES[0].output_name();
+        let files = catalog_fixture(&name);
+        let before = files.clone();
+        let observed = check_catalog_fixture(&name, &files).unwrap();
+        assert_eq!(observed["state"], "FULL_RETURNED_BUFFERS_OBSERVED");
+        assert_eq!(observed["original_count"], 4);
+        assert_eq!(
+            observed["stdout_sha256"],
+            semwright_mlt_video::hash::sha256(&files[1])
+        );
+        assert_eq!(observed["stderr_bytes"], 0);
+        assert_eq!(observed["stream_eof_attested"], false);
+        assert_eq!(observed["descendant_closure_attested"], false);
+        assert_eq!(files, before);
+        assert!(check_catalog_fixture(&AUDIO_LIVE_CASES[1].output_name(), &files).is_err());
+    }
+
+    #[test]
+    fn audio_live_catalog_partial_roster_and_missing_empty_stdin_are_rejected() {
+        let name = AUDIO_LIVE_CASES[0].output_name();
+        let files = catalog_fixture(&name);
+        assert!(files[0].is_empty() && files[2].is_empty());
+        check_catalog_fixture(&name, &files).unwrap();
+        for mask in 1u8..15 {
+            let selected = std::array::from_fn(|index| {
+                ((mask & (1 << index)) != 0).then_some(files[index].as_slice())
+            });
+            assert!(
+                audio_live_check_catalog(&name, selected).is_err(),
+                "mask {mask}"
+            );
+        }
+        let no_stdout = catalog_fixture_with_stdout(&name, Vec::new());
+        assert!(check_catalog_fixture(&name, &no_stdout).is_err());
+    }
+
+    #[test]
+    fn audio_live_catalog_valid_json_prefix_does_not_hide_truncation_or_delivery_mismatch() {
+        let name = AUDIO_LIVE_CASES[0].output_name();
+        let files = catalog_fixture(&name);
+        let original: Value = serde_json::from_slice(&files[3]).unwrap();
+        for (key, replacement) in [
+            ("diagnostic_prefix_truncated", json!(true)),
+            ("delivered_buffer_bytes", json!(files[1].len() + 1)),
+            ("delivered_buffer_sha256", json!("0".repeat(64))),
+            ("retained", json!(false)),
+            ("stream_eof_attested", json!(true)),
+        ] {
+            let mut terminal = original.clone();
+            terminal["stdout"][key] = replacement;
+            let mut changed = files.clone();
+            changed[3] = serde_json::to_vec(&terminal).unwrap();
+            assert!(check_catalog_fixture(&name, &changed).is_err(), "{key}");
+            // The prefix itself remains valid complete JSON; that does not
+            // make it the complete buffer delivered by the Host.
+            assert!(serde_json::from_slice::<Value>(&changed[1]).is_ok());
+        }
+    }
+
+    #[test]
+    fn audio_live_catalog_caps_use_existing_sdk_limits_without_truncating_originals() {
+        let limit = semwright_mlt_video::runtime::AUDIO_DERIVATIVE_STREAM_LIMIT;
+        assert_eq!(limit, 262_144);
+        let case = AUDIO_LIVE_CASES[0];
+        let name = case.output_name();
+        let mut stdout = catalog_fixture(&name)[1].clone();
+        stdout.resize(limit, b' ');
+        let at_limit = catalog_fixture_with_stdout(&name, stdout.clone());
+        check_catalog_fixture(&name, &at_limit).unwrap();
+        stdout.push(b' ');
+        let over_limit = catalog_fixture_with_stdout(&name, stdout.clone());
+        assert!(check_catalog_fixture(&name, &over_limit).is_err());
+        let owner = owner_root();
+        let originals = open_owner(&owner);
+        write_catalog_fixture(&originals, case, &over_limit);
+        assert!(audio_live_observe_case_files(&originals, case).is_err());
+        let path = format!("{name}.audio-derive-catalog.stdout.original.bin");
+        assert_eq!(originals.output.read(&path, limit + 1).unwrap(), stdout);
+        let observation: Value = serde_json::from_slice(
+            &originals
+                .records
+                .read(
+                    &format!("audio-live-{}.backend-files.original.json", case.id),
+                    AUDIO_LIVE_METADATA_LIMIT,
+                )
+                .unwrap(),
+        )
+        .unwrap();
+        let row = observation["files"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|row| row["path"] == path)
+            .unwrap();
+        assert_eq!(row["state"], "INCOMPLETE_FILE_SNAPSHOT");
+        assert_eq!(row["over_inspection_limit"], true);
+        assert_eq!(row["producer_eof_attested"], false);
+        assert!(originals.before_effect().is_err());
+    }
+
+    #[test]
+    fn audio_live_catalog_terminal_cannot_promote_nonzero_unknown_or_foreign_scope() {
+        let name = AUDIO_LIVE_CASES[0].output_name();
+        let files = catalog_fixture(&name);
+        let original: Value = serde_json::from_slice(&files[3]).unwrap();
+        for (key, replacement) in [
+            ("host_exit_code", json!(1)),
+            ("host_exit_code", Value::Null),
+            ("runtime_job_id", json!("invented-detached-job")),
+            ("runtime_job_id_exposed", json!(true)),
+            ("state", json!("host-returned-error")),
+            ("stdin_delivery_confirmed", Value::Null),
+            ("original_error", json!({"outcome_known":false})),
+            ("host_stage", json!("host")),
+            ("output_path", json!("another-output.wav")),
+            ("extra", json!("undeclared-field")),
+        ] {
+            let mut terminal = original.clone();
+            terminal[key] = replacement;
+            let mut changed = files.clone();
+            changed[3] = serde_json::to_vec(&terminal).unwrap();
+            assert!(check_catalog_fixture(&name, &changed).is_err(), "{key}");
+        }
+        let mut changed = files.clone();
+        changed[0].push(b'x');
+        assert!(check_catalog_fixture(&name, &changed).is_err());
+        let mut wrong_envelope: Value = serde_json::from_slice(&files[1]).unwrap();
+        wrong_envelope["operation"] = json!("av-operation");
+        assert!(
+            check_catalog_fixture(
+                &name,
+                &catalog_fixture_with_stdout(&name, serde_json::to_vec(&wrong_envelope).unwrap())
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn audio_live_catalog_call_binding_rejects_foreign_request_and_descriptor() {
+        let owner = owner_root();
+        let originals = open_owner(&owner);
+        let args = json!({"source":{"sha256":"a".repeat(64)}});
+        let descriptor = json!({"name":AUDIO_LIVE_COMMAND,"synthetic_reader_only":true});
+        originals
+            .begin_call(
+                &context("same-original-request"),
+                AUDIO_LIVE_COMMAND,
+                &descriptor,
+                &args,
+            )
+            .unwrap();
+        let matched = audio_live_case_call_identity(&originals, 1, &args, &descriptor).unwrap();
+        assert_eq!(matched["request_id"], "same-original-request");
+        assert!(
+            audio_live_case_call_identity(&originals, 1, &json!({"other":"args"}), &descriptor)
+                .is_err()
+        );
+        assert!(
+            audio_live_case_call_identity(&originals, 1, &args, &json!({"name":"other"})).is_err()
+        );
+        assert!(audio_live_case_call_identity(&originals, 2, &args, &descriptor).is_err());
+        let mut foreign = context("other-session-request");
+        foreign.session = "another-owner-session".into();
+        originals
+            .begin_call(&foreign, AUDIO_LIVE_COMMAND, &descriptor, &args)
+            .unwrap();
+        assert!(audio_live_case_call_identity(&originals, 2, &args, &descriptor).is_err());
+        assert!(audio_live_case_call_identity(&originals, 1, &args, &descriptor).is_err());
+    }
+
+    #[test]
+    fn audio_live_catalog_changed_observation_and_custody_failure_preserve_native_unknown() {
+        let owner = owner_root();
+        let originals = open_owner(&owner);
+        let case = AUDIO_LIVE_CASES[0];
+        let args = json!({"synthetic_reader_case":case.id});
+        let descriptor = json!({"name":AUDIO_LIVE_COMMAND});
+        originals
+            .begin_call(
+                &context("changed-catalog-original"),
+                AUDIO_LIVE_COMMAND,
+                &descriptor,
+                &args,
+            )
+            .unwrap();
+        let identity = audio_live_case_call_identity(&originals, 1, &args, &descriptor).unwrap();
+        let files = audio_live_observe_case_files(&originals, case).unwrap();
+        write_catalog_fixture(&originals, case, &catalog_fixture(&case.output_name()));
+        let record = format!("audio-live-{}.catalog-observation.original.json", case.id);
+        originals
+            .records
+            .write_new("records", &record, b"retained-prior-prefix")
+            .unwrap();
+        let observed = audio_live_catalog_originals(&originals, case, &identity, &files);
+        assert!(
+            observed
+                .as_ref()
+                .unwrap_err()
+                .to_string()
+                .contains("changed after its first observation")
+        );
+        assert_eq!(
+            originals
+                .records
+                .read(&record, AUDIO_LIVE_METADATA_LIMIT)
+                .unwrap(),
+            b"retained-prior-prefix"
+        );
+        let mut primary = semwright_types::Error::new(
+            semwright_types::ErrorCode::BackendFailed,
+            "same original catalog operation error",
+        )
+        .uncertain()
+        .recipe_progress(1, "catalog");
+        primary.candidates = vec!["same original candidate".into()];
+        let pointer = primary.message.as_ptr();
+        let expected = serde_json::to_value(&primary).unwrap();
+        let writer_error: AudioLiveResult<()> = Err(std::io::Error::new(
+            std::io::ErrorKind::AlreadyExists,
+            "later result custody collision",
+        )
+        .into());
+        let returned =
+            audio_live_finish_observed::<Value, Value>(Err(primary), observed, writer_error)
+                .unwrap_err();
+        let returned = returned.downcast::<semwright_types::Error>().unwrap();
+        assert_eq!(returned.message.as_ptr(), pointer);
+        assert_eq!(serde_json::to_value(&returned).unwrap(), expected);
+        assert!(!returned.outcome_known);
+        assert_eq!(originals.calls.load(std::sync::atomic::Ordering::SeqCst), 1);
+        assert!(originals.before_effect().is_err());
+
+        let earlier = Box::new(std::io::Error::new(
+            std::io::ErrorKind::PermissionDenied,
+            "original catalog observation failed",
+        ));
+        let earlier_pointer = earlier.as_ref() as *const std::io::Error;
+        let observed: AudioLiveResult<Value> = Err(earlier);
+        let writer_error: AudioLiveResult<()> = Err(std::io::Error::new(
+            std::io::ErrorKind::AlreadyExists,
+            "later result custody collision",
+        )
+        .into());
+        let returned = audio_live_finish_observed(
+            Ok(json!({"original_native_success":true})),
+            observed,
+            writer_error,
+        )
+        .unwrap_err();
+        let returned = returned.downcast_ref::<std::io::Error>().unwrap();
+        assert_eq!(returned as *const std::io::Error, earlier_pointer);
+        assert_eq!(returned.kind(), std::io::ErrorKind::PermissionDenied);
+        assert_eq!(returned.to_string(), "original catalog observation failed");
+
+        let other_owner = owner_root();
+        let other = open_owner(&other_owner);
+        let complete = catalog_fixture(&case.output_name());
+        write_catalog_fixture(&other, case, &complete);
+        let before = audio_live_observe_case_files(&other, case).unwrap();
+        std::fs::remove_file(other.output_path.path.join(format!(
+            "{}.audio-derive-catalog.stdout.original.bin",
+            case.output_name()
+        )))
+        .unwrap();
+        let error = audio_live_catalog_originals(&other, case, &identity, &before).unwrap_err();
+        assert!(
+            error
+                .to_string()
+                .contains("disappeared after its first observation")
+        );
+    }
 }

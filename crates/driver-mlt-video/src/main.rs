@@ -101,7 +101,8 @@ struct MltVideoDriver {
 
 // Original results from this Driver's existing Host calls. Raw data remains in
 // the already-granted private output Root and never enters public errors.
-struct Ffv1HostCustody {
+struct AvHostCustody {
+    scope: AvHostScope,
     output: std::sync::Arc<Root>,
     output_path: String,
     request: Vec<u8>,
@@ -114,7 +115,7 @@ fn finish_ffv1_host_original<T>(original: Result<T>, custody: Result<()>) -> Res
     }
 }
 
-impl Ffv1HostCustody {
+impl AvHostCustody {
     fn new(app: &App, command: &str, descriptor: &str, args: &Value) -> Result<Self> {
         use semwright_mlt_video::runtime as rt;
         if command != "driver.mlt-video.frames.encode" {
@@ -146,6 +147,7 @@ impl Ffv1HostCustody {
             output,
             output_path,
             request,
+            scope: AvHostScope::Ffv1,
         })
     }
 
@@ -153,11 +155,14 @@ impl Ffv1HostCustody {
         if !input.is_empty() {
             return Err(Error::invalid("Original discover stdin changed"));
         }
-        semwright_mlt_video::runtime::retain_ffv1_original(
-            &self.output,
-            &format!("{}.ffv1-catalog.stdin.original.bin", self.output_path),
+        self.retain(
+            &format!(
+                "{}.{}-catalog.stdin.original.bin",
+                self.output_path,
+                self.namespace()
+            ),
             input,
-            semwright_mlt_video::runtime::FFV1_CUSTODY_STDIN,
+            self.stdin_limit(),
         )
         .map_err(map_error)?;
         Ok(())
@@ -171,7 +176,6 @@ impl Ffv1HostCustody {
         output: Option<(i32, &[u8], &[u8])>,
         original_error: Option<&Error>,
     ) -> Result<()> {
-        use semwright_mlt_video::runtime as rt;
         if !matches!(family, "host" | "catalog")
             || !matches!(
                 state,
@@ -181,21 +185,23 @@ impl Ffv1HostCustody {
                     | "completed"
             )
         {
-            return Err(Error::invalid("FFV1 custody terminal label changed"));
+            return Err(Error::invalid(format!(
+                "{} custody terminal label changed",
+                self.label()
+            )));
         }
         if let Some(job) = job {
             job.validate()?;
         }
         let mut custody_error = None;
         let mut retain = |name: &str, bytes: &[u8]| {
-            let prefix = &bytes[..bytes.len().min(rt::FFV1_CUSTODY_HOST_STREAM)];
-            let path = format!("{}.ffv1-{family}.{name}.original.bin", self.output_path);
-            let retained = match rt::retain_ffv1_original(
-                &self.output,
-                &path,
-                prefix,
-                rt::FFV1_CUSTODY_HOST_STREAM,
-            ) {
+            let prefix = &bytes[..bytes.len().min(self.stream_limit())];
+            let path = format!(
+                "{}.{}-{family}.{name}.original.bin",
+                self.output_path,
+                self.namespace()
+            );
+            let retained = match self.retain(&path, prefix, self.stream_limit()) {
                 Ok(_) => true,
                 Err(error) => {
                     if custody_error.is_none() {
@@ -208,7 +214,10 @@ impl Ffv1HostCustody {
                 custody_error = Some(
                     Error::new(
                         ErrorCode::ResourceExhausted,
-                        "Original Host buffer exceeds FFV1 custody limit",
+                        format!(
+                            "Original Host buffer exceeds {} custody limit",
+                            self.label()
+                        ),
                     )
                     .uncertain(),
                 );
@@ -232,10 +241,10 @@ impl Ffv1HostCustody {
             self.request.as_slice()
         };
         let document = serde_json::json!({
-            "schema":"semwright.ffv1-host-original/1","host_stage":family,"state":state,
+            "schema":self.schema(),"host_stage":family,"state":state,
             "output_path":self.output_path,"runtime_job_id":job.map(|job|job.id.as_str()),
             "runtime_job_id_exposed":job.is_some(),"host_exit_code":exit_code,
-            "stdin":{"root":"output","path":format!("{}.ffv1-{family}.stdin.original.bin",self.output_path),
+            "stdin":{"root":"output","path":format!("{}.{}-{family}.stdin.original.bin",self.output_path,self.namespace()),
                 "sha256":sha256(stdin),"bytes":stdin.len()},
             "stdin_scope":if family=="catalog" {"same-empty-Vec-supplied-to-existing-discover-call"}
                 else {"same-serialized-Vec-supplied-to-existing-AV-job-start"},
@@ -245,11 +254,14 @@ impl Ffv1HostCustody {
             "capture_scope":"same-existing-Host-return-before-parse-and-public-redaction"
         });
         let bytes = serde_json::to_vec(&document)?;
-        if let Err(error) = rt::retain_ffv1_original(
-            &self.output,
-            &format!("{}.ffv1-{family}.terminal.original.json", self.output_path),
+        if let Err(error) = self.retain(
+            &format!(
+                "{}.{}-{family}.terminal.original.json",
+                self.output_path,
+                self.namespace()
+            ),
             &bytes,
-            rt::FFV1_CUSTODY_METADATA,
+            self.metadata_limit(),
         ) && custody_error.is_none()
         {
             custody_error = Some(map_error(error));
@@ -258,6 +270,123 @@ impl Ffv1HostCustody {
             Some(error) => Err(error.uncertain()),
             None => Ok(()),
         }
+    }
+}
+
+#[derive(Clone, Copy)]
+enum AvHostScope {
+    Ffv1,
+    AudioDerivative,
+}
+
+impl AvHostCustody {
+    fn namespace(&self) -> &'static str {
+        match self.scope {
+            AvHostScope::Ffv1 => "ffv1",
+            AvHostScope::AudioDerivative => "audio-derive",
+        }
+    }
+
+    fn label(&self) -> &'static str {
+        match self.scope {
+            AvHostScope::Ffv1 => "FFV1",
+            AvHostScope::AudioDerivative => "Audio derivative",
+        }
+    }
+
+    fn schema(&self) -> &'static str {
+        match self.scope {
+            AvHostScope::Ffv1 => "semwright.ffv1-host-original/1",
+            AvHostScope::AudioDerivative => "semwright.audio-derivative-host-original/1",
+        }
+    }
+
+    fn stdin_limit(&self) -> usize {
+        match self.scope {
+            AvHostScope::Ffv1 => semwright_mlt_video::runtime::FFV1_CUSTODY_STDIN,
+            AvHostScope::AudioDerivative => {
+                semwright_mlt_video::runtime::AUDIO_DERIVATIVE_STDIN_LIMIT
+            }
+        }
+    }
+
+    fn stream_limit(&self) -> usize {
+        match self.scope {
+            AvHostScope::Ffv1 => semwright_mlt_video::runtime::FFV1_CUSTODY_HOST_STREAM,
+            AvHostScope::AudioDerivative => {
+                semwright_mlt_video::runtime::AUDIO_DERIVATIVE_STREAM_LIMIT
+            }
+        }
+    }
+
+    fn metadata_limit(&self) -> usize {
+        match self.scope {
+            AvHostScope::Ffv1 => semwright_mlt_video::runtime::FFV1_CUSTODY_METADATA,
+            AvHostScope::AudioDerivative => {
+                semwright_mlt_video::runtime::AUDIO_DERIVATIVE_METADATA_LIMIT
+            }
+        }
+    }
+
+    fn retain(
+        &self,
+        path: &str,
+        bytes: &[u8],
+        maximum: usize,
+    ) -> semwright_mlt_video::Result<Artifact> {
+        match self.scope {
+            AvHostScope::Ffv1 => semwright_mlt_video::runtime::retain_ffv1_original(
+                &self.output,
+                path,
+                bytes,
+                maximum,
+            ),
+            AvHostScope::AudioDerivative => {
+                semwright_mlt_video::runtime::retain_audio_derivative_original(
+                    &self.output,
+                    path,
+                    bytes,
+                    maximum,
+                )
+            }
+        }
+    }
+
+    fn new_audio(app: &App, command: &str, descriptor: &str, args: &Value) -> Result<Self> {
+        use semwright_mlt_video::runtime as rt;
+        if command != rt::AUDIO_DERIVATIVE_COMMAND {
+            return Err(Error::invalid("Audio custody is closed to audio.derive"));
+        }
+        let output_path = args
+            .get("output_path")
+            .and_then(Value::as_str)
+            .ok_or_else(|| Error::invalid("Audio original output is absent"))?
+            .to_owned();
+        let output =
+            app.roots.get("output").cloned().ok_or_else(|| {
+                Error::new(ErrorCode::Unavailable, "Original output grant is absent")
+            })?;
+        rt::preflight_audio_derivative_custody(&output, &output_path, true).map_err(map_error)?;
+        let request = serde_json::to_vec(&serde_json::json!({
+            "command":command,"descriptor_sha256":descriptor,"args":args
+        }))?;
+        let custody = Self {
+            output,
+            output_path,
+            request,
+            scope: AvHostScope::AudioDerivative,
+        };
+        custody
+            .retain(
+                &format!(
+                    "{}.audio-derive-host.stdin.original.bin",
+                    custody.output_path
+                ),
+                &custody.request,
+                custody.stdin_limit(),
+            )
+            .map_err(map_error)?;
+        Ok(custody)
     }
 }
 
@@ -899,7 +1028,7 @@ impl MltVideoDriver {
         descriptor: &str,
         args: &Value,
         context: &DriverExecutionContext,
-        custody: Option<&Ffv1HostCustody>,
+        custody: Option<&AvHostCustody>,
     ) -> Result<Value> {
         let literal = |value: &str| RuntimeToolArg::Literal {
             value: value.to_owned(),
@@ -1938,7 +2067,7 @@ impl MltVideoDriver {
     async fn ensure_host_catalog(
         &mut self,
         context: &DriverExecutionContext,
-        custody: Option<&Ffv1HostCustody>,
+        custody: Option<&AvHostCustody>,
     ) -> Result<()> {
         if self.host_catalog_verified || std::env::var_os("SEMWRIGHT_DRIVER_HOST_TOOLS").is_none() {
             return Ok(());
@@ -2089,7 +2218,14 @@ impl Driver for MltVideoDriver {
             .validate_call(command, descriptor_sha256, &internal)
             .map_err(map_error)?;
         let custody = if command == "driver.mlt-video.frames.encode" {
-            Some(Ffv1HostCustody::new(
+            Some(AvHostCustody::new(
+                &self.app,
+                command,
+                descriptor_sha256,
+                &args,
+            )?)
+        } else if command == semwright_mlt_video::runtime::AUDIO_DERIVATIVE_COMMAND {
+            Some(AvHostCustody::new_audio(
                 &self.app,
                 command,
                 descriptor_sha256,
@@ -2103,6 +2239,7 @@ impl Driver for MltVideoDriver {
             command,
             "driver.mlt-video.frames.encode"
                 | "driver.mlt-video.av.mux"
+                | semwright_mlt_video::runtime::AUDIO_DERIVATIVE_COMMAND
                 | "driver.mlt-video.av.caption_pixels.verify"
                 | "driver.mlt-video.sync.probe"
         ) {
@@ -2946,13 +3083,14 @@ mod host_native_observation_tests {
 #[cfg(test)]
 mod ffv1_host_original_tests {
     use super::*;
-    fn fixture() -> (PrivateDir, Ffv1HostCustody) {
+    fn fixture() -> (PrivateDir, AvHostCustody) {
         let directory = PrivateDir::new(std::path::Path::new("/tmp")).unwrap();
         let output = std::sync::Arc::new(Root::open(directory.path(), true, true).unwrap());
-        let custody = Ffv1HostCustody {
+        let custody = AvHostCustody {
             output,
             output_path: "first.mkv".into(),
             request: b"original-prepared-input".to_vec(),
+            scope: AvHostScope::Ffv1,
         };
         (directory, custody)
     }
@@ -3052,5 +3190,212 @@ mod ffv1_host_original_tests {
                 .unwrap()
         );
         assert_eq!(saved["original_error"]["outcome_known"], false);
+    }
+}
+
+#[cfg(test)]
+mod audio_derivative_host_tests {
+    use super::*;
+
+    fn fixture() -> (PrivateDir, App, Value) {
+        let directory = PrivateDir::new(std::path::Path::new("/tmp")).unwrap();
+        let output = std::sync::Arc::new(Root::open(directory.path(), true, true).unwrap());
+        let app = App::new(BTreeMap::from([("output".into(), output)]), None).unwrap();
+        let args = serde_json::json!({
+            "profile":"pcm16-stereo48-to-mono16-v1",
+            "source":{"root":"media","path":"source.wav","sha256":"a".repeat(64),
+                "size_bytes":4844,"sample_rate":48000,"channels":2,"sample_frames":1200},
+            "output_path":"voice.wav"
+        });
+        (directory, app, args)
+    }
+
+    #[test]
+    fn audio_host_retains_the_same_request_and_has_no_ffv1_namespace() {
+        let (_directory, app, args) = fixture();
+        let descriptor = app
+            .capabilities
+            .iter()
+            .find(|cap| cap.name == "driver.mlt-video.audio.derive")
+            .unwrap()
+            .digest
+            .clone();
+        let custody =
+            AvHostCustody::new_audio(&app, "driver.mlt-video.audio.derive", &descriptor, &args)
+                .unwrap();
+        let actual = custody
+            .output
+            .read("voice.wav.audio-derive-host.stdin.original.bin", 65536)
+            .unwrap();
+        assert_eq!(actual, custody.request);
+        let request: Value = serde_json::from_slice(&actual).unwrap();
+        assert_eq!(request["command"], "driver.mlt-video.audio.derive");
+        assert_eq!(request["descriptor_sha256"], descriptor);
+        assert_eq!(request["args"], args);
+        assert_eq!(custody.namespace(), "audio-derive");
+        assert!(
+            !custody
+                .output
+                .exists("voice.wav.ffv1-host.stdin.original.bin")
+                .unwrap()
+        );
+        assert!(
+            AvHostCustody::new_audio(&app, "driver.mlt-video.frames.encode", &descriptor, &args)
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn audio_host_preserves_binary_pipes_and_nonzero_before_any_json_parse() {
+        let (_directory, app, args) = fixture();
+        let custody = AvHostCustody::new_audio(
+            &app,
+            "driver.mlt-video.audio.derive",
+            &"a".repeat(64),
+            &args,
+        )
+        .unwrap();
+        custody
+            .record(
+                "host",
+                None,
+                "completed",
+                Some((2, b"\xff\0not-json", b"original stderr\0")),
+                None,
+            )
+            .unwrap();
+        assert_eq!(
+            custody
+                .output
+                .read("voice.wav.audio-derive-host.stdout.original.bin", 262144)
+                .unwrap(),
+            b"\xff\0not-json"
+        );
+        assert_eq!(
+            custody
+                .output
+                .read("voice.wav.audio-derive-host.stderr.original.bin", 262144)
+                .unwrap(),
+            b"original stderr\0"
+        );
+        let original: Value = serde_json::from_slice(
+            &custody
+                .output
+                .read("voice.wav.audio-derive-host.terminal.original.json", 65536)
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            original["schema"],
+            "semwright.audio-derivative-host-original/1"
+        );
+        assert_eq!(original["host_exit_code"], 2);
+        assert_eq!(original["stream_eof_attested"], false);
+        assert_eq!(original["native_execution_retried"], false);
+    }
+
+    #[test]
+    fn absent_host_result_stays_absent_and_keeps_the_original_unknown_error() {
+        let (_directory, app, args) = fixture();
+        let custody = AvHostCustody::new_audio(
+            &app,
+            "driver.mlt-video.audio.derive",
+            &"a".repeat(64),
+            &args,
+        )
+        .unwrap();
+        let original =
+            Error::new(ErrorCode::BackendFailed, "original interrupted Host wait").uncertain();
+        let before = serde_json::to_value(&original).unwrap();
+        let retained = custody.record("host", None, "wait-returned-error", None, Some(&original));
+        let error = finish_ffv1_host_original::<()>(Err(original), retained).unwrap_err();
+        assert_eq!(serde_json::to_value(&error).unwrap(), before);
+        let terminal: Value = serde_json::from_slice(
+            &custody
+                .output
+                .read("voice.wav.audio-derive-host.terminal.original.json", 65536)
+                .unwrap(),
+        )
+        .unwrap();
+        assert!(terminal["stdout"].is_null());
+        assert!(terminal["stderr"].is_null());
+        assert!(terminal["host_exit_code"].is_null());
+        assert_eq!(terminal["original_error"], before);
+        assert!(
+            !custody
+                .output
+                .exists("voice.wav.audio-derive-host.stdout.original.bin")
+                .unwrap()
+        );
+    }
+
+    #[test]
+    fn failed_terminal_publication_does_not_replace_original_unknown_or_overwrite() {
+        let (_directory, app, args) = fixture();
+        let custody = AvHostCustody::new_audio(
+            &app,
+            "driver.mlt-video.audio.derive",
+            &"a".repeat(64),
+            &args,
+        )
+        .unwrap();
+        custody
+            .output
+            .write_new(
+                "output",
+                "voice.wav.audio-derive-host.terminal.original.json",
+                b"kept original",
+            )
+            .unwrap();
+        let original = Error::new(ErrorCode::Cancelled, "original cancellation").uncertain();
+        let before = serde_json::to_value(&original).unwrap();
+        let retained = custody.record(
+            "host",
+            None,
+            "completed",
+            Some((7, b"", b"native failure")),
+            Some(&original),
+        );
+        assert!(retained.is_err());
+        let error = finish_ffv1_host_original::<()>(Err(original), retained).unwrap_err();
+        assert_eq!(serde_json::to_value(&error).unwrap(), before);
+        assert_eq!(
+            custody
+                .output
+                .read("voice.wav.audio-derive-host.terminal.original.json", 65536)
+                .unwrap(),
+            b"kept original"
+        );
+        assert_eq!(
+            custody
+                .output
+                .read("voice.wav.audio-derive-host.stdout.original.bin", 262144)
+                .unwrap(),
+            b""
+        );
+        assert_eq!(
+            custody
+                .output
+                .read("voice.wav.audio-derive-host.stderr.original.bin", 262144)
+                .unwrap(),
+            b"native failure"
+        );
+    }
+
+    #[test]
+    fn actual_sdk_catalog_keeps_audio_derivation_mutating_and_non_idempotent() {
+        let caps = sdk_capabilities().unwrap();
+        let cap = caps
+            .iter()
+            .find(|cap| cap.descriptor.name == "driver.mlt-video.audio.derive")
+            .unwrap();
+        let descriptor = serde_json::to_value(&cap.descriptor).unwrap();
+        assert_eq!(descriptor["risk"], "mutating");
+        assert_eq!(descriptor["idempotency"], "non_idempotent");
+        assert_eq!(
+            descriptor["backends"],
+            serde_json::json!(["driver:mlt-video"])
+        );
+        assert_eq!(descriptor["timeout_ms"], 300000);
     }
 }

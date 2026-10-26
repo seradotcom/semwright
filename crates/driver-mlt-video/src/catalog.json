@@ -822,6 +822,389 @@
   },
   {
     "descriptor": {
+      "name": "driver.mlt-video.audio.derive",
+      "version": "0.1.0",
+      "description": "Derive a separate PCM16 WAV from digest-pinned original audio through the existing confined FFmpeg executor: exact-duration stereo48 to mono16 for at most eight seconds, or mono16 to declared dualmono48 for at most180 seconds. Retain original source, candidate, argv, streams and observed terminal; reject incomplete capture, layout changes or sample-count drift without trimming, padding or retry. This operation does not admit alignment or human review.",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "profile": {
+            "type": "string",
+            "enum": [
+              "pcm16-stereo48-to-mono16-v1",
+              "pcm16-mono16-to-dualmono48-v1"
+            ]
+          },
+          "source": {
+            "type": "object",
+            "properties": {
+              "root": {
+                "type": "string",
+                "const": "media"
+              },
+              "path": {
+                "type": "string",
+                "maxLength": 4096
+              },
+              "sha256": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "size_bytes": {
+                "type": "integer",
+                "minimum": 44,
+                "maximum": 6291456
+              },
+              "sample_rate": {
+                "type": "integer",
+                "enum": [
+                  16000,
+                  48000
+                ]
+              },
+              "channels": {
+                "type": "integer",
+                "enum": [
+                  1,
+                  2
+                ]
+              },
+              "sample_frames": {
+                "type": "integer",
+                "minimum": 1200,
+                "maximum": 2880000
+              }
+            },
+            "required": [
+              "root",
+              "path",
+              "sha256",
+              "size_bytes",
+              "sample_rate",
+              "channels",
+              "sample_frames"
+            ],
+            "additionalProperties": false
+          },
+          "output_path": {
+            "type": "string",
+            "maxLength": 3072
+          }
+        },
+        "required": [
+          "profile",
+          "source",
+          "output_path"
+        ],
+        "additionalProperties": false
+      },
+      "output_schema": {
+        "type": "object",
+        "properties": {
+          "schema": {
+            "type": "string",
+            "const": "semwright.mlt-audio-derivative/1"
+          },
+          "profile": {
+            "type": "string",
+            "enum": [
+              "pcm16-stereo48-to-mono16-v1",
+              "pcm16-mono16-to-dualmono48-v1"
+            ]
+          },
+          "source_sha256": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "recipe_sha256": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "runtime_sha256": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "source": {
+            "type": "object",
+            "properties": {
+              "sample_rate": {
+                "type": "integer",
+                "enum": [
+                  16000,
+                  48000
+                ]
+              },
+              "channels": {
+                "type": "integer",
+                "enum": [
+                  1,
+                  2
+                ]
+              },
+              "channel_mask": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "enum": [
+                  null,
+                  3,
+                  4
+                ]
+              },
+              "container_bits": {
+                "type": "integer",
+                "const": 16
+              },
+              "valid_bits": {
+                "type": "integer",
+                "const": 16
+              },
+              "ieee_float": {
+                "type": "boolean",
+                "const": false
+              },
+              "sample_frames": {
+                "type": "integer",
+                "minimum": 400,
+                "maximum": 8640000
+              }
+            },
+            "required": [
+              "sample_rate",
+              "channels",
+              "channel_mask",
+              "container_bits",
+              "valid_bits",
+              "ieee_float",
+              "sample_frames"
+            ],
+            "additionalProperties": false
+          },
+          "target": {
+            "type": "object",
+            "properties": {
+              "sample_rate": {
+                "type": "integer",
+                "enum": [
+                  16000,
+                  48000
+                ]
+              },
+              "channels": {
+                "type": "integer",
+                "enum": [
+                  1,
+                  2
+                ]
+              },
+              "channel_mask": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "enum": [
+                  null,
+                  3,
+                  4
+                ]
+              },
+              "container_bits": {
+                "type": "integer",
+                "const": 16
+              },
+              "valid_bits": {
+                "type": "integer",
+                "const": 16
+              },
+              "ieee_float": {
+                "type": "boolean",
+                "const": false
+              },
+              "sample_frames": {
+                "type": "integer",
+                "minimum": 400,
+                "maximum": 8640000
+              }
+            },
+            "required": [
+              "sample_rate",
+              "channels",
+              "channel_mask",
+              "container_bits",
+              "valid_bits",
+              "ieee_float",
+              "sample_frames"
+            ],
+            "additionalProperties": false
+          },
+          "artifact": {
+            "type": "object",
+            "properties": {
+              "root": {
+                "type": "string",
+                "const": "output"
+              },
+              "path": {
+                "type": "string",
+                "maxLength": 4096
+              },
+              "sha256": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "bytes": {
+                "type": "integer",
+                "minimum": 44,
+                "maximum": 41943040
+              }
+            },
+            "required": [
+              "root",
+              "path",
+              "sha256",
+              "bytes"
+            ],
+            "additionalProperties": false
+          },
+          "original_source": {
+            "type": "object",
+            "properties": {
+              "root": {
+                "type": "string",
+                "const": "output"
+              },
+              "path": {
+                "type": "string",
+                "maxLength": 4096
+              },
+              "sha256": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "bytes": {
+                "type": "integer",
+                "minimum": 44,
+                "maximum": 6291456
+              }
+            },
+            "required": [
+              "root",
+              "path",
+              "sha256",
+              "bytes"
+            ],
+            "additionalProperties": false
+          },
+          "original_output": {
+            "type": "object",
+            "properties": {
+              "root": {
+                "type": "string",
+                "const": "output"
+              },
+              "path": {
+                "type": "string",
+                "maxLength": 4096
+              },
+              "sha256": {
+                "type": "string",
+                "maxLength": 64
+              },
+              "bytes": {
+                "type": "integer",
+                "minimum": 44,
+                "maximum": 41943040
+              }
+            },
+            "required": [
+              "root",
+              "path",
+              "sha256",
+              "bytes"
+            ],
+            "additionalProperties": false
+          },
+          "process_originals": {
+            "type": "array",
+            "maxItems": 4,
+            "items": {
+              "type": "object",
+              "properties": {
+                "root": {
+                  "type": "string",
+                  "const": "output"
+                },
+                "path": {
+                  "type": "string",
+                  "maxLength": 4096
+                },
+                "sha256": {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                "bytes": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 262144
+                }
+              },
+              "required": [
+                "root",
+                "path",
+                "sha256",
+                "bytes"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "process_capture_complete": {
+            "type": "boolean",
+            "const": true
+          }
+        },
+        "required": [
+          "schema",
+          "profile",
+          "source_sha256",
+          "recipe_sha256",
+          "runtime_sha256",
+          "source",
+          "target",
+          "artifact",
+          "original_source",
+          "original_output",
+          "process_originals",
+          "process_capture_complete"
+        ],
+        "additionalProperties": false
+      },
+      "requires": [
+        "driver:mlt-video"
+      ],
+      "risk": "mutating",
+      "idempotency": "non_idempotent",
+      "timeout_ms": 300000,
+      "dry_run": false,
+      "interactive_consent": false,
+      "backends": [
+        "driver:mlt-video"
+      ]
+    },
+    "aliases": [],
+    "tags": [
+      "audio",
+      "offline",
+      "mlt",
+      "artifact-in:audio/sample",
+      "artifact-out:audio/derived"
+    ],
+    "object_types": [
+      "audio-artifact"
+    ]
+  },
+  {
+    "descriptor": {
       "name": "driver.mlt-video.audio.fade_in",
       "version": "0.1.0",
       "description": "Offline semantic audio.fade_in. Application data is untrusted; inspect format-level availability.",

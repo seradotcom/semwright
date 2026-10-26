@@ -1,11 +1,12 @@
 {
-  "catalog_sha256": "194327513f1eff5eb97a87348b96923785049853ea95ccfbb6bd6864a21f5569",
+  "catalog_sha256": "9be1a19f4026b77ba672bc0fe9ac4952779c08ba469ffddd404f9d1d780b821b",
   "descriptor_sha256": {
     "driver.mlt-video.asset.import": "4de33c901da0526cc8fc503defa3e303e05ff12634a1acb2861fffecd8f01f8e",
     "driver.mlt-video.asset.inspect": "3e5a56169385238784bfcc2e8a761715ce40bce487c867a4f3fb058c2856cd98",
     "driver.mlt-video.asset.list": "bd463137ad5a8af141e4786384631628d233f1379c7fe3a36498de9eb854102a",
     "driver.mlt-video.asset.missing": "f714a4ef56d7dfccd32b42b6a77f02938c7d15e8fc25ad540d28f2ab0e5d0ab8",
     "driver.mlt-video.asset.relink": "8e9492b2d97428f5c14b7795b77bf5d62fbffcd8f11d52fd3ffaccb260010da0",
+    "driver.mlt-video.audio.derive": "09b8f066c8667739911f73e8cd2ac6fb1784d5ed43feaa95601fbcc17fedd8dc",
     "driver.mlt-video.audio.fade_in": "19a99e5e48e596758010b09946cf4ddc05965f60b6e0ee7bc0cc91ffdeb60628",
     "driver.mlt-video.audio.fade_out": "f1a7f9cf8fd448f105ee5459544e510c329f930706d408850106943644a2f41e",
     "driver.mlt-video.audio.volume.get": "fe6d591186d8dc3279b1529afcb904d656d49f6d1a71d83e3bd0ba988112d88b",

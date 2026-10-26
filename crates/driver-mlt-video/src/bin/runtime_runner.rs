@@ -454,6 +454,17 @@ fn host_runtime(
         .map_err(|e| format!("{}: {}", e.code, e.message))
 }
 
+fn allowed_av_operation(command: &str) -> bool {
+    matches!(
+        command,
+        "driver.mlt-video.frames.encode"
+            | "driver.mlt-video.av.mux"
+            | "driver.mlt-video.av.caption_pixels.verify"
+            | "driver.mlt-video.sync.probe"
+            | semwright_mlt_video::runtime::AUDIO_DERIVATIVE_COMMAND
+    )
+}
+
 fn av_operation(
     runtime_root: &Path,
     sealed: [&Path; 3],
@@ -477,13 +488,7 @@ fn av_operation(
         .get("command")
         .and_then(Value::as_str)
         .ok_or("AV command missing")?;
-    if !matches!(
-        command,
-        "driver.mlt-video.frames.encode"
-            | "driver.mlt-video.av.mux"
-            | "driver.mlt-video.av.caption_pixels.verify"
-            | "driver.mlt-video.sync.probe"
-    ) {
+    if !allowed_av_operation(command) {
         return Err("AV operation is not allowlisted".into());
     }
     let descriptor = object
@@ -675,5 +680,37 @@ mod host_observation_deadline_tests {
     fn complete_observation_does_not_reset_the_native_deadline() {
         assert!(require_render_deadline(Instant::now() - Duration::from_secs(1)).is_err());
         assert!(require_render_deadline(Instant::now() + Duration::from_secs(60)).is_ok());
+    }
+}
+
+#[cfg(test)]
+mod audio_derivative_runner_tests {
+    use super::*;
+
+    #[test]
+    fn audio_derivative_uses_the_existing_closed_av_operation_selection() {
+        assert!(allowed_av_operation("driver.mlt-video.audio.derive"));
+        for command in [
+            "driver.mlt-video.frames.encode",
+            "driver.mlt-video.av.mux",
+            "driver.mlt-video.av.caption_pixels.verify",
+            "driver.mlt-video.sync.probe",
+        ] {
+            assert!(allowed_av_operation(command));
+        }
+    }
+
+    #[test]
+    fn audio_selection_never_accepts_a_shell_alias_or_caller_named_operation() {
+        for command in [
+            "audio.derive",
+            "driver.mlt-video.audio.convert",
+            "driver.mlt-video.audio.derive --filter x",
+            "driver.mlt-video.audio.derive\n",
+            "driver.audio-analysis.voice.align",
+            "system.exec",
+        ] {
+            assert!(!allowed_av_operation(command), "{command:?}");
+        }
     }
 }

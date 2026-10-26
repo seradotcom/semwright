@@ -172,6 +172,12 @@ impl App {
             }
             return Err(error);
         }
+        if command == crate::runtime::AUDIO_DERIVATIVE_COMMAND
+            && let Err(mut error) = crate::runtime::validate_audio_derivative_result(value)
+        {
+            error.outcome_known = false;
+            return Err(error);
+        }
         if value.encode().len() > 900_000 {
             let mut error = Error::limit("Result exceeds response frame budget");
             error.outcome_known = !capability.mutates();
@@ -323,6 +329,7 @@ impl App {
             }
             "frames.encode" => return self.frames_encode(a),
             "av.mux" => return self.av_mux(a),
+            "audio.derive" => return self.audio_derive(a),
             "av.caption_pixels.verify" => return self.av_caption_pixels_verify(a),
             "sync.probe" => return self.sync_probe(a),
             "render.profiles" => {
@@ -1570,6 +1577,249 @@ impl App {
         ))
     }
 
+    fn audio_derive(&self, a: &Value) -> Result<Value> {
+        use crate::runtime::{
+            AUDIO_DERIVATIVE_METADATA_LIMIT, AudioDerivativeExecution, AudioDerivativeProfile,
+            finish_audio_derivative_original, preflight_audio_derivative_custody,
+            retain_audio_derivative_original,
+        };
+        let profile = AudioDerivativeProfile::parse(a.str("profile")?)?;
+        let source = a.get("source")?;
+        if source.str("root")? != "media" {
+            return Err(Error::new(
+                "PermissionDenied",
+                "Audio derivative source must use the delegated media Root",
+            ));
+        }
+        let path = source.str("path")?;
+        crate::fs::validate_relative(path)?;
+        let expected_sha256 = source.str("sha256")?;
+        if !valid_digest(expected_sha256) {
+            return Err(Error::invalid("Audio source digest is malformed"));
+        }
+        let expected_bytes = source.uint("size_bytes")?;
+        if expected_bytes < 44 || expected_bytes > profile.input_limit() as u64 {
+            return Err(Error::limit(
+                "Audio source byte expectation exceeds its profile",
+            ));
+        }
+        let frames = source.uint("sample_frames")?;
+        profile.output_frames(frames)?;
+        let layout = profile.source_layout();
+        if source.uint("sample_rate")? != u64::from(layout.0)
+            || source.uint("channels")? != u64::from(layout.1)
+        {
+            return Err(Error::unsupported(
+                "Audio source expectation differs from the selected profile",
+            ));
+        }
+        let output_path = a.str("output_path")?;
+        let output = self
+            .roots
+            .get("output")
+            .ok_or_else(|| Error::new("PermissionDenied", "Audio output Root is absent"))?;
+        preflight_audio_derivative_custody(output, output_path, false)?;
+        let media = self
+            .roots
+            .get("media")
+            .ok_or_else(|| Error::new("PermissionDenied", "Audio media Root is absent"))?;
+        let bytes = media.read(path, profile.input_limit())?;
+        if bytes.len() as u64 != expected_bytes || sha256(&bytes) != expected_sha256 {
+            return Err(Error::new(
+                "StaleReference",
+                "Audio source bytes changed before conversion",
+            ));
+        }
+        let observed_source = profile.inspect_source(&bytes, frames)?;
+        let runtime = self.runtime.as_ref().ok_or_else(|| {
+            Error::new(
+                "Unavailable",
+                "Audio derivation requires the existing pinned confined FFmpeg runtime",
+            )
+        })?;
+        let mut phase = "source-validated";
+        let mut mutation_started = false;
+        let mut source_artifact: Option<crate::fs::Artifact> = None;
+        let mut output_original: Option<crate::fs::Artifact> = None;
+        let mut published: Option<crate::fs::Artifact> = None;
+        let mut output_absence_observed = false;
+        let mut output_capture_error = None;
+        let original = (|| -> Result<Value> {
+            let inputs = PrivateDir::new(Path::new("/tmp"))?;
+            let work = PrivateDir::new(Path::new("/tmp"))?;
+            let mut staged = inputs.create("source.wav")?;
+            staged.write_all(&bytes)?;
+            staged.flush()?;
+            staged.sync_all()?;
+            drop(staged);
+            inputs.seal("source.wav")?;
+            let input_root = Root::open(inputs.path(), true, false)?;
+            if input_root.read("source.wav", profile.input_limit())? != bytes {
+                return Err(Error::new(
+                    "StaleReference",
+                    "Staged audio source differs from its original",
+                ));
+            }
+            phase = "source-original-publication";
+            mutation_started = true;
+            source_artifact = Some(output.publish_verified(
+                "output",
+                &format!("{output_path}.audio-derive.source.original.wav"),
+                bytes.as_slice(),
+                profile.input_limit() as u64,
+                expected_sha256,
+                expected_bytes,
+            )?);
+            phase = "native-conversion";
+            let native = runtime.derive_audio(
+                AudioDerivativeExecution {
+                    inputs: inputs.path(),
+                    work: work.path(),
+                    output,
+                    output_path,
+                    source_sha256: expected_sha256,
+                    profile,
+                },
+                &AtomicBool::new(false),
+            );
+            phase = "output-original-read";
+            let candidate = (|| -> Result<Vec<u8>> {
+                let root = Root::open(work.path(), true, false)?;
+                let candidate = match root.read("derived.wav", profile.output_limit()) {
+                    Ok(bytes) => bytes,
+                    Err(error) => {
+                        output_absence_observed = error.code == "NotFound";
+                        return Err(error);
+                    }
+                };
+                output_original = Some(retain_audio_derivative_original(
+                    output,
+                    &format!("{output_path}.audio-derive.output.original.wav"),
+                    &candidate,
+                    profile.output_limit(),
+                )?);
+                Ok(candidate)
+            })();
+            if let Err(error) = &candidate {
+                output_capture_error = Some(serde_json::json!({
+                    "code":error.code,"message":error.message,"outcome_known":error.outcome_known
+                }));
+            }
+            // Retain a returned partial/empty candidate even when FFmpeg failed.
+            // Failure to capture it must never replace the original native error.
+            let native = native?;
+            let candidate = candidate?;
+            phase = "source-revalidation";
+            if input_root.read("source.wav", profile.input_limit())? != bytes
+                || media.read(path, profile.input_limit())? != bytes
+            {
+                return Err(Error::new(
+                    "StaleReference",
+                    "Original or staged audio changed during conversion",
+                ));
+            }
+            let candidate_sha256 = sha256(&candidate);
+            phase = "output-byte-validation";
+            let observed_target = profile.inspect_target(&candidate, frames)?;
+            if u128::from(observed_source.sample_frames) * u128::from(observed_target.sample_rate)
+                != u128::from(observed_target.sample_frames)
+                    * u128::from(observed_source.sample_rate)
+            {
+                return Err(Error::new(
+                    "Conflict",
+                    "Audio derivative does not conserve exact duration",
+                ));
+            }
+            phase = "final-publication";
+            published = Some(output.publish_verified(
+                "output",
+                output_path,
+                candidate.as_slice(),
+                profile.output_limit() as u64,
+                &candidate_sha256,
+                candidate.len() as u64,
+            )?);
+            let artifact = published
+                .as_ref()
+                .ok_or_else(|| Error::new("Internal", "Audio Artifact absent"))?;
+            if output.digest(output_path, profile.output_limit() as u64)? != artifact.sha256 {
+                return Err(Error::new(
+                    "StaleReference",
+                    "Published audio derivative changed before readback",
+                ));
+            }
+            phase = "validated-and-published";
+            Ok(obj([
+                ("schema", "semwright.mlt-audio-derivative/1".into()),
+                ("profile", profile.id().into()),
+                ("source_sha256", expected_sha256.into()),
+                ("recipe_sha256", native.recipe_sha256.into()),
+                ("runtime_sha256", native.runtime_sha256.into()),
+                ("source", observed_source.json()),
+                ("target", observed_target.json()),
+                ("artifact", artifact.json()),
+                (
+                    "original_source",
+                    source_artifact
+                        .as_ref()
+                        .ok_or_else(|| Error::new("Internal", "Audio original source absent"))?
+                        .json(),
+                ),
+                (
+                    "original_output",
+                    output_original
+                        .as_ref()
+                        .ok_or_else(|| Error::new("Internal", "Audio original output absent"))?
+                        .json(),
+                ),
+                (
+                    "process_originals",
+                    array(native.originals.iter().map(crate::fs::Artifact::json)),
+                ),
+                ("process_capture_complete", true.into()),
+            ]))
+        })();
+        let original = original.map_err(|mut error| {
+            if mutation_started {
+                error.outcome_known = false;
+            }
+            error
+        });
+        let identity = |artifact: &crate::fs::Artifact| {
+            serde_json::json!({
+                "root":artifact.root,"path":artifact.path,"sha256":artifact.sha256,"bytes":artifact.bytes
+            })
+        };
+        let terminal = serde_json::json!({
+            "schema":"semwright.audio-derivative-operation-original/1",
+            "profile":profile.id(),"output_path":output_path,
+            "source_sha256":expected_sha256,"source_bytes":expected_bytes,
+            "phase":phase,"mutation_started":mutation_started,
+            "source_original":source_artifact.as_ref().map(identity),
+            "output_original":output_original.as_ref().map(identity),
+            "output_absence_observed":output_absence_observed,
+            "output_capture_error":output_capture_error,
+            "published":published.as_ref().map(identity),
+            "operation_succeeded":original.is_ok(),
+            "original_error":original.as_ref().err().map(|error| serde_json::json!({
+                "code":error.code,"message":error.message,"outcome_known":error.outcome_known
+            })),
+            "native_execution_retried":false,"physical_acceptance":false
+        });
+        let retained = serde_json::to_vec(&terminal)
+            .map_err(|_| Error::invalid("Audio operation terminal serialization failed"))
+            .and_then(|bytes| {
+                retain_audio_derivative_original(
+                    output,
+                    &format!("{output_path}.audio-derive.operation.original.json"),
+                    &bytes,
+                    AUDIO_DERIVATIVE_METADATA_LIMIT,
+                )
+            })
+            .map(|_| ());
+        finish_audio_derivative_original(original, retained)
+    }
+
     fn av_mux(&self, a: &Value) -> Result<Value> {
         a.strict(
             &[
@@ -2639,4 +2889,289 @@ fn media_frames(info: &crate::runtime::MediaInfo, fps: FrameRate) -> Result<u64>
         ));
     }
     Ok(frames as u64)
+}
+
+#[cfg(test)]
+mod audio_derivative_contract_tests {
+    use super::*;
+
+    const COMMAND: &str = "driver.mlt-video.audio.derive";
+
+    fn internal(value: &serde_json::Value) -> Value {
+        crate::json::parse(&serde_json::to_vec(value).unwrap()).unwrap()
+    }
+
+    fn source_wav() -> Vec<u8> {
+        let samples = 1_200u32;
+        let data_bytes = samples * 4;
+        let mut bytes = b"RIFF".to_vec();
+        bytes.extend_from_slice(&(36 + data_bytes).to_le_bytes());
+        bytes.extend_from_slice(b"WAVEfmt ");
+        bytes.extend_from_slice(&16u32.to_le_bytes());
+        bytes.extend_from_slice(&1u16.to_le_bytes());
+        bytes.extend_from_slice(&2u16.to_le_bytes());
+        bytes.extend_from_slice(&48_000u32.to_le_bytes());
+        bytes.extend_from_slice(&192_000u32.to_le_bytes());
+        bytes.extend_from_slice(&4u16.to_le_bytes());
+        bytes.extend_from_slice(&16u16.to_le_bytes());
+        bytes.extend_from_slice(b"data");
+        bytes.extend_from_slice(&data_bytes.to_le_bytes());
+        bytes.resize(44 + data_bytes as usize, 0);
+        bytes
+    }
+
+    struct Fixture {
+        _media: tempfile::TempDir,
+        output: tempfile::TempDir,
+        app: App,
+        args: serde_json::Value,
+        original: Vec<u8>,
+    }
+
+    impl Fixture {
+        fn new() -> Self {
+            let media = tempfile::tempdir().unwrap();
+            let output = tempfile::tempdir().unwrap();
+            let original = source_wav();
+            std::fs::write(media.path().join("source.wav"), &original).unwrap();
+            let roots = BTreeMap::from([
+                (
+                    "media".into(),
+                    Arc::new(
+                        Root::open(&media.path().canonicalize().unwrap(), true, false).unwrap(),
+                    ),
+                ),
+                (
+                    "output".into(),
+                    Arc::new(
+                        Root::open(&output.path().canonicalize().unwrap(), true, true).unwrap(),
+                    ),
+                ),
+            ]);
+            let app = App::new(roots, None).unwrap();
+            let args = serde_json::json!({
+                "profile":"pcm16-stereo48-to-mono16-v1",
+                "source":{"root":"media","path":"source.wav","sha256":sha256(&original),
+                    "size_bytes":original.len(),"sample_rate":48000,"channels":2,"sample_frames":1200},
+                "output_path":"derived.wav"
+            });
+            Self {
+                _media: media,
+                output,
+                app,
+                args,
+                original,
+            }
+        }
+
+        fn call(&mut self, args: &serde_json::Value) -> Result<Value> {
+            let digest = self
+                .app
+                .capabilities
+                .iter()
+                .find(|cap| cap.name == COMMAND)
+                .unwrap()
+                .digest
+                .clone();
+            self.app.execute(COMMAND, &digest, internal(args))
+        }
+
+        fn unchanged(&self) {
+            assert_eq!(
+                self.app.roots["media"].read("source.wav", 2 << 20).unwrap(),
+                self.original
+            );
+            assert_eq!(std::fs::read_dir(self.output.path()).unwrap().count(), 0);
+        }
+    }
+
+    #[test]
+    fn descriptor_is_closed_mutating_and_not_a_read_only_audio_observation() {
+        let fixture = Fixture::new();
+        let cap = fixture
+            .app
+            .capabilities
+            .iter()
+            .find(|cap| cap.name == COMMAND)
+            .unwrap();
+        assert!(cap.mutates());
+        assert_eq!(cap.descriptor.str("idempotency").unwrap(), "non_idempotent");
+        assert_eq!(cap.descriptor.uint("timeout_ms").unwrap(), 300_000);
+        assert!(cap.input(&internal(&fixture.args)).is_ok());
+        for (field, value) in [
+            ("filter", serde_json::json!("caller text")),
+            ("max_bytes", serde_json::json!(u64::MAX)),
+            ("ready", serde_json::json!(true)),
+        ] {
+            let mut args = fixture.args.clone();
+            args[field] = value;
+            assert!(cap.input(&internal(&args)).is_err());
+        }
+        let mut args = fixture.args.clone();
+        args["source"]["root"] = serde_json::json!("output");
+        assert!(cap.input(&internal(&args)).is_err());
+        args = fixture.args.clone();
+        args["source"]["trim"] = serde_json::json!(true);
+        assert!(cap.input(&internal(&args)).is_err());
+    }
+
+    #[test]
+    fn input_identity_is_checked_before_runtime_or_any_output_publication() {
+        let mut fixture = Fixture::new();
+        let mut args = fixture.args.clone();
+        args["source"]["sha256"] = serde_json::json!("a".repeat(64));
+        assert_eq!(fixture.call(&args).unwrap_err().code, "StaleReference");
+        fixture.unchanged();
+        args = fixture.args.clone();
+        args["source"]["size_bytes"] = serde_json::json!(fixture.original.len() + 1);
+        assert_eq!(fixture.call(&args).unwrap_err().code, "StaleReference");
+        fixture.unchanged();
+    }
+
+    #[test]
+    fn byte_layout_and_integral_clock_are_checked_without_a_runtime() {
+        let mut fixture = Fixture::new();
+        for count in [1_201, 384_003] {
+            let mut args = fixture.args.clone();
+            args["source"]["sample_frames"] = serde_json::json!(count);
+            assert_eq!(fixture.call(&args).unwrap_err().code, "Unsupported");
+            fixture.unchanged();
+        }
+        let mut args = fixture.args.clone();
+        args["source"]["sample_frames"] = serde_json::json!(1_203);
+        assert_eq!(fixture.call(&args).unwrap_err().code, "Conflict");
+        fixture.unchanged();
+        let args = fixture.args.clone();
+        assert_eq!(fixture.call(&args).unwrap_err().code, "Unavailable");
+        fixture.unchanged();
+    }
+
+    #[test]
+    fn occupied_original_or_target_is_never_replaced_during_preflight() {
+        for name in [
+            "derived.wav",
+            "derived.wav.audio-derive.output.original.wav",
+        ] {
+            let mut fixture = Fixture::new();
+            std::fs::write(fixture.output.path().join(name), b"keep exact original").unwrap();
+            let args = fixture.args.clone();
+            assert_eq!(fixture.call(&args).unwrap_err().code, "Conflict");
+            assert_eq!(
+                std::fs::read(fixture.output.path().join(name)).unwrap(),
+                b"keep exact original"
+            );
+            assert_eq!(std::fs::read_dir(fixture.output.path()).unwrap().count(), 1);
+        }
+    }
+
+    // This is a structural DTO fixture, never a native render/derivation proof.
+    fn response_shape() -> serde_json::Value {
+        let artifact = |path: &str, bytes: u64, sha: String| {
+            serde_json::json!({
+                "root":"output","path":path,"sha256":sha,"bytes":bytes
+            })
+        };
+        let profile = crate::runtime::AudioDerivativeProfile::Stereo48ToMono16V1;
+        let path = "derived.wav";
+        serde_json::json!({
+            "schema":"semwright.mlt-audio-derivative/1","profile":profile.id(),
+            "source_sha256":"a".repeat(64),"recipe_sha256":profile.recipe_sha256().unwrap(),
+            "runtime_sha256":"b".repeat(64),
+            "source":{"sample_rate":48000,"channels":2,"channel_mask":null,"container_bits":16,
+                "valid_bits":16,"ieee_float":false,"sample_frames":1200},
+            "target":{"sample_rate":16000,"channels":1,"channel_mask":null,"container_bits":16,
+                "valid_bits":16,"ieee_float":false,"sample_frames":400},
+            "artifact":artifact(path,844,"c".repeat(64)),
+            "original_source":artifact(&format!("{path}.audio-derive.source.original.wav"),4844,"a".repeat(64)),
+            "original_output":artifact(&format!("{path}.audio-derive.output.original.wav"),844,"c".repeat(64)),
+            "process_originals":[
+                artifact(&format!("{path}.audio-derive.ffmpeg.argv.original.json"),1,"d".repeat(64)),
+                artifact(&format!("{path}.audio-derive.ffmpeg.stdout.original.bin"),0,sha256(&[])),
+                artifact(&format!("{path}.audio-derive.ffmpeg.stderr.original.bin"),0,sha256(&[])),
+                artifact(&format!("{path}.audio-derive.ffmpeg.terminal.original.json"),1,"e".repeat(64))
+            ],"process_capture_complete":true
+        })
+    }
+
+    #[test]
+    fn response_binding_rejects_forged_clock_masks_recipe_and_original_sha() {
+        let fixture = Fixture::new();
+        let valid = response_shape();
+        assert!(
+            fixture
+                .app
+                .validate_output(COMMAND, &internal(&valid))
+                .is_ok()
+        );
+        let mut cases = Vec::new();
+        let mut bad = valid.clone();
+        bad["target"]["sample_frames"] = serde_json::json!(401);
+        cases.push(bad);
+        let mut bad = valid.clone();
+        bad["source"]["channel_mask"] = serde_json::json!(0);
+        cases.push(bad);
+        let mut bad = valid.clone();
+        bad["recipe_sha256"] = serde_json::json!("f".repeat(64));
+        cases.push(bad);
+        let mut bad = valid.clone();
+        bad["runtime_sha256"] = serde_json::json!("short");
+        cases.push(bad);
+        let mut bad = valid.clone();
+        bad["original_source"]["sha256"] = serde_json::json!("f".repeat(64));
+        cases.push(bad);
+        let mut bad = valid.clone();
+        bad["original_output"]["bytes"] = serde_json::json!(845);
+        cases.push(bad);
+        for bad in cases {
+            let error = fixture
+                .app
+                .validate_output(COMMAND, &internal(&bad))
+                .unwrap_err();
+            assert!(!error.outcome_known);
+        }
+    }
+
+    #[test]
+    fn empty_streams_require_real_empty_hash_and_complete_closed_roster() {
+        let fixture = Fixture::new();
+        let valid = response_shape();
+        assert!(
+            fixture
+                .app
+                .validate_output(COMMAND, &internal(&valid))
+                .is_ok()
+        );
+        let mut bad = valid.clone();
+        bad["process_originals"].as_array_mut().unwrap().pop();
+        assert!(
+            fixture
+                .app
+                .validate_output(COMMAND, &internal(&bad))
+                .is_err()
+        );
+        let mut bad = valid.clone();
+        bad["process_originals"][1]["sha256"] = serde_json::json!("a".repeat(64));
+        assert!(
+            fixture
+                .app
+                .validate_output(COMMAND, &internal(&bad))
+                .is_err()
+        );
+        let mut bad = valid.clone();
+        bad["process_originals"][1]["path"] = serde_json::json!("elsewhere.bin");
+        assert!(
+            fixture
+                .app
+                .validate_output(COMMAND, &internal(&bad))
+                .is_err()
+        );
+        let mut bad = valid;
+        bad["process_capture_complete"] = serde_json::json!(false);
+        assert!(
+            fixture
+                .app
+                .validate_output(COMMAND, &internal(&bad))
+                .is_err()
+        );
+    }
 }
