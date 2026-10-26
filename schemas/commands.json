@@ -20148,5 +20148,200 @@
     "backends": [
       "core"
     ]
+  },
+  {
+    "name": "providers.mount.observe",
+    "version": "1.0",
+    "description": "Observe the actual DriverHost workspace instance and issue a short-lived session binding. Paths and mount flags are facts, not a local-write capability or project ACL.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "provider": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "root": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        }
+      },
+      "required": [
+        "provider",
+        "root"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "binding_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "provider": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "connection": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "provider_generation": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "mount": {
+          "type": "object",
+          "properties": {
+            "root": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "path": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4096
+            },
+            "read": {
+              "type": "boolean"
+            },
+            "write": {
+              "type": "boolean"
+            },
+            "execute": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "root",
+            "path",
+            "read",
+            "write",
+            "execute"
+          ],
+          "additionalProperties": false
+        },
+        "admission_ttl_ms": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "binding_ref",
+        "provider",
+        "connection",
+        "provider_generation",
+        "mount",
+        "admission_ttl_ms"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "filesystem.read"
+    ],
+    "risk": "read_only",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 10000,
+    "dry_run": false,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
+  },
+  {
+    "name": "providers.execute_bound",
+    "version": "1.0",
+    "description": "Execute one original direct DriverHost command against an opaque live mount binding. Original policy, confirmation, audit, uncertainty and non-retry semantics remain authoritative.",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "binding_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "request": {
+          "type": "object",
+          "required": [
+            "command"
+          ],
+          "properties": {
+            "command": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "args": {
+              "type": "object",
+              "maxProperties": 128
+            },
+            "dry_run": {
+              "type": "boolean"
+            },
+            "backend": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "maxLength": 128
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "binding_ref",
+        "request"
+      ],
+      "additionalProperties": false
+    },
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "binding_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "result": {
+          "type": "object",
+          "maxProperties": 16,
+          "additionalProperties": true
+        },
+        "admission_current": {
+          "type": "boolean"
+        },
+        "admission_state": {
+          "enum": [
+            "current",
+            "expired"
+          ]
+        }
+      },
+      "required": [
+        "binding_ref",
+        "result",
+        "admission_current",
+        "admission_state"
+      ],
+      "additionalProperties": false
+    },
+    "requires": [
+      "providers.execute_bound"
+    ],
+    "risk": "mutating",
+    "idempotency": "non_idempotent",
+    "timeout_ms": 300000,
+    "dry_run": true,
+    "interactive_consent": false,
+    "backends": [
+      "core"
+    ]
   }
 ]

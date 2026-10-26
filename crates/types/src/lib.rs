@@ -283,9 +283,79 @@ pub struct Reference {
     pub target: NativeTarget,
     pub expires: Instant,
 }
-/// Opaque references never alias a newly-created object. Bounded, monotonic expiry.
+/// Broker-held admission record; never deserialized from a provider or caller.
+#[derive(Debug, Clone)]
+pub struct ProviderMountReference {
+    pub session: String,
+    pub backend: String,
+    pub connection: String,
+    pub generation: u64,
+    pub mount: String,
+    pub expires: Instant,
+    // Expiry is not revocation; later removal remains visible to an in-flight holder.
+    revoked: std::sync::Arc<std::sync::atomic::AtomicBool>,
+}
+impl ProviderMountReference {
+    pub fn is_revoked(&self) -> bool {
+        self.revoked.load(std::sync::atomic::Ordering::SeqCst)
+    }
+    pub fn same_admission(&self, other: &Self) -> bool {
+        std::sync::Arc::ptr_eq(&self.revoked, &other.revoked)
+            && self.session == other.session
+            && self.backend == other.backend
+            && self.connection == other.connection
+            && self.generation == other.generation
+            && self.mount == other.mount
+            && self.expires == other.expires
+    }
+    fn has_holder(&self) -> bool {
+        std::sync::Arc::strong_count(&self.revoked) > 1
+    }
+    fn revoke(&self) {
+        self.revoked
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+    }
+}
+#[derive(Debug, Clone)]
+enum StoredReference {
+    Native(Reference),
+    ProviderMount(ProviderMountReference),
+}
+impl StoredReference {
+    fn session(&self) -> &str {
+        match self {
+            Self::Native(v) => &v.session,
+            Self::ProviderMount(v) => &v.session,
+        }
+    }
+    fn backend(&self) -> &str {
+        match self {
+            Self::Native(v) => &v.backend,
+            Self::ProviderMount(v) => &v.backend,
+        }
+    }
+    fn expires(&self) -> Instant {
+        match self {
+            Self::Native(v) => v.expires,
+            Self::ProviderMount(v) => v.expires,
+        }
+    }
+    fn has_holder(&self) -> bool {
+        match self {
+            Self::Native(_) => false,
+            Self::ProviderMount(v) => v.has_holder(),
+        }
+    }
+    fn revoke(&self) {
+        if let Self::ProviderMount(v) = self {
+            v.revoke();
+        }
+    }
+}
+/// One bounded store for native refs and mount bindings. Expired in-flight
+/// records retain their budget slot so later revocation stays observable.
 pub struct RefStore {
-    entries: BTreeMap<String, Reference>,
+    entries: BTreeMap<String, StoredReference>,
     ttl: Duration,
     capacity: usize,
 }
@@ -297,15 +367,20 @@ impl RefStore {
             capacity,
         }
     }
-    pub fn insert(&mut self, session: &str, backend: &str, target: NativeTarget) -> Result<String> {
+    fn prepare_insert(&mut self) -> Result<Instant> {
         let now = Instant::now();
-        self.entries.retain(|_, r| r.expires > now);
+        self.entries
+            .retain(|_, v| v.expires() > now || v.has_holder());
         if self.entries.len() >= self.capacity {
             return Err(Error::new(
                 ErrorCode::ResourceExhausted,
                 "Reference budget exhausted; wait for expiry",
             ));
         }
+        Ok(now)
+    }
+    pub fn insert(&mut self, session: &str, backend: &str, target: NativeTarget) -> Result<String> {
+        let now = self.prepare_insert()?;
         if !matches!(
             target.kind.as_str(),
             "ui" | "win" | "app" | "screen" | "dom" | "tab" | "frame" | "process" | "native"
@@ -318,32 +393,104 @@ impl RefStore {
         let id = format!("{}:{}", target.kind, Uuid::new_v4().simple());
         self.entries.insert(
             id.clone(),
-            Reference {
+            StoredReference::Native(Reference {
                 session: session.into(),
                 backend: backend.into(),
                 target,
                 expires: now + self.ttl,
-            },
+            }),
+        );
+        Ok(id)
+    }
+    pub fn insert_provider_mount(
+        &mut self,
+        session: &str,
+        backend: &str,
+        connection: &str,
+        generation: u64,
+        mount: &str,
+    ) -> Result<String> {
+        let now = self.prepare_insert()?;
+        let id = format!("provider-mount:{}", Uuid::new_v4().simple());
+        self.entries.insert(
+            id.clone(),
+            StoredReference::ProviderMount(ProviderMountReference {
+                session: session.into(),
+                backend: backend.into(),
+                connection: connection.into(),
+                generation,
+                mount: mount.into(),
+                expires: now + self.ttl,
+                revoked: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            }),
         );
         Ok(id)
     }
     pub fn get(&self, id: &str, session: &str) -> Result<Reference> {
-        self.entries
-            .get(id)
-            .filter(|r| r.session == session && r.expires > Instant::now())
-            .cloned()
-            .ok_or_else(|| {
-                Error::new(
-                    ErrorCode::StaleReference,
-                    "Reference expired, belongs to another session, or does not exist",
-                )
-            })
+        match self.entries.get(id) {
+            Some(StoredReference::Native(v))
+                if v.session == session && v.expires > Instant::now() =>
+            {
+                Ok(v.clone())
+            }
+            _ => Err(Error::new(
+                ErrorCode::StaleReference,
+                "Reference expired, belongs to another session, or does not exist",
+            )),
+        }
+    }
+    pub fn get_provider_mount(&self, id: &str, session: &str) -> Result<ProviderMountReference> {
+        let record = self.get_provider_mount_for_completion(id, session)?;
+        if record.expires <= Instant::now() {
+            return Err(Error::new(
+                ErrorCode::StaleReference,
+                "Provider mount admission expired",
+            ));
+        }
+        Ok(record)
+    }
+    /// Completion only; this does not grant admission to start an operation.
+    pub fn get_provider_mount_for_completion(
+        &self,
+        id: &str,
+        session: &str,
+    ) -> Result<ProviderMountReference> {
+        match self.entries.get(id) {
+            Some(StoredReference::ProviderMount(v)) if v.session == session && !v.is_revoked() => {
+                Ok(v.clone())
+            }
+            _ => Err(Error::new(
+                ErrorCode::StaleReference,
+                "Provider mount reference was revoked, has another type/session, or does not exist",
+            )),
+        }
     }
     pub fn revoke_session(&mut self, session: &str) {
-        self.entries.retain(|_, r| r.session != session);
+        self.entries.retain(|_, v| {
+            if v.session() == session {
+                v.revoke();
+                false
+            } else {
+                true
+            }
+        });
     }
     pub fn invalidate_backend(&mut self, backend: &str) {
-        self.entries.retain(|_, r| r.backend != backend);
+        self.entries.retain(|_, v| {
+            if v.backend() == backend {
+                v.revoke();
+                false
+            } else {
+                true
+            }
+        });
+    }
+}
+impl Drop for RefStore {
+    fn drop(&mut self) {
+        for entry in self.entries.values() {
+            entry.revoke();
+        }
     }
 }
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]

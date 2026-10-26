@@ -607,6 +607,15 @@ impl SandboxSpec {
 pub type SandboxStdin = Box<dyn AsyncWrite + Send + Unpin>;
 pub type SandboxStdout = Box<dyn AsyncRead + Send + Unpin>;
 
+/// In-process evidence retained by the platform that created the sandbox.
+/// Never deserialize this from provider output or caller configuration.
+pub trait WorkspaceMountBinding: Send + Sync {
+    fn mount(&self) -> &Mount;
+    /// Revalidate both the owner path and this sandbox's mounted instance.
+    /// A caller must additionally require the same active Broker ProviderLease.
+    fn validate_current(&self) -> Result<()>;
+}
+
 /// Monotonic cumulative CPU accounting for every process inside one sandbox authority boundary.
 ///
 /// Implementations must include CPU consumed by descendants that have already exited so a child
@@ -618,6 +627,12 @@ pub trait SandboxCpuAccounting: Send + Sync {
 #[async_trait]
 pub trait SandboxChildControl: Send {
     fn id(&self) -> Option<u32>;
+    fn workspace_mount_bindings(&self) -> Result<Vec<Arc<dyn WorkspaceMountBinding>>> {
+        Err(Error::new(
+            ErrorCode::Unsupported,
+            "This platform does not expose authenticated sandbox workspace bindings",
+        ))
+    }
     async fn kill(&mut self) -> Result<()>;
     async fn wait(&mut self) -> Result<()>;
     fn exit_code(&self) -> Option<i32> {
@@ -735,6 +750,10 @@ impl SandboxProcess {
 
     pub fn cpu_accounting(&self) -> Option<Arc<dyn SandboxCpuAccounting>> {
         self.cpu_accounting.clone()
+    }
+
+    pub fn workspace_mount_bindings(&self) -> Result<Vec<Arc<dyn WorkspaceMountBinding>>> {
+        self.control.workspace_mount_bindings()
     }
 
     pub fn take_stdin(&mut self) -> Result<SandboxStdin> {

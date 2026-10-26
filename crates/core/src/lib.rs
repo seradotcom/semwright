@@ -4,7 +4,9 @@ mod catalog;
 mod jobs;
 mod project_graph;
 pub use project_graph::RebuildCatalogSnapshot;
+mod provider_mounts;
 mod providers;
+use provider_mounts::BoundProvider;
 mod workflows;
 use async_trait::async_trait;
 use providers::{Invocation, ProviderCatalog, ProviderLease};
@@ -596,7 +598,10 @@ impl Broker {
         request: ExecuteRequest,
         cancellation: CancellationToken,
     ) -> Pin<Box<dyn Future<Output = Envelope> + Send>> {
-        Box::pin(async move { self.execute_inner(session, id, request, cancellation).await })
+        Box::pin(async move {
+            self.execute_inner(session, id, request, cancellation, None)
+                .await
+        })
     }
     async fn execute_inner(
         self: Arc<Self>,
@@ -604,8 +609,21 @@ impl Broker {
         id: String,
         request: ExecuteRequest,
         cancellation: CancellationToken,
+        bound: Option<BoundProvider>,
     ) -> Envelope {
         let started = Instant::now();
+        // Bound effects cannot be replayed as unbound commands or alongside
+        // their wrappers. Reject partial recordings instead of omitting an effect.
+        let bound_execution = bound.is_some() || request.command == "providers.execute_bound";
+        let record_workflow = !bound_execution && request.command != "providers.mount.observe";
+        if bound_execution {
+            if let Ok(mut workflows) = self.workflows.lock() {
+                workflows.invalidate(
+                    &session,
+                    "Provider mount bindings are ephemeral; workflow recording cannot capture bound execution",
+                );
+            }
+        }
         let descriptor = self.invocation(&request.command);
         let trace_context = descriptor.as_ref().ok().map(|invocation| {
             (
@@ -621,10 +639,15 @@ impl Broker {
             .as_ref()
             .ok()
             .map(|invocation| invocation.capability.provenance());
-        let mut audit = match self
-            .audit
-            .begin_with_provenance(&safe_name, &id, &session, provenance)
-        {
+        let mut audit = match self.audit.begin_with_parent_provenance(
+            &safe_name,
+            &id,
+            &session,
+            provenance,
+            bound
+                .as_ref()
+                .and_then(|value| value.parent_request_id.as_deref()),
+        ) {
             Ok(scope) => scope,
             Err(error) => {
                 return Envelope::finish(
@@ -650,6 +673,7 @@ impl Broker {
                 &request,
                 descriptor,
                 cancellation,
+                bound,
                 &mut selected,
                 &mut audit,
             )
@@ -662,7 +686,19 @@ impl Broker {
             )
             .uncertain()),
         };
-        if let Some((trace_descriptor, trace_metadata)) = &trace_context {
+        // Recording may start while the bound operation awaits its provider.
+        // Invalidate that recording too; canonical audit has already completed.
+        if bound_execution {
+            if let Ok(mut workflows) = self.workflows.lock() {
+                workflows.invalidate(
+                    &session,
+                    "Provider mount bindings are ephemeral; workflow recording cannot capture bound execution",
+                );
+            }
+        }
+        if let Some((trace_descriptor, trace_metadata)) =
+            trace_context.as_ref().filter(|_| record_workflow)
+        {
             self.record_workflow_execution(
                 &session,
                 &request,
@@ -700,6 +736,7 @@ impl Broker {
         request: &ExecuteRequest,
         invocation: Result<Invocation>,
         cancellation: CancellationToken,
+        bound: Option<BoundProvider>,
         selected: &mut String,
         audit: &mut audit::Scope,
     ) -> Result<Value> {
@@ -709,6 +746,9 @@ impl Broker {
         } = invocation?;
         let descriptor = &capability.descriptor;
         capability.validate_input(&request.args)?;
+        if let Some(bound) = &bound {
+            self.check_bound_provider(session, bound, dynamic_provider.as_ref())?;
+        }
         let native_ref_capable = capability.metadata.source == SourceKind::Builtin
             || dynamic_provider
                 .as_ref()
@@ -724,6 +764,18 @@ impl Broker {
         } else {
             None
         };
+        if request.command == "providers.execute_bound" {
+            *selected = "core".into();
+            audit.backend(selected);
+            audit.executed_provider("semwright-core", None);
+            let output = self
+                .execute_provider_bound(session, request_id, request, cancellation, audit)
+                .await?;
+            capability
+                .validate_output(&output)
+                .map_err(Error::uncertain)?;
+            return Ok(output);
+        }
         let needs_confirmation = match self.policy.enforce(
             descriptor,
             &request.args,
@@ -847,6 +899,9 @@ impl Broker {
             .await?;
         audit.backend(selected);
         let selected_provider = dynamic_provider.or_else(|| self.provider(selected));
+        if let Some(bound) = &bound {
+            self.check_bound_provider(session, bound, selected_provider.as_ref())?;
+        }
         let provider_stop = if let Some(provider) = &selected_provider {
             if !provider.active() {
                 return Err(Error::unavailable(
@@ -854,7 +909,11 @@ impl Broker {
                 ));
             }
             audit.executed_provider(&provider.identity.id, Some(provider.generation));
-            provider.epoch.clone()
+            if bound.is_some() {
+                provider.binding_epoch.clone()
+            } else {
+                provider.epoch.clone()
+            }
         } else {
             audit.executed_provider(&capability.metadata.provider, None);
             self.runtime_stop.clone()
@@ -877,6 +936,9 @@ impl Broker {
             write_guard = None;
         }
         let _guards = (read_guard, write_guard);
+        if let Some(bound) = &bound {
+            self.check_bound_provider(session, bound, selected_provider.as_ref())?;
+        }
         if request.dry_run {
             if !descriptor.dry_run {
                 return Err(Error::new(
@@ -923,6 +985,9 @@ impl Broker {
         }
         if needs_confirmation {
             audit.decision("allow_after_confirmation");
+        }
+        if let Some(bound) = &bound {
+            self.check_bound_provider(session, bound, selected_provider.as_ref())?;
         }
         let reference = if native_ref_capable {
             self.resolve_reference(session, &request.args)?
@@ -1022,13 +1087,18 @@ impl Broker {
             request_id: request_id.into(),
             cancellation: cancellation.child_token(),
         };
+        let effect_started = std::sync::atomic::AtomicBool::new(false);
         let action = async {
             context.check_cancelled()?;
+            if let Some(bound) = &bound {
+                self.check_bound_provider(session, bound, selected_provider.as_ref())?;
+            }
             if selected_provider.as_ref().is_some_and(|p| !p.active()) {
                 return Err(Error::unavailable(
                     "Provider generation changed before dispatch",
                 ));
             }
+            effect_started.store(true, std::sync::atomic::Ordering::SeqCst);
             let mut output = if request.command == "ui.find" {
                 self.find(session, selected, &context, &args).await?
             } else if selected == "core" {
@@ -1073,12 +1143,15 @@ impl Broker {
         tokio::pin!(action);
         // Signal cancellation before dropping a suspended provider invocation, including task aborts.
         let _cancel_on_drop = context.cancellation.clone().drop_guard();
-        let result = tokio::select! {
+        let mut result = tokio::select! {
             biased;
             _=provider_stop.cancelled()=>{
                 context.cancellation.cancel();
                 let _=tokio::time::timeout(Duration::from_millis(250), &mut action).await;
-                Err(Error::unavailable("Provider generation invalidated during execution; inspect state before retrying").uncertain())
+                let error = Error::unavailable("Provider generation invalidated during execution; inspect state before retrying");
+                if bound.is_some() && !effect_started.load(std::sync::atomic::Ordering::SeqCst) {
+                    Err(error)
+                } else { Err(error.uncertain()) }
             },
             _=cancellation.cancelled()=>{
                 context.cancellation.cancel();
@@ -1092,6 +1165,19 @@ impl Broker {
             },
             result=&mut action=>result,
         };
+        if let Some(bound) = &bound {
+            if result.is_ok()
+                && self
+                    .check_bound_completion(session, bound, selected_provider.as_ref())
+                    .is_err()
+            {
+                result = Err(Error::new(
+                    ErrorCode::StaleReference,
+                    "Bound result is historical; provider or mount admission changed",
+                )
+                .uncertain());
+            }
+        }
         if descriptor.risk.mutates() {
             *self.features.write().await = None;
             result.map_err(|e| {
@@ -1184,6 +1270,7 @@ impl Broker {
     ) -> Result<Value> {
         let session = context.session.as_str();
         match command {
+            "providers.mount.observe" => self.observe_provider_mount(session, args),
             "doctor" => Ok(
                 json!({"project":"Semwright","version":env!("CARGO_PKG_VERSION"),"protocol":PROTOCOL_VERSION,"fake":self.fake,"environment":self.environment,"features":self.probe().await,"providers":self.provider_status()?,"policy":{"profile":self.policy.config().profile,"granted":self.policy.capabilities(),"apps":self.policy.config().apps,"shell":false,"external_confirmation":"foreground operator only; unavailable in user service"},"uptime_seconds":self.started.elapsed().as_secs(),"verification":"Runtime capability probes are not a live desktop acceptance certificate","unimplemented":[]}),
             ),

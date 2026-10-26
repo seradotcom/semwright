@@ -2147,5 +2147,37 @@
       "garbage-collection",
       "cleanup"
     ]
+  },
+  "providers.mount.observe": {
+    "aliases": [],
+    "app": null,
+    "object_types": [
+      "provider-mount"
+    ],
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "1.0.0",
+    "tags": [
+      "provider",
+      "workspace",
+      "binding"
+    ],
+    "untrusted_metadata": false
+  },
+  "providers.execute_bound": {
+    "aliases": [],
+    "app": null,
+    "object_types": [
+      "provider-mount"
+    ],
+    "provider": "semwright-core",
+    "source": "builtin",
+    "source_version": "1.0.0",
+    "tags": [
+      "provider",
+      "workspace",
+      "binding"
+    ],
+    "untrusted_metadata": false
   }
 }

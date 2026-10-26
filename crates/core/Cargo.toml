@@ -18,6 +18,7 @@ semwright-protocol.workspace = true
 semwright-registry.workspace = true
 semwright-policy.workspace = true
 semwright-backend-api.workspace = true
+semwright-driver-host.workspace = true
 semwright-recipes.workspace = true
 semwright-workflow.workspace = true
 semwright-plugin-sdk.workspace = true

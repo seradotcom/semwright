@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use semwright_platform_api::launch::WorkspaceMountBinding;
 use semwright_platform_api::launch::{
     ExecutableVerifier, MaterializedMount, MaterializedTool, Mount, MountClass,
     SANDBOX_HOST_TOOL_CHILD_ENV, SANDBOX_HOST_TOOL_CWD_ENV, SANDBOX_HOST_TOOL_TYPED_ARGS_ENV,
@@ -8,6 +9,7 @@ use semwright_platform_api::launch::{
 };
 use semwright_types::{Error, ErrorCode, Result};
 use sha2::{Digest, Sha256};
+use std::sync::Arc;
 use std::{
     io::Read,
     os::{
@@ -261,7 +263,107 @@ fn open_pidfd(pid: u32) -> Result<Option<OwnedFd>> {
     Ok(Some(unsafe { OwnedFd::from_raw_fd(fd as i32) }))
 }
 
+fn require_live_mount_process(pidfd: &OwnedFd) -> Result<()> {
+    let mut entry = libc::pollfd {
+        fd: pidfd.as_raw_fd(),
+        events: libc::POLLIN,
+        revents: 0,
+    };
+    // SAFETY: one initialized entry and a live owned pidfd; nonblocking poll.
+    let result = unsafe { libc::poll(&mut entry, 1, 0) };
+    if result == 0 {
+        Ok(())
+    } else {
+        Err(Error::new(
+            ErrorCode::StaleReference,
+            "The sandbox instance for this workspace binding is no longer live",
+        ))
+    }
+}
+
+struct LinuxWorkspaceMountBinding {
+    mount: Mount,
+    mounted_root: std::fs::File,
+    child_root_path: std::path::PathBuf,
+    child_pidfd: OwnedFd,
+}
+impl LinuxWorkspaceMountBinding {
+    fn open_instance(path: &Path) -> Result<std::fs::File> {
+        let file = std::fs::OpenOptions::new()
+            .read(true)
+            .custom_flags(libc::O_PATH | libc::O_NOFOLLOW | libc::O_CLOEXEC)
+            .open(path)?;
+        let metadata = file.metadata()?;
+        if metadata.file_type().is_symlink() || (!metadata.is_dir() && !metadata.is_file()) {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Workspace binding requires a regular file or directory instance",
+            ));
+        }
+        Ok(file)
+    }
+    fn capture(mount: &Mount, child_pid: u32, child_pidfd: &OwnedFd) -> Result<Self> {
+        mount.validate()?;
+        if mount.class != MountClass::Workspace {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Only workspace mounts can be exposed through this binding",
+            ));
+        }
+        require_live_mount_process(child_pidfd)?;
+        let destination = materialized_destination(mount)?;
+        let relative = Path::new(&destination).strip_prefix("/").map_err(|_| {
+            Error::new(
+                ErrorCode::Internal,
+                "Sandbox workspace destination is not absolute",
+            )
+        })?;
+        let child_root_path =
+            std::path::PathBuf::from(format!("/proc/{child_pid}/root")).join(relative);
+        let mounted_root = Self::open_instance(&child_root_path)?;
+        let binding = Self {
+            mount: mount.clone(),
+            mounted_root,
+            child_root_path,
+            child_pidfd: duplicate_pidfd(child_pidfd)?,
+        };
+        binding.validate_current()?;
+        Ok(binding)
+    }
+    fn same_instance(&self, file: &std::fs::File) -> Result<bool> {
+        let expected = self.mounted_root.metadata()?;
+        let observed = file.metadata()?;
+        Ok(expected.dev() == observed.dev()
+            && expected.ino() == observed.ino()
+            && expected.file_type() == observed.file_type())
+    }
+}
+impl WorkspaceMountBinding for LinuxWorkspaceMountBinding {
+    fn mount(&self) -> &Mount {
+        &self.mount
+    }
+    fn validate_current(&self) -> Result<()> {
+        require_live_mount_process(&self.child_pidfd)?;
+        if std::fs::canonicalize(&self.mount.source)? != self.mount.source {
+            return Err(Error::new(
+                ErrorCode::StaleReference,
+                "Owner workspace root now traverses a different path",
+            ));
+        }
+        let current_owner = Self::open_instance(&self.mount.source)?;
+        let current_sandbox = Self::open_instance(&self.child_root_path)?;
+        if !self.same_instance(&current_owner)? || !self.same_instance(&current_sandbox)? {
+            return Err(Error::new(
+                ErrorCode::StaleReference,
+                "Owner path or sandbox mount instance was replaced",
+            ));
+        }
+        require_live_mount_process(&self.child_pidfd)
+    }
+}
+
 struct LinuxSandboxChild {
+    workspace_mounts: Vec<Mount>,
     monitor: Child,
     child_pid: u32,
     child_pidfd: Option<OwnedFd>,
@@ -272,6 +374,25 @@ struct LinuxSandboxChild {
 impl SandboxChildControl for LinuxSandboxChild {
     fn id(&self) -> Option<u32> {
         Some(self.child_pid)
+    }
+
+    fn workspace_mount_bindings(&self) -> Result<Vec<Arc<dyn WorkspaceMountBinding>>> {
+        let pidfd = self.child_pidfd.as_ref().ok_or_else(|| {
+            Error::new(
+                ErrorCode::StaleReference,
+                "Sandbox process has already exited",
+            )
+        })?;
+        self.workspace_mounts
+            .iter()
+            .map(|mount| {
+                Ok(Arc::new(LinuxWorkspaceMountBinding::capture(
+                    mount,
+                    self.child_pid,
+                    pidfd,
+                )?) as Arc<dyn WorkspaceMountBinding>)
+            })
+            .collect()
     }
 
     async fn kill(&mut self) -> Result<()> {
@@ -867,6 +988,12 @@ impl SandboxLauncher for LinuxSandbox {
             stdin,
             stdout,
             Box::new(LinuxSandboxChild {
+                workspace_mounts: s
+                    .mounts
+                    .iter()
+                    .filter(|mount| mount.class == MountClass::Workspace)
+                    .cloned()
+                    .collect(),
                 monitor,
                 child_pid,
                 child_pidfd,
@@ -991,6 +1118,59 @@ mod tests {
             paths
                 .iter()
                 .all(|path| !path.contains("dri") && !path.contains("modeset") && *path != "/dev")
+        );
+    }
+}
+
+#[cfg(test)]
+mod workspace_binding_instance_tests {
+    use super::*;
+    fn fixture(path: &Path) -> LinuxWorkspaceMountBinding {
+        LinuxWorkspaceMountBinding {
+            mount: Mount {
+                source: path.to_path_buf(),
+                class: MountClass::Workspace,
+                logical_name: "manim-runtime".into(),
+                read_only: true,
+                execute: false,
+            },
+            mounted_root: LinuxWorkspaceMountBinding::open_instance(path).unwrap(),
+            child_root_path: path.to_path_buf(),
+            child_pidfd: open_pidfd(std::process::id()).unwrap().unwrap(),
+        }
+    }
+    #[test]
+    fn retained_root_rejects_replacement_at_the_same_owner_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("root");
+        std::fs::create_dir(&path).unwrap();
+        let binding = fixture(&path);
+        binding.validate_current().unwrap();
+        let old = dir.path().join("old-root");
+        std::fs::rename(&path, &old).unwrap();
+        std::fs::create_dir(&path).unwrap();
+        assert_eq!(
+            binding.validate_current().unwrap_err().code,
+            ErrorCode::StaleReference
+        );
+        let original = std::fs::metadata(&old).unwrap();
+        assert_eq!(
+            binding.mounted_root.metadata().unwrap().ino(),
+            original.ino()
+        );
+    }
+    #[test]
+    fn retained_root_rejects_owner_path_redirected_by_symlink() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("root");
+        std::fs::create_dir(&path).unwrap();
+        let binding = fixture(&path);
+        let old = dir.path().join("old-root");
+        std::fs::rename(&path, &old).unwrap();
+        std::os::unix::fs::symlink(&old, &path).unwrap();
+        assert_eq!(
+            binding.validate_current().unwrap_err().code,
+            ErrorCode::StaleReference
         );
     }
 }

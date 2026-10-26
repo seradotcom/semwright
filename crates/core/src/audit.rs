@@ -24,6 +24,8 @@ pub struct Record {
     pub phase: String,
     pub command: String,
     pub request_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent_request_id: Option<String>,
     pub session_tag: String,
     pub backend: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -221,12 +223,23 @@ impl Audit {
         session: &str,
         provenance: Option<InvocationProvenance>,
     ) -> Result<Scope> {
+        self.begin_with_parent_provenance(command, id, session, provenance, None)
+    }
+    pub fn begin_with_parent_provenance(
+        self: &Arc<Self>,
+        command: &str,
+        id: &str,
+        session: &str,
+        provenance: Option<InvocationProvenance>,
+        parent_request_id: Option<&str>,
+    ) -> Result<Scope> {
         let record = Record {
             sequence: 0,
             unix_ms: now(),
             phase: "start".into(),
             command: command.into(),
             request_id: safe_id(id),
+            parent_request_id: parent_request_id.map(safe_id),
             session_tag: tag(session),
             backend: "unselected".into(),
             provenance,
@@ -356,6 +369,256 @@ mod tests {
         std::fs::write(p, s).unwrap();
         assert!(Audit::open(&d.path().join("audit"), 65536, 2).is_err());
     }
+    #[test]
+    fn legacy_parentless_row_reopens_and_new_parent_link_is_hash_chained() {
+        // Fixed legacy schema bytes, independently hashed without the new optional field.
+        const LEGACY: &str = concat!(
+            r#"{"sequence":1,"unix_ms":1,"phase":"finish","command":"doctor","request_id":"11111111111111111111111111111111","session_tag":"0123456789abcdef","backend":"unselected","decision":"not_evaluated","ok":true,"error_code":null,"outcome_known":true,"duration_ms":0,"previous":"","hash":"5869866073cad869a451f0124d91a987040ab1cf55c6d2f0466eaf703546d8c5"}"#,
+            "\n"
+        );
+        let d = tempfile::tempdir().unwrap();
+        let directory = d.path().join("audit");
+        private_directory(&directory).unwrap();
+        let path = directory.join("audit.jsonl");
+        {
+            let mut file = open(&path).unwrap();
+            file.write_all(LEGACY.as_bytes()).unwrap();
+            file.sync_all().unwrap();
+        }
+        {
+            let a = Audit::open(&directory, 65536, 2).unwrap();
+            let rows = a.tail(8).unwrap();
+            assert_eq!(rows.len(), 1);
+            assert!(rows[0].parent_request_id.is_none());
+            assert_eq!(
+                rows[0].hash,
+                "5869866073cad869a451f0124d91a987040ab1cf55c6d2f0466eaf703546d8c5"
+            );
+            let mut scope = a
+                .begin_with_parent_provenance(
+                    "driver.fixture.ping",
+                    "22222222222222222222222222222222",
+                    "test-session",
+                    None,
+                    Some("33333333333333333333333333333333"),
+                )
+                .unwrap();
+            scope.finish(&Ok(serde_json::json!({}))).unwrap();
+        }
+        {
+            let a = Audit::open(&directory, 65536, 2).unwrap();
+            let rows = a.tail(8).unwrap();
+            assert_eq!(rows.len(), 3);
+            assert_eq!(rows[1].previous, rows[0].hash);
+            assert_eq!(rows[2].previous, rows[1].hash);
+            assert_eq!(
+                rows[2].parent_request_id.as_deref(),
+                Some("33333333333333333333333333333333")
+            );
+        }
+        let bytes = std::fs::read_to_string(&path).unwrap();
+        assert!(bytes.starts_with(LEGACY));
+        assert_eq!(
+            bytes
+                .matches("\"parent_request_id\":\"33333333333333333333333333333333\"")
+                .count(),
+            2
+        );
+        let tampered = bytes.replace(
+            "\"parent_request_id\":\"33333333333333333333333333333333\"",
+            "\"parent_request_id\":\"44444444444444444444444444444444\"",
+        );
+        std::fs::write(&path, tampered).unwrap();
+        assert!(matches!(
+            Audit::open(&directory, 65536, 2),
+            Err(error) if error.code == ErrorCode::Conflict
+        ));
+    }
+    fn restore_audit_test_file(directory: &Path, name: &str, bytes: &[u8]) {
+        private_directory(directory).unwrap();
+        let path = directory.join(name);
+        assert!(
+            !path.exists(),
+            "restore fixture must never replace an existing file"
+        );
+        let mut file = open(&path).unwrap();
+        file.write_all(bytes).unwrap();
+        file.sync_all().unwrap();
+        drop(file);
+        assert_eq!(std::fs::read(path).unwrap(), bytes);
+    }
+
+    fn canonical_audit_test_segment(directory: &Path, bytes: &[u8]) -> Vec<Record> {
+        // Audit::open currently reads only its active filename. This disposable
+        // byte-identical copy exercises that same canonical reader for a retained
+        // segment; it is not a new reader or an automatic archive validation API.
+        restore_audit_test_file(directory, "audit.jsonl", bytes);
+        let audit = Audit::open(directory, 65536, 2).unwrap();
+        let rows = audit.tail(500).unwrap();
+        assert_eq!(
+            rows.len(),
+            bytes.iter().filter(|byte| **byte == b'\n').count()
+        );
+        drop(audit);
+        assert_eq!(std::fs::read(directory.join("audit.jsonl")).unwrap(), bytes);
+        rows
+    }
+
+    #[test]
+    fn retained_parent_links_survive_real_rotation_restore_and_typed_validation() {
+        const PARENT: &str = "11111111111111111111111111111111";
+        const ABANDONED: &str = "22222222222222222222222222222222";
+        const FINISHED: &str = "33333333333333333333333333333333";
+        const APPENDED: &str = "44444444444444444444444444444444";
+        let temporary = tempfile::tempdir().unwrap();
+        let source = temporary.path().join("original");
+        let audit = Audit::open(&source, 65536, 2).unwrap();
+        drop(
+            audit
+                .begin_with_parent_provenance(
+                    "driver.fixture.mutate",
+                    ABANDONED,
+                    "original-session",
+                    None,
+                    Some(PARENT),
+                )
+                .unwrap(),
+        );
+        let mut completed = audit
+            .begin_with_parent_provenance(
+                "driver.fixture.read",
+                FINISHED,
+                "original-session",
+                None,
+                Some(PARENT),
+            )
+            .unwrap();
+        completed.finish(&Ok(serde_json::json!({}))).unwrap();
+        drop(completed);
+
+        // Reach the real minimum rotation budget with real ordinary scopes.
+        // Do not edit State.bytes or manually fabricate a rotated filename.
+        for number in 0..256_u32 {
+            let mut ordinary = audit
+                .begin(
+                    "doctor",
+                    &format!("{:032x}", number + 1000),
+                    "original-session",
+                )
+                .unwrap();
+            ordinary.finish(&Ok(serde_json::json!({}))).unwrap();
+            drop(ordinary);
+            if source.join("audit.jsonl.1").exists() {
+                break;
+            }
+        }
+        drop(audit);
+        assert!(source.join("audit.jsonl.1").exists());
+        assert!(!source.join("audit.jsonl.2").exists());
+        let active_bytes = std::fs::read(source.join("audit.jsonl")).unwrap();
+        let retained_bytes = std::fs::read(source.join("audit.jsonl.1")).unwrap();
+        assert!(retained_bytes.len() >= 65536);
+        assert!(!active_bytes.is_empty());
+        let retained = canonical_audit_test_segment(
+            &temporary.path().join("compatible-retained-reader"),
+            &retained_bytes,
+        );
+        assert_eq!(retained[0].sequence, 1);
+        for (index, child, phase, known, ok) in [
+            (0, ABANDONED, "start", true, None),
+            (1, ABANDONED, "abandoned", false, Some(false)),
+            (2, FINISHED, "start", true, None),
+            (3, FINISHED, "finish", true, Some(true)),
+        ] {
+            let row = &retained[index];
+            assert_eq!(row.request_id, child);
+            assert_eq!(row.parent_request_id.as_deref(), Some(PARENT));
+            assert_eq!(row.phase, phase);
+            assert_eq!(row.outcome_known, known);
+            assert_eq!(row.ok, ok);
+        }
+        assert_eq!(retained[1].error_code, Some(ErrorCode::Cancelled));
+
+        // Restore the complete retained inventory, not a new-state rollback.
+        let restored = temporary.path().join("restored-original-state");
+        restore_audit_test_file(&restored, "audit.jsonl.1", &retained_bytes);
+        restore_audit_test_file(&restored, "audit.jsonl", &active_bytes);
+        let reopened = Audit::open(&restored, 65536, 2).unwrap();
+        let active = reopened.tail(500).unwrap();
+        assert!(active.iter().all(|row| row.parent_request_id.is_none()));
+        assert_eq!(active[0].previous, retained.last().unwrap().hash);
+        assert_eq!(active[0].sequence, retained.last().unwrap().sequence + 1);
+        let previous = active.last().unwrap().clone();
+        let mut appended = reopened
+            .begin("doctor", APPENDED, "restored-session")
+            .unwrap();
+        appended.finish(&Ok(serde_json::json!({}))).unwrap();
+        drop(appended);
+        drop(reopened);
+        let reopened = Audit::open(&restored, 65536, 2).unwrap();
+        let rows = reopened.tail(2).unwrap();
+        assert_eq!(rows[0].sequence, previous.sequence + 1);
+        assert_eq!(rows[0].previous, previous.hash);
+        assert_eq!(rows[1].sequence, rows[0].sequence + 1);
+        assert_eq!(rows[1].previous, rows[0].hash);
+        assert_eq!(rows[1].request_id, APPENDED);
+        assert_eq!(rows[1].phase, "finish");
+        drop(reopened);
+        assert!(
+            std::fs::read(restored.join("audit.jsonl"))
+                .unwrap()
+                .starts_with(&active_bytes)
+        );
+        assert_eq!(
+            std::fs::read(restored.join("audit.jsonl.1")).unwrap(),
+            retained_bytes
+        );
+
+        let original_text = std::str::from_utf8(&retained_bytes).unwrap();
+        let field = format!(",\"parent_request_id\":\"{PARENT}\"");
+        assert_eq!(original_text.matches(field.as_str()).count(), 4);
+        for (case, replacement) in [
+            (
+                "changed-parent",
+                ",\"parent_request_id\":\"55555555555555555555555555555555\"",
+            ),
+            ("removed-parent", ""),
+        ] {
+            // Only the parent field changes. The original stored hashes, sequence
+            // and previous fields are deliberately retained, never repaired.
+            let tampered = original_text.replacen(field.as_str(), replacement, 1);
+            assert!(tampered.contains(format!("\"hash\":\"{}\"", retained[0].hash).as_str()));
+            let case_directory = temporary.path().join(case);
+            restore_audit_test_file(&case_directory, "audit.jsonl.1", tampered.as_bytes());
+            restore_audit_test_file(&case_directory, "audit.jsonl", &active_bytes);
+
+            // Opening only the active file does not validate retained history.
+            drop(Audit::open(&case_directory, 65536, 2).unwrap());
+            let checked_segment = case_directory.join("retained-segment-reader");
+            restore_audit_test_file(&checked_segment, "audit.jsonl", tampered.as_bytes());
+            assert!(matches!(
+                Audit::open(&checked_segment, 65536, 2),
+                Err(error) if error.code == ErrorCode::Conflict
+            ));
+            assert_eq!(
+                std::fs::read(checked_segment.join("audit.jsonl")).unwrap(),
+                tampered.as_bytes()
+            );
+            assert_eq!(
+                std::fs::read(case_directory.join("audit.jsonl.1")).unwrap(),
+                tampered.as_bytes()
+            );
+        }
+        assert_eq!(
+            std::fs::read(source.join("audit.jsonl")).unwrap(),
+            active_bytes
+        );
+        assert_eq!(
+            std::fs::read(source.join("audit.jsonl.1")).unwrap(),
+            retained_bytes
+        );
+    }
+
     #[cfg(unix)]
     #[test]
     fn shared_existing_directory_is_rejected() {

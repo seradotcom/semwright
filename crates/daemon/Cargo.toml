@@ -8,6 +8,10 @@ authors.workspace = true
 description = "Semwright daemon: semantic Linux automation"
 publish = false
 
+[features]
+default = []
+private-host-stdin-custody = []
+
 [lints]
 workspace = true
 

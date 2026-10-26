@@ -1,6 +1,14 @@
 //! Sandboxed persistent application-driver host. Drivers are mounted into the broker as Providers.
 #[cfg(any(unix, windows))]
 mod loopback;
+mod stdin_custody;
+
+pub use stdin_custody::{
+    HostStdinCapture, HostStdinCustody, HostStdinCustodyLosses, HostStdinCustodyReceiver,
+    HostStdinTerminalUnavailable, HostStdinWriteTerminal,
+};
+#[cfg(any(unix, windows))]
+mod owner_workspace_mounts;
 
 use async_trait::async_trait;
 use semwright_backend_api::{
@@ -285,6 +293,7 @@ trait HostToolExecutor: Send + Sync {
         detached: bool,
         cancellation: CancellationToken,
         charged_cpu_seconds: Arc<Mutex<u64>>,
+        stdin_custody: Option<stdin_custody::StdinWriteTicket>,
     ) -> Result<ToolExecutionOutput>;
 
     async fn start_session(
@@ -496,6 +505,7 @@ impl HostToolExecutor for HostToolBroker {
         detached: bool,
         cancellation: CancellationToken,
         charged_cpu_seconds: Arc<Mutex<u64>>,
+        _stdin_custody: Option<stdin_custody::StdinWriteTicket>,
     ) -> Result<ToolExecutionOutput> {
         match &args {
             HostToolArgs::Raw(raw) => {
@@ -1049,7 +1059,11 @@ impl HostToolExecutor for LinuxHostToolBroker {
         detached: bool,
         cancellation: CancellationToken,
         _charged_cpu_seconds: Arc<Mutex<u64>>,
+        mut stdin_custody: Option<stdin_custody::StdinWriteTicket>,
     ) -> Result<ToolExecutionOutput> {
+        if let Some(ticket) = stdin_custody.as_mut() {
+            ticket.linux_broker_entered();
+        }
         match &args {
             HostToolArgs::Raw(raw) => {
                 if detached {
@@ -1214,9 +1228,8 @@ impl HostToolExecutor for LinuxHostToolBroker {
         let mut child_stdin = child.take_stdin()?;
         let child_stdout = child.take_stdout()?;
         let execution = async {
-            if !stdin_bytes.is_empty() {
-                child_stdin.write_all(&stdin_bytes).await?;
-            }
+            stdin_custody::write_all_observed(&mut child_stdin, &stdin_bytes, stdin_custody)
+                .await?;
             child_stdin.shutdown().await?;
             drop(child_stdin);
 
@@ -2074,6 +2087,7 @@ fn spawn_v2_reader(
     interfaces: DriverInterfaces,
     protocol: u32,
     tool_broker: Option<Arc<dyn HostToolExecutor>>,
+    stdin_custody: Option<stdin_custody::BoundHostStdinCustody>,
     closed: CancellationToken,
     terminate: CancellationToken,
 ) {
@@ -2190,6 +2204,7 @@ fn spawn_v2_reader(
                                             false,
                                             execution_cancellation.clone(),
                                             charged_cpu_seconds,
+                                            None,
                                         )
                                         .await
                                 }
@@ -2304,6 +2319,7 @@ fn spawn_v2_reader(
                                             false,
                                             execution_cancellation.clone(),
                                             charged_cpu_seconds,
+                                            None,
                                         )
                                         .await
                                 }
@@ -2462,6 +2478,7 @@ fn spawn_v2_reader(
                                                 true,
                                                 cancellation_task,
                                                 Arc::new(Mutex::new(0)),
+                                                None,
                                             )
                                             .await;
                                         let next = match result {
@@ -2558,6 +2575,7 @@ fn spawn_v2_reader(
                     let input = input.clone();
                     let pending = pending.clone();
                     let broker = tool_broker.clone();
+                    let stdin_custody = stdin_custody.clone();
                     let tool_calls = tool_calls.clone();
                     let tool_parents = tool_parents.clone();
                     let host_tool_jobs = host_tool_jobs.clone();
@@ -2603,6 +2621,19 @@ fn spawn_v2_reader(
                                         ),
                                     }
                                 } else {
+                                    // Job and parent/session are already Host-validated.
+                                    // Observe the exact Vec before its original broker move.
+                                    let stdin_custody =
+                                        stdin_custody.as_ref().and_then(|custody| {
+                                            custody.capture(
+                                                &job,
+                                                &id,
+                                                &parent,
+                                                &owner_session,
+                                                &name,
+                                                &stdin,
+                                            )
+                                        });
                                     let status_task = status.clone();
                                     let cancellation_task = cancellation.clone();
                                     tokio::spawn(async move {
@@ -2616,6 +2647,7 @@ fn spawn_v2_reader(
                                                 true,
                                                 cancellation_task,
                                                 Arc::new(Mutex::new(0)),
+                                                stdin_custody,
                                             )
                                             .await;
                                         let next = match result {
@@ -3442,6 +3474,7 @@ fn sandbox_spec_windows(
 }
 
 pub struct DriverProvider {
+    workspace_mounts: Result<Vec<Arc<dyn semwright_platform_api::launch::WorkspaceMountBinding>>>,
     identity: ProviderIdentity,
     manifest: Manifest,
     capabilities: StdRwLock<Vec<ProvidedCapability>>,
@@ -3481,8 +3514,36 @@ impl DriverProvider {
         allow_network: bool,
         allow_nvidia_gpu: bool,
     ) -> Result<Arc<Self>> {
+        Self::connect_with_gpu_and_stdin_custody(
+            manifest,
+            state,
+            helper,
+            roots,
+            allow_network,
+            allow_nvidia_gpu,
+            None,
+        )
+        .await
+    }
+
+    /// Explicit trusted-owner observation sink for an existing V7 Host tool.
+    /// The default constructors disable it. This adds no execution permission,
+    /// wire fields, public logs, or file destination. Pipe-write terminals are
+    /// currently observed only in the Linux broker; other paths remain NotObserved.
+    pub async fn connect_with_gpu_and_stdin_custody(
+        manifest: Manifest,
+        state: &Path,
+        helper: &Path,
+        roots: &[FilesystemGrant],
+        allow_network: bool,
+        allow_nvidia_gpu: bool,
+        stdin_custody: Option<HostStdinCustody>,
+    ) -> Result<Arc<Self>> {
         validate_owner_permissions(&manifest, roots, allow_network)?;
         validate_nvidia_gpu_permission(&manifest, allow_nvidia_gpu)?;
+        if let Some(custody) = stdin_custody.as_ref() {
+            custody.validate_manifest(&manifest)?;
+        }
         #[cfg(target_os = "windows")]
         {
             semwright_protocol::private_directory(state)?;
@@ -3721,6 +3782,12 @@ impl DriverProvider {
                 }
             }
 
+            let workspace_mounts = owner_workspace_mounts::owner_workspace_mount_bindings(
+                &manifest,
+                &spec,
+                None,
+                child.workspace_mount_bindings(),
+            );
             let closed = CancellationToken::new();
             let terminate = CancellationToken::new();
             let interfaces = if manifest.protocol >= 2 {
@@ -3744,6 +3811,9 @@ impl DriverProvider {
                     manifest.interfaces,
                     manifest.protocol,
                     tool_broker,
+                    stdin_custody
+                        .as_ref()
+                        .map(|custody| custody.bind(identity.clone(), process_id)),
                     closed.clone(),
                     terminate.clone(),
                 );
@@ -3770,6 +3840,7 @@ impl DriverProvider {
             });
 
             Ok(Arc::new(Self {
+                workspace_mounts,
                 identity,
                 manifest,
                 capabilities: StdRwLock::new(provided),
@@ -4045,6 +4116,14 @@ impl DriverProvider {
                 }
             }
 
+            let workspace_mounts = owner_workspace_mounts::owner_workspace_mount_bindings(
+                &manifest,
+                &spec,
+                loopback
+                    .as_deref()
+                    .map(|proxy| (loopback::MOUNT_NAME, proxy.directory())),
+                child.workspace_mount_bindings(),
+            );
             let closed = CancellationToken::new();
             let terminate = CancellationToken::new();
             let interfaces = if manifest.protocol >= 2 {
@@ -4068,6 +4147,9 @@ impl DriverProvider {
                     manifest.interfaces,
                     manifest.protocol,
                     tool_broker,
+                    stdin_custody
+                        .as_ref()
+                        .map(|custody| custody.bind(identity.clone(), process_id)),
                     closed.clone(),
                     terminate.clone(),
                 );
@@ -4094,6 +4176,7 @@ impl DriverProvider {
             });
 
             Ok(Arc::new(Self {
+                workspace_mounts,
                 identity,
                 manifest,
                 capabilities: StdRwLock::new(provided),
@@ -4115,6 +4198,14 @@ impl DriverProvider {
 
     pub fn manifest(&self) -> &Manifest {
         &self.manifest
+    }
+
+    /// Produced only by this instance's platform child after the real driver handshake.
+    /// The error is retained when a platform cannot attest mounts; no path fallback is used.
+    pub fn workspace_mount_bindings(
+        &self,
+    ) -> Result<Vec<Arc<dyn semwright_platform_api::launch::WorkspaceMountBinding>>> {
+        self.workspace_mounts.clone()
     }
 
     async fn exchange(

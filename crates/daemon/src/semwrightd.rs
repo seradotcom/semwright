@@ -1,3 +1,5 @@
+#[cfg(feature = "private-host-stdin-custody")]
+mod host_stdin_custody;
 use clap::Parser;
 use semwright_core::{Approver, Broker, NoApprover, audit::Audit};
 use semwright_daemon::console::Console;
@@ -36,6 +38,9 @@ struct Args {
     approval_console: bool,
     #[arg(long,default_value="pretty",value_parser=["pretty","json"])]
     log_format: String,
+    #[cfg(feature = "private-host-stdin-custody")]
+    #[command(flatten)]
+    stdin_custody: host_stdin_custody::Options,
 }
 fn main() {
     let args = Args::parse();
@@ -87,6 +92,9 @@ async fn run(args: Args) -> Result<()> {
         None => default_endpoint(if args.fake { "fake" } else { "broker" })?,
     };
     let config = config::load(args.config.as_deref())?;
+    #[cfg(feature = "private-host-stdin-custody")]
+    let mut stdin_custody =
+        host_stdin_custody::Bootstrap::prepare(&args.stdin_custody, args.fake, &config.drivers)?;
     let upstream_registry_path = if args.fake && args.mcp_upstreams.is_none() {
         None
     } else {
@@ -149,6 +157,10 @@ async fn run(args: Args) -> Result<()> {
     if let Some(parent) = socket.parent() {
         private_directory(parent)?;
         protected.push(parent.to_path_buf());
+    }
+    #[cfg(feature = "private-host-stdin-custody")]
+    if let Some(custody) = &stdin_custody {
+        protected.push(custody.directory().to_path_buf());
     }
     config::confine_grants(&config, &protected)?;
     // Driver secret/tool authorities may be individual files. Generic filesystem,
@@ -222,7 +234,44 @@ async fn run(args: Args) -> Result<()> {
         ));
     }
     for path in &config.drivers {
+        #[cfg(not(feature = "private-host-stdin-custody"))]
         let manifest = config::driver_manifest(path)?;
+        #[cfg(feature = "private-host-stdin-custody")]
+        let manifest = match &stdin_custody {
+            Some(custody) => custody.manifest(path)?,
+            None => config::driver_manifest(path)?,
+        };
+        #[cfg(feature = "private-host-stdin-custody")]
+        let custody_sink = stdin_custody
+            .as_ref()
+            .and_then(|custody| custody.sink_for(&manifest));
+        #[cfg(feature = "private-host-stdin-custody")]
+        let provider = match custody_sink {
+            Some(sink) => {
+                DriverProvider::connect_with_gpu_and_stdin_custody(
+                    manifest,
+                    &state.join("drivers"),
+                    &sandbox_helper,
+                    &config.policy.filesystem,
+                    config.driver_network,
+                    config.driver_nvidia_gpu,
+                    Some(sink),
+                )
+                .await?
+            }
+            None => {
+                DriverProvider::connect_with_gpu(
+                    manifest,
+                    &state.join("drivers"),
+                    &sandbox_helper,
+                    &config.policy.filesystem,
+                    config.driver_network,
+                    config.driver_nvidia_gpu,
+                )
+                .await?
+            }
+        };
+        #[cfg(not(feature = "private-host-stdin-custody"))]
         let provider = DriverProvider::connect_with_gpu(
             manifest,
             &state.join("drivers"),
@@ -232,7 +281,7 @@ async fn run(args: Args) -> Result<()> {
             config.driver_nvidia_gpu,
         )
         .await?;
-        broker.mount_provider(provider).await?;
+        broker.mount_driver_provider(provider).await?;
     }
     if args.fake && !upstreams.is_empty() {
         return Err(Error::new(
@@ -283,6 +332,55 @@ async fn run(args: Args) -> Result<()> {
         "broker ready; authorization defaults deny side effects"
     );
     let result = server::serve(&socket, broker, stop).await;
+    #[cfg(feature = "private-host-stdin-custody")]
+    if let Some(custody) = &mut stdin_custody {
+        custody.finish().await;
+    }
     drop(platform_keepalive);
     result
+}
+
+#[cfg(test)]
+mod stdin_custody_cli_tests {
+    use super::*;
+
+    #[test]
+    fn ordinary_cli_does_not_enable_custody() {
+        let args = Args::try_parse_from(["semwrightd"]).unwrap();
+        assert!(!args.fake);
+        #[cfg(feature = "private-host-stdin-custody")]
+        assert!(args.stdin_custody.disabled());
+    }
+
+    #[cfg(not(feature = "private-host-stdin-custody"))]
+    #[test]
+    fn diagnostic_flags_are_absent_from_the_default_binary() {
+        for flag in [
+            "--host-stdin-custody-dir",
+            "--host-stdin-custody-provider",
+            "--host-stdin-custody-tool",
+        ] {
+            let error = Args::try_parse_from(["semwrightd", flag, "unused"])
+                .err()
+                .unwrap();
+            assert_eq!(error.kind(), clap::error::ErrorKind::UnknownArgument);
+        }
+    }
+
+    #[cfg(feature = "private-host-stdin-custody")]
+    #[test]
+    fn diagnostic_binary_requires_explicit_cli_selection() {
+        let args = Args::try_parse_from([
+            "semwrightd",
+            "--host-stdin-custody-dir",
+            "unused",
+            "--host-stdin-custody-provider",
+            "driver:fixture",
+            "--host-stdin-custody-tool",
+            "node",
+        ])
+        .unwrap();
+        assert!(!args.stdin_custody.disabled());
+        assert!(host_stdin_custody::Bootstrap::prepare(&args.stdin_custody, true, &[]).is_err());
+    }
 }

@@ -3102,6 +3102,7 @@ dependencies = [
  "libc",
  "proptest",
  "semwright-backend-api",
+ "semwright-driver-host",
  "semwright-backends",
  "semwright-platform-api",
  "semwright-platform-services",

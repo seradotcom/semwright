@@ -31,6 +31,8 @@ use std::{
 
 #[path = "composition.rs"]
 mod composition;
+#[path = "runtime_probe.rs"]
+mod runtime_probe;
 
 const ID: &str = "motion-canvas";
 const SCOPE: &str = "driver:motion-canvas";
@@ -38,6 +40,12 @@ const SCOPE: &str = "driver:motion-canvas";
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct EmptyArgs {}
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+struct DoctorArgs {
+    #[serde(default)]
+    probe_runtime: bool,
+}
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 struct CreateArgs {
@@ -187,6 +195,8 @@ struct DoctorOutput {
     renderer_reason: String,
     active_jobs: usize,
     capability_count: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    runtime_probe: Option<runtime_probe::RuntimeVersionProbe>,
 }
 // Schema-only view for the legacy deep-inspection response. Runtime Project
 // validation remains complete; this avoids recursively embedding Motion authoring IR.
@@ -703,7 +713,7 @@ impl MotionDriver {
 
     fn catalog() -> Result<Vec<Capability>> {
         let mut capabilities = vec![
-            Self::cap::<EmptyArgs, DoctorOutput>(
+            Self::cap::<DoctorArgs, DoctorOutput>(
                 "driver.motion-canvas.doctor",
                 "Inspect bounded Motion Canvas driver and renderer prerequisites",
                 Risk::ReadOnly,
@@ -1036,7 +1046,13 @@ impl MotionDriver {
     async fn dispatch(&mut self, command: &str, args: Value) -> Result<Value> {
         match command {
             "driver.motion-canvas.doctor" => {
-                let _: EmptyArgs = Self::parse(args)?;
+                let input: DoctorArgs = Self::parse(args)?;
+                if input.probe_runtime {
+                    return Err(Error::new(
+                        ErrorCode::ProtocolMismatch,
+                        "Runtime package probe requires Host session context",
+                    ));
+                }
                 Ok(serde_json::to_value(DoctorOutput {
                     driver_version: env!("CARGO_PKG_VERSION").into(),
                     motion_canvas_version: MOTION_CANVAS_VERSION.into(),
@@ -1052,6 +1068,7 @@ impl MotionDriver {
                     renderer_reason: self.renderer_reason.clone(),
                     active_jobs: self.renderer.active_count().await,
                     capability_count: Self::catalog()?.len(),
+                    runtime_probe: None,
                 })?)
             }
             "driver.motion-canvas.semantic.types" => {
@@ -1700,7 +1717,8 @@ impl Driver for MotionDriver {
                 | "driver.motion-canvas.render.status"
                 | "driver.motion-canvas.render.cancel"
                 | "driver.motion-canvas.render.result"
-        );
+        ) || (command == "driver.motion-canvas.doctor"
+            && args.get("probe_runtime") == Some(&Value::Bool(true)));
         if !runtime_command {
             return self.execute(command, digest, args).await;
         }
@@ -1727,6 +1745,22 @@ impl Driver for MotionDriver {
             ));
         }
         let value = match command {
+            "driver.motion-canvas.doctor" => {
+                let input: DoctorArgs = Self::parse(args)?;
+                if !input.probe_runtime
+                    || !self.renderer.available()
+                    || !self.roots.contains_key("runtime")
+                {
+                    return Err(Error::new(
+                        ErrorCode::Unavailable,
+                        "Host-managed Motion Canvas runtime mount is unavailable",
+                    ));
+                }
+                let observed = runtime_probe::inspect(&context).await?;
+                let mut value = self.dispatch(command, json!({})).await?;
+                value["runtime_probe"] = serde_json::to_value(observed)?;
+                value
+            }
             "driver.motion-canvas.render.start" => {
                 let input = self.checked_render_input(args)?;
                 let source = input.expected_fingerprint.clone();
@@ -1889,13 +1923,133 @@ mod tests {
 
     #[test]
     fn capability_catalog_and_manifest_are_stable_goldens() {
+        fn embedded_scalar<T: JsonSchema>() -> Value {
+            let mut schema = MotionDriver::schema::<T>().unwrap();
+            let object = schema.as_object_mut().expect("scalar schema object");
+            object.remove("$schema");
+            object.remove("title");
+            schema
+        }
+
         let catalog = MotionDriver::catalog().unwrap();
-        let digest = semwright_driver_sdk::capabilities_digest(&catalog).unwrap();
+        let composed_digest = semwright_driver_sdk::capabilities_digest(&catalog).unwrap();
+        assert_eq!(
+            composed_digest,
+            "2bd2c4f343243368c929ce49a85e0b8abfb408db9e712e4c458d9e65b00932f4"
+        );
+        let observed_doctor = catalog
+            .iter()
+            .find(|capability| capability.descriptor.name == "driver.motion-canvas.doctor")
+            .expect("doctor capability");
+        eprintln!(
+            "MC_RUNTIME_CATALOG_G1 {}",
+            json!({
+                "schema_version": 1,
+                "capability_count": catalog.len(),
+                "composed_digest": &composed_digest,
+                "doctor_input_schema": &observed_doctor.descriptor.input_schema,
+                "doctor_output_schema": &observed_doctor.descriptor.output_schema,
+            })
+        );
+
+        // Remove only the reviewed doctor extension, retaining the font catalog.
+        let mut font_catalog = catalog.clone();
+        assert_eq!(
+            font_catalog
+                .iter()
+                .filter(|capability| {
+                    capability.descriptor.name == "driver.motion-canvas.doctor"
+                })
+                .count(),
+            1
+        );
+        let doctor = font_catalog
+            .iter_mut()
+            .find(|capability| capability.descriptor.name == "driver.motion-canvas.doctor")
+            .unwrap();
+        let legacy_input = MotionDriver::schema::<EmptyArgs>().unwrap();
+        let mut expected_input = legacy_input.clone();
+        assert_eq!(expected_input["title"], "EmptyArgs");
+        expected_input["title"] = json!("DoctorArgs");
+        expected_input["properties"] = json!({
+            "probe_runtime": {"default": false, "type": "boolean"}
+        });
+        assert_eq!(doctor.descriptor.input_schema, expected_input);
+        doctor.descriptor.input_schema = legacy_input;
+
+        let output = doctor
+            .descriptor
+            .output_schema
+            .as_object_mut()
+            .expect("doctor output schema object");
+        let properties = output
+            .get_mut("properties")
+            .and_then(Value::as_object_mut)
+            .expect("doctor output properties");
+        assert_eq!(properties.len(), 15);
+        assert_eq!(
+            properties.remove("runtime_probe"),
+            Some(json!({"anyOf": [
+                {"$ref": "#/$defs/RuntimeVersionProbe"},
+                {"type": "null"}
+            ]}))
+        );
+        let definitions = output.remove("$defs").expect("doctor probe definitions");
+        let mut definitions = definitions.as_object().unwrap().clone();
+        let mut definition_names = definitions.keys().cloned().collect::<Vec<_>>();
+        definition_names.sort_unstable();
+        assert_eq!(definition_names, ["ProbeState", "RuntimeVersionProbe"]);
+        assert_eq!(
+            definitions.remove("ProbeState"),
+            Some(json!({
+                "type": "string",
+                "enum": ["observed", "package_not_found", "invalid_package", "scope_violation"]
+            }))
+        );
+        let mut probe = definitions.remove("RuntimeVersionProbe").unwrap();
+        probe
+            .get_mut("required")
+            .and_then(Value::as_array_mut)
+            .expect("probe required fields")
+            .sort_by(|left, right| left.as_str().cmp(&right.as_str()));
+        assert_eq!(
+            probe,
+            json!({
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "schema_version": embedded_scalar::<u32>(),
+                    "operation": embedded_scalar::<String>(),
+                    "requested": embedded_scalar::<bool>(),
+                    "source": embedded_scalar::<String>(),
+                    "state": {"$ref": "#/$defs/ProbeState"},
+                    "expected_motion_canvas_version": embedded_scalar::<String>(),
+                    "expected_node_version": embedded_scalar::<String>(),
+                    "observed_node_version": embedded_scalar::<String>(),
+                    "observed_core_version": embedded_scalar::<Option<String>>(),
+                    "observed_two_d_version": embedded_scalar::<Option<String>>(),
+                    "observed_vite_plugin_version": embedded_scalar::<Option<String>>(),
+                    "compatible": embedded_scalar::<Option<bool>>(),
+                    "reason_code": embedded_scalar::<String>(),
+                    "render_performed": embedded_scalar::<bool>(),
+                    "scene_mutation_performed": embedded_scalar::<bool>(),
+                    "browser_probe_performed": embedded_scalar::<bool>()
+                },
+                "required": [
+                    "browser_probe_performed", "expected_motion_canvas_version",
+                    "expected_node_version", "observed_node_version", "operation",
+                    "reason_code", "render_performed", "requested",
+                    "scene_mutation_performed", "schema_version", "source", "state"
+                ]
+            })
+        );
+        assert!(definitions.is_empty());
+        let digest = semwright_driver_sdk::capabilities_digest(&font_catalog).unwrap();
 
         // The reviewed font import extension changes only AssetKind::Font and
         // the optional expected_sha256 input. Recover the prior catalog through
         // exactly those schema deltas before accepting its new fixed golden.
-        let mut legacy_catalog = catalog.clone();
+        let mut legacy_catalog = font_catalog;
         let mut font_schema_owners = Vec::new();
         let mut digest_input_count = 0;
         for capability in &mut legacy_catalog {
@@ -2190,12 +2344,55 @@ mod driver_tests {
             .unwrap();
         assert_eq!(out["motion_canvas_version"], MOTION_CANVAS_VERSION);
         assert_eq!(out["node_version"], NODE_VERSION);
+        assert!(out.get("runtime_probe").is_none());
         assert_eq!(out["network"], false);
         assert_eq!(out["render_available"], false);
         assert_eq!(
             out["capability_count"],
             MotionDriver::catalog().unwrap().len()
         );
+    }
+
+    #[tokio::test]
+    async fn doctor_probe_requires_host_context_and_does_not_mint_observation() {
+        let temp = tempfile::tempdir().unwrap();
+        let mut driver =
+            MotionDriver::for_project_root(&std::fs::canonicalize(temp.path()).unwrap()).unwrap();
+        let error = call(
+            &mut driver,
+            "driver.motion-canvas.doctor",
+            json!({"probe_runtime":true}),
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(error.code, ErrorCode::ProtocolMismatch);
+        assert!(!temp.path().join("evidence").exists());
+    }
+
+    #[tokio::test]
+    async fn doctor_probe_opt_in_is_strict_and_false_preserves_metadata_only() {
+        let temp = tempfile::tempdir().unwrap();
+        let mut driver =
+            MotionDriver::for_project_root(&std::fs::canonicalize(temp.path()).unwrap()).unwrap();
+        for args in [
+            json!({"probe_runtime":"true"}),
+            json!({"probe_runtime":false,"path":"foreign"}),
+        ] {
+            assert!(
+                call(&mut driver, "driver.motion-canvas.doctor", args)
+                    .await
+                    .is_err()
+            );
+        }
+        let output = call(
+            &mut driver,
+            "driver.motion-canvas.doctor",
+            json!({"probe_runtime":false}),
+        )
+        .await
+        .unwrap();
+        assert!(output.get("runtime_probe").is_none());
+        assert_eq!(output["motion_canvas_version"], MOTION_CANVAS_VERSION);
     }
 
     #[tokio::test]

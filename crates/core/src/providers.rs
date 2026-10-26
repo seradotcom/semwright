@@ -1,5 +1,6 @@
 //! The registry and provider leases commit together. No catalog lock crosses an await.
 use super::*;
+use crate::provider_mounts::MountBindings;
 use semwright_backend_api::{NativeProvider, Provider, ProviderSignal};
 use semwright_registry::{CapabilitySnapshot, Metadata};
 use std::ops::{Deref, DerefMut};
@@ -27,6 +28,8 @@ pub(super) struct ProviderLease {
     pub connection: String,
     pub lifetime: CancellationToken,
     pub epoch: CancellationToken,
+    pub binding_epoch: CancellationToken,
+    pub workspace_mounts: Result<MountBindings>,
 }
 impl Deref for ProviderLease {
     type Target = dyn Provider;
@@ -98,7 +101,12 @@ impl ProviderCatalog {
                     generation: 0,
                     connection: unique_id(),
                     lifetime,
+                    binding_epoch: epoch.child_token(),
                     epoch,
+                    workspace_mounts: Err(Error::new(
+                        ErrorCode::Unsupported,
+                        "This provider was not registered by DriverHost",
+                    )),
                 }),
             );
         }
@@ -207,6 +215,33 @@ impl Broker {
     }
     /// Owner-loaded bootstrap only. This is not an unauthenticated wire registration API.
     pub async fn mount_provider(self: &Arc<Self>, provider: Arc<dyn Provider>) -> Result<u64> {
+        self.mount_provider_with_workspace(
+            provider,
+            Err(Error::new(
+                ErrorCode::Unsupported,
+                "This provider was not registered by DriverHost",
+            )),
+        )
+        .await
+    }
+    /// Owner bootstrap only. The concrete DriverProvider cannot be deserialized or supplied
+    /// by an external provider; its captured bindings belong to this same Arc instance.
+    pub async fn mount_driver_provider(
+        self: &Arc<Self>,
+        provider: Arc<semwright_driver_host::DriverProvider>,
+    ) -> Result<u64> {
+        let bindings = provider.workspace_mount_bindings();
+        self.mount_provider_with_workspace(provider, bindings).await
+    }
+    pub(super) async fn mount_provider_with_workspace(
+        self: &Arc<Self>,
+        provider: Arc<dyn Provider>,
+        workspace_mounts: Result<MountBindings>,
+    ) -> Result<u64> {
+        let workspace_mounts = workspace_mounts.and_then(|bindings| {
+            self.validate_owner_workspace_bindings(&bindings)
+                .map(|()| bindings)
+        });
         if self.fake {
             return Err(Error::new(
                 ErrorCode::PolicyDenied,
@@ -258,13 +293,16 @@ impl Broker {
             )
         })??;
         let lifetime = self.runtime_stop.child_token();
+        let epoch = lifetime.child_token();
         let lease = Arc::new(ProviderLease {
             provider,
             identity: identity.clone(),
             generation: candidate.revision(),
             connection: unique_id(),
-            epoch: lifetime.child_token(),
+            binding_epoch: epoch.child_token(),
+            epoch,
             lifetime,
+            workspace_mounts,
         });
         if !lease.active() {
             return Err(Error::unavailable(
@@ -407,13 +445,16 @@ impl Broker {
                 return Err(error);
             }
         };
+        let epoch = lease.lifetime.child_token();
         let updated = Arc::new(ProviderLease {
             provider: lease.provider.clone(),
             identity: lease.identity.clone(),
             generation: candidate.revision(),
             connection: lease.connection.clone(),
             lifetime: lease.lifetime.clone(),
-            epoch: lease.lifetime.child_token(),
+            binding_epoch: epoch.child_token(),
+            epoch,
+            workspace_mounts: lease.workspace_mounts.clone(),
         });
         if !updated.active() {
             return Err(Error::unavailable("Provider is no longer connected"));
@@ -437,6 +478,9 @@ impl Broker {
                 ));
             }
             *catalog = candidate;
+            // Bound operations cannot retain an old admission after ANY generation change.
+            // Preserve the existing optional invalidation semantics for unbound operations.
+            lease.binding_epoch.cancel();
         }
         if invalidate_previous_epoch {
             lease.epoch.cancel();
@@ -527,13 +571,16 @@ impl Broker {
             let mut candidate = catalog.clone();
             let expected = candidate.revision();
             let revision = candidate.touch(expected)?;
+            let epoch = previous.lifetime.child_token();
             let updated = Arc::new(ProviderLease {
                 provider: previous.provider.clone(),
                 identity: previous.identity.clone(),
                 generation: revision,
                 connection: previous.connection.clone(),
                 lifetime: previous.lifetime.clone(),
-                epoch: previous.lifetime.child_token(),
+                binding_epoch: epoch.child_token(),
+                epoch,
+                workspace_mounts: previous.workspace_mounts.clone(),
             });
             if !updated.active() {
                 return Err(Error::unavailable("Provider is no longer connected"));
@@ -542,6 +589,7 @@ impl Broker {
                 .providers
                 .insert(route.to_owned(), updated.clone());
             *catalog = candidate;
+            previous.binding_epoch.cancel();
             (previous, updated, revision)
         };
         previous.epoch.cancel();
