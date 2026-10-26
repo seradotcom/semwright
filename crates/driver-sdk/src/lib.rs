@@ -1,12 +1,7 @@
 //! Versioned application-driver contract. Drivers are providers; this crate has no broker or MCP authority.
 
 pub mod continuity;
-mod operation_permit;
 use async_trait::async_trait;
-pub use operation_permit::{OperationPermit, OperationPermitGuard};
-use operation_permit::{
-    PermitChannel, PermitChannelCloseGuard, PermitInvocation, PermitInvocationCloseGuard,
-};
 pub use semwright_platform_api::launch::NVIDIA_BLENDER_EXECUTABLE;
 use semwright_platform_api::launch::{
     HOST_TOOL_ARG_PREFIX, MountClass, SANDBOX_MOUNTS_ENV, SANDBOX_TOOLS_ENV,
@@ -35,8 +30,7 @@ use tokio_util::sync::CancellationToken;
 
 pub const DRIVER_MANIFEST_VERSION: u32 = 1;
 pub const DRIVER_PROTOCOL_MIN_VERSION: u32 = 1;
-pub const DRIVER_PROTOCOL_VERSION: u32 = 9;
-pub const DRIVER_PROTOCOL_OPERATION_PERMITS: u32 = 9;
+pub const DRIVER_PROTOCOL_VERSION: u32 = 8;
 
 const MAX_TOOL_ARGS: usize = 32;
 const MAX_TOOL_ARG_BYTES: usize = 4 * 1024;
@@ -1330,21 +1324,6 @@ pub enum Request {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         context: Option<DriverRequestContext>,
     },
-    OperationPermitGranted {
-        id: String,
-        parent: String,
-        permit: String,
-        logical_mount: String,
-    },
-    OperationPermitFailure {
-        id: String,
-        parent: String,
-        error: Error,
-    },
-    OperationPermitClose {
-        parent: String,
-        permit: String,
-    },
     ToolResult {
         id: String,
         output: ToolExecutionOutput,
@@ -1419,15 +1398,6 @@ pub enum Response {
     Result {
         id: String,
         value: Value,
-    },
-    OperationPermitAcquire {
-        id: String,
-        parent: String,
-    },
-    OperationPermitRelease {
-        id: String,
-        parent: String,
-        permit: String,
     },
     ToolExecute {
         id: String,
@@ -1550,25 +1520,8 @@ pub struct DriverExecutionContext {
     tool_calls: ToolCallWaiters,
     tool_jobs: ToolJobWaiters,
     tool_sessions: ToolSessionWaiters,
-    operation_permit: Arc<PermitInvocation>,
 }
 impl DriverExecutionContext {
-    /// Acquire a reservation from this admitted invocation before locking app storage.
-    /// Older Host protocols fail locally, without sending an unknown frame.
-    pub async fn acquire_operation_permit(&self) -> Result<OperationPermit> {
-        self.operation_permit
-            .acquire(self.protocol, &self.output)
-            .await
-    }
-
-    /// Enter only a permit issued to this exact opaque invocation instance.
-    pub fn enter_operation_permit<'a>(
-        &self,
-        permit: &'a OperationPermit,
-    ) -> Result<OperationPermitGuard<'a>> {
-        self.operation_permit.enter(permit)
-    }
-
     pub fn request_id(&self) -> &str {
         &self.request_id
     }
@@ -2587,9 +2540,6 @@ async fn serve_v1<D: Driver>(
             | Request::Interfaces { .. }
             | Request::Cancel { .. }
             | Request::Validate { .. }
-            | Request::OperationPermitGranted { .. }
-            | Request::OperationPermitFailure { .. }
-            | Request::OperationPermitClose { .. }
             | Request::ToolResult { .. }
             | Request::ToolFailure { .. }
             | Request::ToolJobStarted { .. }
@@ -2622,8 +2572,6 @@ async fn serve_v2<D: Driver>(
     let tool_calls: ToolCallWaiters = Arc::new(Mutex::new(BTreeMap::new()));
     let tool_jobs: ToolJobWaiters = Arc::new(Mutex::new(BTreeMap::new()));
     let tool_sessions: ToolSessionWaiters = Arc::new(Mutex::new(BTreeMap::new()));
-    let operation_permits = Arc::new(PermitChannel::default());
-    let _permit_channel_close = PermitChannelCloseGuard(operation_permits.clone());
     let (responses, mut response_rx) = mpsc::unbounded_channel::<Response>();
 
     let writer = tokio::spawn(async move {
@@ -2783,17 +2731,12 @@ async fn serve_v2<D: Driver>(
                 let tool_calls = tool_calls.clone();
                 let tool_jobs = tool_jobs.clone();
                 let tool_sessions = tool_sessions.clone();
-                let operation_permits = operation_permits.clone();
                 tasks.spawn(async move {
-                    let permit_invocation =
-                        PermitInvocation::new(id.clone(), &token, operation_permits);
-                    let permit_close = PermitInvocationCloseGuard(permit_invocation.clone());
                     let context = DriverExecutionContext {
                         request_id: id.clone(),
                         session: request_context.session,
                         native_target: request_context.native_target,
                         cancellation: token,
-                        operation_permit: permit_invocation,
                         output: responses.clone(),
                         interfaces,
                         protocol,
@@ -2807,7 +2750,6 @@ async fn serve_v2<D: Driver>(
                             .execute_with_context(&command, &descriptor_sha256, args, context)
                             .await
                     };
-                    drop(permit_close);
                     active.lock().await.remove(&id);
                     let response = match result {
                         Ok(value) => Response::Result { id, value },
@@ -2815,38 +2757,6 @@ async fn serve_v2<D: Driver>(
                     };
                     let _ = responses.send(response);
                 });
-            }
-            Request::OperationPermitGranted {
-                id,
-                parent,
-                permit,
-                logical_mount,
-            } => {
-                if protocol < DRIVER_PROTOCOL_OPERATION_PERMITS {
-                    return Err(Error::new(
-                        ErrorCode::ProtocolMismatch,
-                        "Unnegotiated operation-permit grant",
-                    ));
-                }
-                operation_permits.granted(&id, &parent, &permit, &logical_mount, &responses)?;
-            }
-            Request::OperationPermitFailure { id, parent, error } => {
-                if protocol < DRIVER_PROTOCOL_OPERATION_PERMITS {
-                    return Err(Error::new(
-                        ErrorCode::ProtocolMismatch,
-                        "Unnegotiated operation-permit failure",
-                    ));
-                }
-                operation_permits.failed(&id, &parent, error)?;
-            }
-            Request::OperationPermitClose { parent, permit } => {
-                if protocol < DRIVER_PROTOCOL_OPERATION_PERMITS {
-                    return Err(Error::new(
-                        ErrorCode::ProtocolMismatch,
-                        "Unnegotiated operation-permit close",
-                    ));
-                }
-                operation_permits.close(&parent, &permit)?;
             }
             Request::ToolResult { id, output } => {
                 if protocol < 4 || !interfaces.host_tools {
@@ -3006,7 +2916,6 @@ async fn serve_v2<D: Driver>(
                 if let Some(token) = token {
                     token.cancel();
                 }
-                operation_permits.close_parent(&target);
                 responses
                     .send(Response::Cancelled {
                         id,
@@ -3027,7 +2936,6 @@ async fn serve_v2<D: Driver>(
                 });
             }
             Request::Shutdown { id } => {
-                operation_permits.close_all();
                 for token in active.lock().await.values() {
                     token.cancel();
                 }
@@ -3742,14 +3650,13 @@ mod tests {
     }
 
     fn job_wait_context() -> (DriverExecutionContext, mpsc::UnboundedReceiver<Response>) {
-        let cancellation = CancellationToken::new();
         let (output, receiver) = mpsc::unbounded_channel();
         (
             DriverExecutionContext {
                 request_id: "job-wait-request".into(),
                 session: "owner-session".into(),
                 native_target: None,
-                cancellation: cancellation.clone(),
+                cancellation: CancellationToken::new(),
                 output,
                 interfaces: DriverInterfaces {
                     host_tools: true,
@@ -3759,11 +3666,6 @@ mod tests {
                 tool_calls: Arc::new(Mutex::new(BTreeMap::new())),
                 tool_jobs: Arc::new(Mutex::new(BTreeMap::new())),
                 tool_sessions: Arc::new(Mutex::new(BTreeMap::new())),
-                operation_permit: PermitInvocation::new(
-                    "job-wait-request",
-                    &cancellation,
-                    Arc::new(PermitChannel::default()),
-                ),
             },
             receiver,
         )
@@ -3937,11 +3839,6 @@ mod tests {
             tool_calls: Arc::new(Mutex::new(BTreeMap::new())),
             tool_jobs: tool_jobs.clone(),
             tool_sessions: Arc::new(Mutex::new(BTreeMap::new())),
-            operation_permit: PermitInvocation::new(
-                "runtime-tool-cleanup",
-                &cancellation,
-                Arc::new(PermitChannel::default()),
-            ),
         };
         let job = RuntimeToolJob {
             id: "job-cleanup-1".into(),
@@ -4006,11 +3903,6 @@ mod tests {
             tool_calls: Arc::new(Mutex::new(BTreeMap::new())),
             tool_jobs: Arc::new(Mutex::new(BTreeMap::new())),
             tool_sessions: tool_sessions.clone(),
-            operation_permit: PermitInvocation::new(
-                "runtime-session-test",
-                &cancellation,
-                Arc::new(PermitChannel::default()),
-            ),
         };
 
         let start_context = context.clone();
@@ -4198,13 +4090,12 @@ mod tests {
 
     #[test]
     fn runtime_tool_mode_hides_platform_specific_execution() {
-        let cancellation = CancellationToken::new();
         let (output, _receiver) = mpsc::unbounded_channel();
         let context = DriverExecutionContext {
             request_id: "runtime-tool-test".into(),
             session: "owner-session".into(),
             native_target: None,
-            cancellation: cancellation.clone(),
+            cancellation: CancellationToken::new(),
             output,
             interfaces: DriverInterfaces {
                 host_tools: true,
@@ -4214,11 +4105,6 @@ mod tests {
             tool_calls: Arc::new(Mutex::new(BTreeMap::new())),
             tool_jobs: Arc::new(Mutex::new(BTreeMap::new())),
             tool_sessions: Arc::new(Mutex::new(BTreeMap::new())),
-            operation_permit: PermitInvocation::new(
-                "runtime-tool-test",
-                &cancellation,
-                Arc::new(PermitChannel::default()),
-            ),
         };
 
         #[cfg(target_os = "windows")]

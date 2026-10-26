@@ -476,51 +476,14 @@ fn publish(directory: Arc<PrivateDirectory>, name: String, bytes: Vec<u8>) -> Re
     directory.write_new(&name, &bytes)
 }
 
-trait CaptureQueue {
-    fn recv(&mut self) -> impl std::future::Future<Output = Option<HostStdinCapture>> + Send + '_;
-    fn close(&mut self);
-}
-impl CaptureQueue for HostStdinCustodyReceiver {
-    fn recv(&mut self) -> impl std::future::Future<Output = Option<HostStdinCapture>> + Send + '_ {
-        HostStdinCustodyReceiver::recv(self)
-    }
-    fn close(&mut self) {
-        HostStdinCustodyReceiver::close(self);
-    }
-}
 async fn drain(
     directory: Arc<PrivateDirectory>,
     provider: ProviderIdentity,
     tool: String,
-    receiver: HostStdinCustodyReceiver,
+    mut receiver: HostStdinCustodyReceiver,
     sink: HostStdinCustody,
     stop: CancellationToken,
 ) {
-    drain_with(
-        directory,
-        provider,
-        tool,
-        receiver,
-        sink,
-        stop,
-        |capture: HostStdinCapture| capture.terminal(),
-    )
-    .await;
-}
-async fn drain_with<Q, F, T, E>(
-    directory: Arc<PrivateDirectory>,
-    provider: ProviderIdentity,
-    tool: String,
-    mut receiver: Q,
-    sink: HostStdinCustody,
-    stop: CancellationToken,
-    mut terminal_for: F,
-) where
-    Q: CaptureQueue + Send,
-    F: FnMut(HostStdinCapture) -> T + Send,
-    T: std::future::Future<Output = std::result::Result<HostStdinWriteTerminal, E>> + Send,
-    E: Send,
-{
     let mut budget = Budget::default();
     let mut process_id = None;
     let mut captured = 0usize;
@@ -573,7 +536,7 @@ async fn drain_with<Q, F, T, E>(
         captured += 1;
         let terminal = tokio::select! {
             biased;
-            terminal = terminal_for(capture) => match terminal {
+            terminal = capture.terminal() => match terminal {
                 Ok(terminal) => terminal_metadata(terminal),
                 Err(_) => {
                     incomplete = true;
@@ -653,7 +616,3 @@ async fn drain_with<Q, F, T, E>(
 #[cfg(test)]
 #[path = "host_stdin_custody_tests.rs"]
 mod tests;
-
-#[cfg(all(test, target_os = "linux"))]
-#[path = "host_stdin_custody_bridge_tests.rs"]
-mod bridge_tests;

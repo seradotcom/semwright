@@ -120,22 +120,6 @@ fn relative(path: &str) -> Result<()> {
         "artifact path characters",
     )
 }
-
-/// Validate the declared Linux target namespace without consulting the host OS.
-/// Keep the supplied bytes: preparation does not resolve, open, or authorize a root.
-fn target_linux_root(path: &str) -> Result<()> {
-    ensure(
-        path.starts_with('/')
-            && !path.contains('\\')
-            && !path.chars().any(char::is_control)
-            && (path == "/"
-                || path[1..]
-                    .split('/')
-                    .all(|part| !part.is_empty() && part != "." && part != "..")),
-        "normalized absolute Linux target path required",
-    )
-}
-
 fn absolute(path: &Path) -> Result<()> {
     ensure(
         path.is_absolute()
@@ -234,7 +218,7 @@ fn validate_definition(d: &SpecificationInput) -> Result<()> {
         "application root count",
     )?;
     for p in &d.application_roots {
-        target_linux_root(p)?;
+        absolute(Path::new(p))?;
     }
     ensure(
         (1..=16).contains(&d.artifacts.len()) && (1..=64).contains(&d.checks.len()),
@@ -336,9 +320,7 @@ fn validate_definition(d: &SpecificationInput) -> Result<()> {
     }
     ensure(used.len() == artifacts.len(), "unused artifact binding")
 }
-/// Pure canonical data preparation for the Linux descriptor-relative read profile.
-/// Application roots name the target Linux namespace on every preparation host.
-/// It does not inspect or execute an application,
+/// Pure canonical data preparation. It does not inspect or execute an application,
 /// grant filesystem access, or authenticate the supplied context declarations.
 pub fn prepare_spec(definition: SpecificationInput) -> Result<ProtectedSpec> {
     validate_definition(&definition)?;

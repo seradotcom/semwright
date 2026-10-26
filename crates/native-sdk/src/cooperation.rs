@@ -407,21 +407,6 @@ impl CallContext {
             .as_ref()
             .ok_or_else(|| Error::new(ErrorCode::PermissionDenied, "No Driver Host context"))
     }
-    /// Reserve the already authorized current Host operation before app storage locks.
-    #[cfg(feature = "driver")]
-    pub async fn acquire_operation_permit(&self) -> Result<crate::driver_sdk::OperationPermit> {
-        self.driver_context()?.acquire_operation_permit().await
-    }
-
-    /// Borrow only the reservation belonging to this genuine invocation.
-    #[cfg(feature = "driver")]
-    pub fn enter_operation_permit<'a>(
-        &self,
-        permit: &'a crate::driver_sdk::OperationPermit,
-    ) -> Result<crate::driver_sdk::OperationPermitGuard<'a>> {
-        self.driver_context()?.enter_operation_permit(permit)
-    }
-
     #[cfg(feature = "driver")]
     pub(crate) fn from_host(
         host: crate::DriverExecutionContext,
