@@ -2700,7 +2700,7 @@ async fn real_mlt_video_driver_runs_inside_sandbox() -> AudioLiveResult<()> {
                     secondary.as_ref(),
                 );
             }
-            return Err(Box::new(original));
+            return Err(Box::new(original) as Box<dyn std::error::Error + Send + Sync>);
         }
         Ok(provider) => {
             if let Err(original) = retained {
