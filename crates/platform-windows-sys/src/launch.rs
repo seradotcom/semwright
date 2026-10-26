@@ -13,9 +13,9 @@ use semwright_platform_api::launch::{
     ExecutableVerifier, MaterializedMount, MaterializedTool, Mount, MountClass,
     SANDBOX_HOST_TOOL_CHILD_ENV, SANDBOX_HOST_TOOL_CWD_ENV, SANDBOX_HOST_TOOL_TYPED_ARGS_ENV,
     SANDBOX_MOUNTS_ENV, SANDBOX_TOOLS_ENV, SandboxChildControl, SandboxCpuAccounting,
-    SandboxLauncher, SandboxProcess, SandboxSpec, SealedToolSource, decode_materialized_mounts,
-    decode_materialized_tools, encode_materialized_mounts, encode_materialized_tools,
-    resolve_host_tool_args,
+    SandboxLauncher, SandboxProcess, SandboxSpec, SealedToolSource, WorkspaceMountBinding,
+    decode_materialized_mounts, decode_materialized_tools, encode_materialized_mounts,
+    encode_materialized_tools, resolve_host_tool_args,
 };
 use semwright_types::{Error, ErrorCode, Result, unique_id};
 use sha2::{Digest, Sha256};
@@ -27,7 +27,7 @@ use std::{
     os::windows::{
         ffi::OsStrExt,
         fs::OpenOptionsExt,
-        io::{AsRawHandle, FromRawHandle},
+        io::{AsRawHandle, FromRawHandle, OwnedHandle},
     },
     path::{Component, Path},
     sync::Arc,
@@ -98,6 +98,9 @@ use windows::Win32::{
     },
 };
 use windows::core::{BOOL, PCWSTR, PWSTR};
+
+mod workspace_mount_binding;
+use workspace_mount_binding::WindowsWorkspaceMountState;
 
 const MAX_EXECUTABLE: u64 = 64 * 1024 * 1024;
 const MAX_APPLICATION_EXECUTABLE: u64 = 512 * 1024 * 1024;
@@ -719,6 +722,13 @@ unsafe impl Send for NativeHandle {}
 impl NativeHandle {
     fn raw(&self) -> HANDLE {
         self.0
+    }
+
+    fn into_owned_handle(mut self) -> OwnedHandle {
+        let raw = self.0.0;
+        self.0 = HANDLE::default();
+        // SAFETY: ownership of this live HANDLE transfers to the standard owned guard.
+        unsafe { OwnedHandle::from_raw_handle(raw) }
     }
 
     fn into_file(mut self) -> File {
@@ -1455,6 +1465,7 @@ fn validate_mount_tree(root: &Path) -> Result<(FileIdentity, bool)> {
 }
 
 struct PreparedMountGrant {
+    workspace_mount: Option<Mount>,
     path: Vec<u16>,
     identity: FileIdentity,
     materialized: MaterializedMount,
@@ -1515,6 +1526,7 @@ fn prepare_mount_grant(mount: &Mount) -> Result<PreparedMountGrant> {
             | DELETE.0;
     }
     Ok(PreparedMountGrant {
+        workspace_mount: (mount.class == MountClass::Workspace).then(|| mount.clone()),
         path: wide_null(mount.source.as_os_str())?,
         identity,
         materialized: MaterializedMount {
@@ -1551,6 +1563,7 @@ fn prepare_tool_staging_traverse(staging_root: &Path) -> Result<PreparedMountGra
         .ok_or_else(|| Error::invalid("Windows sealed-tool staging root must be Unicode"))?
         .to_owned();
     Ok(PreparedMountGrant {
+        workspace_mount: None,
         path: wide_null(staging_root.as_os_str())?,
         identity,
         materialized: MaterializedMount {
@@ -1576,6 +1589,7 @@ fn prepare_tool_staging_traverse(staging_root: &Path) -> Result<PreparedMountGra
 }
 
 struct WindowsMountGrant {
+    workspace_binding: Result<Option<Arc<WindowsWorkspaceMountState>>>,
     path: Vec<u16>,
     sid: Vec<u8>,
     active: bool,
@@ -1585,6 +1599,7 @@ struct WindowsMountGrant {
 impl WindowsMountGrant {
     fn grant(prepared: &PreparedMountGrant, sid: PSID) -> Result<Self> {
         let sid_bytes = copy_sid_bytes(sid)?;
+        let workspace_binding = WindowsWorkspaceMountState::prepare(prepared, &sid_bytes);
         let owned_sid = PSID(sid_bytes.as_ptr().cast_mut().cast());
         if dacl_has_sid(&prepared.path, owned_sid)? {
             return Err(Error::new(
@@ -1645,7 +1660,15 @@ impl WindowsMountGrant {
                 "Windows sandbox mount allow/deny ACE verification failed",
             ));
         }
+        // A capsule failure grants no owner authority but does not change ordinary launch.
+        let workspace_binding = workspace_binding.and_then(|binding| {
+            if let Some(state) = &binding {
+                state.activate()?;
+            }
+            Ok(binding)
+        });
         Ok(Self {
+            workspace_binding,
             path: prepared.path.clone(),
             sid: sid_bytes,
             active: true,
@@ -1667,6 +1690,7 @@ impl WindowsMountGrant {
             prepared.inheritance,
         )?;
         Ok(Self {
+            workspace_binding: Ok(None),
             path: prepared.path.clone(),
             sid: sid_bytes,
             active: true,
@@ -1675,6 +1699,9 @@ impl WindowsMountGrant {
     }
 
     fn revoke(&mut self) -> Result<()> {
+        if let Ok(Some(binding)) = &self.workspace_binding {
+            binding.invalidate();
+        }
         if !self.active {
             return Ok(());
         }
@@ -2238,6 +2265,19 @@ impl NativeSandboxChild {
 impl SandboxChildControl for NativeSandboxChild {
     fn id(&self) -> Option<u32> {
         Some(self.pid)
+    }
+
+    fn workspace_mount_bindings(&self) -> Result<Vec<Arc<dyn WorkspaceMountBinding>>> {
+        if self.exited {
+            return Err(Error::new(
+                ErrorCode::StaleReference,
+                "Sandbox process has already exited",
+            ));
+        }
+        workspace_mount_binding::capture_workspace_mount_bindings(
+            &self.mount_grants,
+            self.process.raw(),
+        )
     }
 
     async fn kill(&mut self) -> Result<()> {
