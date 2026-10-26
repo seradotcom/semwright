@@ -139,18 +139,6 @@ pub struct Invocation {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Primitive {
-    /// Literal local geometry, restricted to the five declared channels.
-    GeometrySet {
-        target: String,
-        channel: Channel,
-        value: Operand,
-    },
-    GeometryTween {
-        target: String,
-        channel: Channel,
-        from: Operand,
-        to: Operand,
-    },
     FadeIn {
         target: String,
     },
@@ -325,8 +313,6 @@ pub enum Primitive {
 impl Primitive {
     pub fn name(&self) -> &'static str {
         match self {
-            Self::GeometrySet { .. } => "geometry_set",
-            Self::GeometryTween { .. } => "geometry_tween",
             Self::FadeIn { .. } => "fade_in",
             Self::FadeOut { .. } => "fade_out",
             Self::SlideIn { .. } => "slide_in",
@@ -371,7 +357,6 @@ impl Primitive {
     }
     pub fn references(&self) -> Vec<&str> {
         match self {
-            Self::GeometrySet { target, .. } | Self::GeometryTween { target, .. } => vec![target],
             Self::Connect { path, from, to } => vec![path, from, to],
             Self::Group {
                 targets, anchor, ..
@@ -446,23 +431,6 @@ impl Primitive {
                 })
         };
         match self {
-            Self::GeometrySet {
-                target,
-                channel,
-                value,
-            } => {
-                validate_geometry_operand(content(target)?, *channel, value)?;
-            }
-            Self::GeometryTween {
-                target,
-                channel,
-                from,
-                to,
-            } => {
-                let target_content = content(target)?;
-                validate_geometry_operand(target_content, *channel, from)?;
-                validate_geometry_operand(target_content, *channel, to)?;
-            }
             Self::SlideIn { offset, .. }
             | Self::SlideOut { offset, .. }
             | Self::CarryForward { offset, .. }
@@ -627,30 +595,6 @@ impl Primitive {
         Ok(())
     }
 }
-fn validate_geometry_operand(
-    target: &SubjectContent,
-    channel: Channel,
-    value: &Operand,
-) -> Result<()> {
-    use crate::validate::{finite, point};
-    match (channel, value) {
-        (Channel::Position, Operand::Vector(position)) => point(*position),
-        (Channel::Scale, Operand::Vector(scale)) => {
-            finite(scale.x, 0.01, 10.0)?;
-            finite(scale.y, 0.01, 10.0)
-        }
-        (Channel::Rotation, Operand::Number(rotation)) => finite(*rotation, -360.0, 360.0),
-        (Channel::Width | Channel::Height, Operand::Number(size)) => {
-            ensure(!matches!(target, SubjectContent::Camera { .. }),
-                "geometry dimensions require a layout-capable subject")?;
-            finite(*size, 0.0, 16384.0)?;
-            ensure(*size > 0.0, "geometry dimensions must be strictly positive")
-        }
-        _ => Err(Error::Invalid(
-            "geometry requires a literal vector for position/scale or a literal number for rotation/width/height".into(),
-        )),
-    }
-}
 fn tween(target: &str, channel: Channel, from: Option<Operand>, to: Operand) -> NativeOp {
     NativeOp::Tween {
         target: target.into(),
@@ -698,41 +642,6 @@ pub fn compile_grammar(
         let zero = Q::ZERO;
         let one = Q::ONE;
         match &invocation.primitive {
-            GeometrySet {
-                target,
-                channel,
-                value,
-            } => {
-                ensure(
-                    duration > Q::ZERO,
-                    "geometry invocation span must have positive duration",
-                )?;
-                add(
-                    NativeOp::Set {
-                        target: target.clone(),
-                        channel: *channel,
-                        value: value.clone(),
-                    },
-                    zero,
-                    zero,
-                )?;
-            }
-            GeometryTween {
-                target,
-                channel,
-                from,
-                to,
-            } => {
-                ensure(
-                    duration > Q::ZERO,
-                    "geometry invocation span must have positive duration",
-                )?;
-                add(
-                    tween(target, *channel, Some(from.clone()), to.clone()),
-                    zero,
-                    one,
-                )?;
-            }
             FadeIn { target } => add(
                 tween(target, Opacity, Some(Number(0.0)), Number(1.0)),
                 zero,

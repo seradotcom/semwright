@@ -141,7 +141,7 @@ fn tool_job_capability() -> Capability {
             input_schema: json!({
                 "type":"object",
                 "properties":{
-                    "action":{"enum":["start","start_stdin_custody","status","cancel"]},
+                    "action":{"enum":["start","status","cancel"]},
                     "job":{"type":"string","minLength":1,"maxLength":128},
                     "sleep_ms":{"type":"integer","minimum":1,"maximum":5000},
                     "cwd_mount":{"type":"string","minLength":1,"maxLength":64},
@@ -875,7 +875,7 @@ impl Driver for Fixture {
                 .and_then(Value::as_str)
                 .ok_or_else(|| Error::invalid("fixture tool job action is required"))?;
             return match action {
-                "start" | "start_stdin_custody" => {
+                "start" => {
                     if args.get("job").is_some() {
                         return Err(Error::invalid(
                             "fixture tool job start does not accept a job id",
@@ -902,30 +902,15 @@ impl Driver for Fixture {
                                 mount: mount.to_owned(),
                                 relative: String::new(),
                             });
-                    let job = if action == "start_stdin_custody" {
-                        context
-                            .start_runtime_tool_job_args(
-                                "probe",
-                                tool_args
-                                    .into_iter()
-                                    .map(|value| RuntimeToolArg::Literal { value })
-                                    .collect(),
-                                b"semwright-custody-v7\0payload\n".to_vec(),
-                                std::time::Duration::from_secs(10),
-                                cwd,
-                            )
-                            .await?
-                    } else {
-                        context
-                            .start_runtime_tool_job(
-                                "probe",
-                                tool_args,
-                                Vec::new(),
-                                std::time::Duration::from_secs(10),
-                                cwd,
-                            )
-                            .await?
-                    };
+                    let job = context
+                        .start_runtime_tool_job(
+                            "probe",
+                            tool_args,
+                            Vec::new(),
+                            std::time::Duration::from_secs(10),
+                            cwd,
+                        )
+                        .await?;
                     Ok(json!({"job":job.id,"state":"running"}))
                 }
                 "status" | "cancel" => {

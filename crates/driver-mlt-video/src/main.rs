@@ -99,168 +99,6 @@ struct MltVideoDriver {
     host_render_jobs: HostRenderJobs,
 }
 
-// Original results from this Driver's existing Host calls. Raw data remains in
-// the already-granted private output Root and never enters public errors.
-struct Ffv1HostCustody {
-    output: std::sync::Arc<Root>,
-    output_path: String,
-    request: Vec<u8>,
-}
-
-fn finish_ffv1_host_original<T>(original: Result<T>, custody: Result<()>) -> Result<T> {
-    match original {
-        Err(error) => Err(error),
-        Ok(value) => custody.map(|()| value).map_err(Error::uncertain),
-    }
-}
-
-impl Ffv1HostCustody {
-    fn new(app: &App, command: &str, descriptor: &str, args: &Value) -> Result<Self> {
-        use semwright_mlt_video::runtime as rt;
-        if command != "driver.mlt-video.frames.encode" {
-            return Err(Error::invalid("FFV1 custody is closed to frames.encode"));
-        }
-        let output_path = args
-            .get("output_path")
-            .and_then(Value::as_str)
-            .ok_or_else(|| Error::invalid("FFV1 original output is absent"))?
-            .to_owned();
-        let output =
-            app.roots.get("output").cloned().ok_or_else(|| {
-                Error::new(ErrorCode::Unavailable, "Original output grant is absent")
-            })?;
-        rt::preflight_ffv1_custody(&output, &output_path, true).map_err(map_error)?;
-        // This one serialized Vec is retained now and cloned unchanged into the
-        // existing start_runtime_tool_job_args call. It is not reconstructed.
-        let request = serde_json::to_vec(&serde_json::json!({
-            "command":command,"descriptor_sha256":descriptor,"args":args
-        }))?;
-        rt::retain_ffv1_original(
-            &output,
-            &format!("{output_path}.ffv1-host.stdin.original.bin"),
-            &request,
-            rt::FFV1_CUSTODY_STDIN,
-        )
-        .map_err(map_error)?;
-        Ok(Self {
-            output,
-            output_path,
-            request,
-        })
-    }
-
-    fn catalog_stdin(&self, input: &[u8]) -> Result<()> {
-        if !input.is_empty() {
-            return Err(Error::invalid("Original discover stdin changed"));
-        }
-        semwright_mlt_video::runtime::retain_ffv1_original(
-            &self.output,
-            &format!("{}.ffv1-catalog.stdin.original.bin", self.output_path),
-            input,
-            semwright_mlt_video::runtime::FFV1_CUSTODY_STDIN,
-        )
-        .map_err(map_error)?;
-        Ok(())
-    }
-
-    fn record(
-        &self,
-        family: &str,
-        job: Option<&RuntimeToolJob>,
-        state: &str,
-        output: Option<(i32, &[u8], &[u8])>,
-        original_error: Option<&Error>,
-    ) -> Result<()> {
-        use semwright_mlt_video::runtime as rt;
-        if !matches!(family, "host" | "catalog")
-            || !matches!(
-                state,
-                "start-returned-error"
-                    | "wait-returned-error"
-                    | "host-returned-error"
-                    | "completed"
-            )
-        {
-            return Err(Error::invalid("FFV1 custody terminal label changed"));
-        }
-        if let Some(job) = job {
-            job.validate()?;
-        }
-        let mut custody_error = None;
-        let mut retain = |name: &str, bytes: &[u8]| {
-            let prefix = &bytes[..bytes.len().min(rt::FFV1_CUSTODY_HOST_STREAM)];
-            let path = format!("{}.ffv1-{family}.{name}.original.bin", self.output_path);
-            let retained = match rt::retain_ffv1_original(
-                &self.output,
-                &path,
-                prefix,
-                rt::FFV1_CUSTODY_HOST_STREAM,
-            ) {
-                Ok(_) => true,
-                Err(error) => {
-                    if custody_error.is_none() {
-                        custody_error = Some(map_error(error));
-                    }
-                    false
-                }
-            };
-            if bytes.len() > prefix.len() && custody_error.is_none() {
-                custody_error = Some(
-                    Error::new(
-                        ErrorCode::ResourceExhausted,
-                        "Original Host buffer exceeds FFV1 custody limit",
-                    )
-                    .uncertain(),
-                );
-            }
-            serde_json::json!({"root":"output","path":path,"sha256":sha256(prefix),
-                "bytes":prefix.len(),"delivered_buffer_bytes":bytes.len(),
-                "delivered_buffer_sha256":sha256(bytes),"diagnostic_prefix_truncated":bytes.len()>prefix.len(),
-                "retained":retained,"stream_eof_attested":false})
-        };
-        let (exit_code, stdout, stderr) = match output {
-            Some((exit, stdout, stderr)) => (
-                Some(exit),
-                Some(retain("stdout", stdout)),
-                Some(retain("stderr", stderr)),
-            ),
-            None => (None, None, None),
-        };
-        let stdin = if family == "catalog" {
-            &[][..]
-        } else {
-            self.request.as_slice()
-        };
-        let document = serde_json::json!({
-            "schema":"semwright.ffv1-host-original/1","host_stage":family,"state":state,
-            "output_path":self.output_path,"runtime_job_id":job.map(|job|job.id.as_str()),
-            "runtime_job_id_exposed":job.is_some(),"host_exit_code":exit_code,
-            "stdin":{"root":"output","path":format!("{}.ffv1-{family}.stdin.original.bin",self.output_path),
-                "sha256":sha256(stdin),"bytes":stdin.len()},
-            "stdin_scope":if family=="catalog" {"same-empty-Vec-supplied-to-existing-discover-call"}
-                else {"same-serialized-Vec-supplied-to-existing-AV-job-start"},
-            "stdin_delivery_confirmed":if output.is_some() {Some(true)} else {None},
-            "stdout":stdout,"stderr":stderr,"original_error":original_error,
-            "stream_eof_attested":false,"native_execution_retried":false,"physical_acceptance":false,
-            "capture_scope":"same-existing-Host-return-before-parse-and-public-redaction"
-        });
-        let bytes = serde_json::to_vec(&document)?;
-        if let Err(error) = rt::retain_ffv1_original(
-            &self.output,
-            &format!("{}.ffv1-{family}.terminal.original.json", self.output_path),
-            &bytes,
-            rt::FFV1_CUSTODY_METADATA,
-        ) && custody_error.is_none()
-        {
-            custody_error = Some(map_error(error));
-        }
-        match custody_error {
-            Some(error) => Err(error.uncertain()),
-            None => Ok(()),
-        }
-    }
-}
-
 fn now_ms() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -899,7 +737,6 @@ impl MltVideoDriver {
         descriptor: &str,
         args: &Value,
         context: &DriverExecutionContext,
-        custody: Option<&Ffv1HostCustody>,
     ) -> Result<Value> {
         let literal = |value: &str| RuntimeToolArg::Literal {
             value: value.to_owned(),
@@ -911,13 +748,7 @@ impl MltVideoDriver {
         let tool = |name: &str| RuntimeToolArg::ToolPath {
             tool: name.to_owned(),
         };
-        let request = match custody {
-            Some(custody) => custody.request.clone(),
-            None => serde_json::to_vec(&serde_json::json!({
-                "command":command,"descriptor_sha256":descriptor,"args":args
-            }))?,
-        };
-        let started = context
+        let job = context
             .start_runtime_tool_job_args(
                 "mlt-runner",
                 vec![
@@ -937,69 +768,34 @@ impl MltVideoDriver {
                     literal("--output-root"),
                     mount("output"),
                 ],
-                request,
+                serde_json::to_vec(&serde_json::json!({
+                    "command": command, "descriptor_sha256": descriptor, "args": args,
+                }))?,
                 Duration::from_secs(300),
                 None,
             )
-            .await;
-        let job = match started {
-            Ok(job) => job,
-            Err(original) => {
-                let retained = custody
-                    .map(|c| c.record("host", None, "start-returned-error", None, Some(&original)))
-                    .unwrap_or(Ok(()));
-                return finish_ffv1_host_original(Err(original), retained);
-            }
-        };
-        let result = match context.wait_runtime_tool_job(&job).await {
-            Ok(result) => result,
-            Err(original) => {
-                let retained = custody
-                    .map(|c| {
-                        c.record(
-                            "host",
-                            Some(&job),
-                            "wait-returned-error",
-                            None,
-                            Some(&original),
-                        )
-                    })
-                    .unwrap_or(Ok(()));
-                return finish_ffv1_host_original(Err(original), retained);
-            }
-        };
-        let retained = custody
-            .map(|c| {
-                c.record(
-                    "host",
-                    Some(&job),
-                    "completed",
-                    Some((result.exit_code, &result.stdout, &result.stderr)),
-                    None,
-                )
-            })
-            .unwrap_or(Ok(()));
-        let original = (|| -> Result<Value> {
-            if result.exit_code != 0 {
-                let mut error = host_av_operation_failure(&result.stdout);
-                error.outcome_known = matches!(
-                    command,
-                    "driver.mlt-video.sync.probe" | "driver.mlt-video.av.caption_pixels.verify"
-                );
-                return Err(error);
-            }
-            let value: Value = serde_json::from_slice(&result.stdout).map_err(|_| {
-                Error::new(
-                    ErrorCode::PluginProtocolError,
-                    "Host AV tool returned malformed JSON",
-                )
-            })?;
-            self.app
-                .validate_output(command, &to_internal(&value)?)
-                .map_err(map_error)?;
-            Ok(value)
-        })();
-        finish_ffv1_host_original(original, retained)
+            .await?;
+        let result = context.wait_runtime_tool_job(&job).await?;
+        if result.exit_code != 0 {
+            let mut error = host_av_operation_failure(&result.stdout);
+            // The tool may have published before an error or cancellation. The
+            // original artifact is reconciled by its digest; never assume rollback.
+            error.outcome_known = matches!(
+                command,
+                "driver.mlt-video.sync.probe" | "driver.mlt-video.av.caption_pixels.verify"
+            );
+            return Err(error);
+        }
+        let value: Value = serde_json::from_slice(&result.stdout).map_err(|_| {
+            Error::new(
+                ErrorCode::PluginProtocolError,
+                "Host AV tool returned malformed JSON",
+            )
+        })?;
+        self.app
+            .validate_output(command, &to_internal(&value)?)
+            .map_err(map_error)?;
+        Ok(value)
     }
 
     async fn host_probe_staged(
@@ -1935,11 +1731,7 @@ impl MltVideoDriver {
         Ok(job.snapshot.clone())
     }
 
-    async fn ensure_host_catalog(
-        &mut self,
-        context: &DriverExecutionContext,
-        custody: Option<&Ffv1HostCustody>,
-    ) -> Result<()> {
+    async fn ensure_host_catalog(&mut self, context: &DriverExecutionContext) -> Result<()> {
         if self.host_catalog_verified || std::env::var_os("SEMWRIGHT_DRIVER_HOST_TOOLS").is_none() {
             return Ok(());
         }
@@ -1948,10 +1740,6 @@ impl MltVideoDriver {
             .runtime
             .as_ref()
             .map(|runtime| runtime.catalog.clone());
-        let input = Vec::new();
-        if let Some(custody) = custody {
-            custody.catalog_stdin(&input)?;
-        }
         let output = context
             .execute_runtime_tool_args(
                 "mlt-runner",
@@ -1973,71 +1761,38 @@ impl MltVideoDriver {
                         tool: "melt".into(),
                     },
                 ],
-                input,
+                Vec::new(),
                 std::time::Duration::from_secs(30),
                 None,
             )
-            .await;
-        let output = match output {
-            Ok(output) => output,
-            Err(original) => {
-                let retained = custody
-                    .map(|c| {
-                        c.record(
-                            "catalog",
-                            None,
-                            "host-returned-error",
-                            None,
-                            Some(&original),
-                        )
-                    })
-                    .unwrap_or(Ok(()));
-                return finish_ffv1_host_original(Err(original), retained);
-            }
+            .await?;
+        if output.exit_code != 0 {
+            let detail = host_runner_failure(&output.stdout);
+            return Err(Error::new(
+                ErrorCode::BackendFailed,
+                match detail {
+                    Some(detail) => format!("Host-mediated MLT discovery runner failed: {detail}"),
+                    None => "Host-mediated MLT discovery runner failed".into(),
+                },
+            ));
+        }
+        let observed = host_catalog(&output.stdout)?;
+        if let Some(legacy) = legacy_catalog
+            && (observed.version != legacy.version || observed.groups != legacy.groups)
+        {
+            return Err(Error::new(
+                ErrorCode::BackendFailed,
+                "Host-mediated and legacy MLT discovery catalogs diverged",
+            ));
+        }
+        self.app.catalog = Some(observed);
+        self.app.runtime_reason = if self.app.runtime.is_some() {
+            "Host-mediated MLT catalog verified against the transitional legacy runtime".into()
+        } else {
+            "Host-mediated MLT catalog verified from owner-pinned runtime tools".into()
         };
-        let retained = custody
-            .map(|c| {
-                c.record(
-                    "catalog",
-                    None,
-                    "completed",
-                    Some((output.exit_code, &output.stdout, &output.stderr)),
-                    None,
-                )
-            })
-            .unwrap_or(Ok(()));
-        let original = (|| -> Result<()> {
-            if output.exit_code != 0 {
-                let detail = host_runner_failure(&output.stdout);
-                return Err(Error::new(
-                    ErrorCode::BackendFailed,
-                    match detail {
-                        Some(detail) => {
-                            format!("Host-mediated MLT discovery runner failed: {detail}")
-                        }
-                        None => "Host-mediated MLT discovery runner failed".into(),
-                    },
-                ));
-            }
-            let observed = host_catalog(&output.stdout)?;
-            if let Some(legacy) = legacy_catalog
-                && (observed.version != legacy.version || observed.groups != legacy.groups)
-            {
-                return Err(Error::new(
-                    ErrorCode::BackendFailed,
-                    "Host-mediated and legacy MLT discovery catalogs diverged",
-                ));
-            }
-            self.app.catalog = Some(observed);
-            self.app.runtime_reason = if self.app.runtime.is_some() {
-                "Host-mediated MLT catalog verified against the transitional legacy runtime".into()
-            } else {
-                "Host-mediated MLT catalog verified from owner-pinned runtime tools".into()
-            };
-            self.host_catalog_verified = true;
-            Ok(())
-        })();
-        finish_ffv1_host_original(original, retained)
+        self.host_catalog_verified = true;
+        Ok(())
     }
 }
 
@@ -2088,17 +1843,7 @@ impl Driver for MltVideoDriver {
         self.app
             .validate_call(command, descriptor_sha256, &internal)
             .map_err(map_error)?;
-        let custody = if command == "driver.mlt-video.frames.encode" {
-            Some(Ffv1HostCustody::new(
-                &self.app,
-                command,
-                descriptor_sha256,
-                &args,
-            )?)
-        } else {
-            None
-        };
-        self.ensure_host_catalog(&context, custody.as_ref()).await?;
+        self.ensure_host_catalog(&context).await?;
         if matches!(
             command,
             "driver.mlt-video.frames.encode"
@@ -2107,13 +1852,7 @@ impl Driver for MltVideoDriver {
                 | "driver.mlt-video.sync.probe"
         ) {
             return self
-                .host_av_operation(
-                    command,
-                    descriptor_sha256,
-                    &args,
-                    &context,
-                    custody.as_ref(),
-                )
+                .host_av_operation(command, descriptor_sha256, &args, &context)
                 .await;
         }
         let value = match command {
@@ -2940,117 +2679,5 @@ mod host_native_observation_tests {
                 .unwrap(),
             xml
         );
-    }
-}
-
-#[cfg(test)]
-mod ffv1_host_original_tests {
-    use super::*;
-    fn fixture() -> (PrivateDir, Ffv1HostCustody) {
-        let directory = PrivateDir::new(std::path::Path::new("/tmp")).unwrap();
-        let output = std::sync::Arc::new(Root::open(directory.path(), true, true).unwrap());
-        let custody = Ffv1HostCustody {
-            output,
-            output_path: "first.mkv".into(),
-            request: b"original-prepared-input".to_vec(),
-        };
-        (directory, custody)
-    }
-    #[test]
-    fn ffv1_host_original_unknown_is_primary_when_custody_also_fails() {
-        let original = Error::new(ErrorCode::BackendFailed, "original-native-failure").uncertain();
-        let error = finish_ffv1_host_original::<()>(
-            Err(original),
-            Err(Error::invalid("secondary-custody")),
-        )
-        .unwrap_err();
-        assert_eq!(error.code, ErrorCode::BackendFailed);
-        assert_eq!(error.message, "original-native-failure");
-        assert!(!error.outcome_known);
-    }
-    #[test]
-    fn ffv1_host_original_parser_error_is_not_replaced_by_custody() {
-        let error = finish_ffv1_host_original::<()>(
-            Err(Error::new(
-                ErrorCode::PluginProtocolError,
-                "original-json-refusal",
-            )),
-            Err(Error::invalid("secondary-custody")),
-        )
-        .unwrap_err();
-        assert_eq!(error.code, ErrorCode::PluginProtocolError);
-        assert_eq!(error.message, "original-json-refusal");
-    }
-    #[test]
-    fn ffv1_host_success_with_unretained_originals_is_uncertain() {
-        let error =
-            finish_ffv1_host_original(Ok(1), Err(Error::invalid("custody-refusal"))).unwrap_err();
-        assert!(!error.outcome_known);
-    }
-    #[test]
-    fn ffv1_discover_keeps_actual_empty_input_and_binary_buffers_before_parse() {
-        let (_directory, custody) = fixture();
-        custody.catalog_stdin(b"").unwrap();
-        custody
-            .record(
-                "catalog",
-                None,
-                "completed",
-                Some((2, b"\xff\0bad-json", b"\0native-error")),
-                None,
-            )
-            .unwrap();
-        assert_eq!(
-            custody
-                .output
-                .read("first.mkv.ffv1-catalog.stdin.original.bin", 0)
-                .unwrap(),
-            b""
-        );
-        assert_eq!(
-            custody
-                .output
-                .read("first.mkv.ffv1-catalog.stdout.original.bin", 262144)
-                .unwrap(),
-            b"\xff\0bad-json"
-        );
-        let raw = custody
-            .output
-            .read("first.mkv.ffv1-catalog.terminal.original.json", 65536)
-            .unwrap();
-        let saved: Value = serde_json::from_slice(&raw).unwrap();
-        assert!(saved["runtime_job_id"].is_null());
-        assert_eq!(saved["runtime_job_id_exposed"], false);
-        assert_eq!(saved["host_exit_code"], 2);
-        assert_eq!(saved["stream_eof_attested"], false);
-    }
-    #[test]
-    fn ffv1_unobserved_host_failure_does_not_invent_empty_streams_or_exit() {
-        let (_directory, custody) = fixture();
-        let original = Error::new(ErrorCode::BackendFailed, "original-host-error").uncertain();
-        custody
-            .record(
-                "catalog",
-                None,
-                "host-returned-error",
-                None,
-                Some(&original),
-            )
-            .unwrap();
-        let raw = custody
-            .output
-            .read("first.mkv.ffv1-catalog.terminal.original.json", 65536)
-            .unwrap();
-        let saved: Value = serde_json::from_slice(&raw).unwrap();
-        assert!(saved["stdout"].is_null());
-        assert!(saved["stderr"].is_null());
-        assert!(saved["host_exit_code"].is_null());
-        assert!(
-            !custody
-                .output
-                .exists("first.mkv.ffv1-catalog.stdout.original.bin")
-                .unwrap()
-        );
-        assert_eq!(saved["original_error"]["outcome_known"], false);
     }
 }

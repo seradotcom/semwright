@@ -6,9 +6,9 @@ use semwright_platform_api::launch::{MountClass, WorkspaceMountBinding};
 pub(super) type MountBindings = Vec<Arc<dyn WorkspaceMountBinding>>;
 #[derive(Clone)]
 pub(super) struct BoundProvider {
-    pub(super) reference_id: String,
-    pub(super) lease: Arc<ProviderLease>,
-    pub(super) admission: ProviderMountReference,
+    reference_id: String,
+    lease: Arc<ProviderLease>,
+    admission: ProviderMountReference,
     pub(super) parent_request_id: Option<String>,
 }
 #[derive(Deserialize)]
@@ -163,16 +163,6 @@ impl Broker {
             parent_request_id: None,
         })
     }
-
-    #[cfg(all(test, target_os = "linux"))]
-    pub(super) fn resolve_bound_provider_for_owner_operation_test(
-        &self,
-        session: &str,
-        reference_id: &str,
-    ) -> Result<BoundProvider> {
-        self.resolve_bound_provider(session, reference_id)
-    }
-
     pub(super) fn check_bound_provider(
         &self,
         session: &str,

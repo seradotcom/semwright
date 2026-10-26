@@ -1,7 +1,6 @@
 //! Sandboxed persistent application-driver host. Drivers are mounted into the broker as Providers.
 #[cfg(any(unix, windows))]
 mod loopback;
-mod operation_permits;
 mod stdin_custody;
 
 pub use stdin_custody::{
@@ -12,7 +11,6 @@ pub use stdin_custody::{
 mod owner_workspace_mounts;
 
 use async_trait::async_trait;
-use semwright_backend_api::provider::OwnerOperationAuthority;
 use semwright_backend_api::{
     Context, ProvidedCapability, Provider, ProviderInterfaces, ProviderSignal,
 };
@@ -1923,7 +1921,6 @@ struct Io {
 struct PendingResponse {
     sender: oneshot::Sender<Response>,
     allows_host_tools: bool,
-    owner_scope: Option<Arc<dyn OwnerOperationAuthority>>,
     session: Option<String>,
     cancellation: CancellationToken,
     charged_tool_cpu_seconds: Arc<Mutex<u64>>,
@@ -1942,23 +1939,6 @@ enum ProtocolIo {
 
 impl V2Io {
     async fn begin(&self, request: &Request, id: &str) -> Result<oneshot::Receiver<Response>> {
-        self.begin_with_owner_scope(request, id, None).await
-    }
-
-    async fn begin_with_owner_scope(
-        &self,
-        request: &Request,
-        id: &str,
-        owner_scope: Option<Arc<dyn OwnerOperationAuthority>>,
-    ) -> Result<oneshot::Receiver<Response>> {
-        if owner_scope.is_some()
-            && !matches!(request, Request::Execute { id: request_id, .. } if request_id == id)
-        {
-            return Err(Error::new(
-                ErrorCode::ProtocolMismatch,
-                "Owner operation scope requires the original Execute request",
-            ));
-        }
         let (sender, receiver) = oneshot::channel();
         let cancellation = CancellationToken::new();
         let (allows_host_tools, session) = match request {
@@ -1976,23 +1956,24 @@ impl V2Io {
                     "Driver protocol has too many pending requests",
                 ));
             }
-            if pending.contains_key(id) {
+            if pending
+                .insert(
+                    id.to_owned(),
+                    PendingResponse {
+                        sender,
+                        allows_host_tools,
+                        session,
+                        cancellation,
+                        charged_tool_cpu_seconds: Arc::new(Mutex::new(0)),
+                    },
+                )
+                .is_some()
+            {
                 return Err(Error::new(
                     ErrorCode::Conflict,
                     "Driver protocol request ID is already pending",
                 ));
             }
-            pending.insert(
-                id.to_owned(),
-                PendingResponse {
-                    sender,
-                    allows_host_tools,
-                    owner_scope,
-                    session,
-                    cancellation,
-                    charged_tool_cpu_seconds: Arc::new(Mutex::new(0)),
-                },
-            );
         }
         let result = {
             let mut input = self.input.lock().await;
@@ -2061,9 +2042,7 @@ fn response_id(response: &Response) -> Option<&str> {
         | Response::ToolJobCancel { .. }
         | Response::ToolSessionStartV8 { .. }
         | Response::ToolSessionRequest { .. }
-        | Response::ToolSessionClose { .. }
-        | Response::OperationPermitAcquire { .. }
-        | Response::OperationPermitRelease { .. } => None,
+        | Response::ToolSessionClose { .. } => None,
     }
 }
 
@@ -2109,7 +2088,6 @@ fn spawn_v2_reader(
     protocol: u32,
     tool_broker: Option<Arc<dyn HostToolExecutor>>,
     stdin_custody: Option<stdin_custody::BoundHostStdinCustody>,
-    owner_operations: Arc<operation_permits::OwnerOperations>,
     closed: CancellationToken,
     terminate: CancellationToken,
 ) {
@@ -2126,52 +2104,6 @@ fn spawn_v2_reader(
                 }
             };
             match response {
-                Response::OperationPermitAcquire { id, parent } => {
-                    if protocol < 9
-                        || !operation_permits::valid_id(&id)
-                        || !operation_permits::valid_id(&parent)
-                        || id == parent
-                    {
-                        terminate.cancel();
-                        closed.cancel();
-                        break;
-                    }
-                    let authority = {
-                        let mut pending = pending.lock().await;
-                        if pending.contains_key(&id) {
-                            terminate.cancel();
-                            closed.cancel();
-                            break;
-                        }
-                        // The marker means original Execute, not host_tools capability.
-                        pending
-                            .get_mut(&parent)
-                            .filter(|entry| {
-                                entry.allows_host_tools && !entry.cancellation.is_cancelled()
-                            })
-                            .and_then(|entry| entry.owner_scope.take())
-                    };
-                    if owner_operations
-                        .acquire_and_reply(id, parent, authority, input.clone(), terminate.clone())
-                        .await
-                        .is_err()
-                    {
-                        closed.cancel();
-                        break;
-                    }
-                }
-                Response::OperationPermitRelease { id, parent, permit } => {
-                    if protocol < 9
-                        || !operation_permits::valid_id(&id)
-                        || !operation_permits::valid_id(&parent)
-                        || !operation_permits::valid_id(&permit)
-                        || owner_operations.release(&parent, &permit).is_err()
-                    {
-                        terminate.cancel();
-                        closed.cancel();
-                        break;
-                    }
-                }
                 Response::Event { kind, payload } => {
                     if !interfaces.events {
                         terminate.cancel();
@@ -3555,7 +3487,6 @@ pub struct DriverProvider {
     process_id: u32,
     cpu_accounting: Option<Arc<dyn SandboxCpuAccounting>>,
     operation_cpu_gate: Mutex<()>,
-    _owner_operations: Arc<operation_permits::OwnerOperations>,
     _staged: Arc<StagedFile>,
     #[cfg(any(unix, windows))]
     _loopback: Option<Arc<loopback::LoopbackProxy>>,
@@ -3867,7 +3798,6 @@ impl DriverProvider {
                     ..Default::default()
                 }
             };
-            let owner_operations = Arc::new(operation_permits::OwnerOperations::default());
             let (protocol_io, signals) = if manifest.protocol >= 2 {
                 let (signals, _) = broadcast::channel(128);
                 let pending = Arc::new(Mutex::new(BTreeMap::new()));
@@ -3884,7 +3814,6 @@ impl DriverProvider {
                     stdin_custody
                         .as_ref()
                         .map(|custody| custody.bind(identity.clone(), process_id)),
-                    owner_operations.clone(),
                     closed.clone(),
                     terminate.clone(),
                 );
@@ -3896,33 +3825,12 @@ impl DriverProvider {
             let monitor_terminate = terminate.clone();
             let monitor_staged = staged.clone();
             let monitor_loopback = loopback.clone();
-            let monitor_owner_operations = owner_operations.clone();
-            let strict_owner_lifecycle = manifest.protocol >= 9;
             tokio::spawn(async move {
-                if strict_owner_lifecycle {
-                    let waited = tokio::select! {
-                        _ = monitor_terminate.cancelled() => false,
-                        result = child.wait() => result.is_ok(),
-                    };
-                    let terminal = tokio::time::timeout(Duration::from_secs(4), async {
-                        child.kill().await?;
-                        if !waited {
-                            child.wait().await?;
-                        }
-                        Ok::<(), Error>(())
-                    })
-                    .await;
-                    if matches!(terminal, Ok(Ok(()))) {
-                        let _ = monitor_owner_operations.confirmed_physical_exit();
+                tokio::select! {
+                    _ = monitor_terminate.cancelled() => {
+                        let _ = child.kill().await;
                     }
-                    // Failure retains quarantine; no universal descendant closure claim.
-                } else {
-                    tokio::select! {
-                        _ = monitor_terminate.cancelled() => {
-                            let _ = child.kill().await;
-                        }
-                        _ = child.wait() => {}
-                    }
+                    _ = child.wait() => {}
                 }
                 if let Some(proxy) = monitor_loopback {
                     proxy.shutdown();
@@ -3945,7 +3853,6 @@ impl DriverProvider {
                 process_id,
                 cpu_accounting,
                 operation_cpu_gate: Mutex::new(()),
-                _owner_operations: owner_operations,
                 _staged: staged,
                 _loopback: loopback,
                 _tools: sealed_tools,
@@ -4227,7 +4134,6 @@ impl DriverProvider {
                     ..Default::default()
                 }
             };
-            let owner_operations = Arc::new(operation_permits::OwnerOperations::default());
             let (protocol_io, signals) = if manifest.protocol >= 2 {
                 let (signals, _) = broadcast::channel(128);
                 let pending = Arc::new(Mutex::new(BTreeMap::new()));
@@ -4244,7 +4150,6 @@ impl DriverProvider {
                     stdin_custody
                         .as_ref()
                         .map(|custody| custody.bind(identity.clone(), process_id)),
-                    owner_operations.clone(),
                     closed.clone(),
                     terminate.clone(),
                 );
@@ -4256,33 +4161,12 @@ impl DriverProvider {
             let monitor_terminate = terminate.clone();
             let monitor_staged = staged.clone();
             let monitor_loopback = loopback.clone();
-            let monitor_owner_operations = owner_operations.clone();
-            let strict_owner_lifecycle = manifest.protocol >= 9;
             tokio::spawn(async move {
-                if strict_owner_lifecycle {
-                    let waited = tokio::select! {
-                        _ = monitor_terminate.cancelled() => false,
-                        result = child.wait() => result.is_ok(),
-                    };
-                    let terminal = tokio::time::timeout(Duration::from_secs(4), async {
-                        child.kill().await?;
-                        if !waited {
-                            child.wait().await?;
-                        }
-                        Ok::<(), Error>(())
-                    })
-                    .await;
-                    if matches!(terminal, Ok(Ok(()))) {
-                        let _ = monitor_owner_operations.confirmed_physical_exit();
+                tokio::select! {
+                    _ = monitor_terminate.cancelled() => {
+                        let _ = child.kill().await;
                     }
-                    // Failure retains quarantine; no universal descendant closure claim.
-                } else {
-                    tokio::select! {
-                        _ = monitor_terminate.cancelled() => {
-                            let _ = child.kill().await;
-                        }
-                        _ = child.wait() => {}
-                    }
+                    _ = child.wait() => {}
                 }
                 if let Some(proxy) = monitor_loopback {
                     proxy.shutdown();
@@ -4305,7 +4189,6 @@ impl DriverProvider {
                 process_id,
                 cpu_accounting,
                 operation_cpu_gate: Mutex::new(()),
-                _owner_operations: owner_operations,
                 _staged: staged,
                 _loopback: loopback,
                 _tools: sealed_tools,
@@ -4419,24 +4302,103 @@ impl DriverProvider {
         Ok(provided)
     }
 
-    async fn execute_owned(
+    fn execution_result(response: Response, id: &str) -> Result<Value> {
+        match response {
+            Response::Result {
+                id: response_id,
+                value,
+            } if response_id == id => Ok(value),
+            Response::Failure {
+                id: response_id,
+                error,
+            } if response_id == id => {
+                // Retain existing text redaction. Only a fixed typed, bounded
+                // compatibility field crosses this boundary; it grants no authority.
+                let mut public = Error::new(
+                    error.code,
+                    "Driver reported an error; untrusted payload was redacted",
+                )
+                .uncertain();
+                public.native_diagnostic = error.native_diagnostic.filter(|d| d.is_valid());
+                Err(public)
+            }
+            _ => Err(Error::new(
+                ErrorCode::ProtocolMismatch,
+                "Driver returned an unexpected execution response",
+            )
+            .uncertain()),
+        }
+    }
+}
+
+#[async_trait]
+impl Provider for DriverProvider {
+    fn identity(&self) -> &ProviderIdentity {
+        &self.identity
+    }
+    fn supports(&self, command: &str) -> bool {
+        self.descriptor_digests
+            .read()
+            .map(|digests| digests.contains_key(command))
+            .unwrap_or(false)
+    }
+    async fn capabilities(&self) -> Result<Vec<ProvidedCapability>> {
+        if self.interfaces.dynamic_capabilities {
+            self.refresh_capabilities().await
+        } else {
+            self.capabilities
+                .read()
+                .map(|capabilities| capabilities.clone())
+                .map_err(|_| Error::new(ErrorCode::Internal, "Driver capability cache poisoned"))
+        }
+    }
+    async fn probe(&self) -> Vec<Feature> {
+        let capabilities = self
+            .capabilities
+            .read()
+            .map(|capabilities| capabilities.clone())
+            .unwrap_or_default();
+        capabilities
+            .iter()
+            .map(|capability| Feature {
+                backend: self.identity.id.clone(),
+                capability: capability.descriptor.name.clone(),
+                status: if self.closed.is_cancelled() {
+                    CapabilityStatus::Unavailable
+                } else {
+                    CapabilityStatus::Supported
+                },
+                reason: if self.closed.is_cancelled() {
+                    "Driver process disconnected".into()
+                } else {
+                    "Pinned sandboxed driver is connected".into()
+                },
+                remediation: if self.closed.is_cancelled() {
+                    "Restart the owner-configured driver".into()
+                } else {
+                    String::new()
+                },
+            })
+            .collect()
+    }
+    fn operation_feature(&self, command: &str) -> Option<String> {
+        self.supports(command).then(|| command.to_owned())
+    }
+    fn interfaces(&self) -> ProviderInterfaces {
+        self.interfaces
+    }
+    fn events(&self) -> Option<broadcast::Receiver<ProviderSignal>> {
+        self.signals.as_ref().map(broadcast::Sender::subscribe)
+    }
+    fn closed(&self) -> Option<CancellationToken> {
+        Some(self.closed.clone())
+    }
+    async fn execute(
         &self,
         context: &Context,
         descriptor: &CommandDescriptor,
         args: &Value,
-        owner_scope: Option<Arc<dyn OwnerOperationAuthority>>,
     ) -> Result<Value> {
-        if owner_scope.is_some()
-            && (self.manifest.protocol < 9
-                || !self.interfaces.native_refs
-                || !operation_permits::valid_id(&context.request_id)
-                || context.session.is_empty())
-        {
-            return Err(Error::new(
-                ErrorCode::Unsupported,
-                "This invocation cannot transport an owner operation scope",
-            ));
-        }
         if self.closed.is_cancelled() {
             return Err(Error::unavailable("Driver process is disconnected"));
         }
@@ -4489,12 +4451,6 @@ impl DriverProvider {
         } else {
             None
         };
-        if owner_scope.is_some() && native_target.is_none() {
-            return Err(Error::new(
-                ErrorCode::StaleReference,
-                "Owner operation scope requires the admitted native target",
-            ));
-        }
         let request_context = (self.manifest.protocol >= 3).then(|| DriverRequestContext {
             session: context.session.clone(),
             native_target,
@@ -4524,9 +4480,7 @@ impl DriverProvider {
                     }
                 }
                 ProtocolIo::V2(io) => {
-                    let receiver = io
-                        .begin_with_owner_scope(&execute, &id, owner_scope)
-                        .await?;
+                    let receiver = io.begin(&execute, &id).await?;
                     let response_future = async {
                         match tokio::time::timeout(timeout, receiver).await {
                             Ok(Ok(response)) => Ok(response),
@@ -4636,118 +4590,6 @@ impl DriverProvider {
             }
         }
     }
-    fn execution_result(response: Response, id: &str) -> Result<Value> {
-        match response {
-            Response::Result {
-                id: response_id,
-                value,
-            } if response_id == id => Ok(value),
-            Response::Failure {
-                id: response_id,
-                error,
-            } if response_id == id => {
-                // Retain existing text redaction. Only a fixed typed, bounded
-                // compatibility field crosses this boundary; it grants no authority.
-                let mut public = Error::new(
-                    error.code,
-                    "Driver reported an error; untrusted payload was redacted",
-                )
-                .uncertain();
-                public.native_diagnostic = error.native_diagnostic.filter(|d| d.is_valid());
-                Err(public)
-            }
-            _ => Err(Error::new(
-                ErrorCode::ProtocolMismatch,
-                "Driver returned an unexpected execution response",
-            )
-            .uncertain()),
-        }
-    }
-}
-
-#[async_trait]
-impl Provider for DriverProvider {
-    fn identity(&self) -> &ProviderIdentity {
-        &self.identity
-    }
-    fn supports(&self, command: &str) -> bool {
-        self.descriptor_digests
-            .read()
-            .map(|digests| digests.contains_key(command))
-            .unwrap_or(false)
-    }
-    async fn capabilities(&self) -> Result<Vec<ProvidedCapability>> {
-        if self.interfaces.dynamic_capabilities {
-            self.refresh_capabilities().await
-        } else {
-            self.capabilities
-                .read()
-                .map(|capabilities| capabilities.clone())
-                .map_err(|_| Error::new(ErrorCode::Internal, "Driver capability cache poisoned"))
-        }
-    }
-    async fn probe(&self) -> Vec<Feature> {
-        let capabilities = self
-            .capabilities
-            .read()
-            .map(|capabilities| capabilities.clone())
-            .unwrap_or_default();
-        capabilities
-            .iter()
-            .map(|capability| Feature {
-                backend: self.identity.id.clone(),
-                capability: capability.descriptor.name.clone(),
-                status: if self.closed.is_cancelled() {
-                    CapabilityStatus::Unavailable
-                } else {
-                    CapabilityStatus::Supported
-                },
-                reason: if self.closed.is_cancelled() {
-                    "Driver process disconnected".into()
-                } else {
-                    "Pinned sandboxed driver is connected".into()
-                },
-                remediation: if self.closed.is_cancelled() {
-                    "Restart the owner-configured driver".into()
-                } else {
-                    String::new()
-                },
-            })
-            .collect()
-    }
-    fn operation_feature(&self, command: &str) -> Option<String> {
-        self.supports(command).then(|| command.to_owned())
-    }
-    fn interfaces(&self) -> ProviderInterfaces {
-        self.interfaces
-    }
-    fn events(&self) -> Option<broadcast::Receiver<ProviderSignal>> {
-        self.signals.as_ref().map(broadcast::Sender::subscribe)
-    }
-    fn closed(&self) -> Option<CancellationToken> {
-        Some(self.closed.clone())
-    }
-    fn supports_owner_operation_permits(&self) -> bool {
-        self.manifest.protocol >= 9
-    }
-    async fn execute(
-        &self,
-        context: &Context,
-        descriptor: &CommandDescriptor,
-        args: &Value,
-    ) -> Result<Value> {
-        self.execute_owned(context, descriptor, args, None).await
-    }
-    async fn execute_with_owner_scope(
-        &self,
-        context: &Context,
-        descriptor: &CommandDescriptor,
-        args: &Value,
-        owner_scope: Option<Arc<dyn OwnerOperationAuthority>>,
-    ) -> Result<Value> {
-        self.execute_owned(context, descriptor, args, owner_scope)
-            .await
-    }
     fn emits_native_refs(&self) -> bool {
         self.interfaces.native_refs
     }
@@ -4789,21 +4631,6 @@ impl Provider for DriverProvider {
         }
     }
     async fn shutdown(&self) -> Result<()> {
-        if self.manifest.protocol >= 9 {
-            self.terminate.cancel();
-            return tokio::time::timeout(
-                Duration::from_secs(4),
-                self._owner_operations.wait_physical_exit(),
-            )
-            .await
-            .map_err(|_| {
-                Error::new(
-                    ErrorCode::Timeout,
-                    "Owned driver process termination was not confirmed",
-                )
-                .uncertain()
-            });
-        }
         if self.closed.is_cancelled() {
             return Ok(());
         }
@@ -4925,7 +4752,6 @@ mod host_tool_protocol_tests {
         PendingResponse {
             sender,
             allows_host_tools,
-            owner_scope: None,
             session: allows_host_tools.then(|| "session-a".into()),
             cancellation: CancellationToken::new(),
             charged_tool_cpu_seconds: Arc::new(Mutex::new(0)),
@@ -5426,61 +5252,6 @@ mod tests {
         assert!(verify_owned_executable(&path, &hex::encode(Sha256::digest(body))).is_err());
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
         assert!(verify_owned_executable(&path, &"0".repeat(64)).is_err());
-    }
-}
-
-#[cfg(test)]
-mod owner_operation_pending_tests {
-    use super::*;
-    struct NoGrant;
-    impl OwnerOperationAuthority for NoGrant {
-        fn acquire(&self) -> Result<Box<dyn semwright_backend_api::provider::OwnerOperationLease>> {
-            Err(Error::new(
-                ErrorCode::Unsupported,
-                "test authority does not grant",
-            ))
-        }
-    }
-    #[tokio::test]
-    async fn duplicate_pending_request_keeps_original_owner_and_receiver() {
-        let (writer, _reader) = tokio::io::duplex(8192);
-        let input: SandboxStdin = Box::new(writer);
-        let io = V2Io {
-            input: Arc::new(Mutex::new(input)),
-            pending: Arc::new(Mutex::new(BTreeMap::new())),
-        };
-        let id = "0123456789abcdef0123456789abcdef";
-        let owner: Arc<dyn OwnerOperationAuthority> = Arc::new(NoGrant);
-        let request = Request::Execute {
-            id: id.into(),
-            command: "fixture.apply".into(),
-            descriptor_sha256: "0".repeat(64),
-            args: serde_json::json!({}),
-            context: Some(DriverRequestContext {
-                session: "fedcba9876543210fedcba9876543210".into(),
-                native_target: None,
-            }),
-        };
-        let mut first = io
-            .begin_with_owner_scope(&request, id, Some(owner.clone()))
-            .await
-            .unwrap();
-        let duplicate = io
-            .begin_with_owner_scope(&request, id, Some(Arc::new(NoGrant)))
-            .await;
-        assert!(matches!(duplicate, Err(ref e) if e.code == ErrorCode::Conflict));
-        assert!(matches!(
-            first.try_recv(),
-            Err(tokio::sync::oneshot::error::TryRecvError::Empty)
-        ));
-        {
-            let pending = io.pending.lock().await;
-            let original = pending.get(id).unwrap();
-            assert!(original.allows_host_tools);
-            assert!(Arc::ptr_eq(original.owner_scope.as_ref().unwrap(), &owner));
-        }
-        io.cancel_pending(id).await;
-        assert!(matches!(first.await, Err(_)));
     }
 }
 
