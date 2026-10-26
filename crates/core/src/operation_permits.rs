@@ -168,6 +168,33 @@ impl Drop for GrantedOperation {
         self.scope.gate.changed.notify_waiters();
     }
 }
+/// Per-call read lifetime on the existing gate. This does not consume a Host
+/// mutation permit and does not claim physical child-exit evidence on Drop.
+pub(super) struct NativeReadHold(GrantedOperation);
+impl NativeReadHold {
+    pub(super) fn check_current(&self) -> Result<()> {
+        self.0.check_current()
+    }
+    pub(super) fn closing(&self) -> CancellationToken {
+        self.0.closing()
+    }
+}
+impl OperationGate {
+    pub(super) fn hold_native_read(
+        self: &Arc<Self>,
+        session: &str,
+        parent: &CancellationToken,
+        logical_mount: &str,
+    ) -> Result<NativeReadHold> {
+        let scope = self.scope(session, parent)?;
+        self.grant(&scope)?;
+        Ok(NativeReadHold(GrantedOperation {
+            scope,
+            logical_mount: logical_mount.into(),
+        }))
+    }
+}
+
 struct CoreAuthority {
     broker: Weak<Broker>,
     lease: Weak<ProviderLease>,

@@ -232,6 +232,46 @@ impl ProjectGraphs {
         }
         Ok(())
     }
+    /// Reuse the same private Graph owner/root boundary for an explicit native
+    /// resource association supplied by trusted PolicyConfig. The native ID is
+    /// never parsed as a Graph ID and file_scope does not infer native membership.
+    pub(super) fn authorize_native_read(
+        &mut self,
+        policy: &Policy,
+        context: &Context,
+        mapping: &semwright_policy::NativeResourceReadPolicy,
+    ) -> Result<()> {
+        context.check_cancelled()?;
+        let root = policy
+            .config()
+            .filesystem
+            .iter()
+            .find(|root| root.name == mapping.root && root.read)
+            .ok_or_else(|| Error::new(ErrorCode::PolicyDenied, "Native resource access denied"))?;
+        let id = g::ProjectId::parse(mapping.project.clone()).map_err(graph_error)?;
+        self.open_existing(&id, root)?;
+        let access = g::ProjectAccess::authorized(
+            Owner {
+                session: context.session.clone(),
+                principal: self.principal.clone(),
+            },
+            id.clone(),
+            None,
+            false,
+            Digest::parse(policy.grant_fingerprint())
+                .map_err(|_| Error::invalid("Grant fingerprint"))?,
+        )
+        .map_err(graph_error)?;
+        self.stores
+            .get(&id)
+            .ok_or_else(|| Error::new(ErrorCode::PolicyDenied, "Native resource access denied"))?
+            .graph()
+            .map_err(graph_error)?
+            .file_scope(&access, &root.name)
+            .map_err(graph_error)?;
+        context.check_cancelled()
+    }
+
     fn execute(
         &mut self,
         policy: &Policy,

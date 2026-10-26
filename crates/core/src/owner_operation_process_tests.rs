@@ -5,7 +5,9 @@ use super::{Broker, NoApprover, audit};
 use crate::providers::ProviderLease;
 use semwright_backend_api::Provider;
 use semwright_driver_host::DriverProvider;
-use semwright_policy::{FilesystemGrant, Policy, PolicyConfig};
+use semwright_policy::{
+    FilesystemGrant, NativeProviderReadPolicy, NativeResourceReadPolicy, Policy, PolicyConfig,
+};
 use semwright_types::{Envelope, Error, ErrorCode, ExecuteRequest, Result, unique_id};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -121,11 +123,25 @@ struct Fixture {
     cancellation: CancellationToken,
     _root: CustodyRoot,
 }
+/// Diagnostic custody only, populated after a genuine Host connection and
+/// exactly at a Broker registration refusal. It never supplies authority.
+struct RegistrationRefusal {
+    root: PathBuf,
+    original: Error,
+    shutdown_confirmed: bool,
+    evidence_retained: bool,
+}
 impl Fixture {
     async fn new() -> Result<Self> {
         Ok(Self::new_program(None).await?.0)
     }
     async fn new_program(graph: Option<GraphProgram>) -> Result<(Self, Option<GraphRuntime>)> {
+        Self::new_program_recording_registration(graph, None).await
+    }
+    async fn new_program_recording_registration(
+        graph: Option<GraphProgram>,
+        registration_refusal: Option<&mut Option<RegistrationRefusal>>,
+    ) -> Result<(Self, Option<GraphRuntime>)> {
         let (driver_env, provider_key, application_id) = if graph.is_some() {
             (
                 "SEMWRIGHT_TEST_MOTIONWRIGHT_NATIVE_PROVIDER",
@@ -215,9 +231,19 @@ impl Fixture {
                 write: true,
             },
         ];
+        let native_reads = match (&graph_runtime, graph) {
+            (Some(runtime), Some(program)) => {
+                Some(graph_read_setup(root.path(), &roots, runtime, program.read_policy).await?)
+            }
+            _ => None,
+        };
         let policy = Policy::new(PolicyConfig {
             allow: [provider_key.into(), "providers.execute_bound".into()].into(),
             filesystem: roots.clone(),
+            native_resource_reads: native_reads
+                .as_ref()
+                .map(|setup| setup.policies.clone())
+                .unwrap_or_default(),
             ..Default::default()
         })?;
         let audit = audit::Audit::open(&root.path().join("audit"), 65_536, 2)?;
@@ -230,6 +256,9 @@ impl Fixture {
             json!({}),
             false,
         )?;
+        if let Some(setup) = native_reads {
+            broker.configure_project_graphs(&setup.directory, setup.principal)?;
+        }
         let manifest = serde_json::from_value(json!({
             "manifest_version":1,"protocol":9,"id":application_id,
             "version":application_version,"publisher":"semwright-tests",
@@ -252,7 +281,33 @@ impl Fixture {
         }))?;
         let provider = DriverProvider::connect(manifest, &state, &helper, &roots, false).await?;
         if let Err(error) = broker.mount_driver_provider(provider.clone()).await {
-            if let Err(close) = provider.shutdown().await {
+            let shutdown = provider.shutdown().await;
+            if let Some(slot) = registration_refusal {
+                let retained = graph_write_json(
+                    &root.path().join("REGISTRATION_REFUSAL.original.json"),
+                    &json!({
+                        "schema":"motionwright.sec07-registration-refusal/1",
+                        "native_context":"REAL_CORE_HOST9","provider":provider_key,
+                        "host_connected":true,"registration_error":error,
+                        "original_provider_shutdown":match &shutdown {
+                            Ok(())=>json!({"ok":true}), Err(close)=>json!({"ok":false,"error":close})
+                        },
+                        "automatic_retry":false,"formal_acceptance":false
+                    }),
+                );
+                *slot = Some(RegistrationRefusal {
+                    root: root.path().to_path_buf(),
+                    original: error.clone(),
+                    shutdown_confirmed: shutdown.is_ok(),
+                    evidence_retained: retained.is_ok(),
+                });
+                if let Err(secondary) = retained {
+                    eprintln!(
+                        "SEC07 registration refusal custody failed: {secondary:?}; original={error:?}"
+                    );
+                }
+            }
+            if let Err(close) = shutdown {
                 eprintln!("fixture mount failed: {error:?}; physical cleanup failed: {close:?}");
                 return Err(error.uncertain());
             }
@@ -566,10 +621,132 @@ const GRAPH_UPSERT: &str = "driver.motionwright.graph.upsert";
 struct GraphProgram {
     database: &'static str,
     checkpoint: Option<&'static str>,
+    security: bool,
+    read_policy: &'static str,
 }
 struct GraphRuntime {
     tool: PathBuf,
     source: Value,
+}
+
+struct GraphReadSetup {
+    directory: PathBuf,
+    principal: String,
+    policies: Vec<NativeProviderReadPolicy>,
+}
+
+/// Create the real canonical Graph boundary through the public owner command.
+/// The private Graph state is outside every application-granted filesystem root.
+/// No fixture JSON, copied project UUID, or fabricated prj_ID creates authority.
+async fn graph_read_setup(
+    root: &Path,
+    roots: &[FilesystemGrant],
+    runtime: &GraphRuntime,
+    mode: &'static str,
+) -> Result<GraphReadSetup> {
+    require(
+        matches!(mode, "owned" | "both" | "empty" | "omitted"),
+        "Unknown closed native read policy scenario",
+    )?;
+    let directory = root.join("graph-state");
+    private_directory(&directory)?;
+    let principal = semwright_platform_services::current_user_principal()?;
+    let bootstrap = Broker::new(
+        Policy::new(PolicyConfig {
+            allow: ["project.manage".into()].into(),
+            filesystem: roots.to_vec(),
+            ..Default::default()
+        })?,
+        vec![],
+        audit::Audit::open(&root.join("graph-bootstrap-audit"), 65_536, 2)?,
+        Arc::new(NoApprover),
+        None,
+        json!({}),
+        false,
+    )?;
+    bootstrap.configure_project_graphs(&directory, principal.clone())?;
+    let terminal = bootstrap
+        .clone()
+        .execute(
+            unique_id(),
+            unique_id(),
+            request("project.create", json!({"root":DATA})),
+            CancellationToken::new(),
+        )
+        .await;
+    let created = data(graph_terminal_custody(
+        root,
+        "graph-read-bootstrap",
+        terminal,
+    )?)?;
+    let project = graph_field(&created, "project")?.to_owned();
+    require(
+        project.starts_with("prj_") && project.len() == 36,
+        "Public Graph creation did not return a canonical project identity",
+    )?;
+    let resource = graph_field(&runtime.source, "resource")?.to_owned();
+    let mut resources = vec![NativeResourceReadPolicy {
+        resource: resource.clone(),
+        root: DATA.into(),
+        project: project.clone(),
+    }];
+    if mode == "both" {
+        // A second real Graph project makes this an independently authorized
+        // resource, so a later ref/query mismatch cannot pass merely because
+        // the first resource check denies the query.
+        let terminal = bootstrap
+            .clone()
+            .execute(
+                unique_id(),
+                unique_id(),
+                request("project.create", json!({"root":DATA})),
+                CancellationToken::new(),
+            )
+            .await;
+        let created = data(graph_terminal_custody(
+            root,
+            "graph-read-bootstrap-second",
+            terminal,
+        )?)?;
+        let second = graph_field(&created, "project")?.to_owned();
+        require(
+            second.starts_with("prj_") && second.len() == 36 && second != project,
+            "Second public Graph creation did not return a distinct canonical project",
+        )?;
+        resources.push(NativeResourceReadPolicy {
+            resource: graph_field(&runtime.source["security"], "foreign_resource")?.to_owned(),
+            root: DATA.into(),
+            project: second,
+        });
+    }
+    drop(bootstrap);
+    let policies = match mode {
+        "owned" | "both" => vec![NativeProviderReadPolicy {
+            provider: GRAPH_PROVIDER.into(),
+            resources,
+        }],
+        "empty" => vec![NativeProviderReadPolicy {
+            provider: GRAPH_PROVIDER.into(),
+            resources: vec![],
+        }],
+        "omitted" => vec![],
+        _ => unreachable!("closed policy mode was validated"),
+    };
+    graph_write_json(
+        &root.join("native-read-owner-selection.original.json"),
+        &json!({
+            "schema":"motionwright.sec07-owner-selection/1",
+            "provider":GRAPH_PROVIDER,"mode":mode,"resource":resource,
+            "root":DATA,"canonical_project":project,"principal":principal,
+            "project_created_by":"project.create","policies":policies,
+            "native_authority":false
+        }),
+    )?;
+    Ok(GraphReadSetup {
+        directory,
+        principal,
+        policies,
+    })
 }
 
 fn graph_write_new(path: &Path, bytes: &[u8]) -> Result<()> {
@@ -1136,11 +1313,19 @@ async fn prepare_graph_runtime(
             format!("{checkpoint}\n").as_bytes(),
         )?;
     }
+    if program.security {
+        graph_write_new(&control.join("native-read-mode"), b"trace\n")?;
+    }
     let source_path = root.join("source.original.json");
     graph_run_tool(
         &tool,
         &[
-            "seed".into(),
+            if program.security {
+                "seed-security"
+            } else {
+                "seed"
+            }
+            .into(),
             data_root.join("motionwright.sqlite3").display().to_string(),
             source_path.display().to_string(),
         ],
@@ -1162,6 +1347,25 @@ async fn prepare_graph_runtime(
         source["graph"].is_object() && source["project"].is_object(),
         "Original typed Graph/Project is absent",
     )?;
+    if program.security {
+        let security = &source["security"];
+        let foreign = graph_field(security, "foreign_resource")?;
+        let absent = graph_field(security, "absent_resource")?;
+        let own = graph_field(&source, "resource")?;
+        let foreign_id = graph_field(&security["foreign_project"], "id")?;
+        let marker = graph_field(security, "foreign_marker")?;
+        require(
+            security["schema"] == "motionwright.sec07-fixture-source/1"
+                && foreign == format!("project:{foreign_id}")
+                && foreign != own
+                && absent != own
+                && absent != foreign
+                && absent.starts_with("project:")
+                && marker.len() >= 16
+                && marker.len() <= 128,
+            "SEC07 source does not contain distinct owned, foreign and absent resources",
+        )?;
+    }
     if program.database == "copied" {
         // The seed producer has exited and closed SQLite before this exact copy.
         fs::copy(
@@ -1174,6 +1378,7 @@ async fn prepare_graph_runtime(
         &json!({
             "schema":"motionwright.graph-owner-runtime/1","database_mode":program.database,
             "checkpoint":program.checkpoint,"provider_sha256":provider_digest,
+            "security_fixture":program.security,"native_read_policy":program.read_policy,
             "source_tool_sha256":tool_digest,"source_tool_original":original_tool,
             "sdk_package_version":env!("CARGO_PKG_VERSION"),
             "source_original_sha256":hex::encode(Sha256::digest(fs::read(&source_path)?)),
@@ -1224,17 +1429,31 @@ struct GraphFixture {
 }
 impl GraphFixture {
     async fn new(database: &'static str, checkpoint: Option<&'static str>) -> Result<Self> {
-        let (base, runtime) = Fixture::new_program(Some(GraphProgram {
+        Self::from_program(GraphProgram {
             database,
             checkpoint,
-        }))
-        .await?;
+            security: false,
+            read_policy: "owned",
+        })
+        .await
+    }
+    async fn new_security(read_policy: &'static str) -> Result<Self> {
+        Self::from_program(GraphProgram {
+            database: "default",
+            checkpoint: None,
+            security: true,
+            read_policy,
+        })
+        .await
+    }
+    async fn from_program(program: GraphProgram) -> Result<Self> {
+        let (base, runtime) = Fixture::new_program(Some(program)).await?;
         let runtime =
             runtime.ok_or_else(|| Error::new(ErrorCode::Internal, "Graph runtime was lost"))?;
         Ok(Self {
             base,
             runtime,
-            mode: database,
+            mode: program.database,
             readback_number: 0,
         })
     }
@@ -1242,6 +1461,10 @@ impl GraphFixture {
         self.base._root.path()
     }
     async fn readback(&mut self, database: &str) -> Result<Value> {
+        let project_id = graph_field(&self.runtime.source["project"], "id")?.to_owned();
+        self.readback_project(database, &project_id).await
+    }
+    async fn readback_project(&mut self, database: &str, project_id: &str) -> Result<Value> {
         require(
             matches!(database, "motionwright.sqlite3" | "override-copy.sqlite3"),
             "Unknown Graph readback database",
@@ -1249,7 +1472,6 @@ impl GraphFixture {
         self.readback_number += 1;
         let label = format!("readback-{:04}", self.readback_number);
         let target = self.root().join(format!("{label}.json"));
-        let project_id = graph_field(&self.runtime.source["project"], "id")?;
         graph_run_tool(
             &self.runtime.tool,
             &[
@@ -1271,7 +1493,7 @@ impl GraphFixture {
         )?;
         Ok(value)
     }
-    async fn current_refs(&self, session: &str) -> Result<(String, String, Value)> {
+    async fn current_mount(&self, session: &str) -> Result<String> {
         let mount = data(
             self.base
                 .call(
@@ -1285,10 +1507,24 @@ impl GraphFixture {
             mount["mount"]["root"] == DATA && mount["mount"]["write"] == true,
             "Motionwright did not receive the actual writable data capsule",
         )?;
-        let binding = graph_field(&mount, "binding_ref")?.to_owned();
-        let observed = data(
-            self.base
-                .call(session, GRAPH_OBSERVE, graph_query(&self.runtime.source)?)
+        Ok(graph_field(&mount, "binding_ref")?.to_owned())
+    }
+    async fn observe_bound(&self, session: &str, binding: &str, args: Value) -> Envelope {
+        self.base
+            .call(
+                session,
+                "providers.execute_bound",
+                json!({
+                    "binding_ref":binding,
+                    "request":{"command":GRAPH_OBSERVE,"args":args,"dry_run":false}
+                }),
+            )
+            .await
+    }
+    async fn current_refs(&self, session: &str) -> Result<(String, String, Value)> {
+        let binding = self.current_mount(session).await?;
+        let observed = graph_bound_data(
+            self.observe_bound(session, &binding, graph_query(&self.runtime.source)?)
                 .await,
         )?;
         let native = graph_field(&observed, "ref")?.to_owned();
@@ -1856,6 +2092,893 @@ async fn linux_motionwright_graph_native_store_commit_and_current_access_replay(
 async fn linux_motionwright_graph_native_revoke_before_enter_and_retained_commit() {
     run_graph_case("default", Some("before-enter"), "before-enter").await;
     run_graph_case("default", Some("commit"), "after-current").await;
+}
+
+// SEC07 controls retain the actual Host9 path and the same application Store.
+// The source tool's JSON is fixture data only; Core creates all live grants.
+fn security_query(resource: &str, scope: &str, reference: Option<&str>) -> Value {
+    let mut query = json!({"resource":resource,"scope":scope,"limit":1});
+    if let Some(reference) = reference {
+        query["ref"] = json!(reference);
+    }
+    query
+}
+
+fn security_denial(terminal: Envelope) -> Result<Error> {
+    require(
+        !terminal.ok && terminal.data.is_none(),
+        "Denied native read returned application data or a successful envelope",
+    )?;
+    let error = terminal
+        .error
+        .ok_or_else(|| Error::invalid("Denied native read has no typed error"))?;
+    require(
+        error.code == ErrorCode::PolicyDenied,
+        "Native read was not denied by the canonical owner policy boundary",
+    )?;
+    Ok(error)
+}
+
+impl GraphFixture {
+    fn native_read_entries(&self) -> Result<Vec<(String, Value)>> {
+        let mut entries = Vec::new();
+        for entry in fs::read_dir(&self.base.control)? {
+            let entry = entry?;
+            let name = entry
+                .file_name()
+                .into_string()
+                .map_err(|_| Error::invalid("Fixture entry name is not UTF-8"))?;
+            if !name.starts_with("read-entry-") {
+                continue;
+            }
+            let serial = name
+                .strip_prefix("read-entry-")
+                .and_then(|value| value.strip_suffix(".json"))
+                .and_then(|value| value.parse::<u64>().ok());
+            let metadata = fs::symlink_metadata(entry.path())?;
+            require(
+                serial.is_some_and(|value| value > 0)
+                    && metadata.file_type().is_file()
+                    && metadata.len() <= 4096
+                    && entries.len() < 256,
+                "Observer entry trace exceeded its finite original-file contract",
+            )?;
+            let bytes = fs::read(entry.path())?;
+            require(
+                bytes.len() <= 4096,
+                "Observer entry trace grew beyond budget",
+            )?;
+            let value: Value = serde_json::from_slice(&bytes)?;
+            require(
+                value["schema"] == "motionwright.sec07-observer-entry/1"
+                    && value["native_authority"] == false
+                    && value["provider_process_id"]
+                        .as_u64()
+                        .is_some_and(|pid| pid > 0),
+                "Observer entry trace lost its actual application invocation",
+            )?;
+            for field in ["request_id", "resource", "scope"] {
+                require(
+                    !graph_field(&value, field)?.is_empty(),
+                    "Observer trace invocation field is empty",
+                )?;
+            }
+            entries.push((name, value));
+        }
+        entries.sort_by(|a, b| a.0.cmp(&b.0));
+        Ok(entries)
+    }
+
+    async fn security_own_foreign_absent(&mut self) -> Result<()> {
+        let source = self.runtime.source.clone();
+        let own = graph_field(&source, "resource")?;
+        let foreign = graph_field(&source["security"], "foreign_resource")?;
+        let absent = graph_field(&source["security"], "absent_resource")?;
+        let marker = graph_field(&source["security"], "foreign_marker")?;
+        let foreign_id = graph_field(&source["security"]["foreign_project"], "id")?;
+        // The existing foreign project is proved by independent production
+        // Store reopening, not by a random UUID or the seed document alone.
+        let foreign_before = self
+            .readback_project("motionwright.sqlite3", foreign_id)
+            .await?;
+        require(
+            foreign_before["project"]["id"] == source["security"]["foreign_project"]["id"]
+                && foreign_before["project"]["title"] == marker,
+            "Foreign-existing SEC07 fixture was not independently reopened from the same Store",
+        )?;
+        let own_before = self.readback("motionwright.sqlite3").await?;
+        let session = self.base.session.clone();
+        let binding = self.current_mount(&session).await?;
+        let scopes = [
+            "summary",
+            "branches",
+            "reviews",
+            "history",
+            "history-recent",
+            "production-receipts",
+            "production-jobs",
+            "asset-integrity",
+        ];
+        let mut own_reference = None;
+        let mut history_cursor = None;
+        for (index, scope) in scopes.iter().enumerate() {
+            let before = self.native_read_entries()?;
+            let terminal = self
+                .observe_bound(&session, &binding, security_query(own, scope, None))
+                .await;
+            let terminal =
+                graph_terminal_custody(self.root(), &format!("sec07-own-{index}"), terminal)?;
+            let observed = graph_bound_data(terminal)?;
+            require(
+                observed["page"]["version"]["resource"] == own
+                    && observed["page"]["scope"] == *scope
+                    && self.native_read_entries()?.len() == before.len() + 1,
+                "Own-resource positive did not enter the actual observer exactly once",
+            )?;
+            let reference = graph_field(&observed, "ref")?.to_owned();
+            require(
+                reference.starts_with("native:"),
+                "Own observation did not return a genuine NativeRef",
+            )?;
+            if *scope == "summary" {
+                own_reference = Some(reference);
+            }
+            if *scope == "history" && !observed["page"]["next"].is_null() {
+                history_cursor = Some(observed["page"]["next"].clone());
+            }
+            let before_denials = self.native_read_entries()?;
+            let foreign_terminal = self
+                .observe_bound(&session, &binding, security_query(foreign, scope, None))
+                .await;
+            let foreign_terminal = graph_terminal_custody(
+                self.root(),
+                &format!("sec07-foreign-{index}"),
+                foreign_terminal,
+            )?;
+            let foreign_error = security_denial(foreign_terminal)?;
+            let absent_terminal = self
+                .observe_bound(&session, &binding, security_query(absent, scope, None))
+                .await;
+            let absent_terminal = graph_terminal_custody(
+                self.root(),
+                &format!("sec07-absent-{index}"),
+                absent_terminal,
+            )?;
+            let absent_error = security_denial(absent_terminal)?;
+            require(
+                serde_json::to_value(&foreign_error)? == serde_json::to_value(&absent_error)?
+                    && !foreign_error.message.contains(marker)
+                    && self.native_read_entries()? == before_denials,
+                "Foreign/absent denial leaked existence or reached the application observer",
+            )?;
+        }
+        let reference =
+            own_reference.ok_or_else(|| Error::invalid("Own NativeRef was not retained"))?;
+        let before_mismatch = self.native_read_entries()?;
+        let mismatch = self
+            .observe_bound(
+                &session,
+                &binding,
+                security_query(foreign, "summary", Some(&reference)),
+            )
+            .await;
+        security_denial(graph_terminal_custody(
+            self.root(),
+            "sec07-ref-resource-mismatch",
+            mismatch,
+        )?)?;
+        require(
+            self.native_read_entries()? == before_mismatch,
+            "Mismatched resource/ref performed an implicit freshness read",
+        )?;
+        let before_unbound = self.native_read_entries()?;
+        let unbound = self
+            .base
+            .call(
+                &session,
+                GRAPH_OBSERVE,
+                security_query(own, "summary", None),
+            )
+            .await;
+        security_denial(graph_terminal_custody(
+            self.root(),
+            "sec07-unbound-own-denied",
+            unbound,
+        )?)?;
+        require(
+            self.native_read_entries()? == before_unbound,
+            "Protected unbound read reached the application observer",
+        )?;
+        let cursor = history_cursor
+            .ok_or_else(|| Error::invalid("Real own history did not yield a continuation"))?;
+        let mut next = security_query(own, "history", Some(&reference));
+        next["cursor"] = cursor.clone();
+        let continuation = self.observe_bound(&session, &binding, next.clone()).await;
+        let continuation = graph_bound_data(graph_terminal_custody(
+            self.root(),
+            "sec07-own-history-continuation",
+            continuation,
+        )?)?;
+        require(
+            continuation["page"]["version"]["resource"] == own,
+            "Own history continuation lost its resource",
+        )?;
+        let before_foreign_cursor = self.native_read_entries()?;
+        next["resource"] = json!(foreign);
+        let foreign_cursor = self.observe_bound(&session, &binding, next).await;
+        security_denial(graph_terminal_custody(
+            self.root(),
+            "sec07-foreign-cursor-denied",
+            foreign_cursor,
+        )?)?;
+        require(
+            self.native_read_entries()? == before_foreign_cursor,
+            "Cursor or NativeRef bypassed the resource read grant",
+        )?;
+        require(
+            self.readback("motionwright.sqlite3").await? == own_before,
+            "Read controls modified the owned project/history",
+        )?;
+        require(
+            self.readback_project("motionwright.sqlite3", foreign_id)
+                .await?
+                == foreign_before,
+            "Read controls modified the foreign project/history",
+        )?;
+        // An operation payload's resource is a subresource, not a replacement
+        // for the native project's read selector. Exercise that distinction via
+        // the real public mutation, then independently reopen its exact result.
+        let scene = graph_field(&source["project"]["scenes"][0], "id")?;
+        let subresource = format!("scene:{scene}");
+        let review_body = "SEC07 own-project subresource mutation control";
+        self.start_public(
+            "driver.motionwright.review.add",
+            json!({
+                "kind":"technical","resource":subresource,"body":review_body
+            }),
+        )
+        .await?;
+        let review = self.terminal("sec07-own-subresource-review").await?;
+        let _ = graph_bound_data(review)?;
+        let reviewed = self.readback("motionwright.sqlite3").await?;
+        require(
+            graph_revision(&reviewed)? == graph_revision(&own_before)? + 1
+                && reviewed["history"].as_array().is_some_and(|history| {
+                    history.len() == own_before["history"].as_array().map_or(0, Vec::len) + 1
+                })
+                && reviewed["project"]["reviews"]
+                    .as_array()
+                    .is_some_and(|reviews| {
+                        reviews.iter().any(|review| {
+                            review["anchor"]["resource"] == subresource
+                                && review["body"] == review_body
+                        })
+                    }),
+            "Legitimate review subresource was mistaken for a native project read selector",
+        )?;
+        require(
+            self.readback_project("motionwright.sqlite3", foreign_id)
+                .await?
+                == foreign_before,
+            "Own-project review changed the foreign project",
+        )?;
+        graph_write_json(
+            &self.root().join("SEC07_RESULT.json"),
+            &json!({
+                "schema":"motionwright.sec07-host9-case/1","case":"own-foreign-absent",
+                "native_context":"REAL_CORE_HOST9","same_store_foreign_readback":true,
+                "own_scopes":scopes,"foreign_and_absent_denied_before_observer":true,
+                "cursor_and_ref_do_not_grant_authority":true,"automatic_retry":false,
+                "real_own_subresource_review_commits_once":true,
+                "formal_acceptance":false
+            }),
+        )
+    }
+
+    async fn security_two_live_grants_reject_crossed_refs(&mut self) -> Result<()> {
+        let source = self.runtime.source.clone();
+        let first = graph_field(&source, "resource")?;
+        let second = graph_field(&source["security"], "foreign_resource")?;
+        let second_id = graph_field(&source["security"]["foreign_project"], "id")?;
+        let first_before = self.readback("motionwright.sqlite3").await?;
+        let second_before = self
+            .readback_project("motionwright.sqlite3", second_id)
+            .await?;
+        require(
+            second_before["project"] == source["security"]["foreign_project"],
+            "Second authorized project is not the real same-Store seed",
+        )?;
+        let session = self.base.session.clone();
+        let binding = self.current_mount(&session).await?;
+        let mut observations = Vec::new();
+        for (index, resource) in [first, second].into_iter().enumerate() {
+            let before = self.native_read_entries()?;
+            let terminal = self
+                .observe_bound(
+                    &session,
+                    &binding,
+                    security_query(resource, "history", None),
+                )
+                .await;
+            let observed = graph_bound_data(graph_terminal_custody(
+                self.root(),
+                &format!("sec07-two-grants-initial-{index}"),
+                terminal,
+            )?)?;
+            require(
+                observed["page"]["version"]["resource"] == resource
+                    && self.native_read_entries()?.len() == before.len() + 1,
+                "Both independently mapped resources must reach the real observer",
+            )?;
+            let reference = graph_field(&observed, "ref")?.to_owned();
+            let cursor = observed["page"]["next"].clone();
+            require(
+                reference.starts_with("native:") && !cursor.is_null(),
+                "Two-grant control requires genuine live refs and actual continuations",
+            )?;
+            observations.push((reference, cursor));
+        }
+        require(
+            observations[0].0 != observations[1].0,
+            "Distinct resources unexpectedly shared a single native reference",
+        )?;
+        let before_denials = self.native_read_entries()?;
+        for (index, (resource, crossed_reference)) in [
+            (first, observations[1].0.as_str()),
+            (second, observations[0].0.as_str()),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let terminal = self
+                .observe_bound(
+                    &session,
+                    &binding,
+                    security_query(resource, "summary", Some(crossed_reference)),
+                )
+                .await;
+            security_denial(graph_terminal_custody(
+                self.root(),
+                &format!("sec07-two-grants-crossed-ref-{index}"),
+                terminal,
+            )?)?;
+            require(
+                self.native_read_entries()? == before_denials,
+                "Authorized query plus another authorized resource's ref reached implicit fresh",
+            )?;
+        }
+        let mut crossed_cursor = security_query(first, "history", Some(&observations[1].0));
+        crossed_cursor["cursor"] = observations[1].1.clone();
+        let terminal = self.observe_bound(&session, &binding, crossed_cursor).await;
+        security_denial(graph_terminal_custody(
+            self.root(),
+            "sec07-two-grants-crossed-cursor",
+            terminal,
+        )?)?;
+        require(
+            self.native_read_entries()? == before_denials,
+            "A genuine second-project cursor/ref crossed the first project's live grant",
+        )?;
+        // This time the query AND ref both name authorized A, so Core's ref
+        // scope join passes. Only B's genuine cursor crosses the resource.
+        // NativeSDK must validate that cursor before any implicit fresh read.
+        let mut cursor_only = security_query(first, "history", Some(&observations[0].0));
+        cursor_only["cursor"] = observations[1].1.clone();
+        let terminal = self.observe_bound(&session, &binding, cursor_only).await;
+        let terminal = graph_terminal_custody(
+            self.root(),
+            "sec07-two-grants-cursor-only-mismatch",
+            terminal,
+        )?;
+        require(
+            !terminal.ok
+                && terminal.data.is_none()
+                && terminal
+                    .error
+                    .as_ref()
+                    .is_some_and(|error| error.code == ErrorCode::StaleReference),
+            "Foreign cursor with matching authorized ref did not retain its original stale outcome",
+        )?;
+        let cursor_outcome_known = terminal
+            .error
+            .as_ref()
+            .expect("typed stale outcome checked")
+            .outcome_known;
+        require(
+            self.native_read_entries()? == before_denials,
+            "Foreign cursor validation happened only after NativeSDK fresh reached the application",
+        )?;
+        // Preserve the Host's actual outcome_known value; source proof of no
+        // observer entry does not rewrite a transport's uncertain terminal.
+        // Matching continuations still work with the same live bindings and refs;
+        // denial above cannot be attributed to expired or fabricated admissions.
+        for (index, resource) in [first, second].into_iter().enumerate() {
+            let mut query = security_query(resource, "history", Some(&observations[index].0));
+            query["cursor"] = observations[index].1.clone();
+            let terminal = self.observe_bound(&session, &binding, query).await;
+            let observed = graph_bound_data(graph_terminal_custody(
+                self.root(),
+                &format!("sec07-two-grants-matched-continuation-{index}"),
+                terminal,
+            )?)?;
+            require(
+                observed["page"]["version"]["resource"] == resource,
+                "A matching authorized continuation stopped working after crossed-ref denial",
+            )?;
+        }
+        require(
+            self.readback("motionwright.sqlite3").await? == first_before
+                && self
+                    .readback_project("motionwright.sqlite3", second_id)
+                    .await?
+                    == second_before,
+            "Two-grant read controls modified either same-Store project",
+        )?;
+        graph_write_json(
+            &self.root().join("SEC07_RESULT.json"),
+            &json!({
+                "schema":"motionwright.sec07-host9-case/1","case":"two-live-grants-crossed-refs",
+                "native_context":"REAL_CORE_HOST9","both_resources_independently_authorized":true,
+                "both_matching_continuations_succeeded":true,"crossed_ref_observer_calls":0,
+                "crossed_cursor_observer_calls":0,"original_cursor_outcome_known":cursor_outcome_known,
+                "automatic_retry":false,"formal_acceptance":false
+            }),
+        )
+    }
+
+    async fn security_default_denied(&mut self, mode: &str) -> Result<()> {
+        require(
+            mode == "empty",
+            "Only an explicit empty protected policy can register without a read mapping",
+        )?;
+        let source = self.runtime.source.clone();
+        let own = graph_field(&source, "resource")?;
+        let session = self.base.session.clone();
+        let binding = self.current_mount(&session).await?;
+        let before = self.native_read_entries()?;
+        let bound = self
+            .observe_bound(&session, &binding, security_query(own, "summary", None))
+            .await;
+        security_denial(graph_terminal_custody(
+            self.root(),
+            "sec07-default-bound-denied",
+            bound,
+        )?)?;
+        let unbound = self
+            .base
+            .call(
+                &session,
+                GRAPH_OBSERVE,
+                security_query(own, "summary", None),
+            )
+            .await;
+        security_denial(graph_terminal_custody(
+            self.root(),
+            "sec07-default-unbound-denied",
+            unbound,
+        )?)?;
+        require(
+            self.native_read_entries()? == before,
+            "Protected provider with no read grant reached the application",
+        )?;
+        graph_write_json(
+            &self.root().join("SEC07_RESULT.json"),
+            &json!({
+                "schema":"motionwright.sec07-host9-case/1","case":"default-deny","policy_mode":mode,
+                "native_context":"REAL_CORE_HOST9","driver_capability_granted":true,
+                "explicit_empty_mapping_does_not_unprotect_provider":true,
+                "automatic_retry":false,"formal_acceptance":false
+            }),
+        )
+    }
+
+    async fn security_origin_expiry_before_fresh(&mut self) -> Result<()> {
+        // These are genuine RefStore admissions with a deliberately finite TTL,
+        // not reconstructed refs or a mocked clock. The native ref is issued
+        // later and remains within its own TTL when its originating mount expires.
+        *self
+            .base
+            .broker
+            .references
+            .lock()
+            .map_err(|_| Error::invalid("Reference lock poisoned"))? =
+            semwright_types::RefStore::new(Duration::from_secs(10), 64);
+        let session = self.base.session.clone();
+        let own = graph_field(&self.runtime.source, "resource")?.to_owned();
+        let origin = self.current_mount(&session).await?;
+        let origin_expires = self
+            .base
+            .broker
+            .references
+            .lock()
+            .map_err(|_| Error::invalid("Reference lock poisoned"))?
+            .get_provider_mount(&origin, &session)?
+            .expires;
+        tokio::time::sleep_until(tokio::time::Instant::from_std(
+            origin_expires - Duration::from_secs(5),
+        ))
+        .await;
+        let observed = self
+            .observe_bound(&session, &origin, security_query(&own, "summary", None))
+            .await;
+        let observed = graph_bound_data(graph_terminal_custody(
+            self.root(),
+            "sec07-origin-own-positive",
+            observed,
+        )?)?;
+        let native = graph_field(&observed, "ref")?.to_owned();
+        let native_expires = self
+            .base
+            .broker
+            .references
+            .lock()
+            .map_err(|_| Error::invalid("Reference lock poisoned"))?
+            .get(&native, &session)?
+            .expires;
+        require(
+            native_expires > origin_expires + Duration::from_secs(2),
+            "NativeRef lifetime did not separate from its originating grant",
+        )?;
+        tokio::time::sleep_until(tokio::time::Instant::from_std(
+            origin_expires + Duration::from_millis(20),
+        ))
+        .await;
+        require(
+            native_expires > std::time::Instant::now(),
+            "NativeRef itself expired before the origin-scope control",
+        )?;
+        let fresh_binding = self.current_mount(&session).await?;
+        let before = self.native_read_entries()?;
+        let denied = self
+            .observe_bound(
+                &session,
+                &fresh_binding,
+                security_query(&own, "summary", Some(&native)),
+            )
+            .await;
+        let denied =
+            graph_terminal_custody(self.root(), "sec07-expired-origin-before-fresh", denied)?;
+        require(
+            !denied.ok
+                && denied.data.is_none()
+                && denied.error.as_ref().is_some_and(|error| {
+                    matches!(
+                        error.code,
+                        ErrorCode::StaleReference | ErrorCode::PolicyDenied
+                    )
+                }),
+            "A fresh binding revived a NativeRef whose original read admission expired",
+        )?;
+        require(
+            self.native_read_entries()? == before,
+            "Expired origin reached SDK fresh before refusal",
+        )?;
+        let positive = self
+            .observe_bound(
+                &session,
+                &fresh_binding,
+                security_query(&own, "summary", None),
+            )
+            .await;
+        let positive = graph_bound_data(graph_terminal_custody(
+            self.root(),
+            "sec07-fresh-origin-positive",
+            positive,
+        )?)?;
+        require(
+            positive["page"]["version"]["resource"] == own
+                && self.native_read_entries()?.len() == before.len() + 1,
+            "Fresh legitimate initial read did not remain available after origin expiry",
+        )?;
+        graph_write_json(
+            &self.root().join("SEC07_RESULT.json"),
+            &json!({
+                "schema":"motionwright.sec07-host9-case/1","case":"origin-expiry-before-fresh",
+                "native_context":"REAL_CORE_HOST9","native_ref_own_ttl_still_live":true,
+                "old_origin_cannot_be_rebound":true,"implicit_observer_calls_on_denial":0,
+                "automatic_retry":false,"formal_acceptance":false
+            }),
+        )
+    }
+
+    async fn security_invalidate_after_provider_await(
+        &mut self,
+        expire: bool,
+        outer: bool,
+    ) -> Result<()> {
+        require(
+            !outer || expire,
+            "The wrapper-completion control uses actual origin expiry",
+        )?;
+        if expire {
+            *self
+                .base
+                .broker
+                .references
+                .lock()
+                .map_err(|_| Error::invalid("Reference lock poisoned"))? =
+                semwright_types::RefStore::new(Duration::from_secs(10), 64);
+        }
+        let session = self.base.session.clone();
+        let own = graph_field(&self.runtime.source, "resource")?.to_owned();
+        let binding = self.current_mount(&session).await?;
+        let origin_expires = self
+            .base
+            .broker
+            .references
+            .lock()
+            .map_err(|_| Error::invalid("Reference lock poisoned"))?
+            .get_provider_mount(&binding, &session)?
+            .expires;
+        let before = self.native_read_entries()?;
+        let pause = if outer {
+            self.base.broker.pause_next_native_bound_read_completion()?
+        } else {
+            self.base.broker.pause_next_native_read_completion()?
+        };
+        let entered = pause.entered.notified();
+        tokio::pin!(entered);
+        entered.as_mut().enable();
+        let outer_request = unique_id();
+        let call = request(
+            "providers.execute_bound",
+            json!({
+                "binding_ref":binding,
+                "request":{"command":GRAPH_OBSERVE,"args":security_query(&own, "summary", None),"dry_run":false}
+            }),
+        );
+        graph_write_json(
+            &self.root().join("sec07-paused-request.original.json"),
+            &json!({"outer_request_id":outer_request,"request":call,"wrapper_completion":outer}),
+        )?;
+        self.base.request = Some(tokio::spawn(self.base.broker.clone().execute(
+            session.clone(),
+            outer_request,
+            call,
+            self.base.cancellation.clone(),
+        )));
+        tokio::time::timeout(Duration::from_secs(6), &mut entered)
+            .await
+            .map_err(|_| {
+                Error::new(
+                    ErrorCode::Timeout,
+                    "Actual provider completion pause was not reached",
+                )
+                .uncertain()
+            })?;
+        require(
+            self.native_read_entries()?.len() == before.len() + 1,
+            "Post-await pause was reached without the actual provider observation",
+        )?;
+        if outer {
+            // The inner read guard has legitimately drained. The wrapper must
+            // independently reject disclosure after its own nested await.
+            require(
+                self.base.lease.active(),
+                "Original provider stopped before the wrapper completion control",
+            )?;
+        } else {
+            self.retained_guard()?;
+        }
+        if expire {
+            tokio::time::sleep_until(tokio::time::Instant::from_std(
+                origin_expires + Duration::from_millis(20),
+            ))
+            .await;
+            require(
+                origin_expires <= std::time::Instant::now(),
+                "Original read admission did not actually expire",
+            )?;
+        } else {
+            self.base.broker.revoke_session(&session);
+        }
+        // The original provider result exists, but no page or NativeRef has yet
+        // been returned to the caller. Do not cancel or replace the child.
+        pause.proceed.notify_one();
+        let label = if outer {
+            "sec07-expired-after-bound-wrapper-await"
+        } else if expire {
+            "sec07-expired-after-provider-await"
+        } else {
+            "sec07-revoked-after-provider-await"
+        };
+        let terminal = self.terminal(label).await?;
+        require(
+            !terminal.ok
+                && terminal.data.is_none()
+                && terminal
+                    .error
+                    .as_ref()
+                    .is_some_and(|error| error.code == ErrorCode::PolicyDenied),
+            "Revoked post-await native read exposed a successful page or reference",
+        )?;
+        self.drained().await?;
+        self.remains_live().await?;
+        graph_write_json(
+            &self.root().join("SEC07_RESULT.json"),
+            &json!({
+                "schema":"motionwright.sec07-host9-case/1",
+                "case":if outer {"expiry-after-bound-wrapper-await"}
+                    else if expire {"expiry-after-provider-await"} else {"revoke-after-provider-await"},
+                "native_context":"REAL_CORE_HOST9","actual_provider_returned_before_invalidation":true,
+                "actual_origin_expiry":expire,"wrapper_completion":outer,
+                "success_data_released":false,"original_read_hold_drained":true,
+                "same_provider_fresh_authorized_session_succeeded":true,
+                "automatic_retry":false,"formal_acceptance":false
+            }),
+        )
+    }
+}
+
+async fn run_security_case(mode: &'static str, scenario: &'static str) {
+    let mut fixture = GraphFixture::new_security(mode)
+        .await
+        .expect("real SEC07 Core/Host9 fixture setup");
+    let scenario_result = match tokio::time::timeout(Duration::from_secs(50), async {
+        match scenario {
+            "own-foreign-absent" => fixture.security_own_foreign_absent().await,
+            "two-live-grants" => fixture.security_two_live_grants_reject_crossed_refs().await,
+            "default-deny" => fixture.security_default_denied(mode).await,
+            "origin-expiry" => fixture.security_origin_expiry_before_fresh().await,
+            "post-await-revoke" => {
+                fixture
+                    .security_invalidate_after_provider_await(false, false)
+                    .await
+            }
+            "post-await-expiry" => {
+                fixture
+                    .security_invalidate_after_provider_await(true, false)
+                    .await
+            }
+            "wrapper-await-expiry" => {
+                fixture
+                    .security_invalidate_after_provider_await(true, true)
+                    .await
+            }
+            _ => Err(Error::invalid("Unknown closed SEC07 scenario")),
+        }
+    })
+    .await
+    {
+        Ok(result) => result,
+        Err(_) => Err(Error::new(
+            ErrorCode::Timeout,
+            "Original SEC07 scenario exceeded its deadline",
+        )
+        .uncertain()),
+    };
+    let cleanup = fixture.cleanup().await;
+    let retained = graph_write_json(
+        &fixture.root().join("CASE_TERMINAL.json"),
+        &json!({
+            "schema":"motionwright.sec07-host9-case-terminal/1","scenario":scenario,"policy_mode":mode,
+            "scenario_result":match &scenario_result {Ok(())=>json!({"ok":true}),Err(error)=>json!({"ok":false,"error":error})},
+            "cleanup_result":match &cleanup {Ok(())=>json!({"ok":true}),Err(error)=>json!({"ok":false,"error":error})},
+            "automatic_retry":false,"formal_acceptance":false
+        }),
+    );
+    assert!(
+        scenario_result.is_ok() && cleanup.is_ok() && retained.is_ok(),
+        "real SEC07 scenario: {scenario_result:?}; physical cleanup: {cleanup:?}; custody: {retained:?}"
+    );
+}
+
+async fn run_security_missing_policy_registration_case() {
+    let mut refusal = None;
+    let result = Fixture::new_program_recording_registration(
+        Some(GraphProgram {
+            database: "default",
+            checkpoint: None,
+            security: true,
+            read_policy: "omitted",
+        }),
+        Some(&mut refusal),
+    )
+    .await;
+    let original = match result {
+        Err(error) => error,
+        Ok((mut unexpected, _)) => {
+            let cleanup = unexpected.cleanup().await;
+            let retained = graph_write_json(
+                &unexpected._root.path().join("CASE_TERMINAL.json"),
+                &json!({
+                    "schema":"motionwright.sec07-host9-case-terminal/1",
+                    "scenario":"missing-policy-registration","unexpected_registration_success":true,
+                    "cleanup_result":match &cleanup {Ok(())=>json!({"ok":true}),Err(error)=>json!({"ok":false,"error":error})},
+                    "automatic_retry":false,"formal_acceptance":false
+                }),
+            );
+            panic!(
+                "Protected provider unexpectedly registered without its owner policy entry; original cleanup: {cleanup:?}; custody: {retained:?}"
+            );
+        }
+    };
+    let observed = refusal.expect("Omitted-policy control failed before genuine Host connection and exact Broker registration refusal");
+    // Only a recorded error at the actual mount boundary is admissible here.
+    // Setup, sandbox, executable, bootstrap and shutdown failures cannot count
+    // as the expected policy refusal or be normalized into a fake Envelope.
+    let denied = observed.original.code == ErrorCode::PolicyDenied
+        && observed.original.message == "Native resource access denied"
+        && original.code == observed.original.code
+        && original.message == observed.original.message
+        && original.outcome_known == observed.original.outcome_known;
+    let no_observer = fs::read_dir(observed.root.join("control"))
+        .and_then(|entries| entries.collect::<std::io::Result<Vec<_>>>())
+        .map(|entries| {
+            !entries.into_iter().any(|entry| {
+                entry
+                    .file_name()
+                    .to_string_lossy()
+                    .starts_with("read-entry-")
+            })
+        });
+    let retained = graph_write_json(
+        &observed.root.join("CASE_TERMINAL.json"),
+        &json!({
+            "schema":"motionwright.sec07-host9-case-terminal/1",
+            "scenario":"missing-policy-registration","native_context":"REAL_CORE_HOST9",
+            "original_registration_error":observed.original,"returned_original_error":original,
+            "host_connected":true,"specific_registration_refusal":denied,
+            "original_provider_shutdown_confirmed":observed.shutdown_confirmed,
+            "original_refusal_custody_retained":observed.evidence_retained,
+            "application_observer_not_entered":matches!(&no_observer, Ok(true)),
+            "automatic_retry":false,"formal_acceptance":false
+        }),
+    );
+    assert!(
+        denied
+            && observed.shutdown_confirmed
+            && observed.evidence_retained
+            && matches!(&no_observer, Ok(true))
+            && retained.is_ok(),
+        "Actual protected registration refusal: {original:?}; original: {:?}; shutdown: {}; refusal custody: {}; observer: {no_observer:?}; verdict custody: {retained:?}",
+        observed.original,
+        observed.shutdown_confirmed,
+        observed.evidence_retained
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires Linux real Host9, protected NativeSDK/Motionwright source, Bubblewrap/Landlock and pinned seed-security tool"]
+async fn linux_motionwright_native_read_scope_own_foreign_absent_and_continuations() {
+    run_security_case("owned", "own-foreign-absent").await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires Linux real Host9, protected NativeSDK/Motionwright source, Bubblewrap/Landlock and pinned seed-security tool"]
+async fn linux_motionwright_native_read_scope_empty_and_missing_policy_are_denied() {
+    run_security_case("empty", "default-deny").await;
+    run_security_missing_policy_registration_case().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires Linux real Host9, protected NativeSDK/Motionwright source, Bubblewrap/Landlock and pinned seed-security tool"]
+async fn linux_motionwright_native_read_scope_two_live_grants_reject_crossed_refs() {
+    run_security_case("both", "two-live-grants").await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires Linux real Host9, protected NativeSDK/Motionwright source, Bubblewrap/Landlock and pinned seed-security tool"]
+async fn linux_motionwright_native_read_scope_expired_origin_is_checked_before_fresh() {
+    run_security_case("owned", "origin-expiry").await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires Linux real Host9, protected NativeSDK/Motionwright source, Bubblewrap/Landlock and pinned seed-security tool"]
+async fn linux_motionwright_native_read_scope_revoke_after_actual_provider_completion() {
+    run_security_case("owned", "post-await-revoke").await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires Linux real Host9, protected NativeSDK/Motionwright source, Bubblewrap/Landlock and pinned seed-security tool"]
+async fn linux_motionwright_native_read_scope_expiry_after_actual_provider_completion() {
+    run_security_case("owned", "post-await-expiry").await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires Linux real Host9, protected NativeSDK/Motionwright source, Bubblewrap/Landlock and pinned seed-security tool"]
+async fn linux_motionwright_native_read_scope_expiry_after_bound_wrapper_completion() {
+    run_security_case("owned", "wrapper-await-expiry").await;
 }
 
 // These unit controls exercise terminal custody only. They neither instantiate

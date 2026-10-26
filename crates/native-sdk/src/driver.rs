@@ -33,6 +33,11 @@ pub struct NativeDriver {
 }
 impl NativeDriver {
     pub fn new(app: Application) -> Result<Self> {
+        if app.resource_read_scope_required() && !app.has_observer() {
+            return Err(Error::invalid(
+                "Resource-read scope requires a native observation provider",
+            ));
+        }
         let identity = crate::types::ProviderIdentity::external(
             crate::types::SourceKind::Driver,
             app.id(),
@@ -168,7 +173,9 @@ impl NativeDriver {
             .observer
             .as_ref()
             .ok_or_else(|| Error::new(ErrorCode::Unsupported, "Observation is unavailable"))?;
+        context.check_cancelled()?;
         let page = observer.observe(&query, context).await?;
+        context.check_cancelled()?;
         page.validate_for(&query)?;
         if page.version != old.version {
             return Err(Error::new(
@@ -179,7 +186,7 @@ impl NativeDriver {
         Ok(page.version)
     }
 
-    fn reject_unregistered_markers(&self, value: &Value) -> Result<()> {
+    fn reject_unregistered_markers(&self, value: &Value, resource: Option<&str>) -> Result<()> {
         let mut pending = vec![value];
         while let Some(value) = pending.pop() {
             match value {
@@ -187,7 +194,15 @@ impl NativeDriver {
                     if let Some(marker) = map.get("$ref").filter(|v| v.is_object()) {
                         let target: NativeTarget = serde_json::from_value(marker.clone())
                             .map_err(|_| Error::invalid("Malformed native reference marker"))?;
-                        self.cached(&target)?;
+                        let observed = self.cached(&target)?;
+                        if self.app.resource_read_scope_required()
+                            && resource.is_none_or(|resource| resource != observed.version.resource)
+                        {
+                            return Err(Error::new(
+                                ErrorCode::PermissionDenied,
+                                "Native reference crosses the admitted read resource",
+                            ));
+                        }
                     }
                     pending.extend(map.values());
                 }
@@ -266,15 +281,7 @@ impl Driver for NativeDriver {
                 "Caller reference has no Host binding",
             ));
         }
-        let mut context = CallContext::from_host(host, None);
-        let expected = if let Some(target) = &target {
-            Some(self.fresh(target, &context).await?)
-        } else {
-            None
-        };
-        context.set_expected(expected.clone());
-        let mut mutates = false;
-        let result = if command == format!("driver.{}.observe", self.app.id()) {
+        let observation_query = if command == format!("driver.{}.observe", self.app.id()) {
             let mut query_args = args.clone();
             query_args
                 .as_object_mut()
@@ -282,6 +289,64 @@ impl Driver for NativeDriver {
                 .remove("ref");
             let query: Query = serde_json::from_value(query_args)?;
             query.validate()?;
+            Some(query)
+        } else {
+            None
+        };
+        let recovery_identity = if command == format!("driver.{}.operation.get", self.app.id()) {
+            let identity: RequestIdentity = serde_json::from_value(args["request"].clone())?;
+            identity.validate()?;
+            Some(identity)
+        } else {
+            None
+        };
+        // Compare explicit read resource BEFORE fresh() invokes the observer.
+        // A caller cannot use a reference for B while naming authorized A.
+        if let Some(target) = &target {
+            let requested = if command == format!("driver.{}.observe", self.app.id()) {
+                args.get("resource").and_then(Value::as_str)
+            } else if command == format!("driver.{}.operation.get", self.app.id()) {
+                args.pointer("/request/resource").and_then(Value::as_str)
+            } else {
+                None
+            };
+            let cached = self.cached(target)?;
+            if observation_query
+                .as_ref()
+                .and_then(|query| query.cursor.as_ref())
+                .is_some_and(|cursor| cursor.version != cached.version)
+            {
+                return Err(Error::new(
+                    ErrorCode::StaleReference,
+                    "Cursor and reference observation differ",
+                ));
+            }
+            if requested.is_some_and(|resource| resource != cached.version.resource) {
+                return Err(Error::new(
+                    ErrorCode::StaleReference,
+                    "Reference and read resource differ",
+                ));
+            }
+        }
+        let mut context = CallContext::from_host(host, None);
+        let expected = if let Some(target) = &target {
+            Some(self.fresh(target, &context).await?)
+        } else {
+            None
+        };
+        context.set_expected(expected.clone());
+        let result_resource = observation_query
+            .as_ref()
+            .map(|query| query.resource.clone())
+            .or_else(|| {
+                recovery_identity
+                    .as_ref()
+                    .map(|identity| identity.resource.clone())
+            })
+            .or_else(|| expected.as_ref().map(|version| version.resource.clone()));
+        let mut mutates = false;
+        let result = if command == format!("driver.{}.observe", self.app.id()) {
+            let query = observation_query.expect("validated observation query");
             if expected
                 .as_ref()
                 .is_some_and(|version| version.resource != query.resource)
@@ -291,6 +356,7 @@ impl Driver for NativeDriver {
                     "Reference and query resource differ",
                 ));
             }
+            context.check_cancelled()?;
             let page = self
                 .app
                 .observer
@@ -298,12 +364,12 @@ impl Driver for NativeDriver {
                 .expect("catalog observer")
                 .observe(&query, &context)
                 .await?;
+            context.check_cancelled()?;
             page.validate_for(&query)?;
             let target = self.remember(&page)?;
             json!({"page": page, "ref": crate::types::target_marker(target)})
         } else if command == format!("driver.{}.operation.get", self.app.id()) {
-            let identity: RequestIdentity = serde_json::from_value(args["request"].clone())?;
-            identity.validate()?;
+            let identity = recovery_identity.expect("validated recovery identity");
             if self.app.has_observer()
                 && expected
                     .as_ref()
@@ -314,6 +380,7 @@ impl Driver for NativeDriver {
                     "Recovery requires a current resource observation",
                 ));
             }
+            context.check_cancelled()?;
             let record = self
                 .app
                 .recovery
@@ -321,6 +388,7 @@ impl Driver for NativeDriver {
                 .expect("catalog recovery")
                 .lookup(&identity, &context)
                 .await?;
+            context.check_cancelled()?;
             record.validate_for(&identity)?;
             json!({"record":record,"historical_only":true,"current_authority":false,"replay_allowed":false})
         } else {
@@ -344,7 +412,7 @@ impl Driver for NativeDriver {
         // A malformed result after an app commit is uncertain, not a known rejection.
         let validate_result = || -> Result<()> {
             validate_value(&result)?;
-            self.reject_unregistered_markers(&result)?;
+            self.reject_unregistered_markers(&result, result_resource.as_deref())?;
             self.catalog[command].output.validate(&result).map_err(|_| {
                 Error::new(
                     ErrorCode::PluginProtocolError,
@@ -371,7 +439,13 @@ fn read_capability(
             description: description.into(),
             input_schema: input,
             output_schema: output,
-            requires: vec![format!("driver:{}", app.id())],
+            requires: {
+                let mut required = vec![format!("driver:{}", app.id())];
+                if app.resource_read_scope_required() {
+                    required.push(crate::types::NATIVE_RESOURCE_READ_REQUIREMENT.into());
+                }
+                required
+            },
             risk: Risk::ReadOnly,
             idempotency: Idempotency::ReadOnly,
             timeout_ms: 30_000,
@@ -401,6 +475,48 @@ mod native_reference_lifecycle_tests {
         async fn observe(&self, _: &Query, _: &CallContext) -> Result<ObservationPage> {
             panic!("native-reference lifecycle validation must not acquire observation authority")
         }
+    }
+
+    #[test]
+    fn protected_marker_must_belong_to_the_actual_invocation_resource() {
+        let app = Application::new("scoped-app", "1.0.0")
+            .unwrap()
+            .require_resource_read_scope()
+            .with_observer(Arc::new(LifecycleMustNotObserve));
+        let mut driver = NativeDriver::new(app).unwrap();
+        let page = |resource: &str| ObservationPage {
+            version: ResourceVersion {
+                resource: resource.into(),
+                generation: "generation-a".into(),
+                revision: RevisionToken::new("revision-a").unwrap(),
+            },
+            scope: "summary".into(),
+            items: vec![],
+            next: None,
+            complete: true,
+        };
+        // Actual SDK-generated cached targets, not fabricated Core NativeRefs.
+        let a = driver.remember(&page("project-a")).unwrap();
+        let b = driver.remember(&page("project-b")).unwrap();
+        assert!(driver.cached(&b).is_ok());
+        assert!(
+            driver
+                .reject_unregistered_markers(&crate::types::target_marker(a), Some("project-a"))
+                .is_ok()
+        );
+        assert!(
+            driver
+                .reject_unregistered_markers(
+                    &crate::types::target_marker(b.clone()),
+                    Some("project-a")
+                )
+                .is_err()
+        );
+        assert!(
+            driver
+                .reject_unregistered_markers(&crate::types::target_marker(b), None)
+                .is_err()
+        );
     }
 
     #[tokio::test]

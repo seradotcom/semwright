@@ -30,6 +30,7 @@ pub(super) struct ProviderLease {
     pub epoch: CancellationToken,
     pub binding_epoch: CancellationToken,
     pub operation_gate: Arc<crate::operation_permits::OperationGate>,
+    pub native_read_scope_required: bool,
     pub workspace_mounts: Result<MountBindings>,
     pub profile_observation: Option<Arc<semwright_driver_host::HostProfileObservation>>,
 }
@@ -105,6 +106,7 @@ impl ProviderCatalog {
                     lifetime,
                     binding_epoch: epoch.child_token(),
                     operation_gate: Arc::new(crate::operation_permits::OperationGate::default()),
+                    native_read_scope_required: false,
                     epoch,
                     profile_observation: None,
                     workspace_mounts: Err(Error::new(
@@ -277,6 +279,8 @@ impl Broker {
         let signals = provider.events();
         let closed = provider.closed();
         let rows = Self::provider_catalog(&provider, &identity).await?;
+        let native_read_scope_required =
+            crate::native_reads::validate_provider_contract(&self.policy, &identity, &rows, false)?;
         let mut candidate = self
             .registry
             .read()
@@ -316,6 +320,7 @@ impl Broker {
             connection: unique_id(),
             binding_epoch: epoch.child_token(),
             operation_gate: Arc::new(crate::operation_permits::OperationGate::default()),
+            native_read_scope_required,
             epoch,
             lifetime,
             workspace_mounts,
@@ -443,6 +448,18 @@ impl Broker {
                 "Provider lease changed during refresh",
             ));
         }
+        let native_read_scope_required = match crate::native_reads::validate_provider_contract(
+            &self.policy,
+            &lease.identity,
+            &rows,
+            lease.native_read_scope_required,
+        ) {
+            Ok(required) => required,
+            Err(error) => {
+                let _ = self.invalidate_connection(id, connection);
+                return Err(error);
+            }
+        };
         let expected = candidate.revision();
         let identity = lease.identity.clone();
         let validated = tokio::task::spawn_blocking(move || -> Result<ProviderCatalog> {
@@ -501,6 +518,7 @@ impl Broker {
             lifetime: lease.lifetime.clone(),
             binding_epoch: epoch.child_token(),
             operation_gate: Arc::new(crate::operation_permits::OperationGate::default()),
+            native_read_scope_required,
             epoch,
             workspace_mounts: lease.workspace_mounts.clone(),
             profile_observation: lease.profile_observation.clone(),
@@ -668,6 +686,7 @@ impl Broker {
                 lifetime: previous.lifetime.clone(),
                 binding_epoch: epoch.child_token(),
                 operation_gate: Arc::new(crate::operation_permits::OperationGate::default()),
+                native_read_scope_required: previous.native_read_scope_required,
                 epoch,
                 workspace_mounts: previous.workspace_mounts.clone(),
                 profile_observation: previous.profile_observation.clone(),

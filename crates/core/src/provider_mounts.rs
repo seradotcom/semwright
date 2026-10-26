@@ -407,6 +407,21 @@ impl Broker {
             ));
         }
         self.check_bound_provider(session, &bound, Some(selected))?;
+        let protected_read =
+            selected.native_read_scope_required && !invocation.capability.descriptor.risk.mutates();
+        // Keep the actual descriptor/arguments only for the final read fence;
+        // they cannot supply a grant and are never re-executed.
+        let read_completion_input = protected_read.then(|| {
+            (
+                invocation.capability.descriptor.clone(),
+                args.request.args.clone(),
+                Context {
+                    session: session.into(),
+                    request_id: outer_request_id.into(),
+                    cancellation: cancellation.child_token(),
+                },
+            )
+        });
         let mut child_bound = bound.clone();
         child_bound.parent_request_id = Some(outer_request_id.into());
         let nested = Box::pin(self.clone().execute_inner(
@@ -427,15 +442,51 @@ impl Broker {
                 .uncertain()
             }));
         }
+        #[cfg(all(test, target_os = "linux"))]
+        if protected_read {
+            self.native_bound_read_completion_checkpoint().await?;
+        }
+        // execute_inner includes audit persistence. Recheck protected disclosure
+        // after that real await with the SAME original binding and current real
+        // ProjectAccess, preserving the general historical mutation behavior.
+        let read_completion = if let Some((descriptor, arguments, context)) = &read_completion_input
+        {
+            let reference = self.resolve_reference(session, arguments)?;
+            let secondary = self.resolve_reference_field(session, arguments, "target_ref")?;
+            let admission = crate::native_reads::NativeReadAdmission::admit(
+                self,
+                context,
+                descriptor,
+                arguments,
+                Some(&bound.lease),
+                Some(&bound),
+                (reference.as_ref(), secondary.as_ref()),
+            )?
+            .ok_or_else(|| Error::new(ErrorCode::PolicyDenied, "Native resource access denied"))?;
+            admission.check(self, context, true)?;
+            Some(admission)
+        } else {
+            None
+        };
         let admission_current = self
             .check_bound_completion(session, &bound, Some(&bound.lease))
             .map_err(|_| {
-                Error::new(
-                    ErrorCode::StaleReference,
-                    "Bound result is historical; admission changed during completion",
-                )
-                .uncertain()
+                if protected_read {
+                    Error::new(ErrorCode::PolicyDenied, "Native resource access denied")
+                } else {
+                    Error::new(
+                        ErrorCode::StaleReference,
+                        "Bound result is historical; admission changed during completion",
+                    )
+                    .uncertain()
+                }
             })?;
+        if protected_read && !admission_current {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Native resource access denied",
+            ));
+        }
         if outer_confirmation && !nested.execution.dry_run {
             audit.decision("allow_after_confirmation");
         }
@@ -449,6 +500,10 @@ impl Broker {
                 "Bound result exceeds the broker frame budget",
             )
             .uncertain());
+        }
+        if let (Some(admission), Some((_, _, context))) = (&read_completion, &read_completion_input)
+        {
+            admission.check(self, context, true)?;
         }
         Ok(output)
     }

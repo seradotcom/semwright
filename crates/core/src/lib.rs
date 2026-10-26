@@ -4,6 +4,7 @@ mod catalog;
 mod jobs;
 mod project_graph;
 pub use project_graph::RebuildCatalogSnapshot;
+mod native_reads;
 mod operation_permits;
 #[cfg(all(test, target_os = "linux"))]
 mod owner_operation_process_tests;
@@ -67,6 +68,10 @@ pub struct Broker {
     registry: StdRwLock<ProviderCatalog>,
     policy: Policy,
     references: StdMutex<RefStore>,
+    #[cfg(all(test, target_os = "linux"))]
+    native_read_completion_pause: StdMutex<Option<Arc<native_reads::ReadCompletionPause>>>,
+    #[cfg(all(test, target_os = "linux"))]
+    native_bound_read_completion_pause: StdMutex<Option<Arc<native_reads::ReadCompletionPause>>>,
     audit: Arc<audit::Audit>,
     approver: Arc<dyn Approver>,
     plugins: Option<Arc<Host>>,
@@ -121,6 +126,10 @@ impl Broker {
             registry: StdRwLock::new(catalog),
             policy,
             references: StdMutex::new(RefStore::new(Duration::from_secs(60), 65536)),
+            #[cfg(all(test, target_os = "linux"))]
+            native_read_completion_pause: StdMutex::new(None),
+            #[cfg(all(test, target_os = "linux"))]
+            native_bound_read_completion_pause: StdMutex::new(None),
             audit,
             approver,
             plugins,
@@ -484,10 +493,13 @@ impl Broker {
                 let id = value
                     .as_str()
                     .ok_or_else(|| Error::invalid(format!("{field} must be a reference string")))?;
-                self.references
+                let reference = self
+                    .references
                     .lock()
                     .map_err(|_| Error::new(ErrorCode::Internal, "Reference store lock poisoned"))?
-                    .get(id, session)
+                    .get(id, session)?;
+                native_reads::validate_reference(self, session, &reference)?;
+                Ok(reference)
             })
             .transpose()
     }
@@ -516,11 +528,31 @@ impl Broker {
             })
     }
     fn materialize(&self, session: &str, backend: &str, value: &mut Value) -> Result<()> {
+        self.materialize_with_native_read(session, backend, value, None)
+    }
+    fn materialize_with_native_read(
+        &self,
+        session: &str,
+        backend: &str,
+        value: &mut Value,
+        native_read: Option<&NativeReadReference>,
+    ) -> Result<()> {
+        if self
+            .provider(backend)
+            .is_some_and(|lease| lease.native_read_scope_required)
+            && native_read.is_none()
+        {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Native resource access denied",
+            ));
+        }
         fn walk(
             session: &str,
             backend: &str,
             value: &mut Value,
             store: &mut RefStore,
+            native_read: Option<&NativeReadReference>,
             seen: &mut BTreeMap<String, String>,
             depth: usize,
         ) -> Result<()> {
@@ -543,7 +575,12 @@ impl Broker {
                     let id = if let Some(id) = seen.get(&key) {
                         id.clone()
                     } else {
-                        let id = store.insert(session, backend, target)?;
+                        let id = store.insert_with_native_read(
+                            session,
+                            backend,
+                            target,
+                            native_read.cloned(),
+                        )?;
                         seen.insert(key, id.clone());
                         id
                     };
@@ -551,7 +588,7 @@ impl Broker {
                 }
                 Value::Object(map) => {
                     for child in map.values_mut() {
-                        walk(session, backend, child, store, seen, depth + 1)?;
+                        walk(session, backend, child, store, native_read, seen, depth + 1)?;
                     }
                 }
                 Value::Array(values) => {
@@ -562,7 +599,7 @@ impl Broker {
                         ));
                     }
                     for child in values {
-                        walk(session, backend, child, store, seen, depth + 1)?;
+                        walk(session, backend, child, store, native_read, seen, depth + 1)?;
                     }
                 }
                 _ => (),
@@ -573,7 +610,15 @@ impl Broker {
             .references
             .lock()
             .map_err(|_| Error::new(ErrorCode::Internal, "Reference store lock poisoned"))?;
-        walk(session, backend, value, &mut store, &mut BTreeMap::new(), 0)
+        walk(
+            session,
+            backend,
+            value,
+            &mut store,
+            native_read,
+            &mut BTreeMap::new(),
+            0,
+        )
     }
     fn filter_apps(&self, value: &mut Value) -> Result<()> {
         let apps = &self.policy.config().apps;
@@ -1013,6 +1058,24 @@ impl Broker {
             &request.args,
             self.application(request, reference.as_ref(), &capability.metadata),
         )?;
+        let context = Context {
+            session: session.into(),
+            request_id: request_id.into(),
+            cancellation: cancellation.child_token(),
+        };
+        let native_read = native_reads::NativeReadAdmission::admit(
+            self,
+            &context,
+            descriptor,
+            &request.args,
+            selected_provider.as_ref(),
+            bound.as_ref(),
+            (reference.as_ref(), target_reference.as_ref()),
+        )?;
+        let native_read_stop = native_read
+            .as_ref()
+            .map(native_reads::NativeReadAdmission::closing)
+            .unwrap_or_default();
         let mut args = request.args.clone();
         let is_input =
             request.command.starts_with("input.") || request.command.starts_with("pointer.");
@@ -1091,11 +1154,6 @@ impl Broker {
                 "Cancelled before dispatch",
             ));
         }
-        let context = Context {
-            session: session.into(),
-            request_id: request_id.into(),
-            cancellation: cancellation.child_token(),
-        };
         let owner_scope = operation_permits::authority(
             self,
             &context,
@@ -1108,6 +1166,9 @@ impl Broker {
         let effect_started = std::sync::atomic::AtomicBool::new(false);
         let action = async {
             context.check_cancelled()?;
+            if let Some(read) = &native_read {
+                read.check(self, &context, false)?;
+            }
             if let Some(bound) = &bound {
                 self.check_bound_provider(session, bound, selected_provider.as_ref())?;
             }
@@ -1138,6 +1199,23 @@ impl Broker {
                     .execute_with_owner_scope(&context, descriptor, &args, owner_scope)
                     .await?
             };
+            if let Some(read) = &native_read {
+                #[cfg(all(test, target_os = "linux"))]
+                self.native_read_completion_checkpoint().await?;
+                // The actual provider has returned. Revalidate before exposing
+                // any page or materializing a NativeRef from that result.
+                read.check(self, &context, true).map_err(|error| {
+                    if descriptor.risk.mutates() {
+                        Error::new(
+                            ErrorCode::StaleReference,
+                            "Bound result is historical; native read admission changed",
+                        )
+                        .uncertain()
+                    } else {
+                        error
+                    }
+                })?;
+            }
             if request.command != "ui.find" {
                 if capability.metadata.source == SourceKind::Builtin {
                     self.filter_apps(&mut output)?;
@@ -1146,7 +1224,19 @@ impl Broker {
                     .as_ref()
                     .is_some_and(|provider| provider.emits_native_refs())
                 {
-                    self.materialize(session, selected, &mut output)?;
+                    self.materialize_with_native_read(
+                        session,
+                        selected,
+                        &mut output,
+                        native_read.as_ref().map(|read| read.origin()),
+                    )
+                    .map_err(|error| {
+                        if descriptor.risk.mutates() {
+                            error.uncertain()
+                        } else {
+                            error
+                        }
+                    })?;
                 }
             }
             if serde_json::to_vec(&output)?.len() > MAX_FRAME - 8192 {
@@ -1163,6 +1253,12 @@ impl Broker {
         let _cancel_on_drop = context.cancellation.clone().drop_guard();
         let mut result = tokio::select! {
             biased;
+            _=native_read_stop.cancelled()=>{
+                context.cancellation.cancel();
+                let _=tokio::time::timeout(Duration::from_millis(250), &mut action).await;
+                let error = Error::new(ErrorCode::PolicyDenied, "Native resource access denied");
+                Err(error)
+            },
             _=provider_stop.cancelled()=>{
                 context.cancellation.cancel();
                 let _=tokio::time::timeout(Duration::from_millis(250), &mut action).await;
@@ -1183,6 +1279,20 @@ impl Broker {
             },
             result=&mut action=>result,
         };
+        if result.is_ok()
+            && let Some(read) = &native_read
+            && let Err(error) = read.check(self, &context, true)
+        {
+            result = Err(if descriptor.risk.mutates() {
+                Error::new(
+                    ErrorCode::StaleReference,
+                    "Bound result is historical; native read admission changed",
+                )
+                .uncertain()
+            } else {
+                error
+            });
+        }
         if let Some(bound) = &bound {
             if result.is_ok()
                 && self

@@ -532,6 +532,7 @@ pub struct Application {
     pub(crate) recovery: Option<Arc<dyn RecoveryProvider>>,
     pub(crate) operations: BTreeMap<String, RegisteredOperation>,
     pub(crate) host_tools_required: bool,
+    pub(crate) resource_read_scope_required: bool,
 }
 impl Application {
     pub fn new(id: impl Into<String>, version: impl Into<String>) -> Result<Self> {
@@ -555,6 +556,7 @@ impl Application {
             recovery: None,
             operations: BTreeMap::new(),
             host_tools_required: false,
+            resource_read_scope_required: false,
         })
     }
     pub fn id(&self) -> &str {
@@ -580,6 +582,15 @@ impl Application {
     }
     pub fn host_tools_required(&self) -> bool {
         self.host_tools_required
+    }
+    /// Require canonical Core owner resource admission for both observation and
+    /// historical reads. This immutable application contract creates no grant.
+    pub fn require_resource_read_scope(mut self) -> Self {
+        self.resource_read_scope_required = true;
+        self
+    }
+    pub fn resource_read_scope_required(&self) -> bool {
+        self.resource_read_scope_required
     }
     pub fn register(
         mut self,

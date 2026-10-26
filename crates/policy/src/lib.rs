@@ -2,7 +2,9 @@
 //! Caller-provided backend preferences and confirmation flags never grant authority.
 mod filesystem;
 pub use filesystem::{Root, validate_relative_path};
-use semwright_types::{CommandDescriptor, Error, ErrorCode, Result};
+use semwright_types::{
+    CommandDescriptor, Error, ErrorCode, NATIVE_RESOURCE_READ_REQUIREMENT, Result,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::BTreeSet;
@@ -27,6 +29,25 @@ pub struct FilesystemGrant {
     #[serde(default)]
     pub write: bool,
 }
+/// Exact owner-selected association. Native resource IDs and canonical Graph
+/// project IDs are separate namespaces; no request or provider may infer one.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct NativeResourceReadPolicy {
+    pub resource: String,
+    pub root: String,
+    pub project: String,
+}
+
+/// Presence protects a provider even when all its resource mappings are removed.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct NativeProviderReadPolicy {
+    pub provider: String,
+    #[serde(default)]
+    pub resources: Vec<NativeResourceReadPolicy>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(deny_unknown_fields)]
 pub struct PolicyConfig {
@@ -40,6 +61,9 @@ pub struct PolicyConfig {
     pub apps: BTreeSet<String>,
     #[serde(default)]
     pub filesystem: Vec<FilesystemGrant>,
+    /// Trusted owner configuration only; never accepted as an execute argument.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub native_resource_reads: Vec<NativeProviderReadPolicy>,
     /// Extra classes may require confirmation; built-in dangerous classes cannot be removed.
     #[serde(default)]
     pub confirm_mutations: bool,
@@ -105,6 +129,57 @@ impl Policy {
                 ));
             }
         }
+        if config.native_resource_reads.len() > 64 {
+            return Err(Error::invalid(
+                "Native read provider policy budget exceeded",
+            ));
+        }
+        let mut providers = BTreeSet::new();
+        let mut resource_count = 0usize;
+        for provider in &config.native_resource_reads {
+            let slug = provider.provider.strip_prefix("driver:").unwrap_or("");
+            if slug.is_empty()
+                || slug.len() > 64
+                || !slug
+                    .bytes()
+                    .next()
+                    .is_some_and(|byte| byte.is_ascii_lowercase())
+                || !slug
+                    .bytes()
+                    .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
+                || !providers.insert(&provider.provider)
+            {
+                return Err(Error::invalid(
+                    "Native read providers must be unique canonical driver IDs",
+                ));
+            }
+            let mut resources = BTreeSet::new();
+            for mapping in &provider.resources {
+                resource_count = resource_count
+                    .checked_add(1)
+                    .ok_or_else(|| Error::invalid("Native read policy budget"))?;
+                let project = mapping.project.strip_prefix("prj_").unwrap_or("");
+                if resource_count > 256
+                    || mapping.resource.is_empty()
+                    || mapping.resource.len() > 512
+                    || mapping.resource.chars().any(char::is_control)
+                    || mapping.resource.contains('*')
+                    || !resources.insert(&mapping.resource)
+                    || project.len() != 32
+                    || !project
+                        .bytes()
+                        .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+                    || !config
+                        .filesystem
+                        .iter()
+                        .any(|root| root.name == mapping.root && root.read)
+                {
+                    return Err(Error::invalid(
+                        "Native read mapping must name one resource, real Graph ID and readable owner root",
+                    ));
+                }
+            }
+        }
         Ok(Self { config, granted })
     }
     pub fn capabilities(&self) -> &BTreeSet<String> {
@@ -113,6 +188,22 @@ impl Policy {
     pub fn config(&self) -> &PolicyConfig {
         &self.config
     }
+    pub fn native_read_provider(&self, provider: &str) -> Option<&NativeProviderReadPolicy> {
+        self.config
+            .native_resource_reads
+            .iter()
+            .find(|entry| entry.provider == provider)
+    }
+    pub fn native_read_mapping(
+        &self,
+        provider: &str,
+        resource: &str,
+    ) -> Option<&NativeResourceReadPolicy> {
+        self.native_read_provider(provider)?
+            .resources
+            .iter()
+            .find(|entry| entry.resource == resource)
+    }
     pub fn check(
         &self,
         command: &CommandDescriptor,
@@ -120,6 +211,30 @@ impl Policy {
         target_app: Option<&str>,
     ) -> Decision {
         for cap in &command.requires {
+            if cap == NATIVE_RESOURCE_READ_REQUIREMENT {
+                // This class requests the Core's typed read admission. It is
+                // never satisfied by a broad driver capability alone.
+                let provider = command
+                    .requires
+                    .iter()
+                    .find(|required| required.starts_with("driver:"));
+                if self.config.deny.contains(cap)
+                    || provider.is_none_or(|provider| self.native_read_provider(provider).is_none())
+                {
+                    return Decision::Deny("Native resource access denied");
+                }
+                if let Some(resource) = args
+                    .get("resource")
+                    .or_else(|| args.pointer("/request/resource"))
+                    .and_then(Value::as_str)
+                    && provider.is_none_or(|provider| {
+                        self.native_read_mapping(provider, resource).is_none()
+                    })
+                {
+                    return Decision::Deny("Native resource access denied");
+                }
+                continue;
+            }
             if let Some(filesystem) = cap.strip_prefix("filesystem.") {
                 let (operation, argument) =
                     filesystem.split_once(':').unwrap_or((filesystem, "root"));

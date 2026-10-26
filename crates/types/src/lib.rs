@@ -276,12 +276,40 @@ pub struct NativeTarget {
 pub fn target_marker(target: NativeTarget) -> Value {
     serde_json::json!({"$ref": target})
 }
+/// Canonical NativeSDK classification. This is a requested authority class,
+/// not an allow capability, actor claim, or provider-issued grant.
+pub const NATIVE_RESOURCE_READ_REQUIREMENT: &str = "native.resource.read";
+
+/// Core-retained origin of a protected native observation. Never deserialized
+/// from a provider marker or caller JSON; the mount retains its real revocation
+/// flag and exact admission identity in the existing bounded RefStore.
+#[derive(Debug, Clone)]
+pub struct NativeReadReference {
+    pub resource: String,
+    pub project: String,
+    pub root: String,
+    pub grants: String,
+    pub binding_reference: String,
+    pub binding: ProviderMountReference,
+}
+impl NativeReadReference {
+    pub fn same_scope(&self, other: &Self) -> bool {
+        self.resource == other.resource
+            && self.project == other.project
+            && self.root == other.root
+            && self.grants == other.grants
+            && self.binding_reference == other.binding_reference
+            && self.binding.same_admission(&other.binding)
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Reference {
     pub session: String,
     pub backend: String,
     pub target: NativeTarget,
     pub expires: Instant,
+    pub native_read: Option<NativeReadReference>,
 }
 /// Typed requirement captured by DriverHost and stored in the existing mount admission.
 /// A digest identifies an immutable capture; it never grants execution on its own.
@@ -402,7 +430,34 @@ impl RefStore {
         Ok(now)
     }
     pub fn insert(&mut self, session: &str, backend: &str, target: NativeTarget) -> Result<String> {
+        self.insert_with_native_read(session, backend, target, None)
+    }
+    pub fn insert_with_native_read(
+        &mut self,
+        session: &str,
+        backend: &str,
+        target: NativeTarget,
+        native_read: Option<NativeReadReference>,
+    ) -> Result<String> {
         let now = self.prepare_insert()?;
+        if let Some(origin) = &native_read {
+            let binding = self.get_provider_mount(&origin.binding_reference, session)?;
+            if target.kind != "native"
+                || origin.resource.is_empty()
+                || origin.resource.len() > 512
+                || origin.binding.backend != backend
+                || origin.binding.session != session
+                || origin.binding.mount != origin.root
+                || !binding.same_admission(&origin.binding)
+                || origin.binding.is_revoked()
+            {
+                return Err(Error::new(
+                    ErrorCode::PolicyDenied,
+                    "Native resource access denied",
+                ));
+            }
+        }
+
         if !matches!(
             target.kind.as_str(),
             "ui" | "win" | "app" | "screen" | "dom" | "tab" | "frame" | "process" | "native"
@@ -420,6 +475,7 @@ impl RefStore {
                 backend: backend.into(),
                 target,
                 expires: now + self.ttl,
+                native_read,
             }),
         );
         Ok(id)
@@ -465,7 +521,11 @@ impl RefStore {
     pub fn get(&self, id: &str, session: &str) -> Result<Reference> {
         match self.entries.get(id) {
             Some(StoredReference::Native(v))
-                if v.session == session && v.expires > Instant::now() =>
+                if v.session == session
+                    && v.expires > Instant::now()
+                    && v.native_read.as_ref().is_none_or(|origin| {
+                        !origin.binding.is_revoked() && origin.binding.expires > Instant::now()
+                    }) =>
             {
                 Ok(v.clone())
             }
