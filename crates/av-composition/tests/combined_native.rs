@@ -40,12 +40,11 @@ use serde_json::{Value, json};
 use sha2::{Digest as ShaDigest, Sha256};
 use std::{
     collections::{BTreeMap, BTreeSet},
-    fs,
-    os::unix::fs::PermissionsExt,
-    path::{Path, PathBuf},
+    fs, io,
+    os::unix::fs::{DirBuilderExt, MetadataExt, PermissionsExt},
+    path::{Component, Path, PathBuf},
     sync::Arc,
 };
-use tempfile::TempDir;
 use tokio_util::sync::CancellationToken;
 
 const SESSION: &str = "combined-av-native-e2e";
@@ -85,6 +84,93 @@ fn required_dir(name: &str) -> PathBuf {
         path.display()
     );
     path.canonicalize().unwrap()
+}
+
+/// Create one private original namespace, without reuse or automatic cleanup.
+///
+/// This retains bytes across constructor failure and test unwind. It does not
+/// seal them or make them durable beyond the runner lifetime.
+fn create_original_root(
+    runner_temp: &Path,
+    workspace: &Path,
+    run_id: &str,
+    run_attempt: &str,
+) -> io::Result<PathBuf> {
+    for value in [run_id, run_attempt] {
+        if value.is_empty()
+            || value.len() > 20
+            || !value.bytes().all(|byte| byte.is_ascii_digit())
+            || !value
+                .parse::<u64>()
+                .is_ok_and(|number| number > 0 && number.to_string() == value)
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "original namespace requires canonical positive run identities",
+            ));
+        }
+    }
+    if !runner_temp.is_absolute()
+        || !runner_temp
+            .components()
+            .all(|part| matches!(part, Component::RootDir | Component::Normal(_)))
+    {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "RUNNER_TEMP must be an absolute normalized directory",
+        ));
+    }
+    let parent_metadata = fs::symlink_metadata(runner_temp)?;
+    let parent = runner_temp.canonicalize()?;
+    if !parent_metadata.is_dir()
+        || parent != runner_temp
+        || parent_metadata.permissions().mode() & 0o022 != 0
+    {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "RUNNER_TEMP must be a canonical directory without shared write access",
+        ));
+    }
+    let workspace = workspace.canonicalize()?;
+    let root = parent.join(format!(
+        "combined-av-native-originals-{run_id}-attempt-{run_attempt}"
+    ));
+    if root.starts_with(&workspace) {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "private native originals must remain outside the checkout",
+        ));
+    }
+    // Atomic no-replace creation. Never reopen a collision or choose a fallback.
+    fs::DirBuilder::new().mode(0o700).create(&root)?;
+    // A failure after creation deliberately leaves the directory in place.
+    let root_metadata = fs::symlink_metadata(&root)?;
+    let parent_after = fs::symlink_metadata(&parent)?;
+    if !root_metadata.is_dir()
+        || root_metadata.permissions().mode() & 0o777 != 0o700
+        || root_metadata.uid() != parent_metadata.uid()
+        || parent_after.dev() != parent_metadata.dev()
+        || parent_after.ino() != parent_metadata.ino()
+        || root.canonicalize()? != root
+    {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            "private original directory identity changed during creation",
+        ));
+    }
+    Ok(root)
+}
+
+fn original_root_from_environment() -> PathBuf {
+    let runner_temp = PathBuf::from(
+        std::env::var_os("RUNNER_TEMP").expect("native original custody requires RUNNER_TEMP"),
+    );
+    let workspace = required_dir("GITHUB_WORKSPACE");
+    let run_id = std::env::var("GITHUB_RUN_ID").expect("native original custody requires run id");
+    let run_attempt =
+        std::env::var("GITHUB_RUN_ATTEMPT").expect("native original custody requires run attempt");
+    create_original_root(&runner_temp, &workspace, &run_id, &run_attempt)
+        .expect("create a fresh private original namespace without reuse")
 }
 
 fn make_dir(root: &Path, name: &str) -> PathBuf {
@@ -432,7 +518,7 @@ fn mlt_manifest(h: &Harness) -> Manifest {
 }
 
 struct Harness {
-    _root: TempDir,
+    _root: PathBuf,
     project: PathBuf,
     output: PathBuf,
     media: PathBuf,
@@ -460,18 +546,17 @@ struct Harness {
 
 impl Harness {
     fn new() -> Self {
-        let root = tempfile::tempdir().unwrap();
-        fs::set_permissions(root.path(), fs::Permissions::from_mode(0o700)).unwrap();
-        let bin = make_dir(root.path(), "bin");
-        let project = make_dir(root.path(), "motion-project");
-        let output = make_dir(root.path(), "shared-output");
-        let media = make_dir(root.path(), "av-delivery");
-        let runtime = make_dir(root.path(), "mlt-runtime");
-        let state_motion = make_dir(root.path(), "state-motion");
-        let state_faust = make_dir(root.path(), "state-faust");
-        let state_analysis = make_dir(root.path(), "state-analysis");
-        let state_mlt = make_dir(root.path(), "state-mlt");
-        let assets = make_dir(root.path(), "audio-assets");
+        let root = original_root_from_environment();
+        let bin = make_dir(root.as_path(), "bin");
+        let project = make_dir(root.as_path(), "motion-project");
+        let output = make_dir(root.as_path(), "shared-output");
+        let media = make_dir(root.as_path(), "av-delivery");
+        let runtime = make_dir(root.as_path(), "mlt-runtime");
+        let state_motion = make_dir(root.as_path(), "state-motion");
+        let state_faust = make_dir(root.as_path(), "state-faust");
+        let state_analysis = make_dir(root.as_path(), "state-analysis");
+        let state_mlt = make_dir(root.as_path(), "state-mlt");
+        let assets = make_dir(root.as_path(), "audio-assets");
         write_sync_impulse_wav(&assets.join("sync-impulse.wav"));
 
         let motion_exe = copy_exec(
@@ -567,7 +652,7 @@ impl Harness {
     }
 
     fn audio_assets(&self) -> PathBuf {
-        self._root.path().join("audio-assets")
+        self._root.as_path().join("audio-assets")
     }
 
     async fn providers(&self) -> Vec<Arc<DriverProvider>> {
@@ -638,7 +723,7 @@ impl Harness {
     }
 
     async fn direct_faust_sample_render(&self, mut args: Value) -> semwright_types::Result<Value> {
-        let state = make_dir(self._root.path(), "state-faust-direct-diagnostic");
+        let state = make_dir(self._root.as_path(), "state-faust-direct-diagnostic");
         let provider = DriverProvider::connect(
             faust_manifest(&self.faust_exe, &self.faust_helper, &self.faust_version),
             &state,
@@ -696,7 +781,7 @@ impl Harness {
         let broker = Broker::new(
             policy,
             backends,
-            Audit::open(&self._root.path().join("audit"), 262_144, 4).unwrap(),
+            Audit::open(&self._root.as_path().join("audit"), 262_144, 4).unwrap(),
             Arc::new(NoApprover),
             None,
             json!({}),
@@ -1387,123 +1472,10 @@ fn proof_for(plan: &AvPlan, stage: Stage) -> ServiceProof {
         .clone()
 }
 
-// Failure-only CI diagnosis on synthetic fixture inputs and a fresh output root.
-// This runs the closed helper outside the Host to distinguish media-engine errors
-// from transport errors. It never certifies effects or retries the uncertain
-// original publication; the original Broker failure remains a test failure.
-fn diagnose_frames_encode(harness: &Harness, call: &StageCall, proof: &ServiceProof) {
-    use std::{
-        io::Write,
-        process::{Command, Stdio},
-    };
-    let StagePayload::TransferMotion { artifact } = &call.payload else {
-        return;
-    };
-    let mut pending = vec![harness.output.clone()];
-    let mut visited = 0usize;
-    let mut found = None;
-    while let Some(directory) = pending.pop() {
-        for entry in fs::read_dir(directory).unwrap() {
-            visited += 1;
-            assert!(visited <= 256, "diagnostic fixture inventory bound");
-            let entry = entry.unwrap();
-            let path = entry.path();
-            let metadata = fs::symlink_metadata(&path).unwrap();
-            if metadata.is_dir() {
-                pending.push(path);
-            } else if metadata.is_file()
-                && path
-                    .extension()
-                    .is_some_and(|extension| extension == "json")
-                && metadata.len() <= 8 * 1024 * 1024
-                && file_sha(&path) == artifact.sha256.as_str()
-            {
-                assert!(
-                    found.replace(path).is_none(),
-                    "ambiguous diagnostic manifest"
-                );
-            }
-        }
-    }
-    let Some(manifest) = found else {
-        eprintln!("MLT diagnostic: exact Motion manifest not found");
-        return;
-    };
-    let fresh_output = tempfile::tempdir().unwrap();
-    let descriptor = &proof.commands[&Stage::TransferMotion][0].descriptor;
-    let request = json!({
-        "command": "driver.mlt-video.frames.encode",
-        "descriptor_sha256": descriptor.as_str(),
-        "args": {
-            "root": "media",
-            "manifest_path": manifest.strip_prefix(&harness.output).unwrap().to_str().unwrap(),
-            "expected_manifest_sha256": artifact.sha256.as_str(),
-            "output_path": "diagnostic-fresh-mezzanine.mkv",
-            "max_bytes": 64 * 1024 * 1024
-        }
-    });
-    let mut child = Command::new("/usr/bin/timeout")
-        .args(["--kill-after=5s", "150s"])
-        .arg(&harness.mlt_runner)
-        .arg("av-operation")
-        .arg("--runtime-root")
-        .arg(&harness.mlt_runtime_root)
-        .arg("--melt-sealed")
-        .arg(&harness.melt)
-        .arg("--ffprobe-sealed")
-        .arg(&harness.ffprobe)
-        .arg("--ffmpeg-sealed")
-        .arg(&harness.ffmpeg)
-        .arg("--project-root")
-        .arg(&harness.project)
-        .arg("--media-root")
-        .arg(&harness.output)
-        .arg("--output-root")
-        .arg(fresh_output.path())
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::null())
-        .spawn()
-        .unwrap();
-    child
-        .stdin
-        .take()
-        .unwrap()
-        .write_all(&serde_json::to_vec(&request).unwrap())
-        .unwrap();
-    let result = child.wait_with_output().unwrap();
-    assert!(
-        result.stdout.len() <= 256 * 1024,
-        "closed runner output bound"
-    );
-    if result.status.success() {
-        eprintln!(
-            "MLT diagnostic: fresh-output closed helper succeeded outside Host; original Host operation remains failed"
-        );
-    } else {
-        // The closed runner emits its bounded error envelope, never raw tool logs.
-        let value: Value = serde_json::from_slice(&result.stdout).unwrap_or(Value::Null);
-        let error = value
-            .get("error")
-            .and_then(Value::as_str)
-            .unwrap_or("no bounded error envelope");
-        eprintln!(
-            "MLT diagnostic (not certification): status={}, error={}",
-            result.status,
-            error
-                .chars()
-                .filter(|ch| !ch.is_control())
-                .take(1024)
-                .collect::<String>()
-        );
-    }
-}
-
 async fn execute_native_stage(
     coordinator: &mut AvCoordinator,
     adapter: &mut AvStageAdapter,
     executor: &dyn Executor,
-    harness: &Harness,
 ) {
     let stage = coordinator.next_stage().expect("next AV stage");
     let proof = proof_for(coordinator.plan(), stage);
@@ -1516,12 +1488,7 @@ async fn execute_native_stage(
     let result = adapter
         .execute(&call, executor, CancellationToken::new())
         .await
-        .unwrap_or_else(|error| {
-            if stage == Stage::TransferMotion {
-                diagnose_frames_encode(harness, &call, &proof);
-            }
-            panic!("{stage:?} failed: {error:?}")
-        });
+        .unwrap_or_else(|error| panic!("{stage:?} failed: {error:?}"));
     coordinator
         .complete(NativeReceipt {
             request_id: call.request_id,
@@ -1757,19 +1724,19 @@ async fn combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_s
     adapter.bind_audio_consumer_receipt(&audio).unwrap();
 
     assert_eq!(coordinator.next_stage(), Some(Stage::PlanDelivery));
-    execute_native_stage(&mut coordinator, &mut adapter, &executor, &harness).await;
+    execute_native_stage(&mut coordinator, &mut adapter, &executor).await;
     assert_eq!(coordinator.next_stage(), Some(Stage::ApplyMotion));
-    execute_native_stage(&mut coordinator, &mut adapter, &executor, &harness).await;
+    execute_native_stage(&mut coordinator, &mut adapter, &executor).await;
 
     assert_eq!(coordinator.next_stage(), Some(Stage::ApplyAudio));
     coordinator.complete_imported_audio_stage().unwrap();
     assert_eq!(coordinator.next_stage(), Some(Stage::RenderMotion));
-    execute_native_stage(&mut coordinator, &mut adapter, &executor, &harness).await;
+    execute_native_stage(&mut coordinator, &mut adapter, &executor).await;
 
     assert_eq!(coordinator.next_stage(), Some(Stage::RenderAudio));
     coordinator.complete_imported_audio_stage().unwrap();
     assert_eq!(coordinator.next_stage(), Some(Stage::VerifyMotion));
-    execute_native_stage(&mut coordinator, &mut adapter, &executor, &harness).await;
+    execute_native_stage(&mut coordinator, &mut adapter, &executor).await;
 
     assert_eq!(coordinator.next_stage(), Some(Stage::VerifyAudio));
     coordinator.complete_imported_audio_stage().unwrap();
@@ -1781,7 +1748,7 @@ async fn combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_s
         Stage::VerifySync,
     ] {
         assert_eq!(coordinator.next_stage(), Some(stage));
-        execute_native_stage(&mut coordinator, &mut adapter, &executor, &harness).await;
+        execute_native_stage(&mut coordinator, &mut adapter, &executor).await;
     }
 
     assert_eq!(coordinator.next_stage(), Some(Stage::PreparePublication));
@@ -2240,4 +2207,63 @@ async fn combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_s
     .unwrap();
 
     broker.shutdown().await;
+}
+
+#[test]
+fn combined_original_root_survives_unwind_before_native_setup() {
+    let temp = tempfile::tempdir().unwrap();
+    let runner_temp = temp.path().canonicalize().unwrap();
+    let workspace = runner_temp.join("checkout");
+    fs::create_dir(&workspace).unwrap();
+    let retained = runner_temp.join("combined-av-native-originals-701-attempt-1");
+    let expected = b"inert original written before constructor unwind";
+    let outcome: std::result::Result<(), _> = std::panic::catch_unwind(|| {
+        let root = create_original_root(&runner_temp, &workspace, "701", "1").unwrap();
+        fs::write(root.join("original.bin"), expected).unwrap();
+        // Same owned type held by Harness; no native setup has occurred.
+        let _owned_root = root;
+        panic!("inert constructor failure after original creation");
+    });
+    assert!(outcome.is_err());
+    assert!(retained.is_dir());
+    assert_eq!(
+        fs::metadata(&retained).unwrap().permissions().mode() & 0o777,
+        0o700
+    );
+    assert_eq!(fs::read(retained.join("original.bin")).unwrap(), expected);
+}
+
+#[test]
+fn combined_original_root_collision_preserves_existing_bytes() {
+    let temp = tempfile::tempdir().unwrap();
+    let runner_temp = temp.path().canonicalize().unwrap();
+    let workspace = runner_temp.join("checkout");
+    fs::create_dir(&workspace).unwrap();
+    let root = create_original_root(&runner_temp, &workspace, "702", "1").unwrap();
+    let expected = b"original namespace must not be reused";
+    fs::write(root.join("original.bin"), expected).unwrap();
+    let error = create_original_root(&runner_temp, &workspace, "702", "1").unwrap_err();
+    assert_eq!(error.kind(), io::ErrorKind::AlreadyExists);
+    assert_eq!(fs::read(root.join("original.bin")).unwrap(), expected);
+    let mut children = fs::read_dir(&runner_temp)
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name())
+        .collect::<Vec<_>>();
+    children.sort();
+    let mut expected_children = [
+        std::ffi::OsString::from("checkout"),
+        std::ffi::OsString::from("combined-av-native-originals-702-attempt-1"),
+    ];
+    expected_children.sort();
+    assert_eq!(children.as_slice(), expected_children.as_slice());
+    for (run_id, attempt) in [
+        ("../703", "1"),
+        ("703", "../1"),
+        ("0703", "1"),
+        ("703", "0"),
+    ] {
+        let error = create_original_root(&runner_temp, &workspace, run_id, attempt).unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+    }
+    assert_eq!(fs::read(root.join("original.bin")).unwrap(), expected);
 }
