@@ -3802,20 +3802,25 @@ mod audio_live_source_tests {
             .unwrap()
             .canonicalize()
             .unwrap();
-        let error = AudioLiveOriginals::open_with_exclusions(checkout.clone(), &[checkout.clone()])
-            .err()
-            .unwrap();
+        let error = AudioLiveOriginals::open_with_exclusions(
+            checkout.clone(),
+            std::slice::from_ref(&checkout),
+        )
+        .err()
+        .unwrap();
         assert!(error.to_string().contains("outside checkouts and caches"));
         let root = owner_root();
         let path = root.path().canonicalize().unwrap();
         let originals =
-            AudioLiveOriginals::open_with_exclusions(path.clone(), &[checkout.clone()]).unwrap();
+            AudioLiveOriginals::open_with_exclusions(path.clone(), std::slice::from_ref(&checkout))
+                .unwrap();
         let start = originals
             .records
             .read("audio-live-start.original.json", AUDIO_LIVE_METADATA_LIMIT)
             .unwrap();
         assert!(
-            AudioLiveOriginals::open_with_exclusions(path.clone(), &[checkout.clone()]).is_err()
+            AudioLiveOriginals::open_with_exclusions(path.clone(), std::slice::from_ref(&checkout))
+                .is_err()
         );
         assert_eq!(
             originals
@@ -3827,7 +3832,10 @@ mod audio_live_source_tests {
         let alias_owner = tempfile::tempdir().unwrap();
         let alias = alias_owner.path().join("alias");
         std::os::unix::fs::symlink(&path, &alias).unwrap();
-        assert!(AudioLiveOriginals::open_with_exclusions(alias, &[checkout.clone()]).is_err());
+        assert!(
+            AudioLiveOriginals::open_with_exclusions(alias, std::slice::from_ref(&checkout))
+                .is_err()
+        );
         let wide = owner_root();
         std::fs::set_permissions(wide.path(), std::fs::Permissions::from_mode(0o755)).unwrap();
         let error = AudioLiveOriginals::open_with_exclusions(

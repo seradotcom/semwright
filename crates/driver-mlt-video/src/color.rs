@@ -110,7 +110,22 @@ pub fn inspect_source_png(bytes: &[u8], width: u32, height: u32) -> Result<()> {
         ));
     }
     let mut color_chunks = std::collections::BTreeSet::new();
+    let mut density_seen = false;
     inspect_png_chunks(bytes, |kind, payload| {
+        if kind == b"pHYs" {
+            if density_seen
+                || payload.len() != 9
+                || payload[8] > 1
+                || u32::from_be_bytes(payload[..4].try_into().unwrap()) == 0
+                || payload[..4] != payload[4..8]
+            {
+                return Err(Error::new(
+                    "Unsupported",
+                    "Source PNG pixel density is not a unique square declaration",
+                ));
+            }
+            density_seen = true;
+        }
         if matches!(kind, b"iCCP" | b"cICP" | b"gAMA" | b"cHRM" | b"sRGB")
             && !color_chunks.insert(kind.to_vec())
         {
@@ -704,6 +719,24 @@ mod tests {
             "-20"
         );
     }
+    #[test]
+    fn missing_sample_aspect_ratio_is_never_inferred() {
+        for section in ["streams", "frames"] {
+            let mut value: Value = serde_json::from_slice(&fixture(&[0], "1/30")).unwrap();
+            value[section][0]
+                .as_object_mut()
+                .unwrap()
+                .remove("sample_aspect_ratio");
+            let error = parse_probe(&serde_json::to_vec(&value).unwrap(), 1920, 1080, 1, 30, 1)
+                .unwrap_err();
+            assert_eq!(error.code, "BackendFailed");
+            assert_eq!(
+                error.message,
+                "Decoded observation omitted sample_aspect_ratio"
+            );
+        }
+    }
+
     #[test]
     fn geometry_and_duration_must_be_observed_not_defaulted() {
         for (field, bad) in [
@@ -1364,6 +1397,85 @@ mod png_completion_tests {
             "the complete decoded PNG fixture must be admitted",
         );
         bytes
+    }
+
+    fn density_payload(x: u32, y: u32, unit: u8) -> Vec<u8> {
+        let mut payload = Vec::with_capacity(9);
+        payload.extend_from_slice(&x.to_be_bytes());
+        payload.extend_from_slice(&y.to_be_bytes());
+        payload.push(unit);
+        payload
+    }
+
+    fn with_phys_chunks(payloads: &[Vec<u8>]) -> Vec<u8> {
+        let original = opaque_rgba_png();
+        let mut bytes = original[..33].to_vec();
+        for payload in payloads {
+            bytes.extend_from_slice(&u32::try_from(payload.len()).unwrap().to_be_bytes());
+            bytes.extend_from_slice(b"pHYs");
+            bytes.extend_from_slice(payload);
+            // Keep the fixture CRC independent of the production chunk checker.
+            let mut crc = u32::MAX;
+            for byte in b"pHYs".iter().chain(payload) {
+                crc ^= u32::from(*byte);
+                for _ in 0..8 {
+                    let polynomial = if crc & 1 == 0 { 0 } else { 0xedb8_8320 };
+                    crc = (crc >> 1) ^ polynomial;
+                }
+            }
+            bytes.extend_from_slice(&(!crc).to_be_bytes());
+        }
+        bytes.extend_from_slice(&original[33..]);
+        bytes
+    }
+
+    #[test]
+    fn source_png_admits_absent_or_square_density() {
+        assert!(inspect_source_png(&with_phys_chunks(&[]), 1, 1).is_ok());
+        for (x, y, unit) in [(1, 1, 0), (1, 1, 1), (3780, 3780, 0), (3780, 3780, 1)] {
+            let png = with_phys_chunks(&[density_payload(x, y, unit)]);
+            assert!(
+                inspect_source_png(&png, 1, 1).is_ok(),
+                "square pHYs must remain admitted: {x}, {y}, {unit}"
+            );
+        }
+    }
+
+    #[test]
+    fn source_png_rejects_non_square_unknown_or_malformed_density() {
+        let mut oversized = density_payload(1, 1, 0);
+        oversized.push(0);
+        for payload in [
+            density_payload(2, 1, 0),
+            density_payload(1, 2, 1),
+            density_payload(0, 0, 0),
+            density_payload(0, 1, 1),
+            density_payload(1, 0, 1),
+            density_payload(1, 1, 2),
+            Vec::new(),
+            vec![0; 8],
+            oversized,
+        ] {
+            let png = with_phys_chunks(&[payload]);
+            let error = inspect_source_png(&png, 1, 1).unwrap_err();
+            assert_eq!(error.code, "Unsupported");
+            assert_eq!(
+                error.message,
+                "Source PNG pixel density is not a unique square declaration"
+            );
+        }
+    }
+
+    #[test]
+    fn source_png_rejects_duplicate_square_density() {
+        let payload = density_payload(3780, 3780, 1);
+        let png = with_phys_chunks(&[payload.clone(), payload]);
+        let error = inspect_source_png(&png, 1, 1).unwrap_err();
+        assert_eq!(error.code, "Unsupported");
+        assert_eq!(
+            error.message,
+            "Source PNG pixel density is not a unique square declaration"
+        );
     }
 
     fn assert_both_reject(bytes: &[u8]) {

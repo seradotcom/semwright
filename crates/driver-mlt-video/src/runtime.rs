@@ -2442,6 +2442,9 @@ impl Runtime {
             "tv".into(),
             "-map_metadata".into(),
             "-1".into(),
+            // Declare output geometry; strict readback must still observe its SAR.
+            "-aspect".into(),
+            format!("{width}:{height}").into(),
             "-c:v".into(),
             "ffv1".into(),
             "-level".into(),
@@ -4351,7 +4354,7 @@ mod audio_derivative_tests {
         bytes.extend_from_slice(b"data");
         bytes.extend_from_slice(&(data.len() as u32).to_le_bytes());
         bytes.extend_from_slice(data);
-        if data.len() % 2 != 0 {
+        if !data.len().is_multiple_of(2) {
             bytes.push(0);
         }
         let riff = (bytes.len() - 8) as u32;

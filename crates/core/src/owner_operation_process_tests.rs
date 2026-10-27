@@ -5890,3 +5890,467 @@ async fn linux_motionwright_native_recovery_selected_raw_key_87_88_and_legacy_co
         "real recovery key boundary: {scenario_result:?}; physical cleanup: {cleanup:?}; custody: {retained:?}"
     );
 }
+
+// Actual postcommit custody boundary. These are domain-valid typed reviews,
+// never padded provider output or an injected handler/observer/permit result.
+// NativeDriver validates the real seven-field result after the Store commit.
+const POSTCOMMIT_VALUE_BYTES: usize = 256 * 1024;
+const POSTCOMMIT_REVIEW_BYTES: usize = 8_000;
+const POSTCOMMIT_MAX_ATTEMPTS: usize = 40;
+
+struct NativePostcommitAttempt {
+    request_id: String,
+    input_bytes: usize,
+    terminal: Envelope,
+}
+
+fn postcommit_review_body(serial: usize) -> Result<String> {
+    require(
+        (1..=POSTCOMMIT_MAX_ATTEMPTS).contains(&serial),
+        "Postcommit review serial is outside the finite source control",
+    )?;
+    let prefix = format!("Actual Host postcommit review {serial:02}: ");
+    let body = format!(
+        "{prefix}{}",
+        "r".repeat(POSTCOMMIT_REVIEW_BYTES - prefix.len())
+    );
+    require(
+        body.is_ascii() && body.len() == POSTCOMMIT_REVIEW_BYTES,
+        "Postcommit review body is not the exact domain-valid byte boundary",
+    )?;
+    Ok(body)
+}
+
+fn postcommit_size_refusal(terminal: &Envelope, outcome_known: bool) -> Result<()> {
+    recovery_original_error(terminal, &[ErrorCode::ResourceExhausted])?;
+    require(
+        terminal.error.as_ref().is_some_and(|error| {
+            error.message == "Cooperation value byte budget" && error.outcome_known == outcome_known
+        }),
+        "Original byte-budget refusal or its actual outcome-known flag changed",
+    )
+}
+
+fn postcommit_review_extension(
+    previous_project: &Value,
+    result: &Value,
+    raw_key: &str,
+    body: &str,
+) -> Result<()> {
+    let _ = recovery_boundary_result(result.clone(), raw_key, false)?;
+    let previous_revision = previous_project["revision"]
+        .as_u64()
+        .ok_or_else(|| Error::invalid("Actual preceding project revision is absent"))?;
+    let previous_reviews = previous_project["reviews"]
+        .as_array()
+        .ok_or_else(|| Error::invalid("Actual preceding reviews are absent"))?;
+    let current_reviews = result["project"]["reviews"]
+        .as_array()
+        .ok_or_else(|| Error::invalid("Actual committed reviews are absent"))?;
+    require(
+        result["project"]["id"] == previous_project["id"]
+            && result["generation"] == previous_project["generation"]
+            && result["previous_revision"] == previous_revision.to_string()
+            && result["revision"] == (previous_revision + 1).to_string()
+            && result["project"]["revision"] == previous_revision + 1
+            && current_reviews.len() == previous_reviews.len() + 1
+            && current_reviews.starts_with(previous_reviews)
+            && current_reviews.last().is_some_and(|review| {
+                review["body"] == body
+                    && review["kind"] == "technical"
+                    && review["status"] == "open"
+            }),
+        "Actual writer did not append exactly one review to the same project",
+    )
+}
+
+fn postcommit_checked_commit(receipt: &Value) -> Result<NativeRecoveryCommit> {
+    let raw_key = graph_field(receipt, "request_id")?;
+    let (result, _) = recovery_boundary_result(receipt["result"].clone(), raw_key, false)?;
+    let outcome = &receipt["observation"]["outcome"];
+    let previous_revision = graph_field(&result, "previous_revision")?
+        .parse::<u64>()
+        .map_err(|_| Error::invalid("Checked original revision is not decimal"))?;
+    require(
+        receipt["observation"]["state"] == "known_verified_v1"
+            && receipt["native_authority"] == false
+            && outcome.as_object().is_some_and(|fields| fields.len() == 4)
+            && outcome["project"] == result["project"]
+            && outcome["previous_revision"] == previous_revision
+            && outcome["request_id"] == raw_key
+            && outcome["replayed"] == false
+            && receipt["observation"]["binding"]["generation"] == result["generation"]
+            && receipt["observation"]["binding"]["request_id"] == raw_key,
+        "Independent V1 reader did not retain the complete actual ApplyOutcome",
+    )?;
+    // A request selector from authenticated receipt facts, not a NativeRef or
+    // grant, and not a claim that the failed/absent-option writer emitted it.
+    let identity = json!({
+        "resource":result["resource"],"epoch":1,
+        "key":format!("mw1:{}:{raw_key}", graph_field(&result, "generation")?),
+        "request_sha256":receipt["request_sha256"]
+    });
+    Ok(NativeRecoveryCommit { identity, result })
+}
+
+fn postcommit_growth_inventory(
+    initial: &NativeRecoveryState,
+    committed: &NativeRecoveryState,
+    attempts: usize,
+) -> Result<()> {
+    let initial_history = initial.own["history"]
+        .as_array()
+        .ok_or_else(|| Error::invalid("Initial actual history is absent"))?;
+    let committed_history = committed.own["history"]
+        .as_array()
+        .ok_or_else(|| Error::invalid("Committed actual history is absent"))?;
+    require(
+        graph_revision(&committed.own)? == graph_revision(&initial.own)? + attempts as u64
+            && committed_history.len() == initial_history.len() + attempts
+            && committed_history.starts_with(initial_history)
+            && committed.foreign == initial.foreign
+            && serde_json::to_vec_pretty(&committed.inventory)?.len() <= 8 * 1024 * 1024,
+        "Actual postcommit history/foreign state or bounded complete inventory changed unexpectedly",
+    )?;
+    for table in ["projects", "events", "receipts"] {
+        let original = &initial.inventory["tables"][table];
+        let current = &committed.inventory["tables"][table];
+        let old_rows = original["rows"]
+            .as_array()
+            .ok_or_else(|| Error::invalid("Original inventory rows are absent"))?;
+        let new_rows = current["rows"]
+            .as_array()
+            .ok_or_else(|| Error::invalid("Committed inventory rows are absent"))?;
+        require(
+            current["columns"] == original["columns"]
+                && new_rows.len()
+                    == old_rows.len() + if table == "projects" { 0 } else { attempts }
+                && (table == "projects" || old_rows.iter().all(|row| new_rows.contains(row))),
+            "Actual postcommit calls changed earlier rows or inserted additional events/receipts",
+        )?;
+    }
+    Ok(())
+}
+
+impl GraphFixture {
+    async fn postcommit_review_call(
+        &mut self,
+        request_id: &str,
+        body: &str,
+        serial: usize,
+    ) -> Result<NativePostcommitAttempt> {
+        require(
+            self.base.request.is_none()
+                && request_id.len() == 32
+                && request_id.bytes().all(|byte| byte.is_ascii_hexdigit())
+                && body.is_ascii()
+                && body.len() == POSTCOMMIT_REVIEW_BYTES,
+            "Postcommit control requires one original request and a domain-valid body",
+        )?;
+        let session = self.base.session.clone();
+        let (binding, native, observed) = self.current_refs(&session).await?;
+        let scene = graph_field(&self.runtime.source["project"]["scenes"][0], "id")?;
+        let args = json!({
+            "ref":native,"kind":"technical","resource":format!("scene:{scene}"),"body":body
+        });
+        let input_bytes = serde_json::to_vec(&args)?.len();
+        require(
+            input_bytes < POSTCOMMIT_VALUE_BYTES && args.get("include_recovery").is_none(),
+            "Actual postcommit input exceeded its cap or added response metadata",
+        )?;
+        let call = request("driver.motionwright.review.add", args);
+        let bound = self
+            .base
+            .broker
+            .resolve_bound_provider_for_owner_operation_test(&session, &binding)?;
+        let label = format!("postcommit-review-{serial:02}");
+        graph_write_json(
+            &self.root().join(format!("{label}.request.original.json")),
+            &json!({
+                "schema":"motionwright.sec07-postcommit-request/1",
+                "scope":"CANONICAL_CORE_INTERNAL_REAL_HOST9",
+                "original_request_id":request_id,"request":call,"observation":observed,
+                "actual_input_value_bytes":input_bytes,"include_recovery_present":false,
+                "automatic_retry":false,"synthetic_output":false
+            }),
+        )?;
+        let before = self.recovery_trace()?;
+        let broker = self.base.broker.clone();
+        let cancellation = self.base.cancellation.clone();
+        let id = request_id.to_owned();
+        self.base.request = Some(tokio::spawn(async move {
+            broker
+                .execute_inner(session, id, call, cancellation, Some(bound))
+                .await
+        }));
+        let terminal = self.terminal(&label).await?;
+        self.drained().await?;
+        let after = self.recovery_trace()?;
+        recovery_trace_delta(&before, &after, 1, 0)?;
+        require(
+            terminal.request_id == request_id
+                && terminal.command == "driver.motionwright.review.add"
+                && terminal.execution.backend == GRAPH_PROVIDER
+                && !terminal.execution.dry_run
+                && terminal.execution.fallbacks_attempted.is_empty()
+                && terminal.execution.provenance.is_some()
+                && self
+                    .base
+                    .broker
+                    .provider(GRAPH_PROVIDER)
+                    .is_some_and(|current| {
+                        Arc::ptr_eq(&current, &self.base.lease) && current.active()
+                    })
+                && after.observers.last().is_some_and(|(_, entry)| {
+                    entry["request_id"] == request_id
+                        && entry["resource"] == self.runtime.source["resource"]
+                        && entry["scope"] == "summary"
+                }),
+            "Postcommit attempt lost its exact single real Host invocation",
+        )?;
+        Ok(NativePostcommitAttempt {
+            request_id: request_id.to_owned(),
+            input_bytes,
+            terminal,
+        })
+    }
+
+    async fn recovery_postcommit_byte_budget(&mut self) -> Result<()> {
+        let initial = self.recovery_state(&[]).await?;
+        // This is the existing small named-project/scene fixture. Reject a
+        // changed fixture before dispatch instead of silently widening budgets.
+        require(
+            serde_json::to_vec(&initial.own["project"])?.len() <= 16 * 1024
+                && serde_json::to_vec_pretty(&initial.inventory)?.len() <= 256 * 1024,
+            "Postcommit fixture baseline exceeds the declared source budget",
+        )?;
+        let sentinels = security_secret_sentinels(&initial.own, &initial.foreign)?;
+        let mut previous_project = initial.own["project"].clone();
+        let mut first_result = None;
+        let mut successful = Vec::new();
+        let mut original_ids = Vec::new();
+        let mut crossing = None;
+        for serial in 1..=POSTCOMMIT_MAX_ATTEMPTS {
+            let body = postcommit_review_body(serial)?;
+            let request_id = unique_id();
+            require(
+                !original_ids.contains(&request_id),
+                "Postcommit control refuses to redispatch any earlier writer ID",
+            )?;
+            original_ids.push(request_id.clone());
+            let attempt = self
+                .postcommit_review_call(&request_id, &body, serial)
+                .await?;
+            security_excludes_sentinels(&attempt.terminal, &sentinels)?;
+            if !attempt.terminal.ok {
+                // ANY different failure stops through `?`. Even this expected
+                // uncertain original stops the writer loop permanently.
+                postcommit_size_refusal(&attempt.terminal, false)?;
+                crossing = Some((attempt, body, serial));
+                break;
+            }
+            let result = data(attempt.terminal)?;
+            postcommit_review_extension(&previous_project, &result, &request_id, &body)?;
+            let result_bytes = serde_json::to_vec(&result)?.len();
+            require(
+                result_bytes <= POSTCOMMIT_VALUE_BYTES,
+                "Actual NativeDriver accepted an oversized writer result",
+            )?;
+            if first_result.is_none() {
+                first_result = Some(result.clone());
+            }
+            previous_project = result["project"].clone();
+            successful.push(json!({
+                "original_request_id":request_id,"actual_input_value_bytes":attempt.input_bytes,
+                "actual_result_value_bytes":result_bytes,"revision":result["revision"]
+            }));
+        }
+        let (failed, body, attempts) = crossing.ok_or_else(|| Error::new(
+            ErrorCode::BackendFailed,
+            "Actual domain-valid review accumulation did not reach its bounded byte-cap refusal",
+        ))?;
+        require(
+            attempts <= 33 && successful.len() + 1 == attempts,
+            "Actual first crossing differs from the retained 8000-byte review count",
+        )?;
+        let first_result = first_result
+            .ok_or_else(|| Error::invalid("The actual small positive writer result is absent"))?;
+
+        // Only independent readers run below. The failed writer is never sent
+        // again, regardless of what its durable receipt subsequently proves.
+        let current = self.readback("motionwright.sqlite3").await?;
+        let failed_key = NativeRecoveryReceiptKey {
+            project_id: graph_field(&initial.own["project"], "id")?.to_owned(),
+            generation: graph_field(&initial.own["project"], "generation")?.to_owned(),
+            raw_key: failed.request_id.clone(),
+            result_revision: graph_revision(&current)?.to_string(),
+        };
+        let keys = vec![recovery_boundary_receipt_key(&first_result)?, failed_key];
+        let committed = self.recovery_state(&keys).await?;
+        require(
+            committed.own == current && committed.receipts.len() == 2,
+            "Independent postcommit readbacks do not name one unchanged current project",
+        )?;
+        let small = postcommit_checked_commit(&committed.receipts[0])?;
+        let large = postcommit_checked_commit(&committed.receipts[1])?;
+        require(
+            small.result == first_result
+                && large.result["project"] == committed.own["project"]
+                && large.result["request_id"] == failed.request_id,
+            "Independent receipts differ from the actual small/uncertain original calls",
+        )?;
+        postcommit_review_extension(&previous_project, &large.result, &failed.request_id, &body)?;
+        postcommit_growth_inventory(&initial, &committed, attempts)?;
+        let oversized_result_bytes = serde_json::to_vec(&large.result)?.len();
+        require(
+            oversized_result_bytes > POSTCOMMIT_VALUE_BYTES && oversized_result_bytes < 1024 * 1024,
+            "Actual committed seven-field result does not explain the Driver byte-cap refusal",
+        )?;
+        graph_write_json(
+            &self.root().join("POSTCOMMIT_AUTHENTICATED_ORIGINAL.json"),
+            &json!({
+                "schema":"motionwright.sec07-postcommit-original/1",
+                "original_uncertain_envelope":failed.terminal,
+                "independent_verified_receipt":committed.receipts[1],
+                "actual_committed_result_value_bytes":oversized_result_bytes,
+                "selector_from_checked_receipt":large.identity,
+                "selector_was_emitted_by_failed_writer":false,
+                "native_authority":false,"automatic_retry":false
+            }),
+        )?;
+
+        // A NEW genuine summary ref is mandatory after the committed mutation.
+        // The old pre-write ref would only exercise stale-reference refusal.
+        let session = self.base.session.clone();
+        let resource = graph_field(&large.identity, "resource")?.to_owned();
+        let (binding, native) = self
+            .recovery_observe(
+                &session,
+                &resource,
+                "postcommit-current-small-summary-reference",
+            )
+            .await?;
+        self.recovery_recorded(
+            NativeRecoveryRead {
+                session: &session,
+                binding: &binding,
+                native: &native,
+                identity: &small.identity,
+            },
+            &small,
+            &sentinels,
+            "postcommit-small-original-record-positive",
+        )
+        .await?;
+        let trace_before = self.recovery_trace()?;
+        let terminal = self
+            .recovery_bound(NativeRecoveryRead {
+                session: &session,
+                binding: &binding,
+                native: &native,
+                identity: &large.identity,
+            })
+            .await;
+        let terminal = graph_terminal_custody(
+            self.root(),
+            "postcommit-oversized-original-record-refusal",
+            terminal,
+        )?;
+        security_excludes_sentinels(&terminal, &sentinels)?;
+        postcommit_size_refusal(&terminal, true)?;
+        let trace_after = self.recovery_trace()?;
+        recovery_trace_delta(&trace_before, &trace_after, 1, 1)?;
+        let observer = &trace_after
+            .observers
+            .last()
+            .expect("one actual fresh observer")
+            .1;
+        let lookup = &trace_after
+            .lookups
+            .last()
+            .expect("one actual original receipt lookup")
+            .1;
+        require(
+            observer["request_id"] == lookup["request_id"]
+                && observer["provider_process_id"] == lookup["provider_process_id"]
+                && observer["scope"] == "summary"
+                && lookup["resource"] == large.identity["resource"]
+                && lookup["key"] == large.identity["key"]
+                && lookup["request_sha256"] == large.identity["request_sha256"]
+                && terminal.execution.fallbacks_attempted.is_empty(),
+            "Oversized recovery did not reach the one actual authenticated historical lookup",
+        )?;
+        require(
+            self.recovery_state(&keys).await? == committed,
+            "Read-only small/oversized recovery changed project, history, receipts or full inventory",
+        )?;
+        self.remains_live().await?;
+        self.recovery_report(
+            "actual-postcommit-byte-budget",
+            json!({
+                "scope":"CANONICAL_CORE_INTERNAL_REAL_HOST9",
+                "declared_max_attempts":POSTCOMMIT_MAX_ATTEMPTS,"actual_attempts":attempts,
+                "declared_scenario_deadline_seconds":180,
+                "successful_original_calls":successful,
+                "failed_original_request_id":failed.request_id,
+                "actual_failed_call_input_value_bytes":failed.input_bytes,
+                "actual_committed_result_value_bytes":oversized_result_bytes,
+                "original_writer_error":failed.terminal.error,
+                "original_recovery_error":terminal.error,
+                "complete_original_ApplyOutcome_independently_authenticated":true,
+                "small_original_recovery_positive_at_same_current_revision":true,
+                "full_three_table_inventory_unchanged_after_readonly_recovery":true,
+                "writer_dispatch_after_first_refusal":false,
+                "same_original_mutation_redispatched":false,
+                "output_schema_failure_exercised":false,
+                "synthetic_provider_output_or_fault_hook":false,
+                "failed_writer_emitted_recovery_identity":false,
+                "snapshot_scope":["projects","events","receipts"],
+                "cache_cas_and_other_tables_covered":false
+            }),
+        )
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[ignore = "requires pinned actual Motionwright recovery provider/fixture, Host9 sandbox and retained evidence root"]
+async fn linux_motionwright_native_recovery_postcommit_byte_budget_preserves_original_and_store() {
+    let mut fixture = GraphFixture::new_security("owned")
+        .await
+        .expect("real postcommit byte-budget Core/Host9 fixture setup");
+    // Up to40 real serial Host calls (the first byte crossing is at most33),
+    // followed by full authenticated receipt/inventory reads. This is a declared
+    // finite budget, not measured latency. Existing bounded cleanup runs after it.
+    let scenario_result = match tokio::time::timeout(
+        Duration::from_secs(180),
+        fixture.recovery_postcommit_byte_budget(),
+    )
+    .await
+    {
+        Ok(result) => result,
+        Err(_) => Err(Error::new(
+            ErrorCode::Timeout,
+            "Original postcommit byte-budget scenario exceeded its finite deadline",
+        )
+        .uncertain()),
+    };
+    let cleanup = fixture.cleanup().await;
+    let retained = graph_write_json(
+        &fixture.root().join("POSTCOMMIT_CASE_TERMINAL.json"),
+        &json!({
+            "schema":"motionwright.sec07-postcommit-terminal/1",
+            "scope":"CANONICAL_CORE_INTERNAL_REAL_HOST9",
+            "scenario_result":match &scenario_result {
+                Ok(())=>json!({"ok":true}),Err(error)=>json!({"ok":false,"error":error})
+            },
+            "cleanup_result":match &cleanup {
+                Ok(())=>json!({"ok":true}),Err(error)=>json!({"ok":false,"error":error})
+            },
+            "automatic_retry":false,"formal_acceptance":false
+        }),
+    );
+    assert!(
+        scenario_result.is_ok() && cleanup.is_ok() && retained.is_ok(),
+        "real postcommit byte budget: {scenario_result:?}; physical cleanup: {cleanup:?}; custody: {retained:?}"
+    );
+}
