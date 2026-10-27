@@ -106,6 +106,11 @@ pub enum SubjectContent {
     Text {
         runs: Vec<TextRun>,
         style: String,
+        /// Optional line advance as a multiplier of the effective font size.
+        /// Present values must be finite and within 0.1..=10.0.
+        /// Absence preserves the renderer's existing text layout defaults.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        line_height: Option<f64>,
         direction: TextDirection,
         language: String,
         wrap: bool,

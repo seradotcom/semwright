@@ -2,6 +2,7 @@
 //! The returned path is evidence, never a safe local-write capability or project ACL.
 use super::*;
 use semwright_platform_api::launch::{MountClass, WorkspaceMountBinding};
+use semwright_types::{ProviderMountPairRequirement, ProviderMountRequirements};
 
 pub(super) type MountBindings = Vec<Arc<dyn WorkspaceMountBinding>>;
 #[derive(Clone)]
@@ -30,6 +31,22 @@ fn requested_voice_profile(args: &Value) -> Result<bool> {
     let profile: ProfileObservationRequest = serde_json::from_value(value.clone())?;
     if profile.version != 1 || profile.name != "voice-alignment" {
         return Err(Error::invalid("Unsupported provider observation profile"));
+    }
+    Ok(true)
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PairObservationRequest {
+    version: u32,
+    name: String,
+}
+fn requested_mount_pair(args: &Value) -> Result<bool> {
+    let Some(value) = args.get("pair") else {
+        return Ok(false);
+    };
+    let pair: PairObservationRequest = serde_json::from_value(value.clone())?;
+    if pair.version != 1 || pair.name != "media-ro-output-rw" {
+        return Err(Error::invalid("Unsupported provider workspace pair"));
     }
     Ok(true)
 }
@@ -124,51 +141,194 @@ impl Broker {
         }
         Ok(binding)
     }
+    fn capture_mount_pair(
+        &self,
+        lease: &Arc<ProviderLease>,
+        expected: Option<&ProviderMountPairRequirement>,
+    ) -> Result<(ProviderMountPairRequirement, Value)> {
+        // Both capsules come from this ONE immutable lease. A pair of JSON
+        // provider names, paths or connection strings can never supply them.
+        let media = self.mount_binding(lease, "media")?;
+        let output = self.mount_binding(lease, "output")?;
+        let source = media.mount();
+        let destination = output.mount();
+        if source.class != MountClass::Workspace
+            || destination.class != MountClass::Workspace
+            || !source.read_only
+            || source.execute
+            || destination.read_only
+            || destination.execute
+            || source.source.starts_with(&destination.source)
+            || destination.source.starts_with(&source.source)
+        {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Workspace pair requires distinct native directories and separate MediaRO/OutputRW declared paths",
+            ));
+        }
+        let pair = ProviderMountPairRequirement::media_ro_output_rw_v1_from_core(
+            media.root_instance_identity()?,
+            output.root_instance_identity()?,
+        )?;
+        if expected.is_some_and(|expected| expected != &pair) {
+            return Err(Error::new(
+                ErrorCode::StaleReference,
+                "Workspace pair directory instance changed",
+            ));
+        }
+        // Bracket the two observations with the existing current-path, process
+        // and exact catalog-lease checks. Retaining these Arcs is not a lock.
+        let current_media = self.mount_binding(lease, "media")?;
+        let current_output = self.mount_binding(lease, "output")?;
+        if !Arc::ptr_eq(&media, &current_media)
+            || !Arc::ptr_eq(&output, &current_output)
+            || current_media.root_instance_identity()? != pair.media_instance_identity()
+            || current_output.root_instance_identity()? != pair.output_instance_identity()
+        {
+            return Err(Error::new(
+                ErrorCode::StaleReference,
+                "Workspace pair changed during capture",
+            ));
+        }
+        let view = json!({
+            "version":pair.version(),"name":pair.contract_id(),
+            "media":{"root":source.logical_name,"path":source.source,"read":true,
+                "write":false,"execute":false,"instance_identity":pair.media_instance_identity()},
+            "output":{"root":destination.logical_name,"path":destination.source,"read":true,
+                "write":true,"execute":false,"instance_identity":pair.output_instance_identity()}
+        });
+        Ok((pair, view))
+    }
+    fn check_bound_pair(
+        &self,
+        lease: &Arc<ProviderLease>,
+        reference: &ProviderMountReference,
+        require_admission: bool,
+    ) -> Result<Option<Value>> {
+        let Some(expected) = &reference.pair_requirement else {
+            return Ok(None);
+        };
+        if reference.mount != "media" {
+            return Err(Error::new(
+                ErrorCode::StaleReference,
+                "Workspace pair lost its primary root",
+            ));
+        }
+        if require_admission && !lease.operation_gate.accepting_admissions()? {
+            return Err(Error::new(
+                ErrorCode::StaleReference,
+                "Workspace pair lease is closing",
+            ));
+        }
+        let (_, view) = self.capture_mount_pair(lease, Some(expected))?;
+        if require_admission && !lease.operation_gate.accepting_admissions()? {
+            return Err(Error::new(
+                ErrorCode::StaleReference,
+                "Workspace pair lease closed during observation",
+            ));
+        }
+        Ok(Some(view))
+    }
     pub(super) fn observe_provider_mount(&self, session: &str, args: &Value) -> Result<Value> {
-        let requested_profile = requested_voice_profile(args)?;
         let route = arg_str(args, "provider")?;
         let root = arg_str(args, "root")?;
+        if let Some(reference_id) = args.get("binding_ref") {
+            if args.get("profile").is_some() || args.get("pair").is_some() {
+                return Err(Error::invalid(
+                    "Original-reference revalidation cannot select new requirements",
+                ));
+            }
+            let reference_id = reference_id
+                .as_str()
+                .ok_or_else(|| Error::invalid("Binding reference must be a string"))?;
+            let bound = self.resolve_bound_provider(session, reference_id)?;
+            if route != bound.admission.backend || root != bound.admission.mount {
+                return Err(Error::new(
+                    ErrorCode::PolicyDenied,
+                    "Revalidation assertions differ from the original mount reference",
+                ));
+            }
+            // No insertion, TTL renewal or requirement replacement occurs.
+            return self.provider_mount_observation(session, &bound);
+        }
+        let requested_profile = requested_voice_profile(args)?;
+        let requested_pair = requested_mount_pair(args)?;
+        if requested_pair && root != "media" {
+            return Err(Error::invalid("Workspace pair primary root must be media"));
+        }
         let lease = self.provider(route).ok_or_else(|| {
             Error::new(ErrorCode::NotFound, "Requested provider is not connected")
         })?;
-        let binding = self.mount_binding(&lease, root)?;
+        self.mount_binding(&lease, root)?;
         // Resolve facts before allocating the ordinary bounded reference slot.
-        let (profile_requirement, profile_view) = if requested_profile {
+        let profile_requirement = if requested_profile {
             let capture = lease.profile_observation.as_ref().ok_or_else(|| {
                 Error::new(
                     ErrorCode::Unsupported,
                     "This provider has no retained Host profile observation",
                 )
             })?;
-            let view = capture.observe_voice_alignment(&lease.identity, root)?;
-            (Some(capture.requirement()), Some(view))
+            capture.observe_voice_alignment(&lease.identity, root)?;
+            Some(capture.requirement())
         } else {
-            (None, None)
+            None
+        };
+        let pair_requirement = if requested_pair {
+            if !lease.operation_gate.accepting_admissions()? {
+                return Err(Error::new(
+                    ErrorCode::StaleReference,
+                    "Workspace pair lease is closing",
+                ));
+            }
+            Some(self.capture_mount_pair(&lease, None)?.0)
+        } else {
+            None
         };
         let reference_id = self
             .references
             .lock()
             .map_err(|_| Error::new(ErrorCode::Internal, "Reference store lock poisoned"))?
-            .insert_provider_mount_with_profile(
+            .insert_provider_mount_with_requirements(
                 session,
                 route,
                 &lease.connection,
                 lease.generation,
                 root,
-                profile_requirement,
+                ProviderMountRequirements {
+                    profile: profile_requirement,
+                    pair: pair_requirement,
+                },
             )?;
         let bound = self.resolve_bound_provider(session, &reference_id)?;
+        self.check_bound_provider_observation(session, &bound, Some(&lease))?;
+        self.provider_mount_observation(session, &bound)
+    }
+    fn provider_mount_observation(&self, session: &str, bound: &BoundProvider) -> Result<Value> {
+        let lease = &bound.lease;
         // Factual observation may report unavailable execution. All dispatch callers
         // use check_bound_provider, which also enforces the stored requirement.
-        self.check_bound_provider_observation(session, &bound, Some(&lease))?;
+        self.check_bound_provider_observation(session, bound, Some(lease))?;
+        let binding = self.mount_binding(lease, &bound.admission.mount)?;
+        let pair_view = self.check_bound_pair(lease, &bound.admission, true)?;
+        let profile_view = if bound.admission.profile_requirement.is_some() {
+            let capture = lease.profile_observation.as_ref().ok_or_else(|| {
+                Error::new(
+                    ErrorCode::StaleReference,
+                    "Bound provider lost its retained profile capture",
+                )
+            })?;
+            Some(capture.observe_voice_alignment(&lease.identity, &bound.admission.mount)?)
+        } else {
+            None
+        };
         let reference = self
             .references
             .lock()
             .map_err(|_| Error::new(ErrorCode::Internal, "Reference store lock poisoned"))?
-            .get_provider_mount(&reference_id, session)?;
+            .get_provider_mount(&bound.reference_id, session)?;
         let mount = binding.mount();
         let mut result = json!({
-            "binding_ref": reference_id,
+            "binding_ref": bound.reference_id,
             "provider": lease.identity.id,
             "provider_generation": lease.generation,
             "connection": lease.connection,
@@ -183,6 +343,10 @@ impl Broker {
                 .expect("mount observation is an object")
                 .insert("profile".into(), profile);
         }
+        if let Some(pair) = pair_view {
+            result["pair"] = pair;
+        }
+        self.check_bound_provider_observation(session, bound, Some(lease))?;
         Ok(result)
     }
     fn check_bound_profile(
@@ -225,6 +389,7 @@ impl Broker {
         }
         self.mount_binding(&lease, &reference.mount)?;
         Self::check_bound_profile(&lease, &reference)?;
+        self.check_bound_pair(&lease, &reference, true)?;
         Ok(BoundProvider {
             reference_id: reference_id.into(),
             lease,
@@ -322,13 +487,16 @@ impl Broker {
         // Arc::ptr_eq above retains the same immutable lease and therefore the
         // same Host capsule Arc; independently revalidate its typed requirement.
         Self::check_bound_profile(&current, &record)?;
+        self.check_bound_pair(&current, &record, false)?;
         if expected.admission.is_revoked() {
             return Err(Error::new(
                 ErrorCode::StaleReference,
                 "Bound admission was revoked during completion",
             ));
         }
-        Ok(record.expires > Instant::now())
+        Ok(record.expires > Instant::now()
+            && (record.pair_requirement.is_none()
+                || current.operation_gate.accepting_admissions()?))
     }
     pub(super) async fn execute_provider_bound(
         self: &Arc<Self>,
@@ -443,7 +611,7 @@ impl Broker {
             }));
         }
         #[cfg(all(test, target_os = "linux"))]
-        if protected_read {
+        if protected_read || bound.admission.pair_requirement.is_some() {
             self.native_bound_read_completion_checkpoint().await?;
         }
         // execute_inner includes audit persistence. Recheck protected disclosure
@@ -468,19 +636,20 @@ impl Broker {
         } else {
             None
         };
-        let admission_current = self
+        let completion_error = || {
+            if protected_read {
+                Error::new(ErrorCode::PolicyDenied, "Native resource access denied")
+            } else {
+                Error::new(
+                    ErrorCode::StaleReference,
+                    "Bound result is historical; admission changed during completion",
+                )
+                .uncertain()
+            }
+        };
+        let mut admission_current = self
             .check_bound_completion(session, &bound, Some(&bound.lease))
-            .map_err(|_| {
-                if protected_read {
-                    Error::new(ErrorCode::PolicyDenied, "Native resource access denied")
-                } else {
-                    Error::new(
-                        ErrorCode::StaleReference,
-                        "Bound result is historical; admission changed during completion",
-                    )
-                    .uncertain()
-                }
-            })?;
+            .map_err(|_| completion_error())?;
         if protected_read && !admission_current {
             return Err(Error::new(
                 ErrorCode::PolicyDenied,
@@ -490,9 +659,29 @@ impl Broker {
         if outer_confirmation && !nested.execution.dry_run {
             audit.decision("allow_after_confirmation");
         }
-        let output = json!({"binding_ref":args.binding_ref,"result":nested,
+        // This view is regenerated from BOTH original native capsules and
+        // compared to the immutable requirement; caller JSON is never echoed
+        // as pair evidence. A completed result does not grant later local IO.
+        let pair_view = self
+            .check_bound_pair(&bound.lease, &bound.admission, false)
+            .map_err(|_| completion_error())?;
+        let admission_state = |current: bool| {
+            if current {
+                "current"
+            } else if bound.admission.pair_requirement.is_some()
+                && bound.admission.expires > Instant::now()
+            {
+                "closing"
+            } else {
+                "expired"
+            }
+        };
+        let mut output = json!({"binding_ref":args.binding_ref,"result":nested,
             "admission_current":admission_current,
-            "admission_state":if admission_current {"current"} else {"expired"}});
+            "admission_state":admission_state(admission_current)});
+        if let Some(pair) = pair_view {
+            output["pair"] = pair;
+        }
         let bytes = serde_json::to_vec(&output).map_err(|error| Error::from(error).uncertain())?;
         if bytes.len() > MAX_FRAME - 8192 {
             return Err(Error::new(
@@ -504,6 +693,17 @@ impl Broker {
         if let (Some(admission), Some((_, _, context))) = (&read_completion, &read_completion_input)
         {
             admission.check(self, context, true)?;
+        }
+        if bound.admission.pair_requirement.is_some() {
+            let final_current = self
+                .check_bound_completion(session, &bound, Some(&bound.lease))
+                .map_err(|_| completion_error())?;
+            admission_current = admission_current && final_current;
+            if protected_read && !admission_current {
+                return Err(completion_error());
+            }
+            output["admission_current"] = json!(admission_current);
+            output["admission_state"] = json!(admission_state(admission_current));
         }
         Ok(output)
     }

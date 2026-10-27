@@ -4947,7 +4947,7 @@ Idempotency: `non_idempotent`. Dry run: `false`.
 
 ## `providers.mount.observe`
 
-Observe the actual DriverHost workspace instance and issue a short-lived session binding. Paths and mount flags are facts, not a local-write capability or project ACL.
+Observe the actual DriverHost workspace instance and issue a short-lived session binding. Optional media-ro-output-rw pairs bind both native directory instances on the same live provider lease. Supplying binding_ref instead revalidates that exact original admission without renewing its TTL; provider/root must match and new pair/profile selectors are forbidden. Paths, flags and identities are facts, not local filesystem capabilities or project ACLs.
 
 Idempotency: `non_idempotent`. Dry run: `false`.
 
@@ -4980,19 +4980,72 @@ Idempotency: `non_idempotent`. Dry run: `false`.
         "name"
       ],
       "additionalProperties": false
+    },
+    "pair": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "const": 1
+        },
+        "name": {
+          "const": "media-ro-output-rw"
+        }
+      },
+      "required": [
+        "version",
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "binding_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
     }
   },
   "required": [
     "provider",
     "root"
   ],
-  "additionalProperties": false
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "not": {
+        "required": [
+          "binding_ref",
+          "profile"
+        ]
+      }
+    },
+    {
+      "not": {
+        "required": [
+          "binding_ref",
+          "pair"
+        ]
+      }
+    },
+    {
+      "if": {
+        "required": [
+          "pair"
+        ]
+      },
+      "then": {
+        "properties": {
+          "root": {
+            "const": "media"
+          }
+        }
+      }
+    }
+  ]
 }
 ```
 
 ## `providers.execute_bound`
 
-Execute one original direct DriverHost command against an opaque live mount binding. Original policy, confirmation, audit, uncertainty and non-retry semantics remain authoritative.
+Execute one original direct DriverHost command against an opaque live mount binding. Original policy, confirmation, audit, uncertainty and non-retry semantics remain authoritative. Paired admissions revalidate both original roots and return their completion evidence. A known completed result may have expired or closing admission; that evidence grants no later local capture or adoption authority and is not an uninterrupted reservation.
 
 Idempotency: `non_idempotent`. Dry run: `true`.
 

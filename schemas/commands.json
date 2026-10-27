@@ -20152,7 +20152,7 @@
   {
     "name": "providers.mount.observe",
     "version": "1.0",
-    "description": "Observe the actual DriverHost workspace instance and issue a short-lived session binding. Paths and mount flags are facts, not a local-write capability or project ACL.",
+    "description": "Observe the actual DriverHost workspace instance and issue a short-lived session binding. Optional media-ro-output-rw pairs bind both native directory instances on the same live provider lease. Supplying binding_ref instead revalidates that exact original admission without renewing its TTL; provider/root must match and new pair/profile selectors are forbidden. Paths, flags and identities are facts, not local filesystem capabilities or project ACLs.",
     "input_schema": {
       "type": "object",
       "properties": {
@@ -20181,13 +20181,66 @@
             "name"
           ],
           "additionalProperties": false
+        },
+        "pair": {
+          "type": "object",
+          "properties": {
+            "version": {
+              "const": 1
+            },
+            "name": {
+              "const": "media-ro-output-rw"
+            }
+          },
+          "required": [
+            "version",
+            "name"
+          ],
+          "additionalProperties": false
+        },
+        "binding_ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
         }
       },
       "required": [
         "provider",
         "root"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "not": {
+            "required": [
+              "binding_ref",
+              "profile"
+            ]
+          }
+        },
+        {
+          "not": {
+            "required": [
+              "binding_ref",
+              "pair"
+            ]
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "pair"
+            ]
+          },
+          "then": {
+            "properties": {
+              "root": {
+                "const": "media"
+              }
+            }
+          }
+        }
+      ]
     },
     "output_schema": {
       "type": "object",
@@ -20392,6 +20445,96 @@
             "unavailable"
           ],
           "additionalProperties": false
+        },
+        "pair": {
+          "type": "object",
+          "properties": {
+            "version": {
+              "const": 1
+            },
+            "name": {
+              "const": "media-ro-output-rw"
+            },
+            "media": {
+              "type": "object",
+              "properties": {
+                "root": {
+                  "const": "media"
+                },
+                "path": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096
+                },
+                "read": {
+                  "const": true
+                },
+                "write": {
+                  "const": false
+                },
+                "execute": {
+                  "const": false
+                },
+                "instance_identity": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                }
+              },
+              "required": [
+                "root",
+                "path",
+                "read",
+                "write",
+                "execute",
+                "instance_identity"
+              ],
+              "additionalProperties": false
+            },
+            "output": {
+              "type": "object",
+              "properties": {
+                "root": {
+                  "const": "output"
+                },
+                "path": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096
+                },
+                "read": {
+                  "const": true
+                },
+                "write": {
+                  "const": true
+                },
+                "execute": {
+                  "const": false
+                },
+                "instance_identity": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                }
+              },
+              "required": [
+                "root",
+                "path",
+                "read",
+                "write",
+                "execute",
+                "instance_identity"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "version",
+            "name",
+            "media",
+            "output"
+          ],
+          "additionalProperties": false
         }
       },
       "required": [
@@ -20419,7 +20562,7 @@
   {
     "name": "providers.execute_bound",
     "version": "1.0",
-    "description": "Execute one original direct DriverHost command against an opaque live mount binding. Original policy, confirmation, audit, uncertainty and non-retry semantics remain authoritative.",
+    "description": "Execute one original direct DriverHost command against an opaque live mount binding. Original policy, confirmation, audit, uncertainty and non-retry semantics remain authoritative. Paired admissions revalidate both original roots and return their completion evidence. A known completed result may have expired or closing admission; that evidence grants no later local capture or adoption authority and is not an uninterrupted reservation.",
     "input_schema": {
       "type": "object",
       "properties": {
@@ -20482,8 +20625,99 @@
         "admission_state": {
           "enum": [
             "current",
-            "expired"
+            "expired",
+            "closing"
           ]
+        },
+        "pair": {
+          "type": "object",
+          "properties": {
+            "version": {
+              "const": 1
+            },
+            "name": {
+              "const": "media-ro-output-rw"
+            },
+            "media": {
+              "type": "object",
+              "properties": {
+                "root": {
+                  "const": "media"
+                },
+                "path": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096
+                },
+                "read": {
+                  "const": true
+                },
+                "write": {
+                  "const": false
+                },
+                "execute": {
+                  "const": false
+                },
+                "instance_identity": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                }
+              },
+              "required": [
+                "root",
+                "path",
+                "read",
+                "write",
+                "execute",
+                "instance_identity"
+              ],
+              "additionalProperties": false
+            },
+            "output": {
+              "type": "object",
+              "properties": {
+                "root": {
+                  "const": "output"
+                },
+                "path": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 4096
+                },
+                "read": {
+                  "const": true
+                },
+                "write": {
+                  "const": true
+                },
+                "execute": {
+                  "const": false
+                },
+                "instance_identity": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 256
+                }
+              },
+              "required": [
+                "root",
+                "path",
+                "read",
+                "write",
+                "execute",
+                "instance_identity"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "version",
+            "name",
+            "media",
+            "output"
+          ],
+          "additionalProperties": false
         }
       },
       "required": [
@@ -20492,7 +20726,31 @@
         "admission_current",
         "admission_state"
       ],
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "admission_state": {
+                "const": "closing"
+              }
+            },
+            "required": [
+              "admission_state"
+            ]
+          },
+          "then": {
+            "required": [
+              "pair"
+            ],
+            "properties": {
+              "admission_current": {
+                "const": false
+              }
+            }
+          }
+        }
+      ]
     },
     "requires": [
       "providers.execute_bound"

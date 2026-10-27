@@ -325,6 +325,12 @@ impl WorkspaceMountBinding for WindowsWorkspaceMountBinding {
     fn mount(&self) -> &Mount {
         &self.state.mount
     }
+    fn root_instance_identity(&self) -> Result<String> {
+        self.validate_current()?;
+        let identity = crate::filesystem::retained_directory_identity(&self.state.root)?;
+        self.validate_current()?;
+        Ok(identity)
+    }
     fn validate_current(&self) -> Result<()> {
         require_live_process(&self.process)?;
         self.state.validate_current()?;
@@ -413,6 +419,41 @@ mod tests {
                 .unwrap()
         }
     }
+    #[test]
+    fn mount_identity_matches_local_root_and_revocation_does_not_revoke_local_custody() {
+        use semwright_platform_api::filesystem::ScopedFilesystem;
+        let mut fixture = Fixture::new();
+        let binding = fixture.binding();
+        let identity = binding.root_instance_identity().unwrap();
+        let local = crate::filesystem::WindowsFilesystem
+            .open_root_with_identity(&fixture.mount.source, true, false, &identity)
+            .unwrap();
+        assert_eq!(local.root_instance_identity().unwrap(), identity);
+        fixture.grant.revoke().unwrap();
+        assert_eq!(
+            binding.root_instance_identity().unwrap_err().code,
+            ErrorCode::StaleReference
+        );
+        // Independent owner-local custody is not evidence of a current Host grant.
+        assert_eq!(local.root_instance_identity().unwrap(), identity);
+    }
+
+    #[test]
+    fn mount_identity_refuses_replacement_then_matches_the_restored_original() {
+        let fixture = Fixture::new();
+        let binding = fixture.binding();
+        let identity = binding.root_instance_identity().unwrap();
+        let original = fixture.directory.path().join("original-root");
+        std::fs::rename(&fixture.mount.source, &original).unwrap();
+        std::fs::create_dir(&fixture.mount.source).unwrap();
+        let changed = binding.root_instance_identity();
+        // Restore before the existing original grant performs path-based ACL cleanup.
+        std::fs::remove_dir(&fixture.mount.source).unwrap();
+        std::fs::rename(&original, &fixture.mount.source).unwrap();
+        assert_eq!(changed.unwrap_err().code, ErrorCode::StaleReference);
+        assert_eq!(binding.root_instance_identity().unwrap(), identity);
+    }
+
     #[test]
     fn retained_workspace_rejects_original_grant_revocation() {
         let mut fixture = Fixture::new();
@@ -542,10 +583,15 @@ mod tests {
         )
         .unwrap();
         binding.validate_current().unwrap();
+        assert!(binding.root_instance_identity().is_ok());
         child.0.kill().unwrap();
         child.0.wait().unwrap();
         assert_eq!(
             binding.validate_current().unwrap_err().code,
+            ErrorCode::StaleReference
+        );
+        assert_eq!(
+            binding.root_instance_identity().unwrap_err().code,
             ErrorCode::StaleReference
         );
     }

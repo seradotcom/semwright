@@ -1417,3 +1417,460 @@ async fn profile_selector_rejects_caller_authority_before_allocation() {
         );
     }
 }
+
+// Source recovery successor: the previous six synthetic test bodies were lost
+// when scratch reset. These newly authored bodies preserve their declared
+// scenarios; they are not represented as the byte-identical original freeze.
+// TestRoot identities below are synthetic. None of these controls attests a
+// real platform capsule, Host process, MLT operation, or later local adoption.
+mod pair_contract_controls {
+    use super::*;
+    use semwright_types::{ProviderMountPairRequirement, ProviderMountRequirements};
+
+    struct PairRoot {
+        mount: Mount,
+        valid: AtomicBool,
+        identity_supported: bool,
+        identity: std::sync::Mutex<String>,
+    }
+    impl WorkspaceMountBinding for PairRoot {
+        fn mount(&self) -> &Mount {
+            &self.mount
+        }
+        fn validate_current(&self) -> Result<()> {
+            if self.valid.load(Ordering::SeqCst) {
+                Ok(())
+            } else {
+                Err(Error::new(
+                    ErrorCode::StaleReference,
+                    "synthetic pair root changed",
+                ))
+            }
+        }
+        fn root_instance_identity(&self) -> Result<String> {
+            self.validate_current()?;
+            if !self.identity_supported {
+                return Err(Error::new(
+                    ErrorCode::Unsupported,
+                    "synthetic identity unavailable",
+                ));
+            }
+            Ok(self.identity.lock().unwrap().clone())
+        }
+    }
+    struct PairFixture {
+        broker: Arc<Broker>,
+        provider: Arc<TestProvider>,
+        media: Arc<PairRoot>,
+        output: Arc<PairRoot>,
+        _directory: tempfile::TempDir,
+    }
+    impl PairFixture {
+        async fn new(identity_supported: bool, output_read_only: bool) -> Self {
+            let directory = tempfile::tempdir().unwrap();
+            let identity =
+                ProviderIdentity::external(SourceKind::Driver, "pair-test", "1").unwrap();
+            let descriptor = CommandDescriptor {
+                name: format!("{}apply", identity.namespace),
+                version: "1".into(),
+                description: "Synthetic paired effect".into(),
+                input_schema: json!({"type":"object","properties":{},"additionalProperties":false}),
+                output_schema: json!({"type":"object","properties":{"done":{"type":"boolean"}},"required":["done"],"additionalProperties":false}),
+                requires: vec![identity.id.clone()],
+                risk: Risk::MutatingReversible,
+                idempotency: Idempotency::NonIdempotent,
+                timeout_ms: 5000,
+                dry_run: true,
+                interactive_consent: false,
+                backends: vec![identity.id.clone()],
+            };
+            let provider = Arc::new(TestProvider {
+                identity,
+                descriptor,
+                calls: AtomicUsize::new(0),
+                blocked: AtomicBool::new(false),
+                entered: Notify::new(),
+                release: Notify::new(),
+                closed: CancellationToken::new(),
+            });
+            let root = |name: &str, read_only: bool, native: &str| {
+                let path = directory.path().join(name);
+                std::fs::create_dir(&path).unwrap();
+                Arc::new(PairRoot {
+                    mount: Mount {
+                        source: path,
+                        class: MountClass::Workspace,
+                        logical_name: name.into(),
+                        read_only,
+                        execute: false,
+                    },
+                    valid: AtomicBool::new(true),
+                    identity_supported,
+                    identity: std::sync::Mutex::new(native.into()),
+                })
+            };
+            let media = root("media", true, "synthetic-media-instance-1");
+            let output = root("output", output_read_only, "synthetic-output-instance-1");
+            let config = PolicyConfig {
+                allow: [
+                    provider.identity.id.clone(),
+                    "providers.execute_bound".into(),
+                ]
+                .into(),
+                filesystem: vec![
+                    FilesystemGrant {
+                        name: "media".into(),
+                        path: media.mount.source.clone(),
+                        read: true,
+                        write: false,
+                    },
+                    FilesystemGrant {
+                        name: "output".into(),
+                        path: output.mount.source.clone(),
+                        read: true,
+                        write: true,
+                    },
+                ],
+                ..Default::default()
+            };
+            let audit = audit::Audit::open(&directory.path().join("audit"), 65536, 2).unwrap();
+            let broker = Broker::new(
+                Policy::new(config).unwrap(),
+                vec![],
+                audit,
+                Arc::new(NoApprover),
+                None,
+                json!({}),
+                false,
+            )
+            .unwrap();
+            broker
+                .mount_provider_with_workspace(
+                    provider.clone(),
+                    Ok(vec![media.clone(), output.clone()]),
+                )
+                .await
+                .unwrap();
+            Self {
+                broker,
+                provider,
+                media,
+                output,
+                _directory: directory,
+            }
+        }
+        async fn call(&self, command: &str, args: Value) -> Envelope {
+            self.broker
+                .clone()
+                .execute(
+                    "s".into(),
+                    unique_id(),
+                    ExecuteRequest {
+                        command: command.into(),
+                        args,
+                        dry_run: false,
+                        backend: None,
+                    },
+                    CancellationToken::new(),
+                )
+                .await
+        }
+        fn selectors(&self) -> Value {
+            json!({
+                "provider":self.provider.identity.id,"root":"media",
+                "pair":{"version":1,"name":"media-ro-output-rw"}
+            })
+        }
+        async fn issue(&self) -> Value {
+            let terminal = self.call("providers.mount.observe", self.selectors()).await;
+            assert!(terminal.ok, "{:?}", terminal.error);
+            terminal.data.unwrap()
+        }
+        async fn revalidate(&self, binding: &str) -> Envelope {
+            self.call(
+                "providers.mount.observe",
+                json!({
+                    "provider":self.provider.identity.id,"root":"media","binding_ref":binding
+                }),
+            )
+            .await
+        }
+        async fn execute_bound(&self, binding: &str) -> Envelope {
+            self.call(
+                "providers.execute_bound",
+                json!({
+                    "binding_ref":binding,
+                    "request":{"command":self.provider.descriptor.name,"args":{},"dry_run":false}
+                }),
+            )
+            .await
+        }
+        fn stored(&self, binding: &str) -> ProviderMountReference {
+            self.broker
+                .references
+                .lock()
+                .unwrap()
+                .get_provider_mount(binding, "s")
+                .unwrap()
+        }
+    }
+    fn binding(view: &Value) -> &str {
+        view["binding_ref"].as_str().unwrap()
+    }
+    fn denied(terminal: Envelope, expected: ErrorCode) {
+        assert!(!terminal.ok);
+        assert!(terminal.data.is_none());
+        assert_eq!(terminal.error.unwrap().code, expected);
+    }
+
+    #[tokio::test]
+    async fn original_pair_revalidation_preserves_ttl_and_requirement_identity() {
+        let f = PairFixture::new(true, false).await;
+        *f.broker.references.lock().unwrap() = RefStore::new(Duration::from_secs(30), 1);
+        let observed = f.issue().await;
+        let original = f.stored(binding(&observed));
+        let checked = f.revalidate(binding(&observed)).await;
+        assert!(checked.ok, "{:?}", checked.error);
+        let checked = checked.data.unwrap();
+        let current = f.stored(binding(&checked));
+        assert_eq!(binding(&checked), binding(&observed));
+        assert!(current.same_admission(&original));
+        assert_eq!(current.expires, original.expires);
+        assert_eq!(current.pair_requirement, original.pair_requirement);
+        assert!(current.pair_requirement.is_some());
+        assert_eq!(checked["pair"], observed["pair"]);
+        assert!(
+            checked["admission_ttl_ms"].as_u64().unwrap()
+                <= observed["admission_ttl_ms"].as_u64().unwrap()
+        );
+        assert_eq!(
+            checked["pair"]["media"]["instance_identity"],
+            f.media.root_instance_identity().unwrap()
+        );
+        assert_eq!(
+            checked["pair"]["output"]["instance_identity"],
+            f.output.root_instance_identity().unwrap()
+        );
+        // Capacity is one; revalidation succeeds while the original reference
+        // remains retained, so it cannot depend on allocating a replacement.
+        let completed = f.execute_bound(binding(&observed)).await;
+        assert!(completed.ok, "{:?}", completed.error);
+        let completed = completed.data.unwrap();
+        assert_eq!(completed["binding_ref"], observed["binding_ref"]);
+        assert_eq!(completed["pair"], observed["pair"]);
+        assert_eq!(completed["result"]["data"]["done"], true);
+        assert_eq!(f.provider.calls.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn paired_output_is_checked_even_while_media_is_unchanged() {
+        let f = PairFixture::new(true, false).await;
+        let observed = f.issue().await;
+        let retained = f
+            .broker
+            .resolve_bound_provider("s", binding(&observed))
+            .unwrap();
+        let media = f.media.root_instance_identity().unwrap();
+        f.output.valid.store(false, Ordering::SeqCst);
+        denied(
+            f.revalidate(binding(&observed)).await,
+            ErrorCode::StaleReference,
+        );
+        denied(
+            f.execute_bound(binding(&observed)).await,
+            ErrorCode::StaleReference,
+        );
+        assert_eq!(f.media.root_instance_identity().unwrap(), media);
+        assert_eq!(f.provider.calls.load(Ordering::SeqCst), 0);
+        // A currently valid capsule reporting another identity must also fail;
+        // merely checking the primary media capsule is insufficient.
+        f.output.valid.store(true, Ordering::SeqCst);
+        *f.output.identity.lock().unwrap() = "synthetic-output-instance-2".into();
+        denied(
+            f.revalidate(binding(&observed)).await,
+            ErrorCode::StaleReference,
+        );
+        assert_eq!(
+            f.broker
+                .check_bound_completion("s", &retained, Some(&retained.lease))
+                .unwrap_err()
+                .code,
+            ErrorCode::StaleReference
+        );
+        assert_eq!(f.media.root_instance_identity().unwrap(), media);
+        assert_eq!(f.provider.calls.load(Ordering::SeqCst), 0);
+    }
+
+    #[tokio::test]
+    async fn unsupported_pair_or_wrong_output_rights_never_fall_back_to_single_root() {
+        for (supported, read_only, expected) in [
+            (false, false, ErrorCode::Unsupported),
+            (true, true, ErrorCode::PolicyDenied),
+        ] {
+            let f = PairFixture::new(supported, read_only).await;
+            *f.broker.references.lock().unwrap() = RefStore::new(Duration::from_secs(30), 1);
+            denied(
+                f.call("providers.mount.observe", f.selectors()).await,
+                expected,
+            );
+            assert_eq!(f.provider.calls.load(Ordering::SeqCst), 0);
+            // The failed pair allocated no admission and did not silently
+            // return a media-only reference. Explicit legacy behavior remains.
+            let ordinary = f
+                .call(
+                    "providers.mount.observe",
+                    json!({
+                        "provider":f.provider.identity.id,"root":"media"
+                    }),
+                )
+                .await;
+            assert!(ordinary.ok, "{:?}", ordinary.error);
+            let ordinary = ordinary.data.unwrap();
+            assert!(ordinary.get("pair").is_none());
+            assert!(f.stored(binding(&ordinary)).pair_requirement.is_none());
+            let completed = f.execute_bound(binding(&ordinary)).await;
+            assert!(completed.ok, "{:?}", completed.error);
+            assert_eq!(f.provider.calls.load(Ordering::SeqCst), 1);
+        }
+    }
+
+    #[tokio::test]
+    async fn pair_reference_rejects_requirement_removal_and_revalidation_selectors() {
+        let f = PairFixture::new(true, false).await;
+        let observed = f.issue().await;
+        let retained = f
+            .broker
+            .resolve_bound_provider("s", binding(&observed))
+            .unwrap();
+        let mut stripped = retained.clone();
+        stripped.admission.pair_requirement = None;
+        assert!(!stripped.admission.same_admission(&retained.admission));
+        assert_eq!(
+            f.broker
+                .check_bound_provider("s", &stripped, Some(&retained.lease))
+                .unwrap_err()
+                .code,
+            ErrorCode::StaleReference
+        );
+        assert_eq!(
+            f.broker
+                .check_bound_completion("s", &stripped, Some(&retained.lease))
+                .unwrap_err()
+                .code,
+            ErrorCode::StaleReference
+        );
+        for (name, selector) in [
+            ("pair", json!({"version":1,"name":"media-ro-output-rw"})),
+            ("profile", json!({"version":1,"name":"voice-alignment"})),
+        ] {
+            let mut request = json!({
+                "provider":f.provider.identity.id,"root":"media","binding_ref":binding(&observed)
+            });
+            request[name] = selector;
+            denied(
+                f.call("providers.mount.observe", request).await,
+                ErrorCode::InvalidArgument,
+            );
+        }
+        assert!(
+            f.stored(binding(&observed))
+                .same_admission(&retained.admission)
+        );
+        assert_eq!(f.provider.calls.load(Ordering::SeqCst), 0);
+        let completed = f.execute_bound(binding(&observed)).await;
+        assert!(completed.ok, "{:?}", completed.error);
+        assert_eq!(completed.data.unwrap()["pair"], observed["pair"]);
+        assert_eq!(f.provider.calls.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn pair_does_not_replace_an_independent_profile_requirement() {
+        let f = PairFixture::new(true, false).await;
+        let observed = f.issue().await;
+        let retained = f
+            .broker
+            .resolve_bound_provider("s", binding(&observed))
+            .unwrap();
+        let pair: ProviderMountPairRequirement =
+            retained.admission.pair_requirement.clone().unwrap();
+        let profile =
+            semwright_types::ProviderMountProfileRequirement::voice_alignment_v1_from_host([7; 32]);
+        let required = f
+            .broker
+            .references
+            .lock()
+            .unwrap()
+            .insert_provider_mount_with_requirements(
+                "s",
+                &f.provider.identity.id,
+                &retained.lease.connection,
+                retained.lease.generation,
+                "media",
+                ProviderMountRequirements {
+                    profile: Some(profile.clone()),
+                    pair: Some(pair.clone()),
+                },
+            )
+            .unwrap();
+        let record = f.stored(&required);
+        assert_eq!(record.profile_requirement, Some(profile));
+        assert_eq!(record.pair_requirement, Some(pair));
+        // This synthetic provider has no Host profile capture. Its valid pair
+        // cannot replace that independently retained profile requirement.
+        denied(f.execute_bound(&required).await, ErrorCode::StaleReference);
+        denied(f.revalidate(&required).await, ErrorCode::StaleReference);
+        assert_eq!(f.provider.calls.load(Ordering::SeqCst), 0);
+        let completed = f.execute_bound(binding(&observed)).await;
+        assert!(completed.ok, "{:?}", completed.error);
+        assert_eq!(f.provider.calls.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn pair_gate_closing_preserves_known_completion_but_refuses_new_admission() {
+        let f = PairFixture::new(true, false).await;
+        let observed = f.issue().await;
+        let lease = f.broker.provider(&f.provider.identity.id).unwrap();
+        f.provider.blocked.store(true, Ordering::SeqCst);
+        // Poll the original future here; no detached task owns a late terminal.
+        let original = f.execute_bound(binding(&observed));
+        tokio::pin!(original);
+        let entered = f.provider.entered.notified();
+        tokio::pin!(entered);
+        entered.as_mut().enable();
+        tokio::select! {
+            terminal = &mut original => panic!("Synthetic effect completed before release: {terminal:?}"),
+            entered = tokio::time::timeout(Duration::from_secs(2), &mut entered) => {
+                entered.expect("Synthetic effect did not reach its actual execute body");
+            }
+        }
+        assert_eq!(f.provider.calls.load(Ordering::SeqCst), 1);
+        lease.operation_gate.close().unwrap();
+        assert!(lease.active());
+        denied(
+            f.call("providers.mount.observe", f.selectors()).await,
+            ErrorCode::StaleReference,
+        );
+        denied(
+            f.revalidate(binding(&observed)).await,
+            ErrorCode::StaleReference,
+        );
+        denied(
+            f.execute_bound(binding(&observed)).await,
+            ErrorCode::StaleReference,
+        );
+        assert_eq!(f.provider.calls.load(Ordering::SeqCst), 1);
+        f.provider.release.notify_one();
+        let terminal = tokio::time::timeout(Duration::from_secs(3), &mut original)
+            .await
+            .unwrap();
+        assert!(terminal.ok, "{:?}", terminal.error);
+        let completed = terminal.data.unwrap();
+        assert_eq!(completed["result"]["ok"], true);
+        assert_eq!(completed["result"]["data"]["done"], true);
+        assert_eq!(completed["admission_current"], false);
+        assert_eq!(completed["admission_state"], "closing");
+        assert_eq!(completed["binding_ref"], observed["binding_ref"]);
+        assert_eq!(completed["pair"], observed["pair"]);
+        assert_eq!(f.provider.calls.load(Ordering::SeqCst), 1);
+    }
+}

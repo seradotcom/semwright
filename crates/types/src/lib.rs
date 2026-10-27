@@ -331,6 +331,49 @@ impl ProviderMountProfileRequirement {
         &self.capsule_sha256
     }
 }
+/// Fixed role/instance requirement captured by Core from two native capsules
+/// on one live ProviderLease. Identity strings are evidence, never authority.
+/// This type is deliberately not deserializable from request or provider JSON.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProviderMountPairRequirement {
+    media_instance_identity: String,
+    output_instance_identity: String,
+}
+impl ProviderMountPairRequirement {
+    pub fn media_ro_output_rw_v1_from_core(media: String, output: String) -> Result<Self> {
+        let valid = |value: &str| {
+            !value.is_empty() && value.len() <= 256 && !value.chars().any(char::is_control)
+        };
+        if !valid(&media) || !valid(&output) || media == output {
+            return Err(Error::invalid(
+                "Workspace pair requires two distinct native directory identities",
+            ));
+        }
+        Ok(Self {
+            media_instance_identity: media,
+            output_instance_identity: output,
+        })
+    }
+    pub fn contract_id(&self) -> &'static str {
+        "media-ro-output-rw"
+    }
+    pub fn version(&self) -> u32 {
+        1
+    }
+    pub fn media_instance_identity(&self) -> &str {
+        &self.media_instance_identity
+    }
+    pub fn output_instance_identity(&self) -> &str {
+        &self.output_instance_identity
+    }
+}
+/// Optional immutable requirements on the existing bounded mount reference.
+/// They are independent: selecting a pair never replaces a profile requirement.
+#[derive(Debug, Clone, Default)]
+pub struct ProviderMountRequirements {
+    pub profile: Option<ProviderMountProfileRequirement>,
+    pub pair: Option<ProviderMountPairRequirement>,
+}
 /// Broker-held admission record; never deserialized from a provider or caller.
 #[derive(Debug, Clone)]
 pub struct ProviderMountReference {
@@ -340,6 +383,7 @@ pub struct ProviderMountReference {
     pub generation: u64,
     pub mount: String,
     pub profile_requirement: Option<ProviderMountProfileRequirement>,
+    pub pair_requirement: Option<ProviderMountPairRequirement>,
     pub expires: Instant,
     // Expiry is not revocation; later removal remains visible to an in-flight holder.
     revoked: std::sync::Arc<std::sync::atomic::AtomicBool>,
@@ -356,6 +400,7 @@ impl ProviderMountReference {
             && self.generation == other.generation
             && self.mount == other.mount
             && self.profile_requirement == other.profile_requirement
+            && self.pair_requirement == other.pair_requirement
             && self.expires == other.expires
     }
     fn has_holder(&self) -> bool {
@@ -501,6 +546,30 @@ impl RefStore {
         mount: &str,
         profile_requirement: Option<ProviderMountProfileRequirement>,
     ) -> Result<String> {
+        self.insert_provider_mount_with_requirements(
+            session,
+            backend,
+            connection,
+            generation,
+            mount,
+            ProviderMountRequirements {
+                profile: profile_requirement,
+                pair: None,
+            },
+        )
+    }
+    pub fn insert_provider_mount_with_requirements(
+        &mut self,
+        session: &str,
+        backend: &str,
+        connection: &str,
+        generation: u64,
+        mount: &str,
+        requirements: ProviderMountRequirements,
+    ) -> Result<String> {
+        if requirements.pair.is_some() && mount != "media" {
+            return Err(Error::invalid("Workspace pair primary root must be media"));
+        }
         let now = self.prepare_insert()?;
         let id = format!("provider-mount:{}", Uuid::new_v4().simple());
         self.entries.insert(
@@ -511,7 +580,8 @@ impl RefStore {
                 connection: connection.into(),
                 generation,
                 mount: mount.into(),
-                profile_requirement,
+                profile_requirement: requirements.profile,
+                pair_requirement: requirements.pair,
                 expires: now + self.ttl,
                 revoked: std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false)),
             }),

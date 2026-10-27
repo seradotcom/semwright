@@ -13,7 +13,7 @@ use std::sync::Arc;
 use std::{
     io::Read,
     os::{
-        fd::{AsRawFd, FromRawFd, OwnedFd},
+        fd::{AsFd, AsRawFd, FromRawFd, OwnedFd},
         unix::fs::{FileTypeExt, MetadataExt, OpenOptionsExt},
     },
     path::Path,
@@ -341,6 +341,12 @@ impl LinuxWorkspaceMountBinding {
 impl WorkspaceMountBinding for LinuxWorkspaceMountBinding {
     fn mount(&self) -> &Mount {
         &self.mount
+    }
+    fn root_instance_identity(&self) -> Result<String> {
+        self.validate_current()?;
+        let identity = crate::filesystem::retained_directory_identity(self.mounted_root.as_fd())?;
+        self.validate_current()?;
+        Ok(identity)
     }
     fn validate_current(&self) -> Result<()> {
         require_live_mount_process(&self.child_pidfd)?;
@@ -1139,6 +1145,57 @@ mod workspace_binding_instance_tests {
             child_pidfd: open_pidfd(std::process::id()).unwrap().unwrap(),
         }
     }
+    #[test]
+    fn mount_identity_matches_the_actual_retained_local_root() {
+        use semwright_platform_api::filesystem::ScopedFilesystem;
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("root");
+        std::fs::create_dir(&path).unwrap();
+        let binding = fixture(&path);
+        let identity = binding.root_instance_identity().unwrap();
+        let local = crate::filesystem::LinuxFilesystem
+            .open_root_with_identity(&path, true, false, &identity)
+            .unwrap();
+        assert_eq!(local.root_instance_identity().unwrap(), identity);
+        assert!(binding.mount().read_only);
+        assert!(!binding.mount().execute);
+    }
+
+    #[test]
+    fn mount_identity_refuses_replacement_while_local_root_keeps_original_custody() {
+        use semwright_platform_api::filesystem::ScopedFilesystem;
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("root");
+        let retained = directory.path().join("original-root");
+        std::fs::create_dir(&path).unwrap();
+        let binding = fixture(&path);
+        let identity = binding.root_instance_identity().unwrap();
+        let local = crate::filesystem::LinuxFilesystem
+            .open_root_with_identity(&path, true, false, &identity)
+            .unwrap();
+        std::fs::rename(&path, &retained).unwrap();
+        std::fs::create_dir(&path).unwrap();
+        let changed = binding.root_instance_identity();
+        assert_eq!(local.root_instance_identity().unwrap(), identity);
+        std::fs::remove_dir(&path).unwrap();
+        std::fs::rename(&retained, &path).unwrap();
+        assert_eq!(changed.unwrap_err().code, ErrorCode::StaleReference);
+        assert_eq!(binding.root_instance_identity().unwrap(), identity);
+    }
+
+    #[test]
+    fn file_workspace_binding_does_not_claim_directory_identity() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("workspace.sqlite3");
+        std::fs::write(&path, b"fixture").unwrap();
+        let binding = fixture(&path);
+        binding.validate_current().unwrap();
+        assert_eq!(
+            binding.root_instance_identity().unwrap_err().code,
+            ErrorCode::Unsupported
+        );
+    }
+
     #[test]
     fn retained_root_rejects_replacement_at_the_same_owner_path() {
         let dir = tempfile::tempdir().unwrap();

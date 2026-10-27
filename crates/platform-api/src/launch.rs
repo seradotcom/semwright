@@ -614,6 +614,19 @@ pub trait WorkspaceMountBinding: Send + Sync {
     /// Revalidate both the owner path and this sandbox's mounted instance.
     /// A caller must additionally require the same active Broker ProviderLease.
     fn validate_current(&self) -> Result<()>;
+    /// Opaque directory-instance evidence from this capsule's retained native root.
+    /// Implementations use the same encoding as ScopedRoot::root_instance_identity
+    /// and revalidate the original grant, process and mounted instance around it.
+    /// This is a validation fence, not an uninterrupted revocation reservation.
+    /// The caller still requires the same current Core ProviderLease and owner policy.
+    /// Paths and identity strings do not authorize opening a local filesystem root.
+    /// File-backed mounts and unsupported native backends fail closed.
+    fn root_instance_identity(&self) -> Result<String> {
+        Err(Error::new(
+            ErrorCode::Unsupported,
+            "This workspace binding does not expose a retained directory identity",
+        ))
+    }
 }
 
 /// Monotonic cumulative CPU accounting for every process inside one sandbox authority boundary.
@@ -1063,5 +1076,37 @@ mod tests {
         spec.kind = SandboxKind::Driver;
         spec.environment.push((NVIDIA_GPU_ENV.into(), "1".into()));
         assert_eq!(spec.validate().unwrap_err().code, ErrorCode::PolicyDenied);
+    }
+}
+
+#[cfg(test)]
+mod workspace_root_identity_tests {
+    use super::*;
+
+    struct LegacyBinding(Mount);
+    impl WorkspaceMountBinding for LegacyBinding {
+        fn mount(&self) -> &Mount {
+            &self.0
+        }
+        fn validate_current(&self) -> Result<()> {
+            Ok(())
+        }
+    }
+
+    #[test]
+    fn directory_identity_defaults_to_unsupported_despite_current_binding() {
+        // A legacy implementation's currentness cannot invent native identity.
+        let binding = LegacyBinding(Mount {
+            source: PathBuf::from("unused-by-this-default-contract-test"),
+            class: MountClass::Workspace,
+            logical_name: "media".into(),
+            read_only: true,
+            execute: false,
+        });
+        binding.validate_current().unwrap();
+        assert_eq!(
+            binding.root_instance_identity().unwrap_err().code,
+            ErrorCode::Unsupported
+        );
     }
 }

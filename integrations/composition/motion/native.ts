@@ -30,7 +30,7 @@ type NativeOp =
  {operation:'local_region';target:string;overlay:string;center:Point;size:Size};
 export type Instruction = {id:string;invocation:string;sequence:string;shot:string;start:Rat;duration:Rat;easing:string;operation:NativeOp};
 type Run={text:string;weight:number;color:string|null;emphasis:boolean};
-type Content = {kind:'group'}|{kind:'text';runs:Run[];style:string;direction:'auto'|'ltr'|'rtl';language:string;wrap:boolean;truncate:boolean}|{kind:'rectangle';fill:string;stroke:string|null;radius:number}|{kind:'circle';fill:string;stroke:string|null}|{kind:'path';points:Point[];closed:boolean;stroke:string;stroke_width:number}|{kind:'image';asset_id:string;fit:string;ratio:number}|{kind:'video';asset_id:string;fit:string;ratio:number;source_offset:Rat}|{kind:'code';source:string;language:string;font_style:string}|{kind:'camera';zoom:number};
+type Content = {kind:'group'}|{kind:'text';runs:Run[];style:string;line_height?:number|null;direction:'auto'|'ltr'|'rtl';language:string;wrap:boolean;truncate:boolean}|{kind:'rectangle';fill:string;stroke:string|null;radius:number}|{kind:'circle';fill:string;stroke:string|null}|{kind:'path';points:Point[];closed:boolean;stroke:string;stroke_width:number}|{kind:'image';asset_id:string;fit:string;ratio:number}|{kind:'video';asset_id:string;fit:string;ratio:number;source_offset:Rat}|{kind:'code';source:string;language:string;font_style:string}|{kind:'camera';zoom:number};
 type Spatial = {kind:'flow';grow:number;align:string}|{kind:'fixed';position:Point;size:Size}|{kind:'stack';axis:string;gap:number;padding:Insets;align:string}|{kind:'split';ratio:number;gap:number;portrait_axis:string}|{kind:'grid';columns:number;gap:number;portrait_columns:number}|{kind:'overlay';anchor:string;offset:Point;intentional:boolean};
 type Subject={id:string;role:string;parent:string|null;layer:string;content:Content;layout:Spatial;initially_visible:boolean;clip_intentional:boolean};
 type NativeShot={id:string;archetype:string;start:Rat;end:Rat;subjects:Subject[];layers:{id:string;order:number;intentional_overlay:boolean}[];annotations:{id:string;subject:string;anchor_subject:string;offset:Point}[];captions:{id:string;subject:string;cue_id:string;language:string;text:string}[]};
@@ -77,10 +77,14 @@ function newSubject(s:Subject,d:NativeSceneData,urls:AssetUrls):Node {
  switch(c.kind){
   case 'group':n=new Layout({});break;
   case 'text':{
+   const ratio=c.line_height;
+   if(ratio!=null)requireValue(typeof ratio==='number'&&Number.isFinite(ratio)&&ratio>=0.1&&ratio<=10,'invalid authored line-height ratio');
    const props={fontFamily:e.font.family,fontSize:e.type_scale[c.style],textDirection:c.direction==='auto'?'inherit':c.direction,textWrap:c.wrap,fill:color(textColor)} as const;
    // Public nested Txt nodes are Motion Canvas' supported API for styled complex text.
    // Keep the parent layout-enabled so its DOM tree can shape/wrap the inline runs.
-   n=new Txt({...props,children:c.runs.map(r=>new Txt({text:r.text,fontWeight:r.weight,fill:color(r.color??textColor),fontStyle:r.emphasis?'italic':'normal'}))});break;
+   const text=new Txt({...props,children:c.runs.map(r=>new Txt({text:r.text,fontWeight:r.weight,fill:color(r.color??textColor),fontStyle:r.emphasis?'italic':'normal'}))});
+   if(ratio!=null)text.lineHeight(()=>finite(ratio*text.fontSize(),'native line height'));
+   n=text;break;
   }
   case 'rectangle':n=new Rect({fill:color(c.fill),stroke:c.stroke?color(c.stroke):null,lineWidth:e.stroke,radius:c.radius});break;
   case 'circle':n=new Circle({fill:color(c.fill),stroke:c.stroke?color(c.stroke):null,lineWidth:e.stroke});break;

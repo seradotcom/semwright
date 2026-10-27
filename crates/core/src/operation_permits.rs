@@ -109,6 +109,15 @@ impl OperationGate {
         }
         Ok(state.held == 0)
     }
+    /// Snapshot of the existing gate, not a reservation or a new permit.
+    /// Paired mount admission must not enter while refresh is draining a lease.
+    pub(super) fn accepting_admissions(&self) -> Result<bool> {
+        let state = self.state.lock().map_err(|_| poisoned())?;
+        if state.failed {
+            return Err(poisoned());
+        }
+        Ok(!state.closing)
+    }
     pub(super) async fn wait_drained(&self) -> Result<()> {
         loop {
             let notified = self.changed.notified();

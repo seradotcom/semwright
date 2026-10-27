@@ -5,7 +5,7 @@ use semwright_types::{Error, ErrorCode, Result};
 use std::ffi::{CString, OsStr};
 use std::fs::File;
 use std::io::{Read, Write};
-use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
+use std::os::fd::{AsFd, AsRawFd, BorrowedFd, FromRawFd, OwnedFd};
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::MetadataExt;
 use std::path::{Component, Path};
@@ -84,6 +84,29 @@ fn open_beneath(dir: &OwnedFd, path: &Path, flags: i32, mode: u32) -> Result<Own
     // SAFETY: successful openat2 returns a new fd owned uniquely by this function.
     Ok(unsafe { OwnedFd::from_raw_fd(fd as i32) })
 }
+/// Shared identity encoding for retained local roots and Host mount capsules.
+/// fstat works on the actual O_PATH descriptor; no pathname is reopened here.
+pub(crate) fn retained_directory_identity(fd: BorrowedFd<'_>) -> Result<String> {
+    let mut metadata = std::mem::MaybeUninit::<libc::stat>::uninit();
+    // SAFETY: fd is borrowed from a live owner; metadata has the native stat size
+    // and remains writable for this synchronous syscall.
+    if unsafe { libc::fstat(fd.as_raw_fd(), metadata.as_mut_ptr()) } != 0 {
+        return Err(std::io::Error::last_os_error().into());
+    }
+    // SAFETY: successful fstat initialized the complete stat structure.
+    let metadata = unsafe { metadata.assume_init() };
+    if metadata.st_mode & libc::S_IFMT != libc::S_IFDIR {
+        return Err(Error::new(
+            ErrorCode::Unsupported,
+            "A retained directory instance is required",
+        ));
+    }
+    Ok(format!(
+        "linux-directory-instance-v1:{:016x}:{:016x}",
+        metadata.st_dev, metadata.st_ino
+    ))
+}
+
 pub struct Root {
     fd: OwnedFd,
     pub readable: bool,
@@ -401,6 +424,9 @@ impl Root {
     }
 }
 impl semwright_platform_api::filesystem::ScopedRoot for Root {
+    fn root_instance_identity(&self) -> Result<String> {
+        retained_directory_identity(self.fd.as_fd())
+    }
     fn observe_file(
         &self,
         path: &Path,
@@ -732,4 +758,57 @@ mod tests {
         );
     }
     proptest! {#[test]fn parent_prefix_never_passes(s in "[a-z]{1,100}"){let path = format!("../{s}"); prop_assert!(validate_relative_path(Path::new(&path)).is_err());}}
+}
+
+#[cfg(test)]
+mod retained_directory_identity_tests {
+    use super::*;
+    use semwright_platform_api::filesystem::{ScopedFilesystem, ScopedRoot};
+
+    #[test]
+    fn retained_identity_and_reads_survive_rename_but_replacement_open_is_rejected() {
+        let directory = tempfile::tempdir().unwrap();
+        let original = directory.path().join("workspace");
+        let retained = directory.path().join("retained-workspace");
+        std::fs::create_dir(&original).unwrap();
+        std::fs::write(original.join("source.bin"), b"original").unwrap();
+        let owned = Root::open(&original, true, false).unwrap();
+        let expected = owned.root_instance_identity().unwrap();
+        assert!(expected.starts_with("linux-directory-instance-v1:"));
+        let matched = LinuxFilesystem
+            .open_root_with_identity(&original, true, false, &expected)
+            .unwrap();
+        assert_eq!(matched.root_instance_identity().unwrap(), expected);
+        std::fs::rename(&original, &retained).unwrap();
+        std::fs::create_dir(&original).unwrap();
+        std::fs::write(original.join("source.bin"), b"replacement").unwrap();
+        let replacement =
+            LinuxFilesystem.open_root_with_identity(&original, true, false, &expected);
+        let Err(error) = replacement else {
+            panic!("a different directory must not match the retained identity")
+        };
+        assert_eq!(error.code, ErrorCode::StaleReference);
+        assert_eq!(owned.root_instance_identity().unwrap(), expected);
+        assert_eq!(matched.root_instance_identity().unwrap(), expected);
+        assert_eq!(
+            matched.read(Path::new("source.bin"), 64).unwrap(),
+            b"original"
+        );
+        assert_eq!(
+            std::fs::read(original.join("source.bin")).unwrap(),
+            b"replacement"
+        );
+    }
+
+    #[test]
+    fn directory_identity_rejects_a_regular_file_descriptor() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("not-a-directory");
+        std::fs::write(&path, b"file").unwrap();
+        let file = File::open(path).unwrap();
+        assert_eq!(
+            retained_directory_identity(file.as_fd()).unwrap_err().code,
+            ErrorCode::Unsupported
+        );
+    }
 }

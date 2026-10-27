@@ -108,6 +108,7 @@ fn text_runs(runs: Vec<TextRun>, style: &str) -> SubjectContent {
     SubjectContent::Text {
         runs,
         style: style.into(),
+        line_height: None,
         direction: TextDirection::Ltr,
         language: "en".into(),
         wrap: true,

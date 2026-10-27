@@ -547,3 +547,123 @@ fn geometry_wire_remains_closed_to_extra_native_operations() {
     value["operation"] = serde_json::json!({"operation":"set","channel":"opacity","value":1});
     assert!(strict_decode::<Primitive>(&serde_json::to_vec(&value).unwrap()).is_err());
 }
+
+#[test]
+fn optional_text_line_height_preserves_legacy_json_and_explicit_ratios() {
+    let source: serde_json::Value = serde_json::from_slice(include_bytes!(
+        "../../../fixtures/composition/motion/technical.json"
+    ))
+    .unwrap();
+    let legacy = source["sequences"][0]["beats"][0]["shots"][0]["subjects"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|subject| &subject["content"])
+        .find(|content| content["kind"] == "text")
+        .unwrap()
+        .clone();
+    let decoded: SubjectContent = strict_decode(&serde_json::to_vec(&legacy).unwrap()).unwrap();
+    assert!(matches!(
+        decoded,
+        SubjectContent::Text {
+            line_height: None,
+            ..
+        }
+    ));
+    assert_eq!(serde_json::to_value(&decoded).unwrap(), legacy);
+    let mut explicit_null = legacy.clone();
+    explicit_null["line_height"] = serde_json::Value::Null;
+    let decoded_null: SubjectContent =
+        strict_decode(&serde_json::to_vec(&explicit_null).unwrap()).unwrap();
+    assert_eq!(serde_json::to_value(decoded_null).unwrap(), legacy);
+    for ratio in [0.1, 1.1, 10.0] {
+        let mut film = fixture();
+        let content = &mut film.sequences[0].beats[0].shots[0]
+            .subjects
+            .iter_mut()
+            .find(|subject| matches!(subject.content, SubjectContent::Text { .. }))
+            .unwrap()
+            .content;
+        let SubjectContent::Text { line_height, .. } = content else {
+            unreachable!()
+        };
+        *line_height = Some(ratio);
+        realize(&film).unwrap();
+        let reopened: Film = strict_decode(&serde_json::to_vec(&film).unwrap()).unwrap();
+        assert_eq!(
+            canonical_digest(&reopened).unwrap(),
+            canonical_digest(&film).unwrap()
+        );
+        let content = &reopened.sequences[0].beats[0].shots[0]
+            .subjects
+            .iter()
+            .find(|subject| matches!(subject.content, SubjectContent::Text { .. }))
+            .unwrap()
+            .content;
+        assert_eq!(serde_json::to_value(content).unwrap()["line_height"], ratio);
+    }
+}
+
+#[test]
+fn text_line_height_rejects_invalid_ratios_before_realization() {
+    realize(&fixture()).unwrap();
+    for ratio in [
+        -1.0,
+        0.0,
+        0.099,
+        10.001,
+        20.0,
+        f64::NAN,
+        f64::INFINITY,
+        f64::NEG_INFINITY,
+    ] {
+        let mut film = fixture();
+        let content = &mut film.sequences[0].beats[0].shots[0]
+            .subjects
+            .iter_mut()
+            .find(|subject| matches!(subject.content, SubjectContent::Text { .. }))
+            .unwrap()
+            .content;
+        let SubjectContent::Text { line_height, .. } = content else {
+            unreachable!()
+        };
+        *line_height = Some(ratio);
+        assert!(
+            realize(&film).is_err(),
+            "invalid line-height ratio {ratio:?}"
+        );
+    }
+}
+
+#[test]
+fn text_line_height_wire_does_not_coerce_units_or_admit_svg_content() {
+    let film = fixture();
+    let content = &film.sequences[0].beats[0].shots[0]
+        .subjects
+        .iter()
+        .find(|subject| matches!(subject.content, SubjectContent::Text { .. }))
+        .unwrap()
+        .content;
+    let original = serde_json::to_value(content).unwrap();
+    for wrong in [
+        serde_json::json!("110%"),
+        serde_json::json!({"px": 48.4}),
+        serde_json::json!([1.1]),
+    ] {
+        let mut value = original.clone();
+        value["line_height"] = wrong;
+        assert!(strict_decode::<SubjectContent>(&serde_json::to_vec(&value).unwrap()).is_err());
+    }
+    let mut unknown_pixels = original;
+    unknown_pixels["line_height_px"] = serde_json::json!(48.4);
+    assert!(
+        strict_decode::<SubjectContent>(&serde_json::to_vec(&unknown_pixels).unwrap()).is_err()
+    );
+    for value in [
+        serde_json::json!({"kind":"image","asset_id":"managed-svg","fit":"contain",
+                          "ratio":1.0,"line_height":1.1}),
+        serde_json::json!({"kind":"svg","text":"not native text","line_height":1.1}),
+    ] {
+        assert!(strict_decode::<SubjectContent>(&serde_json::to_vec(&value).unwrap()).is_err());
+    }
+}

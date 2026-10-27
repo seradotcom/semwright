@@ -633,4 +633,109 @@ mod tests {
             assert_eq!(authored, before);
         }
     }
+
+    #[test]
+    fn authored_line_height_reaches_native_scene_and_reopen_without_losing_binding() {
+        let mut authored = film();
+        let mut changed = 0;
+        for subject in &mut authored.sequences[0].beats[0].shots[0].subjects {
+            if let a::SubjectContent::Text { line_height, .. } = &mut subject.content {
+                *line_height = Some(1.1);
+                changed += 1;
+            }
+        }
+        assert!(changed > 0);
+        let (projected, _) = project(&authored, None).unwrap();
+        let generated = crate::compiler::compile(&projected).unwrap();
+        let source = String::from_utf8(generated.files["src/scenes/sequence.tsx"].clone()).unwrap();
+        let encoded = source
+            .split_once("const data=JSON.parse(")
+            .unwrap()
+            .1
+            .split_once(") as NativeSceneData;")
+            .unwrap()
+            .0;
+        let data: Value =
+            serde_json::from_str(&serde_json::from_str::<String>(encoded).unwrap()).unwrap();
+        assert_eq!(
+            data["shots"][0]["subjects"],
+            serde_json::to_value(&authored.sequences[0].beats[0].shots[0].subjects).unwrap()
+        );
+        let reopened = validate::parse(&serde_json::to_vec(&projected).unwrap()).unwrap();
+        assert_eq!(reopened, projected);
+        check_binding(&reopened).unwrap();
+        let mut tampered = reopened;
+        for subject in
+            &mut tampered.authoring.as_mut().unwrap().intent.sequences[0].beats[0].shots[0].subjects
+        {
+            if let a::SubjectContent::Text { line_height, .. } = &mut subject.content {
+                *line_height = Some(1.2);
+                break;
+            }
+        }
+        assert!(check_binding(&tampered).is_err());
+        assert!(crate::compiler::compile(&tampered).is_err());
+    }
+
+    #[test]
+    fn optional_line_height_preserves_native_paragraph_runs_and_fixed_txt_layout() {
+        for wrapping in [false, true] {
+            let mut authored = film();
+            for subject in &mut authored.sequences[0].beats[0].shots[0].subjects {
+                if let a::SubjectContent::Text {
+                    runs,
+                    wrap,
+                    line_height,
+                    ..
+                } = &mut subject.content
+                {
+                    assert!(line_height.is_none());
+                    *wrap = wrapping;
+                    let mut second = runs[0].clone();
+                    second.text = "A second authored\nparagraph".into();
+                    second.weight = 500;
+                    runs.push(second);
+                }
+            }
+            let (projected, _) = project(&authored, None).unwrap();
+            let generated = crate::compiler::compile(&projected).unwrap();
+            let source =
+                String::from_utf8(generated.files["src/scenes/sequence.tsx"].clone()).unwrap();
+            let encoded = source
+                .split_once("const data=JSON.parse(")
+                .unwrap()
+                .1
+                .split_once(") as NativeSceneData;")
+                .unwrap()
+                .0;
+            let data: Value =
+                serde_json::from_str(&serde_json::from_str::<String>(encoded).unwrap()).unwrap();
+            assert_eq!(
+                data["shots"][0]["subjects"],
+                serde_json::to_value(&authored.sequences[0].beats[0].shots[0].subjects).unwrap()
+            );
+            for subject in data["shots"][0]["subjects"].as_array().unwrap() {
+                if subject["content"]["kind"] == "text" {
+                    assert!(subject["content"].get("line_height").is_none());
+                    assert_eq!(subject["content"]["wrap"], wrapping);
+                    assert!(subject["content"]["runs"].as_array().unwrap().len() >= 2);
+                }
+            }
+            let runtime =
+                std::str::from_utf8(&generated.files["src/semwright-authoring-native.ts"]).unwrap();
+            let text_branch = runtime
+                .split_once("case 'text':{")
+                .unwrap()
+                .1
+                .split_once("case 'rectangle':")
+                .unwrap()
+                .0;
+            assert!(text_branch.contains("children:c.runs.map(r=>new Txt("));
+            assert!(text_branch.contains("if(ratio!=null)text.lineHeight("));
+            assert!(text_branch.contains("ratio*text.fontSize()"));
+            assert!(!text_branch.contains("layout(false)"));
+            assert!(!text_branch.contains("SVG"));
+            assert!(runtime.contains("if(!(n instanceof Txt))n.layout(false)"));
+        }
+    }
 }

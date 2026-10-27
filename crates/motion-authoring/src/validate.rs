@@ -183,6 +183,7 @@ impl Film {
                                 runs,
                                 style,
                                 language,
+                                line_height,
                                 ..
                             } => {
                                 ensure(
@@ -191,6 +192,9 @@ impl Film {
                                         && e.type_scale.contains_key(style),
                                     "text style/runs invalid",
                                 )?;
+                                if let Some(value) = line_height {
+                                    finite(*value, 0.1, 10.0)?;
+                                }
                                 text(language, 64)?;
                                 let total = runs.iter().map(|r| r.text.len()).sum::<usize>();
                                 ensure(total <= 16384, "text byte budget")?;

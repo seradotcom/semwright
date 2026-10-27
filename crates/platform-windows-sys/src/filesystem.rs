@@ -94,6 +94,21 @@ fn native_identity(kind: &str, value: FileIdentity) -> String {
     )
 }
 
+/// Use the same retained HANDLE identity for local roots and Host mount capsules.
+/// The encoding preserves the existing volume/index/creation-FILETIME contract.
+pub(crate) fn retained_directory_identity(root: &File) -> Result<String> {
+    let observed = information(root)?;
+    if observed.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY.0 == 0
+        || observed.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0
+    {
+        return Err(Error::new(
+            ErrorCode::Unsupported,
+            "A retained non-reparse directory instance is required",
+        ));
+    }
+    Ok(native_identity("directory", identity(&observed)))
+}
+
 fn safe_root_syntax(path: &Path) -> Result<()> {
     if !path.is_absolute() || path.file_name().is_none() {
         return Err(Error::invalid(
@@ -1063,7 +1078,9 @@ fn take_stage_fault(expected: StageFault) -> bool {
 impl ScopedRoot for Root {
     fn root_instance_identity(&self) -> Result<String> {
         self.root_still_pinned()?;
-        Ok(native_identity("directory", self.root_identity))
+        let identity = retained_directory_identity(&self.root)?;
+        self.root_still_pinned()?;
+        Ok(identity)
     }
 
     fn observe_file(&self, path: &Path, limit: usize) -> Result<ScopedFileObservation> {
@@ -1874,5 +1891,26 @@ mod tests {
         std::fs::write(&source, b"replacement").unwrap();
         std::fs::rename(&source, &renamed).unwrap();
         std::fs::remove_file(&renamed).unwrap();
+    }
+}
+
+#[cfg(test)]
+mod retained_directory_identity_tests {
+    use super::*;
+
+    #[test]
+    fn shared_directory_identity_preserves_the_existing_encoding_and_rejects_files() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = Root::open(directory.path(), true, false).unwrap();
+        let expected = native_identity("directory", root.root_identity);
+        assert_eq!(retained_directory_identity(&root.root).unwrap(), expected);
+        assert_eq!(root.root_instance_identity().unwrap(), expected);
+        let path = directory.path().join("not-a-directory");
+        std::fs::write(&path, b"file").unwrap();
+        let file = File::open(path).unwrap();
+        assert_eq!(
+            retained_directory_identity(&file).unwrap_err().code,
+            ErrorCode::Unsupported
+        );
     }
 }
