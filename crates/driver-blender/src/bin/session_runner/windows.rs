@@ -5,9 +5,9 @@ use sha2::{Digest, Sha256};
 use std::{
     fs::{self, File, OpenOptions},
     io::{self, Read, Seek, SeekFrom, Write},
-    os::windows::{fs::MetadataExt, io::AsRawHandle, process::CommandExt},
+    os::windows::{fs::MetadataExt, io::AsRawHandle},
     path::{Component, Path, PathBuf, Prefix},
-    process::{Child, Command, ExitStatus, Stdio},
+    process::{Command, ExitStatus},
     sync::mpsc::{self, Receiver},
     thread,
     time::Duration,
@@ -20,11 +20,13 @@ use windows_sys::Win32::{
     },
     System::{
         JobObjects::IsProcessInJob,
-        Threading::{CREATE_NO_WINDOW, GetCurrentProcess, OpenProcessToken},
+        Threading::{GetCurrentProcess, OpenProcessToken},
     },
 };
 #[path = "windows_lpac.rs"]
 mod lpac;
+#[path = "windows_child.rs"]
+mod native_child;
 const MAX_FRAME: usize = 1_048_576;
 const MAX_STARTUP: usize = 65_536;
 const BRIDGE: &str = include_str!("../../bridge.py");
@@ -316,7 +318,7 @@ enum Event {
     Frame(Vec<u8>),
     Failure(io::Error),
 }
-fn reader(mut output: std::process::ChildStdout, marker: Vec<u8>) -> io::Result<Receiver<Event>> {
+fn reader(mut output: File, marker: Vec<u8>) -> io::Result<Receiver<Event>> {
     let (sender, receiver) = mpsc::sync_channel(1);
     thread::Builder::new()
         .name("blender-native-stdio".into())
@@ -395,8 +397,8 @@ fn retain_failure(
     )
 }
 struct Native {
-    child: Child,
-    input: std::process::ChildStdin,
+    child: native_child::Child,
+    input: File,
     events: Receiver<Event>,
     session: PathBuf,
     log: File,
@@ -529,14 +531,9 @@ fn spawn(args: &Args, session: PathBuf, bridge: PathBuf, parent_sid: &[u8], phas
         .env("BLENDER_SYSTEM_PYTHON", version_root.join("python"))
         .env("BLENDER_USER_RESOURCES", &user)
         .env("PYTHONNOUSERSITE", "1")
-        .env("PYTHONIOENCODING", "utf-8")
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::from(log.try_clone()?))
-        .creation_flags(CREATE_NO_WINDOW);
+        .env("PYTHONIOENCODING", "utf-8");
     // Fixed Host-attested dependency; inherit the restricted token and Job, never break away.
-    *phase = "spawn_blender";
-    let mut child = command.spawn()?;
+    let (mut child, input, output) = native_child::spawn(&command, &log, phase)?;
     *phase = "verify_child";
     match verify_process(child.as_raw_handle()) {
         Ok(sid) if sid == parent_sid => {}
@@ -549,15 +546,8 @@ fn spawn(args: &Args, session: PathBuf, bridge: PathBuf, parent_sid: &[u8], phas
             ));
         }
     }
-    *phase = "native_pipes";
-    let input = child
-        .stdin
-        .take()
-        .ok_or_else(|| io::Error::other("Native input pipe unavailable"))?;
-    let output = child
-        .stdout
-        .take()
-        .ok_or_else(|| io::Error::other("Native output pipe unavailable"))?;
+    *phase = "resume_attested_child";
+    child.resume()?;
     *phase = "reader_start";
     let events = match reader(output, marker) {
         Ok(events) => events,
