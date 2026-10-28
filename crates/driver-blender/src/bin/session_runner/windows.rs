@@ -16,13 +16,15 @@ use windows_sys::Win32::{
     Foundation::{CloseHandle, HANDLE},
     Security::{
         GetTokenInformation, TOKEN_QUERY, TokenAppContainerSid, TokenCapabilities,
-        TokenIsAppContainer, TokenIsLessPrivilegedAppContainer,
+        TokenIsAppContainer,
     },
     System::{
         JobObjects::IsProcessInJob,
         Threading::{CREATE_NO_WINDOW, GetCurrentProcess, OpenProcessToken},
     },
 };
+#[path = "windows_lpac.rs"]
+mod lpac;
 const MAX_FRAME: usize = 1_048_576;
 const MAX_STARTUP: usize = 65_536;
 const BRIDGE: &str = include_str!("../../bridge.py");
@@ -101,7 +103,7 @@ fn verify_process(process: HANDLE) -> io::Result<Vec<u8>> {
         return Err(io::Error::last_os_error());
     }
     let token = Token(handle);
-    for class in [TokenIsAppContainer, TokenIsLessPrivilegedAppContainer] {
+    for class in [TokenIsAppContainer] {
         let mut value = 0u32;
         let mut size = 0;
         // SAFETY: the selected classes return DWORD values into this exact-sized buffer.
@@ -134,6 +136,7 @@ fn verify_process(process: HANDLE) -> io::Result<Vec<u8>> {
     if !(4..=65_536).contains(&needed) {
         return Err(denied("Invalid AppContainer capability size"));
     }
+    lpac::verify_lpac(token.0)?;
     let mut capabilities = vec![0u64; (needed as usize).div_ceil(8)];
     // SAFETY: eight-byte-aligned buffer has at least the API byte capacity.
     if unsafe {
