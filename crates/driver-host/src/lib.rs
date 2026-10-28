@@ -401,6 +401,10 @@ async fn reap_host_tool_session(entry: HostToolSessionEntry) {
     let mut state = entry.state.lock().await;
     let _ = state.process.kill().await;
     let _ = state.process.wait().await;
+    let exit_code = state.process.wait_exit_code().await.ok().flatten();
+    eprintln!("{}", serde_json::json!({
+        "component":"driver-host", "phase":"session_process_reaped", "exit_code":exit_code
+    }));
 }
 
 #[cfg(target_os = "windows")]
