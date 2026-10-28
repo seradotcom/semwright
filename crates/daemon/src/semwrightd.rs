@@ -25,6 +25,10 @@ struct Args {
     config: Option<PathBuf>,
     #[arg(long)]
     socket: Option<PathBuf>,
+    /// Existing private root for an independent instance's runtime and audit state.
+    /// Requires explicit IPC and MCP-registry locations; never changes policy grants.
+    #[arg(long, requires_all = ["socket", "mcp_upstreams"])]
+    data_dir: Option<PathBuf>,
     /// Owner-managed MCP definitions. Definitions never grant policy authority.
     #[arg(long, env = "SEMWRIGHT_MCP_UPSTREAMS")]
     mcp_upstreams: Option<PathBuf>,
@@ -81,7 +85,15 @@ async fn run(args: Args) -> Result<()> {
     if args.approval_console {
         Console::validate()?;
     }
-    let runtime = runtime_directory()?;
+    let instance_paths = args
+        .data_dir
+        .as_deref()
+        .map(|root| semwright_daemon::instance::private_paths(root, args.fake))
+        .transpose()?;
+    let runtime = match &instance_paths {
+        Some((runtime, _)) => runtime.clone(),
+        None => runtime_directory()?,
+    };
     let socket = match args.socket {
         Some(path) => path,
         None => default_endpoint(if args.fake { "fake" } else { "broker" })?,
@@ -130,7 +142,10 @@ async fn run(args: Args) -> Result<()> {
             "Root fake mode cannot expose filesystem grants or plugins",
         ));
     }
-    let state = config::state_directory(args.fake, &runtime)?;
+    let state = match instance_paths {
+        Some((_, state)) => state,
+        None => config::state_directory(args.fake, &runtime)?,
+    };
     let mut protected = vec![runtime.clone(), state.clone()];
     if let Some(path) = &args.config {
         protected.push(path.clone());
