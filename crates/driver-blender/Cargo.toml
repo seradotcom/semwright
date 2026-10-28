@@ -49,3 +49,6 @@ semwright-policy.workspace = true
 tempfile.workspace = true
 sha2.workspace = true
 tokio-util.workspace = true
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows-sys.workspace = true

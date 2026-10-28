@@ -26,29 +26,70 @@ def require_new(items, name):
 
 
 class Workspace:
+    @staticmethod
+    def _windows_component_unsafe(component):
+        if (not component or component.endswith((" ", "."))
+                or any(ord(c) < 32 or ord(c) == 127 or c in '\\:<>"|?*' for c in component)):
+            return True
+        stem = component.split(".", 1)[0].rstrip(" ").upper()
+        devices = {"CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$", "CLOCK$"}
+        devices.update(prefix + number for prefix in ("COM", "LPT")
+                       for number in "123456789\u00b9\u00b2\u00b3")
+        return stem in devices
+
+    @staticmethod
+    def _reparse(meta):
+        return bool(getattr(meta, "st_file_attributes", 0)
+                    & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400))
+
     def __init__(self, root):
         self.root = Path(root)
-        if not self.root.is_absolute() or self.root == Path("/") or self.root.resolve(strict=True) != self.root:
+        # Reject remote/device namespaces before performing any filesystem lookup.
+        if os.name == "nt":
+            drive = self.root.drive
+            if drive.startswith("\\\\?\\"):
+                drive = drive[4:]
+            if (len(drive) != 2 or drive[1] != ":"
+                    or drive[0] not in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+                    or any(self._windows_component_unsafe(p) for p in self.root.parts[1:])):
+                raise ValueError("Blender workspace must use an unambiguous local drive path")
+        if (not self.root.is_absolute() or self.root.parent == self.root
+                or self.root.resolve(strict=True) != self.root):
             raise ValueError("Blender workspace must be a canonical absolute non-root directory")
+        if os.name == "nt":
+            meta = self.root.lstat()
+            if self._reparse(meta) or not stat.S_ISDIR(meta.st_mode):
+                raise ValueError("Blender workspace cannot be a reparse point")
         if not self.root.is_dir():
             raise ValueError("Blender workspace must exist")
 
     def path(self, relative, suffix, existing=False):
         if (not isinstance(relative, str) or not relative or "\x00" in relative
-                or relative.startswith("/") or any(p in ("", ".", "..") for p in relative.split("/"))):
+                or relative.startswith("/")
+                or any(p in ("", ".", "..") for p in relative.split("/"))):
             raise CommandError("PolicyDenied", "Path must be a clean relative workspace path")
-        path = self.root.joinpath(relative)
+        segments = relative.split("/")
+        if os.name == "nt":
+            if any(self._windows_component_unsafe(p) for p in segments):
+                raise CommandError("PolicyDenied", "Windows paths must use portable relative components")
+            root_meta = self.root.lstat()
+            if (self._reparse(root_meta) or not stat.S_ISDIR(root_meta.st_mode)
+                    or self.root.resolve(strict=True) != self.root):
+                raise CommandError("PolicyDenied", "Workspace root has changed")
+        path = self.root.joinpath(*segments)
         if path.suffix.lower() != suffix:
             raise CommandError("InvalidArgument", "Filename extension does not match the operation")
         current = self.root
-        for segment in Path(relative).parts[:-1]:
+        for segment in segments[:-1]:
             current = current / segment
             meta = current.lstat()
-            if not stat.S_ISDIR(meta.st_mode):
+            if (not stat.S_ISDIR(meta.st_mode)
+                    or (os.name == "nt" and self._reparse(meta))):
                 raise CommandError("PolicyDenied", "Directory links and missing parents are not allowed")
         try:
             meta = path.lstat()
-            if not stat.S_ISREG(meta.st_mode) or meta.st_nlink != 1:
+            if (not stat.S_ISREG(meta.st_mode) or meta.st_nlink != 1
+                    or (os.name == "nt" and self._reparse(meta))):
                 raise CommandError("PolicyDenied", "Target must be a single-link regular file")
         except FileNotFoundError:
             if existing:

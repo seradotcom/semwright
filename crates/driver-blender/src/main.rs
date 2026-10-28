@@ -4,6 +4,7 @@
 //! introspection exposes bounded RNA/operator/add-on metadata but never arbitrary Python or generic
 //! operator invocation.
 use async_trait::async_trait;
+use semwright_driver_blender::runtime_profile::{HostPlatform, RuntimeProfile};
 use semwright_driver_sdk::{
     Capability, Driver, DriverExecutionContext, DriverInterfaces, RuntimeToolArg, RuntimeToolCwd,
     RuntimeToolSession, descriptor_digest, serve,
@@ -19,11 +20,16 @@ const DRIVER_SCOPE: &str = "driver:blender";
 const WORKSPACE_MOUNT: &str = "workspace";
 const BLENDER_RUNTIME_MOUNT: &str = "blender-runtime";
 const SCRATCH_MOUNT: &str = "scratch";
+#[cfg(target_os = "linux")]
 const FONT_CONFIG_MOUNT: &str = "font-config";
+const SESSION_CWD_MOUNT: &str = if cfg!(target_os = "windows") {
+    BLENDER_RUNTIME_MOUNT
+} else {
+    SCRATCH_MOUNT
+};
 const BLENDER_TOOL: &str = "blender";
 const SESSION_RUNNER_TOOL: &str = "blender-session-runner";
 const MAX_DRIVER_SESSIONS: usize = 2;
-const SUPPORTED_BLENDER_VERSION: [u64; 3] = [4, 5, 14];
 const LEGACY_DESCRIPTORS: &str = include_str!("../../../schemas/commands.json");
 #[cfg(test)]
 const SEMANTIC_PY: &str = include_str!("semantic.py");
@@ -1348,12 +1354,54 @@ fn capabilities() -> Result<Vec<Capability>> {
     Ok(values)
 }
 
+// Generic RNA mutation on 5.2 requires native qualification beyond curated/Composition operations.
+fn runtime_allows_capability(capability: &Capability, version: &str) -> bool {
+    match version {
+        "4.5.14 LTS" => true,
+        "5.2.1 LTS" => {
+            !capability.tags.iter().any(|tag| tag == "rna")
+                || matches!(capability.descriptor.risk, Risk::ReadOnly)
+        }
+        _ => false,
+    }
+}
+
 fn capability(command: &str) -> Result<Capability> {
     capabilities()?
         .into_iter()
         .find(|capability| capability.descriptor.name == command)
         .ok_or_else(|| Error::new(ErrorCode::NotFound, "Blender capability is not registered"))
 }
+fn runtime_profile_from_summary(summary: &Value) -> Result<RuntimeProfile> {
+    let version = summary
+        .get("version")
+        .and_then(Value::as_array)
+        .filter(|v| v.len() == 3)
+        .and_then(|v| Some([v[0].as_u64()?, v[1].as_u64()?, v[2].as_u64()?]))
+        .ok_or_else(|| {
+            Error::new(
+                ErrorCode::ProtocolMismatch,
+                "Blender summary omitted its exact version tuple",
+            )
+        })?;
+    let banner = summary
+        .get("version_string")
+        .and_then(Value::as_str)
+        .ok_or_else(|| {
+            Error::new(
+                ErrorCode::ProtocolMismatch,
+                "Blender summary omitted its version banner",
+            )
+        })?;
+    let host = HostPlatform::current()
+        .map_err(|_| Error::unavailable("This host has no isolated Blender runtime profile"))?;
+    RuntimeProfile::verify_report(host, version, banner).map_err(|_| {
+        Error::unavailable(
+            "Owner-pinned Blender does not match an exact supported host/version profile",
+        )
+    })
+}
+
 fn bridge_error_code(value: &str) -> ErrorCode {
     match value {
         "NotFound" => ErrorCode::NotFound,
@@ -1369,7 +1417,7 @@ fn bridge_error_code(value: &str) -> ErrorCode {
 }
 
 fn session_arguments() -> Vec<RuntimeToolArg> {
-    vec![
+    let args = vec![
         RuntimeToolArg::Literal {
             value: "--blender".into(),
         },
@@ -1397,14 +1445,22 @@ fn session_arguments() -> Vec<RuntimeToolArg> {
             mount: SCRATCH_MOUNT.into(),
             relative: String::new(),
         },
-        RuntimeToolArg::Literal {
-            value: "--fontconfig".into(),
-        },
-        RuntimeToolArg::MountPath {
-            mount: FONT_CONFIG_MOUNT.into(),
-            relative: String::new(),
-        },
-    ]
+    ];
+    #[cfg(target_os = "linux")]
+    let args = {
+        let mut args = args;
+        args.extend([
+            RuntimeToolArg::Literal {
+                value: "--fontconfig".into(),
+            },
+            RuntimeToolArg::MountPath {
+                mount: FONT_CONFIG_MOUNT.into(),
+                relative: String::new(),
+            },
+        ]);
+        args
+    };
+    args
 }
 
 fn decode_bridge_response(bytes: &[u8]) -> Result<Value> {
@@ -1581,7 +1637,7 @@ impl BlenderDriver {
                 session_arguments(),
                 Duration::from_secs(3_600),
                 Some(RuntimeToolCwd {
-                    mount: SCRATCH_MOUNT.into(),
+                    mount: SESSION_CWD_MOUNT.into(),
                     relative: String::new(),
                 }),
             )
@@ -1602,35 +1658,14 @@ impl BlenderDriver {
                 return Err(error);
             }
         };
-        let version = summary
-            .get("version")
-            .and_then(Value::as_array)
-            .filter(|values| values.len() == 3)
-            .and_then(|values| {
-                Some([
-                    values[0].as_u64()?,
-                    values[1].as_u64()?,
-                    values[2].as_u64()?,
-                ])
-            })
-            .ok_or_else(|| {
-                Error::new(
-                    ErrorCode::ProtocolMismatch,
-                    "Blender summary omitted its bounded semantic version",
-                )
-            })?;
-        if version != SUPPORTED_BLENDER_VERSION {
-            let _ = context.close_runtime_tool_session(&session).await;
-            return Err(Error::unavailable(
-                "Owner-pinned Blender version is not the supported 4.5.14 LTS runtime",
-            ));
-        }
-        let version_string = summary
-            .get("version_string")
-            .and_then(Value::as_str)
-            .filter(|value| value.len() <= 128 && !value.chars().any(char::is_control))
-            .unwrap_or("4.5.14 LTS")
-            .to_owned();
+        let profile = match runtime_profile_from_summary(&summary) {
+            Ok(profile) => profile,
+            Err(error) => {
+                let _ = context.close_runtime_tool_session(&session).await;
+                return Err(error);
+            }
+        };
+        let version_string = profile.version_string().to_owned();
         self.sessions
             .insert(context.session().to_owned(), session.clone());
         self.versions
@@ -1727,6 +1762,18 @@ impl Driver for BlenderDriver {
             ));
         }
         let session = self.ensure_session(&context).await?;
+        let version = self.versions.get(context.session()).ok_or_else(|| {
+            Error::new(
+                ErrorCode::BackendFailed,
+                "Blender runtime profile was not verified",
+            )
+        })?;
+        if !runtime_allows_capability(&capability, version) {
+            return Err(Error::new(
+                ErrorCode::Unsupported,
+                "Generic Blender RNA mutation is not qualified for this runtime profile",
+            ));
+        }
         if authoring_runtime::handles(command) {
             let channel = NativeSession {
                 context: &context,
@@ -1805,6 +1852,33 @@ async fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn blender_52_generic_rna_mutation_remains_unqualified() {
+        let catalog = semantic_capabilities();
+        let mutation = catalog
+            .iter()
+            .find(|c| c.descriptor.name == "driver.blender.semantic.property.set")
+            .expect("legacy generic RNA mutation");
+        assert!(mutation.tags.iter().any(|tag| tag == "rna"));
+        assert!(!matches!(mutation.descriptor.risk, Risk::ReadOnly));
+        assert!(runtime_allows_capability(mutation, "4.5.14 LTS"));
+        assert!(!runtime_allows_capability(mutation, "5.2.1 LTS"));
+    }
+
+    #[test]
+    fn blender_52_keeps_readback_curated_and_typed_authoring() {
+        let catalog = capabilities().unwrap();
+        for name in [
+            "driver.blender.semantic.property.get",
+            "driver.blender.object.create",
+            "driver.blender.composition.apply",
+        ] {
+            let command = catalog.iter().find(|c| c.descriptor.name == name).unwrap();
+            assert!(runtime_allows_capability(command, "5.2.1 LTS"), "{name}");
+            assert!(!runtime_allows_capability(command, "5.2.2 LTS"), "{name}");
+        }
+    }
 
     #[test]
     fn curated_commands_are_migrated_without_generic_python_escape() {
@@ -2021,7 +2095,7 @@ mod tests {
     #[test]
     fn session_arguments_use_only_typed_host_refs() {
         let args = session_arguments();
-        assert_eq!(args.len(), 10);
+        assert_eq!(args.len(), if cfg!(target_os = "linux") { 10 } else { 8 });
         assert!(args.iter().any(|arg| {
             matches!(
                 arg,
@@ -2032,6 +2106,7 @@ mod tests {
             WORKSPACE_MOUNT,
             BLENDER_RUNTIME_MOUNT,
             SCRATCH_MOUNT,
+            #[cfg(target_os = "linux")]
             FONT_CONFIG_MOUNT,
         ] {
             assert!(args.iter().any(|arg| {

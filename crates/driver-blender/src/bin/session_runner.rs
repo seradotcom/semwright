@@ -728,7 +728,18 @@ fn main() {
     }
 }
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(target_os = "windows")]
+#[path = "session_runner/windows.rs"]
+mod windows;
+
+#[cfg(target_os = "windows")]
+fn main() {
+    if windows::run().is_err() {
+        std::process::exit(2);
+    }
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "windows")))]
 fn main() {
     eprintln!("Blender persistent session runner is currently available on Linux only");
     std::process::exit(2);

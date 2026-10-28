@@ -11,9 +11,6 @@ import socket
 import struct
 import sys
 
-import addon_utils
-import bpy
-
 MAX_FRAME = 1_048_576
 MAX_TEXT = 2048
 
@@ -22,6 +19,53 @@ try:
     socket_path, workspace, runtime = sys.argv[marker + 1:marker + 4]
 except (ValueError, IndexError):
     raise SystemExit(2)
+
+_stdio = None
+if socket_path.startswith("stdio:"):
+    import msvcrt
+    nonce = socket_path[6:]
+    if os.name != "nt" or len(nonce) != 32 or any(c not in "0123456789abcdef" for c in nonce):
+        raise SystemExit(2)
+    input_fd = os.dup(sys.stdin.fileno())
+    output_fd = os.dup(sys.stdout.fileno())
+    msvcrt.setmode(input_fd, os.O_BINARY)
+    msvcrt.setmode(output_fd, os.O_BINARY)
+    # Separate C/Python diagnostic output from the private binary protocol.
+    os.dup2(sys.stderr.fileno(), sys.stdout.fileno())
+    import ctypes
+    _kernel32 = ctypes.WinDLL("kernel32.dll", use_last_error=True, winmode=0x00000800)
+    _kernel32.SetStdHandle.argtypes = [ctypes.c_uint32, ctypes.c_void_p]
+    _kernel32.SetStdHandle.restype = ctypes.c_int
+    if not _kernel32.SetStdHandle(0xfffffff5, ctypes.c_void_p(msvcrt.get_osfhandle(sys.stderr.fileno()))):
+        raise OSError(ctypes.get_last_error(), "Unable to confine native stdout")
+    sys.stdout = sys.stderr
+
+    class _StdioConnection:
+        def recv(self, size):
+            return os.read(input_fd, size)
+
+        def sendall(self, data):
+            view = memoryview(data)
+            while view:
+                written = os.write(output_fd, view)
+                if written <= 0:
+                    raise OSError("Native protocol write failed")
+                view = view[written:]
+
+    _stdio = _StdioConnection()
+elif os.name == "nt":
+    raise SystemExit(2)
+
+import addon_utils
+import bpy
+
+_exact_versions = {(4, 5, 14), (5, 2, 1)} if sys.platform == "linux" else ({(5, 2, 1)} if sys.platform == "win32" else set())
+_version = tuple(bpy.app.version)
+if _version not in _exact_versions or bpy.app.version_string != ".".join(map(str, _version)) + " LTS":
+    raise SystemExit(4)
+_resource_directory = os.path.basename(os.path.normpath(os.environ.get("BLENDER_SYSTEM_RESOURCES", "")))
+if _resource_directory != f"{_version[0]}.{_version[1]}":
+    raise SystemExit(4)
 
 sys.path.insert(0, runtime)
 from semwright_blender_runtime.commands import Commands  # noqa: E402
@@ -872,30 +916,50 @@ def dispatch(command, args):
     raise CommandError("Unsupported", "Command is outside the Blender driver namespace")
 
 
-if os.path.exists(socket_path) or os.path.islink(socket_path):
-    raise SystemExit(3)
-
-listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-listener.bind(socket_path)
-os.chmod(socket_path, 0o600)
-listener.listen(4)
-
-while True:
-    connection, _ = listener.accept()
-    with connection:
+if _stdio is not None:
+    _stdio.sendall(b"\x00SEMWRIGHT-BLENDER-STDIO-v1:" + nonce.encode("ascii") + b"\x00")
+    while True:
         try:
-            request = read_frame(connection)
-            if (
-                not isinstance(request, dict)
-                or set(request) != {"command", "args"}
-            ):
+            request = read_frame(_stdio)
+        except EOFError:
+            break
+        except (CommandError, ValueError, TypeError, OSError):
+            raise SystemExit(3)
+        try:
+            if not isinstance(request, dict) or set(request) != {"command", "args"}:
                 raise CommandError("InvalidArgument", "Malformed Blender driver frame")
             data = dispatch(request["command"], request["args"])
-            write_frame(connection, {"ok": True, "data": data})
+            write_frame(_stdio, {"ok": True, "data": data})
         except (CommandError, SemanticError) as error:
-            write_frame(connection, {"ok": False, "error": {"code": error.code}})
-        except (ValueError, TypeError, EOFError, OSError):
+            write_frame(_stdio, {"ok": False, "error": {"code": error.code}})
+        except (ValueError, TypeError, OSError):
+            write_frame(_stdio, {"ok": False, "error": {"code": "NativeTransportFailed"}})
+            raise SystemExit(3)
+else:
+    if os.path.exists(socket_path) or os.path.islink(socket_path):
+        raise SystemExit(3)
+
+    listener = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    listener.bind(socket_path)
+    os.chmod(socket_path, 0o600)
+    listener.listen(4)
+
+    while True:
+        connection, _ = listener.accept()
+        with connection:
             try:
-                write_frame(connection, {"ok": False, "error": {"code": "BackendFailed"}})
-            except Exception:
-                pass
+                request = read_frame(connection)
+                if (
+                    not isinstance(request, dict)
+                    or set(request) != {"command", "args"}
+                ):
+                    raise CommandError("InvalidArgument", "Malformed Blender driver frame")
+                data = dispatch(request["command"], request["args"])
+                write_frame(connection, {"ok": True, "data": data})
+            except (CommandError, SemanticError) as error:
+                write_frame(connection, {"ok": False, "error": {"code": error.code}})
+            except (ValueError, TypeError, EOFError, OSError):
+                try:
+                    write_frame(connection, {"ok": False, "error": {"code": "BackendFailed"}})
+                except Exception:
+                    pass
