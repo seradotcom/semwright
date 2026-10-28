@@ -51,4 +51,4 @@ sha2.workspace = true
 tokio-util.workspace = true
 
 [target.'cfg(target_os = "windows")'.dependencies]
-windows-sys = { workspace = true, features = ["Win32_System_Pipes"] }
+windows-sys = { workspace = true, features = ["Win32_System_Pipes", "Win32_System_WindowsProgramming"] }
