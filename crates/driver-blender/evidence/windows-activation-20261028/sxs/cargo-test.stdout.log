@@ -1,0 +1,15 @@
+
+running 1 test
+test initial_host_cpu_resource_activation_probe ... archivo procesado: E:\Projects\semwright-blender52\.local\tmp\.tmp1wH4yv
+Se procesaron correctamente 1 archivos; error al procesar 0 archivos
+archivo procesado: E:\Projects\semwright-blender52\.local\tmp\.tmp1wH4yv\fixture-embedded-manifest.exe
+Se procesaron correctamente 1 archivos; error al procesar 0 archivos
+FAILED
+
+failures:
+
+failures:
+    initial_host_cpu_resource_activation_probe
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 10 filtered out; finished in 6.73s
+

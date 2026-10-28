@@ -1,0 +1,254 @@
+{
+  "utc": "2026-10-28T19:33:50.357718+00:00",
+  "scope": "First-party Windows activation diagnostic evidence; not a production support claim",
+  "A05": "BLOCKED",
+  "linux45_native_regression": "NOT_RUN",
+  "positive_initial_manifest_regression": "4_PASS_0_FAIL_SELECTED_GROUP_ONLY",
+  "cpu_resource_test": "FAIL_WIN32_5_NT_c0000022_CARGO_101",
+  "files": [
+    {
+      "source": ".local/logs/windows-positive-manifests-after-resource-probe.json",
+      "destination": "windows-positive-manifests-after-resource-probe.json",
+      "bytes": 1918,
+      "sha256": "ec1a3993e6675266b6b25760913776ad6fcc4a8ff9c87f06b973c4f310886d00",
+      "byte_preserved": true
+    },
+    {
+      "source": ".local/logs/windows-positive-manifests-after-resource-probe.log",
+      "destination": "windows-positive-manifests-after-resource-probe.log",
+      "bytes": 19817,
+      "sha256": "bdf550eb773c921cdc27fb3af5149a050f46b633f036ceabfd82adbc4324ea4c",
+      "byte_preserved": true
+    },
+    {
+      "source": ".local/logs/windows-initial-cpu-closure-order-resume.json",
+      "destination": "windows-initial-cpu-closure-order-resume.json",
+      "bytes": 1654,
+      "sha256": "7cd54feec2936a6690e57ce6ba8bbbb5e682ab5e854442d57b5d8699d0d89c2b",
+      "byte_preserved": true
+    },
+    {
+      "source": ".local/logs/windows-initial-cpu-closure-order-resume.log",
+      "destination": "windows-initial-cpu-closure-order-resume.log",
+      "bytes": 18003,
+      "sha256": "810e504541c2934884fb3c87035b3b72fd8d9339d08bee86250f55addb9bc2ee",
+      "byte_preserved": true
+    },
+    {
+      "source": ".local/logs/windows-initial-cpu-resource-activation-resume.json",
+      "destination": "windows-initial-cpu-resource-activation-resume.json",
+      "bytes": 1820,
+      "sha256": "045b7c809f3f8a5ce8560d8532c14d4130069981f5bff227307ad2573c4acab0",
+      "byte_preserved": true
+    },
+    {
+      "source": ".local/logs/windows-initial-cpu-resource-activation-resume.log",
+      "destination": "windows-initial-cpu-resource-activation-resume.log",
+      "bytes": 18210,
+      "sha256": "63b5a75c1dfe751a16d9a391b20bda27122c72b796f486908b784ae78fa798ab",
+      "byte_preserved": true
+    },
+    {
+      "source": ".local/logs/windows-blender-actctx-minimal-formatted.log",
+      "destination": "windows-blender-actctx-minimal-formatted.log",
+      "bytes": 4300,
+      "sha256": "7d657334ac87f0c2e11ab504d7e57cd396b0ac58b4f7350a0075ce81446e0a4b",
+      "byte_preserved": true
+    },
+    {
+      "source": ".local/logs/cpu-image-readonly/receipt.json",
+      "destination": "cpu-image-readonly/receipt.json",
+      "bytes": 3092,
+      "sha256": "4497f6c07e50a9ffe7afb503ecd624924f084708424859a1a36610ffd285d92a",
+      "byte_preserved": true
+    },
+    {
+      "source": ".local/logs/blender-loader-readonly/receipt.json",
+      "destination": "blender-loader-readonly/receipt.json",
+      "bytes": 38269,
+      "sha256": "20e4c984aaa21b94d84a29e2294f9f30b0c36e94d6278e4503088e5c16b37e1a",
+      "byte_preserved": true
+    },
+    {
+      "source": ".local/logs/cpu-resource-sxs-20261028T185809Z-0c04a049/receipt.json",
+      "destination": "sxs/receipt.json",
+      "bytes": 13200,
+      "sha256": "c43c0203ab33a0ae829e33a45bd73ba0be0ccd49216fa85095deab36a2af8a34",
+      "byte_preserved": true
+    },
+    {
+      "source": ".local/logs/cpu-resource-sxs-20261028T185809Z-0c04a049/cargo-test.stdout.bin",
+      "destination": "sxs/cargo-test.stdout.log",
+      "bytes": 563,
+      "sha256": "b1fae68e885f6d8a8c61bda9dada335edb235be6bab1e3b647bcfa1ffdd56927",
+      "byte_preserved": true
+    },
+    {
+      "source": ".local/logs/cpu-resource-sxs-20261028T185809Z-0c04a049/cargo-test.stderr.bin",
+      "destination": "sxs/cargo-test.stderr.log",
+      "bytes": 17545,
+      "sha256": "b0c6d2502ec208a3d9f82640a972a11b338f7b38443f3cd6a567bb6c4a8d423d",
+      "byte_preserved": true
+    },
+    {
+      "source": ".local/logs/cpu-resource-sxs-20261028T185809Z-0c04a049/events-sidebyside.stdout.bin",
+      "destination": "sxs/events-sidebyside.json",
+      "bytes": 167,
+      "sha256": "a1e7e831c540c5d80469086d7e3295bed1b4c97b24ec59d7ba318fdeb07c2ef6",
+      "byte_preserved": true
+    },
+    {
+      "source": ".local/logs/cpu-resource-sxs-20261028T185809Z-0c04a049/sessions-before.json",
+      "destination": "sxs/sessions-before.json",
+      "bytes": 4,
+      "sha256": "a5338d955b09046ec0b16f3a9625b7955c763aae07dc722e474e6078745f932f",
+      "byte_preserved": true
+    },
+    {
+      "source": ".local/logs/cpu-resource-sxs-20261028T185809Z-0c04a049/sessions-after-start.json",
+      "destination": "sxs/sessions-after-start.json",
+      "bytes": 311,
+      "sha256": "ce66840d828805ff0429367d371c6f831b3429eeaeb756467039033064e6e183",
+      "byte_preserved": true
+    },
+    {
+      "source": ".local/logs/cpu-resource-sxs-20261028T185809Z-0c04a049/fixture-cpu-sxs.txt",
+      "destination": "sxs/fixture-cpu-sxs.txt",
+      "bytes": 18879,
+      "sha256": "59951b93a0bea5a29c761e079c7fa2f04e01f63aa0412cb7976cd6a23e173d69",
+      "byte_preserved": true
+    },
+    {
+      "source": ".local/logs/cpu-resource-sxs-20261028T185809Z-0c04a049/cpu-dll-resource-sxs.txt",
+      "destination": "sxs/cpu-dll-resource-sxs.txt",
+      "bytes": 714,
+      "sha256": "51fbf1198ce04a3fcd30323b6b117e70633f9de54372f64696164c1b4e1abc2a",
+      "byte_preserved": true
+    },
+    {
+      "source": ".local/logs/cpu-resource-sxs-20261028T185809Z-0c04a049/cpu-dll-reparse-receipt.json",
+      "destination": "sxs/cpu-dll-reparse-receipt.json",
+      "bytes": 1384,
+      "sha256": "cff18173c28c33474a69d96523b1d8f6c027dcd67e246be9acbde7e1aa36bf79",
+      "byte_preserved": true
+    },
+    {
+      "source": ".local/logs/cpu-resource-sxs-20261028T185809Z-0c04a049/etl-metadata-reader-receipt.json",
+      "destination": "sxs/etl-metadata-reader-receipt.json",
+      "bytes": 1540,
+      "sha256": "7d47ffbf792550fcc9a725a35603f02b71a9299cc2a8a827cd2f1bc7c145d432",
+      "byte_preserved": true
+    },
+    {
+      "source": ".local/logs/cpu-resource-sxs-20261028T185809Z-0c04a049/etl-metadata.json",
+      "destination": "sxs/etl-metadata.json",
+      "bytes": 86513,
+      "sha256": "cebe556426129226d0ca0b4c263b23e87d015486eb93b683743a90d96c0a1441",
+      "byte_preserved": true
+    },
+    {
+      "source": ".local/logs/cpu-resource-sxs-20261028T185809Z-0c04a049/etl-metadata-v2-reader-receipt.json",
+      "destination": "sxs/etl-metadata-v2-reader-receipt.json",
+      "bytes": 8701,
+      "sha256": "851517acb7ee6305069f6d8784dc9f15a919e00dc9df40ee2417793801309e5c",
+      "byte_preserved": true
+    },
+    {
+      "source": ".local/logs/cpu-resource-sxs-20261028T185809Z-0c04a049/etl-metadata-v2.json",
+      "destination": "sxs/etl-metadata-v2.json",
+      "bytes": 120923,
+      "sha256": "404e6c405e7387f1eb1ed3eb11d1125e741a0aa37313e26d1511ff6b3486f5c7",
+      "byte_preserved": true
+    },
+    {
+      "source": ".local/run_positive_manifests_after_resource_probe.py",
+      "destination": "scripts/run_positive_manifests_after_resource_probe.py",
+      "bytes": 2810,
+      "sha256": "987fd19b36c9f0c056e53b3c1f7e0c3eb7026ed1a2f74de7b9f01b2b23b8bf3e",
+      "byte_preserved": true
+    },
+    {
+      "source": ".local/run_cpu_load_order_resume.py",
+      "destination": "scripts/run_cpu_load_order_resume.py",
+      "bytes": 2776,
+      "sha256": "500d2fac09519befe4661dfa1ba14e0e3b1da8dba3e2383f93578508015815c2",
+      "byte_preserved": true
+    },
+    {
+      "source": ".local/run_cpu_resource_activation_resume.py",
+      "destination": "scripts/run_cpu_resource_activation_resume.py",
+      "bytes": 2874,
+      "sha256": "3d883e7d42b6d912df900f8d6c693cf9787239161a4990fa6495c5611dc01450",
+      "byte_preserved": true
+    },
+    {
+      "source": ".local/inspect_cpu_component_resources.py",
+      "destination": "scripts/inspect_cpu_component_resources.py",
+      "bytes": 3782,
+      "sha256": "15ea9ac86a58c4cabd12c9203de226d6adb8ffd85ca54fff5781b44377cb621d",
+      "byte_preserved": true
+    },
+    {
+      "source": ".local/inspect_runtime_loader.py",
+      "destination": "scripts/inspect_runtime_loader.py",
+      "bytes": 3799,
+      "sha256": "dbb6ba5960891272bcf6d1bae2d5c4a520fd41418aec478c336cd5b4cff79ab4",
+      "byte_preserved": true
+    },
+    {
+      "source": ".local/trace_cpu_resource_activation_root.py",
+      "destination": "scripts/trace_cpu_resource_activation_root.py",
+      "bytes": 16973,
+      "sha256": "3b6a106e870ba5d79e6276f9185543d623c52122cceab5d6e5ba57195e52b77f",
+      "byte_preserved": true
+    },
+    {
+      "source": ".local/reparse_cpu_dll_sxs.py",
+      "destination": "scripts/reparse_cpu_dll_sxs.py",
+      "bytes": 1382,
+      "sha256": "0931998dcd90517cba4be24faf42137d338dc866951c9d2c81064bc59de12654",
+      "byte_preserved": true
+    },
+    {
+      "source": ".local/export_cpu_sxs_metadata.ps1",
+      "destination": "scripts/export_cpu_sxs_metadata.ps1",
+      "bytes": 4572,
+      "sha256": "56511600e085cb1700b9f3036f575c570eadd33c430c235531d52e915b83653e",
+      "byte_preserved": true
+    },
+    {
+      "source": ".local/run_cpu_sxs_metadata.py",
+      "destination": "scripts/run_cpu_sxs_metadata.py",
+      "bytes": 1449,
+      "sha256": "ef302d2ad2b6df1f1a2c358beb47a6636efa6b02bb43d76814f7511297d82091",
+      "byte_preserved": true
+    },
+    {
+      "source": ".local/export_cpu_sxs_metadata_v2.ps1",
+      "destination": "scripts/export_cpu_sxs_metadata_v2.ps1",
+      "bytes": 7267,
+      "sha256": "3b532ff18ca11652054c902ed1a57db0f5f9f793f59f08ad92932d277c6fed17",
+      "byte_preserved": true
+    },
+    {
+      "source": ".local/run_cpu_sxs_metadata_v2.py",
+      "destination": "scripts/run_cpu_sxs_metadata_v2.py",
+      "bytes": 1479,
+      "sha256": "9479ed8a518e18030ae74f20a70d69d6c13ecb70081c82a4e33a8e84d6d3bf5b",
+      "byte_preserved": true
+    }
+  ],
+  "uncommitted_binary_reference": {
+    "source": ".local\\logs\\cpu-resource-sxs-20261028T185809Z-0c04a049\\cpu-resource-activation.etl",
+    "bytes": 262144,
+    "sha256": "2db670e8a1ba8449bc7bf43841a76de7c7615edcfb08674b3214f542623ff6ba",
+    "committed": false
+  },
+  "excluded": [
+    "runtime binaries",
+    "temporary fixtures",
+    "build output",
+    "mechanical editing scripts",
+    "ETL binary"
+  ]
+}

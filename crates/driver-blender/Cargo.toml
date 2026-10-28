@@ -54,7 +54,7 @@ sha2.workspace = true
 tokio-util.workspace = true
 
 [target.'cfg(target_os = "windows")'.dependencies]
-windows-sys = { workspace = true, features = ["Win32_System_Pipes", "Win32_System_WindowsProgramming", "Win32_System_ApplicationInstallationAndServicing", "Win32_Globalization"] }
+windows-sys = { workspace = true, features = ["Win32_System_Pipes", "Win32_System_WindowsProgramming", "Win32_System_ApplicationInstallationAndServicing", "Win32_Globalization", "Win32_System_LibraryLoader"] }
 
 [[bin]]
 name = "semwright-blender-launch-fixture"

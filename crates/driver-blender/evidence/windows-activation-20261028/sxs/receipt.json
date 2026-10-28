@@ -1,0 +1,277 @@
+{
+  "utc_start": "2026-10-28T18:58:09.063006+00:00",
+  "status": "TRACE_CAPTURED_DIAGNOSTIC_ONLY",
+  "overall_budget_seconds": 120,
+  "work_budget_seconds": 90,
+  "elevation_requested": false,
+  "permission_changes": false,
+  "policy_changes": false,
+  "cold_cache_claim": false,
+  "broker_used": false,
+  "A05": "BLOCKED",
+  "cargo_repetitions": 1,
+  "commands": [
+    {
+      "tag": "events-sidebyside",
+      "argv": [
+        "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+        "-NoLogo",
+        "-NoProfile",
+        "-NonInteractive",
+        "-Command",
+        "\n$ErrorActionPreference = 'Stop'\n[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)\n$OutputEncoding = [Console]::OutputEncoding\n$start = [DateTimeOffset]::Parse($env:SEMWRIGHT_DIAG_START_UTC)\n$end = [DateTimeOffset]::Parse($env:SEMWRIGHT_DIAG_END_UTC)\n$result = [ordered]@{ok=$false;status='NOT_READ';start_utc=$start.ToString('o');end_utc=$end.ToString('o');events=@();truncated=$false}\ntry {\n    $all = @(Get-WinEvent -FilterHashtable @{LogName='Application';ProviderName='SideBySide';StartTime=$start.UtcDateTime;EndTime=$end.UtcDateTime} -MaxEvents 129 -ErrorAction Stop)\n    $rows = @()\n    foreach ($e in ($all | Select-Object -First 128)) {\n        $message = ''\n        try {$message = [string]$e.Message} catch {$message = '[Message formatting unavailable]'}\n        if ($message.Length -gt 4096) {$message = $message.Substring(0,4096)}\n        $xml = $e.ToXml();$truncated = $xml.Length -gt 8192\n        if ($truncated) {$xml = $xml.Substring(0,8192)}\n        $rows += [ordered]@{utc=$e.TimeCreated.ToUniversalTime().ToString('o');id=$e.Id;record_id=$e.RecordId;provider=$e.ProviderName;pid=$e.ProcessId;tid=$e.ThreadId;message=$message;xml=$xml;xml_truncated=$truncated}\n    }\n    $result.ok=$true;$result.status='READ';$result.events=$rows;$result.truncated=($all.Count -gt 128)\n} catch {\n    if ($_.FullyQualifiedErrorId -like 'NoMatchingEventsFound*') {$result.ok=$true;$result.status='NO_MATCHING_EVENTS'}\n    else {$result.status='READ_ERROR';$result.error_id=$_.FullyQualifiedErrorId;$result.error_message=$_.Exception.Message;$result.hresult=$_.Exception.HResult}\n}\n$result | ConvertTo-Json -Depth 8 -Compress\n"
+      ],
+      "utc_start": "2026-10-28T18:58:09.063006+00:00",
+      "timeout_seconds": 10,
+      "timed_out": false,
+      "stdout": "E:\\Projects\\semwright-blender52\\.local\\logs\\cpu-resource-sxs-20261028T185809Z-0c04a049\\events-sidebyside.stdout.bin",
+      "stderr": "E:\\Projects\\semwright-blender52\\.local\\logs\\cpu-resource-sxs-20261028T185809Z-0c04a049\\events-sidebyside.stderr.bin",
+      "pid": 25912,
+      "exit_code": 0
+    },
+    {
+      "tag": "trace-start",
+      "argv": [
+        "C:\\WINDOWS\\System32\\sxstrace.exe",
+        "Trace",
+        "-logfile:E:\\Projects\\semwright-blender52\\.local\\logs\\cpu-resource-sxs-20261028T185809Z-0c04a049\\cpu-resource-activation.etl",
+        "-nostop"
+      ],
+      "utc_start": "2026-10-28T18:58:09.928819+00:00",
+      "timeout_seconds": 5,
+      "timed_out": false,
+      "stdout": "E:\\Projects\\semwright-blender52\\.local\\logs\\cpu-resource-sxs-20261028T185809Z-0c04a049\\trace-start.stdout.bin",
+      "stderr": "E:\\Projects\\semwright-blender52\\.local\\logs\\cpu-resource-sxs-20261028T185809Z-0c04a049\\trace-start.stderr.bin",
+      "pid": 1776,
+      "exit_code": 0
+    },
+    {
+      "tag": "cargo-test",
+      "argv": [
+        "C:\\Users\\sergi\\.cargo\\bin\\cargo.exe",
+        "+1.98.1-x86_64-pc-windows-gnu",
+        "test",
+        "-p",
+        "semwright-driver-blender",
+        "--features",
+        "windows-launch-test-fixture",
+        "--test",
+        "windows_native_launch",
+        "--target",
+        "x86_64-pc-windows-gnu",
+        "--locked",
+        "--offline",
+        "initial_host_cpu_resource_activation_probe",
+        "--",
+        "--ignored",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "utc_start": "2026-10-28T18:58:09.960390+00:00",
+      "timeout_seconds": 89.11000000000058,
+      "timed_out": false,
+      "stdout": "E:\\Projects\\semwright-blender52\\.local\\logs\\cpu-resource-sxs-20261028T185809Z-0c04a049\\cargo-test.stdout.bin",
+      "stderr": "E:\\Projects\\semwright-blender52\\.local\\logs\\cpu-resource-sxs-20261028T185809Z-0c04a049\\cargo-test.stderr.bin",
+      "pid": 28400,
+      "exit_code": 101
+    },
+    {
+      "tag": "parse-fixture-cpu",
+      "argv": [
+        "C:\\WINDOWS\\System32\\sxstrace.exe",
+        "Parse",
+        "-logfile:E:\\Projects\\semwright-blender52\\.local\\logs\\cpu-resource-sxs-20261028T185809Z-0c04a049\\cpu-resource-activation.etl",
+        "-outfile:E:\\Projects\\semwright-blender52\\.local\\logs\\cpu-resource-sxs-20261028T185809Z-0c04a049\\fixture-cpu-sxs.txt",
+        "-filter:fixture-embedded-manifest.exe"
+      ],
+      "utc_start": "2026-10-28T18:58:18.187098+00:00",
+      "timeout_seconds": 10,
+      "timed_out": false,
+      "stdout": "E:\\Projects\\semwright-blender52\\.local\\logs\\cpu-resource-sxs-20261028T185809Z-0c04a049\\parse-fixture-cpu.stdout.bin",
+      "stderr": "E:\\Projects\\semwright-blender52\\.local\\logs\\cpu-resource-sxs-20261028T185809Z-0c04a049\\parse-fixture-cpu.stderr.bin",
+      "pid": 22772,
+      "exit_code": 0
+    }
+  ],
+  "api_calls": [
+    {
+      "api": "QueryAllTracesW",
+      "tag": "sessions-before",
+      "code": 0,
+      "capacity": 64,
+      "reported_count": 30
+    },
+    {
+      "api": "QueryAllTracesW",
+      "tag": "sessions-after-start",
+      "code": 0,
+      "capacity": 64,
+      "reported_count": 31
+    },
+    {
+      "api": "ControlTraceW",
+      "control": "QUERY",
+      "tag": "before-owned-stop",
+      "handle": 35,
+      "code": 0,
+      "observed": {
+        "handle": 35,
+        "guid": "a09c3c0cb3be4f4f9be72ef6a8af4479",
+        "name": "WinSxs Trace Session",
+        "logfile": "E:\\Projects\\semwright-blender52\\.local\\logs\\cpu-resource-sxs-20261028T185809Z-0c04a049\\cpu-resource-activation.etl",
+        "events_lost": 0,
+        "log_buffers_lost": 0
+      }
+    },
+    {
+      "api": "ControlTraceW",
+      "control": "STOP",
+      "handle": 35,
+      "guid": "a09c3c0cb3be4f4f9be72ef6a8af4479",
+      "logfile": "E:\\Projects\\semwright-blender52\\.local\\logs\\cpu-resource-sxs-20261028T185809Z-0c04a049\\cpu-resource-activation.etl",
+      "code": 0
+    },
+    {
+      "api": "ControlTraceW",
+      "control": "QUERY",
+      "tag": "after-owned-stop",
+      "handle": 35,
+      "code": 4201,
+      "observed": {
+        "owner_identity_matches": false
+      }
+    }
+  ],
+  "output_directory": "E:\\Projects\\semwright-blender52\\.local\\logs\\cpu-resource-sxs-20261028T185809Z-0c04a049",
+  "previous_receipt": "E:\\Projects\\semwright-blender52\\.local\\logs\\windows-initial-cpu-resource-activation-resume.json",
+  "previous_receipt_sha256": "045b7c809f3f8a5ce8560d8532c14d4130069981f5bff227307ad2573c4acab0",
+  "event_window": {
+    "start_utc": "2026-10-28T18:22:18.485171+00:00",
+    "end_utc": "2026-10-28T18:22:42.485171+00:00"
+  },
+  "event_query_source_sha256": "f6402bfbffd4cd7b3a0e18f19c218a697e5ee55596b938741cfe86a2638e53c5",
+  "event_query": {
+    "ok": true,
+    "status": "NO_MATCHING_EVENTS",
+    "start_utc": "2026-10-28T18:22:18.4851710+00:00",
+    "end_utc": "2026-10-28T18:22:42.4851710+00:00",
+    "events": [],
+    "truncated": false
+  },
+  "source_sha256_before": {
+    "crates/driver-blender/src/bin/session_runner/windows_fixture.rs": "54335be030e2e0d7386da1ee757001ef6477b45d991444080b583f7cd24a7301",
+    "crates/driver-blender/src/bin/session_runner/windows_activation_readback.rs": "566c4ae39535c28114884160493af1afdeb473e1f05eef455d2e70a33fcd6828",
+    "crates/driver-blender/src/bin/session_runner/windows_cpu_payload.rs": "98ba354b13d210f3ea8d3da1cbfec9af5a3a1df9a47d2b04120fc13d9aa064fc",
+    "crates/driver-blender/src/bin/session_runner/windows_cpu_fixture.rs": "59909f0a122ffe7afc98cdd05dd05dcfe9551113bdd9e708ffea73ea46d1f041",
+    "crates/driver-blender/src/bin/session_runner/windows_cpu_images.rs": "381210c1a49cb6a8a7e320081fb63f8ce7a8e1f47f85e6bc3a87421b8e737ce8",
+    "crates/driver-blender/src/bin/session_runner/windows_cpu_resource_activation.rs": "3e7c621d0352fbcd283c2e2b5a3102669e49d78c9541fe5e43b985939d3a69dd",
+    "crates/driver-blender/tests/windows_native_launch.rs": "a042c96a238d48a830e757f37ed8820ae50060448cd8cc5be3eaa1dcbdec8843",
+    "crates/driver-blender/tests/fixtures/windows_cpu_probe_payload.json": "43709145f359cb0ff4f1c42062dfa27f9b532e8f1f8f358417ad17cbc38b6cb7"
+  },
+  "runner_sha256": "3b6a106e870ba5d79e6276f9185543d623c52122cceab5d6e5ba57195e52b77f",
+  "cargo_argv": [
+    "C:\\Users\\sergi\\.cargo\\bin\\cargo.exe",
+    "+1.98.1-x86_64-pc-windows-gnu",
+    "test",
+    "-p",
+    "semwright-driver-blender",
+    "--features",
+    "windows-launch-test-fixture",
+    "--test",
+    "windows_native_launch",
+    "--target",
+    "x86_64-pc-windows-gnu",
+    "--locked",
+    "--offline",
+    "initial_host_cpu_resource_activation_probe",
+    "--",
+    "--ignored",
+    "--nocapture",
+    "--test-threads=1"
+  ],
+  "source_matches_previous": true,
+  "build_inputs_sha256": {
+    "Cargo.toml": "fc799dce769d470d4153c5f8196c7062bda36c423dce456305db21bb38348130",
+    "Cargo.lock": "3959cc1ee3b21883d8ec2cb0e1f158fe1f7c5df178503a1489e5e2dfef836940"
+  },
+  "owned_trace": {
+    "handle": 35,
+    "guid": "a09c3c0cb3be4f4f9be72ef6a8af4479",
+    "name": "WinSxs Trace Session",
+    "logfile": "E:\\Projects\\semwright-blender52\\.local\\logs\\cpu-resource-sxs-20261028T185809Z-0c04a049\\cpu-resource-activation.etl",
+    "events_lost": 0,
+    "log_buffers_lost": 0
+  },
+  "test_exit_code": 101,
+  "trace_cleanup": {
+    "called": true,
+    "status": "STOP_RETURNED",
+    "code": 0,
+    "verification_code": 4201,
+    "owned_remaining": false
+  },
+  "parse_exit_code": 0,
+  "source_sha256_after": {
+    "crates/driver-blender/src/bin/session_runner/windows_fixture.rs": "54335be030e2e0d7386da1ee757001ef6477b45d991444080b583f7cd24a7301",
+    "crates/driver-blender/src/bin/session_runner/windows_activation_readback.rs": "566c4ae39535c28114884160493af1afdeb473e1f05eef455d2e70a33fcd6828",
+    "crates/driver-blender/src/bin/session_runner/windows_cpu_payload.rs": "98ba354b13d210f3ea8d3da1cbfec9af5a3a1df9a47d2b04120fc13d9aa064fc",
+    "crates/driver-blender/src/bin/session_runner/windows_cpu_fixture.rs": "59909f0a122ffe7afc98cdd05dd05dcfe9551113bdd9e708ffea73ea46d1f041",
+    "crates/driver-blender/src/bin/session_runner/windows_cpu_images.rs": "381210c1a49cb6a8a7e320081fb63f8ce7a8e1f47f85e6bc3a87421b8e737ce8",
+    "crates/driver-blender/src/bin/session_runner/windows_cpu_resource_activation.rs": "3e7c621d0352fbcd283c2e2b5a3102669e49d78c9541fe5e43b985939d3a69dd",
+    "crates/driver-blender/tests/windows_native_launch.rs": "a042c96a238d48a830e757f37ed8820ae50060448cd8cc5be3eaa1dcbdec8843",
+    "crates/driver-blender/tests/fixtures/windows_cpu_probe_payload.json": "43709145f359cb0ff4f1c42062dfa27f9b532e8f1f8f358417ad17cbc38b6cb7"
+  },
+  "source_unchanged_during_capture": true,
+  "artifacts": {
+    "cargo-test.stderr.bin": {
+      "bytes": 17545,
+      "sha256": "b0c6d2502ec208a3d9f82640a972a11b338f7b38443f3cd6a567bb6c4a8d423d"
+    },
+    "cargo-test.stdout.bin": {
+      "bytes": 563,
+      "sha256": "b1fae68e885f6d8a8c61bda9dada335edb235be6bab1e3b647bcfa1ffdd56927"
+    },
+    "cpu-resource-activation.etl": {
+      "bytes": 262144,
+      "sha256": "2db670e8a1ba8449bc7bf43841a76de7c7615edcfb08674b3214f542623ff6ba"
+    },
+    "events-sidebyside.stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "events-sidebyside.stdout.bin": {
+      "bytes": 167,
+      "sha256": "a1e7e831c540c5d80469086d7e3295bed1b4c97b24ec59d7ba318fdeb07c2ef6"
+    },
+    "fixture-cpu-sxs.txt": {
+      "bytes": 18879,
+      "sha256": "59951b93a0bea5a29c761e079c7fa2f04e01f63aa0412cb7976cd6a23e173d69"
+    },
+    "parse-fixture-cpu.stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "parse-fixture-cpu.stdout.bin": {
+      "bytes": 316,
+      "sha256": "d7ab043a89648b441db5a3ad7597bb382585e75409a60e3873bee699baaf571d"
+    },
+    "sessions-after-start.json": {
+      "bytes": 311,
+      "sha256": "ce66840d828805ff0429367d371c6f831b3429eeaeb756467039033064e6e183"
+    },
+    "sessions-before.json": {
+      "bytes": 4,
+      "sha256": "a5338d955b09046ec0b16f3a9625b7955c763aae07dc722e474e6078745f932f"
+    },
+    "trace-start.stderr.bin": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "trace-start.stdout.bin": {
+      "bytes": 166,
+      "sha256": "ca369c23bb286510753905c01ad88e592c93e56818894d1ca8e489a3a1494f35"
+    }
+  },
+  "elapsed_seconds": 9.264999999999418,
+  "overall_budget_exceeded": false
+}

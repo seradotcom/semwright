@@ -1,0 +1,15 @@
+﻿=================
+Iniciar generación de contexto de activación.
+Parámetro de entrada:
+	Flags = 0
+	ProcessorArchitecture = AMD64
+	CultureFallBacks = es-MX;es;es-ES;en-US;en
+	ManifestPath = E:\Projects\semwright-blender52\.local\tmp\.tmp1wH4yv\blender_cpu_check.dll
+	AssemblyDirectory = E:\Projects\semwright-blender52\.local\tmp\.tmp1wH4yv\
+	Application Config File = 
+-----------------
+INFORMACIÓN: analizando archivo de manifiesto E:\Projects\semwright-blender52\.local\tmp\.tmp1wH4yv\blender_cpu_check.dll.
+	INFORMACIÓN: la identidad de definición del manifiesto es (null).
+INFORMACIÓN: generación de contexto de activación correcta.
+Finalizar generación de contexto de activación.
+

@@ -1,0 +1,22 @@
+{
+  "utc_start": "2026-10-28T19:00:20.710375+00:00",
+  "argv": [
+    "C:\\WINDOWS\\System32\\sxstrace.exe",
+    "Parse",
+    "-logfile:E:\\Projects\\semwright-blender52\\.local\\logs\\cpu-resource-sxs-20261028T185809Z-0c04a049\\cpu-resource-activation.etl",
+    "-outfile:E:\\Projects\\semwright-blender52\\.local\\logs\\cpu-resource-sxs-20261028T185809Z-0c04a049\\cpu-dll-resource-sxs.txt",
+    "-filter:blender_cpu_check.dll"
+  ],
+  "etl_sha256_before": "2db670e8a1ba8449bc7bf43841a76de7c7615edcfb08674b3214f542623ff6ba",
+  "new_trace": false,
+  "cargo_repetitions": 0,
+  "A05": "BLOCKED",
+  "exit_code": 0,
+  "stdout": "Analizando archivo de registro E:\\Projects\\semwright-blender52\\.local\\logs\\cpu-resource-sxs-20261028T185809Z-0c04a049\\cpu-resource-activation.etl...\r\nAn\ufffdlisis finalizado. Resultados guardados en el archivo E:\\Projects\\semwright-blender52\\.local\\logs\\cpu-resource-sxs-20261028T185809Z-0c04a049\\cpu-dll-resource-sxs.txt.\r\n",
+  "stderr": "",
+  "elapsed_seconds": 0.03199999999196734,
+  "etl_sha256_after": "2db670e8a1ba8449bc7bf43841a76de7c7615edcfb08674b3214f542623ff6ba",
+  "output_path": "E:\\Projects\\semwright-blender52\\.local\\logs\\cpu-resource-sxs-20261028T185809Z-0c04a049\\cpu-dll-resource-sxs.txt",
+  "output_bytes": 714,
+  "output_sha256": "51fbf1198ce04a3fcd30323b6b117e70633f9de54372f64696164c1b4e1abc2a"
+}

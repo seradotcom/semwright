@@ -8,3 +8,6 @@
 *.yml text eol=lf
 *.yaml text eol=lf
 Cargo.lock text eol=lf
+
+# Captured diagnostic payloads retain the exact bytes named in their evidence index.
+crates/driver-blender/evidence/windows-activation-20261028/** -text

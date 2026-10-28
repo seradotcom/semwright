@@ -1,0 +1,926 @@
+{
+  "read_only": true,
+  "application_executed": false,
+  "embedded_manifest": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<assembly xmlns=\"urn:schemas-microsoft-com:asm.v1\" manifestVersion=\"1.0\">\n<trustInfo xmlns=\"urn:schemas-microsoft-com:asm.v3\"><security><requestedPrivileges><requestedExecutionLevel level=\"asInvoker\" uiAccess=\"false\"/></requestedPrivileges></security></trustInfo><application><windowsSettings><activeCodePage xmlns=\"http://schemas.microsoft.com/SMI/2019/WindowsSettings\">UTF-8</activeCodePage></windowsSettings></application><compatibility xmlns=\"urn:schemas-microsoft-com:compatibility.v1\"><application><supportedOS Id=\"{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}\"/><supportedOS Id=\"{1f676c76-80e1-4239-95bb-83d0f6d0da78}\"/></application></compatibility><dependency><dependentAssembly><assemblyIdentity type=\"win32\" name=\"Microsoft.Windows.Common-Controls\" version=\"6.0.0.0\" processorArchitecture=\"*\" publicKeyToken=\"6595b64144ccf1df\" language=\"*\"/></dependentAssembly></dependency><dependency><dependentAssembly><assemblyIdentity type=\"win32\" name=\"blender.crt\" version=\"1.0.0.0\"/></dependentAssembly></dependency><dependency><dependentAssembly><assemblyIdentity type=\"win32\" name=\"blender.shared\" version=\"1.0.0.0\"/></dependentAssembly></dependency></assembly>\n",
+  "embedded_sha256": "e7101d6abbe3d11a3ccb0cf88664ceffb2df9e2fbc7d23273edd274ddfa1e1e8",
+  "private_manifests": [
+    {
+      "path": "blender.shared/blender.shared.manifest",
+      "sha256": "655ad61bd460854680806f1fce59459daaf7fc309304fa17b3348c58cf745926",
+      "text": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\r\n<assembly xmlns=\"urn:schemas-microsoft-com:asm.v1\" manifestVersion=\"1.0\">\r\n    <assemblyIdentity type=\"win32\" name=\"blender.shared\" version=\"1.0.0.0\" />\r\n    <file name=\"ceres.dll\"/>\r\n    <file name=\"oslquery.dll\"/>\r\n    <file name=\"oslcomp.dll\"/>\r\n    <file name=\"oslexec.dll\"/>\r\n    <file name=\"oslnoise.dll\"/>\r\n    <file name=\"opencolorio_2_5.dll\"/>\r\n    <file name=\"openjph.0.25.dll\"/>\r\n    <file name=\"aom.dll\"/>\r\n    <file name=\"OpenImageDenoise.dll\"/>\r\n    <file name=\"OpenImageDenoise_core.dll\"/>\r\n    <file name=\"OpenImageDenoise_device_cpu.dll\"/>\r\n    <file name=\"OpenImageDenoise_device_sycl.dll\"/>\r\n    <file name=\"OpenImageDenoise_device_hip.dll\"/>\r\n    <file name=\"OpenImageDenoise_device_cuda.dll\"/>\r\n    <file name=\"epoxy-0.dll\"/>\r\n    <file name=\"vulkan-1.dll\"/>\r\n    <file name=\"Iex.dll\"/>\r\n    <file name=\"IlmThread.dll\"/>\r\n    <file name=\"OpenEXRCore.dll\"/>\r\n    <file name=\"OpenEXRUtil.dll\"/>\r\n    <file name=\"OpenEXR.dll\"/>\r\n    <file name=\"imath.dll\"/>\r\n    <file name=\"openimageio.dll\"/>\r\n    <file name=\"openimageio_util.dll\"/>\r\n    <file name=\"gmp-10.dll\"/>\r\n    <file name=\"libgmpxx.dll\"/>\r\n    <file name=\"openvdb.dll\"/>\r\n    <file name=\"MaterialXCore.dll\"/>\r\n    <file name=\"MaterialXFormat.dll\"/>\r\n    <file name=\"MaterialXGenGlsl.dll\"/>\r\n    <file name=\"MaterialXGenMdl.dll\"/>\r\n    <file name=\"MaterialXGenOsl.dll\"/>\r\n    <file name=\"MaterialXGenShader.dll\"/>\r\n    <file name=\"MaterialXRender.dll\"/>\r\n    <file name=\"MaterialXRenderGlsl.dll\"/>\r\n    <file name=\"MaterialXRenderHw.dll\"/>\r\n    <file name=\"MaterialXRenderOsl.dll\"/>\r\n    <file name=\"MaterialXGenMsl.dll\"/>\r\n    <file name=\"avcodec-62.dll\"/>\r\n    <file name=\"avformat-62.dll\"/>\r\n    <file name=\"avdevice-62.dll\"/>\r\n    <file name=\"avutil-60.dll\"/>\r\n    <file name=\"swscale-9.dll\"/>\r\n    <file name=\"swresample-6.dll\"/>\r\n    <file name=\"avfilter-11.dll\"/>\r\n    <file name=\"tbb12.dll\"/>\r\n    <file name=\"tbbmalloc.dll\"/>\r\n    <file name=\"tbbmalloc_proxy.dll\"/>\r\n    <file name=\"sndfile.dll\"/>\r\n    <file name=\"shaderc_shared.dll\"/>\r\n    <file name=\"meshoptimizer.dll\"/>\r\n    <file name=\"draco.dll\"/>\r\n    <file name=\"OpenAL32.dll\"/>\r\n    <file name=\"SDL3.dll\"/>\r\n    <file name=\"embree4.dll\"/>\r\n    <file name=\"sycl8.dll\"/>\r\n    <file name=\"ur_adapter_level_zero.dll\"/>\r\n    <file name=\"ur_adapter_level_zero_v2.dll\"/>\r\n    <file name=\"ur_loader.dll\"/>\r\n    <file name=\"ur_win_proxy_loader.dll\"/>\r\n    <file name=\"usd_ms.dll\"/>\r\n    <file name=\"hiprt0200564.dll\"/>\r\n</assembly>\r\n"
+    },
+    {
+      "path": "blender.crt/blender.crt.manifest",
+      "sha256": "43bdfdc2028539332fed3dc487474407d63e79f67394145397322dda58e455ee",
+      "text": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\r\n<assembly xmlns=\"urn:schemas-microsoft-com:asm.v1\" manifestVersion=\"1.0\">\r\n    <assemblyIdentity type=\"win32\" name=\"blender.crt\" version=\"1.0.0.0\" />\r\n    <file name=\"msvcp140.dll\"/>\r\n    <file name=\"msvcp140_1.dll\"/>\r\n    <file name=\"msvcp140_2.dll\"/>\r\n    <file name=\"msvcp140_atomic_wait.dll\"/>\r\n    <file name=\"msvcp140_codecvt_ids.dll\"/>\r\n    <file name=\"vcruntime140_1.dll\"/>\r\n    <file name=\"vcruntime140.dll\"/>\r\n    <file name=\"concrt140.dll\"/>\r\n    <file name=\"api-ms-win-core-console-l1-1-0.dll\"/>\r\n    <file name=\"api-ms-win-core-console-l1-2-0.dll\"/>\r\n    <file name=\"api-ms-win-core-datetime-l1-1-0.dll\"/>\r\n    <file name=\"api-ms-win-core-debug-l1-1-0.dll\"/>\r\n    <file name=\"api-ms-win-core-errorhandling-l1-1-0.dll\"/>\r\n    <file name=\"api-ms-win-core-fibers-l1-1-0.dll\"/>\r\n    <file name=\"api-ms-win-core-file-l1-1-0.dll\"/>\r\n    <file name=\"api-ms-win-core-file-l1-2-0.dll\"/>\r\n    <file name=\"api-ms-win-core-file-l2-1-0.dll\"/>\r\n    <file name=\"api-ms-win-core-handle-l1-1-0.dll\"/>\r\n    <file name=\"api-ms-win-core-heap-l1-1-0.dll\"/>\r\n    <file name=\"api-ms-win-core-interlocked-l1-1-0.dll\"/>\r\n    <file name=\"api-ms-win-core-libraryloader-l1-1-0.dll\"/>\r\n    <file name=\"api-ms-win-core-localization-l1-2-0.dll\"/>\r\n    <file name=\"api-ms-win-core-memory-l1-1-0.dll\"/>\r\n    <file name=\"api-ms-win-core-namedpipe-l1-1-0.dll\"/>\r\n    <file name=\"api-ms-win-core-processenvironment-l1-1-0.dll\"/>\r\n    <file name=\"api-ms-win-core-processthreads-l1-1-0.dll\"/>\r\n    <file name=\"api-ms-win-core-processthreads-l1-1-1.dll\"/>\r\n    <file name=\"api-ms-win-core-profile-l1-1-0.dll\"/>\r\n    <file name=\"api-ms-win-core-rtlsupport-l1-1-0.dll\"/>\r\n    <file name=\"api-ms-win-core-string-l1-1-0.dll\"/>\r\n    <file name=\"api-ms-win-core-synch-l1-1-0.dll\"/>\r\n    <file name=\"api-ms-win-core-synch-l1-2-0.dll\"/>\r\n    <file name=\"api-ms-win-core-sysinfo-l1-1-0.dll\"/>\r\n    <file name=\"api-ms-win-core-timezone-l1-1-0.dll\"/>\r\n    <file name=\"api-ms-win-core-util-l1-1-0.dll\"/>\r\n    <file name=\"api-ms-win-crt-conio-l1-1-0.dll\"/>\r\n    <file name=\"api-ms-win-crt-convert-l1-1-0.dll\"/>\r\n    <file name=\"api-ms-win-crt-environment-l1-1-0.dll\"/>\r\n    <file name=\"api-ms-win-crt-filesystem-l1-1-0.dll\"/>\r\n    <file name=\"api-ms-win-crt-heap-l1-1-0.dll\"/>\r\n    <file name=\"api-ms-win-crt-locale-l1-1-0.dll\"/>\r\n    <file name=\"api-ms-win-crt-math-l1-1-0.dll\"/>\r\n    <file name=\"api-ms-win-crt-multibyte-l1-1-0.dll\"/>\r\n    <file name=\"api-ms-win-crt-private-l1-1-0.dll\"/>\r\n    <file name=\"api-ms-win-crt-process-l1-1-0.dll\"/>\r\n    <file name=\"api-ms-win-crt-runtime-l1-1-0.dll\"/>\r\n    <file name=\"api-ms-win-crt-stdio-l1-1-0.dll\"/>\r\n    <file name=\"api-ms-win-crt-string-l1-1-0.dll\"/>\r\n    <file name=\"api-ms-win-crt-time-l1-1-0.dll\"/>\r\n    <file name=\"api-ms-win-crt-utility-l1-1-0.dll\"/>\r\n</assembly>\r\n"
+    }
+  ],
+  "pe_imports": [
+    {
+      "file": "blender.exe",
+      "sha256": "284f4041f98e113f3dc10654a7193ffaaa9bfdfec8b87fa116620a48b5f6d4cb",
+      "imports": [
+        "blender_cpu_check.dll",
+        "tbbmalloc.dll",
+        "KERNEL32.dll",
+        "SHELL32.dll",
+        "gmp-10.dll",
+        "tbbmalloc_proxy.dll",
+        "MSVCP140.dll",
+        "USER32.dll",
+        "OpenImageIO_Util.dll",
+        "tbb12.dll",
+        "openvdb.dll",
+        "ole32.dll",
+        "dbghelp.dll",
+        "SHLWAPI.dll",
+        "VERSION.dll",
+        "COMCTL32.dll",
+        "ADVAPI32.dll",
+        "dxgi.dll",
+        "epoxy-0.dll",
+        "avutil-60.dll",
+        "avformat-62.dll",
+        "avcodec-62.dll",
+        "avdevice-62.dll",
+        "python313.dll",
+        "OpenColorIO_2_5.dll",
+        "MaterialXCore.dll",
+        "MaterialXFormat.dll",
+        "vulkan-1.dll",
+        "shaderc_shared.dll",
+        "swscale-9.dll",
+        "usd_ms.dll",
+        "OpenEXR.dll",
+        "Iex.dll",
+        "Imath.dll",
+        "OpenAL32.dll",
+        "OpenImageDenoise.dll",
+        "api-ms-win-shcore-scaling-l1-1-1.dll",
+        "GDI32.dll",
+        "dwmapi.dll",
+        "OpenImageIO.dll",
+        "MPR.dll",
+        "OLEAUT32.dll",
+        "oslexec.dll",
+        "oslcomp.dll",
+        "oslquery.dll",
+        "sndfile.dll",
+        "IMM32.dll",
+        "ceres.dll",
+        "embree4.dll",
+        "CFGMGR32.dll",
+        "hiprt0200564.dll",
+        "cycles_kernel_oneapi_aot.dll",
+        "sycl8.dll",
+        "MSVCP140_2.dll",
+        "VCRUNTIME140.dll",
+        "VCRUNTIME140_1.dll",
+        "api-ms-win-crt-locale-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-time-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-environment-l1-1-0.dll",
+        "api-ms-win-crt-filesystem-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-convert-l1-1-0.dll",
+        "api-ms-win-crt-utility-l1-1-0.dll"
+      ],
+      "delay_imports": []
+    },
+    {
+      "file": "blender_cpu_check.dll",
+      "sha256": "1c1f06615a3fcca7c2757221fbafa3640e90591dbbc9d06f19f4962f5ce6194c",
+      "imports": [
+        "USER32.dll",
+        "MSVCP140.dll",
+        "KERNEL32.dll",
+        "VCRUNTIME140.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll"
+      ],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.shared\\tbbmalloc.dll",
+      "sha256": "75ad835e22cd7ef2feca7f2669cd4ca312ca5cbf8498c7842ec63e06018dc169",
+      "imports": [
+        "KERNEL32.dll",
+        "VCRUNTIME140_1.dll",
+        "VCRUNTIME140.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-environment-l1-1-0.dll",
+        "api-ms-win-crt-convert-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll"
+      ],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.shared\\gmp-10.dll",
+      "sha256": "d832f7933148934a8ea30e1ee08945102aca8c0cda0a3c0a61a2ca3ec5447c20",
+      "imports": [
+        "KERNEL32.dll",
+        "VCRUNTIME140.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-locale-l1-1-0.dll",
+        "api-ms-win-crt-convert-l1-1-0.dll"
+      ],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.shared\\tbbmalloc_proxy.dll",
+      "sha256": "95aef4b51c706917e5ab181e9e66996831d1cbda43148dd513f0ebf72d176e2e",
+      "imports": [
+        "tbbmalloc.dll",
+        "KERNEL32.dll",
+        "MSVCP140.dll",
+        "VCRUNTIME140.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-environment-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll"
+      ],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.crt\\MSVCP140.dll",
+      "sha256": "0f885b509a685d2bbfa652fed26b5fb31d88fbdab0a978c641d1c7b8aa460aa9",
+      "imports": [
+        "VCRUNTIME140.dll",
+        "VCRUNTIME140_1.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-locale-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-filesystem-l1-1-0.dll",
+        "api-ms-win-crt-time-l1-1-0.dll",
+        "api-ms-win-crt-environment-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-convert-l1-1-0.dll",
+        "api-ms-win-crt-utility-l1-1-0.dll",
+        "KERNEL32.dll"
+      ],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.shared\\OpenImageIO_Util.dll",
+      "sha256": "ee1ea0e25cd0ac2a929f4c9c7487ce8b9df46bf4bb00f29875861b326d681355",
+      "imports": [
+        "Imath.dll",
+        "tbb12.dll",
+        "KERNEL32.dll",
+        "SHELL32.dll",
+        "MSVCP140.dll",
+        "VCRUNTIME140.dll",
+        "VCRUNTIME140_1.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-filesystem-l1-1-0.dll",
+        "api-ms-win-crt-locale-l1-1-0.dll",
+        "api-ms-win-crt-time-l1-1-0.dll",
+        "api-ms-win-crt-convert-l1-1-0.dll",
+        "api-ms-win-crt-environment-l1-1-0.dll"
+      ],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.shared\\tbb12.dll",
+      "sha256": "12d8622ecede4409961b449e77d3ab368dee8d15f6a0b1c8352a657f5848dbb0",
+      "imports": [
+        "KERNEL32.dll",
+        "MSVCP140.dll",
+        "VCRUNTIME140_1.dll",
+        "VCRUNTIME140.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-environment-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll"
+      ],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.shared\\openvdb.dll",
+      "sha256": "eec91f414a7be65be3656ff932a044a8198780c5e6d24a40e5f0c8dc34691ad7",
+      "imports": [
+        "tbb12.dll",
+        "KERNEL32.dll",
+        "MSVCP140.dll",
+        "VCRUNTIME140.dll",
+        "VCRUNTIME140_1.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-filesystem-l1-1-0.dll",
+        "api-ms-win-crt-convert-l1-1-0.dll",
+        "api-ms-win-crt-environment-l1-1-0.dll"
+      ],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.shared\\epoxy-0.dll",
+      "sha256": "7917b1b9356afc4341aaa7d29fc8f3114a82c379729c235e94c7b532816f5831",
+      "imports": [
+        "KERNEL32.dll",
+        "VCRUNTIME140.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll"
+      ],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.shared\\avutil-60.dll",
+      "sha256": "45faaaeb6660b7d92be905c31d4583fa5817cba3e176d43aea4a9e0f1d31d2af",
+      "imports": [
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-time-l1-1-0.dll",
+        "api-ms-win-crt-convert-l1-1-0.dll",
+        "api-ms-win-crt-filesystem-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-environment-l1-1-0.dll",
+        "api-ms-win-crt-utility-l1-1-0.dll",
+        "USER32.dll",
+        "bcrypt.dll",
+        "KERNEL32.dll",
+        "VCRUNTIME140.dll"
+      ],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.shared\\avformat-62.dll",
+      "sha256": "cc0d7dc35a60bf3392045c9c8fef9f521c5fa9f5471fd715d75a0ecd05498bba",
+      "imports": [
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-convert-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-time-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-utility-l1-1-0.dll",
+        "api-ms-win-crt-filesystem-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-environment-l1-1-0.dll",
+        "avcodec-62.dll",
+        "avutil-60.dll",
+        "Secur32.dll",
+        "ncrypt.dll",
+        "CRYPT32.dll",
+        "WS2_32.dll",
+        "KERNEL32.dll",
+        "VCRUNTIME140.dll"
+      ],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.shared\\avcodec-62.dll",
+      "sha256": "6ce4495bdde521042b4f01aaed4ba8ba2164c2eb37dd993e7d4ec288242e3dcd",
+      "imports": [
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-convert-l1-1-0.dll",
+        "api-ms-win-crt-utility-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-time-l1-1-0.dll",
+        "swresample-6.dll",
+        "avutil-60.dll",
+        "aom.dll",
+        "ole32.dll",
+        "KERNEL32.dll",
+        "VCRUNTIME140.dll",
+        "VCRUNTIME140_1.dll",
+        "api-ms-win-crt-environment-l1-1-0.dll",
+        "api-ms-win-crt-filesystem-l1-1-0.dll"
+      ],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.shared\\avdevice-62.dll",
+      "sha256": "8c0dc3b4121b84829f87d0f703c47a83996db78230faee4c565d65b6926e7181",
+      "imports": [
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-convert-l1-1-0.dll",
+        "avfilter-11.dll",
+        "avformat-62.dll",
+        "avcodec-62.dll",
+        "avutil-60.dll",
+        "ole32.dll",
+        "OLEAUT32.dll",
+        "SHLWAPI.dll",
+        "GDI32.dll",
+        "AVICAP32.dll",
+        "USER32.dll",
+        "KERNEL32.dll",
+        "VCRUNTIME140.dll"
+      ],
+      "delay_imports": []
+    },
+    {
+      "file": "python313.dll",
+      "sha256": "aeae90afd246a75ff9af4e8b971a2286de6320bc32e7022943017a7e483a95e8",
+      "imports": [
+        "VERSION.dll",
+        "WS2_32.dll",
+        "api-ms-win-core-path-l1-1-0.dll",
+        "bcrypt.dll",
+        "ADVAPI32.dll",
+        "KERNEL32.dll",
+        "VCRUNTIME140.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-environment-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-locale-l1-1-0.dll",
+        "api-ms-win-crt-convert-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-time-l1-1-0.dll",
+        "api-ms-win-crt-process-l1-1-0.dll",
+        "api-ms-win-crt-conio-l1-1-0.dll",
+        "api-ms-win-crt-filesystem-l1-1-0.dll"
+      ],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.shared\\OpenColorIO_2_5.dll",
+      "sha256": "55e9907d952e2596ff3d6e4cae5db29aa232e8b9b369183cc7036b796d8bcb05",
+      "imports": [
+        "Imath.dll",
+        "KERNEL32.dll",
+        "USER32.dll",
+        "GDI32.dll",
+        "MSVCP140.dll",
+        "VCRUNTIME140.dll",
+        "VCRUNTIME140_1.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-filesystem-l1-1-0.dll",
+        "api-ms-win-crt-convert-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-environment-l1-1-0.dll",
+        "api-ms-win-crt-locale-l1-1-0.dll",
+        "api-ms-win-crt-time-l1-1-0.dll",
+        "api-ms-win-crt-utility-l1-1-0.dll"
+      ],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.shared\\MaterialXCore.dll",
+      "sha256": "f266c8eb9729a220d30de5ceee7a43eef8e881df88e81333f011deba287302c7",
+      "imports": [
+        "MSVCP140.dll",
+        "VCRUNTIME140.dll",
+        "VCRUNTIME140_1.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-convert-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "KERNEL32.dll"
+      ],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.shared\\MaterialXFormat.dll",
+      "sha256": "7d2c6f42bf5a230b319ebc9693373e4cf0e075eb132a849e21b07012a7dca26e",
+      "imports": [
+        "MaterialXCore.dll",
+        "KERNEL32.dll",
+        "MSVCP140.dll",
+        "VCRUNTIME140.dll",
+        "VCRUNTIME140_1.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-filesystem-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll"
+      ],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.shared\\vulkan-1.dll",
+      "sha256": "4506ce91b27ac2b83553da205297fd5f3c45d1f165eec9cd1ac25be37d23dbeb",
+      "imports": [
+        "CFGMGR32.dll",
+        "KERNEL32.dll",
+        "ADVAPI32.dll"
+      ],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.shared\\shaderc_shared.dll",
+      "sha256": "80e6b47626648b46c87681145633eb5c655bc671569097e7ef1690dad5193b15",
+      "imports": [
+        "KERNEL32.dll",
+        "MSVCP140.dll",
+        "VCRUNTIME140.dll",
+        "VCRUNTIME140_1.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-convert-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-locale-l1-1-0.dll"
+      ],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.shared\\swscale-9.dll",
+      "sha256": "80e469543460e280131d86a4261326b8e6ef6893e2aad1f3f0540031f1ede0e7",
+      "imports": [
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-utility-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "avutil-60.dll",
+        "KERNEL32.dll",
+        "VCRUNTIME140.dll"
+      ],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.shared\\usd_ms.dll",
+      "sha256": "a6d0cbc58ac3cf647af4b9f9bcf607485515cf68b137f0228334cc5afa48cb2d",
+      "imports": [
+        "openvdb.dll",
+        "OpenImageIO.dll",
+        "OpenImageIO_Util.dll",
+        "OPENGL32.dll",
+        "vulkan-1.dll",
+        "MaterialXRender.dll",
+        "MaterialXGenGlsl.dll",
+        "MaterialXGenMsl.dll",
+        "MaterialXGenShader.dll",
+        "MaterialXFormat.dll",
+        "MaterialXCore.dll",
+        "WS2_32.dll",
+        "dbghelp.dll",
+        "python313.dll",
+        "SHLWAPI.dll",
+        "tbb12.dll",
+        "KERNEL32.dll",
+        "USER32.dll",
+        "GDI32.dll",
+        "ADVAPI32.dll",
+        "MSVCP140.dll",
+        "VCRUNTIME140_1.dll",
+        "VCRUNTIME140.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-environment-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-filesystem-l1-1-0.dll",
+        "api-ms-win-crt-utility-l1-1-0.dll",
+        "api-ms-win-crt-time-l1-1-0.dll",
+        "api-ms-win-crt-convert-l1-1-0.dll",
+        "api-ms-win-crt-locale-l1-1-0.dll"
+      ],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.shared\\OpenEXR.dll",
+      "sha256": "b47ec4e30ce690fe08136ac6f66f245a13962cd0cd5c96384adc7cc007c9573c",
+      "imports": [
+        "IlmThread.dll",
+        "OpenEXRCore.dll",
+        "Iex.dll",
+        "Imath.dll",
+        "MSVCP140.dll",
+        "VCRUNTIME140.dll",
+        "VCRUNTIME140_1.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-filesystem-l1-1-0.dll",
+        "KERNEL32.dll"
+      ],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.shared\\Iex.dll",
+      "sha256": "6522d2fb12d7b742195b753a27551b808641f6b19bdcea99a19694630e310f30",
+      "imports": [
+        "KERNEL32.dll",
+        "MSVCP140.dll",
+        "VCRUNTIME140.dll",
+        "VCRUNTIME140_1.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-environment-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll"
+      ],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.shared\\Imath.dll",
+      "sha256": "6cf45ca38441f40cbcef85bf40096712a872e248f772f283aefae1214afebaac",
+      "imports": [
+        "MSVCP140.dll",
+        "VCRUNTIME140.dll",
+        "VCRUNTIME140_1.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "KERNEL32.dll"
+      ],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.shared\\OpenAL32.dll",
+      "sha256": "760b09d44566f65fb94074bf3a5f68164237b76447ec4664bc2d40f2080d3456",
+      "imports": [
+        "WINMM.dll",
+        "KERNEL32.dll",
+        "USER32.dll",
+        "SHELL32.dll",
+        "ole32.dll",
+        "MSVCP140.dll",
+        "VCRUNTIME140.dll",
+        "VCRUNTIME140_1.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-convert-l1-1-0.dll",
+        "api-ms-win-crt-filesystem-l1-1-0.dll",
+        "api-ms-win-crt-environment-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll"
+      ],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.shared\\OpenImageDenoise.dll",
+      "sha256": "e200ac479e04cf89d80b7422b524a6d05fcdcaeb9bf391a16dbc07d2c0838075",
+      "imports": [
+        "OpenImageDenoise_core.dll",
+        "MSVCP140.dll",
+        "KERNEL32.dll",
+        "VCRUNTIME140.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-environment-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll"
+      ],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.shared\\OpenImageIO.dll",
+      "sha256": "04546bd62390f739bcc6d998445c1806b7b0831cc93bca9f87bb4ee258495041",
+      "imports": [
+        "OpenImageIO_Util.dll",
+        "OpenEXR.dll",
+        "openjph.0.25.dll",
+        "OpenEXRCore.dll",
+        "OpenColorIO_2_5.dll",
+        "Iex.dll",
+        "aom.dll",
+        "KERNEL32.dll",
+        "MSVCP140.dll",
+        "MSVCP140_ATOMIC_WAIT.dll",
+        "VCRUNTIME140.dll",
+        "VCRUNTIME140_1.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-locale-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-filesystem-l1-1-0.dll",
+        "api-ms-win-crt-environment-l1-1-0.dll",
+        "api-ms-win-crt-time-l1-1-0.dll",
+        "api-ms-win-crt-convert-l1-1-0.dll",
+        "api-ms-win-crt-utility-l1-1-0.dll"
+      ],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.shared\\oslexec.dll",
+      "sha256": "71a7a02317e69d81311c76fb8d13b18e109cdf2c44c2308d4fa8a845554e27c9",
+      "imports": [
+        "oslquery.dll",
+        "oslnoise.dll",
+        "OpenImageIO.dll",
+        "SHELL32.dll",
+        "ole32.dll",
+        "ADVAPI32.dll",
+        "ntdll.dll",
+        "OpenImageIO_Util.dll",
+        "KERNEL32.dll",
+        "MSVCP140.dll",
+        "VCRUNTIME140.dll",
+        "VCRUNTIME140_1.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-filesystem-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-convert-l1-1-0.dll",
+        "api-ms-win-crt-environment-l1-1-0.dll",
+        "api-ms-win-crt-locale-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-utility-l1-1-0.dll",
+        "api-ms-win-crt-time-l1-1-0.dll"
+      ],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.shared\\oslcomp.dll",
+      "sha256": "9ab16ea3f9dcd0ae8505a2460cf184cafd5e7e9a5ac0a8d7b8d2506f2d5546a1",
+      "imports": [
+        "SHELL32.dll",
+        "ole32.dll",
+        "ADVAPI32.dll",
+        "ntdll.dll",
+        "OpenImageIO_Util.dll",
+        "KERNEL32.dll",
+        "MSVCP140.dll",
+        "VCRUNTIME140.dll",
+        "VCRUNTIME140_1.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-locale-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-filesystem-l1-1-0.dll",
+        "api-ms-win-crt-environment-l1-1-0.dll",
+        "api-ms-win-crt-convert-l1-1-0.dll",
+        "api-ms-win-crt-utility-l1-1-0.dll",
+        "api-ms-win-crt-time-l1-1-0.dll"
+      ],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.shared\\oslquery.dll",
+      "sha256": "48b82e21155f3251fc98a9422418425fbc0ec6b4df5c136c2f88eaa9209e591e",
+      "imports": [
+        "OpenImageIO_Util.dll",
+        "MSVCP140.dll",
+        "VCRUNTIME140.dll",
+        "VCRUNTIME140_1.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-locale-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "KERNEL32.dll"
+      ],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.shared\\sndfile.dll",
+      "sha256": "da751e5fbd35a62c1b76284a10fddebf74139d78ab406a9fbc97ba2a47592eb9",
+      "imports": [
+        "KERNEL32.dll",
+        "VCRUNTIME140.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-time-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-environment-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-filesystem-l1-1-0.dll",
+        "api-ms-win-crt-convert-l1-1-0.dll",
+        "api-ms-win-crt-utility-l1-1-0.dll"
+      ],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.shared\\ceres.dll",
+      "sha256": "0647cd711ca91e583023a17aa1c14bb7588ea4f64567e56d0a5e93f001c6b50a",
+      "imports": [
+        "KERNEL32.dll",
+        "MSVCP140.dll",
+        "MSVCP140_2.dll",
+        "dbghelp.dll",
+        "VCRUNTIME140.dll",
+        "VCRUNTIME140_1.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-time-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll"
+      ],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.shared\\embree4.dll",
+      "sha256": "de2ffaed65bd5c54d4e52ca5def2c05b136ed8aa6f36d470cab9164c9f03d40d",
+      "imports": [
+        "sycl8.dll",
+        "tbb12.dll",
+        "MSVCP140.dll",
+        "KERNEL32.dll",
+        "ADVAPI32.dll",
+        "VCRUNTIME140.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-filesystem-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-convert-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll"
+      ],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.shared\\hiprt0200564.dll",
+      "sha256": "b145ea7f32672811a43b53dadd72c82233b865c286d28805e9755e558533e719",
+      "imports": [
+        "VERSION.dll",
+        "KERNEL32.dll",
+        "MSVCP140.dll",
+        "VCRUNTIME140.dll",
+        "VCRUNTIME140_1.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-environment-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-filesystem-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-convert-l1-1-0.dll",
+        "api-ms-win-crt-locale-l1-1-0.dll"
+      ],
+      "delay_imports": []
+    },
+    {
+      "file": "cycles_kernel_oneapi_aot.dll",
+      "sha256": "7cd7555a0ad21b94f7ae66353dc20e5da61f4e1ad186ab26010adaf112d8b8a5",
+      "imports": [
+        "embree4.dll",
+        "sycl8.dll",
+        "MSVCP140.dll",
+        "KERNEL32.dll",
+        "VCRUNTIME140.dll",
+        "api-ms-win-crt-utility-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll"
+      ],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.shared\\sycl8.dll",
+      "sha256": "cf04add13bfbd58bb5a167447a6df253b3df5d5607238bb876300a6d2a8a826b",
+      "imports": [
+        "SHLWAPI.dll",
+        "ur_win_proxy_loader.dll",
+        "KERNEL32.dll",
+        "MSVCP140.dll",
+        "VCRUNTIME140.dll",
+        "VCRUNTIME140_1.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-filesystem-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-environment-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-convert-l1-1-0.dll",
+        "api-ms-win-crt-locale-l1-1-0.dll"
+      ],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.crt\\MSVCP140_2.dll",
+      "sha256": "3ea06f0ee098b4823cb79599df3780e7f23cce52c19aac31d2a0d47efe33a5e9",
+      "imports": [
+        "MSVCP140.dll",
+        "VCRUNTIME140.dll",
+        "VCRUNTIME140_1.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-locale-l1-1-0.dll",
+        "KERNEL32.dll"
+      ],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.crt\\VCRUNTIME140.dll",
+      "sha256": "d5e4d9a3e835fa679450145d6a7d94e36573a509317111904d9b3712c30d9066",
+      "imports": [
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-convert-l1-1-0.dll",
+        "KERNEL32.dll"
+      ],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.crt\\VCRUNTIME140_1.dll",
+      "sha256": "1f2d41c4aa5db0bc33ebf7b66d72943a817d7ce6cbe880502a9403823633093f",
+      "imports": [
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "VCRUNTIME140.dll",
+        "KERNEL32.dll"
+      ],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.crt\\api-ms-win-crt-locale-l1-1-0.dll",
+      "sha256": "2e23b53441ba6b0779b222c120d44eb9a156d55cc3648f76216017ef06f9a16f",
+      "imports": [],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.crt\\api-ms-win-crt-stdio-l1-1-0.dll",
+      "sha256": "eb7851e182a4675bb34633869938ff3579779a92a6c094194efbc970f3765dcc",
+      "imports": [],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.crt\\api-ms-win-crt-heap-l1-1-0.dll",
+      "sha256": "1edf013e890072987b8957b77baecc37140bc01581e5de6b020ae454bb57f8bf",
+      "imports": [],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.crt\\api-ms-win-crt-runtime-l1-1-0.dll",
+      "sha256": "d3641bbaeaa5a7e7d4ee0ee0ec64ccee0327cfba3d10b89094144eb70a0867a9",
+      "imports": [],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.crt\\api-ms-win-crt-time-l1-1-0.dll",
+      "sha256": "9c5880c395b4e7db4b8d6de49c75909abdaeeef0b041c1703c7339b05d7d2866",
+      "imports": [],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.crt\\api-ms-win-crt-math-l1-1-0.dll",
+      "sha256": "e6e839c6d205f91adaa3d980f843bab3131b8a25e06d152d0f70a6e98fbe0fb0",
+      "imports": [],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.crt\\api-ms-win-crt-environment-l1-1-0.dll",
+      "sha256": "0e195a8d013a329a06df877a4569a3ec772f112ad29295f086c6d3e53f322fb5",
+      "imports": [],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.crt\\api-ms-win-crt-filesystem-l1-1-0.dll",
+      "sha256": "58d9a9b2442c10140db98ba705e8c7b7b9ac5a2c030d3286a66debf63b615c1b",
+      "imports": [],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.crt\\api-ms-win-crt-string-l1-1-0.dll",
+      "sha256": "08d811ff57efe50d9f365c76ec29e095474e0679e06bb4d0d4d0134b0120b40d",
+      "imports": [],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.crt\\api-ms-win-crt-convert-l1-1-0.dll",
+      "sha256": "44ebde7f2681c0b8518e55ca242261b24f326994f089a4ef6c060f8dda04d62d",
+      "imports": [],
+      "delay_imports": []
+    },
+    {
+      "file": "blender.crt\\api-ms-win-crt-utility-l1-1-0.dll",
+      "sha256": "7d3d88332d4744c9b6be81e2ba8d42ced7657ce7879a26f5b8a8d3bb2331ada0",
+      "imports": [],
+      "delay_imports": []
+    }
+  ]
+}

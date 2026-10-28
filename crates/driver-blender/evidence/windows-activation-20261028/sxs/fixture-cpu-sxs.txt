@@ -1,0 +1,239 @@
+﻿=================
+Iniciar generación de contexto de activación.
+Parámetro de entrada:
+	Flags = 0
+	ProcessorArchitecture = AMD64
+	CultureFallBacks = es-MX;es;es-ES;en-US;en
+	ManifestPath = E:\Projects\semwright-blender52\.local\tmp\.tmp1wH4yv\fixture-embedded-manifest.exe
+	AssemblyDirectory = E:\Projects\semwright-blender52\.local\tmp\.tmp1wH4yv\
+	Application Config File = 
+-----------------
+INFORMACIÓN: analizando archivo de manifiesto E:\Projects\semwright-blender52\.local\tmp\.tmp1wH4yv\fixture-embedded-manifest.exe.
+	INFORMACIÓN: la identidad de definición del manifiesto es (null).
+	INFORMACIÓN: referencia: Microsoft.Windows.Common-Controls,language="&#x2a;",processorArchitecture="&#x2a;",publicKeyToken="6595b64144ccf1df",type="win32",version="6.0.0.0"
+	INFORMACIÓN: referencia: blender.crt,type="win32",version="1.0.0.0"
+	INFORMACIÓN: referencia: blender.shared,type="win32",version="1.0.0.0"
+INFORMACIÓN: resolviendo referencia Microsoft.Windows.Common-Controls,language="&#x2a;",processorArchitecture="&#x2a;",publicKeyToken="6595b64144ccf1df",type="win32",version="6.0.0.0".
+	INFORMACIÓN: resolviendo referencia de ProcessorArchitecture AMD64.
+		INFORMACIÓN: resolviendo referencia cultural es-MX.
+			INFORMACIÓN: aplicando directiva de enlace.
+				INFORMACIÓN: no se encuentra la directiva de edición.
+				INFORMACIÓN: no se encuentra el redirección de la directiva de enlace.
+			INFORMACIÓN: iniciar sondeo de ensamblado.
+				INFORMACIÓN: no se encontró el ensamblado en WinSxS.
+				INFORMACIÓN: intento de sondear manifiesto en C:\WINDOWS\assembly\GAC_64\Microsoft.Windows.Common-Controls\6.0.0.0_es-MX_6595b64144ccf1df\Microsoft.Windows.Common-Controls.DLL.
+				INFORMACIÓN: no se encontró el manifiesto de la referencia cultural es-MX.
+			INFORMACIÓN: finalizar sondeo de ensamblado.
+		INFORMACIÓN: resolviendo referencia cultural es.
+			INFORMACIÓN: aplicando directiva de enlace.
+				INFORMACIÓN: no se encuentra la directiva de edición.
+				INFORMACIÓN: no se encuentra el redirección de la directiva de enlace.
+			INFORMACIÓN: iniciar sondeo de ensamblado.
+				INFORMACIÓN: no se encontró el ensamblado en WinSxS.
+				INFORMACIÓN: intento de sondear manifiesto en C:\WINDOWS\assembly\GAC_64\Microsoft.Windows.Common-Controls\6.0.0.0_es_6595b64144ccf1df\Microsoft.Windows.Common-Controls.DLL.
+				INFORMACIÓN: no se encontró el manifiesto de la referencia cultural es.
+			INFORMACIÓN: finalizar sondeo de ensamblado.
+		INFORMACIÓN: resolviendo referencia cultural es-ES.
+			INFORMACIÓN: aplicando directiva de enlace.
+				INFORMACIÓN: no se encuentra la directiva de edición.
+				INFORMACIÓN: no se encuentra el redirección de la directiva de enlace.
+			INFORMACIÓN: iniciar sondeo de ensamblado.
+				INFORMACIÓN: no se encontró el ensamblado en WinSxS.
+				INFORMACIÓN: intento de sondear manifiesto en C:\WINDOWS\assembly\GAC_64\Microsoft.Windows.Common-Controls\6.0.0.0_es-ES_6595b64144ccf1df\Microsoft.Windows.Common-Controls.DLL.
+				INFORMACIÓN: no se encontró el manifiesto de la referencia cultural es-ES.
+			INFORMACIÓN: finalizar sondeo de ensamblado.
+		INFORMACIÓN: resolviendo referencia cultural en-US.
+			INFORMACIÓN: aplicando directiva de enlace.
+				INFORMACIÓN: no se encuentra la directiva de edición.
+				INFORMACIÓN: no se encuentra el redirección de la directiva de enlace.
+			INFORMACIÓN: iniciar sondeo de ensamblado.
+				INFORMACIÓN: no se encontró el ensamblado en WinSxS.
+				INFORMACIÓN: intento de sondear manifiesto en C:\WINDOWS\assembly\GAC_64\Microsoft.Windows.Common-Controls\6.0.0.0_en-US_6595b64144ccf1df\Microsoft.Windows.Common-Controls.DLL.
+				INFORMACIÓN: no se encontró el manifiesto de la referencia cultural en-US.
+			INFORMACIÓN: finalizar sondeo de ensamblado.
+		INFORMACIÓN: resolviendo referencia cultural en.
+			INFORMACIÓN: aplicando directiva de enlace.
+				INFORMACIÓN: no se encuentra la directiva de edición.
+				INFORMACIÓN: no se encuentra el redirección de la directiva de enlace.
+			INFORMACIÓN: iniciar sondeo de ensamblado.
+				INFORMACIÓN: no se encontró el ensamblado en WinSxS.
+				INFORMACIÓN: intento de sondear manifiesto en C:\WINDOWS\assembly\GAC_64\Microsoft.Windows.Common-Controls\6.0.0.0_en_6595b64144ccf1df\Microsoft.Windows.Common-Controls.DLL.
+				INFORMACIÓN: no se encontró el manifiesto de la referencia cultural en.
+			INFORMACIÓN: finalizar sondeo de ensamblado.
+		INFORMACIÓN: resolviendo referencia cultural Neutral.
+			INFORMACIÓN: aplicando directiva de enlace.
+				INFORMACIÓN: versión de ensamblado redirigida por directiva de servicio automático.
+				INFORMACIÓN: la identidad de la directiva de publicación es Microsoft.Windows.Common-Controls,processorArchitecture="AMD64",publicKeyToken="6595b64144ccf1df",type="win32",version="6.0.26100.9711".
+			INFORMACIÓN: iniciar sondeo de ensamblado.
+				INFORMACIÓN: intento de sondear manifiesto en C:\WINDOWS\WinSxS\manifests\amd64_microsoft.windows.common-controls_6595b64144ccf1df_6.0.26100.9711_none_3e07b8b0e334e825.manifest.
+				INFORMACIÓN: manifiesto encontrado en C:\WINDOWS\WinSxS\manifests\amd64_microsoft.windows.common-controls_6595b64144ccf1df_6.0.26100.9711_none_3e07b8b0e334e825.manifest.
+			INFORMACIÓN: finalizar sondeo de ensamblado.
+INFORMACIÓN: resolviendo referencia Microsoft.Windows.Common-Controls.mui,language="&#x2a;",processorArchitecture="AMD64",publicKeyToken="6595b64144ccf1df",type="win32",version="6.0.26100.9711".
+	INFORMACIÓN: resolviendo referencia de ProcessorArchitecture AMD64.
+		INFORMACIÓN: resolviendo referencia cultural es-MX.
+			INFORMACIÓN: aplicando directiva de enlace.
+				INFORMACIÓN: no se encuentra la directiva de edición.
+				INFORMACIÓN: no se encuentra el redirección de la directiva de enlace.
+			INFORMACIÓN: iniciar sondeo de ensamblado.
+				INFORMACIÓN: no se encontró el ensamblado en WinSxS.
+				INFORMACIÓN: intento de sondear manifiesto en C:\WINDOWS\assembly\GAC_64\Microsoft.Windows.Common-Controls.mui\6.0.26100.9711_es-MX_6595b64144ccf1df\Microsoft.Windows.Common-Controls.mui.DLL.
+				INFORMACIÓN: no se encontró el manifiesto de la referencia cultural es-MX.
+			INFORMACIÓN: finalizar sondeo de ensamblado.
+		INFORMACIÓN: resolviendo referencia cultural es.
+			INFORMACIÓN: aplicando directiva de enlace.
+				INFORMACIÓN: no se encuentra la directiva de edición.
+				INFORMACIÓN: no se encuentra el redirección de la directiva de enlace.
+			INFORMACIÓN: iniciar sondeo de ensamblado.
+				INFORMACIÓN: no se encontró el ensamblado en WinSxS.
+				INFORMACIÓN: intento de sondear manifiesto en C:\WINDOWS\assembly\GAC_64\Microsoft.Windows.Common-Controls.mui\6.0.26100.9711_es_6595b64144ccf1df\Microsoft.Windows.Common-Controls.mui.DLL.
+				INFORMACIÓN: no se encontró el manifiesto de la referencia cultural es.
+			INFORMACIÓN: finalizar sondeo de ensamblado.
+		INFORMACIÓN: resolviendo referencia cultural es-ES.
+			INFORMACIÓN: aplicando directiva de enlace.
+				INFORMACIÓN: no se encuentra la directiva de edición.
+				INFORMACIÓN: no se encuentra el redirección de la directiva de enlace.
+			INFORMACIÓN: iniciar sondeo de ensamblado.
+				INFORMACIÓN: no se encontró el ensamblado en WinSxS.
+				INFORMACIÓN: intento de sondear manifiesto en C:\WINDOWS\assembly\GAC_64\Microsoft.Windows.Common-Controls.mui\6.0.26100.9711_es-ES_6595b64144ccf1df\Microsoft.Windows.Common-Controls.mui.DLL.
+				INFORMACIÓN: no se encontró el manifiesto de la referencia cultural es-ES.
+			INFORMACIÓN: finalizar sondeo de ensamblado.
+		INFORMACIÓN: resolviendo referencia cultural en-US.
+			INFORMACIÓN: aplicando directiva de enlace.
+				INFORMACIÓN: no se encuentra la directiva de edición.
+				INFORMACIÓN: no se encuentra el redirección de la directiva de enlace.
+			INFORMACIÓN: iniciar sondeo de ensamblado.
+				INFORMACIÓN: no se encontró el ensamblado en WinSxS.
+				INFORMACIÓN: intento de sondear manifiesto en C:\WINDOWS\assembly\GAC_64\Microsoft.Windows.Common-Controls.mui\6.0.26100.9711_en-US_6595b64144ccf1df\Microsoft.Windows.Common-Controls.mui.DLL.
+				INFORMACIÓN: no se encontró el manifiesto de la referencia cultural en-US.
+			INFORMACIÓN: finalizar sondeo de ensamblado.
+		INFORMACIÓN: resolviendo referencia cultural en.
+			INFORMACIÓN: aplicando directiva de enlace.
+				INFORMACIÓN: no se encuentra la directiva de edición.
+				INFORMACIÓN: no se encuentra el redirección de la directiva de enlace.
+			INFORMACIÓN: iniciar sondeo de ensamblado.
+				INFORMACIÓN: no se encontró el ensamblado en WinSxS.
+				INFORMACIÓN: intento de sondear manifiesto en C:\WINDOWS\assembly\GAC_64\Microsoft.Windows.Common-Controls.mui\6.0.26100.9711_en_6595b64144ccf1df\Microsoft.Windows.Common-Controls.mui.DLL.
+				INFORMACIÓN: no se encontró el manifiesto de la referencia cultural en.
+			INFORMACIÓN: finalizar sondeo de ensamblado.
+INFORMACIÓN: resolviendo referencia blender.crt,type="win32",version="1.0.0.0".
+	INFORMACIÓN: resolviendo referencia de ProcessorArchitecture blender.crt,type="win32",version="1.0.0.0".
+		INFORMACIÓN: resolviendo referencia cultural Neutral.
+			INFORMACIÓN: aplicando directiva de enlace.
+				INFORMACIÓN: no se encuentra el redirección de la directiva de enlace.
+			INFORMACIÓN: iniciar sondeo de ensamblado.
+				INFORMACIÓN: no se encontró el ensamblado en WinSxS.
+				INFORMACIÓN: intento de sondear manifiesto en E:\Projects\semwright-blender52\.local\tmp\.tmp1wH4yv\blender.crt.DLL.
+				INFORMACIÓN: intento de sondear manifiesto en E:\Projects\semwright-blender52\.local\tmp\.tmp1wH4yv\blender.crt.MANIFEST.
+				INFORMACIÓN: intento de sondear manifiesto en E:\Projects\semwright-blender52\.local\tmp\.tmp1wH4yv\blender.crt\blender.crt.DLL.
+				INFORMACIÓN: intento de sondear manifiesto en E:\Projects\semwright-blender52\.local\tmp\.tmp1wH4yv\blender.crt\blender.crt.MANIFEST.
+				INFORMACIÓN: manifiesto encontrado en E:\Projects\semwright-blender52\.local\tmp\.tmp1wH4yv\blender.crt\blender.crt.MANIFEST.
+			INFORMACIÓN: finalizar sondeo de ensamblado.
+INFORMACIÓN: resolviendo referencia blender.crt.mui,language="&#x2a;",type="win32",version="1.0.0.0".
+	INFORMACIÓN: resolviendo referencia de ProcessorArchitecture blender.crt.mui,language="&#x2a;",type="win32",version="1.0.0.0".
+		INFORMACIÓN: resolviendo referencia cultural es-MX.
+			INFORMACIÓN: aplicando directiva de enlace.
+				INFORMACIÓN: no se encuentra el redirección de la directiva de enlace.
+			INFORMACIÓN: iniciar sondeo de ensamblado.
+				INFORMACIÓN: no se encontró el ensamblado en WinSxS.
+				INFORMACIÓN: no se encontró el manifiesto de la referencia cultural es-MX.
+			INFORMACIÓN: finalizar sondeo de ensamblado.
+		INFORMACIÓN: resolviendo referencia cultural es.
+			INFORMACIÓN: aplicando directiva de enlace.
+				INFORMACIÓN: no se encuentra el redirección de la directiva de enlace.
+			INFORMACIÓN: iniciar sondeo de ensamblado.
+				INFORMACIÓN: no se encontró el ensamblado en WinSxS.
+				INFORMACIÓN: no se encontró el manifiesto de la referencia cultural es.
+			INFORMACIÓN: finalizar sondeo de ensamblado.
+		INFORMACIÓN: resolviendo referencia cultural es-ES.
+			INFORMACIÓN: aplicando directiva de enlace.
+				INFORMACIÓN: no se encuentra el redirección de la directiva de enlace.
+			INFORMACIÓN: iniciar sondeo de ensamblado.
+				INFORMACIÓN: no se encontró el ensamblado en WinSxS.
+				INFORMACIÓN: no se encontró el manifiesto de la referencia cultural es-ES.
+			INFORMACIÓN: finalizar sondeo de ensamblado.
+		INFORMACIÓN: resolviendo referencia cultural en-US.
+			INFORMACIÓN: aplicando directiva de enlace.
+				INFORMACIÓN: no se encuentra el redirección de la directiva de enlace.
+			INFORMACIÓN: iniciar sondeo de ensamblado.
+				INFORMACIÓN: no se encontró el ensamblado en WinSxS.
+				INFORMACIÓN: no se encontró el manifiesto de la referencia cultural en-US.
+			INFORMACIÓN: finalizar sondeo de ensamblado.
+		INFORMACIÓN: resolviendo referencia cultural en.
+			INFORMACIÓN: aplicando directiva de enlace.
+				INFORMACIÓN: no se encuentra el redirección de la directiva de enlace.
+			INFORMACIÓN: iniciar sondeo de ensamblado.
+				INFORMACIÓN: no se encontró el ensamblado en WinSxS.
+				INFORMACIÓN: no se encontró el manifiesto de la referencia cultural en.
+			INFORMACIÓN: finalizar sondeo de ensamblado.
+INFORMACIÓN: resolviendo referencia blender.shared,type="win32",version="1.0.0.0".
+	INFORMACIÓN: resolviendo referencia de ProcessorArchitecture blender.shared,type="win32",version="1.0.0.0".
+		INFORMACIÓN: resolviendo referencia cultural Neutral.
+			INFORMACIÓN: aplicando directiva de enlace.
+				INFORMACIÓN: no se encuentra el redirección de la directiva de enlace.
+			INFORMACIÓN: iniciar sondeo de ensamblado.
+				INFORMACIÓN: no se encontró el ensamblado en WinSxS.
+				INFORMACIÓN: intento de sondear manifiesto en E:\Projects\semwright-blender52\.local\tmp\.tmp1wH4yv\blender.shared.DLL.
+				INFORMACIÓN: intento de sondear manifiesto en E:\Projects\semwright-blender52\.local\tmp\.tmp1wH4yv\blender.shared.MANIFEST.
+				INFORMACIÓN: intento de sondear manifiesto en E:\Projects\semwright-blender52\.local\tmp\.tmp1wH4yv\blender.shared\blender.shared.DLL.
+				INFORMACIÓN: intento de sondear manifiesto en E:\Projects\semwright-blender52\.local\tmp\.tmp1wH4yv\blender.shared\blender.shared.MANIFEST.
+				INFORMACIÓN: manifiesto encontrado en E:\Projects\semwright-blender52\.local\tmp\.tmp1wH4yv\blender.shared\blender.shared.MANIFEST.
+			INFORMACIÓN: finalizar sondeo de ensamblado.
+INFORMACIÓN: resolviendo referencia blender.shared.mui,language="&#x2a;",type="win32",version="1.0.0.0".
+	INFORMACIÓN: resolviendo referencia de ProcessorArchitecture blender.shared.mui,language="&#x2a;",type="win32",version="1.0.0.0".
+		INFORMACIÓN: resolviendo referencia cultural es-MX.
+			INFORMACIÓN: aplicando directiva de enlace.
+				INFORMACIÓN: no se encuentra el redirección de la directiva de enlace.
+			INFORMACIÓN: iniciar sondeo de ensamblado.
+				INFORMACIÓN: no se encontró el ensamblado en WinSxS.
+				INFORMACIÓN: no se encontró el manifiesto de la referencia cultural es-MX.
+			INFORMACIÓN: finalizar sondeo de ensamblado.
+		INFORMACIÓN: resolviendo referencia cultural es.
+			INFORMACIÓN: aplicando directiva de enlace.
+				INFORMACIÓN: no se encuentra el redirección de la directiva de enlace.
+			INFORMACIÓN: iniciar sondeo de ensamblado.
+				INFORMACIÓN: no se encontró el ensamblado en WinSxS.
+				INFORMACIÓN: no se encontró el manifiesto de la referencia cultural es.
+			INFORMACIÓN: finalizar sondeo de ensamblado.
+		INFORMACIÓN: resolviendo referencia cultural es-ES.
+			INFORMACIÓN: aplicando directiva de enlace.
+				INFORMACIÓN: no se encuentra el redirección de la directiva de enlace.
+			INFORMACIÓN: iniciar sondeo de ensamblado.
+				INFORMACIÓN: no se encontró el ensamblado en WinSxS.
+				INFORMACIÓN: no se encontró el manifiesto de la referencia cultural es-ES.
+			INFORMACIÓN: finalizar sondeo de ensamblado.
+		INFORMACIÓN: resolviendo referencia cultural en-US.
+			INFORMACIÓN: aplicando directiva de enlace.
+				INFORMACIÓN: no se encuentra el redirección de la directiva de enlace.
+			INFORMACIÓN: iniciar sondeo de ensamblado.
+				INFORMACIÓN: no se encontró el ensamblado en WinSxS.
+				INFORMACIÓN: no se encontró el manifiesto de la referencia cultural en-US.
+			INFORMACIÓN: finalizar sondeo de ensamblado.
+		INFORMACIÓN: resolviendo referencia cultural en.
+			INFORMACIÓN: aplicando directiva de enlace.
+				INFORMACIÓN: no se encuentra el redirección de la directiva de enlace.
+			INFORMACIÓN: iniciar sondeo de ensamblado.
+				INFORMACIÓN: no se encontró el ensamblado en WinSxS.
+				INFORMACIÓN: no se encontró el manifiesto de la referencia cultural en.
+			INFORMACIÓN: finalizar sondeo de ensamblado.
+INFORMACIÓN: analizando archivo de manifiesto C:\WINDOWS\WinSxS\manifests\amd64_microsoft.windows.common-controls_6595b64144ccf1df_6.0.26100.9711_none_3e07b8b0e334e825.manifest.
+	INFORMACIÓN: la identidad de definición del manifiesto es Microsoft.Windows.Common-Controls,processorArchitecture="amd64",publicKeyToken="6595b64144ccf1df",type="win32",version="6.0.26100.9711".
+	INFORMACIÓN: referencia: Microsoft.Windows.Common-Controls.Resources,language="&#x2a;",processorArchitecture="amd64",publicKeyToken="6595b64144ccf1df",type="win32",version="6.0.0.0"
+INFORMACIÓN: resolviendo referencia Microsoft.Windows.Common-Controls.Resources,language="&#x2a;",processorArchitecture="amd64",publicKeyToken="6595b64144ccf1df",type="win32",version="6.0.0.0".
+	INFORMACIÓN: resolviendo referencia de ProcessorArchitecture amd64.
+		INFORMACIÓN: resolviendo referencia cultural es-MX.
+			INFORMACIÓN: aplicando directiva de enlace.
+				INFORMACIÓN: versión de ensamblado redirigida por directiva de servicio automático.
+				INFORMACIÓN: la identidad de la directiva de publicación es Microsoft.Windows.Common-Controls.Resources,language="es-MX",processorArchitecture="amd64",publicKeyToken="6595b64144ccf1df",type="win32",version="6.0.26100.8117".
+			INFORMACIÓN: iniciar sondeo de ensamblado.
+				INFORMACIÓN: intento de sondear manifiesto en C:\WINDOWS\WinSxS\manifests\amd64_microsoft.windows.c..-controls.resources_6595b64144ccf1df_6.0.26100.8117_es-mx_5614c2620e968a1b.manifest.
+				INFORMACIÓN: manifiesto encontrado en C:\WINDOWS\WinSxS\manifests\amd64_microsoft.windows.c..-controls.resources_6595b64144ccf1df_6.0.26100.8117_es-mx_5614c2620e968a1b.manifest.
+			INFORMACIÓN: finalizar sondeo de ensamblado.
+INFORMACIÓN: analizando archivo de manifiesto E:\Projects\semwright-blender52\.local\tmp\.tmp1wH4yv\blender.crt\blender.crt.MANIFEST.
+	INFORMACIÓN: la identidad de definición del manifiesto es blender.crt,type="win32",version="1.0.0.0".
+INFORMACIÓN: analizando archivo de manifiesto E:\Projects\semwright-blender52\.local\tmp\.tmp1wH4yv\blender.shared\blender.shared.MANIFEST.
+	INFORMACIÓN: la identidad de definición del manifiesto es blender.shared,type="win32",version="1.0.0.0".
+INFORMACIÓN: analizando archivo de manifiesto C:\WINDOWS\WinSxS\manifests\amd64_microsoft.windows.c..-controls.resources_6595b64144ccf1df_6.0.26100.8117_es-mx_5614c2620e968a1b.manifest.
+	INFORMACIÓN: la identidad de definición del manifiesto es Microsoft.Windows.Common-Controls.Resources,language="es-MX",processorArchitecture="amd64",publicKeyToken="6595b64144ccf1df",type="win32",version="6.0.26100.8117".
+INFORMACIÓN: generación de contexto de activación correcta.
+Finalizar generación de contexto de activación.
+

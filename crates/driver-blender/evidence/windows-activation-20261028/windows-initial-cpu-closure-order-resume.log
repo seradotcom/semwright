@@ -1,0 +1,261 @@
+   Compiling semwright-driver-blender v1.0.0 (E:\Projects\semwright-blender52\crates\driver-blender)
+warning: function `spawn_without_stdio_for_test` is never used
+   --> crates\driver-blender\src\bin\session_runner\windows_child.rs:212:8
+    |
+212 | pub fn spawn_without_stdio_for_test(command:&Command,log:&File,parent_sid:&[u8],
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `run` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_fixture.rs:11:8
+   |
+11 | pub fn run() -> io::Result<()> {
+   |        ^^^
+
+warning: constant `MINIMAL_ACTCTX_XML` is never used
+   --> crates\driver-blender\src\bin\session_runner\windows_fixture.rs:127:7
+    |
+127 | const MINIMAL_ACTCTX_XML:&[u8]=br#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    |       ^^^^^^^^^^^^^^^^^^
+
+warning: function `full_manifest_probe` is never used
+   --> crates\driver-blender\src\bin\session_runner\windows_fixture.rs:132:4
+    |
+132 | fn full_manifest_probe(path: &Path) -> serde_json::Value {
+    |    ^^^^^^^^^^^^^^^^^^^
+
+warning: function `directory_probe` is never used
+   --> crates\driver-blender\src\bin\session_runner\windows_fixture.rs:152:4
+    |
+152 | fn directory_probe(path: &Path, manifest: &str) -> serde_json::Value {
+    |    ^^^^^^^^^^^^^^^
+
+warning: function `context_probe` is never used
+   --> crates\driver-blender\src\bin\session_runner\windows_fixture.rs:176:4
+    |
+176 | fn context_probe(path: &Path, embedded: bool, language: Option<u16>) -> serde_json::Value {
+    |    ^^^^^^^^^^^^^
+
+warning: function `activation_context_probe` is never used
+   --> crates\driver-blender\src\bin\session_runner\windows_fixture.rs:209:4
+    |
+209 | fn activation_context_probe(runtime: &Path, fixture: &Path) -> io::Result<()> {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `language_probe` is never used
+   --> crates\driver-blender\src\bin\session_runner\windows_fixture.rs:255:4
+    |
+255 | fn language_probe() -> serde_json::Value {
+    |    ^^^^^^^^^^^^^^
+
+warning: function `embedded_activation_probe` is never used
+   --> crates\driver-blender\src\bin\session_runner\windows_fixture.rs:327:4
+    |
+327 | fn embedded_activation_probe(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `probe_common_controls_dll` is never used
+   --> crates\driver-blender\src\bin\session_runner\windows_fixture.rs:416:4
+    |
+416 | fn probe_common_controls_dll() -> io::Result<serde_json::Value> {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `read_context` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_activation_readback.rs:10:8
+   |
+10 | pub fn read_context(flags: u32, handle: HANDLE) -> io::Result<serde_json::Value> {
+   |        ^^^^^^^^^^^^
+
+warning: function `fixture_manifest` is never used
+   --> crates\driver-blender\src\bin\session_runner\windows_activation_readback.rs:108:8
+    |
+108 | pub fn fixture_manifest(common_controls: bool) -> Vec<u8> {
+    |        ^^^^^^^^^^^^^^^^
+
+warning: function `fixture_private_manifest` is never used
+   --> crates\driver-blender\src\bin\session_runner\windows_activation_readback.rs:125:8
+    |
+125 | pub fn fixture_private_manifest() -> Vec<u8> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fixture_blender_manifest` is never used
+   --> crates\driver-blender\src\bin\session_runner\windows_activation_readback.rs:135:8
+    |
+135 | pub fn fixture_blender_manifest() -> Vec<u8> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `denied` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_fixture.rs:12:4
+   |
+12 | fn denied(message: &str) -> io::Error {
+   |    ^^^^^^
+
+warning: function `module_path` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_fixture.rs:15:4
+   |
+15 | fn module_path(module: HMODULE) -> io::Result<String> {
+   |    ^^^^^^^^^^^
+
+warning: function `same_path` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_fixture.rs:28:4
+   |
+28 | fn same_path(actual: &str, expected: &Path) -> io::Result<bool> {
+   |    ^^^^^^^^^
+
+warning: function `probe` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_fixture.rs:33:8
+   |
+33 | pub fn probe() -> serde_json::Value {
+   |        ^^^^^
+
+warning: function `last_ntstatus` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_images.rs:35:8
+   |
+35 | pub fn last_ntstatus() -> String {
+   |        ^^^^^^^^^^^^^
+
+warning: function `denied` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_images.rs:40:4
+   |
+40 | fn denied(text: &str) -> io::Error {
+   |    ^^^^^^
+
+warning: function `policies` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_images.rs:43:4
+   |
+43 | fn policies() -> serde_json::Value {
+   |    ^^^^^^^^
+
+warning: function `map_one` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_images.rs:84:4
+   |
+84 | fn map_one(root: &Path, entry: &cpu_payload::Entry) -> serde_json::Value {
+   |    ^^^^^^^
+
+warning: function `probe` is never used
+   --> crates\driver-blender\src\bin\session_runner\windows_cpu_images.rs:182:8
+    |
+182 | pub fn probe(root: &Path) -> serde_json::Value {
+    |        ^^^^^
+
+warning: function `RtlGetLastNtStatus` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_images.rs:33:8
+   |
+33 |     fn RtlGetLastNtStatus() -> i32;
+   |        ^^^^^^^^^^^^^^^^^^
+
+warning: constant `CPU_DLL` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_payload.rs:15:11
+   |
+15 | pub const CPU_DLL: &str = "blender_cpu_check.dll";
+   |           ^^^^^^^
+
+warning: constant `CPU_SHA256` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_payload.rs:16:11
+   |
+16 | pub const CPU_SHA256: &str = "1c1f06615a3fcca7c2757221fbafa3640e90591dbbc9d06f19f4962f5ce6194c";
+   |           ^^^^^^^^^^
+
+warning: constant `PAYLOAD` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_payload.rs:17:11
+   |
+17 | pub const PAYLOAD: &[u8] = include_bytes!("../../../tests/fixtures/windows_cpu_probe_payload.json");
+   |           ^^^^^^^
+
+warning: constant `PAYLOAD_SHA256` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_payload.rs:18:11
+   |
+18 | pub const PAYLOAD_SHA256: &str = "43709145f359cb0ff4f1c42062dfa27f9b532e8f1f8f358417ad17cbc38b6cb7";
+   |           ^^^^^^^^^^^^^^
+
+warning: struct `Entry` is never constructed
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_payload.rs:21:12
+   |
+21 | pub struct Entry {
+   |            ^^^^^
+
+warning: function `denied` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_payload.rs:26:4
+   |
+26 | fn denied(message: &str) -> io::Error {
+   |    ^^^^^^
+
+warning: function `entries` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_payload.rs:29:8
+   |
+29 | pub fn entries() -> io::Result<Vec<Entry>> {
+   |        ^^^^^^^
+
+warning: function `read_checked` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_payload.rs:75:8
+   |
+75 | pub fn read_checked(root: &Path, e: &Entry) -> io::Result<Vec<u8>> {
+   |        ^^^^^^^^^^^^
+
+warning: function `read_checked_with_progress` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_payload.rs:78:8
+   |
+78 | pub fn read_checked_with_progress(
+   |        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: `semwright-driver-blender` (bin "semwright-blender-session-runner") generated 33 warnings
+    Finished `test` profile [unoptimized] target(s) in 9.90s
+     Running tests\windows_native_launch.rs (.local\target\x86_64-pc-windows-gnu\debug\deps\windows_native_launch-e6ef0e66bc183d70.exe)
+
+running 1 test
+test initial_host_cpu_component_probe ... archivo procesado: E:\Projects\semwright-blender52\.local\tmp\.tmp8bKf8V
+Se procesaron correctamente 1 archivos; error al procesar 0 archivos
+dependency-only fixture: blender.crt/blender.crt.manifest sha256=43bdfdc2028539332fed3dc487474407d63e79f67394145397322dda58e455ee; DLLs copied=false
+dependency-only fixture: blender.shared/blender.shared.manifest sha256=655ad61bd460854680806f1fce59459daaf7fc309304fa17b3348c58cf745926; DLLs copied=false
+CPU-component payload staged: files=51, manifest_sha256=43709145f359cb0ff4f1c42062dfa27f9b532e8f1f8f358417ad17cbc38b6cb7; owner DLL execution=false
+archivo procesado: E:\Projects\semwright-blender52\.local\tmp\.tmp8bKf8V\fixture-embedded-manifest.exe
+Se procesaron correctamente 1 archivos; error al procesar 0 archivos
+initial fixture image_sha256=71871e6061d014ef1cb5089b5d48c0f9dd64bc806a954c3594412b100acb2ab1; owner_context={"assembly_count":5,"assembly_identities":["","Microsoft.Windows.Common-Controls,processorArchitecture=\"amd64\",publicKeyToken=\"6595b64144ccf1df\",type=\"win32\",version=\"6.0.26100.9711\"","blender.crt,type=\"win32\",version=\"1.0.0.0\"","blender.shared,type=\"win32\",version=\"1.0.0.0\"","Microsoft.Windows.Common-Controls.Resources,language=\"es-MX\",processorArchitecture=\"amd64\",publicKeyToken=\"6595b64144ccf1df\",type=\"win32\",version=\"6.0.26100.8117\""],"format":1,"query_flags":0,"query_only":true,"root_identity":""}; broker_used=false
+CPU fixture ACL after Host mount: E:\Projects\semwright-blender52\.local\tmp\.tmp8bKf8V
+E:\Projects\semwright-blender52\.local\tmp\.tmp8bKf8V S-1-15-2-962648073-858788586-2473632915-1808026711-855988376-2591151094-89434624:(OI)(CI)(DENY)(DE,WDAC,WO,WD,AD,WEA,DC,WA)
+                                                      S-1-15-2-962648073-858788586-2473632915-1808026711-855988376-2591151094-89434624:(OI)(CI)(RX)
+                                                      LAPTOP-UDQOQQ3J\sergi:(OI)(CI)(F)
+
+Se procesaron correctamente 1 archivos; error al procesar 0 archivos
+
+CPU fixture ACL after Host mount: E:\Projects\semwright-blender52\.local\tmp\.tmp8bKf8V\blender.crt
+E:\Projects\semwright-blender52\.local\tmp\.tmp8bKf8V\blender.crt S-1-15-2-962648073-858788586-2473632915-1808026711-855988376-2591151094-89434624:(I)(OI)(CI)(DENY)(DE,WDAC,WO,WD,AD,WEA,DC,WA)
+                                                                  S-1-15-2-962648073-858788586-2473632915-1808026711-855988376-2591151094-89434624:(I)(OI)(CI)(RX)
+                                                                  LAPTOP-UDQOQQ3J\sergi:(I)(OI)(CI)(F)
+
+Se procesaron correctamente 1 archivos; error al procesar 0 archivos
+
+CPU fixture ACL after Host mount: E:\Projects\semwright-blender52\.local\tmp\.tmp8bKf8V\blender.crt/api-ms-win-core-console-l1-1-0.dll
+E:\Projects\semwright-blender52\.local\tmp\.tmp8bKf8V\blender.crt/api-ms-win-core-console-l1-1-0.dll S-1-15-2-962648073-858788586-2473632915-1808026711-855988376-2591151094-89434624:(I)(DENY)(DE,WDAC,WO,WD,AD,WEA,DC,WA)
+                                                                                                     S-1-15-2-962648073-858788586-2473632915-1808026711-855988376-2591151094-89434624:(I)(RX)
+                                                                                                     LAPTOP-UDQOQQ3J\sergi:(I)(F)
+
+Se procesaron correctamente 1 archivos; error al procesar 0 archivos
+
+initial embedded fixture exit=Some(2): fixture_phase: fixed_comctl32_initialization
+fixture_phase: cpu_chain_load_begin file=blender.crt/vcruntime140.dll
+fixture_phase: cpu_chain_load_begin file=blender.crt/vcruntime140_1.dll
+fixture_phase: cpu_chain_load_begin file=blender.crt/msvcp140.dll
+fixture_phase: cpu_chain_load_begin file=blender_cpu_check.dll
+fixture_phase: cpu_chain_unload_begin file=blender.crt/msvcp140.dll
+fixture_phase: cpu_chain_unload_begin file=blender.crt/vcruntime140_1.dll
+fixture_phase: cpu_chain_unload_begin file=blender.crt/vcruntime140.dll
+{"activation":{"assembly_count":5,"assembly_identities":["","Microsoft.Windows.Common-Controls,processorArchitecture=\"amd64\",publicKeyToken=\"6595b64144ccf1df\",type=\"win32\",version=\"6.0.26100.9711\"","blender.crt,type=\"win32\",version=\"1.0.0.0\"","blender.shared,type=\"win32\",version=\"1.0.0.0\"","Microsoft.Windows.Common-Controls.Resources,language=\"es-MX\",processorArchitecture=\"amd64\",publicKeyToken=\"6595b64144ccf1df\",type=\"win32\",version=\"6.0.26100.8117\""],"format":1,"query_flags":4,"query_only":true,"root_identity":""},"blender_component_execution_attempted":true,"blender_executable_started":false,"broker_used":false,"capability_count":0,"common_controls":true,"cpu_component":{"all_owned_released":true,"already_loaded":false,"blender_component_execution_attempted":true,"blender_executable_started":false,"broker_used":false,"component_expected_sha256":"1c1f06615a3fcca7c2757221fbafa3640e90591dbbc9d06f19f4962f5ce6194c","cpu_component_execution_attempted":true,"crt_modules":{},"dependency_initialization_attempted":true,"diagnostic_method":"explicit dependency-order preload, not unmodified Blender startup","dll_loaded":false,"dll_released":false,"error_kind":"PermissionDenied","error_message":"Acceso denegado. (os error 5)","exports_called":false,"file_data_written":false,"first_failed_relative":"blender_cpu_check.dll","image_probe":{"dll_initialization_requested":false,"images":[{"code_invoked":false,"error_kind":null,"expected_sha256":"1c1f06615a3fcca7c2757221fbafa3640e90591dbbc9d06f19f4962f5ce6194c","handle_bytes_verified":true,"mapped":true,"nt_status":null,"ok":true,"opened_for_execute":true,"phase":"complete","relative":"blender_cpu_check.dll","section_created":true,"unmapped":true,"win32_error":null},{"code_invoked":false,"error_kind":null,"expected_sha256":"0f885b509a685d2bbfa652fed26b5fb31d88fbdab0a978c641d1c7b8aa460aa9","handle_bytes_verified":true,"mapped":true,"nt_status":null,"ok":true,"opened_for_execute":true,"phase":"complete","relative":"blender.crt/msvcp140.dll","section_created":true,"unmapped":true,"win32_error":null},{"code_invoked":false,"error_kind":null,"expected_sha256":"d5e4d9a3e835fa679450145d6a7d94e36573a509317111904d9b3712c30d9066","handle_bytes_verified":true,"mapped":true,"nt_status":null,"ok":true,"opened_for_execute":true,"phase":"complete","relative":"blender.crt/vcruntime140.dll","section_created":true,"unmapped":true,"win32_error":null},{"code_invoked":false,"error_kind":null,"expected_sha256":"1f2d41c4aa5db0bc33ebf7b66d72943a817d7ce6cbe880502a9403823633093f","handle_bytes_verified":true,"mapped":true,"nt_status":null,"ok":true,"opened_for_execute":true,"phase":"complete","relative":"blender.crt/vcruntime140_1.dll","section_created":true,"unmapped":true,"win32_error":null}],"ok":true,"policies":{"binary_signature":{"decoded":null,"flags":0,"query_ok":true,"win32_error":null},"dynamic_code":{"decoded":null,"flags":0,"query_ok":true,"win32_error":null},"extension_points":{"decoded":null,"flags":0,"query_ok":true,"win32_error":null},"image_load":{"decoded":null,"flags":0,"query_ok":true,"win32_error":null},"system_call_disable":{"decoded":{"audit_disallow_fsctl":false,"audit_disallow_win32k":false,"disallow_fsctl":true,"disallow_win32k":false,"reserved_bits":0},"flags":4,"query_ok":true,"win32_error":null}},"policy_changed":false,"scope":"current verified LPAC fixture only"},"last_phase":"cpu_chain_unload_complete","load_nt_status":"c0000022","load_sequence":[{"loaded":true,"module_path":"E:\\Projects\\semwright-blender52\\.local\\tmp\\.tmp8bKf8V\\blender.crt\\vcruntime140.dll","nt_status":null,"path_matches":true,"preexisting":false,"relative":"blender.crt/vcruntime140.dll","win32_error":null},{"loaded":true,"module_path":"E:\\Projects\\semwright-blender52\\.local\\tmp\\.tmp8bKf8V\\blender.crt\\vcruntime140_1.dll","nt_status":null,"path_matches":true,"preexisting":false,"relative":"blender.crt/vcruntime140_1.dll","win32_error":null},{"loaded":true,"module_path":"E:\\Projects\\semwright-blender52\\.local\\tmp\\.tmp8bKf8V\\blender.crt\\msvcp140.dll","nt_status":null,"path_matches":true,"preexisting":false,"relative":"blender.crt/msvcp140.dll","win32_error":null},{"loaded":false,"nt_status":"c0000022","path_matches":false,"preexisting":false,"relative":"blender_cpu_check.dll","win32_error":5}],"module_path":null,"ok":false,"operation_phase":"cpu_chain_load_begin","owned_reference_count":3,"payload_expected_sha256":"43709145f359cb0ff4f1c42062dfa27f9b532e8f1f8f358417ad17cbc38b6cb7","payload_file":"blender_cpu_check.dll","payload_stage":"verified","payload_write_denied":true,"search_flags":2304,"unload_sequence":[{"nt_status":null,"relative":"blender.crt/msvcp140.dll","released":true,"win32_error":null},{"nt_status":null,"relative":"blender.crt/vcruntime140_1.dll","released":true,"win32_error":null},{"nt_status":null,"relative":"blender.crt/vcruntime140.dll","released":true,"win32_error":null}],"verified_payload_files":51,"verified_private_manifests":2,"win32_error":5,"write_probe_win32_error":5},"cpu_component_probe":true,"dll":{"export_called":false,"loaded":true,"module_path":"C:\\WINDOWS\\WinSxS\\amd64_microsoft.windows.common-controls_6595b64144ccf1df_6.0.26100.9711_none_3e07b8b0e334e825\\comctl32.dll","search_flags":2048},"dll_error":null,"full_blender_manifest":true,"job_verified":true,"manifest_sha256":"e7101d6abbe3d11a3ccb0cf88664ceffb2df9e2fbc7d23273edd274ddfa1e1e8","native_blender":false,"nonce":"71871e6061d014ef1cb5089b5d48c0f9","ok":false,"private_assemblies":true,"probe":"initial_embedded_context","query_error":null,"reached_main":true,"verified_lpac":true}
+
+
+thread 'initial_host_cpu_component_probe' (33824) panicked at crates\driver-blender\tests\windows_native_launch.rs:578:5:
+assertion `left == right` failed
+  left: Some(2)
+ right: Some(0)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    initial_host_cpu_component_probe
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 9 filtered out; finished in 6.40s
+
+error: test failed, to rerun pass `-p semwright-driver-blender --test windows_native_launch`

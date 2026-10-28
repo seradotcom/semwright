@@ -1,0 +1,87 @@
+{
+  "read_only_inputs": true,
+  "blender_component_code_executed": false,
+  "files": [
+    {
+      "relative": "blender.crt/vcruntime140.dll",
+      "image_sha256": "d5e4d9a3e835fa679450145d6a7d94e36573a509317111904d9b3712c30d9066",
+      "resources": [],
+      "imports": [
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-convert-l1-1-0.dll",
+        "KERNEL32.dll"
+      ],
+      "delay_imports": [],
+      "dll_code_executed": false,
+      "resource_mapping_flags": 34
+    },
+    {
+      "relative": "blender.crt/vcruntime140_1.dll",
+      "image_sha256": "1f2d41c4aa5db0bc33ebf7b66d72943a817d7ce6cbe880502a9403823633093f",
+      "resources": [],
+      "imports": [
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "VCRUNTIME140.dll",
+        "KERNEL32.dll"
+      ],
+      "delay_imports": [],
+      "dll_code_executed": false,
+      "resource_mapping_flags": 34
+    },
+    {
+      "relative": "blender.crt/msvcp140.dll",
+      "image_sha256": "0f885b509a685d2bbfa652fed26b5fb31d88fbdab0a978c641d1c7b8aa460aa9",
+      "resources": [],
+      "imports": [
+        "VCRUNTIME140.dll",
+        "VCRUNTIME140_1.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll",
+        "api-ms-win-crt-locale-l1-1-0.dll",
+        "api-ms-win-crt-stdio-l1-1-0.dll",
+        "api-ms-win-crt-filesystem-l1-1-0.dll",
+        "api-ms-win-crt-time-l1-1-0.dll",
+        "api-ms-win-crt-environment-l1-1-0.dll",
+        "api-ms-win-crt-math-l1-1-0.dll",
+        "api-ms-win-crt-convert-l1-1-0.dll",
+        "api-ms-win-crt-utility-l1-1-0.dll",
+        "KERNEL32.dll"
+      ],
+      "delay_imports": [],
+      "dll_code_executed": false,
+      "resource_mapping_flags": 34
+    },
+    {
+      "relative": "blender_cpu_check.dll",
+      "image_sha256": "1c1f06615a3fcca7c2757221fbafa3640e90591dbbc9d06f19f4962f5ce6194c",
+      "resources": [
+        {
+          "resource_id": 2,
+          "bytes": 135,
+          "sha256": "39abce8cd98964b342942a3770e2ce865cda054577ddc4b790ccc0ece897a371",
+          "file": "blender_cpu_check.dll.manifest-2.xml",
+          "text": "<?xml version=\"1.0\" standalone=\"yes\"?>\n<assembly xmlns=\"urn:schemas-microsoft-com:asm.v1\"\n          manifestVersion=\"1.0\">\n</assembly>\n"
+        }
+      ],
+      "imports": [
+        "USER32.dll",
+        "MSVCP140.dll",
+        "KERNEL32.dll",
+        "VCRUNTIME140.dll",
+        "api-ms-win-crt-runtime-l1-1-0.dll",
+        "api-ms-win-crt-heap-l1-1-0.dll",
+        "api-ms-win-crt-string-l1-1-0.dll"
+      ],
+      "delay_imports": [],
+      "dll_code_executed": false,
+      "resource_mapping_flags": 34
+    }
+  ],
+  "resource_language_scope": "FindResourceW default language for every enumerated integer RT_MANIFEST ID"
+}

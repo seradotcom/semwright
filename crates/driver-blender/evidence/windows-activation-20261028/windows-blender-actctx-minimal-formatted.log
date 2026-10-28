@@ -1,0 +1,73 @@
+   Compiling semwright-driver-blender v1.0.0 (E:\Projects\semwright-blender52\crates\driver-blender)
+warning: function `spawn_without_stdio_for_test` is never used
+   --> crates\driver-blender\src\bin\session_runner\windows_child.rs:212:8
+    |
+212 | pub fn spawn_without_stdio_for_test(command:&Command,log:&File,parent_sid:&[u8],
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `run` is never used
+ --> crates\driver-blender\src\bin\session_runner\windows_fixture.rs:3:8
+  |
+3 | pub fn run() -> io::Result<()> {
+  |        ^^^
+
+warning: constant `MINIMAL_ACTCTX_XML` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_fixture.rs:95:7
+   |
+95 | const MINIMAL_ACTCTX_XML:&[u8]=br#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+   |       ^^^^^^^^^^^^^^^^^^
+
+warning: function `full_manifest_probe` is never used
+   --> crates\driver-blender\src\bin\session_runner\windows_fixture.rs:100:4
+    |
+100 | fn full_manifest_probe(path: &Path) -> serde_json::Value {
+    |    ^^^^^^^^^^^^^^^^^^^
+
+warning: function `directory_probe` is never used
+   --> crates\driver-blender\src\bin\session_runner\windows_fixture.rs:120:4
+    |
+120 | fn directory_probe(path: &Path, manifest: &str) -> serde_json::Value {
+    |    ^^^^^^^^^^^^^^^
+
+warning: function `context_probe` is never used
+   --> crates\driver-blender\src\bin\session_runner\windows_fixture.rs:144:4
+    |
+144 | fn context_probe(path: &Path, embedded: bool) -> serde_json::Value {
+    |    ^^^^^^^^^^^^^
+
+warning: function `activation_context_probe` is never used
+   --> crates\driver-blender\src\bin\session_runner\windows_fixture.rs:173:4
+    |
+173 | fn activation_context_probe(runtime: &Path, fixture: &Path) -> io::Result<()> {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: `semwright-driver-blender` (bin "semwright-blender-session-runner") generated 7 warnings
+    Finished `test` profile [unoptimized] target(s) in 10.77s
+     Running tests\windows_native_launch.rs (.local\target\x86_64-pc-windows-gnu\debug\deps\windows_native_launch-9575c08919a62108.exe)
+
+running 1 test
+archivo procesado: E:\Projects\semwright-blender52\.local\tmp\.tmpPQgXW9\actctx-probe.exe
+Se procesaron correctamente 1 archivos; error al procesar 0 archivos
+owner minimal context: ok=true, sha256=c7fe00a9dd11885d38b9da689e356a10edc0bba0d431ee3696cb46822490886f, broker_used=false
+owner private manifest: blender.shared/blender.shared.manifest, bytes=2527, sha256=655ad61bd460854680806f1fce59459daaf7fc309304fa17b3348c58cf745926
+owner private manifest: blender.crt/blender.crt.manifest, bytes=2841, sha256=43bdfdc2028539332fed3dc487474407d63e79f67394145397322dda58e455ee
+isolated activation probe: {"blender_activation_context":{"embedded_resource":true,"ok":false,"win32_error":5},"broker_used":false,"context":"verified_LPAC_no_capabilities_in_Job","crt_directory":{"expected_manifest_found":true,"ok":true,"truncated":false,"visited":51},"crt_manifest_full":{"bytes":2841,"ok":true,"sha256":"43bdfdc2028539332fed3dc487474407d63e79f67394145397322dda58e455ee"},"image_sha256":"284f4041f98e113f3dc10654a7193ffaaa9bfdfec8b87fa116620a48b5f6d4cb","minimal_activation_context":{"embedded_resource":false,"ok":false,"win32_error":5},"minimal_manifest_full":{"bytes":261,"ok":true,"sha256":"c7fe00a9dd11885d38b9da689e356a10edc0bba0d431ee3696cb46822490886f"},"native_blender":false,"ok":false,"probe":"closed_readonly_SxS_comparison","shared_directory":{"expected_manifest_found":true,"ok":true,"truncated":false,"visited":65},"shared_manifest_full":{"bytes":2527,"ok":true,"sha256":"655ad61bd460854680806f1fce59459daaf7fc309304fa17b3348c58cf745926"}}
+
+
+thread 'isolated_blender_activation_context_probe' (34372) panicked at crates\driver-blender\tests\windows_native_launch.rs:320:5:
+assertion `left == right` failed
+  left: Some(2)
+ right: Some(0)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test isolated_blender_activation_context_probe ... FAILED
+
+failures:
+
+failures:
+    isolated_blender_activation_context_probe
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 4 filtered out; finished in 9.44s
+
+error: test failed, to rerun pass `-p semwright-driver-blender --test windows_native_launch`

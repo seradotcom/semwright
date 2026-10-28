@@ -1,0 +1,10 @@
+[
+  {
+    "handle": 35,
+    "guid": "a09c3c0cb3be4f4f9be72ef6a8af4479",
+    "name": "WinSxs Trace Session",
+    "logfile": "E:\\Projects\\semwright-blender52\\.local\\logs\\cpu-resource-sxs-20261028T185809Z-0c04a049\\cpu-resource-activation.etl",
+    "events_lost": 0,
+    "log_buffers_lost": 0
+  }
+]

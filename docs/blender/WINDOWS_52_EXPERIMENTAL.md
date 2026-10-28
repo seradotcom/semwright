@@ -111,3 +111,19 @@ Additional primary references:
 - https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/sxstrace
 - https://learn.microsoft.com/en-us/windows/win32/api/winnls/nf-winnls-getuserpreferreduilanguages
 - https://learn.microsoft.com/en-us/windows/win32/api/winnls/nf-winnls-getuserdefaultlocalename
+
+## Later initial-process activation checkpoint
+
+The [2026-10-28 fixture checkpoint](../../crates/driver-blender/WINDOWS_ACTIVATION_CHECKPOINT_20261028.md)
+separately records four passing initial-process manifest fixtures under the same
+LPAC and Job confinement, including the exact Blender root manifest. This
+narrows the earlier dynamic-activation finding: initial process activation can
+succeed for the tested fixture even while dynamic CreateActCtxW fails.
+
+The CPU DLL resource-2 resolve-only probe still fails inside LPAC with error 5
+and NTSTATUS c0000022; its owner control succeeds after the isolated process is
+reaped. The denied resource remains unidentified. A bounded, separately owned
+SxS trace and two offline metadata readers preserve their coverage and
+attribution limits. A successfully captured diagnostic is not a passing CPU
+probe. No new Blender startup, typed scene mutation, GLB export or Godot E2E is
+claimed. Windows acceptance remains BLOCKED; native Linux 4.5.14 is NOT_RUN.

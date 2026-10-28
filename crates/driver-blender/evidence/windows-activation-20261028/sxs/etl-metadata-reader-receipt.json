@@ -1,0 +1,42 @@
+{
+  "argv": [
+    "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+    "-NoLogo",
+    "-NoProfile",
+    "-NonInteractive",
+    "-ExecutionPolicy",
+    "Bypass",
+    "-File",
+    "E:\\Projects\\semwright-blender52\\.local\\export_cpu_sxs_metadata.ps1"
+  ],
+  "source_sha256": "56511600e085cb1700b9f3036f575c570eadd33c430c235531d52e915b83653e",
+  "utc_start": "2026-10-28T19:11:19.631364+00:00",
+  "new_trace": false,
+  "cargo_repetitions": 0,
+  "A05": "BLOCKED",
+  "exit_code": 0,
+  "summary": {
+    "status": "HEADERS_READ_NO_MATCHING_PAYLOAD",
+    "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\cpu-resource-sxs-20261028T185809Z-0c04a049\\cpu-resource-activation.etl",
+    "event_limit": 2048,
+    "new_trace": false,
+    "cargo_repetitions": 0,
+    "elevation_requested": false,
+    "policy_changes": false,
+    "attribution": "Emitter PID/TID; client identity not inferred",
+    "event_count": 310,
+    "limit_reached": false,
+    "payload_anchor_matches": 0,
+    "payload_scan_incomplete": 0,
+    "sha256_before": "2db670e8a1ba8449bc7bf43841a76de7c7615edcfb08674b3214f542623ff6ba",
+    "sha256_after": "2db670e8a1ba8449bc7bf43841a76de7c7615edcfb08674b3214f542623ff6ba",
+    "source_unchanged": true
+  },
+  "emitter_pids": [
+    1472,
+    1776
+  ],
+  "elapsed_seconds": 0.7970000000059372,
+  "output_sha256": "cebe556426129226d0ca0b4c263b23e87d015486eb93b683743a90d96c0a1441",
+  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}

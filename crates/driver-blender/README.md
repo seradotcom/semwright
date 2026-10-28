@@ -183,3 +183,14 @@ Native transport failures retain at most 8 KiB of log tail in a private local
 `.semwright-native-failures` directory before deleting session scratch. Public
 errors expose only the validated failure phase, exit status, byte count and
 digest; they remain uncertain and carry no raw log text or local path.
+
+## Experimental Windows activation diagnostics
+
+The [2026-10-28 activation checkpoint](WINDOWS_ACTIVATION_CHECKPOINT_20261028.md)
+records four passing initial-process manifest fixtures under LPAC with zero
+additional capabilities, and separate failing dynamic CPU-component activation
+and loading probes. The [curated evidence index](evidence/windows-activation-20261028/INDEX.json)
+retains exact source and receipt hashes. These results do not establish Blender
+startup or a broker-to-Blender authoring path on Windows. Windows native Blender
+acceptance remains blocked; the native Linux 4.5.14 regression remains NOT_RUN
+on this host. No isolation policy or capability was broadened by these probes.
