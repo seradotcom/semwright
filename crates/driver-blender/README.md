@@ -1,5 +1,11 @@
 # Semwright Blender deep driver
 
+> Experimental branch note: exact Blender 5.2.1 runtime profiles and a Windows
+> session-runner candidate are under development. Windows native startup remains
+> blocked in the tested LPAC profile; no Windows broker-to-Blender E2E has passed.
+> Linux 4.5.14 native regression has not been rerun on this Windows host.
+> See [the measured boundary](../../docs/blender/WINDOWS_52_EXPERIMENTAL.md).
+
 This first-party driver runs a private Blender process inside the Semwright DriverProvider sandbox.
 It is separate from the interactive `blender.*` add-on backend: the existing add-on remains useful
 for an already-open user session, while this driver provides a disposable, reproducible,
