@@ -154,9 +154,59 @@ def _property_status(prop):
     return "unsupported_by_design", "RNA value kind is outside the bounded generic value codec"
 
 
-def _enum_items(prop):
+# This operational color profile is intentionally bounded. Native instance lookups,
+# not the RNA type placeholder NONE, admit each advertised and writable value.
+INSTANCE_COLOR_ENUM_PROFILE = {
+    ("ColorManagedViewSettings", "view_transform"): ("view_settings", ("AgX", "Standard")),
+    ("ColorManagedViewSettings", "look"): ("view_settings", ("None",)),
+    ("ColorManagedDisplaySettings", "display_device"): ("display_settings", ("sRGB",)),
+}
+
+
+def _instance_color_enum_items(prop, owner, bpy_module):
+    owner_identifier = str(getattr(getattr(owner, "bl_rna", None), "identifier", ""))
+    property_id = str(getattr(prop, "identifier", ""))
+    profile = INSTANCE_COLOR_ENUM_PROFILE.get((owner_identifier, property_id))
+    if profile is None:
+        return None
+    if (
+        str(getattr(prop, "type", "")) != "ENUM"
+        or int(getattr(prop, "array_length", 0) or 0) != 0
+        or bool(getattr(prop, "is_enum_flag", False))
+        or bool(getattr(prop, "is_runtime", False))
+        or bpy_module is None
+    ):
+        raise ValueError("color enum requires a native scalar instance property")
+    relation, candidates = profile
+    scene = getattr(owner, "id_data", None)
+    scene_type = getattr(bpy_module.types, "Scene", None)
+    if (
+        scene_type is None
+        or not isinstance(scene, scene_type)
+        or getattr(scene, relation, None) != owner
+        or owner.bl_rna.properties.get(property_id) != prop
+    ):
+        raise ValueError("color enum is not owned by the resolved scene")
+    values = []
+    # The queried pointer and context belong to the same authenticated owner.
+    # This changes no RNA property and restores the ambient context on exit.
+    with bpy_module.context.temp_override(scene=scene):
+        for candidate in candidates:
+            label = bpy_module.types.UILayout.enum_item_name(owner, property_id, candidate)
+            if not isinstance(label, str):
+                raise ValueError("native color enum membership is unavailable")
+            if label:
+                values.append({"id": candidate, "name": _text(label, 512)})
+    return values
+
+
+def _enum_items(prop, owner=None, bpy_module=None):
     if str(getattr(prop, "type", "")) != "ENUM":
         return []
+    if owner is not None:
+        instance_values = _instance_color_enum_items(prop, owner, bpy_module)
+        if instance_values is not None:
+            return instance_values
     values = []
     try:
         for item in list(prop.enum_items)[:128]:
@@ -170,7 +220,7 @@ def _finite(value):
     return not isinstance(value, bool) and isinstance(value, (int, float)) and math.isfinite(float(value))
 
 
-def _property_descriptor(prop, owner_identifier=None):
+def _property_descriptor(prop, owner_identifier=None, owner=None, bpy_module=None):
     status, reason = _property_status(prop)
     ptype = _text(getattr(prop, "type", ""), 64)
     identifier = _text(getattr(prop, "identifier", ""), 256)
@@ -196,7 +246,14 @@ def _property_descriptor(prop, owner_identifier=None):
         value = getattr(prop, source, None)
         if _finite(value):
             out[target] = value
-    enum = _enum_items(prop)
+    color_profile = (str(owner_identifier or ""), identifier) in INSTANCE_COLOR_ENUM_PROFILE
+    if color_profile and owner is None:
+        enum = []
+        out["reason"] = "Color enum choices require an authenticated instance"
+    else:
+        enum = _enum_items(prop, owner, bpy_module)
+        if color_profile:
+            out["reason"] = "Bounded instance color profile; not an exhaustive native enum catalog"
     if enum:
         out["enum"] = enum
     return out
@@ -227,19 +284,19 @@ def _serialize_scalar(value, ptype):
     raise ValueError("unsupported RNA value kind")
 
 
-def _default_value(prop):
+def _default_value(prop, owner=None, bpy_module=None):
     length = int(getattr(prop, "array_length", 0) or 0)
     if length:
         raw = list(getattr(prop, "default_array", ()))
         if len(raw) != length:
             raise ValueError("RNA array default is unavailable")
-        return _coerce(raw, prop)
+        return _coerce(raw, prop, owner, bpy_module)
     if not hasattr(prop, "default"):
         raise ValueError("RNA default is unavailable")
-    return _coerce(getattr(prop, "default"), prop)
+    return _coerce(getattr(prop, "default"), prop, owner, bpy_module)
 
 
-def _coerce(value, prop):
+def _coerce(value, prop, owner=None, bpy_module=None):
     status, _ = _property_status(prop)
     if status != "managed":
         raise ValueError("property is not generically mutable")
@@ -248,11 +305,11 @@ def _coerce(value, prop):
     if length:
         if not isinstance(value, list) or len(value) != length or length > MAX_ARRAY:
             raise ValueError("RNA array value has wrong length")
-        return [_coerce_scalar(item, prop, ptype) for item in value]
-    return _coerce_scalar(value, prop, ptype)
+        return [_coerce_scalar(item, prop, ptype, owner, bpy_module) for item in value]
+    return _coerce_scalar(value, prop, ptype, owner, bpy_module)
 
 
-def _coerce_scalar(value, prop, ptype):
+def _coerce_scalar(value, prop, ptype, owner=None, bpy_module=None):
     if ptype == "BOOLEAN":
         if not isinstance(value, bool):
             raise ValueError("boolean required")
@@ -273,9 +330,9 @@ def _coerce_scalar(value, prop, ptype):
             raise ValueError("number outside RNA bounds")
         return number
     if ptype == "ENUM":
-        if not isinstance(value, str) or len(value) > 256:
+        if not isinstance(value, str) or not value or len(value) > 256 or "\x00" in value:
             raise ValueError("enum identifier required")
-        allowed = {item["id"] for item in _enum_items(prop)}
+        allowed = {item["id"] for item in _enum_items(prop, owner, bpy_module)}
         if value not in allowed:
             raise ValueError("enum value is not allowed by RNA")
         return value
@@ -441,7 +498,7 @@ class SemanticStore:
         if rna is not None:
             owner_identifier = _text(getattr(rna, "identifier", ""), 256)
             for prop in list(rna.properties)[:1024]:
-                properties.append(_property_descriptor(prop, owner_identifier))
+                properties.append(_property_descriptor(prop, owner_identifier, item, self.bpy))
         return {
             "ref": self._ref(root, name, path),
             "root": root,
@@ -3078,7 +3135,7 @@ class SemanticStore:
         except Exception as error:
             raise SemanticError("Unsupported", "RNA value cannot be represented safely") from error
         owner_identifier = _text(getattr(rna, "identifier", ""), 256) if rna is not None else ""
-        return {"ref": self._ref(root, name, path), "property": property_id, "value": value, "descriptor": _property_descriptor(prop, owner_identifier)}
+        return {"ref": self._ref(root, name, path), "property": property_id, "value": value, "descriptor": _property_descriptor(prop, owner_identifier, item, self.bpy)}
 
     def property_set(self, reference, property_id, value):
         root, name, path, item = self._resolve(reference)
@@ -3087,7 +3144,7 @@ class SemanticStore:
         if prop is None or property_id == "rna_type":
             raise SemanticError("NotFound", "RNA property does not exist")
         try:
-            coerced = _coerce(value, prop)
+            coerced = _coerce(value, prop, item, self.bpy)
             setattr(item, property_id, coerced)
         except SemanticError:
             raise
@@ -3109,7 +3166,7 @@ class SemanticStore:
         if status != "managed":
             raise SemanticError("Unsupported", reason or "RNA property is not generically mutable")
         try:
-            setattr(item, property_id, _default_value(prop))
+            setattr(item, property_id, _default_value(prop, item, self.bpy))
         except Exception as error:
             raise SemanticError("Unsupported", "RNA property does not expose a bounded reset default") from error
         self.changed()

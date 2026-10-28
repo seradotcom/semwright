@@ -11,6 +11,14 @@ on:
         description: Exact integration candidate SHA to execute
         required: true
         type: string
+      evidence_recipient_spki:
+        description: Admitted RSA3072 recipient public SPKI in base64
+        required: true
+        type: string
+      evidence_recipient_sha256:
+        description: Exact SHA256 of recipient public SPKI DER
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -52,6 +60,18 @@ jobs:
           node-version: '22.22.0'
           cache: npm
           cache-dependency-path: integrations/motion-canvas/runtime/package-lock.json
+      - name: Preflight bounded FFV1 private original custody before native work
+        env:
+          CANDIDATE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.candidate_sha || github.sha }}
+          EVIDENCE_RECIPIENT_SPKI: ${{ inputs.evidence_recipient_spki }}
+          EVIDENCE_RECIPIENT_SHA256: ${{ inputs.evidence_recipient_sha256 }}
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/combined-av-evidence-venv"
+          "$RUNNER_TEMP/combined-av-evidence-venv/bin/python" -m pip install --disable-pip-version-check --no-deps --require-hashes --only-binary=:all: -r tooling/requirements/mlt-g2-custody.txt
+          mkdir -p verification/composition-av
+          "$RUNNER_TEMP/combined-av-evidence-venv/bin/python" -m unittest discover -s tooling/tests -p test_ci_av_original_egress.py -v
+          "$RUNNER_TEMP/combined-av-evidence-venv/bin/python" tooling/ci_av_originals_egress.py preflight
       - name: Install pinned native runtimes
         run: |
           set -euo pipefail
@@ -177,6 +197,16 @@ jobs:
         run: |
           set -euo pipefail
           cargo test --locked -p semwright-av-composition             --test combined_native             combined_a_b_native_av_candidate_uses_post_encode_audio_and_full_scan_sync             -- --ignored --exact --nocapture             2>&1 | tee verification/composition-av/combined-native.log
+      - name: Encrypt existing bounded original FFV1 host custody
+        if: always()
+        env:
+          CANDIDATE_SHA: ${{ github.event_name == 'workflow_dispatch' && inputs.candidate_sha || github.sha }}
+          EVIDENCE_RECIPIENT_SPKI: ${{ inputs.evidence_recipient_spki }}
+          EVIDENCE_RECIPIENT_SHA256: ${{ inputs.evidence_recipient_sha256 }}
+        run: |
+          set -euo pipefail
+          test -x "$RUNNER_TEMP/combined-av-evidence-venv/bin/python"
+          "$RUNNER_TEMP/combined-av-evidence-venv/bin/python" tooling/ci_av_originals_egress.py seal
       - name: Record exact-SHA run metadata
         if: always()
         env:
