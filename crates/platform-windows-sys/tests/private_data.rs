@@ -55,3 +55,31 @@ fn private_data_rejects_empty_or_oversized_sources() {
     harden_file(&oversized);
     assert!(verify_private_data_file(&oversized, 4096).is_err());
 }
+
+#[test]
+fn private_data_distinguishes_standard_rights_from_readable_data() {
+    let directory = tempfile::tempdir().expect("private-data directory");
+    let secret = directory.path().join("secret.txt");
+    std::fs::write(&secret, b"private fixture").expect("write private data");
+    harden_file(&secret);
+    let set_users = |rights: &str| {
+        let status = std::process::Command::new("icacls")
+            .arg(&secret)
+            .arg("/grant:r")
+            .arg(format!("*S-1-5-32-545:({rights})"))
+            .status()
+            .expect("set disposable fixture DACL");
+        assert!(status.success());
+    };
+    set_users("RC,S");
+    verify_private_data_file(&secret, 4096)
+        .expect("security-descriptor read and synchronization grant no file data read");
+    for rights in [
+        "RD", "REA", "RA", "WD", "AD", "WEA", "WA", "D", "WDAC", "WO",
+    ] {
+        set_users(rights);
+        let error = verify_private_data_file(&secret, 4096)
+            .expect_err("untrusted file access or mutation must remain denied");
+        assert_eq!(error.code, ErrorCode::PermissionDenied, "rights: {rights}");
+    }
+}

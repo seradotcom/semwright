@@ -71,7 +71,7 @@ use windows::Win32::{
         FILE_ATTRIBUTE_DIRECTORY, FILE_ATTRIBUTE_NORMAL, FILE_ATTRIBUTE_REPARSE_POINT,
         FILE_DELETE_CHILD, FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT,
         FILE_GENERIC_EXECUTE, FILE_GENERIC_READ, FILE_GENERIC_WRITE, FILE_READ_ATTRIBUTES,
-        FILE_READ_DATA, FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE,
+        FILE_READ_DATA, FILE_READ_EA, FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE,
         FILE_WRITE_ATTRIBUTES, FILE_WRITE_DATA, FILE_WRITE_EA, GetFileInformationByHandle,
         OPEN_EXISTING, WRITE_DAC, WRITE_OWNER,
     },
@@ -402,10 +402,12 @@ fn verify_trusted_file_acl(file: &File, kind: &str, private_data: bool) -> Resul
         | DELETE.0
         | WRITE_DAC.0
         | WRITE_OWNER.0
-        | FILE_GENERIC_WRITE.0
         | GENERIC_WRITE.0
         | GENERIC_ALL.0;
-    let confidential = FILE_READ_DATA.0 | FILE_GENERIC_READ.0 | GENERIC_READ.0 | GENERIC_ALL.0;
+    // Generic file masks also contain READ_CONTROL/SYNCHRONIZE; those standard
+    // rights alone permit neither content access nor mutation.
+    let confidential =
+        FILE_READ_DATA.0 | FILE_READ_EA.0 | FILE_READ_ATTRIBUTES.0 | GENERIC_READ.0 | GENERIC_ALL.0;
     let restricted = if private_data {
         mutation | confidential
     } else {
@@ -499,7 +501,7 @@ fn verify_materialized_sealed_tool(path: &Path, digest: &str) -> Result<()> {
     if before.dwFileAttributes & FILE_ATTRIBUTE_REPARSE_POINT.0 != 0
         || before.nNumberOfLinks != 1
         || before.nFileSizeHigh != 0
-        || before.nFileSizeLow as u64 > MAX_EXECUTABLE
+        || before.nFileSizeLow as u64 > MAX_APPLICATION_EXECUTABLE
     {
         return Err(Error::new(
             ErrorCode::PermissionDenied,
@@ -508,9 +510,9 @@ fn verify_materialized_sealed_tool(path: &Path, digest: &str) -> Result<()> {
     }
     let mut bytes = Vec::with_capacity(before.nFileSizeLow as usize);
     file.by_ref()
-        .take(MAX_EXECUTABLE + 1)
+        .take(MAX_APPLICATION_EXECUTABLE + 1)
         .read_to_end(&mut bytes)?;
-    if bytes.len() as u64 > MAX_EXECUTABLE {
+    if bytes.len() as u64 > MAX_APPLICATION_EXECUTABLE {
         return Err(Error::new(
             ErrorCode::ResourceExhausted,
             "Materialized Windows sealed tool exceeds size budget",
@@ -698,7 +700,9 @@ fn verify_windows_executable(
 }
 
 pub fn verify_sealed_tool_executable(path: &Path, digest: &str) -> Result<Vec<u8>> {
-    verify_windows_executable(path, digest, true, MAX_EXECUTABLE)
+    // Sealed tools include pinned native applications such as Blender and Godot.
+    // Driver executables retain MAX_EXECUTABLE; all trust and identity checks are shared.
+    verify_windows_executable(path, digest, true, MAX_APPLICATION_EXECUTABLE)
 }
 
 pub fn verify_application_executable(path: &Path, digest: &str) -> Result<()> {
@@ -2721,6 +2725,93 @@ mod verifier_tests {
             .verify(&path, &digest)
             .expect("hardened staged Windows executable should satisfy trust policy");
         assert_eq!(verified, bytes);
+
+        // RX contains READ_CONTROL/SYNCHRONIZE, neither of which permits mutation.
+        let read_only = std::process::Command::new("icacls")
+            .arg(&path)
+            .arg("/grant:r")
+            .arg("*S-1-5-32-545:(RX)")
+            .status()
+            .expect("grant Users read/execute on disposable fixture");
+        assert!(read_only.success());
+        WindowsVerifier
+            .verify(&path, &digest)
+            .expect("untrusted read/execute must not be mistaken for mutation");
+        let writable = std::process::Command::new("icacls")
+            .arg(&path)
+            .arg("/grant:r")
+            .arg("*S-1-5-32-545:(W)")
+            .status()
+            .expect("grant Users write on disposable fixture");
+        assert!(writable.success());
+        let error = WindowsVerifier
+            .verify(&path, &digest)
+            .expect_err("untrusted write must remain denied");
+        assert_eq!(error.code, ErrorCode::PermissionDenied);
+    }
+
+    #[test]
+    fn sealed_application_budget_does_not_expand_driver_budget_or_skip_trust() {
+        let directory = tempfile::tempdir().expect("private application fixture directory");
+        let path = directory.path().join("large-application.exe");
+        let mut bytes = std::fs::read(std::env::current_exe().unwrap()).unwrap();
+        assert!(bytes.len() < MAX_EXECUTABLE as usize);
+        bytes.resize(MAX_EXECUTABLE as usize + 1, 0);
+        std::fs::write(&path, &bytes).unwrap();
+        let user = std::env::var("USERNAME").unwrap();
+        let principal = match std::env::var("USERDOMAIN") {
+            Ok(domain) if !domain.is_empty() => format!(r"{domain}\{user}"),
+            _ => user,
+        };
+        assert!(
+            std::process::Command::new("icacls")
+                .arg(&path)
+                .arg("/inheritance:r")
+                .arg("/grant:r")
+                .arg(format!("{principal}:(F)"))
+                .status()
+                .unwrap()
+                .success()
+        );
+        let digest = hex::encode(Sha256::digest(&bytes));
+        assert_eq!(
+            WindowsVerifier.verify(&path, &digest).unwrap_err().code,
+            ErrorCode::PermissionDenied
+        );
+        assert_eq!(
+            verify_sealed_tool_executable(&path, &digest).unwrap().len(),
+            bytes.len()
+        );
+        verify_materialized_sealed_tool(&path, &digest).unwrap();
+        let wrong_digest = "0".repeat(64);
+        assert_eq!(
+            verify_sealed_tool_executable(&path, &wrong_digest)
+                .unwrap_err()
+                .code,
+            ErrorCode::PermissionDenied
+        );
+        assert_eq!(
+            verify_materialized_sealed_tool(&path, &wrong_digest)
+                .unwrap_err()
+                .code,
+            ErrorCode::PermissionDenied
+        );
+        drop(bytes);
+        let file = std::fs::OpenOptions::new().write(true).open(&path).unwrap();
+        file.set_len(MAX_APPLICATION_EXECUTABLE + 1).unwrap();
+        drop(file);
+        assert_eq!(
+            verify_sealed_tool_executable(&path, &digest)
+                .unwrap_err()
+                .code,
+            ErrorCode::PermissionDenied
+        );
+        assert_eq!(
+            verify_materialized_sealed_tool(&path, &digest)
+                .unwrap_err()
+                .code,
+            ErrorCode::PermissionDenied
+        );
     }
 
     #[test]

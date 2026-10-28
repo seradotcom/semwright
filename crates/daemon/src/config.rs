@@ -174,14 +174,82 @@ pub fn directory_filesystem_grants(
     Ok(grants)
 }
 
-pub fn confine_grants(config: &Config, protected: &[PathBuf]) -> Result<()> {
-    for grant in &config.policy.filesystem {
-        let root = std::fs::canonicalize(&grant.path)?;
-        if root != grant.path {
+pub(crate) fn canonical_grant_root(path: &Path) -> Result<PathBuf> {
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt;
+        use std::path::{Component, Prefix};
+        let invalid = || {
+            Error::invalid(
+                "Filesystem grant must use a canonical absolute local drive path without aliases",
+            )
+        };
+        let mut parts = path.components();
+        if !matches!(parts.next(), Some(Component::Prefix(p)) if matches!(p.kind(), Prefix::Disk(_)))
+            || !matches!(parts.next(), Some(Component::RootDir))
+        {
+            return Err(invalid());
+        }
+        let spelling = path.to_str().ok_or_else(invalid)?;
+        if spelling.get(2..).is_none_or(|s| s.contains(':'))
+            || spelling
+                .split(['\\', '/'])
+                .any(|p| p == "." || p == ".." || p.ends_with(' ') || p.ends_with('.'))
+        {
+            return Err(invalid());
+        }
+        for part in parts {
+            if !matches!(part, Component::Normal(_)) {
+                return Err(invalid());
+            }
+        }
+        for ancestor in path.ancestors() {
+            let metadata = std::fs::symlink_metadata(ancestor)?;
+            if metadata.file_attributes() & 0x400 != 0 || (ancestor != path && !metadata.is_dir()) {
+                return Err(Error::invalid(
+                    "Filesystem grant path contains a reparse point or non-directory ancestor",
+                ));
+            }
+        }
+        let root = std::fs::canonicalize(path)?;
+        let mut canonical = root.components();
+        let drive = match canonical.next() {
+            Some(Component::Prefix(p)) => match p.kind() {
+                Prefix::VerbatimDisk(drive) => drive,
+                _ => return Err(invalid()),
+            },
+            _ => return Err(invalid()),
+        };
+        if !matches!(canonical.next(), Some(Component::RootDir)) {
+            return Err(invalid());
+        }
+        let mut local = PathBuf::from(format!("{}:\\", char::from(drive)));
+        for part in canonical {
+            match part {
+                Component::Normal(name) => local.push(name),
+                _ => return Err(invalid()),
+            }
+        }
+        if local != path {
+            return Err(invalid());
+        }
+        Ok(root)
+    }
+    #[cfg(not(windows))]
+    {
+        let root = std::fs::canonicalize(path)?;
+        if root != path {
             return Err(Error::invalid(
                 "Filesystem grant must be canonical; links in its path are not accepted",
             ));
         }
+        Ok(root)
+    }
+}
+
+pub fn confine_grants(config: &Config, protected: &[PathBuf]) -> Result<()> {
+    for grant in &config.policy.filesystem {
+        let root = canonical_grant_root(&grant.path)?;
         for private in protected {
             let private = std::fs::canonicalize(private)?;
             if root.starts_with(&private) || private.starts_with(&root) {
@@ -321,5 +389,61 @@ trust_driver_everything = true
         assert!(!opted_in.driver_network);
         assert!(!opted_in.plugin_network);
         assert!(!opted_in.mcp_network);
+    }
+}
+
+#[cfg(all(test, windows))]
+mod windows_grant_tests {
+    use super::*;
+    #[test]
+    fn windows_grant_accepts_canonical_local_directory_and_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("fixture.bin");
+        std::fs::write(&file, b"fixture").unwrap();
+        assert_eq!(
+            canonical_grant_root(dir.path()).unwrap(),
+            std::fs::canonicalize(dir.path()).unwrap()
+        );
+        assert_eq!(
+            canonical_grant_root(&file).unwrap(),
+            std::fs::canonicalize(&file).unwrap()
+        );
+    }
+    #[test]
+    fn windows_grant_rejects_namespace_and_lexical_aliases() {
+        for path in [
+            r"relative",
+            r"C:relative",
+            r"\\server\share",
+            r"\\?\C:\fixture",
+            r"\\.\C:\fixture",
+            r"C:\fixture:stream",
+            r"C:\fixture\..\elsewhere",
+            r"C:\fixture\.\child",
+            r"C:\fixture.\child",
+            r"C:\fixture \child",
+        ] {
+            assert!(canonical_grant_root(Path::new(path)).is_err(), "{path}");
+        }
+    }
+    #[test]
+    fn windows_grant_rejects_real_junction_and_descendant() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("target");
+        std::fs::create_dir(&target).unwrap();
+        std::fs::write(target.join("data.txt"), b"fixture").unwrap();
+        let junction = dir.path().join("junction");
+        let status = std::process::Command::new("cmd")
+            .args(["/C", "mklink", "/J"])
+            .arg(&junction)
+            .arg(&target)
+            .status()
+            .unwrap();
+        assert!(
+            status.success(),
+            "test requires creating its private junction"
+        );
+        assert!(canonical_grant_root(&junction).is_err());
+        assert!(canonical_grant_root(&junction.join("data.txt")).is_err());
     }
 }
