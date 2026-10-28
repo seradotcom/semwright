@@ -2411,18 +2411,91 @@ fn host_tool_cross_arch(spec: &SandboxSpec) -> Result<bool> {
 /// inherited-handle list are attached at creation, the process starts suspended, enters a
 /// kill-on-close Job Object, and is resumed only after that boundary exists.
 pub struct WindowsSandbox;
-impl SandboxLauncher for WindowsSandbox {
-    fn command(&self, spec: &SandboxSpec) -> Result<Command> {
-        spec.validate()?;
-        Err(Error::new(
-            ErrorCode::SandboxDenied,
-            "Windows sandbox creation is only available through platform-owned spawn",
-        ))
-    }
 
-    fn spawn(&self, spec: &SandboxSpec) -> Result<SandboxProcess> {
+#[derive(Clone, Copy)]
+enum WindowsLaunchMode {
+    Default,
+    #[cfg(feature = "windows-sxs-test")]
+    RegistryReadDiagnostic,
+}
+impl WindowsLaunchMode {
+    fn registry_read_diagnostic(self) -> bool {
+        match self {
+            Self::Default => false,
+            #[cfg(feature = "windows-sxs-test")]
+            Self::RegistryReadDiagnostic => true,
+        }
+    }
+    fn validate(self, _spec: &SandboxSpec, _cross_arch_host_tool: bool) -> Result<()> {
+        match self {
+            Self::Default => Ok(()),
+            #[cfg(feature = "windows-sxs-test")]
+            Self::RegistryReadDiagnostic => {
+                if _spec.nvidia_gpu
+                    || !matches!(
+                        _spec.kind,
+                        semwright_platform_api::launch::SandboxKind::Driver
+                    )
+                {
+                    return Err(Error::new(
+                        ErrorCode::SandboxDenied,
+                        "Registry diagnostic requires a CPU-only Driver fixture",
+                    ));
+                }
+                validate_registry_read_diagnostic(
+                    _spec.network,
+                    _spec
+                        .limits
+                        .as_ref()
+                        .is_some_and(|limits| limits.processes == 1),
+                    cfg!(target_arch = "x86_64"),
+                    _cross_arch_host_tool,
+                )
+            }
+        }
+    }
+}
+#[cfg(feature = "windows-sxs-test")]
+fn validate_registry_read_diagnostic(
+    network: bool,
+    bounded_one_process: bool,
+    native_x64: bool,
+    cross_arch_host_tool: bool,
+) -> Result<()> {
+    if network || !bounded_one_process || !native_x64 || cross_arch_host_tool {
+        return Err(Error::new(
+            ErrorCode::SandboxDenied,
+            "Registry diagnostic requires no network, native x64, no emulation and one-process limits",
+        ));
+    }
+    Ok(())
+}
+/// Explicit first-party test request. No environment selector or production default change.
+#[cfg(feature = "windows-sxs-test")]
+pub fn sandbox_spawn_registry_read_diagnostic(spec: &SandboxSpec) -> Result<SandboxProcess> {
+    WindowsSandbox.spawn_with_mode(spec, WindowsLaunchMode::RegistryReadDiagnostic)
+}
+
+impl WindowsSandbox {
+    fn spawn_with_mode(
+        &self,
+        spec: &SandboxSpec,
+        mode: WindowsLaunchMode,
+    ) -> Result<SandboxProcess> {
         spec.validate()?;
         let cross_arch_host_tool = host_tool_cross_arch(spec)?;
+        mode.validate(spec, cross_arch_host_tool)?;
+        if mode.registry_read_diagnostic() {
+            eprintln!(
+                "{}",
+                serde_json::json!({
+                    "component":"platform-windows",
+                    "phase":"registry_read_diagnostic_requested",
+                    "test_only":true,"requested_capabilities":["registryRead"],
+                    "network":false,"application_startup_verified":false
+                })
+            );
+        }
         let typed_host_tool = spec
             .environment
             .iter()
@@ -2453,8 +2526,9 @@ impl SandboxLauncher for WindowsSandbox {
         // documented LPAC registryRead capability only when ambient network was explicitly
         // owner-authorized. This remains process-scoped and does not change filesystem mounts,
         // loopback policy, or the AppContainer profile's network capability declaration.
-        let network_registry_sid = spec
-            .network
+        // The explicit test-only mode requests this same fixed SID without network.
+        // Normal spawn never selects that mode; its existing authority is unchanged.
+        let network_registry_sid = (spec.network || mode.registry_read_diagnostic())
             .then(|| named_capability_sid("registryRead"))
             .transpose()?;
         if let Some(sid) = network_registry_sid.as_ref() {
@@ -2731,6 +2805,19 @@ impl SandboxLauncher for WindowsSandbox {
             cpu_accounting,
         ))
     }
+}
+impl SandboxLauncher for WindowsSandbox {
+    fn command(&self, spec: &SandboxSpec) -> Result<Command> {
+        spec.validate()?;
+        Err(Error::new(
+            ErrorCode::SandboxDenied,
+            "Windows sandbox creation is only available through platform-owned spawn",
+        ))
+    }
+
+    fn spawn(&self, spec: &SandboxSpec) -> Result<SandboxProcess> {
+        self.spawn_with_mode(spec, WindowsLaunchMode::Default)
+    }
 
     fn available(&self, _helper: &Path) -> bool {
         true
@@ -2985,5 +3072,30 @@ mod verifier_tests {
                 .expect("verify inherited workspace revocation"),
             "revocation must remove inherited AppContainer authority from existing children"
         );
+    }
+}
+
+#[cfg(all(test, feature = "windows-sxs-test"))]
+mod registry_read_diagnostic_tests {
+    use super::*;
+    #[test]
+    fn registry_read_diagnostic_accepts_bounded_native_case() {
+        validate_registry_read_diagnostic(false, true, true, false).unwrap();
+    }
+    #[test]
+    fn registry_read_diagnostic_rejects_network() {
+        assert!(validate_registry_read_diagnostic(true, true, true, false).is_err());
+    }
+    #[test]
+    fn registry_read_diagnostic_requires_one_process_limits() {
+        assert!(validate_registry_read_diagnostic(false, false, true, false).is_err());
+    }
+    #[test]
+    fn registry_read_diagnostic_requires_native_x64() {
+        assert!(validate_registry_read_diagnostic(false, true, false, false).is_err());
+    }
+    #[test]
+    fn registry_read_diagnostic_rejects_emulation() {
+        assert!(validate_registry_read_diagnostic(false, true, true, true).is_err());
     }
 }

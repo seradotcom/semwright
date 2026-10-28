@@ -1,0 +1,189 @@
+{
+  "files": [
+    {
+      "path": "aba-version-source/Cargo.lock",
+      "bytes": 131662,
+      "sha256": "3959cc1ee3b21883d8ec2cb0e1f158fe1f7c5df178503a1489e5e2dfef836940"
+    },
+    {
+      "path": "aba-version-source/crates/driver-blender/Cargo.toml",
+      "bytes": 1768,
+      "sha256": "5a0534fd6b6c9d1d62dd7fd468dda5bbaa0321c59197def4cdb578ee02481111"
+    },
+    {
+      "path": "aba-version-source/crates/driver-blender/src/bin/session_runner/windows.rs",
+      "bytes": 25796,
+      "sha256": "bcd91d46beaaad93d736f148053151cc0c5aa0d5acccccaf6d6b54515f200fa6"
+    },
+    {
+      "path": "aba-version-source/crates/driver-blender/src/bin/session_runner/windows_fixture.rs",
+      "bytes": 21349,
+      "sha256": "e859c7b1ab15699662809b356d4eb9b7ad018038a8d2bd54b8e4bb235a228096"
+    },
+    {
+      "path": "aba-version-source/crates/driver-blender/src/bin/session_runner/windows_registry_fixture.rs",
+      "bytes": 6489,
+      "sha256": "038959e3e9b2c93acef36b23900f5f8a9fda668d0c9ad6c2290f2663127e7b0c"
+    },
+    {
+      "path": "aba-version-source/crates/driver-blender/tests/windows_native_launch.rs",
+      "bytes": 54215,
+      "sha256": "fbf3525878b8c78bf750a99d60c9cd31647acbc6465533059e72a9ad6969b4a6"
+    },
+    {
+      "path": "aba-version-source/crates/platform-services/Cargo.toml",
+      "bytes": 729,
+      "sha256": "e96fb7abcfea2eeab5cc816d652025d370fbd88f06b1f35f6b9839f851d89ec7"
+    },
+    {
+      "path": "aba-version-source/crates/platform-services/src/lib.rs",
+      "bytes": 11261,
+      "sha256": "3385e6644d3c485ae698dc7b2f043bff841eeb91dad7a9216d2824fa60632cb9"
+    },
+    {
+      "path": "aba-version-source/crates/platform-windows-sys/Cargo.toml",
+      "bytes": 1971,
+      "sha256": "6a4b56f30975034569e268ebcab75eaeec16b00e514801fe8ad3e6d19cc726bf"
+    },
+    {
+      "path": "aba-version-source/crates/platform-windows-sys/src/launch.rs",
+      "bytes": 114870,
+      "sha256": "07d9908bc82d90c300f3b7339a0f2784c00d9a357431633eb62cccc95eaf40e3"
+    },
+    {
+      "path": "aba-version-source/crates/platform-windows-sys/src/lib.rs",
+      "bytes": 940,
+      "sha256": "89847f93343393069b30595b458d684479354d4b92da59a6b8d6b2f45a24e1c2"
+    },
+    {
+      "path": "default-zero-attempt01/cargo.log",
+      "bytes": 17511,
+      "sha256": "48142cee7284e0c4fb4bdabcc99a7718da774e238706c3445af5926c7e70561f"
+    },
+    {
+      "path": "default-zero-attempt01/run.json",
+      "bytes": 7083,
+      "sha256": "b936f5006688f48edd3cfbad049e25793e6b2e85139b10dffbc4d808b5098f0c"
+    },
+    {
+      "path": "diagnostic-runner.py",
+      "bytes": 6144,
+      "sha256": "e6104013f013bc75c8c192763ec69400ac873e6971beb2c5c9dfaf3279eade2a"
+    },
+    {
+      "path": "host-guards-attempt01/cargo.log",
+      "bytes": 616,
+      "sha256": "549d997d6855684f5c98d761923af1f0304d3aad75a096fe1cb31416eb46bbc1"
+    },
+    {
+      "path": "host-guards-attempt01/run.json",
+      "bytes": 4109,
+      "sha256": "cce9685a9a3ef85bd51951005e190bc43ec85798ea9feae6493d4a3e8d1369b5"
+    },
+    {
+      "path": "host-guards-attempt02/cargo.log",
+      "bytes": 931,
+      "sha256": "01cba1977508f86f59e349e19d746aa9b153332609762ededda36dac8f3cd32f"
+    },
+    {
+      "path": "host-guards-attempt02/run.json",
+      "bytes": 4199,
+      "sha256": "4c49cc6a3e15d91b892868d2e7618b4b862f2bc949715d5c50e8e44cf232da5f"
+    },
+    {
+      "path": "initial-bridge-attempt01/cargo.log",
+      "bytes": 14801,
+      "sha256": "7d35e4887fdf51378842ee6b4dbea37bfd5d5509a23af1d8784990d7095b7847"
+    },
+    {
+      "path": "initial-bridge-attempt01/run.json",
+      "bytes": 6581,
+      "sha256": "04d8f41bfdaa96d148c4bf66ba75aba74b17e7c6bf5091e2fd1c9071851a8d11"
+    },
+    {
+      "path": "initial-bridge-attempt02/bridge-receipt.json",
+      "bytes": 4058,
+      "sha256": "fb8282e714ab440e4b7716f6f49f987606a2496fe682a85556cbb3c35b3858bb"
+    },
+    {
+      "path": "initial-bridge-attempt02/cargo.log",
+      "bytes": 16599,
+      "sha256": "fcf1c9629894cd8346720b3490f71336233c7dde59534c9ab28a4dcc16bcb68a"
+    },
+    {
+      "path": "initial-bridge-attempt02/run.json",
+      "bytes": 13265,
+      "sha256": "c7c74dafdcd0667dcf494cc894b12a3196b263f69c0205034ecc799b80cad8ff"
+    },
+    {
+      "path": "initial-bridge-attempt02/sealed-code-pins.json",
+      "bytes": 964,
+      "sha256": "f4ab618ca52891b88ace4572c3f712e5e46f81fe6ee3440eb751e364a70767c4"
+    },
+    {
+      "path": "initial-bridge-attempt02/source/crates/driver-blender/tests/windows_initial_bridge/bootstrap.py",
+      "bytes": 2849,
+      "sha256": "657596932e0590ca0eda52643db989db3cd7459eae8451d06a48476f8ed74fdd"
+    },
+    {
+      "path": "initial-bridge-attempt02/source/crates/driver-blender/tests/windows_initial_bridge/mod.rs",
+      "bytes": 13182,
+      "sha256": "04d746c9bf1f47d7e149a8089b73d372f93409e1e04b83b6710196dd74afb30f"
+    },
+    {
+      "path": "initial-bridge-attempt02/source/crates/driver-blender/tests/windows_native_launch.rs",
+      "bytes": 54285,
+      "sha256": "f93d7dd41a82e64da3663ada1aced14736a11748d0acf16c5a61835926368c48"
+    },
+    {
+      "path": "initial-bridge-attempt02/workspace/bootstrap-observation.json",
+      "bytes": 1265,
+      "sha256": "9efd608039d774540ea57be53e652ddf19421c63a4212bd6bd1549649f54a6a1"
+    },
+    {
+      "path": "initial-bridge-attempt02/workspace/isolated-proof.blend",
+      "bytes": 96682,
+      "sha256": "95b0d7bd3037d5fd42719ab1ebbc440e1b98d186f2df2b2400b2dc5bcef03828"
+    },
+    {
+      "path": "initial-bridge-attempt02/workspace/isolated-proof.glb",
+      "bytes": 1784,
+      "sha256": "edb4dd1d068cc77ccb95a0f7bf3546d85f00824423838bc7911a67210d8435ec"
+    },
+    {
+      "path": "owner-rejection-attempt1/cargo.log",
+      "bytes": 12615,
+      "sha256": "08c584d8e5b802298ca0bdb69db3458515d7f9e9c6e88e68373b0dcc1e8b11f0"
+    },
+    {
+      "path": "owner-rejection-attempt1/run.json",
+      "bytes": 4270,
+      "sha256": "14cf77bc32b7bbbeb7e90701921a8cea28d1ae1929496105e19226374bb4024d"
+    },
+    {
+      "path": "production-check-attempt01/cargo.log",
+      "bytes": 569,
+      "sha256": "bc22c81cf3073cde26339ce48aaead3a09379dec89b8cdf015aa966e6da1c8e0"
+    },
+    {
+      "path": "production-check-attempt01/run.json",
+      "bytes": 4014,
+      "sha256": "50094565e2ef6162f58903ac76b60c2b33eb84e3121a65665b2d83a64d556047"
+    },
+    {
+      "path": "PROVENANCE.json",
+      "bytes": 5112,
+      "sha256": "07c5541bba62d3dd05b39d61e4a3ff75135730ceea6aca50a2bde6d0e3ace0ab"
+    },
+    {
+      "path": "registry-aba-version-attempt01/cargo.log",
+      "bytes": 52890,
+      "sha256": "70f27bd4b83913e5cfc22a3064c444110ad556044f9950ac9abdfe7d862d9cab"
+    },
+    {
+      "path": "registry-aba-version-attempt01/run.json",
+      "bytes": 44631,
+      "sha256": "a2b9d45ed4a3952f0f3b934e17f953e020c4df94ae98041e266ed946e444abda"
+    }
+  ]
+}

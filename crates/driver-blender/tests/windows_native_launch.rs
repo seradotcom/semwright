@@ -1,4 +1,6 @@
 #![cfg(all(target_os = "windows", feature = "windows-launch-test-fixture"))]
+#[path = "windows_initial_bridge/mod.rs"]
+mod windows_initial_bridge;
 use semwright_platform_api::launch::{
     HostToolArgRef, Mount, MountClass, ResourceLimits, SANDBOX_HOST_TOOL_CHILD_ENV,
     SANDBOX_HOST_TOOL_CWD_ENV, SANDBOX_HOST_TOOL_TYPED_ARGS_ENV, SandboxKind, SandboxSpec,
@@ -7,6 +9,28 @@ use semwright_platform_api::launch::{
 use sha2::{Digest, Sha256};
 use std::{path::Path, time::Duration};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+async fn kill_and_reap_owned(process: &mut semwright_platform_api::launch::SandboxProcess) {
+    let kill = tokio::time::timeout(Duration::from_secs(5), process.kill()).await;
+    let waited = tokio::time::timeout(Duration::from_secs(5), process.wait_exit_code()).await;
+    let exit = waited
+        .as_ref()
+        .ok()
+        .and_then(|r| r.as_ref().ok())
+        .copied()
+        .flatten();
+    eprintln!(
+        "OWNED_DIAGNOSTIC_CLEANUP {}",
+        serde_json::json!({
+            "kill_completed": matches!(kill, Ok(Ok(()))),
+            "exit_observed": exit.is_some(), "exit_code": exit
+        })
+    );
+    assert!(
+        exit.is_some(),
+        "Owned diagnostic process termination was not confirmed"
+    );
+}
+
 fn harden(path: &Path) {
     let principal = format!(
         "{}\\{}",
@@ -110,15 +134,13 @@ async fn run_case(mode: &str) {
     let mut bytes = Vec::new();
     let read = tokio::time::timeout(Duration::from_secs(10), output.read_to_end(&mut bytes)).await;
     if !matches!(read, Ok(Ok(_))) {
-        let _ = process.kill().await;
-        let _ = process.wait().await;
+        kill_and_reap_owned(&mut process).await;
     }
     assert!(matches!(read, Ok(Ok(_))), "bounded fixture response");
     assert!(bytes.len() <= 32768);
     let waited = tokio::time::timeout(Duration::from_secs(5), process.wait_exit_code()).await;
-    if waited.is_err() {
-        let _ = process.kill().await;
-        let _ = process.wait().await;
+    if !matches!(waited, Ok(Ok(_))) {
+        kill_and_reap_owned(&mut process).await;
     }
     let exit = waited
         .expect("fixture bounded exit")
@@ -139,6 +161,11 @@ async fn run_case(mode: &str) {
 #[tokio::test]
 #[ignore = "Requires the explicitly pinned private Blender 5.2.1 runtime on the Windows test host"]
 async fn direct_host_isolated_blender_version_probe() {
+    run_direct_host_version(false).await;
+}
+async fn run_direct_host_version(registry_read: bool) {
+    let workspace = tempfile::tempdir().unwrap();
+    harden_cpu_fixture_root(workspace.path());
     let runtime = std::path::PathBuf::from(
         std::env::var_os("SEMWRIGHT_TEST_BLENDER_RUNTIME").expect("explicit runtime"),
     );
@@ -152,20 +179,29 @@ async fn direct_host_isolated_blender_version_probe() {
         kind: SandboxKind::Driver,
         staged_executable: executable,
         helper: std::env::current_exe().unwrap(),
-        mounts: vec![Mount {
-            source: runtime.clone(),
-            class: MountClass::Workspace,
-            logical_name: "runtime".into(),
-            read_only: true,
-            execute: true,
-        }],
+        mounts: vec![
+            Mount {
+                source: workspace.path().to_path_buf(),
+                class: MountClass::Workspace,
+                logical_name: "private-work".into(),
+                read_only: false,
+                execute: false,
+            },
+            Mount {
+                source: runtime.clone(),
+                class: MountClass::Workspace,
+                logical_name: "runtime".into(),
+                read_only: true,
+                execute: true,
+            },
+        ],
         args: vec!["--version".into()],
         environment: vec![
             (SANDBOX_HOST_TOOL_CHILD_ENV.into(), "1".into()),
             (SANDBOX_HOST_TOOL_TYPED_ARGS_ENV.into(), "1".into()),
             (
                 SANDBOX_HOST_TOOL_CWD_ENV.into(),
-                runtime.to_string_lossy().into_owned(),
+                workspace.path().to_string_lossy().into_owned(),
             ),
         ],
         sealed_tools: vec![],
@@ -173,14 +209,18 @@ async fn direct_host_isolated_blender_version_probe() {
         nvidia_gpu: false,
         limits: Some(ResourceLimits {
             open_files: 256,
-            processes: 8,
+            processes: if registry_read { 1 } else { 8 },
             cpu_seconds: 30,
             address_space_bytes: 4 * 1024 * 1024 * 1024,
             file_size_bytes: 1024 * 1024,
         }),
     };
-    let mut process =
-        semwright_platform_services::sandbox_spawn(&spec).expect("direct contained Blender");
+    let mut process = if registry_read {
+        semwright_platform_services::sandbox_spawn_registry_read_diagnostic(&spec)
+    } else {
+        semwright_platform_services::sandbox_spawn(&spec)
+    }
+    .expect("direct contained Blender");
     let mut input = process.take_stdin().unwrap();
     input.shutdown().await.unwrap();
     drop(input);
@@ -188,15 +228,32 @@ async fn direct_host_isolated_blender_version_probe() {
     let mut bytes = Vec::new();
     let read = tokio::time::timeout(Duration::from_secs(30), output.read_to_end(&mut bytes)).await;
     if !matches!(read, Ok(Ok(_))) {
-        let _ = process.kill().await;
-        let _ = process.wait().await;
+        kill_and_reap_owned(&mut process).await;
     }
     assert!(matches!(read, Ok(Ok(_))), "bounded native version response");
+    let waited = tokio::time::timeout(Duration::from_secs(5), process.wait_exit_code()).await;
+    if !matches!(waited, Ok(Ok(_))) {
+        kill_and_reap_owned(&mut process).await;
+    }
+    let exit = waited.expect("bounded native wait").expect("native exit");
     assert!(bytes.len() <= 16384);
-    let exit = process.wait_exit_code().await.expect("native exit");
     let text = String::from_utf8(bytes).unwrap();
     eprintln!(
         "direct Host Blender version exit={exit:?}, broker_used=false, scene_operation=false:\n{text}"
+    );
+    let after = semwright_platform_services::verify_sealed_tool_executable(
+        &spec.staged_executable,
+        expected,
+    )
+    .expect("runtime identity unchanged after exit");
+    eprintln!(
+        "REGISTRY_READ_BLENDER_VERSION {}",
+        serde_json::json!({
+        "registry_read_diagnostic":registry_read,"exit":exit,"stdout":text,
+        "blender_executable_sha256":hex::encode(Sha256::digest(&after)),
+        "network":false,"process_limit":spec.limits.as_ref().unwrap().processes,
+        "scene_loaded":false,"broker_used":false,"A05":"BLOCKED",
+        "private_working_directory":workspace.path()})
     );
     assert_eq!(exit, Some(0));
     assert!(text.starts_with("Blender 5.2.1"));
@@ -300,15 +357,13 @@ async fn isolated_blender_activation_context_probe() {
     let mut bytes = Vec::new();
     let read = tokio::time::timeout(Duration::from_secs(25), output.read_to_end(&mut bytes)).await;
     if !matches!(read, Ok(Ok(_))) {
-        let _ = process.kill().await;
-        let _ = process.wait().await;
+        kill_and_reap_owned(&mut process).await;
     }
     assert!(matches!(read, Ok(Ok(_))), "bounded activation response");
     assert!(bytes.len() <= 8192);
     let waited = tokio::time::timeout(Duration::from_secs(5), process.wait_exit_code()).await;
-    if waited.is_err() {
-        let _ = process.kill().await;
-        let _ = process.wait().await;
+    if !matches!(waited, Ok(Ok(_))) {
+        kill_and_reap_owned(&mut process).await;
     }
     let exit = waited
         .expect("bounded fixture exit")
@@ -362,37 +417,148 @@ mod cpu_payload;
 mod cpu_resource_activation;
 
 #[tokio::test]
+#[ignore = "Owner-authorized bounded registryRead A-B-A diagnostic; initial Blender --version only after activation succeeds"]
+async fn registry_read_activation_then_blender_version() {
+    run_initial_manifest_case(
+        true,
+        true,
+        true,
+        false,
+        true,
+        false,
+        InitialAuthority::ZeroCapabilityDenial,
+    )
+    .await;
+    run_initial_manifest_case(
+        true,
+        true,
+        true,
+        false,
+        true,
+        false,
+        InitialAuthority::RegistryRead,
+    )
+    .await;
+    run_initial_manifest_case(
+        true,
+        true,
+        true,
+        false,
+        true,
+        false,
+        InitialAuthority::ZeroCapabilityDenial,
+    )
+    .await;
+    run_direct_host_version(true).await;
+}
+#[test]
+fn registry_fixture_refuses_an_owner_token() {
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_semwright-blender-launch-fixture"))
+        .args([
+            "--embedded-cpu-registry-read-probe",
+            "0123456789abcdef0123456789abcdef",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    assert!(output.stdout.is_empty());
+}
+
+#[tokio::test]
 async fn initial_host_embedded_manifest_activation_probe() {
-    run_initial_manifest_case(false, false, false, false, false, false).await;
+    run_initial_manifest_case(
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        InitialAuthority::Default,
+    )
+    .await;
 }
 #[tokio::test]
 async fn initial_host_common_controls_probe() {
-    run_initial_manifest_case(true, false, false, false, false, false).await;
+    run_initial_manifest_case(
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        InitialAuthority::Default,
+    )
+    .await;
 }
 #[tokio::test]
 #[ignore = "Requires exact owner-pinned Blender manifests; no Blender DLL execution"]
 async fn initial_host_private_assemblies_probe() {
-    run_initial_manifest_case(true, true, false, false, false, false).await;
+    run_initial_manifest_case(
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        InitialAuthority::Default,
+    )
+    .await;
 }
 #[tokio::test]
 #[ignore = "Requires exact pinned Blender manifests; no Blender DLL execution"]
 async fn initial_host_exact_blender_manifest_probe() {
-    run_initial_manifest_case(true, true, true, false, false, false).await;
+    run_initial_manifest_case(
+        true,
+        true,
+        true,
+        false,
+        false,
+        false,
+        InitialAuthority::Default,
+    )
+    .await;
 }
 #[tokio::test]
 #[ignore = "Requires exact pinned DLL payload; executes CPU component code inside LPAC only"]
 async fn initial_host_cpu_component_probe() {
-    run_initial_manifest_case(true, true, true, true, false, false).await;
+    run_initial_manifest_case(
+        true,
+        true,
+        true,
+        true,
+        false,
+        false,
+        InitialAuthority::Default,
+    )
+    .await;
 }
 #[tokio::test]
 #[ignore = "Requires pinned CPU resource; query-only LPAC first, owner control afterward"]
 async fn initial_host_cpu_resource_activation_probe() {
-    run_initial_manifest_case(true, true, true, false, true, false).await;
+    run_initial_manifest_case(
+        true,
+        true,
+        true,
+        false,
+        true,
+        false,
+        InitialAuthority::Default,
+    )
+    .await;
 }
 #[tokio::test]
 #[ignore = "Explicit own-fixture debugger rendezvous; preserves LPAC/Job/zero capabilities"]
 async fn initial_host_cpu_resource_debug_probe() {
-    run_initial_manifest_case(true, true, true, false, true, true).await;
+    run_initial_manifest_case(
+        true,
+        true,
+        true,
+        false,
+        true,
+        true,
+        InitialAuthority::Default,
+    )
+    .await;
 }
 #[test]
 #[ignore = "Owner-only policy/resource comparison; not isolated Blender acceptance"]
@@ -619,6 +785,12 @@ fn owner_cpu_resource_policy_probe() {
     assert!(policies_stable, "Policies changed across the owner control");
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum InitialAuthority {
+    Default,
+    ZeroCapabilityDenial,
+    RegistryRead,
+}
 async fn run_initial_manifest_case(
     common_controls: bool,
     private_assemblies: bool,
@@ -626,7 +798,14 @@ async fn run_initial_manifest_case(
     cpu_component: bool,
     cpu_actctx: bool,
     debug_rendezvous: bool,
+    authority: InitialAuthority,
 ) {
+    let registry_read = authority == InitialAuthority::RegistryRead;
+    let expected_denial = authority == InitialAuthority::ZeroCapabilityDenial;
+    assert!(
+        authority == InitialAuthority::Default
+            || (cpu_actctx && !cpu_component && !debug_rendezvous)
+    );
     use std::os::windows::ffi::OsStrExt;
     use tokio::io::AsyncBufReadExt;
     assert!(!debug_rendezvous || (cpu_actctx && !cpu_component));
@@ -786,7 +965,9 @@ async fn run_initial_manifest_case(
         helper: std::env::current_exe().unwrap(),
         mounts: fixture_mounts,
         args: vec![
-            if debug_rendezvous {
+            if registry_read {
+                "--embedded-cpu-registry-read-probe".into()
+            } else if debug_rendezvous {
                 "--embedded-cpu-actctx-debug-probe".into()
             } else if cpu_actctx {
                 "--embedded-cpu-actctx-probe".into()
@@ -809,14 +990,22 @@ async fn run_initial_manifest_case(
         nvidia_gpu: false,
         limits: Some(ResourceLimits {
             open_files: 32,
-            processes: 8,
+            processes: if authority == InitialAuthority::Default {
+                8
+            } else {
+                1
+            },
             cpu_seconds: 5,
             address_space_bytes: 256 * 1024 * 1024,
             file_size_bytes: 1024 * 1024,
         }),
     };
-    let mut process =
-        semwright_platform_services::sandbox_spawn(&spec).expect("Host initial fixture");
+    let mut process = if registry_read {
+        semwright_platform_services::sandbox_spawn_registry_read_diagnostic(&spec)
+    } else {
+        semwright_platform_services::sandbox_spawn(&spec)
+    }
+    .expect("Host initial fixture");
     if cpu_payload_needed {
         print_cpu_mount_acls(binaries.path());
     }
@@ -874,8 +1063,7 @@ async fn run_initial_manifest_case(
         };
         let gated = tokio::time::timeout(Duration::from_secs(120), gate).await;
         if !matches!(gated, Ok(Ok(()))) {
-            let _ = process.kill().await;
-            let _ = process.wait().await;
+            kill_and_reap_owned(&mut process).await;
             panic!("Owned debugger rendezvous failed: {gated:?}");
         }
     }
@@ -883,22 +1071,26 @@ async fn run_initial_manifest_case(
     drop(input);
     let mut bytes = Vec::new();
     let read = tokio::time::timeout(
-        Duration::from_secs(if debug_rendezvous { 120 } else { 10 }),
+        Duration::from_secs(if debug_rendezvous {
+            120
+        } else if authority != InitialAuthority::Default {
+            15
+        } else {
+            10
+        }),
         output.read_to_end(&mut bytes),
     )
     .await;
     if !matches!(read, Ok(Ok(_))) {
-        let _ = process.kill().await;
-        let _ = process.wait().await;
+        kill_and_reap_owned(&mut process).await;
     }
     assert!(matches!(read, Ok(Ok(_))), "bounded initial fixture");
-    assert!(bytes.len() <= 8192);
     let waited = tokio::time::timeout(Duration::from_secs(5), process.wait_exit_code()).await;
-    if waited.is_err() {
-        let _ = process.kill().await;
-        let _ = process.wait().await;
+    if !matches!(waited, Ok(Ok(_))) {
+        kill_and_reap_owned(&mut process).await;
     }
     let exit = waited.expect("bounded exit").expect("exit query");
+    assert!(bytes.len() <= 8192);
     let text = String::from_utf8(bytes).unwrap();
     eprintln!("initial embedded fixture exit={exit:?}: {text}");
     if !cpu_actctx {
@@ -911,6 +1103,19 @@ async fn run_initial_manifest_case(
             .expect("structured final receipt"),
     )
     .expect("initial activation receipt");
+    // Bind negative as well as positive observations to this exact invocation.
+    assert_eq!(row["probe"], "initial_embedded_context");
+    assert_eq!(row["nonce"], nonce);
+    assert_eq!(row["manifest_sha256"], hex::encode(Sha256::digest(&fixed)));
+    assert_eq!(row["native_blender"], false);
+    assert_eq!(row["broker_used"], false);
+    assert_eq!(row["reached_main"], true);
+    assert_eq!(row["full_blender_manifest"], full_blender_manifest);
+    assert_eq!(row["cpu_actctx_probe"], cpu_actctx);
+    if cpu_actctx {
+        assert_eq!(row["blender_component_execution_attempted"], false);
+        assert_eq!(row["cpu_component"], serde_json::Value::Null);
+    }
     // Preserve both controls even after isolated exit 2.
     let owner_cpu_after = if cpu_actctx {
         let observation = cpu_resource_activation::probe(binaries.path());
@@ -940,7 +1145,8 @@ async fn run_initial_manifest_case(
             "{}",
             serde_json::json!({"probe":"cpu_resource_activation_comparison",
             "isolated_exit_code":exit,"owner_control_after_isolated_exit":true,
-            "cold_cache_claim":false,"policy_changed":false,
+            "cold_cache_claim":false,"policy_changed":false,"registry_read_diagnostic":registry_read,
+            "expected_zero_capability_denial":expected_denial,
             "isolated":isolated,"owner_after":owner,
             "owner_initial_context_after":expected_result.as_ref().ok(),
             "owner_initial_context_error":expected_result.as_ref().err().map(ToString::to_string),
@@ -958,6 +1164,23 @@ async fn run_initial_manifest_case(
             "valid owner control after isolated exit required"
         );
         assert_eq!(isolated["image_verified"], true);
+        if expected_denial {
+            assert_eq!(exit, Some(2));
+            assert_eq!(row["verified_lpac"], true);
+            assert_eq!(row["capability_count"], 0);
+            assert_eq!(row["job_verified"], true);
+            assert_eq!(row["ok"], false);
+            assert_eq!(row["registry_read_diagnostic"], false);
+            assert_eq!(isolated["create_ok"], false);
+            assert_eq!(isolated["create_win32_error"], 5);
+            eprintln!(
+                "ZERO_CAPABILITY_DENIAL_CONFIRMED {}",
+                serde_json::json!({
+                "exit":exit,"row":row,"owner_after":owner,"expected_denial":true,
+                "P0":"BLOCKED","broker_used":false})
+            );
+            return;
+        }
         assert_eq!(isolated["create_ok"], owner["create_ok"]);
         assert_eq!(isolated["create_win32_error"], owner["create_win32_error"]);
         assert_eq!(isolated["create_nt_status"], owner["create_nt_status"]);
@@ -980,7 +1203,14 @@ async fn run_initial_manifest_case(
     assert_eq!(row["native_blender"], false);
     assert_eq!(row["broker_used"], false);
     assert_eq!(row["reached_main"], true);
-    assert_eq!(row["capability_count"], 0);
+    assert_eq!(row["capability_count"], if registry_read { 1 } else { 0 });
+    assert_eq!(row["registry_read_diagnostic"], registry_read);
+    if registry_read {
+        assert_eq!(row["token_evidence"]["capability_name"], "registryRead");
+        assert_eq!(row["token_evidence"]["attributes"], 4);
+        assert_eq!(row["token_evidence"]["lpac"], true);
+        assert_eq!(row["token_evidence"]["job_member"], true);
+    }
     assert_eq!(row["job_verified"], true);
     assert_eq!(row["common_controls"], common_controls);
     assert_eq!(row["private_assemblies"], private_assemblies);

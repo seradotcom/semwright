@@ -12,10 +12,25 @@ mod cpu_payload;
 mod cpu_resource_activation;
 #[path = "windows_debug_rendezvous.rs"]
 mod debug_rendezvous;
+#[path = "windows_registry_fixture.rs"]
+mod registry_fixture;
 pub fn run() -> io::Result<()> {
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.len() == 2 && args[0] == "--embedded-cpu-registry-read-probe" {
+        // Separate closed diagnostic: no change to the production zero-cap verifier.
+        let evidence = registry_fixture::verify(unsafe { GetCurrentProcess() })?;
+        return embedded_activation_probe_attested(
+            &args[1],
+            true,
+            true,
+            true,
+            false,
+            true,
+            Some(&evidence),
+        );
+    }
     // Refuse direct owner execution before any fixture filesystem access.
     let parent = verify_process(unsafe { GetCurrentProcess() })?;
-    let args: Vec<String> = std::env::args().skip(1).collect();
     if args.len() == 3 && args[0] == "--activation-context-probe" {
         return activation_context_probe(Path::new(&args[1]), Path::new(&args[2]));
     }
@@ -344,7 +359,31 @@ fn embedded_activation_probe(
     cpu_component: bool,
     cpu_actctx: bool,
 ) -> io::Result<()> {
+    embedded_activation_probe_attested(
+        nonce,
+        common_controls,
+        private_assemblies,
+        full_blender_manifest,
+        cpu_component,
+        cpu_actctx,
+        None,
+    )
+}
+fn embedded_activation_probe_attested(
+    nonce: &str,
+    common_controls: bool,
+    private_assemblies: bool,
+    full_blender_manifest: bool,
+    cpu_component: bool,
+    cpu_actctx: bool,
+    registry_evidence: Option<&serde_json::Value>,
+) -> io::Result<()> {
     use sha2::Digest;
+    let capability_count = registry_evidence.map_or(0, |value| {
+        value["capability_count"]
+            .as_u64()
+            .expect("verified fixture token evidence")
+    });
     use windows_sys::Win32::System::{
         LibraryLoader::*, WindowsProgramming::QUERY_ACTCTX_FLAG_USE_ACTIVE_ACTCTX,
     };
@@ -419,7 +458,8 @@ fn embedded_activation_probe(
     println!(
         "{}",
         serde_json::json!({"probe":"initial_embedded_context","native_blender":false,"broker_used":false,
-        "reached_main":true,"verified_lpac":true,"capability_count":0,"job_verified":true,
+        "reached_main":true,"verified_lpac":true,"capability_count":capability_count,"job_verified":true,
+        "registry_read_diagnostic":registry_evidence.is_some(),"token_evidence":registry_evidence,
         "nonce":nonce,"manifest_sha256":hex::encode(sha2::Sha256::digest(bytes)),
         "activation":context.as_ref().ok(),"query_error":context.as_ref().err().and_then(io::Error::raw_os_error),
         "common_controls":common_controls,"private_assemblies":private_assemblies,"full_blender_manifest":full_blender_manifest,"cpu_component_probe":cpu_component,

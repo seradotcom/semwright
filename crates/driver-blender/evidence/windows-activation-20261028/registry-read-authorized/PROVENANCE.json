@@ -1,0 +1,92 @@
+{
+  "authorization": "docs/blender/WINDOWS_SXS_AUTHORIZATION_20261028.md",
+  "originals": [
+    {
+      "source": ".local\\logs\\registry-read-20261028-host-guards-attempt01\\cargo.log",
+      "source_sha256": "2bbc04f44ed9e2757bce4f2b79cd47d2e270d9992a8916e4723e19215b9dd472",
+      "curated": "host-guards-attempt01\\cargo.log",
+      "curated_sha256": "549d997d6855684f5c98d761923af1f0304d3aad75a096fe1cb31416eb46bbc1"
+    },
+    {
+      "source": ".local\\logs\\registry-read-20261028-host-guards-attempt01\\run.json",
+      "source_sha256": "141f0ef5c0017d28ee6d1ed96f52702429942aa2f4bba0700b8e997c760a8047",
+      "curated": "host-guards-attempt01\\run.json",
+      "curated_sha256": "cce9685a9a3ef85bd51951005e190bc43ec85798ea9feae6493d4a3e8d1369b5"
+    },
+    {
+      "source": ".local\\logs\\registry-read-20261028-host-guards-attempt02\\cargo.log",
+      "source_sha256": "02f1f9599396d17bca9052b1c31a1b99845afa2aac30e03b33c9f5382a7086cc",
+      "curated": "host-guards-attempt02\\cargo.log",
+      "curated_sha256": "01cba1977508f86f59e349e19d746aa9b153332609762ededda36dac8f3cd32f"
+    },
+    {
+      "source": ".local\\logs\\registry-read-20261028-host-guards-attempt02\\run.json",
+      "source_sha256": "9d88f5a4435935c0626b8d9b036b235898c84ccc0f0b3cd9a910b7dca3ea3a66",
+      "curated": "host-guards-attempt02\\run.json",
+      "curated_sha256": "4c49cc6a3e15d91b892868d2e7618b4b862f2bc949715d5c50e8e44cf232da5f"
+    },
+    {
+      "source": ".local\\logs\\registry-read-20261028-default-zero-attempt01\\cargo.log",
+      "source_sha256": "87d6f759951734091e58da84cc705b2d35ffd2388f72260cd97045df2f7512e1",
+      "curated": "default-zero-attempt01\\cargo.log",
+      "curated_sha256": "48142cee7284e0c4fb4bdabcc99a7718da774e238706c3445af5926c7e70561f"
+    },
+    {
+      "source": ".local\\logs\\registry-read-20261028-default-zero-attempt01\\run.json",
+      "source_sha256": "016590923b8bf0af926b5f5b04d02bf6e2f7024c00264251f9e5375230d299aa",
+      "curated": "default-zero-attempt01\\run.json",
+      "curated_sha256": "b936f5006688f48edd3cfbad049e25793e6b2e85139b10dffbc4d808b5098f0c"
+    },
+    {
+      "source": ".local\\logs\\registry-read-20261028-owner-rejection-attempt1\\cargo.log",
+      "source_sha256": "56e2dbcbf5354139414aa0dfc951dda97a5e546cd320e1648941f5d16a253173",
+      "curated": "owner-rejection-attempt1\\cargo.log",
+      "curated_sha256": "08c584d8e5b802298ca0bdb69db3458515d7f9e9c6e88e68373b0dcc1e8b11f0"
+    },
+    {
+      "source": ".local\\logs\\registry-read-20261028-owner-rejection-attempt1\\run.json",
+      "source_sha256": "7c180c1fbc860e7dc38d6260f99f30aeeb4c9273f80603a7ee6a33c9591ccf7f",
+      "curated": "owner-rejection-attempt1\\run.json",
+      "curated_sha256": "14cf77bc32b7bbbeb7e90701921a8cea28d1ae1929496105e19226374bb4024d"
+    },
+    {
+      "source": ".local\\logs\\registry-read-20261028-registry-aba-version-attempt01\\cargo.log",
+      "source_sha256": "c08127397b80bdbd972f4c826758ec887ced5ce3cb917452389485a29bb215e5",
+      "curated": "registry-aba-version-attempt01\\cargo.log",
+      "curated_sha256": "70f27bd4b83913e5cfc22a3064c444110ad556044f9950ac9abdfe7d862d9cab"
+    },
+    {
+      "source": ".local\\logs\\registry-read-20261028-registry-aba-version-attempt01\\run.json",
+      "source_sha256": "42a43b6df9c18a3030d3b25d979bad472a9fdb6e6f8bd332e735da301ae4f7aa",
+      "curated": "registry-aba-version-attempt01\\run.json",
+      "curated_sha256": "a2b9d45ed4a3952f0f3b934e17f953e020c4df94ae98041e266ed946e444abda"
+    },
+    {
+      "source": ".local\\logs\\registry-read-20261028-production-check-attempt01\\cargo.log",
+      "source_sha256": "6bc29858fb7a98d96c0ab27c278235f84af14def69062f9ab475968ad642cfd4",
+      "curated": "production-check-attempt01\\cargo.log",
+      "curated_sha256": "bc22c81cf3073cde26339ce48aaead3a09379dec89b8cdf015aa966e6da1c8e0"
+    },
+    {
+      "source": ".local\\logs\\registry-read-20261028-production-check-attempt01\\run.json",
+      "source_sha256": "2e7824edb61d095438f3f7161779eac12c80dc9918f697c66eabda23381531ea",
+      "curated": "production-check-attempt01\\run.json",
+      "curated_sha256": "50094565e2ef6162f58903ac76b60c2b33eb84e3121a65665b2d83a64d556047"
+    },
+    {
+      "source": ".local\\logs\\registry-read-20261028-initial-bridge-attempt01\\cargo.log",
+      "source_sha256": "2a15fef4869fb1e16a458880f60db0d7cf7b6235ced69fad977d56cc25185ead",
+      "curated": "initial-bridge-attempt01\\cargo.log",
+      "curated_sha256": "7d35e4887fdf51378842ee6b4dbea37bfd5d5509a23af1d8784990d7095b7847"
+    },
+    {
+      "source": ".local\\logs\\registry-read-20261028-initial-bridge-attempt01\\run.json",
+      "source_sha256": "4b48a5d85038b2e3314e79a116f6d070ebde5d29d824e3e245008d424dcc0ad7",
+      "curated": "initial-bridge-attempt01\\run.json",
+      "curated_sha256": "04d8f41bfdaa96d148c4bf66ba75aba74b17e7c6bf5091e2fd1c9071851a8d11"
+    }
+  ],
+  "redactions": "owner home/account labels in text logs; source snapshots unchanged",
+  "A05": "BLOCKED",
+  "Linux_4_5_14": "NOT_RUN"
+}

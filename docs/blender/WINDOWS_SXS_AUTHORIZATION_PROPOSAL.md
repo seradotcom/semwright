@@ -1,7 +1,8 @@
 # Proposed bounded SxS capability experiment
 
-Status: NOT AUTHORIZED / NOT RUN.
-This file is a concrete review proposal, not a grant and not a runnable bypass.
+Status: OWNER AUTHORIZED on 2026-10-28; execution results recorded separately.
+See WINDOWS_SXS_AUTHORIZATION_20261028.md for the explicit approval and scope.
+The proposal below is preserved as the reviewed experiment; it is not a production grant.
 
 ## Decision requested
 

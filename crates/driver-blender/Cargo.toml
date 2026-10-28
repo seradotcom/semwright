@@ -35,7 +35,7 @@ semwright-project-graph.workspace = true
 
 [features]
 authoring-native = []
-windows-launch-test-fixture = []
+windows-launch-test-fixture = ["semwright-platform-services/windows-sxs-test"]
 
 [lints]
 workspace = true

@@ -1,0 +1,199 @@
+{
+  "A05": "BLOCKED",
+  "broker_used": false,
+  "exit": 0,
+  "network": false,
+  "nonce": "ba4df46c6d5d44bfba97483bdc9526df",
+  "probe": "initial_blender_fixed_bridge",
+  "process_limit": 1,
+  "registry_read_diagnostic": true,
+  "result": {
+    "Ok": null
+  },
+  "runtime_executable_unchanged": true,
+  "sealed_code_unchanged": true,
+  "stdout_drain_complete": true,
+  "stdout_tail": "",
+  "trace": [
+    {
+      "nonce": "ba4df46c6d5d44bfba97483bdc9526df",
+      "phase": "nonce_bound_startup_marker",
+      "prefix_bytes": 273
+    },
+    {
+      "data": {
+        "arbitrary_python": false,
+        "available_addons": 13,
+        "enabled_addons": 8,
+        "generic_operator_invoke": false,
+        "operator_categories": 77,
+        "operators": 2499,
+        "rna_types": 4055,
+        "version": [
+          5,
+          2,
+          1
+        ],
+        "version_string": "5.2.1 LTS"
+      },
+      "phase": "summary"
+    },
+    {
+      "args": {
+        "name": "IsolatedProof"
+      },
+      "command": "driver.blender.collection.create",
+      "data": {
+        "changed": true,
+        "name": "IsolatedProof"
+      }
+    },
+    {
+      "args": {
+        "location": [
+          0,
+          0,
+          0
+        ],
+        "name": "IsolatedProofCube",
+        "primitive": "cube"
+      },
+      "command": "driver.blender.object.create",
+      "data": {
+        "changed": true,
+        "object": {
+          "collections": [
+            "Collection"
+          ],
+          "location": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "name": "IsolatedProofCube",
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "type": "MESH"
+        }
+      }
+    },
+    {
+      "args": {
+        "collection": "IsolatedProof",
+        "object": "IsolatedProofCube"
+      },
+      "command": "driver.blender.collection.link",
+      "data": {
+        "changed": true
+      }
+    },
+    {
+      "args": {
+        "location": [
+          3,
+          4,
+          5
+        ],
+        "name": "IsolatedProofCube",
+        "scale": [
+          1,
+          2,
+          1
+        ]
+      },
+      "command": "driver.blender.object.transform",
+      "data": {
+        "changed": true,
+        "object": {
+          "collections": [
+            "Collection",
+            "IsolatedProof"
+          ],
+          "location": [
+            3.0,
+            4.0,
+            5.0
+          ],
+          "name": "IsolatedProofCube",
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            2.0,
+            1.0
+          ],
+          "type": "MESH"
+        }
+      }
+    },
+    {
+      "args": {
+        "name": "IsolatedProofCube"
+      },
+      "command": "driver.blender.object.get",
+      "data": {
+        "object": {
+          "collections": [
+            "Collection",
+            "IsolatedProof"
+          ],
+          "location": [
+            3.0,
+            4.0,
+            5.0
+          ],
+          "name": "IsolatedProofCube",
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "scale": [
+            1.0,
+            2.0,
+            1.0
+          ],
+          "type": "MESH"
+        }
+      }
+    },
+    {
+      "args": {
+        "path": "isolated-proof.blend"
+      },
+      "command": "driver.blender.file.save",
+      "data": {
+        "changed": true,
+        "copy": true,
+        "path": "isolated-proof.blend"
+      }
+    },
+    {
+      "args": {
+        "animations": false,
+        "collection": "IsolatedProof",
+        "path": "isolated-proof.glb"
+      },
+      "command": "driver.blender.export.glb",
+      "data": {
+        "bytes": 1784,
+        "changed": true,
+        "format": "glb",
+        "objects": 1,
+        "path": "isolated-proof.glb",
+        "sha256": "edb4dd1d068cc77ccb95a0f7bf3546d85f00824423838bc7911a67210d8435ec"
+      }
+    }
+  ]
+}

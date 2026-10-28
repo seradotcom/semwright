@@ -1,0 +1,11 @@
+{
+  "bootstrap.py": "657596932e0590ca0eda52643db989db3cd7459eae8451d06a48476f8ed74fdd",
+  "bridge.py": "1e53f54aaf4927bc9fbe0407e59a38ba4f262f703ec50ebc1e13fa01e57546be",
+  "semwright_blender_runtime/__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "semwright_blender_runtime/authoring_native.py": "dbc716dc59e713886e65145357d85b089fac08422e07275214e2a61b729ecc60",
+  "semwright_blender_runtime/commands.json": "b5f420bd1bdab19065f99e39f1fc9a8d7614633dcf04f4e06c6fafbeed4bd1e0",
+  "semwright_blender_runtime/commands.py": "fd287090118899e5fcb9d7cc757f468e803969bf3549563181ca94021ed1db6f",
+  "semwright_blender_runtime/export_scope.py": "76f1fca8d21dc0f6b9dc08ab9f7cce33aeb78b1bcf54987847abd4935e09e2ef",
+  "semwright_blender_runtime/semantic.py": "b857b6a82c721e512128662affd9ea346fec9cd30d65672de38f893b3283e2ff",
+  "semwright_blender_runtime/validation.py": "ccdb5c961a14e3dc632de7fe24c6f275aed5c65dc0e0fe94ccd07ec746a61dab"
+}

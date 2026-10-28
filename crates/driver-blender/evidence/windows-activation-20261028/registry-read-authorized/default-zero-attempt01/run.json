@@ -1,0 +1,144 @@
+{
+  "utc_start": "2026-10-28T22:52:26.912426+00:00",
+  "case": "default-zero",
+  "argv": [
+    "<OWNERHOME>\\.cargo\\bin\\cargo.exe",
+    "+1.98.1-x86_64-pc-windows-gnu",
+    "test",
+    "-p",
+    "semwright-driver-blender",
+    "--features",
+    "windows-launch-test-fixture",
+    "--test",
+    "windows_native_launch",
+    "initial_host_exact_blender_manifest_probe",
+    "--target",
+    "x86_64-pc-windows-gnu",
+    "--locked",
+    "--offline",
+    "--",
+    "--ignored",
+    "--exact",
+    "--nocapture",
+    "--test-threads=1"
+  ],
+  "pid": 24440,
+  "exit_code": 0,
+  "seconds": 57.187000000005355,
+  "timed_out": false,
+  "cleanup": null,
+  "source_before": {
+    "crates/platform-windows-sys/src/launch.rs": "07d9908bc82d90c300f3b7339a0f2784c00d9a357431633eb62cccc95eaf40e3",
+    "crates/platform-windows-sys/src/lib.rs": "89847f93343393069b30595b458d684479354d4b92da59a6b8d6b2f45a24e1c2",
+    "crates/platform-windows-sys/Cargo.toml": "6a4b56f30975034569e268ebcab75eaeec16b00e514801fe8ad3e6d19cc726bf",
+    "crates/platform-services/src/lib.rs": "3385e6644d3c485ae698dc7b2f043bff841eeb91dad7a9216d2824fa60632cb9",
+    "crates/platform-services/Cargo.toml": "e96fb7abcfea2eeab5cc816d652025d370fbd88f06b1f35f6b9839f851d89ec7",
+    "crates/driver-blender/Cargo.toml": "5a0534fd6b6c9d1d62dd7fd468dda5bbaa0321c59197def4cdb578ee02481111",
+    "crates/driver-blender/src/bin/session_runner/windows.rs": "bcd91d46beaaad93d736f148053151cc0c5aa0d5acccccaf6d6b54515f200fa6",
+    "crates/driver-blender/src/bin/session_runner/windows_fixture.rs": "e859c7b1ab15699662809b356d4eb9b7ad018038a8d2bd54b8e4bb235a228096",
+    "crates/driver-blender/src/bin/session_runner/windows_registry_fixture.rs": "038959e3e9b2c93acef36b23900f5f8a9fda668d0c9ad6c2290f2663127e7b0c",
+    "crates/driver-blender/tests/windows_native_launch.rs": "fbf3525878b8c78bf750a99d60c9cd31647acbc6465533059e72a9ad6969b4a6",
+    "Cargo.lock": "3959cc1ee3b21883d8ec2cb0e1f158fe1f7c5df178503a1489e5e2dfef836940"
+  },
+  "source_after": {
+    "crates/platform-windows-sys/src/launch.rs": "07d9908bc82d90c300f3b7339a0f2784c00d9a357431633eb62cccc95eaf40e3",
+    "crates/platform-windows-sys/src/lib.rs": "89847f93343393069b30595b458d684479354d4b92da59a6b8d6b2f45a24e1c2",
+    "crates/platform-windows-sys/Cargo.toml": "6a4b56f30975034569e268ebcab75eaeec16b00e514801fe8ad3e6d19cc726bf",
+    "crates/platform-services/src/lib.rs": "3385e6644d3c485ae698dc7b2f043bff841eeb91dad7a9216d2824fa60632cb9",
+    "crates/platform-services/Cargo.toml": "e96fb7abcfea2eeab5cc816d652025d370fbd88f06b1f35f6b9839f851d89ec7",
+    "crates/driver-blender/Cargo.toml": "5a0534fd6b6c9d1d62dd7fd468dda5bbaa0321c59197def4cdb578ee02481111",
+    "crates/driver-blender/src/bin/session_runner/windows.rs": "bcd91d46beaaad93d736f148053151cc0c5aa0d5acccccaf6d6b54515f200fa6",
+    "crates/driver-blender/src/bin/session_runner/windows_fixture.rs": "e859c7b1ab15699662809b356d4eb9b7ad018038a8d2bd54b8e4bb235a228096",
+    "crates/driver-blender/src/bin/session_runner/windows_registry_fixture.rs": "038959e3e9b2c93acef36b23900f5f8a9fda668d0c9ad6c2290f2663127e7b0c",
+    "crates/driver-blender/tests/windows_native_launch.rs": "fbf3525878b8c78bf750a99d60c9cd31647acbc6465533059e72a9ad6969b4a6",
+    "Cargo.lock": "3959cc1ee3b21883d8ec2cb0e1f158fe1f7c5df178503a1489e5e2dfef836940"
+  },
+  "sources_unchanged": true,
+  "runtime_before": {
+    "blender.exe": "284f4041f98e113f3dc10654a7193ffaaa9bfdfec8b87fa116620a48b5f6d4cb",
+    "blender_cpu_check.dll": "1c1f06615a3fcca7c2757221fbafa3640e90591dbbc9d06f19f4962f5ce6194c"
+  },
+  "runtime_after": {
+    "blender.exe": "284f4041f98e113f3dc10654a7193ffaaa9bfdfec8b87fa116620a48b5f6d4cb",
+    "blender_cpu_check.dll": "1c1f06615a3fcca7c2757221fbafa3640e90591dbbc9d06f19f4962f5ce6194c"
+  },
+  "runtime_unchanged": true,
+  "log_sha256": "87d6f759951734091e58da84cc705b2d35ffd2388f72260cd97045df2f7512e1",
+  "observations": [
+    {
+      "application_startup_verified": false,
+      "component": "platform-windows",
+      "exact_job": true,
+      "phase": "initial_process_attested_before_resume",
+      "pid": 36624,
+      "resumed": false,
+      "token": {
+        "appcontainer": true,
+        "appcontainer_matches_requested": true,
+        "appcontainer_sid_sha256": "70e9b2fe9f0ea695892fa3a19f13df9d383394b11b3a21b5a28f253ab3a7a08d",
+        "capabilities": [],
+        "capabilities_match_requested": true,
+        "capability_comparison": "exact SID/attributes sets; identical repeats coalesced",
+        "capability_count": 0,
+        "capability_entries_observed": 0,
+        "capability_entries_requested": 0,
+        "capability_identities_requested": 0,
+        "lpac": true,
+        "user_matches_requested": true,
+        "user_sid_sha256": "71e0ba8cbfae92806af0667a805807955db58bf9771ea5a68063c45922824be9"
+      }
+    },
+    {
+      "activation": {
+        "assembly_count": 5,
+        "assembly_identities": [
+          "",
+          "Microsoft.Windows.Common-Controls,processorArchitecture=\"amd64\",publicKeyToken=\"6595b64144ccf1df\",type=\"win32\",version=\"6.0.26100.9711\"",
+          "blender.crt,type=\"win32\",version=\"1.0.0.0\"",
+          "blender.shared,type=\"win32\",version=\"1.0.0.0\"",
+          "Microsoft.Windows.Common-Controls.Resources,language=\"es-MX\",processorArchitecture=\"amd64\",publicKeyToken=\"6595b64144ccf1df\",type=\"win32\",version=\"6.0.26100.8117\""
+        ],
+        "format": 1,
+        "query_flags": 4,
+        "query_only": true,
+        "root_identity": ""
+      },
+      "blender_component_execution_attempted": false,
+      "blender_executable_started": false,
+      "broker_used": false,
+      "capability_count": 0,
+      "common_controls": true,
+      "cpu_actctx_probe": false,
+      "cpu_component": null,
+      "cpu_component_probe": false,
+      "cpu_resource_activation": null,
+      "dll": {
+        "export_called": false,
+        "loaded": true,
+        "module_path": "C:\\WINDOWS\\WinSxS\\amd64_microsoft.windows.common-controls_6595b64144ccf1df_6.0.26100.9711_none_3e07b8b0e334e825\\comctl32.dll",
+        "search_flags": 2048
+      },
+      "dll_error": null,
+      "full_blender_manifest": true,
+      "job_verified": true,
+      "manifest_sha256": "e7101d6abbe3d11a3ccb0cf88664ceffb2df9e2fbc7d23273edd274ddfa1e1e8",
+      "native_blender": false,
+      "nonce": "738132f7c673f5c631cd13c71a59e37f",
+      "ok": true,
+      "private_assemblies": true,
+      "probe": "initial_embedded_context",
+      "query_error": null,
+      "reached_main": true,
+      "registry_read_diagnostic": false,
+      "token_evidence": null,
+      "verified_lpac": true
+    }
+  ],
+  "test_results": [
+    "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 5.98s"
+  ],
+  "authorization": "docs/blender/WINDOWS_SXS_AUTHORIZATION_20261028.md",
+  "scope": "explicit bounded test-only registryRead; no production capability grant",
+  "A05": "BLOCKED",
+  "Linux_4_5_14": "NOT_RUN"
+}

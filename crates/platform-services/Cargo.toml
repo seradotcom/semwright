@@ -22,3 +22,6 @@ semwright-platform-linux-sys.workspace = true
 semwright-platform-macos-sys.workspace = true
 [target.'cfg(target_os = "windows")'.dependencies]
 semwright-platform-windows-sys.workspace = true
+
+[features]
+windows-sxs-test = ["semwright-platform-windows-sys/windows-sxs-test"]

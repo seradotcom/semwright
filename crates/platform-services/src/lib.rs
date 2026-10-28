@@ -192,6 +192,13 @@ pub fn sandbox_spawn(
 ) -> Result<semwright_platform_api::launch::SandboxProcess> {
     launcher().spawn(s)
 }
+/// Test-only composition entry for the owner-authorized fixed registryRead diagnostic.
+#[cfg(all(target_os = "windows", feature = "windows-sxs-test"))]
+pub fn sandbox_spawn_registry_read_diagnostic(
+    spec: &semwright_platform_api::launch::SandboxSpec,
+) -> Result<semwright_platform_api::launch::SandboxProcess> {
+    semwright_platform_windows_sys::launch::sandbox_spawn_registry_read_diagnostic(spec)
+}
 pub fn sandbox_available(helper: &Path) -> bool {
     launcher().available(helper)
 }

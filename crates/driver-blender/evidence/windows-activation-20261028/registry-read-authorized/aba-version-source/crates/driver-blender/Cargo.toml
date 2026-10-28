@@ -1,0 +1,62 @@
+[package]
+name = "semwright-driver-blender"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[[bin]]
+name = "semwright-blender-driver"
+path = "src/main.rs"
+
+[[bin]]
+name = "semwright-blender-session-runner"
+path = "src/bin/session_runner.rs"
+
+[dependencies]
+hex.workspace = true
+semwright-driver-sdk.workspace = true
+semwright-protocol.workspace = true
+semwright-types.workspace = true
+async-trait.workspace = true
+serde_json.workspace = true
+jsonschema.workspace = true
+tokio.workspace = true
+libc.workspace = true
+sha2.workspace = true
+
+serde.workspace = true
+schemars.workspace = true
+semwright-semantic-composition.workspace = true
+semwright-media-time.workspace = true
+semwright-effect-conformance.workspace = true
+semwright-project-graph.workspace = true
+
+[features]
+authoring-native = []
+windows-launch-test-fixture = ["semwright-platform-services/windows-sxs-test"]
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+semwright-platform-api.workspace = true
+semwright-platform-services.workspace = true
+proptest.workspace = true
+semwright-core.workspace = true
+semwright-registry.workspace = true
+semwright-driver-host.workspace = true
+semwright-backend-api.workspace = true
+semwright-policy.workspace = true
+tempfile.workspace = true
+sha2.workspace = true
+tokio-util.workspace = true
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows-sys = { workspace = true, features = ["Win32_System_Pipes", "Win32_System_WindowsProgramming", "Win32_System_ApplicationInstallationAndServicing", "Win32_Globalization", "Win32_System_LibraryLoader"] }
+
+[[bin]]
+name = "semwright-blender-launch-fixture"
+path = "src/bin/windows_launch_fixture.rs"
+required-features = ["windows-launch-test-fixture"]
