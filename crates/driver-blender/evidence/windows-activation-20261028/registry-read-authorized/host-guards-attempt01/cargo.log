@@ -1,0 +1,9 @@
+   Compiling semwright-platform-windows-sys v1.0.0 (E:\Projects\semwright-blender52\crates\platform-windows-sys)
+error[E0433]: cannot find type `SandboxKind` in this scope
+    --> crates\platform-windows-sys\src\launch.rs:2434:62
+     |
+2434 |                 if _spec.nvidia_gpu || !matches!(_spec.kind, SandboxKind::Driver) {
+     |                                                              ^^^^^^^^^^^ use of undeclared type `SandboxKind`
+
+For more information about this error, try `rustc --explain E0433`.
+error: could not compile `semwright-platform-windows-sys` (lib test) due to 1 previous error

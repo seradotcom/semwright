@@ -1,0 +1,456 @@
+warning: function `last_ntstatus` is never used
+  --> crates\driver-blender\tests\..\src\bin\session_runner\windows_cpu_images.rs:35:8
+   |
+35 | pub fn last_ntstatus() -> String {
+   |        ^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `denied` is never used
+  --> crates\driver-blender\tests\..\src\bin\session_runner\windows_cpu_images.rs:40:4
+   |
+40 | fn denied(text: &str) -> io::Error {
+   |    ^^^^^^
+
+warning: function `map_one` is never used
+  --> crates\driver-blender\tests\..\src\bin\session_runner\windows_cpu_images.rs:85:4
+   |
+85 | fn map_one(root: &Path, entry: &cpu_payload::Entry) -> serde_json::Value {
+   |    ^^^^^^^
+
+warning: function `probe` is never used
+   --> crates\driver-blender\tests\..\src\bin\session_runner\windows_cpu_images.rs:183:8
+    |
+183 | pub fn probe(root: &Path) -> serde_json::Value {
+    |        ^^^^^
+
+warning: function `RtlGetLastNtStatus` is never used
+  --> crates\driver-blender\tests\..\src\bin\session_runner\windows_cpu_images.rs:33:8
+   |
+33 |     fn RtlGetLastNtStatus() -> i32;
+   |        ^^^^^^^^^^^^^^^^^^
+
+warning: function `spawn_without_stdio_for_test` is never used
+   --> crates\driver-blender\src\bin\session_runner\windows_child.rs:212:8
+    |
+212 | pub fn spawn_without_stdio_for_test(command:&Command,log:&File,parent_sid:&[u8],
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `run` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_fixture.rs:17:8
+   |
+17 | pub fn run() -> io::Result<()> {
+   |        ^^^
+
+warning: constant `MINIMAL_ACTCTX_XML` is never used
+   --> crates\driver-blender\src\bin\session_runner\windows_fixture.rs:154:7
+    |
+154 | const MINIMAL_ACTCTX_XML:&[u8]=br#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    |       ^^^^^^^^^^^^^^^^^^
+
+warning: function `full_manifest_probe` is never used
+   --> crates\driver-blender\src\bin\session_runner\windows_fixture.rs:159:4
+    |
+159 | fn full_manifest_probe(path: &Path) -> serde_json::Value {
+    |    ^^^^^^^^^^^^^^^^^^^
+
+warning: function `directory_probe` is never used
+   --> crates\driver-blender\src\bin\session_runner\windows_fixture.rs:179:4
+    |
+179 | fn directory_probe(path: &Path, manifest: &str) -> serde_json::Value {
+    |    ^^^^^^^^^^^^^^^
+
+warning: function `context_probe` is never used
+   --> crates\driver-blender\src\bin\session_runner\windows_fixture.rs:203:4
+    |
+203 | fn context_probe(path: &Path, embedded: bool, language: Option<u16>) -> serde_json::Value {
+    |    ^^^^^^^^^^^^^
+
+warning: function `activation_context_probe` is never used
+   --> crates\driver-blender\src\bin\session_runner\windows_fixture.rs:236:4
+    |
+236 | fn activation_context_probe(runtime: &Path, fixture: &Path) -> io::Result<()> {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `language_probe` is never used
+   --> crates\driver-blender\src\bin\session_runner\windows_fixture.rs:282:4
+    |
+282 | fn language_probe() -> serde_json::Value {
+    |    ^^^^^^^^^^^^^^
+
+warning: function `embedded_activation_probe` is never used
+   --> crates\driver-blender\src\bin\session_runner\windows_fixture.rs:354:4
+    |
+354 | fn embedded_activation_probe(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `embedded_activation_probe_attested` is never used
+   --> crates\driver-blender\src\bin\session_runner\windows_fixture.rs:372:4
+    |
+372 | fn embedded_activation_probe_attested(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `probe_common_controls_dll` is never used
+   --> crates\driver-blender\src\bin\session_runner\windows_fixture.rs:484:4
+    |
+484 | fn probe_common_controls_dll() -> io::Result<serde_json::Value> {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `read_context` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_activation_readback.rs:10:8
+   |
+10 | pub fn read_context(flags: u32, handle: HANDLE) -> io::Result<serde_json::Value> {
+   |        ^^^^^^^^^^^^
+
+warning: function `fixture_manifest` is never used
+   --> crates\driver-blender\src\bin\session_runner\windows_activation_readback.rs:108:8
+    |
+108 | pub fn fixture_manifest(common_controls: bool) -> Vec<u8> {
+    |        ^^^^^^^^^^^^^^^^
+
+warning: function `fixture_private_manifest` is never used
+   --> crates\driver-blender\src\bin\session_runner\windows_activation_readback.rs:125:8
+    |
+125 | pub fn fixture_private_manifest() -> Vec<u8> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fixture_blender_manifest` is never used
+   --> crates\driver-blender\src\bin\session_runner\windows_activation_readback.rs:135:8
+    |
+135 | pub fn fixture_blender_manifest() -> Vec<u8> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `denied` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_fixture.rs:12:4
+   |
+12 | fn denied(message: &str) -> io::Error {
+   |    ^^^^^^
+
+warning: function `module_path` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_fixture.rs:15:4
+   |
+15 | fn module_path(module: HMODULE) -> io::Result<String> {
+   |    ^^^^^^^^^^^
+
+warning: function `same_path` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_fixture.rs:28:4
+   |
+28 | fn same_path(actual: &str, expected: &Path) -> io::Result<bool> {
+   |    ^^^^^^^^^
+
+warning: function `probe` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_fixture.rs:33:8
+   |
+33 | pub fn probe() -> serde_json::Value {
+   |        ^^^^^
+
+warning: function `last_ntstatus` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_images.rs:35:8
+   |
+35 | pub fn last_ntstatus() -> String {
+   |        ^^^^^^^^^^^^^
+
+warning: function `denied` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_images.rs:40:4
+   |
+40 | fn denied(text: &str) -> io::Error {
+   |    ^^^^^^
+
+warning: function `policies` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_images.rs:44:15
+   |
+44 | pub(super) fn policies() -> serde_json::Value {
+   |               ^^^^^^^^
+
+warning: function `map_one` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_images.rs:85:4
+   |
+85 | fn map_one(root: &Path, entry: &cpu_payload::Entry) -> serde_json::Value {
+   |    ^^^^^^^
+
+warning: function `probe` is never used
+   --> crates\driver-blender\src\bin\session_runner\windows_cpu_images.rs:183:8
+    |
+183 | pub fn probe(root: &Path) -> serde_json::Value {
+    |        ^^^^^
+
+warning: function `RtlGetLastNtStatus` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_images.rs:33:8
+   |
+33 |     fn RtlGetLastNtStatus() -> i32;
+   |        ^^^^^^^^^^^^^^^^^^
+
+warning: constant `CPU_DLL` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_payload.rs:15:11
+   |
+15 | pub const CPU_DLL: &str = "blender_cpu_check.dll";
+   |           ^^^^^^^
+
+warning: constant `CPU_SHA256` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_payload.rs:16:11
+   |
+16 | pub const CPU_SHA256: &str = "1c1f06615a3fcca7c2757221fbafa3640e90591dbbc9d06f19f4962f5ce6194c";
+   |           ^^^^^^^^^^
+
+warning: constant `PAYLOAD` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_payload.rs:17:11
+   |
+17 | pub const PAYLOAD: &[u8] = include_bytes!("../../../tests/fixtures/windows_cpu_probe_payload.json");
+   |           ^^^^^^^
+
+warning: constant `PAYLOAD_SHA256` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_payload.rs:18:11
+   |
+18 | pub const PAYLOAD_SHA256: &str = "43709145f359cb0ff4f1c42062dfa27f9b532e8f1f8f358417ad17cbc38b6cb7";
+   |           ^^^^^^^^^^^^^^
+
+warning: struct `Entry` is never constructed
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_payload.rs:21:12
+   |
+21 | pub struct Entry {
+   |            ^^^^^
+
+warning: function `denied` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_payload.rs:26:4
+   |
+26 | fn denied(message: &str) -> io::Error {
+   |    ^^^^^^
+
+warning: function `entries` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_payload.rs:29:8
+   |
+29 | pub fn entries() -> io::Result<Vec<Entry>> {
+   |        ^^^^^^^
+
+warning: function `read_checked` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_payload.rs:75:8
+   |
+75 | pub fn read_checked(root: &Path, e: &Entry) -> io::Result<Vec<u8>> {
+   |        ^^^^^^^^^^^^
+
+warning: function `read_checked_with_progress` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_payload.rs:78:8
+   |
+78 | pub fn read_checked_with_progress(
+   |        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `nt_status` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_resource_activation.rs:15:4
+   |
+15 | fn nt_status() -> String {
+   |    ^^^^^^^^^
+
+warning: struct `Context` is never constructed
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_resource_activation.rs:19:8
+   |
+19 | struct Context(HANDLE);
+   |        ^^^^^^^
+
+warning: function `denied` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_resource_activation.rs:28:4
+   |
+28 | fn denied(text: &str) -> io::Error {
+   |    ^^^^^^
+
+warning: function `probe` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_resource_activation.rs:31:8
+   |
+31 | pub fn probe(root: &Path) -> serde_json::Value {
+   |        ^^^^^
+
+warning: function `RtlGetLastNtStatus` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_resource_activation.rs:13:8
+   |
+13 |     fn RtlGetLastNtStatus() -> i32;
+   |        ^^^^^^^^^^^^^^^^^^
+
+warning: function `wait` is never used
+ --> crates\driver-blender\src\bin\session_runner\windows_debug_rendezvous.rs:5:8
+  |
+5 | pub fn wait(nonce: &str) -> io::Result<()> {
+  |        ^^^^
+
+warning: constant `REGISTRY_READ_SUBAUTHORITIES` is never used
+ --> crates\driver-blender\src\bin\session_runner\windows_registry_fixture.rs:7:7
+  |
+7 | const REGISTRY_READ_SUBAUTHORITIES: [u32; 10] = [
+  |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `registry_read_sid` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_registry_fixture.rs:11:4
+   |
+11 | fn registry_read_sid() -> Vec<u8> {
+   |    ^^^^^^^^^^^^^^^^^
+
+warning: struct `Buffer` is never constructed
+  --> crates\driver-blender\src\bin\session_runner\windows_registry_fixture.rs:20:8
+   |
+20 | struct Buffer {
+   |        ^^^^^^
+
+warning: associated items `query`, `base`, `read`, `sid`, `first_sid`, and `exact_registry_capability` are never used
+  --> crates\driver-blender\src\bin\session_runner\windows_registry_fixture.rs:25:8
+   |
+24 | impl Buffer {
+   | ----------- associated items in this implementation
+25 |     fn query(token: HANDLE, class: TOKEN_INFORMATION_CLASS) -> io::Result<Self> {
+   |        ^^^^^
+...
+57 |     fn base(&self) -> usize {
+   |        ^^^^
+...
+60 |     fn read<T: Copy>(&self, address: usize) -> io::Result<T> {
+   |        ^^^^
+...
+76 |     fn sid(&self, address: usize) -> io::Result<Vec<u8>> {
+   |        ^^^
+...
+96 |     fn first_sid(&self) -> io::Result<Vec<u8>> {
+   |        ^^^^^^^^^
+...
+99 |     fn exact_registry_capability(&self) -> io::Result<(Vec<u8>, u32)> {
+   |        ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `verify` is never used
+   --> crates\driver-blender\src\bin\session_runner\windows_registry_fixture.rs:118:15
+    |
+118 | pub(super) fn verify(process: HANDLE) -> io::Result<serde_json::Value> {
+    |               ^^^^^^
+
+warning: `semwright-driver-blender` (test "windows_native_launch") generated 5 warnings
+warning: `semwright-driver-blender` (bin "semwright-blender-session-runner") generated 45 warnings
+    Finished `test` profile [unoptimized] target(s) in 1.00s
+     Running tests\windows_native_launch.rs (.local\target\x86_64-pc-windows-gnu\debug\deps\windows_native_launch-865aa7c44c39f1f3.exe)
+
+running 1 test
+test registry_read_activation_then_blender_version ... archivo procesado: E:\Projects\semwright-blender52\.local\tmp\.tmpir4b1F
+Se procesaron correctamente 1 archivos; error al procesar 0 archivos
+dependency-only fixture: blender.crt/blender.crt.manifest sha256=43bdfdc2028539332fed3dc487474407d63e79f67394145397322dda58e455ee; DLLs copied=false
+dependency-only fixture: blender.shared/blender.shared.manifest sha256=655ad61bd460854680806f1fce59459daaf7fc309304fa17b3348c58cf745926; DLLs copied=false
+CPU-component payload staged: files=51, manifest_sha256=43709145f359cb0ff4f1c42062dfa27f9b532e8f1f8f358417ad17cbc38b6cb7; owner DLL execution=false
+archivo procesado: E:\Projects\semwright-blender52\.local\tmp\.tmpir4b1F\fixture-embedded-manifest.exe
+Se procesaron correctamente 1 archivos; error al procesar 0 archivos
+initial fixture image_sha256=738132f7c673f5c631cd13c71a59e37fe4c3fec7b20b506ec361dcb05406841b; owner_context_before=None; broker_used=false
+{"application_startup_verified":false,"component":"platform-windows","exact_job":true,"phase":"initial_process_attested_before_resume","pid":29812,"resumed":false,"token":{"appcontainer":true,"appcontainer_matches_requested":true,"appcontainer_sid_sha256":"d4253b68562b5f96f5fd67f0bedbf4931f175cf4ed3e8b36bf1e34d1b1f1ec79","capabilities":[],"capabilities_match_requested":true,"capability_comparison":"exact SID/attributes sets; identical repeats coalesced","capability_count":0,"capability_entries_observed":0,"capability_entries_requested":0,"capability_identities_requested":0,"lpac":true,"user_matches_requested":true,"user_sid_sha256":"71e0ba8cbfae92806af0667a805807955db58bf9771ea5a68063c45922824be9"}}
+CPU fixture ACL after Host mount: E:\Projects\semwright-blender52\.local\tmp\.tmpir4b1F
+E:\Projects\semwright-blender52\.local\tmp\.tmpir4b1F S-1-15-2-566557057-327603038-1827905242-251528063-4180615203-283810508-1409960255:(OI)(CI)(DENY)(DE,WDAC,WO,WD,AD,WEA,DC,WA)
+                                                      S-1-15-2-566557057-327603038-1827905242-251528063-4180615203-283810508-1409960255:(OI)(CI)(RX)
+                                                      <OWNER>:(OI)(CI)(F)
+
+Se procesaron correctamente 1 archivos; error al procesar 0 archivos
+
+CPU fixture ACL after Host mount: E:\Projects\semwright-blender52\.local\tmp\.tmpir4b1F\blender.crt
+E:\Projects\semwright-blender52\.local\tmp\.tmpir4b1F\blender.crt S-1-15-2-566557057-327603038-1827905242-251528063-4180615203-283810508-1409960255:(I)(OI)(CI)(DENY)(DE,WDAC,WO,WD,AD,WEA,DC,WA)
+                                                                  S-1-15-2-566557057-327603038-1827905242-251528063-4180615203-283810508-1409960255:(I)(OI)(CI)(RX)
+                                                                  <OWNER>:(I)(OI)(CI)(F)
+
+Se procesaron correctamente 1 archivos; error al procesar 0 archivos
+
+CPU fixture ACL after Host mount: E:\Projects\semwright-blender52\.local\tmp\.tmpir4b1F\blender.crt/api-ms-win-core-console-l1-1-0.dll
+E:\Projects\semwright-blender52\.local\tmp\.tmpir4b1F\blender.crt/api-ms-win-core-console-l1-1-0.dll S-1-15-2-566557057-327603038-1827905242-251528063-4180615203-283810508-1409960255:(I)(DENY)(DE,WDAC,WO,WD,AD,WEA,DC,WA)
+                                                                                                     S-1-15-2-566557057-327603038-1827905242-251528063-4180615203-283810508-1409960255:(I)(RX)
+                                                                                                     <OWNER>:(I)(F)
+
+Se procesaron correctamente 1 archivos; error al procesar 0 archivos
+
+initial embedded fixture exit=Some(2): {"activation":{"assembly_count":5,"assembly_identities":["","Microsoft.Windows.Common-Controls,processorArchitecture=\"amd64\",publicKeyToken=\"6595b64144ccf1df\",type=\"win32\",version=\"6.0.26100.9711\"","blender.crt,type=\"win32\",version=\"1.0.0.0\"","blender.shared,type=\"win32\",version=\"1.0.0.0\"","Microsoft.Windows.Common-Controls.Resources,language=\"es-MX\",processorArchitecture=\"amd64\",publicKeyToken=\"6595b64144ccf1df\",type=\"win32\",version=\"6.0.26100.8117\""],"format":1,"query_flags":4,"query_only":true,"root_identity":""},"blender_component_execution_attempted":false,"blender_executable_started":false,"broker_used":false,"capability_count":0,"common_controls":true,"cpu_actctx_probe":true,"cpu_component":null,"cpu_component_probe":false,"cpu_resource_activation":{"context":null,"create_attempted":true,"create_flags":8,"create_nt_status":"c0000022","create_ok":false,"create_win32_error":5,"dll_initialization_requested":false,"error_kind":"PermissionDenied","error_message":"Acceso denegado. (os error 5)","exports_called":false,"file_data_written":false,"image_expected_sha256":"1c1f06615a3fcca7c2757221fbafa3640e90591dbbc9d06f19f4962f5ce6194c","image_verified":true,"ok":false,"phase":"create_cpu_resource_context","policy_changed":false,"query_attempted":false,"query_nt_status":null,"query_ok":false,"query_win32_error":null,"release_api_returns_status":false,"release_called":false,"resource_expected_bytes":135,"resource_expected_sha256":"39abce8cd98964b342942a3770e2ce865cda054577ddc4b790ccc0ece897a371","resource_id":2,"resource_identity_basis":"exact previously inspected PE image SHA; no replacement XML","thread_activation_requested":false,"win32_error":5},"dll":null,"dll_error":null,"full_blender_manifest":true,"job_verified":true,"manifest_sha256":"e7101d6abbe3d11a3ccb0cf88664ceffb2df9e2fbc7d23273edd274ddfa1e1e8","native_blender":false,"nonce":"738132f7c673f5c631cd13c71a59e37f","ok":false,"private_assemblies":true,"probe":"initial_embedded_context","query_error":null,"reached_main":true,"registry_read_diagnostic":false,"token_evidence":null,"verified_lpac":true}
+
+owner CPU resource control after isolated exit: {"context":{"assembly_count":1,"assembly_identities":[""],"format":1,"query_flags":0,"query_only":true,"root_identity":""},"create_attempted":true,"create_flags":8,"create_nt_status":null,"create_ok":true,"create_win32_error":null,"dll_initialization_requested":false,"error_kind":null,"error_message":null,"exports_called":false,"file_data_written":false,"image_expected_sha256":"1c1f06615a3fcca7c2757221fbafa3640e90591dbbc9d06f19f4962f5ce6194c","image_verified":true,"ok":true,"phase":"complete","policy_changed":false,"query_attempted":true,"query_nt_status":null,"query_ok":true,"query_win32_error":null,"release_api_returns_status":false,"release_called":true,"resource_expected_bytes":135,"resource_expected_sha256":"39abce8cd98964b342942a3770e2ce865cda054577ddc4b790ccc0ece897a371","resource_id":2,"resource_identity_basis":"exact previously inspected PE image SHA; no replacement XML","thread_activation_requested":false,"win32_error":null}
+{"cold_cache_claim":false,"create_status_matches":false,"expected_zero_capability_denial":true,"identity_matches":null,"isolated":{"context":null,"create_attempted":true,"create_flags":8,"create_nt_status":"c0000022","create_ok":false,"create_win32_error":5,"dll_initialization_requested":false,"error_kind":"PermissionDenied","error_message":"Acceso denegado. (os error 5)","exports_called":false,"file_data_written":false,"image_expected_sha256":"1c1f06615a3fcca7c2757221fbafa3640e90591dbbc9d06f19f4962f5ce6194c","image_verified":true,"ok":false,"phase":"create_cpu_resource_context","policy_changed":false,"query_attempted":false,"query_nt_status":null,"query_ok":false,"query_win32_error":null,"release_api_returns_status":false,"release_called":false,"resource_expected_bytes":135,"resource_expected_sha256":"39abce8cd98964b342942a3770e2ce865cda054577ddc4b790ccc0ece897a371","resource_id":2,"resource_identity_basis":"exact previously inspected PE image SHA; no replacement XML","thread_activation_requested":false,"win32_error":5},"isolated_exit_code":2,"owner_after":{"context":{"assembly_count":1,"assembly_identities":[""],"format":1,"query_flags":0,"query_only":true,"root_identity":""},"create_attempted":true,"create_flags":8,"create_nt_status":null,"create_ok":true,"create_win32_error":null,"dll_initialization_requested":false,"error_kind":null,"error_message":null,"exports_called":false,"file_data_written":false,"image_expected_sha256":"1c1f06615a3fcca7c2757221fbafa3640e90591dbbc9d06f19f4962f5ce6194c","image_verified":true,"ok":true,"phase":"complete","policy_changed":false,"query_attempted":true,"query_nt_status":null,"query_ok":true,"query_win32_error":null,"release_api_returns_status":false,"release_called":true,"resource_expected_bytes":135,"resource_expected_sha256":"39abce8cd98964b342942a3770e2ce865cda054577ddc4b790ccc0ece897a371","resource_id":2,"resource_identity_basis":"exact previously inspected PE image SHA; no replacement XML","thread_activation_requested":false,"win32_error":null},"owner_control_after_isolated_exit":true,"owner_initial_context_after":{"assembly_count":5,"assembly_identities":["","Microsoft.Windows.Common-Controls,processorArchitecture=\"amd64\",publicKeyToken=\"6595b64144ccf1df\",type=\"win32\",version=\"6.0.26100.9711\"","blender.crt,type=\"win32\",version=\"1.0.0.0\"","blender.shared,type=\"win32\",version=\"1.0.0.0\"","Microsoft.Windows.Common-Controls.Resources,language=\"es-MX\",processorArchitecture=\"amd64\",publicKeyToken=\"6595b64144ccf1df\",type=\"win32\",version=\"6.0.26100.8117\""],"format":1,"query_flags":0,"query_only":true,"root_identity":""},"owner_initial_context_error":null,"policy_changed":false,"probe":"cpu_resource_activation_comparison","query_status_matches":false,"registry_read_diagnostic":false,"release_call_matches":false}
+ZERO_CAPABILITY_DENIAL_CONFIRMED {"P0":"BLOCKED","broker_used":false,"exit":2,"expected_denial":true,"owner_after":{"context":{"assembly_count":1,"assembly_identities":[""],"format":1,"query_flags":0,"query_only":true,"root_identity":""},"create_attempted":true,"create_flags":8,"create_nt_status":null,"create_ok":true,"create_win32_error":null,"dll_initialization_requested":false,"error_kind":null,"error_message":null,"exports_called":false,"file_data_written":false,"image_expected_sha256":"1c1f06615a3fcca7c2757221fbafa3640e90591dbbc9d06f19f4962f5ce6194c","image_verified":true,"ok":true,"phase":"complete","policy_changed":false,"query_attempted":true,"query_nt_status":null,"query_ok":true,"query_win32_error":null,"release_api_returns_status":false,"release_called":true,"resource_expected_bytes":135,"resource_expected_sha256":"39abce8cd98964b342942a3770e2ce865cda054577ddc4b790ccc0ece897a371","resource_id":2,"resource_identity_basis":"exact previously inspected PE image SHA; no replacement XML","thread_activation_requested":false,"win32_error":null},"row":{"activation":{"assembly_count":5,"assembly_identities":["","Microsoft.Windows.Common-Controls,processorArchitecture=\"amd64\",publicKeyToken=\"6595b64144ccf1df\",type=\"win32\",version=\"6.0.26100.9711\"","blender.crt,type=\"win32\",version=\"1.0.0.0\"","blender.shared,type=\"win32\",version=\"1.0.0.0\"","Microsoft.Windows.Common-Controls.Resources,language=\"es-MX\",processorArchitecture=\"amd64\",publicKeyToken=\"6595b64144ccf1df\",type=\"win32\",version=\"6.0.26100.8117\""],"format":1,"query_flags":4,"query_only":true,"root_identity":""},"blender_component_execution_attempted":false,"blender_executable_started":false,"broker_used":false,"capability_count":0,"common_controls":true,"cpu_actctx_probe":true,"cpu_component":null,"cpu_component_probe":false,"cpu_resource_activation":{"context":null,"create_attempted":true,"create_flags":8,"create_nt_status":"c0000022","create_ok":false,"create_win32_error":5,"dll_initialization_requested":false,"error_kind":"PermissionDenied","error_message":"Acceso denegado. (os error 5)","exports_called":false,"file_data_written":false,"image_expected_sha256":"1c1f06615a3fcca7c2757221fbafa3640e90591dbbc9d06f19f4962f5ce6194c","image_verified":true,"ok":false,"phase":"create_cpu_resource_context","policy_changed":false,"query_attempted":false,"query_nt_status":null,"query_ok":false,"query_win32_error":null,"release_api_returns_status":false,"release_called":false,"resource_expected_bytes":135,"resource_expected_sha256":"39abce8cd98964b342942a3770e2ce865cda054577ddc4b790ccc0ece897a371","resource_id":2,"resource_identity_basis":"exact previously inspected PE image SHA; no replacement XML","thread_activation_requested":false,"win32_error":5},"dll":null,"dll_error":null,"full_blender_manifest":true,"job_verified":true,"manifest_sha256":"e7101d6abbe3d11a3ccb0cf88664ceffb2df9e2fbc7d23273edd274ddfa1e1e8","native_blender":false,"nonce":"738132f7c673f5c631cd13c71a59e37f","ok":false,"private_assemblies":true,"probe":"initial_embedded_context","query_error":null,"reached_main":true,"registry_read_diagnostic":false,"token_evidence":null,"verified_lpac":true}}
+archivo procesado: E:\Projects\semwright-blender52\.local\tmp\.tmp47fMgN
+Se procesaron correctamente 1 archivos; error al procesar 0 archivos
+dependency-only fixture: blender.crt/blender.crt.manifest sha256=43bdfdc2028539332fed3dc487474407d63e79f67394145397322dda58e455ee; DLLs copied=false
+dependency-only fixture: blender.shared/blender.shared.manifest sha256=655ad61bd460854680806f1fce59459daaf7fc309304fa17b3348c58cf745926; DLLs copied=false
+CPU-component payload staged: files=51, manifest_sha256=43709145f359cb0ff4f1c42062dfa27f9b532e8f1f8f358417ad17cbc38b6cb7; owner DLL execution=false
+archivo procesado: E:\Projects\semwright-blender52\.local\tmp\.tmp47fMgN\fixture-embedded-manifest.exe
+Se procesaron correctamente 1 archivos; error al procesar 0 archivos
+initial fixture image_sha256=738132f7c673f5c631cd13c71a59e37fe4c3fec7b20b506ec361dcb05406841b; owner_context_before=None; broker_used=false
+{"application_startup_verified":false,"component":"platform-windows","network":false,"phase":"registry_read_diagnostic_requested","requested_capabilities":["registryRead"],"test_only":true}
+{"application_startup_verified":false,"component":"platform-windows","exact_job":true,"phase":"initial_process_attested_before_resume","pid":26772,"resumed":false,"token":{"appcontainer":true,"appcontainer_matches_requested":true,"appcontainer_sid_sha256":"575bba5bdbf3d065f4015f6b6f843f74748d1f0f6effb47e1af450f3e32921f7","capabilities":[{"attributes":4,"sid_sha256":"66ad18b3326a9cb33bf2c59d57d4029ce756e0634c6d0fb3cfe09d6550a213f5"}],"capabilities_match_requested":true,"capability_comparison":"exact SID/attributes sets; identical repeats coalesced","capability_count":1,"capability_entries_observed":1,"capability_entries_requested":1,"capability_identities_requested":1,"lpac":true,"user_matches_requested":true,"user_sid_sha256":"71e0ba8cbfae92806af0667a805807955db58bf9771ea5a68063c45922824be9"}}
+CPU fixture ACL after Host mount: E:\Projects\semwright-blender52\.local\tmp\.tmp47fMgN
+E:\Projects\semwright-blender52\.local\tmp\.tmp47fMgN S-1-15-2-2779965902-2104365131-1592586910-93747495-2716618929-3691642846-3546904138:(OI)(CI)(DENY)(DE,WDAC,WO,WD,AD,WEA,DC,WA)
+                                                      S-1-15-2-2779965902-2104365131-1592586910-93747495-2716618929-3691642846-3546904138:(OI)(CI)(RX)
+                                                      <OWNER>:(OI)(CI)(F)
+
+Se procesaron correctamente 1 archivos; error al procesar 0 archivos
+
+CPU fixture ACL after Host mount: E:\Projects\semwright-blender52\.local\tmp\.tmp47fMgN\blender.crt
+E:\Projects\semwright-blender52\.local\tmp\.tmp47fMgN\blender.crt S-1-15-2-2779965902-2104365131-1592586910-93747495-2716618929-3691642846-3546904138:(I)(OI)(CI)(DENY)(DE,WDAC,WO,WD,AD,WEA,DC,WA)
+                                                                  S-1-15-2-2779965902-2104365131-1592586910-93747495-2716618929-3691642846-3546904138:(I)(OI)(CI)(RX)
+                                                                  <OWNER>:(I)(OI)(CI)(F)
+
+Se procesaron correctamente 1 archivos; error al procesar 0 archivos
+
+CPU fixture ACL after Host mount: E:\Projects\semwright-blender52\.local\tmp\.tmp47fMgN\blender.crt/api-ms-win-core-console-l1-1-0.dll
+E:\Projects\semwright-blender52\.local\tmp\.tmp47fMgN\blender.crt/api-ms-win-core-console-l1-1-0.dll S-1-15-2-2779965902-2104365131-1592586910-93747495-2716618929-3691642846-3546904138:(I)(DENY)(DE,WDAC,WO,WD,AD,WEA,DC,WA)
+                                                                                                     S-1-15-2-2779965902-2104365131-1592586910-93747495-2716618929-3691642846-3546904138:(I)(RX)
+                                                                                                     <OWNER>:(I)(F)
+
+Se procesaron correctamente 1 archivos; error al procesar 0 archivos
+
+initial embedded fixture exit=Some(0): {"activation":{"assembly_count":5,"assembly_identities":["","Microsoft.Windows.Common-Controls,processorArchitecture=\"amd64\",publicKeyToken=\"6595b64144ccf1df\",type=\"win32\",version=\"6.0.26100.9711\"","blender.crt,type=\"win32\",version=\"1.0.0.0\"","blender.shared,type=\"win32\",version=\"1.0.0.0\"","Microsoft.Windows.Common-Controls.Resources,language=\"es-MX\",processorArchitecture=\"amd64\",publicKeyToken=\"6595b64144ccf1df\",type=\"win32\",version=\"6.0.26100.8117\""],"format":1,"query_flags":4,"query_only":true,"root_identity":""},"blender_component_execution_attempted":false,"blender_executable_started":false,"broker_used":false,"capability_count":1,"common_controls":true,"cpu_actctx_probe":true,"cpu_component":null,"cpu_component_probe":false,"cpu_resource_activation":{"context":{"assembly_count":1,"assembly_identities":[""],"format":1,"query_flags":0,"query_only":true,"root_identity":""},"create_attempted":true,"create_flags":8,"create_nt_status":null,"create_ok":true,"create_win32_error":null,"dll_initialization_requested":false,"error_kind":null,"error_message":null,"exports_called":false,"file_data_written":false,"image_expected_sha256":"1c1f06615a3fcca7c2757221fbafa3640e90591dbbc9d06f19f4962f5ce6194c","image_verified":true,"ok":true,"phase":"complete","policy_changed":false,"query_attempted":true,"query_nt_status":null,"query_ok":true,"query_win32_error":null,"release_api_returns_status":false,"release_called":true,"resource_expected_bytes":135,"resource_expected_sha256":"39abce8cd98964b342942a3770e2ce865cda054577ddc4b790ccc0ece897a371","resource_id":2,"resource_identity_basis":"exact previously inspected PE image SHA; no replacement XML","thread_activation_requested":false,"win32_error":null},"dll":null,"dll_error":null,"full_blender_manifest":true,"job_verified":true,"manifest_sha256":"e7101d6abbe3d11a3ccb0cf88664ceffb2df9e2fbc7d23273edd274ddfa1e1e8","native_blender":false,"nonce":"738132f7c673f5c631cd13c71a59e37f","ok":true,"private_assemblies":true,"probe":"initial_embedded_context","query_error":null,"reached_main":true,"registry_read_diagnostic":true,"token_evidence":{"appcontainer":true,"attributes":4,"capability_count":1,"capability_name":"registryRead","capability_sid_sha256":"66ad18b3326a9cb33bf2c59d57d4029ce756e0634c6d0fb3cfe09d6550a213f5","container_sid_sha256":"575bba5bdbf3d065f4015f6b6f843f74748d1f0f6effb47e1af450f3e32921f7","job_member":true,"job_query_scope":"membership only; exact Job attestation is a separate Host receipt","lpac":true,"production_authority":false,"token_modified_by_fixture":false,"user_sid_sha256":"71e0ba8cbfae92806af0667a805807955db58bf9771ea5a68063c45922824be9"},"verified_lpac":true}
+
+owner CPU resource control after isolated exit: {"context":{"assembly_count":1,"assembly_identities":[""],"format":1,"query_flags":0,"query_only":true,"root_identity":""},"create_attempted":true,"create_flags":8,"create_nt_status":null,"create_ok":true,"create_win32_error":null,"dll_initialization_requested":false,"error_kind":null,"error_message":null,"exports_called":false,"file_data_written":false,"image_expected_sha256":"1c1f06615a3fcca7c2757221fbafa3640e90591dbbc9d06f19f4962f5ce6194c","image_verified":true,"ok":true,"phase":"complete","policy_changed":false,"query_attempted":true,"query_nt_status":null,"query_ok":true,"query_win32_error":null,"release_api_returns_status":false,"release_called":true,"resource_expected_bytes":135,"resource_expected_sha256":"39abce8cd98964b342942a3770e2ce865cda054577ddc4b790ccc0ece897a371","resource_id":2,"resource_identity_basis":"exact previously inspected PE image SHA; no replacement XML","thread_activation_requested":false,"win32_error":null}
+{"cold_cache_claim":false,"create_status_matches":true,"expected_zero_capability_denial":false,"identity_matches":true,"isolated":{"context":{"assembly_count":1,"assembly_identities":[""],"format":1,"query_flags":0,"query_only":true,"root_identity":""},"create_attempted":true,"create_flags":8,"create_nt_status":null,"create_ok":true,"create_win32_error":null,"dll_initialization_requested":false,"error_kind":null,"error_message":null,"exports_called":false,"file_data_written":false,"image_expected_sha256":"1c1f06615a3fcca7c2757221fbafa3640e90591dbbc9d06f19f4962f5ce6194c","image_verified":true,"ok":true,"phase":"complete","policy_changed":false,"query_attempted":true,"query_nt_status":null,"query_ok":true,"query_win32_error":null,"release_api_returns_status":false,"release_called":true,"resource_expected_bytes":135,"resource_expected_sha256":"39abce8cd98964b342942a3770e2ce865cda054577ddc4b790ccc0ece897a371","resource_id":2,"resource_identity_basis":"exact previously inspected PE image SHA; no replacement XML","thread_activation_requested":false,"win32_error":null},"isolated_exit_code":0,"owner_after":{"context":{"assembly_count":1,"assembly_identities":[""],"format":1,"query_flags":0,"query_only":true,"root_identity":""},"create_attempted":true,"create_flags":8,"create_nt_status":null,"create_ok":true,"create_win32_error":null,"dll_initialization_requested":false,"error_kind":null,"error_message":null,"exports_called":false,"file_data_written":false,"image_expected_sha256":"1c1f06615a3fcca7c2757221fbafa3640e90591dbbc9d06f19f4962f5ce6194c","image_verified":true,"ok":true,"phase":"complete","policy_changed":false,"query_attempted":true,"query_nt_status":null,"query_ok":true,"query_win32_error":null,"release_api_returns_status":false,"release_called":true,"resource_expected_bytes":135,"resource_expected_sha256":"39abce8cd98964b342942a3770e2ce865cda054577ddc4b790ccc0ece897a371","resource_id":2,"resource_identity_basis":"exact previously inspected PE image SHA; no replacement XML","thread_activation_requested":false,"win32_error":null},"owner_control_after_isolated_exit":true,"owner_initial_context_after":{"assembly_count":5,"assembly_identities":["","Microsoft.Windows.Common-Controls,processorArchitecture=\"amd64\",publicKeyToken=\"6595b64144ccf1df\",type=\"win32\",version=\"6.0.26100.9711\"","blender.crt,type=\"win32\",version=\"1.0.0.0\"","blender.shared,type=\"win32\",version=\"1.0.0.0\"","Microsoft.Windows.Common-Controls.Resources,language=\"es-MX\",processorArchitecture=\"amd64\",publicKeyToken=\"6595b64144ccf1df\",type=\"win32\",version=\"6.0.26100.8117\""],"format":1,"query_flags":0,"query_only":true,"root_identity":""},"owner_initial_context_error":null,"policy_changed":false,"probe":"cpu_resource_activation_comparison","query_status_matches":true,"registry_read_diagnostic":true,"release_call_matches":true}
+archivo procesado: E:\Projects\semwright-blender52\.local\tmp\.tmpVG3aZ6
+Se procesaron correctamente 1 archivos; error al procesar 0 archivos
+dependency-only fixture: blender.crt/blender.crt.manifest sha256=43bdfdc2028539332fed3dc487474407d63e79f67394145397322dda58e455ee; DLLs copied=false
+dependency-only fixture: blender.shared/blender.shared.manifest sha256=655ad61bd460854680806f1fce59459daaf7fc309304fa17b3348c58cf745926; DLLs copied=false
+CPU-component payload staged: files=51, manifest_sha256=43709145f359cb0ff4f1c42062dfa27f9b532e8f1f8f358417ad17cbc38b6cb7; owner DLL execution=false
+archivo procesado: E:\Projects\semwright-blender52\.local\tmp\.tmpVG3aZ6\fixture-embedded-manifest.exe
+Se procesaron correctamente 1 archivos; error al procesar 0 archivos
+initial fixture image_sha256=738132f7c673f5c631cd13c71a59e37fe4c3fec7b20b506ec361dcb05406841b; owner_context_before=None; broker_used=false
+{"application_startup_verified":false,"component":"platform-windows","exact_job":true,"phase":"initial_process_attested_before_resume","pid":33528,"resumed":false,"token":{"appcontainer":true,"appcontainer_matches_requested":true,"appcontainer_sid_sha256":"4ed9b767060c12ba2a72db516a7c17ee7b808b93454adf3b550989764cba1257","capabilities":[],"capabilities_match_requested":true,"capability_comparison":"exact SID/attributes sets; identical repeats coalesced","capability_count":0,"capability_entries_observed":0,"capability_entries_requested":0,"capability_identities_requested":0,"lpac":true,"user_matches_requested":true,"user_sid_sha256":"71e0ba8cbfae92806af0667a805807955db58bf9771ea5a68063c45922824be9"}}
+CPU fixture ACL after Host mount: E:\Projects\semwright-blender52\.local\tmp\.tmpVG3aZ6
+E:\Projects\semwright-blender52\.local\tmp\.tmpVG3aZ6 S-1-15-2-3251497863-2784138375-3376212333-989092192-3520420733-1260650934-2507053660:(OI)(CI)(DENY)(DE,WDAC,WO,WD,AD,WEA,DC,WA)
+                                                      S-1-15-2-3251497863-2784138375-3376212333-989092192-3520420733-1260650934-2507053660:(OI)(CI)(RX)
+                                                      <OWNER>:(OI)(CI)(F)
+
+Se procesaron correctamente 1 archivos; error al procesar 0 archivos
+
+CPU fixture ACL after Host mount: E:\Projects\semwright-blender52\.local\tmp\.tmpVG3aZ6\blender.crt
+E:\Projects\semwright-blender52\.local\tmp\.tmpVG3aZ6\blender.crt S-1-15-2-3251497863-2784138375-3376212333-989092192-3520420733-1260650934-2507053660:(I)(OI)(CI)(DENY)(DE,WDAC,WO,WD,AD,WEA,DC,WA)
+                                                                  S-1-15-2-3251497863-2784138375-3376212333-989092192-3520420733-1260650934-2507053660:(I)(OI)(CI)(RX)
+                                                                  <OWNER>:(I)(OI)(CI)(F)
+
+Se procesaron correctamente 1 archivos; error al procesar 0 archivos
+
+CPU fixture ACL after Host mount: E:\Projects\semwright-blender52\.local\tmp\.tmpVG3aZ6\blender.crt/api-ms-win-core-console-l1-1-0.dll
+E:\Projects\semwright-blender52\.local\tmp\.tmpVG3aZ6\blender.crt/api-ms-win-core-console-l1-1-0.dll S-1-15-2-3251497863-2784138375-3376212333-989092192-3520420733-1260650934-2507053660:(I)(DENY)(DE,WDAC,WO,WD,AD,WEA,DC,WA)
+                                                                                                     S-1-15-2-3251497863-2784138375-3376212333-989092192-3520420733-1260650934-2507053660:(I)(RX)
+                                                                                                     <OWNER>:(I)(F)
+
+Se procesaron correctamente 1 archivos; error al procesar 0 archivos
+
+initial embedded fixture exit=Some(2): {"activation":{"assembly_count":5,"assembly_identities":["","Microsoft.Windows.Common-Controls,processorArchitecture=\"amd64\",publicKeyToken=\"6595b64144ccf1df\",type=\"win32\",version=\"6.0.26100.9711\"","blender.crt,type=\"win32\",version=\"1.0.0.0\"","blender.shared,type=\"win32\",version=\"1.0.0.0\"","Microsoft.Windows.Common-Controls.Resources,language=\"es-MX\",processorArchitecture=\"amd64\",publicKeyToken=\"6595b64144ccf1df\",type=\"win32\",version=\"6.0.26100.8117\""],"format":1,"query_flags":4,"query_only":true,"root_identity":""},"blender_component_execution_attempted":false,"blender_executable_started":false,"broker_used":false,"capability_count":0,"common_controls":true,"cpu_actctx_probe":true,"cpu_component":null,"cpu_component_probe":false,"cpu_resource_activation":{"context":null,"create_attempted":true,"create_flags":8,"create_nt_status":"c0000022","create_ok":false,"create_win32_error":5,"dll_initialization_requested":false,"error_kind":"PermissionDenied","error_message":"Acceso denegado. (os error 5)","exports_called":false,"file_data_written":false,"image_expected_sha256":"1c1f06615a3fcca7c2757221fbafa3640e90591dbbc9d06f19f4962f5ce6194c","image_verified":true,"ok":false,"phase":"create_cpu_resource_context","policy_changed":false,"query_attempted":false,"query_nt_status":null,"query_ok":false,"query_win32_error":null,"release_api_returns_status":false,"release_called":false,"resource_expected_bytes":135,"resource_expected_sha256":"39abce8cd98964b342942a3770e2ce865cda054577ddc4b790ccc0ece897a371","resource_id":2,"resource_identity_basis":"exact previously inspected PE image SHA; no replacement XML","thread_activation_requested":false,"win32_error":5},"dll":null,"dll_error":null,"full_blender_manifest":true,"job_verified":true,"manifest_sha256":"e7101d6abbe3d11a3ccb0cf88664ceffb2df9e2fbc7d23273edd274ddfa1e1e8","native_blender":false,"nonce":"738132f7c673f5c631cd13c71a59e37f","ok":false,"private_assemblies":true,"probe":"initial_embedded_context","query_error":null,"reached_main":true,"registry_read_diagnostic":false,"token_evidence":null,"verified_lpac":true}
+
+owner CPU resource control after isolated exit: {"context":{"assembly_count":1,"assembly_identities":[""],"format":1,"query_flags":0,"query_only":true,"root_identity":""},"create_attempted":true,"create_flags":8,"create_nt_status":null,"create_ok":true,"create_win32_error":null,"dll_initialization_requested":false,"error_kind":null,"error_message":null,"exports_called":false,"file_data_written":false,"image_expected_sha256":"1c1f06615a3fcca7c2757221fbafa3640e90591dbbc9d06f19f4962f5ce6194c","image_verified":true,"ok":true,"phase":"complete","policy_changed":false,"query_attempted":true,"query_nt_status":null,"query_ok":true,"query_win32_error":null,"release_api_returns_status":false,"release_called":true,"resource_expected_bytes":135,"resource_expected_sha256":"39abce8cd98964b342942a3770e2ce865cda054577ddc4b790ccc0ece897a371","resource_id":2,"resource_identity_basis":"exact previously inspected PE image SHA; no replacement XML","thread_activation_requested":false,"win32_error":null}
+{"cold_cache_claim":false,"create_status_matches":false,"expected_zero_capability_denial":true,"identity_matches":null,"isolated":{"context":null,"create_attempted":true,"create_flags":8,"create_nt_status":"c0000022","create_ok":false,"create_win32_error":5,"dll_initialization_requested":false,"error_kind":"PermissionDenied","error_message":"Acceso denegado. (os error 5)","exports_called":false,"file_data_written":false,"image_expected_sha256":"1c1f06615a3fcca7c2757221fbafa3640e90591dbbc9d06f19f4962f5ce6194c","image_verified":true,"ok":false,"phase":"create_cpu_resource_context","policy_changed":false,"query_attempted":false,"query_nt_status":null,"query_ok":false,"query_win32_error":null,"release_api_returns_status":false,"release_called":false,"resource_expected_bytes":135,"resource_expected_sha256":"39abce8cd98964b342942a3770e2ce865cda054577ddc4b790ccc0ece897a371","resource_id":2,"resource_identity_basis":"exact previously inspected PE image SHA; no replacement XML","thread_activation_requested":false,"win32_error":5},"isolated_exit_code":2,"owner_after":{"context":{"assembly_count":1,"assembly_identities":[""],"format":1,"query_flags":0,"query_only":true,"root_identity":""},"create_attempted":true,"create_flags":8,"create_nt_status":null,"create_ok":true,"create_win32_error":null,"dll_initialization_requested":false,"error_kind":null,"error_message":null,"exports_called":false,"file_data_written":false,"image_expected_sha256":"1c1f06615a3fcca7c2757221fbafa3640e90591dbbc9d06f19f4962f5ce6194c","image_verified":true,"ok":true,"phase":"complete","policy_changed":false,"query_attempted":true,"query_nt_status":null,"query_ok":true,"query_win32_error":null,"release_api_returns_status":false,"release_called":true,"resource_expected_bytes":135,"resource_expected_sha256":"39abce8cd98964b342942a3770e2ce865cda054577ddc4b790ccc0ece897a371","resource_id":2,"resource_identity_basis":"exact previously inspected PE image SHA; no replacement XML","thread_activation_requested":false,"win32_error":null},"owner_control_after_isolated_exit":true,"owner_initial_context_after":{"assembly_count":5,"assembly_identities":["","Microsoft.Windows.Common-Controls,processorArchitecture=\"amd64\",publicKeyToken=\"6595b64144ccf1df\",type=\"win32\",version=\"6.0.26100.9711\"","blender.crt,type=\"win32\",version=\"1.0.0.0\"","blender.shared,type=\"win32\",version=\"1.0.0.0\"","Microsoft.Windows.Common-Controls.Resources,language=\"es-MX\",processorArchitecture=\"amd64\",publicKeyToken=\"6595b64144ccf1df\",type=\"win32\",version=\"6.0.26100.8117\""],"format":1,"query_flags":0,"query_only":true,"root_identity":""},"owner_initial_context_error":null,"policy_changed":false,"probe":"cpu_resource_activation_comparison","query_status_matches":false,"registry_read_diagnostic":false,"release_call_matches":false}
+ZERO_CAPABILITY_DENIAL_CONFIRMED {"P0":"BLOCKED","broker_used":false,"exit":2,"expected_denial":true,"owner_after":{"context":{"assembly_count":1,"assembly_identities":[""],"format":1,"query_flags":0,"query_only":true,"root_identity":""},"create_attempted":true,"create_flags":8,"create_nt_status":null,"create_ok":true,"create_win32_error":null,"dll_initialization_requested":false,"error_kind":null,"error_message":null,"exports_called":false,"file_data_written":false,"image_expected_sha256":"1c1f06615a3fcca7c2757221fbafa3640e90591dbbc9d06f19f4962f5ce6194c","image_verified":true,"ok":true,"phase":"complete","policy_changed":false,"query_attempted":true,"query_nt_status":null,"query_ok":true,"query_win32_error":null,"release_api_returns_status":false,"release_called":true,"resource_expected_bytes":135,"resource_expected_sha256":"39abce8cd98964b342942a3770e2ce865cda054577ddc4b790ccc0ece897a371","resource_id":2,"resource_identity_basis":"exact previously inspected PE image SHA; no replacement XML","thread_activation_requested":false,"win32_error":null},"row":{"activation":{"assembly_count":5,"assembly_identities":["","Microsoft.Windows.Common-Controls,processorArchitecture=\"amd64\",publicKeyToken=\"6595b64144ccf1df\",type=\"win32\",version=\"6.0.26100.9711\"","blender.crt,type=\"win32\",version=\"1.0.0.0\"","blender.shared,type=\"win32\",version=\"1.0.0.0\"","Microsoft.Windows.Common-Controls.Resources,language=\"es-MX\",processorArchitecture=\"amd64\",publicKeyToken=\"6595b64144ccf1df\",type=\"win32\",version=\"6.0.26100.8117\""],"format":1,"query_flags":4,"query_only":true,"root_identity":""},"blender_component_execution_attempted":false,"blender_executable_started":false,"broker_used":false,"capability_count":0,"common_controls":true,"cpu_actctx_probe":true,"cpu_component":null,"cpu_component_probe":false,"cpu_resource_activation":{"context":null,"create_attempted":true,"create_flags":8,"create_nt_status":"c0000022","create_ok":false,"create_win32_error":5,"dll_initialization_requested":false,"error_kind":"PermissionDenied","error_message":"Acceso denegado. (os error 5)","exports_called":false,"file_data_written":false,"image_expected_sha256":"1c1f06615a3fcca7c2757221fbafa3640e90591dbbc9d06f19f4962f5ce6194c","image_verified":true,"ok":false,"phase":"create_cpu_resource_context","policy_changed":false,"query_attempted":false,"query_nt_status":null,"query_ok":false,"query_win32_error":null,"release_api_returns_status":false,"release_called":false,"resource_expected_bytes":135,"resource_expected_sha256":"39abce8cd98964b342942a3770e2ce865cda054577ddc4b790ccc0ece897a371","resource_id":2,"resource_identity_basis":"exact previously inspected PE image SHA; no replacement XML","thread_activation_requested":false,"win32_error":5},"dll":null,"dll_error":null,"full_blender_manifest":true,"job_verified":true,"manifest_sha256":"e7101d6abbe3d11a3ccb0cf88664ceffb2df9e2fbc7d23273edd274ddfa1e1e8","native_blender":false,"nonce":"738132f7c673f5c631cd13c71a59e37f","ok":false,"private_assemblies":true,"probe":"initial_embedded_context","query_error":null,"reached_main":true,"registry_read_diagnostic":false,"token_evidence":null,"verified_lpac":true}}
+archivo procesado: E:\Projects\semwright-blender52\.local\tmp\.tmpI2752L
+Se procesaron correctamente 1 archivos; error al procesar 0 archivos
+{"application_startup_verified":false,"component":"platform-windows","network":false,"phase":"registry_read_diagnostic_requested","requested_capabilities":["registryRead"],"test_only":true}
+{"application_startup_verified":false,"component":"platform-windows","exact_job":true,"phase":"initial_process_attested_before_resume","pid":2180,"resumed":false,"token":{"appcontainer":true,"appcontainer_matches_requested":true,"appcontainer_sid_sha256":"265dfd4d53a41206a7a4195efd2650b5b4c20e35c32183205363a1fce214126d","capabilities":[{"attributes":4,"sid_sha256":"66ad18b3326a9cb33bf2c59d57d4029ce756e0634c6d0fb3cfe09d6550a213f5"}],"capabilities_match_requested":true,"capability_comparison":"exact SID/attributes sets; identical repeats coalesced","capability_count":1,"capability_entries_observed":1,"capability_entries_requested":1,"capability_identities_requested":1,"lpac":true,"user_matches_requested":true,"user_sid_sha256":"71e0ba8cbfae92806af0667a805807955db58bf9771ea5a68063c45922824be9"}}
+direct Host Blender version exit=Some(0), broker_used=false, scene_operation=false:
+Blender 5.2.1 LTS
+	build date: 2026-08-25
+	build time: 02:38:20
+	build commit date: 2026-08-24
+	build commit time: 16:50
+	build hash: 9e2066aef7ef
+	build branch: blender-v5.2-release
+	build platform: Windows
+	build type: Release
+	build c flags:  /W3 -Werror=implicit-function-declaration -Werror=return-type -Wno-tautological-compare -Wno-unknown-pragmas -Wno-char-subscripts -Wstrict-prototypes -Wmissing-prototypes -Wunused-parameter -Wundef -Wundef-prefix -Werror=unguarded-availability-new /DWIN32 /D_WINDOWS /MP /nologo /J /Gy /Gd /showFilenames -Wno-unused-command-line-argument -Wno-microsoft-enum-forward-reference /clang:-funsigned-char /clang:-fno-strict-aliasing /clang:-ffp-contract=off -march=x86-64-v2 
+	build c++ flags:  /W3 -Wno-tautological-compare -Wno-unknown-pragmas -Wno-char-subscripts -Wno-overloaded-virtual -Wno-sign-compare -Wno-invalid-offsetof -Wno-suggest-override -Wundef -Wundef-prefix -Wunused-parameter -Wmismatched-tags -Werror=unguarded-availability-new /DWIN32 /D_WINDOWS /EHsc  /Gy /MP /nologo /J /Gd /showFilenames /EHsc -Wno-unused-command-line-argument -Wno-microsoft-enum-forward-reference /clang:-funsigned-char /clang:-fno-strict-aliasing /clang:-ffp-contract=off -march=x86-64-v2 
+	build link flags: /MACHINE:X64  /SUBSYSTEM:CONSOLE /STACK:2097152 /ignore:4049 /ignore:4217 /ignore:4221
+	build system: CMake
+
+REGISTRY_READ_BLENDER_VERSION {"A05":"BLOCKED","blender_executable_sha256":"284f4041f98e113f3dc10654a7193ffaaa9bfdfec8b87fa116620a48b5f6d4cb","broker_used":false,"exit":0,"network":false,"private_working_directory":"E:\\Projects\\semwright-blender52\\.local\\tmp\\.tmpI2752L","process_limit":1,"registry_read_diagnostic":true,"scene_loaded":false,"stdout":"Blender 5.2.1 LTS\r\n\tbuild date: 2026-08-25\r\n\tbuild time: 02:38:20\r\n\tbuild commit date: 2026-08-24\r\n\tbuild commit time: 16:50\r\n\tbuild hash: 9e2066aef7ef\r\n\tbuild branch: blender-v5.2-release\r\n\tbuild platform: Windows\r\n\tbuild type: Release\r\n\tbuild c flags:  /W3 -Werror=implicit-function-declaration -Werror=return-type -Wno-tautological-compare -Wno-unknown-pragmas -Wno-char-subscripts -Wstrict-prototypes -Wmissing-prototypes -Wunused-parameter -Wundef -Wundef-prefix -Werror=unguarded-availability-new /DWIN32 /D_WINDOWS /MP /nologo /J /Gy /Gd /showFilenames -Wno-unused-command-line-argument -Wno-microsoft-enum-forward-reference /clang:-funsigned-char /clang:-fno-strict-aliasing /clang:-ffp-contract=off -march=x86-64-v2 \r\n\tbuild c++ flags:  /W3 -Wno-tautological-compare -Wno-unknown-pragmas -Wno-char-subscripts -Wno-overloaded-virtual -Wno-sign-compare -Wno-invalid-offsetof -Wno-suggest-override -Wundef -Wundef-prefix -Wunused-parameter -Wmismatched-tags -Werror=unguarded-availability-new /DWIN32 /D_WINDOWS /EHsc  /Gy /MP /nologo /J /Gd /showFilenames /EHsc -Wno-unused-command-line-argument -Wno-microsoft-enum-forward-reference /clang:-funsigned-char /clang:-fno-strict-aliasing /clang:-ffp-contract=off -march=x86-64-v2 \r\n\tbuild link flags: /MACHINE:X64  /SUBSYSTEM:CONSOLE /STACK:2097152 /ignore:4049 /ignore:4217 /ignore:4221\r\n\tbuild system: CMake\r\n"}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 14 filtered out; finished in 37.50s
+

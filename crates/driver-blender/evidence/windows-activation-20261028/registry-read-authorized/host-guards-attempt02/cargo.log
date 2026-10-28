@@ -1,0 +1,13 @@
+   Compiling semwright-platform-windows-sys v1.0.0 (E:\Projects\semwright-blender52\crates\platform-windows-sys)
+    Finished `test` profile [unoptimized] target(s) in 6.85s
+     Running unittests src\lib.rs (.local\target\x86_64-pc-windows-gnu\debug\deps\semwright_platform_windows_sys-7e0bb9a1344e7f7f.exe)
+
+running 5 tests
+test launch::registry_read_diagnostic_tests::registry_read_diagnostic_accepts_bounded_native_case ... ok
+test launch::registry_read_diagnostic_tests::registry_read_diagnostic_rejects_emulation ... ok
+test launch::registry_read_diagnostic_tests::registry_read_diagnostic_rejects_network ... ok
+test launch::registry_read_diagnostic_tests::registry_read_diagnostic_requires_native_x64 ... ok
+test launch::registry_read_diagnostic_tests::registry_read_diagnostic_requires_one_process_limits ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 30 filtered out; finished in 0.00s
+
