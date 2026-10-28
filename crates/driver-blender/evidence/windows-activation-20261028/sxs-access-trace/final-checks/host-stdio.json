@@ -1,0 +1,84 @@
+{
+  "case": "host-stdio",
+  "argv": [
+    "C:\\Users\\sergi\\.cargo\\bin\\cargo.exe",
+    "+1.98.1-x86_64-pc-windows-gnu",
+    "test",
+    "-p",
+    "semwright-platform-windows-sys",
+    "--test",
+    "secure_spawn",
+    "--target",
+    "x86_64-pc-windows-gnu",
+    "--locked",
+    "--offline",
+    "appcontainer_spawn_roundtrips_only_allowlisted_stdio",
+    "--",
+    "--exact",
+    "--nocapture",
+    "--test-threads=1"
+  ],
+  "pid": 18932,
+  "exit_code": 0,
+  "seconds": 6.952999999994063,
+  "timed_out": false,
+  "cleanup": null,
+  "source_before": {
+    "crates/driver-blender/tests/windows_fsctl_control.rs": "f561f4ce377c104e6184a754970c5cde5db19eef717a5ed71ad21ba7cf482ae4",
+    "crates/driver-blender/tests/windows_native_launch.rs": "f8c9c743a7a2ca4c6e8d31bd32fdaef2107e77bd5f7426995f4e8ee344348179",
+    "crates/driver-blender/src/bin/session_runner/windows_fixture.rs": "a34e81f51a33fdca69dae735c605dd12fa5af4d2e009d74538e35dfa3c37bd92",
+    "crates/driver-blender/src/bin/session_runner/windows_debug_rendezvous.rs": "135a8c854e1af419f2138c691c6c6de950be61f5bdd61a1ca61d4c47040dfdf5",
+    "crates/driver-blender/src/bin/session_runner/windows_cpu_images.rs": "fe675d1bd469e5fdc5182e726440555fdfdf69fa2a75de8224a892b43c12ee55",
+    "crates/platform-windows-sys/src/launch.rs": "5f2de9e401f9a35396f58a544f0877684842f8d7a52d52c2deb7c95382a2b442",
+    "crates/platform-windows-sys/src/job.rs": "9adcdf38fa07e5fd9aa282bbd7d4824947201239b101a345ae44813a6962ccca",
+    "crates/platform-windows-sys/src/launch/initial_attestation.rs": "84a4e6dd7baf3e251e2d88f135bbbc8da68997c25ab27b6070e34b88e94d823e",
+    "crates/platform-windows-sys/src/launch/initial_lpac.rs": "f0cf7ee4b6a764f2975ee9348df842def53232cfc9911231ed446a6d78cb33dd",
+    "crates/platform-windows-sys/Cargo.toml": "58ae11ed626436fbff1d226a8728e9e5b868a1e19f8ea679d0363e80cdc2563a",
+    "crates/driver-blender/Cargo.toml": "699a36a344d095d34d2eb5f617e4b98e6b42d478dcdb91e8b5fcdc1f17f6de4e",
+    "Cargo.lock": "3959cc1ee3b21883d8ec2cb0e1f158fe1f7c5df178503a1489e5e2dfef836940"
+  },
+  "source_after": {
+    "crates/driver-blender/tests/windows_fsctl_control.rs": "f561f4ce377c104e6184a754970c5cde5db19eef717a5ed71ad21ba7cf482ae4",
+    "crates/driver-blender/tests/windows_native_launch.rs": "f8c9c743a7a2ca4c6e8d31bd32fdaef2107e77bd5f7426995f4e8ee344348179",
+    "crates/driver-blender/src/bin/session_runner/windows_fixture.rs": "a34e81f51a33fdca69dae735c605dd12fa5af4d2e009d74538e35dfa3c37bd92",
+    "crates/driver-blender/src/bin/session_runner/windows_debug_rendezvous.rs": "135a8c854e1af419f2138c691c6c6de950be61f5bdd61a1ca61d4c47040dfdf5",
+    "crates/driver-blender/src/bin/session_runner/windows_cpu_images.rs": "fe675d1bd469e5fdc5182e726440555fdfdf69fa2a75de8224a892b43c12ee55",
+    "crates/platform-windows-sys/src/launch.rs": "5f2de9e401f9a35396f58a544f0877684842f8d7a52d52c2deb7c95382a2b442",
+    "crates/platform-windows-sys/src/job.rs": "9adcdf38fa07e5fd9aa282bbd7d4824947201239b101a345ae44813a6962ccca",
+    "crates/platform-windows-sys/src/launch/initial_attestation.rs": "84a4e6dd7baf3e251e2d88f135bbbc8da68997c25ab27b6070e34b88e94d823e",
+    "crates/platform-windows-sys/src/launch/initial_lpac.rs": "f0cf7ee4b6a764f2975ee9348df842def53232cfc9911231ed446a6d78cb33dd",
+    "crates/platform-windows-sys/Cargo.toml": "58ae11ed626436fbff1d226a8728e9e5b868a1e19f8ea679d0363e80cdc2563a",
+    "crates/driver-blender/Cargo.toml": "699a36a344d095d34d2eb5f617e4b98e6b42d478dcdb91e8b5fcdc1f17f6de4e",
+    "Cargo.lock": "3959cc1ee3b21883d8ec2cb0e1f158fe1f7c5df178503a1489e5e2dfef836940"
+  },
+  "sources_unchanged": true,
+  "log_sha256": "8c05c65aad4059fadd18a36e0c9430df3a7be4674ceda5e7035fad8a351b1b6c",
+  "test_results": [
+    "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.41s"
+  ],
+  "attestations": [
+    {
+      "application_startup_verified": false,
+      "component": "platform-windows",
+      "exact_job": true,
+      "phase": "initial_process_attested_before_resume",
+      "pid": 30124,
+      "resumed": false,
+      "token": {
+        "appcontainer": true,
+        "appcontainer_matches_requested": true,
+        "appcontainer_sid_sha256": "9809d26b27beee604617b0051d192537a865c6ca757883144fd4bcbe2461733e",
+        "capabilities": [],
+        "capabilities_match_requested": true,
+        "capability_comparison": "exact SID/attributes sets; identical repeats coalesced",
+        "capability_count": 0,
+        "capability_entries_observed": 0,
+        "capability_entries_requested": 0,
+        "capability_identities_requested": 0,
+        "lpac": true,
+        "user_matches_requested": true,
+        "user_sid_sha256": "71e0ba8cbfae92806af0667a805807955db58bf9771ea5a68063c45922824be9"
+      }
+    }
+  ]
+}

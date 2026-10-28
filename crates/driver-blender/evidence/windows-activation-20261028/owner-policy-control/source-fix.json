@@ -1,0 +1,6 @@
+{
+  "previous_run": "COMPILE_FAILED_NO_TEST_EXECUTED",
+  "change": "Split receipt JSON macro into bounded maps; same observation fields.",
+  "current_test_sha256": "4275e3a0bee86144ac06379decd77588c720babc75bcf9a4e6b952efa27fd3fc",
+  "failed_test_sha256": "b88054c931391d1febc6035a78d7c84d50fd2ae4dbcc65ba6cc6ee1480344b8b"
+}

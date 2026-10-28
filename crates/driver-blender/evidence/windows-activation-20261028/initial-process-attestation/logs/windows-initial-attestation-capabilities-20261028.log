@@ -1,0 +1,9 @@
+    Finished `test` profile [unoptimized] target(s) in 0.60s
+     Running tests\secure_spawn.rs (.local\target\x86_64-pc-windows-gnu\debug\deps\secure_spawn-47df6a24ab2b348c.exe)
+
+running 1 test
+test network_authority_materializes_only_internet_client_capability ... {"application_startup_verified":false,"component":"platform-windows","exact_job":true,"phase":"initial_process_attested_before_resume","pid":30856,"resumed":false,"token":{"appcontainer":true,"appcontainer_matches_requested":true,"appcontainer_sid_sha256":"6fd65c6d50f293fa2289944ba6595a243c809b6bbcd5c9f42b3d0a30b86a1fd8","capabilities":[{"attributes":4,"sid_sha256":"e04b2806f0e42dd5fb461a38675265b284b43fe739ef072f7486cfbf7a51e091"},{"attributes":4,"sid_sha256":"66ad18b3326a9cb33bf2c59d57d4029ce756e0634c6d0fb3cfe09d6550a213f5"}],"capabilities_match_requested":true,"capability_comparison":"exact SID/attributes sets; identical repeats coalesced","capability_count":2,"capability_entries_observed":2,"capability_entries_requested":2,"capability_identities_requested":2,"lpac":true,"user_matches_requested":true,"user_sid_sha256":"71e0ba8cbfae92806af0667a805807955db58bf9771ea5a68063c45922824be9"}}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.10s
+

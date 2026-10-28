@@ -1,0 +1,30 @@
+{
+  "source_log_sha256": "620d00dd6535fb6eb802c69d061457582265de507ed3bba61eafe856db405400",
+  "parser_fix": "JSON object starts at first brace; key order is not assumed",
+  "attestations": [
+    {
+      "application_startup_verified": false,
+      "component": "platform-windows",
+      "exact_job": true,
+      "phase": "initial_process_attested_before_resume",
+      "pid": 32164,
+      "resumed": false,
+      "token": {
+        "appcontainer": true,
+        "appcontainer_matches_requested": true,
+        "appcontainer_sid_sha256": "920647f91bf07bb6f26411ac131e8476ddc2a43b920c5289c3f1a3bb458fc9b1",
+        "capabilities": [],
+        "capabilities_match_requested": true,
+        "capability_comparison": "exact SID/attributes sets; identical repeats coalesced",
+        "capability_count": 0,
+        "capability_entries_observed": 0,
+        "capability_entries_requested": 0,
+        "capability_identities_requested": 0,
+        "lpac": true,
+        "user_matches_requested": true,
+        "user_sid_sha256": "71e0ba8cbfae92806af0667a805807955db58bf9771ea5a68063c45922824be9"
+      }
+    }
+  ],
+  "new_execution": false
+}

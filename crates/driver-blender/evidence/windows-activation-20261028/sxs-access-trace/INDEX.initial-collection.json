@@ -1,0 +1,258 @@
+{
+  "schema_version": 1,
+  "utc": "2026-10-28T22:07:01.453682+00:00",
+  "baseline_head": "8b6269223f2fb7e13dd1f8af3d41636a1531ffc7",
+  "scope": "query-only CPU resource activation under attested LPAC; not Blender startup",
+  "results": {
+    "owner_flags0": "CREATE_QUERY_RELEASE_PASS",
+    "owner_flags4": "CREATE_QUERY_RELEASE_PASS",
+    "lpac_cpu_resource": "DENIED_5_C0000022",
+    "debugger": "TRACE_COMPLETED_DETACHED",
+    "direct_blender_new_run": "NOT_RUN",
+    "Linux_4_5_14": "NOT_RUN",
+    "P0": "BLOCKED",
+    "A05": "BLOCKED"
+  },
+  "limitations": [
+    "No cold-cache proof",
+    "NtOpenKey SideBySide denial observed, causal intervention not authorized or run",
+    "No claim that the complete Blender startup fails only for this cause",
+    "GDB system symbol names are export labels; application frame unwind is incomplete"
+  ],
+  "mutations": {
+    "global_policy": false,
+    "host_policy": false,
+    "runtime_bytes": false,
+    "registry_or_acl": false,
+    "additional_lpac_capability": false
+  },
+  "source_snapshots": "Exact sources used before formatting/defensive guard follow-up",
+  "raw_evidence_preserved": true,
+  "files": [
+    {
+      "path": "source-at-execution/crates/driver-blender/tests/windows_fsctl_control.rs",
+      "raw_source": "crates/driver-blender/tests/windows_fsctl_control.rs",
+      "raw_sha256": "5d8e0890d7dea12d762adec6f6692ae0e4ad21d17b9ea4098683a3f784161a17",
+      "bytes": 6653,
+      "sha256": "5d8e0890d7dea12d762adec6f6692ae0e4ad21d17b9ea4098683a3f784161a17",
+      "owner_sid_redacted": false,
+      "redacted_sid_sha256": []
+    },
+    {
+      "path": "source-at-execution/crates/driver-blender/tests/windows_native_launch.rs",
+      "raw_source": "crates/driver-blender/tests/windows_native_launch.rs",
+      "raw_sha256": "8bdd7329d61dd31de4b01187296b353c5dede4524367e499b97b1a8e558be18a",
+      "bytes": 47297,
+      "sha256": "8bdd7329d61dd31de4b01187296b353c5dede4524367e499b97b1a8e558be18a",
+      "owner_sid_redacted": false,
+      "redacted_sid_sha256": []
+    },
+    {
+      "path": "source-at-execution/crates/driver-blender/src/bin/session_runner/windows_fixture.rs",
+      "raw_source": "crates/driver-blender/src/bin/session_runner/windows_fixture.rs",
+      "raw_sha256": "a34e81f51a33fdca69dae735c605dd12fa5af4d2e009d74538e35dfa3c37bd92",
+      "bytes": 20065,
+      "sha256": "a34e81f51a33fdca69dae735c605dd12fa5af4d2e009d74538e35dfa3c37bd92",
+      "owner_sid_redacted": false,
+      "redacted_sid_sha256": []
+    },
+    {
+      "path": "source-at-execution/crates/driver-blender/src/bin/session_runner/windows_debug_rendezvous.rs",
+      "raw_source": "crates/driver-blender/src/bin/session_runner/windows_debug_rendezvous.rs",
+      "raw_sha256": "ffe06170bc6309319c08c2d7853b6a2be0b8c70996a56ab8780847d4205cef56",
+      "bytes": 2294,
+      "sha256": "ffe06170bc6309319c08c2d7853b6a2be0b8c70996a56ab8780847d4205cef56",
+      "owner_sid_redacted": false,
+      "redacted_sid_sha256": []
+    },
+    {
+      "path": "source-at-execution/crates/driver-blender/src/bin/session_runner/windows_cpu_images.rs",
+      "raw_source": "crates/driver-blender/src/bin/session_runner/windows_cpu_images.rs",
+      "raw_sha256": "fe675d1bd469e5fdc5182e726440555fdfdf69fa2a75de8224a892b43c12ee55",
+      "bytes": 8365,
+      "sha256": "fe675d1bd469e5fdc5182e726440555fdfdf69fa2a75de8224a892b43c12ee55",
+      "owner_sid_redacted": false,
+      "redacted_sid_sha256": []
+    },
+    {
+      "path": "source-at-execution/crates/platform-windows-sys/src/launch.rs",
+      "raw_source": "crates/platform-windows-sys/src/launch.rs",
+      "raw_sha256": "0bd2d756455d4f31dc1d7e5abcabd8f791b275b1b1666451faee35e994227a14",
+      "bytes": 110620,
+      "sha256": "0bd2d756455d4f31dc1d7e5abcabd8f791b275b1b1666451faee35e994227a14",
+      "owner_sid_redacted": false,
+      "redacted_sid_sha256": []
+    },
+    {
+      "path": "source-at-execution/crates/platform-windows-sys/src/job.rs",
+      "raw_source": "crates/platform-windows-sys/src/job.rs",
+      "raw_sha256": "7094f018e0f2312babb840d4cdb057fe55eb19fa8e58791ba4afa4fa29cb71b9",
+      "bytes": 7411,
+      "sha256": "7094f018e0f2312babb840d4cdb057fe55eb19fa8e58791ba4afa4fa29cb71b9",
+      "owner_sid_redacted": false,
+      "redacted_sid_sha256": []
+    },
+    {
+      "path": "source-at-execution/crates/platform-windows-sys/src/launch/initial_attestation.rs",
+      "raw_source": "crates/platform-windows-sys/src/launch/initial_attestation.rs",
+      "raw_sha256": "5b62914e76d4e9ea4716195a3a6b2e8037f5dc5862f60e6097e12dedd1f342a1",
+      "bytes": 13201,
+      "sha256": "5b62914e76d4e9ea4716195a3a6b2e8037f5dc5862f60e6097e12dedd1f342a1",
+      "owner_sid_redacted": false,
+      "redacted_sid_sha256": []
+    },
+    {
+      "path": "source-at-execution/crates/platform-windows-sys/src/launch/initial_lpac.rs",
+      "raw_source": "crates/platform-windows-sys/src/launch/initial_lpac.rs",
+      "raw_sha256": "cb3a1633eb21f5c662eae0a6cb532ce80dd21ca2575dbf4f0b6a59c8eef14cd1",
+      "bytes": 7724,
+      "sha256": "cb3a1633eb21f5c662eae0a6cb532ce80dd21ca2575dbf4f0b6a59c8eef14cd1",
+      "owner_sid_redacted": false,
+      "redacted_sid_sha256": []
+    },
+    {
+      "path": "repro/run_fsctl_causal_control_20261028.py",
+      "raw_source": ".local/run_fsctl_causal_control_20261028.py",
+      "raw_sha256": "ba4b8872e69e8d03d490b478b4ee2e3a30ddb347cb2661728b4ea383eb4885c4",
+      "bytes": 3631,
+      "sha256": "ba4b8872e69e8d03d490b478b4ee2e3a30ddb347cb2661728b4ea383eb4885c4",
+      "owner_sid_redacted": false,
+      "redacted_sid_sha256": []
+    },
+    {
+      "path": "repro/trace_lpac_api_20261028.py",
+      "raw_source": ".local/trace_lpac_api_20261028.py",
+      "raw_sha256": "575af20b96e1183590fed8c722d624fd21b67a0befba279042709df53895ed9c",
+      "bytes": 5388,
+      "sha256": "575af20b96e1183590fed8c722d624fd21b67a0befba279042709df53895ed9c",
+      "owner_sid_redacted": false,
+      "redacted_sid_sha256": []
+    },
+    {
+      "path": "repro/run_cpu_debug_20261028.py",
+      "raw_source": ".local/run_cpu_debug_20261028.py",
+      "raw_sha256": "7610d03d82bb7af63240f24dafb1c4b82bf9bc7899bd542d08c71e20423ba5a1",
+      "bytes": 4399,
+      "sha256": "7610d03d82bb7af63240f24dafb1c4b82bf9bc7899bd542d08c71e20423ba5a1",
+      "owner_sid_redacted": false,
+      "redacted_sid_sha256": []
+    },
+    {
+      "path": "repro/inspect_sxs_acl_20261028.py",
+      "raw_source": ".local/inspect_sxs_acl_20261028.py",
+      "raw_sha256": "d116300c2af8f48145a9d749d07159b6356cff037fa5b5c6a91bb77dc1b6cb95",
+      "bytes": 3442,
+      "sha256": "d116300c2af8f48145a9d749d07159b6356cff037fa5b5c6a91bb77dc1b6cb95",
+      "owner_sid_redacted": false,
+      "redacted_sid_sha256": []
+    },
+    {
+      "path": "repro/add_debug_rendezvous_20261028.py",
+      "raw_source": ".local/add_debug_rendezvous_20261028.py",
+      "raw_sha256": "5617eec14f2c1bf13ff7e1a36db8993ec7b22395cc1697970a114625cadce12a",
+      "bytes": 5733,
+      "sha256": "5617eec14f2c1bf13ff7e1a36db8993ec7b22395cc1697970a114625cadce12a",
+      "owner_sid_redacted": false,
+      "redacted_sid_sha256": []
+    },
+    {
+      "path": "logs/windows-fsctl-causal-control-20261028-attempt01.log",
+      "raw_source": ".local/logs/windows-fsctl-causal-control-20261028-attempt01.log",
+      "raw_sha256": "ab997f11b950fb83a2490dda10fb6c89ef10d2bfce0cca5b2dd54972e8b0b7fd",
+      "bytes": 13945,
+      "sha256": "ab997f11b950fb83a2490dda10fb6c89ef10d2bfce0cca5b2dd54972e8b0b7fd",
+      "owner_sid_redacted": false,
+      "redacted_sid_sha256": []
+    },
+    {
+      "path": "logs/windows-fsctl-causal-control-20261028-attempt01.json",
+      "raw_source": ".local/logs/windows-fsctl-causal-control-20261028-attempt01.json",
+      "raw_sha256": "58f232860d685c85d0c52e7b6e6dbb10bee3fea03a882ac1286d4b7d701be3ac",
+      "bytes": 6590,
+      "sha256": "58f232860d685c85d0c52e7b6e6dbb10bee3fea03a882ac1286d4b7d701be3ac",
+      "owner_sid_redacted": false,
+      "redacted_sid_sha256": []
+    },
+    {
+      "path": "logs/windows-fsctl-control-1793224067469-38956.json",
+      "raw_source": ".local/logs/windows-fsctl-control-1793224067469-38956.json",
+      "raw_sha256": "edb12e26555c5be49eb54933555c5b1d2b5add5884f69545b291da017b3b1cd0",
+      "bytes": 3004,
+      "sha256": "edb12e26555c5be49eb54933555c5b1d2b5add5884f69545b291da017b3b1cd0",
+      "owner_sid_redacted": false,
+      "redacted_sid_sha256": []
+    },
+    {
+      "path": "logs/sxs-registry-acl-20261028.json",
+      "raw_source": ".local/logs/sxs-registry-acl-20261028.json",
+      "raw_sha256": "2daeb6341ea05e1f51cc4a5829db451354f5e9f89499b9b1c1d9362057d4fed9",
+      "bytes": 1613,
+      "sha256": "2daeb6341ea05e1f51cc4a5829db451354f5e9f89499b9b1c1d9362057d4fed9",
+      "owner_sid_redacted": false,
+      "redacted_sid_sha256": []
+    },
+    {
+      "path": "cpu-debug/cargo.log",
+      "raw_source": ".local/logs/cpu-debug-20261028-attempt01/cargo.log",
+      "raw_sha256": "e1e0157e9457b6f89a5423a19b87d4d683213cb0f1c6152e2119a129feb015d0",
+      "bytes": 20441,
+      "sha256": "e1e0157e9457b6f89a5423a19b87d4d683213cb0f1c6152e2119a129feb015d0",
+      "owner_sid_redacted": false,
+      "redacted_sid_sha256": []
+    },
+    {
+      "path": "cpu-debug/debugger-ready.json",
+      "raw_source": ".local/logs/cpu-debug-20261028-attempt01/debugger-ready.json",
+      "raw_sha256": "7aa52721f926c05e533dbee73b34e350cab558e63203567f37ecde9f21af4dae",
+      "bytes": 86,
+      "sha256": "7aa52721f926c05e533dbee73b34e350cab558e63203567f37ecde9f21af4dae",
+      "owner_sid_redacted": false,
+      "redacted_sid_sha256": []
+    },
+    {
+      "path": "cpu-debug/gdb.log",
+      "raw_source": ".local/logs/cpu-debug-20261028-attempt01/gdb.log",
+      "raw_sha256": "e9c882a816f343d2c2fd873f2cef7c8c5bf0a39c16470f6f336ca7342f7750d6",
+      "bytes": 22610,
+      "sha256": "739859789e354c632ebf17f5fad37c42021ce101d2c2339869102867cb51adba",
+      "owner_sid_redacted": true,
+      "redacted_sid_sha256": [
+        "8cde4cedd5b17b132681062bda4d1f4289b6420ee8364de50a20c0c3a2a41f60"
+      ]
+    },
+    {
+      "path": "cpu-debug/ready.json",
+      "raw_source": ".local/logs/cpu-debug-20261028-attempt01/ready.json",
+      "raw_sha256": "740129e1b332564bb2d3fe97a5239fe26b3827b04ef892c12d2f3be08ccf53b0",
+      "bytes": 723,
+      "sha256": "740129e1b332564bb2d3fe97a5239fe26b3827b04ef892c12d2f3be08ccf53b0",
+      "owner_sid_redacted": false,
+      "redacted_sid_sha256": []
+    },
+    {
+      "path": "cpu-debug/run.json",
+      "raw_source": ".local/logs/cpu-debug-20261028-attempt01/run.json",
+      "raw_sha256": "a74232d81c59d470c035b231193949b5addbd7e521ff1d217626ef35d0cd78a5",
+      "bytes": 4230,
+      "sha256": "a74232d81c59d470c035b231193949b5addbd7e521ff1d217626ef35d0cd78a5",
+      "owner_sid_redacted": false,
+      "redacted_sid_sha256": []
+    },
+    {
+      "path": "cpu-debug/trace-summary.json",
+      "raw_source": ".local/logs/cpu-debug-20261028-attempt01/trace-summary.json",
+      "raw_sha256": "d50e26a45a7916ac1b559086e484eb21f6735865c8baf397ea9849efbb9c87fa",
+      "bytes": 9007,
+      "sha256": "c3872e441f4a6583c76ac674146edc3b056bb1bde22c6165f280a54a50d3ff19",
+      "owner_sid_redacted": true,
+      "redacted_sid_sha256": [
+        "8cde4cedd5b17b132681062bda4d1f4289b6420ee8364de50a20c0c3a2a41f60"
+      ]
+    },
+    {
+      "path": "source-at-execution/tracked-wip.patch",
+      "bytes": 24851,
+      "sha256": "5b6bb4fb8481617f4d457c10fb801c135a1fc4c30617003a6e30fb7a85a8b191"
+    }
+  ]
+}

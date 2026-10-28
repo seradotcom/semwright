@@ -1,0 +1,211 @@
+{
+  "utc_start": "2026-10-28T20:43:10.420582+00:00",
+  "seconds": 7.75,
+  "argv": [
+    "C:\\Users\\sergi\\.cargo\\bin\\cargo.exe",
+    "+1.98.1-x86_64-pc-windows-gnu",
+    "test",
+    "-p",
+    "semwright-driver-blender",
+    "--features",
+    "windows-launch-test-fixture",
+    "--test",
+    "windows_native_launch",
+    "--target",
+    "x86_64-pc-windows-gnu",
+    "--locked",
+    "--offline",
+    "owner_cpu_resource_policy_probe",
+    "--",
+    "--ignored",
+    "--exact",
+    "--nocapture",
+    "--test-threads=1"
+  ],
+  "pid": 32624,
+  "exit_code": 0,
+  "timed_out": false,
+  "cleanup": null,
+  "log_sha256": "4935c41f660108b1774e2fcd3c974f054d9837042f861b50bcfb7bf7397d01c6",
+  "source_snapshot": "E:\\Projects\\semwright-blender52\\.local\\owner-policy-compile-failure-20261028\\applied_fix.json",
+  "owner_receipt": {
+    "A05": "BLOCKED",
+    "P0_evaluated": false,
+    "acceptance_scope": "owner diagnostic only",
+    "all_five_queries_succeeded": true,
+    "broker_used": false,
+    "child_processes_spawned_by_test": 0,
+    "compiled_source_sha256": {
+      "Cargo.lock": "3959cc1ee3b21883d8ec2cb0e1f158fe1f7c5df178503a1489e5e2dfef836940",
+      "src/bin/session_runner/windows_activation_readback.rs": "566c4ae39535c28114884160493af1afdeb473e1f05eef455d2e70a33fcd6828",
+      "src/bin/session_runner/windows_cpu_images.rs": "fe675d1bd469e5fdc5182e726440555fdfdf69fa2a75de8224a892b43c12ee55",
+      "src/bin/session_runner/windows_cpu_payload.rs": "98ba354b13d210f3ea8d3da1cbfec9af5a3a1df9a47d2b04120fc13d9aa064fc",
+      "src/bin/session_runner/windows_cpu_resource_activation.rs": "3e7c621d0352fbcd283c2e2b5a3102669e49d78c9541fe5e43b985939d3a69dd",
+      "tests/fixtures/windows_cpu_probe_payload.json": "43709145f359cb0ff4f1c42062dfa27f9b532e8f1f8f358417ad17cbc38b6cb7",
+      "tests/windows_native_launch.rs": "4275e3a0bee86144ac06379decd77588c720babc75bcf9a4e6b952efa27fd3fc"
+    },
+    "cpu_resource_activation": {
+      "context": {
+        "assembly_count": 1,
+        "assembly_identities": [
+          ""
+        ],
+        "format": 1,
+        "query_flags": 0,
+        "query_only": true,
+        "root_identity": ""
+      },
+      "create_attempted": true,
+      "create_flags": 8,
+      "create_nt_status": null,
+      "create_ok": true,
+      "create_win32_error": null,
+      "dll_initialization_requested": false,
+      "error_kind": null,
+      "error_message": null,
+      "exports_called": false,
+      "file_data_written": false,
+      "image_expected_sha256": "1c1f06615a3fcca7c2757221fbafa3640e90591dbbc9d06f19f4962f5ce6194c",
+      "image_verified": true,
+      "ok": true,
+      "phase": "complete",
+      "policy_changed": false,
+      "query_attempted": true,
+      "query_nt_status": null,
+      "query_ok": true,
+      "query_win32_error": null,
+      "release_api_returns_status": false,
+      "release_called": true,
+      "resource_expected_bytes": 135,
+      "resource_expected_sha256": "39abce8cd98964b342942a3770e2ce865cda054577ddc4b790ccc0ece897a371",
+      "resource_id": 2,
+      "resource_identity_basis": "exact previously inspected PE image SHA; no replacement XML",
+      "thread_activation_requested": false,
+      "win32_error": null
+    },
+    "cpu_resource_probe_calls": 1,
+    "diagnostic_ok": true,
+    "dll_initialization_requested": false,
+    "elapsed_ms": 31,
+    "explicit_image_mapping_requested": false,
+    "exports_called": false,
+    "extra_process_for_getters": false,
+    "harness_executable": "E:\\Projects\\semwright-blender52\\.local\\target\\x86_64-pc-windows-gnu\\debug\\deps\\windows_native_launch-e6ef0e66bc183d70.exe",
+    "historical_comparison": {
+      "checkpoint": "8b6269223f2fb7e13dd1f8af3d41636a1531ffc7",
+      "lpac_log": "crates/driver-blender/evidence/windows-activation-20261028/windows-initial-cpu-closure-order-resume.log",
+      "lpac_receipt_field": "cpu_component.image_probe.policies",
+      "lpac_system_call_disable_flags": 4,
+      "previous_owner_after_flags_inferred": false,
+      "previous_owner_after_policies_recorded": false,
+      "same_process_as_current_owner": false,
+      "same_run_as_resource2_comparison": false
+    },
+    "isolated_blender_support_claim": false,
+    "new_lpac_processes": 0,
+    "owner_control_in_current_harness": true,
+    "policies_after": {
+      "binary_signature": {
+        "decoded": null,
+        "flags": 0,
+        "query_ok": true,
+        "win32_error": null
+      },
+      "dynamic_code": {
+        "decoded": null,
+        "flags": 0,
+        "query_ok": true,
+        "win32_error": null
+      },
+      "extension_points": {
+        "decoded": null,
+        "flags": 0,
+        "query_ok": true,
+        "win32_error": null
+      },
+      "image_load": {
+        "decoded": null,
+        "flags": 0,
+        "query_ok": true,
+        "win32_error": null
+      },
+      "system_call_disable": {
+        "decoded": {
+          "audit_disallow_fsctl": false,
+          "audit_disallow_win32k": false,
+          "disallow_fsctl": false,
+          "disallow_win32k": false,
+          "reserved_bits": 0
+        },
+        "flags": 0,
+        "query_ok": true,
+        "win32_error": null
+      }
+    },
+    "policies_before": {
+      "binary_signature": {
+        "decoded": null,
+        "flags": 0,
+        "query_ok": true,
+        "win32_error": null
+      },
+      "dynamic_code": {
+        "decoded": null,
+        "flags": 0,
+        "query_ok": true,
+        "win32_error": null
+      },
+      "extension_points": {
+        "decoded": null,
+        "flags": 0,
+        "query_ok": true,
+        "win32_error": null
+      },
+      "image_load": {
+        "decoded": null,
+        "flags": 0,
+        "query_ok": true,
+        "win32_error": null
+      },
+      "system_call_disable": {
+        "decoded": {
+          "audit_disallow_fsctl": false,
+          "audit_disallow_win32k": false,
+          "disallow_fsctl": false,
+          "disallow_win32k": false,
+          "reserved_bits": 0
+        },
+        "flags": 0,
+        "query_ok": true,
+        "win32_error": null
+      }
+    },
+    "policies_stable": true,
+    "policy_changed": false,
+    "probe": "owner_only_cpu_resource_policy_comparison",
+    "process_id": 17204,
+    "receipt_path": "E:\\Projects\\semwright-blender52\\crates\\driver-blender\\../../.local/logs\\windows-owner-cpu-resource-policy-1793220198110-17204-29804.json",
+    "runtime_cpu_expected_sha256": "1c1f06615a3fcca7c2757221fbafa3640e90591dbbc9d06f19f4962f5ce6194c",
+    "runtime_cpu_hash_error_after": null,
+    "runtime_cpu_hash_error_before": null,
+    "runtime_cpu_relative": "blender_cpu_check.dll",
+    "runtime_cpu_sha256_after": "1c1f06615a3fcca7c2757221fbafa3640e90591dbbc9d06f19f4962f5ce6194c",
+    "runtime_cpu_sha256_before": "1c1f06615a3fcca7c2757221fbafa3640e90591dbbc9d06f19f4962f5ce6194c",
+    "runtime_cpu_unchanged": true,
+    "runtime_file_data_written": false,
+    "runtime_location_scope": "authorized pinned runtime; not the previous temporary fixture directory",
+    "runtime_preflight_error": null,
+    "runtime_root": "E:\\Projects\\worldwright-archipelago\\tools\\blender-5.2.1-runtime",
+    "sandbox_spawn_called": false,
+    "schema_version": 1,
+    "thread_activation_requested": false,
+    "thread_id": 29804,
+    "token_changed": false,
+    "unix_timestamp_ms": 1793220198110
+  },
+  "owner_receipt_count": 1,
+  "P0_evaluated": false,
+  "A05": "BLOCKED",
+  "isolated_blender_started": false,
+  "harness_sha256": "b050d5a993cfd9e462aac599d80aa12cbf2b19578bad475c21ae8704e809e545"
+}

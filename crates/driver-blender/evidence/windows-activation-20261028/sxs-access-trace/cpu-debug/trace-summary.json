@@ -1,0 +1,115 @@
+{
+  "pid": 37924,
+  "completed_createactctx": true,
+  "seconds": 0.7970000000059372,
+  "calls": 15,
+  "access_denied": [
+    {
+      "phase": "api_return",
+      "sequence": 2,
+      "api": "NtOpenKey",
+      "thread": 1,
+      "entry_pc": "0x7ffe6fc61f80",
+      "access_mask": "0x2000000",
+      "object": {
+        "root_handle": "0x0",
+        "name": "\\REGISTRY\\USER\\OWNER_SID_SHA256_8cde4cedd5b17b132681062bda4d1f4289b6420ee8364de50a20c0c3a2a41f60"
+      },
+      "return_u64": "0xc0000022",
+      "ntstatus": "c0000022",
+      "backtrace": "#0  0x00007ffe6fb999fb in ntdll!RtlOpenCurrentUser () from C:\\WINDOWS\\SYSTEM32\\ntdll.dll\n#1  0x00007ffe6fb0c405 in ntdll!RtlpCreateProcessRegistryInfo () from C:\\WINDOWS\\SYSTEM32\\ntdll.dll\n#2  0x00007ffe6fb9bea0 in ntdll!RtlGetThreadPreferredUILanguages () from C:\\WINDOWS\\SYSTEM32\\ntdll.dll\n#3  0x00007ffe6e1b66cd in KERNEL32!BasepReleaseSxsCreateProcessUtilityStruct () from C:\\WINDOWS\\System32\\kernel32.dll\n#4  0x00007ffe6e1b544d in KERNEL32!CreateActCtxWWorker () from C:\\WINDOWS\\System32\\kernel32.dll\n#5  0x00007ffe6e1b4ce9 in KERNEL32!CreateActCtxWWorker () from C:\\WINDOWS\\System32\\kernel32.dll\n#6  0x00007ff6d87475e3 in ?? ()\nBacktrace stopped: previous frame inner to this frame (corrupt stack?)\n"
+    },
+    {
+      "phase": "api_return",
+      "sequence": 4,
+      "api": "NtOpenKey",
+      "thread": 1,
+      "entry_pc": "0x7ffe6fc61f80",
+      "access_mask": "0x2000000",
+      "object": {
+        "root_handle": "0x0",
+        "name": "\\REGISTRY\\USER\\OWNER_SID_SHA256_8cde4cedd5b17b132681062bda4d1f4289b6420ee8364de50a20c0c3a2a41f60"
+      },
+      "return_u64": "0xc0000022",
+      "ntstatus": "c0000022",
+      "backtrace": "#0  0x00007ffe6fb999fb in ntdll!RtlOpenCurrentUser () from C:\\WINDOWS\\SYSTEM32\\ntdll.dll\n#1  0x00007ffe6fb9a803 in ntdll!RtlOpenCurrentUser () from C:\\WINDOWS\\SYSTEM32\\ntdll.dll\n#2  0x00007ffe6fb0c35f in ntdll!RtlpCreateProcessRegistryInfo () from C:\\WINDOWS\\SYSTEM32\\ntdll.dll\n#3  0x00007ffe6fb9bea0 in ntdll!RtlGetThreadPreferredUILanguages () from C:\\WINDOWS\\SYSTEM32\\ntdll.dll\n#4  0x00007ffe6e1b66cd in KERNEL32!BasepReleaseSxsCreateProcessUtilityStruct () from C:\\WINDOWS\\System32\\kernel32.dll\n#5  0x00007ffe6e1b544d in KERNEL32!CreateActCtxWWorker () from C:\\WINDOWS\\System32\\kernel32.dll\n#6  0x00007ffe6e1b4ce9 in KERNEL32!CreateActCtxWWorker () from C:\\WINDOWS\\System32\\kernel32.dll\n#7  0x00007ff6d87475e3 in ?? ()\nBacktrace stopped: previous frame inner to this frame (corrupt stack?)\n"
+    },
+    {
+      "phase": "api_return",
+      "sequence": 6,
+      "api": "NtOpenKey",
+      "thread": 1,
+      "entry_pc": "0x7ffe6fc61f80",
+      "access_mask": "0x2000000",
+      "object": {
+        "root_handle": "0x0",
+        "name": "\\REGISTRY\\USER\\OWNER_SID_SHA256_8cde4cedd5b17b132681062bda4d1f4289b6420ee8364de50a20c0c3a2a41f60"
+      },
+      "return_u64": "0xc0000022",
+      "ntstatus": "c0000022",
+      "backtrace": "#0  0x00007ffe6fb999fb in ntdll!RtlOpenCurrentUser () from C:\\WINDOWS\\SYSTEM32\\ntdll.dll\n#1  0x00007ffe6fb98e53 in ntdll!RtlGetSystemPreferredUILanguages () from C:\\WINDOWS\\SYSTEM32\\ntdll.dll\n#2  0x00007ffe6fb9d0ca in ntdll!RtlGetThreadPreferredUILanguages () from C:\\WINDOWS\\SYSTEM32\\ntdll.dll\n#3  0x00007ffe6fb0c391 in ntdll!RtlpCreateProcessRegistryInfo () from C:\\WINDOWS\\SYSTEM32\\ntdll.dll\n#4  0x00007ffe6fb9bea0 in ntdll!RtlGetThreadPreferredUILanguages () from C:\\WINDOWS\\SYSTEM32\\ntdll.dll\n#5  0x00007ffe6e1b66cd in KERNEL32!BasepReleaseSxsCreateProcessUtilityStruct () from C:\\WINDOWS\\System32\\kernel32.dll\n#6  0x00007ffe6e1b544d in KERNEL32!CreateActCtxWWorker () from C:\\WINDOWS\\System32\\kernel32.dll\n#7  0x00007ffe6e1b4ce9 in KERNEL32!CreateActCtxWWorker () from C:\\WINDOWS\\System32\\kernel32.dll\n#8  0x00007ff6d87475e3 in ?? ()\nBacktrace stopped: previous frame inner to this frame (corrupt stack?)\n"
+    },
+    {
+      "phase": "api_return",
+      "sequence": 8,
+      "api": "NtOpenKey",
+      "thread": 1,
+      "entry_pc": "0x7ffe6fc61f80",
+      "access_mask": "0x2000000",
+      "object": {
+        "root_handle": "0x0",
+        "name": "\\REGISTRY\\USER\\OWNER_SID_SHA256_8cde4cedd5b17b132681062bda4d1f4289b6420ee8364de50a20c0c3a2a41f60"
+      },
+      "return_u64": "0xc0000022",
+      "ntstatus": "c0000022",
+      "backtrace": "#0  0x00007ffe6fb999fb in ntdll!RtlOpenCurrentUser () from C:\\WINDOWS\\SYSTEM32\\ntdll.dll\n#1  0x00007ffe6fb98e53 in ntdll!RtlGetSystemPreferredUILanguages () from C:\\WINDOWS\\SYSTEM32\\ntdll.dll\n#2  0x00007ffe6fb9d0ca in ntdll!RtlGetThreadPreferredUILanguages () from C:\\WINDOWS\\SYSTEM32\\ntdll.dll\n#3  0x00007ffe6fb0c3b0 in ntdll!RtlpCreateProcessRegistryInfo () from C:\\WINDOWS\\SYSTEM32\\ntdll.dll\n#4  0x00007ffe6fb9bea0 in ntdll!RtlGetThreadPreferredUILanguages () from C:\\WINDOWS\\SYSTEM32\\ntdll.dll\n#5  0x00007ffe6e1b66cd in KERNEL32!BasepReleaseSxsCreateProcessUtilityStruct () from C:\\WINDOWS\\System32\\kernel32.dll\n#6  0x00007ffe6e1b544d in KERNEL32!CreateActCtxWWorker () from C:\\WINDOWS\\System32\\kernel32.dll\n#7  0x00007ffe6e1b4ce9 in KERNEL32!CreateActCtxWWorker () from C:\\WINDOWS\\System32\\kernel32.dll\n#8  0x00007ff6d87475e3 in ?? ()\nBacktrace stopped: previous frame inner to this frame (corrupt stack?)\n"
+    },
+    {
+      "phase": "api_return",
+      "sequence": 10,
+      "api": "NtOpenKey",
+      "thread": 1,
+      "entry_pc": "0x7ffe6fc61f80",
+      "access_mask": "0x2000000",
+      "object": {
+        "root_handle": "0x0",
+        "name": "\\REGISTRY\\USER\\OWNER_SID_SHA256_8cde4cedd5b17b132681062bda4d1f4289b6420ee8364de50a20c0c3a2a41f60"
+      },
+      "return_u64": "0xc0000022",
+      "ntstatus": "c0000022",
+      "backtrace": "#0  0x00007ffe6fb999fb in ntdll!RtlOpenCurrentUser () from C:\\WINDOWS\\SYSTEM32\\ntdll.dll\n#1  0x00007ffe6fb98e53 in ntdll!RtlGetSystemPreferredUILanguages () from C:\\WINDOWS\\SYSTEM32\\ntdll.dll\n#2  0x00007ffe6fb9cdb4 in ntdll!RtlGetThreadPreferredUILanguages () from C:\\WINDOWS\\SYSTEM32\\ntdll.dll\n#3  0x00007ffe6fb9bf1d in ntdll!RtlGetThreadPreferredUILanguages () from C:\\WINDOWS\\SYSTEM32\\ntdll.dll\n#4  0x00007ffe6e1b66cd in KERNEL32!BasepReleaseSxsCreateProcessUtilityStruct () from C:\\WINDOWS\\System32\\kernel32.dll\n#5  0x00007ffe6e1b544d in KERNEL32!CreateActCtxWWorker () from C:\\WINDOWS\\System32\\kernel32.dll\n#6  0x00007ffe6e1b4ce9 in KERNEL32!CreateActCtxWWorker () from C:\\WINDOWS\\System32\\kernel32.dll\n#7  0x00007ff6d87475e3 in ?? ()\nBacktrace stopped: previous frame inner to this frame (corrupt stack?)\n"
+    },
+    {
+      "phase": "api_return",
+      "sequence": 12,
+      "api": "NtOpenKey",
+      "thread": 1,
+      "entry_pc": "0x7ffe6fc61f80",
+      "access_mask": "0x2000000",
+      "object": {
+        "root_handle": "0x0",
+        "name": "\\REGISTRY\\USER\\OWNER_SID_SHA256_8cde4cedd5b17b132681062bda4d1f4289b6420ee8364de50a20c0c3a2a41f60"
+      },
+      "return_u64": "0xc0000022",
+      "ntstatus": "c0000022",
+      "backtrace": "#0  0x00007ffe6fb999fb in ntdll!RtlOpenCurrentUser () from C:\\WINDOWS\\SYSTEM32\\ntdll.dll\n#1  0x00007ffe6fb9a803 in ntdll!RtlOpenCurrentUser () from C:\\WINDOWS\\SYSTEM32\\ntdll.dll\n#2  0x00007ffe6fb9ce5c in ntdll!RtlGetThreadPreferredUILanguages () from C:\\WINDOWS\\SYSTEM32\\ntdll.dll\n#3  0x00007ffe6fb9bf1d in ntdll!RtlGetThreadPreferredUILanguages () from C:\\WINDOWS\\SYSTEM32\\ntdll.dll\n#4  0x00007ffe6e1b66cd in KERNEL32!BasepReleaseSxsCreateProcessUtilityStruct () from C:\\WINDOWS\\System32\\kernel32.dll\n#5  0x00007ffe6e1b544d in KERNEL32!CreateActCtxWWorker () from C:\\WINDOWS\\System32\\kernel32.dll\n#6  0x00007ffe6e1b4ce9 in KERNEL32!CreateActCtxWWorker () from C:\\WINDOWS\\System32\\kernel32.dll\n#7  0x00007ff6d87475e3 in ?? ()\nBacktrace stopped: previous frame inner to this frame (corrupt stack?)\n"
+    },
+    {
+      "phase": "api_return",
+      "sequence": 15,
+      "api": "NtOpenKey",
+      "thread": 1,
+      "entry_pc": "0x7ffe6fc61f80",
+      "access_mask": "0x20019",
+      "object": {
+        "root_handle": "0x0",
+        "name": "\\Registry\\MACHINE\\Software\\Microsoft\\Windows\\CurrentVersion\\SideBySide"
+      },
+      "return_u64": "0xc0000022",
+      "ntstatus": "c0000022",
+      "backtrace": "#0  0x00007ffe6e1b6bc3 in KERNEL32!BasepReleaseSxsCreateProcessUtilityStruct () from C:\\WINDOWS\\System32\\kernel32.dll\n#1  0x00007ffe6e1b68f9 in KERNEL32!BasepReleaseSxsCreateProcessUtilityStruct () from C:\\WINDOWS\\System32\\kernel32.dll\n#2  0x00007ffe6e1b5bc8 in KERNEL32!CreateActCtxWWorker () from C:\\WINDOWS\\System32\\kernel32.dll\n#3  0x00007ffe6e1b4ce9 in KERNEL32!CreateActCtxWWorker () from C:\\WINDOWS\\System32\\kernel32.dll\n#4  0x00007ff6d87475e3 in ?? ()\nBacktrace stopped: previous frame inner to this frame (corrupt stack?)\n"
+    }
+  ],
+  "production_acceptance": false,
+  "A05": "BLOCKED"
+}

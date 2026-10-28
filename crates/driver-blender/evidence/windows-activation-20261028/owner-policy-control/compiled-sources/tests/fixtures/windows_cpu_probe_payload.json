@@ -1,0 +1,257 @@
+[
+  {
+    "relative": "blender.crt/api-ms-win-core-console-l1-1-0.dll",
+    "bytes": 21984,
+    "sha256": "03ffdb036329a25beacf905d62611a13e3dfdda6cbd2d13af830258e8cf40ec0"
+  },
+  {
+    "relative": "blender.crt/api-ms-win-core-console-l1-2-0.dll",
+    "bytes": 22008,
+    "sha256": "449631a3f5fadef72acc2c2f84765208d0ca014ec1fe93fb9ad805eec1d40eae"
+  },
+  {
+    "relative": "blender.crt/api-ms-win-core-datetime-l1-1-0.dll",
+    "bytes": 22008,
+    "sha256": "d718e1b6c352112c2f8e36b4ba5ed28e6179257fd2fe944c4a0d404b5c15b5ae"
+  },
+  {
+    "relative": "blender.crt/api-ms-win-core-debug-l1-1-0.dll",
+    "bytes": 21984,
+    "sha256": "f65b1b3ea2767f98f0c29118e85b06f4e61654bec34b60b3abb593b24ec29af4"
+  },
+  {
+    "relative": "blender.crt/api-ms-win-core-errorhandling-l1-1-0.dll",
+    "bytes": 21976,
+    "sha256": "a83af0f79abb5e5c818c6f38a38da80e531081f3255cb006ed4c29635cc0b9ce"
+  },
+  {
+    "relative": "blender.crt/api-ms-win-core-fibers-l1-1-0.dll",
+    "bytes": 21984,
+    "sha256": "9057131f628e547c14754d545140ad6544e64606358104da50841e9a1b03f442"
+  },
+  {
+    "relative": "blender.crt/api-ms-win-core-file-l1-1-0.dll",
+    "bytes": 26080,
+    "sha256": "99ed148ffbb35829480412dc64da6ad24dfabe2f9a0eff9ba1493455d7127677"
+  },
+  {
+    "relative": "blender.crt/api-ms-win-core-file-l1-2-0.dll",
+    "bytes": 21976,
+    "sha256": "d56eae93c55abdc8eb77d132777049634e28a9b59fd4b2101d51351546b984d1"
+  },
+  {
+    "relative": "blender.crt/api-ms-win-core-file-l2-1-0.dll",
+    "bytes": 22008,
+    "sha256": "9f496e181b1c862c7a7d03c09d9b0a5361535c98acbb1a9d50a27bcfb0a2bcc5"
+  },
+  {
+    "relative": "blender.crt/api-ms-win-core-handle-l1-1-0.dll",
+    "bytes": 21976,
+    "sha256": "5e48c99dd6318b017686bde507cdcb9d6ecf25f4f78f345845b865e443f1ee66"
+  },
+  {
+    "relative": "blender.crt/api-ms-win-core-heap-l1-1-0.dll",
+    "bytes": 21984,
+    "sha256": "6070ffb5e20ed032d460d323df981d369fa68045fab130fd100803a00ab88c23"
+  },
+  {
+    "relative": "blender.crt/api-ms-win-core-interlocked-l1-1-0.dll",
+    "bytes": 21984,
+    "sha256": "4ea02b683513a157e21824b1c1e9ebb782d22f14209b67961f97b1f79673d3ed"
+  },
+  {
+    "relative": "blender.crt/api-ms-win-core-libraryloader-l1-1-0.dll",
+    "bytes": 21976,
+    "sha256": "6fc551cfbcaa0f90ed24dd09fa117e9fb3b6755a3fc0251d33ca64862a9a3414"
+  },
+  {
+    "relative": "blender.crt/api-ms-win-core-localization-l1-2-0.dll",
+    "bytes": 21976,
+    "sha256": "245d48bfce5cf6e9c5093e995d6ab5988e2401d32530fd6863bd5f8fd688d780"
+  },
+  {
+    "relative": "blender.crt/api-ms-win-core-memory-l1-1-0.dll",
+    "bytes": 22008,
+    "sha256": "4a244eea4596ebde0f9094cc6dfeeb5abb3c4385225bb0630ef55a431fe1c4f2"
+  },
+  {
+    "relative": "blender.crt/api-ms-win-core-namedpipe-l1-1-0.dll",
+    "bytes": 22008,
+    "sha256": "5662035361e37f6c5e4a5a19de134df2ec20bd4c0f1be803203b37c95ee61265"
+  },
+  {
+    "relative": "blender.crt/api-ms-win-core-processenvironment-l1-1-0.dll",
+    "bytes": 21992,
+    "sha256": "2c9a8f8d47b49d04a82e8e689ae9f6552482b1861eb8398f3733e97327191c2a"
+  },
+  {
+    "relative": "blender.crt/api-ms-win-core-processthreads-l1-1-0.dll",
+    "bytes": 21984,
+    "sha256": "363825adb27d5a5bd249fe58460a977077f823e50dac7509e124fcbac1512128"
+  },
+  {
+    "relative": "blender.crt/api-ms-win-core-processthreads-l1-1-1.dll",
+    "bytes": 22008,
+    "sha256": "53afac76a7124a132a7c11261f3b6ba8d6a5466e7e8f683c8d12ac370b7d6b62"
+  },
+  {
+    "relative": "blender.crt/api-ms-win-core-profile-l1-1-0.dll",
+    "bytes": 21976,
+    "sha256": "982fcc32d7614cb921cc5203970e3997a33b31aa1d91f14db5db25a582dcc3af"
+  },
+  {
+    "relative": "blender.crt/api-ms-win-core-rtlsupport-l1-1-0.dll",
+    "bytes": 22008,
+    "sha256": "890dbb72c4c35266bd658c663c1242cfa3b50cf51e2873e986b7ab2e055af4a4"
+  },
+  {
+    "relative": "blender.crt/api-ms-win-core-string-l1-1-0.dll",
+    "bytes": 21976,
+    "sha256": "90ba9da43d6705d76905e630505bd1fd097d1899c9bca3241ad0de5ab08ee366"
+  },
+  {
+    "relative": "blender.crt/api-ms-win-core-synch-l1-1-0.dll",
+    "bytes": 21976,
+    "sha256": "fb4b382e2dfa80b3427a98c51d3270b1e80b5c2a10fdae1a72b7c464e57fc6a7"
+  },
+  {
+    "relative": "blender.crt/api-ms-win-core-synch-l1-2-0.dll",
+    "bytes": 21976,
+    "sha256": "0ced53f1ac2adc9525047d2c2a7592300dc48a5f52ad8b740ce22e3f3aad85ff"
+  },
+  {
+    "relative": "blender.crt/api-ms-win-core-sysinfo-l1-1-0.dll",
+    "bytes": 22008,
+    "sha256": "f353bfe02e30f4fd5cdc89bd7f44703257f229a09f0d815d7794df902f67d1a1"
+  },
+  {
+    "relative": "blender.crt/api-ms-win-core-timezone-l1-1-0.dll",
+    "bytes": 21984,
+    "sha256": "91decddc6e80d742755a1f65261d10c3c0d059aaea6389bb2da6fd3aa7ec5289"
+  },
+  {
+    "relative": "blender.crt/api-ms-win-core-util-l1-1-0.dll",
+    "bytes": 22008,
+    "sha256": "8875816a3809753c04acd961244608e9a47127523c1d5e50cddbd83a4627821c"
+  },
+  {
+    "relative": "blender.crt/api-ms-win-crt-conio-l1-1-0.dll",
+    "bytes": 22008,
+    "sha256": "2c557f6a21db6c99af6184637b5efb57e44b40fae892230a43e96ab05ab27d40"
+  },
+  {
+    "relative": "blender.crt/api-ms-win-crt-convert-l1-1-0.dll",
+    "bytes": 26080,
+    "sha256": "44ebde7f2681c0b8518e55ca242261b24f326994f089a4ef6c060f8dda04d62d"
+  },
+  {
+    "relative": "blender.crt/api-ms-win-crt-environment-l1-1-0.dll",
+    "bytes": 22008,
+    "sha256": "0e195a8d013a329a06df877a4569a3ec772f112ad29295f086c6d3e53f322fb5"
+  },
+  {
+    "relative": "blender.crt/api-ms-win-crt-filesystem-l1-1-0.dll",
+    "bytes": 21976,
+    "sha256": "58d9a9b2442c10140db98ba705e8c7b7b9ac5a2c030d3286a66debf63b615c1b"
+  },
+  {
+    "relative": "blender.crt/api-ms-win-crt-heap-l1-1-0.dll",
+    "bytes": 21976,
+    "sha256": "1edf013e890072987b8957b77baecc37140bc01581e5de6b020ae454bb57f8bf"
+  },
+  {
+    "relative": "blender.crt/api-ms-win-crt-locale-l1-1-0.dll",
+    "bytes": 22000,
+    "sha256": "2e23b53441ba6b0779b222c120d44eb9a156d55cc3648f76216017ef06f9a16f"
+  },
+  {
+    "relative": "blender.crt/api-ms-win-crt-math-l1-1-0.dll",
+    "bytes": 30200,
+    "sha256": "e6e839c6d205f91adaa3d980f843bab3131b8a25e06d152d0f70a6e98fbe0fb0"
+  },
+  {
+    "relative": "blender.crt/api-ms-win-crt-multibyte-l1-1-0.dll",
+    "bytes": 30200,
+    "sha256": "d9388848ebfe27138998518332bb507e5dbeb1d8851e9ed0300f15e14b6958c2"
+  },
+  {
+    "relative": "blender.crt/api-ms-win-crt-private-l1-1-0.dll",
+    "bytes": 75232,
+    "sha256": "66f910721f4477ea238603e5c14c858d1e26fc2ceaab3b48294cac069790202c"
+  },
+  {
+    "relative": "blender.crt/api-ms-win-crt-process-l1-1-0.dll",
+    "bytes": 21984,
+    "sha256": "b33a762f0eb072033044e7ee89505b695f357c958d4107ce6f1c4d68f88d3277"
+  },
+  {
+    "relative": "blender.crt/api-ms-win-crt-runtime-l1-1-0.dll",
+    "bytes": 26072,
+    "sha256": "d3641bbaeaa5a7e7d4ee0ee0ec64ccee0327cfba3d10b89094144eb70a0867a9"
+  },
+  {
+    "relative": "blender.crt/api-ms-win-crt-stdio-l1-1-0.dll",
+    "bytes": 26072,
+    "sha256": "eb7851e182a4675bb34633869938ff3579779a92a6c094194efbc970f3765dcc"
+  },
+  {
+    "relative": "blender.crt/api-ms-win-crt-string-l1-1-0.dll",
+    "bytes": 26104,
+    "sha256": "08d811ff57efe50d9f365c76ec29e095474e0679e06bb4d0d4d0134b0120b40d"
+  },
+  {
+    "relative": "blender.crt/api-ms-win-crt-time-l1-1-0.dll",
+    "bytes": 21984,
+    "sha256": "9c5880c395b4e7db4b8d6de49c75909abdaeeef0b041c1703c7339b05d7d2866"
+  },
+  {
+    "relative": "blender.crt/api-ms-win-crt-utility-l1-1-0.dll",
+    "bytes": 22008,
+    "sha256": "7d3d88332d4744c9b6be81e2ba8d42ced7657ce7879a26f5b8a8d3bb2331ada0"
+  },
+  {
+    "relative": "blender.crt/concrt140.dll",
+    "bytes": 324208,
+    "sha256": "2405355f0a58067b258f8df33c327e3a3d716eaac5a3a5aebb757842d85bd376"
+  },
+  {
+    "relative": "blender.crt/msvcp140.dll",
+    "bytes": 557728,
+    "sha256": "0f885b509a685d2bbfa652fed26b5fb31d88fbdab0a978c641d1c7b8aa460aa9"
+  },
+  {
+    "relative": "blender.crt/msvcp140_1.dll",
+    "bytes": 35952,
+    "sha256": "bfad5aef4c63a669e3c140655cdfdf395b6c979b400a447bd5dcb65ed8826c3d"
+  },
+  {
+    "relative": "blender.crt/msvcp140_2.dll",
+    "bytes": 280200,
+    "sha256": "3ea06f0ee098b4823cb79599df3780e7f23cce52c19aac31d2a0d47efe33a5e9"
+  },
+  {
+    "relative": "blender.crt/msvcp140_atomic_wait.dll",
+    "bytes": 50304,
+    "sha256": "640b2aefced484d0368eea5bdd06addd0658a3a70a49256e560d6923b404a479"
+  },
+  {
+    "relative": "blender.crt/msvcp140_codecvt_ids.dll",
+    "bytes": 31872,
+    "sha256": "f2069a52880ec885ee7f0511186100eb7fada0411a2b4948fafea7735b878a18"
+  },
+  {
+    "relative": "blender.crt/vcruntime140.dll",
+    "bytes": 124544,
+    "sha256": "d5e4d9a3e835fa679450145d6a7d94e36573a509317111904d9b3712c30d9066"
+  },
+  {
+    "relative": "blender.crt/vcruntime140_1.dll",
+    "bytes": 49792,
+    "sha256": "1f2d41c4aa5db0bc33ebf7b66d72943a817d7ce6cbe880502a9403823633093f"
+  },
+  {
+    "relative": "blender_cpu_check.dll",
+    "bytes": 13824,
+    "sha256": "1c1f06615a3fcca7c2757221fbafa3640e90591dbbc9d06f19f4962f5ce6194c"
+  }
+]

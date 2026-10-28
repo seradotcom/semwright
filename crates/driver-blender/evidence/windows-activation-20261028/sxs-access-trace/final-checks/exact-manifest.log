@@ -1,0 +1,302 @@
+   Compiling semwright-platform-windows-sys v1.0.0 (E:\Projects\semwright-blender52\crates\platform-windows-sys)
+   Compiling semwright-platform-services v1.0.0 (E:\Projects\semwright-blender52\crates\platform-services)
+   Compiling semwright-protocol v1.0.0 (E:\Projects\semwright-blender52\crates\protocol)
+   Compiling semwright-driver-sdk v1.0.0 (E:\Projects\semwright-blender52\crates\driver-sdk)
+   Compiling semwright-project-graph v1.0.0 (E:\Projects\semwright-blender52\crates\project-graph)
+   Compiling semwright-policy v1.0.0 (E:\Projects\semwright-blender52\crates\policy)
+   Compiling semwright-plugin-sdk v1.0.0 (E:\Projects\semwright-blender52\crates\plugin-sdk)
+   Compiling semwright-driver-blender v1.0.0 (E:\Projects\semwright-blender52\crates\driver-blender)
+   Compiling semwright-plugin-host v1.0.0 (E:\Projects\semwright-blender52\crates\plugin-host)
+   Compiling semwright-core v1.0.0 (E:\Projects\semwright-blender52\crates\core)
+   Compiling semwright-driver-host v1.0.0 (E:\Projects\semwright-blender52\crates\driver-host)
+warning: function `last_ntstatus` is never used
+  --> crates\driver-blender\tests\..\src\bin\session_runner\windows_cpu_images.rs:35:8
+   |
+35 | pub fn last_ntstatus() -> String {
+   |        ^^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `denied` is never used
+  --> crates\driver-blender\tests\..\src\bin\session_runner\windows_cpu_images.rs:40:4
+   |
+40 | fn denied(text: &str) -> io::Error {
+   |    ^^^^^^
+
+warning: function `map_one` is never used
+  --> crates\driver-blender\tests\..\src\bin\session_runner\windows_cpu_images.rs:85:4
+   |
+85 | fn map_one(root: &Path, entry: &cpu_payload::Entry) -> serde_json::Value {
+   |    ^^^^^^^
+
+warning: function `probe` is never used
+   --> crates\driver-blender\tests\..\src\bin\session_runner\windows_cpu_images.rs:183:8
+    |
+183 | pub fn probe(root: &Path) -> serde_json::Value {
+    |        ^^^^^
+
+warning: function `RtlGetLastNtStatus` is never used
+  --> crates\driver-blender\tests\..\src\bin\session_runner\windows_cpu_images.rs:33:8
+   |
+33 |     fn RtlGetLastNtStatus() -> i32;
+   |        ^^^^^^^^^^^^^^^^^^
+
+warning: `semwright-driver-blender` (test "windows_native_launch") generated 5 warnings
+warning: function `spawn_without_stdio_for_test` is never used
+   --> crates\driver-blender\src\bin\session_runner\windows_child.rs:212:8
+    |
+212 | pub fn spawn_without_stdio_for_test(command:&Command,log:&File,parent_sid:&[u8],
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `run` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_fixture.rs:15:8
+   |
+15 | pub fn run() -> io::Result<()> {
+   |        ^^^
+
+warning: constant `MINIMAL_ACTCTX_XML` is never used
+   --> crates\driver-blender\src\bin\session_runner\windows_fixture.rs:139:7
+    |
+139 | const MINIMAL_ACTCTX_XML:&[u8]=br#"<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    |       ^^^^^^^^^^^^^^^^^^
+
+warning: function `full_manifest_probe` is never used
+   --> crates\driver-blender\src\bin\session_runner\windows_fixture.rs:144:4
+    |
+144 | fn full_manifest_probe(path: &Path) -> serde_json::Value {
+    |    ^^^^^^^^^^^^^^^^^^^
+
+warning: function `directory_probe` is never used
+   --> crates\driver-blender\src\bin\session_runner\windows_fixture.rs:164:4
+    |
+164 | fn directory_probe(path: &Path, manifest: &str) -> serde_json::Value {
+    |    ^^^^^^^^^^^^^^^
+
+warning: function `context_probe` is never used
+   --> crates\driver-blender\src\bin\session_runner\windows_fixture.rs:188:4
+    |
+188 | fn context_probe(path: &Path, embedded: bool, language: Option<u16>) -> serde_json::Value {
+    |    ^^^^^^^^^^^^^
+
+warning: function `activation_context_probe` is never used
+   --> crates\driver-blender\src\bin\session_runner\windows_fixture.rs:221:4
+    |
+221 | fn activation_context_probe(runtime: &Path, fixture: &Path) -> io::Result<()> {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `language_probe` is never used
+   --> crates\driver-blender\src\bin\session_runner\windows_fixture.rs:267:4
+    |
+267 | fn language_probe() -> serde_json::Value {
+    |    ^^^^^^^^^^^^^^
+
+warning: function `embedded_activation_probe` is never used
+   --> crates\driver-blender\src\bin\session_runner\windows_fixture.rs:339:4
+    |
+339 | fn embedded_activation_probe(
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `probe_common_controls_dll` is never used
+   --> crates\driver-blender\src\bin\session_runner\windows_fixture.rs:444:4
+    |
+444 | fn probe_common_controls_dll() -> io::Result<serde_json::Value> {
+    |    ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `read_context` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_activation_readback.rs:10:8
+   |
+10 | pub fn read_context(flags: u32, handle: HANDLE) -> io::Result<serde_json::Value> {
+   |        ^^^^^^^^^^^^
+
+warning: function `fixture_manifest` is never used
+   --> crates\driver-blender\src\bin\session_runner\windows_activation_readback.rs:108:8
+    |
+108 | pub fn fixture_manifest(common_controls: bool) -> Vec<u8> {
+    |        ^^^^^^^^^^^^^^^^
+
+warning: function `fixture_private_manifest` is never used
+   --> crates\driver-blender\src\bin\session_runner\windows_activation_readback.rs:125:8
+    |
+125 | pub fn fixture_private_manifest() -> Vec<u8> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `fixture_blender_manifest` is never used
+   --> crates\driver-blender\src\bin\session_runner\windows_activation_readback.rs:135:8
+    |
+135 | pub fn fixture_blender_manifest() -> Vec<u8> {
+    |        ^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `denied` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_fixture.rs:12:4
+   |
+12 | fn denied(message: &str) -> io::Error {
+   |    ^^^^^^
+
+warning: function `module_path` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_fixture.rs:15:4
+   |
+15 | fn module_path(module: HMODULE) -> io::Result<String> {
+   |    ^^^^^^^^^^^
+
+warning: function `same_path` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_fixture.rs:28:4
+   |
+28 | fn same_path(actual: &str, expected: &Path) -> io::Result<bool> {
+   |    ^^^^^^^^^
+
+warning: function `probe` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_fixture.rs:33:8
+   |
+33 | pub fn probe() -> serde_json::Value {
+   |        ^^^^^
+
+warning: function `last_ntstatus` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_images.rs:35:8
+   |
+35 | pub fn last_ntstatus() -> String {
+   |        ^^^^^^^^^^^^^
+
+warning: function `denied` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_images.rs:40:4
+   |
+40 | fn denied(text: &str) -> io::Error {
+   |    ^^^^^^
+
+warning: function `policies` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_images.rs:44:15
+   |
+44 | pub(super) fn policies() -> serde_json::Value {
+   |               ^^^^^^^^
+
+warning: function `map_one` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_images.rs:85:4
+   |
+85 | fn map_one(root: &Path, entry: &cpu_payload::Entry) -> serde_json::Value {
+   |    ^^^^^^^
+
+warning: function `probe` is never used
+   --> crates\driver-blender\src\bin\session_runner\windows_cpu_images.rs:183:8
+    |
+183 | pub fn probe(root: &Path) -> serde_json::Value {
+    |        ^^^^^
+
+warning: function `RtlGetLastNtStatus` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_images.rs:33:8
+   |
+33 |     fn RtlGetLastNtStatus() -> i32;
+   |        ^^^^^^^^^^^^^^^^^^
+
+warning: constant `CPU_DLL` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_payload.rs:15:11
+   |
+15 | pub const CPU_DLL: &str = "blender_cpu_check.dll";
+   |           ^^^^^^^
+
+warning: constant `CPU_SHA256` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_payload.rs:16:11
+   |
+16 | pub const CPU_SHA256: &str = "1c1f06615a3fcca7c2757221fbafa3640e90591dbbc9d06f19f4962f5ce6194c";
+   |           ^^^^^^^^^^
+
+warning: constant `PAYLOAD` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_payload.rs:17:11
+   |
+17 | pub const PAYLOAD: &[u8] = include_bytes!("../../../tests/fixtures/windows_cpu_probe_payload.json");
+   |           ^^^^^^^
+
+warning: constant `PAYLOAD_SHA256` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_payload.rs:18:11
+   |
+18 | pub const PAYLOAD_SHA256: &str = "43709145f359cb0ff4f1c42062dfa27f9b532e8f1f8f358417ad17cbc38b6cb7";
+   |           ^^^^^^^^^^^^^^
+
+warning: struct `Entry` is never constructed
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_payload.rs:21:12
+   |
+21 | pub struct Entry {
+   |            ^^^^^
+
+warning: function `denied` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_payload.rs:26:4
+   |
+26 | fn denied(message: &str) -> io::Error {
+   |    ^^^^^^
+
+warning: function `entries` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_payload.rs:29:8
+   |
+29 | pub fn entries() -> io::Result<Vec<Entry>> {
+   |        ^^^^^^^
+
+warning: function `read_checked` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_payload.rs:75:8
+   |
+75 | pub fn read_checked(root: &Path, e: &Entry) -> io::Result<Vec<u8>> {
+   |        ^^^^^^^^^^^^
+
+warning: function `read_checked_with_progress` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_payload.rs:78:8
+   |
+78 | pub fn read_checked_with_progress(
+   |        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `nt_status` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_resource_activation.rs:15:4
+   |
+15 | fn nt_status() -> String {
+   |    ^^^^^^^^^
+
+warning: struct `Context` is never constructed
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_resource_activation.rs:19:8
+   |
+19 | struct Context(HANDLE);
+   |        ^^^^^^^
+
+warning: function `denied` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_resource_activation.rs:28:4
+   |
+28 | fn denied(text: &str) -> io::Error {
+   |    ^^^^^^
+
+warning: function `probe` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_resource_activation.rs:31:8
+   |
+31 | pub fn probe(root: &Path) -> serde_json::Value {
+   |        ^^^^^
+
+warning: function `RtlGetLastNtStatus` is never used
+  --> crates\driver-blender\src\bin\session_runner\windows_cpu_resource_activation.rs:13:8
+   |
+13 |     fn RtlGetLastNtStatus() -> i32;
+   |        ^^^^^^^^^^^^^^^^^^
+
+warning: function `wait` is never used
+ --> crates\driver-blender\src\bin\session_runner\windows_debug_rendezvous.rs:5:8
+  |
+5 | pub fn wait(nonce: &str) -> io::Result<()> {
+  |        ^^^^
+
+warning: `semwright-driver-blender` (bin "semwright-blender-session-runner") generated 39 warnings
+    Finished `test` profile [unoptimized] target(s) in 36.66s
+     Running tests\windows_native_launch.rs (.local\target\x86_64-pc-windows-gnu\debug\deps\windows_native_launch-e6ef0e66bc183d70.exe)
+
+running 1 test
+test initial_host_exact_blender_manifest_probe ... archivo procesado: E:\Projects\semwright-blender52\.local\tmp\.tmpP8RvXT\blender.crt\blender.crt.manifest
+Se procesaron correctamente 1 archivos; error al procesar 0 archivos
+dependency-only fixture: blender.crt/blender.crt.manifest sha256=43bdfdc2028539332fed3dc487474407d63e79f67394145397322dda58e455ee; DLLs copied=false
+archivo procesado: E:\Projects\semwright-blender52\.local\tmp\.tmpP8RvXT\blender.shared\blender.shared.manifest
+Se procesaron correctamente 1 archivos; error al procesar 0 archivos
+dependency-only fixture: blender.shared/blender.shared.manifest sha256=655ad61bd460854680806f1fce59459daaf7fc309304fa17b3348c58cf745926; DLLs copied=false
+archivo procesado: E:\Projects\semwright-blender52\.local\tmp\.tmpP8RvXT\fixture-embedded-manifest.exe
+Se procesaron correctamente 1 archivos; error al procesar 0 archivos
+initial fixture image_sha256=2e3ce4d2b3e18d6c991f65778241014f791bd116ed04a1fe13ad0687c0fae963; owner_context_before=Some(Object {"assembly_count": Number(5), "assembly_identities": Array [String(""), String("Microsoft.Windows.Common-Controls,processorArchitecture=\"amd64\",publicKeyToken=\"6595b64144ccf1df\",type=\"win32\",version=\"6.0.26100.9711\""), String("blender.crt,type=\"win32\",version=\"1.0.0.0\""), String("blender.shared,type=\"win32\",version=\"1.0.0.0\""), String("Microsoft.Windows.Common-Controls.Resources,language=\"es-MX\",processorArchitecture=\"amd64\",publicKeyToken=\"6595b64144ccf1df\",type=\"win32\",version=\"6.0.26100.8117\"")], "format": Number(1), "query_flags": Number(0), "query_only": Bool(true), "root_identity": String("")}); broker_used=false
+{"application_startup_verified":false,"component":"platform-windows","exact_job":true,"phase":"initial_process_attested_before_resume","pid":38332,"resumed":false,"token":{"appcontainer":true,"appcontainer_matches_requested":true,"appcontainer_sid_sha256":"c40acc5f6a2ecb671a0f3e91bd6d69a490cad2b175850d87a1a2a30fa0666e51","capabilities":[],"capabilities_match_requested":true,"capability_comparison":"exact SID/attributes sets; identical repeats coalesced","capability_count":0,"capability_entries_observed":0,"capability_entries_requested":0,"capability_identities_requested":0,"lpac":true,"user_matches_requested":true,"user_sid_sha256":"71e0ba8cbfae92806af0667a805807955db58bf9771ea5a68063c45922824be9"}}
+initial embedded fixture exit=Some(0): fixture_phase: fixed_comctl32_initialization
+{"activation":{"assembly_count":5,"assembly_identities":["","Microsoft.Windows.Common-Controls,processorArchitecture=\"amd64\",publicKeyToken=\"6595b64144ccf1df\",type=\"win32\",version=\"6.0.26100.9711\"","blender.crt,type=\"win32\",version=\"1.0.0.0\"","blender.shared,type=\"win32\",version=\"1.0.0.0\"","Microsoft.Windows.Common-Controls.Resources,language=\"es-MX\",processorArchitecture=\"amd64\",publicKeyToken=\"6595b64144ccf1df\",type=\"win32\",version=\"6.0.26100.8117\""],"format":1,"query_flags":4,"query_only":true,"root_identity":""},"blender_component_execution_attempted":false,"blender_executable_started":false,"broker_used":false,"capability_count":0,"common_controls":true,"cpu_actctx_probe":false,"cpu_component":null,"cpu_component_probe":false,"cpu_resource_activation":null,"dll":{"export_called":false,"loaded":true,"module_path":"C:\\WINDOWS\\WinSxS\\amd64_microsoft.windows.common-controls_6595b64144ccf1df_6.0.26100.9711_none_3e07b8b0e334e825\\comctl32.dll","search_flags":2048},"dll_error":null,"full_blender_manifest":true,"job_verified":true,"manifest_sha256":"e7101d6abbe3d11a3ccb0cf88664ceffb2df9e2fbc7d23273edd274ddfa1e1e8","native_blender":false,"nonce":"2e3ce4d2b3e18d6c991f65778241014f","ok":true,"private_assemblies":true,"probe":"initial_embedded_context","query_error":null,"reached_main":true,"verified_lpac":true}
+
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 12 filtered out; finished in 4.82s
+

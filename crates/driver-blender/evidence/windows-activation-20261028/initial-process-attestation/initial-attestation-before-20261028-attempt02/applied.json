@@ -1,0 +1,14 @@
+{
+  "head": "8b6269223f2fb7e13dd1f8af3d41636a1531ffc7",
+  "sha256": {
+    "crates/platform-windows-sys/Cargo.toml": "58ae11ed626436fbff1d226a8728e9e5b868a1e19f8ea679d0363e80cdc2563a",
+    "crates/platform-windows-sys/src/job.rs": "7094f018e0f2312babb840d4cdb057fe55eb19fa8e58791ba4afa4fa29cb71b9",
+    "crates/platform-windows-sys/src/launch.rs": "0bd2d756455d4f31dc1d7e5abcabd8f791b275b1b1666451faee35e994227a14",
+    "crates/platform-windows-sys/src/launch/initial_attestation.rs": "5b62914e76d4e9ea4716195a3a6b2e8037f5dc5862f60e6097e12dedd1f342a1",
+    "crates/platform-windows-sys/src/launch/initial_lpac.rs": "cb3a1633eb21f5c662eae0a6cb532ce80dd21ca2575dbf4f0b6a59c8eef14cd1"
+  },
+  "lpac_copy_matches_legacy": true,
+  "capability_request_unchanged": true,
+  "A05": "BLOCKED",
+  "tests": "NOT_RUN"
+}

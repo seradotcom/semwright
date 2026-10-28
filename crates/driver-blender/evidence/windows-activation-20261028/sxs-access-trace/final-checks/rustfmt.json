@@ -1,0 +1,48 @@
+{
+  "argv": [
+    "C:\\Users\\sergi\\.cargo\\bin\\rustfmt.exe",
+    "+1.98.1-x86_64-pc-windows-gnu",
+    "--edition",
+    "2024",
+    "--config",
+    "skip_children=true",
+    "crates/driver-blender/tests/windows_fsctl_control.rs",
+    "crates/driver-blender/tests/windows_native_launch.rs",
+    "crates/driver-blender/src/bin/session_runner/windows_fixture.rs",
+    "crates/driver-blender/src/bin/session_runner/windows_debug_rendezvous.rs",
+    "crates/driver-blender/src/bin/session_runner/windows_cpu_images.rs",
+    "crates/platform-windows-sys/src/launch.rs",
+    "crates/platform-windows-sys/src/job.rs",
+    "crates/platform-windows-sys/src/launch/initial_attestation.rs",
+    "crates/platform-windows-sys/src/launch/initial_lpac.rs"
+  ],
+  "exit_code": 0,
+  "before": {
+    "crates/driver-blender/tests/windows_fsctl_control.rs": "5d8e0890d7dea12d762adec6f6692ae0e4ad21d17b9ea4098683a3f784161a17",
+    "crates/driver-blender/tests/windows_native_launch.rs": "8bdd7329d61dd31de4b01187296b353c5dede4524367e499b97b1a8e558be18a",
+    "crates/driver-blender/src/bin/session_runner/windows_fixture.rs": "a34e81f51a33fdca69dae735c605dd12fa5af4d2e009d74538e35dfa3c37bd92",
+    "crates/driver-blender/src/bin/session_runner/windows_debug_rendezvous.rs": "5fe040698a3637efb7cbf293ab7777fc8ef5b859cd4a181b04526aa4deabf956",
+    "crates/driver-blender/src/bin/session_runner/windows_cpu_images.rs": "fe675d1bd469e5fdc5182e726440555fdfdf69fa2a75de8224a892b43c12ee55",
+    "crates/platform-windows-sys/src/launch.rs": "0bd2d756455d4f31dc1d7e5abcabd8f791b275b1b1666451faee35e994227a14",
+    "crates/platform-windows-sys/src/job.rs": "7094f018e0f2312babb840d4cdb057fe55eb19fa8e58791ba4afa4fa29cb71b9",
+    "crates/platform-windows-sys/src/launch/initial_attestation.rs": "84a4e6dd7baf3e251e2d88f135bbbc8da68997c25ab27b6070e34b88e94d823e",
+    "crates/platform-windows-sys/src/launch/initial_lpac.rs": "0d9a679bddd69c723d95ca70e4a0380b5ecb5f809d260459114663ddacf51123",
+    "crates/platform-windows-sys/Cargo.toml": "58ae11ed626436fbff1d226a8728e9e5b868a1e19f8ea679d0363e80cdc2563a",
+    "crates/driver-blender/Cargo.toml": "699a36a344d095d34d2eb5f617e4b98e6b42d478dcdb91e8b5fcdc1f17f6de4e",
+    "Cargo.lock": "3959cc1ee3b21883d8ec2cb0e1f158fe1f7c5df178503a1489e5e2dfef836940"
+  },
+  "after": {
+    "crates/driver-blender/tests/windows_fsctl_control.rs": "f561f4ce377c104e6184a754970c5cde5db19eef717a5ed71ad21ba7cf482ae4",
+    "crates/driver-blender/tests/windows_native_launch.rs": "f8c9c743a7a2ca4c6e8d31bd32fdaef2107e77bd5f7426995f4e8ee344348179",
+    "crates/driver-blender/src/bin/session_runner/windows_fixture.rs": "a34e81f51a33fdca69dae735c605dd12fa5af4d2e009d74538e35dfa3c37bd92",
+    "crates/driver-blender/src/bin/session_runner/windows_debug_rendezvous.rs": "135a8c854e1af419f2138c691c6c6de950be61f5bdd61a1ca61d4c47040dfdf5",
+    "crates/driver-blender/src/bin/session_runner/windows_cpu_images.rs": "fe675d1bd469e5fdc5182e726440555fdfdf69fa2a75de8224a892b43c12ee55",
+    "crates/platform-windows-sys/src/launch.rs": "5f2de9e401f9a35396f58a544f0877684842f8d7a52d52c2deb7c95382a2b442",
+    "crates/platform-windows-sys/src/job.rs": "9adcdf38fa07e5fd9aa282bbd7d4824947201239b101a345ae44813a6962ccca",
+    "crates/platform-windows-sys/src/launch/initial_attestation.rs": "84a4e6dd7baf3e251e2d88f135bbbc8da68997c25ab27b6070e34b88e94d823e",
+    "crates/platform-windows-sys/src/launch/initial_lpac.rs": "f0cf7ee4b6a764f2975ee9348df842def53232cfc9911231ed446a6d78cb33dd",
+    "crates/platform-windows-sys/Cargo.toml": "58ae11ed626436fbff1d226a8728e9e5b868a1e19f8ea679d0363e80cdc2563a",
+    "crates/driver-blender/Cargo.toml": "699a36a344d095d34d2eb5f617e4b98e6b42d478dcdb91e8b5fcdc1f17f6de4e",
+    "Cargo.lock": "3959cc1ee3b21883d8ec2cb0e1f158fe1f7c5df178503a1489e5e2dfef836940"
+  }
+}

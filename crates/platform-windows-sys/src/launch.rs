@@ -1,3 +1,6 @@
+#[path = "launch/initial_attestation.rs"]
+mod initial_attestation;
+
 #[cfg(target_arch = "aarch64")]
 use crate::pe::IMAGE_FILE_MACHINE_AMD64;
 use crate::{
@@ -2508,6 +2511,13 @@ impl SandboxLauncher for WindowsSandbox {
                 Attributes: SE_GROUP_ENABLED as u32,
             });
         }
+        // Snapshot the requested identities without modifying the capability request.
+        let expected_user = current_user_sid_bytes()?;
+        let expected_container = copy_sid_bytes(profile.sid)?;
+        let expected_capabilities = capability_entries
+            .iter()
+            .map(|entry| Ok((copy_sid_bytes(entry.Sid)?, entry.Attributes)))
+            .collect::<Result<Vec<_>>>()?;
         let capabilities = SECURITY_CAPABILITIES {
             AppContainerSid: profile.sid,
             Capabilities: if capability_entries.is_empty() {
@@ -2628,6 +2638,63 @@ impl SandboxLauncher for WindowsSandbox {
             }
             return Err(error);
         }
+        let attestation = job.verify_member(process.raw()).and_then(|()| {
+            initial_attestation::verify(
+                process.raw().0,
+                &expected_user,
+                &expected_container,
+                &expected_capabilities,
+            )
+            .map_err(|error| {
+                Error::new(
+                    ErrorCode::SandboxDenied,
+                    format!("Initial process token attestation failed: {error}"),
+                )
+            })
+        });
+        let attestation = match attestation {
+            Ok(value) => value,
+            Err(error) => {
+                let job_termination_ok = job.terminate(1).is_ok();
+                // SAFETY: this is the still-suspended child owned by this invocation.
+                let process_termination_ok = unsafe { TerminateProcess(process.raw(), 1) }.is_ok();
+                // SAFETY: wait is bounded and observes the same owned process handle.
+                let exit_observed =
+                    unsafe { WaitForSingleObject(process.raw(), 5_000) } == WAIT_OBJECT_0;
+                eprintln!(
+                    "{}",
+                    serde_json::json!({
+                        "component": "platform-windows",
+                        "phase": "initial_process_attestation_rejected",
+                        "pid": process_info.dwProcessId,
+                        "resumed": false,
+                        "job_termination_ok": job_termination_ok,
+                        "process_termination_ok": process_termination_ok,
+                        "exit_observed": exit_observed,
+                        "error": error.to_string(),
+                    })
+                );
+                if !exit_observed {
+                    return Err(Error::new(
+                        ErrorCode::SandboxDenied,
+                        "Rejected initial process cleanup could not be confirmed",
+                    ));
+                }
+                return Err(error);
+            }
+        };
+        eprintln!(
+            "{}",
+            serde_json::json!({
+                "component": "platform-windows",
+                "phase": "initial_process_attested_before_resume",
+                "pid": process_info.dwProcessId,
+                "exact_job": true,
+                "resumed": false,
+                "application_startup_verified": false,
+                "token": attestation,
+            })
+        );
         // SAFETY: containment is established; resuming now is the first point untrusted code runs.
         if unsafe { ResumeThread(thread.raw()) } == u32::MAX {
             // SAFETY: resume failed while we still own the process.

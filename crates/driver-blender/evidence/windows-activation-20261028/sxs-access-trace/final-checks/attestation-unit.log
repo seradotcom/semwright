@@ -1,0 +1,16 @@
+   Compiling semwright-platform-windows-sys v1.0.0 (E:\Projects\semwright-blender52\crates\platform-windows-sys)
+    Finished `test` profile [unoptimized] target(s) in 4.34s
+     Running unittests src\lib.rs (.local\target\x86_64-pc-windows-gnu\debug\deps\semwright_platform_windows_sys-3dc83bb614c01ee8.exe)
+
+running 8 tests
+test job::initial_attestation_tests::initial_attestation_rejects_an_unrelated_job ... ok
+test launch::initial_attestation::lpac::tests::an_ordinary_test_process_is_not_a_host_lpac ... ok
+test launch::initial_attestation::lpac::tests::exact_kernel_lpac_attribute_is_required ... ok
+test launch::initial_attestation::lpac::tests::malformed_or_duplicate_pointer_bearing_claims_fail_closed ... ok
+test launch::initial_attestation::tests::capability_identity_attributes_and_extras_are_not_ignored ... ok
+test launch::initial_attestation::tests::owner_process_is_not_an_initial_lpac ... ok
+test launch::initial_attestation::tests::pointer_bearing_token_data_is_bounded ... ok
+test launch::initial_attestation::tests::valid_pointer_bearing_token_fields_and_truncations ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 22 filtered out; finished in 0.00s
+

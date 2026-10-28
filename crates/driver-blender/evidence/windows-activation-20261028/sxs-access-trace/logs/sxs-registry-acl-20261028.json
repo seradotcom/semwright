@@ -1,0 +1,33 @@
+{
+  "utc": "2026-10-28T22:05:08.516131+00:00",
+  "key": "HKLM\\Software\\Microsoft\\Windows\\CurrentVersion\\SideBySide",
+  "derived_name": "registryRead",
+  "derived": {
+    "groups": [
+      "S-1-5-32-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681"
+    ],
+    "capabilities": [
+      "S-1-15-3-1024-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681"
+    ]
+  },
+  "views": [
+    {
+      "view": "Registry64",
+      "sddl": "O:BAG:SYD:(A;CI;KR;;;BU)(A;CI;KA;;;BA)(A;CI;KA;;;SY)(A;;KA;;;BA)(A;CIIO;KA;;;CO)(A;CI;KR;;;AC)(A;CI;KR;;;S-1-15-3-1024-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681)",
+      "descriptor_sha256": "bdd671deb9727932204bcd122f42bf18cee33cee1844c906cda468e1c9b89e1c",
+      "derived_registryRead_sid_in_dacl": true
+    },
+    {
+      "view": "Registry32",
+      "sddl": "O:SYG:SYD:AI(A;ID;KR;;;BU)(A;CIIOID;GR;;;BU)(A;ID;KA;;;BA)(A;CIIOID;GA;;;BA)(A;ID;KA;;;SY)(A;CIIOID;GA;;;SY)(A;CIIOID;GA;;;CO)(A;ID;KR;;;AC)(A;CIIOID;GR;;;AC)(A;ID;KR;;;S-1-15-3-1024-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681)(A;CIIOID;GR;;;S-1-15-3-1024-1065365936-1281604716-3511738428-1654721687-432734479-3232135806-4053264122-3456934681)",
+      "descriptor_sha256": "4aecac740627ad67a5c3fa3e839017244a8c050560398ab34a215dbea843e39c",
+      "derived_registryRead_sid_in_dacl": true
+    }
+  ],
+  "registry_values_read": false,
+  "registry_written": false,
+  "token_changed": false,
+  "capability_added": false,
+  "acl_changed": false,
+  "A05": "BLOCKED"
+}

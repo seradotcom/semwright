@@ -1,0 +1,8 @@
+{
+  "base_commit": "8b6269223f2fb7e13dd1f8af3d41636a1531ffc7",
+  "utc": "2026-10-28T20:39:07.376399+00:00",
+  "files": {
+    "crates/driver-blender/src/bin/session_runner/windows_cpu_images.rs": "381210c1a49cb6a8a7e320081fb63f8ce7a8e1f47f85e6bc3a87421b8e737ce8",
+    "crates/driver-blender/tests/windows_native_launch.rs": "a042c96a238d48a830e757f37ed8820ae50060448cd8cc5be3eaa1dcbdec8843"
+  }
+}

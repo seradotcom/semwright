@@ -354,6 +354,8 @@ fn owner_minimal_context(path: &Path, language: Option<u16>) {
 
 #[path = "../src/bin/session_runner/windows_activation_readback.rs"]
 mod activation_readback;
+#[path = "../src/bin/session_runner/windows_cpu_images.rs"]
+mod cpu_images;
 #[path = "../src/bin/session_runner/windows_cpu_payload.rs"]
 mod cpu_payload;
 #[path = "../src/bin/session_runner/windows_cpu_resource_activation.rs"]
@@ -361,40 +363,273 @@ mod cpu_resource_activation;
 
 #[tokio::test]
 async fn initial_host_embedded_manifest_activation_probe() {
-    run_initial_manifest_case(false, false, false, false, false).await;
+    run_initial_manifest_case(false, false, false, false, false, false).await;
 }
 #[tokio::test]
 async fn initial_host_common_controls_probe() {
-    run_initial_manifest_case(true, false, false, false, false).await;
+    run_initial_manifest_case(true, false, false, false, false, false).await;
 }
 #[tokio::test]
 #[ignore = "Requires exact owner-pinned Blender manifests; no Blender DLL execution"]
 async fn initial_host_private_assemblies_probe() {
-    run_initial_manifest_case(true, true, false, false, false).await;
+    run_initial_manifest_case(true, true, false, false, false, false).await;
 }
 #[tokio::test]
 #[ignore = "Requires exact pinned Blender manifests; no Blender DLL execution"]
 async fn initial_host_exact_blender_manifest_probe() {
-    run_initial_manifest_case(true, true, true, false, false).await;
+    run_initial_manifest_case(true, true, true, false, false, false).await;
 }
 #[tokio::test]
 #[ignore = "Requires exact pinned DLL payload; executes CPU component code inside LPAC only"]
 async fn initial_host_cpu_component_probe() {
-    run_initial_manifest_case(true, true, true, true, false).await;
+    run_initial_manifest_case(true, true, true, true, false, false).await;
 }
 #[tokio::test]
 #[ignore = "Requires pinned CPU resource; query-only LPAC first, owner control afterward"]
 async fn initial_host_cpu_resource_activation_probe() {
-    run_initial_manifest_case(true, true, true, false, true).await;
+    run_initial_manifest_case(true, true, true, false, true, false).await;
 }
+#[tokio::test]
+#[ignore = "Explicit own-fixture debugger rendezvous; preserves LPAC/Job/zero capabilities"]
+async fn initial_host_cpu_resource_debug_probe() {
+    run_initial_manifest_case(true, true, true, false, true, true).await;
+}
+#[test]
+#[ignore = "Owner-only policy/resource comparison; not isolated Blender acceptance"]
+fn owner_cpu_resource_policy_probe() {
+    use std::{
+        io::Write,
+        path::PathBuf,
+        time::{Instant, SystemTime, UNIX_EPOCH},
+    };
+    let started = Instant::now();
+    let timestamp_ms = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+    let pid = std::process::id();
+    // SAFETY: query of this test-harness thread's identity only.
+    let tid = unsafe { windows_sys::Win32::System::Threading::GetCurrentThreadId() };
+    let runtime: Result<PathBuf, String> = std::env::var_os("SEMWRIGHT_TEST_BLENDER_RUNTIME")
+        .map(PathBuf::from)
+        .ok_or_else(|| "SEMWRIGHT_TEST_BLENDER_RUNTIME is required".to_owned())
+        .and_then(|path| {
+            if !path.is_absolute() || !path.is_dir() {
+                Err("Runtime must be an existing absolute owner-approved directory".to_owned())
+            } else {
+                Ok(path)
+            }
+        });
+    // Reads the single pinned CPU image; no explicit mapping or loading.
+    let cpu_digest = |root: &Path| -> Result<String, String> {
+        let entries = cpu_payload::entries().map_err(|e| e.to_string())?;
+        let entry = entries
+            .iter()
+            .find(|entry| entry.relative == cpu_payload::CPU_DLL)
+            .ok_or_else(|| "Pinned CPU entry missing".to_owned())?;
+        let bytes = cpu_payload::read_checked(root, entry).map_err(|e| e.to_string())?;
+        Ok(hex::encode(Sha256::digest(&bytes)))
+    };
+    let digest_before = runtime
+        .as_ref()
+        .map_err(Clone::clone)
+        .and_then(|root| cpu_digest(root));
+    let policies_before = cpu_images::policies();
+    // Same helper as the historical owner_cpu_after, in the current harness.
+    // The authorized runtime replaces the old, already removed TempDir path.
+    let resource_observation = match (&runtime, &digest_before) {
+        (Ok(root), Ok(_)) => Some(cpu_resource_activation::probe(root)),
+        _ => None,
+    };
+    let policies_after = cpu_images::policies();
+    let digest_after = runtime
+        .as_ref()
+        .map_err(Clone::clone)
+        .and_then(|root| cpu_digest(root));
+    let names = [
+        "binary_signature",
+        "dynamic_code",
+        "extension_points",
+        "system_call_disable",
+        "image_load",
+    ];
+    let complete = |value: &serde_json::Value| {
+        value.as_object().is_some_and(|rows| {
+            rows.len() == names.len()
+                && names.iter().all(|name| {
+                    rows.get(*name).is_some_and(|row| {
+                        row["query_ok"] == true && row["flags"].as_u64().is_some()
+                    })
+                })
+        })
+    };
+    let queries_ok = complete(&policies_before) && complete(&policies_after);
+    let policies_stable = queries_ok && policies_before == policies_after;
+    let runtime_unchanged = matches!(
+        (&digest_before, &digest_after),
+        (Ok(before), Ok(after))
+            if before == after && before == cpu_payload::CPU_SHA256
+    );
+    let resource_ok = resource_observation
+        .as_ref()
+        .is_some_and(|row| row["ok"] == true);
+    let diagnostic_ok = queries_ok && policies_stable && runtime_unchanged && resource_ok;
+    // Source bytes embedded in the actual compiled test harness.
+    let mut compiled_sources = serde_json::Map::new();
+    for (name, bytes) in [
+        (
+            "tests/windows_native_launch.rs",
+            include_bytes!("windows_native_launch.rs").as_slice(),
+        ),
+        (
+            "src/bin/session_runner/windows_cpu_images.rs",
+            include_bytes!("../src/bin/session_runner/windows_cpu_images.rs").as_slice(),
+        ),
+        (
+            "src/bin/session_runner/windows_cpu_resource_activation.rs",
+            include_bytes!("../src/bin/session_runner/windows_cpu_resource_activation.rs")
+                .as_slice(),
+        ),
+        (
+            "src/bin/session_runner/windows_cpu_payload.rs",
+            include_bytes!("../src/bin/session_runner/windows_cpu_payload.rs").as_slice(),
+        ),
+        (
+            "src/bin/session_runner/windows_activation_readback.rs",
+            include_bytes!("../src/bin/session_runner/windows_activation_readback.rs").as_slice(),
+        ),
+        (
+            "tests/fixtures/windows_cpu_probe_payload.json",
+            include_bytes!("fixtures/windows_cpu_probe_payload.json").as_slice(),
+        ),
+        (
+            "Cargo.lock",
+            include_bytes!("../../../Cargo.lock").as_slice(),
+        ),
+    ] {
+        compiled_sources.insert(
+            name.to_owned(),
+            serde_json::Value::String(hex::encode(Sha256::digest(bytes))),
+        );
+    }
+    let receipt_directory = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../.local/logs");
+    let receipt_path = receipt_directory.join(format!(
+        "windows-owner-cpu-resource-policy-{timestamp_ms}-{pid}-{tid}.json"
+    ));
+    let mut receipt_fields = serde_json::Map::new();
+    for part in [
+        serde_json::json!({
+            "schema_version": 1,
+            "probe": "owner_only_cpu_resource_policy_comparison",
+            "diagnostic_ok": diagnostic_ok,
+            "process_id": pid,
+            "thread_id": tid,
+            "unix_timestamp_ms": timestamp_ms,
+            "elapsed_ms": started.elapsed().as_millis(),
+            "harness_executable": std::env::current_exe().ok()
+                .map(|p| p.to_string_lossy().into_owned()),
+            "owner_control_in_current_harness": true,
+            "extra_process_for_getters": false,
+            "child_processes_spawned_by_test": 0,
+            "new_lpac_processes": 0,
+            "sandbox_spawn_called": false,
+            "broker_used": false,
+            "policies_before": policies_before,
+            "policies_after": policies_after,
+            "all_five_queries_succeeded": queries_ok,
+            "policies_stable": policies_stable
+        }),
+        serde_json::json!({
+            "runtime_root": runtime.as_ref().ok().map(|p| p.to_string_lossy().into_owned()),
+            "runtime_preflight_error": runtime.as_ref().err(),
+            "runtime_location_scope":
+                "authorized pinned runtime; not the previous temporary fixture directory",
+            "runtime_cpu_relative": cpu_payload::CPU_DLL,
+            "runtime_cpu_expected_sha256": cpu_payload::CPU_SHA256,
+            "runtime_cpu_sha256_before": digest_before.as_ref().ok(),
+            "runtime_cpu_sha256_after": digest_after.as_ref().ok(),
+            "runtime_cpu_hash_error_before": digest_before.as_ref().err(),
+            "runtime_cpu_hash_error_after": digest_after.as_ref().err(),
+            "runtime_cpu_unchanged": runtime_unchanged,
+            "cpu_resource_probe_calls": usize::from(resource_observation.is_some()),
+            "cpu_resource_activation": resource_observation,
+            "explicit_image_mapping_requested": false,
+            "dll_initialization_requested": false,
+            "thread_activation_requested": false,
+            "exports_called": false,
+            "policy_changed": false,
+            "token_changed": false,
+            "runtime_file_data_written": false,
+            "compiled_source_sha256": compiled_sources
+        }),
+        serde_json::json!({
+            "historical_comparison": {
+                "checkpoint": "8b6269223f2fb7e13dd1f8af3d41636a1531ffc7",
+                "lpac_log":
+                    "crates/driver-blender/evidence/windows-activation-20261028/windows-initial-cpu-closure-order-resume.log",
+                "lpac_receipt_field": "cpu_component.image_probe.policies",
+                "lpac_system_call_disable_flags": 4,
+                "same_process_as_current_owner": false,
+                "same_run_as_resource2_comparison": false,
+                "previous_owner_after_policies_recorded": false,
+                "previous_owner_after_flags_inferred": false
+            },
+            "acceptance_scope": "owner diagnostic only",
+            "P0_evaluated": false,
+            "A05": "BLOCKED",
+            "isolated_blender_support_claim": false,
+            "receipt_path": receipt_path.to_string_lossy()
+        }),
+    ] {
+        if let serde_json::Value::Object(fields) = part {
+            receipt_fields.extend(fields);
+        }
+    }
+    let receipt = serde_json::Value::Object(receipt_fields);
+
+    // Save every observation before checking the outcome; never overwrite.
+    let encoded = receipt.to_string();
+    let saved = (|| -> std::io::Result<()> {
+        std::fs::create_dir_all(&receipt_directory)?;
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&receipt_path)?;
+        file.write_all(encoded.as_bytes())?;
+        file.write_all(b"\n")?;
+        file.sync_all()
+    })();
+    eprintln!("OWNER_CPU_RESOURCE_POLICY_RECEIPT {encoded}");
+    if let Err(error) = &saved {
+        eprintln!("OWNER_CPU_RESOURCE_POLICY_RECEIPT_SAVE_ERROR {error}");
+    }
+    assert!(
+        saved.is_ok(),
+        "Owner diagnostic receipt could not be preserved"
+    );
+    assert!(queries_ok, "A policy query failed; receipt preserved");
+    assert!(
+        runtime_unchanged,
+        "Pinned CPU input was not verified unchanged"
+    );
+    assert!(
+        resource_ok,
+        "Owner resource control did not pass; receipt preserved"
+    );
+    assert!(policies_stable, "Policies changed across the owner control");
+}
+
 async fn run_initial_manifest_case(
     common_controls: bool,
     private_assemblies: bool,
     full_blender_manifest: bool,
     cpu_component: bool,
     cpu_actctx: bool,
+    debug_rendezvous: bool,
 ) {
     use std::os::windows::ffi::OsStrExt;
+    use tokio::io::AsyncBufReadExt;
+    assert!(!debug_rendezvous || (cpu_actctx && !cpu_component));
     use windows_sys::Win32::{
         Foundation::{FreeLibrary, GetLastError, INVALID_HANDLE_VALUE},
         System::{
@@ -551,7 +786,9 @@ async fn run_initial_manifest_case(
         helper: std::env::current_exe().unwrap(),
         mounts: fixture_mounts,
         args: vec![
-            if cpu_actctx {
+            if debug_rendezvous {
+                "--embedded-cpu-actctx-debug-probe".into()
+            } else if cpu_actctx {
                 "--embedded-cpu-actctx-probe".into()
             } else if cpu_component {
                 "--embedded-cpu-component-probe".into()
@@ -584,11 +821,72 @@ async fn run_initial_manifest_case(
         print_cpu_mount_acls(binaries.path());
     }
     let mut input = process.take_stdin().unwrap();
+    let mut output = tokio::io::BufReader::new(process.take_stdout().unwrap().take(16385));
+    if debug_rendezvous {
+        let gate = async {
+            let mut line = String::new();
+            output.read_line(&mut line).await?;
+            if line.len() > 4096 {
+                return Err(std::io::Error::other("Debugger readiness exceeds bound"));
+            }
+            let payload = line
+                .strip_prefix("LPAC_CPU_DEBUG_READY ")
+                .ok_or_else(|| std::io::Error::other("Missing fixed readiness marker"))?;
+            let ready: serde_json::Value = serde_json::from_str(payload.trim())?;
+            if ready["nonce"] != nonce
+                || ready["executable"] != spec.staged_executable.to_string_lossy().as_ref()
+            {
+                return Err(std::io::Error::other("Debugger fixture identity mismatch"));
+            }
+            let directory =
+                std::path::PathBuf::from(std::env::var_os("SEMWRIGHT_TEST_DEBUG_DIR").ok_or_else(
+                    || std::io::Error::other("Explicit private debugger directory required"),
+                )?);
+            let allowed_parent = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../../.local/logs")
+                .canonicalize()?;
+            let directory = directory.canonicalize()?;
+            if directory.parent() != Some(allowed_parent.as_path()) {
+                return Err(std::io::Error::other(
+                    "Debugger output must be a direct private log child",
+                ));
+            }
+            let mut file = std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(directory.join("ready.json"))?;
+            std::io::Write::write_all(&mut file, ready.to_string().as_bytes())?;
+            file.sync_all()?;
+            eprintln!("LPAC_DEBUG_RENDEZVOUS {}", directory.display());
+            let ack_path = directory.join("debugger-ready.json");
+            while !ack_path.exists() {
+                tokio::time::sleep(Duration::from_millis(100)).await;
+            }
+            let ack: serde_json::Value = serde_json::from_slice(&std::fs::read(ack_path)?)?;
+            if ack["pid"] != ready["pid"]
+                || ack["nonce"] != ready["nonce"]
+                || ack["breakpoints_ready"] != true
+            {
+                return Err(std::io::Error::other("Debugger acknowledgment mismatch"));
+            }
+            input.write_all(b"G").await?;
+            Ok::<(), std::io::Error>(())
+        };
+        let gated = tokio::time::timeout(Duration::from_secs(120), gate).await;
+        if !matches!(gated, Ok(Ok(()))) {
+            let _ = process.kill().await;
+            let _ = process.wait().await;
+            panic!("Owned debugger rendezvous failed: {gated:?}");
+        }
+    }
     input.shutdown().await.unwrap();
     drop(input);
-    let mut output = process.take_stdout().unwrap().take(8193);
     let mut bytes = Vec::new();
-    let read = tokio::time::timeout(Duration::from_secs(10), output.read_to_end(&mut bytes)).await;
+    let read = tokio::time::timeout(
+        Duration::from_secs(if debug_rendezvous { 120 } else { 10 }),
+        output.read_to_end(&mut bytes),
+    )
+    .await;
     if !matches!(read, Ok(Ok(_))) {
         let _ = process.kill().await;
         let _ = process.wait().await;

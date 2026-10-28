@@ -1,0 +1,19 @@
+   Compiling semwright-driver-blender v1.0.0 (E:\Projects\semwright-blender52\crates\driver-blender)
+error: recursion limit reached while expanding `$crate::json_internal!`
+   --> crates\driver-blender\tests\windows_native_launch.rs:514:19
+    |
+514 |       let receipt = serde_json::json!({
+    |  ___________________^
+515 | |         "schema_version": 1,
+516 | |         "probe": "owner_only_cpu_resource_policy_comparison",
+517 | |         "diagnostic_ok": diagnostic_ok,
+...   |
+570 | |         "receipt_path": receipt_path.to_string_lossy()
+571 | |     });
+    | |______^
+    |
+    = help: consider increasing the recursion limit by adding a `#![recursion_limit = "256"]` attribute to your crate (`windows_native_launch`)
+    = note: this error originates in the macro `$crate::json_internal` which comes from the expansion of the macro `serde_json::json` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: could not compile `semwright-driver-blender` (test "windows_native_launch") due to 1 previous error
+warning: build failed, waiting for other jobs to finish...

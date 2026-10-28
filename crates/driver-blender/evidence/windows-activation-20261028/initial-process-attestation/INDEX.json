@@ -1,0 +1,162 @@
+{
+  "schema_version": 1,
+  "scope": "initial Windows process attestation; not Blender startup",
+  "baseline_head": "8b6269223f2fb7e13dd1f8af3d41636a1531ffc7",
+  "files": [
+    {
+      "path": "crates/platform-windows-sys/Cargo.toml",
+      "source": "crates/platform-windows-sys/Cargo.toml",
+      "bytes": 1937,
+      "sha256": "58ae11ed626436fbff1d226a8728e9e5b868a1e19f8ea679d0363e80cdc2563a"
+    },
+    {
+      "path": "crates/platform-windows-sys/src/job.rs",
+      "source": "crates/platform-windows-sys/src/job.rs",
+      "bytes": 7411,
+      "sha256": "7094f018e0f2312babb840d4cdb057fe55eb19fa8e58791ba4afa4fa29cb71b9"
+    },
+    {
+      "path": "crates/platform-windows-sys/src/launch.rs",
+      "source": "crates/platform-windows-sys/src/launch.rs",
+      "bytes": 110620,
+      "sha256": "0bd2d756455d4f31dc1d7e5abcabd8f791b275b1b1666451faee35e994227a14"
+    },
+    {
+      "path": "crates/platform-windows-sys/src/launch/initial_attestation.rs",
+      "source": "crates/platform-windows-sys/src/launch/initial_attestation.rs",
+      "bytes": 13201,
+      "sha256": "5b62914e76d4e9ea4716195a3a6b2e8037f5dc5862f60e6097e12dedd1f342a1"
+    },
+    {
+      "path": "crates/platform-windows-sys/src/launch/initial_lpac.rs",
+      "source": "crates/platform-windows-sys/src/launch/initial_lpac.rs",
+      "bytes": 7724,
+      "sha256": "cb3a1633eb21f5c662eae0a6cb532ce80dd21ca2575dbf4f0b6a59c8eef14cd1"
+    },
+    {
+      "path": "Cargo.lock",
+      "source": "Cargo.lock",
+      "bytes": 131662,
+      "sha256": "3959cc1ee3b21883d8ec2cb0e1f158fe1f7c5df178503a1489e5e2dfef836940"
+    },
+    {
+      "path": "crates/platform-windows-sys/tests/secure_spawn.rs",
+      "source": "crates/platform-windows-sys/tests/secure_spawn.rs",
+      "bytes": 5653,
+      "sha256": "dab3df3c0d966315ec9f77a491a97374242966a9861acdd6f2e8ababb30c4a65"
+    },
+    {
+      "path": "crates/platform-windows-sys/src/bin/windows_sandbox_fixture.rs",
+      "source": "crates/platform-windows-sys/src/bin/windows_sandbox_fixture.rs",
+      "bytes": 4942,
+      "sha256": "f1788dcbd6f382ecfab444c7747b073bc421d3f3a6619aa40594524cd8e932f5"
+    },
+    {
+      "path": "crates/driver-blender/src/bin/session_runner/windows_lpac.rs",
+      "source": "crates/driver-blender/src/bin/session_runner/windows_lpac.rs",
+      "bytes": 7724,
+      "sha256": "cb3a1633eb21f5c662eae0a6cb532ce80dd21ca2575dbf4f0b6a59c8eef14cd1"
+    },
+    {
+      "path": "apply_initial_attestation.py",
+      "source": ".local/apply_initial_attestation.py",
+      "bytes": 7462,
+      "sha256": "90746b858d62dbaf8a230948a297eca4e77de257331f0ae0a80afe5349f32666"
+    },
+    {
+      "path": "apply_initial_attestation_attempt02.py",
+      "source": ".local/apply_initial_attestation_attempt02.py",
+      "bytes": 7800,
+      "sha256": "d6e8ee0543dd65462dac493bdc2aac6be0b16c3d0e0432a96bd9e818045050ff"
+    },
+    {
+      "path": "run_initial_attestation.py",
+      "source": ".local/run_initial_attestation.py",
+      "bytes": 4117,
+      "sha256": "02b55cf88b511b5ee001689e2306b11c040323329bbb52cc3adda5cc1bc0850f"
+    },
+    {
+      "path": "run_initial_attestation_before_parser_fix.py",
+      "source": ".local/run_initial_attestation_before_parser_fix.py",
+      "bytes": 4074,
+      "sha256": "30258e547f32696d8b91b4968ea5f51e9606c4cde15f8ec8c6fd46561752d53e"
+    },
+    {
+      "path": "fix_attestation_receipt_parser.py",
+      "source": ".local/fix_attestation_receipt_parser.py",
+      "bytes": 1220,
+      "sha256": "bf1c71c35bded533c2a11c50a586ba63a2c24d579e83fe4482bf0706c22ada49"
+    },
+    {
+      "path": "initial-attestation-before-20261028/snapshot.json",
+      "source": ".local/initial-attestation-before-20261028/snapshot.json",
+      "bytes": 837,
+      "sha256": "512c9a8d3ef149aab0aaf051f1fceb5bbced3043c94c65ead5310327eb235429"
+    },
+    {
+      "path": "initial-attestation-before-20261028-attempt02/snapshot.json",
+      "source": ".local/initial-attestation-before-20261028-attempt02/snapshot.json",
+      "bytes": 837,
+      "sha256": "8b068fa3792d5635f0fe90625dd0c59eff4d8d2c52e5f3b17e3ea4d638a7d6fd"
+    },
+    {
+      "path": "initial-attestation-before-20261028-attempt02/applied.json",
+      "source": ".local/initial-attestation-before-20261028-attempt02/applied.json",
+      "bytes": 819,
+      "sha256": "55818aaa47f7aa4597b249865b1439b111993151454f18fad2f3c92a22e5adf7"
+    },
+    {
+      "path": "initial-attestation-before-20261028-attempt02/rustfmt.json",
+      "source": ".local/initial-attestation-before-20261028-attempt02/rustfmt.json",
+      "bytes": 375,
+      "sha256": "e2870657f473422c02c6e109f98543e76fc12895c2ab6d48ca4674645fae1dcb"
+    },
+    {
+      "path": "logs/windows-initial-attestation-unit-20261028.json",
+      "source": ".local/logs/windows-initial-attestation-unit-20261028.json",
+      "bytes": 2649,
+      "sha256": "cad6450928db24a09f61f1e4b1a182d5a52848e4e1e8af55a97783174a2c5570"
+    },
+    {
+      "path": "logs/windows-initial-attestation-unit-20261028.log",
+      "source": ".local/logs/windows-initial-attestation-unit-20261028.log",
+      "bytes": 1192,
+      "sha256": "485ac05c853d924bd811ed06cfab354253d19eb57db15a4102b66f15b7f18b6d"
+    },
+    {
+      "path": "logs/windows-initial-attestation-stdio-20261028.json",
+      "source": ".local/logs/windows-initial-attestation-stdio-20261028.json",
+      "bytes": 3230,
+      "sha256": "58cb6da3f70629903911404f908b7b17705a59d72dd0f9cd6ce2217e1b64bdff"
+    },
+    {
+      "path": "logs/windows-initial-attestation-stdio-20261028.log",
+      "source": ".local/logs/windows-initial-attestation-stdio-20261028.log",
+      "bytes": 1178,
+      "sha256": "620d00dd6535fb6eb802c69d061457582265de507ed3bba61eafe856db405400"
+    },
+    {
+      "path": "logs/windows-initial-attestation-capabilities-20261028.json",
+      "source": ".local/logs/windows-initial-attestation-capabilities-20261028.json",
+      "bytes": 4490,
+      "sha256": "dfd6c90b302c1d7d5919049e7e6abbe95b3e65f05ae46ded341de9928efdebcb"
+    },
+    {
+      "path": "logs/windows-initial-attestation-capabilities-20261028.log",
+      "source": ".local/logs/windows-initial-attestation-capabilities-20261028.log",
+      "bytes": 1268,
+      "sha256": "fb430bce0cc6bf2a7a6017adf150aec94a74695e2a134e98fe308fe0b963ef94"
+    },
+    {
+      "path": "logs/windows-initial-attestation-stdio-20261028-extracted.json",
+      "source": ".local/logs/windows-initial-attestation-stdio-20261028-extracted.json",
+      "bytes": 1163,
+      "sha256": "688df6b6a8290b82a46488a3f279869d4b34ea1d6b9709a3f33fa82d27633357"
+    }
+  ],
+  "selected_tests_passed": 10,
+  "P0": "BLOCKED",
+  "A05": "BLOCKED",
+  "Linux_4_5_14": "NOT_RUN",
+  "ARM_emulated_network": "NOT_RUN"
+}

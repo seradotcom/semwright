@@ -1,0 +1,55 @@
+{
+  "utc_start": "2026-10-28T20:55:25.410592+00:00",
+  "seconds": 10.796000000002095,
+  "argv": [
+    "C:\\Users\\sergi\\.cargo\\bin\\cargo.exe",
+    "+1.98.1-x86_64-pc-windows-gnu",
+    "test",
+    "-p",
+    "semwright-platform-windows-sys",
+    "--lib",
+    "--target",
+    "x86_64-pc-windows-gnu",
+    "--locked",
+    "--offline",
+    "initial_attestation",
+    "--",
+    "--nocapture",
+    "--test-threads=1"
+  ],
+  "pid": 31492,
+  "exit_code": 0,
+  "timed_out": false,
+  "cleanup": null,
+  "free_bytes_at_start": 191325605888,
+  "source_sha256_before": {
+    "crates/platform-windows-sys/Cargo.toml": "58ae11ed626436fbff1d226a8728e9e5b868a1e19f8ea679d0363e80cdc2563a",
+    "crates/platform-windows-sys/src/job.rs": "7094f018e0f2312babb840d4cdb057fe55eb19fa8e58791ba4afa4fa29cb71b9",
+    "crates/platform-windows-sys/src/launch.rs": "0bd2d756455d4f31dc1d7e5abcabd8f791b275b1b1666451faee35e994227a14",
+    "crates/platform-windows-sys/src/launch/initial_attestation.rs": "5b62914e76d4e9ea4716195a3a6b2e8037f5dc5862f60e6097e12dedd1f342a1",
+    "crates/platform-windows-sys/src/launch/initial_lpac.rs": "cb3a1633eb21f5c662eae0a6cb532ce80dd21ca2575dbf4f0b6a59c8eef14cd1",
+    "Cargo.lock": "3959cc1ee3b21883d8ec2cb0e1f158fe1f7c5df178503a1489e5e2dfef836940"
+  },
+  "source_sha256_after": {
+    "crates/platform-windows-sys/Cargo.toml": "58ae11ed626436fbff1d226a8728e9e5b868a1e19f8ea679d0363e80cdc2563a",
+    "crates/platform-windows-sys/src/job.rs": "7094f018e0f2312babb840d4cdb057fe55eb19fa8e58791ba4afa4fa29cb71b9",
+    "crates/platform-windows-sys/src/launch.rs": "0bd2d756455d4f31dc1d7e5abcabd8f791b275b1b1666451faee35e994227a14",
+    "crates/platform-windows-sys/src/launch/initial_attestation.rs": "5b62914e76d4e9ea4716195a3a6b2e8037f5dc5862f60e6097e12dedd1f342a1",
+    "crates/platform-windows-sys/src/launch/initial_lpac.rs": "cb3a1633eb21f5c662eae0a6cb532ce80dd21ca2575dbf4f0b6a59c8eef14cd1",
+    "Cargo.lock": "3959cc1ee3b21883d8ec2cb0e1f158fe1f7c5df178503a1489e5e2dfef836940"
+  },
+  "sources_unchanged_during_run": true,
+  "log_sha256": "485ac05c853d924bd811ed06cfab354253d19eb57db15a4102b66f15b7f18b6d",
+  "harnesses": [
+    {
+      "path": "E:\\Projects\\semwright-blender52\\.local\\target\\x86_64-pc-windows-gnu\\debug\\deps\\semwright_platform_windows_sys-3dc83bb614c01ee8.exe",
+      "sha256": "0e49eb507cde901ca2208c9438b10ce9f1dd814418a140d60d1fba9614d5225b"
+    }
+  ],
+  "attestations": [],
+  "P0": "BLOCKED",
+  "A05": "BLOCKED",
+  "Linux_4_5_14": "NOT_RUN",
+  "ARM_emulated_network": "NOT_RUN",
+  "acceptance_scope": "selected native platform checks; not Blender startup"
+}

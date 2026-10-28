@@ -1,0 +1,10 @@
+   Compiling semwright-platform-windows-sys v1.0.0 (E:\Projects\semwright-blender52\crates\platform-windows-sys)
+    Finished `test` profile [unoptimized] target(s) in 6.20s
+     Running tests\secure_spawn.rs (.local\target\x86_64-pc-windows-gnu\debug\deps\secure_spawn-47df6a24ab2b348c.exe)
+
+running 1 test
+test appcontainer_spawn_roundtrips_only_allowlisted_stdio ... {"application_startup_verified":false,"component":"platform-windows","exact_job":true,"phase":"initial_process_attested_before_resume","pid":32164,"resumed":false,"token":{"appcontainer":true,"appcontainer_matches_requested":true,"appcontainer_sid_sha256":"920647f91bf07bb6f26411ac131e8476ddc2a43b920c5289c3f1a3bb458fc9b1","capabilities":[],"capabilities_match_requested":true,"capability_comparison":"exact SID/attributes sets; identical repeats coalesced","capability_count":0,"capability_entries_observed":0,"capability_entries_requested":0,"capability_identities_requested":0,"lpac":true,"user_matches_requested":true,"user_sid_sha256":"71e0ba8cbfae92806af0667a805807955db58bf9771ea5a68063c45922824be9"}}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.41s
+

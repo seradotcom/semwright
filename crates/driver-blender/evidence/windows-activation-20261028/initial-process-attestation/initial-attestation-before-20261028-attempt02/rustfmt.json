@@ -1,0 +1,16 @@
+{
+  "argv": [
+    "C:\\Users\\sergi\\.cargo\\bin\\rustup.exe",
+    "run",
+    "1.98.1-x86_64-pc-windows-gnu",
+    "rustfmt",
+    "--edition",
+    "2024",
+    "--config",
+    "skip_children=true",
+    "E:\\Projects\\semwright-blender52\\crates\\platform-windows-sys\\src\\launch\\initial_attestation.rs"
+  ],
+  "exit_code": 0,
+  "stdout": "",
+  "stderr": ""
+}

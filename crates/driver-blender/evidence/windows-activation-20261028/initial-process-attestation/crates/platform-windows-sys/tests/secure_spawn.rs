@@ -1,0 +1,163 @@
+#![cfg(target_os = "windows")]
+
+use semwright_platform_api::launch::{
+    Mount, MountClass, ResourceLimits, SandboxKind, SandboxLauncher, SandboxSpec, SealedToolMount,
+    SealedToolSource,
+};
+use semwright_platform_windows_sys::launch::WindowsSandbox;
+use std::time::Duration;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+fn spec(network: bool) -> SandboxSpec {
+    SandboxSpec {
+        kind: SandboxKind::Driver,
+        staged_executable: env!("CARGO_BIN_EXE_windows_sandbox_fixture").into(),
+        helper: std::env::current_exe().expect("current test executable"),
+        mounts: vec![],
+        args: vec![],
+        environment: vec![("SEMWRIGHT_FIXTURE".into(), "native".into())],
+        sealed_tools: vec![],
+        network,
+        nvidia_gpu: false,
+        limits: Some(ResourceLimits {
+            open_files: 32,
+            processes: 8,
+            cpu_seconds: 5,
+            address_space_bytes: 256 * 1024 * 1024,
+            file_size_bytes: 1024 * 1024,
+        }),
+    }
+}
+
+#[test]
+fn direct_sealed_tool_authority_is_fail_closed_on_windows() {
+    let mut candidate = spec(false);
+    candidate.sealed_tools = vec![SealedToolMount {
+        source: SealedToolSource::VerifiedFile {
+            path: std::env::current_exe().expect("current test executable"),
+            sha256: "a".repeat(64),
+        },
+        name: "probe".into(),
+    }];
+    let error = match WindowsSandbox.spawn(&candidate) {
+        Ok(_) => panic!("direct Windows sealed tools must use Host-mediated protocol v4"),
+        Err(error) => error,
+    };
+    assert_eq!(error.code, semwright_types::ErrorCode::SandboxDenied);
+}
+
+#[test]
+fn plugin_mount_contract_is_workspace_only() {
+    let mut candidate = spec(false);
+    candidate.kind = SandboxKind::Plugin;
+    candidate.mounts = vec![Mount {
+        source: std::env::current_exe().expect("current test executable"),
+        class: MountClass::Secret,
+        logical_name: "secret".into(),
+        read_only: true,
+        execute: false,
+    }];
+    let error = match WindowsSandbox.spawn(&candidate) {
+        Ok(_) => panic!("Windows Plugin must not materialize non-workspace mount classes"),
+        Err(error) => error,
+    };
+    assert_eq!(error.code, semwright_types::ErrorCode::SandboxDenied);
+}
+
+#[test]
+fn external_mcp_mounts_remain_fail_closed_on_windows() {
+    let mut candidate = spec(false);
+    candidate.kind = SandboxKind::ExternalMcp;
+    candidate.mounts = vec![Mount {
+        source: std::env::current_exe().expect("current test executable"),
+        class: MountClass::Workspace,
+        logical_name: "workspace".into(),
+        read_only: true,
+        execute: false,
+    }];
+    let error = match WindowsSandbox.spawn(&candidate) {
+        Ok(_) => panic!("external MCP mounts require portable path virtualization first"),
+        Err(error) => error,
+    };
+    assert_eq!(error.code, semwright_types::ErrorCode::SandboxDenied);
+}
+
+#[tokio::test]
+async fn appcontainer_spawn_roundtrips_only_allowlisted_stdio() {
+    let mut process = WindowsSandbox
+        .spawn(&spec(false))
+        .expect("secure Windows spawn");
+    assert!(process.id().is_some());
+
+    let mut stdin = process.take_stdin().expect("sandbox stdin");
+    let mut stdout = process.take_stdout().expect("sandbox stdout");
+    stdin.write_all(b"ping").await.expect("write fixture stdin");
+    stdin.shutdown().await.expect("close fixture stdin");
+    drop(stdin);
+
+    let mut output = Vec::new();
+    stdout
+        .read_to_end(&mut output)
+        .await
+        .expect("read fixture stdout");
+    process.wait().await.expect("wait for sandbox child");
+    assert_eq!(output, b"native|path=false|network=false|ping");
+}
+
+#[tokio::test]
+async fn network_authority_materializes_only_internet_client_capability() {
+    let mut process = WindowsSandbox
+        .spawn(&spec(true))
+        .expect("network-enabled Windows spawn");
+    let mut stdin = process.take_stdin().expect("sandbox stdin");
+    let mut stdout = process.take_stdout().expect("sandbox stdout");
+    stdin.shutdown().await.expect("close fixture stdin");
+    drop(stdin);
+
+    let mut output = Vec::new();
+    stdout
+        .read_to_end(&mut output)
+        .await
+        .expect("read fixture stdout");
+    process.wait().await.expect("wait for sandbox child");
+    assert_eq!(output, b"native|path=false|network=true|");
+}
+
+#[tokio::test]
+async fn job_cpu_accounting_retains_cpu_after_child_exit() {
+    let mut candidate = spec(false);
+    candidate
+        .environment
+        .push(("SEMWRIGHT_CPU_MS".into(), "750".into()));
+
+    let mut process = WindowsSandbox
+        .spawn(&candidate)
+        .expect("secure Windows CPU-accounted spawn");
+    let accounting = process
+        .cpu_accounting()
+        .expect("Windows sandbox must expose Job CPU accounting");
+    let start = accounting.total_cpu_time().expect("initial Job CPU");
+
+    let mut stdin = process.take_stdin().expect("sandbox stdin");
+    let mut stdout = process.take_stdout().expect("sandbox stdout");
+    stdin.shutdown().await.expect("close fixture stdin");
+    drop(stdin);
+
+    let mut output = Vec::new();
+    stdout
+        .read_to_end(&mut output)
+        .await
+        .expect("read fixture stdout");
+    process.wait().await.expect("wait for sandbox child");
+
+    let end = accounting
+        .total_cpu_time()
+        .expect("Job CPU remains queryable after child exit");
+    let consumed = end
+        .checked_sub(start)
+        .expect("Job CPU accounting must be monotonic");
+    assert!(
+        consumed >= Duration::from_millis(100),
+        "busy fixture should consume measurable Job CPU, observed {consumed:?}"
+    );
+}

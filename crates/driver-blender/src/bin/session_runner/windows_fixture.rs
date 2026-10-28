@@ -10,12 +10,18 @@ mod cpu_images;
 mod cpu_payload;
 #[path = "windows_cpu_resource_activation.rs"]
 mod cpu_resource_activation;
+#[path = "windows_debug_rendezvous.rs"]
+mod debug_rendezvous;
 pub fn run() -> io::Result<()> {
     // Refuse direct owner execution before any fixture filesystem access.
     let parent = verify_process(unsafe { GetCurrentProcess() })?;
     let args: Vec<String> = std::env::args().skip(1).collect();
     if args.len() == 3 && args[0] == "--activation-context-probe" {
         return activation_context_probe(Path::new(&args[1]), Path::new(&args[2]));
+    }
+    if args.len() == 2 && args[0] == "--embedded-cpu-actctx-debug-probe" {
+        debug_rendezvous::wait(&args[1])?;
+        return embedded_activation_probe(&args[1], true, true, true, false, true);
     }
     if args.len() == 2 && args[0] == "--embedded-cpu-actctx-probe" {
         return embedded_activation_probe(&args[1], true, true, true, false, true);

@@ -1,0 +1,94 @@
+{
+  "utc_start": "2026-10-28T20:57:37.595059+00:00",
+  "seconds": 0.8129999999946449,
+  "argv": [
+    "C:\\Users\\sergi\\.cargo\\bin\\cargo.exe",
+    "+1.98.1-x86_64-pc-windows-gnu",
+    "test",
+    "-p",
+    "semwright-platform-windows-sys",
+    "--test",
+    "secure_spawn",
+    "--target",
+    "x86_64-pc-windows-gnu",
+    "--locked",
+    "--offline",
+    "network_authority_materializes_only_internet_client_capability",
+    "--",
+    "--exact",
+    "--nocapture",
+    "--test-threads=1"
+  ],
+  "pid": 5904,
+  "exit_code": 0,
+  "timed_out": false,
+  "cleanup": null,
+  "free_bytes_at_start": 191311527936,
+  "source_sha256_before": {
+    "crates/platform-windows-sys/Cargo.toml": "58ae11ed626436fbff1d226a8728e9e5b868a1e19f8ea679d0363e80cdc2563a",
+    "crates/platform-windows-sys/src/job.rs": "7094f018e0f2312babb840d4cdb057fe55eb19fa8e58791ba4afa4fa29cb71b9",
+    "crates/platform-windows-sys/src/launch.rs": "0bd2d756455d4f31dc1d7e5abcabd8f791b275b1b1666451faee35e994227a14",
+    "crates/platform-windows-sys/src/launch/initial_attestation.rs": "5b62914e76d4e9ea4716195a3a6b2e8037f5dc5862f60e6097e12dedd1f342a1",
+    "crates/platform-windows-sys/src/launch/initial_lpac.rs": "cb3a1633eb21f5c662eae0a6cb532ce80dd21ca2575dbf4f0b6a59c8eef14cd1",
+    "Cargo.lock": "3959cc1ee3b21883d8ec2cb0e1f158fe1f7c5df178503a1489e5e2dfef836940",
+    "crates/platform-windows-sys/tests/secure_spawn.rs": "dab3df3c0d966315ec9f77a491a97374242966a9861acdd6f2e8ababb30c4a65",
+    "crates/platform-windows-sys/src/bin/windows_sandbox_fixture.rs": "f1788dcbd6f382ecfab444c7747b073bc421d3f3a6619aa40594524cd8e932f5"
+  },
+  "source_sha256_after": {
+    "crates/platform-windows-sys/Cargo.toml": "58ae11ed626436fbff1d226a8728e9e5b868a1e19f8ea679d0363e80cdc2563a",
+    "crates/platform-windows-sys/src/job.rs": "7094f018e0f2312babb840d4cdb057fe55eb19fa8e58791ba4afa4fa29cb71b9",
+    "crates/platform-windows-sys/src/launch.rs": "0bd2d756455d4f31dc1d7e5abcabd8f791b275b1b1666451faee35e994227a14",
+    "crates/platform-windows-sys/src/launch/initial_attestation.rs": "5b62914e76d4e9ea4716195a3a6b2e8037f5dc5862f60e6097e12dedd1f342a1",
+    "crates/platform-windows-sys/src/launch/initial_lpac.rs": "cb3a1633eb21f5c662eae0a6cb532ce80dd21ca2575dbf4f0b6a59c8eef14cd1",
+    "Cargo.lock": "3959cc1ee3b21883d8ec2cb0e1f158fe1f7c5df178503a1489e5e2dfef836940",
+    "crates/platform-windows-sys/tests/secure_spawn.rs": "dab3df3c0d966315ec9f77a491a97374242966a9861acdd6f2e8ababb30c4a65",
+    "crates/platform-windows-sys/src/bin/windows_sandbox_fixture.rs": "f1788dcbd6f382ecfab444c7747b073bc421d3f3a6619aa40594524cd8e932f5"
+  },
+  "sources_unchanged_during_run": true,
+  "log_sha256": "fb430bce0cc6bf2a7a6017adf150aec94a74695e2a134e98fe308fe0b963ef94",
+  "harnesses": [
+    {
+      "path": "E:\\Projects\\semwright-blender52\\.local\\target\\x86_64-pc-windows-gnu\\debug\\deps\\secure_spawn-47df6a24ab2b348c.exe",
+      "sha256": "27600774ab19bd741c0b8d57369fc0f8b431e03d080f56999697bcf41dd3b724"
+    }
+  ],
+  "attestations": [
+    {
+      "application_startup_verified": false,
+      "component": "platform-windows",
+      "exact_job": true,
+      "phase": "initial_process_attested_before_resume",
+      "pid": 30856,
+      "resumed": false,
+      "token": {
+        "appcontainer": true,
+        "appcontainer_matches_requested": true,
+        "appcontainer_sid_sha256": "6fd65c6d50f293fa2289944ba6595a243c809b6bbcd5c9f42b3d0a30b86a1fd8",
+        "capabilities": [
+          {
+            "attributes": 4,
+            "sid_sha256": "e04b2806f0e42dd5fb461a38675265b284b43fe739ef072f7486cfbf7a51e091"
+          },
+          {
+            "attributes": 4,
+            "sid_sha256": "66ad18b3326a9cb33bf2c59d57d4029ce756e0634c6d0fb3cfe09d6550a213f5"
+          }
+        ],
+        "capabilities_match_requested": true,
+        "capability_comparison": "exact SID/attributes sets; identical repeats coalesced",
+        "capability_count": 2,
+        "capability_entries_observed": 2,
+        "capability_entries_requested": 2,
+        "capability_identities_requested": 2,
+        "lpac": true,
+        "user_matches_requested": true,
+        "user_sid_sha256": "71e0ba8cbfae92806af0667a805807955db58bf9771ea5a68063c45922824be9"
+      }
+    }
+  ],
+  "P0": "BLOCKED",
+  "A05": "BLOCKED",
+  "Linux_4_5_14": "NOT_RUN",
+  "ARM_emulated_network": "NOT_RUN",
+  "acceptance_scope": "selected native platform checks; not Blender startup"
+}

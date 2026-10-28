@@ -40,7 +40,8 @@ pub fn last_ntstatus() -> String {
 fn denied(text: &str) -> io::Error {
     io::Error::new(io::ErrorKind::PermissionDenied, text)
 }
-fn policies() -> serde_json::Value {
+/// Query the current process only; no image mapping or policy mutation.
+pub(super) fn policies() -> serde_json::Value {
     let mut rows = serde_json::Map::new();
     for (name, policy) in [
         ("binary_signature", ProcessSignaturePolicy),

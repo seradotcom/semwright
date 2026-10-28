@@ -1,0 +1,96 @@
+{
+  "schema": 1,
+  "collected_utc": "2026-10-28T20:47:29.073098+00:00",
+  "scope": "Owner-only query diagnostic; no new LPAC process or Blender startup.",
+  "base_commit": "8b6269223f2fb7e13dd1f8af3d41636a1531ffc7",
+  "harness_sha256": "b050d5a993cfd9e462aac599d80aa12cbf2b19578bad475c21ae8704e809e545",
+  "A05": "BLOCKED",
+  "P0_evaluated": false,
+  "files": [
+    {
+      "path": "attempt02.log",
+      "bytes": 15354,
+      "sha256": "4935c41f660108b1774e2fcd3c974f054d9837042f861b50bcfb7bf7397d01c6"
+    },
+    {
+      "path": "attempt02-run.json",
+      "bytes": 7710,
+      "sha256": "846ed5fce9380fcb2b344771bc1b3c42a829f7c70b4cd4b8fd02a9e924605c73"
+    },
+    {
+      "path": "owner-observation.json",
+      "bytes": 5062,
+      "sha256": "ae2d4334458907233c14df8b44c8abddd4736eedded3f6ff8e0c3d1313d16b2a"
+    },
+    {
+      "path": "compiled-sources/Cargo.lock",
+      "bytes": 131662,
+      "sha256": "3959cc1ee3b21883d8ec2cb0e1f158fe1f7c5df178503a1489e5e2dfef836940"
+    },
+    {
+      "path": "compiled-sources/src/bin/session_runner/windows_activation_readback.rs",
+      "bytes": 7361,
+      "sha256": "566c4ae39535c28114884160493af1afdeb473e1f05eef455d2e70a33fcd6828"
+    },
+    {
+      "path": "compiled-sources/src/bin/session_runner/windows_cpu_images.rs",
+      "bytes": 8365,
+      "sha256": "fe675d1bd469e5fdc5182e726440555fdfdf69fa2a75de8224a892b43c12ee55"
+    },
+    {
+      "path": "compiled-sources/src/bin/session_runner/windows_cpu_payload.rs",
+      "bytes": 4486,
+      "sha256": "98ba354b13d210f3ea8d3da1cbfec9af5a3a1df9a47d2b04120fc13d9aa064fc"
+    },
+    {
+      "path": "compiled-sources/src/bin/session_runner/windows_cpu_resource_activation.rs",
+      "bytes": 4697,
+      "sha256": "3e7c621d0352fbcd283c2e2b5a3102669e49d78c9541fe5e43b985939d3a69dd"
+    },
+    {
+      "path": "compiled-sources/tests/fixtures/windows_cpu_probe_payload.json",
+      "bytes": 9085,
+      "sha256": "43709145f359cb0ff4f1c42062dfa27f9b532e8f1f8f358417ad17cbc38b6cb7"
+    },
+    {
+      "path": "compiled-sources/tests/windows_native_launch.rs",
+      "bytes": 44187,
+      "sha256": "4275e3a0bee86144ac06379decd77588c720babc75bcf9a4e6b952efa27fd3fc"
+    },
+    {
+      "path": "runners/run_owner_policy_probe_attempt02.py",
+      "bytes": 3285,
+      "sha256": "944adc3b574e7c69d61aba550aeb36fadb8e36fcdb9de53a0602e91fd0557a46"
+    },
+    {
+      "path": "runners/run_owner_policy_probe.py",
+      "bytes": 3204,
+      "sha256": "37929df8bc45cae92df103f72074f15ac2e0ce97406b74c5986a29d2eae25110"
+    },
+    {
+      "path": "compile-failure/windows_native_launch.rs",
+      "bytes": 43633,
+      "sha256": "b88054c931391d1febc6035a78d7c84d50fd2ae4dbcc65ba6cc6ee1480344b8b"
+    },
+    {
+      "path": "compile-failure/windows-owner-cpu-resource-policy-control-20261028.log",
+      "bytes": 1091,
+      "sha256": "9e3c21d6b323a058333d0e063f3000dd9e299fc0e11a4b84661fb40209af9f9e"
+    },
+    {
+      "path": "compile-failure/windows-owner-cpu-resource-policy-control-20261028.json",
+      "bytes": 980,
+      "sha256": "dc0146e1ceeda3a4b750a284586d6db22550ac37dcb2c18de511174085f24b0d"
+    },
+    {
+      "path": "source-before.json",
+      "bytes": 404,
+      "sha256": "c99533c6fb0347481e645e100778e7a842f1e810fd175dbe1501b4981401a04a"
+    },
+    {
+      "path": "source-fix.json",
+      "bytes": 331,
+      "sha256": "a7d3d64ea1c7b54327d12fa56092f4d49a1cb4649701c896d1004cdb17e69d39"
+    }
+  ]
+}

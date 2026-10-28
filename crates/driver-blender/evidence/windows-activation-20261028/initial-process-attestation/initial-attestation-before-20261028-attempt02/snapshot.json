@@ -1,0 +1,12 @@
+{
+  "head": "8b6269223f2fb7e13dd1f8af3d41636a1531ffc7",
+  "utc": "2026-10-28T20:54:15.979534+00:00",
+  "sha256": {
+    "crates/platform-windows-sys/Cargo.toml": "5a440ded01780f741aeff56ed12d6d1f32b83609646046cd8bd17acb623dcd50",
+    "crates/platform-windows-sys/src/job.rs": "027d0a3d1b519875400c8209ecb20070d55840cd218ac1ea94e0451002361704",
+    "crates/platform-windows-sys/src/launch.rs": "6ccdad2eb31183975c5e80aaa33f8c185763092579747df66ff91ad2ea0fdf06",
+    "crates/driver-blender/src/bin/session_runner/windows_lpac.rs": "cb3a1633eb21f5c662eae0a6cb532ce80dd21ca2575dbf4f0b6a59c8eef14cd1",
+    ".local/initial_attestation.rs": "a65bd2d8be29fb5a28f1a0786dd6e2c0df11724bdbd032e21c7b032a3fc95174",
+    ".local/initial_attestation_positive_test.rs": "1ed71f231ed18cf00f0de8cfd95497b9f709bc47d624bb7a348586f0cb9cf00d"
+  }
+}
