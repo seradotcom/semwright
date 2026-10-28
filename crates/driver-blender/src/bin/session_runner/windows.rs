@@ -413,24 +413,56 @@ impl Drop for Native {
         let _ = fs::remove_dir_all(&self.session);
     }
 }
-fn spawn(args: &Args, session: PathBuf, bridge: PathBuf, parent_sid: &[u8]) -> io::Result<Native> {
+fn retain_start_failure(workspace: &Path, phase: &str, error: &io::Error) -> io::Result<()> {
+    kind(workspace, true)?;
+    let dir = workspace.join(".semwright-native-failures");
+    match fs::create_dir(&dir) {
+        Ok(()) => {}
+        Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {}
+        Err(error) => return Err(error),
+    }
+    kind(&dir, true)?;
+    if fs::read_dir(&dir)?.take(24).count() >= 24 {
+        return Err(io::Error::other("Native diagnostic retention capacity reached"));
+    }
+    // Fixed phase identifiers and numeric error codes only: no paths, OS text or environment.
+    let receipt = serde_json::json!({
+        "schema": "semwright-blender-start-failure/v1",
+        "phase": phase,
+        "error_kind": format!("{:?}", error.kind()),
+        "os_error": error.raw_os_error(),
+        "source": "windows-isolated-session-runner",
+        "log_scope": "private local only"
+    });
+    write_new(
+        &dir.join(format!("start-{}.json", unique_id())),
+        &serde_json::to_vec(&receipt).map_err(io::Error::other)?,
+    )
+}
+fn spawn(args: &Args, session: PathBuf, bridge: PathBuf, parent_sid: &[u8], phase: &mut &'static str) -> io::Result<Native> {
+    *phase = "sealed_executable";
     kind(&args.blender, false)?;
+    *phase = "mount_roots";
     for root in [&args.workspace, &args.runtime, &args.scratch] {
         kind(root, true)?;
     }
+    *phase = "runtime_layout";
     let profile = RuntimeProfile::exact(HostPlatform::Windows, [5, 2, 1])?;
     let version_root = args.runtime.join(profile.resource_directory());
     kind(&version_root, true)?;
     for directory in profile.required_directories() {
         kind(&args.runtime.join(directory), true)?;
     }
+    *phase = "python_libraries";
     for library in ["python313.dll", "python3.dll"] {
         kind(&args.runtime.join(library), false)?;
     }
+    *phase = "host_system_root";
     let system = PathBuf::from(
         std::env::var_os("SystemRoot").ok_or_else(|| denied("Host did not supply SystemRoot"))?,
     );
     kind(&system, true)?;
+    *phase = "host_system32";
     let system32 = system.join("System32");
     kind(&system32, true)?;
     let mut nonce = unique_id();
@@ -445,12 +477,14 @@ fn spawn(args: &Args, session: PathBuf, bridge: PathBuf, parent_sid: &[u8]) -> i
         ));
     }
     let marker = format!("\0SEMWRIGHT-BLENDER-STDIO-v1:{nonce}\0").into_bytes();
+    *phase = "open_native_log";
     let log = OpenOptions::new()
         .create_new(true)
         .write(true)
         .read(true)
         .open(session.join("blender.log"))?;
     let user = session.join("user");
+    *phase = "runtime_search_path";
     let path = std::env::join_paths([
         args.runtime.clone(),
         args.runtime.join("blender.shared"),
@@ -498,7 +532,9 @@ fn spawn(args: &Args, session: PathBuf, bridge: PathBuf, parent_sid: &[u8]) -> i
         .stderr(Stdio::from(log.try_clone()?))
         .creation_flags(CREATE_NO_WINDOW);
     // Fixed Host-attested dependency; inherit the restricted token and Job, never break away.
+    *phase = "spawn_blender";
     let mut child = command.spawn()?;
+    *phase = "verify_child";
     match verify_process(child.as_raw_handle()) {
         Ok(sid) if sid == parent_sid => {}
         _ => {
@@ -510,6 +546,7 @@ fn spawn(args: &Args, session: PathBuf, bridge: PathBuf, parent_sid: &[u8]) -> i
             ));
         }
     }
+    *phase = "native_pipes";
     let input = child
         .stdin
         .take()
@@ -518,6 +555,7 @@ fn spawn(args: &Args, session: PathBuf, bridge: PathBuf, parent_sid: &[u8]) -> i
         .stdout
         .take()
         .ok_or_else(|| io::Error::other("Native output pipe unavailable"))?;
+    *phase = "reader_start";
     let events = match reader(output, marker) {
         Ok(events) => events,
         Err(error) => {
@@ -535,6 +573,7 @@ fn spawn(args: &Args, session: PathBuf, bridge: PathBuf, parent_sid: &[u8]) -> i
         log,
         workspace: args.workspace.clone(),
     };
+    *phase = "await_native_marker";
     match native.events.recv_timeout(Duration::from_secs(20)) {
         Ok(Event::Ready) => Ok(native),
         Ok(Event::Failure(error)) => {
@@ -565,9 +604,11 @@ pub fn run() -> io::Result<()> {
     let args = parse_args()?;
     let (session, bridge) = stage(&args.scratch)?;
     let cleanup = session.clone();
-    let mut native = match spawn(&args, session, bridge, &parent_sid) {
+    let mut phase = "preflight";
+    let mut native = match spawn(&args, session, bridge, &parent_sid, &mut phase) {
         Ok(native) => native,
         Err(error) => {
+            let _ = retain_start_failure(&args.workspace, phase, &error);
             let _ = fs::remove_dir_all(cleanup);
             let _ = failed(&mut io::stdout().lock());
             return Err(error);
