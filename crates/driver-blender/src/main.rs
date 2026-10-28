@@ -1351,6 +1351,12 @@ fn capabilities() -> Result<Vec<Capability>> {
     values.extend(introspection_capabilities());
     values.extend(semantic_capabilities());
     values.extend(authoring_runtime::capabilities());
+    // Cold Windows sessions attest the pinned application/runtime before Blender starts.
+    // The Host and caller still own cancellation; native frame limits remain unchanged.
+    #[cfg(target_os = "windows")]
+    for capability in &mut values {
+        capability.descriptor.timeout_ms = capability.descriptor.timeout_ms.max(70_000);
+    }
     Ok(values)
 }
 
@@ -1632,7 +1638,7 @@ impl BlenderDriver {
             ));
         }
         let session = context
-            .start_runtime_tool_session_args(
+            .start_runtime_tool_session_args_with_start_timeout(
                 SESSION_RUNNER_TOOL,
                 session_arguments(),
                 Duration::from_secs(3_600),
@@ -1640,6 +1646,7 @@ impl BlenderDriver {
                     mount: SESSION_CWD_MOUNT.into(),
                     relative: String::new(),
                 }),
+                Duration::from_secs(if cfg!(target_os = "windows") { 45 } else { 5 }),
             )
             .await?;
 

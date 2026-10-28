@@ -2229,6 +2229,34 @@ impl DriverExecutionContext {
         lifetime: std::time::Duration,
         cwd: Option<RuntimeToolCwd>,
     ) -> Result<RuntimeToolSession> {
+        self.start_runtime_tool_session_args_with_start_timeout(
+            name,
+            args,
+            lifetime,
+            cwd,
+            std::time::Duration::from_secs(5),
+        )
+        .await
+    }
+
+    /// Start a session with a bounded Host preparation wait, independent of its lifetime.
+    /// Large pinned application images can need more than five seconds for Host verification.
+    /// This changes no grant, wire authority, Job limit, or caller cancellation behavior.
+    pub async fn start_runtime_tool_session_args_with_start_timeout(
+        &self,
+        name: &str,
+        args: Vec<RuntimeToolArg>,
+        lifetime: std::time::Duration,
+        cwd: Option<RuntimeToolCwd>,
+        start_timeout: std::time::Duration,
+    ) -> Result<RuntimeToolSession> {
+        if !(std::time::Duration::from_secs(1)..=std::time::Duration::from_secs(60))
+            .contains(&start_timeout)
+        {
+            return Err(Error::invalid(
+                "Runtime-tool session preparation wait must be 1 to 60 seconds",
+            ));
+        }
         if self.protocol < 8 || !self.interfaces.host_tools || !valid_tool_name(name) {
             return Err(Error::new(
                 ErrorCode::Unsupported,
@@ -2263,7 +2291,7 @@ impl DriverExecutionContext {
                     cwd,
                 },
                 false,
-                std::time::Duration::from_secs(5),
+                start_timeout,
             )
             .await?;
         match reply {
@@ -3882,6 +3910,107 @@ mod tests {
             cleanup.await.unwrap().unwrap(),
             RuntimeToolJobStatus::Cancelled
         ));
+    }
+
+    #[tokio::test]
+    async fn runtime_tool_session_start_budget_bounds_and_cancellation() {
+        let (context, mut receiver) = job_wait_context();
+        for wait in [
+            std::time::Duration::ZERO,
+            std::time::Duration::from_secs(60) + std::time::Duration::from_nanos(1),
+        ] {
+            let error = context
+                .start_runtime_tool_session_args_with_start_timeout(
+                    "probe",
+                    vec![],
+                    std::time::Duration::from_secs(60),
+                    None,
+                    wait,
+                )
+                .await
+                .unwrap_err();
+            assert_eq!(error.code, ErrorCode::InvalidArgument);
+            assert!(receiver.try_recv().is_err());
+            assert!(context.tool_sessions.lock().await.is_empty());
+        }
+        for wait in [
+            std::time::Duration::from_secs(1),
+            std::time::Duration::from_secs(60),
+        ] {
+            let cloned = context.clone();
+            let start = tokio::spawn(async move {
+                cloned
+                    .start_runtime_tool_session_args_with_start_timeout(
+                        "probe",
+                        vec![],
+                        std::time::Duration::from_secs(60),
+                        None,
+                        wait,
+                    )
+                    .await
+            });
+            let id = match receiver.recv().await.unwrap() {
+                Response::ToolSessionStartV8 { id, .. } => id,
+                other => panic!("unexpected response: {other:?}"),
+            };
+            context
+                .tool_sessions
+                .lock()
+                .await
+                .remove(&id)
+                .unwrap()
+                .send(Ok(ToolSessionReply::Started(RuntimeToolSession {
+                    id: "budget-session".into(),
+                })))
+                .unwrap();
+            assert_eq!(start.await.unwrap().unwrap().id, "budget-session");
+        }
+        let cloned = context.clone();
+        let pending = tokio::spawn(async move {
+            cloned
+                .start_runtime_tool_session_args_with_start_timeout(
+                    "probe",
+                    vec![],
+                    std::time::Duration::from_secs(60),
+                    None,
+                    std::time::Duration::from_secs(45),
+                )
+                .await
+        });
+        assert!(matches!(
+            receiver.recv().await.unwrap(),
+            Response::ToolSessionStartV8 { .. }
+        ));
+        context.cancellation.cancel();
+        assert_eq!(
+            pending.await.unwrap().unwrap_err().code,
+            ErrorCode::Cancelled
+        );
+        assert!(context.tool_sessions.lock().await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn runtime_tool_session_custom_start_wait_is_effective_and_late_reply_is_not_adopted() {
+        let (context, mut receiver) = job_wait_context();
+        let cloned = context.clone();
+        let pending = tokio::spawn(async move {
+            cloned
+                .start_runtime_tool_session_args_with_start_timeout(
+                    "probe",
+                    vec![],
+                    std::time::Duration::from_secs(60),
+                    None,
+                    std::time::Duration::from_secs(1),
+                )
+                .await
+        });
+        let id = match receiver.recv().await.unwrap() {
+            Response::ToolSessionStartV8 { id, .. } => id,
+            other => panic!("unexpected response: {other:?}"),
+        };
+        assert_eq!(pending.await.unwrap().unwrap_err().code, ErrorCode::Timeout);
+        assert!(context.tool_sessions.lock().await.remove(&id).is_none());
+        assert!(context.tool_sessions.lock().await.is_empty());
     }
 
     #[tokio::test]
