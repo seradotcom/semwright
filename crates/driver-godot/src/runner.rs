@@ -21,9 +21,7 @@ use sha2::{Digest, Sha256};
 use std::{
     collections::HashMap,
     io::Read,
-    os::unix::process::CommandExt,
     path::{Component, Path, PathBuf},
-    process::Stdio,
     time::Duration,
 };
 #[cfg(target_os = "linux")]
@@ -31,6 +29,9 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     io::Write,
 };
+#[cfg(unix)]
+use std::{os::unix::process::CommandExt, process::Stdio};
+#[cfg(unix)]
 use tokio::{io::AsyncReadExt, process::Command};
 
 const MAX_LOG: usize = 64 * 1024;
@@ -885,120 +886,133 @@ impl Runner {
                 stderr: String::from_utf8_lossy(&output.stderr).into_owned(),
             });
         }
-        let executable = self
-            .config
-            .executable
-            .as_ref()
-            .ok_or_else(|| Error::unavailable("Direct Godot executable absent"))?;
-        let sha256 = self
-            .config
-            .sha256
-            .as_ref()
-            .ok_or_else(|| Error::unavailable("Direct Godot digest absent"))?;
-        verify_file(executable, sha256)?;
-        let home = self.config.output_root.join(".semwright-home");
-        std::fs::create_dir_all(&home)?;
+        #[cfg(not(unix))]
+        {
+            // Direct development execution does not provide a Windows Job or an
+            // AppContainer. Windows must use the authenticated Host runtime-tool
+            // path above; never silently launch an unrestricted child here.
+            Err(Error::new(
+                ErrorCode::Unsupported,
+                "Direct Godot execution is unavailable on this platform; use the isolated Host runtime tool",
+            ))
+        }
         #[cfg(unix)]
         {
-            use std::os::unix::fs::PermissionsExt;
-            std::fs::set_permissions(&home, std::fs::Permissions::from_mode(0o700))?;
-        }
-
-        let mut command = Command::new(executable);
-        command
-            .args(argv)
-            .current_dir(root)
-            .env_clear()
-            .env("HOME", &home)
-            .env("XDG_DATA_HOME", home.join("data"))
-            .env("XDG_CONFIG_HOME", home.join("config"))
-            .env("XDG_CACHE_HOME", home.join("cache"))
-            .stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .kill_on_drop(true);
-        if let Some(display) = &self.config.display {
-            command.env("DISPLAY", display);
-        }
-        command.as_std_mut().process_group(0);
-
-        let mut child = command.spawn()?;
-        let pid = child
-            .id()
-            .ok_or_else(|| Error::new(ErrorCode::Internal, "Godot child has no PID"))?
-            as i32;
-        let stdout = child
-            .stdout
-            .take()
-            .ok_or_else(|| Error::new(ErrorCode::Internal, "Godot stdout pipe missing"))?;
-        let stderr = child
-            .stderr
-            .take()
-            .ok_or_else(|| Error::new(ErrorCode::Internal, "Godot stderr pipe missing"))?;
-        let out_task = tokio::spawn(capture(stdout));
-        let err_task = tokio::spawn(capture(stderr));
-
-        enum WaitOutcome {
-            Exited(std::io::Result<std::process::ExitStatus>),
-            Cancelled,
-            TimedOut,
-        }
-        let outcome = if let Some(context) = context {
-            let cancellation = context.cancellation();
-            tokio::select! {
-                result = child.wait() => WaitOutcome::Exited(result),
-                _ = cancellation.cancelled() => WaitOutcome::Cancelled,
-                _ = tokio::time::sleep(timeout) => WaitOutcome::TimedOut,
+            let executable = self
+                .config
+                .executable
+                .as_ref()
+                .ok_or_else(|| Error::unavailable("Direct Godot executable absent"))?;
+            let sha256 = self
+                .config
+                .sha256
+                .as_ref()
+                .ok_or_else(|| Error::unavailable("Direct Godot digest absent"))?;
+            verify_file(executable, sha256)?;
+            let home = self.config.output_root.join(".semwright-home");
+            std::fs::create_dir_all(&home)?;
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                std::fs::set_permissions(&home, std::fs::Permissions::from_mode(0o700))?;
             }
-        } else {
-            match tokio::time::timeout(timeout, child.wait()).await {
-                Ok(result) => WaitOutcome::Exited(result),
-                Err(_) => WaitOutcome::TimedOut,
+
+            let mut command = Command::new(executable);
+            command
+                .args(argv)
+                .current_dir(root)
+                .env_clear()
+                .env("HOME", &home)
+                .env("XDG_DATA_HOME", home.join("data"))
+                .env("XDG_CONFIG_HOME", home.join("config"))
+                .env("XDG_CACHE_HOME", home.join("cache"))
+                .stdin(Stdio::null())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .kill_on_drop(true);
+            if let Some(display) = &self.config.display {
+                command.env("DISPLAY", display);
             }
-        };
-        let status = match outcome {
-            WaitOutcome::Exited(result) => result?,
-            WaitOutcome::Cancelled => {
-                // SAFETY: PID belongs to the process group created for this child above.
-                unsafe { libc::kill(-pid, libc::SIGKILL) };
-                let _ = child.wait().await;
+            command.as_std_mut().process_group(0);
+
+            let mut child = command.spawn()?;
+            let pid = child
+                .id()
+                .ok_or_else(|| Error::new(ErrorCode::Internal, "Godot child has no PID"))?
+                as i32;
+            let stdout = child
+                .stdout
+                .take()
+                .ok_or_else(|| Error::new(ErrorCode::Internal, "Godot stdout pipe missing"))?;
+            let stderr = child
+                .stderr
+                .take()
+                .ok_or_else(|| Error::new(ErrorCode::Internal, "Godot stderr pipe missing"))?;
+            let out_task = tokio::spawn(capture(stdout));
+            let err_task = tokio::spawn(capture(stderr));
+
+            enum WaitOutcome {
+                Exited(std::io::Result<std::process::ExitStatus>),
+                Cancelled,
+                TimedOut,
+            }
+            let outcome = if let Some(context) = context {
+                let cancellation = context.cancellation();
+                tokio::select! {
+                    result = child.wait() => WaitOutcome::Exited(result),
+                    _ = cancellation.cancelled() => WaitOutcome::Cancelled,
+                    _ = tokio::time::sleep(timeout) => WaitOutcome::TimedOut,
+                }
+            } else {
+                match tokio::time::timeout(timeout, child.wait()).await {
+                    Ok(result) => WaitOutcome::Exited(result),
+                    Err(_) => WaitOutcome::TimedOut,
+                }
+            };
+            let status = match outcome {
+                WaitOutcome::Exited(result) => result?,
+                WaitOutcome::Cancelled => {
+                    // SAFETY: PID belongs to the process group created for this child above.
+                    unsafe { libc::kill(-pid, libc::SIGKILL) };
+                    let _ = child.wait().await;
+                    return Err(Error::new(
+                        ErrorCode::Cancelled,
+                        "Godot runner observed cooperative cancellation",
+                    ));
+                }
+                WaitOutcome::TimedOut => {
+                    // SAFETY: PID belongs to the process group created for this child above.
+                    unsafe { libc::kill(-pid, libc::SIGKILL) };
+                    let _ = child.wait().await;
+                    return Err(Error::new(ErrorCode::Timeout, "Godot runner timed out"));
+                }
+            };
+            let (stdout, out_overflow) = out_task
+                .await
+                .map_err(|_| Error::new(ErrorCode::Internal, "Godot stdout task failed"))??;
+            let (stderr, err_overflow) = err_task
+                .await
+                .map_err(|_| Error::new(ErrorCode::Internal, "Godot stderr task failed"))??;
+            if out_overflow || err_overflow {
                 return Err(Error::new(
-                    ErrorCode::Cancelled,
-                    "Godot runner observed cooperative cancellation",
+                    ErrorCode::ResourceExhausted,
+                    "Godot runner output exceeded limit",
                 ));
             }
-            WaitOutcome::TimedOut => {
-                // SAFETY: PID belongs to the process group created for this child above.
-                unsafe { libc::kill(-pid, libc::SIGKILL) };
-                let _ = child.wait().await;
-                return Err(Error::new(ErrorCode::Timeout, "Godot runner timed out"));
+            if !status.success() {
+                return Err(Error::new(
+                    ErrorCode::BackendFailed,
+                    "Godot runner exited with non-zero status",
+                ));
             }
-        };
-        let (stdout, out_overflow) = out_task
-            .await
-            .map_err(|_| Error::new(ErrorCode::Internal, "Godot stdout task failed"))??;
-        let (stderr, err_overflow) = err_task
-            .await
-            .map_err(|_| Error::new(ErrorCode::Internal, "Godot stderr task failed"))??;
-        if out_overflow || err_overflow {
-            return Err(Error::new(
-                ErrorCode::ResourceExhausted,
-                "Godot runner output exceeded limit",
-            ));
+            Ok(ProcessOutput {
+                #[cfg(target_os = "linux")]
+                host_job: None,
+                exit_code: status.code().unwrap_or(0),
+                stdout,
+                stderr,
+            })
         }
-        if !status.success() {
-            return Err(Error::new(
-                ErrorCode::BackendFailed,
-                "Godot runner exited with non-zero status",
-            ));
-        }
-        Ok(ProcessOutput {
-            #[cfg(target_os = "linux")]
-            host_job: None,
-            exit_code: status.code().unwrap_or(0),
-            stdout,
-            stderr,
-        })
     }
 
     fn output_path(&self, args: &Value, key: &str, extensions: &[&str]) -> Result<PathBuf> {
@@ -1060,6 +1074,7 @@ struct ProcessOutput {
     stderr: String,
 }
 
+#[cfg(unix)]
 async fn capture<R: tokio::io::AsyncRead + Unpin>(mut reader: R) -> Result<(String, bool)> {
     let mut kept = Vec::new();
     let mut overflow = false;
@@ -1252,5 +1267,59 @@ mod native_probe_output_tests {
             stderr: "SCRIPT ERROR: Invalid call. Nonexistent function.\n".into(),
         };
         assert!(native_probe_has_script_error(&script_error));
+    }
+}
+
+#[cfg(all(test, target_os = "windows"))]
+mod windows_runtime_boundary_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn digest_pinned_direct_runner_still_requires_host_isolation() {
+        let root = tempfile::tempdir().unwrap();
+        let executable = std::env::current_exe().unwrap();
+        let config = RunnerConfig {
+            sha256: Some(file_digest(&executable).unwrap()),
+            executable: Some(executable),
+            output_root: root.path().to_path_buf(),
+            output_mount: None,
+            display: None,
+        };
+        let runner = Runner::new(config, &[], None).unwrap();
+        let error = runner
+            .run(
+                root.path(),
+                &["--version".into()],
+                Duration::from_secs(1),
+                None,
+            )
+            .await
+            .err()
+            .expect("a pinned executable must not enable unconfined Windows spawn");
+        assert_eq!(error.code, ErrorCode::Unsupported);
+        assert!(!root.path().join(".semwright-home").exists());
+    }
+
+    #[tokio::test]
+    async fn host_runtime_rejects_missing_authenticated_context() {
+        let root = tempfile::tempdir().unwrap();
+        let runner = Runner::new(
+            RunnerConfig {
+                executable: None,
+                sha256: None,
+                output_root: root.path().to_path_buf(),
+                output_mount: Some("godot-output".into()),
+                display: None,
+            },
+            &[],
+            None,
+        )
+        .unwrap();
+        let error = runner
+            .run(root.path(), &[], Duration::from_secs(1), None)
+            .await
+            .err()
+            .expect("runtime tool authority requires request context");
+        assert_eq!(error.code, ErrorCode::Unsupported);
     }
 }
