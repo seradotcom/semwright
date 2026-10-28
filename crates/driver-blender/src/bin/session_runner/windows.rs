@@ -602,7 +602,14 @@ pub fn run() -> io::Result<()> {
         return Err(denied("Windows Blender GPU authority is not implemented"));
     }
     let args = parse_args()?;
-    let (session, bridge) = stage(&args.scratch)?;
+    let (session, bridge) = match stage(&args.scratch) {
+        Ok(staged) => staged,
+        Err(error) => {
+            let _ = retain_start_failure(&args.workspace, "stage_fixed_scripts", &error);
+            let _ = failed(&mut io::stdout().lock());
+            return Err(error);
+        }
+    };
     let cleanup = session.clone();
     let mut phase = "preflight";
     let mut native = match spawn(&args, session, bridge, &parent_sid, &mut phase) {

@@ -2862,14 +2862,24 @@ fn spawn_v2_reader(
                                     }
                                 } else {
                                     match broker.start_session(&name, args, cwd).await {
-                                        Err(error) => Request::ToolSessionFailure {
-                                            id: id.clone(),
-                                            error: Error::new(
-                                                error.code,
-                                                "Host-mediated runtime-tool session failed to start",
-                                            ),
-                                        },
+                                        Err(error) => {
+                                            // Host-origin setup error only; never expose native payloads.
+                                            eprintln!("{}", serde_json::json!({
+                                                "component":"driver-host", "phase":"session_start_failed",
+                                                "code":error.code, "detail":error.message
+                                            }));
+                                            Request::ToolSessionFailure {
+                                                id: id.clone(),
+                                                error: Error::new(
+                                                    error.code,
+                                                    "Host-mediated runtime-tool session failed to start",
+                                                ),
+                                            }
+                                        }
                                         Ok(mut process) => {
+                                            eprintln!("{}", serde_json::json!({
+                                                "component":"driver-host", "phase":"session_process_started"
+                                            }));
                                             let stdin = process.take_stdin();
                                             let stdout = process.take_stdout();
                                             match (stdin, stdout) {
@@ -3064,6 +3074,11 @@ fn spawn_v2_reader(
                                         payload,
                                     },
                                     Err(error) => {
+                                        // This describes Host framing/I/O, not driver-controlled content.
+                                        eprintln!("{}", serde_json::json!({
+                                            "component":"driver-host", "phase":"session_exchange_failed",
+                                            "code":error.code, "detail":error.message
+                                        }));
                                         if let Some(entry) =
                                             host_tool_sessions.lock().await.remove(&session.id)
                                         {
