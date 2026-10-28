@@ -16,7 +16,7 @@ use windows_sys::Win32::{
     Foundation::{CloseHandle, HANDLE},
     Security::{
         GetTokenInformation, TOKEN_QUERY, TokenAppContainerSid, TokenCapabilities,
-        TokenIsAppContainer,
+        TokenIsAppContainer, TokenUser, TOKEN_INFORMATION_CLASS,
     },
     System::{
         JobObjects::IsProcessInJob,
@@ -27,6 +27,9 @@ use windows_sys::Win32::{
 mod lpac;
 #[path = "windows_child.rs"]
 mod native_child;
+#[cfg(feature = "windows-launch-test-fixture")]
+#[path = "windows_fixture.rs"]
+pub mod fixture;
 const MAX_FRAME: usize = 1_048_576;
 const MAX_STARTUP: usize = 65_536;
 const BRIDGE: &str = include_str!("../../bridge.py");
@@ -52,13 +55,13 @@ impl Drop for Token {
         }
     }
 }
-fn appcontainer_sid(token: HANDLE) -> io::Result<Vec<u8>> {
+fn token_sid(token: HANDLE, class: TOKEN_INFORMATION_CLASS) -> io::Result<Vec<u8>> {
     let mut needed = 0;
     // SAFETY: a live query-only token and null buffer request the required size.
     unsafe {
         GetTokenInformation(
             token,
-            TokenAppContainerSid,
+            class,
             std::ptr::null_mut(),
             0,
             &mut needed,
@@ -72,7 +75,7 @@ fn appcontainer_sid(token: HANDLE) -> io::Result<Vec<u8>> {
     if unsafe {
         GetTokenInformation(
             token,
-            TokenAppContainerSid,
+            class,
             data.as_mut_ptr().cast(),
             needed,
             &mut needed,
@@ -98,7 +101,9 @@ fn appcontainer_sid(token: HANDLE) -> io::Result<Vec<u8>> {
     // SAFETY: the complete SID span was checked above and remains owned/live.
     Ok(unsafe { std::slice::from_raw_parts(sid, length) }.to_vec())
 }
-fn verify_process(process: HANDLE) -> io::Result<Vec<u8>> {
+#[derive(Debug, PartialEq, Eq)]
+struct Identity { container: Vec<u8>, user: Vec<u8> }
+fn verify_process(process: HANDLE) -> io::Result<Identity> {
     let mut handle = std::ptr::null_mut();
     // SAFETY: supplied live process handle and writable token out-parameter.
     if unsafe { OpenProcessToken(process, TOKEN_QUERY, &mut handle) } == 0 {
@@ -161,7 +166,7 @@ fn verify_process(process: HANDLE) -> io::Result<Vec<u8>> {
     if unsafe { IsProcessInJob(process, std::ptr::null_mut(), &mut in_job) } == 0 || in_job == 0 {
         return Err(denied("Blender runner requires a Host Job"));
     }
-    appcontainer_sid(token.0)
+    Ok(Identity { container: token_sid(token.0, TokenAppContainerSid)?, user: token_sid(token.0, TokenUser)? })
 }
 fn local_path(path: &Path) -> io::Result<()> {
     let mut parts = path.components();
@@ -444,7 +449,7 @@ fn retain_start_failure(workspace: &Path, phase: &str, error: &io::Error) -> io:
         &serde_json::to_vec(&receipt).map_err(io::Error::other)?,
     )
 }
-fn spawn(args: &Args, session: PathBuf, bridge: PathBuf, parent_sid: &[u8], phase: &mut &'static str) -> io::Result<Native> {
+fn spawn(args: &Args, session: PathBuf, bridge: PathBuf, parent_identity: &Identity, phase: &mut &'static str) -> io::Result<Native> {
     *phase = "sealed_executable";
     kind(&args.blender, false)?;
     *phase = "mount_roots";
@@ -533,7 +538,7 @@ fn spawn(args: &Args, session: PathBuf, bridge: PathBuf, parent_sid: &[u8], phas
         .env("PYTHONNOUSERSITE", "1")
         .env("PYTHONIOENCODING", "utf-8");
     // Fixed Host-attested dependency; inherit the restricted token and Job, never break away.
-    let (mut child, input, output) = match native_child::spawn(&command, &log, parent_sid, phase) {
+    let (mut child, input, output) = match native_child::spawn(&command, &log, &parent_identity.container, phase) {
         Ok(child) => child,
         Err(error) => {
             let _ = retain_failure(&log, &args.workspace, None, phase);
@@ -542,7 +547,7 @@ fn spawn(args: &Args, session: PathBuf, bridge: PathBuf, parent_sid: &[u8], phas
     };
     *phase = "verify_child";
     match verify_process(child.as_raw_handle()) {
-        Ok(sid) if sid == parent_sid => {}
+        Ok(identity) if identity == *parent_identity => {}
         _ => {
             let _ = child.kill();
             let status = child.wait().ok();
@@ -552,6 +557,10 @@ fn spawn(args: &Args, session: PathBuf, bridge: PathBuf, parent_sid: &[u8], phas
             ));
         }
     }
+    *phase = "verify_child_job";
+    native_child::verify_same_job(&child)?;
+    writeln!(&log,"{}",serde_json::json!({"phase":"suspended_child_attested",
+        "same_user":true,"same_appcontainer":true,"lpac":true,"capability_count":0,"same_job":true}))?;
     *phase = "resume_attested_child";
     child.resume()?;
     *phase = "reader_start";
@@ -596,7 +605,7 @@ fn failed(output: &mut impl Write) -> io::Result<()> {
 }
 pub fn run() -> io::Result<()> {
     // SAFETY: GetCurrentProcess returns the process pseudohandle for this query.
-    let parent_sid = verify_process(unsafe { GetCurrentProcess() })?;
+    let parent_identity = verify_process(unsafe { GetCurrentProcess() })?;
     if std::env::var_os("SEMWRIGHT_NVIDIA_GPU").is_some() {
         return Err(denied("Windows Blender GPU authority is not implemented"));
     }
@@ -611,7 +620,7 @@ pub fn run() -> io::Result<()> {
     };
     let cleanup = session.clone();
     let mut phase = "preflight";
-    let mut native = match spawn(&args, session, bridge, &parent_sid, &mut phase) {
+    let mut native = match spawn(&args, session, bridge, &parent_identity, &mut phase) {
         Ok(native) => native,
         Err(error) => {
             let _ = retain_start_failure(&args.workspace, phase, &error);

@@ -14,11 +14,12 @@ use windows_sys::Win32::{
     Security::{SECURITY_ATTRIBUTES, SECURITY_CAPABILITIES},
     System::{
         Pipes::CreatePipe,
+        JobObjects::{QueryInformationJobObject,JobObjectBasicProcessIdList},
         WindowsProgramming::PROCESS_CREATION_ALL_APPLICATION_PACKAGES_OPT_OUT,
         Threading::{CreateProcessW, DeleteProcThreadAttributeList, GetCurrentProcess,
-            GetExitCodeProcess, InitializeProcThreadAttributeList, ResumeThread,
+            GetExitCodeProcess, GetCurrentProcessId, GetProcessId, InitializeProcThreadAttributeList, ResumeThread,
             TerminateProcess, UpdateProcThreadAttribute, WaitForSingleObject,
-            CREATE_NO_WINDOW, CREATE_SUSPENDED, CREATE_UNICODE_ENVIRONMENT,
+            DETACHED_PROCESS, CREATE_SUSPENDED, CREATE_UNICODE_ENVIRONMENT,
             EXTENDED_STARTUPINFO_PRESENT, PROCESS_INFORMATION,
             PROC_THREAD_ATTRIBUTE_HANDLE_LIST, PROC_THREAD_ATTRIBUTE_SECURITY_CAPABILITIES,
             PROC_THREAD_ATTRIBUTE_ALL_APPLICATION_PACKAGES_POLICY,
@@ -101,23 +102,25 @@ fn inherited_log(file:&File)->io::Result<OwnedHandle>{
 }
 struct Attributes {storage:Vec<usize>}
 impl Attributes {
-    fn new(handles:&[HANDLE;3],capabilities:&SECURITY_CAPABILITIES,
+    fn new(handles:Option<&[HANDLE;3]>,capabilities:&SECURITY_CAPABILITIES,
         opt_out:&u32)->io::Result<Self>{
+        let count=if handles.is_some(){3}else{2};
         let mut size=0usize;
         // SAFETY: documented size-only query with null attribute list.
-        unsafe {InitializeProcThreadAttributeList(std::ptr::null_mut(),3,0,&mut size);}
+        unsafe {InitializeProcThreadAttributeList(std::ptr::null_mut(),count,0,&mut size);}
         if size==0 || size>65_536 {return Err(invalid());}
         let mut storage=vec![0usize;size.div_ceil(size_of::<usize>())];
         // SAFETY: aligned allocation has the requested capacity and remains live.
-        if unsafe {InitializeProcThreadAttributeList(storage.as_mut_ptr().cast(),3,0,&mut size)}==0 {
+        if unsafe {InitializeProcThreadAttributeList(storage.as_mut_ptr().cast(),count,0,&mut size)}==0 {
             return Err(io::Error::last_os_error());
         }
         let result=Self{storage};
         // SAFETY: list initialized above; exact owned handles stay alive through creation.
-        if unsafe {UpdateProcThreadAttribute(result.storage.as_ptr().cast_mut().cast(),0,
+        if let Some(handles)=handles { if unsafe {UpdateProcThreadAttribute(result.storage.as_ptr().cast_mut().cast(),0,
             PROC_THREAD_ATTRIBUTE_HANDLE_LIST as usize,handles.as_ptr().cast_mut().cast(),
             std::mem::size_of_val(handles),std::ptr::null_mut(),std::ptr::null_mut())}==0 {
             return Err(io::Error::last_os_error());
+        }
         }
         // SAFETY: both fixed attribute values live in spawn until creation completes.
         if unsafe{UpdateProcThreadAttribute(result.storage.as_ptr().cast_mut().cast(),0,
@@ -176,11 +179,42 @@ impl Child {
         let status=ExitStatus::from_raw(code);self.finished=Some(status);Ok(status)
     }
 }
+pub fn verify_same_job(child:&Child)->io::Result<()> {
+    #[repr(C)] struct ProcessIds { assigned:u32, present:u32, ids:[usize;256] }
+    let mut ids=ProcessIds { assigned:0,present:0,ids:[0;256] };
+    let mut returned=0u32;
+    // SAFETY: null Job queries the caller's Job, with one bounded aligned writable buffer.
+    if unsafe{QueryInformationJobObject(std::ptr::null_mut(),JobObjectBasicProcessIdList,
+        (&mut ids as *mut ProcessIds).cast(),size_of::<ProcessIds>() as u32,&mut returned)}==0 {
+        return Err(io::Error::last_os_error());
+    }
+    let count=ids.present as usize;
+    if count>256 || ids.present>ids.assigned || ids.assigned>256
+        || (returned as usize)<8+count*size_of::<usize>() {
+        return Err(io::Error::other("Incomplete current Job process list"));
+    }
+    // SAFETY: current process query and an owned live child process handle.
+    let parent=unsafe{GetCurrentProcessId()} as usize;
+    let child=unsafe{GetProcessId(child.as_raw_handle())} as usize;
+    if parent==0 || child==0 || !ids.ids[..count].contains(&parent) || !ids.ids[..count].contains(&child) {
+        return Err(io::Error::new(io::ErrorKind::PermissionDenied,"Native child is not in the runner Job"));
+    }
+    Ok(())
+}
 impl Drop for Child {
     fn drop(&mut self){let _=self.kill();let _=self.wait();}
 }
 pub fn spawn(command:&Command, log:&File, parent_sid:&[u8],
     phase:&mut &'static str)->io::Result<(Child,File,File)> {
+    spawn_impl(command,log,parent_sid,phase,true)
+}
+#[cfg(feature="windows-launch-test-fixture")]
+pub fn spawn_without_stdio_for_test(command:&Command,log:&File,parent_sid:&[u8],
+    phase:&mut &'static str)->io::Result<(Child,File,File)>{
+    spawn_impl(command,log,parent_sid,phase,false)
+}
+fn spawn_impl(command:&Command,log:&File,parent_sid:&[u8],
+    phase:&mut &'static str, inherit_stdio:bool)->io::Result<(Child,File,File)>{
     diagnostics::preflight(command, log, phase)?;
     let application=wide(command.get_program())?;
     let directory=wide(command.get_current_dir().ok_or_else(invalid)?.as_os_str())?;
@@ -203,12 +237,14 @@ pub fn spawn(command:&Command, log:&File, parent_sid:&[u8],
         AppContainerSid:parent_sid.as_ptr().cast_mut().cast(),
         Capabilities:std::ptr::null_mut(),CapabilityCount:0,Reserved:0};
     let opt_out=PROCESS_CREATION_ALL_APPLICATION_PACKAGES_OPT_OUT;
-    let mut attributes=Attributes::new(&handles,&capabilities,&opt_out)?;
+    let mut attributes=Attributes::new(if inherit_stdio{Some(&handles)}else{None},&capabilities,&opt_out)?;
     // SAFETY: STARTUPINFOEXW and PROCESS_INFORMATION are plain Win32 POD outputs.
     let mut si:STARTUPINFOEXW=unsafe{std::mem::zeroed()};
     si.StartupInfo.cb=size_of::<STARTUPINFOEXW>() as u32;
-    si.StartupInfo.dwFlags=STARTF_USESTDHANDLES;
-    si.StartupInfo.hStdInput=handles[0];si.StartupInfo.hStdOutput=handles[1];si.StartupInfo.hStdError=handles[2];
+    if inherit_stdio{
+        si.StartupInfo.dwFlags=STARTF_USESTDHANDLES;
+        si.StartupInfo.hStdInput=handles[0];si.StartupInfo.hStdOutput=handles[1];si.StartupInfo.hStdError=handles[2];
+    }
     si.lpAttributeList=attributes.storage.as_mut_ptr().cast();
     // SAFETY: zeroed Win32 output struct has no resources until CreateProcess succeeds.
     let mut pi:PROCESS_INFORMATION=unsafe{std::mem::zeroed()};
@@ -216,7 +252,7 @@ pub fn spawn(command:&Command, log:&File, parent_sid:&[u8],
     // SAFETY: fixed executable, checked quoting/environment, exactly three handles, no
     // alternate token/parent or breakaway; exact parent LPAC identity is explicit; Job is inherited.
     if unsafe{CreateProcessW(application.as_ptr(),line.as_mut_ptr(),std::ptr::null(),
-        std::ptr::null(),1,CREATE_NO_WINDOW|CREATE_SUSPENDED|CREATE_UNICODE_ENVIRONMENT|EXTENDED_STARTUPINFO_PRESENT,
+        std::ptr::null(),i32::from(inherit_stdio),DETACHED_PROCESS|CREATE_SUSPENDED|CREATE_UNICODE_ENVIRONMENT|EXTENDED_STARTUPINFO_PRESENT,
         environment.as_ptr().cast(),directory.as_ptr(),&si.StartupInfo,&mut pi)}==0 {
         let error=io::Error::last_os_error();
         diagnostics::record_create_error(log,&error);

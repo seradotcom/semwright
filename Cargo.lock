@@ -3174,6 +3174,8 @@ dependencies = [
  "semwright-driver-sdk",
  "semwright-effect-conformance",
  "semwright-media-time",
+ "semwright-platform-api",
+ "semwright-platform-services",
  "semwright-policy",
  "semwright-project-graph",
  "semwright-protocol",

@@ -35,11 +35,14 @@ semwright-project-graph.workspace = true
 
 [features]
 authoring-native = []
+windows-launch-test-fixture = []
 
 [lints]
 workspace = true
 
 [dev-dependencies]
+semwright-platform-api.workspace = true
+semwright-platform-services.workspace = true
 proptest.workspace = true
 semwright-core.workspace = true
 semwright-registry.workspace = true
@@ -52,3 +55,8 @@ tokio-util.workspace = true
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows-sys = { workspace = true, features = ["Win32_System_Pipes", "Win32_System_WindowsProgramming"] }
+
+[[bin]]
+name = "semwright-blender-launch-fixture"
+path = "src/bin/windows_launch_fixture.rs"
+required-features = ["windows-launch-test-fixture"]
