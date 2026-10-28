@@ -6,6 +6,8 @@ use std::{
         process::ExitStatusExt},
     process::{Command, ExitStatus},
 };
+#[path = "windows_launch_diagnostics.rs"]
+mod diagnostics;
 use windows_sys::Win32::{
     Foundation::{DuplicateHandle, SetHandleInformation, DUPLICATE_SAME_ACCESS,
         HANDLE, HANDLE_FLAG_INHERIT, WAIT_OBJECT_0},
@@ -16,7 +18,7 @@ use windows_sys::Win32::{
             GetExitCodeProcess, InitializeProcThreadAttributeList, ResumeThread,
             TerminateProcess, UpdateProcThreadAttribute, WaitForSingleObject,
             CREATE_NO_WINDOW, CREATE_SUSPENDED, CREATE_UNICODE_ENVIRONMENT,
-            EXTENDED_STARTUPINFO_PRESENT, INFINITE, PROCESS_INFORMATION,
+            EXTENDED_STARTUPINFO_PRESENT, PROCESS_INFORMATION,
             PROC_THREAD_ATTRIBUTE_HANDLE_LIST, STARTF_USESTDHANDLES, STARTUPINFOEXW},
     },
 };
@@ -127,9 +129,10 @@ impl Child {
     pub fn resume(&mut self)->io::Result<()> {
         let thread=self.thread.take().ok_or_else(invalid)?;
         // SAFETY: owned primary thread remains suspended; caller has verified confinement.
-        if unsafe {ResumeThread(thread.as_raw_handle())}==u32::MAX {
-            return Err(io::Error::last_os_error());
-        }Ok(())
+        let previous=unsafe {ResumeThread(thread.as_raw_handle())};
+        if previous==u32::MAX {return Err(io::Error::last_os_error());}
+        if previous!=1 {return Err(io::Error::other("Unexpected native suspension count"));}
+        Ok(())
     }
     pub fn kill(&mut self)->io::Result<()> {
         if self.finished.is_some(){return Ok(());}
@@ -142,9 +145,11 @@ impl Child {
     pub fn wait(&mut self)->io::Result<ExitStatus> {
         if let Some(status)=self.finished{return Ok(status);}
         // SAFETY: owned process handle stays live throughout the wait.
-        if unsafe {WaitForSingleObject(self.as_raw_handle(),INFINITE)}!=WAIT_OBJECT_0 {
-            return Err(io::Error::last_os_error());
+        let waited=unsafe {WaitForSingleObject(self.as_raw_handle(),2_000)};
+        if waited==258 {
+            return Err(io::Error::new(io::ErrorKind::TimedOut,"Native child reap timed out; Host Job must close"));
         }
+        if waited!=WAIT_OBJECT_0 {return Err(io::Error::last_os_error());}
         let mut code=0;
         // SAFETY: owned signalled process and writable exit-status output.
         if unsafe {GetExitCodeProcess(self.as_raw_handle(),&mut code)}==0 {
@@ -157,6 +162,7 @@ impl Drop for Child {
     fn drop(&mut self){let _=self.kill();let _=self.wait();}
 }
 pub fn spawn(command:&Command, log:&File, phase:&mut &'static str)->io::Result<(Child,File,File)> {
+    diagnostics::preflight(command, log, phase)?;
     let application=wide(command.get_program())?;
     let directory=wide(command.get_current_dir().ok_or_else(invalid)?.as_os_str())?;
     let mut line=command_line(command)?;
@@ -185,7 +191,9 @@ pub fn spawn(command:&Command, log:&File, phase:&mut &'static str)->io::Result<(
     if unsafe{CreateProcessW(application.as_ptr(),line.as_mut_ptr(),std::ptr::null(),
         std::ptr::null(),1,CREATE_NO_WINDOW|CREATE_SUSPENDED|CREATE_UNICODE_ENVIRONMENT|EXTENDED_STARTUPINFO_PRESENT,
         environment.as_ptr().cast(),directory.as_ptr(),&si.StartupInfo,&mut pi)}==0 {
-        return Err(io::Error::last_os_error());
+        let error=io::Error::last_os_error();
+        diagnostics::record_create_error(log,&error);
+        return Err(error);
     }
     // SAFETY: CreateProcess returned two owned process/thread handles.
     let child=unsafe{Child{process:OwnedHandle::from_raw_handle(pi.hProcess),

@@ -533,7 +533,13 @@ fn spawn(args: &Args, session: PathBuf, bridge: PathBuf, parent_sid: &[u8], phas
         .env("PYTHONNOUSERSITE", "1")
         .env("PYTHONIOENCODING", "utf-8");
     // Fixed Host-attested dependency; inherit the restricted token and Job, never break away.
-    let (mut child, input, output) = native_child::spawn(&command, &log, phase)?;
+    let (mut child, input, output) = match native_child::spawn(&command, &log, phase) {
+        Ok(child) => child,
+        Err(error) => {
+            let _ = retain_failure(&log, &args.workspace, None, phase);
+            return Err(error);
+        }
+    };
     *phase = "verify_child";
     match verify_process(child.as_raw_handle()) {
         Ok(sid) if sid == parent_sid => {}
