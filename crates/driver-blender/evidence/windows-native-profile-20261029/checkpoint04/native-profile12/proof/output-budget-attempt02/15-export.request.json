@@ -1,0 +1,11 @@
+{
+  "args": {
+    "animations": false,
+    "collection": "SW_27177831fade_native_authoring_proof",
+    "path": "output-budget-attempt02/asset.glb"
+  },
+  "backend": null,
+  "command": "driver.blender.export.glb",
+  "dry_run": false,
+  "request_id": "9ce40007cc29470fb2e62a6dacb1fdee"
+}

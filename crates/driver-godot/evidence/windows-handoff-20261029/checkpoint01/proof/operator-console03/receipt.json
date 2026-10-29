@@ -1,0 +1,50 @@
+{
+  "schema": 1,
+  "utc": "2026-10-29T03:39:22.889445+00:00",
+  "ready_for_human": true,
+  "old_broker_and_driver_retired": true,
+  "new_broker": {
+    "path": "E:\\Projects\\worldwright-archipelago\\tools\\semwright-godot-bridge01\\semwrightd.exe",
+    "pid": 27564,
+    "created": "2026-10-29T03:39:09.0398372Z",
+    "session": 1,
+    "window": 0
+  },
+  "editor": {
+    "path": "E:\\Projects\\worldwright-archipelago\\tools\\godot-4.7.2-win64\\Godot_v4.7.2-stable_win64_console.exe",
+    "pid": 39036,
+    "created": "2026-10-29T02:43:31.6619060Z",
+    "session": 1,
+    "window": 0
+  },
+  "sessions": {
+    "sessions": [
+      {
+        "engine_version": "4.7.2-stable (official)",
+        "generation": "a620eb21aa0e091cb37f970222633396",
+        "plugin_version": "0.2.0",
+        "project": "723d196eb63d1b26391a6b085d86129b0f78dfef8fa09e194f2b35d3a843ed67",
+        "session": "8044a769cd76689cd9276d3db99681d9"
+      }
+    ]
+  },
+  "active_fixture": "res://proofs/semwright_godot_bridge01_02.tscn",
+  "fresh_stamp": {
+    "fingerprint": "5c0f9e9dd16e0ae99d266ce62b9bdc8788fb46bc9dbac5822e8f89f90717fe6b",
+    "revision": 6
+  },
+  "source_files_unchanged": 3094,
+  "scene_projection_preserved": true,
+  "fixture_camera_preserved": true,
+  "unsaved_scenes": [
+    "res://main.tscn",
+    "res://proofs/semwright_godot_bridge01_02.tscn"
+  ],
+  "configuration_unchanged": true,
+  "approval_console_native": true,
+  "approval_prompts_submitted": 0,
+  "approval_input_automated": false,
+  "human_camera_claimed": false,
+  "G6": "NOT_COMPLETE",
+  "art_status": "REVISE"
+}

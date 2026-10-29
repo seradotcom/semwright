@@ -1,0 +1,1994 @@
+{
+  "schema": 1,
+  "utc": "2026-10-29T03:42:26.911868+00:00",
+  "files": [
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\.local\\godot-bridge01-state\\state\\audit\\audit.jsonl",
+      "archive": "broker-audit-snapshot.jsonl",
+      "bytes": 86404,
+      "sha256": "ac242e3d239fe1979680bd536686a02e5a63b5ad5b6473a1441f7ae0ccfc3822"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\broker-launch.json",
+      "archive": "proof/broker-launch.json",
+      "bytes": 1161,
+      "sha256": "58ee19fd75e035cea7332acaf8b908cedcfc3a6ce440fcc4c5b3e7652dcc8735"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\broker.stderr.log",
+      "archive": "proof/broker.stderr.log.txt",
+      "bytes": 1059,
+      "sha256": "91c4eefea56c5484f9967f1dce7ca25541e4c2978884a483719bb15d86b6d734"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\broker.stdout.log",
+      "archive": "proof/broker.stdout.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\driver-config.redacted.json",
+      "archive": "proof/driver-config.redacted.json",
+      "bytes": 275,
+      "sha256": "34b7db8c1272724914401c8c5091c3759864ad2ec0783a7ed76a2e233bb7c238"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\driver.manifest.json",
+      "archive": "proof/driver.manifest.json",
+      "bytes": 1353,
+      "sha256": "66ff79d91a1c16844aea8e16f586c562cb691dd8003e583836bfb7fc2270c618"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\editor-launch.json",
+      "archive": "proof/editor-launch.json",
+      "bytes": 836,
+      "sha256": "c08a10f5fb534092601584b027e66863abaf5befff30ec0c4807046f387dd6ea"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\editor.stderr.log",
+      "archive": "proof/editor.stderr.log.txt",
+      "bytes": 2574,
+      "sha256": "a513b0adf44f80b3100f9c04f8e40b1ad1eb452d1a31862370ecde417c6c175e"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\editor.stdout.log",
+      "archive": "proof/editor.stdout.log.txt",
+      "bytes": 154,
+      "sha256": "967af7ea3a1e16444f9ad7e6e7fddeb9e39d6fb3e3588f8a8ec41e6fdcdb78f1"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\existing-readback-attempt01\\00-sessions.envelope.json",
+      "archive": "proof/existing-readback-attempt01/00-sessions.envelope.json",
+      "bytes": 1025,
+      "sha256": "1ef6b10e7fdce7a7d932c2fc61f3cb62371586476effbabeb8e9d00db28794a7"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\existing-readback-attempt01\\00-sessions.request.json",
+      "archive": "proof/existing-readback-attempt01/00-sessions.request.json",
+      "bytes": 150,
+      "sha256": "f3d3d8b1fd8d3b43acecaf602245ceae77747129e635619992e1b9a9fdb8a5fa"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\existing-readback-attempt01\\01-continuation-scene.envelope.json",
+      "archive": "proof/existing-readback-attempt01/01-continuation-scene.envelope.json",
+      "bytes": 3694,
+      "sha256": "f43d57f630db083a48e6929b89c3ff91c3256dacbb427f2e01f924137c58ced3"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\existing-readback-attempt01\\01-continuation-scene.request.json",
+      "archive": "proof/existing-readback-attempt01/01-continuation-scene.request.json",
+      "bytes": 204,
+      "sha256": "65860d85b6f33d8fb90b4edce252cfb24b6c0c0c35403d1dd08ab0c8385dd9d8"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\existing-readback-attempt01\\02-camera-before.envelope.json",
+      "archive": "proof/existing-readback-attempt01/02-camera-before.envelope.json",
+      "bytes": 1123,
+      "sha256": "ae6e3fa8f7ecc554de463ef345d1812212462ca7611bad62ffca3c034f63f990"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\existing-readback-attempt01\\02-camera-before.request.json",
+      "archive": "proof/existing-readback-attempt01/02-camera-before.request.json",
+      "bytes": 234,
+      "sha256": "fbc8522e11119a3f4d3a731b5e6d5fa0e532756fc0717c16a926aaf0e76ec128"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\existing-readback-attempt01\\03-camera-node-before.envelope.json",
+      "archive": "proof/existing-readback-attempt01/03-camera-node-before.envelope.json",
+      "bytes": 2777,
+      "sha256": "96086371173b8893d5b54af4fc8d0597ccf5b9f837ff8b409f596258d0848c40"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\existing-readback-attempt01\\03-camera-node-before.request.json",
+      "archive": "proof/existing-readback-attempt01/03-camera-node-before.request.json",
+      "bytes": 230,
+      "sha256": "33eb816aadc6a88f274a362727a296ff8bca6083c7a5921c7c3aa2a4e32186f9"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\existing-readback-attempt01\\04-asset0-existing.envelope.json",
+      "archive": "proof/existing-readback-attempt01/04-asset0-existing.envelope.json",
+      "bytes": 1126,
+      "sha256": "4877411ae2d73c7f911e6fe21e4f0a5210b2ca7aa0b8bb700370da41a0e6d580"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\existing-readback-attempt01\\04-asset0-existing.request.json",
+      "archive": "proof/existing-readback-attempt01/04-asset0-existing.request.json",
+      "bytes": 296,
+      "sha256": "a2612b7d9711bbd218c9495d776c48425c83a33cb81046e9f1468fb2bd3849b7"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\existing-readback-attempt01\\05-asset0-instantiate-existing.envelope.json",
+      "archive": "proof/existing-readback-attempt01/05-asset0-instantiate-existing.envelope.json",
+      "bytes": 930,
+      "sha256": "70ea14019bfe5328719bddfae324d7f99fe9cb2bf684940e2e639e8e455e8177"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\existing-readback-attempt01\\05-asset0-instantiate-existing.request.json",
+      "archive": "proof/existing-readback-attempt01/05-asset0-instantiate-existing.request.json",
+      "bytes": 498,
+      "sha256": "40f0a8c48c0c8e7eaac7f347f780a02b488cf9c8cde5f72887e47b22c31560b2"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\existing-readback-attempt01\\06-asset1-existing.envelope.json",
+      "archive": "proof/existing-readback-attempt01/06-asset1-existing.envelope.json",
+      "bytes": 1141,
+      "sha256": "98987ed0cce41f2f534307e38a23e302a7c1a81124a4203363fd0361d515ce03"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\existing-readback-attempt01\\06-asset1-existing.request.json",
+      "archive": "proof/existing-readback-attempt01/06-asset1-existing.request.json",
+      "bytes": 311,
+      "sha256": "881c081ad8100011f2b6e4be9757e22fb1f0b2ee1d6f772adf0fe393e6d7c0f7"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\existing-readback-attempt01\\07-asset1-instantiate-existing.envelope.json",
+      "archive": "proof/existing-readback-attempt01/07-asset1-instantiate-existing.envelope.json",
+      "bytes": 935,
+      "sha256": "4ec03758019b34c1d7f7ad3fc707294d076a9cd6aa8b3f23120e7e0a9b83a69f"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\existing-readback-attempt01\\07-asset1-instantiate-existing.request.json",
+      "archive": "proof/existing-readback-attempt01/07-asset1-instantiate-existing.request.json",
+      "bytes": 518,
+      "sha256": "aa4cece22d87d5469050677ea36cd680277acbf5106cbe9d03abf1badb1bfde8"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\existing-readback-attempt01\\08-scene-meshes.envelope.json",
+      "archive": "proof/existing-readback-attempt01/08-scene-meshes.envelope.json",
+      "bytes": 17274,
+      "sha256": "856c88ddd16f9c4fb2d1989d846c3205204d2e83642865ff407e6465d1fc8592"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\existing-readback-attempt01\\08-scene-meshes.request.json",
+      "archive": "proof/existing-readback-attempt01/08-scene-meshes.request.json",
+      "bytes": 204,
+      "sha256": "7ff3cafca2c386fe489f7a4e862fc8b4a3ca03c6d713d901da40503ce8fe0ef9"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\existing-readback-attempt01\\09-mesh-0.envelope.json",
+      "archive": "proof/existing-readback-attempt01/09-mesh-0.envelope.json",
+      "bytes": 4382,
+      "sha256": "563fb9edfe6753142c335a34ccf80206e9a8d4271c20e5f8f42c5a41384170f4"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\existing-readback-attempt01\\09-mesh-0.request.json",
+      "archive": "proof/existing-readback-attempt01/09-mesh-0.request.json",
+      "bytes": 290,
+      "sha256": "6077eb9f0d8e865fd9cfe2e8354fc7e71e90a24fa879a68fcf24ee7962319e8d"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\existing-readback-attempt01\\10-mesh-1.envelope.json",
+      "archive": "proof/existing-readback-attempt01/10-mesh-1.envelope.json",
+      "bytes": 4394,
+      "sha256": "b0f4c71a95a77e9d5efa426b3423e1575180f0bcca9a43bb1d2ab4df40f63c5a"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\existing-readback-attempt01\\10-mesh-1.request.json",
+      "archive": "proof/existing-readback-attempt01/10-mesh-1.request.json",
+      "bytes": 299,
+      "sha256": "2bc0e410e025fbbbd20ae06901d5c8cf9e5031cf8684a71e924f8d9b8e14dd0b"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\existing-readback-attempt01\\11-mesh-2.envelope.json",
+      "archive": "proof/existing-readback-attempt01/11-mesh-2.envelope.json",
+      "bytes": 4378,
+      "sha256": "80b70dd32d3c27398a06cb37d4a5c9c0a2403f078019a9d9afa090ce759c0e8d"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\existing-readback-attempt01\\11-mesh-2.request.json",
+      "archive": "proof/existing-readback-attempt01/11-mesh-2.request.json",
+      "bytes": 288,
+      "sha256": "76fbe8880eab4dd3e73d9dbb083877a13a32eecf2121c4dc5c6b5fefdc49bb6f"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\existing-readback-attempt01\\12-mesh-3.envelope.json",
+      "archive": "proof/existing-readback-attempt01/12-mesh-3.envelope.json",
+      "bytes": 4444,
+      "sha256": "11df0938b83122018a6a1405d706162fc474764f4710961a3f5afd90b9f99bbe"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\existing-readback-attempt01\\12-mesh-3.request.json",
+      "archive": "proof/existing-readback-attempt01/12-mesh-3.request.json",
+      "bytes": 300,
+      "sha256": "600ed7139e9b2cf00ccaa1747c4be5121344ec1703647bec20fea3c77f044e55"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\existing-readback-attempt01\\13-camera-after.envelope.json",
+      "archive": "proof/existing-readback-attempt01/13-camera-after.envelope.json",
+      "bytes": 1123,
+      "sha256": "1a9b285d019803e6cc1c59b5c045f020c148b80d3605805c097798f98c124de5"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\existing-readback-attempt01\\13-camera-after.request.json",
+      "archive": "proof/existing-readback-attempt01/13-camera-after.request.json",
+      "bytes": 234,
+      "sha256": "ed95ee9df77763893aadfb48dc81ff92e528a840a076d7cd70677a10bd50b418"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\existing-readback-attempt01\\14-camera-node-after.envelope.json",
+      "archive": "proof/existing-readback-attempt01/14-camera-node-after.envelope.json",
+      "bytes": 2777,
+      "sha256": "98631e1ff4295057b3ae19bfff666efd3889d2f95b4456e3831aa6dfd4dbe45b"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\existing-readback-attempt01\\14-camera-node-after.request.json",
+      "archive": "proof/existing-readback-attempt01/14-camera-node-after.request.json",
+      "bytes": 230,
+      "sha256": "cdff31822ed9faa7917470fa3b1d8d038c252c75ffa007c84890d7397303eec0"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\existing-readback-attempt01\\15-save-supporting-only.envelope.json",
+      "archive": "proof/existing-readback-attempt01/15-save-supporting-only.envelope.json",
+      "bytes": 827,
+      "sha256": "d9b7fa44b9e33af02d362da23ed564fcb697706ea814966e4a3c621cc87cfab5"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\existing-readback-attempt01\\15-save-supporting-only.request.json",
+      "archive": "proof/existing-readback-attempt01/15-save-supporting-only.request.json",
+      "bytes": 393,
+      "sha256": "64f3c7751100b0cb1bd84f2f06bf963637e1aede32ea6b5089edd06e73e99089"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\existing-readback-attempt01\\receipt.json",
+      "archive": "proof/existing-readback-attempt01/receipt.json",
+      "bytes": 4621,
+      "sha256": "1dbb7644e54ca7792b091e5524448f4c32b8c1356a58a108e54d6b2999ef854f"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\existing-readback-attempt01.log",
+      "archive": "proof/existing-readback-attempt01.log.txt",
+      "bytes": 2063,
+      "sha256": "4afe5df512335bbe81f09136b000c9ed4fae5defb5b127681158e9bc79fca56e"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\existing-readback-attempt01.runner.json",
+      "archive": "proof/existing-readback-attempt01.runner.json",
+      "bytes": 831,
+      "sha256": "ce77a59f3dc1942437d8b90fc573909393064cb3df99c58092f43b9520159118"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\fixture-save-attempt01\\00-sessions.envelope.json",
+      "archive": "proof/fixture-save-attempt01/00-sessions.envelope.json",
+      "bytes": 1025,
+      "sha256": "e4907f65bdb0025a6c469399da0c0d36016ee9f9b17a5e93bb21c6c6fc37f2dd"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\fixture-save-attempt01\\00-sessions.request.json",
+      "archive": "proof/fixture-save-attempt01/00-sessions.request.json",
+      "bytes": 150,
+      "sha256": "247b31a5b6a599e2b9051f58cddd6ea6a38d5e68fbaadacefcd0323d547551df"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\fixture-save-attempt01\\01-reconciled-fixture.envelope.json",
+      "archive": "proof/fixture-save-attempt01/01-reconciled-fixture.envelope.json",
+      "bytes": 17274,
+      "sha256": "5686d104c67ffec9fb570c1eb3add868187a5640fffb342eb12d6a6a580fbd03"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\fixture-save-attempt01\\01-reconciled-fixture.request.json",
+      "archive": "proof/fixture-save-attempt01/01-reconciled-fixture.request.json",
+      "bytes": 204,
+      "sha256": "e50d5685a6d5039fe226e9b82459b8a447116539b821f4f07be2a1d946d81262"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\fixture-save-attempt01\\02-camera-before.envelope.json",
+      "archive": "proof/fixture-save-attempt01/02-camera-before.envelope.json",
+      "bytes": 2777,
+      "sha256": "a5ce9dffaa7a22a414ea390df4132d40d76d10be0b248f6a8439b24236b10ec6"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\fixture-save-attempt01\\02-camera-before.request.json",
+      "archive": "proof/fixture-save-attempt01/02-camera-before.request.json",
+      "bytes": 230,
+      "sha256": "723326f13a5017371f14b014ca93b3a32dda500bcef598772362204229916952"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\fixture-save-attempt01\\receipt.json",
+      "archive": "proof/fixture-save-attempt01/receipt.json",
+      "bytes": 1196,
+      "sha256": "7d7c8c7e656047a26121bbb43ae5c97ec8da98c56fb5ee24136cac5c0daa12b2"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\fixture-save-attempt01.json",
+      "archive": "proof/fixture-save-attempt01.json",
+      "bytes": 6147,
+      "sha256": "4fa7c13feccf351c58c9348255818a6a02b31cfb55ba6a191d592880b03a7044"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\fixture-save-attempt01.log",
+      "archive": "proof/fixture-save-attempt01.log.txt",
+      "bytes": 810,
+      "sha256": "86efdfea6dbfc424cd14f59f9e07d7c50eed9501612cae107a64ef7971047d9c"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\fixture-save-attempt01.runner.json",
+      "archive": "proof/fixture-save-attempt01.runner.json",
+      "bytes": 1137,
+      "sha256": "5d9f1c6fffb092bf683e003e62b1a67de1863a0792c8b7913a32d9d8bbe60c56"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\fixture-save-attempt01.source-before.json",
+      "archive": "proof/fixture-save-attempt01.source-before.json",
+      "bytes": 553696,
+      "sha256": "5c8f67df7d5b1754eac6cacf226008ff519ae8c42d2973483ce448607b55a9c8"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\handoff-attempt01\\00-doctor.envelope.json",
+      "archive": "proof/handoff-attempt01/00-doctor.envelope.json",
+      "bytes": 893,
+      "sha256": "8fb1a84a88a679ffe03e95859de6879d6561c7bf460b8aa55b574bcbd9133e69"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\handoff-attempt01\\00-doctor.request.json",
+      "archive": "proof/handoff-attempt01/00-doctor.request.json",
+      "bytes": 144,
+      "sha256": "a096783aa893e4090536a1737b423ee49c00798993e7c28530dbd877e434b302"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\handoff-attempt01\\01-sessions.envelope.json",
+      "archive": "proof/handoff-attempt01/01-sessions.envelope.json",
+      "bytes": 1024,
+      "sha256": "07767ef1570c0d5324fe5831a1caed9d7266dd042d88a0439d106c60524dd35a"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\handoff-attempt01\\01-sessions.request.json",
+      "archive": "proof/handoff-attempt01/01-sessions.request.json",
+      "bytes": 150,
+      "sha256": "aab02eaef5e1d154e0eefe50ba09d1fd38cd5e34693ee83a37b5df33c11bca76"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\handoff-attempt01\\02-project-before.envelope.json",
+      "archive": "proof/handoff-attempt01/02-project-before.envelope.json",
+      "bytes": 1006,
+      "sha256": "c5f75484235825944caa583d869f988366215c09be7d4fe44eba42745845d18c"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\handoff-attempt01\\02-project-before.request.json",
+      "archive": "proof/handoff-attempt01/02-project-before.request.json",
+      "bytes": 206,
+      "sha256": "9d5b4be5d0988f5967e07a7c5a52e7dfe76ad6e7f3ab00dc66f6007ea28f0996"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\handoff-attempt01\\receipt.json",
+      "archive": "proof/handoff-attempt01/receipt.json",
+      "bytes": 1202,
+      "sha256": "c097ace047523517aa1b3ebe7cef932783e9d640ce8df1bc258edae9e433b9ce"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\handoff-attempt01.json",
+      "archive": "proof/handoff-attempt01.json",
+      "bytes": 2506,
+      "sha256": "762027332971f677093e81abfab27a6c4a517b533d5c45c01bec49fa877ed2f6"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\handoff-attempt01.log",
+      "archive": "proof/handoff-attempt01.log.txt",
+      "bytes": 755,
+      "sha256": "fd9321f5e29cdca139c3542bdbebcb768d842b32ed7a1c4ff84b0c3d7b71210c"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\handoff-attempt01.runner.json",
+      "archive": "proof/handoff-attempt01.runner.json",
+      "bytes": 2186,
+      "sha256": "35858b6c1a711fc37c8391bc34bf9f6fc0e96adf0b8ea4dfcad322568d542b50"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\handoff-attempt02\\00-doctor.envelope.json",
+      "archive": "proof/handoff-attempt02/00-doctor.envelope.json",
+      "bytes": 892,
+      "sha256": "1638b1dcd60f50ba1a709fc78a235964777c6d042758a0b34ce88a65d2f3d68a"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\handoff-attempt02\\00-doctor.request.json",
+      "archive": "proof/handoff-attempt02/00-doctor.request.json",
+      "bytes": 144,
+      "sha256": "d0c597850fcfd4329d0c182a6fba8fc29da399533052a771be974da78c5be6f7"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\handoff-attempt02\\01-sessions.envelope.json",
+      "archive": "proof/handoff-attempt02/01-sessions.envelope.json",
+      "bytes": 1024,
+      "sha256": "a3aaf8006ba965d4a7d2b813d025de1baf65b8518b0f1a9e6c6cff5da2f30c48"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\handoff-attempt02\\01-sessions.request.json",
+      "archive": "proof/handoff-attempt02/01-sessions.request.json",
+      "bytes": 150,
+      "sha256": "c0376590b21c03cfd56056afa329f629b3632675919b0740ba5c56f6828fad12"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\handoff-attempt02\\02-project-before.envelope.json",
+      "archive": "proof/handoff-attempt02/02-project-before.envelope.json",
+      "bytes": 1005,
+      "sha256": "ba01b1701ff7c4c29468e5af4416bc6de22a3445680f4336d1f8b7763af89fc8"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\handoff-attempt02\\02-project-before.request.json",
+      "archive": "proof/handoff-attempt02/02-project-before.request.json",
+      "bytes": 206,
+      "sha256": "1cdb75ad997b43fa8606b25970da4c639b0f3699d8330b7027a6e12e014b9b18"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\handoff-attempt02\\03-editor-before.envelope.json",
+      "archive": "proof/handoff-attempt02/03-editor-before.envelope.json",
+      "bytes": 1087,
+      "sha256": "8739e6e41f525e4677d42831befd3ffa88cfb20544c3bc85347e172a4020454d"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\handoff-attempt02\\03-editor-before.request.json",
+      "archive": "proof/handoff-attempt02/03-editor-before.request.json",
+      "bytes": 203,
+      "sha256": "221dc44f254c2bb63e86e155167463704cf12e52b4697ec393a4a2a0223d4714"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\handoff-attempt02\\04-original-nodes-before.envelope.json",
+      "archive": "proof/handoff-attempt02/04-original-nodes-before.envelope.json",
+      "bytes": 2279,
+      "sha256": "ba352d01ecebf17e8723f51aa7f75eedd39ec4d515a4e8bf27ea3966c6a0b74e"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\handoff-attempt02\\04-original-nodes-before.request.json",
+      "archive": "proof/handoff-attempt02/04-original-nodes-before.request.json",
+      "bytes": 204,
+      "sha256": "a597e8d23619884bd915eca15840794435c1360bdea7d9532a988fb132cae31a"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\handoff-attempt02\\05-initial-idle-00.envelope.json",
+      "archive": "proof/handoff-attempt02/05-initial-idle-00.envelope.json",
+      "bytes": 937,
+      "sha256": "d16f518ad1357e7c58c46423719b000490630d598980bb9c5c44a0ed4c41e54d"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\handoff-attempt02\\05-initial-idle-00.request.json",
+      "archive": "proof/handoff-attempt02/05-initial-idle-00.request.json",
+      "bytes": 204,
+      "sha256": "e63a96af000153cfc88147a4a3486db051d91536206aceae32e7796f2007e9df"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\handoff-attempt02\\06-supporting-create.envelope.json",
+      "archive": "proof/handoff-attempt02/06-supporting-create.envelope.json",
+      "bytes": 957,
+      "sha256": "7c1d5641a9d3a263ed5a86a0c463128136232c031fafa18a0e9899a1981565b2"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\handoff-attempt02\\06-supporting-create.request.json",
+      "archive": "proof/handoff-attempt02/06-supporting-create.request.json",
+      "bytes": 478,
+      "sha256": "b277b26fd47523afc4c89b83255808828f7ad59ecaedd2b9caeba1895c83524a"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\handoff-attempt02\\07-supporting-opened-00.envelope.json",
+      "archive": "proof/handoff-attempt02/07-supporting-opened-00.envelope.json",
+      "bytes": 1035,
+      "sha256": "0a6ce09c24f0c49f622e866ee9de532023a2d1e7deeb628619d546da1b931692"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\handoff-attempt02\\07-supporting-opened-00.request.json",
+      "archive": "proof/handoff-attempt02/07-supporting-opened-00.request.json",
+      "bytes": 206,
+      "sha256": "deeb67bbd82691197ef647b15af477b6ff243aefa12c5050fb037178a4ddf42b"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\handoff-attempt02\\08-camera-create.envelope.json",
+      "archive": "proof/handoff-attempt02/08-camera-create.envelope.json",
+      "bytes": 920,
+      "sha256": "c93b1ad633b5d8b9010b9b1ee062343ae7baabc9e98b3932c30f1ffdf96560a5"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\handoff-attempt02\\08-camera-create.request.json",
+      "archive": "proof/handoff-attempt02/08-camera-create.request.json",
+      "bytes": 449,
+      "sha256": "f30d10b51c91c1cc07ba05362beb3b4a95e6187db62560e6295026c5e0df262c"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\handoff-attempt02\\09-camera-configure.envelope.json",
+      "archive": "proof/handoff-attempt02/09-camera-configure.envelope.json",
+      "bytes": 931,
+      "sha256": "81da9d9f167568a00f70c8ba272ac6fef2eaca28edeaa68b4ba14ccf5f04b5f9"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\handoff-attempt02\\09-camera-configure.request.json",
+      "archive": "proof/handoff-attempt02/09-camera-configure.request.json",
+      "bytes": 442,
+      "sha256": "f15bcdbcbd659ce070c54a7a56dd7a40498aadd02d7dd81ca202f130851722f9"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\handoff-attempt02\\10-camera-before.envelope.json",
+      "archive": "proof/handoff-attempt02/10-camera-before.envelope.json",
+      "bytes": 1123,
+      "sha256": "c8e029eaa1a603781c64acaae92d534178816f4f6658df71a276e147172d1184"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\handoff-attempt02\\10-camera-before.request.json",
+      "archive": "proof/handoff-attempt02/10-camera-before.request.json",
+      "bytes": 234,
+      "sha256": "33973179de17fe88844866170a8db9948ce367ad3211b85a64462062fbde233f"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\handoff-attempt02\\11-camera-transform-before.envelope.json",
+      "archive": "proof/handoff-attempt02/11-camera-transform-before.envelope.json",
+      "bytes": 2778,
+      "sha256": "9ff3f216fdb1ad50564f42d035b41ca023abf65dfce95250dc164e5d370ce4a7"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\handoff-attempt02\\11-camera-transform-before.request.json",
+      "archive": "proof/handoff-attempt02/11-camera-transform-before.request.json",
+      "bytes": 230,
+      "sha256": "ebf3a8b496889c9f4d663d395bc559ed114c9fec4f40f6026c0a7c8a11a79549"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\handoff-attempt02\\12-asset0-idle-before-00.envelope.json",
+      "archive": "proof/handoff-attempt02/12-asset0-idle-before-00.envelope.json",
+      "bytes": 937,
+      "sha256": "623bb5003bdb162c03bf14d42761eab74240780a34634fce40eee4cc47a7df00"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\handoff-attempt02\\12-asset0-idle-before-00.request.json",
+      "archive": "proof/handoff-attempt02/12-asset0-idle-before-00.request.json",
+      "bytes": 204,
+      "sha256": "8310c546eecd9798672254fc07d6183af03c048109aa44e8a1551d5f7d85e2dc"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\handoff-attempt02\\13-asset0-before.envelope.json",
+      "archive": "proof/handoff-attempt02/13-asset0-before.envelope.json",
+      "bytes": 1127,
+      "sha256": "9fd3170add25172049189f6073c4dfeca9d2b61086087ae5b244910d88fac11b"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\handoff-attempt02\\13-asset0-before.request.json",
+      "archive": "proof/handoff-attempt02/13-asset0-before.request.json",
+      "bytes": 296,
+      "sha256": "220506dc2a9be1a66f296690bc318724d439161e98bea3399f14a13d1e0d80e5"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\handoff-attempt02\\14-asset0-reimport.envelope.json",
+      "archive": "proof/handoff-attempt02/14-asset0-reimport.envelope.json",
+      "bytes": 898,
+      "sha256": "88b86aec377aff03b33e4f306d50ca937e0e9094f810c622952b594626a262db"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\handoff-attempt02\\14-asset0-reimport.request.json",
+      "archive": "proof/handoff-attempt02/14-asset0-reimport.request.json",
+      "bytes": 451,
+      "sha256": "f5a66cd598e38f32d6ae3738665c55305154a9b867b3a483286338da54e0610d"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\handoff-attempt02\\receipt.json",
+      "archive": "proof/handoff-attempt02/receipt.json",
+      "bytes": 4420,
+      "sha256": "d1eb2e692ab6b9d5084552eec36230052fb46de07f61393d24b7e40620c8613e"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\handoff-attempt02.json",
+      "archive": "proof/handoff-attempt02.json",
+      "bytes": 3803,
+      "sha256": "8ade892ad22005bf9633f5ae92b51bbb663faf3847b31c99071ed26cde4fa3f6"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\handoff-attempt02.log",
+      "archive": "proof/handoff-attempt02.log.txt",
+      "bytes": 1919,
+      "sha256": "895a5c019dc6f7ec7b9cb9f0a988bdc31c9bead49c4d9d5e8d651853e04ffa46"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\handoff-attempt02.runner.json",
+      "archive": "proof/handoff-attempt02.runner.json",
+      "bytes": 2172,
+      "sha256": "772786dbba58150d9c0fe1f90bef6ab1c78e1be3b2aa3799539184d4c824937e"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-console01\\launcher-before.source",
+      "archive": "proof/operator-console01/launcher-before.source",
+      "bytes": 8591,
+      "sha256": "fc54389061ece46a7e82bc2311003b8691f40e9fd380505a42f666e94ecc5ae5"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-console01\\preflight-failure.json",
+      "archive": "proof/operator-console01/preflight-failure.json",
+      "bytes": 545,
+      "sha256": "b2235f22ace9383d6298696da6f7e82a459b4f2a79c335b9c2b91e5b743a3c7d"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-console02\\before-assets.envelope.json",
+      "archive": "proof/operator-console02/before-assets.envelope.json",
+      "bytes": 731,
+      "sha256": "d9cf3d7d4d41ac98c5e09bb364ec7254deb1701de7d883abe57ba6391a11bd82"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-console02\\before-camera.envelope.json",
+      "archive": "proof/operator-console02/before-camera.envelope.json",
+      "bytes": 1692,
+      "sha256": "fb2825d11c9a565bc0a09b68a9df6201f8649c7b022c9bb85b35df4c549294dc"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-console02\\before-editor.envelope.json",
+      "archive": "proof/operator-console02/before-editor.envelope.json",
+      "bytes": 903,
+      "sha256": "728162a23dfd7fefea346fb0565d872d694d116096a48a5bbc59af7304c404c1"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-console02\\before-processes.json",
+      "archive": "proof/operator-console02/before-processes.json",
+      "bytes": 744,
+      "sha256": "428f79832ab27a51f3ab54ed1110d0b868fed4dbe12a6fd1377c09c648d83930"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-console02\\before-scene.envelope.json",
+      "archive": "proof/operator-console02/before-scene.envelope.json",
+      "bytes": 8783,
+      "sha256": "a624831309642ddbcec5e479a73e6bc6a9e1fa12ecb276c3edeaa8e516067046"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-console02\\before-sessions.envelope.json",
+      "archive": "proof/operator-console02/before-sessions.envelope.json",
+      "bytes": 806,
+      "sha256": "1b21b882f64c19ad08a73f85f80a4040381c3c6048ec7f55ebad5fd72514338a"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-console02\\broker.stderr.log",
+      "archive": "proof/operator-console02/broker.stderr.log.txt",
+      "bytes": 100,
+      "sha256": "26537a8e49a05b05cbf3770d6c6b0f071177dd0a32d370247657883dcc6b33e5"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-console02\\broker.stdout.log",
+      "archive": "proof/operator-console02/broker.stdout.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-console02\\launch.json",
+      "archive": "proof/operator-console02/launch.json",
+      "bytes": 1055,
+      "sha256": "7f1e102a2506c43160aa642098cf7c30d1c4c38d34826744312f906b39c415e7"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-console02\\old-broker-retirement.json",
+      "archive": "proof/operator-console02/old-broker-retirement.json",
+      "bytes": 732,
+      "sha256": "1b5d4047afaab26a8b7da78cb0db43f32737a5ad0ed43780d7e854d5ddbfb37a"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-console02\\pre-console-audit.jsonl",
+      "archive": "proof/operator-console02/pre-console-audit.jsonl",
+      "bytes": 80438,
+      "sha256": "2166e5f36c4d93b7a3b5a5663086b158288433f3f799322fb65cae24381b4385"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-console02\\secret-acl-recovery.json",
+      "archive": "proof/operator-console02/secret-acl-recovery.json",
+      "bytes": 2627,
+      "sha256": "d5a47a069128643df8b9f5da4d606308bc7e80df21a96f778b9f3ccba7bb0a70"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-console03\\after-camera.envelope.json",
+      "archive": "proof/operator-console03/after-camera.envelope.json",
+      "bytes": 1692,
+      "sha256": "acec32c5cffbcdb1d5d84e46bee79d2bfc0c22ef535c1da19156d6113ae89055"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-console03\\after-editor.envelope.json",
+      "archive": "proof/operator-console03/after-editor.envelope.json",
+      "bytes": 903,
+      "sha256": "4a44557dcd21117c0dba4041ac0be768ca79c6d8b991b210c10c08b63d9ab37b"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-console03\\after-scene.envelope.json",
+      "archive": "proof/operator-console03/after-scene.envelope.json",
+      "bytes": 8783,
+      "sha256": "3d8dad019d61bacbc4cfec114853533c3dd5186e1e4363ca3a5108aa10f9ed4c"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-console03\\after-sessions-00.envelope.json",
+      "archive": "proof/operator-console03/after-sessions-00.envelope.json",
+      "bytes": 806,
+      "sha256": "a1343ff556fd6a093ffe6bb8720d2cc25f1235531a0a58041f2622686439c49c"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-console03\\broker.stderr.log",
+      "archive": "proof/operator-console03/broker.stderr.log.txt",
+      "bytes": 1059,
+      "sha256": "428ad8f165d5c6bce0edd5265c971da818a8f07663c0b3fbb268a10e9c6fc317"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-console03\\broker.stdout.log",
+      "archive": "proof/operator-console03/broker.stdout.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-console03\\launch.json",
+      "archive": "proof/operator-console03/launch.json",
+      "bytes": 1055,
+      "sha256": "0d260c1c1abeff9f7c8f6b11cd8a45fa87133bf1ad484a8aec6af828a677381d"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-console03\\receipt.json",
+      "archive": "proof/operator-console03/receipt.json",
+      "bytes": 1622,
+      "sha256": "6e17b3237e8240de3ff81973cf19d3cd0dd0216f0377cdd48a85d957787e303a"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-console03\\repair-input.json",
+      "archive": "proof/operator-console03/repair-input.json",
+      "bytes": 241,
+      "sha256": "817930bc6c9f7bb1a4300bf232a3358d871844e8fc191fd857122abbf9cb4629"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01.json",
+      "archive": "proof/operator-handoff-attempt01.json",
+      "bytes": 6101,
+      "sha256": "b353bdbc9bba4315445363682825efdac60f9a1c4ad6d68c8a3ec0b78297f982"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01.prepared.json",
+      "archive": "proof/operator-handoff-attempt01.prepared.json",
+      "bytes": 3014,
+      "sha256": "afe12c68bc2a3698a315eed36f90c9a7179895201adf5d646a03f5a2d45b0450"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01.source-before.json",
+      "archive": "proof/operator-handoff-attempt01.source-before.json",
+      "bytes": 553696,
+      "sha256": "5c8f67df7d5b1754eac6cacf226008ff519ae8c42d2973483ce448607b55a9c8"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\pairing-attempt01\\receipt.json",
+      "archive": "proof/pairing-attempt01/receipt.json",
+      "bytes": 1291,
+      "sha256": "93da3d6d144df3b9dd3539f3c1f57c64257f12f66fba07289ca59a8fc43fe0ce"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\pairing-attempt01.log",
+      "archive": "proof/pairing-attempt01.log.txt",
+      "bytes": 162,
+      "sha256": "1ebfbb5a9ce8c8aa0d3ee8e6532a81f2c48a0e632c45b5ad0536173af5477dc9"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\pairing-attempt01.runner.json",
+      "archive": "proof/pairing-attempt01.runner.json",
+      "bytes": 637,
+      "sha256": "fc5951fd6c4d02b022cb78a70e5eafc689ea91292e494df1b9d3771b71f96d22"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\pairing-sessions-after.json",
+      "archive": "proof/pairing-sessions-after.json",
+      "bytes": 805,
+      "sha256": "d2e5e581a52df4f99a5b0cd07b2b980d4c6ebc2a2c49626fc05fe5749f2d6e25"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\pairing-sessions-before.json",
+      "archive": "proof/pairing-sessions-before.json",
+      "bytes": 806,
+      "sha256": "d550468c3eb1a6f10d8fdf1a022ea932c6d6c5c467831dccb6b2f312eb21cbfc"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\prepared.json",
+      "archive": "proof/prepared.json",
+      "bytes": 12816,
+      "sha256": "a1a9e2ffe49400b25d0e3b88a28bdcddb3769b8aeb991b2ce789ee7d9172cbe1"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\project.godot.before.source",
+      "archive": "proof/project.godot.before.source",
+      "bytes": 1010,
+      "sha256": "6e7318da0b338a9da5470cc85fa0ed9c27ba7871ba2c81206788e53673334e54"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\project.godot.enabled-before-start.source",
+      "archive": "proof/project.godot.enabled-before-start.source",
+      "bytes": 1091,
+      "sha256": "307f519ac481d4dea38a0ca7c095810e62709afa784671d7a5863b45abd25cb9"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\project.godot.normalized.source",
+      "archive": "proof/project.godot.normalized.source",
+      "bytes": 920,
+      "sha256": "ef5c468170a348a64b6744d67a3e9824a068f3415f30e5dccf43e78d6161d042"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\scene-save-reconciliation01\\camera.envelope.json",
+      "archive": "proof/scene-save-reconciliation01/camera.envelope.json",
+      "bytes": 1692,
+      "sha256": "b412ccf15e3bf01306b63b22ec608b485289fc87d3235c995ed00315ff17d05b"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\scene-save-reconciliation01\\editor.envelope.json",
+      "archive": "proof/scene-save-reconciliation01/editor.envelope.json",
+      "bytes": 903,
+      "sha256": "b5b3fa625db3bc5f72f6e2e094d4e6c95ad02292d5792e7e8805542f60e57007"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\scene-save-reconciliation01\\receipt.json",
+      "archive": "proof/scene-save-reconciliation01/receipt.json",
+      "bytes": 799,
+      "sha256": "0634a78dfda7895d220c769415affa652eaf7b4ef7506dc07efdc8c958e8dae4"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\scene-save-reconciliation01\\scene.envelope.json",
+      "archive": "proof/scene-save-reconciliation01/scene.envelope.json",
+      "bytes": 8784,
+      "sha256": "71c3a2a773864ab56f8ac4dee661c7ca10b1321744013900c93a45e87b597759"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\scene-save-reconciliation01\\source-files.json",
+      "archive": "proof/scene-save-reconciliation01/source-files.json",
+      "bytes": 593918,
+      "sha256": "c565c790bc6603e219b719a0f41caf5f8cacfbec64c9bb714a5429aab618a812"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\scene-save-reconciliation01\\supporting-scene-before.source",
+      "archive": "proof/scene-save-reconciliation01/supporting-scene-before.source",
+      "bytes": 118,
+      "sha256": "6e319c4e3f6d82b98ef7af29a51f4c38194ae6a798cc7a9b6641b03249943630"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\startup-config-reconciliation.json",
+      "archive": "proof/startup-config-reconciliation.json",
+      "bytes": 861,
+      "sha256": "2a7081c9f77cca87b85fdf314fb53b9c01e39d44580295807835742c0bce6be8"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\startup-inspection01\\editor.args.json",
+      "archive": "proof/startup-inspection01/editor.args.json",
+      "bytes": 53,
+      "sha256": "0f86d3d8401ba6245dc834ba4b17154542ae9bc5ca112c7b4c1981d3ecd8ee2f"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\startup-inspection01\\editor.envelope.json",
+      "archive": "proof/startup-inspection01/editor.envelope.json",
+      "bytes": 825,
+      "sha256": "d636332855be205059e37ff4143d7b92e9daa3127c6e4647d8881a759c6a5b84"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\startup-inspection01\\editor.stderr.txt",
+      "archive": "proof/startup-inspection01/editor.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\startup-inspection01\\project.args.json",
+      "archive": "proof/startup-inspection01/project.args.json",
+      "bytes": 53,
+      "sha256": "0f86d3d8401ba6245dc834ba4b17154542ae9bc5ca112c7b4c1981d3ecd8ee2f"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\startup-inspection01\\project.envelope.json",
+      "archive": "proof/startup-inspection01/project.envelope.json",
+      "bytes": 791,
+      "sha256": "93f1389638e2bb45d6a716ae86e625f8e27a2a6b3195e86764cf07d5551bb544"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\startup-inspection01\\project.stderr.txt",
+      "archive": "proof/startup-inspection01/project.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\startup-inspection01\\root.args.json",
+      "archive": "proof/startup-inspection01/root.args.json",
+      "bytes": 69,
+      "sha256": "fac45d6505b772fc436aed4ffd4ff5b3bcb88e5f9ef3a2e096505989e61db1f4"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\startup-inspection01\\root.envelope.json",
+      "archive": "proof/startup-inspection01/root.envelope.json",
+      "bytes": 1395,
+      "sha256": "4cfadb421393b4200e76016a35bf76c20613b82c717911ee4b2042776598873e"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\startup-inspection01\\root.stderr.txt",
+      "archive": "proof/startup-inspection01/root.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\startup-inspection01\\scene.args.json",
+      "archive": "proof/startup-inspection01/scene.args.json",
+      "bytes": 53,
+      "sha256": "0f86d3d8401ba6245dc834ba4b17154542ae9bc5ca112c7b4c1981d3ecd8ee2f"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\startup-inspection01\\scene.envelope.json",
+      "archive": "proof/startup-inspection01/scene.envelope.json",
+      "bytes": 1373,
+      "sha256": "f4b223b7864f35bd97af73b63d4cfa501d3cfe781b436eff87a1775eaa5aad42"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\startup-inspection01\\scene.stderr.txt",
+      "archive": "proof/startup-inspection01/scene.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\startup-inspection01\\sessions.args.json",
+      "archive": "proof/startup-inspection01/sessions.args.json",
+      "bytes": 2,
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\startup-inspection01\\sessions.envelope.json",
+      "archive": "proof/startup-inspection01/sessions.envelope.json",
+      "bytes": 806,
+      "sha256": "1340070eb9c061aeb662779f79f71111a8559e76e8b4098014728aee30ee5607"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\startup-inspection01\\sessions.stderr.txt",
+      "archive": "proof/startup-inspection01/sessions.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\startup-settings.log",
+      "archive": "proof/startup-settings.log.txt",
+      "bytes": 185,
+      "sha256": "339054cc99d4e37fd5f6d1f173407327a1102e98205be9d864df1079b2c9db02"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\startup_settings_probe.gd",
+      "archive": "proof/startup_settings_probe.gd",
+      "bytes": 433,
+      "sha256": "a7901c8388739d4bf78cc517e5bdefab5a616ed63455691814b37705017df741"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-build-attempt01\\cargo.log",
+      "archive": "builds/native-profile-20261028-godot-build-attempt01/cargo.log.txt",
+      "bytes": 1344,
+      "sha256": "bdd03f88ce7b1252c137c7644f0f3db0c286dba389851985ab86a6c55cb22deb"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-build-attempt01\\run.json",
+      "archive": "builds/native-profile-20261028-godot-build-attempt01/run.json",
+      "bytes": 2073,
+      "sha256": "91dcd4991e6a9037c8c9ffd2461cceeaedf47285e6d9b46fef6d0e245eece502"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-build-attempt01\\source\\crates\\driver-blender\\tests\\windows_broker_authoring.rs",
+      "archive": "builds/native-profile-20261028-godot-build-attempt01/source/crates/driver-blender/tests/windows_broker_authoring.rs",
+      "bytes": 40167,
+      "sha256": "13245abe0d35e3e0ba789d1412c63a359189b63740026c7ee43bb1e7f29ac4e9"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-build-attempt01\\source\\crates\\driver-blender\\tests\\windows_broker_cancel.rs",
+      "archive": "builds/native-profile-20261028-godot-build-attempt01/source/crates/driver-blender/tests/windows_broker_cancel.rs",
+      "bytes": 9230,
+      "sha256": "a39094933800ef6e2b7f65c4a1336a65bc3105c153028a2a5691aa80bb84f91e"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-build-attempt01\\source\\crates\\driver-blender\\tests\\windows_broker_session.rs",
+      "archive": "builds/native-profile-20261028-godot-build-attempt01/source/crates/driver-blender/tests/windows_broker_session.rs",
+      "bytes": 21076,
+      "sha256": "d1eac20e77afe249943a2f56835252d01a9c4c168311fd1e175877fca7c5a7b8"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-build-attempt01\\source\\docs\\blender\\WINDOWS_52_PR_DRAFT.md",
+      "archive": "builds/native-profile-20261028-godot-build-attempt01/source/docs/blender/WINDOWS_52_PR_DRAFT.md",
+      "bytes": 5201,
+      "sha256": "52cbe6fe39a6e5a5915a901484377b763578951f0ee4ca412e55587162b4e005"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-build-attempt01\\source\\docs\\blender\\WINDOWS_NATIVE_PROFILE_20261029.md",
+      "archive": "builds/native-profile-20261028-godot-build-attempt01/source/docs/blender/WINDOWS_NATIVE_PROFILE_20261029.md",
+      "bytes": 9777,
+      "sha256": "5c1172fda4288b6e086a12b13ab21b27e87448f2f9aa02cc34c31ad810b0cd12"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-pairing-proof-build-attempt01\\cargo.log",
+      "archive": "builds/native-profile-20261028-godot-pairing-proof-build-attempt01/cargo.log.txt",
+      "bytes": 1619,
+      "sha256": "872545db9b8a99db8e2e232239048d6da2bbe2d1e4418e694e66f25621ab5d49"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-pairing-proof-build-attempt01\\run.json",
+      "archive": "builds/native-profile-20261028-godot-pairing-proof-build-attempt01/run.json",
+      "bytes": 2184,
+      "sha256": "a8d3d1176f1f3128fd06a35d702a757036579d0f45b12918d4fa88b9d6f24ba9"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-pairing-proof-build-attempt01\\source\\crates\\driver-blender\\tests\\windows_broker_authoring.rs",
+      "archive": "builds/native-profile-20261028-godot-pairing-proof-build-attempt01/source/crates/driver-blender/tests/windows_broker_authoring.rs",
+      "bytes": 40167,
+      "sha256": "13245abe0d35e3e0ba789d1412c63a359189b63740026c7ee43bb1e7f29ac4e9"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-pairing-proof-build-attempt01\\source\\crates\\driver-blender\\tests\\windows_broker_cancel.rs",
+      "archive": "builds/native-profile-20261028-godot-pairing-proof-build-attempt01/source/crates/driver-blender/tests/windows_broker_cancel.rs",
+      "bytes": 9230,
+      "sha256": "a39094933800ef6e2b7f65c4a1336a65bc3105c153028a2a5691aa80bb84f91e"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-pairing-proof-build-attempt01\\source\\crates\\driver-blender\\tests\\windows_broker_godot_handoff.rs",
+      "archive": "builds/native-profile-20261028-godot-pairing-proof-build-attempt01/source/crates/driver-blender/tests/windows_broker_godot_handoff.rs",
+      "bytes": 14470,
+      "sha256": "dcaabc375911f379474896ea6e065730302028358d02048ede812f8da562d74d"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-pairing-proof-build-attempt01\\source\\crates\\driver-blender\\tests\\windows_broker_session.rs",
+      "archive": "builds/native-profile-20261028-godot-pairing-proof-build-attempt01/source/crates/driver-blender/tests/windows_broker_session.rs",
+      "bytes": 21076,
+      "sha256": "d1eac20e77afe249943a2f56835252d01a9c4c168311fd1e175877fca7c5a7b8"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-pairing-proof-build-attempt01\\source\\crates\\driver-godot\\tests\\windows_pairing.rs",
+      "archive": "builds/native-profile-20261028-godot-pairing-proof-build-attempt01/source/crates/driver-godot/tests/windows_pairing.rs",
+      "bytes": 6978,
+      "sha256": "fafd67bb7c325b180a2efdae9a823cdcdc4d2cdff91d60fbf29ed28eb241a48d"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt01\\cargo.log",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt01/cargo.log.txt",
+      "bytes": 313,
+      "sha256": "acaf07c79e9441e2a993b34d103a750bba6265a4a5f036da9713fc83aa632d4f"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt01\\run.json",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt01/run.json",
+      "bytes": 1969,
+      "sha256": "34fbeb4a4008d7ad4942215f6da9147f694e27b8d5823adfba76d72f771d74ad"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt01\\source\\crates\\driver-blender\\tests\\windows_broker_authoring.rs",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt01/source/crates/driver-blender/tests/windows_broker_authoring.rs",
+      "bytes": 40167,
+      "sha256": "13245abe0d35e3e0ba789d1412c63a359189b63740026c7ee43bb1e7f29ac4e9"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt01\\source\\crates\\driver-blender\\tests\\windows_broker_cancel.rs",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt01/source/crates/driver-blender/tests/windows_broker_cancel.rs",
+      "bytes": 9230,
+      "sha256": "a39094933800ef6e2b7f65c4a1336a65bc3105c153028a2a5691aa80bb84f91e"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt01\\source\\crates\\driver-blender\\tests\\windows_broker_godot_handoff.rs",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt01/source/crates/driver-blender/tests/windows_broker_godot_handoff.rs",
+      "bytes": 14492,
+      "sha256": "d8a79de703509fb829d550d9877516ec29ee9b10864b8de7e796fd8b1f45c294"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt01\\source\\crates\\driver-blender\\tests\\windows_broker_session.rs",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt01/source/crates/driver-blender/tests/windows_broker_session.rs",
+      "bytes": 21076,
+      "sha256": "d1eac20e77afe249943a2f56835252d01a9c4c168311fd1e175877fca7c5a7b8"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt02\\cargo.log",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt02/cargo.log.txt",
+      "bytes": 312,
+      "sha256": "f8cce9d64fd6986ee85b6e5382884cce46208206a00ebabe9e028e78d9614502"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt02\\run.json",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt02/run.json",
+      "bytes": 1968,
+      "sha256": "4740b5a911e40fcbe49223b1bf1b2bdadbcc7a28bad7bacac470267a77e05b9f"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt02\\source\\crates\\driver-blender\\tests\\windows_broker_authoring.rs",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt02/source/crates/driver-blender/tests/windows_broker_authoring.rs",
+      "bytes": 40167,
+      "sha256": "13245abe0d35e3e0ba789d1412c63a359189b63740026c7ee43bb1e7f29ac4e9"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt02\\source\\crates\\driver-blender\\tests\\windows_broker_cancel.rs",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt02/source/crates/driver-blender/tests/windows_broker_cancel.rs",
+      "bytes": 9230,
+      "sha256": "a39094933800ef6e2b7f65c4a1336a65bc3105c153028a2a5691aa80bb84f91e"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt02\\source\\crates\\driver-blender\\tests\\windows_broker_godot_handoff.rs",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt02/source/crates/driver-blender/tests/windows_broker_godot_handoff.rs",
+      "bytes": 14470,
+      "sha256": "dcaabc375911f379474896ea6e065730302028358d02048ede812f8da562d74d"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt02\\source\\crates\\driver-blender\\tests\\windows_broker_session.rs",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt02/source/crates/driver-blender/tests/windows_broker_session.rs",
+      "bytes": 21076,
+      "sha256": "d1eac20e77afe249943a2f56835252d01a9c4c168311fd1e175877fca7c5a7b8"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt03\\cargo.log",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt03/cargo.log.txt",
+      "bytes": 312,
+      "sha256": "70c08076acc2f65bb2c4d12517d0620e6e8b8625322ffc13cb527162dba86d23"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt03\\run.json",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt03/run.json",
+      "bytes": 2210,
+      "sha256": "5842fa014963e1ddbf20683efbe68e86e5adfa11c983f049184d3febcd73b5af"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt03\\source\\crates\\driver-blender\\tests\\windows_broker_authoring.rs",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt03/source/crates/driver-blender/tests/windows_broker_authoring.rs",
+      "bytes": 40167,
+      "sha256": "13245abe0d35e3e0ba789d1412c63a359189b63740026c7ee43bb1e7f29ac4e9"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt03\\source\\crates\\driver-blender\\tests\\windows_broker_cancel.rs",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt03/source/crates/driver-blender/tests/windows_broker_cancel.rs",
+      "bytes": 9230,
+      "sha256": "a39094933800ef6e2b7f65c4a1336a65bc3105c153028a2a5691aa80bb84f91e"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt03\\source\\crates\\driver-blender\\tests\\windows_broker_godot_handoff.rs",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt03/source/crates/driver-blender/tests/windows_broker_godot_handoff.rs",
+      "bytes": 15744,
+      "sha256": "ce64df5ba9b62d910ed941df439105a9aee4bf03edee6fb4c8cc47877b8e712f"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt03\\source\\crates\\driver-blender\\tests\\windows_broker_session.rs",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt03/source/crates/driver-blender/tests/windows_broker_session.rs",
+      "bytes": 21076,
+      "sha256": "d1eac20e77afe249943a2f56835252d01a9c4c168311fd1e175877fca7c5a7b8"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt03\\source\\crates\\driver-godot\\tests\\windows_pairing.rs",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt03/source/crates/driver-godot/tests/windows_pairing.rs",
+      "bytes": 6978,
+      "sha256": "fafd67bb7c325b180a2efdae9a823cdcdc4d2cdff91d60fbf29ed28eb241a48d"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt04\\cargo.log",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt04/cargo.log.txt",
+      "bytes": 312,
+      "sha256": "120638d365716fcecf4b6e45b8f7631675ea2b3920243e70b15ae796c263bc6e"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt04\\run.json",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt04/run.json",
+      "bytes": 2210,
+      "sha256": "19b3e61b7b509a0931b6e95fc981af802b4a3edfe92284e288770d0eabb0547a"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt04\\source\\crates\\driver-blender\\tests\\windows_broker_authoring.rs",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt04/source/crates/driver-blender/tests/windows_broker_authoring.rs",
+      "bytes": 40167,
+      "sha256": "13245abe0d35e3e0ba789d1412c63a359189b63740026c7ee43bb1e7f29ac4e9"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt04\\source\\crates\\driver-blender\\tests\\windows_broker_cancel.rs",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt04/source/crates/driver-blender/tests/windows_broker_cancel.rs",
+      "bytes": 9230,
+      "sha256": "a39094933800ef6e2b7f65c4a1336a65bc3105c153028a2a5691aa80bb84f91e"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt04\\source\\crates\\driver-blender\\tests\\windows_broker_godot_handoff.rs",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt04/source/crates/driver-blender/tests/windows_broker_godot_handoff.rs",
+      "bytes": 22866,
+      "sha256": "faff982f687644b4c23eb56c976dd24787ba248f9333688b13bcced404ecbb40"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt04\\source\\crates\\driver-blender\\tests\\windows_broker_session.rs",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt04/source/crates/driver-blender/tests/windows_broker_session.rs",
+      "bytes": 21076,
+      "sha256": "d1eac20e77afe249943a2f56835252d01a9c4c168311fd1e175877fca7c5a7b8"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt04\\source\\crates\\driver-godot\\tests\\windows_pairing.rs",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt04/source/crates/driver-godot/tests/windows_pairing.rs",
+      "bytes": 6978,
+      "sha256": "fafd67bb7c325b180a2efdae9a823cdcdc4d2cdff91d60fbf29ed28eb241a48d"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt05\\cargo.log",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt05/cargo.log.txt",
+      "bytes": 312,
+      "sha256": "017c534c14bb752fec63beed9ea6d4d6a1bf93d7f7a4ef4ef38df9ecfcca845e"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt05\\run.json",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt05/run.json",
+      "bytes": 3669,
+      "sha256": "80be2ff0182f58359d33757bcf3a47a643a488b1cd9195ce709702d66acb6f0b"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt05\\source\\crates\\driver-blender\\src\\authoring_runtime.rs",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt05/source/crates/driver-blender/src/authoring_runtime.rs",
+      "bytes": 50916,
+      "sha256": "39040bc79f38cb44db0aeeee465a0cbc18d264a28414ed6bee116a3eb1f99f0d"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt05\\source\\crates\\driver-blender\\tests\\fixtures\\authoring_plan_output_budget.json",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt05/source/crates/driver-blender/tests/fixtures/authoring_plan_output_budget.json",
+      "bytes": 64371,
+      "sha256": "8de79c861dd6b3f054f75065cffbe06042b23ec897f675470d57c0406396d304"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt05\\source\\crates\\driver-blender\\tests\\fixtures\\authoring_plan_output_valid.json",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt05/source/crates/driver-blender/tests/fixtures/authoring_plan_output_valid.json",
+      "bytes": 30641,
+      "sha256": "d2e8db6c592ba972f60606fc87de21016034792ef27d4579aba4d7c321e54cf9"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt05\\source\\crates\\driver-blender\\tests\\windows_broker_authoring.rs",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt05/source/crates/driver-blender/tests/windows_broker_authoring.rs",
+      "bytes": 46070,
+      "sha256": "c6f6263bc097be083f6facc7e5dc6725654832c77cda0f88132ba7fd4009ad9f"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt05\\source\\crates\\driver-blender\\tests\\windows_broker_cancel.rs",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt05/source/crates/driver-blender/tests/windows_broker_cancel.rs",
+      "bytes": 9230,
+      "sha256": "a39094933800ef6e2b7f65c4a1336a65bc3105c153028a2a5691aa80bb84f91e"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt05\\source\\crates\\driver-blender\\tests\\windows_broker_godot_handoff.rs",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt05/source/crates/driver-blender/tests/windows_broker_godot_handoff.rs",
+      "bytes": 37009,
+      "sha256": "3cbee35e770c5ca53816e56ae02ceab8dacef1d5980c36be0a079375d66e8f1f"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt05\\source\\crates\\driver-blender\\tests\\windows_broker_session.rs",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt05/source/crates/driver-blender/tests/windows_broker_session.rs",
+      "bytes": 21076,
+      "sha256": "d1eac20e77afe249943a2f56835252d01a9c4c168311fd1e175877fca7c5a7b8"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt05\\source\\crates\\driver-godot\\tests\\windows_pairing.rs",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt05/source/crates/driver-godot/tests/windows_pairing.rs",
+      "bytes": 6978,
+      "sha256": "fafd67bb7c325b180a2efdae9a823cdcdc4d2cdff91d60fbf29ed28eb241a48d"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt05\\source\\crates\\registry\\src\\bounds.rs",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt05/source/crates/registry/src/bounds.rs",
+      "bytes": 8722,
+      "sha256": "e5a193890b0201f5eaf4bb5af3124243e5e7af201a2a3526081a7588082fb430"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt05\\source\\crates\\types\\src\\json_budget.rs",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt05/source/crates/types/src/json_budget.rs",
+      "bytes": 2769,
+      "sha256": "41f1a8d5fde9fab251304049564f5eb4b2428aec14f3420914737d6a1837c326"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt05\\source\\crates\\types\\src\\lib.rs",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt05/source/crates/types/src/lib.rs",
+      "bytes": 35701,
+      "sha256": "6ed319a0629e07286f8f59063cc3f596b39e70bcf23dab543e79578483ef211e"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt06\\cargo.log",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt06/cargo.log.txt",
+      "bytes": 313,
+      "sha256": "b7340f770d27ba10d694d30f77b7e1f379b6c5518568c0c74479ae82589eac5e"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt06\\run.json",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt06/run.json",
+      "bytes": 3671,
+      "sha256": "2b66dbb3627de083dfd0f9649156fd5cc70591e1af91f113aa3b1fea6274911e"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt06\\source\\crates\\driver-blender\\src\\authoring_runtime.rs",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt06/source/crates/driver-blender/src/authoring_runtime.rs",
+      "bytes": 50916,
+      "sha256": "39040bc79f38cb44db0aeeee465a0cbc18d264a28414ed6bee116a3eb1f99f0d"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt06\\source\\crates\\driver-blender\\tests\\fixtures\\authoring_plan_output_budget.json",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt06/source/crates/driver-blender/tests/fixtures/authoring_plan_output_budget.json",
+      "bytes": 64371,
+      "sha256": "8de79c861dd6b3f054f75065cffbe06042b23ec897f675470d57c0406396d304"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt06\\source\\crates\\driver-blender\\tests\\fixtures\\authoring_plan_output_valid.json",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt06/source/crates/driver-blender/tests/fixtures/authoring_plan_output_valid.json",
+      "bytes": 30641,
+      "sha256": "d2e8db6c592ba972f60606fc87de21016034792ef27d4579aba4d7c321e54cf9"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt06\\source\\crates\\driver-blender\\tests\\windows_broker_authoring.rs",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt06/source/crates/driver-blender/tests/windows_broker_authoring.rs",
+      "bytes": 46070,
+      "sha256": "c6f6263bc097be083f6facc7e5dc6725654832c77cda0f88132ba7fd4009ad9f"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt06\\source\\crates\\driver-blender\\tests\\windows_broker_cancel.rs",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt06/source/crates/driver-blender/tests/windows_broker_cancel.rs",
+      "bytes": 9230,
+      "sha256": "a39094933800ef6e2b7f65c4a1336a65bc3105c153028a2a5691aa80bb84f91e"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt06\\source\\crates\\driver-blender\\tests\\windows_broker_godot_handoff.rs",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt06/source/crates/driver-blender/tests/windows_broker_godot_handoff.rs",
+      "bytes": 40244,
+      "sha256": "deb50ffd7b1c10043e7334a59a9ce4962cb16bd5bffdd808800175f4a22b2ab8"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt06\\source\\crates\\driver-blender\\tests\\windows_broker_session.rs",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt06/source/crates/driver-blender/tests/windows_broker_session.rs",
+      "bytes": 21076,
+      "sha256": "d1eac20e77afe249943a2f56835252d01a9c4c168311fd1e175877fca7c5a7b8"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt06\\source\\crates\\driver-godot\\tests\\windows_pairing.rs",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt06/source/crates/driver-godot/tests/windows_pairing.rs",
+      "bytes": 6978,
+      "sha256": "fafd67bb7c325b180a2efdae9a823cdcdc4d2cdff91d60fbf29ed28eb241a48d"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt06\\source\\crates\\registry\\src\\bounds.rs",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt06/source/crates/registry/src/bounds.rs",
+      "bytes": 8722,
+      "sha256": "e5a193890b0201f5eaf4bb5af3124243e5e7af201a2a3526081a7588082fb430"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt06\\source\\crates\\types\\src\\json_budget.rs",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt06/source/crates/types/src/json_budget.rs",
+      "bytes": 2769,
+      "sha256": "41f1a8d5fde9fab251304049564f5eb4b2428aec14f3420914737d6a1837c326"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt06\\source\\crates\\types\\src\\lib.rs",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt06/source/crates/types/src/lib.rs",
+      "bytes": 35701,
+      "sha256": "6ed319a0629e07286f8f59063cc3f596b39e70bcf23dab543e79578483ef211e"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt07\\cargo.log",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt07/cargo.log.txt",
+      "bytes": 312,
+      "sha256": "d80bb0fae8645aa444a7cf1a8482ab868180ae84a26fc922b3028d9c689e09ea"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt07\\run.json",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt07/run.json",
+      "bytes": 3671,
+      "sha256": "c00a28cdc80b470aec63ac9c546a15283dc947dd71ff3737c858318374ca0be8"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt07\\source\\crates\\driver-blender\\src\\authoring_runtime.rs",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt07/source/crates/driver-blender/src/authoring_runtime.rs",
+      "bytes": 50916,
+      "sha256": "39040bc79f38cb44db0aeeee465a0cbc18d264a28414ed6bee116a3eb1f99f0d"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt07\\source\\crates\\driver-blender\\tests\\fixtures\\authoring_plan_output_budget.json",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt07/source/crates/driver-blender/tests/fixtures/authoring_plan_output_budget.json",
+      "bytes": 64371,
+      "sha256": "8de79c861dd6b3f054f75065cffbe06042b23ec897f675470d57c0406396d304"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt07\\source\\crates\\driver-blender\\tests\\fixtures\\authoring_plan_output_valid.json",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt07/source/crates/driver-blender/tests/fixtures/authoring_plan_output_valid.json",
+      "bytes": 30641,
+      "sha256": "d2e8db6c592ba972f60606fc87de21016034792ef27d4579aba4d7c321e54cf9"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt07\\source\\crates\\driver-blender\\tests\\windows_broker_authoring.rs",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt07/source/crates/driver-blender/tests/windows_broker_authoring.rs",
+      "bytes": 46070,
+      "sha256": "c6f6263bc097be083f6facc7e5dc6725654832c77cda0f88132ba7fd4009ad9f"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt07\\source\\crates\\driver-blender\\tests\\windows_broker_cancel.rs",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt07/source/crates/driver-blender/tests/windows_broker_cancel.rs",
+      "bytes": 9230,
+      "sha256": "a39094933800ef6e2b7f65c4a1336a65bc3105c153028a2a5691aa80bb84f91e"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt07\\source\\crates\\driver-blender\\tests\\windows_broker_godot_handoff.rs",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt07/source/crates/driver-blender/tests/windows_broker_godot_handoff.rs",
+      "bytes": 42499,
+      "sha256": "7d89721ca05c3c3ce659c435fb589efa76e2f36f8f4364ae37cd5f685cfbbd8c"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt07\\source\\crates\\driver-blender\\tests\\windows_broker_session.rs",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt07/source/crates/driver-blender/tests/windows_broker_session.rs",
+      "bytes": 21076,
+      "sha256": "d1eac20e77afe249943a2f56835252d01a9c4c168311fd1e175877fca7c5a7b8"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt07\\source\\crates\\driver-godot\\tests\\windows_pairing.rs",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt07/source/crates/driver-godot/tests/windows_pairing.rs",
+      "bytes": 6978,
+      "sha256": "fafd67bb7c325b180a2efdae9a823cdcdc4d2cdff91d60fbf29ed28eb241a48d"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt07\\source\\crates\\registry\\src\\bounds.rs",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt07/source/crates/registry/src/bounds.rs",
+      "bytes": 8722,
+      "sha256": "e5a193890b0201f5eaf4bb5af3124243e5e7af201a2a3526081a7588082fb430"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt07\\source\\crates\\types\\src\\json_budget.rs",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt07/source/crates/types/src/json_budget.rs",
+      "bytes": 2769,
+      "sha256": "41f1a8d5fde9fab251304049564f5eb4b2428aec14f3420914737d6a1837c326"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt07\\source\\crates\\types\\src\\lib.rs",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt07/source/crates/types/src/lib.rs",
+      "bytes": 35701,
+      "sha256": "6ed319a0629e07286f8f59063cc3f596b39e70bcf23dab543e79578483ef211e"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\scripts\\Prepare-SemwrightGodotBridge.py",
+      "archive": "orchestration/Prepare-SemwrightGodotBridge.py",
+      "bytes": 7345,
+      "sha256": "2657ea04d9ab6d9a326bde1bafb0560cc6fadb31533255418e2f97ec05b9d64c"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\scripts\\Start-SemwrightGodotBridge.py",
+      "archive": "orchestration/Start-SemwrightGodotBridge.py",
+      "bytes": 2886,
+      "sha256": "babe83cd3ba08cb885e0af3f3d9d7369156b7013d21a584909ef2577f41b2069"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\scripts\\Reconcile-GodotStartupConfig.py",
+      "archive": "orchestration/Reconcile-GodotStartupConfig.py",
+      "bytes": 3501,
+      "sha256": "a3cf251727589fac4021d1d63d8aec98a933d6df78dabed8229bcc87952e6a9e"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\scripts\\Inspect-SemwrightGodotStartup.py",
+      "archive": "orchestration/Inspect-SemwrightGodotStartup.py",
+      "bytes": 1684,
+      "sha256": "c2712b37ddfcb4a172a14d49e03428677b27ed7711de63dba57f65d94f2c968d"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\scripts\\Test-SemwrightGodotHandoffV2.py",
+      "archive": "orchestration/Test-SemwrightGodotHandoffV2.py",
+      "bytes": 6118,
+      "sha256": "57e6f1cb66866d87238e2a699c86bb05dad3aad02b28045b70e963c2e5a2bf95"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\scripts\\Test-SemwrightGodotExistingReadback.py",
+      "archive": "orchestration/Test-SemwrightGodotExistingReadback.py",
+      "bytes": 3115,
+      "sha256": "7bdcd4e203d8b7862cfad358e3d1f41bd2e1d4ae9b58843d0c855c5398cd68e4"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\scripts\\Test-SemwrightGodotPairing.py",
+      "archive": "orchestration/Test-SemwrightGodotPairing.py",
+      "bytes": 2859,
+      "sha256": "313770a2efa092e9867244559ea05cdd3d143a42dc210f0e245237bf46196d74"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\scripts\\Test-SemwrightGodotFixtureSave.py",
+      "archive": "orchestration/Test-SemwrightGodotFixtureSave.py",
+      "bytes": 5136,
+      "sha256": "693faca699e2b3c5de285b28153a8ad45ccdd83f4afd8c6261fc2663eb8fa043"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\scripts\\Test-SemwrightGodotFixtureSaveV2.py",
+      "archive": "orchestration/Test-SemwrightGodotFixtureSaveV2.py",
+      "bytes": 5369,
+      "sha256": "f553b9a23b1bde2ccec369676eaf9ab74179e56a76b392ee340bf929e1f7b1fa"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\scripts\\Reconcile-GodotSceneSave.py",
+      "archive": "orchestration/Reconcile-GodotSceneSave.py",
+      "bytes": 3398,
+      "sha256": "81c543484698881938dfd4dcb3703c8f13454d65e82fdea6b94e9fcb522ab8e5"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\scripts\\Prepare-GodotOperatorConsole.py",
+      "archive": "orchestration/Prepare-GodotOperatorConsole.py",
+      "bytes": 8799,
+      "sha256": "fa90fbff57031713bf099c0dcabc6976be572ce950ecc944520536c7942eeb6f"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\scripts\\Repair-RetiredGodotSecretLease.ps1",
+      "archive": "orchestration/Repair-RetiredGodotSecretLease.ps1",
+      "bytes": 4491,
+      "sha256": "e043948d850d9516cda9497227778fbb7a709eb5479f8ceef6ef8a6fec2910ed"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\scripts\\Recover-GodotOperatorConsole.py",
+      "archive": "orchestration/Recover-GodotOperatorConsole.py",
+      "bytes": 6392,
+      "sha256": "779f1d8c323e65da0c85e9a66cd7ac5aa267acdd34c3e0b09c0a29b8d718885a"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\scripts\\Run-GodotOperatorHandoff.py",
+      "archive": "orchestration/Run-GodotOperatorHandoff.py",
+      "bytes": 6678,
+      "sha256": "5e429ae7be4e0018e647c52e3809d55a6b026dafe0cf891bc73384c8224f627a"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\scripts\\Validate-GodotPersistedFixture.py",
+      "archive": "orchestration/Validate-GodotPersistedFixture.py",
+      "bytes": 5624,
+      "sha256": "68770c091bbdbe8e9ae70dda928245ebce31a9b6b6c596e18f1408845e3f8087"
+    }
+  ],
+  "audit": {
+    "sha256": "ac242e3d239fe1979680bd536686a02e5a63b5ad5b6473a1441f7ae0ccfc3822",
+    "records": 116,
+    "tail_hash": "f39aad0b52aacf97b6138e61471e38d6a54b4e1d812d42d9ab585954a81459b1",
+    "consistent": true,
+    "snapshot_of_live_idle_broker": true,
+    "malicious_same_owner_tamper_resistance_claimed": false
+  },
+  "correlated_envelopes": [
+    {
+      "path": "existing-readback-attempt01/00-sessions.envelope.json",
+      "request_id": "1e6105b585e448f3996f6a71e5ff2033",
+      "command": "driver.godot.session.list",
+      "start_sequence": 55,
+      "finish_sequence": 56,
+      "ok": true
+    },
+    {
+      "path": "existing-readback-attempt01/01-continuation-scene.envelope.json",
+      "request_id": "81ed725c28ec47a59574977d69032988",
+      "command": "driver.godot.scene.inspect",
+      "start_sequence": 57,
+      "finish_sequence": 58,
+      "ok": true
+    },
+    {
+      "path": "existing-readback-attempt01/02-camera-before.envelope.json",
+      "request_id": "4f4900ee460148c59f2736ba962eefb9",
+      "command": "driver.godot.camera.inspect",
+      "start_sequence": 59,
+      "finish_sequence": 60,
+      "ok": true
+    },
+    {
+      "path": "existing-readback-attempt01/03-camera-node-before.envelope.json",
+      "request_id": "7d84c1b943c94d2fb48c0a0455594659",
+      "command": "driver.godot.node.inspect",
+      "start_sequence": 61,
+      "finish_sequence": 62,
+      "ok": true
+    },
+    {
+      "path": "existing-readback-attempt01/04-asset0-existing.envelope.json",
+      "request_id": "ca6a0202622348aca4c7066525c70cb1",
+      "command": "driver.godot.asset.inspect",
+      "start_sequence": 63,
+      "finish_sequence": 64,
+      "ok": true
+    },
+    {
+      "path": "existing-readback-attempt01/05-asset0-instantiate-existing.envelope.json",
+      "request_id": "05ca02c43770448a8dd5dee00d4ed615",
+      "command": "driver.godot.scene.instantiate",
+      "start_sequence": 65,
+      "finish_sequence": 66,
+      "ok": true
+    },
+    {
+      "path": "existing-readback-attempt01/06-asset1-existing.envelope.json",
+      "request_id": "99e8119f4b4a4d6dbcd1839bb5e6ab9c",
+      "command": "driver.godot.asset.inspect",
+      "start_sequence": 67,
+      "finish_sequence": 68,
+      "ok": true
+    },
+    {
+      "path": "existing-readback-attempt01/07-asset1-instantiate-existing.envelope.json",
+      "request_id": "313d2c4e2fb24f3ba4533b39c05da239",
+      "command": "driver.godot.scene.instantiate",
+      "start_sequence": 69,
+      "finish_sequence": 70,
+      "ok": true
+    },
+    {
+      "path": "existing-readback-attempt01/08-scene-meshes.envelope.json",
+      "request_id": "01065d4bd6bd46d783b13b9f8e09a8bb",
+      "command": "driver.godot.scene.inspect",
+      "start_sequence": 71,
+      "finish_sequence": 72,
+      "ok": true
+    },
+    {
+      "path": "existing-readback-attempt01/09-mesh-0.envelope.json",
+      "request_id": "406436c6a9464d89b7f4bab8ecf9caa4",
+      "command": "driver.godot.node.inspect",
+      "start_sequence": 73,
+      "finish_sequence": 74,
+      "ok": true
+    },
+    {
+      "path": "existing-readback-attempt01/10-mesh-1.envelope.json",
+      "request_id": "06886096832947d9b4a04b9598f059c9",
+      "command": "driver.godot.node.inspect",
+      "start_sequence": 75,
+      "finish_sequence": 76,
+      "ok": true
+    },
+    {
+      "path": "existing-readback-attempt01/11-mesh-2.envelope.json",
+      "request_id": "bc1ec46706fb4208b447fb4bdbc72240",
+      "command": "driver.godot.node.inspect",
+      "start_sequence": 77,
+      "finish_sequence": 78,
+      "ok": true
+    },
+    {
+      "path": "existing-readback-attempt01/12-mesh-3.envelope.json",
+      "request_id": "0e517086ca314baaa2f407db9b737a2d",
+      "command": "driver.godot.node.inspect",
+      "start_sequence": 79,
+      "finish_sequence": 80,
+      "ok": true
+    },
+    {
+      "path": "existing-readback-attempt01/13-camera-after.envelope.json",
+      "request_id": "cc931bb4a4334aa5a30ff4b6a7728f45",
+      "command": "driver.godot.camera.inspect",
+      "start_sequence": 81,
+      "finish_sequence": 82,
+      "ok": true
+    },
+    {
+      "path": "existing-readback-attempt01/14-camera-node-after.envelope.json",
+      "request_id": "de9594f35fc84f13bb617215673e7a96",
+      "command": "driver.godot.node.inspect",
+      "start_sequence": 83,
+      "finish_sequence": 84,
+      "ok": true
+    },
+    {
+      "path": "existing-readback-attempt01/15-save-supporting-only.envelope.json",
+      "request_id": "bc6c653c8c574c6d85efea345e2d444a",
+      "command": "driver.godot.scene.save",
+      "start_sequence": 85,
+      "finish_sequence": 86,
+      "ok": false
+    },
+    {
+      "path": "fixture-save-attempt01/00-sessions.envelope.json",
+      "request_id": "246e1a9877d14430908785c785e0e0d7",
+      "command": "driver.godot.session.list",
+      "start_sequence": 93,
+      "finish_sequence": 94,
+      "ok": true
+    },
+    {
+      "path": "fixture-save-attempt01/01-reconciled-fixture.envelope.json",
+      "request_id": "c1eea8afd2c84152833ba24a56b250c1",
+      "command": "driver.godot.scene.inspect",
+      "start_sequence": 95,
+      "finish_sequence": 96,
+      "ok": true
+    },
+    {
+      "path": "fixture-save-attempt01/02-camera-before.envelope.json",
+      "request_id": "b6fa6d8a4b58425298db7b97cf0a508a",
+      "command": "driver.godot.node.inspect",
+      "start_sequence": 97,
+      "finish_sequence": 98,
+      "ok": true
+    },
+    {
+      "path": "handoff-attempt01/00-doctor.envelope.json",
+      "request_id": "8719e7d5d5184d10a8420d2c75f40684",
+      "command": "driver.godot.doctor",
+      "start_sequence": 5,
+      "finish_sequence": 6,
+      "ok": true
+    },
+    {
+      "path": "handoff-attempt01/01-sessions.envelope.json",
+      "request_id": "9dc8b8adef074fb79fe27a76418b74d5",
+      "command": "driver.godot.session.list",
+      "start_sequence": 7,
+      "finish_sequence": 8,
+      "ok": true
+    },
+    {
+      "path": "handoff-attempt01/02-project-before.envelope.json",
+      "request_id": "09c2760e07304581be18aa10bab6a486",
+      "command": "driver.godot.project.inspect",
+      "start_sequence": 9,
+      "finish_sequence": 10,
+      "ok": true
+    },
+    {
+      "path": "handoff-attempt02/00-doctor.envelope.json",
+      "request_id": "59b0c3adb905401ba605835a6337ea27",
+      "command": "driver.godot.doctor",
+      "start_sequence": 25,
+      "finish_sequence": 26,
+      "ok": true
+    },
+    {
+      "path": "handoff-attempt02/01-sessions.envelope.json",
+      "request_id": "ddf70b56d89d4650b605ee30920a3acd",
+      "command": "driver.godot.session.list",
+      "start_sequence": 27,
+      "finish_sequence": 28,
+      "ok": true
+    },
+    {
+      "path": "handoff-attempt02/02-project-before.envelope.json",
+      "request_id": "5941bf7672f046d5a231f271ac2e8543",
+      "command": "driver.godot.project.inspect",
+      "start_sequence": 29,
+      "finish_sequence": 30,
+      "ok": true
+    },
+    {
+      "path": "handoff-attempt02/03-editor-before.envelope.json",
+      "request_id": "e98afc1dbac84bdab0581bd74c646b28",
+      "command": "driver.godot.editor.state",
+      "start_sequence": 31,
+      "finish_sequence": 32,
+      "ok": true
+    },
+    {
+      "path": "handoff-attempt02/04-original-nodes-before.envelope.json",
+      "request_id": "6584d19a54d140178e4028eaad3d7331",
+      "command": "driver.godot.scene.inspect",
+      "start_sequence": 33,
+      "finish_sequence": 34,
+      "ok": true
+    },
+    {
+      "path": "handoff-attempt02/05-initial-idle-00.envelope.json",
+      "request_id": "5c9309648c8640bd84bc2630fd478c8f",
+      "command": "driver.godot.assets.status",
+      "start_sequence": 35,
+      "finish_sequence": 36,
+      "ok": true
+    },
+    {
+      "path": "handoff-attempt02/06-supporting-create.envelope.json",
+      "request_id": "f9bff864da6b40279d9667befdb75b8b",
+      "command": "driver.godot.scene.create",
+      "start_sequence": 37,
+      "finish_sequence": 38,
+      "ok": true
+    },
+    {
+      "path": "handoff-attempt02/07-supporting-opened-00.envelope.json",
+      "request_id": "e13df58e420948118d1ba1604e38a27c",
+      "command": "driver.godot.project.inspect",
+      "start_sequence": 39,
+      "finish_sequence": 40,
+      "ok": true
+    },
+    {
+      "path": "handoff-attempt02/08-camera-create.envelope.json",
+      "request_id": "0d3f896d96a5443d92979901fdefc528",
+      "command": "driver.godot.node.create",
+      "start_sequence": 41,
+      "finish_sequence": 42,
+      "ok": true
+    },
+    {
+      "path": "handoff-attempt02/09-camera-configure.envelope.json",
+      "request_id": "0d59eba87e884f5f95ab22929864a683",
+      "command": "driver.godot.camera.configure",
+      "start_sequence": 43,
+      "finish_sequence": 44,
+      "ok": true
+    },
+    {
+      "path": "handoff-attempt02/10-camera-before.envelope.json",
+      "request_id": "21d1a98e09d4462d92d998fb48fb946b",
+      "command": "driver.godot.camera.inspect",
+      "start_sequence": 45,
+      "finish_sequence": 46,
+      "ok": true
+    },
+    {
+      "path": "handoff-attempt02/11-camera-transform-before.envelope.json",
+      "request_id": "38efb52cc09d485e83ead6eda64d14ee",
+      "command": "driver.godot.node.inspect",
+      "start_sequence": 47,
+      "finish_sequence": 48,
+      "ok": true
+    },
+    {
+      "path": "handoff-attempt02/12-asset0-idle-before-00.envelope.json",
+      "request_id": "f2133600913e4a87b76405843c68611a",
+      "command": "driver.godot.assets.status",
+      "start_sequence": 49,
+      "finish_sequence": 50,
+      "ok": true
+    },
+    {
+      "path": "handoff-attempt02/13-asset0-before.envelope.json",
+      "request_id": "65706c8305224633a7c12e449b60b9cc",
+      "command": "driver.godot.asset.inspect",
+      "start_sequence": 51,
+      "finish_sequence": 52,
+      "ok": true
+    },
+    {
+      "path": "handoff-attempt02/14-asset0-reimport.envelope.json",
+      "request_id": "bf7481ec96cc43c9964095bdda1ab9cd",
+      "command": "driver.godot.asset.reimport",
+      "start_sequence": 53,
+      "finish_sequence": 54,
+      "ok": false
+    },
+    {
+      "path": "operator-console02/before-assets.envelope.json",
+      "request_id": "8fdb433fa29a4f26859d18837674110c",
+      "command": "driver.godot.assets.status",
+      "start_sequence": 107,
+      "finish_sequence": 108,
+      "ok": true
+    },
+    {
+      "path": "operator-console02/before-camera.envelope.json",
+      "request_id": "3a266ddcfe624f6cb2b9deb6cf1d5291",
+      "command": "driver.godot.node.inspect",
+      "start_sequence": 103,
+      "finish_sequence": 104,
+      "ok": true
+    },
+    {
+      "path": "operator-console02/before-editor.envelope.json",
+      "request_id": "01f0d802317c4501a50bf128c347bc77",
+      "command": "driver.godot.editor.state",
+      "start_sequence": 105,
+      "finish_sequence": 106,
+      "ok": true
+    },
+    {
+      "path": "operator-console02/before-scene.envelope.json",
+      "request_id": "ee23212f258d42f8af473b343de8b3cb",
+      "command": "driver.godot.scene.inspect",
+      "start_sequence": 101,
+      "finish_sequence": 102,
+      "ok": true
+    },
+    {
+      "path": "operator-console02/before-sessions.envelope.json",
+      "request_id": "041c1fc6d26b4df48b6919991e8fed9a",
+      "command": "driver.godot.session.list",
+      "start_sequence": 99,
+      "finish_sequence": 100,
+      "ok": true
+    },
+    {
+      "path": "operator-console03/after-camera.envelope.json",
+      "request_id": "5c4c0b1f004d473383c03cfb4375ca05",
+      "command": "driver.godot.node.inspect",
+      "start_sequence": 113,
+      "finish_sequence": 114,
+      "ok": true
+    },
+    {
+      "path": "operator-console03/after-editor.envelope.json",
+      "request_id": "3de892cf989c4c509d48ff3ed4e8aa7e",
+      "command": "driver.godot.editor.state",
+      "start_sequence": 115,
+      "finish_sequence": 116,
+      "ok": true
+    },
+    {
+      "path": "operator-console03/after-scene.envelope.json",
+      "request_id": "5053149a7b4644978108e7980b1e4e1d",
+      "command": "driver.godot.scene.inspect",
+      "start_sequence": 111,
+      "finish_sequence": 112,
+      "ok": true
+    },
+    {
+      "path": "operator-console03/after-sessions-00.envelope.json",
+      "request_id": "a8d0eabe2d594ac6aa6dba4e495781bb",
+      "command": "driver.godot.session.list",
+      "start_sequence": 109,
+      "finish_sequence": 110,
+      "ok": true
+    },
+    {
+      "path": "pairing-sessions-after.json",
+      "request_id": "e3c7a48d8f154a329f2dcc2dc003c760",
+      "command": "driver.godot.session.list",
+      "start_sequence": 23,
+      "finish_sequence": 24,
+      "ok": true
+    },
+    {
+      "path": "pairing-sessions-before.json",
+      "request_id": "f89c80aa4b634341875a2e2e98b92659",
+      "command": "driver.godot.session.list",
+      "start_sequence": 21,
+      "finish_sequence": 22,
+      "ok": true
+    },
+    {
+      "path": "scene-save-reconciliation01/camera.envelope.json",
+      "request_id": "eacc782e8aeb40088588398f0edf96f9",
+      "command": "driver.godot.node.inspect",
+      "start_sequence": 91,
+      "finish_sequence": 92,
+      "ok": true
+    },
+    {
+      "path": "scene-save-reconciliation01/editor.envelope.json",
+      "request_id": "39d4b655f46443fda8e23dff4c5977b7",
+      "command": "driver.godot.editor.state",
+      "start_sequence": 89,
+      "finish_sequence": 90,
+      "ok": true
+    },
+    {
+      "path": "scene-save-reconciliation01/scene.envelope.json",
+      "request_id": "fce4ddc06f1e4fa3a611320486a643f1",
+      "command": "driver.godot.scene.inspect",
+      "start_sequence": 87,
+      "finish_sequence": 88,
+      "ok": true
+    },
+    {
+      "path": "startup-inspection01/editor.envelope.json",
+      "request_id": "fe559c59747f428db76c7cc606b4eb8b",
+      "command": "driver.godot.editor.state",
+      "start_sequence": 15,
+      "finish_sequence": 16,
+      "ok": true
+    },
+    {
+      "path": "startup-inspection01/project.envelope.json",
+      "request_id": "6e1d8e4596a94d0ead7040fa1104f25d",
+      "command": "driver.godot.project.inspect",
+      "start_sequence": 13,
+      "finish_sequence": 14,
+      "ok": true
+    },
+    {
+      "path": "startup-inspection01/root.envelope.json",
+      "request_id": "fa241ca42a554f0d84c29d1c664f0c25",
+      "command": "driver.godot.node.inspect",
+      "start_sequence": 19,
+      "finish_sequence": 20,
+      "ok": true
+    },
+    {
+      "path": "startup-inspection01/scene.envelope.json",
+      "request_id": "c0cb3f8445d54a5aa2c64836cfea0ab3",
+      "command": "driver.godot.scene.inspect",
+      "start_sequence": 17,
+      "finish_sequence": 18,
+      "ok": true
+    },
+    {
+      "path": "startup-inspection01/sessions.envelope.json",
+      "request_id": "41abbb02bee24faa9a6653a65094bfbb",
+      "command": "driver.godot.session.list",
+      "start_sequence": 11,
+      "finish_sequence": 12,
+      "ok": true
+    }
+  ],
+  "explicit_request_pairs": 37,
+  "unmatched_requests": 0,
+  "credential_scan": "Exact private pairing material and key/token fields checked in memory; no credential values archived",
+  "physical_scope": {
+    "wrong_key_pairing": "PASS",
+    "existing_import_geometry": "Verified substeps; enclosing save test failed",
+    "reimport": "ConsentRequired; NOT_EXECUTED",
+    "persisted_supporting_scene": "NOT_COMPLETE",
+    "native_operator_console": "READY",
+    "operator_handoff": "PREPARED_NOT_SUBMITTED"
+  },
+  "Godot_editor_isolated": false,
+  "Godot_driver_LPAC": true,
+  "human_camera_claimed": false,
+  "G6": "NOT_COMPLETE",
+  "art_status": "REVISE",
+  "Linux_4_5_14": "NOT_RUN",
+  "external_publication": false
+}

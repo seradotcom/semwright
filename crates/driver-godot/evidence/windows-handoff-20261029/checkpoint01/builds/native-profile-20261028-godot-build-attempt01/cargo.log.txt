@@ -1,0 +1,24 @@
+   Compiling semwright-platform-windows-sys v1.0.0 (E:\Projects\semwright-blender52\crates\platform-windows-sys)
+   Compiling semwright-project-graph v1.0.0 (E:\Projects\semwright-blender52\crates\project-graph)
+   Compiling semwright-platform-services v1.0.0 (E:\Projects\semwright-blender52\crates\platform-services)
+   Compiling semwright-protocol v1.0.0 (E:\Projects\semwright-blender52\crates\protocol)
+   Compiling semwright-driver-sdk v1.0.0 (E:\Projects\semwright-blender52\crates\driver-sdk)
+   Compiling semwright-driver-godot v1.0.0 (E:\Projects\semwright-blender52\crates\driver-godot)
+warning: method `binding` is never used
+   --> crates\driver-godot\src\authoring\native_observation.rs:179:19
+    |
+178 | impl NativeVerifyResult {
+    | ----------------------- method in this implementation
+179 |     pub(crate) fn binding(&self) -> &NativeEvidenceBinding {
+    |                   ^^^^^^^
+    |
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `native_probe_has_script_error` is never used
+    --> crates\driver-godot\src\runner.rs:1051:4
+     |
+1051 | fn native_probe_has_script_error(output: &ProcessOutput) -> bool {
+     |    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: `semwright-driver-godot` (lib) generated 2 warnings
+    Finished `dev` profile [unoptimized] target(s) in 1m 30s

@@ -1,0 +1,29 @@
+{
+  "command": "driver.godot.asset.reimport",
+  "error": {
+    "code": "ConsentRequired",
+    "message": "A trusted operator must approve this action in the broker's foreground console; no approval API is exposed",
+    "outcome_known": true
+  },
+  "execution": {
+    "backend": "driver:godot",
+    "dry_run": false,
+    "duration_ms": 3,
+    "fallbacks_attempted": [],
+    "policy_decision": "require_confirmation",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "d3c9c5f21cd72bdc45a305360d7e0530bc439d3da2055ea00ac87cc233a1f119",
+      "execution_provider": "driver:godot",
+      "provider": "driver:godot",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": false,
+  "request_id": "bf7481ec96cc43c9964095bdda1ab9cd",
+  "warnings": []
+}

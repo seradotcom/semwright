@@ -1,0 +1,11 @@
+{
+  "utc": "2026-10-29T03:31:41.442623+00:00",
+  "failed_before_broker_retirement": true,
+  "failed_before_native_requests": true,
+  "reason": "Driver Host executes its verified staged copy; path equality to original candidate was an incorrect launcher precondition",
+  "observed_driver_pid": 36556,
+  "observed_staged_path": "E:\\Projects\\worldwright-archipelago\\.local\\godot-bridge01-state\\state\\drivers\\driver-911b9ed2d8934fa49796feb434012f42.exe",
+  "broker_pid": 37772,
+  "editor_pid": 39036,
+  "processes_unchanged": true
+}

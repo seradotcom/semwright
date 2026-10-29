@@ -1,0 +1,22 @@
+{
+  "schema": 1,
+  "utc": "2026-10-29T02:52:32.056049+00:00",
+  "expected_enabled_sha256": "307f519ac481d4dea38a0ca7c095810e62709afa784671d7a5863b45abd25cb9",
+  "normalized_project_sha256": "ef5c468170a348a64b6744d67a3e9824a068f3415f30e5dccf43e78d6161d042",
+  "only_reviewed_formatting_and_default_elision": true,
+  "removed_explicit_values": {
+    "rendering/renderer/rendering_method": "\"forward_plus\"",
+    "rendering/textures/default_filters/use_nearest_mipmap_filter": "false"
+  },
+  "native_effective_settings": {
+    "main_scene": "res://main.tscn",
+    "nearest_mipmap": false,
+    "renderer": "forward_plus",
+    "vsync": 0
+  },
+  "diagnostic_broker_used": false,
+  "diagnostic_exit_code": 0,
+  "preflight01_failed_before_client_launch": true,
+  "prepared_receipt_preserved": true,
+  "project_writes_by_reconciliation": false
+}

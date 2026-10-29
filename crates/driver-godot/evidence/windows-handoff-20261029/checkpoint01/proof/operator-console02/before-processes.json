@@ -1,0 +1,23 @@
+{
+  "broker": {
+    "path": "E:\\Projects\\worldwright-archipelago\\tools\\semwright-godot-bridge01\\semwrightd.exe",
+    "pid": 37772,
+    "created": "2026-10-29T02:41:36.4315736Z",
+    "session": 1,
+    "window": 0
+  },
+  "driver": {
+    "path": "E:\\Projects\\worldwright-archipelago\\.local\\godot-bridge01-state\\state\\drivers\\driver-911b9ed2d8934fa49796feb434012f42.exe",
+    "pid": 36556,
+    "created": "2026-10-29T02:41:45.9034339Z",
+    "session": 1,
+    "window": 0
+  },
+  "editor": {
+    "path": "E:\\Projects\\worldwright-archipelago\\tools\\godot-4.7.2-win64\\Godot_v4.7.2-stable_win64_console.exe",
+    "pid": 39036,
+    "created": "2026-10-29T02:43:31.6619060Z",
+    "session": 1,
+    "window": 0
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "schema": 1,
+  "utc": "2026-10-29T03:14:15.104752+00:00",
+  "exit_code": 101,
+  "seconds": 3.187000000005355,
+  "binary_sha256": "6206011eaf20c5a47263c5d35935b19dd8ed98fdc8e5b89bbd8a3ae364f90889",
+  "source_sha256": "bdd98f9ac1fd820e85f9759d1005609405e91758514ac1146d2c859a3b73bd0c",
+  "build_report_sha256": "b1874cb5fb0426495a38f35ce299f8d2780ca466ab4e270b176b9d8ad8104813",
+  "config_sha256": "4fa7c13feccf351c58c9348255818a6a02b31cfb55ba6a191d592880b03a7044",
+  "source_files_before": 3094,
+  "source_files_after": 3094,
+  "source_delta": {},
+  "only_owned_fixture_source_changed": false,
+  "recovery_copy": "E:\\Projects\\worldwright-archipelago\\.local\\godot-bridge01-fixture-save-backup01",
+  "recovery_copy_verified": true,
+  "godot_state_directory_excluded": ".godot including editor state; no claim of unchanged editor cache",
+  "reimport": "BLOCKED_CONSENT_REQUIRED",
+  "blocked_request_id": "bf7481ec96cc43c9964095bdda1ab9cd",
+  "editor_isolated": false,
+  "human_camera_claimed": false,
+  "G6": "NOT_COMPLETE",
+  "log_sha256": "86efdfea6dbfc424cd14f59f9e07d7c50eed9501612cae107a64ef7971047d9c"
+}

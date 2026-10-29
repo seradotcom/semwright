@@ -1,0 +1,35 @@
+{
+  "command": "driver.godot.camera.configure",
+  "data": {
+    "affected": [
+      "ProofCamera"
+    ],
+    "applied": true,
+    "stamp": {
+      "fingerprint": "a4d373241787ca5b62da2118ad3eeabcc4e383d3c7085bb470b6c1867389e8f0",
+      "revision": 4
+    },
+    "undo": "Configure camera"
+  },
+  "execution": {
+    "backend": "driver:godot",
+    "dry_run": false,
+    "duration_ms": 194,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "c8e54bed962dab6ff688411435ee9ca3076228d2dd13011e9bfabcfc4674089c",
+      "execution_provider": "driver:godot",
+      "provider": "driver:godot",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "0d59eba87e884f5f95ab22929864a683",
+  "warnings": []
+}

@@ -1,0 +1,15 @@
+
+running 1 test
+test windows_production_broker_plan_output_budget ... 
+thread 'windows_production_broker_plan_output_budget' (37992) panicked at crates\driver-blender\tests\windows_broker_authoring.rs:1231:10:
+Official authenticated memory-only client: Error { code: BackendFailed, message: "I/O operation failed (NotFound)", candidates: [], outcome_known: true, progress: None, native_diagnostic: None }
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    windows_production_broker_plan_output_budget
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 3 filtered out; finished in 5.03s
+

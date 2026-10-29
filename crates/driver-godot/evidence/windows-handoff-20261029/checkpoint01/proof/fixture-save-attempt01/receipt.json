@@ -1,0 +1,44 @@
+{
+  "G6": "NOT_COMPLETE",
+  "Linux_4_5_14": "NOT_RUN",
+  "art_status": "REVISE",
+  "config_sha256": "4fa7c13feccf351c58c9348255818a6a02b31cfb55ba6a191d592880b03a7044",
+  "editor_isolated": false,
+  "error": "Fixture camera changed",
+  "human_camera_claimed": false,
+  "passed": false,
+  "proof": "reconciled_fixture_supported_save",
+  "reimport": "BLOCKED_CONSENT_REQUIRED",
+  "requests": [
+    {
+      "command": "driver.godot.session.list",
+      "elapsed_ms": 56,
+      "error": null,
+      "label": "sessions",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "246e1a9877d14430908785c785e0e0d7"
+    },
+    {
+      "command": "driver.godot.scene.inspect",
+      "elapsed_ms": 70,
+      "error": null,
+      "label": "reconciled-fixture",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "c1eea8afd2c84152833ba24a56b250c1"
+    },
+    {
+      "command": "driver.godot.node.inspect",
+      "elapsed_ms": 93,
+      "error": null,
+      "label": "camera-before",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "b6fa6d8a4b58425298db7b97cf0a508a"
+    }
+  ],
+  "result": null,
+  "schema": 1,
+  "whole_P3": "PARTIAL"
+}

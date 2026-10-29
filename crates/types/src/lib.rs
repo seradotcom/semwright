@@ -1,6 +1,7 @@
 //! Stable, transport-independent domain model. No operating-system side effects.
 pub mod event;
 pub mod job;
+pub mod json_budget;
 pub mod native_diagnostic;
 pub mod provider;
 pub use event::{EventEnvelope, semantic_ui_event};

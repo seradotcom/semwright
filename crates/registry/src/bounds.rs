@@ -1,5 +1,6 @@
 //! Resource limits enforced before schema compilation and synchronous validation.
-use semwright_types::{Error, ErrorCode, MAX_FRAME, Result};
+pub use semwright_types::json_budget::value_budget;
+use semwright_types::{Error, ErrorCode, Result};
 use serde_json::Value;
 
 #[derive(Clone, Copy)]
@@ -12,7 +13,6 @@ enum Position {
 }
 const MAX_SCHEMA_NODES: usize = 4096;
 const MAX_COMBINATOR_BRANCHES: usize = 64;
-const MAX_VALUE_NODES: usize = 16384;
 
 /// External schemas support bounded, acyclic local definitions. Dynamic resolution is not enabled.
 pub fn schema_budget(root: &Value, external: bool) -> Result<()> {
@@ -190,36 +190,6 @@ fn safe_pattern(pattern: &str) -> Result<()> {
         return Err(Error::invalid(
             "External schema pattern is outside the bounded regular-expression subset",
         ));
-    }
-    Ok(())
-}
-pub fn value_budget(value: &Value) -> Result<()> {
-    let mut pending = vec![(value, 0)];
-    let mut nodes = 0;
-    let mut bytes = 0usize;
-    while let Some((value, depth)) = pending.pop() {
-        nodes += 1;
-        if nodes > MAX_VALUE_NODES || depth > 64 {
-            return Err(Error::new(
-                ErrorCode::ResourceExhausted,
-                "JSON structural budget exceeded",
-            ));
-        }
-        match value {
-            Value::Object(map) => {
-                bytes = bytes.saturating_add(map.keys().map(String::len).sum::<usize>());
-                pending.extend(map.values().map(|v| (v, depth + 1)));
-            }
-            Value::Array(array) => pending.extend(array.iter().map(|v| (v, depth + 1))),
-            Value::String(text) => bytes = bytes.saturating_add(text.len()),
-            _ => (),
-        }
-        if pending.len() > MAX_VALUE_NODES || bytes > MAX_FRAME {
-            return Err(Error::new(
-                ErrorCode::ResourceExhausted,
-                "JSON value budget exceeded",
-            ));
-        }
     }
     Ok(())
 }

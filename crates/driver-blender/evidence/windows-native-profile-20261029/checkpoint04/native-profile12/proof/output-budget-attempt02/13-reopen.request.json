@@ -1,0 +1,10 @@
+{
+  "args": {
+    "expected_sha256": "64091f63068fc68ec952dd7974f2fc26a6e0c4013db432c9cf289675ce1f1004",
+    "path": "output-budget-attempt02/asset-scene.blend"
+  },
+  "backend": null,
+  "command": "driver.blender.session.open",
+  "dry_run": false,
+  "request_id": "3ce27ec6232f40fd94fe4cb792ef54fb"
+}

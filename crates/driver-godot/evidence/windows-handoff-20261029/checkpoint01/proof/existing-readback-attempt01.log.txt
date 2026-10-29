@@ -1,0 +1,30 @@
+
+running 1 test
+GODOT_BROKER_STEP {"label":"sessions","ok":true,"request_id":"1e6105b585e448f3996f6a71e5ff2033"}
+GODOT_BROKER_STEP {"label":"continuation-scene","ok":true,"request_id":"81ed725c28ec47a59574977d69032988"}
+GODOT_BROKER_STEP {"label":"camera-before","ok":true,"request_id":"4f4900ee460148c59f2736ba962eefb9"}
+GODOT_BROKER_STEP {"label":"camera-node-before","ok":true,"request_id":"7d84c1b943c94d2fb48c0a0455594659"}
+GODOT_BROKER_STEP {"label":"asset0-existing","ok":true,"request_id":"ca6a0202622348aca4c7066525c70cb1"}
+GODOT_BROKER_STEP {"label":"asset0-instantiate-existing","ok":true,"request_id":"05ca02c43770448a8dd5dee00d4ed615"}
+GODOT_BROKER_STEP {"label":"asset1-existing","ok":true,"request_id":"99e8119f4b4a4d6dbcd1839bb5e6ab9c"}
+GODOT_BROKER_STEP {"label":"asset1-instantiate-existing","ok":true,"request_id":"313d2c4e2fb24f3ba4533b39c05da239"}
+GODOT_BROKER_STEP {"label":"scene-meshes","ok":true,"request_id":"01065d4bd6bd46d783b13b9f8e09a8bb"}
+GODOT_BROKER_STEP {"label":"mesh-0","ok":true,"request_id":"406436c6a9464d89b7f4bab8ecf9caa4"}
+GODOT_BROKER_STEP {"label":"mesh-1","ok":true,"request_id":"06886096832947d9b4a04b9598f059c9"}
+GODOT_BROKER_STEP {"label":"mesh-2","ok":true,"request_id":"bc1ec46706fb4208b447fb4bdbc72240"}
+GODOT_BROKER_STEP {"label":"mesh-3","ok":true,"request_id":"0e517086ca314baaa2f407db9b737a2d"}
+GODOT_BROKER_STEP {"label":"camera-after","ok":true,"request_id":"cc931bb4a4334aa5a30ff4b6a7728f45"}
+GODOT_BROKER_STEP {"label":"camera-node-after","ok":true,"request_id":"de9594f35fc84f13bb617215673e7a96"}
+
+thread 'windows_broker_godot_existing_import_readback' (16192) panicked at crates\driver-blender\tests\windows_broker_godot_handoff.rs:315:5:
+Inspect preserved existing-import readback receipt
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test windows_broker_godot_existing_import_readback ... FAILED
+
+failures:
+
+failures:
+    windows_broker_godot_existing_import_readback
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1 filtered out; finished in 1.55s
+

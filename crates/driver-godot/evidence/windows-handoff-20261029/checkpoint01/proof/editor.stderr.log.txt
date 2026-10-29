@@ -1,0 +1,44 @@
+WARNING: Semwright: bridge disconnected; scheduling reconnect.
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] _process (res://addons/semwright/plugin.gd:194)
+WARNING: Semwright: bridge disconnected; scheduling reconnect.
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] _process (res://addons/semwright/plugin.gd:194)
+WARNING: Semwright: bridge disconnected; scheduling reconnect.
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] _process (res://addons/semwright/plugin.gd:194)
+WARNING: Semwright: bridge disconnected; scheduling reconnect.
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] _process (res://addons/semwright/plugin.gd:194)
+WARNING: Semwright: bridge disconnected; scheduling reconnect.
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] _process (res://addons/semwright/plugin.gd:194)
+WARNING: Semwright: bridge disconnected; scheduling reconnect.
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] _process (res://addons/semwright/plugin.gd:194)
+WARNING: Semwright: bridge disconnected; scheduling reconnect.
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] _process (res://addons/semwright/plugin.gd:194)
+WARNING: Semwright: bridge disconnected; scheduling reconnect.
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] _process (res://addons/semwright/plugin.gd:194)
+WARNING: Semwright: bridge disconnected; scheduling reconnect.
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] _process (res://addons/semwright/plugin.gd:194)
+WARNING: Semwright: bridge disconnected; scheduling reconnect.
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] _process (res://addons/semwright/plugin.gd:194)
+WARNING: Semwright: bridge disconnected; scheduling reconnect.
+   at: push_warning (core/variant/variant_utility.cpp:1033)
+   GDScript backtrace (most recent call first):
+       [0] _process (res://addons/semwright/plugin.gd:194)

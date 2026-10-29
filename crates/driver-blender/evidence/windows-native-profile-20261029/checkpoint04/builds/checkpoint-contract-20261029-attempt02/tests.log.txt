@@ -1,0 +1,14 @@
+test_dirty_image_and_unknown_category_rejected_before_save (test_blender_checkpoint.CheckpointTests.test_dirty_image_and_unknown_category_rejected_before_save) ... ok
+test_existing_file_preserved (test_blender_checkpoint.CheckpointTests.test_existing_file_preserved) ... ok
+test_failed_native_save_is_typed_and_preserves_session (test_blender_checkpoint.CheckpointTests.test_failed_native_save_is_typed_and_preserves_session) ... ok
+test_initial_open_hash_failure_consumes_one_shot_without_loading (test_blender_checkpoint.CheckpointTests.test_initial_open_hash_failure_consumes_one_shot_without_loading) ... ok
+test_initial_open_uses_fixed_safe_flags (test_blender_checkpoint.CheckpointTests.test_initial_open_uses_fixed_safe_flags) ... ok
+test_mode_rejected_before_save (test_blender_checkpoint.CheckpointTests.test_mode_rejected_before_save) ... ok
+test_modifier_cache_rejected_before_save (test_blender_checkpoint.CheckpointTests.test_modifier_cache_rejected_before_save) ... ok
+test_new_copy_verified_and_preferences_restored (test_blender_checkpoint.CheckpointTests.test_new_copy_verified_and_preferences_restored) ... ok
+test_orphan_mesh_rejected_before_save (test_blender_checkpoint.CheckpointTests.test_orphan_mesh_rejected_before_save) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 0.071s
+
+OK

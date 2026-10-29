@@ -1,0 +1,29 @@
+
+running 1 test
+test windows_broker_godot_handoff ... GODOT_BROKER_STEP {"label":"doctor","ok":true,"request_id":"59b0c3adb905401ba605835a6337ea27"}
+GODOT_BROKER_STEP {"label":"sessions","ok":true,"request_id":"ddf70b56d89d4650b605ee30920a3acd"}
+GODOT_BROKER_STEP {"label":"project-before","ok":true,"request_id":"5941bf7672f046d5a231f271ac2e8543"}
+GODOT_BROKER_STEP {"label":"editor-before","ok":true,"request_id":"e98afc1dbac84bdab0581bd74c646b28"}
+GODOT_BROKER_STEP {"label":"original-nodes-before","ok":true,"request_id":"6584d19a54d140178e4028eaad3d7331"}
+GODOT_BROKER_STEP {"label":"initial-idle-00","ok":true,"request_id":"5c9309648c8640bd84bc2630fd478c8f"}
+GODOT_BROKER_STEP {"label":"supporting-create","ok":true,"request_id":"f9bff864da6b40279d9667befdb75b8b"}
+GODOT_BROKER_STEP {"label":"supporting-opened-00","ok":true,"request_id":"e13df58e420948118d1ba1604e38a27c"}
+GODOT_BROKER_STEP {"label":"camera-create","ok":true,"request_id":"0d3f896d96a5443d92979901fdefc528"}
+GODOT_BROKER_STEP {"label":"camera-configure","ok":true,"request_id":"0d59eba87e884f5f95ab22929864a683"}
+GODOT_BROKER_STEP {"label":"camera-before","ok":true,"request_id":"21d1a98e09d4462d92d998fb48fb946b"}
+GODOT_BROKER_STEP {"label":"camera-transform-before","ok":true,"request_id":"38efb52cc09d485e83ead6eda64d14ee"}
+GODOT_BROKER_STEP {"label":"asset0-idle-before-00","ok":true,"request_id":"f2133600913e4a87b76405843c68611a"}
+GODOT_BROKER_STEP {"label":"asset0-before","ok":true,"request_id":"65706c8305224633a7c12e449b60b9cc"}
+
+thread 'windows_broker_godot_handoff' (33064) panicked at crates\driver-blender\tests\windows_broker_godot_handoff.rs:222:5:
+Inspect preserved Godot handoff receipt
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    windows_broker_godot_handoff
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.33s
+

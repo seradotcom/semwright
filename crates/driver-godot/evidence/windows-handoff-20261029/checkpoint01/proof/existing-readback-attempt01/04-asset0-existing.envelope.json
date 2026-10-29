@@ -1,0 +1,39 @@
+{
+  "command": "driver.godot.asset.inspect",
+  "data": {
+    "data": {
+      "bytes": 64288,
+      "import_sidecar": true,
+      "is_importing": false,
+      "path": "res://assets/review_20261029-semwright-rock-r22/GEO01_FARO_SEMWRIGHT_R22.glb",
+      "resource_exists": true,
+      "resource_uid": 690706235138090464,
+      "type": "PackedScene"
+    },
+    "stamp": {
+      "fingerprint": "a4d373241787ca5b62da2118ad3eeabcc4e383d3c7085bb470b6c1867389e8f0",
+      "revision": 4
+    }
+  },
+  "execution": {
+    "backend": "driver:godot",
+    "dry_run": false,
+    "duration_ms": 93,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "c7990684c3dd783717c881667087e0f8cba5d85c8b077450e2c00961a304721f",
+      "execution_provider": "driver:godot",
+      "provider": "driver:godot",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "ca6a0202622348aca4c7066525c70cb1",
+  "warnings": []
+}

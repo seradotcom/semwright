@@ -1,0 +1,35 @@
+{
+  "asserts_permission_denied_response": false,
+  "auth_frame_sent": true,
+  "challenge": {
+    "bridge": 1,
+    "generation": "e56268909ea506ae63bc1c91116bd8ca",
+    "proof_well_formed": true,
+    "server_nonce": "8c086377c26b52b2cb6f64d89020d6f5",
+    "session": "28412468a5b6ff9fdee87fdce717f201"
+  },
+  "client_nonce_sha256": "8f1e9ab6bdba134a5f86ea9b5e35fcd6a4df7d6a761c8132fa8879c8314c2a03",
+  "close_code": null,
+  "complete_transcript_recorded": false,
+  "elapsed_ms": 7,
+  "endpoint": {
+    "host": "127.0.0.1",
+    "port": 55092
+  },
+  "key_material_recorded": false,
+  "operations_sent": 0,
+  "pass_scope": "Schema-valid challenge received, deliberately wrong-key authentication sent, same connection terminated without Ready; server error cause unobserved",
+  "phase": "awaiting_post_auth_termination",
+  "project": "723d196eb63d1b26391a6b085d86129b0f78dfef8fa09e194f2b35d3a843ed67",
+  "proofs_recorded": false,
+  "raw_frames_recorded": false,
+  "ready_observed": false,
+  "result": "PASS_POST_AUTH_CLOSURE_WITHOUT_READY",
+  "resume_session_sent": false,
+  "schema": 1,
+  "server_proof_verified": false,
+  "server_rejection_reason": "UNOBSERVED",
+  "termination": "closed_without_close_frame_after_auth",
+  "test": "windows_godot_wrong_key_pairing",
+  "websocket_status": 101
+}

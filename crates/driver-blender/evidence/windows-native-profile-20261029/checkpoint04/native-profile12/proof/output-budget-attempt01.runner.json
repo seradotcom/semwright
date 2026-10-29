@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "utc_start": "2026-10-29T03:20:01.094901+00:00",
+  "candidate": "native-profile12",
+  "argv": [
+    "E:\\Projects\\semwright-blender52\\.local\\target\\x86_64-pc-windows-gnu\\debug\\deps\\windows_broker_authoring-a9500905004d3cdf.exe",
+    "--ignored",
+    "--exact",
+    "windows_production_broker_plan_output_budget",
+    "--nocapture",
+    "--test-threads=1"
+  ],
+  "test_binary_sha256": "d920b1eaefcc62dddad7a4191fd5a48da87d8fe496ff4f8f965448d1a4d8dedd",
+  "source_sha256": "c6f6263bc097be083f6facc7e5dc6725654832c77cda0f88132ba7fd4009ad9f",
+  "compiled_source_log": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-authoring-proof-build-attempt20",
+  "exit_code": 101,
+  "timed_out": false,
+  "seconds": 6.375,
+  "log_sha256": "334f09953c5819045c0dd296d8037f95920600bb10105381298fdc33f4c844a2",
+  "receipts": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\output-budget-attempt01",
+  "artifact_directory": "E:\\Projects\\worldwright-archipelago\\.local\\native-profile12-workspace\\output-budget-attempt01",
+  "asset_input": null,
+  "broker_used": true,
+  "retry_performed": false,
+  "Linux_4_5_14": "NOT_RUN",
+  "art_approval": false
+}

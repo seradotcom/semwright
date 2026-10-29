@@ -1,0 +1,50 @@
+# Local PR draft — not submitted
+
+## Proposed title
+
+WIP: add owner-gated initial Blender 5.2.1 sessions on Windows
+
+## Problem
+
+The first-party Blender driver has a Linux-qualified runtime route. Windows cannot use the same descendant-launch arrangement inside the tested LPAC. An installed Blender or open GUI does not establish a confined DriverProvider; direct bpy exports do not establish broker provenance.
+
+## Changes
+
+- Add an explicit, disabled-by-default owner grant for a closed Windows Blender 5.2.1 initial-process profile.
+- Keep Host control of pinned runtime identity, private snapshot, fixed arguments/environment/bootstrap, typed mounts, actual token/Job attestation and lifetime controls.
+- Preserve LPAC and the one-process native Job; request the separately authorized registryRead capability without network or GPU.
+- Route the first-party bridge through production broker/DriverProvider; keep generic RNA mutation on 5.2 restricted.
+- Add readiness cancellation, late-start rejection and correlated reaping evidence.
+- Add new-only checkpoint, advisory inspection, save-before-close and fresh hash-checked initial open while retaining legacy destructive-operation consent.
+- Make the Host package self-contained with exact vendored sources, a read-only consistency gate and explicit synchronization.
+- Retain Linux profiles and update manifest constructors with the optional Windows profile.
+
+## Observed behavior
+
+Production candidates execute authenticated broker requests against confined Blender 5.2.1: typed creation/transform, independent readback and GLB export. Duplicate output and traversal requests were rejected with preservation checks. Native Godot imported/rendered the exact candidate03 GLB; this consumer did not use the Godot broker.
+
+Owner opt-in denial and real readiness cancellation have physical evidence. Candidate09 passed save-before-close, Host reaping, fresh hash-bound reopen, static structure readback, typed two-mesh composition, independent Effect Conformance and stale/replay rejection. Factory-owned content preservation is a fixture check, not a human-edit claim. The exact two-material GLB was physically checked and rendered in native Godot.
+
+Candidate10 then produced an original Archipelago lighthouse rock through the same production broker: three concrete meshes and a material, independent readback, editable library, full-scene checkpoint, fresh isolated reopen and a 64,288-byte GLB (6bdb95f2ecca8fd7528bc0b62240b975e152dd1e0ed0b8c3411289da6b1a78b3). The source has 518 vertices and 1,024 triangles; glTF may split vertices for normals. Native Godot admitted this exact artifact into the existing project, replaced seven named prior mesh instances, preserved camera definitions and captured the existing views. Its art remains REVISE. The Godot consumer is still not mediated by a qualified Windows Godot driver.
+
+Preserved failed attempts exposed both the input and plan-output JSON structural budgets. The successful recipe fits the unchanged limits. A plan-output budget preflight before vault publication remains a small follow-up; the broker's final structural check remains authoritative.
+
+See [the current checkpoint](WINDOWS_NATIVE_PROFILE_20261029.md) and [historical probes](WINDOWS_52_EXPERIMENTAL.md).
+
+## Authority and compatibility limits
+
+registryRead allows Windows ACL-authorized registry reads; it is not an individual SideBySide-key whitelist. No owner-token fallback, arbitrary Python/eval/shell capability, global ACL relaxation, third-party Blender MCP or automatic human consent response is added.
+
+The public manifest type gains an optional field. Serialized manifests without it retain their default route; external Rust struct-literal call sites may need an update. Shared Host/SDK/platform changes require upstream review.
+
+Checkpointing preserves a declared scene-data subset with intentional orphan retention in its recovery copy. It does not preserve undo history or all process state. Initial file open uses an owner-controlled workspace and hashes, not a sealed file-handle import protocol.
+
+Linux 4.5.14/5.2.1 native regression, confined Windows GPU rendering, full Godot Windows-driver qualification and registry installation remain unverified. The retained Linux native lane was not spoofed or run locally.
+
+## Validation and release boundary
+
+Source/binary-pinned records cover unit/build/package checks, native broker fixture, owner denial, cancellation and native Godot consumption. Failed/incomplete runs remain visible. Diagnostic success is not authoring acceptance; fixture preservation is not human-edit preservation.
+
+This contribution is experimental and not release-ready. Bounded lifecycle and static composition proofs now pass on this pinned Windows laptop. Broader scene coverage, mediated Godot project conformance, human-edit preservation and native Linux regression remain open. Archives checkpoint01 and checkpoint02 preserve failed and successful runs, source overlays, binary pins and locally verified audit chains. Archipelago art and G6 remain independent and incomplete.
+
+The owner authorized local development/checkpoints, not external push, PR, merge, publication or CI.

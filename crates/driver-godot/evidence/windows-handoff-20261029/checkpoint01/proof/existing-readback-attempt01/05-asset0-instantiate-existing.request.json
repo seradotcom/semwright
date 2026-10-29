@@ -1,0 +1,17 @@
+{
+  "args": {
+    "dry_run": false,
+    "expect": {
+      "fingerprint": "a4d373241787ca5b62da2118ad3eeabcc4e383d3c7085bb470b6c1867389e8f0",
+      "revision": 4
+    },
+    "name": "FaroRock",
+    "parent": ".",
+    "scene": "res://assets/review_20261029-semwright-rock-r22/GEO01_FARO_SEMWRIGHT_R22.glb",
+    "session": "8b4253f3e69d68aa12b381ee3f020459"
+  },
+  "backend": null,
+  "command": "driver.godot.scene.instantiate",
+  "dry_run": false,
+  "request_id": "05ca02c43770448a8dd5dee00d4ed615"
+}

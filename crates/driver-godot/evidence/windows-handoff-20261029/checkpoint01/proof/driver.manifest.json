@@ -1,0 +1,60 @@
+{
+  "manifest_version": 1,
+  "protocol": 8,
+  "id": "godot",
+  "version": "1.0.0",
+  "publisher": "semwright",
+  "executable": "E:\\Projects\\worldwright-archipelago\\tools\\semwright-godot-bridge01\\semwright-godot-driver.exe",
+  "sha256": "e3bd5d7a0ff1a83c7125881a113aba1a351024fa27f9ec4ddacca2bbe956dd33",
+  "application": {
+    "desktop_id": "org.godotengine.Godot",
+    "process_names": [
+      "Godot_v4.7.2-stable_win64_console.exe"
+    ],
+    "supported_versions": [
+      "4.7.2"
+    ]
+  },
+  "transport": "stdio_v1",
+  "mounts": [
+    {
+      "root": "godot-config",
+      "read_only": true,
+      "execute": false
+    },
+    {
+      "root": "godot-project",
+      "read_only": true,
+      "execute": false
+    }
+  ],
+  "system_config": [],
+  "secrets": [
+    {
+      "root": "godot-pairing",
+      "name": "godot-pairing"
+    }
+  ],
+  "tools": [],
+  "network": false,
+  "loopback_port": 55092,
+  "resources": {
+    "open_files": 256,
+    "processes": 8,
+    "cpu_seconds": 300,
+    "address_space_bytes": 4294967296,
+    "file_size_bytes": 1073741824
+  },
+  "request_timeout_ms": 180000,
+  "interfaces": {
+    "dynamic_capabilities": false,
+    "cooperative_cancellation": true,
+    "events": true,
+    "progress": true,
+    "artifacts": true,
+    "health": true,
+    "native_refs": true,
+    "host_tools": false
+  },
+  "nvidia_gpu": false
+}

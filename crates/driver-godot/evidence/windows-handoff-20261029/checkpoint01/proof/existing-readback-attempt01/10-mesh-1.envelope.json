@@ -1,0 +1,170 @@
+{
+  "command": "driver.godot.node.inspect",
+  "data": {
+    "data": {
+      "class": "MeshInstance3D",
+      "name": "SW_dc08abe78a2a_integrated_limestone",
+      "observed": {
+        "global_position": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "owner_path": "FaroRock",
+        "parent_path": "FaroRock",
+        "position": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rotation": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rotation_order": 2,
+        "scale": [
+          1.0,
+          1.0,
+          1.0
+        ],
+        "scope": "edited_scene",
+        "vertex_bounds": {
+          "complete": true,
+          "geometry": "base_mesh_vertices",
+          "global_max": [
+            -49.3480682373047,
+            10.1700000762939,
+            17.0
+          ],
+          "global_min": [
+            -65.6500015258789,
+            -1.25,
+            -1.25
+          ],
+          "space": "global",
+          "surface_count": 1,
+          "vertex_count": 1648
+        }
+      },
+      "path": "FaroRock/SW_dc08abe78a2a_integrated_limestone",
+      "properties": {
+        "auto_translate_mode": 0,
+        "cast_shadow": 1,
+        "custom_aabb": {
+          "$type": "AABB",
+          "value": [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "editor_description": "",
+        "extra_cull_margin": 0.0,
+        "gi_lightmap_texel_scale": 1.0,
+        "gi_mode": 1,
+        "ignore_occlusion_culling": false,
+        "layers": 1,
+        "lod_bias": 1.0,
+        "material_overlay": null,
+        "material_override": null,
+        "mesh": {
+          "$type": "Resource",
+          "class": "ArrayMesh",
+          "path": "res://assets/review_20261029-semwright-rock-r22/GEO01_FARO_SEMWRIGHT_R22.glb::ArrayMesh_phcsa"
+        },
+        "metadata/extras": {
+          "$type": "Dictionary",
+          "entries": [
+            {
+              "key": "sw_authoring_entity",
+              "value": "integrated_limestone"
+            },
+            {
+              "key": "sw_authoring_island",
+              "value": "dc08abe78a2a455b89291e196b92f586"
+            },
+            {
+              "key": "sw_display_name",
+              "value": "Faro continuous limestone"
+            }
+          ]
+        },
+        "physics_interpolation_mode": 0,
+        "process_mode": 0,
+        "process_physics_priority": 0,
+        "process_priority": 0,
+        "process_thread_group": 0,
+        "rotation_edit_mode": 0,
+        "rotation_order": 2,
+        "skeleton": {
+          "$type": "NodePath",
+          "value": ""
+        },
+        "skin": null,
+        "sorting_offset": 0.0,
+        "sorting_use_aabb_center": true,
+        "surface_material_override/0": null,
+        "top_level": false,
+        "transform": {
+          "$type": "Transform3D",
+          "value": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "transparency": 0.0,
+        "unique_name_in_owner": false,
+        "visibility_parent": {
+          "$type": "NodePath",
+          "value": ""
+        },
+        "visibility_range_begin": 0.0,
+        "visibility_range_begin_margin": 0.0,
+        "visibility_range_end": 0.0,
+        "visibility_range_end_margin": 0.0,
+        "visibility_range_fade_mode": 0,
+        "visible": true
+      },
+      "ref": "native:336b3d1e89fa40aca8efb73efe150e04"
+    },
+    "stamp": {
+      "fingerprint": "5c0f9e9dd16e0ae99d266ce62b9bdc8788fb46bc9dbac5822e8f89f90717fe6b",
+      "revision": 6
+    }
+  },
+  "execution": {
+    "backend": "driver:godot",
+    "dry_run": false,
+    "duration_ms": 92,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "6798aa176819185efbdb02083e09a821be690bfa8d8b8daae742a924708ce614",
+      "execution_provider": "driver:godot",
+      "provider": "driver:godot",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "06886096832947d9b4a04b9598f059c9",
+  "warnings": []
+}

@@ -1,0 +1,29 @@
+{
+  "command": "driver.blender.composition.plan",
+  "error": {
+    "code": "ResourceExhausted",
+    "message": "Driver reported an error; untrusted payload was redacted",
+    "outcome_known": false
+  },
+  "execution": {
+    "backend": "driver:blender",
+    "dry_run": false,
+    "duration_ms": 335,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "216bb335fb5828bbff3d8d8e514f28042910395fb877cce6447ef71705e6cde6",
+      "execution_provider": "driver:blender",
+      "provider": "driver:blender",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": false,
+  "request_id": "c41abcb6aea64ed2bd210d48cc320f97",
+  "warnings": []
+}

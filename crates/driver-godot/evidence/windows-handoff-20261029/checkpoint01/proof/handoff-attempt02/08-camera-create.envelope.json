@@ -1,0 +1,35 @@
+{
+  "command": "driver.godot.node.create",
+  "data": {
+    "affected": [
+      "ProofCamera"
+    ],
+    "applied": true,
+    "stamp": {
+      "fingerprint": "53ae3a19afb69dd432eb78476800a38a8085be7549d01e83287c35a28e7e64f4",
+      "revision": 3
+    },
+    "undo": "Create node"
+  },
+  "execution": {
+    "backend": "driver:godot",
+    "dry_run": false,
+    "duration_ms": 95,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "efeb14fdc3ac940485498d8dbea005f51d825323ac7c4e428e0a20ec2243df7c",
+      "execution_provider": "driver:godot",
+      "provider": "driver:godot",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "0d3f896d96a5443d92979901fdefc528",
+  "warnings": []
+}

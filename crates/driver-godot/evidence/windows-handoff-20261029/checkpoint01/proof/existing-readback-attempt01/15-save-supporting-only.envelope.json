@@ -1,0 +1,29 @@
+{
+  "command": "driver.godot.scene.save",
+  "error": {
+    "code": "Unsupported",
+    "message": "Driver reported an error; untrusted payload was redacted",
+    "outcome_known": false
+  },
+  "execution": {
+    "backend": "driver:godot",
+    "dry_run": false,
+    "duration_ms": 95,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "823925b9c6220e76f0ed4749857a4c1c8c7f024226fc3d6a047bb188d4483c9e",
+      "execution_provider": "driver:godot",
+      "provider": "driver:godot",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": false,
+  "request_id": "bc6c653c8c574c6d85efea345e2d444a",
+  "warnings": []
+}

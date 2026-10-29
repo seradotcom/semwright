@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "utc": "2026-10-29T02:55:52.412286+00:00",
+  "exit_code": 0,
+  "seconds": 1.062999999994645,
+  "binary_sha256": "fd42078344dec42b6314004dc97196fd8151e17d00384adcc8342c57764d883a",
+  "source_sha256": "fafd67bb7c325b180a2efdae9a823cdcdc4d2cdff91d60fbf29ed28eb241a48d",
+  "build_report_sha256": "a8d3d1176f1f3128fd06a35d702a757036579d0f45b12918d4fa88b9d6f24ba9",
+  "deliberate_key_distinct": true,
+  "existing_sessions_unchanged": true,
+  "valid_session_count": 1,
+  "receipt_sha256": "93da3d6d144df3b9dd3539f3c1f57c64257f12f66fba07289ca59a8fc43fe0ce",
+  "secret_recorded": false,
+  "operations_sent": 0
+}

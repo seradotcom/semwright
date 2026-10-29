@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "utc": "2026-10-29T03:00:21.280797+00:00",
+  "exit_code": 101,
+  "seconds": 2.360000000000582,
+  "binary_sha256": "8579eb99d824f1a7a3c5588c279845f7ecab04e44893808a149a52ef27d535a6",
+  "source_sha256": "faff982f687644b4c23eb56c976dd24787ba248f9333688b13bcced404ecbb40",
+  "build_report_sha256": "19b3e61b7b509a0931b6e95fc981af802b4a3edfe92284e288770d0eabb0547a",
+  "config_sha256": "8ade892ad22005bf9633f5ae92b51bbb663faf3847b31c99071ed26cde4fa3f6",
+  "protected_files_unchanged": true,
+  "project_config_unchanged": true,
+  "reimport": "BLOCKED_CONSENT_REQUIRED",
+  "blocked_request_id": "bf7481ec96cc43c9964095bdda1ab9cd",
+  "editor_isolated": false,
+  "human_camera_claimed": false,
+  "G6": "NOT_COMPLETE",
+  "log_sha256": "4afe5df512335bbe81f09136b000c9ed4fae5defb5b127681158e9bc79fca56e"
+}

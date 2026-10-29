@@ -1,0 +1,9 @@
+{
+  "args": {
+    "checkpoint_path": "output-budget-attempt02/final-recovery.blend"
+  },
+  "backend": null,
+  "command": "driver.blender.session.checkpoint_close",
+  "dry_run": false,
+  "request_id": "e1a8fc4200424aaa842d866825268a53"
+}

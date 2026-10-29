@@ -1,0 +1,253 @@
+{
+  "schema": 1,
+  "utc": "2026-10-29T02:40:54.750905+00:00",
+  "candidate": "godot-bridge01",
+  "source_root": "E:\\Projects\\semwright-blender52",
+  "source_head": "49f0e94c552eb68dc3e946e623a4baa9252db4c4",
+  "paths": {
+    "bin": "E:\\Projects\\worldwright-archipelago\\tools\\semwright-godot-bridge01",
+    "config": "E:\\Projects\\worldwright-archipelago\\.local\\godot-bridge01-config",
+    "broker": "E:\\Projects\\worldwright-archipelago\\.local\\godot-bridge01-state",
+    "editor_env": "E:\\Projects\\worldwright-archipelago\\.local\\godot-bridge01-editor-env"
+  },
+  "project_root": "E:\\Projects\\worldwright-archipelago\\game",
+  "project_id": "723d196eb63d1b26391a6b085d86129b0f78dfef8fa09e194f2b35d3a843ed67",
+  "port": 55092,
+  "config": "E:\\Projects\\worldwright-archipelago\\.local\\godot-bridge01-config\\candidate.toml",
+  "manifest": "E:\\Projects\\worldwright-archipelago\\.local\\godot-bridge01-config\\godot.manifest.json",
+  "mcp_registry": "E:\\Projects\\worldwright-archipelago\\.local\\godot-bridge01-config\\mcp-upstreams.toml",
+  "socket": "\\\\.\\pipe\\semwright-S_1_5_21_3748004576_2415526740_1202758394_1001-archipelago-godot-bridge01",
+  "secret_file": "E:\\Projects\\worldwright-archipelago\\.local\\godot-bridge01-config\\pairing.secret",
+  "secret_recorded": false,
+  "candidate_files": [
+    {
+      "name": "semwright.exe",
+      "source": "E:\\Projects\\semwright-blender52\\.local\\target\\x86_64-pc-windows-gnu\\debug\\semwright.exe",
+      "path": "E:\\Projects\\worldwright-archipelago\\tools\\semwright-godot-bridge01\\semwright.exe",
+      "sha256": "b6c00c4109146f69e1be5c100df572dc561975e20234f1d0652dd7ee57e1c0dc",
+      "bytes": 75378781
+    },
+    {
+      "name": "semwrightd.exe",
+      "source": "E:\\Projects\\semwright-blender52\\.local\\target\\x86_64-pc-windows-gnu\\debug\\semwrightd.exe",
+      "path": "E:\\Projects\\worldwright-archipelago\\tools\\semwright-godot-bridge01\\semwrightd.exe",
+      "sha256": "0c0e8a17945be2ed682eb44c17284aaa2686562ce8efae8d29782ea2926bd286",
+      "bytes": 93847880
+    },
+    {
+      "name": "semwright-godot-driver.exe",
+      "source": "E:\\Projects\\semwright-blender52\\.local\\target\\x86_64-pc-windows-gnu\\debug\\semwright-godot-driver.exe",
+      "path": "E:\\Projects\\worldwright-archipelago\\tools\\semwright-godot-bridge01\\semwright-godot-driver.exe",
+      "sha256": "e3bd5d7a0ff1a83c7125881a113aba1a351024fa27f9ec4ddacca2bbe956dd33",
+      "bytes": 58506069
+    }
+  ],
+  "companions": [
+    {
+      "source": "E:\\Projects\\semwright-blender52\\integrations\\godot\\addons\\semwright\\ops\\animation_graph_ops.gd",
+      "destination": "addons/semwright/ops/animation_graph_ops.gd",
+      "sha256": "953680ba9c52fbe5f95edac0bbabbf72ec1857aae141c44a104c227e363c4434",
+      "bytes": 33000
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\integrations\\godot\\addons\\semwright\\ops\\animation_ops.gd",
+      "destination": "addons/semwright/ops/animation_ops.gd",
+      "sha256": "1a5e4af72e0612a8d7a3e41e5e073721d43e4ed445974e5be91593016c064a1d",
+      "bytes": 13763
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\integrations\\godot\\addons\\semwright\\ops\\animation_tree_ops.gd",
+      "destination": "addons/semwright/ops/animation_tree_ops.gd",
+      "sha256": "f1a58b539418aac16e5b2b12843d12657fd9d7de3b0fe01885bb34dd951cafd0",
+      "bytes": 11062
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\integrations\\godot\\addons\\semwright\\ops\\api_ops.gd",
+      "destination": "addons/semwright/ops/api_ops.gd",
+      "sha256": "c7bcc41aa93e0d1b7882640c25104313c9cb5c6a2ede2ad7cd10b6e0530059d8",
+      "bytes": 10486
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\integrations\\godot\\addons\\semwright\\ops\\asset_ops.gd",
+      "destination": "addons/semwright/ops/asset_ops.gd",
+      "sha256": "36632eec2d1605b67b2c9d02b85562a727881cd76d01b3fe557e41993b57c628",
+      "bytes": 5692
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\integrations\\godot\\addons\\semwright\\ops\\audio_ops.gd",
+      "destination": "addons/semwright/ops/audio_ops.gd",
+      "sha256": "87663cc7efc23e7ae4b9ed1b665f9852f56972321375c1bf17d6a4ec97e02138",
+      "bytes": 10371
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\integrations\\godot\\addons\\semwright\\ops\\editor_ops.gd",
+      "destination": "addons/semwright/ops/editor_ops.gd",
+      "sha256": "08666ea61a2f39110bd85f647ea61a99be5a952bc2851765ca0722bb36ff1786",
+      "bytes": 4079
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\integrations\\godot\\addons\\semwright\\ops\\export_preset_ops.gd",
+      "destination": "addons/semwright/ops/export_preset_ops.gd",
+      "sha256": "61fd603bf4846a4cd8b4a66ac635dfd5fb5cee96333c557bcf801e22b7a3faa5",
+      "bytes": 5529
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\integrations\\godot\\addons\\semwright\\ops\\gridmap_ops.gd",
+      "destination": "addons/semwright/ops/gridmap_ops.gd",
+      "sha256": "a7952484bfa47bba99af542b845984079731654a5b7b428ad052f990300d7d51",
+      "bytes": 12161
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\integrations\\godot\\addons\\semwright\\ops\\localization_ops.gd",
+      "destination": "addons/semwright/ops/localization_ops.gd",
+      "sha256": "c08b455fad4cdd66b44d64ce62288bc60c6d5ccae658248eab8fdc79e8c4e66e",
+      "bytes": 7745
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\integrations\\godot\\addons\\semwright\\ops\\multiplayer_ops.gd",
+      "destination": "addons/semwright/ops/multiplayer_ops.gd",
+      "sha256": "14cb3d479cb9c381d4898d0d4dd44862d3e0f563610d4258057ef614bc77f60e",
+      "bytes": 11004
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\integrations\\godot\\addons\\semwright\\ops\\navigation_ops.gd",
+      "destination": "addons/semwright/ops/navigation_ops.gd",
+      "sha256": "918756b74027ee262bfb2570373809402831e22c193f1ab99a3e36204beea455",
+      "bytes": 13043
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\integrations\\godot\\addons\\semwright\\ops\\particles_ops.gd",
+      "destination": "addons/semwright/ops/particles_ops.gd",
+      "sha256": "90064b1b6bba1016da6cd2596e85c17e5fdef4c7d7927f3bffbe0f5bbe38950c",
+      "bytes": 7108
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\integrations\\godot\\addons\\semwright\\ops\\path_ops.gd",
+      "destination": "addons/semwright/ops/path_ops.gd",
+      "sha256": "c41b90af2812a27053b4ade264062f5a77b30b955cf04578d89119d497f707cb",
+      "bytes": 12130
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\integrations\\godot\\addons\\semwright\\ops\\physics_ops.gd",
+      "destination": "addons/semwright/ops/physics_ops.gd",
+      "sha256": "ea513f5809e9155f98fa7a673d067451587652b280910cd8efa491d30496f8d1",
+      "bytes": 17305
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\integrations\\godot\\addons\\semwright\\ops\\project_ops.gd",
+      "destination": "addons/semwright/ops/project_ops.gd",
+      "sha256": "f2a2fb73afbedd2976c19bce21e315d296b92d149a7d1bb407faa5f0bd3451e3",
+      "bytes": 7082
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\integrations\\godot\\addons\\semwright\\ops\\project_semantics_ops.gd",
+      "destination": "addons/semwright/ops/project_semantics_ops.gd",
+      "sha256": "f11c379bb4db3672d05c9726965fc9c34448ef2f6819e126d46e87949a9f0726",
+      "bytes": 8278
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\integrations\\godot\\addons\\semwright\\ops\\ref_ops.gd",
+      "destination": "addons/semwright/ops/ref_ops.gd",
+      "sha256": "ebd93f446cdd5470c2034925954ec94e6c7f1304e5d3ef44e0172dafb0d6b117",
+      "bytes": 4072
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\integrations\\godot\\addons\\semwright\\ops\\rendering_ops.gd",
+      "destination": "addons/semwright/ops/rendering_ops.gd",
+      "sha256": "08493e34f4d9a7152dfa6c129b8a6bafbd74b590eb8b0957e0994ab73a9c802b",
+      "bytes": 12750
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\integrations\\godot\\addons\\semwright\\ops\\resource_ops.gd",
+      "destination": "addons/semwright/ops/resource_ops.gd",
+      "sha256": "26261e5697746531050020b8cfdfc166054cab0422ae0226579517b81a72388c",
+      "bytes": 4878
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\integrations\\godot\\addons\\semwright\\ops\\script_ops.gd",
+      "destination": "addons/semwright/ops/script_ops.gd",
+      "sha256": "ae981c86af77c999524db3a150c5bc55122f2ffef81480eaa67d02dd2803bcfd",
+      "bytes": 4959
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\integrations\\godot\\addons\\semwright\\ops\\signal_ops.gd",
+      "destination": "addons/semwright/ops/signal_ops.gd",
+      "sha256": "3d3efd6783c735df4428ed179762accf879bd7af2734fbbdb68bc24bfff090f4",
+      "bytes": 3201
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\integrations\\godot\\addons\\semwright\\ops\\skeleton_ops.gd",
+      "destination": "addons/semwright/ops/skeleton_ops.gd",
+      "sha256": "799475d5a57730c9a2c4c7aaca2fbf2d17ea2c40c898ceb8fa7fbb67167587cf",
+      "bytes": 7128
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\integrations\\godot\\addons\\semwright\\ops\\tilemap_ops.gd",
+      "destination": "addons/semwright/ops/tilemap_ops.gd",
+      "sha256": "20adff870783a613aa92ac62d3c0e53d83048ea9cbd9fc3e23cf441f47a6ccbd",
+      "bytes": 9494
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\integrations\\godot\\addons\\semwright\\ops\\ui_theme_ops.gd",
+      "destination": "addons/semwright/ops/ui_theme_ops.gd",
+      "sha256": "a23b8eff4280365be117e87d37e8f38a63bd1efe42906403d437d06d93fa1684",
+      "bytes": 9788
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\integrations\\godot\\addons\\semwright\\ops\\variant_codec.gd",
+      "destination": "addons/semwright/ops/variant_codec.gd",
+      "sha256": "7f9c93d5fbaf17693b632c966942cae2014f1ebebc1668bc5814eac11225f0dd",
+      "bytes": 23523
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\integrations\\godot\\addons\\semwright\\ops\\visual_ops.gd",
+      "destination": "addons/semwright/ops/visual_ops.gd",
+      "sha256": "4229263e384e3d05c56c1bc9869ac9efe910dc7fdd539e39cb0eef466f68eda4",
+      "bytes": 4267
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\integrations\\godot\\addons\\semwright\\plugin.cfg",
+      "destination": "addons/semwright/plugin.cfg",
+      "sha256": "c3cd02144ba20ce1a865bb00769d3c862ba2978b7bf79da8a5d3834d2241178f",
+      "bytes": 187
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\integrations\\godot\\addons\\semwright\\plugin.gd",
+      "destination": "addons/semwright/plugin.gd",
+      "sha256": "7a1ba9f470ce12c95755ab3dd8186e020a424e6bfd508ca184b94ad7a1655d52",
+      "bytes": 44383
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\integrations\\godot\\addons\\semwright\\ops\\readback_ops.gd",
+      "destination": "addons/semwright/ops/readback_ops.gd",
+      "sha256": "8c1989f5d829b1703bba8f16d5e79f0c776075b6bedd34aaa37e47777dd4733a",
+      "bytes": 8073
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\integrations\\godot\\addons\\semwright\\ops\\scene_save_ops.gd",
+      "destination": "addons/semwright/ops/scene_save_ops.gd",
+      "sha256": "d0568557631da56fbc4356336f9027fe2bdc3e462d6f7891f3c39f8f0568d6a0",
+      "bytes": 6371
+    }
+  ],
+  "project_before_sha256": "6e7318da0b338a9da5470cc85fa0ed9c27ba7871ba2c81206788e53673334e54",
+  "project_after_sha256": "307f519ac481d4dea38a0ca7c095810e62709afa784671d7a5863b45abd25cb9",
+  "protected_project_files": {
+    "main.tscn": "b374a3e2725299468d8d4b92a7a08f951eb07938f3d894bdeabb0a39ed58fa90",
+    "assets/native_bundle.json": "1056e727006920ee2d69812c75bdaa449cabc00c77c1fb3d470def06e1498eac",
+    "scripts/harbor_review.gd": "0ee676be6f9f91e948fb7efb47573ca0083d1730ab45147461d24fcc370c9a1d",
+    "scripts/review_walker.gd": "c121c2c20328285cf94012788dd3db6ab99e6fcaa7eaaf1a6a64331e2030ed67",
+    "config/review_faro_roundtrip.json": "96c41b26be51fe8d96e19d4f34fbd3daf0090a2ecec3a5ad57be547768411ae1"
+  },
+  "godot": {
+    "path": "E:\\Projects\\worldwright-archipelago\\tools\\godot-4.7.2-win64\\Godot_v4.7.2-stable_win64_console.exe",
+    "sha256": "c8f0a6bc45a19b33541501e57f6f7cd972ab18453743266339d495cbbe846643"
+  },
+  "driver_project_mount": "read_only_no_execute",
+  "driver_network": false,
+  "driver_capabilities": [],
+  "editor": "Owner process for this trusted project; not isolated; not started yet",
+  "status": "PREPARED_NOT_EXECUTED",
+  "human_edit_preservation": "NOT_DEMONSTRATED",
+  "G6": "NOT_COMPLETE"
+}

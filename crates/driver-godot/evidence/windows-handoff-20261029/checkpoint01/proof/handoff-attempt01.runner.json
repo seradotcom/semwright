@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "utc_start": "2026-10-29T02:53:03.841313+00:00",
+  "seconds": 0.46899999999732245,
+  "exit_code": 101,
+  "binary": "E:\\Projects\\semwright-blender52\\.local\\target\\x86_64-pc-windows-gnu\\debug\\deps\\windows_broker_godot_handoff-6885b8490bbd7eda.exe",
+  "binary_sha256": "5884dbb8c387f003c08808e133700590b95010e53d425970f3809d4cb54c2312",
+  "build_report": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt02\\run.json",
+  "build_report_sha256": "4740b5a911e40fcbe49223b1bf1b2bdadbcc7a28bad7bacac470267a77e05b9f",
+  "source_sha256": "dcaabc375911f379474896ea6e065730302028358d02048ede812f8da562d74d",
+  "config_sha256": "762027332971f677093e81abfab27a6c4a517b533d5c45c01bec49fa877ed2f6",
+  "protected_before": {
+    "main.tscn": "b374a3e2725299468d8d4b92a7a08f951eb07938f3d894bdeabb0a39ed58fa90",
+    "assets/native_bundle.json": "1056e727006920ee2d69812c75bdaa449cabc00c77c1fb3d470def06e1498eac",
+    "scripts/harbor_review.gd": "0ee676be6f9f91e948fb7efb47573ca0083d1730ab45147461d24fcc370c9a1d",
+    "scripts/review_walker.gd": "c121c2c20328285cf94012788dd3db6ab99e6fcaa7eaaf1a6a64331e2030ed67",
+    "config/review_faro_roundtrip.json": "96c41b26be51fe8d96e19d4f34fbd3daf0090a2ecec3a5ad57be547768411ae1"
+  },
+  "protected_after": {
+    "main.tscn": "b374a3e2725299468d8d4b92a7a08f951eb07938f3d894bdeabb0a39ed58fa90",
+    "assets/native_bundle.json": "1056e727006920ee2d69812c75bdaa449cabc00c77c1fb3d470def06e1498eac",
+    "scripts/harbor_review.gd": "0ee676be6f9f91e948fb7efb47573ca0083d1730ab45147461d24fcc370c9a1d",
+    "scripts/review_walker.gd": "c121c2c20328285cf94012788dd3db6ab99e6fcaa7eaaf1a6a64331e2030ed67",
+    "config/review_faro_roundtrip.json": "96c41b26be51fe8d96e19d4f34fbd3daf0090a2ecec3a5ad57be547768411ae1"
+  },
+  "protected_files_unchanged": true,
+  "project_config_unchanged": true,
+  "project_config_baseline_sha256": "ef5c468170a348a64b6744d67a3e9824a068f3415f30e5dccf43e78d6161d042",
+  "log_sha256": "fd9321f5e29cdca139c3542bdbebcb768d842b32ed7a1c4ff84b0c3d7b71210c",
+  "editor_isolated": false,
+  "art_status": "REVISE",
+  "G6": "NOT_COMPLETE"
+}

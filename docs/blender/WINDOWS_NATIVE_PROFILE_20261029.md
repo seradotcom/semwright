@@ -87,3 +87,13 @@ Native Godot consumed the exact artifact in the existing project. A 16-point for
 Four existing 1920x1080 views were captured in each revision. Art remains REVISE. No human camera-plan file exists, so unchanged agent camera definitions are only a technical preservation check. Godot was still a direct native consumer, not broker-mediated. Candidates10/11 were retired with every recorded PID absent.
 
 Next: qualify the existing first-party Godot Windows Host pipe plus trusted EditorPlugin for bounded reimport and readback. The Godot driver compiled successfully; compilation is not execution or platform certification. Its editor process must be described separately from the confined driver. Full Windows authoring, real human-edit preservation and Linux regression remain open.
+
+## Candidate12 — plan output publication regression
+
+The exact PlanOutput now passes the unchanged shared registry value budget, typed output schema and final cancellation gate before any vault/record publication. Root and repair planning share the helper. Three publication regressions plus the existing driver tests passed (20 total); registry/types passed 60 tests.
+
+Candidate12 physically rejected the original 1,062-vertex recipe at the driver-output preflight, preserved its native scene/session, and successfully planned/applied/read back a two-mesh fixture in the same isolated session. Library/checkpoint/reopen/GLB and Host reaping passed afterward. The initial connection-before-readiness failure remains preserved. checkpoint04 contains 18 correlated request/envelope pairs and the exact build/source records. Full detail: PLAN_OUTPUT_BUDGET_20261029.md.
+
+## Godot broker — real partial progress
+
+The first-party paired Godot driver now has physical doctor/session, wrong-key handshake rejection, instantiation and complete four-mesh readback evidence. The Editor is an owner process; its driver is LPAC with zero additional capabilities and a read-only project mount. Reimport and scene open require the broker's native human console. The corrected finalizer is compiled and prepared, not executed. A05/G6 remain incomplete, artistic acceptance remains independent, and Linux native regression remains NOT_RUN. Full detail and preserved failures: WINDOWS_GODOT_HANDOFF_20261029.md.

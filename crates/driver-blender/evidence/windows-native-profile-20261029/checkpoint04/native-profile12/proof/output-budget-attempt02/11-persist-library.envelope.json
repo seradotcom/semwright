@@ -1,0 +1,40 @@
+{
+  "command": "driver.blender.composition.persist",
+  "data": {
+    "bytes": 65825,
+    "fresh_process_verified": false,
+    "inventory": {
+      "collection": "SW_27177831fade_native_authoring_proof",
+      "objects": [
+        "SW_27177831fade_tetra",
+        "SW_27177831fade_wedge"
+      ]
+    },
+    "island": "27177831fade47d881d23350ca45e3d3",
+    "method": "libraries-write-indirect-closure",
+    "path": "output-budget-attempt02/asset-library.blend",
+    "sha256": "601f1290dfdde297ffb54ccfa34ec9224e40b7e8ea213f7e3020c2f534aa7add",
+    "source_fingerprint": "88979b8f155fddd56cda792cfbf8879f0780a2e92decf2d8a279b2d463ab57e5"
+  },
+  "execution": {
+    "backend": "driver:blender",
+    "dry_run": false,
+    "duration_ms": 72,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "8c3a0bfe8daa739ae0f507b38e8d2d214a3b7030225ddc5e72e29a236b670108",
+      "execution_provider": "driver:blender",
+      "provider": "driver:blender",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "71d0692215e743569ce14e0f07e2c67b",
+  "warnings": []
+}

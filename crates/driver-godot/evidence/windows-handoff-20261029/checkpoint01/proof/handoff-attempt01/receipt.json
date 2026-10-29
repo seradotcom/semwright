@@ -1,0 +1,44 @@
+{
+  "G6": "NOT_COMPLETE",
+  "Linux_4_5_14": "NOT_RUN",
+  "art_status": "REVISE",
+  "config_sha256": "762027332971f677093e81abfab27a6c4a517b533d5c45c01bec49fa877ed2f6",
+  "driver_broker_used": true,
+  "editor_isolated": false,
+  "error": "Unsaved editor content; do not modify",
+  "human_camera_claimed": false,
+  "passed": false,
+  "proof": "windows_godot_curated_editor_handoff",
+  "requests": [
+    {
+      "command": "driver.godot.doctor",
+      "elapsed_ms": 118,
+      "error": null,
+      "label": "doctor",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "8719e7d5d5184d10a8420d2c75f40684"
+    },
+    {
+      "command": "driver.godot.session.list",
+      "elapsed_ms": 9,
+      "error": null,
+      "label": "sessions",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "9dc8b8adef074fb79fe27a76418b74d5"
+    },
+    {
+      "command": "driver.godot.project.inspect",
+      "elapsed_ms": 132,
+      "error": null,
+      "label": "project-before",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "09c2760e07304581be18aa10bab6a486"
+    }
+  ],
+  "result": null,
+  "schema": 1,
+  "unknown_mutations_replayed": false
+}

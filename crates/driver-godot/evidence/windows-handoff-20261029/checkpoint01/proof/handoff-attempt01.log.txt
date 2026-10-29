@@ -1,0 +1,18 @@
+
+running 1 test
+test windows_broker_godot_handoff ... GODOT_BROKER_STEP {"label":"doctor","ok":true,"request_id":"8719e7d5d5184d10a8420d2c75f40684"}
+GODOT_BROKER_STEP {"label":"sessions","ok":true,"request_id":"9dc8b8adef074fb79fe27a76418b74d5"}
+GODOT_BROKER_STEP {"label":"project-before","ok":true,"request_id":"09c2760e07304581be18aa10bab6a486"}
+
+thread 'windows_broker_godot_handoff' (37696) panicked at crates\driver-blender\tests\windows_broker_godot_handoff.rs:208:5:
+Inspect preserved Godot handoff receipt
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    windows_broker_godot_handoff
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.33s
+

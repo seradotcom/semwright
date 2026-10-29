@@ -1,0 +1,45 @@
+{
+  "case": "godot-handoff-proof-build",
+  "utc_start": "2026-10-29T02:57:01.430389+00:00",
+  "argv": [
+    "C:\\Users\\sergi\\.cargo\\bin\\cargo.exe",
+    "+1.98.1-x86_64-pc-windows-gnu",
+    "test",
+    "-p",
+    "semwright-driver-blender",
+    "--test",
+    "windows_broker_godot_handoff",
+    "--no-run",
+    "--target",
+    "x86_64-pc-windows-gnu",
+    "--locked",
+    "--offline",
+    "--",
+    "--nocapture",
+    "--test-threads=1"
+  ],
+  "exit_code": 0,
+  "seconds": 3.922000000005937,
+  "source_head": "49f0e94c552eb68dc3e946e623a4baa9252db4c4",
+  "source_deleted": [],
+  "snapshot_kind": "base_commit_plus_modified_overlay_and_test_sources",
+  "source_before": {
+    "crates/driver-blender/tests/windows_broker_authoring.rs": "13245abe0d35e3e0ba789d1412c63a359189b63740026c7ee43bb1e7f29ac4e9",
+    "crates/driver-blender/tests/windows_broker_cancel.rs": "a39094933800ef6e2b7f65c4a1336a65bc3105c153028a2a5691aa80bb84f91e",
+    "crates/driver-blender/tests/windows_broker_godot_handoff.rs": "ce64df5ba9b62d910ed941df439105a9aee4bf03edee6fb4c8cc47877b8e712f",
+    "crates/driver-blender/tests/windows_broker_session.rs": "d1eac20e77afe249943a2f56835252d01a9c4c168311fd1e175877fca7c5a7b8",
+    "crates/driver-godot/tests/windows_pairing.rs": "fafd67bb7c325b180a2efdae9a823cdcdc4d2cdff91d60fbf29ed28eb241a48d"
+  },
+  "source_after": {
+    "crates/driver-blender/tests/windows_broker_authoring.rs": "13245abe0d35e3e0ba789d1412c63a359189b63740026c7ee43bb1e7f29ac4e9",
+    "crates/driver-blender/tests/windows_broker_cancel.rs": "a39094933800ef6e2b7f65c4a1336a65bc3105c153028a2a5691aa80bb84f91e",
+    "crates/driver-blender/tests/windows_broker_godot_handoff.rs": "ce64df5ba9b62d910ed941df439105a9aee4bf03edee6fb4c8cc47877b8e712f",
+    "crates/driver-blender/tests/windows_broker_session.rs": "d1eac20e77afe249943a2f56835252d01a9c4c168311fd1e175877fca7c5a7b8",
+    "crates/driver-godot/tests/windows_pairing.rs": "fafd67bb7c325b180a2efdae9a823cdcdc4d2cdff91d60fbf29ed28eb241a48d"
+  },
+  "sources_unchanged": true,
+  "log_sha256": "70c08076acc2f65bb2c4d12517d0620e6e8b8625322ffc13cb527162dba86d23",
+  "tests": [],
+  "A05": "BLOCKED",
+  "Linux_4_5_14": "NOT_RUN"
+}

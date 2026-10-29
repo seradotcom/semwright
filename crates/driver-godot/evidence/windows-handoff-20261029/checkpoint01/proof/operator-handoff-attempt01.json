@@ -1,0 +1,236 @@
+{
+  "project_root": "E:\\Projects\\worldwright-archipelago\\game",
+  "project_id": "723d196eb63d1b26391a6b085d86129b0f78dfef8fa09e194f2b35d3a843ed67",
+  "supporting_scene": "res://proofs/semwright_godot_bridge01_02.tscn",
+  "assets": [
+    {
+      "path": "res://assets/review_20261029-semwright-rock-r22/GEO01_FARO_SEMWRIGHT_R22.glb",
+      "sha256": "6bdb95f2ecca8fd7528bc0b62240b975e152dd1e0ed0b8c3411289da6b1a78b3",
+      "bytes": 64288,
+      "instance": "FaroRock",
+      "meshes": [
+        {
+          "name": "SW_dc08abe78a2a_coastal_toe",
+          "min": [
+            -64.67994689941406,
+            -1.25,
+            10.242951393127441
+          ],
+          "max": [
+            -57.35786819458008,
+            3.549999952316284,
+            15.068251609802246
+          ],
+          "surface_count": 1,
+          "glb_position_count": 312
+        },
+        {
+          "name": "SW_dc08abe78a2a_integrated_limestone",
+          "min": [
+            -65.6500015258789,
+            -1.25,
+            -1.25
+          ],
+          "max": [
+            -49.34806823730469,
+            10.170000076293945,
+            17
+          ],
+          "surface_count": 1,
+          "glb_position_count": 1648
+        },
+        {
+          "name": "SW_dc08abe78a2a_low_shelf",
+          "min": [
+            -63.48686218261719,
+            -1.25,
+            -1.2863136529922485
+          ],
+          "max": [
+            -57.304351806640625,
+            2.6500000953674316,
+            2.5652928352355957
+          ],
+          "surface_count": 1,
+          "glb_position_count": 328
+        }
+      ],
+      "blender_export_request": "7130649de9a84eb9ad626a6b6566800c"
+    },
+    {
+      "path": "res://assets/review_20261029-semwright-threshold-r23/GEO01_FARO_THRESHOLD_SEMWRIGHT_R23.glb",
+      "sha256": "def7605cc8c5dc5e7a5e5a8e15d0741f61c69e07f5b92adb31360bb1493dceb8",
+      "bytes": 2124,
+      "instance": "FaroThreshold",
+      "meshes": [
+        {
+          "name": "SW_c242f21a199d_bridge_threshold",
+          "min": [
+            -52.099998474121094,
+            9.600000381469727,
+            5.400000095367432
+          ],
+          "max": [
+            -50.650001525878906,
+            10.5,
+            8.600000381469727
+          ],
+          "surface_count": 1,
+          "glb_position_count": 24
+        }
+      ],
+      "blender_export_request": "d1e56ad3c7aa4efc88a6dcdcb48f8c4a"
+    }
+  ],
+  "initial_scene": "res://main.tscn",
+  "initial_scene_nodes": [
+    {
+      "class": "Node3D",
+      "groups": [
+        "_vp_unhandled_input71923928308"
+      ],
+      "name": "Archipelago",
+      "path": ".",
+      "stored": {
+        "auto_translate_mode": 0,
+        "editor_description": "",
+        "physics_interpolation_mode": 0,
+        "process_mode": 0,
+        "process_physics_priority": 0,
+        "process_priority": 0,
+        "process_thread_group": 0,
+        "rotation_edit_mode": 0,
+        "rotation_order": 2,
+        "script": {
+          "$type": "Resource",
+          "class": "GDScript",
+          "path": "res://scripts/harbor_review.gd"
+        },
+        "top_level": false,
+        "transform": {
+          "$type": "Transform3D",
+          "value": [
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        },
+        "unique_name_in_owner": false,
+        "visibility_parent": {
+          "$type": "NodePath",
+          "value": ""
+        },
+        "visible": true
+      }
+    }
+  ],
+  "initial_unsaved_scenes": [
+    "res://main.tscn"
+  ],
+  "editor_session": "8044a769cd76689cd9276d3db99681d9",
+  "reconciled_stamp": {
+    "fingerprint": "5c0f9e9dd16e0ae99d266ce62b9bdc8788fb46bc9dbac5822e8f89f90717fe6b",
+    "revision": 6
+  },
+  "reconciled_camera_data": {
+    "class": "Camera3D",
+    "name": "ProofCamera",
+    "observed": {
+      "global_position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "owner_path": ".",
+      "parent_path": ".",
+      "position": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rotation": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rotation_order": 2,
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "scope": "edited_scene"
+    },
+    "path": "ProofCamera",
+    "properties": {
+      "attributes": null,
+      "auto_translate_mode": 0,
+      "compositor": null,
+      "cull_mask": 1048575,
+      "current": false,
+      "doppler_tracking": 0,
+      "editor_description": "",
+      "environment": null,
+      "far": 250.0,
+      "fov": 60.0,
+      "frustum_offset": {
+        "$type": "Vector2",
+        "value": [
+          0.0,
+          0.0
+        ]
+      },
+      "h_offset": 0.0,
+      "keep_aspect": 1,
+      "near": 0.200000002980232,
+      "physics_interpolation_mode": 0,
+      "process_mode": 0,
+      "process_physics_priority": 0,
+      "process_priority": 0,
+      "process_thread_group": 0,
+      "projection": 0,
+      "rotation_edit_mode": 0,
+      "rotation_order": 2,
+      "size": 1.0,
+      "top_level": false,
+      "transform": {
+        "$type": "Transform3D",
+        "value": [
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0,
+          1.0,
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "unique_name_in_owner": false,
+      "v_offset": 0.0,
+      "visibility_parent": {
+        "$type": "NodePath",
+        "value": ""
+      },
+      "visible": true
+    },
+    "ref": "native:8bb7b291d71f4ebf8986d5f308e35aad"
+  },
+  "fixture_before_sha256": "6e319c4e3f6d82b98ef7af29a51f4c38194ae6a798cc7a9b6641b03249943630",
+  "perform_approved_reimport": true,
+  "native_operator_approval_required": true,
+  "approval_response_must_be_human": true
+}

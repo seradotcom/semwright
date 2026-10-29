@@ -1,0 +1,18 @@
+{
+  "args": {
+    "class": "Camera3D",
+    "dry_run": false,
+    "expect": {
+      "fingerprint": "073b5b6b98d79a1c8773ddd730f2122ae221a70e7e8f6737d111c441cdbf99df",
+      "revision": 2
+    },
+    "name": "ProofCamera",
+    "parent": ".",
+    "properties": [],
+    "session": "8b4253f3e69d68aa12b381ee3f020459"
+  },
+  "backend": null,
+  "command": "driver.godot.node.create",
+  "dry_run": false,
+  "request_id": "0d3f896d96a5443d92979901fdefc528"
+}

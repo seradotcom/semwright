@@ -1,0 +1,25 @@
+{
+  "utc": "2026-10-29T03:39:09.044025+00:00",
+  "pid": 27564,
+  "argv": [
+    "E:\\Projects\\worldwright-archipelago\\tools\\semwright-godot-bridge01\\semwrightd.exe",
+    "--config",
+    "E:\\Projects\\worldwright-archipelago\\.local\\godot-bridge01-config\\candidate.toml",
+    "--socket",
+    "\\\\.\\pipe\\semwright-S_1_5_21_3748004576_2415526740_1202758394_1001-archipelago-godot-bridge01",
+    "--data-dir",
+    "E:\\Projects\\worldwright-archipelago\\.local\\godot-bridge01-state",
+    "--mcp-upstreams",
+    "E:\\Projects\\worldwright-archipelago\\.local\\godot-bridge01-config\\mcp-upstreams.toml",
+    "--log-format",
+    "json",
+    "--approval-console"
+  ],
+  "native_approval_console": true,
+  "approval_input_automated": false,
+  "configuration_sha256": {
+    "config": "536d081ae25ea5c9c41e18321151a15bad19b01d185f08e2030d83404b3ec35a",
+    "manifest": "66ff79d91a1c16844aea8e16f586c562cb691dd8003e583836bfb7fc2270c618",
+    "mcp_registry": "c9dc7501089bc272c5ded1315d32a8e1c30af4118a5f63fb72b999c3faf59218"
+  }
+}

@@ -1,0 +1,165 @@
+{
+  "G6": "NOT_COMPLETE",
+  "Linux_4_5_14": "NOT_RUN",
+  "art_status": "REVISE",
+  "config_sha256": "8ade892ad22005bf9633f5ae92b51bbb663faf3847b31c99071ed26cde4fa3f6",
+  "editor_isolated": false,
+  "error": "save-supporting-only: broker rejected operation",
+  "human_camera_claimed": false,
+  "passed": false,
+  "proof": "existing_import_native_geometry_readback",
+  "reimport": "BLOCKED_CONSENT_REQUIRED",
+  "requests": [
+    {
+      "command": "driver.godot.session.list",
+      "elapsed_ms": 38,
+      "error": null,
+      "label": "sessions",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "1e6105b585e448f3996f6a71e5ff2033"
+    },
+    {
+      "command": "driver.godot.scene.inspect",
+      "elapsed_ms": 97,
+      "error": null,
+      "label": "continuation-scene",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "81ed725c28ec47a59574977d69032988"
+    },
+    {
+      "command": "driver.godot.camera.inspect",
+      "elapsed_ms": 96,
+      "error": null,
+      "label": "camera-before",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "4f4900ee460148c59f2736ba962eefb9"
+    },
+    {
+      "command": "driver.godot.node.inspect",
+      "elapsed_ms": 97,
+      "error": null,
+      "label": "camera-node-before",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "7d84c1b943c94d2fb48c0a0455594659"
+    },
+    {
+      "command": "driver.godot.asset.inspect",
+      "elapsed_ms": 96,
+      "error": null,
+      "label": "asset0-existing",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "ca6a0202622348aca4c7066525c70cb1"
+    },
+    {
+      "command": "driver.godot.scene.instantiate",
+      "elapsed_ms": 139,
+      "error": null,
+      "label": "asset0-instantiate-existing",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "05ca02c43770448a8dd5dee00d4ed615"
+    },
+    {
+      "command": "driver.godot.asset.inspect",
+      "elapsed_ms": 54,
+      "error": null,
+      "label": "asset1-existing",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "99e8119f4b4a4d6dbcd1839bb5e6ab9c"
+    },
+    {
+      "command": "driver.godot.scene.instantiate",
+      "elapsed_ms": 113,
+      "error": null,
+      "label": "asset1-instantiate-existing",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "313d2c4e2fb24f3ba4533b39c05da239"
+    },
+    {
+      "command": "driver.godot.scene.inspect",
+      "elapsed_ms": 87,
+      "error": null,
+      "label": "scene-meshes",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "01065d4bd6bd46d783b13b9f8e09a8bb"
+    },
+    {
+      "command": "driver.godot.node.inspect",
+      "elapsed_ms": 94,
+      "error": null,
+      "label": "mesh-0",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "406436c6a9464d89b7f4bab8ecf9caa4"
+    },
+    {
+      "command": "driver.godot.node.inspect",
+      "elapsed_ms": 96,
+      "error": null,
+      "label": "mesh-1",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "06886096832947d9b4a04b9598f059c9"
+    },
+    {
+      "command": "driver.godot.node.inspect",
+      "elapsed_ms": 96,
+      "error": null,
+      "label": "mesh-2",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "bc1ec46706fb4208b447fb4bdbc72240"
+    },
+    {
+      "command": "driver.godot.node.inspect",
+      "elapsed_ms": 97,
+      "error": null,
+      "label": "mesh-3",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "0e517086ca314baaa2f407db9b737a2d"
+    },
+    {
+      "command": "driver.godot.camera.inspect",
+      "elapsed_ms": 91,
+      "error": null,
+      "label": "camera-after",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "cc931bb4a4334aa5a30ff4b6a7728f45"
+    },
+    {
+      "command": "driver.godot.node.inspect",
+      "elapsed_ms": 98,
+      "error": null,
+      "label": "camera-node-after",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "de9594f35fc84f13bb617215673e7a96"
+    },
+    {
+      "command": "driver.godot.scene.save",
+      "elapsed_ms": 97,
+      "error": {
+        "code": "Unsupported",
+        "message": "Driver reported an error; untrusted payload was redacted",
+        "outcome_known": false
+      },
+      "label": "save-supporting-only",
+      "ok": false,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "bc6c653c8c574c6d85efea345e2d444a"
+    }
+  ],
+  "result": null,
+  "schema": 1,
+  "whole_P3": "PARTIAL"
+}

@@ -1,0 +1,24 @@
+   Compiling semwright-platform-windows-sys v1.0.0 (E:\Projects\semwright-blender52\crates\platform-windows-sys)
+   Compiling semwright-platform-services v1.0.0 (E:\Projects\semwright-blender52\crates\platform-services)
+   Compiling semwright-protocol v1.0.0 (E:\Projects\semwright-blender52\crates\protocol)
+   Compiling semwright-policy v1.0.0 (E:\Projects\semwright-blender52\crates\policy)
+   Compiling semwright-platform-common v1.0.0 (E:\Projects\semwright-blender52\crates\platform-common)
+   Compiling semwright-plugin-sdk v1.0.0 (E:\Projects\semwright-blender52\crates\plugin-sdk)
+   Compiling semwright-adapters v1.0.0 (E:\Projects\semwright-blender52\crates\adapters)
+   Compiling semwright-driver-sdk v1.0.0 (E:\Projects\semwright-blender52\crates\driver-sdk)
+   Compiling semwright-plugin-host v1.0.0 (E:\Projects\semwright-blender52\crates\plugin-host)
+   Compiling semwright-project-graph v1.0.0 (E:\Projects\semwright-blender52\crates\project-graph)
+   Compiling semwright-platform-windows v1.0.0 (E:\Projects\semwright-blender52\crates\platform-windows)
+   Compiling semwright-core v1.0.0 (E:\Projects\semwright-blender52\crates\core)
+   Compiling semwright-platform-host v1.0.0 (E:\Projects\semwright-blender52\crates\platform-host)
+   Compiling semwright-driver-host v1.0.0 (E:\Projects\semwright-blender52\crates\driver-host)
+   Compiling semwright-backends v1.0.0 (E:\Projects\semwright-blender52\crates\backends)
+   Compiling semwright-federation v1.0.0 (E:\Projects\semwright-blender52\crates\federation)
+   Compiling semwright-daemon v1.0.0 (E:\Projects\semwright-blender52\crates\daemon)
+    Finished `test` profile [unoptimized] target(s) in 48.15s
+     Running unittests src\semwrightd.rs (.local\target\x86_64-pc-windows-gnu\debug\deps\semwrightd-dcb9ee32fda9c73f.exe)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

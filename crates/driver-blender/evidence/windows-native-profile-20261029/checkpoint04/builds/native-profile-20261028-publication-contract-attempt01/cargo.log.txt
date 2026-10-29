@@ -1,0 +1,55 @@
+   Compiling semwright-types v1.0.0 (E:\Projects\semwright-blender52\crates\types)
+   Compiling semwright-backend-api v1.0.0 (E:\Projects\semwright-blender52\crates\backend-api)
+   Compiling semwright-platform-api v1.0.0 (E:\Projects\semwright-blender52\crates\platform-api)
+   Compiling semwright-effect-conformance v1.0.0 (E:\Projects\semwright-blender52\crates\effect-conformance)
+   Compiling semwright-platform-windows-sys v1.0.0 (E:\Projects\semwright-blender52\crates\platform-windows-sys)
+   Compiling semwright-recipes v1.0.0 (E:\Projects\semwright-blender52\crates\recipes)
+   Compiling semwright-platform-services v1.0.0 (E:\Projects\semwright-blender52\crates\platform-services)
+   Compiling semwright-protocol v1.0.0 (E:\Projects\semwright-blender52\crates\protocol)
+   Compiling semwright-project-graph v1.0.0 (E:\Projects\semwright-blender52\crates\project-graph)
+   Compiling semwright-driver-sdk v1.0.0 (E:\Projects\semwright-blender52\crates\driver-sdk)
+   Compiling semwright-policy v1.0.0 (E:\Projects\semwright-blender52\crates\policy)
+   Compiling semwright-driver-blender v1.0.0 (E:\Projects\semwright-blender52\crates\driver-blender)
+   Compiling semwright-plugin-sdk v1.0.0 (E:\Projects\semwright-blender52\crates\plugin-sdk)
+   Compiling semwright-plugin-host v1.0.0 (E:\Projects\semwright-blender52\crates\plugin-host)
+   Compiling semwright-workflow v1.0.0 (E:\Projects\semwright-blender52\crates\workflow)
+   Compiling semwright-registry v1.0.0 (E:\Projects\semwright-blender52\crates\registry)
+   Compiling semwright-core v1.0.0 (E:\Projects\semwright-blender52\crates\core)
+   Compiling semwright-driver-host v1.0.0 (E:\Projects\semwright-blender52\crates\driver-host)
+    Finished `test` profile [unoptimized] target(s) in 55.39s
+     Running unittests src\main.rs (.local\target\x86_64-pc-windows-gnu\debug\deps\semwright_blender_driver-94fb4bbe05caaee6.exe)
+
+running 20 tests
+test authoring_runtime::plan_publication_tests::cancellation_and_output_schema_failure_do_not_issue_plans ... ok
+test authoring_runtime::plan_publication_tests::duplicate_reference_cannot_overwrite_a_prior_plan ... ok
+test authoring_runtime::plan_publication_tests::oversized_response_never_reaches_publication_and_preserves_prior_authority ... ok
+test authoring_transport_tests::blender_launch_is_factory_clean_and_disables_autoexec ... ok
+test native_lifecycle_tests::checkpoint_inspection_accepts_bounded_native_static_inventory ... ok
+test native_lifecycle_tests::native_checkpoint_close_is_new_only_and_cannot_select_foreign_session ... ok
+test native_lifecycle_tests::native_initial_open_is_hash_bound_and_legacy_destructive_file_operations_remain ... ok
+test native_lifecycle_tests::native_session_close_requires_explicit_discard_and_has_destructive_risk ... ok
+test tests::blender_52_generic_rna_mutation_remains_unqualified ... ok
+test tests::blender_52_keeps_readback_curated_and_typed_authoring ... ok
+test tests::bridge_response_envelope_is_strict ... ok
+test tests::catalog_declares_generic_artifact_outputs ... ok
+test tests::curated_commands_are_migrated_without_generic_python_escape ... ok
+test tests::cycles_device_selection_has_finite_inputs_and_bounded_output ... ok
+test tests::introspection_inputs_are_bounded ... ok
+test tests::mesh_initialize_is_non_sensitive_while_replace_stays_destructive ... ok
+test tests::semantic_catalog_is_unique_bounded_and_non_executable ... Blender capability frame bytes=190696 budget=1048576
+ok
+test tests::semantic_source_has_no_generic_python_or_operator_escape ... ok
+test tests::semantic_value_schema_accepts_integral_blender_floats_and_vectors ... ok
+test tests::session_arguments_use_only_typed_host_refs ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.22s
+
+     Running tests\windows_broker_godot_handoff.rs (.local\target\x86_64-pc-windows-gnu\debug\deps\windows_broker_godot_handoff-6885b8490bbd7eda.exe)
+
+running 3 tests
+test windows_broker_godot_existing_import_readback ... ignored, Continue the known fixture after explicit reimport denial, observing existing imports only
+test windows_broker_godot_finalize_known_fixture ... ignored, Save the reconciled owned supporting fixture with the existing supported save mode
+test windows_broker_godot_handoff ... ignored, Physical owner-authorized first-party Godot handoff of pinned Blender exports on Windows
+
+test result: ok. 0 passed; 0 failed; 3 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

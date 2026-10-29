@@ -25,9 +25,9 @@ Production candidates execute authenticated broker requests against confined Ble
 
 Owner opt-in denial and real readiness cancellation have physical evidence. Candidate09 passed save-before-close, Host reaping, fresh hash-bound reopen, static structure readback, typed two-mesh composition, independent Effect Conformance and stale/replay rejection. Factory-owned content preservation is a fixture check, not a human-edit claim. The exact two-material GLB was physically checked and rendered in native Godot.
 
-Candidate10 then produced an original Archipelago lighthouse rock through the same production broker: three concrete meshes and a material, independent readback, editable library, full-scene checkpoint, fresh isolated reopen and a 64,288-byte GLB (6bdb95f2ecca8fd7528bc0b62240b975e152dd1e0ed0b8c3411289da6b1a78b3). The source has 518 vertices and 1,024 triangles; glTF may split vertices for normals. Native Godot admitted this exact artifact into the existing project, replaced seven named prior mesh instances, preserved camera definitions and captured the existing views. Its art remains REVISE. The Godot consumer is still not mediated by a qualified Windows Godot driver.
+Candidate10 then produced an original Archipelago lighthouse rock through the same production broker: three concrete meshes and a material, independent readback, editable library, full-scene checkpoint, fresh isolated reopen and a 64,288-byte GLB (6bdb95f2ecca8fd7528bc0b62240b975e152dd1e0ed0b8c3411289da6b1a78b3). The source has 518 vertices and 1,024 triangles; glTF may split vertices for normals. Native Godot admitted this exact artifact into the existing project, replaced seven named prior mesh instances, preserved camera definitions and captured the existing views. Its art remains REVISE. That initial scene admission was direct. Subsequent first-party Godot broker pairing, instantiation and geometry readback have physical evidence; reimport and supporting-scene persistence remain pending native operator consent.
 
-Preserved failed attempts exposed both the input and plan-output JSON structural budgets. The successful recipe fits the unchanged limits. A plan-output budget preflight before vault publication remains a small follow-up; the broker's final structural check remains authoritative.
+Preserved failed attempts exposed both the input and plan-output JSON structural budgets. The successful recipe fits the unchanged limits. The exact response is now checked before vault/cache publication using the unchanged shared value budget and output schema. Candidate12 physically rejected the known oversized response inside the driver, preserved native state, and applied/read back a valid plan in the same isolated session. The broker's final check remains authoritative; see PLAN_OUTPUT_BUDGET_20261029.md.
 
 See [the current checkpoint](WINDOWS_NATIVE_PROFILE_20261029.md) and [historical probes](WINDOWS_52_EXPERIMENTAL.md).
 
@@ -50,3 +50,9 @@ This contribution is experimental and not release-ready. Bounded lifecycle and s
 The owner authorized local development/checkpoints, not external push, PR, merge, publication or CI.
 
 Candidate11 produced a separate original stone threshold through the same isolated route. Native Godot then passed the previously failing 15-point return route with identical route/controller hashes. Four new physical views were reviewed; art remains REVISE. These creative receipts and preserved failures are frozen in checkpoint03. No Godot broker success is claimed by this checkpoint.
+
+## Latest bounded follow-ups
+
+Candidate12 and checkpoint04 close the plan-output preflight regression with 20 driver tests, 60 registry/types tests and a physical same-session reject/valid-apply/persistence/GLB run. Details and exact authority limits: PLAN_OUTPUT_BUDGET_20261029.md.
+
+The subsequent Godot broker evidence covers authenticated pairing, wrong-key closure before Ready, native instantiation and four-mesh geometry readback. Reimport was denied before execution by native trusted-operator consent; strict nested-instance save remains unsupported. A native approval console and the corrected explicit handoff are prepared. The exact retired secret-lease ACL recovery preserved private validation and added no permission. See WINDOWS_GODOT_HANDOFF_20261029.md. The pending handoff has not been promoted to PASS.

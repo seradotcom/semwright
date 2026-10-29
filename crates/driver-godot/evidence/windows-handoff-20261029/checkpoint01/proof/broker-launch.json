@@ -1,0 +1,25 @@
+{
+  "schema": 1,
+  "component": "broker",
+  "pid": 37772,
+  "utc_before": "2026-10-29T02:41:35.021669+00:00",
+  "process_creation_utc": "2026-10-29T02:41:36.4315736Z",
+  "argv": [
+    "E:\\Projects\\worldwright-archipelago\\tools\\semwright-godot-bridge01\\semwrightd.exe",
+    "--config",
+    "E:\\Projects\\worldwright-archipelago\\.local\\godot-bridge01-config\\candidate.toml",
+    "--socket",
+    "\\\\.\\pipe\\semwright-S_1_5_21_3748004576_2415526740_1202758394_1001-archipelago-godot-bridge01",
+    "--data-dir",
+    "E:\\Projects\\worldwright-archipelago\\.local\\godot-bridge01-state",
+    "--mcp-upstreams",
+    "E:\\Projects\\worldwright-archipelago\\.local\\godot-bridge01-config\\mcp-upstreams.toml",
+    "--log-format",
+    "json"
+  ],
+  "stdout": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\broker.stdout.log",
+  "stderr": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\broker.stderr.log",
+  "environment_secret_logged": false,
+  "status": "LAUNCHED_READINESS_NOT_YET_OBSERVED",
+  "editor_isolated": false
+}

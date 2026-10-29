@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "utc": "2026-10-29T03:05:05.931493+00:00",
+  "original_request_id": "bc6c653c8c574c6d85efea345e2d444a",
+  "original_error": {
+    "code": "Unsupported",
+    "message": "Driver reported an error; untrusted payload was redacted",
+    "outcome_known": false
+  },
+  "same_native_stamp_as_before_error": true,
+  "camera_unchanged": true,
+  "disk_contains_initial_root_only": true,
+  "fixture_still_unsaved": true,
+  "source_files": 3094,
+  "source_bytes": 267044780,
+  "reconciliation": "No persisted fixture edit observed; conservative nested-instance preflight rejects before save",
+  "previous_failure_promoted_to_success": false,
+  "next_candidate_mode": "Existing supported scene.save with save_external_resources=true; new request after this reconciliation"
+}

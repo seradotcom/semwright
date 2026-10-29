@@ -1,0 +1,31 @@
+; Worldwright Archipelago: native vertical-slice review application.
+; Original Blender exports are digest-checked. Broker provenance is explicit in each bundle.
+config_version=5
+
+[application]
+config/name="Archipelago — Costa de los Vientos"
+run/main_scene="res://main.tscn"
+config/features=PackedStringArray("4.7", "Forward Plus")
+
+[display]
+window/size/viewport_width=1920
+window/size/viewport_height=1080
+window/size/window_width_override=1280
+window/size/window_height_override=720
+window/stretch/mode="viewport"
+; Local review: FIFO VSync stalled on this hybrid-GPU laptop; cap stays 60.
+; Verified by identical r09 assets/cameras with VSync disabled; not display latency.
+window/vsync/vsync_mode=0
+
+[rendering]
+renderer/rendering_method="forward_plus"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/default_filters/use_nearest_mipmap_filter=false
+anti_aliasing/quality/msaa_3d=2
+environment/defaults/default_clear_color=Color(0.65,0.77,0.79,1)
+
+[filesystem]
+import/blender/enabled=false
+
+[editor_plugins]
+enabled=PackedStringArray("res://addons/semwright/plugin.cfg")

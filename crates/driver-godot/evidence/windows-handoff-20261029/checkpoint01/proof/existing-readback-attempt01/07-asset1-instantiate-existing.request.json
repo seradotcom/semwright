@@ -1,0 +1,17 @@
+{
+  "args": {
+    "dry_run": false,
+    "expect": {
+      "fingerprint": "f48b5a57847394e6ffc73b44a619d83ad1d156a9275241d75ad8f17db11eec62",
+      "revision": 5
+    },
+    "name": "FaroThreshold",
+    "parent": ".",
+    "scene": "res://assets/review_20261029-semwright-threshold-r23/GEO01_FARO_THRESHOLD_SEMWRIGHT_R23.glb",
+    "session": "8b4253f3e69d68aa12b381ee3f020459"
+  },
+  "backend": null,
+  "command": "driver.godot.scene.instantiate",
+  "dry_run": false,
+  "request_id": "313d2c4e2fb24f3ba4533b39c05da239"
+}

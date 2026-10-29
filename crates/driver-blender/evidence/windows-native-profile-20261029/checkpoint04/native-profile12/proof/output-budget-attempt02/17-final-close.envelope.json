@@ -1,0 +1,39 @@
+{
+  "command": "driver.blender.session.checkpoint_close",
+  "data": {
+    "checkpoint": {
+      "bytes": 658883,
+      "contract": "static_mesh_scene_v1",
+      "copy": true,
+      "empty_runtime_image_placeholders": 2,
+      "path": "output-budget-attempt02/final-recovery.blend",
+      "retained_orphans": [],
+      "sha256": "cb8acf5d6de3404563f4d7b7e8c84f4da931fed8d7a050f2ba33b31662a3b8be",
+      "source_fake_users_restored": true,
+      "undo_history_preserved": false
+    },
+    "close_state": "closed",
+    "closed": true
+  },
+  "execution": {
+    "backend": "driver:blender",
+    "dry_run": false,
+    "duration_ms": 1156,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "98489a5449a3748d4d3290941abafc26f690b4d525ab5cf27a64e633130ad0fd",
+      "execution_provider": "driver:blender",
+      "provider": "driver:blender",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "e1a8fc4200424aaa842d866825268a53",
+  "warnings": []
+}

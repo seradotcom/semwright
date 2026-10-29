@@ -1,0 +1,21 @@
+{
+  "schema": 1,
+  "component": "editor",
+  "pid": 39036,
+  "utc_before": "2026-10-29T02:43:31.657754+00:00",
+  "process_creation_utc": "2026-10-29T02:43:31.6619060Z",
+  "argv": [
+    "E:\\Projects\\worldwright-archipelago\\tools\\godot-4.7.2-win64\\Godot_v4.7.2-stable_win64_console.exe",
+    "--editor",
+    "--path",
+    "E:\\Projects\\worldwright-archipelago\\game",
+    "--resolution",
+    "1600x900",
+    "--windowed"
+  ],
+  "stdout": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\editor.stdout.log",
+  "stderr": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\editor.stderr.log",
+  "environment_secret_logged": false,
+  "status": "LAUNCHED_READINESS_NOT_YET_OBSERVED",
+  "editor_isolated": false
+}

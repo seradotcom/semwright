@@ -1,0 +1,42 @@
+{
+  "command": "driver.godot.editor.state",
+  "data": {
+    "data": {
+      "playing": false,
+      "scene": "res://main.tscn",
+      "scene_class": "Node3D",
+      "selected_files": [
+        "res://main.tscn"
+      ],
+      "selected_nodes": [],
+      "unsaved_scenes": [
+        "res://main.tscn"
+      ]
+    },
+    "stamp": {
+      "fingerprint": "a4be38ce924d1500249c1698135906cd9e9796cedbf7ee702d7484f9e0f089a1",
+      "revision": 1
+    }
+  },
+  "execution": {
+    "backend": "driver:godot",
+    "dry_run": false,
+    "duration_ms": 96,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "e4f7382e6eb7887370900321388739d47267cf6488ba0eb93dc1de3d35c1aabd",
+      "execution_provider": "driver:godot",
+      "provider": "driver:godot",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "e98afc1dbac84bdab0581bd74c646b28",
+  "warnings": []
+}

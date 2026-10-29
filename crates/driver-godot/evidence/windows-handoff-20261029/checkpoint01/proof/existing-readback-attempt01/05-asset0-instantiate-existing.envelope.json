@@ -1,0 +1,35 @@
+{
+  "command": "driver.godot.scene.instantiate",
+  "data": {
+    "affected": [
+      "FaroRock"
+    ],
+    "applied": true,
+    "stamp": {
+      "fingerprint": "f48b5a57847394e6ffc73b44a619d83ad1d156a9275241d75ad8f17db11eec62",
+      "revision": 5
+    },
+    "undo": "Instantiate scene"
+  },
+  "execution": {
+    "backend": "driver:godot",
+    "dry_run": false,
+    "duration_ms": 136,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "08b31cdb0968b5010c2e230856a7e3015ecd582192cf223811162ce54e968e2d",
+      "execution_provider": "driver:godot",
+      "provider": "driver:godot",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "05ca02c43770448a8dd5dee00d4ed615",
+  "warnings": []
+}

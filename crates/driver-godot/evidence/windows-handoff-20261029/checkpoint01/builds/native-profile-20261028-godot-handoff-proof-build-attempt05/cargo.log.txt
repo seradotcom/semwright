@@ -1,0 +1,3 @@
+   Compiling semwright-driver-blender v1.0.0 (E:\Projects\semwright-blender52\crates\driver-blender)
+    Finished `test` profile [unoptimized] target(s) in 5.95s
+  Executable tests\windows_broker_godot_handoff.rs (.local\target\x86_64-pc-windows-gnu\debug\deps\windows_broker_godot_handoff-6885b8490bbd7eda.exe)

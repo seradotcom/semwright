@@ -1,0 +1,4 @@
+    Checking semwright-daemon v1.0.0 (E:\Projects\semwright-blender52\crates\daemon)
+    Checking semwright-driver-blender v1.0.0 (E:\Projects\semwright-blender52\crates\driver-blender)
+    Checking semwright-driver-host v1.0.0 (E:\Projects\semwright-blender52\crates\driver-host)
+    Finished `dev` profile [unoptimized] target(s) in 10.77s

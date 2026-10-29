@@ -1,0 +1,35 @@
+{
+  "command": "driver.godot.scene.create",
+  "data": {
+    "affected": [
+      "res://proofs/semwright_godot_bridge01_02.tscn"
+    ],
+    "applied": true,
+    "stamp": {
+      "fingerprint": "073b5b6b98d79a1c8773ddd730f2122ae221a70e7e8f6737d111c441cdbf99df",
+      "revision": 2
+    },
+    "undo": "Create scene"
+  },
+  "execution": {
+    "backend": "driver:godot",
+    "dry_run": false,
+    "duration_ms": 126,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "ff9b011c9b0fc8a5d3444f06868046f2e8fadaf09179fcdcda6f4f4e8f664f16",
+      "execution_provider": "driver:godot",
+      "provider": "driver:godot",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "f9bff864da6b40279d9667befdb75b8b",
+  "warnings": []
+}

@@ -628,6 +628,70 @@ fn plan_island(plan: &Plan) -> Result<&str> {
         })
         .ok_or_else(|| Error::invalid("empty authoring plan"))
 }
+/// Publish only the exact, already bounded output returned to the registry.
+/// Preparation is pure; no vault or record state changes until all preflight gates pass.
+#[allow(clippy::too_many_arguments)]
+fn publish_plan(
+    state: &mut State,
+    owner: composition::Owner,
+    plan_ref: String,
+    prepared: PreparedAuthoring,
+    before: NativeSnapshot,
+    parent_plan_ref: Option<&str>,
+    repair: bool,
+    output_schema: &Value,
+    check_cancelled: impl FnOnce() -> Result<()>,
+) -> Result<Value> {
+    let key = (owner.clone(), plan_ref.clone());
+    if state.records.contains_key(&key) {
+        return Err(Error::new(
+            ErrorCode::Conflict,
+            "authoring plan reference already exists",
+        ));
+    }
+    let plan = &prepared.plan;
+    let output = serde_json::to_value(PlanOutput {
+        plan_ref: plan_ref.clone(),
+        plan: plan.clone(),
+    })?;
+    semwright_types::json_budget::value_budget(&output)?;
+    if !jsonschema::validator_for(output_schema)
+        .map_err(|_| Error::new(ErrorCode::Internal, "invalid authoring output schema"))?
+        .is_valid(&output)
+    {
+        return Err(Error::new(
+            ErrorCode::Internal,
+            "authoring output violates typed schema",
+        ));
+    }
+    check_cancelled()?;
+    // No await or fallible validation between issue and record insertion.
+    state
+        .vault
+        .issue(
+            &owner,
+            &plan_ref,
+            plan,
+            plan.body.budget.clone(),
+            plan.body.changes.operations.len() as u32,
+            parent_plan_ref,
+            repair,
+        )
+        .map_err(common_error)?;
+    state.records.insert(
+        key,
+        Record {
+            prepared,
+            before,
+            after: None,
+            global_after: None,
+            report: None,
+            repair,
+        },
+    );
+    Ok(output)
+}
+
 #[allow(clippy::too_many_arguments)]
 pub(super) async fn execute(
     state: &mut State,
@@ -689,32 +753,17 @@ pub(super) async fn execute(
                 profile_bindings()?,
             )
             .map_err(common_error)?;
-            let plan = prepared.plan.clone();
-            let plan_ref = unique_id();
-            state
-                .vault
-                .issue(
-                    &owner,
-                    &plan_ref,
-                    &plan,
-                    plan.body.budget.clone(),
-                    plan.body.changes.operations.len() as u32,
-                    None,
-                    false,
-                )
-                .map_err(common_error)?;
-            state.records.insert(
-                (owner, plan_ref.clone()),
-                Record {
-                    prepared,
-                    before,
-                    after: None,
-                    global_after: None,
-                    report: None,
-                    repair: false,
-                },
-            );
-            Ok(serde_json::to_value(PlanOutput { plan_ref, plan })?)
+            publish_plan(
+                state,
+                owner,
+                unique_id(),
+                prepared,
+                before,
+                None,
+                false,
+                &capability.descriptor.output_schema,
+                || context.check_cancelled(),
+            )
         }
         "repair.plan" => {
             if state.records.len() >= 32 {
@@ -787,31 +836,17 @@ pub(super) async fn execute(
                     "repair planner attempted to reset the root convergence budget",
                 ));
             }
-            let plan_ref = unique_id();
-            state
-                .vault
-                .issue(
-                    &owner,
-                    &plan_ref,
-                    &plan,
-                    plan.body.budget.clone(),
-                    plan.body.changes.operations.len() as u32,
-                    Some(&input.parent_plan_ref),
-                    true,
-                )
-                .map_err(common_error)?;
-            state.records.insert(
-                (owner, plan_ref.clone()),
-                Record {
-                    prepared,
-                    before,
-                    after: None,
-                    global_after: None,
-                    report: None,
-                    repair: true,
-                },
-            );
-            Ok(serde_json::to_value(PlanOutput { plan_ref, plan })?)
+            publish_plan(
+                state,
+                owner,
+                unique_id(),
+                prepared,
+                before,
+                Some(&input.parent_plan_ref),
+                true,
+                &capability.descriptor.output_schema,
+                || context.check_cancelled(),
+            )
         }
         "apply" | "repair.apply" => {
             let plan_ref = args["plan_ref"]
@@ -1057,5 +1092,233 @@ pub(super) async fn execute(
             ErrorCode::Unsupported,
             "authoring phase not implemented",
         )),
+    }
+}
+
+#[cfg(test)]
+mod plan_publication_tests {
+    use super::*;
+    use std::cell::Cell;
+
+    const VALID: &str = include_str!("../tests/fixtures/authoring_plan_output_valid.json");
+    const OVERSIZED: &str = include_str!("../tests/fixtures/authoring_plan_output_budget.json");
+
+    fn owner() -> composition::Owner {
+        composition::Owner {
+            session: "publication-test-session".into(),
+            principal: composition::PrincipalBinding::HostSession,
+        }
+    }
+    fn snapshot() -> NativeSnapshot {
+        NativeSnapshot {
+            native_session: "native-publication-fixture".into(),
+            island: None,
+            fingerprint: composition::Digest::of_bytes(b"unchanged-native-before"),
+            drift: false,
+            total: 0,
+            items: vec![],
+            source_only: true,
+            exhaustive: true,
+        }
+    }
+    fn prepared(source: &str, island: &str) -> PreparedAuthoring {
+        let spec: BlenderAuthoringSpec = serde_json::from_str(source).unwrap();
+        prepare(
+            owner(),
+            AuthoringIntent::Create { spec },
+            &snapshot(),
+            island.into(),
+            profile_bindings().unwrap(),
+        )
+        .unwrap()
+    }
+    fn output_schema() -> Value {
+        capability("driver.blender.composition.plan")
+            .unwrap()
+            .descriptor
+            .output_schema
+    }
+    fn publish(state: &mut State, name: &str, plan: PreparedAuthoring) -> Value {
+        publish_plan(
+            state,
+            owner(),
+            name.into(),
+            plan,
+            snapshot(),
+            None,
+            false,
+            &output_schema(),
+            || Ok(()),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn oversized_response_never_reaches_publication_and_preserves_prior_authority() {
+        let mut state = State::default();
+        let prior = publish(&mut state, "prior-plan", prepared(VALID, "prior_island"));
+        let prior_plan = state.records[&(owner(), "prior-plan".into())]
+            .prepared
+            .plan
+            .clone();
+        state
+            .vault
+            .matches(&owner(), "prior-plan", &prior_plan)
+            .unwrap();
+
+        // This is the exact original 1062-vertex recipe rejected by the physical registry.
+        // Its input fits. Its duplicated intent/operation response does not.
+        let bad = prepared(OVERSIZED, "oversized_island");
+        let input = serde_json::to_value(PlanInput {
+            intent: bad.plan.body.intent.clone(),
+        })
+        .unwrap();
+        semwright_types::json_budget::value_budget(&input).unwrap();
+        let bad_plan = bad.plan.clone();
+        let exact_output = serde_json::to_value(PlanOutput {
+            plan_ref: "oversized-plan".into(),
+            plan: bad_plan.clone(),
+        })
+        .unwrap();
+        assert_eq!(
+            semwright_types::json_budget::value_budget(&exact_output)
+                .unwrap_err()
+                .code,
+            ErrorCode::ResourceExhausted
+        );
+        let publication_gate_calls = Cell::new(0);
+        let error = publish_plan(
+            &mut state,
+            owner(),
+            "oversized-plan".into(),
+            bad,
+            snapshot(),
+            None,
+            false,
+            &output_schema(),
+            || {
+                publication_gate_calls.set(publication_gate_calls.get() + 1);
+                Ok(())
+            },
+        )
+        .unwrap_err();
+        assert_eq!(error.code, ErrorCode::ResourceExhausted);
+        // This callback is immediately before issue; it must not be reached on budget failure.
+        assert_eq!(publication_gate_calls.get(), 0);
+        assert_eq!(state.records.len(), 1);
+        assert!(
+            !state
+                .records
+                .contains_key(&(owner(), "oversized-plan".into()))
+        );
+        assert!(
+            state
+                .vault
+                .matches(&owner(), "oversized-plan", &bad_plan)
+                .is_err()
+        );
+        state
+            .vault
+            .matches(&owner(), "prior-plan", &prior_plan)
+            .unwrap();
+        assert_eq!(
+            serde_json::to_value(&state.records[&(owner(), "prior-plan".into())].prepared.plan)
+                .unwrap(),
+            prior["plan"]
+        );
+
+        let next = publish(&mut state, "next-plan", prepared(VALID, "next_island"));
+        assert_eq!(state.records.len(), 2);
+        assert_eq!(next["plan_ref"], "next-plan");
+        let next_plan = &state.records[&(owner(), "next-plan".into())].prepared.plan;
+        state
+            .vault
+            .matches(&owner(), "next-plan", next_plan)
+            .unwrap();
+        semwright_types::json_budget::value_budget(&next).unwrap();
+        assert!(
+            jsonschema::validator_for(&output_schema())
+                .unwrap()
+                .is_valid(&next)
+        );
+    }
+
+    #[test]
+    fn cancellation_and_output_schema_failure_do_not_issue_plans() {
+        for cancelled in [false, true] {
+            let mut state = State::default();
+            let candidate = prepared(VALID, "rejected_island");
+            let plan = candidate.plan.clone();
+            let schema = if cancelled {
+                output_schema()
+            } else {
+                json!(false)
+            };
+            let gate = Cell::new(false);
+            let result = publish_plan(
+                &mut state,
+                owner(),
+                "rejected-plan".into(),
+                candidate,
+                snapshot(),
+                None,
+                false,
+                &schema,
+                || {
+                    gate.set(true);
+                    Err(Error::new(
+                        ErrorCode::Cancelled,
+                        "cancelled before publication",
+                    ))
+                },
+            );
+            assert_eq!(
+                result.unwrap_err().code,
+                if cancelled {
+                    ErrorCode::Cancelled
+                } else {
+                    ErrorCode::Internal
+                }
+            );
+            assert_eq!(gate.get(), cancelled);
+            assert!(state.records.is_empty());
+            assert!(
+                state
+                    .vault
+                    .matches(&owner(), "rejected-plan", &plan)
+                    .is_err()
+            );
+        }
+    }
+
+    #[test]
+    fn duplicate_reference_cannot_overwrite_a_prior_plan() {
+        let mut state = State::default();
+        let prior = publish(&mut state, "same-plan", prepared(VALID, "original_island"));
+        let called = Cell::new(false);
+        let error = publish_plan(
+            &mut state,
+            owner(),
+            "same-plan".into(),
+            prepared(VALID, "replacement_island"),
+            snapshot(),
+            None,
+            false,
+            &output_schema(),
+            || {
+                called.set(true);
+                Ok(())
+            },
+        )
+        .unwrap_err();
+        assert_eq!(error.code, ErrorCode::Conflict);
+        assert!(!called.get());
+        assert_eq!(state.records.len(), 1);
+        let unchanged = &state.records[&(owner(), "same-plan".into())].prepared.plan;
+        assert_eq!(serde_json::to_value(unchanged).unwrap(), prior["plan"]);
+        state
+            .vault
+            .matches(&owner(), "same-plan", unchanged)
+            .unwrap();
     }
 }

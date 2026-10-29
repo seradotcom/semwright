@@ -1,0 +1,17 @@
+{
+  "args": {
+    "class": "Node3D",
+    "dry_run": false,
+    "expect": {
+      "fingerprint": "a4be38ce924d1500249c1698135906cd9e9796cedbf7ee702d7484f9e0f089a1",
+      "revision": 1
+    },
+    "name": "SemwrightHandoffProof",
+    "path": "res://proofs/semwright_godot_bridge01_02.tscn",
+    "session": "8b4253f3e69d68aa12b381ee3f020459"
+  },
+  "backend": null,
+  "command": "driver.godot.scene.create",
+  "dry_run": false,
+  "request_id": "f9bff864da6b40279d9667befdb75b8b"
+}

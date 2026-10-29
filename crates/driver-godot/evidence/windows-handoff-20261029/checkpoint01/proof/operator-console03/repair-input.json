@@ -1,0 +1,6 @@
+{
+  "exact_secret_lease_receipt_sha256": "d5a47a069128643df8b9f5da4d606308bc7e80df21a96f778b9f3ccba7bb0a70",
+  "secret_file_bytes_changed": false,
+  "policy_grants_changed": false,
+  "all_source_files_unchanged_before_restart": 3094
+}

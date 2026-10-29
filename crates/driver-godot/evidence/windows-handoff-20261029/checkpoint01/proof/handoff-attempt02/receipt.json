@@ -1,0 +1,156 @@
+{
+  "G6": "NOT_COMPLETE",
+  "Linux_4_5_14": "NOT_RUN",
+  "art_status": "REVISE",
+  "config_sha256": "8ade892ad22005bf9633f5ae92b51bbb663faf3847b31c99071ed26cde4fa3f6",
+  "driver_broker_used": true,
+  "editor_isolated": false,
+  "error": "Unqualified Godot provider route",
+  "human_camera_claimed": false,
+  "passed": false,
+  "proof": "windows_godot_curated_editor_handoff",
+  "requests": [
+    {
+      "command": "driver.godot.doctor",
+      "elapsed_ms": 38,
+      "error": null,
+      "label": "doctor",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "59b0c3adb905401ba605835a6337ea27"
+    },
+    {
+      "command": "driver.godot.session.list",
+      "elapsed_ms": 8,
+      "error": null,
+      "label": "sessions",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "ddf70b56d89d4650b605ee30920a3acd"
+    },
+    {
+      "command": "driver.godot.project.inspect",
+      "elapsed_ms": 44,
+      "error": null,
+      "label": "project-before",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "5941bf7672f046d5a231f271ac2e8543"
+    },
+    {
+      "command": "driver.godot.editor.state",
+      "elapsed_ms": 99,
+      "error": null,
+      "label": "editor-before",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "e98afc1dbac84bdab0581bd74c646b28"
+    },
+    {
+      "command": "driver.godot.scene.inspect",
+      "elapsed_ms": 96,
+      "error": null,
+      "label": "original-nodes-before",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "6584d19a54d140178e4028eaad3d7331"
+    },
+    {
+      "command": "driver.godot.assets.status",
+      "elapsed_ms": 95,
+      "error": null,
+      "label": "initial-idle-00",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "5c9309648c8640bd84bc2630fd478c8f"
+    },
+    {
+      "command": "driver.godot.scene.create",
+      "elapsed_ms": 128,
+      "error": null,
+      "label": "supporting-create",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "f9bff864da6b40279d9667befdb75b8b"
+    },
+    {
+      "command": "driver.godot.project.inspect",
+      "elapsed_ms": 70,
+      "error": null,
+      "label": "supporting-opened-00",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "e13df58e420948118d1ba1604e38a27c"
+    },
+    {
+      "command": "driver.godot.node.create",
+      "elapsed_ms": 98,
+      "error": null,
+      "label": "camera-create",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "0d3f896d96a5443d92979901fdefc528"
+    },
+    {
+      "command": "driver.godot.camera.configure",
+      "elapsed_ms": 197,
+      "error": null,
+      "label": "camera-configure",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "0d59eba87e884f5f95ab22929864a683"
+    },
+    {
+      "command": "driver.godot.camera.inspect",
+      "elapsed_ms": 89,
+      "error": null,
+      "label": "camera-before",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "21d1a98e09d4462d92d998fb48fb946b"
+    },
+    {
+      "command": "driver.godot.node.inspect",
+      "elapsed_ms": 120,
+      "error": null,
+      "label": "camera-transform-before",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "38efb52cc09d485e83ead6eda64d14ee"
+    },
+    {
+      "command": "driver.godot.assets.status",
+      "elapsed_ms": 73,
+      "error": null,
+      "label": "asset0-idle-before-00",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "f2133600913e4a87b76405843c68611a"
+    },
+    {
+      "command": "driver.godot.asset.inspect",
+      "elapsed_ms": 104,
+      "error": null,
+      "label": "asset0-before",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "65706c8305224633a7c12e449b60b9cc"
+    },
+    {
+      "command": "driver.godot.asset.reimport",
+      "elapsed_ms": 6,
+      "error": {
+        "code": "ConsentRequired",
+        "message": "A trusted operator must approve this action in the broker's foreground console; no approval API is exposed",
+        "outcome_known": true
+      },
+      "label": "asset0-reimport",
+      "ok": false,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "bf7481ec96cc43c9964095bdda1ab9cd"
+    }
+  ],
+  "result": null,
+  "schema": 1,
+  "unknown_mutations_replayed": false
+}

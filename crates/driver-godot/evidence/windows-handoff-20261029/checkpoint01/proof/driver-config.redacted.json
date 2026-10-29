@@ -1,0 +1,13 @@
+{
+  "port": 55092,
+  "development_mode": false,
+  "projects": [
+    {
+      "project": "723d196eb63d1b26391a6b085d86129b0f78dfef8fa09e194f2b35d3a843ed67",
+      "mount": "godot-project",
+      "secret_name": "godot-pairing"
+    }
+  ],
+  "runner": null,
+  "authoring": null
+}

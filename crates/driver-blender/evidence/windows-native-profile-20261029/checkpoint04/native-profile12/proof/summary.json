@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "utc": "2026-10-29T03:24:27.642883+00:00",
+  "passed": true,
+  "receipt_sha256": "86ce6ba88a9ba004690fcd5f15503a397a9c5a8b5b258e58f96fc91cbaa035e4",
+  "runner_sha256": "18e7b0ac31b5575a8ca3ded075c0da498610d65e30828b6244298c252d7ebff3",
+  "rejected_request_id": "c41abcb6aea64ed2bd210d48cc320f97",
+  "same_native_session_until_apply_and_readback": true,
+  "native_scene_unchanged_after_rejection": true,
+  "native_host_profile": "blender_5_2_1_initial",
+  "driver_lpac_capabilities": 0,
+  "native_blender_lpac_capabilities": [
+    "registryRead"
+  ],
+  "network": false,
+  "native_process_limit": 1,
+  "host_reaped_native_processes": 2,
+  "artifacts": [
+    {
+      "name": "asset-library.blend",
+      "bytes": 65825,
+      "sha256": "601f1290dfdde297ffb54ccfa34ec9224e40b7e8ea213f7e3020c2f534aa7add"
+    },
+    {
+      "name": "asset-scene.blend",
+      "bytes": 658883,
+      "sha256": "64091f63068fc68ec952dd7974f2fc26a6e0c4013db432c9cf289675ce1f1004"
+    },
+    {
+      "name": "asset.glb",
+      "bytes": 3208,
+      "sha256": "ee59d4724ed2a8e0d9f70e13209ba8d1b808d607b3bb0f406791132c0ee9f11b"
+    },
+    {
+      "name": "final-recovery.blend",
+      "bytes": 658883,
+      "sha256": "cb8acf5d6de3404563f4d7b7e8c84f4da931fed8d7a050f2ba33b31662a3b8be"
+    }
+  ],
+  "unmanaged_preservation": "PASS",
+  "human_edit_preservation_claimed": false,
+  "first_attempt": "No client connection before broker readiness; no requests; retained as failure",
+  "art_status": "REVISE",
+  "Linux_4_5_14": "NOT_RUN",
+  "G6": "NOT_COMPLETE",
+  "zero_internal_publication": "Unit regression, not directly introspected over IPC"
+}

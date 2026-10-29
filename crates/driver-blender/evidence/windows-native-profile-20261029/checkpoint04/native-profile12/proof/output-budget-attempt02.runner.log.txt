@@ -1,0 +1,24 @@
+
+running 1 test
+test windows_production_broker_plan_output_budget ... BROKER_PROOF_STEP {"label":"version-before-rejection","ok":true,"request_id":"11149ad4e0d14c97a06c8580f8f8a626"}
+BROKER_PROOF_STEP {"label":"native-before-rejection","ok":true,"request_id":"ba2f3ab3bc354718a6da049a455113df"}
+BROKER_PROOF_STEP {"label":"oversized-plan","ok":false,"request_id":"c41abcb6aea64ed2bd210d48cc320f97"}
+BROKER_PROOF_STEP {"label":"native-after-rejection","ok":true,"request_id":"2f2f71fe143247518e6540e0451c0a6e"}
+BROKER_PROOF_STEP {"label":"version","ok":true,"request_id":"f68e92ccc1ea4c44988323ee68214fe9"}
+BROKER_PROOF_STEP {"label":"baseline","ok":true,"request_id":"c4daf5b6400f4cde8d12a9cd97fc4449"}
+BROKER_PROOF_STEP {"label":"plan","ok":true,"request_id":"210d32a676ca46dd86362c3fecfb9c74"}
+BROKER_PROOF_STEP {"label":"plan-readonly","ok":true,"request_id":"3dfe6a165b144ef09d32b8490039f274"}
+BROKER_PROOF_STEP {"label":"apply","ok":true,"request_id":"b8804b1e5b5d4414855819bc5eeeb976"}
+BROKER_PROOF_STEP {"label":"readback","ok":true,"request_id":"5e82099e96434da59656698c07840962"}
+BROKER_PROOF_STEP {"label":"unmanaged-readback","ok":true,"request_id":"c157f899b74f46dd9fd4f5970d262181"}
+BROKER_PROOF_STEP {"label":"persist-library","ok":true,"request_id":"71d0692215e743569ce14e0f07e2c67b"}
+BROKER_PROOF_STEP {"label":"checkpoint-close","ok":true,"request_id":"19b921bb3d464ca89c81869794ba8a50"}
+BROKER_PROOF_STEP {"label":"reopen","ok":true,"request_id":"3ce27ec6232f40fd94fe4cb792ef54fb"}
+BROKER_PROOF_STEP {"label":"reopened-readback","ok":true,"request_id":"2b7dd2b03e7a4531bc754436a4946d77"}
+BROKER_PROOF_STEP {"label":"export","ok":true,"request_id":"9ce40007cc29470fb2e62a6dacb1fdee"}
+BROKER_PROOF_STEP {"label":"cleanup-inspect","ok":true,"request_id":"1505b5f324fa449ab0e53b0227f68760"}
+BROKER_PROOF_STEP {"label":"final-close","ok":true,"request_id":"e1a8fc4200424aaa842d866825268a53"}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 35.92s
+

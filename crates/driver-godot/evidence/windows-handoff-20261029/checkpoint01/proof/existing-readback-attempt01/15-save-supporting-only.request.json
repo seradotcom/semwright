@@ -1,0 +1,15 @@
+{
+  "args": {
+    "dry_run": false,
+    "expect": {
+      "fingerprint": "5c0f9e9dd16e0ae99d266ce62b9bdc8788fb46bc9dbac5822e8f89f90717fe6b",
+      "revision": 6
+    },
+    "save_external_resources": false,
+    "session": "8b4253f3e69d68aa12b381ee3f020459"
+  },
+  "backend": null,
+  "command": "driver.godot.scene.save",
+  "dry_run": false,
+  "request_id": "bc6c653c8c574c6d85efea345e2d444a"
+}

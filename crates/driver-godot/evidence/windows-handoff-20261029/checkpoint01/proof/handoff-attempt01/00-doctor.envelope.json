@@ -1,0 +1,33 @@
+{
+  "command": "driver.godot.doctor",
+  "data": {
+    "bridge": 1,
+    "certification": "integration-under-test",
+    "connected_sessions": 1,
+    "driver": "1.0.0",
+    "reconnect_grace_ms": 5000,
+    "reconnecting_sessions": 0,
+    "reconnects": 0
+  },
+  "execution": {
+    "backend": "driver:godot",
+    "dry_run": false,
+    "duration_ms": 111,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "c27604e639eaa46f87befe9f646af099ddd63cf5f540b4f7b046e578671942b4",
+      "execution_provider": "driver:godot",
+      "provider": "driver:godot",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "8719e7d5d5184d10a8420d2c75f40684",
+  "warnings": []
+}

@@ -1,0 +1,20 @@
+{
+    "status":  "LAUNCHED_READINESS_NOT_YET_OBSERVED",
+    "argv":  [
+                 "--config",
+                 "E:\\Projects\\worldwright-archipelago\\.local\\semwright-native-profile12-config\\candidate.toml",
+                 "--socket",
+                 "\\\\.\\pipe\\semwright-S_1_5_21_3748004576_2415526740_1202758394_1001-archipelago-blender52-native-profile12",
+                 "--data-dir",
+                 "E:\\Projects\\worldwright-archipelago\\.local\\b52p12",
+                 "--mcp-upstreams",
+                 "E:\\Projects\\worldwright-archipelago\\.local\\semwright-native-profile12-config\\mcp-upstreams.toml",
+                 "--log-format",
+                 "json"
+             ],
+    "utc":  "2026-10-29T03:19:40.3922772Z",
+    "pid":  33608,
+    "stderr":  "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261028-host-baseline\\native-profile12-broker.stderr.log",
+    "candidate":  "native-profile12",
+    "stdout":  "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261028-host-baseline\\native-profile12-broker.stdout.log"
+}

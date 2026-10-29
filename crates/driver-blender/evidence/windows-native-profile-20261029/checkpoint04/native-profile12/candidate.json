@@ -1,0 +1,70 @@
+{
+    "source_branch":  "feat/blender-52-windows-isolated-driver",
+    "native_profile":  "blender_5_2_1_initial",
+    "socket":  "\\\\.\\pipe\\semwright-S_1_5_21_3748004576_2415526740_1202758394_1001-archipelago-blender52-native-profile12",
+    "gpu_grant":  false,
+    "owner_profile_grant":  true,
+    "candidate":  "native-profile12",
+    "driver_process_budget":  8,
+    "manifest":  "E:\\Projects\\worldwright-archipelago\\.local\\semwright-native-profile12-config\\blender-windows52.manifest.json",
+    "A05":  "BLOCKED",
+    "paths":  {
+                  "config":  "E:\\Projects\\worldwright-archipelago\\.local\\semwright-native-profile12-config",
+                  "workspace":  "E:\\Projects\\worldwright-archipelago\\.local\\native-profile12-workspace",
+                  "bin":  "E:\\Projects\\worldwright-archipelago\\tools\\semwright-blender52-native-profile12",
+                  "broker":  "E:\\Projects\\worldwright-archipelago\\.local\\b52p12"
+              },
+    "schema":  2,
+    "requested_native_capabilities":  [
+                                          "registryRead"
+                                      ],
+    "source_dirty":  [
+                         " M crates/driver-blender/src/authoring_runtime.rs",
+                         " M crates/driver-blender/tests/windows_broker_authoring.rs",
+                         " M crates/registry/src/bounds.rs",
+                         " M crates/types/src/lib.rs",
+                         "?? crates/driver-blender/tests/fixtures/authoring_plan_output_budget.json",
+                         "?? crates/driver-blender/tests/fixtures/authoring_plan_output_valid.json",
+                         "?? crates/driver-blender/tests/windows_broker_godot_handoff.rs",
+                         "?? crates/driver-godot/tests/windows_pairing.rs",
+                         "?? crates/types/src/json_budget.rs"
+                     ],
+    "source_head":  "49f0e94c552eb68dc3e946e623a4baa9252db4c4",
+    "utc":  "2026-10-29T03:19:17.3514262Z",
+    "blender":  {
+                    "sha256":  "284f4041f98e113f3dc10654a7193ffaaa9bfdfec8b87fa116620a48b5f6d4cb",
+                    "path":  "E:\\Projects\\worldwright-archipelago\\tools\\blender-5.2.1-runtime\\blender.exe"
+                },
+    "art_approved":  false,
+    "mcp_registry":  "E:\\Projects\\worldwright-archipelago\\.local\\semwright-native-profile12-config\\mcp-upstreams.toml",
+    "source_root":  "E:\\Projects\\semwright-blender52",
+    "status":  "PREPARED_NOT_EXECUTED",
+    "native_process_budget":  1,
+    "candidate_files":  [
+                            {
+                                "path":  "E:\\Projects\\worldwright-archipelago\\tools\\semwright-blender52-native-profile12\\semwright.exe",
+                                "sha256":  "6760955fd7bf45d6e74773295a40aaefd94e1480b0e68686ffda445d0c968db5",
+                                "name":  "semwright.exe",
+                                "source":  "E:\\Projects\\semwright-blender52\\.local\\target\\x86_64-pc-windows-gnu\\debug\\semwright.exe",
+                                "bytes":  75378719
+                            },
+                            {
+                                "path":  "E:\\Projects\\worldwright-archipelago\\tools\\semwright-blender52-native-profile12\\semwrightd.exe",
+                                "sha256":  "b6d7322114b822f8d14ff5ba2ead3bf663ccd9a467510cdba311829be0d199fc",
+                                "name":  "semwrightd.exe",
+                                "source":  "E:\\Projects\\semwright-blender52\\.local\\target\\x86_64-pc-windows-gnu\\debug\\semwrightd.exe",
+                                "bytes":  93848330
+                            },
+                            {
+                                "path":  "E:\\Projects\\worldwright-archipelago\\tools\\semwright-blender52-native-profile12\\semwright-blender-driver.exe",
+                                "sha256":  "825559f5ac297df17fdfb8a506fe048cff25e13a803acbfb54000ab443303943",
+                                "name":  "semwright-blender-driver.exe",
+                                "source":  "E:\\Projects\\semwright-blender52\\.local\\target\\x86_64-pc-windows-gnu\\debug\\semwright-blender-driver.exe",
+                                "bytes":  64082019
+                            }
+                        ],
+    "config":  "E:\\Projects\\worldwright-archipelago\\.local\\semwright-native-profile12-config\\candidate.toml",
+    "session_file":  "E:\\Projects\\worldwright-archipelago\\.local\\semwright-native-profile12-config\\client-session.json",
+    "network":  false,
+    "linux_4_5_14":  "NOT_RUN"
+}

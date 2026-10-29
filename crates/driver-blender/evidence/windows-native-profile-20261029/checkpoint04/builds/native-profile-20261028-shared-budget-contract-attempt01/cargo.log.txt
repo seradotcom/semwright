@@ -1,0 +1,119 @@
+   Compiling syn v3.0.6
+   Compiling syn v2.0.119
+   Compiling serde_derive v1.0.229
+   Compiling ref-cast-impl v1.0.27
+   Compiling ref-cast v1.0.27
+   Compiling serde_derive_internals v0.30.0
+   Compiling schemars_derive v1.2.2
+   Compiling serde v1.0.229
+   Compiling thiserror-impl v2.0.21
+   Compiling schemars v1.2.2
+   Compiling thiserror v2.0.21
+   Compiling ahash v0.8.12
+   Compiling fluent-uri v0.4.1
+   Compiling strum_macros v0.28.0
+   Compiling semwright-types v1.0.0 (E:\Projects\semwright-blender52\crates\types)
+   Compiling jsonschema-value v0.58.6
+   Compiling referencing v0.58.6
+   Compiling strum v0.28.0
+   Compiling email_address v0.2.9
+   Compiling jsonschema v0.58.6
+   Compiling semwright-registry v1.0.0 (E:\Projects\semwright-blender52\crates\registry)
+    Finished `test` profile [unoptimized] target(s) in 44.78s
+     Running unittests src\lib.rs (.local\target\x86_64-pc-windows-gnu\debug\deps\semwright_registry-ca842b59776083c8.exe)
+
+running 14 tests
+test catalog::tests::checked_in_ranking_vectors ... ok
+test catalog::tests::empty_identifier_is_rejected ... ok
+test catalog::tests::exact_id_wins_with_stable_digest ... ok
+test catalog::tests::filters_and_pagination_revision_do_not_change_authority ... ok
+test catalog::tests::quotes_are_phrases_and_order_is_deterministic ... ok
+test catalog::tests::source_cannot_claim_core_or_trusted_metadata ... ok
+test tests::artifact_handoff_no_replace_schema_preserves_old_and_strict_boolean_inputs ... ok
+test tests::discovery_is_bounded ... ok
+test tests::every_schema_builds ... ok
+test tests::no_client_backend_internals ... ok
+test tests::no_duplicate_registration ... ok
+test tests::preparation_relationship_is_host_owned_pinned_and_provider_bound ... ok
+test tests::remote_schema_is_forbidden ... ok
+test tests::schemas_reject_unbounded_snapshots ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.11s
+
+     Running tests\provider_catalog.rs (.local\target\x86_64-pc-windows-gnu\debug\deps\provider_catalog-2f868cfacc38e9df.exe)
+
+running 12 tests
+test artifact_ports_are_discoverable_through_normal_tag_filters ... ok
+test bounded_large_tagged_enums_are_supported_but_excessive_combinators_are_rejected ... ok
+test catalog_ranking_is_independent_of_registration_order ... proptest: FileFailurePersistence::SourceParallel set, but failed to find lib.rs or main.rs
+ok
+test descriptor_changes_are_not_published_from_a_stale_snapshot ... ok
+test draft7_dependency_subschemas_obey_the_same_reference_budget ... ok
+test dynamic_registration_update_remove_are_single_revision_transactions ... ok
+test expanded_schema_graph_and_regex_sizes_are_bounded ... ok
+test invalid_batch_is_atomic_and_duplicate_names_do_not_replace_existing_entries ... ok
+test metadata_is_data_and_digests_are_calculated_by_registry ... ok
+test provider_cannot_claim_core_other_namespace_other_route_or_ungranted_scope ... ok
+test schema_data_keys_do_not_get_interpreted_as_schema_instructions ... ok
+test schema_limits_reject_recursion_unresolved_references_and_excessive_depth ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.17s
+
+     Running unittests src\lib.rs (.local\target\x86_64-pc-windows-gnu\debug\deps\semwright_types-5b2cb6d5f376d5ac.exe)
+
+running 22 tests
+test event::tests::common_provenance_serializes_at_the_top_level ... ok
+test event::tests::payload_requires_an_explicit_untrusted_label ... ok
+test event::tests::reserved_fields_cannot_be_smuggled_through_attributes ... ok
+test event::tests::semantic_ui_event_kinds_are_bounded_and_valid ... ok
+test json_budget::tests::value_budget_counts_object_keys_and_strings_at_existing_byte_boundary ... ok
+test json_budget::tests::value_budget_preserves_node_and_depth_boundaries ... ok
+test native_diagnostic::tests::invalid_untrusted_diagnostics_cannot_cross_the_host_filter ... ok
+test native_diagnostic::tests::log_text_paths_and_unknown_classifications_are_rejected ... ok
+test native_diagnostic::tests::old_errors_round_trip_without_a_diagnostic_extension ... ok
+test provider::tests::identity_namespace_and_unknown_fields_are_rejected ... ok
+test provider::tests::provider_identity_is_canonical_and_cannot_claim_core ... ok
+test tests::ambiguity_is_not_an_action ... ok
+test tests::browser_frame_refs_are_supported ... ok
+test tests::cycles_terminate ... ok
+test tests::exact_match_never_invents_nodes ... ok
+test tests::expired_refs_fail ... ok
+test tests::fractional_bounds_roundtrip_for_hidpi_platforms ... ok
+test tests::legacy_ui_node_json_deserializes_with_empty_v2_fields ... ok
+test tests::ranked_is_discovery_only ... ok
+test tests::refs_are_session_bound ... ok
+test tests::rich_selector_matches_facets_attributes_relations_and_help ... ok
+test tests::serde_error_roundtrip ... ok
+
+test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s
+
+     Running tests\semantic_ui_v2.rs (.local\target\x86_64-pc-windows-gnu\debug\deps\semantic_ui_v2-d925fc845a511a51.exe)
+
+running 12 tests
+test ambiguity_and_discovery_never_silently_authorize_a_target ... ok
+test ax_and_uia_fit_the_same_node_contract ... ok
+test cyclic_ancestry_terminates_without_false_positive ... ok
+test empty_text_collections_serialize_with_stable_container_shapes ... ok
+test facet_specific_selectors_match_semantics_not_platform_details ... ok
+test inverted_or_nonfinite_value_ranges_are_rejected ... ok
+test linux_atspi_rich_projection_is_portable ... ok
+test one_selector_matches_equivalent_cross_platform_semantics ... ok
+test rich_text_and_table_cell_facets_are_bounded_portable_data ... ok
+test selector_resource_bounds_fail_closed ... ok
+test table_and_selection_selectors_match_rich_facets ... ok
+test v1_compatibility_and_strict_facets_are_preserved ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+   Doc-tests semwright_registry
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests semwright_types
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

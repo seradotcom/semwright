@@ -1,0 +1,41 @@
+{
+  "case": "godot-build",
+  "utc_start": "2026-10-29T02:22:27.048998+00:00",
+  "argv": [
+    "C:\\Users\\sergi\\.cargo\\bin\\cargo.exe",
+    "+1.98.1-x86_64-pc-windows-gnu",
+    "build",
+    "-p",
+    "semwright-driver-godot",
+    "--bin",
+    "semwright-godot-driver",
+    "--target",
+    "x86_64-pc-windows-gnu",
+    "--locked",
+    "--offline"
+  ],
+  "exit_code": 0,
+  "seconds": 91.06299999999464,
+  "source_head": "be81425c8437099238629ab7650d3d475425db33",
+  "source_deleted": [],
+  "snapshot_kind": "base_commit_plus_modified_overlay_and_test_sources",
+  "source_before": {
+    "crates/driver-blender/tests/windows_broker_authoring.rs": "13245abe0d35e3e0ba789d1412c63a359189b63740026c7ee43bb1e7f29ac4e9",
+    "crates/driver-blender/tests/windows_broker_cancel.rs": "a39094933800ef6e2b7f65c4a1336a65bc3105c153028a2a5691aa80bb84f91e",
+    "crates/driver-blender/tests/windows_broker_session.rs": "d1eac20e77afe249943a2f56835252d01a9c4c168311fd1e175877fca7c5a7b8",
+    "docs/blender/WINDOWS_52_PR_DRAFT.md": "52cbe6fe39a6e5a5915a901484377b763578951f0ee4ca412e55587162b4e005",
+    "docs/blender/WINDOWS_NATIVE_PROFILE_20261029.md": "5c1172fda4288b6e086a12b13ab21b27e87448f2f9aa02cc34c31ad810b0cd12"
+  },
+  "source_after": {
+    "crates/driver-blender/tests/windows_broker_authoring.rs": "13245abe0d35e3e0ba789d1412c63a359189b63740026c7ee43bb1e7f29ac4e9",
+    "crates/driver-blender/tests/windows_broker_cancel.rs": "a39094933800ef6e2b7f65c4a1336a65bc3105c153028a2a5691aa80bb84f91e",
+    "crates/driver-blender/tests/windows_broker_session.rs": "d1eac20e77afe249943a2f56835252d01a9c4c168311fd1e175877fca7c5a7b8",
+    "docs/blender/WINDOWS_52_PR_DRAFT.md": "52cbe6fe39a6e5a5915a901484377b763578951f0ee4ca412e55587162b4e005",
+    "docs/blender/WINDOWS_NATIVE_PROFILE_20261029.md": "5c1172fda4288b6e086a12b13ab21b27e87448f2f9aa02cc34c31ad810b0cd12"
+  },
+  "sources_unchanged": true,
+  "log_sha256": "bdd03f88ce7b1252c137c7644f0f3db0c286dba389851985ab86a6c55cb22deb",
+  "tests": [],
+  "A05": "BLOCKED",
+  "Linux_4_5_14": "NOT_RUN"
+}

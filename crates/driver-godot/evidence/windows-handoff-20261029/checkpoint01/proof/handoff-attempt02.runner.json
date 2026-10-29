@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "utc_start": "2026-10-29T02:57:23.271641+00:00",
+  "seconds": 2.125,
+  "exit_code": 101,
+  "binary": "E:\\Projects\\semwright-blender52\\.local\\target\\x86_64-pc-windows-gnu\\debug\\deps\\windows_broker_godot_handoff-6885b8490bbd7eda.exe",
+  "binary_sha256": "d9c93df0980122e3cccf7d6e803cc44ad6f4616004af61e62eee760885906a60",
+  "build_report": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt03\\run.json",
+  "build_report_sha256": "5842fa014963e1ddbf20683efbe68e86e5adfa11c983f049184d3febcd73b5af",
+  "source_sha256": "ce64df5ba9b62d910ed941df439105a9aee4bf03edee6fb4c8cc47877b8e712f",
+  "config_sha256": "8ade892ad22005bf9633f5ae92b51bbb663faf3847b31c99071ed26cde4fa3f6",
+  "protected_before": {
+    "main.tscn": "b374a3e2725299468d8d4b92a7a08f951eb07938f3d894bdeabb0a39ed58fa90",
+    "assets/native_bundle.json": "1056e727006920ee2d69812c75bdaa449cabc00c77c1fb3d470def06e1498eac",
+    "scripts/harbor_review.gd": "0ee676be6f9f91e948fb7efb47573ca0083d1730ab45147461d24fcc370c9a1d",
+    "scripts/review_walker.gd": "c121c2c20328285cf94012788dd3db6ab99e6fcaa7eaaf1a6a64331e2030ed67",
+    "config/review_faro_roundtrip.json": "96c41b26be51fe8d96e19d4f34fbd3daf0090a2ecec3a5ad57be547768411ae1"
+  },
+  "protected_after": {
+    "main.tscn": "b374a3e2725299468d8d4b92a7a08f951eb07938f3d894bdeabb0a39ed58fa90",
+    "assets/native_bundle.json": "1056e727006920ee2d69812c75bdaa449cabc00c77c1fb3d470def06e1498eac",
+    "scripts/harbor_review.gd": "0ee676be6f9f91e948fb7efb47573ca0083d1730ab45147461d24fcc370c9a1d",
+    "scripts/review_walker.gd": "c121c2c20328285cf94012788dd3db6ab99e6fcaa7eaaf1a6a64331e2030ed67",
+    "config/review_faro_roundtrip.json": "96c41b26be51fe8d96e19d4f34fbd3daf0090a2ecec3a5ad57be547768411ae1"
+  },
+  "protected_files_unchanged": true,
+  "project_config_unchanged": true,
+  "project_config_baseline_sha256": "ef5c468170a348a64b6744d67a3e9824a068f3415f30e5dccf43e78d6161d042",
+  "log_sha256": "895a5c019dc6f7ec7b9cb9f0a988bdc31c9bead49c4d9d5e8d651853e04ffa46",
+  "editor_isolated": false,
+  "art_status": "REVISE",
+  "G6": "NOT_COMPLETE"
+}

@@ -1,8 +1,8 @@
 //! Physical Windows proof through one official, memory-only broker client.
 #![cfg(target_os = "windows")]
 use semwright_protocol::Client;
-use semwright_types::{unique_id, ErrorCode, ExecuteRequest};
-use serde_json::{json, Value};
+use semwright_types::{ErrorCode, ExecuteRequest, unique_id};
+use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use std::{
     fs::{self, OpenOptions},
@@ -1129,4 +1129,155 @@ async fn windows_production_broker_static_asset() {
         "art_approval":false,"human_edit_preservation_claimed":false,"G6":"NOT_COMPLETE",
         "Linux_4_5_14":"NOT_RUN","Godot_import":"NOT_RUN"})).expect("Preserve asset receipt");
     assert!(passed, "Inspect preserved static asset production receipt");
+}
+
+async fn plan_output_budget_exercise(
+    proof: &mut SessionProof,
+    workspace: &Path,
+    prefix: &str,
+) -> ProofResult<Value> {
+    let version = proof
+        .op(
+            "version-before-rejection",
+            "driver.blender.introspect.summary",
+            json!({}),
+        )
+        .await?;
+    check(
+        version["version"] == json!([5, 2, 1]) && version["arbitrary_python"] == false,
+        "Unexpected native runtime",
+    )?;
+    let before = proof
+        .op(
+            "native-before-rejection",
+            "driver.blender.composition.inspect",
+            json!({}),
+        )
+        .await?;
+    let spec: Value =
+        serde_json::from_str(include_str!("fixtures/authoring_plan_output_budget.json"))
+            .map_err(|e| e.to_string())?;
+    let args = json!({"intent":{"kind":"create","spec":spec}});
+    semwright_types::json_budget::value_budget(&args).map_err(|e| e.to_string())?;
+    let rejected = proof
+        .exchange(
+            "oversized-plan",
+            "driver.blender.composition.plan",
+            args,
+            Some(ErrorCode::ResourceExhausted),
+            Duration::from_secs(30),
+        )
+        .await?;
+    check(rejected.is_null(), "Rejected plan exposed result authority")?;
+    let envelope: Value = serde_json::from_slice(&read(
+        &proof.receipts.join("02-oversized-plan.envelope.json"),
+    )?)
+    .map_err(|e| e.to_string())?;
+    check(
+        envelope["execution"]["backend"] == "driver:blender"
+            && envelope["execution"]["policy_decision"] == "allow"
+            && envelope["execution"]["provenance"]["source"] == "driver",
+        "Rejection did not traverse the qualified first-party driver",
+    )?;
+    check(
+        envelope["error"]["message"]
+            .as_str()
+            .is_some_and(|m| m.starts_with("Driver reported an error;")),
+        "Rejection must originate in the driver, not the post-dispatch registry budget",
+    )?;
+    let after = proof
+        .op(
+            "native-after-rejection",
+            "driver.blender.composition.inspect",
+            json!({}),
+        )
+        .await?;
+    check(
+        after == before,
+        "Rejected plan changed native scene or native session",
+    )?;
+    // Same client and driver: a valid typed plan must still apply and read back before any restart.
+    let valid = static_asset_exercise(proof, workspace, prefix, &static_spec()).await?;
+    check(
+        valid["independent_readback"]["native_session"] == before["native_session"],
+        "Valid follow-up did not execute in the native session that rejected the oversized output",
+    )?;
+    Ok(
+        json!({"version":version,"rejected_request":envelope["request_id"],
+        "driver_origin_rejection":true,"rejected_result":rejected,"native_before":before,"native_after":after,
+        "valid_followup":valid,"same_native_session_until_apply_and_readback":true,
+        "zero_vault_or_cache_publication":"Covered by runtime unit regression; not directly observed through broker"}),
+    )
+}
+#[tokio::test]
+#[ignore = "Physical bounded-plan preflight regression in the production isolated Windows broker"]
+async fn windows_production_broker_plan_output_budget() {
+    let pipe =
+        PathBuf::from(std::env::var_os("SEMWRIGHT_TEST_BROKER_PIPE").expect("Explicit pipe"));
+    let receipts =
+        PathBuf::from(std::env::var_os("SEMWRIGHT_TEST_RECEIPTS").expect("New receipts"));
+    let workspace = PathBuf::from(std::env::var_os("SEMWRIGHT_TEST_WORKSPACE").expect("Workspace"));
+    let prefix = std::env::var("SEMWRIGHT_TEST_ARTIFACT_PREFIX").expect("Artifact prefix");
+    assert!(
+        !prefix.is_empty()
+            && prefix.len() <= 48
+            && prefix
+                .bytes()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == b'-')
+    );
+    fs::create_dir(&receipts).expect("Preserve previous evidence");
+    let client = Client::connect(&pipe, None)
+        .await
+        .expect("Official authenticated memory-only client");
+    let mut proof = SessionProof {
+        client,
+        receipts,
+        trace: vec![],
+    };
+    let work = match tokio::time::timeout(
+        Duration::from_secs(210),
+        plan_output_budget_exercise(&mut proof, &workspace, &prefix),
+    )
+    .await
+    {
+        Ok(v) => v,
+        Err(_) => Err("Unknown outcome; no automatic replay".into()),
+    };
+    let inspection = proof
+        .exchange(
+            "cleanup-inspect",
+            "driver.blender.session.checkpoint.inspect",
+            json!({}),
+            None,
+            Duration::from_secs(10),
+        )
+        .await;
+    let close = if inspection.as_ref().is_ok_and(|v| v["supported"] == true) {
+        proof
+            .exchange(
+                "final-close",
+                "driver.blender.session.checkpoint_close",
+                json!({"checkpoint_path":format!("{prefix}/final-recovery.blend")}),
+                None,
+                Duration::from_secs(15),
+            )
+            .await
+    } else {
+        Err("No close after unsupported/unknown checkpoint inspection".into())
+    };
+    let close_ack = close
+        .as_ref()
+        .is_ok_and(|v| v["closed"] == true && v["close_state"] == "closed");
+    let passed = work.is_ok() && close_ack;
+    save_json(
+        &proof.receipts.join("receipt.json"),
+        &json!({"schema":1,"passed":passed,
+        "proof_kind":"native_plan_output_preflight_and_valid_continuation","requests":proof.trace,
+        "result":work.as_ref().ok(),"error":work.as_ref().err(),"close":close.as_ref().ok(),
+        "close_error":close.as_ref().err(),"close_acknowledged":close_ack,
+        "broker_used":true,"human_edit_preservation_claimed":false,"art_status":"REVISE",
+        "G6":"NOT_COMPLETE","Linux_4_5_14":"NOT_RUN"}),
+    )
+    .expect("Preserve receipt");
+    assert!(passed, "Inspect preserved plan-output-budget receipt");
 }

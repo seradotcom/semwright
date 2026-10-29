@@ -1,0 +1,30 @@
+warning: manifest has no description, documentation, homepage or repository
+  |
+  = note: see https://doc.rust-lang.org/cargo/reference/manifest.html#package-metadata for more info
+.cargo_vcs_info.json
+Cargo.lock
+Cargo.toml
+Cargo.toml.orig
+build.rs
+src/bin/adversarial_fixture.rs
+src/bin/fixture.rs
+src/bin/tool_fixture.rs
+src/lib.rs
+src/loopback.rs
+src/windows_blender52.rs
+src/windows_blender52_bootstrap.py
+src/windows_blender52_runtime/README.md
+src/windows_blender52_runtime/authoring_native.py
+src/windows_blender52_runtime/bridge.py
+src/windows_blender52_runtime/commands.json
+src/windows_blender52_runtime/commands.py
+src/windows_blender52_runtime/export_scope.py
+src/windows_blender52_runtime/manifest.json
+src/windows_blender52_runtime/semantic.py
+src/windows_blender52_runtime/validation.py
+tests/adversarial_sandbox.rs
+tests/protocol_v2.rs
+tests/runtime_tools_linux.rs
+tests/windows_runtime_bundle.rs
+tests/windows_secure_host.rs
+tools/sync_windows_blender_runtime.py

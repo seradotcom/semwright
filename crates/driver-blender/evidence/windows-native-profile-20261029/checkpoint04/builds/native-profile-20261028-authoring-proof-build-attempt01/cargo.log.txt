@@ -1,0 +1,4 @@
+   Compiling semwright-driver-host v1.0.0 (E:\Projects\semwright-blender52\crates\driver-host)
+   Compiling semwright-driver-blender v1.0.0 (E:\Projects\semwright-blender52\crates\driver-blender)
+    Finished `test` profile [unoptimized] target(s) in 1m 00s
+  Executable tests\windows_broker_authoring.rs (.local\target\x86_64-pc-windows-gnu\debug\deps\windows_broker_authoring-a9500905004d3cdf.exe)

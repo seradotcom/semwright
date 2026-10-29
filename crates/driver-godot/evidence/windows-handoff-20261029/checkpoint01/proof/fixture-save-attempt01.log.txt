@@ -1,0 +1,18 @@
+
+running 1 test
+GODOT_BROKER_STEP {"label":"sessions","ok":true,"request_id":"246e1a9877d14430908785c785e0e0d7"}
+GODOT_BROKER_STEP {"label":"reconciled-fixture","ok":true,"request_id":"c1eea8afd2c84152833ba24a56b250c1"}
+GODOT_BROKER_STEP {"label":"camera-before","ok":true,"request_id":"b6fa6d8a4b58425298db7b97cf0a508a"}
+
+thread 'windows_broker_godot_finalize_known_fixture' (44168) panicked at crates\driver-blender\tests\windows_broker_godot_handoff.rs:946:5:
+Inspect preserved fixture-save receipt
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test windows_broker_godot_finalize_known_fixture ... FAILED
+
+failures:
+
+failures:
+    windows_broker_godot_finalize_known_fixture
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.24s
+

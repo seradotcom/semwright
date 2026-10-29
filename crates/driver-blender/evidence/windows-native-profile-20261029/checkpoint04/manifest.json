@@ -1,0 +1,1427 @@
+{
+  "schema": 1,
+  "utc": "2026-10-29T03:25:28.299754+00:00",
+  "archive": "E:\\Projects\\semwright-blender52\\crates\\driver-blender\\evidence\\windows-native-profile-20261029\\checkpoint04",
+  "candidates": [
+    {
+      "candidate": "native-profile12",
+      "audit_sha256": "e6e7575c6ebf3baad9e6ddd095dffdac556aae6eef20b2edea575329ff737cab",
+      "records": 36,
+      "chain_valid": true,
+      "tail_hash": "eec9f90d0db587fc0e611b549da0e506d316848fba2b6bb457436eef3d2838d5",
+      "matched_requests": [
+        {
+          "request": "output-budget-attempt02/00-version-before-rejection.request.json",
+          "request_id": "11149ad4e0d14c97a06c8580f8f8a626",
+          "command": "driver.blender.introspect.summary",
+          "start_sequence": 1,
+          "finish_sequence": 2,
+          "envelope_correlated": true
+        },
+        {
+          "request": "output-budget-attempt02/01-native-before-rejection.request.json",
+          "request_id": "ba2f3ab3bc354718a6da049a455113df",
+          "command": "driver.blender.composition.inspect",
+          "start_sequence": 3,
+          "finish_sequence": 4,
+          "envelope_correlated": true
+        },
+        {
+          "request": "output-budget-attempt02/02-oversized-plan.request.json",
+          "request_id": "c41abcb6aea64ed2bd210d48cc320f97",
+          "command": "driver.blender.composition.plan",
+          "start_sequence": 5,
+          "finish_sequence": 6,
+          "envelope_correlated": true
+        },
+        {
+          "request": "output-budget-attempt02/03-native-after-rejection.request.json",
+          "request_id": "2f2f71fe143247518e6540e0451c0a6e",
+          "command": "driver.blender.composition.inspect",
+          "start_sequence": 7,
+          "finish_sequence": 8,
+          "envelope_correlated": true
+        },
+        {
+          "request": "output-budget-attempt02/04-version.request.json",
+          "request_id": "f68e92ccc1ea4c44988323ee68214fe9",
+          "command": "driver.blender.introspect.summary",
+          "start_sequence": 9,
+          "finish_sequence": 10,
+          "envelope_correlated": true
+        },
+        {
+          "request": "output-budget-attempt02/05-baseline.request.json",
+          "request_id": "c4daf5b6400f4cde8d12a9cd97fc4449",
+          "command": "driver.blender.composition.inspect",
+          "start_sequence": 11,
+          "finish_sequence": 12,
+          "envelope_correlated": true
+        },
+        {
+          "request": "output-budget-attempt02/06-plan.request.json",
+          "request_id": "210d32a676ca46dd86362c3fecfb9c74",
+          "command": "driver.blender.composition.plan",
+          "start_sequence": 13,
+          "finish_sequence": 14,
+          "envelope_correlated": true
+        },
+        {
+          "request": "output-budget-attempt02/07-plan-readonly.request.json",
+          "request_id": "3dfe6a165b144ef09d32b8490039f274",
+          "command": "driver.blender.composition.inspect",
+          "start_sequence": 15,
+          "finish_sequence": 16,
+          "envelope_correlated": true
+        },
+        {
+          "request": "output-budget-attempt02/08-apply.request.json",
+          "request_id": "b8804b1e5b5d4414855819bc5eeeb976",
+          "command": "driver.blender.composition.apply",
+          "start_sequence": 17,
+          "finish_sequence": 18,
+          "envelope_correlated": true
+        },
+        {
+          "request": "output-budget-attempt02/09-readback.request.json",
+          "request_id": "5e82099e96434da59656698c07840962",
+          "command": "driver.blender.composition.inspect",
+          "start_sequence": 19,
+          "finish_sequence": 20,
+          "envelope_correlated": true
+        },
+        {
+          "request": "output-budget-attempt02/10-unmanaged-readback.request.json",
+          "request_id": "c157f899b74f46dd9fd4f5970d262181",
+          "command": "driver.blender.composition.inspect",
+          "start_sequence": 21,
+          "finish_sequence": 22,
+          "envelope_correlated": true
+        },
+        {
+          "request": "output-budget-attempt02/11-persist-library.request.json",
+          "request_id": "71d0692215e743569ce14e0f07e2c67b",
+          "command": "driver.blender.composition.persist",
+          "start_sequence": 23,
+          "finish_sequence": 24,
+          "envelope_correlated": true
+        },
+        {
+          "request": "output-budget-attempt02/12-checkpoint-close.request.json",
+          "request_id": "19b921bb3d464ca89c81869794ba8a50",
+          "command": "driver.blender.session.checkpoint_close",
+          "start_sequence": 25,
+          "finish_sequence": 26,
+          "envelope_correlated": true
+        },
+        {
+          "request": "output-budget-attempt02/13-reopen.request.json",
+          "request_id": "3ce27ec6232f40fd94fe4cb792ef54fb",
+          "command": "driver.blender.session.open",
+          "start_sequence": 27,
+          "finish_sequence": 28,
+          "envelope_correlated": true
+        },
+        {
+          "request": "output-budget-attempt02/14-reopened-readback.request.json",
+          "request_id": "2b7dd2b03e7a4531bc754436a4946d77",
+          "command": "driver.blender.composition.inspect",
+          "start_sequence": 29,
+          "finish_sequence": 30,
+          "envelope_correlated": true
+        },
+        {
+          "request": "output-budget-attempt02/15-export.request.json",
+          "request_id": "9ce40007cc29470fb2e62a6dacb1fdee",
+          "command": "driver.blender.export.glb",
+          "start_sequence": 31,
+          "finish_sequence": 32,
+          "envelope_correlated": true
+        },
+        {
+          "request": "output-budget-attempt02/16-cleanup-inspect.request.json",
+          "request_id": "1505b5f324fa449ab0e53b0227f68760",
+          "command": "driver.blender.session.checkpoint.inspect",
+          "start_sequence": 33,
+          "finish_sequence": 34,
+          "envelope_correlated": true
+        },
+        {
+          "request": "output-budget-attempt02/17-final-close.request.json",
+          "request_id": "e1a8fc4200424aaa842d866825268a53",
+          "command": "driver.blender.session.checkpoint_close",
+          "start_sequence": 35,
+          "finish_sequence": 36,
+          "envelope_correlated": true
+        }
+      ],
+      "unmatched_requests": []
+    }
+  ],
+  "files": [
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261028-software\\semwright-native-profile12.json",
+      "archive": "native-profile12/candidate.json",
+      "bytes": 4693,
+      "sha256": "5451aee64cc516a351ad2093e8b33ed946df7104f984e5222bd7d79d0b474caa"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\.local\\semwright-native-profile12-config\\candidate.toml",
+      "archive": "native-profile12/configuration/candidate.toml",
+      "bytes": 857,
+      "sha256": "a783867a0e7551dad4e584548b1a51197f993fe0f488a79dfc1a2ee922052f4b"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\.local\\semwright-native-profile12-config\\blender-windows52.manifest.json",
+      "archive": "native-profile12/configuration/blender-windows52.manifest.json",
+      "bytes": 2865,
+      "sha256": "a2d85b0bd75d60b2577589a023fdd8835ae94868a861daa7e277159261053584"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\.local\\semwright-native-profile12-config\\mcp-upstreams.toml",
+      "archive": "native-profile12/configuration/mcp-upstreams.toml",
+      "bytes": 27,
+      "sha256": "c9dc7501089bc272c5ded1315d32a8e1c30af4118a5f63fb72b999c3faf59218"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261028-host-baseline\\native-profile12-launch.json",
+      "archive": "native-profile12/launch.json",
+      "bytes": 1108,
+      "sha256": "ccc56502a6fe4bf37af22b4cdc1ffdc0fc80659e3743b0c2ead923e271f17376"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261028-host-baseline\\native-profile12-broker.stdout.log",
+      "archive": "native-profile12/host-stdout.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261028-host-baseline\\native-profile12-broker.stderr.log",
+      "archive": "native-profile12/host-stderr.txt",
+      "bytes": 5439,
+      "sha256": "1e0f5238d4bdf45882bab2d23a9f22c4298145e3e164b17de4a9881b32186add"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\.local\\b52p12\\state\\audit\\audit.jsonl",
+      "archive": "native-profile12/audit.jsonl",
+      "bytes": 27214,
+      "sha256": "e6e7575c6ebf3baad9e6ddd095dffdac556aae6eef20b2edea575329ff737cab"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\controlled-retirement.json",
+      "archive": "native-profile12/proof/controlled-retirement.json",
+      "bytes": 982,
+      "sha256": "d37899a780c0113a0e8b258e2281758297212b0b6b9675d32080d42d14a833c1"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\output-budget-attempt01.runner.json",
+      "archive": "native-profile12/proof/output-budget-attempt01.runner.json",
+      "bytes": 1272,
+      "sha256": "080d02f4f85189ec23c5bc411a3d1255478701243d7cec714136342b8e53ba3a"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\output-budget-attempt01.runner.log",
+      "archive": "native-profile12/proof/output-budget-attempt01.runner.log.txt",
+      "bytes": 661,
+      "sha256": "334f09953c5819045c0dd296d8037f95920600bb10105381298fdc33f4c844a2"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\output-budget-attempt02\\00-version-before-rejection.envelope.json",
+      "archive": "native-profile12/proof/output-budget-attempt02/00-version-before-rejection.envelope.json",
+      "bytes": 998,
+      "sha256": "cc089b671f0d8613320df2ec2ff89d826a68c8fd152232ca2c4299ba02a23702"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\output-budget-attempt02\\00-version-before-rejection.request.json",
+      "archive": "native-profile12/proof/output-budget-attempt02/00-version-before-rejection.request.json",
+      "bytes": 158,
+      "sha256": "75b7933e9d3cb5cd4cf644398903e5eb7b4921fce3a25a3a16649bba9c521e91"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\output-budget-attempt02\\01-native-before-rejection.envelope.json",
+      "archive": "native-profile12/proof/output-budget-attempt02/01-native-before-rejection.envelope.json",
+      "bytes": 11591,
+      "sha256": "1896859908417c1d307421b8472ff9623183a2da242b253149da3886f3ff93e1"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\output-budget-attempt02\\01-native-before-rejection.request.json",
+      "archive": "native-profile12/proof/output-budget-attempt02/01-native-before-rejection.request.json",
+      "bytes": 159,
+      "sha256": "6a0f24dff01b4588da601d75a14f1025d051bd38da958009a1b4c0917819b689"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\output-budget-attempt02\\02-oversized-plan.envelope.json",
+      "archive": "native-profile12/proof/output-budget-attempt02/02-oversized-plan.envelope.json",
+      "bytes": 848,
+      "sha256": "8d894f5e7947102c897a37dfcb25e654b56c3c69808b051fa54b995f1ea293d6"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\output-budget-attempt02\\02-oversized-plan.request.json",
+      "archive": "native-profile12/proof/output-budget-attempt02/02-oversized-plan.request.json",
+      "bytes": 355222,
+      "sha256": "228f5bf1d4b5b147136648e287f5db29869cadaa85cd2f63e18719e65e7cc451"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\output-budget-attempt02\\03-native-after-rejection.envelope.json",
+      "archive": "native-profile12/proof/output-budget-attempt02/03-native-after-rejection.envelope.json",
+      "bytes": 11591,
+      "sha256": "8d9fda48fc68a9e83f9e071d172f913008451b9abc7de845b65bfeee93905dd4"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\output-budget-attempt02\\03-native-after-rejection.request.json",
+      "archive": "native-profile12/proof/output-budget-attempt02/03-native-after-rejection.request.json",
+      "bytes": 159,
+      "sha256": "bf8645aaf7fb635d829cf6910e0dc271d4aed49183d2cf8d3dbeffc2b0fe1cb5"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\output-budget-attempt02\\04-version.envelope.json",
+      "archive": "native-profile12/proof/output-budget-attempt02/04-version.envelope.json",
+      "bytes": 996,
+      "sha256": "88b5ed89faae4759800f27e1e9cf0861a5581d6df08d4d2aba09d26f9826bb34"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\output-budget-attempt02\\04-version.request.json",
+      "archive": "native-profile12/proof/output-budget-attempt02/04-version.request.json",
+      "bytes": 158,
+      "sha256": "9d06a1276800c21989cb43a4a1ff1843566e62a0f6d14be4fff3133429ae441d"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\output-budget-attempt02\\05-baseline.envelope.json",
+      "archive": "native-profile12/proof/output-budget-attempt02/05-baseline.envelope.json",
+      "bytes": 11591,
+      "sha256": "55c3a83f66a1c396ee83b1d7adaf0ceed54af9f35555c61b7175ac002a77579d"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\output-budget-attempt02\\05-baseline.request.json",
+      "archive": "native-profile12/proof/output-budget-attempt02/05-baseline.request.json",
+      "bytes": 159,
+      "sha256": "d6fa5f5138798db032e0f24f5b246b6a747e567f1fc3048b587e318da7ffb720"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\output-budget-attempt02\\06-plan.envelope.json",
+      "archive": "native-profile12/proof/output-budget-attempt02/06-plan.envelope.json",
+      "bytes": 22098,
+      "sha256": "0705099fa7c7fb006e32405e3843ac1549f0dfd79b8d52a983d6c7c8a43840d5"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\output-budget-attempt02\\06-plan.request.json",
+      "archive": "native-profile12/proof/output-budget-attempt02/06-plan.request.json",
+      "bytes": 4361,
+      "sha256": "9e4418513de98c970804ca29d4856500049ad2c7274c1ef69a1c215d7ecf1f00"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\output-budget-attempt02\\07-plan-readonly.envelope.json",
+      "archive": "native-profile12/proof/output-budget-attempt02/07-plan-readonly.envelope.json",
+      "bytes": 11591,
+      "sha256": "82f27a153a0348f6d75fb0547d94141caf9e9e91a43eea30919bc5cb8e975844"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\output-budget-attempt02\\07-plan-readonly.request.json",
+      "archive": "native-profile12/proof/output-budget-attempt02/07-plan-readonly.request.json",
+      "bytes": 159,
+      "sha256": "6f7d9360b67061fadb891c2ba36fbaaac210a52691b137ee863eb12a8c056816"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\output-budget-attempt02\\08-apply.envelope.json",
+      "archive": "native-profile12/proof/output-budget-attempt02/08-apply.envelope.json",
+      "bytes": 22719,
+      "sha256": "35a5e31e8b59aa2b8eeb6639d1c8bf1035b38a8369c928bfdbc2197ba00944c8"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\output-budget-attempt02\\08-apply.request.json",
+      "archive": "native-profile12/proof/output-budget-attempt02/08-apply.request.json",
+      "bytes": 211,
+      "sha256": "c9366ac7aa1f5aacb631b997ff3f918ffd6473f658ad8e93a5db3fa1bfb7cd55"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\output-budget-attempt02\\09-readback.envelope.json",
+      "archive": "native-profile12/proof/output-budget-attempt02/09-readback.envelope.json",
+      "bytes": 16598,
+      "sha256": "13d1be2a364542d718301ffbbe3236e4e5c6600985ba89c8313cc1a2a8339ca9"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\output-budget-attempt02\\09-readback.request.json",
+      "archive": "native-profile12/proof/output-budget-attempt02/09-readback.request.json",
+      "bytes": 211,
+      "sha256": "8f3d6a89a1ce39ad8e44322dd174bdb2febe9ffc9edccd5191a5dfa6ae24c87f"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\output-budget-attempt02\\10-unmanaged-readback.envelope.json",
+      "archive": "native-profile12/proof/output-budget-attempt02/10-unmanaged-readback.envelope.json",
+      "bytes": 27176,
+      "sha256": "efb7d411c849dc901f87710adf8b8c604c10d8fd691fe9cc972f522f804fa77d"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\output-budget-attempt02\\10-unmanaged-readback.request.json",
+      "archive": "native-profile12/proof/output-budget-attempt02/10-unmanaged-readback.request.json",
+      "bytes": 159,
+      "sha256": "987019c0ba6536de10354a094899635d19c7b27da629aa9a4c33c09951b9aa2d"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\output-budget-attempt02\\11-persist-library.envelope.json",
+      "archive": "native-profile12/proof/output-budget-attempt02/11-persist-library.envelope.json",
+      "bytes": 1284,
+      "sha256": "6d1ab7f7cedf92c49f4b69cef4514938456289508c38349b9e2ec01d9226f86f"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\output-budget-attempt02\\11-persist-library.request.json",
+      "archive": "native-profile12/proof/output-budget-attempt02/11-persist-library.request.json",
+      "bytes": 270,
+      "sha256": "742dd3ef5c4f2eb8cb33ad56f28cac0119086fc7d01f85219ebd47f8ef475406"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\output-budget-attempt02\\12-checkpoint-close.envelope.json",
+      "archive": "native-profile12/proof/output-budget-attempt02/12-checkpoint-close.envelope.json",
+      "bytes": 1268,
+      "sha256": "41d2e471c470fc8224b4d084824e8f63dd1b11972afe12c8f0893e0b0501b953"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\output-budget-attempt02\\12-checkpoint-close.request.json",
+      "archive": "native-profile12/proof/output-budget-attempt02/12-checkpoint-close.request.json",
+      "bytes": 234,
+      "sha256": "9181a2b59bfe0e988ee3847ff4f8ab8273f9b29d9fb4df0ceb07a37502bd6d02"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\output-budget-attempt02\\13-reopen.envelope.json",
+      "archive": "native-profile12/proof/output-budget-attempt02/13-reopen.envelope.json",
+      "bytes": 941,
+      "sha256": "236d6673bb3949a85ef7d98be199871f3e5b729acbe73272a83c2b27adf3626e"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\output-budget-attempt02\\13-reopen.request.json",
+      "archive": "native-profile12/proof/output-budget-attempt02/13-reopen.request.json",
+      "bytes": 302,
+      "sha256": "6e753461431c28c321d78d88fc899cd908d670d1476fe3dc4b993b073bfc7883"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\output-budget-attempt02\\14-reopened-readback.envelope.json",
+      "archive": "native-profile12/proof/output-budget-attempt02/14-reopened-readback.envelope.json",
+      "bytes": 16598,
+      "sha256": "1a54a25bc087cd30d01da1203e6d7531f5bf20290b50276bf82f134e90c53679"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\output-budget-attempt02\\14-reopened-readback.request.json",
+      "archive": "native-profile12/proof/output-budget-attempt02/14-reopened-readback.request.json",
+      "bytes": 211,
+      "sha256": "1ab334549e7392c816758ca1647043bc67fcdb06e358bc559e579441e4124205"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\output-budget-attempt02\\15-export.envelope.json",
+      "archive": "native-profile12/proof/output-budget-attempt02/15-export.envelope.json",
+      "bytes": 916,
+      "sha256": "90e57c0e1916fded0f18a431cdded34c7724f6e1f977f9102477aac9a658ce4d"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\output-budget-attempt02\\15-export.request.json",
+      "archive": "native-profile12/proof/output-budget-attempt02/15-export.request.json",
+      "bytes": 286,
+      "sha256": "6e36152703e75baebb250953363fcf7ddc541b419823ade12e58e4be4fd33f05"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\output-budget-attempt02\\16-cleanup-inspect.envelope.json",
+      "archive": "native-profile12/proof/output-budget-attempt02/16-cleanup-inspect.envelope.json",
+      "bytes": 1080,
+      "sha256": "c100f3168ee3eb56d31d6601e85eb3441fadb89cade6d969d7013374fd97a8a7"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\output-budget-attempt02\\16-cleanup-inspect.request.json",
+      "archive": "native-profile12/proof/output-budget-attempt02/16-cleanup-inspect.request.json",
+      "bytes": 166,
+      "sha256": "b7a357f204df2f28b43c463c2d8cdd30dd7188292b83ccefec9dab543342be91"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\output-budget-attempt02\\17-final-close.envelope.json",
+      "archive": "native-profile12/proof/output-budget-attempt02/17-final-close.envelope.json",
+      "bytes": 1181,
+      "sha256": "53f84ece0bb46b6cfb2d66f7d8ded07026e1991cdb29b97efe27e00f4466e9ab"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\output-budget-attempt02\\17-final-close.request.json",
+      "archive": "native-profile12/proof/output-budget-attempt02/17-final-close.request.json",
+      "bytes": 237,
+      "sha256": "7e92c5787ac70acd814a7e0c1ab33392bc2791ced1e71cda9d7197fe5807709b"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\output-budget-attempt02\\receipt.json",
+      "archive": "native-profile12/proof/output-budget-attempt02/receipt.json",
+      "bytes": 127718,
+      "sha256": "86ce6ba88a9ba004690fcd5f15503a397a9c5a8b5b258e58f96fc91cbaa035e4"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\output-budget-attempt02.runner.json",
+      "archive": "native-profile12/proof/output-budget-attempt02.runner.json",
+      "bytes": 1269,
+      "sha256": "18e7b0ac31b5575a8ca3ded075c0da498610d65e30828b6244298c252d7ebff3"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\output-budget-attempt02.runner.log",
+      "archive": "native-profile12/proof/output-budget-attempt02.runner.log.txt",
+      "bytes": 2005,
+      "sha256": "c0af76193f669bba857838350080974a09d5759e226ffa0ab7add2b6e66c8511"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\preserved-artifacts\\asset-library.blend",
+      "archive": "native-profile12/proof/preserved-artifacts/asset-library.blend",
+      "bytes": 65825,
+      "sha256": "601f1290dfdde297ffb54ccfa34ec9224e40b7e8ea213f7e3020c2f534aa7add"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\preserved-artifacts\\asset-scene.blend",
+      "archive": "native-profile12/proof/preserved-artifacts/asset-scene.blend",
+      "bytes": 658883,
+      "sha256": "64091f63068fc68ec952dd7974f2fc26a6e0c4013db432c9cf289675ce1f1004"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\preserved-artifacts\\asset.glb",
+      "archive": "native-profile12/proof/preserved-artifacts/asset.glb",
+      "bytes": 3208,
+      "sha256": "ee59d4724ed2a8e0d9f70e13209ba8d1b808d607b3bb0f406791132c0ee9f11b"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\preserved-artifacts\\final-recovery.blend",
+      "archive": "native-profile12/proof/preserved-artifacts/final-recovery.blend",
+      "bytes": 658883,
+      "sha256": "cb8acf5d6de3404563f4d7b7e8c84f4da931fed8d7a050f2ba33b31662a3b8be"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile12\\summary.json",
+      "archive": "native-profile12/proof/summary.json",
+      "bytes": 1680,
+      "sha256": "d50b2c609980c5db98a30fb7d69a3cea276565c14cf0caeaefca85df4c2b1955"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\checkpoint-contract-20261029-attempt01\\run.json",
+      "archive": "builds/checkpoint-contract-20261029-attempt01/run.json",
+      "bytes": 744,
+      "sha256": "ba2ef94a5e2975a7ec6bcf819e4c962dc18131a9a7dcd087f582dab74b0ee28b"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\checkpoint-contract-20261029-attempt01\\tests.log",
+      "archive": "builds/checkpoint-contract-20261029-attempt01/tests.log.txt",
+      "bytes": 7543,
+      "sha256": "d91aa9671dd2b4e6a69dbfd172f520b89f0a8f3776fd3bfb3a1887eafd8d190c"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\checkpoint-contract-20261029-attempt02\\run.json",
+      "archive": "builds/checkpoint-contract-20261029-attempt02/run.json",
+      "bytes": 760,
+      "sha256": "ac53777c29d1efd28e3e768cf4923b93f035b9f7e270b67fdf8d516fda69467b"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\checkpoint-contract-20261029-attempt02\\tests.log",
+      "archive": "builds/checkpoint-contract-20261029-attempt02/tests.log.txt",
+      "bytes": 1365,
+      "sha256": "a35d8be4dae8fc9210803b704d3a3a0cc4aaaf03a44b6f71fff68cd052d3dc2b"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\checkpoint-contract-20261029-attempt03\\run.json",
+      "archive": "builds/checkpoint-contract-20261029-attempt03/run.json",
+      "bytes": 759,
+      "sha256": "82a057b791d5ddc63b86cd22c58b0e45dd18f0492141e7db3882ca548752f2de"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\checkpoint-contract-20261029-attempt03\\tests.log",
+      "archive": "builds/checkpoint-contract-20261029-attempt03/tests.log.txt",
+      "bytes": 1888,
+      "sha256": "94faf493abaf5164a42109c186dc50a5f206b1db8bd24b72a11e45d01ec94067"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\checkpoint-contract-20261029-attempt04\\run.json",
+      "archive": "builds/checkpoint-contract-20261029-attempt04/run.json",
+      "bytes": 835,
+      "sha256": "a87b7aede608ae1f63efc9a5fc77d81d58bafc41646ee9fc30927673d04139c5"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\checkpoint-contract-20261029-attempt04\\tests.log",
+      "archive": "builds/checkpoint-contract-20261029-attempt04/tests.log.txt",
+      "bytes": 2362,
+      "sha256": "c3dc20bf382406461c5c42007363c366c4b30c2bef708aca641eda8ce61ccadc"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\checkpoint-contract-20261029-attempt05\\run.json",
+      "archive": "builds/checkpoint-contract-20261029-attempt05/run.json",
+      "bytes": 835,
+      "sha256": "8a6d86f44bbe221a1e4262ae1437b682f2c076d0677a087cfad44ad16874e7c0"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\checkpoint-contract-20261029-attempt05\\tests.log",
+      "archive": "builds/checkpoint-contract-20261029-attempt05/tests.log.txt",
+      "bytes": 2542,
+      "sha256": "8185f6869d95e2f5af61832145c252f9141e3cd74d4d510ff125255e8860ff61"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\checkpoint-contract-20261029-attempt06\\run.json",
+      "archive": "builds/checkpoint-contract-20261029-attempt06/run.json",
+      "bytes": 835,
+      "sha256": "d11db15811e4335ed09b184e738da3a3523d5b278c790ee3e53dd0039c085a17"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\checkpoint-contract-20261029-attempt06\\tests.log",
+      "archive": "builds/checkpoint-contract-20261029-attempt06/tests.log.txt",
+      "bytes": 3092,
+      "sha256": "bee764296546c47cedf2a7f74b597981c52126de2f65979914b2f49c70a0346d"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\checkpoint-contract-20261029-attempt06\\source\\adapters\\blender\\semwright_blender\\commands.json",
+      "archive": "builds/checkpoint-contract-20261029-attempt06/source/adapters/blender/semwright_blender/commands.json",
+      "bytes": 6998,
+      "sha256": "4b50f436722b1c24318b1c88a7b629b7f43698781b8418cde0da1e7f811cf1c0"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\checkpoint-contract-20261029-attempt06\\source\\adapters\\blender\\semwright_blender\\commands.py",
+      "archive": "builds/checkpoint-contract-20261029-attempt06/source/adapters/blender/semwright_blender/commands.py",
+      "bytes": 41467,
+      "sha256": "f0a4efe5f43e094fd6a10d0eb7573100c5460013be795d82ce8e245c9716582d"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\checkpoint-contract-20261029-attempt06\\source\\tests\\python\\test_blender_checkpoint.py",
+      "archive": "builds/checkpoint-contract-20261029-attempt06/source/tests/python/test_blender_checkpoint.py",
+      "bytes": 12794,
+      "sha256": "e5b76485b6e293bc2d98cccfc6548d1d7188e01dbc0af936b2e0393c8404d797"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-authoring-proof-build-attempt01\\run.json",
+      "archive": "builds/native-profile-20261028-authoring-proof-build-attempt01/run.json",
+      "bytes": 13142,
+      "sha256": "3123ed1357a1689be444a52b231b3e6a1668c1884812e96d1e59c17e0079608c"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-authoring-proof-build-attempt01\\cargo.log",
+      "archive": "builds/native-profile-20261028-authoring-proof-build-attempt01/cargo.log.txt",
+      "bytes": 400,
+      "sha256": "6a0b536700602d0337c983fd8b7decc140af288158d2bf53b1cdc17cb2e686f7"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-authoring-proof-build-attempt02\\run.json",
+      "archive": "builds/native-profile-20261028-authoring-proof-build-attempt02/run.json",
+      "bytes": 13141,
+      "sha256": "e4af7750229466c1fbdebbba614717a7aaf423e0270ef0ffa5621228fdd580e8"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-authoring-proof-build-attempt02\\cargo.log",
+      "archive": "builds/native-profile-20261028-authoring-proof-build-attempt02/cargo.log.txt",
+      "bytes": 305,
+      "sha256": "0c9bc89edbfccac4842b828d7dcaa40bceeae8b6dc2a618e686cdeba12859b1b"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-authoring-proof-build-attempt03\\run.json",
+      "archive": "builds/native-profile-20261028-authoring-proof-build-attempt03/run.json",
+      "bytes": 13141,
+      "sha256": "090344b0d800c9b2a0bfe8b84666082204bb881bdea557e496a069f37894cb20"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-authoring-proof-build-attempt03\\cargo.log",
+      "archive": "builds/native-profile-20261028-authoring-proof-build-attempt03/cargo.log.txt",
+      "bytes": 304,
+      "sha256": "2ed3f56ea7bd359acad71b62b31905608ef14eebbea37ba9ea384750c6b0dc30"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-authoring-proof-build-attempt04\\run.json",
+      "archive": "builds/native-profile-20261028-authoring-proof-build-attempt04/run.json",
+      "bytes": 1688,
+      "sha256": "2b6488ab7fa3c0bbe460183bf39f12d917dcb0581cc077508c4f3d3eba4f1c55"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-authoring-proof-build-attempt04\\cargo.log",
+      "archive": "builds/native-profile-20261028-authoring-proof-build-attempt04/cargo.log.txt",
+      "bytes": 305,
+      "sha256": "1209683caf8072649bcc2defc6140bd064f1a00a1cd174b1324426c6bb4a514c"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-authoring-proof-build-attempt05\\run.json",
+      "archive": "builds/native-profile-20261028-authoring-proof-build-attempt05/run.json",
+      "bytes": 1688,
+      "sha256": "2c37c6fe46ecd8b14f4c3f4def2c0d246c3c22561ff3f5806bc04f771ab22040"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-authoring-proof-build-attempt05\\cargo.log",
+      "archive": "builds/native-profile-20261028-authoring-proof-build-attempt05/cargo.log.txt",
+      "bytes": 304,
+      "sha256": "260cbf47f361d8955186aa63f02118519d36723f6c848266a94da4085fedd0c4"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-authoring-proof-build-attempt20\\run.json",
+      "archive": "builds/native-profile-20261028-authoring-proof-build-attempt20/run.json",
+      "bytes": 3662,
+      "sha256": "747edb81182ab61d5a36c4290d9d164105aa6d8706ff39a8b5f8c68b4184d4c3"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-authoring-proof-build-attempt20\\cargo.log",
+      "archive": "builds/native-profile-20261028-authoring-proof-build-attempt20/cargo.log.txt",
+      "bytes": 304,
+      "sha256": "9e1d508b52742e0cf49cab450c13997af017b3208ff1f9ee8490b8045e7ad0e4"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-authoring-proof-build-attempt20\\source\\crates\\driver-blender\\src\\authoring_runtime.rs",
+      "archive": "builds/native-profile-20261028-authoring-proof-build-attempt20/source/crates/driver-blender/src/authoring_runtime.rs",
+      "bytes": 50916,
+      "sha256": "39040bc79f38cb44db0aeeee465a0cbc18d264a28414ed6bee116a3eb1f99f0d"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-authoring-proof-build-attempt20\\source\\crates\\driver-blender\\tests\\fixtures\\authoring_plan_output_budget.json",
+      "archive": "builds/native-profile-20261028-authoring-proof-build-attempt20/source/crates/driver-blender/tests/fixtures/authoring_plan_output_budget.json",
+      "bytes": 64371,
+      "sha256": "8de79c861dd6b3f054f75065cffbe06042b23ec897f675470d57c0406396d304"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-authoring-proof-build-attempt20\\source\\crates\\driver-blender\\tests\\fixtures\\authoring_plan_output_valid.json",
+      "archive": "builds/native-profile-20261028-authoring-proof-build-attempt20/source/crates/driver-blender/tests/fixtures/authoring_plan_output_valid.json",
+      "bytes": 30641,
+      "sha256": "d2e8db6c592ba972f60606fc87de21016034792ef27d4579aba4d7c321e54cf9"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-authoring-proof-build-attempt20\\source\\crates\\driver-blender\\tests\\windows_broker_authoring.rs",
+      "archive": "builds/native-profile-20261028-authoring-proof-build-attempt20/source/crates/driver-blender/tests/windows_broker_authoring.rs",
+      "bytes": 46070,
+      "sha256": "c6f6263bc097be083f6facc7e5dc6725654832c77cda0f88132ba7fd4009ad9f"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-authoring-proof-build-attempt20\\source\\crates\\driver-blender\\tests\\windows_broker_cancel.rs",
+      "archive": "builds/native-profile-20261028-authoring-proof-build-attempt20/source/crates/driver-blender/tests/windows_broker_cancel.rs",
+      "bytes": 9230,
+      "sha256": "a39094933800ef6e2b7f65c4a1336a65bc3105c153028a2a5691aa80bb84f91e"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-authoring-proof-build-attempt20\\source\\crates\\driver-blender\\tests\\windows_broker_godot_handoff.rs",
+      "archive": "builds/native-profile-20261028-authoring-proof-build-attempt20/source/crates/driver-blender/tests/windows_broker_godot_handoff.rs",
+      "bytes": 37009,
+      "sha256": "3cbee35e770c5ca53816e56ae02ceab8dacef1d5980c36be0a079375d66e8f1f"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-authoring-proof-build-attempt20\\source\\crates\\driver-blender\\tests\\windows_broker_session.rs",
+      "archive": "builds/native-profile-20261028-authoring-proof-build-attempt20/source/crates/driver-blender/tests/windows_broker_session.rs",
+      "bytes": 21076,
+      "sha256": "d1eac20e77afe249943a2f56835252d01a9c4c168311fd1e175877fca7c5a7b8"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-authoring-proof-build-attempt20\\source\\crates\\driver-godot\\tests\\windows_pairing.rs",
+      "archive": "builds/native-profile-20261028-authoring-proof-build-attempt20/source/crates/driver-godot/tests/windows_pairing.rs",
+      "bytes": 6978,
+      "sha256": "fafd67bb7c325b180a2efdae9a823cdcdc4d2cdff91d60fbf29ed28eb241a48d"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-authoring-proof-build-attempt20\\source\\crates\\registry\\src\\bounds.rs",
+      "archive": "builds/native-profile-20261028-authoring-proof-build-attempt20/source/crates/registry/src/bounds.rs",
+      "bytes": 8722,
+      "sha256": "e5a193890b0201f5eaf4bb5af3124243e5e7af201a2a3526081a7588082fb430"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-authoring-proof-build-attempt20\\source\\crates\\types\\src\\json_budget.rs",
+      "archive": "builds/native-profile-20261028-authoring-proof-build-attempt20/source/crates/types/src/json_budget.rs",
+      "bytes": 2769,
+      "sha256": "41f1a8d5fde9fab251304049564f5eb4b2428aec14f3420914737d6a1837c326"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-authoring-proof-build-attempt20\\source\\crates\\types\\src\\lib.rs",
+      "archive": "builds/native-profile-20261028-authoring-proof-build-attempt20/source/crates/types/src/lib.rs",
+      "bytes": 35701,
+      "sha256": "6ed319a0629e07286f8f59063cc3f596b39e70bcf23dab543e79578483ef211e"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-broker-proof-build-attempt01\\run.json",
+      "archive": "builds/native-profile-20261028-broker-proof-build-attempt01/run.json",
+      "bytes": 7586,
+      "sha256": "a60901b706361c9d5217ffa2b57b717728041e39de6c785cc54af599eacccfec"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-broker-proof-build-attempt01\\cargo.log",
+      "archive": "builds/native-profile-20261028-broker-proof-build-attempt01/cargo.log.txt",
+      "bytes": 437,
+      "sha256": "03fab309bfed57db9fb20d2c1d509765685e3befe46070ab1ef4dfccac5a6d07"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-broker-proof-build-attempt02\\run.json",
+      "archive": "builds/native-profile-20261028-broker-proof-build-attempt02/run.json",
+      "bytes": 8538,
+      "sha256": "ce06da78a6985b69f7ffdd7dbca9364f6540ffff48bc39b25c4d1daec09bbacb"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-broker-proof-build-attempt02\\cargo.log",
+      "archive": "builds/native-profile-20261028-broker-proof-build-attempt02/cargo.log.txt",
+      "bytes": 437,
+      "sha256": "f73cbde015e5c12e24e9e28715e4d10c6e76b1f861ddb0aa3f3f9b2b53c27763"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-broker-proof-build-attempt03\\run.json",
+      "archive": "builds/native-profile-20261028-broker-proof-build-attempt03/run.json",
+      "bytes": 8538,
+      "sha256": "b1b3f9d921b5e5d6d9378ef26e494ad5c5cb9c34483f713c9981514ac8b5ee5b"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-broker-proof-build-attempt03\\cargo.log",
+      "archive": "builds/native-profile-20261028-broker-proof-build-attempt03/cargo.log.txt",
+      "bytes": 437,
+      "sha256": "50cbc8b631fff627faff9d9be213cc6a392e6877f9d916b7719a98e14dbdddd6"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-broker-proof-build-attempt04\\run.json",
+      "archive": "builds/native-profile-20261028-broker-proof-build-attempt04/run.json",
+      "bytes": 8538,
+      "sha256": "8b1f1196e7c8423b444aac73423c94e80714e2e08ec0901b2cab2389fd8ae146"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-broker-proof-build-attempt04\\cargo.log",
+      "archive": "builds/native-profile-20261028-broker-proof-build-attempt04/cargo.log.txt",
+      "bytes": 437,
+      "sha256": "99ce49075ad0929ed1b11b4b9e86edbc458e284a6f495bb5c7a5f6478d2132af"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt01\\run.json",
+      "archive": "builds/native-profile-20261028-build-attempt01/run.json",
+      "bytes": 7073,
+      "sha256": "3615a4f9cf98c023984bd018a7834bcd0018ecfea1d2e9b58dad6b3d9842ee22"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt01\\cargo.log",
+      "archive": "builds/native-profile-20261028-build-attempt01/cargo.log.txt",
+      "bytes": 2814,
+      "sha256": "148d33e89714efe68544715677093ddbaa6ad17ba080f97404a0cd6d37ff67f1"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt02\\run.json",
+      "archive": "builds/native-profile-20261028-build-attempt02/run.json",
+      "bytes": 7072,
+      "sha256": "0add49e074174de25386f40e57d58088e5217cdcb310bbafe5d993b467906818"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt02\\cargo.log",
+      "archive": "builds/native-profile-20261028-build-attempt02/cargo.log.txt",
+      "bytes": 1957,
+      "sha256": "6fee860d68c92c50232d62e8aad35086cf610a1de265bf6a0da1857a0eb92cdc"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt03\\run.json",
+      "archive": "builds/native-profile-20261028-build-attempt03/run.json",
+      "bytes": 7590,
+      "sha256": "eb8c752d98a1280f817c144e8d17cbaea97eb05ce7b5e0de51bd3be3f1d99a09"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt03\\cargo.log",
+      "archive": "builds/native-profile-20261028-build-attempt03/cargo.log.txt",
+      "bytes": 421,
+      "sha256": "0add4286aaff3905d238186599206b51feb9c4cec806939c7c4265cfb5199c87"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt04\\run.json",
+      "archive": "builds/native-profile-20261028-build-attempt04/run.json",
+      "bytes": 8542,
+      "sha256": "59de28595dbd57cdf88702ac2b9f3995db1ecf5cac8ed609901f71a4a4724aa6"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt04\\cargo.log",
+      "archive": "builds/native-profile-20261028-build-attempt04/cargo.log.txt",
+      "bytes": 421,
+      "sha256": "90727bd0c3b32325ee8ebe8ab394b8e2dc88549caa4ca297ec6889bf35eeb2c3"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt05\\run.json",
+      "archive": "builds/native-profile-20261028-build-attempt05/run.json",
+      "bytes": 8542,
+      "sha256": "798fbc6ab66a05d1741884ef55eea12b308a41d7539b4f3e7398e0f5552adfd1"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt05\\cargo.log",
+      "archive": "builds/native-profile-20261028-build-attempt05/cargo.log.txt",
+      "bytes": 421,
+      "sha256": "f595418cb2aea4776eb5611b0cccba2a32506ddd523f19bce13f49860eec31ea"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt06\\run.json",
+      "archive": "builds/native-profile-20261028-build-attempt06/run.json",
+      "bytes": 12923,
+      "sha256": "3ab09182b8e9df750d1ec52a40a4796aed30eedb0141742c0432e25b5e3017a4"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt06\\cargo.log",
+      "archive": "builds/native-profile-20261028-build-attempt06/cargo.log.txt",
+      "bytes": 320,
+      "sha256": "6d672dbe2eb735ef4cf777db4a37cc2484c591539f2a3a2c4b266637dc9eb105"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt07\\run.json",
+      "archive": "builds/native-profile-20261028-build-attempt07/run.json",
+      "bytes": 12910,
+      "sha256": "8016b4068224c0d68682177de2139723703fc51072cfd2c7145106173fc826ec"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt07\\cargo.log",
+      "archive": "builds/native-profile-20261028-build-attempt07/cargo.log.txt",
+      "bytes": 320,
+      "sha256": "ab6f7b407b0762109d86676af800ca2b1c01537d35bb352a85cac4efcb669ca0"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt08\\run.json",
+      "archive": "builds/native-profile-20261028-build-attempt08/run.json",
+      "bytes": 12922,
+      "sha256": "879afb2dc28bc3d4ae1edb9ba12367e98851a5dd56e526570b467fc5b0f41611"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt08\\cargo.log",
+      "archive": "builds/native-profile-20261028-build-attempt08/cargo.log.txt",
+      "bytes": 320,
+      "sha256": "df2b4b0d11ebf99bbdaf10f8d9ac96b059bb531c3772444c6987901039524f3b"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt09\\run.json",
+      "archive": "builds/native-profile-20261028-build-attempt09/run.json",
+      "bytes": 13890,
+      "sha256": "07bf24719d1e3efec61e17edc3b24b317a039a79f05606d7303085b1958bffeb"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt09\\cargo.log",
+      "archive": "builds/native-profile-20261028-build-attempt09/cargo.log.txt",
+      "bytes": 320,
+      "sha256": "b7bce28053cace47d9116a4f3c28fa81eb843bd26835f6282a6d4b9d9611f683"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\run.json",
+      "archive": "builds/native-profile-20261028-build-attempt10/run.json",
+      "bytes": 14040,
+      "sha256": "32dc4184747d2126b881f6b593d94a0bb5d44de86599f0a87720d4fbcbdd0f13"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt10\\cargo.log",
+      "archive": "builds/native-profile-20261028-build-attempt10/cargo.log.txt",
+      "bytes": 162,
+      "sha256": "1ba7449a38905e0103d49777669bf8dd911bf44350427b40c0a2d46ca8ab54af"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt20\\run.json",
+      "archive": "builds/native-profile-20261028-build-attempt20/run.json",
+      "bytes": 3707,
+      "sha256": "9f04f851ac9032c07157658a2deceef4e1a3a26f1979f0d6780c70648e8e964b"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt20\\cargo.log",
+      "archive": "builds/native-profile-20261028-build-attempt20/cargo.log.txt",
+      "bytes": 2691,
+      "sha256": "a91596208ad4da8eb8aea609d785ea777933e6c031f5c4d9eb9291986ae31ec5"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt20\\source\\crates\\driver-blender\\src\\authoring_runtime.rs",
+      "archive": "builds/native-profile-20261028-build-attempt20/source/crates/driver-blender/src/authoring_runtime.rs",
+      "bytes": 50916,
+      "sha256": "39040bc79f38cb44db0aeeee465a0cbc18d264a28414ed6bee116a3eb1f99f0d"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt20\\source\\crates\\driver-blender\\tests\\fixtures\\authoring_plan_output_budget.json",
+      "archive": "builds/native-profile-20261028-build-attempt20/source/crates/driver-blender/tests/fixtures/authoring_plan_output_budget.json",
+      "bytes": 64371,
+      "sha256": "8de79c861dd6b3f054f75065cffbe06042b23ec897f675470d57c0406396d304"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt20\\source\\crates\\driver-blender\\tests\\fixtures\\authoring_plan_output_valid.json",
+      "archive": "builds/native-profile-20261028-build-attempt20/source/crates/driver-blender/tests/fixtures/authoring_plan_output_valid.json",
+      "bytes": 30641,
+      "sha256": "d2e8db6c592ba972f60606fc87de21016034792ef27d4579aba4d7c321e54cf9"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt20\\source\\crates\\driver-blender\\tests\\windows_broker_authoring.rs",
+      "archive": "builds/native-profile-20261028-build-attempt20/source/crates/driver-blender/tests/windows_broker_authoring.rs",
+      "bytes": 46070,
+      "sha256": "c6f6263bc097be083f6facc7e5dc6725654832c77cda0f88132ba7fd4009ad9f"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt20\\source\\crates\\driver-blender\\tests\\windows_broker_cancel.rs",
+      "archive": "builds/native-profile-20261028-build-attempt20/source/crates/driver-blender/tests/windows_broker_cancel.rs",
+      "bytes": 9230,
+      "sha256": "a39094933800ef6e2b7f65c4a1336a65bc3105c153028a2a5691aa80bb84f91e"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt20\\source\\crates\\driver-blender\\tests\\windows_broker_godot_handoff.rs",
+      "archive": "builds/native-profile-20261028-build-attempt20/source/crates/driver-blender/tests/windows_broker_godot_handoff.rs",
+      "bytes": 37009,
+      "sha256": "3cbee35e770c5ca53816e56ae02ceab8dacef1d5980c36be0a079375d66e8f1f"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt20\\source\\crates\\driver-blender\\tests\\windows_broker_session.rs",
+      "archive": "builds/native-profile-20261028-build-attempt20/source/crates/driver-blender/tests/windows_broker_session.rs",
+      "bytes": 21076,
+      "sha256": "d1eac20e77afe249943a2f56835252d01a9c4c168311fd1e175877fca7c5a7b8"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt20\\source\\crates\\driver-godot\\tests\\windows_pairing.rs",
+      "archive": "builds/native-profile-20261028-build-attempt20/source/crates/driver-godot/tests/windows_pairing.rs",
+      "bytes": 6978,
+      "sha256": "fafd67bb7c325b180a2efdae9a823cdcdc4d2cdff91d60fbf29ed28eb241a48d"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt20\\source\\crates\\registry\\src\\bounds.rs",
+      "archive": "builds/native-profile-20261028-build-attempt20/source/crates/registry/src/bounds.rs",
+      "bytes": 8722,
+      "sha256": "e5a193890b0201f5eaf4bb5af3124243e5e7af201a2a3526081a7588082fb430"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt20\\source\\crates\\types\\src\\json_budget.rs",
+      "archive": "builds/native-profile-20261028-build-attempt20/source/crates/types/src/json_budget.rs",
+      "bytes": 2769,
+      "sha256": "41f1a8d5fde9fab251304049564f5eb4b2428aec14f3420914737d6a1837c326"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-build-attempt20\\source\\crates\\types\\src\\lib.rs",
+      "archive": "builds/native-profile-20261028-build-attempt20/source/crates/types/src/lib.rs",
+      "bytes": 35701,
+      "sha256": "6ed319a0629e07286f8f59063cc3f596b39e70bcf23dab543e79578483ef211e"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-bundle-contract-attempt01\\run.json",
+      "archive": "builds/native-profile-20261028-bundle-contract-attempt01/run.json",
+      "bytes": 12955,
+      "sha256": "7cc26f6fbbb89c40316575cb59e12b980a14fe707b3f284214058299d4c23bad"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-bundle-contract-attempt01\\cargo.log",
+      "archive": "builds/native-profile-20261028-bundle-contract-attempt01/cargo.log.txt",
+      "bytes": 1132,
+      "sha256": "cd23a3546b2f1202a90d62c59023f0a4c6cc551cb00ab28d1ffb340f9484eb72"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-bundle-contract-attempt02\\run.json",
+      "archive": "builds/native-profile-20261028-bundle-contract-attempt02/run.json",
+      "bytes": 12955,
+      "sha256": "a7c73ef3f1cc1c523fa547fe008c91b29b436b38ce97d9abe2fd33808aab1ced"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-bundle-contract-attempt02\\cargo.log",
+      "archive": "builds/native-profile-20261028-bundle-contract-attempt02/cargo.log.txt",
+      "bytes": 645,
+      "sha256": "ff3c71ea570e786fed10d5519a89d30be7cafdc3dcd45d6368980f65513cd6d4"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-bundle-contract-attempt03\\run.json",
+      "archive": "builds/native-profile-20261028-bundle-contract-attempt03/run.json",
+      "bytes": 12953,
+      "sha256": "618ed0ea7c8e5c918d64111c2ab2292d2c45db8d80db182c76da62ab00123006"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-bundle-contract-attempt03\\cargo.log",
+      "archive": "builds/native-profile-20261028-bundle-contract-attempt03/cargo.log.txt",
+      "bytes": 645,
+      "sha256": "a0aa99e9f42a276e3def229f35e1f4424af8e8be903218dbc3bc140ce29e0a34"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-bundle-contract-attempt04\\run.json",
+      "archive": "builds/native-profile-20261028-bundle-contract-attempt04/run.json",
+      "bytes": 13922,
+      "sha256": "a5d679fa5f04d7098298576e76c7a71e1fa3be3cea3f80c22a0884e3e5d144e7"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-bundle-contract-attempt04\\cargo.log",
+      "archive": "builds/native-profile-20261028-bundle-contract-attempt04/cargo.log.txt",
+      "bytes": 645,
+      "sha256": "a9915b0b3ceeb4cb4de33c570bd092d1e2522272a8d43020f12622a505bbdea2"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-check-attempt01\\run.json",
+      "archive": "builds/native-profile-20261028-check-attempt01/run.json",
+      "bytes": 6992,
+      "sha256": "d1e347bd2509757c4692c45b8fc7b84ab5cfa7913e6ea808c11f282779dde7a4"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-check-attempt01\\cargo.log",
+      "archive": "builds/native-profile-20261028-check-attempt01/cargo.log.txt",
+      "bytes": 5966,
+      "sha256": "0a37c9d11616450907685a27688074075c5942b2dd3cd3c104047a691e960d2f"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-check-attempt02\\run.json",
+      "archive": "builds/native-profile-20261028-check-attempt02/run.json",
+      "bytes": 6993,
+      "sha256": "39c09e1dc3513fee3df19246051c6c37498951e97226a1636e67a4faffc9435a"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-check-attempt02\\cargo.log",
+      "archive": "builds/native-profile-20261028-check-attempt02/cargo.log.txt",
+      "bytes": 5324,
+      "sha256": "30f5743b2f9dfc632275ab032e98954b32f9719ae941c0a65f5445a7ddc8fe4d"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-check-attempt03\\run.json",
+      "archive": "builds/native-profile-20261028-check-attempt03/run.json",
+      "bytes": 6991,
+      "sha256": "6a3da23072cd98c9fbf87343da72093d2d2b96894264cdd3117a40c6dcb31a59"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-check-attempt03\\cargo.log",
+      "archive": "builds/native-profile-20261028-check-attempt03/cargo.log.txt",
+      "bytes": 342,
+      "sha256": "801d5b34799938c7237f1206ca4194310a41376e0f1775913aa8c3fd8a29511d"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-check-attempt04\\run.json",
+      "archive": "builds/native-profile-20261028-check-attempt04/run.json",
+      "bytes": 6990,
+      "sha256": "c958426f7c20d841bcca29134619dde9f2bc059d49b8e6fd1b7595f9f158425e"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-check-attempt04\\cargo.log",
+      "archive": "builds/native-profile-20261028-check-attempt04/cargo.log.txt",
+      "bytes": 1775,
+      "sha256": "c71c143b4e0b0633746089d8a96b6a0b82bb9fa4a08a43d08c274a486890b21d"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-config-gate-attempt01\\run.json",
+      "archive": "builds/native-profile-20261028-config-gate-attempt01/run.json",
+      "bytes": 7120,
+      "sha256": "e9540177f5acab57c1e90eba165f30aaf23e13cc8e367228c6100b78b14ced5d"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-config-gate-attempt01\\cargo.log",
+      "archive": "builds/native-profile-20261028-config-gate-attempt01/cargo.log.txt",
+      "bytes": 1910,
+      "sha256": "ec0db9753892b33e330a3d37f7e5e96b421126b003dc81db976c0f42d5208d9a"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-config-gate-attempt02\\run.json",
+      "archive": "builds/native-profile-20261028-config-gate-attempt02/run.json",
+      "bytes": 7101,
+      "sha256": "5d49b53864bcc95953d8246edd291769edf0869e541ba60f09b348d66a2de315"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-config-gate-attempt02\\cargo.log",
+      "archive": "builds/native-profile-20261028-config-gate-attempt02/cargo.log.txt",
+      "bytes": 496,
+      "sha256": "cbab7044ff790cba842f574a57a3533ff367faedb1b4740be0461d1b3e7da30a"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-driver-contract-attempt01\\run.json",
+      "archive": "builds/native-profile-20261028-driver-contract-attempt01/run.json",
+      "bytes": 8579,
+      "sha256": "5dc2bc286db655e44a066b739480819524557845ec4efc90eda03e3439195644"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-driver-contract-attempt01\\cargo.log",
+      "archive": "builds/native-profile-20261028-driver-contract-attempt01/cargo.log.txt",
+      "bytes": 1829,
+      "sha256": "02d4794f414efa523434a07dddc4a77622a32aa8f89bb02a3bae3f41b0c16075"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-driver-contract-attempt02\\run.json",
+      "archive": "builds/native-profile-20261028-driver-contract-attempt02/run.json",
+      "bytes": 8579,
+      "sha256": "773075d8f212c30d4fd5238f3ea12990340bb9b4a6aae46d80ca18be6c6b4580"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-driver-contract-attempt02\\cargo.log",
+      "archive": "builds/native-profile-20261028-driver-contract-attempt02/cargo.log.txt",
+      "bytes": 1829,
+      "sha256": "b2abed0156c2f52cde1eb2da45eb3bf7eade828dc1b82020377b598f82f3a203"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-driver-contract-attempt03\\run.json",
+      "archive": "builds/native-profile-20261028-driver-contract-attempt03/run.json",
+      "bytes": 14088,
+      "sha256": "81eabdf23bd96654e8921889a6f363042bd19d1782b97872d9b5cbe500a45447"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-driver-contract-attempt03\\cargo.log",
+      "archive": "builds/native-profile-20261028-driver-contract-attempt03/cargo.log.txt",
+      "bytes": 1927,
+      "sha256": "03d65729e4126006011d56a09889e35dab02003501e658ed0add625986d7feaa"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-build-attempt01\\run.json",
+      "archive": "builds/native-profile-20261028-godot-build-attempt01/run.json",
+      "bytes": 2073,
+      "sha256": "91dcd4991e6a9037c8c9ffd2461cceeaedf47285e6d9b46fef6d0e245eece502"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-build-attempt01\\cargo.log",
+      "archive": "builds/native-profile-20261028-godot-build-attempt01/cargo.log.txt",
+      "bytes": 1344,
+      "sha256": "bdd03f88ce7b1252c137c7644f0f3db0c286dba389851985ab86a6c55cb22deb"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt01\\run.json",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt01/run.json",
+      "bytes": 1969,
+      "sha256": "34fbeb4a4008d7ad4942215f6da9147f694e27b8d5823adfba76d72f771d74ad"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt01\\cargo.log",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt01/cargo.log.txt",
+      "bytes": 313,
+      "sha256": "acaf07c79e9441e2a993b34d103a750bba6265a4a5f036da9713fc83aa632d4f"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt02\\run.json",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt02/run.json",
+      "bytes": 1968,
+      "sha256": "4740b5a911e40fcbe49223b1bf1b2bdadbcc7a28bad7bacac470267a77e05b9f"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt02\\cargo.log",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt02/cargo.log.txt",
+      "bytes": 312,
+      "sha256": "f8cce9d64fd6986ee85b6e5382884cce46208206a00ebabe9e028e78d9614502"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt03\\run.json",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt03/run.json",
+      "bytes": 2210,
+      "sha256": "5842fa014963e1ddbf20683efbe68e86e5adfa11c983f049184d3febcd73b5af"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt03\\cargo.log",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt03/cargo.log.txt",
+      "bytes": 312,
+      "sha256": "70c08076acc2f65bb2c4d12517d0620e6e8b8625322ffc13cb527162dba86d23"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt04\\run.json",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt04/run.json",
+      "bytes": 2210,
+      "sha256": "19b3e61b7b509a0931b6e95fc981af802b4a3edfe92284e288770d0eabb0547a"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt04\\cargo.log",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt04/cargo.log.txt",
+      "bytes": 312,
+      "sha256": "120638d365716fcecf4b6e45b8f7631675ea2b3920243e70b15ae796c263bc6e"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt05\\run.json",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt05/run.json",
+      "bytes": 3669,
+      "sha256": "80be2ff0182f58359d33757bcf3a47a643a488b1cd9195ce709702d66acb6f0b"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-handoff-proof-build-attempt05\\cargo.log",
+      "archive": "builds/native-profile-20261028-godot-handoff-proof-build-attempt05/cargo.log.txt",
+      "bytes": 312,
+      "sha256": "017c534c14bb752fec63beed9ea6d4d6a1bf93d7f7a4ef4ef38df9ecfcca845e"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-pairing-proof-build-attempt01\\run.json",
+      "archive": "builds/native-profile-20261028-godot-pairing-proof-build-attempt01/run.json",
+      "bytes": 2184,
+      "sha256": "a8d3d1176f1f3128fd06a35d702a757036579d0f45b12918d4fa88b9d6f24ba9"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-godot-pairing-proof-build-attempt01\\cargo.log",
+      "archive": "builds/native-profile-20261028-godot-pairing-proof-build-attempt01/cargo.log.txt",
+      "bytes": 1619,
+      "sha256": "872545db9b8a99db8e2e232239048d6da2bbe2d1e4418e694e66f25621ab5d49"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-host-contract-attempt01\\run.json",
+      "archive": "builds/native-profile-20261028-host-contract-attempt01/run.json",
+      "bytes": 7094,
+      "sha256": "6fbeb8798822192110214efc2bc5c5d7b2a2bd458dec5a90479249ca38aa7c45"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-host-contract-attempt01\\cargo.log",
+      "archive": "builds/native-profile-20261028-host-contract-attempt01/cargo.log.txt",
+      "bytes": 966,
+      "sha256": "c71bef6bc991bac4b8708513b803b299169f6b53ba0bdfc57b94193d189dae9a"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-lifecycle-contract-attempt01\\run.json",
+      "archive": "builds/native-profile-20261028-lifecycle-contract-attempt01/run.json",
+      "bytes": 7661,
+      "sha256": "e71b62da8fa20636a0d2fcb1cd1177f822f40b44412af36de50b3057de197a05"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-lifecycle-contract-attempt01\\cargo.log",
+      "archive": "builds/native-profile-20261028-lifecycle-contract-attempt01/cargo.log.txt",
+      "bytes": 1464,
+      "sha256": "7936993342e3d49f9967898d73fc3c9943c9e1f3832dc2c7e6c7013ba637309a"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-package-list-attempt01\\run.json",
+      "archive": "builds/native-profile-20261028-package-list-attempt01/run.json",
+      "bytes": 12805,
+      "sha256": "1e304d3cd7d7f29aa273faa05488aadb95daf9e06b3113390c7ab3d91f2f21ac"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-package-list-attempt01\\cargo.log",
+      "archive": "builds/native-profile-20261028-package-list-attempt01/cargo.log.txt",
+      "bytes": 980,
+      "sha256": "8b4d0cf2edad531fbe075051c43a80f296ff8b795ea36732e6a567836ef0db26"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-publication-contract-attempt01\\run.json",
+      "archive": "builds/native-profile-20261028-publication-contract-attempt01/run.json",
+      "bytes": 3903,
+      "sha256": "b1874cb5fb0426495a38f35ce299f8d2780ca466ab4e270b176b9d8ad8104813"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-publication-contract-attempt01\\cargo.log",
+      "archive": "builds/native-profile-20261028-publication-contract-attempt01/cargo.log.txt",
+      "bytes": 4478,
+      "sha256": "8b02157cf8e92b1291e36c8dc38a07ac919e19d187ba9d02fc7631830c55c12d"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-publication-contract-attempt01\\source\\crates\\driver-blender\\src\\authoring_runtime.rs",
+      "archive": "builds/native-profile-20261028-publication-contract-attempt01/source/crates/driver-blender/src/authoring_runtime.rs",
+      "bytes": 50916,
+      "sha256": "39040bc79f38cb44db0aeeee465a0cbc18d264a28414ed6bee116a3eb1f99f0d"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-publication-contract-attempt01\\source\\crates\\driver-blender\\tests\\fixtures\\authoring_plan_output_budget.json",
+      "archive": "builds/native-profile-20261028-publication-contract-attempt01/source/crates/driver-blender/tests/fixtures/authoring_plan_output_budget.json",
+      "bytes": 64371,
+      "sha256": "8de79c861dd6b3f054f75065cffbe06042b23ec897f675470d57c0406396d304"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-publication-contract-attempt01\\source\\crates\\driver-blender\\tests\\fixtures\\authoring_plan_output_valid.json",
+      "archive": "builds/native-profile-20261028-publication-contract-attempt01/source/crates/driver-blender/tests/fixtures/authoring_plan_output_valid.json",
+      "bytes": 30641,
+      "sha256": "d2e8db6c592ba972f60606fc87de21016034792ef27d4579aba4d7c321e54cf9"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-publication-contract-attempt01\\source\\crates\\driver-blender\\tests\\windows_broker_authoring.rs",
+      "archive": "builds/native-profile-20261028-publication-contract-attempt01/source/crates/driver-blender/tests/windows_broker_authoring.rs",
+      "bytes": 40167,
+      "sha256": "13245abe0d35e3e0ba789d1412c63a359189b63740026c7ee43bb1e7f29ac4e9"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-publication-contract-attempt01\\source\\crates\\driver-blender\\tests\\windows_broker_cancel.rs",
+      "archive": "builds/native-profile-20261028-publication-contract-attempt01/source/crates/driver-blender/tests/windows_broker_cancel.rs",
+      "bytes": 9230,
+      "sha256": "a39094933800ef6e2b7f65c4a1336a65bc3105c153028a2a5691aa80bb84f91e"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-publication-contract-attempt01\\source\\crates\\driver-blender\\tests\\windows_broker_godot_handoff.rs",
+      "archive": "builds/native-profile-20261028-publication-contract-attempt01/source/crates/driver-blender/tests/windows_broker_godot_handoff.rs",
+      "bytes": 36338,
+      "sha256": "bdd98f9ac1fd820e85f9759d1005609405e91758514ac1146d2c859a3b73bd0c"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-publication-contract-attempt01\\source\\crates\\driver-blender\\tests\\windows_broker_session.rs",
+      "archive": "builds/native-profile-20261028-publication-contract-attempt01/source/crates/driver-blender/tests/windows_broker_session.rs",
+      "bytes": 21076,
+      "sha256": "d1eac20e77afe249943a2f56835252d01a9c4c168311fd1e175877fca7c5a7b8"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-publication-contract-attempt01\\source\\crates\\driver-godot\\tests\\windows_pairing.rs",
+      "archive": "builds/native-profile-20261028-publication-contract-attempt01/source/crates/driver-godot/tests/windows_pairing.rs",
+      "bytes": 6978,
+      "sha256": "fafd67bb7c325b180a2efdae9a823cdcdc4d2cdff91d60fbf29ed28eb241a48d"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-publication-contract-attempt01\\source\\crates\\registry\\src\\bounds.rs",
+      "archive": "builds/native-profile-20261028-publication-contract-attempt01/source/crates/registry/src/bounds.rs",
+      "bytes": 8722,
+      "sha256": "e5a193890b0201f5eaf4bb5af3124243e5e7af201a2a3526081a7588082fb430"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-publication-contract-attempt01\\source\\crates\\types\\src\\json_budget.rs",
+      "archive": "builds/native-profile-20261028-publication-contract-attempt01/source/crates/types/src/json_budget.rs",
+      "bytes": 2769,
+      "sha256": "41f1a8d5fde9fab251304049564f5eb4b2428aec14f3420914737d6a1837c326"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-publication-contract-attempt01\\source\\crates\\types\\src\\lib.rs",
+      "archive": "builds/native-profile-20261028-publication-contract-attempt01/source/crates/types/src/lib.rs",
+      "bytes": 35701,
+      "sha256": "6ed319a0629e07286f8f59063cc3f596b39e70bcf23dab543e79578483ef211e"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-runtime-guards-attempt01\\run.json",
+      "archive": "builds/native-profile-20261028-runtime-guards-attempt01/run.json",
+      "bytes": 7112,
+      "sha256": "68a212a9f565e665a5d151013f1cb3c0aff2a973548c882451c593bf3ca78a47"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-runtime-guards-attempt01\\cargo.log",
+      "archive": "builds/native-profile-20261028-runtime-guards-attempt01/cargo.log.txt",
+      "bytes": 641,
+      "sha256": "91338001d48955c07ff47d5046018fcbb362f6372aef133a1a93b6bbc84537df"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-sdk-contract-attempt01\\run.json",
+      "archive": "builds/native-profile-20261028-sdk-contract-attempt01/run.json",
+      "bytes": 7100,
+      "sha256": "8b1b130478ab3c89916bcec2783df264caf5ccb53dbe664989770d8291ae8f0d"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-sdk-contract-attempt01\\cargo.log",
+      "archive": "builds/native-profile-20261028-sdk-contract-attempt01/cargo.log.txt",
+      "bytes": 976,
+      "sha256": "8d7931722e9eb16def1ea3c86ddb440990ff4ae954142f2ea4f9a00c32092f27"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-shared-budget-contract-attempt01\\run.json",
+      "archive": "builds/native-profile-20261028-shared-budget-contract-attempt01/run.json",
+      "bytes": 4246,
+      "sha256": "46172f26c742d770ed4bcf74f83936cca12fce389f71271abc6303435aa8271c"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-shared-budget-contract-attempt01\\cargo.log",
+      "archive": "builds/native-profile-20261028-shared-budget-contract-attempt01/cargo.log.txt",
+      "bytes": 6181,
+      "sha256": "15aa764b9151fe763089f9f1155590977178b2bb42efcf27a3faae5731271ad9"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-shared-budget-contract-attempt01\\source\\crates\\driver-blender\\src\\authoring_runtime.rs",
+      "archive": "builds/native-profile-20261028-shared-budget-contract-attempt01/source/crates/driver-blender/src/authoring_runtime.rs",
+      "bytes": 50916,
+      "sha256": "39040bc79f38cb44db0aeeee465a0cbc18d264a28414ed6bee116a3eb1f99f0d"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-shared-budget-contract-attempt01\\source\\crates\\driver-blender\\tests\\fixtures\\authoring_plan_output_budget.json",
+      "archive": "builds/native-profile-20261028-shared-budget-contract-attempt01/source/crates/driver-blender/tests/fixtures/authoring_plan_output_budget.json",
+      "bytes": 64371,
+      "sha256": "8de79c861dd6b3f054f75065cffbe06042b23ec897f675470d57c0406396d304"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-shared-budget-contract-attempt01\\source\\crates\\driver-blender\\tests\\fixtures\\authoring_plan_output_valid.json",
+      "archive": "builds/native-profile-20261028-shared-budget-contract-attempt01/source/crates/driver-blender/tests/fixtures/authoring_plan_output_valid.json",
+      "bytes": 30641,
+      "sha256": "d2e8db6c592ba972f60606fc87de21016034792ef27d4579aba4d7c321e54cf9"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-shared-budget-contract-attempt01\\source\\crates\\driver-blender\\tests\\windows_broker_authoring.rs",
+      "archive": "builds/native-profile-20261028-shared-budget-contract-attempt01/source/crates/driver-blender/tests/windows_broker_authoring.rs",
+      "bytes": 40167,
+      "sha256": "13245abe0d35e3e0ba789d1412c63a359189b63740026c7ee43bb1e7f29ac4e9"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-shared-budget-contract-attempt01\\source\\crates\\driver-blender\\tests\\windows_broker_cancel.rs",
+      "archive": "builds/native-profile-20261028-shared-budget-contract-attempt01/source/crates/driver-blender/tests/windows_broker_cancel.rs",
+      "bytes": 9230,
+      "sha256": "a39094933800ef6e2b7f65c4a1336a65bc3105c153028a2a5691aa80bb84f91e"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-shared-budget-contract-attempt01\\source\\crates\\driver-blender\\tests\\windows_broker_godot_handoff.rs",
+      "archive": "builds/native-profile-20261028-shared-budget-contract-attempt01/source/crates/driver-blender/tests/windows_broker_godot_handoff.rs",
+      "bytes": 36338,
+      "sha256": "bdd98f9ac1fd820e85f9759d1005609405e91758514ac1146d2c859a3b73bd0c"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-shared-budget-contract-attempt01\\source\\crates\\driver-blender\\tests\\windows_broker_session.rs",
+      "archive": "builds/native-profile-20261028-shared-budget-contract-attempt01/source/crates/driver-blender/tests/windows_broker_session.rs",
+      "bytes": 21076,
+      "sha256": "d1eac20e77afe249943a2f56835252d01a9c4c168311fd1e175877fca7c5a7b8"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-shared-budget-contract-attempt01\\source\\crates\\driver-godot\\tests\\windows_pairing.rs",
+      "archive": "builds/native-profile-20261028-shared-budget-contract-attempt01/source/crates/driver-godot/tests/windows_pairing.rs",
+      "bytes": 6978,
+      "sha256": "fafd67bb7c325b180a2efdae9a823cdcdc4d2cdff91d60fbf29ed28eb241a48d"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-shared-budget-contract-attempt01\\source\\crates\\registry\\src\\bounds.rs",
+      "archive": "builds/native-profile-20261028-shared-budget-contract-attempt01/source/crates/registry/src/bounds.rs",
+      "bytes": 8722,
+      "sha256": "e5a193890b0201f5eaf4bb5af3124243e5e7af201a2a3526081a7588082fb430"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-shared-budget-contract-attempt01\\source\\crates\\types\\src\\json_budget.rs",
+      "archive": "builds/native-profile-20261028-shared-budget-contract-attempt01/source/crates/types/src/json_budget.rs",
+      "bytes": 2769,
+      "sha256": "41f1a8d5fde9fab251304049564f5eb4b2428aec14f3420914737d6a1837c326"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-shared-budget-contract-attempt01\\source\\crates\\types\\src\\lib.rs",
+      "archive": "builds/native-profile-20261028-shared-budget-contract-attempt01/source/crates/types/src/lib.rs",
+      "bytes": 35701,
+      "sha256": "6ed319a0629e07286f8f59063cc3f596b39e70bcf23dab543e79578483ef211e"
+    }
+  ],
+  "audit_guarantee": "Hash-chain consistency and local request/envelope correlation; not malicious same-owner tamper resistance",
+  "physical_results": "Read individual proof receipts; archival success does not promote failed fixtures",
+  "linux_native": "NOT_RUN",
+  "external_publication": false
+}

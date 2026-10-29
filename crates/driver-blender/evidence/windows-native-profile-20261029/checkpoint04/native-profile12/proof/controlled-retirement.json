@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "utc": "2026-10-29T03:24:27.642883+00:00",
+  "candidate": "native-profile12",
+  "action": "retire idle owned broker after two acknowledged native checkpoint closes",
+  "before": [
+    {
+      "path": "E:\\Projects\\worldwright-archipelago\\.local\\b52p12\\state\\drivers\\driver-63f684981bd74721b3fbac1dc05ebcea.exe",
+      "pid": 33180,
+      "started_utc": "2026-10-29T03:21:47.5251183Z"
+    },
+    {
+      "path": "E:\\Projects\\worldwright-archipelago\\tools\\semwright-blender52-native-profile12\\semwrightd.exe",
+      "pid": 33608,
+      "started_utc": "2026-10-29T03:19:40.3577710Z"
+    }
+  ],
+  "recorded_pids": [
+    476,
+    33084,
+    33180,
+    33608
+  ],
+  "remaining_pids": [],
+  "all_recorded_pids_absent": true,
+  "native_close_acknowledged": true,
+  "native_termination": "Host kill/wait after saved checkpoints; exit code1; not graceful Blender quit",
+  "snapshot_retained": true,
+  "acl_cleanup_claimed": false
+}

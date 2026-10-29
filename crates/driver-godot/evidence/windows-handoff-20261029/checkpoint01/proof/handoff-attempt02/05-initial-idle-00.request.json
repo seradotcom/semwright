@@ -1,0 +1,9 @@
+{
+  "args": {
+    "session": "8b4253f3e69d68aa12b381ee3f020459"
+  },
+  "backend": null,
+  "command": "driver.godot.assets.status",
+  "dry_run": false,
+  "request_id": "5c9309648c8640bd84bc2630fd478c8f"
+}

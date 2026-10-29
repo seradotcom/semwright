@@ -1,0 +1,11 @@
+   Compiling semwright-driver-host v1.0.0 (E:\Projects\semwright-blender52\crates\driver-host)
+    Finished `test` profile [unoptimized] target(s) in 28.68s
+     Running tests\windows_runtime_bundle.rs (.local\target\x86_64-pc-windows-gnu\debug\deps\windows_runtime_bundle-75714796a331cbf7.exe)
+
+running 3 tests
+test windows_runtime_bundle_manifest_matches_physical_bytes_and_targets ... ok
+test windows_runtime_bundle_matches_and_detects_drift_and_missing_source ... ok
+test windows_runtime_bundle_standalone_requires_all_packaged_resources ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s
+

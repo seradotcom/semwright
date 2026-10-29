@@ -1,0 +1,1 @@
+PermissionDenied: Windows private data file DACL grants restricted rights to an untrusted principal
