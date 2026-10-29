@@ -1,0 +1,31 @@
+{
+  "cancel": {
+    "cancel_sent_ms": 9566,
+    "nonce": "81253d668ec24825af9cd2ed6c8b0384",
+    "pid": 19068,
+    "ready_already_observed": false,
+    "wait_event": {
+      "cancelled_at_entry": false,
+      "component": "driver-host",
+      "nonce": "81253d668ec24825af9cd2ed6c8b0384",
+      "phase": "native_readiness_wait_started",
+      "pid": 19068
+    }
+  },
+  "cancel_error": null,
+  "cancelled_result": true,
+  "elapsed_ms": 10699,
+  "host_log_offset": 3502,
+  "host_observed_cancellation": true,
+  "host_observed_exit": true,
+  "host_tail_sha256": "9fe86c9d7ad4f713a6d1a3361c32c30828e1ae00edda593a5d5486aa73f7c42d",
+  "injected_native_delay": false,
+  "interpretation": "CANCELLED_DURING_READINESS_AND_REAPED",
+  "observed_active_wait": true,
+  "passed": true,
+  "ready_after_cancel": false,
+  "request_id": "e2ad90b794ab423f924d6a28e9704735",
+  "response_error": null,
+  "schema": 1,
+  "session_not_adopted": true
+}

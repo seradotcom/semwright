@@ -1,0 +1,45 @@
+{
+  "command": "driver.blender.semantic.relations",
+  "data": {
+    "generation": 1,
+    "items": [
+      {
+        "index": 0,
+        "name": "Material Output",
+        "ref": "blender-rna/v1/materials/TWF0ZXJpYWw/W1sicCIsIm5vZGVfdHJlZSJdLFsiYyIsIm5vZGVzIiwwXV0@1",
+        "rna_type": "ShaderNodeOutputMaterial"
+      },
+      {
+        "index": 1,
+        "name": "Principled BSDF",
+        "ref": "blender-rna/v1/materials/TWF0ZXJpYWw/W1sicCIsIm5vZGVfdHJlZSJdLFsiYyIsIm5vZGVzIiwxXV0@1",
+        "rna_type": "ShaderNodeBsdfPrincipled"
+      }
+    ],
+    "mutation": "domain_specific",
+    "offset": 0,
+    "relation": "nodes",
+    "truncated": false
+  },
+  "execution": {
+    "backend": "driver:blender",
+    "dry_run": false,
+    "duration_ms": 31,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "7dfa15f2239d3e3ca783418f8a854e14e9466d171c69c957f9eae5eb4bd76466",
+      "execution_provider": "driver:blender",
+      "provider": "driver:blender",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "57286522c626413b9ef1dd6e6a72ffe5",
+  "warnings": []
+}

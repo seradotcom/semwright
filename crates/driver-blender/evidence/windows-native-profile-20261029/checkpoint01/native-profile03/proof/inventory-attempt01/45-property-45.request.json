@@ -1,0 +1,10 @@
+{
+  "args": {
+    "property": "is_embedded_data",
+    "ref": "blender-rna/v1/meshes/Q3ViZQ@1"
+  },
+  "backend": null,
+  "command": "driver.blender.semantic.property.get",
+  "dry_run": false,
+  "request_id": "5aa6689d2be7454b9f1e7c534bd131bf"
+}

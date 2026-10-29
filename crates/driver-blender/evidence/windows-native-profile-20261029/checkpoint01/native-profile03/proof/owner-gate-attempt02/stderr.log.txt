@@ -1,0 +1,1 @@
+PolicyDenied: Windows Blender initial profile requires explicit owner opt-in

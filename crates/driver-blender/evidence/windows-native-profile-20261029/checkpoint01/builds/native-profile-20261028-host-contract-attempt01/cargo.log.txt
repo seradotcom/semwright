@@ -1,0 +1,14 @@
+   Compiling semwright-driver-sdk v1.0.0 (E:\Projects\semwright-blender52\crates\driver-sdk)
+   Compiling semwright-policy v1.0.0 (E:\Projects\semwright-blender52\crates\policy)
+   Compiling semwright-driver-host v1.0.0 (E:\Projects\semwright-blender52\crates\driver-host)
+    Finished `test` profile [unoptimized] target(s) in 14.98s
+     Running unittests src\lib.rs (.local\target\x86_64-pc-windows-gnu\debug\deps\semwright_driver_host-367c6ebdabc362c1.exe)
+
+running 4 tests
+test windows_native_profile_tests::windows_native_owner_gate_precedes_filesystem_staging ... ok
+test windows_native_profile_tests::windows_native_profile_cannot_accept_ordinary_tool_arguments ... ok
+test windows_native_profile_tests::windows_native_profile_cannot_use_another_driver_identity ... ok
+test windows_native_profile_tests::windows_native_profile_is_not_a_generic_dependency ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.01s
+

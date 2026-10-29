@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "utc": "2026-10-29T01:01:39.805650+00:00",
+  "argv": [
+    "E:\\Projects\\worldwright-archipelago\\tools\\semwright-blender52-native-profile05\\semwrightd.exe",
+    "--config",
+    "E:\\Projects\\worldwright-archipelago\\.local\\semwright-native-profile05-config\\owner-gate-denied-01\\denied.toml",
+    "--socket",
+    "\\\\.\\pipe\\semwright-S_1_5_21_3748004576_2415526740_1202758394_1001-archipelago-blender52-native-profile05-denied",
+    "--data-dir",
+    "E:\\Projects\\worldwright-archipelago\\.local\\semwright-native-profile05-config\\owner-gate-denied-01\\state",
+    "--mcp-upstreams",
+    "E:\\Projects\\worldwright-archipelago\\.local\\semwright-native-profile05-config\\mcp-upstreams.toml",
+    "--log-format",
+    "json"
+  ],
+  "binary_sha256": "9200e5c6450fa0167955d581c03e5d64f48ac4fe60c615b60c2a0badc3d0f713",
+  "config_sha256": "533bf89681d76521244b6822c00a1fd10d0c06b935a4512482637089c1aea5b4",
+  "owner_profile_grant": false,
+  "exit_code": 3,
+  "harness_terminated_after_deadline": false,
+  "seconds": 2.4059999999881256,
+  "explicit_owner_denial_observed": true,
+  "native_prepare_or_launch_observed": false,
+  "native_snapshot_directories": [],
+  "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "stderr_sha256": "731425f8517dc9cc4c42d7f97024ba166df5b0c5c382639faa3c4e0b341f1bde",
+  "passed": true
+}

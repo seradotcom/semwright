@@ -1,0 +1,96 @@
+
+running 1 test
+test windows_production_broker_checkpoint_inventory ... BROKER_PROOF_STEP {"label":"semantic-summary","ok":true,"request_id":"f8eb3fd9c58f4c9783fca0e3c6d64861"}
+BROKER_PROOF_STEP {"label":"root-actions","ok":true,"request_id":"0d375ec959894c45ae1dd00f35f67c49"}
+BROKER_PROOF_STEP {"label":"root-armatures","ok":true,"request_id":"85121847bec14c80aa67c726a542c0ec"}
+BROKER_PROOF_STEP {"label":"root-brushes","ok":true,"request_id":"8134db9ec08b4a86b0c7e724a5790f97"}
+BROKER_PROOF_STEP {"label":"root-cache_files","ok":true,"request_id":"299cf120e3a643e9b3015fc3ee1ad27f"}
+BROKER_PROOF_STEP {"label":"root-cameras","ok":true,"request_id":"fedd231d49e545b18dd2db2c2c94f1c6"}
+BROKER_PROOF_STEP {"label":"property-6","ok":true,"request_id":"1053207d220046f5a910193979485ee9"}
+BROKER_PROOF_STEP {"label":"property-7","ok":true,"request_id":"ba9ec12c21af42c5b43873840341e4d6"}
+BROKER_PROOF_STEP {"label":"property-8","ok":true,"request_id":"51d2b23279bb401c96618b9fba20f390"}
+FACTORY_INVENTORY {"items":[{"is_embedded_data":false,"name":"Camera","rna_type":"Camera","use_fake_user":false,"users":1}],"root":"cameras"}
+BROKER_PROOF_STEP {"label":"root-collections","ok":true,"request_id":"e342276f225f44f7b8aca1164a79e6c1"}
+BROKER_PROOF_STEP {"label":"property-10","ok":true,"request_id":"7c62ab4a1ed741c68f7708204ab82cf4"}
+BROKER_PROOF_STEP {"label":"property-11","ok":true,"request_id":"d1a3197f6bd04af6a428286bf7ff0086"}
+BROKER_PROOF_STEP {"label":"property-12","ok":true,"request_id":"f5745f88150c49ec82a2ff4b10922dea"}
+FACTORY_INVENTORY {"items":[{"is_embedded_data":false,"name":"Collection","rna_type":"Collection","use_fake_user":false,"users":1}],"root":"collections"}
+BROKER_PROOF_STEP {"label":"root-curves","ok":true,"request_id":"0e7f793d8f8e4311b841f54136fe8a12"}
+BROKER_PROOF_STEP {"label":"root-fonts","ok":true,"request_id":"f64a329f452248caa51c84bb4fd6180a"}
+BROKER_PROOF_STEP {"label":"root-grease_pencils","ok":true,"request_id":"adb4185ef7544491876ede76479efd7e"}
+BROKER_PROOF_STEP {"label":"root-hair_curves","ok":true,"request_id":"dfe14c22efe648fb8d408925c3f169ff"}
+BROKER_PROOF_STEP {"label":"root-images","ok":true,"request_id":"5490d73297c74f3784e6ab136be4ffa8"}
+BROKER_PROOF_STEP {"label":"property-18","ok":true,"request_id":"0a616782c495424e95fb0b103a4487fc"}
+BROKER_PROOF_STEP {"label":"property-19","ok":true,"request_id":"cf4d409aa34949538130a63f84b31034"}
+BROKER_PROOF_STEP {"label":"property-20","ok":true,"request_id":"a1363541f3c44c4c87d97ce07948d900"}
+BROKER_PROOF_STEP {"label":"property-21","ok":true,"request_id":"536910a8aa7a48f5bd11cb7ffcc4c49d"}
+BROKER_PROOF_STEP {"label":"property-22","ok":true,"request_id":"d0a132d27aef49e3ad6680574acba884"}
+BROKER_PROOF_STEP {"label":"property-23","ok":true,"request_id":"2d29d921f6db456f8794e21fa778c6c2"}
+FACTORY_INVENTORY {"items":[{"is_embedded_data":false,"name":"Render Result","rna_type":"Image","use_fake_user":false,"users":1},{"is_embedded_data":false,"name":"Viewer Node","rna_type":"Image","use_fake_user":false,"users":1}],"root":"images"}
+BROKER_PROOF_STEP {"label":"root-lattices","ok":true,"request_id":"a0b89f9864614be2bde67c5c4d7f9590"}
+BROKER_PROOF_STEP {"label":"root-lightprobes","ok":true,"request_id":"721c6c6fdca647aeac4a6ef477ba687a"}
+BROKER_PROOF_STEP {"label":"root-lights","ok":true,"request_id":"d41a2bf0de044c529baee32a333e7a20"}
+BROKER_PROOF_STEP {"label":"property-27","ok":true,"request_id":"efbb5ddcc7c04aa0843f5ce93cfe3990"}
+BROKER_PROOF_STEP {"label":"property-28","ok":true,"request_id":"3fb737353e354b769420deaf26df7105"}
+BROKER_PROOF_STEP {"label":"property-29","ok":true,"request_id":"bc9e25f3770c46fda470ed0974054c87"}
+FACTORY_INVENTORY {"items":[{"is_embedded_data":false,"name":"Light","rna_type":"PointLight","use_fake_user":false,"users":1}],"root":"lights"}
+BROKER_PROOF_STEP {"label":"root-linestyles","ok":true,"request_id":"ef77da51187e4041ac882f6ef8029e59"}
+BROKER_PROOF_STEP {"label":"property-31","ok":true,"request_id":"6531fc7beb1b49279867251bf4a3a5df"}
+BROKER_PROOF_STEP {"label":"property-32","ok":true,"request_id":"c482ab0e4ad74f76b758947426f26006"}
+BROKER_PROOF_STEP {"label":"property-33","ok":true,"request_id":"d1e2118e54ab45ea8a5542372e39c9e9"}
+FACTORY_INVENTORY {"items":[{"is_embedded_data":false,"name":"LineStyle","rna_type":"FreestyleLineStyle","use_fake_user":false,"users":1}],"root":"linestyles"}
+BROKER_PROOF_STEP {"label":"root-masks","ok":true,"request_id":"e3f7b230feca4527a332fa1070431157"}
+BROKER_PROOF_STEP {"label":"root-materials","ok":true,"request_id":"e4011ccf1e764a73af1d156607f33b24"}
+BROKER_PROOF_STEP {"label":"property-36","ok":true,"request_id":"ae3dd0249616469fbf76c4ad0628ce5f"}
+BROKER_PROOF_STEP {"label":"property-37","ok":true,"request_id":"21b909516e3c4f1c89ddcd6fdf442edf"}
+BROKER_PROOF_STEP {"label":"property-38","ok":true,"request_id":"9983f7455554454ab26a14d9ef4b82b8"}
+BROKER_PROOF_STEP {"label":"property-39","ok":true,"request_id":"1b405f7e1c7d404badc2994820231946"}
+BROKER_PROOF_STEP {"label":"property-40","ok":true,"request_id":"db852e24c14942c5b1c27212a5cea6a4"}
+BROKER_PROOF_STEP {"label":"property-41","ok":true,"request_id":"b9bec631b6634ab4ba47e69bf30a2130"}
+FACTORY_INVENTORY {"items":[{"is_embedded_data":false,"name":"Dots Stroke","rna_type":"Material","use_fake_user":false,"users":0},{"is_embedded_data":false,"name":"Material","rna_type":"Material","use_fake_user":false,"users":1}],"root":"materials"}
+BROKER_PROOF_STEP {"label":"root-meshes","ok":true,"request_id":"fbd881ff49614abdabc0c73c57e9ee44"}
+BROKER_PROOF_STEP {"label":"property-43","ok":true,"request_id":"535b4b3668d3463c82b0fb56aba23899"}
+BROKER_PROOF_STEP {"label":"property-44","ok":true,"request_id":"76f219c7ee0e40fb8d6a888495383431"}
+BROKER_PROOF_STEP {"label":"property-45","ok":true,"request_id":"5aa6689d2be7454b9f1e7c534bd131bf"}
+FACTORY_INVENTORY {"items":[{"is_embedded_data":false,"name":"Cube","rna_type":"Mesh","use_fake_user":false,"users":1}],"root":"meshes"}
+BROKER_PROOF_STEP {"label":"root-metaballs","ok":true,"request_id":"db0074fb48df4a7f9660d6e3ea4a6163"}
+BROKER_PROOF_STEP {"label":"root-movieclips","ok":true,"request_id":"7ff1b13e7b064da29cb1d30c2ddd890c"}
+BROKER_PROOF_STEP {"label":"root-node_groups","ok":true,"request_id":"f5235f876c4d4a4cad755c539fc142a3"}
+BROKER_PROOF_STEP {"label":"root-objects","ok":true,"request_id":"a68fffe0737b433884042f7afebbe3b5"}
+BROKER_PROOF_STEP {"label":"property-50","ok":true,"request_id":"ea2e1d1aecf94c08ad55895e5b47e1f3"}
+BROKER_PROOF_STEP {"label":"property-51","ok":true,"request_id":"0948125756994503a0877b847b0c6b92"}
+BROKER_PROOF_STEP {"label":"property-52","ok":true,"request_id":"c3edb61e9202499493c78d8d8474b866"}
+BROKER_PROOF_STEP {"label":"property-53","ok":true,"request_id":"b82828ca86ae44b292c25c833b82aa08"}
+BROKER_PROOF_STEP {"label":"property-54","ok":true,"request_id":"e9baa6ff9ac34dba9dd00cc3380859f3"}
+BROKER_PROOF_STEP {"label":"property-55","ok":true,"request_id":"9fe03da7ec65479a9b4b426520baa51e"}
+BROKER_PROOF_STEP {"label":"property-56","ok":true,"request_id":"ca148ba055954f3f8d5b0ce2fb8b4c64"}
+BROKER_PROOF_STEP {"label":"property-57","ok":true,"request_id":"556fa86375c04bb38d9cef5e0f635f28"}
+BROKER_PROOF_STEP {"label":"property-58","ok":true,"request_id":"bb5957d78f844b838ffe982f849b423f"}
+FACTORY_INVENTORY {"items":[{"is_embedded_data":false,"name":"Camera","rna_type":"Object","use_fake_user":false,"users":1},{"is_embedded_data":false,"name":"Cube","rna_type":"Object","use_fake_user":false,"users":1},{"is_embedded_data":false,"name":"Light","rna_type":"Object","use_fake_user":false,"users":1}],"root":"objects"}
+BROKER_PROOF_STEP {"label":"root-paint_curves","ok":true,"request_id":"73a85ec113214c48957ad00e3d0fc39e"}
+BROKER_PROOF_STEP {"label":"root-palettes","ok":true,"request_id":"454ff98ce35d486781b0fe4a754bc7c3"}
+BROKER_PROOF_STEP {"label":"property-61","ok":true,"request_id":"94549fd281f0443caf02fb1924bb922e"}
+BROKER_PROOF_STEP {"label":"property-62","ok":true,"request_id":"ec7d6fa205d9496ca3343ddd85929c5d"}
+BROKER_PROOF_STEP {"label":"property-63","ok":true,"request_id":"463dfc38c94e4a68beee1f3129858562"}
+FACTORY_INVENTORY {"items":[{"is_embedded_data":false,"name":"Palette","rna_type":"Palette","use_fake_user":true,"users":3}],"root":"palettes"}
+BROKER_PROOF_STEP {"label":"root-particles","ok":true,"request_id":"3b52af5d1f4b4199bcd25a4228171881"}
+BROKER_PROOF_STEP {"label":"root-pointclouds","ok":true,"request_id":"83af9afa556d47d3a8d864bff324b75a"}
+BROKER_PROOF_STEP {"label":"root-scenes","ok":true,"request_id":"db721027cc21435c9130bb43f3b6f7ae"}
+BROKER_PROOF_STEP {"label":"property-67","ok":true,"request_id":"051aa66c1f124e589b050a322227c4f6"}
+BROKER_PROOF_STEP {"label":"property-68","ok":true,"request_id":"e7bdd4ed8b1a4f56bb65107d40e31cb3"}
+BROKER_PROOF_STEP {"label":"property-69","ok":true,"request_id":"09348b2be49946b783f54db1bc91ef61"}
+FACTORY_INVENTORY {"items":[{"is_embedded_data":false,"name":"Scene","rna_type":"Scene","use_fake_user":false,"users":1}],"root":"scenes"}
+BROKER_PROOF_STEP {"label":"root-shape_keys","ok":true,"request_id":"ff2202541cb9446ab456a17f73a4ad62"}
+BROKER_PROOF_STEP {"label":"root-sounds","ok":true,"request_id":"eea9a8b488b8416db24016f151d8d39f"}
+BROKER_PROOF_STEP {"label":"root-speakers","ok":true,"request_id":"224480f5b78e4d8c85f827b82fb4a897"}
+BROKER_PROOF_STEP {"label":"root-textures","ok":true,"request_id":"65fd74154e3a4ab394a70cde1c8fb61d"}
+BROKER_PROOF_STEP {"label":"root-volumes","ok":true,"request_id":"3eea701e5bce492ba51012f0adcb03fd"}
+BROKER_PROOF_STEP {"label":"root-worlds","ok":true,"request_id":"72a3ef6fa0554db8b6261c705f7faeec"}
+BROKER_PROOF_STEP {"label":"property-76","ok":true,"request_id":"908e9916e597475695bf73bf494a11e0"}
+BROKER_PROOF_STEP {"label":"property-77","ok":true,"request_id":"6465793831024bb1814f1964ef4c57a1"}
+BROKER_PROOF_STEP {"label":"property-78","ok":true,"request_id":"2ad5112fa0fb4e0cba49762ec365ada9"}
+FACTORY_INVENTORY {"items":[{"is_embedded_data":false,"name":"World","rna_type":"World","use_fake_user":false,"users":1}],"root":"worlds"}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 19.38s
+

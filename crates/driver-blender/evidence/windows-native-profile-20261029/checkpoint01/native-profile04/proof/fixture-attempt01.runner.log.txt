@@ -1,0 +1,27 @@
+
+running 1 test
+test windows_production_broker_persistent_typed_fixture ... BROKER_PROOF_STEP {"label":"summary","ok":true,"request_id":"30ef3790d7f349f8909baa53ced2a189"}
+BROKER_PROOF_STEP {"label":"collection","ok":true,"request_id":"244d462b659f4b1c8b827d1427ed1335"}
+BROKER_PROOF_STEP {"label":"object","ok":true,"request_id":"13c98c68ece5494fb6656cc4ce02325d"}
+BROKER_PROOF_STEP {"label":"link","ok":true,"request_id":"b242e14332a049f7a2f34065efbc9b41"}
+BROKER_PROOF_STEP {"label":"transform","ok":true,"request_id":"35d2e82cca8444189a074258b3202e00"}
+BROKER_PROOF_STEP {"label":"readback","ok":true,"request_id":"071a5843079142b2ba15d4d412f407c5"}
+BROKER_PROOF_STEP {"label":"export","ok":true,"request_id":"9c29c554d01342079660bb8fe4e73572"}
+BROKER_PROOF_STEP {"label":"deny-overwrite","ok":false,"request_id":"bbf66f70874946698bdc21995076a0a8"}
+BROKER_PROOF_STEP {"label":"deny-traversal","ok":false,"request_id":"c1ac7468969a489396bc112abc792223"}
+BROKER_PROOF_STEP {"label":"checkpoint-inspect","ok":true,"request_id":"9324f628d15c4cd3881516caab11673a"}
+BROKER_PROOF_STEP {"label":"cleanup-inspect","ok":true,"request_id":"561c7c20ab444ddfb301ebb9530235e6"}
+BROKER_PROOF_RECEIPT {"close_ack":false,"passed":false,"receipt_sha256":"7bd93f2d22d8361c0ec3a39407da83e7bce33232346b00c32d938508caa39ed0"}
+
+thread 'windows_production_broker_persistent_typed_fixture' (44532) panicked at crates\driver-blender\tests\windows_broker_session.rs:501:5:
+Physical broker fixture failed; inspect preserved receipts
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    windows_production_broker_persistent_typed_fixture
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1 filtered out; finished in 19.41s
+

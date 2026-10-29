@@ -97,9 +97,13 @@ impl SealedTool {
 }
 
 #[cfg(target_os = "windows")]
+mod windows_blender52;
+
+#[cfg(target_os = "windows")]
 #[derive(Clone)]
 struct SealedTool {
     name: String,
+    source: PathBuf,
     staged: Arc<StagedFile>,
     sha256: String,
 }
@@ -233,6 +237,12 @@ fn prepare_host_tool_args(
     contract: &DriverToolMount,
     args: HostToolArgs,
 ) -> Result<(Vec<String>, BTreeSet<String>, bool)> {
+    if contract.windows_native_profile.is_some() {
+        return Err(Error::new(
+            ErrorCode::PolicyDenied,
+            "Native application profiles accept only their closed persistent-session launch",
+        ));
+    }
     match args {
         HostToolArgs::Raw(args) => Ok((args, BTreeSet::new(), false)),
         HostToolArgs::Typed(args) => {
@@ -292,6 +302,7 @@ trait HostToolExecutor: Send + Sync {
         name: &str,
         args: Vec<RuntimeToolArg>,
         cwd: Option<RuntimeToolCwd>,
+        cancellation: CancellationToken,
     ) -> Result<SandboxProcess>;
 }
 
@@ -399,12 +410,17 @@ async fn read_host_tool_session_frame(input: &mut SandboxStdout) -> Result<Vec<u
 
 async fn reap_host_tool_session(entry: HostToolSessionEntry) {
     let mut state = entry.state.lock().await;
-    let _ = state.process.kill().await;
-    let _ = state.process.wait().await;
+    let pid = state.process.id();
+    let kill_completed = state.process.kill().await.is_ok();
+    let wait_completed = state.process.wait().await.is_ok();
     let exit_code = state.process.wait_exit_code().await.ok().flatten();
-    eprintln!("{}", serde_json::json!({
-        "component":"driver-host", "phase":"session_process_reaped", "exit_code":exit_code
-    }));
+    eprintln!(
+        "{}",
+        serde_json::json!({
+            "component":"driver-host", "phase":"session_process_reaped", "pid":pid,
+            "kill_completed":kill_completed,"wait_completed":wait_completed,"exit_code":exit_code
+        })
+    );
 }
 
 #[cfg(target_os = "windows")]
@@ -415,10 +431,67 @@ struct HostToolBroker {
     system_config_mounts: BTreeMap<String, Mount>,
     template: SandboxSpec,
     operation_cpu_seconds: u64,
+    native_blender52: Option<Arc<windows_blender52::Prepared>>,
 }
 
 #[cfg(target_os = "windows")]
 impl HostToolBroker {
+    async fn prepare_windows_blender52(
+        mut self,
+        state: &Path,
+        owner_granted: bool,
+    ) -> Result<Self> {
+        if !self
+            .contracts
+            .values()
+            .any(|c| c.windows_native_profile.is_some())
+        {
+            return Ok(self);
+        }
+        if !owner_granted {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Native Blender owner grant missing",
+            ));
+        }
+        let tool = self
+            .tools
+            .get("blender")
+            .cloned()
+            .ok_or_else(|| Error::invalid("Native Blender tool missing"))?;
+        let workspace = self
+            .workspace_mounts
+            .get("workspace")
+            .cloned()
+            .ok_or_else(|| Error::invalid("Native workspace missing"))?;
+        let runtime = self
+            .workspace_mounts
+            .get("blender-runtime")
+            .cloned()
+            .ok_or_else(|| Error::invalid("Native runtime missing"))?;
+        let state = state.to_path_buf();
+        struct CancelStaging(Arc<std::sync::atomic::AtomicBool>);
+        impl Drop for CancelStaging {
+            fn drop(&mut self) {
+                self.0.store(true, std::sync::atomic::Ordering::Release);
+            }
+        }
+        let cancel = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let _cancel_on_drop = CancelStaging(cancel.clone());
+        let task = tokio::task::spawn_blocking(move || {
+            windows_blender52::prepare(&state, &tool, workspace, runtime, cancel)
+        });
+        self.native_blender52 = Some(
+            tokio::time::timeout(Duration::from_secs(185), task)
+                .await
+                .map_err(|_| {
+                    Error::new(ErrorCode::Timeout, "Native runtime preparation timed out")
+                })?
+                .map_err(|_| Error::unavailable("Native runtime staging task failed"))??,
+        );
+        Ok(self)
+    }
+
     fn new(
         root_spec: &SandboxSpec,
         tools: &[SealedTool],
@@ -483,6 +556,7 @@ impl HostToolBroker {
             system_config_mounts,
             template,
             operation_cpu_seconds,
+            native_blender52: None,
         })
     }
 }
@@ -799,7 +873,14 @@ impl HostToolExecutor for HostToolBroker {
         name: &str,
         args: Vec<RuntimeToolArg>,
         cwd: Option<RuntimeToolCwd>,
+        cancellation: CancellationToken,
     ) -> Result<SandboxProcess> {
+        if cancellation.is_cancelled() {
+            return Err(Error::new(
+                ErrorCode::Cancelled,
+                "Session parent was cancelled before launch",
+            ));
+        }
         validate_runtime_tool_args(&args)?;
         if self.operation_cpu_seconds != 0 {
             return Err(Error::new(
@@ -823,6 +904,21 @@ impl HostToolExecutor for HostToolBroker {
                 "Driver requested a sealed session tool without a manifest contract",
             )
         })?;
+        if contract.windows_native_profile.is_some() {
+            if !args.is_empty() || cwd.is_some() {
+                return Err(Error::new(
+                    ErrorCode::PolicyDenied,
+                    "Native Blender session does not accept caller flags, paths or CWD",
+                ));
+            }
+            let prepared = self.native_blender52.clone().ok_or_else(|| {
+                Error::new(
+                    ErrorCode::PolicyDenied,
+                    "Native Blender profile was not owner-granted and prepared",
+                )
+            })?;
+            return windows_blender52::start(prepared, self.template.clone(), cancellation).await;
+        }
         let (prepared_args, dependencies, typed_args) =
             prepare_host_tool_args(contract, HostToolArgs::Typed(args))?;
         if !typed_args {
@@ -1287,7 +1383,14 @@ impl HostToolExecutor for LinuxHostToolBroker {
         name: &str,
         args: Vec<RuntimeToolArg>,
         cwd: Option<RuntimeToolCwd>,
+        cancellation: CancellationToken,
     ) -> Result<SandboxProcess> {
+        if cancellation.is_cancelled() {
+            return Err(Error::new(
+                ErrorCode::Cancelled,
+                "Session parent was cancelled before launch",
+            ));
+        }
         validate_runtime_tool_args(&args)?;
         if self.operation_cpu_seconds != 0 {
             return Err(Error::new(
@@ -1441,6 +1544,7 @@ fn seal_verified_tool(path: &Path, digest: &str, name: &str, state: &Path) -> Re
     Ok(SealedTool {
         name: name.to_owned(),
         staged,
+        source: path.to_path_buf(),
         sha256: digest.to_ascii_lowercase(),
     })
 }
@@ -1737,6 +1841,47 @@ fn validate_secret_source(path: &Path) -> Result<()> {
         }
         Ok(())
     }
+}
+
+fn validate_windows_native_permission(manifest: &Manifest, owner_granted: bool) -> Result<()> {
+    if manifest
+        .tools
+        .iter()
+        .any(|tool| tool.windows_native_profile.is_some())
+    {
+        if manifest.tools.iter().any(|tool| {
+            tool.dependencies.iter().any(|name| {
+                manifest
+                    .tools
+                    .iter()
+                    .any(|target| target.name == *name && target.windows_native_profile.is_some())
+            })
+        }) {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Native profiled tools cannot be generic dependencies",
+            ));
+        }
+        if !owner_granted {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Windows Blender initial profile requires explicit owner opt-in",
+            ));
+        }
+        if !cfg!(target_os = "windows") {
+            return Err(Error::new(
+                ErrorCode::Unsupported,
+                "Windows Blender initial profile is Windows-only",
+            ));
+        }
+        if manifest.id != "blender" {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Windows Blender profile is first-party Blender-only",
+            ));
+        }
+    }
+    Ok(())
 }
 
 fn validate_nvidia_gpu_permission(manifest: &Manifest, allow_nvidia_gpu: bool) -> Result<()> {
@@ -2836,6 +2981,8 @@ fn spawn_v2_reader(
                         break;
                     }
 
+                    let (parent_cancellation, _, _) =
+                        parent_state.expect("validated Host-tool session parent");
                     let input = input.clone();
                     let pending = pending.clone();
                     let broker = tool_broker.clone();
@@ -2865,13 +3012,19 @@ fn spawn_v2_reader(
                                         ),
                                     }
                                 } else {
-                                    match broker.start_session(&name, args, cwd).await {
+                                    match broker
+                                        .start_session(&name, args, cwd, parent_cancellation)
+                                        .await
+                                    {
                                         Err(error) => {
                                             // Host-origin setup error only; never expose native payloads.
-                                            eprintln!("{}", serde_json::json!({
-                                                "component":"driver-host", "phase":"session_start_failed",
-                                                "code":error.code, "detail":error.message
-                                            }));
+                                            eprintln!(
+                                                "{}",
+                                                serde_json::json!({
+                                                    "component":"driver-host", "phase":"session_start_failed",
+                                                    "code":error.code, "detail":error.message
+                                                })
+                                            );
                                             Request::ToolSessionFailure {
                                                 id: id.clone(),
                                                 error: Error::new(
@@ -2881,9 +3034,12 @@ fn spawn_v2_reader(
                                             }
                                         }
                                         Ok(mut process) => {
-                                            eprintln!("{}", serde_json::json!({
-                                                "component":"driver-host", "phase":"session_process_started"
-                                            }));
+                                            eprintln!(
+                                                "{}",
+                                                serde_json::json!({
+                                                    "component":"driver-host", "phase":"session_process_started"
+                                                })
+                                            );
                                             let stdin = process.take_stdin();
                                             let stdout = process.take_stdout();
                                             match (stdin, stdout) {
@@ -3079,10 +3235,13 @@ fn spawn_v2_reader(
                                     },
                                     Err(error) => {
                                         // This describes Host framing/I/O, not driver-controlled content.
-                                        eprintln!("{}", serde_json::json!({
-                                            "component":"driver-host", "phase":"session_exchange_failed",
-                                            "code":error.code, "detail":error.message
-                                        }));
+                                        eprintln!(
+                                            "{}",
+                                            serde_json::json!({
+                                                "component":"driver-host", "phase":"session_exchange_failed",
+                                                "code":error.code, "detail":error.message
+                                            })
+                                        );
                                         if let Some(entry) =
                                             host_tool_sessions.lock().await.remove(&session.id)
                                         {
@@ -3500,6 +3659,29 @@ impl DriverProvider {
         allow_network: bool,
         allow_nvidia_gpu: bool,
     ) -> Result<Arc<Self>> {
+        Self::connect_with_native_profiles(
+            manifest,
+            state,
+            helper,
+            roots,
+            allow_network,
+            allow_nvidia_gpu,
+            false,
+        )
+        .await
+    }
+
+    /// Independent owner gate. Legacy callers retain zero native-profile authority.
+    pub async fn connect_with_native_profiles(
+        manifest: Manifest,
+        state: &Path,
+        helper: &Path,
+        roots: &[FilesystemGrant],
+        allow_network: bool,
+        allow_nvidia_gpu: bool,
+        allow_windows_blender52_initial: bool,
+    ) -> Result<Arc<Self>> {
+        validate_windows_native_permission(&manifest, allow_windows_blender52_initial)?;
         validate_owner_permissions(&manifest, roots, allow_network)?;
         validate_nvidia_gpu_permission(&manifest, allow_nvidia_gpu)?;
         #[cfg(target_os = "windows")]
@@ -3552,13 +3734,17 @@ impl DriverProvider {
                 loopback.as_deref().map(loopback::LoopbackProxy::pipe_path),
             )?;
             let tool_broker: Option<Arc<dyn HostToolExecutor>> = if manifest.interfaces.host_tools {
-                Some(Arc::new(HostToolBroker::new(
-                    &spec,
-                    &sealed_tools,
-                    &manifest.tools,
-                    &manifest.system_config,
-                    manifest.resources.operation_cpu_seconds,
-                )?))
+                Some(Arc::new(
+                    HostToolBroker::new(
+                        &spec,
+                        &sealed_tools,
+                        &manifest.tools,
+                        &manifest.system_config,
+                        manifest.resources.operation_cpu_seconds,
+                    )?
+                    .prepare_windows_blender52(state, allow_windows_blender52_initial)
+                    .await?,
+                ))
             } else {
                 None
             };
@@ -4855,6 +5041,7 @@ mod tests {
         let mut resources = candidate.resources.clone();
         resources.address_space_bytes = 8_589_934_592;
         let contract = DriverToolMount {
+            windows_native_profile: None,
             root: "blender-session-runner".into(),
             name: "blender-session-runner".into(),
             sha256: "a".repeat(64),
@@ -5180,5 +5367,82 @@ mod tests {
         assert!(verify_owned_executable(&path, &hex::encode(Sha256::digest(body))).is_err());
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
         assert!(verify_owned_executable(&path, &"0".repeat(64)).is_err());
+    }
+}
+
+#[cfg(all(test, target_os = "windows"))]
+mod windows_native_profile_tests {
+    use super::*;
+    use semwright_driver_sdk::WindowsNativeProfile;
+    fn request() -> Manifest {
+        let mut value: Manifest = serde_json::from_str(include_str!(
+            "../../driver-blender/driver.manifest.example.json"
+        ))
+        .unwrap();
+        value.tools.retain(|tool| tool.name == "blender");
+        value.tools[0].windows_native_profile = Some(WindowsNativeProfile::Blender521Initial);
+        value.tools[0].mounts = vec!["workspace".into(), "blender-runtime".into()];
+        value
+    }
+    #[tokio::test]
+    async fn windows_native_owner_gate_precedes_filesystem_staging() {
+        let base = tempfile::tempdir().unwrap();
+        let state = base.path().join("must-not-exist");
+        let result = DriverProvider::connect_with_native_profiles(
+            request(),
+            &state,
+            &base.path().join("unused-helper"),
+            &[],
+            false,
+            false,
+            false,
+        )
+        .await;
+        match result {
+            Err(error) => {
+                assert_eq!(error.code, ErrorCode::PolicyDenied);
+                assert!(error.message.contains("owner"));
+            }
+            Ok(_) => panic!("missing owner grant was accepted"),
+        }
+        assert!(!state.exists());
+    }
+    #[test]
+    fn windows_native_profile_is_not_a_generic_dependency() {
+        let mut manifest = request();
+        let mut other = manifest.tools[0].clone();
+        other.name = "other".into();
+        other.windows_native_profile = None;
+        other.dependencies = vec!["blender".into()];
+        manifest.tools.push(other);
+        assert_eq!(
+            validate_windows_native_permission(&manifest, true)
+                .unwrap_err()
+                .code,
+            ErrorCode::PolicyDenied
+        );
+    }
+    #[test]
+    fn windows_native_profile_cannot_use_another_driver_identity() {
+        let mut manifest = request();
+        manifest.id = "other".into();
+        assert_eq!(
+            validate_windows_native_permission(&manifest, true)
+                .unwrap_err()
+                .code,
+            ErrorCode::PolicyDenied
+        );
+    }
+    #[test]
+    fn windows_native_profile_cannot_accept_ordinary_tool_arguments() {
+        let manifest = request();
+        assert!(
+            prepare_host_tool_args(
+                &manifest.tools[0],
+                HostToolArgs::Raw(vec!["--python-expr".into()])
+            )
+            .is_err()
+        );
+        assert!(prepare_host_tool_args(&manifest.tools[0], HostToolArgs::Typed(vec![])).is_err());
     }
 }

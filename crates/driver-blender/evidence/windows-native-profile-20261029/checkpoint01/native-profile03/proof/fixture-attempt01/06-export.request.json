@@ -1,0 +1,11 @@
+{
+  "args": {
+    "animations": false,
+    "collection": "BrokerProof",
+    "path": "broker-proof.glb"
+  },
+  "backend": null,
+  "command": "driver.blender.export.glb",
+  "dry_run": false,
+  "request_id": "d0adac3bc2d343c892859e3586a8e51f"
+}

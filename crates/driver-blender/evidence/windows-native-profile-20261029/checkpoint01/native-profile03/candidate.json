@@ -1,0 +1,93 @@
+{
+    "source_branch":  "feat/blender-52-windows-isolated-driver",
+    "native_profile":  "blender_5_2_1_initial",
+    "socket":  "\\\\.\\pipe\\semwright-S_1_5_21_3748004576_2415526740_1202758394_1001-archipelago-blender52-native-profile03",
+    "gpu_grant":  false,
+    "owner_profile_grant":  true,
+    "candidate":  "native-profile03",
+    "driver_process_budget":  8,
+    "manifest":  "E:\\Projects\\worldwright-archipelago\\.local\\semwright-native-profile03-config\\blender-windows52.manifest.json",
+    "A05":  "BLOCKED",
+    "paths":  {
+                  "config":  "E:\\Projects\\worldwright-archipelago\\.local\\semwright-native-profile03-config",
+                  "workspace":  "E:\\Projects\\worldwright-archipelago\\.local\\native-profile03-workspace",
+                  "bin":  "E:\\Projects\\worldwright-archipelago\\tools\\semwright-blender52-native-profile03",
+                  "broker":  "E:\\Projects\\worldwright-archipelago\\.local\\b52p03"
+              },
+    "schema":  2,
+    "requested_native_capabilities":  [
+                                          "registryRead"
+                                      ],
+    "source_dirty":  [
+                         " M adapters/blender/semwright_blender/commands.json",
+                         " M adapters/blender/semwright_blender/commands.py",
+                         " M crates/av-composition/tests/combined_native.rs",
+                         " M crates/daemon/src/config.rs",
+                         " M crates/daemon/src/semwrightd.rs",
+                         " M crates/driver-ardour-audio/tests/host_conformance.rs",
+                         " M crates/driver-blender/src/bridge.py",
+                         " M crates/driver-blender/src/main.rs",
+                         " M crates/driver-blender/tests/authoring_native.rs",
+                         " M crates/driver-blender/tests/live.rs",
+                         " M crates/driver-faust-audio/tests/analysis_host_conformance.rs",
+                         " M crates/driver-faust-audio/tests/host_conformance.rs",
+                         " M crates/driver-godot/tests/authoring_host.rs",
+                         " M crates/driver-godot/tests/host_conformance.rs",
+                         " M crates/driver-host/src/lib.rs",
+                         " M crates/driver-host/tests/adversarial_sandbox.rs",
+                         " M crates/driver-host/tests/runtime_tools_linux.rs",
+                         " M crates/driver-host/tests/windows_secure_host.rs",
+                         " M crates/driver-libreoffice/tests/live.rs",
+                         " M crates/driver-mlt-video/tests/live.rs",
+                         " M crates/driver-motion-canvas/examples/launch_film_orchestrator.rs",
+                         " M crates/driver-motion-canvas/tests/live.rs",
+                         " M crates/driver-sdk/src/lib.rs",
+                         " M crates/platform-services/src/lib.rs",
+                         " M crates/platform-windows-sys/src/launch.rs",
+                         " M tests/semantic-adversarial-lab/rust/blender_native_probe.rs",
+                         "?? crates/driver-blender/tests/windows_broker_cancel.rs",
+                         "?? crates/driver-blender/tests/windows_broker_session.rs",
+                         "?? crates/driver-host/src/windows_blender52.rs",
+                         "?? crates/driver-host/src/windows_blender52_bootstrap.py",
+                         "?? crates/platform-windows-sys/src/launch/blender52_runtime.rs",
+                         "?? tests/python/test_blender_checkpoint.py"
+                     ],
+    "source_head":  "53989cd1debad07c22f6d8a64eaca29ee28a25d7",
+    "utc":  "2026-10-29T00:13:07.9882022Z",
+    "blender":  {
+                    "sha256":  "284f4041f98e113f3dc10654a7193ffaaa9bfdfec8b87fa116620a48b5f6d4cb",
+                    "path":  "E:\\Projects\\worldwright-archipelago\\tools\\blender-5.2.1-runtime\\blender.exe"
+                },
+    "art_approved":  false,
+    "mcp_registry":  "E:\\Projects\\worldwright-archipelago\\.local\\semwright-native-profile03-config\\mcp-upstreams.toml",
+    "source_root":  "E:\\Projects\\semwright-blender52",
+    "status":  "PREPARED_NOT_EXECUTED",
+    "native_process_budget":  1,
+    "candidate_files":  [
+                            {
+                                "path":  "E:\\Projects\\worldwright-archipelago\\tools\\semwright-blender52-native-profile03\\semwright.exe",
+                                "sha256":  "60896b11aa3125aafc4b4e1be4b314fb96791f5112d089f4d086dc796e805fd6",
+                                "name":  "semwright.exe",
+                                "source":  "E:\\Projects\\semwright-blender52\\.local\\target\\x86_64-pc-windows-gnu\\debug\\semwright.exe",
+                                "bytes":  75375709
+                            },
+                            {
+                                "path":  "E:\\Projects\\worldwright-archipelago\\tools\\semwright-blender52-native-profile03\\semwrightd.exe",
+                                "sha256":  "08fef13717e56e8d9e0b61e9f11cc557f7764ecd590dc9476b5fed933319f642",
+                                "name":  "semwrightd.exe",
+                                "source":  "E:\\Projects\\semwright-blender52\\.local\\target\\x86_64-pc-windows-gnu\\debug\\semwrightd.exe",
+                                "bytes":  93844808
+                            },
+                            {
+                                "path":  "E:\\Projects\\worldwright-archipelago\\tools\\semwright-blender52-native-profile03\\semwright-blender-driver.exe",
+                                "sha256":  "dc2ea34fd83d96ef17d27b7e021791a8cfd3b515001b4039d3efff2cf8fe28d5",
+                                "name":  "semwright-blender-driver.exe",
+                                "source":  "E:\\Projects\\semwright-blender52\\.local\\target\\x86_64-pc-windows-gnu\\debug\\semwright-blender-driver.exe",
+                                "bytes":  63998356
+                            }
+                        ],
+    "config":  "E:\\Projects\\worldwright-archipelago\\.local\\semwright-native-profile03-config\\candidate.toml",
+    "session_file":  "E:\\Projects\\worldwright-archipelago\\.local\\semwright-native-profile03-config\\client-session.json",
+    "network":  false,
+    "linux_4_5_14":  "NOT_RUN"
+}

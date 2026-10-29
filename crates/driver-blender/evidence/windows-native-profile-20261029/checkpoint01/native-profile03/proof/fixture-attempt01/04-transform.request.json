@@ -1,0 +1,19 @@
+{
+  "args": {
+    "location": [
+      3,
+      4,
+      5
+    ],
+    "name": "BrokerProofCube",
+    "scale": [
+      1,
+      2,
+      1
+    ]
+  },
+  "backend": null,
+  "command": "driver.blender.object.transform",
+  "dry_run": false,
+  "request_id": "ef3932a7205a4041a1d13aae4f7f547c"
+}

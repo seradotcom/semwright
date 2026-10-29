@@ -1,0 +1,10 @@
+{
+  "args": {
+    "property": "is_embedded_data",
+    "ref": "blender-rna/v1/palettes/UGFsZXR0ZQ@1"
+  },
+  "backend": null,
+  "command": "driver.blender.semantic.property.get",
+  "dry_run": false,
+  "request_id": "463dfc38c94e4a68beee1f3129858562"
+}

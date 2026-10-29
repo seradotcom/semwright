@@ -1,0 +1,10 @@
+{
+  "args": {
+    "property": "use_fake_user",
+    "ref": "blender-rna/v1/lights/TGlnaHQ@1"
+  },
+  "backend": null,
+  "command": "driver.blender.semantic.property.get",
+  "dry_run": false,
+  "request_id": "3fb737353e354b769420deaf26df7105"
+}

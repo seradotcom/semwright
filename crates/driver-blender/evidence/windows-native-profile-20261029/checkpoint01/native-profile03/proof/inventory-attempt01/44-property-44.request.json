@@ -1,0 +1,10 @@
+{
+  "args": {
+    "property": "use_fake_user",
+    "ref": "blender-rna/v1/meshes/Q3ViZQ@1"
+  },
+  "backend": null,
+  "command": "driver.blender.semantic.property.get",
+  "dry_run": false,
+  "request_id": "76f219c7ee0e40fb8d6a888495383431"
+}

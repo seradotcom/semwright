@@ -1,0 +1,10 @@
+{
+  "args": {
+    "limit": 64,
+    "root": "curves"
+  },
+  "backend": null,
+  "command": "driver.blender.semantic.objects",
+  "dry_run": false,
+  "request_id": "0e7f793d8f8e4311b841f54136fe8a12"
+}

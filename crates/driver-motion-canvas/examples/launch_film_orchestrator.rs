@@ -178,6 +178,7 @@ mod linux {
         let motion_v7 = id == "motion-canvas";
         let tools = if let Some(node) = motion_node {
             vec![DriverToolMount {
+                windows_native_profile: None,
                 root: "motion-node-tool".into(),
                 name: "motion-node".into(),
                 sha256: digest(node)?,

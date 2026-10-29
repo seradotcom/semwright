@@ -1,0 +1,10 @@
+{
+  "args": {
+    "limit": 64,
+    "root": "metaballs"
+  },
+  "backend": null,
+  "command": "driver.blender.semantic.objects",
+  "dry_run": false,
+  "request_id": "db0074fb48df4a7f9660d6e3ea4a6163"
+}

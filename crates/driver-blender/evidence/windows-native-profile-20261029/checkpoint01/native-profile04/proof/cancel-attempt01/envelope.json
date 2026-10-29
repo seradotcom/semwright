@@ -1,0 +1,29 @@
+{
+  "command": "driver.blender.introspect.summary",
+  "error": {
+    "code": "Cancelled",
+    "message": "Command cancelled; inspect target state before retrying",
+    "outcome_known": false
+  },
+  "execution": {
+    "backend": "driver:blender",
+    "dry_run": false,
+    "duration_ms": 9569,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "41207636f66d7d72f548b1a4e7e049ba177aa3fbf876931b5c16b4c5198582cd",
+      "execution_provider": "driver:blender",
+      "provider": "driver:blender",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": false,
+  "request_id": "e2ad90b794ab423f924d6a28e9704735",
+  "warnings": []
+}

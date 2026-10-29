@@ -5,6 +5,7 @@ import struct
 import tempfile
 import os
 import stat
+import math
 from pathlib import Path
 
 from .validation import CommandError, validate
@@ -177,16 +178,172 @@ def configure_cycles(bpy, scene, device, backend):
     return {"device": "CPU", "backend": None, "devices": [], "fallback": reason}
 
 
+def checkpoint_preflight(bpy):
+    """Conservative static_mesh_scene_v1 closure, not a whole-process snapshot."""
+    if bpy.context.mode != "OBJECT" or bpy.app.is_job_running("RENDER"):
+        raise CommandError("Conflict", "Checkpoint requires an idle scene in object mode")
+    data = bpy.data
+    allowed = {"scenes", "objects", "meshes", "materials", "cameras", "lights",
+               "worlds", "collections", "linestyles", "palettes", "images",
+               "screens", "workspaces", "window_managers"}
+    transient_ui = {"screens", "workspaces", "window_managers"}
+    # Blender's factory scene contains empty Render Result/Viewer placeholders.
+    # No name exceptions: pixel content, dirty state, external/generated images and
+    # persistent scene references remain unsupported.
+    images = list(data.images)
+    if any(getattr(image, "source", None) != "VIEWER"
+           or getattr(image, "type", None) not in {"RENDER_RESULT", "COMPOSITING"}
+           or getattr(image, "has_data", True) or getattr(image, "is_dirty", True)
+           for image in images):
+        raise CommandError("Unsupported", "Checkpoint cannot preserve image pixels or external image state")
+    if images:
+        for image, users in data.user_map(subset=set(images)).items():
+            if any(user.bl_rna.identifier not in {"Screen", "WorkSpace", "WindowManager"} for user in users):
+                raise CommandError("Unsupported", "Empty runtime image has persistent scene users")
+    palettes = list(getattr(data, "palettes", ()))
+    if len(palettes) > 256:
+        raise CommandError("ResourceExhausted", "Checkpoint palette budget exceeded")
+    for palette in palettes:
+        if len(palette.colors) > 4096 or any(
+                not all(math.isfinite(float(v)) for v in color.color) for color in palette.colors):
+            raise CommandError("Unsupported", "Checkpoint palette colours exceed the finite contract")
+    total = 0
+    concrete_ids = set()
+    aggregate = None
+    for prop in data.bl_rna.properties:
+        if prop.type != "COLLECTION":
+            continue
+        items = getattr(data, prop.identifier)
+        if prop.identifier == "all_ids":
+            # Blender 5.2 adds this read-only Main ID aggregate. It is not a
+            # separate persistence category and must not duplicate orphan flags.
+            if (not prop.is_readonly or prop.fixed_type.identifier != "ID"
+                    or len(items) > 16384):
+                raise CommandError("Unsupported", "Checkpoint all_ids metadata or budget is unsupported")
+            aggregate = items
+            continue
+        if len(items) and prop.identifier not in allowed:
+            raise CommandError("Unsupported", "Checkpoint has unsupported datablocks: " + prop.identifier)
+        total += len(items)
+        if total > 16384:
+            raise CommandError("ResourceExhausted", "Checkpoint datablock budget exceeded")
+        for item in items:
+            pointer = item.as_pointer()
+            if not isinstance(pointer, int) or pointer <= 0:
+                raise CommandError("Unsupported", "Checkpoint cannot identify native datablock")
+            concrete_ids.add(pointer)
+            if (getattr(item, "library", None) is not None
+                    or getattr(item, "override_library", None) is not None
+                    or getattr(item, "animation_data", None) is not None):
+                raise CommandError("Unsupported", "Checkpoint does not support linked, overridden or animated data")
+    if aggregate is not None:
+        aggregate_ids = [item.as_pointer() for item in aggregate]
+        if (len(aggregate_ids) != len(set(aggregate_ids))
+                or set(aggregate_ids) != concrete_ids):
+            raise CommandError("Unsupported", "Checkpoint all_ids does not match inspected concrete datablocks")
+    if not 1 <= len(data.scenes) <= 16 or len(data.objects) > 2048:
+        raise CommandError("ResourceExhausted", "Checkpoint scene/object budget exceeded")
+    empty_sequence_editors = 0
+    sequence_channels = 0
+    for scene in data.scenes:
+        # Scene.use_nodes is deprecated since 5.0 and always returns True.
+        # Inspect actual compositor trees; an empty sequencer shell is structural
+        # scene metadata, not media. Preserve it verbatim, including channel flags.
+        if (getattr(scene, "node_tree", None)
+                or getattr(scene, "compositing_node_group", None) or scene.rigidbody_world):
+            raise CommandError("Unsupported", "Checkpoint does not support compositing or simulation")
+        editor = scene.sequence_editor
+        if editor is not None:
+            pairs = [("strips", "strips_all"), ("sequences", "sequences_all")]
+            if not any(all(hasattr(editor, key) for key in pair) for pair in pairs):
+                raise CommandError("Unsupported", "Checkpoint cannot inspect sequencer contents")
+            if any(len(getattr(editor, key)) for pair in pairs for key in pair if hasattr(editor, key)):
+                raise CommandError("Unsupported", "Checkpoint does not support sequencer strips")
+            if (not hasattr(editor, "meta_stack") or len(editor.meta_stack)
+                    or not hasattr(editor, "active_strip") or editor.active_strip is not None):
+                raise CommandError("Unsupported", "Checkpoint sequencer has active or nested state")
+            if not hasattr(editor, "channels") or len(editor.channels) > 256:
+                raise CommandError("ResourceExhausted", "Checkpoint sequencer channel budget exceeded")
+            empty_sequence_editors += 1
+            sequence_channels += len(editor.channels)
+    for obj in data.objects:
+        if (obj.type not in {"MESH", "CAMERA", "LIGHT", "EMPTY"} or obj.modifiers
+                or obj.constraints or getattr(obj, "particle_systems", ()) or obj.rigid_body
+                or obj.rigid_body_constraint or obj.is_instancer):
+            raise CommandError("Unsupported", "Checkpoint requires concrete static mesh/camera/light/empty objects")
+    shader_nodes = {"ShaderNodeBsdfPrincipled", "ShaderNodeOutputMaterial",
+                    "ShaderNodeBackground", "ShaderNodeOutputWorld",
+                    "ShaderNodeRGB", "ShaderNodeValue", "ShaderNodeBsdfDiffuse",
+                    "ShaderNodeEmission", "ShaderNodeOutputLight", "NodeFrame"}
+    for item in list(data.materials) + list(data.worlds) + list(data.lights):
+        tree = getattr(item, "node_tree", None)
+        if tree is not None:
+            if (tree.animation_data or getattr(tree, "library", None) is not None
+                    or getattr(tree, "override_library", None) is not None or len(tree.nodes) > 128):
+                raise CommandError("Unsupported", "Checkpoint shader animation, linkage or budget is unsupported")
+            if any(node.bl_idname == "NodeFrame" and getattr(node, "text", None) is not None
+                   for node in tree.nodes):
+                raise CommandError("Unsupported", "Checkpoint does not support frame text datablocks")
+            if any(node.bl_idname not in shader_nodes for node in tree.nodes):
+                raise CommandError("Unsupported", "Checkpoint shader is outside static_mesh_scene_v1")
+    orphans = checkpoint_orphans(bpy)
+    if len(orphans) > 256:
+        raise CommandError("ResourceExhausted", "Checkpoint orphan retention budget exceeded")
+    return {"objects": len(data.objects), "meshes": len(data.meshes), "scenes": len(data.scenes),
+            "orphan_datablocks": len(orphans), "empty_runtime_images": len(images),
+            "palettes": len(palettes), "empty_sequence_editors": empty_sequence_editors,
+            "sequence_channels": sequence_channels}
+
+
+def checkpoint_orphans(bpy):
+    result = []
+    seen = set()
+    for prop in bpy.data.bl_rna.properties:
+        if prop.type != "COLLECTION" or prop.identifier in {"screens", "workspaces", "window_managers", "images", "all_ids"}:
+            continue
+        for item in getattr(bpy.data, prop.identifier):
+            pointer = item.as_pointer()
+            if pointer in seen:
+                continue
+            seen.add(pointer)
+            if (getattr(item, "users", 0) == 0 and not getattr(item, "use_fake_user", False)
+                    and not getattr(item, "is_embedded_data", False)):
+                if not hasattr(item, "use_fake_user") or len(item.name) > 256:
+                    raise CommandError("Unsupported", "Orphan cannot be retained by a bounded recovery flag")
+                result.append((prop.identifier, item))
+    return result
+
+
+def checkpoint_inspection(bpy):
+    try:
+        return {"supported": True, "contract": "static_mesh_scene_v1",
+                "reason": None, "code": None, "inventory": checkpoint_preflight(bpy)}
+    except CommandError as error:
+        return {"supported": False, "contract": "static_mesh_scene_v1",
+                "reason": str(error)[:512], "code": error.code, "inventory": None}
+    except (AttributeError, TypeError, ValueError, RuntimeError, ReferenceError):
+        return {"supported": False, "contract": "static_mesh_scene_v1",
+                "reason": "Runtime does not expose the reviewed checkpoint contract",
+                "code": "Unsupported", "inventory": None}
+
+
 class Commands:
     def __init__(self, bpy, workspace):
         self.bpy = bpy
         self.workspace = Workspace(workspace)
+        self.initial_open_available = True
 
     def __call__(self, command, args):
         schema = SCHEMAS.get(command)
         if schema is None:
             raise CommandError("Unsupported", "Command is not in the Blender allowlist")
         validate(args, schema)
+        if command == "blender.file.open_initial":
+            if not self.initial_open_available:
+                raise CommandError("Conflict", "Initial open requires a fresh factory session")
+            self.initial_open_available = False
+            return self.open_initial(args)
+        self.initial_open_available = False
         bpy = self.bpy
         data = bpy.data
         scene = bpy.context.scene
@@ -325,6 +482,10 @@ class Commands:
                 scene.render.image_settings.file_format = previous_format
         if command == "blender.export.glb":
             return self.export_glb(args)
+        if command == "blender.file.checkpoint_inspect":
+            return checkpoint_inspection(self.bpy)
+        if command == "blender.file.checkpoint":
+            return self.checkpoint(args)
         if command == "blender.file.save":
             target = self.workspace.path(args["path"], ".blend")
             result = bpy.ops.wm.save_as_mainfile(filepath=target, check_existing=False, copy=True)
@@ -340,6 +501,128 @@ class Commands:
                 raise CommandError("BackendFailed", "Open did not finish")
             return {"changed": True, "path": args["path"], "use_scripts": False}
         raise CommandError("Unsupported", "Unimplemented host command")
+
+    def open_initial(self, args):
+        """Only invoked by the new-session operation; never replace edited state."""
+        try:
+            target = self.workspace.path(args["path"], ".blend", existing=True)
+            def fingerprint():
+                size = 0
+                digest = hashlib.sha256()
+                with open(target, "rb") as stream:
+                    for block in iter(lambda: stream.read(1048576), b""):
+                        size += len(block)
+                        if size > 268435456:
+                            raise CommandError("ResourceExhausted", "Initial project exceeds its size budget")
+                        digest.update(block)
+                if size < 12:
+                    raise CommandError("InvalidArgument", "Initial project is empty")
+                return size, digest.hexdigest()
+            before = fingerprint()
+            if before[1] != args["expected_sha256"]:
+                raise CommandError("Conflict", "Initial project does not match the expected hash")
+            self.workspace.path(args["path"], ".blend", existing=True)
+            result = self.bpy.ops.wm.open_mainfile(filepath=target, load_ui=False, use_scripts=False)
+            if "FINISHED" not in result:
+                raise CommandError("BackendFailed", "Initial project open did not finish")
+            if fingerprint() != before:
+                raise CommandError("Conflict", "Initial project changed while being opened")
+            return {"opened": True, "path": args["path"], "sha256": before[1],
+                    "bytes": before[0], "use_scripts": False, "fresh_session": True}
+        except (OSError, RuntimeError, ValueError, TypeError, AttributeError) as error:
+            raise CommandError("BackendFailed", "Initial project open failed; session retained") from error
+
+    def checkpoint(self, args):
+        """Save a new verified recovery copy; never close or overwrite anything."""
+        temporary = None
+        try:
+            target = self.workspace.path(args["path"], ".blend")
+            if os.path.lexists(target):
+                raise CommandError("Conflict", "Checkpoint target already exists")
+            inventory = checkpoint_preflight(self.bpy)
+            original_path = self.bpy.data.filepath
+            fd, temporary = tempfile.mkstemp(prefix=".semwright-checkpoint-", suffix=".blend",
+                                             dir=os.path.dirname(target))
+            os.close(fd)
+            previous_versions = self.bpy.context.preferences.filepaths.save_version
+            retained = checkpoint_orphans(self.bpy)
+            changed = []
+            try:
+                # Only the recovery copy retains these additional fake-user flags.
+                # Enter the finally scope before the first mutation; restore every attempted flag.
+                for root, item in retained:
+                    changed.append(item)
+                    item.use_fake_user = True
+                    if not item.use_fake_user:
+                        raise CommandError("BackendFailed", "Orphan retention flag readback failed")
+                self.bpy.context.preferences.filepaths.save_version = 0
+                result = self.bpy.ops.wm.save_as_mainfile(
+                    filepath=temporary, check_existing=False, copy=True, compress=False)
+            finally:
+                try:
+                    self.bpy.context.preferences.filepaths.save_version = previous_versions
+                finally:
+                    restoration_failed = False
+                    for item in reversed(changed):
+                        try:
+                            item.use_fake_user = False
+                            restoration_failed = restoration_failed or bool(item.use_fake_user)
+                        except (AttributeError, TypeError, ValueError, RuntimeError):
+                            restoration_failed = True
+                    if restoration_failed:
+                        raise CommandError("BackendFailed", "Recovery flag restoration failed; metadata may have changed")
+            if "FINISHED" not in result or self.bpy.data.filepath != original_path:
+                raise CommandError("BackendFailed", "Checkpoint save-as-copy did not preserve current project")
+            meta = os.lstat(temporary)
+            if (not stat.S_ISREG(meta.st_mode) or meta.st_nlink != 1
+                    or self.workspace._reparse(meta) or not 12 <= meta.st_size <= 268435456):
+                raise CommandError("BackendFailed", "Checkpoint is not a bounded regular artifact")
+            def fingerprint(path, sync=False):
+                digest = hashlib.sha256()
+                size = 0
+                with open(path, "r+b" if sync else "rb") as stream:
+                    header = stream.read(12)
+                    if not header.startswith(b"BLENDER"):
+                        raise CommandError("BackendFailed", "Checkpoint is not an uncompressed Blender file")
+                    digest.update(header)
+                    size += len(header)
+                    for block in iter(lambda: stream.read(1048576), b""):
+                        size += len(block)
+                        if size > 268435456:
+                            raise CommandError("ResourceExhausted", "Checkpoint grew beyond its budget")
+                        digest.update(block)
+                    if sync:
+                        stream.flush()
+                        os.fsync(stream.fileno())
+                return size, digest.hexdigest()
+            before = fingerprint(temporary, sync=True)
+            if before[0] != meta.st_size or checkpoint_preflight(self.bpy) != inventory:
+                raise CommandError("Conflict", "Checkpoint source changed during save")
+            self.workspace.path(args["path"], ".blend")
+            os.chmod(temporary, 0o600)
+            try:
+                os.link(temporary, target)
+            except FileExistsError as error:
+                raise CommandError("Conflict", "Checkpoint target appeared; existing file preserved") from error
+            os.unlink(temporary)
+            temporary = None
+            self.workspace.path(args["path"], ".blend", existing=True)
+            if fingerprint(target) != before:
+                raise CommandError("BackendFailed", "Published checkpoint verification failed; session retained")
+            return {"path": args["path"], "bytes": before[0], "sha256": before[1],
+                    "copy": True, "contract": "static_mesh_scene_v1",
+                    "undo_history_preserved": False, "source_fake_users_restored": True,
+                    "retained_orphans": [{"root": root, "name": item.name} for root, item in retained],
+                    "empty_runtime_image_placeholders": inventory["empty_runtime_images"]}
+        except (OSError, RuntimeError, ValueError, TypeError, AttributeError, ReferenceError) as error:
+            # An artifact/preflight failure must not become a fatal stdio transport error.
+            raise CommandError("BackendFailed", "Checkpoint failed; native scene retained") from error
+        finally:
+            if temporary is not None:
+                try:
+                    os.unlink(temporary)
+                except OSError:
+                    pass
 
     def export_glb(self, args):
         """One fixed exporter, a closed collection and a new atomic artifact."""

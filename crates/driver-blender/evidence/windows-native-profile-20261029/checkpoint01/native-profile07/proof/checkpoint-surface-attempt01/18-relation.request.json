@@ -1,0 +1,11 @@
+{
+  "args": {
+    "limit": 256,
+    "property": "node_tree",
+    "ref": "blender-rna/v1/worlds/V29ybGQ@1"
+  },
+  "backend": null,
+  "command": "driver.blender.semantic.relations",
+  "dry_run": false,
+  "request_id": "bc80ccc376234aaeb4ac8191caff8c6d"
+}

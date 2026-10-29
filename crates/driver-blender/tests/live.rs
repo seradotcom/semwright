@@ -1,3 +1,5 @@
+// Physical Linux/bubblewrap suite; Windows has its independent native profile tests.
+#![cfg(target_os = "linux")]
 use semwright_backend_api::{Context, Provider};
 use semwright_driver_host::DriverProvider;
 use semwright_driver_sdk::{
@@ -133,6 +135,7 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
         secrets: vec![],
         tools: vec![
             DriverToolMount {
+                windows_native_profile: None,
                 root: "blender-session-runner".into(),
                 name: "blender-session-runner".into(),
                 mounts: vec![
@@ -148,6 +151,7 @@ async fn real_blender_driver_introspects_rna_renders_and_saves_inside_sandbox() 
                 sha256: digest(&session_runner),
             },
             DriverToolMount {
+                windows_native_profile: None,
                 root: "blender-executable".into(),
                 name: "blender".into(),
                 mounts: vec![],

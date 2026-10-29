@@ -1,0 +1,32 @@
+{
+  "command": "driver.blender.session.checkpoint.inspect",
+  "data": {
+    "code": "Unsupported",
+    "contract": "static_mesh_scene_v1",
+    "inventory": null,
+    "reason": "Checkpoint does not support sequencing, compositing or simulation",
+    "session_open": true,
+    "supported": false
+  },
+  "execution": {
+    "backend": "driver:blender",
+    "dry_run": false,
+    "duration_ms": 43,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "6676fddcab69373bb9b191236452a3a32c1eb376dc6657c30ecd0cb942e1ebd4",
+      "execution_provider": "driver:blender",
+      "provider": "driver:blender",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "17efa1f90b8a43e99292c57845b469a9",
+  "warnings": []
+}

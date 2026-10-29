@@ -1,0 +1,36 @@
+{
+  "command": "driver.blender.semantic.objects",
+  "data": {
+    "generation": 1,
+    "items": [
+      {
+        "name": "Camera",
+        "ref": "blender-rna/v1/cameras/Q2FtZXJh@1",
+        "rna_type": "Camera"
+      }
+    ],
+    "offset": 0,
+    "truncated": false
+  },
+  "execution": {
+    "backend": "driver:blender",
+    "dry_run": false,
+    "duration_ms": 31,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "850ae3ee42953fc449d27dc9ee4c62b21d20db6facd2226382022a38b3768f79",
+      "execution_provider": "driver:blender",
+      "provider": "driver:blender",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "fedd231d49e545b18dd2db2c2c94f1c6",
+  "warnings": []
+}

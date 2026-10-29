@@ -1,0 +1,31 @@
+drivers = ['E:\Projects\worldwright-archipelago\.local\semwright-native-profile03-config\blender-windows52.manifest.json']
+driver_network = false
+driver_nvidia_gpu = false
+driver_windows_blender52_initial = true
+audit_max_bytes = 67108864
+audit_retention = 4
+
+[policy]
+profile = 'observe'
+allow = ['blender.observe', 'blender.modify', 'driver:blender']
+confirm_mutations = false
+
+[[policy.filesystem]]
+name = 'workspace'
+path = 'E:\Projects\worldwright-archipelago\.local\native-profile03-workspace'
+read = true
+write = true
+
+
+[[policy.filesystem]]
+name = 'blender-runtime'
+path = 'E:\Projects\worldwright-archipelago\tools\blender-5.2.1-runtime'
+read = true
+write = false
+
+
+[[policy.filesystem]]
+name = 'blender-executable'
+path = 'E:\Projects\worldwright-archipelago\tools\blender-5.2.1-runtime\blender.exe'
+read = true
+write = false

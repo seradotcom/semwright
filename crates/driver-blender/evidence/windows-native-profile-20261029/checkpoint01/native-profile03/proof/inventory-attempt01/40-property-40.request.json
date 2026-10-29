@@ -1,0 +1,10 @@
+{
+  "args": {
+    "property": "use_fake_user",
+    "ref": "blender-rna/v1/materials/TWF0ZXJpYWw@1"
+  },
+  "backend": null,
+  "command": "driver.blender.semantic.property.get",
+  "dry_run": false,
+  "request_id": "db852e24c14942c5b1c27212a5cea6a4"
+}

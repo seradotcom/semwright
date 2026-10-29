@@ -80,6 +80,7 @@ fn manifest(
         }],
         tools: tool_sha256
             .map(|sha256| DriverToolMount {
+                windows_native_profile: None,
                 root: "godot-runtime".into(),
                 name: "godot".into(),
                 sha256,

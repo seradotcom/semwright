@@ -1,0 +1,10 @@
+{
+  "args": {
+    "property": "users",
+    "ref": "blender-rna/v1/objects/Q2FtZXJh@1"
+  },
+  "backend": null,
+  "command": "driver.blender.semantic.property.get",
+  "dry_run": false,
+  "request_id": "ea2e1d1aecf94c08ad55895e5b47e1f3"
+}

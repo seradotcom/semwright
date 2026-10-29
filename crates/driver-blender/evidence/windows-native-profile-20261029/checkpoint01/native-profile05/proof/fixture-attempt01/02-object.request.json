@@ -1,0 +1,15 @@
+{
+  "args": {
+    "location": [
+      0,
+      0,
+      0
+    ],
+    "name": "BrokerProofCube",
+    "primitive": "cube"
+  },
+  "backend": null,
+  "command": "driver.blender.object.create",
+  "dry_run": false,
+  "request_id": "c454de37d1d8496e88a76287644b42e5"
+}

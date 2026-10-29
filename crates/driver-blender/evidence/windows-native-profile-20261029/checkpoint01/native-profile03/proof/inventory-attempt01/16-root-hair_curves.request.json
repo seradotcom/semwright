@@ -1,0 +1,10 @@
+{
+  "args": {
+    "limit": 64,
+    "root": "hair_curves"
+  },
+  "backend": null,
+  "command": "driver.blender.semantic.objects",
+  "dry_run": false,
+  "request_id": "dfe14c22efe648fb8d408925c3f169ff"
+}

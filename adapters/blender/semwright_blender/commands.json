@@ -321,5 +321,46 @@
       "path"
     ],
     "additionalProperties": false
+  },
+  "blender.file.checkpoint": {
+    "type": "object",
+    "properties": {
+      "path": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1024
+      }
+    },
+    "required": [
+      "path"
+    ],
+    "additionalProperties": false
+  },
+  "blender.file.open_initial": {
+    "type": "object",
+    "properties": {
+      "path": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1024
+      },
+      "expected_sha256": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$",
+        "minLength": 64,
+        "maxLength": 64
+      }
+    },
+    "required": [
+      "path",
+      "expected_sha256"
+    ],
+    "additionalProperties": false
+  },
+  "blender.file.checkpoint_inspect": {
+    "type": "object",
+    "properties": {},
+    "required": [],
+    "additionalProperties": false
   }
 }

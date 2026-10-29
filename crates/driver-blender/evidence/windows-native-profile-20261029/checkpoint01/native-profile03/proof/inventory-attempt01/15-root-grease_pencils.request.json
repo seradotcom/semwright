@@ -1,0 +1,10 @@
+{
+  "args": {
+    "limit": 64,
+    "root": "grease_pencils"
+  },
+  "backend": null,
+  "command": "driver.blender.semantic.objects",
+  "dry_run": false,
+  "request_id": "adb4185ef7544491876ede76479efd7e"
+}

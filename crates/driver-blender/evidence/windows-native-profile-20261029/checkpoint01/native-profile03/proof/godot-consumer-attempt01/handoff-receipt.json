@@ -1,0 +1,177 @@
+{
+  "schema": 1,
+  "utc": "2026-10-29T00:19:37.937162+00:00",
+  "passed": true,
+  "source_broker_request": "d0adac3bc2d343c892859e3586a8e51f",
+  "source_envelope_sha256": "1d95192adba40c1c094bbdf74941cfc17b0eb5cf5e2eb7ec4f488524ff4f1591",
+  "glb_sha256": "d0773ba083cea6f9697678f528f9e82e57ae7a118beadef61eb9bacfcb0f9c04",
+  "godot_binary_sha256": "c8f0a6bc45a19b33541501e57f6f7cd972ab18453743266339d495cbbe846643",
+  "verifier_sha256": "9b61d6344bb972f7d11af65aeb7417ec70ab91a110566d1977ca8af9cf1cacb4",
+  "blender_broker_used": true,
+  "godot_broker_used": false,
+  "godot_windows_driver_qualified": false,
+  "imported": true,
+  "visible_render_completed": true,
+  "native_report": {
+    "art_review": "NOT_APPLICABLE_DIAGNOSTIC_FIXTURE",
+    "camera_position": [
+      10.0,
+      11.0,
+      9.0
+    ],
+    "camera_target": [
+      3.0,
+      5.0,
+      -4.0
+    ],
+    "capture_sha256": "635c3a87f04b422f3c8dfacd4315fd98bd0b311e3978e7b823509b55f7aa0f43",
+    "capture_size": [
+      1280,
+      720
+    ],
+    "display_server": "Windows",
+    "elapsed_ms": 1143,
+    "exit_code": 0,
+    "global_scale": [
+      1.0,
+      1.0,
+      2.0
+    ],
+    "global_translation": [
+      3.0,
+      5.0,
+      -4.0
+    ],
+    "godot_broker_used": false,
+    "godot_version": {
+      "build": "official",
+      "hash": "ed1daf0bf001b61586d9930840f2f1394092c079",
+      "hex": 263938,
+      "major": 4,
+      "minor": 7,
+      "patch": 2,
+      "status": "stable",
+      "string": "4.7.2-stable (official)",
+      "timestamp": 0
+    },
+    "godot_windows_driver_qualified": false,
+    "input_sha256": "d0773ba083cea6f9697678f528f9e82e57ae7a118beadef61eb9bacfcb0f9c04",
+    "local_aabb_position": [
+      -1.0,
+      -1.0,
+      -1.0
+    ],
+    "local_aabb_size": [
+      2.0,
+      2.0,
+      2.0
+    ],
+    "mesh_instance_count": 1,
+    "mesh_path": "BrokerProofCube",
+    "message": "Native import, geometry, transform and visible frame verified",
+    "os": "Windows",
+    "proof": "broker_glb_native_godot_consumer",
+    "rendering_method": "gl_compatibility",
+    "status": "PASS",
+    "surface_count": 1,
+    "user_data_directory": "E:/Projects/worldwright-archipelago/evidence/integration/20261029-native-profile/native-profile03/godot-consumer-attempt01/runtime-env/APPDATA/Godot/app_userdata/Semwright Native Godot Consumer Proof",
+    "vertex_count": 24,
+    "video_adapter_name": "NVIDIA GeForce GTX 1650",
+    "video_adapter_vendor": "NVIDIA"
+  },
+  "runs": [
+    {
+      "label": "import",
+      "argv": [
+        "E:\\Projects\\worldwright-archipelago\\tools\\godot-4.7.2-win64\\Godot_v4.7.2-stable_win64_console.exe",
+        "--path",
+        "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile03\\godot-consumer-attempt01",
+        "--log-file",
+        "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile03\\godot-consumer-attempt01\\import.engine.log",
+        "--headless",
+        "--editor",
+        "--import"
+      ],
+      "pid": 22852,
+      "exit_code": 0,
+      "timed_out": false,
+      "seconds": 5.047000000005937
+    },
+    {
+      "label": "render",
+      "argv": [
+        "E:\\Projects\\worldwright-archipelago\\tools\\godot-4.7.2-win64\\Godot_v4.7.2-stable_win64_console.exe",
+        "--path",
+        "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile03\\godot-consumer-attempt01",
+        "--log-file",
+        "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile03\\godot-consumer-attempt01\\render.engine.log",
+        "--rendering-method",
+        "gl_compatibility",
+        "--script",
+        "res://verify_glb.gd"
+      ],
+      "pid": 4508,
+      "exit_code": 0,
+      "timed_out": false,
+      "seconds": 3.077999999994063
+    }
+  ],
+  "files": {
+    "broker-proof.glb": {
+      "bytes": 1784,
+      "sha256": "d0773ba083cea6f9697678f528f9e82e57ae7a118beadef61eb9bacfcb0f9c04"
+    },
+    "broker-proof.glb.import": {
+      "bytes": 1150,
+      "sha256": "71ffa971cd8bd2009503fb099241b09d5d8716a321d3da327518dfedf986052f"
+    },
+    "import.engine.log": {
+      "bytes": 1460,
+      "sha256": "bc8d53fec68e857b1b3ecdb6960e3d5bc2ddba1a7f7c0fc5abd17b4b177255fc"
+    },
+    "import.stderr.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "import.stdout.log": {
+      "bytes": 2091,
+      "sha256": "f127d50250350bb3372ffdb675296e8c4d3b5360a2e8f9ee1ac148e7d28d58fa"
+    },
+    "project.godot": {
+      "bytes": 503,
+      "sha256": "856f407d9b21c694ee0892552122de125fae5e47150b298c65adae6a1b0a6af0"
+    },
+    "render.engine.log": {
+      "bytes": 1513,
+      "sha256": "3edf94d021e5f880280bca51599335866d7be9bc5f602a0bb2a1b21423541af0"
+    },
+    "render.stderr.log": {
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "render.stdout.log": {
+      "bytes": 1517,
+      "sha256": "e63089d5e01dc7b32a51e8f2bafb69783b665fda5c5489ef6a94b048d6f31c41"
+    },
+    "verify_glb.gd": {
+      "bytes": 6187,
+      "sha256": "9b61d6344bb972f7d11af65aeb7417ec70ab91a110566d1977ca8af9cf1cacb4"
+    },
+    "verify_glb.gd.uid": {
+      "bytes": 20,
+      "sha256": "599fca1c81003d331f404dc5afdf1238af845409ae51aac90ae5bf108eaafba8"
+    },
+    "evidence\\godot-consumer.json": {
+      "bytes": 1541,
+      "sha256": "d9492c7715c01fa24638c5a53810baf31911ac7c518d2a73ccc7474d8c57feb9"
+    },
+    "evidence\\godot-consumer.png": {
+      "bytes": 6412,
+      "sha256": "635c3a87f04b422f3c8dfacd4315fd98bd0b311e3978e7b823509b55f7aa0f43"
+    }
+  },
+  "A05": "PARTIAL_PENDING_PROJECT_CONFORMANCE",
+  "G6": "NOT_COMPLETE",
+  "art_approval": false,
+  "Linux_4_5_14": "NOT_RUN"
+}

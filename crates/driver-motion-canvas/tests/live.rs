@@ -117,6 +117,7 @@ fn manifest(executable: PathBuf, node_sha256: String) -> Manifest {
         system_config: vec![],
         secrets: vec![],
         tools: vec![DriverToolMount {
+            windows_native_profile: None,
             root: "motion-node-tool".into(),
             name: "motion-node".into(),
             sha256: node_sha256,

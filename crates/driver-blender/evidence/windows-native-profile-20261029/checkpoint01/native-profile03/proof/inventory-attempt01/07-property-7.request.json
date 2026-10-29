@@ -1,0 +1,10 @@
+{
+  "args": {
+    "property": "use_fake_user",
+    "ref": "blender-rna/v1/cameras/Q2FtZXJh@1"
+  },
+  "backend": null,
+  "command": "driver.blender.semantic.property.get",
+  "dry_run": false,
+  "request_id": "ba9ec12c21af42c5b43873840341e4d6"
+}

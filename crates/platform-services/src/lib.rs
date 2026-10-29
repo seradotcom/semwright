@@ -193,6 +193,32 @@ pub fn sandbox_spawn(
     launcher().spawn(s)
 }
 /// Test-only composition entry for the owner-authorized fixed registryRead diagnostic.
+#[cfg(target_os = "windows")]
+pub fn windows_native_paths_overlap(left: &Path, right: &Path) -> Result<bool> {
+    semwright_platform_windows_sys::launch::native_paths_overlap(left, right)
+}
+#[cfg(target_os = "windows")]
+pub fn stage_blender52_runtime(
+    source: &Path,
+    destination: &Path,
+    digest: &str,
+    cancel: &std::sync::atomic::AtomicBool,
+) -> Result<serde_json::Value> {
+    semwright_platform_windows_sys::launch::stage_blender52_runtime(
+        source,
+        destination,
+        digest,
+        cancel,
+    )
+}
+#[cfg(target_os = "windows")]
+pub fn sandbox_spawn_blender52_initial(
+    spec: &semwright_platform_api::launch::SandboxSpec,
+    runtime: &Path,
+    digest: &str,
+) -> Result<semwright_platform_api::launch::SandboxProcess> {
+    semwright_platform_windows_sys::launch::sandbox_spawn_blender52_initial(spec, runtime, digest)
+}
 #[cfg(all(target_os = "windows", feature = "windows-sxs-test"))]
 pub fn sandbox_spawn_registry_read_diagnostic(
     spec: &semwright_platform_api::launch::SandboxSpec,

@@ -1,0 +1,66 @@
+{
+  "schema": 1,
+  "origin": "first-party canonical source byte copies; not an external signature",
+  "files": [
+    {
+      "file": "bridge.py",
+      "canonical": "../driver-blender/src/bridge.py",
+      "private_target": "bridge.py",
+      "bytes": 54749,
+      "sha256": "644e2b725eb16c0714cd7c8a34e37eb7ed1a2b6f00d65fad3433eafe880b8a68"
+    },
+    {
+      "file": "commands.py",
+      "canonical": "../../adapters/blender/semwright_blender/commands.py",
+      "private_target": "semwright_blender_runtime/commands.py",
+      "bytes": 39544,
+      "sha256": "5e288dac61b66d15503c6d346f14510038a536539d459c17a754121b0a32b6fd"
+    },
+    {
+      "file": "commands.json",
+      "canonical": "../../adapters/blender/semwright_blender/commands.json",
+      "private_target": "semwright_blender_runtime/commands.json",
+      "bytes": 6998,
+      "sha256": "4b50f436722b1c24318b1c88a7b629b7f43698781b8418cde0da1e7f811cf1c0"
+    },
+    {
+      "file": "validation.py",
+      "canonical": "../../adapters/blender/semwright_blender/validation.py",
+      "private_target": "semwright_blender_runtime/validation.py",
+      "bytes": 2315,
+      "sha256": "09ddc7d9cfabb2f7a3882d4f889437fbc8b82b801bb0cf5e66d5d593beb8c6a4"
+    },
+    {
+      "file": "semantic.py",
+      "canonical": "../driver-blender/src/semantic.py",
+      "private_target": "semwright_blender_runtime/semantic.py",
+      "bytes": 166730,
+      "sha256": "8f3f00b72167e9bd6e1a8d2772f340dfa06183ba0149964d9037f45089993dee"
+    },
+    {
+      "file": "authoring_native.py",
+      "canonical": "../driver-blender/src/authoring_native.py",
+      "private_target": "semwright_blender_runtime/authoring_native.py",
+      "bytes": 72676,
+      "sha256": "8a4ae4e16bbaad4042ea91081ba5529a4c02ee4f818a4f002c25934bfd5dcca8"
+    },
+    {
+      "file": "export_scope.py",
+      "canonical": "../../adapters/blender/semwright_blender/export_scope.py",
+      "private_target": "semwright_blender_runtime/export_scope.py",
+      "bytes": 7829,
+      "sha256": "7284703694561ed2c844badce4f50f16db82478a3f9e94569fcb6a8dc90679ad"
+    }
+  ],
+  "host_local_bootstrap": {
+    "file": "src/windows_blender52_bootstrap.py",
+    "private_target": "bootstrap.py",
+    "bytes": 1481,
+    "sha256": "43e34607b5fc63a92f1442148c74566a07864163bca2805f06189ad2f91555ad"
+  },
+  "empty_package": {
+    "private_target": "semwright_blender_runtime/__init__.py",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+}

@@ -1,0 +1,148 @@
+{
+  "A05": "BLOCKED_PENDING_GODOT_AND_LIFECYCLE_EVIDENCE",
+  "Godot_import": "NOT_RUN",
+  "art_approval": false,
+  "broker_used": true,
+  "client": "semwright_protocol::Client",
+  "close_acknowledged": false,
+  "close_error": "Cleanup declined after read-only inspection: Ok(Object {\"code\": String(\"Unsupported\"), \"contract\": String(\"static_mesh_scene_v1\"), \"inventory\": Null, \"reason\": String(\"Checkpoint does not support sequencing, compositing or simulation\"), \"session_open\": Bool(true), \"supported\": Bool(false)})",
+  "connection": "single authenticated connection; ticket in memory only",
+  "elapsed_ms": 18760,
+  "error": "Checkpoint closure unsupported: {\"code\":\"Unsupported\",\"contract\":\"static_mesh_scene_v1\",\"inventory\":null,\"reason\":\"Checkpoint does not support sequencing, compositing or simulation\",\"session_open\":true,\"supported\":false}",
+  "native_attestation": "VERIFY_CORRELATED_HOST_LOG",
+  "physical_reap": "VERIFY_HOST_PID",
+  "proof": null,
+  "requests": [
+    {
+      "command": "driver.blender.introspect.summary",
+      "elapsed_ms": 16657,
+      "envelope_sha256": "2facb73c88054ddcd442a2f4085906306e187612d5a01658e066d9a161ca4477",
+      "error": null,
+      "label": "summary",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "217f8887d842488ca36cce6c5fcfc9eb",
+      "request_sha256": "74891c07056f7e031a6b93393d6f91b523ee91f443c0a9aff72ab5d07de545d5"
+    },
+    {
+      "command": "driver.blender.collection.create",
+      "elapsed_ms": 87,
+      "envelope_sha256": "2742aee84994cb6a79ced700dfaabe36e6c6ce2bbebe39d8f09383c99658f84e",
+      "error": null,
+      "label": "collection",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "9a094dee555c4585890af8dce2bb0ebb",
+      "request_sha256": "1547b6e2001c92ba3923162469f11deda9ab1dd6f14c01bcff961c7364361b55"
+    },
+    {
+      "command": "driver.blender.object.create",
+      "elapsed_ms": 88,
+      "envelope_sha256": "69ef229015b9254c2f1bbb87608df168bd0ed2def230c09eac8c81d5ae2241a6",
+      "error": null,
+      "label": "object",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "12ff4b1bdb8e46af9570f606382b0f99",
+      "request_sha256": "47273eceba50f7a849e1b63deae194b2f1b6006fc927be2c008b54f7c3e6db75"
+    },
+    {
+      "command": "driver.blender.collection.link",
+      "elapsed_ms": 84,
+      "envelope_sha256": "0634ed0dac5a038ac7775dc9186ddda506227e416aaa12f938989a76c239c946",
+      "error": null,
+      "label": "link",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "7801b430a4d6404f90827984c13c46b5",
+      "request_sha256": "6098057cd1131c12b37580918cbc95439174f58e9a9692836893fad40f5efc3b"
+    },
+    {
+      "command": "driver.blender.object.transform",
+      "elapsed_ms": 83,
+      "envelope_sha256": "a93e451f4083bc378efbb66b0cdff0850e655e6e6cea4866fe1916444feeb03b",
+      "error": null,
+      "label": "transform",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "01d4245454454bc6a3466f59a4c2e001",
+      "request_sha256": "cae2b50faa264f1f1a09dda3f4173a55e9b04268e085c272d7995c9a1314621e"
+    },
+    {
+      "command": "driver.blender.object.get",
+      "elapsed_ms": 88,
+      "envelope_sha256": "3752f96ba7ef5d80d3e40a88dfdaf9f86837ba56eb73b69999ae141d9e203404",
+      "error": null,
+      "label": "readback",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "de767a6ec6f842979b175970163e84f9",
+      "request_sha256": "1b7a39deb4a27ff94a8ae93667b1178eec640f1aa70de95fba05a9242e613eb1"
+    },
+    {
+      "command": "driver.blender.export.glb",
+      "elapsed_ms": 1215,
+      "envelope_sha256": "9c846ae2da2fbc4018dec0b9b15a94b3a70b0e023764ed6b9602d3bfc49633ae",
+      "error": null,
+      "label": "export",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "a55927b5b55648649271d62dcd57cb3f",
+      "request_sha256": "1eff272dc4826907fceabf4de12272bfb945ae9b695b62738048b7403e6f13dc"
+    },
+    {
+      "command": "driver.blender.export.glb",
+      "elapsed_ms": 119,
+      "envelope_sha256": "dc1acedb322b8b4b71844182d35c3077c700d3caf1d03b4c34f4662c01920f67",
+      "error": {
+        "code": "Conflict",
+        "message": "Driver reported an error; untrusted payload was redacted",
+        "outcome_known": false
+      },
+      "label": "deny-overwrite",
+      "ok": false,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "2fba85c614074237a18ba98c19b5c652",
+      "request_sha256": "0f2c2467db22ae34a09aaa8731e178971aa463b4a9bbadbba319334b0b501cb3"
+    },
+    {
+      "command": "driver.blender.export.glb",
+      "elapsed_ms": 120,
+      "envelope_sha256": "e5ef7a5de0c129b35236021ef04a52bf299cd13d77c678a8da5181175dd2991b",
+      "error": {
+        "code": "PolicyDenied",
+        "message": "Driver reported an error; untrusted payload was redacted",
+        "outcome_known": false
+      },
+      "label": "deny-traversal",
+      "ok": false,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "ebb6d08b47724e0cabb4d4b3871a597c",
+      "request_sha256": "6483e6dd73c4aeec25acc57519722542807577c609c66bf3fe70b1ba66b5a4cc"
+    },
+    {
+      "command": "driver.blender.session.checkpoint.inspect",
+      "elapsed_ms": 119,
+      "envelope_sha256": "1beee8477963197280579c40fc6ddac53cd28e313285cb2eb177d72fbf2ab725",
+      "error": null,
+      "label": "checkpoint-inspect",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "9f1c02411fb84ccc955567650e05330d",
+      "request_sha256": "9b25a26c02115c018baad039a1e31a6c71c38f497941835a565be29aca15fdd5"
+    },
+    {
+      "command": "driver.blender.session.checkpoint.inspect",
+      "elapsed_ms": 46,
+      "envelope_sha256": "f069556e2c94a247eaaab25d60702720e0efbc7b473068b752770c58b9f97b60",
+      "error": null,
+      "label": "cleanup-inspect",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "17efa1f90b8a43e99292c57845b469a9",
+      "request_sha256": "518868633285de49d811ae6a7fc5a64d512c628ce4b921204a9a602dc0ec3675"
+    }
+  ],
+  "schema": 1,
+  "typed_fixture": "FAIL"
+}

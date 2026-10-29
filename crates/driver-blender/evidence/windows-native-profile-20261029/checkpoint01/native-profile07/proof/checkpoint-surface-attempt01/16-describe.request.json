@@ -1,0 +1,9 @@
+{
+  "args": {
+    "ref": "blender-rna/v1/worlds/V29ybGQ@1"
+  },
+  "backend": null,
+  "command": "driver.blender.semantic.object.describe",
+  "dry_run": false,
+  "request_id": "1c0f7b1c18ef44748948dc489aa0f8ca"
+}

@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "utc_start": "2026-10-29T00:17:13.326982+00:00",
+  "candidate": "native-profile03",
+  "mode": "fixture",
+  "argv": [
+    "E:\\Projects\\semwright-blender52\\.local\\target\\x86_64-pc-windows-gnu\\debug\\deps\\windows_broker_session-00b35b195fdda8c0.exe",
+    "--ignored",
+    "--exact",
+    "windows_production_broker_persistent_typed_fixture",
+    "--nocapture",
+    "--test-threads=1"
+  ],
+  "test_binary_sha256": "7c25f73bb56af268c683c2bef360d4f04a74ac2305859b47ffe8ce857330647b",
+  "source_sha256": "32d8d02f272989d73ee5d035c371b48754bc553cbe303959b420c8c5155e647b",
+  "compiled_source_log": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-broker-proof-build-attempt02",
+  "exit_code": 101,
+  "timed_out": false,
+  "seconds": 16.860000000000582,
+  "log_sha256": "058020fa86e79e080f492f37accc66a46b48e307d46424d4a3c70937e3e894c4",
+  "receipts": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile03\\fixture-attempt01",
+  "retry_performed": false,
+  "broker_used": true,
+  "Linux_4_5_14": "NOT_RUN",
+  "A05": "PARTIAL"
+}

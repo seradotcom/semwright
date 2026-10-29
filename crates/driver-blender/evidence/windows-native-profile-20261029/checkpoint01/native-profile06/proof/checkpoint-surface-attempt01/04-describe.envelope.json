@@ -1,0 +1,1341 @@
+{
+  "command": "driver.blender.semantic.object.describe",
+  "data": {
+    "name": "Scene",
+    "properties": [
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "RNA type definition",
+        "id": "rna_type",
+        "name": "RNA",
+        "reason": "RNA type metadata is runtime-owned",
+        "status": "runtime_owned",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Unique data-block ID name (within a same type and library)",
+        "id": "name",
+        "name": "Name",
+        "reason": "Names require rename semantics so revision-bound refs can rotate safely",
+        "status": "read_only",
+        "subtype": "NONE",
+        "type": "STRING",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Unique data-block ID name, including library one if any",
+        "id": "name_full",
+        "name": "Full Name",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "NONE",
+        "type": "STRING",
+        "writable": false
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Type identifier of this data-block",
+        "enum": [
+          {
+            "id": "ACTION",
+            "name": "Action"
+          },
+          {
+            "id": "ARMATURE",
+            "name": "Armature"
+          },
+          {
+            "id": "BRUSH",
+            "name": "Brush"
+          },
+          {
+            "id": "CACHEFILE",
+            "name": "Cache File"
+          },
+          {
+            "id": "CAMERA",
+            "name": "Camera"
+          },
+          {
+            "id": "COLLECTION",
+            "name": "Collection"
+          },
+          {
+            "id": "CURVE",
+            "name": "Curve"
+          },
+          {
+            "id": "CURVES",
+            "name": "Curves"
+          },
+          {
+            "id": "FONT",
+            "name": "Font"
+          },
+          {
+            "id": "GREASEPENCIL",
+            "name": "Grease Pencil"
+          },
+          {
+            "id": "GREASEPENCIL_V3",
+            "name": "Grease Pencil v3"
+          },
+          {
+            "id": "IMAGE",
+            "name": "Image"
+          },
+          {
+            "id": "KEY",
+            "name": "Key"
+          },
+          {
+            "id": "LATTICE",
+            "name": "Lattice"
+          },
+          {
+            "id": "LIBRARY",
+            "name": "Library"
+          },
+          {
+            "id": "LIGHT",
+            "name": "Light"
+          },
+          {
+            "id": "LIGHT_PROBE",
+            "name": "Light Probe"
+          },
+          {
+            "id": "LINESTYLE",
+            "name": "Line Style"
+          },
+          {
+            "id": "MASK",
+            "name": "Mask"
+          },
+          {
+            "id": "MATERIAL",
+            "name": "Material"
+          },
+          {
+            "id": "MESH",
+            "name": "Mesh"
+          },
+          {
+            "id": "META",
+            "name": "Metaball"
+          },
+          {
+            "id": "MOVIECLIP",
+            "name": "Movie Clip"
+          },
+          {
+            "id": "NODETREE",
+            "name": "Node Tree"
+          },
+          {
+            "id": "OBJECT",
+            "name": "Object"
+          },
+          {
+            "id": "PAINTCURVE",
+            "name": "Paint Curve"
+          },
+          {
+            "id": "PALETTE",
+            "name": "Palette"
+          },
+          {
+            "id": "PARTICLE",
+            "name": "Particle"
+          },
+          {
+            "id": "POINTCLOUD",
+            "name": "Point Cloud"
+          },
+          {
+            "id": "SCENE",
+            "name": "Scene"
+          },
+          {
+            "id": "SCREEN",
+            "name": "Screen"
+          },
+          {
+            "id": "SOUND",
+            "name": "Sound"
+          },
+          {
+            "id": "SPEAKER",
+            "name": "Speaker"
+          },
+          {
+            "id": "TEXT",
+            "name": "Text"
+          },
+          {
+            "id": "TEXTURE",
+            "name": "Texture"
+          },
+          {
+            "id": "VOLUME",
+            "name": "Volume"
+          },
+          {
+            "id": "WINDOWMANAGER",
+            "name": "Window Manager"
+          },
+          {
+            "id": "WORKSPACE",
+            "name": "Workspace"
+          },
+          {
+            "id": "WORLD",
+            "name": "World"
+          }
+        ],
+        "id": "id_type",
+        "name": "Type",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "NONE",
+        "type": "ENUM",
+        "writable": false
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "A session-wide unique identifier for the data block that remains the same across renames and internal reallocations, unchanged when reloading the file",
+        "id": "session_uid",
+        "maximum": 2147483647,
+        "minimum": -2147483648,
+        "name": "Session UID",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "NONE",
+        "type": "INT",
+        "writable": false
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Whether this ID is runtime-only, evaluated data-block, or actual data from .blend file",
+        "id": "is_evaluated",
+        "name": "Is Evaluated",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Actual data-block from .blend file (Main database) that generated that evaluated one",
+        "id": "original",
+        "name": "Original ID",
+        "reason": "Runtime/back-reference relation is not persistent authoring state",
+        "status": "runtime_owned",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Number of times this data-block is referenced",
+        "id": "users",
+        "maximum": 2147483647,
+        "minimum": 0,
+        "name": "Users",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "UNSIGNED",
+        "type": "INT",
+        "writable": false
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Save this data-block even if it has no users",
+        "id": "use_fake_user",
+        "name": "Fake User",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Indicates whether an extra user is set or not (mainly for internal/debug usages)",
+        "id": "use_extra_user",
+        "name": "Extra User",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "This data-block is not an independent one, but is actually a sub-data of another ID (typical example: root node trees or master collections)",
+        "id": "is_embedded_data",
+        "name": "Embedded Data",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": false
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "This data-block is linked and packed into the .blend file",
+        "id": "is_linked_packed",
+        "name": "Linked Packed",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": false
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "This data-block is a place-holder for missing linked data (i.e. it is [an override of] a linked data that could not be found anymore)",
+        "id": "is_missing",
+        "name": "Missing Data",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": false
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "This data-block is runtime data, i.e. it won't be saved in .blend file. Note that e.g. evaluated IDs are always runtime, so this value is only editable for data-blocks in Main data-base.",
+        "id": "is_runtime_data",
+        "name": "Runtime Data",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "This data-block is editable in the user interface. Linked data-blocks are not editable, except if they were loaded as editable assets.",
+        "id": "is_editable",
+        "name": "Editable",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": false
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Tools can use this to tag data for their own purposes (initial state is undefined)",
+        "id": "tag",
+        "name": "Tag",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Is this ID block linked indirectly",
+        "id": "is_library_indirect",
+        "name": "Is Indirect",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Library file the data-block is linked from",
+        "id": "library",
+        "name": "Library",
+        "reason": "Executable/external relation requires a dedicated trusted domain",
+        "status": "unsupported_by_design",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Weak reference to a data-block in another library .blend file (used to re-use already appended data instead of appending new copies)",
+        "id": "library_weak_reference",
+        "name": "Library Weak Reference",
+        "reason": "Runtime/back-reference relation is not persistent authoring state",
+        "status": "runtime_owned",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Additional data for an asset data-block",
+        "id": "asset_data",
+        "name": "Asset Data",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "pointer_set",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": true
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Library override data",
+        "id": "override_library",
+        "name": "Library Override",
+        "reason": "Runtime/back-reference relation is not persistent authoring state",
+        "status": "runtime_owned",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Preview image and icon of this data-block (always None if not supported for this type of data)",
+        "id": "preview",
+        "name": "Preview",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Active camera, used for rendering the scene",
+        "id": "camera",
+        "name": "Camera",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "pointer_set",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": true
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Background set scene",
+        "id": "background_set",
+        "name": "Background Scene",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "pointer_set",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": true
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "World used for rendering the scene",
+        "id": "world",
+        "name": "World",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "pointer_set",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": true
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "",
+        "id": "objects",
+        "name": "Objects",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "collection",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "COLLECTION",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Current frame, to update animation data from Python frame_set() instead",
+        "id": "frame_current",
+        "maximum": 1048574,
+        "minimum": -1048574,
+        "name": "Current Frame",
+        "status": "managed",
+        "subtype": "TIME",
+        "type": "INT",
+        "writable": true
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "",
+        "id": "frame_subframe",
+        "maximum": 1.0,
+        "minimum": 0.0,
+        "name": "Current Subframe",
+        "status": "managed",
+        "subtype": "TIME",
+        "type": "FLOAT",
+        "writable": true
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "",
+        "id": "frame_float",
+        "maximum": 1048574.0,
+        "minimum": -1048574.0,
+        "name": "Current Subframe",
+        "status": "managed",
+        "subtype": "TIME",
+        "type": "FLOAT",
+        "writable": true
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "First frame of the playback/rendering range",
+        "id": "frame_start",
+        "maximum": 1048574,
+        "minimum": 0,
+        "name": "Start Frame",
+        "status": "managed",
+        "subtype": "TIME",
+        "type": "INT",
+        "writable": true
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Final frame of the playback/rendering range",
+        "id": "frame_end",
+        "maximum": 1048574,
+        "minimum": 0,
+        "name": "End Frame",
+        "status": "managed",
+        "subtype": "TIME",
+        "type": "INT",
+        "writable": true
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Number of frames to skip forward while rendering/playing back each frame",
+        "id": "frame_step",
+        "maximum": 1048574,
+        "minimum": 0,
+        "name": "Frame Step",
+        "status": "managed",
+        "subtype": "TIME",
+        "type": "INT",
+        "writable": true
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Which unit to use for time jumps in the timeline",
+        "enum": [
+          {
+            "id": "FRAME",
+            "name": "Frame"
+          },
+          {
+            "id": "SECOND",
+            "name": "Second"
+          }
+        ],
+        "id": "time_jump_unit",
+        "name": "Time Jump Unit",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "ENUM",
+        "writable": true
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Number of frames or seconds to jump forward or backward",
+        "id": "time_jump_delta",
+        "maximum": 3.4028234663852886e+38,
+        "minimum": 0.10000000149011612,
+        "name": "Time Jump Delta",
+        "status": "managed",
+        "subtype": "TIME",
+        "type": "FLOAT",
+        "writable": true
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Current frame with subframe and time remapping applied",
+        "id": "frame_current_final",
+        "maximum": 1048574.0,
+        "minimum": -1048574.0,
+        "name": "Current Frame Final",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "TIME",
+        "type": "FLOAT",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Don't allow frame to be selected with mouse outside of frame range",
+        "id": "lock_frame_selection_to_range",
+        "name": "Lock Frame Selection",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Allows playing back frames before the playback start frame",
+        "id": "allow_preroll",
+        "name": "Allow Preroll",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Use an alternative start/end frame range for animation playback and view renders",
+        "id": "use_preview_range",
+        "name": "Use Preview Range",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Alternative start frame for UI playback",
+        "id": "frame_preview_start",
+        "maximum": 2147483647,
+        "minimum": -2147483648,
+        "name": "Preview Range Start Frame",
+        "status": "managed",
+        "subtype": "TIME",
+        "type": "INT",
+        "writable": true
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Alternative end frame for UI playback",
+        "id": "frame_preview_end",
+        "maximum": 2147483647,
+        "minimum": -2147483648,
+        "name": "Preview Range End Frame",
+        "status": "managed",
+        "subtype": "TIME",
+        "type": "INT",
+        "writable": true
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Display and allow setting fractional frame values for the current frame",
+        "id": "show_subframe",
+        "name": "Show Subframe",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Only include channels relating to selected objects and data",
+        "id": "show_keys_from_selected_only",
+        "name": "Only Show Selected",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "User defined note for the render stamping",
+        "id": "use_stamp_note",
+        "name": "Stamp Note",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "STRING",
+        "writable": true
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Animation data for this data-block",
+        "id": "animation_data",
+        "name": "Animation Data",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Whether there is any action referenced by NLA being edited (strictly read-only)",
+        "id": "is_nla_tweakmode",
+        "name": "NLA Tweak Mode",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Use a simulation range that is different from the scene range for simulation nodes that don't override the frame range themselves",
+        "id": "use_custom_simulation_range",
+        "name": "Custom Simulation Range",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Frame at which simulations start",
+        "id": "simulation_frame_start",
+        "maximum": 2147483647,
+        "minimum": -2147483648,
+        "name": "Simulation Frame Start",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "INT",
+        "writable": true
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Frame at which simulations end",
+        "id": "simulation_frame_end",
+        "maximum": 2147483647,
+        "minimum": -2147483648,
+        "name": "Simulation Frame End",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "INT",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "How to sync playback",
+        "enum": [
+          {
+            "id": "NONE",
+            "name": "Play Every Frame"
+          },
+          {
+            "id": "FRAME_DROP",
+            "name": "Frame Dropping"
+          },
+          {
+            "id": "AUDIO_SYNC",
+            "name": "Sync to Audio"
+          }
+        ],
+        "id": "sync_mode",
+        "name": "Sync Mode",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "ENUM",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "What to do when playback reaches the last frame",
+        "enum": [
+          {
+            "id": "INFINITE",
+            "name": "Infinite"
+          },
+          {
+            "id": "STOP_END_FRAME",
+            "name": "Stop at End Frame"
+          },
+          {
+            "id": "STOP_START_FRAME",
+            "name": "Stop at Start Frame"
+          },
+          {
+            "id": "RESTORE",
+            "name": "Restore Frame"
+          },
+          {
+            "id": "BOUNCE",
+            "name": "Bounce"
+          }
+        ],
+        "id": "playback_loop_mode",
+        "name": "Loop Mode",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "ENUM",
+        "writable": true
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Compositor Nodes",
+        "id": "compositing_node_group",
+        "name": "Node Tree",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "pointer_set",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Enable the compositing node group.",
+        "id": "use_nodes",
+        "name": "Use Nodes",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "",
+        "id": "sequence_editor",
+        "name": "Sequence Editor",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Absolute Keying Sets for this Scene",
+        "id": "keying_sets",
+        "name": "Absolute Keying Sets",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "collection",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "COLLECTION",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "All Keying Sets available for use (Builtins and Absolute Keying Sets for this Scene)",
+        "id": "keying_sets_all",
+        "name": "All Keying Sets",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "collection",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "COLLECTION",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "",
+        "id": "rigidbody_world",
+        "name": "Rigid Body World",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "",
+        "id": "tool_settings",
+        "name": "Tool Settings",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Unit editing settings",
+        "id": "unit_settings",
+        "name": "Unit Settings",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": true,
+        "array_length": 3,
+        "description": "Constant acceleration in a given direction",
+        "id": "gravity",
+        "maximum": 3.4028234663852886e+38,
+        "minimum": -3.4028234663852886e+38,
+        "name": "Gravity",
+        "status": "managed",
+        "subtype": "ACCELERATION",
+        "type": "FLOAT",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Use global gravity for all dynamics",
+        "id": "use_gravity",
+        "name": "Global Gravity",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "",
+        "id": "render",
+        "name": "Render Data",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "",
+        "id": "safe_areas",
+        "name": "Safe Areas",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Markers used in all timelines for the current scene",
+        "id": "timeline_markers",
+        "name": "Timeline Markers",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "collection",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "COLLECTION",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "",
+        "id": "transform_orientation_slots",
+        "name": "Transform Orientation Slots",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "collection",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "COLLECTION",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "",
+        "id": "cursor",
+        "name": "3D Cursor",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Play back of audio from Sequence Editor, otherwise mute audio",
+        "id": "use_audio",
+        "name": "Play Audio",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Play audio from Sequence Editor while scrubbing",
+        "id": "use_audio_scrub",
+        "name": "Audio Scrubbing",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Speed of sound for Doppler effect calculation",
+        "id": "audio_doppler_speed",
+        "maximum": 3.4028234663852886e+38,
+        "minimum": 0.009999999776482582,
+        "name": "Speed of Sound",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "FLOAT",
+        "writable": true
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Pitch factor for Doppler effect calculation",
+        "id": "audio_doppler_factor",
+        "maximum": 3.4028234663852886e+38,
+        "minimum": 0.0,
+        "name": "Doppler Factor",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "FLOAT",
+        "writable": true
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Distance model for distance attenuation calculation",
+        "enum": [
+          {
+            "id": "NONE",
+            "name": "None"
+          },
+          {
+            "id": "INVERSE",
+            "name": "Inverse"
+          },
+          {
+            "id": "INVERSE_CLAMPED",
+            "name": "Inverse Clamped"
+          },
+          {
+            "id": "LINEAR",
+            "name": "Linear"
+          },
+          {
+            "id": "LINEAR_CLAMPED",
+            "name": "Linear Clamped"
+          },
+          {
+            "id": "EXPONENT",
+            "name": "Exponential"
+          },
+          {
+            "id": "EXPONENT_CLAMPED",
+            "name": "Exponential Clamped"
+          }
+        ],
+        "id": "audio_distance_model",
+        "name": "Distance Model",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "ENUM",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Audio volume",
+        "id": "audio_volume",
+        "maximum": 100.0,
+        "minimum": 0.0,
+        "name": "Volume",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "FLOAT",
+        "writable": true
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Data-block used for annotations in the 3D view",
+        "id": "annotation",
+        "name": "Annotations",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "pointer_set",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": true
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Active Movie Clip that can be used by motion tracking constraints or as a camera's background image",
+        "id": "active_clip",
+        "name": "Active Movie Clip",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "pointer_set",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": true
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Color management settings applied on image before saving",
+        "id": "view_settings",
+        "name": "View Settings",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Settings of device saved image would be displayed on",
+        "id": "display_settings",
+        "name": "Display Settings",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Settings of color space sequencer is working in",
+        "id": "sequencer_colorspace_settings",
+        "name": "Sequencer Color Space Settings",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "",
+        "id": "view_layers",
+        "name": "View Layers",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "collection",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "COLLECTION",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Scene root collection that owns all the objects and other collections instantiated in the scene",
+        "id": "collection",
+        "name": "Collection",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Scene display settings for 3D viewport",
+        "id": "display",
+        "name": "Scene Display",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "EEVEE settings for the scene",
+        "id": "eevee",
+        "name": "EEVEE",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Grease Pencil settings for the scene",
+        "id": "grease_pencil_settings",
+        "name": "Grease Pencil",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Hydra settings for the scene",
+        "id": "hydra",
+        "name": "Hydra",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Cycles render settings",
+        "id": "cycles",
+        "name": "Cycles Render Settings",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Cycles curves rendering settings",
+        "id": "cycles_curves",
+        "name": "Cycles Curves Rendering Settings",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      }
+    ],
+    "ref": "blender-rna/v1/scenes/U2NlbmU@1",
+    "rna_type": "Scene",
+    "root": "scenes",
+    "truncated": false
+  },
+  "execution": {
+    "backend": "driver:blender",
+    "dry_run": false,
+    "duration_ms": 57,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "4453b7deccbf6dfb6b9d2b05e44a31230787d6e01e0d014bd3b2dd1a2fbfb6cd",
+      "execution_provider": "driver:blender",
+      "provider": "driver:blender",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "a071619f5d114b14ac87fa69ce0adc4f",
+  "warnings": []
+}

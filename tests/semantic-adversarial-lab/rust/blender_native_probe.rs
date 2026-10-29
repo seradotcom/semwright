@@ -94,6 +94,7 @@ impl NativeFixture {
                 destination: "/etc/fonts".into(),
             }],
             tools: vec![DriverToolMount {
+                windows_native_profile: None,
                 name: "blender".into(),
                 root: "blender-executable".into(),
                 sha256: blender_sha,

@@ -38,6 +38,10 @@ pub struct Config {
     /// Owner opt-in; manifests cannot grant NVIDIA device authority on their own.
     #[serde(default)]
     pub driver_nvidia_gpu: bool,
+    /// Explicit owner authority for the first-party Windows Blender 5.2.1 initial profile.
+    /// Grants registryRead only to its one-process, network-disabled native session.
+    #[serde(default)]
+    pub driver_windows_blender52_initial: bool,
     #[serde(default)]
     pub plugin_network: bool,
     #[serde(default)]
@@ -65,6 +69,7 @@ impl Default for Config {
             drivers: vec![],
             driver_network: false,
             driver_nvidia_gpu: false,
+            driver_windows_blender52_initial: false,
             plugin_network: false,
             mcp_network: false,
             audit_max_bytes: audit_bytes(),
@@ -445,5 +450,20 @@ mod windows_grant_tests {
         );
         assert!(canonical_grant_root(&junction).is_err());
         assert!(canonical_grant_root(&junction.join("data.txt")).is_err());
+    }
+}
+
+#[cfg(test)]
+mod native_owner_config_tests {
+    use super::*;
+    #[test]
+    fn windows_native_profile_owner_opt_in_is_independent_and_defaults_off() {
+        assert!(!Config::default().driver_windows_blender52_initial);
+        let old: Config = toml::from_str("driver_nvidia_gpu = true").unwrap();
+        assert!(!old.driver_windows_blender52_initial);
+        let explicit: Config = toml::from_str("driver_windows_blender52_initial = true").unwrap();
+        assert!(explicit.driver_windows_blender52_initial);
+        assert!(!explicit.driver_network);
+        assert!(!explicit.driver_nvidia_gpu);
     }
 }

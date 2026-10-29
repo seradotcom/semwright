@@ -1,0 +1,11 @@
+{
+  "args": {
+    "animations": false,
+    "collection": "BrokerProof",
+    "path": "../forbidden-native-proof.glb"
+  },
+  "backend": null,
+  "command": "driver.blender.export.glb",
+  "dry_run": false,
+  "request_id": "c1ac7468969a489396bc112abc792223"
+}

@@ -1,0 +1,10 @@
+{
+  "args": {
+    "limit": 64,
+    "root": "scenes"
+  },
+  "backend": null,
+  "command": "driver.blender.semantic.objects",
+  "dry_run": false,
+  "request_id": "db721027cc21435c9130bb43f3b6f7ae"
+}

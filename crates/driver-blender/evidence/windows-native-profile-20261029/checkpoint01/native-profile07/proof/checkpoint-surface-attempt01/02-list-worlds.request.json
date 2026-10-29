@@ -1,0 +1,10 @@
+{
+  "args": {
+    "limit": 8,
+    "root": "worlds"
+  },
+  "backend": null,
+  "command": "driver.blender.semantic.objects",
+  "dry_run": false,
+  "request_id": "b1e4700cf9d14570b2b1cf2887bec941"
+}

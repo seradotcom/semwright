@@ -1,0 +1,9 @@
+{
+  "args": {
+    "name": "BrokerProofCube"
+  },
+  "backend": null,
+  "command": "driver.blender.object.get",
+  "dry_run": false,
+  "request_id": "de767a6ec6f842979b175970163e84f9"
+}

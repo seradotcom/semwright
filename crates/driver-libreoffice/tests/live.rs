@@ -120,6 +120,7 @@ async fn real_libreoffice_driver_runs_inside_sandbox() {
         secrets: vec![],
         tools: vec![
             DriverToolMount {
+                windows_native_profile: None,
                 root: "libreoffice-session-runner-tool".into(),
                 name: "libreoffice-session-runner".into(),
                 sha256: digest(&runner),
@@ -130,6 +131,7 @@ async fn real_libreoffice_driver_runs_inside_sandbox() {
                 resources: None,
             },
             DriverToolMount {
+                windows_native_profile: None,
                 root: "libreoffice-soffice-tool".into(),
                 name: "soffice-bin".into(),
                 sha256: digest(&soffice_path),
@@ -140,6 +142,7 @@ async fn real_libreoffice_driver_runs_inside_sandbox() {
                 resources: None,
             },
             DriverToolMount {
+                windows_native_profile: None,
                 root: "libreoffice-python-tool".into(),
                 name: "python3".into(),
                 sha256: digest(&python_path),

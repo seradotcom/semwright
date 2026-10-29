@@ -1,0 +1,27 @@
+{
+  "command": "driver.blender.collection.link",
+  "data": {
+    "changed": true
+  },
+  "execution": {
+    "backend": "driver:blender",
+    "dry_run": false,
+    "duration_ms": 81,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1.0",
+      "catalog_revision": 160,
+      "descriptor_sha256": "17e216323df361d8acf1c5be41d79c177269267e9ca546b0dac147e08863256f",
+      "execution_provider": "driver:blender",
+      "provider": "driver:blender",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "7801b430a4d6404f90827984c13c46b5",
+  "warnings": []
+}

@@ -238,13 +238,14 @@ async fn run(args: Args) -> Result<()> {
     }
     for path in &config.drivers {
         let manifest = config::driver_manifest(path)?;
-        let provider = DriverProvider::connect_with_gpu(
+        let provider = DriverProvider::connect_with_native_profiles(
             manifest,
             &state.join("drivers"),
             &sandbox_helper,
             &config.policy.filesystem,
             config.driver_network,
             config.driver_nvidia_gpu,
+            config.driver_windows_blender52_initial,
         )
         .await?;
         broker.mount_provider(provider).await?;

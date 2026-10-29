@@ -1,0 +1,41 @@
+{
+  "command": "driver.blender.semantic.property.get",
+  "data": {
+    "descriptor": {
+      "animatable": true,
+      "array_length": 0,
+      "description": "This data-block is not an independent one, but is actually a sub-data of another ID (typical example: root node trees or master collections)",
+      "id": "is_embedded_data",
+      "name": "Embedded Data",
+      "reason": "RNA marks this property read-only",
+      "status": "read_only",
+      "subtype": "NONE",
+      "type": "BOOLEAN",
+      "writable": false
+    },
+    "property": "is_embedded_data",
+    "ref": "blender-rna/v1/objects/TGlnaHQ@1",
+    "value": false
+  },
+  "execution": {
+    "backend": "driver:blender",
+    "dry_run": false,
+    "duration_ms": 31,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "e625d06629707ff0add7ff0c31ca51134fa1a7c471e82f09f00a88189f1f91ce",
+      "execution_provider": "driver:blender",
+      "provider": "driver:blender",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "bb5957d78f844b838ffe982f849b423f",
+  "warnings": []
+}

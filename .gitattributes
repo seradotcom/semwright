@@ -1,5 +1,6 @@
 # Preserve repository bytes for cross-platform digests and generated inputs.
 *.rs text eol=lf
+*.py text eol=lf
 *.json text eol=lf
 *.ts text eol=lf
 *.tsx text eol=lf

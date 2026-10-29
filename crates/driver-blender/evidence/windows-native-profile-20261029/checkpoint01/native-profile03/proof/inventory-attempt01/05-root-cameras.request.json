@@ -1,0 +1,10 @@
+{
+  "args": {
+    "limit": 64,
+    "root": "cameras"
+  },
+  "backend": null,
+  "command": "driver.blender.semantic.objects",
+  "dry_run": false,
+  "request_id": "fedd231d49e545b18dd2db2c2c94f1c6"
+}

@@ -141,6 +141,7 @@ impl NativeFixture {
             system_config: vec![],
             tools: vec![
                 DriverToolMount {
+                    windows_native_profile: None,
                     name: "blender-session-runner".into(),
                     root: "blender-session-runner-executable".into(),
                     sha256: digest(&runner),
@@ -156,6 +157,7 @@ impl NativeFixture {
                     resources: None,
                 },
                 DriverToolMount {
+                    windows_native_profile: None,
                     name: "blender".into(),
                     root: "blender-executable".into(),
                     sha256: digest(&blender),

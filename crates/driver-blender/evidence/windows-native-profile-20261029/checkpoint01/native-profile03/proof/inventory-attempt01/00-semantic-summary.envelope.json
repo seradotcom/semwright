@@ -1,0 +1,177 @@
+{
+  "command": "driver.blender.semantic.summary",
+  "data": {
+    "arbitrary_python": false,
+    "blender_version": [
+      5,
+      2,
+      1
+    ],
+    "generation": 1,
+    "generic_mutation": [
+      "BOOLEAN",
+      "INT",
+      "FLOAT",
+      "STRING",
+      "ENUM",
+      "bounded_arrays"
+    ],
+    "generic_operator_invoke": false,
+    "roots": [
+      {
+        "rna_type": "Action",
+        "root": "actions"
+      },
+      {
+        "rna_type": "Armature",
+        "root": "armatures"
+      },
+      {
+        "rna_type": "Brush",
+        "root": "brushes"
+      },
+      {
+        "rna_type": "CacheFile",
+        "root": "cache_files"
+      },
+      {
+        "rna_type": "Camera",
+        "root": "cameras"
+      },
+      {
+        "rna_type": "Collection",
+        "root": "collections"
+      },
+      {
+        "rna_type": "Curve",
+        "root": "curves"
+      },
+      {
+        "rna_type": "VectorFont",
+        "root": "fonts"
+      },
+      {
+        "rna_type": "GreasePencil",
+        "root": "grease_pencils"
+      },
+      {
+        "rna_type": "Curves",
+        "root": "hair_curves"
+      },
+      {
+        "rna_type": "Image",
+        "root": "images"
+      },
+      {
+        "rna_type": "Lattice",
+        "root": "lattices"
+      },
+      {
+        "rna_type": "LightProbe",
+        "root": "lightprobes"
+      },
+      {
+        "rna_type": "Light",
+        "root": "lights"
+      },
+      {
+        "rna_type": "FreestyleLineStyle",
+        "root": "linestyles"
+      },
+      {
+        "rna_type": "Mask",
+        "root": "masks"
+      },
+      {
+        "rna_type": "Material",
+        "root": "materials"
+      },
+      {
+        "rna_type": "Mesh",
+        "root": "meshes"
+      },
+      {
+        "rna_type": "MetaBall",
+        "root": "metaballs"
+      },
+      {
+        "rna_type": "MovieClip",
+        "root": "movieclips"
+      },
+      {
+        "rna_type": "NodeTree",
+        "root": "node_groups"
+      },
+      {
+        "rna_type": "Object",
+        "root": "objects"
+      },
+      {
+        "rna_type": "PaintCurve",
+        "root": "paint_curves"
+      },
+      {
+        "rna_type": "Palette",
+        "root": "palettes"
+      },
+      {
+        "rna_type": "ParticleSettings",
+        "root": "particles"
+      },
+      {
+        "rna_type": "PointCloud",
+        "root": "pointclouds"
+      },
+      {
+        "rna_type": "Scene",
+        "root": "scenes"
+      },
+      {
+        "rna_type": "Key",
+        "root": "shape_keys"
+      },
+      {
+        "rna_type": "Sound",
+        "root": "sounds"
+      },
+      {
+        "rna_type": "Speaker",
+        "root": "speakers"
+      },
+      {
+        "rna_type": "Texture",
+        "root": "textures"
+      },
+      {
+        "rna_type": "Volume",
+        "root": "volumes"
+      },
+      {
+        "rna_type": "World",
+        "root": "worlds"
+      }
+    ],
+    "schema": "blender-rna-semantic/v1"
+  },
+  "execution": {
+    "backend": "driver:blender",
+    "dry_run": false,
+    "duration_ms": 16421,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "fc47ccebff780f2faf71fe87f8d67449d243e0e106d72b4a9755ad0a533ea899",
+      "execution_provider": "driver:blender",
+      "provider": "driver:blender",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "f8eb3fd9c58f4c9783fca0e3c6d64861",
+  "warnings": []
+}

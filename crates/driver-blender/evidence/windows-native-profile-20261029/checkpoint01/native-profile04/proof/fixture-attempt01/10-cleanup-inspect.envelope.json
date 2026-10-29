@@ -1,0 +1,32 @@
+{
+  "command": "driver.blender.session.checkpoint.inspect",
+  "data": {
+    "code": "Unsupported",
+    "contract": "static_mesh_scene_v1",
+    "inventory": null,
+    "reason": "Checkpoint has unsupported datablocks: all_ids",
+    "session_open": true,
+    "supported": false
+  },
+  "execution": {
+    "backend": "driver:blender",
+    "dry_run": false,
+    "duration_ms": 33,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "6676fddcab69373bb9b191236452a3a32c1eb376dc6657c30ecd0cb942e1ebd4",
+      "execution_provider": "driver:blender",
+      "provider": "driver:blender",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "561c7c20ab444ddfb301ebb9530235e6",
+  "warnings": []
+}

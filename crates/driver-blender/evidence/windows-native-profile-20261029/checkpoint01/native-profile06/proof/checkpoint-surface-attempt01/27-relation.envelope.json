@@ -1,0 +1,417 @@
+{
+  "command": "driver.blender.semantic.relations",
+  "data": {
+    "generation": 1,
+    "items": [
+      {
+        "index": 0,
+        "name": "Channel 0",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiwwXV0@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 1,
+        "name": "Channel 1",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiwxXV0@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 2,
+        "name": "Channel 2",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiwyXV0@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 3,
+        "name": "Channel 3",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiwzXV0@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 4,
+        "name": "Channel 4",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiw0XV0@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 5,
+        "name": "Channel 5",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiw1XV0@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 6,
+        "name": "Channel 6",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiw2XV0@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 7,
+        "name": "Channel 7",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiw3XV0@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 8,
+        "name": "Channel 8",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiw4XV0@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 9,
+        "name": "Channel 9",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiw5XV0@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 10,
+        "name": "Channel 10",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiwxMF1d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 11,
+        "name": "Channel 11",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiwxMV1d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 12,
+        "name": "Channel 12",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiwxMl1d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 13,
+        "name": "Channel 13",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiwxM11d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 14,
+        "name": "Channel 14",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiwxNF1d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 15,
+        "name": "Channel 15",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiwxNV1d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 16,
+        "name": "Channel 16",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiwxNl1d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 17,
+        "name": "Channel 17",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiwxN11d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 18,
+        "name": "Channel 18",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiwxOF1d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 19,
+        "name": "Channel 19",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiwxOV1d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 20,
+        "name": "Channel 20",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiwyMF1d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 21,
+        "name": "Channel 21",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiwyMV1d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 22,
+        "name": "Channel 22",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiwyMl1d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 23,
+        "name": "Channel 23",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiwyM11d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 24,
+        "name": "Channel 24",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiwyNF1d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 25,
+        "name": "Channel 25",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiwyNV1d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 26,
+        "name": "Channel 26",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiwyNl1d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 27,
+        "name": "Channel 27",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiwyN11d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 28,
+        "name": "Channel 28",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiwyOF1d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 29,
+        "name": "Channel 29",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiwyOV1d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 30,
+        "name": "Channel 30",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiwzMF1d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 31,
+        "name": "Channel 31",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiwzMV1d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 32,
+        "name": "Channel 32",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiwzMl1d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 33,
+        "name": "Channel 33",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiwzM11d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 34,
+        "name": "Channel 34",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiwzNF1d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 35,
+        "name": "Channel 35",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiwzNV1d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 36,
+        "name": "Channel 36",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiwzNl1d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 37,
+        "name": "Channel 37",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiwzN11d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 38,
+        "name": "Channel 38",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiwzOF1d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 39,
+        "name": "Channel 39",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiwzOV1d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 40,
+        "name": "Channel 40",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiw0MF1d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 41,
+        "name": "Channel 41",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiw0MV1d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 42,
+        "name": "Channel 42",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiw0Ml1d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 43,
+        "name": "Channel 43",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiw0M11d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 44,
+        "name": "Channel 44",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiw0NF1d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 45,
+        "name": "Channel 45",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiw0NV1d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 46,
+        "name": "Channel 46",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiw0Nl1d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 47,
+        "name": "Channel 47",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiw0N11d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 48,
+        "name": "Channel 48",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiw0OF1d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 49,
+        "name": "Channel 49",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiw0OV1d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 50,
+        "name": "Channel 50",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiw1MF1d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 51,
+        "name": "Channel 51",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiw1MV1d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 52,
+        "name": "Channel 52",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiw1Ml1d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 53,
+        "name": "Channel 53",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiw1M11d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 54,
+        "name": "Channel 54",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiw1NF1d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 55,
+        "name": "Channel 55",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiw1NV1d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 56,
+        "name": "Channel 56",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiw1Nl1d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 57,
+        "name": "Channel 57",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiw1N11d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 58,
+        "name": "Channel 58",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiw1OF1d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 59,
+        "name": "Channel 59",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiw1OV1d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 60,
+        "name": "Channel 60",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiw2MF1d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 61,
+        "name": "Channel 61",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiw2MV1d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 62,
+        "name": "Channel 62",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiw2Ml1d@1",
+        "rna_type": "SequenceTimelineChannel"
+      },
+      {
+        "index": 63,
+        "name": "Channel 63",
+        "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdLFsiYyIsImNoYW5uZWxzIiw2M11d@1",
+        "rna_type": "SequenceTimelineChannel"
+      }
+    ],
+    "mutation": "domain_specific",
+    "offset": 0,
+    "relation": "channels",
+    "truncated": true
+  },
+  "execution": {
+    "backend": "driver:blender",
+    "dry_run": false,
+    "duration_ms": 45,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "7dfa15f2239d3e3ca783418f8a854e14e9466d171c69c957f9eae5eb4bd76466",
+      "execution_provider": "driver:blender",
+      "provider": "driver:blender",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "bf2d2fa367d04348bbc6a089fd45df65",
+  "warnings": []
+}

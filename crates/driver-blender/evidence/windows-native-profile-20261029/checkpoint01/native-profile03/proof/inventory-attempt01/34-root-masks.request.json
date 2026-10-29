@@ -1,0 +1,10 @@
+{
+  "args": {
+    "limit": 64,
+    "root": "masks"
+  },
+  "backend": null,
+  "command": "driver.blender.semantic.objects",
+  "dry_run": false,
+  "request_id": "e3f7b230feca4527a332fa1070431157"
+}

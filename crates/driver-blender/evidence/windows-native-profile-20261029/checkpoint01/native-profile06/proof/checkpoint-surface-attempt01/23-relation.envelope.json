@@ -1,0 +1,32 @@
+{
+  "command": "driver.blender.semantic.relations",
+  "data": {
+    "generation": 1,
+    "items": [],
+    "mutation": "domain_specific",
+    "offset": 0,
+    "relation": "strips",
+    "truncated": false
+  },
+  "execution": {
+    "backend": "driver:blender",
+    "dry_run": false,
+    "duration_ms": 37,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "7dfa15f2239d3e3ca783418f8a854e14e9466d171c69c957f9eae5eb4bd76466",
+      "execution_provider": "driver:blender",
+      "provider": "driver:blender",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "845fc1fce19d4a1182d83a2cce399c87",
+  "warnings": []
+}

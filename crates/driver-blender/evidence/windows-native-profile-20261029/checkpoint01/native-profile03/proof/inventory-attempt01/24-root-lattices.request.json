@@ -1,0 +1,10 @@
+{
+  "args": {
+    "limit": 64,
+    "root": "lattices"
+  },
+  "backend": null,
+  "command": "driver.blender.semantic.objects",
+  "dry_run": false,
+  "request_id": "a0b89f9864614be2bde67c5c4d7f9590"
+}

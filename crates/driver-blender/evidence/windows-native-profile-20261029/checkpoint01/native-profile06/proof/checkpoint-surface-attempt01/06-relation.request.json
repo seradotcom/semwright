@@ -1,0 +1,11 @@
+{
+  "args": {
+    "limit": 64,
+    "property": "sequence_editor",
+    "ref": "blender-rna/v1/scenes/U2NlbmU@1"
+  },
+  "backend": null,
+  "command": "driver.blender.semantic.relations",
+  "dry_run": false,
+  "request_id": "3ddec4bcca4b43bdb4cb4162889188c8"
+}

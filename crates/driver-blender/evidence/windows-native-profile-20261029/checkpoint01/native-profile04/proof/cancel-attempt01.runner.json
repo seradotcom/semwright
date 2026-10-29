@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "utc_start": "2026-10-29T00:56:32.914887+00:00",
+  "candidate": "native-profile04",
+  "mode": "cancel",
+  "argv": [
+    "E:\\Projects\\semwright-blender52\\.local\\target\\x86_64-pc-windows-gnu\\debug\\deps\\windows_broker_cancel-11a4341ad8d7c775.exe",
+    "--ignored",
+    "--exact",
+    "windows_production_broker_cancel_during_readiness",
+    "--nocapture",
+    "--test-threads=1"
+  ],
+  "test_binary_sha256": "2ece6e4bc98b5de07e024a40df45967fe82bb68618f45cb533ba8d7fa14491f7",
+  "source_sha256": "a39094933800ef6e2b7f65c4a1336a65bc3105c153028a2a5691aa80bb84f91e",
+  "compiled_source_log": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-broker-proof-build-attempt04",
+  "exit_code": 0,
+  "timed_out": false,
+  "seconds": 11.656000000002678,
+  "log_sha256": "989b6fefc620e64df5ba4b2ac69b967ae7062a7590ed5b5f846c1eefbff60057",
+  "receipts": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile04\\cancel-attempt01",
+  "retry_performed": false,
+  "broker_used": true,
+  "Linux_4_5_14": "NOT_RUN",
+  "A05": "PARTIAL"
+}

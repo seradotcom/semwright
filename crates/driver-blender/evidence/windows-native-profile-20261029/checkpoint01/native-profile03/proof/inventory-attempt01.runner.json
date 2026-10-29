@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "utc_start": "2026-10-29T00:22:47.812059+00:00",
+  "candidate": "native-profile03",
+  "mode": "inventory",
+  "argv": [
+    "E:\\Projects\\semwright-blender52\\.local\\target\\x86_64-pc-windows-gnu\\debug\\deps\\windows_broker_session-00b35b195fdda8c0.exe",
+    "--ignored",
+    "--exact",
+    "windows_production_broker_checkpoint_inventory",
+    "--nocapture",
+    "--test-threads=1"
+  ],
+  "test_binary_sha256": "9ddc75fe8fc0a09b70b2e0fb2953576f760118d5cf190152392099f38ac2e7e7",
+  "source_sha256": "2fb43454fc15978db38dbb760fdcd61f2da6e088f3dac948de9699a719eb08ef",
+  "compiled_source_log": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-broker-proof-build-attempt03",
+  "exit_code": 0,
+  "timed_out": false,
+  "seconds": 20.327999999994063,
+  "log_sha256": "add7f8f7ed7140ffdba1e515b4c0cab583ac917c08b2e3a553ace5146caf6778",
+  "receipts": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile03\\inventory-attempt01",
+  "retry_performed": false,
+  "broker_used": true,
+  "Linux_4_5_14": "NOT_RUN",
+  "A05": "PARTIAL"
+}

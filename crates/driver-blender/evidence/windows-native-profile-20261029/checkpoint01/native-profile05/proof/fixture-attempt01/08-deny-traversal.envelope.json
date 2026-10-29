@@ -1,0 +1,29 @@
+{
+  "command": "driver.blender.export.glb",
+  "error": {
+    "code": "PolicyDenied",
+    "message": "Driver reported an error; untrusted payload was redacted",
+    "outcome_known": false
+  },
+  "execution": {
+    "backend": "driver:blender",
+    "dry_run": false,
+    "duration_ms": 56,
+    "fallbacks_attempted": [],
+    "policy_decision": "deny",
+    "provenance": {
+      "capability_version": "1.0",
+      "catalog_revision": 160,
+      "descriptor_sha256": "af1f082e8a2b5c70cba953a75e2dcf770f1a0962ccef9a3fd44da998ee13bc1a",
+      "execution_provider": "driver:blender",
+      "provider": "driver:blender",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": false,
+  "request_id": "179a8edc44194dcb941857cf43b99240",
+  "warnings": []
+}

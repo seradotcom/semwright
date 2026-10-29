@@ -1,0 +1,10 @@
+{
+  "args": {
+    "limit": 64,
+    "root": "actions"
+  },
+  "backend": null,
+  "command": "driver.blender.semantic.objects",
+  "dry_run": false,
+  "request_id": "0d375ec959894c45ae1dd00f35f67c49"
+}

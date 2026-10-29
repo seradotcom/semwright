@@ -1,0 +1,10 @@
+{
+  "args": {
+    "limit": 64,
+    "root": "movieclips"
+  },
+  "backend": null,
+  "command": "driver.blender.semantic.objects",
+  "dry_run": false,
+  "request_id": "7ff1b13e7b064da29cb1d30c2ddd890c"
+}

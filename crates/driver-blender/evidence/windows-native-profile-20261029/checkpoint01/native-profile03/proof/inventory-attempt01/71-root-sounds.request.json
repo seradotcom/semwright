@@ -1,0 +1,10 @@
+{
+  "args": {
+    "limit": 64,
+    "root": "sounds"
+  },
+  "backend": null,
+  "command": "driver.blender.semantic.objects",
+  "dry_run": false,
+  "request_id": "eea9a8b488b8416db24016f151d8d39f"
+}

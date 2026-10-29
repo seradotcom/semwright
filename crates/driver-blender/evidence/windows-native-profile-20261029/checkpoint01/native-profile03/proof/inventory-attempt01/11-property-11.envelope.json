@@ -1,0 +1,40 @@
+{
+  "command": "driver.blender.semantic.property.get",
+  "data": {
+    "descriptor": {
+      "animatable": true,
+      "array_length": 0,
+      "description": "Save this data-block even if it has no users",
+      "id": "use_fake_user",
+      "name": "Fake User",
+      "status": "managed",
+      "subtype": "NONE",
+      "type": "BOOLEAN",
+      "writable": true
+    },
+    "property": "use_fake_user",
+    "ref": "blender-rna/v1/collections/Q29sbGVjdGlvbg@1",
+    "value": false
+  },
+  "execution": {
+    "backend": "driver:blender",
+    "dry_run": false,
+    "duration_ms": 33,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "e625d06629707ff0add7ff0c31ca51134fa1a7c471e82f09f00a88189f1f91ce",
+      "execution_provider": "driver:blender",
+      "provider": "driver:blender",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "d1a3197f6bd04af6a428286bf7ff0086",
+  "warnings": []
+}

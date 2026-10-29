@@ -1,0 +1,10 @@
+{
+  "args": {
+    "limit": 64,
+    "root": "pointclouds"
+  },
+  "backend": null,
+  "command": "driver.blender.semantic.objects",
+  "dry_run": false,
+  "request_id": "83af9afa556d47d3a8d864bff324b75a"
+}

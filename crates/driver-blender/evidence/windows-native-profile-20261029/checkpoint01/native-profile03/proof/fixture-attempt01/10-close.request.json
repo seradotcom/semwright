@@ -1,0 +1,9 @@
+{
+  "args": {
+    "checkpoint_path": "broker-final-recovery.blend"
+  },
+  "backend": null,
+  "command": "driver.blender.session.checkpoint_close",
+  "dry_run": false,
+  "request_id": "6c94a84430be412692f6b4fdf84d100e"
+}

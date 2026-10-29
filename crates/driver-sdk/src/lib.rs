@@ -460,6 +460,13 @@ impl SystemConfigMount {
     }
 }
 
+/// Closed application-specific Windows authority; owner policy must separately opt in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum WindowsNativeProfile {
+    #[serde(rename = "blender_5_2_1_initial")]
+    Blender521Initial,
+}
+
 /// Owner-granted executable verified and staged immutably by Driver Host.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -480,6 +487,10 @@ pub struct DriverToolMount {
     /// Linux-only compute authority for the Blender session runner. Owner policy must also grant it.
     #[serde(default, skip_serializing_if = "is_false")]
     pub nvidia_gpu: bool,
+    /// Initial-process Blender on Windows: fixed bootstrap, registryRead, no network, one process.
+    /// This is a request, never an owner grant. Absent preserves the original tool contract.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub windows_native_profile: Option<WindowsNativeProfile>,
     /// GPU-only native-tool override. All fields except address space must
     /// equal the enclosing driver resources; the driver keeps its own limits.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -487,6 +498,25 @@ pub struct DriverToolMount {
 }
 impl DriverToolMount {
     fn validate(&self) -> Result<()> {
+        if self.windows_native_profile.is_some()
+            && (self.name != "blender"
+                || self.nvidia_gpu
+                || self.resources.is_some()
+                || !self.dependencies.is_empty()
+                || !self.system_config.is_empty()
+                || self
+                    .mounts
+                    .iter()
+                    .map(String::as_str)
+                    .collect::<BTreeSet<_>>()
+                    != BTreeSet::from(["workspace", "blender-runtime"])
+                || self.mounts.len() != 2)
+        {
+            return Err(Error::new(
+                ErrorCode::PolicyDenied,
+                "Windows Blender initial profile requires its exact two mount roles and no extra tool authority",
+            ));
+        }
         if let Some(resources) = &self.resources {
             if !self.nvidia_gpu || self.name != "blender-session-runner" {
                 return Err(Error::new(
@@ -3116,6 +3146,7 @@ mod tests {
         candidate.interfaces.host_tools = true;
         candidate.nvidia_gpu = true;
         candidate.tools = vec![DriverToolMount {
+            windows_native_profile: None,
             root: "blender-session-runner".into(),
             name: "blender-session-runner".into(),
             sha256: "a".repeat(64),
@@ -3153,6 +3184,7 @@ mod tests {
         let mut native = candidate.resources.clone();
         native.address_space_bytes = 8_589_934_592;
         candidate.tools = vec![DriverToolMount {
+            windows_native_profile: None,
             root: "blender-session-runner".into(),
             name: "blender-session-runner".into(),
             sha256: "a".repeat(64),
@@ -3337,6 +3369,7 @@ mod tests {
     fn tool_mounts_are_digest_pinned_unique_and_separate_from_other_grants() {
         let mut valid = manifest();
         valid.tools = vec![DriverToolMount {
+            windows_native_profile: None,
             root: "godot-runtime".into(),
             name: "godot".into(),
             sha256: "a".repeat(64),
@@ -3359,6 +3392,7 @@ mod tests {
         let mut duplicate_name = manifest();
         duplicate_name.tools = vec![
             DriverToolMount {
+                windows_native_profile: None,
                 root: "tool-a".into(),
                 name: "godot".into(),
                 sha256: "a".repeat(64),
@@ -3369,6 +3403,7 @@ mod tests {
                 resources: None,
             },
             DriverToolMount {
+                windows_native_profile: None,
                 root: "tool-b".into(),
                 name: "godot".into(),
                 sha256: "b".repeat(64),
@@ -3383,6 +3418,7 @@ mod tests {
 
         let mut bad_digest = manifest();
         bad_digest.tools = vec![DriverToolMount {
+            windows_native_profile: None,
             root: "tool".into(),
             name: "godot".into(),
             sha256: "not-a-digest".into(),
@@ -3406,6 +3442,7 @@ mod tests {
         assert!(candidate.validate().is_err());
 
         candidate.tools = vec![DriverToolMount {
+            windows_native_profile: None,
             root: "tool-root".into(),
             name: "probe".into(),
             sha256: "a".repeat(64),
@@ -3455,6 +3492,7 @@ mod tests {
             execute: false,
         });
         candidate.tools = vec![DriverToolMount {
+            windows_native_profile: None,
             root: "godot-runtime".into(),
             name: "godot".into(),
             sha256: "a".repeat(64),
@@ -3589,6 +3627,7 @@ mod tests {
         });
         candidate.tools = vec![
             DriverToolMount {
+                windows_native_profile: None,
                 root: "probe-root".into(),
                 name: "probe".into(),
                 sha256: "a".repeat(64),
@@ -3599,6 +3638,7 @@ mod tests {
                 resources: None,
             },
             DriverToolMount {
+                windows_native_profile: None,
                 root: "helper-root".into(),
                 name: "helper".into(),
                 sha256: "b".repeat(64),
@@ -4188,6 +4228,7 @@ mod tests {
             destination: "/etc/fonts".into(),
         }];
         candidate.tools = vec![DriverToolMount {
+            windows_native_profile: None,
             root: "tool-root".into(),
             name: "probe".into(),
             sha256: "a".repeat(64),
@@ -4424,5 +4465,57 @@ mod materialized_lifecycle_tests {
         .await
         .unwrap_err();
         assert_eq!(error.code, ErrorCode::InvalidArgument);
+    }
+}
+
+#[cfg(test)]
+mod windows_native_profile_tests {
+    use super::*;
+    fn request() -> DriverToolMount {
+        DriverToolMount {
+            root: "blender-executable".into(),
+            name: "blender".into(),
+            sha256: "a".repeat(64),
+            mounts: vec!["workspace".into(), "blender-runtime".into()],
+            system_config: vec![],
+            dependencies: vec![],
+            nvidia_gpu: false,
+            resources: None,
+            windows_native_profile: Some(WindowsNativeProfile::Blender521Initial),
+        }
+    }
+    #[test]
+    fn windows_native_profile_requires_closed_authority() {
+        assert!(request().validate().is_ok());
+        for case in 0..7 {
+            let mut value = request();
+            match case {
+                0 => value.name = "other".into(),
+                1 => value.mounts.push("extra".into()),
+                2 => value.mounts[0] = "blender-runtime".into(),
+                3 => value.dependencies.push("helper".into()),
+                4 => value.system_config.push("font-config".into()),
+                5 => value.nvidia_gpu = true,
+                _ => value.resources = Some(DriverResources::default()),
+            }
+            assert!(value.validate().is_err(), "case {case}");
+        }
+    }
+    #[test]
+    fn windows_native_profile_defaults_to_no_authority() {
+        let mut value = request();
+        value.windows_native_profile = None;
+        value.mounts.clear();
+        let encoded = serde_json::to_value(&value).unwrap();
+        assert!(encoded.get("windows_native_profile").is_none());
+        let decoded: DriverToolMount = serde_json::from_value(encoded).unwrap();
+        assert!(decoded.windows_native_profile.is_none());
+        assert!(decoded.validate().is_ok());
+    }
+    #[test]
+    fn windows_native_profile_unknown_values_fail_closed() {
+        let mut value = serde_json::to_value(request()).unwrap();
+        value["windows_native_profile"] = serde_json::json!("registry_read_any_application");
+        assert!(serde_json::from_value::<DriverToolMount>(value).is_err());
     }
 }

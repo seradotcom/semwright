@@ -1,0 +1,67 @@
+{
+	"art_review": "NOT_APPLICABLE_DIAGNOSTIC_FIXTURE",
+	"camera_position": [
+		10.0,
+		11.0,
+		9.0
+	],
+	"camera_target": [
+		3.0,
+		5.0,
+		-4.0
+	],
+	"capture_sha256": "635c3a87f04b422f3c8dfacd4315fd98bd0b311e3978e7b823509b55f7aa0f43",
+	"capture_size": [
+		1280,
+		720
+	],
+	"display_server": "Windows",
+	"elapsed_ms": 1143,
+	"exit_code": 0,
+	"global_scale": [
+		1.0,
+		1.0,
+		2.0
+	],
+	"global_translation": [
+		3.0,
+		5.0,
+		-4.0
+	],
+	"godot_broker_used": false,
+	"godot_version": {
+		"build": "official",
+		"hash": "ed1daf0bf001b61586d9930840f2f1394092c079",
+		"hex": 263938,
+		"major": 4,
+		"minor": 7,
+		"patch": 2,
+		"status": "stable",
+		"string": "4.7.2-stable (official)",
+		"timestamp": 0
+	},
+	"godot_windows_driver_qualified": false,
+	"input_sha256": "d0773ba083cea6f9697678f528f9e82e57ae7a118beadef61eb9bacfcb0f9c04",
+	"local_aabb_position": [
+		-1.0,
+		-1.0,
+		-1.0
+	],
+	"local_aabb_size": [
+		2.0,
+		2.0,
+		2.0
+	],
+	"mesh_instance_count": 1,
+	"mesh_path": "BrokerProofCube",
+	"message": "Native import, geometry, transform and visible frame verified",
+	"os": "Windows",
+	"proof": "broker_glb_native_godot_consumer",
+	"rendering_method": "gl_compatibility",
+	"status": "PASS",
+	"surface_count": 1,
+	"user_data_directory": "E:/Projects/worldwright-archipelago/evidence/integration/20261029-native-profile/native-profile03/godot-consumer-attempt01/runtime-env/APPDATA/Godot/app_userdata/Semwright Native Godot Consumer Proof",
+	"vertex_count": 24,
+	"video_adapter_name": "NVIDIA GeForce GTX 1650",
+	"video_adapter_vendor": "NVIDIA"
+}

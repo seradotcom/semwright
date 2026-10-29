@@ -1,0 +1,11 @@
+{
+  "args": {
+    "limit": 64,
+    "property": "strips_all",
+    "ref": "blender-rna/v1/scenes/U2NlbmU/W1sicCIsInNlcXVlbmNlX2VkaXRvciJdXQ@1"
+  },
+  "backend": null,
+  "command": "driver.blender.semantic.relations",
+  "dry_run": false,
+  "request_id": "a323d47aedc047488bdee3a253923600"
+}

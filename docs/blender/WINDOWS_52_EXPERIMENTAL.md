@@ -1,5 +1,11 @@
 # Blender 5.2.1 Windows candidate: demonstrated boundary
 
+Current checkpoint: [Windows initial native profile, 2026-10-29](WINDOWS_NATIVE_PROFILE_20261029.md). Production broker scene operations, GLB export and bounded native cancellation now have physical evidence. Complete recovery and composition acceptance remain pending.
+
+## Historical probe report — retained, superseded startup boundary
+
+The report below describes the earlier diagnostic checkpoint. Its blocked-state and no-capability statements are historical; use the linked current checkpoint for the owner-authorized registryRead profile and later results.
+
 Status: **WIP / BLOCKED_WINDOWS_PROVIDER**. This branch is not verified Windows Blender support and is not ready for release. No native Blender scene mutation or GLB export has completed through the broker.
 
 ## Source and environment

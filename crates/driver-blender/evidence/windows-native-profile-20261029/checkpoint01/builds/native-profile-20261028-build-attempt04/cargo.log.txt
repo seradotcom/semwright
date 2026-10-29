@@ -1,0 +1,5 @@
+   Compiling semwright-driver-host v1.0.0 (E:\Projects\semwright-blender52\crates\driver-host)
+   Compiling semwright-driver-blender v1.0.0 (E:\Projects\semwright-blender52\crates\driver-blender)
+   Compiling semwright-cli v1.0.0 (E:\Projects\semwright-blender52\crates\cli)
+   Compiling semwright-daemon v1.0.0 (E:\Projects\semwright-blender52\crates\daemon)
+    Finished `dev` profile [unoptimized] target(s) in 35.29s

@@ -1,0 +1,9 @@
+{
+  "args": {
+    "ref": "blender-rna/v1/materials/RG90cyBTdHJva2U@1"
+  },
+  "backend": null,
+  "command": "driver.blender.semantic.object.describe",
+  "dry_run": false,
+  "request_id": "6bbeeb7d2e8c45d794598099689415c8"
+}

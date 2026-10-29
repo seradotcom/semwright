@@ -1,0 +1,43 @@
+
+running 1 test
+test windows_production_broker_checkpoint_surface ... BROKER_PROOF_STEP {"label":"list-scenes","ok":true,"request_id":"2e3caec097fe48a0ab5fb57d6f636f3c"}
+BROKER_PROOF_STEP {"label":"list-materials","ok":true,"request_id":"dc683271576448969011d61e88a93f50"}
+BROKER_PROOF_STEP {"label":"list-worlds","ok":true,"request_id":"b1e4700cf9d14570b2b1cf2887bec941"}
+BROKER_PROOF_STEP {"label":"list-lights","ok":true,"request_id":"ee7c85f4b5a7496abb8b44a3de2e128d"}
+BROKER_PROOF_STEP {"label":"describe","ok":true,"request_id":"cc319b59491b4561b28ea5c6c0af460c"}
+BROKER_PROOF_STEP {"label":"scalar","ok":true,"request_id":"748bddd8d1324e20a4bfc8e220cd448f"}
+BROKER_PROOF_STEP {"label":"relation","ok":true,"request_id":"9f040ba99bf942fe96ff58e9a3f90021"}
+BROKER_PROOF_STEP {"label":"relation","ok":true,"request_id":"82c6fa19568647279f53447798dca66b"}
+BROKER_PROOF_STEP {"label":"relation","ok":true,"request_id":"3e62071a30864118abe5af42d3dda9c2"}
+BROKER_PROOF_STEP {"label":"relation","ok":true,"request_id":"43a8318230b748e5a411f47c528ee939"}
+BROKER_PROOF_STEP {"label":"describe","ok":true,"request_id":"53c519c968f040a2a4bbfebcd84d7ff0"}
+BROKER_PROOF_STEP {"label":"scalar","ok":true,"request_id":"29950b2f32b349c588cecba31c52b35f"}
+BROKER_PROOF_STEP {"label":"relation","ok":true,"request_id":"19af476cae114bb89df34da127a7e10b"}
+BROKER_PROOF_STEP {"label":"describe","ok":true,"request_id":"cf9afa96bf9f4db2a50beeb78e025515"}
+BROKER_PROOF_STEP {"label":"scalar","ok":true,"request_id":"31b317cb24574313a993d80cb1cc6f5c"}
+BROKER_PROOF_STEP {"label":"relation","ok":true,"request_id":"1b0d05c9bed44f6a8b0c6c10692b7576"}
+BROKER_PROOF_STEP {"label":"describe","ok":true,"request_id":"1c0f7b1c18ef44748948dc489aa0f8ca"}
+BROKER_PROOF_STEP {"label":"scalar","ok":true,"request_id":"50de6ef3e17744c6a69dbbf9d3d1dd95"}
+BROKER_PROOF_STEP {"label":"relation","ok":true,"request_id":"bc80ccc376234aaeb4ac8191caff8c6d"}
+BROKER_PROOF_STEP {"label":"describe","ok":true,"request_id":"5d72a44acaf74a2780bfeb729259472c"}
+BROKER_PROOF_STEP {"label":"scalar","ok":true,"request_id":"698d12e8e19b4b70aba1c8550508d9d8"}
+BROKER_PROOF_STEP {"label":"relation","ok":true,"request_id":"d08e847a203246fbbde6f249be217463"}
+BROKER_PROOF_STEP {"label":"describe","ok":true,"request_id":"979791f34abf4f1791dba49e78f54d50"}
+BROKER_PROOF_STEP {"label":"relation","ok":true,"request_id":"5212c29713964fb38cb0e1929cdce40d"}
+BROKER_PROOF_STEP {"label":"relation","ok":true,"request_id":"0a082a1cd8fb488abadd95f6cd478f03"}
+BROKER_PROOF_STEP {"label":"relation","ok":true,"request_id":"5143768933e14200831e4dd08aebf8d8"}
+BROKER_PROOF_STEP {"label":"relation","ok":true,"request_id":"1e313b33c39c4f359d6048e1e1543505"}
+BROKER_PROOF_STEP {"label":"relation","ok":true,"request_id":"8bd91988e8ae4faa8997336866e1b997"}
+BROKER_PROOF_STEP {"label":"describe","ok":true,"request_id":"32e55d47b2ef49959ccc108e484321fe"}
+BROKER_PROOF_STEP {"label":"relation","ok":true,"request_id":"a3005842379648c8b5332efa274b7852"}
+BROKER_PROOF_STEP {"label":"describe","ok":true,"request_id":"4bf8007533ec497f87cfc1680d901223"}
+BROKER_PROOF_STEP {"label":"relation","ok":true,"request_id":"57286522c626413b9ef1dd6e6a72ffe5"}
+BROKER_PROOF_STEP {"label":"describe","ok":true,"request_id":"f9de39faf2b548eb9f98f3dfcd1b4a48"}
+BROKER_PROOF_STEP {"label":"relation","ok":true,"request_id":"f44ba7bd64b545e0881533b62910702a"}
+BROKER_PROOF_STEP {"label":"describe","ok":true,"request_id":"22e87b7b826f4908b1ee868820b2e191"}
+BROKER_PROOF_STEP {"label":"relation","ok":true,"request_id":"fa9ff2e52a6a4df68d2e13da21e1dc6d"}
+BROKER_PROOF_STEP {"label":"checkpoint-inspect","ok":true,"request_id":"dce419893ed7411eb2ffa2e3fd8b4c69"}
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 18.40s
+

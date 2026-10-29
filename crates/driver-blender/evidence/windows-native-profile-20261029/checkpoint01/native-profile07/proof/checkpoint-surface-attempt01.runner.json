@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "utc_start": "2026-10-29T01:24:14.693828+00:00",
+  "candidate": "native-profile07",
+  "argv": [
+    "E:\\Projects\\semwright-blender52\\.local\\target\\x86_64-pc-windows-gnu\\debug\\deps\\windows_broker_authoring-a9500905004d3cdf.exe",
+    "--ignored",
+    "--exact",
+    "windows_production_broker_checkpoint_surface",
+    "--nocapture",
+    "--test-threads=1"
+  ],
+  "test_binary_sha256": "1a35b2496a33732ebb4192021df6afbbaf85b7c29fc229aa1dd92304f10556b2",
+  "source_sha256": "6474ce5e49232dadb65c347180fd6f8ea45a0644d8db2463f5ae833ca5cb299b",
+  "compiled_source_log": "E:\\Projects\\semwright-blender52\\.local\\logs\\native-profile-20261028-authoring-proof-build-attempt03",
+  "exit_code": 0,
+  "timed_out": false,
+  "seconds": 19.98399999999674,
+  "log_sha256": "5cfb1628230e5aa14f83a0addf9615dfd53c529ddbb0ef624d30b7930dc8d0f2",
+  "receipts": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-native-profile\\native-profile07\\checkpoint-surface-attempt01",
+  "artifact_directory": "E:\\Projects\\worldwright-archipelago\\.local\\native-profile07-workspace\\checkpoint-surface-attempt01",
+  "broker_used": true,
+  "retry_performed": false,
+  "Linux_4_5_14": "NOT_RUN",
+  "art_approval": false
+}

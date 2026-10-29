@@ -1,0 +1,24 @@
+test_all_ids_invalid_rna_metadata_rejected (test_blender_checkpoint.CheckpointTests.test_all_ids_invalid_rna_metadata_rejected) ... ok
+test_all_ids_is_cross_checked_without_duplicate_orphan_retention (test_blender_checkpoint.CheckpointTests.test_all_ids_is_cross_checked_without_duplicate_orphan_retention) ... ok
+test_all_ids_missing_extra_or_duplicate_data_rejected (test_blender_checkpoint.CheckpointTests.test_all_ids_missing_extra_or_duplicate_data_rejected) ... ok
+test_compositor_uses_actual_tree_not_deprecated_always_true_flag (test_blender_checkpoint.CheckpointTests.test_compositor_uses_actual_tree_not_deprecated_always_true_flag) ... ok
+test_dirty_image_and_unknown_category_rejected_before_save (test_blender_checkpoint.CheckpointTests.test_dirty_image_and_unknown_category_rejected_before_save) ... ok
+test_empty_runtime_images_allowed_but_pixels_or_persistent_users_rejected (test_blender_checkpoint.CheckpointTests.test_empty_runtime_images_allowed_but_pixels_or_persistent_users_rejected) ... ok
+test_empty_sequencer_shell_is_preserved_without_resetting_channels (test_blender_checkpoint.CheckpointTests.test_empty_sequencer_shell_is_preserved_without_resetting_channels) ... ok
+test_existing_file_preserved (test_blender_checkpoint.CheckpointTests.test_existing_file_preserved) ... ok
+test_failed_native_save_is_typed_and_preserves_session (test_blender_checkpoint.CheckpointTests.test_failed_native_save_is_typed_and_preserves_session) ... ok
+test_initial_open_hash_failure_consumes_one_shot_without_loading (test_blender_checkpoint.CheckpointTests.test_initial_open_hash_failure_consumes_one_shot_without_loading) ... ok
+test_initial_open_uses_fixed_safe_flags (test_blender_checkpoint.CheckpointTests.test_initial_open_uses_fixed_safe_flags) ... ok
+test_inspection_is_advisory_and_never_saves (test_blender_checkpoint.CheckpointTests.test_inspection_is_advisory_and_never_saves) ... ok
+test_migrated_static_shader_nodes_supported_but_external_nodes_rejected (test_blender_checkpoint.CheckpointTests.test_migrated_static_shader_nodes_supported_but_external_nodes_rejected) ... ok
+test_mode_rejected_before_save (test_blender_checkpoint.CheckpointTests.test_mode_rejected_before_save) ... ok
+test_modifier_cache_rejected_before_save (test_blender_checkpoint.CheckpointTests.test_modifier_cache_rejected_before_save) ... ok
+test_new_copy_verified_and_preferences_restored (test_blender_checkpoint.CheckpointTests.test_new_copy_verified_and_preferences_restored) ... ok
+test_orphan_mesh_retained_in_copy_and_original_flag_restored (test_blender_checkpoint.CheckpointTests.test_orphan_mesh_retained_in_copy_and_original_flag_restored) ... ok
+test_palettes_require_finite_bounded_colours (test_blender_checkpoint.CheckpointTests.test_palettes_require_finite_bounded_colours) ... ok
+test_sequencer_content_or_unknown_shell_rejected_before_save (test_blender_checkpoint.CheckpointTests.test_sequencer_content_or_unknown_shell_rejected_before_save) ... ok
+
+----------------------------------------------------------------------
+Ran 19 tests in 0.201s
+
+OK

@@ -1,0 +1,43 @@
+
+running 1 test
+test windows_production_broker_checkpoint_surface ... BROKER_PROOF_STEP {"label":"list-scenes","ok":true,"request_id":"c5d42033343d455a8030f6c75521e123"}
+BROKER_PROOF_STEP {"label":"list-materials","ok":true,"request_id":"20bc5ca25779447795453c1e0f0f79af"}
+BROKER_PROOF_STEP {"label":"list-worlds","ok":true,"request_id":"c3013cd771ff43d9be48edbf49537307"}
+BROKER_PROOF_STEP {"label":"list-lights","ok":true,"request_id":"7f97f8585900485ca81e252d98455977"}
+BROKER_PROOF_STEP {"label":"describe","ok":true,"request_id":"a071619f5d114b14ac87fa69ce0adc4f"}
+BROKER_PROOF_STEP {"label":"scalar","ok":true,"request_id":"db28e7c052a64789a9c65f4b8ab25e1f"}
+BROKER_PROOF_STEP {"label":"relation","ok":true,"request_id":"3ddec4bcca4b43bdb4cb4162889188c8"}
+BROKER_PROOF_STEP {"label":"relation","ok":true,"request_id":"9ccbd33ef31a467b8ad86c01a1945cbb"}
+BROKER_PROOF_STEP {"label":"relation","ok":true,"request_id":"f5566e8e84834f9bb53234f9aa7b8e63"}
+BROKER_PROOF_STEP {"label":"relation","ok":true,"request_id":"2b5e100721c5402298335db4559f6460"}
+BROKER_PROOF_STEP {"label":"describe","ok":true,"request_id":"6bbeeb7d2e8c45d794598099689415c8"}
+BROKER_PROOF_STEP {"label":"scalar","ok":true,"request_id":"45ce279ea05947d58a35cbe754efd2a8"}
+BROKER_PROOF_STEP {"label":"relation","ok":true,"request_id":"9c920b6a93134ffd99a44949faac4244"}
+BROKER_PROOF_STEP {"label":"describe","ok":true,"request_id":"1f44b99fad2947abb7e710b7ce427dbc"}
+BROKER_PROOF_STEP {"label":"scalar","ok":true,"request_id":"3a28e01b3493405f850b0f52051f1cdf"}
+BROKER_PROOF_STEP {"label":"relation","ok":true,"request_id":"15b50c7742f94065a96aad74ab0851bb"}
+BROKER_PROOF_STEP {"label":"describe","ok":true,"request_id":"3e497fe03bc2495c85c60bde9be97cfc"}
+BROKER_PROOF_STEP {"label":"scalar","ok":true,"request_id":"298a38257a6e4c3b8f6a77148850c8d6"}
+BROKER_PROOF_STEP {"label":"relation","ok":true,"request_id":"e27e9f8c43f8462ebc64857200f3b66a"}
+BROKER_PROOF_STEP {"label":"describe","ok":true,"request_id":"4b67a66a97c74bb7b1795f7a8cb34e37"}
+BROKER_PROOF_STEP {"label":"scalar","ok":true,"request_id":"c96c0e3caa494a04bd2e7184f58da4c5"}
+BROKER_PROOF_STEP {"label":"relation","ok":true,"request_id":"0fcdd3ca6cbe460d877af2a62ee80ca5"}
+BROKER_PROOF_STEP {"label":"describe","ok":true,"request_id":"d0828d0d62994ecdbe8507d877b1884f"}
+BROKER_PROOF_STEP {"label":"relation","ok":true,"request_id":"845fc1fce19d4a1182d83a2cce399c87"}
+BROKER_PROOF_STEP {"label":"relation","ok":true,"request_id":"a323d47aedc047488bdee3a253923600"}
+BROKER_PROOF_STEP {"label":"relation","ok":true,"request_id":"579735091ddb471b9fe45543f2662af9"}
+BROKER_PROOF_STEP {"label":"relation","ok":true,"request_id":"ead19de5646f49a98da2fb7a4e51fcc3"}
+BROKER_PROOF_STEP {"label":"relation","ok":true,"request_id":"bf2d2fa367d04348bbc6a089fd45df65"}
+
+thread 'windows_production_broker_checkpoint_surface' (27412) panicked at crates\driver-blender\tests\windows_broker_authoring.rs:792:5:
+Inspect read-only diagnostic receipts
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+FAILED
+
+failures:
+
+failures:
+    windows_production_broker_checkpoint_surface
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 1 filtered out; finished in 17.32s
+

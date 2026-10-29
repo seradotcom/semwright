@@ -1,0 +1,45 @@
+{
+  "command": "driver.blender.semantic.relations",
+  "data": {
+    "generation": 1,
+    "items": [
+      {
+        "index": 0,
+        "name": "Light Output",
+        "ref": "blender-rna/v1/lights/TGlnaHQ/W1sicCIsIm5vZGVfdHJlZSJdLFsiYyIsIm5vZGVzIiwwXV0@1",
+        "rna_type": "ShaderNodeOutputLight"
+      },
+      {
+        "index": 1,
+        "name": "Emission",
+        "ref": "blender-rna/v1/lights/TGlnaHQ/W1sicCIsIm5vZGVfdHJlZSJdLFsiYyIsIm5vZGVzIiwxXV0@1",
+        "rna_type": "ShaderNodeEmission"
+      }
+    ],
+    "mutation": "domain_specific",
+    "offset": 0,
+    "relation": "nodes",
+    "truncated": false
+  },
+  "execution": {
+    "backend": "driver:blender",
+    "dry_run": false,
+    "duration_ms": 30,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "7dfa15f2239d3e3ca783418f8a854e14e9466d171c69c957f9eae5eb4bd76466",
+      "execution_provider": "driver:blender",
+      "provider": "driver:blender",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "fa9ff2e52a6a4df68d2e13da21e1dc6d",
+  "warnings": []
+}

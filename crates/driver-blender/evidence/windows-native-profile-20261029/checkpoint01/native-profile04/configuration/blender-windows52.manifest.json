@@ -1,0 +1,76 @@
+{
+    "manifest_version":  1,
+    "protocol":  8,
+    "id":  "blender",
+    "version":  "1.0.0",
+    "publisher":  "semwright",
+    "executable":  "E:\\Projects\\worldwright-archipelago\\tools\\semwright-blender52-native-profile04\\semwright-blender-driver.exe",
+    "sha256":  "9e5eb4654fc4e139e986ce752fc7e445a52b76b85bb945290ee255ce777eb40f",
+    "application":  {
+                        "desktop_id":  "org.blender.Blender",
+                        "process_names":  [
+                                              "blender.exe"
+                                          ],
+                        "supported_versions":  [
+                                                   "5.2.1"
+                                               ]
+                    },
+    "transport":  "stdio_v1",
+    "mounts":  [
+                   {
+                       "read_only":  false,
+                       "root":  "workspace",
+                       "execute":  false
+                   },
+                   {
+                       "read_only":  true,
+                       "root":  "blender-runtime",
+                       "execute":  true
+                   }
+               ],
+    "system_config":  [
+
+                      ],
+    "secrets":  [
+
+                ],
+    "tools":  [
+                  {
+                      "mounts":  [
+                                     "workspace",
+                                     "blender-runtime"
+                                 ],
+                      "windows_native_profile":  "blender_5_2_1_initial",
+                      "dependencies":  [
+
+                                       ],
+                      "nvidia_gpu":  false,
+                      "name":  "blender",
+                      "system_config":  [
+
+                                        ],
+                      "root":  "blender-executable",
+                      "sha256":  "284f4041f98e113f3dc10654a7193ffaaa9bfdfec8b87fa116620a48b5f6d4cb"
+                  }
+              ],
+    "network":  false,
+    "resources":  {
+                      "open_files":  256,
+                      "processes":  8,
+                      "cpu_seconds":  300,
+                      "operation_cpu_seconds":  0,
+                      "address_space_bytes":  4294967296,
+                      "file_size_bytes":  1073741824
+                  },
+    "request_timeout_ms":  300000,
+    "interfaces":  {
+                       "dynamic_capabilities":  false,
+                       "cooperative_cancellation":  true,
+                       "events":  false,
+                       "health":  true,
+                       "progress":  true,
+                       "artifacts":  false,
+                       "native_refs":  false,
+                       "host_tools":  true
+                   }
+}

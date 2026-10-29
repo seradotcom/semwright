@@ -1,0 +1,40 @@
+{
+  "command": "driver.blender.semantic.property.get",
+  "data": {
+    "descriptor": {
+      "animatable": false,
+      "array_length": 0,
+      "description": "Use shader nodes to render the light",
+      "id": "use_nodes",
+      "name": "Use Nodes",
+      "status": "managed",
+      "subtype": "NONE",
+      "type": "BOOLEAN",
+      "writable": true
+    },
+    "property": "use_nodes",
+    "ref": "blender-rna/v1/lights/TGlnaHQ@1",
+    "value": true
+  },
+  "execution": {
+    "backend": "driver:blender",
+    "dry_run": false,
+    "duration_ms": 31,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "e625d06629707ff0add7ff0c31ca51134fa1a7c471e82f09f00a88189f1f91ce",
+      "execution_provider": "driver:blender",
+      "provider": "driver:blender",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "698d12e8e19b4b70aba1c8550508d9d8",
+  "warnings": []
+}

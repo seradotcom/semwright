@@ -404,6 +404,9 @@ def summary():
 
 
 def dispatch(command, args):
+    global semantic, authoring
+    if command not in {"driver.blender.introspect.summary", "driver.blender.file.open_initial"}:
+        commands.initial_open_available = False
     if not isinstance(command, str) or not isinstance(args, dict):
         raise CommandError("InvalidArgument", "Blender driver request is malformed")
     if command.startswith("driver.blender._authoring."):
@@ -904,6 +907,10 @@ def dispatch(command, args):
         return search_addons(args)
     if command.startswith("driver.blender."):
         data = commands("blender." + command[len("driver.blender."):], args)
+        if command in {"driver.blender.file.open", "driver.blender.file.open_initial"}:
+            # Loading replaces datablocks. Old native references and authoring session refs expire.
+            semantic = SemanticStore(bpy, commands.workspace.root)
+            authoring = AuthoringRuntime(bpy, commands, semantic)
         if command in {
             "driver.blender.object.create", "driver.blender.object.delete",
             "driver.blender.object.transform", "driver.blender.collection.create",

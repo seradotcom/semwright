@@ -2,33 +2,45 @@
 
 ## Proposed title
 
-WIP: add pinned Blender 5.2 runtime profiles and Windows confinement diagnostics
+WIP: add owner-gated initial Blender 5.2.1 sessions on Windows
 
 ## Problem
 
-The first-party deep Blender driver has a Linux-verified runtime path. The owner has Blender 5.2.1 LTS on Windows, where an installed executable and an open GUI do not establish an isolated DriverProvider. Treating those states as integration would produce false provenance for downstream GLB assets.
+The first-party Blender driver has a Linux-qualified runtime route. Windows cannot use the same descendant-launch arrangement inside the tested LPAC. An installed Blender or open GUI does not establish a confined DriverProvider; direct bpy exports do not establish broker provenance.
 
 ## Changes
 
-- Add exact host/version profiles and explicit 5.2 resource layouts; retain the Linux 4.5.14 profile.
-- Add a Windows session-runner candidate with LPAC/Job identity checks, private pipes, suspended child launch and bounded handle inheritance.
-- Keep authority with Driver Host: digest-pinned binaries, typed mounts/tool arguments, scoped output and fail-closed behavior.
-- Separate preparation timeouts from session lifetime; preserve bounded startup, cancellation and exit diagnostics.
-- Add Windows path-denial checks and private candidate-instance paths.
-- Add sealed fixtures that reproduce nested launch denial and compare native SxS activation under the owner and LPAC.
+- Add an explicit, disabled-by-default owner grant for a closed Windows Blender 5.2.1 initial-process profile.
+- Keep Host control of pinned runtime identity, private snapshot, fixed arguments/environment/bootstrap, typed mounts, actual token/Job attestation and lifetime controls.
+- Preserve LPAC and the one-process native Job; request the separately authorized registryRead capability without network or GPU.
+- Route the first-party bridge through production broker/DriverProvider; keep generic RNA mutation on 5.2 restricted.
+- Add readiness cancellation, late-start rejection and correlated reaping evidence.
+- Add new-only checkpoint, advisory inspection, save-before-close and fresh hash-checked initial open while retaining legacy destructive-operation consent.
+- Make the Host package self-contained with exact vendored sources, a read-only consistency gate and explicit synchronization.
+- Retain Linux profiles and update manifest constructors with the optional Windows profile.
 
-## Result and current blocker
+## Observed behavior
 
-This is an experimental work-in-progress, not release-ready Windows support. The LPAC fixture reads the exact manifests and enumerates their directories, but CreateActCtxW returns error 5 even for a fixed minimal dependency-free manifest that succeeds with the owner. Nested child creation also remains denied. No broker-mediated Blender scene mutation, GLB export or Godot handoff has passed.
+Production candidates execute authenticated broker requests against confined Blender 5.2.1: typed creation/transform, independent readback and GLB export. Duplicate output and traversal requests were rejected with preservation checks. Native Godot imported/rendered the exact candidate03 GLB; this consumer did not use the Godot broker.
 
-The implementation does not grant broad registry/network capabilities or fall back to owner execution. See WINDOWS_52_EXPERIMENTAL.md for the physical findings, exact hashes and reproduction command.
+Owner opt-in denial and real readiness cancellation have physical evidence. Recovery remains incomplete: preserved failures exposed factory data and Blender 5.2 API differences. Full save/close/reopen and composition acceptance remain pending.
 
-## Validation
+See [the current checkpoint](WINDOWS_NATIVE_PROFILE_20261029.md) and [historical probes](WINDOWS_52_EXPERIMENTAL.md).
 
-Targeted Windows component and Python boundary tests have passed in the retained branch history. The decisive native-launch/SxS test fails and is preserved as such. Linux 4.5.14 and Linux 5.2.1 native runs have not been performed on this host; they remain required.
+## Authority and compatibility limits
 
-Independent original Blender-to-Godot art exports are deliberately excluded from Semwright acceptance evidence.
+registryRead allows Windows ACL-authorized registry reads; it is not an individual SideBySide-key whitelist. No owner-token fallback, arbitrary Python/eval/shell capability, global ACL relaxation, third-party Blender MCP or automatic human consent response is added.
 
-## Before publication or merge
+The public manifest type gains an optional field. Serialized manifests without it retain their default route; external Rust struct-literal call sites may need an update. Shared Host/SDK/platform changes require upstream review.
 
-Resolve the Host confinement contract, complete the Windows broker E2E and negative/recovery suite, run the retained Linux 4.5.14 regression, review shared Host/SDK/Godot changes separately, and update the compatibility/release matrix from actual results. The owner has not authorized pushing, opening a PR or running external CI.
+Checkpointing preserves a declared scene-data subset with intentional orphan retention in its recovery copy. It does not preserve undo history or all process state. Initial file open uses an owner-controlled workspace and hashes, not a sealed file-handle import protocol.
+
+Linux 4.5.14/5.2.1 native regression, confined Windows GPU rendering, full Godot Windows-driver qualification and registry installation remain unverified. The retained Linux native lane was not spoofed or run locally.
+
+## Validation and release boundary
+
+Source/binary-pinned records cover unit/build/package checks, native broker fixture, owner denial, cancellation and native Godot consumption. Failed/incomplete runs remain visible. Diagnostic success is not authoring acceptance; fixture preservation is not human-edit preservation.
+
+This contribution is experimental and not release-ready. Complete lifecycle/composition proofs, audit correlation and Linux regression before advancing compatibility claims. Archipelago art and G6 remain independent and incomplete.
+
+The owner authorized local development/checkpoints, not external push, PR, merge, publication or CI.

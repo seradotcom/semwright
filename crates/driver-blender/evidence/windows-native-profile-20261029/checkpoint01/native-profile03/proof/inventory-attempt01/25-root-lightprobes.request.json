@@ -1,0 +1,10 @@
+{
+  "args": {
+    "limit": 64,
+    "root": "lightprobes"
+  },
+  "backend": null,
+  "command": "driver.blender.semantic.objects",
+  "dry_run": false,
+  "request_id": "721c6c6fdca647aeac4a6ef477ba687a"
+}

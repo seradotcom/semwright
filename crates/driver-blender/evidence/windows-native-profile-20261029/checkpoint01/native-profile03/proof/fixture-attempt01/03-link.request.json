@@ -1,0 +1,10 @@
+{
+  "args": {
+    "collection": "BrokerProof",
+    "object": "BrokerProofCube"
+  },
+  "backend": null,
+  "command": "driver.blender.collection.link",
+  "dry_run": false,
+  "request_id": "b0f6476945a44441a27909a017e2db84"
+}

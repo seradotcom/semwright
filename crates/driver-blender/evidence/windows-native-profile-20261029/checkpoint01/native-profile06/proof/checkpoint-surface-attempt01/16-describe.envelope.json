@@ -1,0 +1,713 @@
+{
+  "command": "driver.blender.semantic.object.describe",
+  "data": {
+    "name": "World",
+    "properties": [
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "RNA type definition",
+        "id": "rna_type",
+        "name": "RNA",
+        "reason": "RNA type metadata is runtime-owned",
+        "status": "runtime_owned",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Unique data-block ID name (within a same type and library)",
+        "id": "name",
+        "name": "Name",
+        "reason": "Names require rename semantics so revision-bound refs can rotate safely",
+        "status": "read_only",
+        "subtype": "NONE",
+        "type": "STRING",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Unique data-block ID name, including library one if any",
+        "id": "name_full",
+        "name": "Full Name",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "NONE",
+        "type": "STRING",
+        "writable": false
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Type identifier of this data-block",
+        "enum": [
+          {
+            "id": "ACTION",
+            "name": "Action"
+          },
+          {
+            "id": "ARMATURE",
+            "name": "Armature"
+          },
+          {
+            "id": "BRUSH",
+            "name": "Brush"
+          },
+          {
+            "id": "CACHEFILE",
+            "name": "Cache File"
+          },
+          {
+            "id": "CAMERA",
+            "name": "Camera"
+          },
+          {
+            "id": "COLLECTION",
+            "name": "Collection"
+          },
+          {
+            "id": "CURVE",
+            "name": "Curve"
+          },
+          {
+            "id": "CURVES",
+            "name": "Curves"
+          },
+          {
+            "id": "FONT",
+            "name": "Font"
+          },
+          {
+            "id": "GREASEPENCIL",
+            "name": "Grease Pencil"
+          },
+          {
+            "id": "GREASEPENCIL_V3",
+            "name": "Grease Pencil v3"
+          },
+          {
+            "id": "IMAGE",
+            "name": "Image"
+          },
+          {
+            "id": "KEY",
+            "name": "Key"
+          },
+          {
+            "id": "LATTICE",
+            "name": "Lattice"
+          },
+          {
+            "id": "LIBRARY",
+            "name": "Library"
+          },
+          {
+            "id": "LIGHT",
+            "name": "Light"
+          },
+          {
+            "id": "LIGHT_PROBE",
+            "name": "Light Probe"
+          },
+          {
+            "id": "LINESTYLE",
+            "name": "Line Style"
+          },
+          {
+            "id": "MASK",
+            "name": "Mask"
+          },
+          {
+            "id": "MATERIAL",
+            "name": "Material"
+          },
+          {
+            "id": "MESH",
+            "name": "Mesh"
+          },
+          {
+            "id": "META",
+            "name": "Metaball"
+          },
+          {
+            "id": "MOVIECLIP",
+            "name": "Movie Clip"
+          },
+          {
+            "id": "NODETREE",
+            "name": "Node Tree"
+          },
+          {
+            "id": "OBJECT",
+            "name": "Object"
+          },
+          {
+            "id": "PAINTCURVE",
+            "name": "Paint Curve"
+          },
+          {
+            "id": "PALETTE",
+            "name": "Palette"
+          },
+          {
+            "id": "PARTICLE",
+            "name": "Particle"
+          },
+          {
+            "id": "POINTCLOUD",
+            "name": "Point Cloud"
+          },
+          {
+            "id": "SCENE",
+            "name": "Scene"
+          },
+          {
+            "id": "SCREEN",
+            "name": "Screen"
+          },
+          {
+            "id": "SOUND",
+            "name": "Sound"
+          },
+          {
+            "id": "SPEAKER",
+            "name": "Speaker"
+          },
+          {
+            "id": "TEXT",
+            "name": "Text"
+          },
+          {
+            "id": "TEXTURE",
+            "name": "Texture"
+          },
+          {
+            "id": "VOLUME",
+            "name": "Volume"
+          },
+          {
+            "id": "WINDOWMANAGER",
+            "name": "Window Manager"
+          },
+          {
+            "id": "WORKSPACE",
+            "name": "Workspace"
+          },
+          {
+            "id": "WORLD",
+            "name": "World"
+          }
+        ],
+        "id": "id_type",
+        "name": "Type",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "NONE",
+        "type": "ENUM",
+        "writable": false
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "A session-wide unique identifier for the data block that remains the same across renames and internal reallocations, unchanged when reloading the file",
+        "id": "session_uid",
+        "maximum": 2147483647,
+        "minimum": -2147483648,
+        "name": "Session UID",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "NONE",
+        "type": "INT",
+        "writable": false
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Whether this ID is runtime-only, evaluated data-block, or actual data from .blend file",
+        "id": "is_evaluated",
+        "name": "Is Evaluated",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Actual data-block from .blend file (Main database) that generated that evaluated one",
+        "id": "original",
+        "name": "Original ID",
+        "reason": "Runtime/back-reference relation is not persistent authoring state",
+        "status": "runtime_owned",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Number of times this data-block is referenced",
+        "id": "users",
+        "maximum": 2147483647,
+        "minimum": 0,
+        "name": "Users",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "UNSIGNED",
+        "type": "INT",
+        "writable": false
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Save this data-block even if it has no users",
+        "id": "use_fake_user",
+        "name": "Fake User",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Indicates whether an extra user is set or not (mainly for internal/debug usages)",
+        "id": "use_extra_user",
+        "name": "Extra User",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "This data-block is not an independent one, but is actually a sub-data of another ID (typical example: root node trees or master collections)",
+        "id": "is_embedded_data",
+        "name": "Embedded Data",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": false
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "This data-block is linked and packed into the .blend file",
+        "id": "is_linked_packed",
+        "name": "Linked Packed",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": false
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "This data-block is a place-holder for missing linked data (i.e. it is [an override of] a linked data that could not be found anymore)",
+        "id": "is_missing",
+        "name": "Missing Data",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": false
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "This data-block is runtime data, i.e. it won't be saved in .blend file. Note that e.g. evaluated IDs are always runtime, so this value is only editable for data-blocks in Main data-base.",
+        "id": "is_runtime_data",
+        "name": "Runtime Data",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "This data-block is editable in the user interface. Linked data-blocks are not editable, except if they were loaded as editable assets.",
+        "id": "is_editable",
+        "name": "Editable",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": false
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Tools can use this to tag data for their own purposes (initial state is undefined)",
+        "id": "tag",
+        "name": "Tag",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Is this ID block linked indirectly",
+        "id": "is_library_indirect",
+        "name": "Is Indirect",
+        "reason": "RNA marks this property read-only",
+        "status": "read_only",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Library file the data-block is linked from",
+        "id": "library",
+        "name": "Library",
+        "reason": "Executable/external relation requires a dedicated trusted domain",
+        "status": "unsupported_by_design",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Weak reference to a data-block in another library .blend file (used to re-use already appended data instead of appending new copies)",
+        "id": "library_weak_reference",
+        "name": "Library Weak Reference",
+        "reason": "Runtime/back-reference relation is not persistent authoring state",
+        "status": "runtime_owned",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Additional data for an asset data-block",
+        "id": "asset_data",
+        "name": "Asset Data",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "pointer_set",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": true
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Library override data",
+        "id": "override_library",
+        "name": "Library Override",
+        "reason": "Runtime/back-reference relation is not persistent authoring state",
+        "status": "runtime_owned",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Preview image and icon of this data-block (always None if not supported for this type of data)",
+        "id": "preview",
+        "name": "Preview",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Animation data for this data-block",
+        "id": "animation_data",
+        "name": "Animation Data",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "The world's volume used to be rendered by EEVEE Legacy. Conversion is needed for it to render properly.",
+        "id": "use_eevee_finite_volume",
+        "name": "Finite Volume",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 3,
+        "description": "Color of the background",
+        "id": "color",
+        "maximum": 3.4028234663852886e+38,
+        "minimum": 0.0,
+        "name": "Color",
+        "status": "managed",
+        "subtype": "COLOR",
+        "type": "FLOAT",
+        "writable": true
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "World lighting settings",
+        "id": "light_settings",
+        "name": "Lighting",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "World mist settings",
+        "id": "mist_settings",
+        "name": "Mist",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Node tree for node based worlds",
+        "id": "node_tree",
+        "name": "Node Tree",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Use shader nodes to render the world",
+        "id": "use_nodes",
+        "name": "Use Nodes",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Lightgroup that the world belongs to",
+        "id": "lightgroup",
+        "name": "Lightgroup",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "STRING",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Resolution when baked to a texture",
+        "enum": [
+          {
+            "id": "128",
+            "name": "128"
+          },
+          {
+            "id": "256",
+            "name": "256"
+          },
+          {
+            "id": "512",
+            "name": "512"
+          },
+          {
+            "id": "1024",
+            "name": "1024"
+          },
+          {
+            "id": "2048",
+            "name": "2048"
+          },
+          {
+            "id": "4096",
+            "name": "4096"
+          }
+        ],
+        "id": "probe_resolution",
+        "name": "Resolution",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "ENUM",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "If non-zero, the maximum value for world contribution that will be recorded inside the world light probe. The excess contribution is converted to a sun light. This reduces the light bleeding caused by very bright light sources.",
+        "id": "sun_threshold",
+        "maximum": 3.4028234663852886e+38,
+        "minimum": 0.0,
+        "name": "Sun Threshold",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "FLOAT",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Angular diameter of the Sun as seen from the Earth",
+        "id": "sun_angle",
+        "maximum": 3.1415927410125732,
+        "minimum": 0.0,
+        "name": "Sun Angle",
+        "status": "managed",
+        "subtype": "ANGLE",
+        "type": "FLOAT",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Enable sun shadow casting",
+        "id": "use_sun_shadow",
+        "name": "Use Shadow",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Maximum size of a shadow map pixel. Higher values use less memory at the cost of shadow quality.",
+        "id": "sun_shadow_maximum_resolution",
+        "maximum": 3.4028234663852886e+38,
+        "minimum": 0.0,
+        "name": "Shadows Resolution Limit",
+        "status": "managed",
+        "subtype": "DISTANCE",
+        "type": "FLOAT",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Blur shadow aliasing using Percentage Closer Filtering",
+        "id": "sun_shadow_filter_radius",
+        "maximum": 3.4028234663852886e+38,
+        "minimum": 0.0,
+        "name": "Shadow Filter Radius",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "FLOAT",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Enable jittered soft shadows to increase shadow precision (disabled in viewport unless enabled in the render settings). Has a high performance impact.",
+        "id": "use_sun_shadow_jitter",
+        "name": "Shadow Jitter",
+        "status": "managed",
+        "subtype": "NONE",
+        "type": "BOOLEAN",
+        "writable": true
+      },
+      {
+        "animatable": true,
+        "array_length": 0,
+        "description": "Apply shadow tracing to each jittered sample to reduce under-sampling artifacts",
+        "id": "sun_shadow_jitter_overblur",
+        "maximum": 100.0,
+        "minimum": 0.0,
+        "name": "Shadow Jitter Overblur",
+        "status": "managed",
+        "subtype": "PERCENTAGE",
+        "type": "FLOAT",
+        "writable": true
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Cycles world settings",
+        "id": "cycles",
+        "name": "Cycles World Settings",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      },
+      {
+        "animatable": false,
+        "array_length": 0,
+        "description": "Cycles visibility settings",
+        "id": "cycles_visibility",
+        "name": "Cycles Visibility Settings",
+        "reason": "Pointer/collection identity requires a typed domain relation",
+        "relation_kind": "pointer",
+        "relation_mutation": "domain_specific",
+        "status": "relation",
+        "subtype": "NONE",
+        "type": "POINTER",
+        "writable": false
+      }
+    ],
+    "ref": "blender-rna/v1/worlds/V29ybGQ@1",
+    "rna_type": "World",
+    "root": "worlds",
+    "truncated": false
+  },
+  "execution": {
+    "backend": "driver:blender",
+    "dry_run": false,
+    "duration_ms": 41,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "4453b7deccbf6dfb6b9d2b05e44a31230787d6e01e0d014bd3b2dd1a2fbfb6cd",
+      "execution_provider": "driver:blender",
+      "provider": "driver:blender",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "3e497fe03bc2495c85c60bde9be97cfc",
+  "warnings": []
+}

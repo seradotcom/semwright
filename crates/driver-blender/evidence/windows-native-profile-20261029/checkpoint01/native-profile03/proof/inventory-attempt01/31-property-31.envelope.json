@@ -1,0 +1,43 @@
+{
+  "command": "driver.blender.semantic.property.get",
+  "data": {
+    "descriptor": {
+      "animatable": true,
+      "array_length": 0,
+      "description": "Number of times this data-block is referenced",
+      "id": "users",
+      "maximum": 2147483647,
+      "minimum": 0,
+      "name": "Users",
+      "reason": "RNA marks this property read-only",
+      "status": "read_only",
+      "subtype": "UNSIGNED",
+      "type": "INT",
+      "writable": false
+    },
+    "property": "users",
+    "ref": "blender-rna/v1/linestyles/TGluZVN0eWxl@1",
+    "value": 1
+  },
+  "execution": {
+    "backend": "driver:blender",
+    "dry_run": false,
+    "duration_ms": 34,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "e625d06629707ff0add7ff0c31ca51134fa1a7c471e82f09f00a88189f1f91ce",
+      "execution_provider": "driver:blender",
+      "provider": "driver:blender",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "6531fc7beb1b49279867251bf4a3a5df",
+  "warnings": []
+}
