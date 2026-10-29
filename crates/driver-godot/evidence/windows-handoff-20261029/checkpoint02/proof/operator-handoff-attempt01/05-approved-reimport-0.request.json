@@ -1,0 +1,15 @@
+{
+  "args": {
+    "dry_run": false,
+    "expect": {
+      "fingerprint": "5c0f9e9dd16e0ae99d266ce62b9bdc8788fb46bc9dbac5822e8f89f90717fe6b",
+      "revision": 6
+    },
+    "path": "res://assets/review_20261029-semwright-rock-r22/GEO01_FARO_SEMWRIGHT_R22.glb",
+    "session": "8044a769cd76689cd9276d3db99681d9"
+  },
+  "backend": null,
+  "command": "driver.godot.asset.reimport",
+  "dry_run": false,
+  "request_id": "cc3b5682b826491088dfa3d2957df052"
+}

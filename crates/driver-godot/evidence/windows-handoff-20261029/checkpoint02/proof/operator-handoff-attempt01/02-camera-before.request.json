@@ -1,0 +1,10 @@
+{
+  "args": {
+    "path": "ProofCamera",
+    "session": "8044a769cd76689cd9276d3db99681d9"
+  },
+  "backend": null,
+  "command": "driver.godot.node.inspect",
+  "dry_run": false,
+  "request_id": "d6aac01728a745acbfe0e0d82db3073f"
+}

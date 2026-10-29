@@ -1,0 +1,1473 @@
+{
+  "G6": "NOT_COMPLETE",
+  "Linux_4_5_14": "NOT_RUN",
+  "art_status": "REVISE",
+  "config_sha256": "b353bdbc9bba4315445363682825efdac60f9a1c4ad6d68c8a3ec0b78297f982",
+  "editor_isolated": false,
+  "error": null,
+  "human_camera_claimed": false,
+  "passed": true,
+  "proof": "reconciled_fixture_supported_save",
+  "reimport": "Read native result; human approval required for each submitted reimport",
+  "requests": [
+    {
+      "command": "driver.godot.session.list",
+      "elapsed_ms": 49,
+      "error": null,
+      "label": "sessions",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "abd259c89dfb40249e4ac9aaf4704126"
+    },
+    {
+      "command": "driver.godot.scene.inspect",
+      "elapsed_ms": 83,
+      "error": null,
+      "label": "reconciled-fixture",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "a684d36bbfa34020ae9403b17861bc89"
+    },
+    {
+      "command": "driver.godot.node.inspect",
+      "elapsed_ms": 91,
+      "error": null,
+      "label": "camera-before",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "d6aac01728a745acbfe0e0d82db3073f"
+    },
+    {
+      "command": "driver.godot.assets.status",
+      "elapsed_ms": 89,
+      "error": null,
+      "label": "approved-reimport-0-idle-before-00",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "53592c3d6dd94ee9bead929af02ca243"
+    },
+    {
+      "command": "driver.godot.asset.inspect",
+      "elapsed_ms": 124,
+      "error": null,
+      "label": "approved-reimport-0-before",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "7ab4e70e7c044fdb818a0202be5563dc"
+    },
+    {
+      "command": "driver.godot.asset.reimport",
+      "elapsed_ms": 89391,
+      "error": null,
+      "label": "approved-reimport-0",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "cc3b5682b826491088dfa3d2957df052"
+    },
+    {
+      "command": "driver.godot.assets.status",
+      "elapsed_ms": 84,
+      "error": null,
+      "label": "approved-reimport-0-idle-after-00",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "d85b41a40d4642d0bf5550092a80a88f"
+    },
+    {
+      "command": "driver.godot.asset.inspect",
+      "elapsed_ms": 117,
+      "error": null,
+      "label": "approved-reimport-0-after",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "05853f37bb0b459595ea416827b0f122"
+    },
+    {
+      "command": "driver.godot.assets.status",
+      "elapsed_ms": 65,
+      "error": null,
+      "label": "approved-reimport-1-idle-before-00",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "4785449c73e64d938d125bf30d48699e"
+    },
+    {
+      "command": "driver.godot.asset.inspect",
+      "elapsed_ms": 136,
+      "error": null,
+      "label": "approved-reimport-1-before",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "5b484d9dd3ff4be48dfe00a07d453d94"
+    },
+    {
+      "command": "driver.godot.asset.reimport",
+      "elapsed_ms": 12391,
+      "error": null,
+      "label": "approved-reimport-1",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "45fd7d7c9ea04b68914c244773952904"
+    },
+    {
+      "command": "driver.godot.assets.status",
+      "elapsed_ms": 173,
+      "error": null,
+      "label": "approved-reimport-1-idle-after-00",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "6e140ae0a73f400887f2512dd3d26068"
+    },
+    {
+      "command": "driver.godot.asset.inspect",
+      "elapsed_ms": 96,
+      "error": null,
+      "label": "approved-reimport-1-after",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "59324db11eb348c3a99002d37bfb47d1"
+    },
+    {
+      "command": "driver.godot.scene.inspect",
+      "elapsed_ms": 97,
+      "error": null,
+      "label": "native-geometry-after-assets",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "b293571e5d5c4987ab5943ce98b184a4"
+    },
+    {
+      "command": "driver.godot.node.inspect",
+      "elapsed_ms": 100,
+      "error": null,
+      "label": "post-import-mesh-0",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "b0beba63048e477db3af09f45c609261"
+    },
+    {
+      "command": "driver.godot.node.inspect",
+      "elapsed_ms": 97,
+      "error": null,
+      "label": "post-import-mesh-1",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "12094907d5cf456a967b2e4583862353"
+    },
+    {
+      "command": "driver.godot.node.inspect",
+      "elapsed_ms": 84,
+      "error": null,
+      "label": "post-import-mesh-2",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "27f6b6e671d445b3b14540fc7e43031b"
+    },
+    {
+      "command": "driver.godot.node.inspect",
+      "elapsed_ms": 100,
+      "error": null,
+      "label": "post-import-mesh-3",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "59b76280717a46e6ad7b24a3c691980e"
+    },
+    {
+      "command": "driver.godot.node.inspect",
+      "elapsed_ms": 95,
+      "error": null,
+      "label": "camera-before-tab-switch",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "ed7d01a1c21540089997d1a1b38e1919"
+    },
+    {
+      "command": "driver.godot.scene.open",
+      "elapsed_ms": 14729,
+      "error": null,
+      "label": "observe-main-tab",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "b992f0b29f334891bfa4073ea9257c86"
+    },
+    {
+      "command": "driver.godot.project.inspect",
+      "elapsed_ms": 155,
+      "error": null,
+      "label": "main-opened-before-00",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "2a442e0b191947f096f05e3c104cdb73"
+    },
+    {
+      "command": "driver.godot.scene.inspect",
+      "elapsed_ms": 97,
+      "error": null,
+      "label": "main-nodes-before",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "5aae6e9b9753482984ed7f180aeb57c1"
+    },
+    {
+      "command": "driver.godot.editor.state",
+      "elapsed_ms": 98,
+      "error": null,
+      "label": "editor-before",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "72def4f8eaa741d6983e9779134a8fa6"
+    },
+    {
+      "command": "driver.godot.scene.open",
+      "elapsed_ms": 10309,
+      "error": null,
+      "label": "return-fixture-tab",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "31245db5441240dc82a88741cbe54911"
+    },
+    {
+      "command": "driver.godot.project.inspect",
+      "elapsed_ms": 132,
+      "error": null,
+      "label": "fixture-opened-00",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "57d0218a84494ee1922f3a5d735a3b2f"
+    },
+    {
+      "command": "driver.godot.scene.inspect",
+      "elapsed_ms": 72,
+      "error": null,
+      "label": "fixture-before-save",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "ca02335607b9494cb9138eeb2e0fe407"
+    },
+    {
+      "command": "driver.godot.scene.save",
+      "elapsed_ms": 662,
+      "error": null,
+      "label": "save-owned-fixture-with-external-mode",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "5854e15060a54c1494d492543db9eee1"
+    },
+    {
+      "command": "driver.godot.node.inspect",
+      "elapsed_ms": 188,
+      "error": null,
+      "label": "camera-after-save",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "7cb43c4695944ec9a0ec83ded32e6ba3"
+    },
+    {
+      "command": "driver.godot.editor.state",
+      "elapsed_ms": 105,
+      "error": null,
+      "label": "editor-after-save",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "5f5d5c59d7da4248bb35b7765e2500f5"
+    },
+    {
+      "command": "driver.godot.camera.configure",
+      "elapsed_ms": 88,
+      "error": {
+        "code": "Conflict",
+        "message": "Driver reported an error; untrusted payload was redacted",
+        "outcome_known": false
+      },
+      "label": "reject-stale-camera-configure",
+      "ok": false,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "7ededffa579241e2b0f794653c379725"
+    },
+    {
+      "command": "driver.godot.node.inspect",
+      "elapsed_ms": 94,
+      "error": null,
+      "label": "camera-after-stale",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "7b9faf0adbe9432ba5380cd5b0345beb"
+    },
+    {
+      "command": "driver.godot.scene.open",
+      "elapsed_ms": 11922,
+      "error": null,
+      "label": "restore-main-tab",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "f2e2e16c665e43f884cdfb4723776cdb"
+    },
+    {
+      "command": "driver.godot.project.inspect",
+      "elapsed_ms": 70,
+      "error": null,
+      "label": "main-restored-00",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "0749b6e8f72b4f74a4dd782ddf234bf6"
+    },
+    {
+      "command": "driver.godot.scene.inspect",
+      "elapsed_ms": 94,
+      "error": null,
+      "label": "main-nodes-after",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "0c00b948a9b3462bbe3d2a38b2a44817"
+    },
+    {
+      "command": "driver.godot.editor.state",
+      "elapsed_ms": 97,
+      "error": null,
+      "label": "main-editor-after",
+      "ok": true,
+      "outcome": "RESPONSE_RECEIVED",
+      "request_id": "11f660b55c654644aef3e8b37b4eb1f8"
+    }
+  ],
+  "result": {
+    "approved_reimports": [
+      {
+        "after": {
+          "data": {
+            "bytes": 64288,
+            "import_sidecar": true,
+            "is_importing": false,
+            "path": "res://assets/review_20261029-semwright-rock-r22/GEO01_FARO_SEMWRIGHT_R22.glb",
+            "resource_exists": true,
+            "resource_uid": 690706235138090464,
+            "type": "PackedScene"
+          },
+          "stamp": {
+            "fingerprint": "5c0f9e9dd16e0ae99d266ce62b9bdc8788fb46bc9dbac5822e8f89f90717fe6b",
+            "revision": 7
+          }
+        },
+        "asset": {
+          "blender_export_request": "7130649de9a84eb9ad626a6b6566800c",
+          "bytes": 64288,
+          "instance": "FaroRock",
+          "meshes": [
+            {
+              "glb_position_count": 312,
+              "max": [
+                -57.35786819458008,
+                3.549999952316284,
+                15.068251609802246
+              ],
+              "min": [
+                -64.67994689941406,
+                -1.25,
+                10.242951393127441
+              ],
+              "name": "SW_dc08abe78a2a_coastal_toe",
+              "surface_count": 1
+            },
+            {
+              "glb_position_count": 1648,
+              "max": [
+                -49.34806823730469,
+                10.170000076293945,
+                17
+              ],
+              "min": [
+                -65.6500015258789,
+                -1.25,
+                -1.25
+              ],
+              "name": "SW_dc08abe78a2a_integrated_limestone",
+              "surface_count": 1
+            },
+            {
+              "glb_position_count": 328,
+              "max": [
+                -57.304351806640625,
+                2.6500000953674316,
+                2.5652928352355957
+              ],
+              "min": [
+                -63.48686218261719,
+                -1.25,
+                -1.2863136529922485
+              ],
+              "name": "SW_dc08abe78a2a_low_shelf",
+              "surface_count": 1
+            }
+          ],
+          "path": "res://assets/review_20261029-semwright-rock-r22/GEO01_FARO_SEMWRIGHT_R22.glb",
+          "sha256": "6bdb95f2ecca8fd7528bc0b62240b975e152dd1e0ed0b8c3411289da6b1a78b3"
+        },
+        "reimport": {
+          "affected": [
+            "res://assets/review_20261029-semwright-rock-r22/GEO01_FARO_SEMWRIGHT_R22.glb"
+          ],
+          "applied": true,
+          "stamp": {
+            "fingerprint": "5c0f9e9dd16e0ae99d266ce62b9bdc8788fb46bc9dbac5822e8f89f90717fe6b",
+            "revision": 7
+          },
+          "undo": "Reimport asset"
+        }
+      },
+      {
+        "after": {
+          "data": {
+            "bytes": 2124,
+            "import_sidecar": true,
+            "is_importing": false,
+            "path": "res://assets/review_20261029-semwright-threshold-r23/GEO01_FARO_THRESHOLD_SEMWRIGHT_R23.glb",
+            "resource_exists": true,
+            "resource_uid": 5312275425265212748,
+            "type": "PackedScene"
+          },
+          "stamp": {
+            "fingerprint": "5c0f9e9dd16e0ae99d266ce62b9bdc8788fb46bc9dbac5822e8f89f90717fe6b",
+            "revision": 8
+          }
+        },
+        "asset": {
+          "blender_export_request": "d1e56ad3c7aa4efc88a6dcdcb48f8c4a",
+          "bytes": 2124,
+          "instance": "FaroThreshold",
+          "meshes": [
+            {
+              "glb_position_count": 24,
+              "max": [
+                -50.650001525878906,
+                10.5,
+                8.600000381469727
+              ],
+              "min": [
+                -52.099998474121094,
+                9.600000381469727,
+                5.400000095367432
+              ],
+              "name": "SW_c242f21a199d_bridge_threshold",
+              "surface_count": 1
+            }
+          ],
+          "path": "res://assets/review_20261029-semwright-threshold-r23/GEO01_FARO_THRESHOLD_SEMWRIGHT_R23.glb",
+          "sha256": "def7605cc8c5dc5e7a5e5a8e15d0741f61c69e07f5b92adb31360bb1493dceb8"
+        },
+        "reimport": {
+          "affected": [
+            "res://assets/review_20261029-semwright-threshold-r23/GEO01_FARO_THRESHOLD_SEMWRIGHT_R23.glb"
+          ],
+          "applied": true,
+          "stamp": {
+            "fingerprint": "5c0f9e9dd16e0ae99d266ce62b9bdc8788fb46bc9dbac5822e8f89f90717fe6b",
+            "revision": 8
+          },
+          "undo": "Reimport asset"
+        }
+      }
+    ],
+    "camera_after": {
+      "data": {
+        "class": "Camera3D",
+        "name": "ProofCamera",
+        "observed": {
+          "global_position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "owner_path": ".",
+          "parent_path": ".",
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation_order": 2,
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "scope": "edited_scene"
+        },
+        "path": "ProofCamera",
+        "properties": {
+          "attributes": null,
+          "auto_translate_mode": 0,
+          "compositor": null,
+          "cull_mask": 1048575,
+          "current": false,
+          "doppler_tracking": 0,
+          "editor_description": "",
+          "environment": null,
+          "far": 250.0,
+          "fov": 60.0,
+          "frustum_offset": {
+            "$type": "Vector2",
+            "value": [
+              0.0,
+              0.0
+            ]
+          },
+          "h_offset": 0.0,
+          "keep_aspect": 1,
+          "near": 0.200000002980232,
+          "physics_interpolation_mode": 0,
+          "process_mode": 0,
+          "process_physics_priority": 0,
+          "process_priority": 0,
+          "process_thread_group": 0,
+          "projection": 0,
+          "rotation_edit_mode": 0,
+          "rotation_order": 2,
+          "size": 1.0,
+          "top_level": false,
+          "transform": {
+            "$type": "Transform3D",
+            "value": [
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          "unique_name_in_owner": false,
+          "v_offset": 0.0,
+          "visibility_parent": {
+            "$type": "NodePath",
+            "value": ""
+          },
+          "visible": true
+        },
+        "ref": "native:effda8caff8943dea737e81ff94c08ff"
+      },
+      "stamp": {
+        "fingerprint": "5c0f9e9dd16e0ae99d266ce62b9bdc8788fb46bc9dbac5822e8f89f90717fe6b",
+        "revision": 11
+      }
+    },
+    "camera_before": {
+      "data": {
+        "class": "Camera3D",
+        "name": "ProofCamera",
+        "observed": {
+          "global_position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "owner_path": ".",
+          "parent_path": ".",
+          "position": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "rotation_order": 2,
+          "scale": [
+            1.0,
+            1.0,
+            1.0
+          ],
+          "scope": "edited_scene"
+        },
+        "path": "ProofCamera",
+        "properties": {
+          "attributes": null,
+          "auto_translate_mode": 0,
+          "compositor": null,
+          "cull_mask": 1048575,
+          "current": false,
+          "doppler_tracking": 0,
+          "editor_description": "",
+          "environment": null,
+          "far": 250.0,
+          "fov": 60.0,
+          "frustum_offset": {
+            "$type": "Vector2",
+            "value": [
+              0.0,
+              0.0
+            ]
+          },
+          "h_offset": 0.0,
+          "keep_aspect": 1,
+          "near": 0.200000002980232,
+          "physics_interpolation_mode": 0,
+          "process_mode": 0,
+          "process_physics_priority": 0,
+          "process_priority": 0,
+          "process_thread_group": 0,
+          "projection": 0,
+          "rotation_edit_mode": 0,
+          "rotation_order": 2,
+          "size": 1.0,
+          "top_level": false,
+          "transform": {
+            "$type": "Transform3D",
+            "value": [
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0,
+              0.0
+            ]
+          },
+          "unique_name_in_owner": false,
+          "v_offset": 0.0,
+          "visibility_parent": {
+            "$type": "NodePath",
+            "value": ""
+          },
+          "visible": true
+        },
+        "ref": "native:c77dd7a964d54eb280bb0275f038776b"
+      },
+      "stamp": {
+        "fingerprint": "5c0f9e9dd16e0ae99d266ce62b9bdc8788fb46bc9dbac5822e8f89f90717fe6b",
+        "revision": 6
+      }
+    },
+    "external_resource_dirty_flag_introspection": false,
+    "fixture_camera_preserved": true,
+    "geometric_transition_A_to_B_claimed": false,
+    "geometry_readback": [
+      {
+        "expected": {
+          "glb_position_count": 312,
+          "max": [
+            -57.35786819458008,
+            3.549999952316284,
+            15.068251609802246
+          ],
+          "min": [
+            -64.67994689941406,
+            -1.25,
+            10.242951393127441
+          ],
+          "name": "SW_dc08abe78a2a_coastal_toe",
+          "surface_count": 1
+        },
+        "native": {
+          "data": {
+            "class": "MeshInstance3D",
+            "name": "SW_dc08abe78a2a_coastal_toe",
+            "observed": {
+              "global_position": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "owner_path": "FaroRock",
+              "parent_path": "FaroRock",
+              "position": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "rotation": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "rotation_order": 2,
+              "scale": [
+                1.0,
+                1.0,
+                1.0
+              ],
+              "scope": "edited_scene",
+              "vertex_bounds": {
+                "complete": true,
+                "geometry": "base_mesh_vertices",
+                "global_max": [
+                  -57.3578681945801,
+                  3.55000019073486,
+                  15.0682516098022
+                ],
+                "global_min": [
+                  -64.6799468994141,
+                  -1.25,
+                  10.2429513931274
+                ],
+                "space": "global",
+                "surface_count": 1,
+                "vertex_count": 312
+              }
+            },
+            "path": "FaroRock/SW_dc08abe78a2a_coastal_toe",
+            "properties": {
+              "auto_translate_mode": 0,
+              "cast_shadow": 1,
+              "custom_aabb": {
+                "$type": "AABB",
+                "value": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "editor_description": "",
+              "extra_cull_margin": 0.0,
+              "gi_lightmap_texel_scale": 1.0,
+              "gi_mode": 1,
+              "ignore_occlusion_culling": false,
+              "layers": 1,
+              "lod_bias": 1.0,
+              "material_overlay": null,
+              "material_override": null,
+              "mesh": {
+                "$type": "Resource",
+                "class": "ArrayMesh",
+                "path": "res://assets/review_20261029-semwright-rock-r22/GEO01_FARO_SEMWRIGHT_R22.glb::ArrayMesh_kgj58"
+              },
+              "metadata/extras": {
+                "$type": "Dictionary",
+                "entries": [
+                  {
+                    "key": "sw_authoring_entity",
+                    "value": "coastal_toe"
+                  },
+                  {
+                    "key": "sw_authoring_island",
+                    "value": "dc08abe78a2a455b89291e196b92f586"
+                  },
+                  {
+                    "key": "sw_display_name",
+                    "value": "Faro southeast toe"
+                  }
+                ]
+              },
+              "physics_interpolation_mode": 0,
+              "process_mode": 0,
+              "process_physics_priority": 0,
+              "process_priority": 0,
+              "process_thread_group": 0,
+              "rotation_edit_mode": 0,
+              "rotation_order": 2,
+              "skeleton": {
+                "$type": "NodePath",
+                "value": ""
+              },
+              "skin": null,
+              "sorting_offset": 0.0,
+              "sorting_use_aabb_center": true,
+              "surface_material_override/0": null,
+              "top_level": false,
+              "transform": {
+                "$type": "Transform3D",
+                "value": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  1.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  1.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "transparency": 0.0,
+              "unique_name_in_owner": false,
+              "visibility_parent": {
+                "$type": "NodePath",
+                "value": ""
+              },
+              "visibility_range_begin": 0.0,
+              "visibility_range_begin_margin": 0.0,
+              "visibility_range_end": 0.0,
+              "visibility_range_end_margin": 0.0,
+              "visibility_range_fade_mode": 0,
+              "visible": true
+            },
+            "ref": "native:99214a6f579e472188a69d11984c09e7"
+          },
+          "stamp": {
+            "fingerprint": "5c0f9e9dd16e0ae99d266ce62b9bdc8788fb46bc9dbac5822e8f89f90717fe6b",
+            "revision": 8
+          }
+        }
+      },
+      {
+        "expected": {
+          "glb_position_count": 1648,
+          "max": [
+            -49.34806823730469,
+            10.170000076293945,
+            17
+          ],
+          "min": [
+            -65.6500015258789,
+            -1.25,
+            -1.25
+          ],
+          "name": "SW_dc08abe78a2a_integrated_limestone",
+          "surface_count": 1
+        },
+        "native": {
+          "data": {
+            "class": "MeshInstance3D",
+            "name": "SW_dc08abe78a2a_integrated_limestone",
+            "observed": {
+              "global_position": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "owner_path": "FaroRock",
+              "parent_path": "FaroRock",
+              "position": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "rotation": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "rotation_order": 2,
+              "scale": [
+                1.0,
+                1.0,
+                1.0
+              ],
+              "scope": "edited_scene",
+              "vertex_bounds": {
+                "complete": true,
+                "geometry": "base_mesh_vertices",
+                "global_max": [
+                  -49.3480682373047,
+                  10.1700000762939,
+                  17.0
+                ],
+                "global_min": [
+                  -65.6500015258789,
+                  -1.25,
+                  -1.25
+                ],
+                "space": "global",
+                "surface_count": 1,
+                "vertex_count": 1648
+              }
+            },
+            "path": "FaroRock/SW_dc08abe78a2a_integrated_limestone",
+            "properties": {
+              "auto_translate_mode": 0,
+              "cast_shadow": 1,
+              "custom_aabb": {
+                "$type": "AABB",
+                "value": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "editor_description": "",
+              "extra_cull_margin": 0.0,
+              "gi_lightmap_texel_scale": 1.0,
+              "gi_mode": 1,
+              "ignore_occlusion_culling": false,
+              "layers": 1,
+              "lod_bias": 1.0,
+              "material_overlay": null,
+              "material_override": null,
+              "mesh": {
+                "$type": "Resource",
+                "class": "ArrayMesh",
+                "path": "res://assets/review_20261029-semwright-rock-r22/GEO01_FARO_SEMWRIGHT_R22.glb::ArrayMesh_phcsa"
+              },
+              "metadata/extras": {
+                "$type": "Dictionary",
+                "entries": [
+                  {
+                    "key": "sw_authoring_entity",
+                    "value": "integrated_limestone"
+                  },
+                  {
+                    "key": "sw_authoring_island",
+                    "value": "dc08abe78a2a455b89291e196b92f586"
+                  },
+                  {
+                    "key": "sw_display_name",
+                    "value": "Faro continuous limestone"
+                  }
+                ]
+              },
+              "physics_interpolation_mode": 0,
+              "process_mode": 0,
+              "process_physics_priority": 0,
+              "process_priority": 0,
+              "process_thread_group": 0,
+              "rotation_edit_mode": 0,
+              "rotation_order": 2,
+              "skeleton": {
+                "$type": "NodePath",
+                "value": ""
+              },
+              "skin": null,
+              "sorting_offset": 0.0,
+              "sorting_use_aabb_center": true,
+              "surface_material_override/0": null,
+              "top_level": false,
+              "transform": {
+                "$type": "Transform3D",
+                "value": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  1.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  1.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "transparency": 0.0,
+              "unique_name_in_owner": false,
+              "visibility_parent": {
+                "$type": "NodePath",
+                "value": ""
+              },
+              "visibility_range_begin": 0.0,
+              "visibility_range_begin_margin": 0.0,
+              "visibility_range_end": 0.0,
+              "visibility_range_end_margin": 0.0,
+              "visibility_range_fade_mode": 0,
+              "visible": true
+            },
+            "ref": "native:4662b425437e452a99a4dea7980ab0bf"
+          },
+          "stamp": {
+            "fingerprint": "5c0f9e9dd16e0ae99d266ce62b9bdc8788fb46bc9dbac5822e8f89f90717fe6b",
+            "revision": 8
+          }
+        }
+      },
+      {
+        "expected": {
+          "glb_position_count": 328,
+          "max": [
+            -57.304351806640625,
+            2.6500000953674316,
+            2.5652928352355957
+          ],
+          "min": [
+            -63.48686218261719,
+            -1.25,
+            -1.2863136529922485
+          ],
+          "name": "SW_dc08abe78a2a_low_shelf",
+          "surface_count": 1
+        },
+        "native": {
+          "data": {
+            "class": "MeshInstance3D",
+            "name": "SW_dc08abe78a2a_low_shelf",
+            "observed": {
+              "global_position": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "owner_path": "FaroRock",
+              "parent_path": "FaroRock",
+              "position": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "rotation": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "rotation_order": 2,
+              "scale": [
+                1.0,
+                1.0,
+                1.0
+              ],
+              "scope": "edited_scene",
+              "vertex_bounds": {
+                "complete": true,
+                "geometry": "base_mesh_vertices",
+                "global_max": [
+                  -57.3043518066406,
+                  2.65000009536743,
+                  2.5652928352356
+                ],
+                "global_min": [
+                  -63.4868621826172,
+                  -1.25,
+                  -1.28631365299225
+                ],
+                "space": "global",
+                "surface_count": 1,
+                "vertex_count": 328
+              }
+            },
+            "path": "FaroRock/SW_dc08abe78a2a_low_shelf",
+            "properties": {
+              "auto_translate_mode": 0,
+              "cast_shadow": 1,
+              "custom_aabb": {
+                "$type": "AABB",
+                "value": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "editor_description": "",
+              "extra_cull_margin": 0.0,
+              "gi_lightmap_texel_scale": 1.0,
+              "gi_mode": 1,
+              "ignore_occlusion_culling": false,
+              "layers": 1,
+              "lod_bias": 1.0,
+              "material_overlay": null,
+              "material_override": null,
+              "mesh": {
+                "$type": "Resource",
+                "class": "ArrayMesh",
+                "path": "res://assets/review_20261029-semwright-rock-r22/GEO01_FARO_SEMWRIGHT_R22.glb::ArrayMesh_w6gk3"
+              },
+              "metadata/extras": {
+                "$type": "Dictionary",
+                "entries": [
+                  {
+                    "key": "sw_authoring_entity",
+                    "value": "low_shelf"
+                  },
+                  {
+                    "key": "sw_authoring_island",
+                    "value": "dc08abe78a2a455b89291e196b92f586"
+                  },
+                  {
+                    "key": "sw_display_name",
+                    "value": "Faro northeast shelf"
+                  }
+                ]
+              },
+              "physics_interpolation_mode": 0,
+              "process_mode": 0,
+              "process_physics_priority": 0,
+              "process_priority": 0,
+              "process_thread_group": 0,
+              "rotation_edit_mode": 0,
+              "rotation_order": 2,
+              "skeleton": {
+                "$type": "NodePath",
+                "value": ""
+              },
+              "skin": null,
+              "sorting_offset": 0.0,
+              "sorting_use_aabb_center": true,
+              "surface_material_override/0": null,
+              "top_level": false,
+              "transform": {
+                "$type": "Transform3D",
+                "value": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  1.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  1.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "transparency": 0.0,
+              "unique_name_in_owner": false,
+              "visibility_parent": {
+                "$type": "NodePath",
+                "value": ""
+              },
+              "visibility_range_begin": 0.0,
+              "visibility_range_begin_margin": 0.0,
+              "visibility_range_end": 0.0,
+              "visibility_range_end_margin": 0.0,
+              "visibility_range_fade_mode": 0,
+              "visible": true
+            },
+            "ref": "native:bb030d7c696340e58b2c8f336abd69eb"
+          },
+          "stamp": {
+            "fingerprint": "5c0f9e9dd16e0ae99d266ce62b9bdc8788fb46bc9dbac5822e8f89f90717fe6b",
+            "revision": 8
+          }
+        }
+      },
+      {
+        "expected": {
+          "glb_position_count": 24,
+          "max": [
+            -50.650001525878906,
+            10.5,
+            8.600000381469727
+          ],
+          "min": [
+            -52.099998474121094,
+            9.600000381469727,
+            5.400000095367432
+          ],
+          "name": "SW_c242f21a199d_bridge_threshold",
+          "surface_count": 1
+        },
+        "native": {
+          "data": {
+            "class": "MeshInstance3D",
+            "name": "SW_c242f21a199d_bridge_threshold",
+            "observed": {
+              "global_position": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "owner_path": "FaroThreshold",
+              "parent_path": "FaroThreshold",
+              "position": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "rotation": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "rotation_order": 2,
+              "scale": [
+                1.0,
+                1.0,
+                1.0
+              ],
+              "scope": "edited_scene",
+              "vertex_bounds": {
+                "complete": true,
+                "geometry": "base_mesh_vertices",
+                "global_max": [
+                  -50.6500015258789,
+                  10.5,
+                  8.60000038146973
+                ],
+                "global_min": [
+                  -52.0999984741211,
+                  9.60000038146973,
+                  5.40000009536743
+                ],
+                "space": "global",
+                "surface_count": 1,
+                "vertex_count": 24
+              }
+            },
+            "path": "FaroThreshold/SW_c242f21a199d_bridge_threshold",
+            "properties": {
+              "auto_translate_mode": 0,
+              "cast_shadow": 1,
+              "custom_aabb": {
+                "$type": "AABB",
+                "value": [
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "editor_description": "",
+              "extra_cull_margin": 0.0,
+              "gi_lightmap_texel_scale": 1.0,
+              "gi_mode": 1,
+              "ignore_occlusion_culling": false,
+              "layers": 1,
+              "lod_bias": 1.0,
+              "material_overlay": null,
+              "material_override": null,
+              "mesh": {
+                "$type": "Resource",
+                "class": "ArrayMesh",
+                "path": "res://assets/review_20261029-semwright-threshold-r23/GEO01_FARO_THRESHOLD_SEMWRIGHT_R23.glb::ArrayMesh_mqx0v"
+              },
+              "metadata/extras": {
+                "$type": "Dictionary",
+                "entries": [
+                  {
+                    "key": "sw_authoring_entity",
+                    "value": "bridge_threshold"
+                  },
+                  {
+                    "key": "sw_authoring_island",
+                    "value": "c242f21a199d4bea914cd4405adc2d16"
+                  },
+                  {
+                    "key": "sw_display_name",
+                    "value": "Stone transition at lighthouse bridge"
+                  }
+                ]
+              },
+              "physics_interpolation_mode": 0,
+              "process_mode": 0,
+              "process_physics_priority": 0,
+              "process_priority": 0,
+              "process_thread_group": 0,
+              "rotation_edit_mode": 0,
+              "rotation_order": 2,
+              "skeleton": {
+                "$type": "NodePath",
+                "value": ""
+              },
+              "skin": null,
+              "sorting_offset": 0.0,
+              "sorting_use_aabb_center": true,
+              "surface_material_override/0": null,
+              "top_level": false,
+              "transform": {
+                "$type": "Transform3D",
+                "value": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  1.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  1.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "transparency": 0.0,
+              "unique_name_in_owner": false,
+              "visibility_parent": {
+                "$type": "NodePath",
+                "value": ""
+              },
+              "visibility_range_begin": 0.0,
+              "visibility_range_begin_margin": 0.0,
+              "visibility_range_end": 0.0,
+              "visibility_range_end_margin": 0.0,
+              "visibility_range_fade_mode": 0,
+              "visible": true
+            },
+            "ref": "native:86cc30ec504040b58546231835936416"
+          },
+          "stamp": {
+            "fingerprint": "5c0f9e9dd16e0ae99d266ce62b9bdc8788fb46bc9dbac5822e8f89f90717fe6b",
+            "revision": 8
+          }
+        }
+      }
+    ],
+    "main_after": {
+      "data": {
+        "nodes": [
+          {
+            "class": "Node3D",
+            "groups": [
+              "_vp_unhandled_input71923928308"
+            ],
+            "name": "Archipelago",
+            "path": ".",
+            "stored": {
+              "auto_translate_mode": 0,
+              "editor_description": "",
+              "physics_interpolation_mode": 0,
+              "process_mode": 0,
+              "process_physics_priority": 0,
+              "process_priority": 0,
+              "process_thread_group": 0,
+              "rotation_edit_mode": 0,
+              "rotation_order": 2,
+              "script": {
+                "$type": "Resource",
+                "class": "GDScript",
+                "path": "res://scripts/harbor_review.gd"
+              },
+              "top_level": false,
+              "transform": {
+                "$type": "Transform3D",
+                "value": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  1.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  1.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "unique_name_in_owner": false,
+              "visibility_parent": {
+                "$type": "NodePath",
+                "value": ""
+              },
+              "visible": true
+            }
+          }
+        ],
+        "scene": "res://main.tscn",
+        "scene_ref": "native:dd960eab84eb4e2aa5e6112d78033e73"
+      },
+      "stamp": {
+        "fingerprint": "a4be38ce924d1500249c1698135906cd9e9796cedbf7ee702d7484f9e0f089a1",
+        "revision": 12
+      }
+    },
+    "main_before": {
+      "data": {
+        "nodes": [
+          {
+            "class": "Node3D",
+            "groups": [
+              "_vp_unhandled_input71923928308"
+            ],
+            "name": "Archipelago",
+            "path": ".",
+            "stored": {
+              "auto_translate_mode": 0,
+              "editor_description": "",
+              "physics_interpolation_mode": 0,
+              "process_mode": 0,
+              "process_physics_priority": 0,
+              "process_priority": 0,
+              "process_thread_group": 0,
+              "rotation_edit_mode": 0,
+              "rotation_order": 2,
+              "script": {
+                "$type": "Resource",
+                "class": "GDScript",
+                "path": "res://scripts/harbor_review.gd"
+              },
+              "top_level": false,
+              "transform": {
+                "$type": "Transform3D",
+                "value": [
+                  1.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  1.0,
+                  0.0,
+                  0.0,
+                  0.0,
+                  1.0,
+                  0.0,
+                  0.0,
+                  0.0
+                ]
+              },
+              "unique_name_in_owner": false,
+              "visibility_parent": {
+                "$type": "NodePath",
+                "value": ""
+              },
+              "visible": true
+            }
+          }
+        ],
+        "scene": "res://main.tscn",
+        "scene_ref": "native:7e59dba4b9df4a7595a9b95f2fab6b86"
+      },
+      "stamp": {
+        "fingerprint": "a4be38ce924d1500249c1698135906cd9e9796cedbf7ee702d7484f9e0f089a1",
+        "revision": 9
+      }
+    },
+    "main_editor_after": {
+      "data": {
+        "playing": false,
+        "scene": "res://main.tscn",
+        "scene_class": "Node3D",
+        "selected_files": [
+          "res://main.tscn"
+        ],
+        "selected_nodes": [],
+        "unsaved_scenes": [
+          "res://main.tscn"
+        ]
+      },
+      "stamp": {
+        "fingerprint": "a4be38ce924d1500249c1698135906cd9e9796cedbf7ee702d7484f9e0f089a1",
+        "revision": 12
+      }
+    },
+    "original_live_scene_projection_preserved": true,
+    "original_unsaved_flag_preserved": true,
+    "prior_unknown_save_error_rewritten": false,
+    "reimport": "PASS",
+    "save": {
+      "affected": [
+        "res://proofs/semwright_godot_bridge01_02.tscn"
+      ],
+      "applied": true,
+      "stamp": {
+        "fingerprint": "5c0f9e9dd16e0ae99d266ce62b9bdc8788fb46bc9dbac5822e8f89f90717fe6b",
+        "revision": 11
+      },
+      "undo": "Save scene"
+    },
+    "stale_camera_rejected_without_observed_effect": true,
+    "supporting_scene_sha256": "37017d169c9cec25511b99f28a48443bfc4d16c5dceffd4b1d56ff461bd8ef41"
+  },
+  "schema": 1,
+  "whole_P3": "PARTIAL"
+}

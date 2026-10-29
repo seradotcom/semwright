@@ -1,0 +1,35 @@
+{
+  "command": "driver.godot.asset.reimport",
+  "data": {
+    "affected": [
+      "res://assets/review_20261029-semwright-threshold-r23/GEO01_FARO_THRESHOLD_SEMWRIGHT_R23.glb"
+    ],
+    "applied": true,
+    "stamp": {
+      "fingerprint": "5c0f9e9dd16e0ae99d266ce62b9bdc8788fb46bc9dbac5822e8f89f90717fe6b",
+      "revision": 8
+    },
+    "undo": "Reimport asset"
+  },
+  "execution": {
+    "backend": "driver:godot",
+    "dry_run": false,
+    "duration_ms": 12388,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow_after_confirmation",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "d3c9c5f21cd72bdc45a305360d7e0530bc439d3da2055ea00ac87cc233a1f119",
+      "execution_provider": "driver:godot",
+      "provider": "driver:godot",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "45fd7d7c9ea04b68914c244773952904",
+  "warnings": []
+}

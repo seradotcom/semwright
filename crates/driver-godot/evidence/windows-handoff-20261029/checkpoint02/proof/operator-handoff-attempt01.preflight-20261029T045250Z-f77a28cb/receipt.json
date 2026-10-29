@@ -1,0 +1,56 @@
+{
+  "schema": 1,
+  "utc": "2026-10-29T04:52:50.119837+00:00",
+  "state": "READY_FOR_NATIVE_OPERATOR",
+  "passed": true,
+  "read_only": true,
+  "native_approval_requests_submitted": 0,
+  "approval_input_automated": false,
+  "automatic_retry": false,
+  "main_live_projection": "NOT_REOBSERVED_INACTIVE_TAB_REQUIRES_CONSENT",
+  "G6": "NOT_COMPLETE",
+  "art_status": "REVISE",
+  "human_camera_claimed": false,
+  "broker": {
+    "path": "E:\\Projects\\worldwright-archipelago\\tools\\semwright-godot-bridge01\\semwrightd.exe",
+    "pid": 27564,
+    "created": "2026-10-29T03:39:09.0398372Z",
+    "session": 1
+  },
+  "editor": {
+    "path": "E:\\Projects\\worldwright-archipelago\\tools\\godot-4.7.2-win64\\Godot_v4.7.2-stable_win64_console.exe",
+    "pid": 39036,
+    "created": "2026-10-29T02:43:31.6619060Z",
+    "session": 1
+  },
+  "broker_client_ticket_persistence": "DISABLED_BY_WINDOWS_PROTOCOL",
+  "source_files_unchanged": 3094,
+  "source_inventory_sha256": "5c8f67df7d5b1754eac6cacf226008ff519ae8c42d2973483ce448607b55a9c8",
+  "fixture_stamp": {
+    "fingerprint": "5c0f9e9dd16e0ae99d266ce62b9bdc8788fb46bc9dbac5822e8f89f90717fe6b",
+    "revision": 6
+  },
+  "fixture_projection_preserved": true,
+  "fixture_camera_preserved": true,
+  "unsaved_scenes": [
+    "res://main.tscn",
+    "res://proofs/semwright_godot_bridge01_02.tscn"
+  ],
+  "sessions": {
+    "sessions": [
+      {
+        "engine_version": "4.7.2-stable (official)",
+        "generation": "a620eb21aa0e091cb37f970222633396",
+        "plugin_version": "0.2.0",
+        "project": "723d196eb63d1b26391a6b085d86129b0f78dfef8fa09e194f2b35d3a843ed67",
+        "session": "8044a769cd76689cd9276d3db99681d9"
+      }
+    ]
+  },
+  "protected_source_files_unchanged": true,
+  "proof_binary_sha256": "c71d1bb5dcea20c482f3f5f794c6c9f89419f09707551c9b19348842c0ef75a6",
+  "proof_source_sha256": "7d89721ca05c3c3ce659c435fb589efa76e2f36f8f4364ae37cd5f685cfbbd8c",
+  "configuration_sha256": "b353bdbc9bba4315445363682825efdac60f9a1c4ad6d68c8a3ec0b78297f982",
+  "evidence_directory": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb",
+  "guard_source_sha256": "b7ca24c036127a57b3316a630563a3391e81b98e275a93f8c2798841539c52e7"
+}

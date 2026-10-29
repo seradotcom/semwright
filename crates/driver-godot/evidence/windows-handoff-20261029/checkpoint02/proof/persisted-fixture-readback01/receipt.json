@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "utc": "2026-10-29T05:07:03.068807+00:00",
+  "passed": true,
+  "seconds": 1.5,
+  "godot_sha256": "c8f0a6bc45a19b33541501e57f6f7cd972ab18453743266339d495cbbe846643",
+  "source_scene_sha256": "37017d169c9cec25511b99f28a48443bfc4d16c5dceffd4b1d56ff461bd8ef41",
+  "script_sha256": "66f8d911dd31d5f3c2366d4e5c91051843057ed30b8c69533062580b5307a598",
+  "native_readback_sha256": "075d0971e6b2c5350d810bfc9ed66d05b20f9c07490fc69075125b64cca6d514",
+  "log_sha256": "83cf0b082206af2aa236c83064fbcfa76be1e00a4aa3558574b2f65965d9481c",
+  "meshes": [
+    {
+      "name": "SW_dc08abe78a2a_coastal_toe",
+      "bounds_match": true,
+      "surface_count": 1,
+      "vertex_count": 312
+    },
+    {
+      "name": "SW_dc08abe78a2a_integrated_limestone",
+      "bounds_match": true,
+      "surface_count": 1,
+      "vertex_count": 1648
+    },
+    {
+      "name": "SW_dc08abe78a2a_low_shelf",
+      "bounds_match": true,
+      "surface_count": 1,
+      "vertex_count": 328
+    },
+    {
+      "name": "SW_c242f21a199d_bridge_threshold",
+      "bounds_match": true,
+      "surface_count": 1,
+      "vertex_count": 24
+    }
+  ],
+  "camera": {
+    "far": 250.0,
+    "fov": 60.0,
+    "near": 0.200000002980232,
+    "path": "ProofCamera",
+    "position": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "rotation": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  "fresh_process_native_persistence": true,
+  "broker_used_for_scene_save": true,
+  "broker_used_for_this_independent_observation": false,
+  "reimport": "PASS",
+  "G6": "NOT_COMPLETE",
+  "human_camera_claimed": false
+}

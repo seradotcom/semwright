@@ -1,0 +1,1239 @@
+{
+  "schema": 1,
+  "utc": "2026-10-29T05:11:23.532298+00:00",
+  "files": [
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\.local\\godot-bridge01-state\\state\\audit\\audit.jsonl",
+      "archive": "broker-audit-snapshot.jsonl",
+      "bytes": 167112,
+      "sha256": "2012096e29172ad866a24888ef9ba2195f6a18f0c1ccd322f0987283bf767cd3"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\guard-validation02\\receipt.json",
+      "archive": "proof/guard-validation02/receipt.json",
+      "bytes": 1383,
+      "sha256": "24e660cf431cc515dccb3016acc494033cbc7fac67f070d90d802f9dc4be0819"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\guard-validation02\\unittest.log",
+      "archive": "proof/guard-validation02/unittest.log.txt",
+      "bytes": 2722,
+      "sha256": "59e9775776447e18039059aa15ed64aebf5f42d3ec7fc45be8d84552fdbda2f1"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\00-sessions.envelope.json",
+      "archive": "proof/operator-handoff-attempt01/00-sessions.envelope.json",
+      "bytes": 1025,
+      "sha256": "02e5751cafe3bd24e9df5845bf98e13b6988ec84157a9483c288297d6c4e0a47"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\00-sessions.request.json",
+      "archive": "proof/operator-handoff-attempt01/00-sessions.request.json",
+      "bytes": 150,
+      "sha256": "dc64dacb87a2e5b5f053c2eadcf1931180f47b70599c3983f2ef39e5070a146b"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\01-reconciled-fixture.envelope.json",
+      "archive": "proof/operator-handoff-attempt01/01-reconciled-fixture.envelope.json",
+      "bytes": 17274,
+      "sha256": "6fc7d45f6c601587f9f88bf5029c8df4c189e369b324a716489db9b31cc89c81"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\01-reconciled-fixture.request.json",
+      "archive": "proof/operator-handoff-attempt01/01-reconciled-fixture.request.json",
+      "bytes": 204,
+      "sha256": "bbfbc884a6f5756490b2ecf34dcf0210ec628f180a245d37c3c712877e3c0524"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\02-camera-before.envelope.json",
+      "archive": "proof/operator-handoff-attempt01/02-camera-before.envelope.json",
+      "bytes": 2777,
+      "sha256": "15a4d20fc7a1bf8991110cee906d9f4d4ac9d5fbbdb14007a42eb29488cb1ae3"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\02-camera-before.request.json",
+      "archive": "proof/operator-handoff-attempt01/02-camera-before.request.json",
+      "bytes": 230,
+      "sha256": "9a9e42d37856ed25772491ee72333d720b8c185e7aa2add39d46cfaa75ad4feb"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\03-approved-reimport-0-idle-before-00.envelope.json",
+      "archive": "proof/operator-handoff-attempt01/03-approved-reimport-0-idle-before-00.envelope.json",
+      "bytes": 936,
+      "sha256": "e21c769a2c090306bdcf218d8e8a64cae661f5b7080ed0014384eed648570d35"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\03-approved-reimport-0-idle-before-00.request.json",
+      "archive": "proof/operator-handoff-attempt01/03-approved-reimport-0-idle-before-00.request.json",
+      "bytes": 204,
+      "sha256": "e513a5bb9e359288ce65cb3ad931a53fe5bc0a94ba248ee47b9c6a740b37cecf"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\04-approved-reimport-0-before.envelope.json",
+      "archive": "proof/operator-handoff-attempt01/04-approved-reimport-0-before.envelope.json",
+      "bytes": 1127,
+      "sha256": "fb3633c7f436dcd34023b203ca036a4a81a904d48dc279f43a86cbafd9d8db52"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\04-approved-reimport-0-before.request.json",
+      "archive": "proof/operator-handoff-attempt01/04-approved-reimport-0-before.request.json",
+      "bytes": 296,
+      "sha256": "131d1514e4115605ef83307bf1b18488df59052572fe984cf549bcca1e08234e"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\05-approved-reimport-0.envelope.json",
+      "archive": "proof/operator-handoff-attempt01/05-approved-reimport-0.envelope.json",
+      "bytes": 1013,
+      "sha256": "4e704938d18b678f29ca497af44cc4a30f24c5de38bf6ed7a786fad0d6cc738a"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\05-approved-reimport-0.request.json",
+      "archive": "proof/operator-handoff-attempt01/05-approved-reimport-0.request.json",
+      "bytes": 451,
+      "sha256": "265ce1d7cd0d9e5031d9373ab4235f4af464e0a9608a3111650f160297683bef"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\06-approved-reimport-0-idle-after-00.envelope.json",
+      "archive": "proof/operator-handoff-attempt01/06-approved-reimport-0-idle-after-00.envelope.json",
+      "bytes": 936,
+      "sha256": "795fe248d288bcb0089fa35e9492debe1c45810eb85bf38fdea32c8d2eb8bab9"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\06-approved-reimport-0-idle-after-00.request.json",
+      "archive": "proof/operator-handoff-attempt01/06-approved-reimport-0-idle-after-00.request.json",
+      "bytes": 204,
+      "sha256": "5beb6930078232b37d4388a6f9cfd19facfe7d2a6d22ed875f498823888024be"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\07-approved-reimport-0-after.envelope.json",
+      "archive": "proof/operator-handoff-attempt01/07-approved-reimport-0-after.envelope.json",
+      "bytes": 1127,
+      "sha256": "62fca05c69f34018d23277ee9fa2ce7338144369cb30d231293ddb33cf8b0ecc"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\07-approved-reimport-0-after.request.json",
+      "archive": "proof/operator-handoff-attempt01/07-approved-reimport-0-after.request.json",
+      "bytes": 296,
+      "sha256": "cf497a681684c40a3fa122808a57e4e8268be1c00d3c9bec6bf921600e551d53"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\08-approved-reimport-1-idle-before-00.envelope.json",
+      "archive": "proof/operator-handoff-attempt01/08-approved-reimport-1-idle-before-00.envelope.json",
+      "bytes": 936,
+      "sha256": "2c1ef9aa9842b80ff27ed04e9b586da86abc7ec5bd01f529e78a64b1e1d12219"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\08-approved-reimport-1-idle-before-00.request.json",
+      "archive": "proof/operator-handoff-attempt01/08-approved-reimport-1-idle-before-00.request.json",
+      "bytes": 204,
+      "sha256": "9f7b2487617f43ad73bf0dbfc95fb1decf42bbdee15de20897bb9ad2e1fc293a"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\09-approved-reimport-1-before.envelope.json",
+      "archive": "proof/operator-handoff-attempt01/09-approved-reimport-1-before.envelope.json",
+      "bytes": 1142,
+      "sha256": "f555d35080e174ff81e6468c61d6cbd09514daf59dc94001d7f344c96fe24f20"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\09-approved-reimport-1-before.request.json",
+      "archive": "proof/operator-handoff-attempt01/09-approved-reimport-1-before.request.json",
+      "bytes": 311,
+      "sha256": "ab46b3ef8b0b7c1a4bcc613846b4b6c26ef2639caa0d5f893a0dadf4b82caa50"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\10-approved-reimport-1.envelope.json",
+      "archive": "proof/operator-handoff-attempt01/10-approved-reimport-1.envelope.json",
+      "bytes": 1028,
+      "sha256": "ca21eaf1c1dab898ed3d8a4e50eba54fbcf18cb96c6a6c25b51a3b1b20c14ca0"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\10-approved-reimport-1.request.json",
+      "archive": "proof/operator-handoff-attempt01/10-approved-reimport-1.request.json",
+      "bytes": 466,
+      "sha256": "4c291576debe8107a2f687d386fcb35031bff0bed8a9499c2d27be5e8b5c64f4"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\11-approved-reimport-1-idle-after-00.envelope.json",
+      "archive": "proof/operator-handoff-attempt01/11-approved-reimport-1-idle-after-00.envelope.json",
+      "bytes": 937,
+      "sha256": "4c3458f6cc1a7ca9f71fe9603f9b35aadd6003a47bbf92239a6691b89eec5582"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\11-approved-reimport-1-idle-after-00.request.json",
+      "archive": "proof/operator-handoff-attempt01/11-approved-reimport-1-idle-after-00.request.json",
+      "bytes": 204,
+      "sha256": "e6a4b72a55d698b151b65fa49986afa0decb39ebf3eddb4afed80ac884e04e56"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\12-approved-reimport-1-after.envelope.json",
+      "archive": "proof/operator-handoff-attempt01/12-approved-reimport-1-after.envelope.json",
+      "bytes": 1141,
+      "sha256": "863b8ff950cc3030c1070a547a655e79e899d47461b8d70493f6b06208a97f0b"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\12-approved-reimport-1-after.request.json",
+      "archive": "proof/operator-handoff-attempt01/12-approved-reimport-1-after.request.json",
+      "bytes": 311,
+      "sha256": "f95f5ad1287d12aff9b205304ea1607db5eca961cf0a7360c90cff5d7e41a293"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\13-native-geometry-after-assets.envelope.json",
+      "archive": "proof/operator-handoff-attempt01/13-native-geometry-after-assets.envelope.json",
+      "bytes": 17274,
+      "sha256": "3bc07e6110623639e1c0c93f80e344451a4573f6b77e0542c955ed8d61a34096"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\13-native-geometry-after-assets.request.json",
+      "archive": "proof/operator-handoff-attempt01/13-native-geometry-after-assets.request.json",
+      "bytes": 204,
+      "sha256": "dd483390d5965f4f1e1a3686f77f23116d6f39df512d8085cb3441f94bbe544b"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\14-post-import-mesh-0.envelope.json",
+      "archive": "proof/operator-handoff-attempt01/14-post-import-mesh-0.envelope.json",
+      "bytes": 4382,
+      "sha256": "80225cb8a311a07844b16e914c47b1da78e6f672c7001a721703f11408d3c7c3"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\14-post-import-mesh-0.request.json",
+      "archive": "proof/operator-handoff-attempt01/14-post-import-mesh-0.request.json",
+      "bytes": 290,
+      "sha256": "7efeb77921d3d74731ee40752814b3bbf43b2ec159580f18a4aa15e192ae2aa3"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\15-post-import-mesh-1.envelope.json",
+      "archive": "proof/operator-handoff-attempt01/15-post-import-mesh-1.envelope.json",
+      "bytes": 4394,
+      "sha256": "b5d108addb0ab7f197c9b0adb691ea31b6fc152e670a6813a436057e86cb990a"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\15-post-import-mesh-1.request.json",
+      "archive": "proof/operator-handoff-attempt01/15-post-import-mesh-1.request.json",
+      "bytes": 299,
+      "sha256": "efcea807d0d3a875c6b76409b127ef921da4aef59199bd76f7ebf6c647bda388"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\16-post-import-mesh-2.envelope.json",
+      "archive": "proof/operator-handoff-attempt01/16-post-import-mesh-2.envelope.json",
+      "bytes": 4378,
+      "sha256": "9a9363f85a5047921b9f11a2c1de04824c493289be423a5f78ef62473cfba811"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\16-post-import-mesh-2.request.json",
+      "archive": "proof/operator-handoff-attempt01/16-post-import-mesh-2.request.json",
+      "bytes": 288,
+      "sha256": "bc98658eb47550bc60b22db45c09b5e08e5b214176ca01e5a5a81bd9f3ee87d8"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\17-post-import-mesh-3.envelope.json",
+      "archive": "proof/operator-handoff-attempt01/17-post-import-mesh-3.envelope.json",
+      "bytes": 4444,
+      "sha256": "aff5cdb5e268df2bc3cc97a290372ed0681527a7e360c7cc80d0afa2b4d41127"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\17-post-import-mesh-3.request.json",
+      "archive": "proof/operator-handoff-attempt01/17-post-import-mesh-3.request.json",
+      "bytes": 300,
+      "sha256": "31dfc345bae3bc442535383744266447b6bdacd876d6ba846492af95e7c3c997"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\18-camera-before-tab-switch.envelope.json",
+      "archive": "proof/operator-handoff-attempt01/18-camera-before-tab-switch.envelope.json",
+      "bytes": 2777,
+      "sha256": "87f3dd9e17d5e18419d02ddb395e9dc82df8168ba52c893bf7cad2d076bbabbb"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\18-camera-before-tab-switch.request.json",
+      "archive": "proof/operator-handoff-attempt01/18-camera-before-tab-switch.request.json",
+      "bytes": 230,
+      "sha256": "4981de6ab9895c4f017bae9aff17b0a42a30242927340b005db51a93d9a33efe"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\19-observe-main-tab.envelope.json",
+      "archive": "proof/operator-handoff-attempt01/19-observe-main-tab.envelope.json",
+      "bytes": 944,
+      "sha256": "8cfe9ad61f0fe47b66a1397b2c1a77a70b426065c9e25e62d75e7a1be3a4ca4e"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\19-observe-main-tab.request.json",
+      "archive": "proof/operator-handoff-attempt01/19-observe-main-tab.request.json",
+      "bytes": 386,
+      "sha256": "d33b1184817ada32b9c0f388a1ddcefcffbf3cf5422495eef194797400de6ca9"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\20-main-opened-before-00.envelope.json",
+      "archive": "proof/operator-handoff-attempt01/20-main-opened-before-00.envelope.json",
+      "bytes": 1006,
+      "sha256": "41f8f8aebb8fe3c64cddaea2044e9928aaa6c796c89fd21f302db8a878860881"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\20-main-opened-before-00.request.json",
+      "archive": "proof/operator-handoff-attempt01/20-main-opened-before-00.request.json",
+      "bytes": 206,
+      "sha256": "2128ec20485508c9c96cfcd2b5c00abdfae2d4b73991d15368f372d9d2620368"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\21-main-nodes-before.envelope.json",
+      "archive": "proof/operator-handoff-attempt01/21-main-nodes-before.envelope.json",
+      "bytes": 2279,
+      "sha256": "5689090f1dbffac18d9693ba8201efa02295dc9435a3d8acbec1eb169d2d634a"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\21-main-nodes-before.request.json",
+      "archive": "proof/operator-handoff-attempt01/21-main-nodes-before.request.json",
+      "bytes": 204,
+      "sha256": "aca7147af3904bca6219e2451295e26f6e71e7a416b6744fae9b6c107c22ef1e"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\22-editor-before.envelope.json",
+      "archive": "proof/operator-handoff-attempt01/22-editor-before.envelope.json",
+      "bytes": 1144,
+      "sha256": "d9f934d543444cab9fc24cef1bca8c7e5d1f1db11d48099ceb3dbd99bf79a223"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\22-editor-before.request.json",
+      "archive": "proof/operator-handoff-attempt01/22-editor-before.request.json",
+      "bytes": 203,
+      "sha256": "85d588a9dbfda1cc03095aeb129966493e3b15f6a8a323f5f549c76f650329ba"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\23-return-fixture-tab.envelope.json",
+      "archive": "proof/operator-handoff-attempt01/23-return-fixture-tab.envelope.json",
+      "bytes": 975,
+      "sha256": "c1350337f03a25c418f9d1725bf3e160b56052b7b470b0ded0bfef86ad8eb025"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\23-return-fixture-tab.request.json",
+      "archive": "proof/operator-handoff-attempt01/23-return-fixture-tab.request.json",
+      "bytes": 416,
+      "sha256": "e6bc7e8196ade55d491aaeae83ae6efe3d50c4781a4a6056dfa858ec25b58725"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\24-fixture-opened-00.envelope.json",
+      "archive": "proof/operator-handoff-attempt01/24-fixture-opened-00.envelope.json",
+      "bytes": 1037,
+      "sha256": "44ffce10832fbd0df3fd8985495f2947eda0996ab764eff1924c078f630d82b9"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\24-fixture-opened-00.request.json",
+      "archive": "proof/operator-handoff-attempt01/24-fixture-opened-00.request.json",
+      "bytes": 206,
+      "sha256": "2d37e292f80139d777870b8d034bcc131e359ba8ba2b11283ea45afe1a1747c9"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\25-fixture-before-save.envelope.json",
+      "archive": "proof/operator-handoff-attempt01/25-fixture-before-save.envelope.json",
+      "bytes": 17275,
+      "sha256": "8ec82128b902b7ae127d8ef47a00287eb53930916ca7f25ee212d797a5110482"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\25-fixture-before-save.request.json",
+      "archive": "proof/operator-handoff-attempt01/25-fixture-before-save.request.json",
+      "bytes": 204,
+      "sha256": "54c7a0d7d7d32bcfa4391067cbb5b4d5afd463c5e2bcfb671c32c0296d15d0a7"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\26-save-owned-fixture-with-external-mode.envelope.json",
+      "archive": "proof/operator-handoff-attempt01/26-save-owned-fixture-with-external-mode.envelope.json",
+      "bytes": 954,
+      "sha256": "aeb50cd87590087fa453173c71d86cf7179b43e820bc07417a6a956254e3dc86"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\26-save-owned-fixture-with-external-mode.request.json",
+      "archive": "proof/operator-handoff-attempt01/26-save-owned-fixture-with-external-mode.request.json",
+      "bytes": 393,
+      "sha256": "3c75839d3970ba2b7d88428a399be56dd1279cb7d767b8de356cb20ef4eda117"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\27-camera-after-save.envelope.json",
+      "archive": "proof/operator-handoff-attempt01/27-camera-after-save.envelope.json",
+      "bytes": 2779,
+      "sha256": "954b5b25b6356b5ab355f641bb2fa5aa59c9be5ebc9b951253ad2bbecd237922"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\27-camera-after-save.request.json",
+      "archive": "proof/operator-handoff-attempt01/27-camera-after-save.request.json",
+      "bytes": 230,
+      "sha256": "662ccbc564deea7da9ac7da8d01a6e6dc9917179e059d3ee43c22a16a9772329"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\28-editor-after-save.envelope.json",
+      "archive": "proof/operator-handoff-attempt01/28-editor-after-save.envelope.json",
+      "bytes": 1138,
+      "sha256": "c4121da1bbf34e65e874850452db2a84d747ed37e33171a9f78238d9897840c2"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\28-editor-after-save.request.json",
+      "archive": "proof/operator-handoff-attempt01/28-editor-after-save.request.json",
+      "bytes": 203,
+      "sha256": "7b6f640092224c31d4d9e68f838a71fa723d328263f295c7d243f9984f89bba1"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\29-reject-stale-camera-configure.envelope.json",
+      "archive": "proof/operator-handoff-attempt01/29-reject-stale-camera-configure.envelope.json",
+      "bytes": 830,
+      "sha256": "c7fb7fca2a32ab554887faa6a10268d54f893225e72863f845611a2a8fb5819b"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\29-reject-stale-camera-configure.request.json",
+      "archive": "proof/operator-handoff-attempt01/29-reject-stale-camera-configure.request.json",
+      "bytes": 443,
+      "sha256": "b606f32805703073bd19d4b3199e4161d9283da82301c1d8e25ae2b1ca59bfa8"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\30-camera-after-stale.envelope.json",
+      "archive": "proof/operator-handoff-attempt01/30-camera-after-stale.envelope.json",
+      "bytes": 2778,
+      "sha256": "cf5d79794c9899443ed01841d8b6c3953c501fbf597306b2122058c0a12046bc"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\30-camera-after-stale.request.json",
+      "archive": "proof/operator-handoff-attempt01/30-camera-after-stale.request.json",
+      "bytes": 230,
+      "sha256": "5a6db2d37e0ff2bcf65df3d34d6a476351a5df30991dcf665880ea9c9f199f31"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\31-restore-main-tab.envelope.json",
+      "archive": "proof/operator-handoff-attempt01/31-restore-main-tab.envelope.json",
+      "bytes": 945,
+      "sha256": "7bf773428bee0dfb78cf7bac9142849a890941ab68e89088b4d23aa914e6b567"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\31-restore-main-tab.request.json",
+      "archive": "proof/operator-handoff-attempt01/31-restore-main-tab.request.json",
+      "bytes": 387,
+      "sha256": "b58c5876dc2453f89a9e34007d0ff7c38599e943e4444a91c8baa2897494071d"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\32-main-restored-00.envelope.json",
+      "archive": "proof/operator-handoff-attempt01/32-main-restored-00.envelope.json",
+      "bytes": 1006,
+      "sha256": "ff300a34da62b0ab0e7e5b1d8b67edb1b65a107ddea4db7fe21ca5278d806e9f"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\32-main-restored-00.request.json",
+      "archive": "proof/operator-handoff-attempt01/32-main-restored-00.request.json",
+      "bytes": 206,
+      "sha256": "45069dd95717e025a4bb8d7ab85dd3948b942118559dea240091873d96be21aa"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\33-main-nodes-after.envelope.json",
+      "archive": "proof/operator-handoff-attempt01/33-main-nodes-after.envelope.json",
+      "bytes": 2280,
+      "sha256": "adc55d54cf8e63f31e638225c35cdcfb81b3bdf0d62a8f3dd22e52b46bb23f16"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\33-main-nodes-after.request.json",
+      "archive": "proof/operator-handoff-attempt01/33-main-nodes-after.request.json",
+      "bytes": 204,
+      "sha256": "91bcfc54825ee21d6f8a45439f1f9fc22ba6b706764efeeb9607ed71efc57be5"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\34-main-editor-after.envelope.json",
+      "archive": "proof/operator-handoff-attempt01/34-main-editor-after.envelope.json",
+      "bytes": 1088,
+      "sha256": "88033e0256d5a3b82b844309dd0151649c5e08a2c739677027fb13dadf6bebce"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\34-main-editor-after.request.json",
+      "archive": "proof/operator-handoff-attempt01/34-main-editor-after.request.json",
+      "bytes": 203,
+      "sha256": "45dacaaa0aa240e89df385d4e96acc1da81bb5de0a04e0424d3686a8b5f33985"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01\\receipt.json",
+      "archive": "proof/operator-handoff-attempt01/receipt.json",
+      "bytes": 43316,
+      "sha256": "d29825f0c29acf3dd48d564a70b8dc2e1c22d22e9fc0eb979df87ef9a89e12bc"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01.json",
+      "archive": "proof/operator-handoff-attempt01.json",
+      "bytes": 6101,
+      "sha256": "b353bdbc9bba4315445363682825efdac60f9a1c4ad6d68c8a3ec0b78297f982"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01.log",
+      "archive": "proof/operator-handoff-attempt01.log.txt",
+      "bytes": 4113,
+      "sha256": "2da327e95cceb3ba4c6f6b429b00b53cd6663ef9cd6b069ad7d4d381c23995e0"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb\\assets.envelope.json",
+      "archive": "proof/operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb/assets.envelope.json",
+      "bytes": 730,
+      "sha256": "f1f894fa0b7fdea47a69f8a28670100f73a6191d25e53bf24aa687d5e9185f82"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb\\assets.invocation.json",
+      "archive": "proof/operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb/assets.invocation.json",
+      "bytes": 146,
+      "sha256": "7e092cf46ddaddb5b81a436b8bfdb68b04d6dd08f6de83a5b26be8acd6f9dfc1"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb\\assets.stderr.log",
+      "archive": "proof/operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb/assets.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb\\camera.envelope.json",
+      "archive": "proof/operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb/camera.envelope.json",
+      "bytes": 1692,
+      "sha256": "888b8ca996373ca81c483eb81f6975466ca2c2a7e7361ef6470cbe0a19cfe380"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb\\camera.invocation.json",
+      "archive": "proof/operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb/camera.invocation.json",
+      "bytes": 172,
+      "sha256": "c91cbecebdb385a0f007b01e6acd903b4d2d8f3318ef88f006b6dd908a5fc1e3"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb\\camera.stderr.log",
+      "archive": "proof/operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb/camera.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb\\editor.envelope.json",
+      "archive": "proof/operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb/editor.envelope.json",
+      "bytes": 906,
+      "sha256": "31b8fcd68fb14b79d7a372e527ae955e6bf63adbc6f3be728bdf7b23aa63f785"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb\\editor.invocation.json",
+      "archive": "proof/operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb/editor.invocation.json",
+      "bytes": 145,
+      "sha256": "52ebb71936e52a0d9d6ca7600822840050a04ce8a29bc9ae0277dc5a199ecf0c"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb\\editor.stderr.log",
+      "archive": "proof/operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb/editor.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb\\project.envelope.json",
+      "archive": "proof/operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb/project.envelope.json",
+      "bytes": 822,
+      "sha256": "af1a57411c65581df065c82d70638d0e54eb5ee04e18919d35303fde9f78f5ac"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb\\project.invocation.json",
+      "archive": "proof/operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb/project.invocation.json",
+      "bytes": 148,
+      "sha256": "81b64dfc757a0b70a5abd5b15654825b701afcb8641891dcee79d78d7994d244"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb\\project.stderr.log",
+      "archive": "proof/operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb/project.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb\\receipt.json",
+      "archive": "proof/operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb/receipt.json",
+      "bytes": 2295,
+      "sha256": "0ba4a0648ce8ee5fe4e73ab64b9c45b160d041bab244fe597ff7d968572e554e"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb\\scene.envelope.json",
+      "archive": "proof/operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb/scene.envelope.json",
+      "bytes": 8783,
+      "sha256": "934a553b0b340d460a87164a36abacba2001172e740224f07f205f16976c0990"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb\\scene.invocation.json",
+      "archive": "proof/operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb/scene.invocation.json",
+      "bytes": 146,
+      "sha256": "9b3f8120eb7d930228f257f617ea627fe4eff7e75aede6d344a5764d3bf81931"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb\\scene.stderr.log",
+      "archive": "proof/operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb/scene.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb\\sessions-after.envelope.json",
+      "archive": "proof/operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb/sessions-after.envelope.json",
+      "bytes": 805,
+      "sha256": "00048a7ff587a4e17c9159a256f12454c105f9ea2be00b5876b9346b756d91d2"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb\\sessions-after.invocation.json",
+      "archive": "proof/operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb/sessions-after.invocation.json",
+      "bytes": 92,
+      "sha256": "5474772cb51ec9bfa1be9bad1ba19ea0cece7275a3c35169814fbc280a9d05de"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb\\sessions-after.stderr.log",
+      "archive": "proof/operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb/sessions-after.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb\\sessions.envelope.json",
+      "archive": "proof/operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb/sessions.envelope.json",
+      "bytes": 806,
+      "sha256": "e2407a6b5683e4e48c7e7e14371fb599b0dee67b5cd2d6cceeb32d57f23a2d4c"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb\\sessions.invocation.json",
+      "archive": "proof/operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb/sessions.invocation.json",
+      "bytes": 92,
+      "sha256": "5474772cb51ec9bfa1be9bad1ba19ea0cece7275a3c35169814fbc280a9d05de"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb\\sessions.stderr.log",
+      "archive": "proof/operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb/sessions.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01.prepared.json",
+      "archive": "proof/operator-handoff-attempt01.prepared.json",
+      "bytes": 3014,
+      "sha256": "afe12c68bc2a3698a315eed36f90c9a7179895201adf5d646a03f5a2d45b0450"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01.runner.json",
+      "archive": "proof/operator-handoff-attempt01.runner.json",
+      "bytes": 13975,
+      "sha256": "7f3b8401188bb1fffc4bc530c1e2b271862a211ab192c068c6723696a24da674"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01.source-before.json",
+      "archive": "proof/operator-handoff-attempt01.source-before.json",
+      "bytes": 553696,
+      "sha256": "5c8f67df7d5b1754eac6cacf226008ff519ae8c42d2973483ce448607b55a9c8"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01.submission.json",
+      "archive": "proof/operator-handoff-attempt01.submission.json",
+      "bytes": 512,
+      "sha256": "e6b12cf43789115fa3006ea60a796063091ff9fcf7ddc72a02553f69ed3b38a4"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-reconciliation01\\assets-idle.envelope.json",
+      "archive": "proof/operator-handoff-reconciliation01/assets-idle.envelope.json",
+      "bytes": 731,
+      "sha256": "c111cf38b3930c5ea5ff1a541329fab6814f4b64f05b71fe61af7c6375a9e7db"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-reconciliation01\\assets-idle.invocation.json",
+      "archive": "proof/operator-handoff-reconciliation01/assets-idle.invocation.json",
+      "bytes": 146,
+      "sha256": "7e092cf46ddaddb5b81a436b8bfdb68b04d6dd08f6de83a5b26be8acd6f9dfc1"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-reconciliation01\\assets-idle.stderr.log",
+      "archive": "proof/operator-handoff-reconciliation01/assets-idle.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-reconciliation01\\editor-state.envelope.json",
+      "archive": "proof/operator-handoff-reconciliation01/editor-state.envelope.json",
+      "bytes": 826,
+      "sha256": "544e20598427df3fcdf2f2f5b9e5d5f273cdbcbd3fd840d0192d59dcce6ee9ea"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-reconciliation01\\editor-state.invocation.json",
+      "archive": "proof/operator-handoff-reconciliation01/editor-state.invocation.json",
+      "bytes": 145,
+      "sha256": "52ebb71936e52a0d9d6ca7600822840050a04ce8a29bc9ae0277dc5a199ecf0c"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-reconciliation01\\editor-state.stderr.log",
+      "archive": "proof/operator-handoff-reconciliation01/editor-state.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-reconciliation01\\main-scene.envelope.json",
+      "archive": "proof/operator-handoff-reconciliation01/main-scene.envelope.json",
+      "bytes": 1374,
+      "sha256": "9d09c6437f23901a92c11c4a98873196700b705c8872b2417cb13e3fbbccde3f"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-reconciliation01\\main-scene.invocation.json",
+      "archive": "proof/operator-handoff-reconciliation01/main-scene.invocation.json",
+      "bytes": 146,
+      "sha256": "9b3f8120eb7d930228f257f617ea627fe4eff7e75aede6d344a5764d3bf81931"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-reconciliation01\\main-scene.stderr.log",
+      "archive": "proof/operator-handoff-reconciliation01/main-scene.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-reconciliation01\\receipt.json",
+      "archive": "proof/operator-handoff-reconciliation01/receipt.json",
+      "bytes": 6699,
+      "sha256": "ceca07a49625dd9ee0a1a8e5e028cd441a6680164cc126d85623756c0cb8510e"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-reconciliation01\\sessions-after.envelope.json",
+      "archive": "proof/operator-handoff-reconciliation01/sessions-after.envelope.json",
+      "bytes": 805,
+      "sha256": "81508bd085088ca4663adc63e0ea625c0fb2415927c984ed36add05bc3b4c327"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-reconciliation01\\sessions-after.invocation.json",
+      "archive": "proof/operator-handoff-reconciliation01/sessions-after.invocation.json",
+      "bytes": 92,
+      "sha256": "5474772cb51ec9bfa1be9bad1ba19ea0cece7275a3c35169814fbc280a9d05de"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-reconciliation01\\sessions-after.stderr.log",
+      "archive": "proof/operator-handoff-reconciliation01/sessions-after.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-reconciliation01\\sessions-before.envelope.json",
+      "archive": "proof/operator-handoff-reconciliation01/sessions-before.envelope.json",
+      "bytes": 806,
+      "sha256": "12bf8ab180988f4348ac69e21650cfb57f43c28a0cfd08afd307a5a54d35818f"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-reconciliation01\\sessions-before.invocation.json",
+      "archive": "proof/operator-handoff-reconciliation01/sessions-before.invocation.json",
+      "bytes": 92,
+      "sha256": "5474772cb51ec9bfa1be9bad1ba19ea0cece7275a3c35169814fbc280a9d05de"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-reconciliation01\\sessions-before.stderr.log",
+      "archive": "proof/operator-handoff-reconciliation01/sessions-before.stderr.log.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-reconciliation01\\source-files.json",
+      "archive": "proof/operator-handoff-reconciliation01/source-files.json",
+      "bytes": 541318,
+      "sha256": "c266a547a242f448063405526aab1d6dada9f564cefc6357eef3971932309ecb"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\persisted-fixture-readback01\\godot.log",
+      "archive": "proof/persisted-fixture-readback01/godot.log.txt",
+      "bytes": 75,
+      "sha256": "83cf0b082206af2aa236c83064fbcfa76be1e00a4aa3558574b2f65965d9481c"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\persisted-fixture-readback01\\native-readback.json",
+      "archive": "proof/persisted-fixture-readback01/native-readback.json",
+      "bytes": 2049,
+      "sha256": "075d0971e6b2c5350d810bfc9ed66d05b20f9c07490fc69075125b64cca6d514"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\persisted-fixture-readback01\\persisted_fixture_readback.gd",
+      "archive": "proof/persisted-fixture-readback01/persisted_fixture_readback.gd",
+      "bytes": 2639,
+      "sha256": "66f8d911dd31d5f3c2366d4e5c91051843057ed30b8c69533062580b5307a598"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\persisted-fixture-readback01\\post-readback-preservation.json",
+      "archive": "proof/persisted-fixture-readback01/post-readback-preservation.json",
+      "bytes": 742,
+      "sha256": "477ac0a3e137efb003e62f1b8a16b69e7b5ced37dc534c5fe4a080355032cc1d"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\persisted-fixture-readback01\\receipt.json",
+      "archive": "proof/persisted-fixture-readback01/receipt.json",
+      "bytes": 1629,
+      "sha256": "3b94d195e0719e05ba48bd32606bd159f5eb2216563738a29920a07708839a72"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\persisted-fixture-readback01\\verify-source-preservation.py",
+      "archive": "proof/persisted-fixture-readback01/verify-source-preservation.py",
+      "bytes": 2468,
+      "sha256": "01920093b48bf347d37025974b155678dc3cc1bb9ed575179da027fbf0ccd5e8"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\prepared.json",
+      "archive": "proof/prepared.json",
+      "bytes": 12816,
+      "sha256": "a1a9e2ffe49400b25d0e3b88a28bdcddb3769b8aeb991b2ce789ee7d9172cbe1"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\scripts\\Run-GodotOperatorHandoff.py",
+      "archive": "orchestration/Run-GodotOperatorHandoff.py",
+      "bytes": 9030,
+      "sha256": "9962ce8ec439a1c3761ad5f132979c42ec421ff7943feb1625d49d862831753a"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\scripts\\godot_handoff_guard.py",
+      "archive": "orchestration/godot_handoff_guard.py",
+      "bytes": 19184,
+      "sha256": "b7ca24c036127a57b3316a630563a3391e81b98e275a93f8c2798841539c52e7"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\scripts\\Reconcile-GodotOperatorHandoff.py",
+      "archive": "orchestration/Reconcile-GodotOperatorHandoff.py",
+      "bytes": 10417,
+      "sha256": "e8d4a86bf9eb33738a7da6da9c0e164eae567c79eda5036b6c6a6d9d6fa4de14"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\scripts\\Validate-GodotPersistedFixture.py",
+      "archive": "orchestration/Validate-GodotPersistedFixture.py",
+      "bytes": 5624,
+      "sha256": "68770c091bbdbe8e9ae70dda928245ebce31a9b6b6c596e18f1408845e3f8087"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\scripts\\Archive-GodotOperatorHandoffEvidence.py",
+      "archive": "orchestration/Archive-GodotOperatorHandoffEvidence.py",
+      "bytes": 7957,
+      "sha256": "5dce2db3f3b5daec94df50670c8dc22c6baa18536a07404e00e9fc7f506129cd"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\tests\\test_godot_handoff_guard.py",
+      "archive": "orchestration/test_godot_handoff_guard.py",
+      "bytes": 11277,
+      "sha256": "f724178b848ed6f905fb280015d8294b333540db8fb4853dbd36007cbf23f8c6"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\game\\addons\\semwright\\plugin.gd",
+      "archive": "native-project/addons/semwright/plugin.gd",
+      "bytes": 44383,
+      "sha256": "7a1ba9f470ce12c95755ab3dd8186e020a424e6bfd508ca184b94ad7a1655d52"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\game\\addons\\semwright\\ops\\rendering_ops.gd",
+      "archive": "native-project/addons/semwright/ops/rendering_ops.gd",
+      "bytes": 12750,
+      "sha256": "08493e34f4d9a7152dfa6c129b8a6bafbd74b590eb8b0957e0994ab73a9c802b"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\game\\addons\\semwright\\ops\\scene_save_ops.gd",
+      "archive": "native-project/addons/semwright/ops/scene_save_ops.gd",
+      "bytes": 6371,
+      "sha256": "d0568557631da56fbc4356336f9027fe2bdc3e462d6f7891f3c39f8f0568d6a0"
+    },
+    {
+      "source": "E:\\Projects\\worldwright-archipelago\\game\\proofs\\semwright_godot_bridge01_02.tscn",
+      "archive": "native-project/proofs/semwright_godot_bridge01_02.tscn",
+      "bytes": 736,
+      "sha256": "37017d169c9cec25511b99f28a48443bfc4d16c5dceffd4b1d56ff461bd8ef41"
+    },
+    {
+      "source": "E:\\Projects\\semwright-blender52\\crates\\driver-blender\\tests\\windows_broker_godot_handoff.rs",
+      "archive": "proof-source/windows_broker_godot_handoff.rs",
+      "bytes": 42499,
+      "sha256": "7d89721ca05c3c3ce659c435fb589efa76e2f36f8f4364ae37cd5f685cfbbd8c"
+    }
+  ],
+  "audit": {
+    "sha256": "2012096e29172ad866a24888ef9ba2195f6a18f0c1ccd322f0987283bf767cd3",
+    "records": 224,
+    "tail_hash": "a3d23e1e7051a53b377480aa7edfb0daffcc273f763ed705f4b804cc27f370ec",
+    "consistent": true,
+    "snapshot_of_live_idle_broker": true,
+    "malicious_same_owner_tamper_resistance_claimed": false
+  },
+  "correlated_envelopes": [
+    {
+      "path": "operator-handoff-attempt01/00-sessions.envelope.json",
+      "request_id": "abd259c89dfb40249e4ac9aaf4704126",
+      "command": "driver.godot.session.list",
+      "start_sequence": 145,
+      "finish_sequence": 146,
+      "ok": true
+    },
+    {
+      "path": "operator-handoff-attempt01/01-reconciled-fixture.envelope.json",
+      "request_id": "a684d36bbfa34020ae9403b17861bc89",
+      "command": "driver.godot.scene.inspect",
+      "start_sequence": 147,
+      "finish_sequence": 148,
+      "ok": true
+    },
+    {
+      "path": "operator-handoff-attempt01/02-camera-before.envelope.json",
+      "request_id": "d6aac01728a745acbfe0e0d82db3073f",
+      "command": "driver.godot.node.inspect",
+      "start_sequence": 149,
+      "finish_sequence": 150,
+      "ok": true
+    },
+    {
+      "path": "operator-handoff-attempt01/03-approved-reimport-0-idle-before-00.envelope.json",
+      "request_id": "53592c3d6dd94ee9bead929af02ca243",
+      "command": "driver.godot.assets.status",
+      "start_sequence": 151,
+      "finish_sequence": 152,
+      "ok": true
+    },
+    {
+      "path": "operator-handoff-attempt01/04-approved-reimport-0-before.envelope.json",
+      "request_id": "7ab4e70e7c044fdb818a0202be5563dc",
+      "command": "driver.godot.asset.inspect",
+      "start_sequence": 153,
+      "finish_sequence": 154,
+      "ok": true
+    },
+    {
+      "path": "operator-handoff-attempt01/05-approved-reimport-0.envelope.json",
+      "request_id": "cc3b5682b826491088dfa3d2957df052",
+      "command": "driver.godot.asset.reimport",
+      "start_sequence": 155,
+      "finish_sequence": 156,
+      "ok": true
+    },
+    {
+      "path": "operator-handoff-attempt01/06-approved-reimport-0-idle-after-00.envelope.json",
+      "request_id": "d85b41a40d4642d0bf5550092a80a88f",
+      "command": "driver.godot.assets.status",
+      "start_sequence": 157,
+      "finish_sequence": 158,
+      "ok": true
+    },
+    {
+      "path": "operator-handoff-attempt01/07-approved-reimport-0-after.envelope.json",
+      "request_id": "05853f37bb0b459595ea416827b0f122",
+      "command": "driver.godot.asset.inspect",
+      "start_sequence": 159,
+      "finish_sequence": 160,
+      "ok": true
+    },
+    {
+      "path": "operator-handoff-attempt01/08-approved-reimport-1-idle-before-00.envelope.json",
+      "request_id": "4785449c73e64d938d125bf30d48699e",
+      "command": "driver.godot.assets.status",
+      "start_sequence": 161,
+      "finish_sequence": 162,
+      "ok": true
+    },
+    {
+      "path": "operator-handoff-attempt01/09-approved-reimport-1-before.envelope.json",
+      "request_id": "5b484d9dd3ff4be48dfe00a07d453d94",
+      "command": "driver.godot.asset.inspect",
+      "start_sequence": 163,
+      "finish_sequence": 164,
+      "ok": true
+    },
+    {
+      "path": "operator-handoff-attempt01/10-approved-reimport-1.envelope.json",
+      "request_id": "45fd7d7c9ea04b68914c244773952904",
+      "command": "driver.godot.asset.reimport",
+      "start_sequence": 165,
+      "finish_sequence": 166,
+      "ok": true
+    },
+    {
+      "path": "operator-handoff-attempt01/11-approved-reimport-1-idle-after-00.envelope.json",
+      "request_id": "6e140ae0a73f400887f2512dd3d26068",
+      "command": "driver.godot.assets.status",
+      "start_sequence": 167,
+      "finish_sequence": 168,
+      "ok": true
+    },
+    {
+      "path": "operator-handoff-attempt01/12-approved-reimport-1-after.envelope.json",
+      "request_id": "59324db11eb348c3a99002d37bfb47d1",
+      "command": "driver.godot.asset.inspect",
+      "start_sequence": 169,
+      "finish_sequence": 170,
+      "ok": true
+    },
+    {
+      "path": "operator-handoff-attempt01/13-native-geometry-after-assets.envelope.json",
+      "request_id": "b293571e5d5c4987ab5943ce98b184a4",
+      "command": "driver.godot.scene.inspect",
+      "start_sequence": 171,
+      "finish_sequence": 172,
+      "ok": true
+    },
+    {
+      "path": "operator-handoff-attempt01/14-post-import-mesh-0.envelope.json",
+      "request_id": "b0beba63048e477db3af09f45c609261",
+      "command": "driver.godot.node.inspect",
+      "start_sequence": 173,
+      "finish_sequence": 174,
+      "ok": true
+    },
+    {
+      "path": "operator-handoff-attempt01/15-post-import-mesh-1.envelope.json",
+      "request_id": "12094907d5cf456a967b2e4583862353",
+      "command": "driver.godot.node.inspect",
+      "start_sequence": 175,
+      "finish_sequence": 176,
+      "ok": true
+    },
+    {
+      "path": "operator-handoff-attempt01/16-post-import-mesh-2.envelope.json",
+      "request_id": "27f6b6e671d445b3b14540fc7e43031b",
+      "command": "driver.godot.node.inspect",
+      "start_sequence": 177,
+      "finish_sequence": 178,
+      "ok": true
+    },
+    {
+      "path": "operator-handoff-attempt01/17-post-import-mesh-3.envelope.json",
+      "request_id": "59b76280717a46e6ad7b24a3c691980e",
+      "command": "driver.godot.node.inspect",
+      "start_sequence": 179,
+      "finish_sequence": 180,
+      "ok": true
+    },
+    {
+      "path": "operator-handoff-attempt01/18-camera-before-tab-switch.envelope.json",
+      "request_id": "ed7d01a1c21540089997d1a1b38e1919",
+      "command": "driver.godot.node.inspect",
+      "start_sequence": 181,
+      "finish_sequence": 182,
+      "ok": true
+    },
+    {
+      "path": "operator-handoff-attempt01/19-observe-main-tab.envelope.json",
+      "request_id": "b992f0b29f334891bfa4073ea9257c86",
+      "command": "driver.godot.scene.open",
+      "start_sequence": 183,
+      "finish_sequence": 184,
+      "ok": true
+    },
+    {
+      "path": "operator-handoff-attempt01/20-main-opened-before-00.envelope.json",
+      "request_id": "2a442e0b191947f096f05e3c104cdb73",
+      "command": "driver.godot.project.inspect",
+      "start_sequence": 185,
+      "finish_sequence": 186,
+      "ok": true
+    },
+    {
+      "path": "operator-handoff-attempt01/21-main-nodes-before.envelope.json",
+      "request_id": "5aae6e9b9753482984ed7f180aeb57c1",
+      "command": "driver.godot.scene.inspect",
+      "start_sequence": 187,
+      "finish_sequence": 188,
+      "ok": true
+    },
+    {
+      "path": "operator-handoff-attempt01/22-editor-before.envelope.json",
+      "request_id": "72def4f8eaa741d6983e9779134a8fa6",
+      "command": "driver.godot.editor.state",
+      "start_sequence": 189,
+      "finish_sequence": 190,
+      "ok": true
+    },
+    {
+      "path": "operator-handoff-attempt01/23-return-fixture-tab.envelope.json",
+      "request_id": "31245db5441240dc82a88741cbe54911",
+      "command": "driver.godot.scene.open",
+      "start_sequence": 191,
+      "finish_sequence": 192,
+      "ok": true
+    },
+    {
+      "path": "operator-handoff-attempt01/24-fixture-opened-00.envelope.json",
+      "request_id": "57d0218a84494ee1922f3a5d735a3b2f",
+      "command": "driver.godot.project.inspect",
+      "start_sequence": 193,
+      "finish_sequence": 194,
+      "ok": true
+    },
+    {
+      "path": "operator-handoff-attempt01/25-fixture-before-save.envelope.json",
+      "request_id": "ca02335607b9494cb9138eeb2e0fe407",
+      "command": "driver.godot.scene.inspect",
+      "start_sequence": 195,
+      "finish_sequence": 196,
+      "ok": true
+    },
+    {
+      "path": "operator-handoff-attempt01/26-save-owned-fixture-with-external-mode.envelope.json",
+      "request_id": "5854e15060a54c1494d492543db9eee1",
+      "command": "driver.godot.scene.save",
+      "start_sequence": 197,
+      "finish_sequence": 198,
+      "ok": true
+    },
+    {
+      "path": "operator-handoff-attempt01/27-camera-after-save.envelope.json",
+      "request_id": "7cb43c4695944ec9a0ec83ded32e6ba3",
+      "command": "driver.godot.node.inspect",
+      "start_sequence": 199,
+      "finish_sequence": 200,
+      "ok": true
+    },
+    {
+      "path": "operator-handoff-attempt01/28-editor-after-save.envelope.json",
+      "request_id": "5f5d5c59d7da4248bb35b7765e2500f5",
+      "command": "driver.godot.editor.state",
+      "start_sequence": 201,
+      "finish_sequence": 202,
+      "ok": true
+    },
+    {
+      "path": "operator-handoff-attempt01/29-reject-stale-camera-configure.envelope.json",
+      "request_id": "7ededffa579241e2b0f794653c379725",
+      "command": "driver.godot.camera.configure",
+      "start_sequence": 203,
+      "finish_sequence": 204,
+      "ok": false
+    },
+    {
+      "path": "operator-handoff-attempt01/30-camera-after-stale.envelope.json",
+      "request_id": "7b9faf0adbe9432ba5380cd5b0345beb",
+      "command": "driver.godot.node.inspect",
+      "start_sequence": 205,
+      "finish_sequence": 206,
+      "ok": true
+    },
+    {
+      "path": "operator-handoff-attempt01/31-restore-main-tab.envelope.json",
+      "request_id": "f2e2e16c665e43f884cdfb4723776cdb",
+      "command": "driver.godot.scene.open",
+      "start_sequence": 207,
+      "finish_sequence": 208,
+      "ok": true
+    },
+    {
+      "path": "operator-handoff-attempt01/32-main-restored-00.envelope.json",
+      "request_id": "0749b6e8f72b4f74a4dd782ddf234bf6",
+      "command": "driver.godot.project.inspect",
+      "start_sequence": 209,
+      "finish_sequence": 210,
+      "ok": true
+    },
+    {
+      "path": "operator-handoff-attempt01/33-main-nodes-after.envelope.json",
+      "request_id": "0c00b948a9b3462bbe3d2a38b2a44817",
+      "command": "driver.godot.scene.inspect",
+      "start_sequence": 211,
+      "finish_sequence": 212,
+      "ok": true
+    },
+    {
+      "path": "operator-handoff-attempt01/34-main-editor-after.envelope.json",
+      "request_id": "11f660b55c654644aef3e8b37b4eb1f8",
+      "command": "driver.godot.editor.state",
+      "start_sequence": 213,
+      "finish_sequence": 214,
+      "ok": true
+    },
+    {
+      "path": "operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb/assets.envelope.json",
+      "request_id": "fe24ce02536146c7a56ed320c6dcec61",
+      "command": "driver.godot.assets.status",
+      "start_sequence": 141,
+      "finish_sequence": 142,
+      "ok": true
+    },
+    {
+      "path": "operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb/camera.envelope.json",
+      "request_id": "d2ff2d9c3d8a445e82eec05d726479b8",
+      "command": "driver.godot.node.inspect",
+      "start_sequence": 137,
+      "finish_sequence": 138,
+      "ok": true
+    },
+    {
+      "path": "operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb/editor.envelope.json",
+      "request_id": "243e02c4f10444cf8b39445ac79e81c4",
+      "command": "driver.godot.editor.state",
+      "start_sequence": 139,
+      "finish_sequence": 140,
+      "ok": true
+    },
+    {
+      "path": "operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb/project.envelope.json",
+      "request_id": "d1f4742774c9416982d33a068b8c2279",
+      "command": "driver.godot.project.inspect",
+      "start_sequence": 133,
+      "finish_sequence": 134,
+      "ok": true
+    },
+    {
+      "path": "operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb/scene.envelope.json",
+      "request_id": "de909f73ae3d4f8e9f8f6b49b3be1332",
+      "command": "driver.godot.scene.inspect",
+      "start_sequence": 135,
+      "finish_sequence": 136,
+      "ok": true
+    },
+    {
+      "path": "operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb/sessions-after.envelope.json",
+      "request_id": "2584e8d57ef94ac88002aa56cb61083b",
+      "command": "driver.godot.session.list",
+      "start_sequence": 143,
+      "finish_sequence": 144,
+      "ok": true
+    },
+    {
+      "path": "operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb/sessions.envelope.json",
+      "request_id": "9de22ff8b7674f609609c689b91fdbd7",
+      "command": "driver.godot.session.list",
+      "start_sequence": 131,
+      "finish_sequence": 132,
+      "ok": true
+    },
+    {
+      "path": "operator-handoff-reconciliation01/assets-idle.envelope.json",
+      "request_id": "69287e91149b4527b0bd90b18c145ff6",
+      "command": "driver.godot.assets.status",
+      "start_sequence": 221,
+      "finish_sequence": 222,
+      "ok": true
+    },
+    {
+      "path": "operator-handoff-reconciliation01/editor-state.envelope.json",
+      "request_id": "3256ae5c41914b408be9d40e9486cb2c",
+      "command": "driver.godot.editor.state",
+      "start_sequence": 219,
+      "finish_sequence": 220,
+      "ok": true
+    },
+    {
+      "path": "operator-handoff-reconciliation01/main-scene.envelope.json",
+      "request_id": "88d7793f250e4d75b321d30d44aee41b",
+      "command": "driver.godot.scene.inspect",
+      "start_sequence": 217,
+      "finish_sequence": 218,
+      "ok": true
+    },
+    {
+      "path": "operator-handoff-reconciliation01/sessions-after.envelope.json",
+      "request_id": "3e0bd18b9ed54728bec15cd0732d8425",
+      "command": "driver.godot.session.list",
+      "start_sequence": 223,
+      "finish_sequence": 224,
+      "ok": true
+    },
+    {
+      "path": "operator-handoff-reconciliation01/sessions-before.envelope.json",
+      "request_id": "af679949b7154cfea7e762a532283640",
+      "command": "driver.godot.session.list",
+      "start_sequence": 215,
+      "finish_sequence": 216,
+      "ok": true
+    }
+  ],
+  "explicit_request_pairs": 35,
+  "unmatched_requests": 0,
+  "credential_scan": "Pairing secret and persisted token/key fields compared in memory; values not archived or printed",
+  "prior_build_archive": "../checkpoint01",
+  "prior_build_manifest_sha256": "17b9a7a6a649649acb26a65fd4c6356c224458203784c26e4e350b535c18dc5b",
+  "physical_scope": {
+    "native_operator_approvals": 5,
+    "broker_reimports": "PASS_FOR_UNCHANGED_R22_R23",
+    "broker_supporting_scene_save": "PASS",
+    "independent_native_reopen": "PASS",
+    "source_preservation": "PASS_ONLY_SUPPORT_SCENE_CHANGED",
+    "stale_camera_raw_outcome": "UNKNOWN",
+    "stale_camera_observed_postcondition": "UNCHANGED",
+    "original_runner_passed": false,
+    "separate_read_only_reconciliation_passed": true,
+    "human_authored_camera_preservation": "NOT_DEMONSTRATED",
+    "geometric_A_to_B_reimport": "NOT_RUN"
+  },
+  "Godot_editor_isolated": false,
+  "Godot_driver_LPAC": true,
+  "G6": "NOT_COMPLETE",
+  "art_status": "REVISE",
+  "Linux_4_5_14": "NOT_RUN",
+  "Linux_5_2_1": "NOT_RUN",
+  "external_publication": false
+}

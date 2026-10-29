@@ -1,0 +1,35 @@
+{
+  "command": "driver.godot.scene.open",
+  "data": {
+    "affected": [
+      "res://main.tscn"
+    ],
+    "applied": true,
+    "stamp": {
+      "fingerprint": "a4be38ce924d1500249c1698135906cd9e9796cedbf7ee702d7484f9e0f089a1",
+      "revision": 9
+    },
+    "undo": "Open scene"
+  },
+  "execution": {
+    "backend": "driver:godot",
+    "dry_run": false,
+    "duration_ms": 14727,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow_after_confirmation",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "3bc3fa04124bab1412e1feff34f9b0606237e7b9d53b944ee0823eadf46910ad",
+      "execution_provider": "driver:godot",
+      "provider": "driver:godot",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "b992f0b29f334891bfa4073ea9257c86",
+  "warnings": []
+}

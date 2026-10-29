@@ -1,0 +1,11 @@
+{
+  "args": {
+    "include_vertex_bounds": true,
+    "path": "FaroRock/SW_dc08abe78a2a_coastal_toe",
+    "session": "8044a769cd76689cd9276d3db99681d9"
+  },
+  "backend": null,
+  "command": "driver.godot.node.inspect",
+  "dry_run": false,
+  "request_id": "b0beba63048e477db3af09f45c609261"
+}

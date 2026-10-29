@@ -1,0 +1,36 @@
+{
+  "command": "driver.godot.project.inspect",
+  "data": {
+    "data": {
+      "engine": "4.7.2-stable (official)",
+      "name": "Archipelago — Costa de los Vientos",
+      "scene": "res://main.tscn",
+      "unsaved": true
+    },
+    "stamp": {
+      "fingerprint": "a4be38ce924d1500249c1698135906cd9e9796cedbf7ee702d7484f9e0f089a1",
+      "revision": 9
+    }
+  },
+  "execution": {
+    "backend": "driver:godot",
+    "dry_run": false,
+    "duration_ms": 152,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "1969f298ef7ffd468168538e3c6e8d7216def492bd85c61e608f3b75083fd79c",
+      "execution_provider": "driver:godot",
+      "provider": "driver:godot",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "2a442e0b191947f096f05e3c104cdb73",
+  "warnings": []
+}

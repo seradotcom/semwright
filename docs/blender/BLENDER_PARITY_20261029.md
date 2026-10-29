@@ -77,7 +77,7 @@ Every Linux native capability row corresponding to this table remains
 | Stale/replay, traversal and no-overwrite checks | HOSTED_NATIVE_PASS for named probes | Candidate09 and other retained boundary probes; not an exhaustive denial campaign. |
 | Readiness cancellation and process reaping | HOSTED_NATIVE_PASS for recorded scenarios | Candidate04 cancellation and candidate09/later lifecycle; acknowledgement and observed exit are separate. |
 | Plan-output publication budget | TESTED_COMPONENT and HOSTED_NATIVE_PASS | Candidate12 rejects oversized output before publication, then completes valid authoring in the same native session. |
-| Mediated Godot reimport/save and human continuity | PARTIAL; native operator pending | Pairing, instantiation and readback exist. Read-only readiness does not establish reimport, persistence or human-edit preservation. |
+| Mediated Godot reimport/save and human continuity | PARTIAL; reimport/save and independent reopen verified | Five native approvals and the bounded support-scene persistence proof completed. Human-edit preservation remains pending; the raw stale-camera response retains UNKNOWN with separate no-effect reconciliation. |
 
 ## Historical evidence anchors
 
@@ -175,7 +175,7 @@ must first be configured and recorded separately on a real Linux host.
 No Linux execution or external CI dispatch is authorized or claimed by this
 document. Both profiles remain NOT_RUN.
 
-## Latest Archipelago handoff boundary
+## Pre-submission Archipelago handoff boundary (historical)
 
 Archipelago commit `b25d813` adds a live read-only guard around the existing
 prepared Godot handoff. Its separate 16 component tests passed; the physical
@@ -201,3 +201,12 @@ continuity remain unfulfilled. See
 P3 remains PARTIAL, A05 remains PARTIAL_PENDING_PROJECT_CONFORMANCE, G6 remains
 NOT_COMPLETE and A02 remains REVISE. No push, public PR, merge, release, global
 installation replacement or external CI was performed by this follow-up.
+
+
+## Subsequent native handoff and persistence
+
+The owner completed five native challenges. The 35-pair proof passed; reimport/save responses were applied, the main scene's live projection and unsaved flag were preserved, and only the support scene changed (SHA-256 37017d169c9cec25511b99f28a48443bfc4d16c5dceffd4b1d56ff461bd8ef41). An independent native process verified the persisted four meshes, bounds and camera; its subsequent full inventory changed zero project sources.
+
+The wrapper correctly remains UNKNOWN because the expected stale-camera Conflict is reported with outcome_known:false. Separate pinned-source/readback reconciliation supports an unchanged camera postcondition, without rewriting that response or replaying the mutation. Thus reimport/persistence has scoped physical evidence while real human-camera continuity remains NOT_DEMONSTRATED. This run used unchanged GLBs; geometric A-to-B resource updating is not claimed.
+
+The [Godot handoff record](WINDOWS_GODOT_HANDOFF_20261029.md) contains exact receipt identities and checkpoint02: 137 payloads, 224 audit records, 47 correlated envelopes, 35 explicit pairs and zero unmatched requests. P3/A05 remain partial, G6 incomplete, art REVISE and both Linux native regressions NOT_RUN. No new Blender native test ran during this Godot follow-up.

@@ -1,0 +1,11 @@
+{
+  "args": {
+    "include_vertex_bounds": true,
+    "path": "FaroRock/SW_dc08abe78a2a_integrated_limestone",
+    "session": "8044a769cd76689cd9276d3db99681d9"
+  },
+  "backend": null,
+  "command": "driver.godot.node.inspect",
+  "dry_run": false,
+  "request_id": "12094907d5cf456a967b2e4583862353"
+}

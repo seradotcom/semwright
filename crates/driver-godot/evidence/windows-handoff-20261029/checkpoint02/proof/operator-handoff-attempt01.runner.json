@@ -1,0 +1,394 @@
+{
+  "schema": 2,
+  "utc": "2026-10-29T04:53:54.142421+00:00",
+  "binary_sha256": "c71d1bb5dcea20c482f3f5f794c6c9f89419f09707551c9b19348842c0ef75a6",
+  "config_sha256": "b353bdbc9bba4315445363682825efdac60f9a1c4ad6d68c8a3ec0b78297f982",
+  "source_sha256": "7d89721ca05c3c3ce659c435fb589efa76e2f36f8f4364ae37cd5f685cfbbd8c",
+  "preparation_sha256": "afe12c68bc2a3698a315eed36f90c9a7179895201adf5d646a03f5a2d45b0450",
+  "preflight_receipt": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb\\receipt.json",
+  "native_approval_input_automated": false,
+  "automatic_retry": false,
+  "G6": "NOT_COMPLETE",
+  "human_camera_claimed": false,
+  "art_status": "REVISE",
+  "client_started": true,
+  "exit_code": 0,
+  "execution_error": null,
+  "client_timeout": false,
+  "broker_operation_cancelled": false,
+  "client_pid": 30036,
+  "seconds": 143.51499999999942,
+  "proof_passed": true,
+  "source_delta": {
+    "proofs/semwright_godot_bridge01_02.tscn": {
+      "before": {
+        "bytes": 118,
+        "sha256": "6e319c4e3f6d82b98ef7af29a51f4c38194ae6a798cc7a9b6641b03249943630"
+      },
+      "after": {
+        "bytes": 736,
+        "sha256": "37017d169c9cec25511b99f28a48443bfc4d16c5dceffd4b1d56ff461bd8ef41"
+      }
+    }
+  },
+  "source_delta_within_allowed_paths": true,
+  "fixture_changed_as_required_for_success": true,
+  "protected_glbs_unchanged": true,
+  "permitted_source_delta_only": true,
+  "request_outcomes": [
+    {
+      "request_file": "00-sessions.request.json",
+      "classification": "KNOWN_SUCCESS",
+      "request_id": "abd259c89dfb40249e4ac9aaf4704126",
+      "command": "driver.godot.session.list",
+      "ok": true,
+      "backend": "driver:godot",
+      "policy_decision": "allow",
+      "mutation_applied": false
+    },
+    {
+      "request_file": "01-reconciled-fixture.request.json",
+      "classification": "KNOWN_SUCCESS",
+      "request_id": "a684d36bbfa34020ae9403b17861bc89",
+      "command": "driver.godot.scene.inspect",
+      "ok": true,
+      "backend": "driver:godot",
+      "policy_decision": "allow",
+      "mutation_applied": false
+    },
+    {
+      "request_file": "02-camera-before.request.json",
+      "classification": "KNOWN_SUCCESS",
+      "request_id": "d6aac01728a745acbfe0e0d82db3073f",
+      "command": "driver.godot.node.inspect",
+      "ok": true,
+      "backend": "driver:godot",
+      "policy_decision": "allow",
+      "mutation_applied": false
+    },
+    {
+      "request_file": "03-approved-reimport-0-idle-before-00.request.json",
+      "classification": "KNOWN_SUCCESS",
+      "request_id": "53592c3d6dd94ee9bead929af02ca243",
+      "command": "driver.godot.assets.status",
+      "ok": true,
+      "backend": "driver:godot",
+      "policy_decision": "allow",
+      "mutation_applied": false
+    },
+    {
+      "request_file": "04-approved-reimport-0-before.request.json",
+      "classification": "KNOWN_SUCCESS",
+      "request_id": "7ab4e70e7c044fdb818a0202be5563dc",
+      "command": "driver.godot.asset.inspect",
+      "ok": true,
+      "backend": "driver:godot",
+      "policy_decision": "allow",
+      "mutation_applied": false
+    },
+    {
+      "request_file": "05-approved-reimport-0.request.json",
+      "classification": "KNOWN_SUCCESS",
+      "request_id": "cc3b5682b826491088dfa3d2957df052",
+      "command": "driver.godot.asset.reimport",
+      "ok": true,
+      "backend": "driver:godot",
+      "policy_decision": "allow_after_confirmation",
+      "mutation_applied": true
+    },
+    {
+      "request_file": "06-approved-reimport-0-idle-after-00.request.json",
+      "classification": "KNOWN_SUCCESS",
+      "request_id": "d85b41a40d4642d0bf5550092a80a88f",
+      "command": "driver.godot.assets.status",
+      "ok": true,
+      "backend": "driver:godot",
+      "policy_decision": "allow",
+      "mutation_applied": false
+    },
+    {
+      "request_file": "07-approved-reimport-0-after.request.json",
+      "classification": "KNOWN_SUCCESS",
+      "request_id": "05853f37bb0b459595ea416827b0f122",
+      "command": "driver.godot.asset.inspect",
+      "ok": true,
+      "backend": "driver:godot",
+      "policy_decision": "allow",
+      "mutation_applied": false
+    },
+    {
+      "request_file": "08-approved-reimport-1-idle-before-00.request.json",
+      "classification": "KNOWN_SUCCESS",
+      "request_id": "4785449c73e64d938d125bf30d48699e",
+      "command": "driver.godot.assets.status",
+      "ok": true,
+      "backend": "driver:godot",
+      "policy_decision": "allow",
+      "mutation_applied": false
+    },
+    {
+      "request_file": "09-approved-reimport-1-before.request.json",
+      "classification": "KNOWN_SUCCESS",
+      "request_id": "5b484d9dd3ff4be48dfe00a07d453d94",
+      "command": "driver.godot.asset.inspect",
+      "ok": true,
+      "backend": "driver:godot",
+      "policy_decision": "allow",
+      "mutation_applied": false
+    },
+    {
+      "request_file": "10-approved-reimport-1.request.json",
+      "classification": "KNOWN_SUCCESS",
+      "request_id": "45fd7d7c9ea04b68914c244773952904",
+      "command": "driver.godot.asset.reimport",
+      "ok": true,
+      "backend": "driver:godot",
+      "policy_decision": "allow_after_confirmation",
+      "mutation_applied": true
+    },
+    {
+      "request_file": "11-approved-reimport-1-idle-after-00.request.json",
+      "classification": "KNOWN_SUCCESS",
+      "request_id": "6e140ae0a73f400887f2512dd3d26068",
+      "command": "driver.godot.assets.status",
+      "ok": true,
+      "backend": "driver:godot",
+      "policy_decision": "allow",
+      "mutation_applied": false
+    },
+    {
+      "request_file": "12-approved-reimport-1-after.request.json",
+      "classification": "KNOWN_SUCCESS",
+      "request_id": "59324db11eb348c3a99002d37bfb47d1",
+      "command": "driver.godot.asset.inspect",
+      "ok": true,
+      "backend": "driver:godot",
+      "policy_decision": "allow",
+      "mutation_applied": false
+    },
+    {
+      "request_file": "13-native-geometry-after-assets.request.json",
+      "classification": "KNOWN_SUCCESS",
+      "request_id": "b293571e5d5c4987ab5943ce98b184a4",
+      "command": "driver.godot.scene.inspect",
+      "ok": true,
+      "backend": "driver:godot",
+      "policy_decision": "allow",
+      "mutation_applied": false
+    },
+    {
+      "request_file": "14-post-import-mesh-0.request.json",
+      "classification": "KNOWN_SUCCESS",
+      "request_id": "b0beba63048e477db3af09f45c609261",
+      "command": "driver.godot.node.inspect",
+      "ok": true,
+      "backend": "driver:godot",
+      "policy_decision": "allow",
+      "mutation_applied": false
+    },
+    {
+      "request_file": "15-post-import-mesh-1.request.json",
+      "classification": "KNOWN_SUCCESS",
+      "request_id": "12094907d5cf456a967b2e4583862353",
+      "command": "driver.godot.node.inspect",
+      "ok": true,
+      "backend": "driver:godot",
+      "policy_decision": "allow",
+      "mutation_applied": false
+    },
+    {
+      "request_file": "16-post-import-mesh-2.request.json",
+      "classification": "KNOWN_SUCCESS",
+      "request_id": "27f6b6e671d445b3b14540fc7e43031b",
+      "command": "driver.godot.node.inspect",
+      "ok": true,
+      "backend": "driver:godot",
+      "policy_decision": "allow",
+      "mutation_applied": false
+    },
+    {
+      "request_file": "17-post-import-mesh-3.request.json",
+      "classification": "KNOWN_SUCCESS",
+      "request_id": "59b76280717a46e6ad7b24a3c691980e",
+      "command": "driver.godot.node.inspect",
+      "ok": true,
+      "backend": "driver:godot",
+      "policy_decision": "allow",
+      "mutation_applied": false
+    },
+    {
+      "request_file": "18-camera-before-tab-switch.request.json",
+      "classification": "KNOWN_SUCCESS",
+      "request_id": "ed7d01a1c21540089997d1a1b38e1919",
+      "command": "driver.godot.node.inspect",
+      "ok": true,
+      "backend": "driver:godot",
+      "policy_decision": "allow",
+      "mutation_applied": false
+    },
+    {
+      "request_file": "19-observe-main-tab.request.json",
+      "classification": "KNOWN_SUCCESS",
+      "request_id": "b992f0b29f334891bfa4073ea9257c86",
+      "command": "driver.godot.scene.open",
+      "ok": true,
+      "backend": "driver:godot",
+      "policy_decision": "allow_after_confirmation",
+      "mutation_applied": true
+    },
+    {
+      "request_file": "20-main-opened-before-00.request.json",
+      "classification": "KNOWN_SUCCESS",
+      "request_id": "2a442e0b191947f096f05e3c104cdb73",
+      "command": "driver.godot.project.inspect",
+      "ok": true,
+      "backend": "driver:godot",
+      "policy_decision": "allow",
+      "mutation_applied": false
+    },
+    {
+      "request_file": "21-main-nodes-before.request.json",
+      "classification": "KNOWN_SUCCESS",
+      "request_id": "5aae6e9b9753482984ed7f180aeb57c1",
+      "command": "driver.godot.scene.inspect",
+      "ok": true,
+      "backend": "driver:godot",
+      "policy_decision": "allow",
+      "mutation_applied": false
+    },
+    {
+      "request_file": "22-editor-before.request.json",
+      "classification": "KNOWN_SUCCESS",
+      "request_id": "72def4f8eaa741d6983e9779134a8fa6",
+      "command": "driver.godot.editor.state",
+      "ok": true,
+      "backend": "driver:godot",
+      "policy_decision": "allow",
+      "mutation_applied": false
+    },
+    {
+      "request_file": "23-return-fixture-tab.request.json",
+      "classification": "KNOWN_SUCCESS",
+      "request_id": "31245db5441240dc82a88741cbe54911",
+      "command": "driver.godot.scene.open",
+      "ok": true,
+      "backend": "driver:godot",
+      "policy_decision": "allow_after_confirmation",
+      "mutation_applied": true
+    },
+    {
+      "request_file": "24-fixture-opened-00.request.json",
+      "classification": "KNOWN_SUCCESS",
+      "request_id": "57d0218a84494ee1922f3a5d735a3b2f",
+      "command": "driver.godot.project.inspect",
+      "ok": true,
+      "backend": "driver:godot",
+      "policy_decision": "allow",
+      "mutation_applied": false
+    },
+    {
+      "request_file": "25-fixture-before-save.request.json",
+      "classification": "KNOWN_SUCCESS",
+      "request_id": "ca02335607b9494cb9138eeb2e0fe407",
+      "command": "driver.godot.scene.inspect",
+      "ok": true,
+      "backend": "driver:godot",
+      "policy_decision": "allow",
+      "mutation_applied": false
+    },
+    {
+      "request_file": "26-save-owned-fixture-with-external-mode.request.json",
+      "classification": "KNOWN_SUCCESS",
+      "request_id": "5854e15060a54c1494d492543db9eee1",
+      "command": "driver.godot.scene.save",
+      "ok": true,
+      "backend": "driver:godot",
+      "policy_decision": "allow",
+      "mutation_applied": true
+    },
+    {
+      "request_file": "27-camera-after-save.request.json",
+      "classification": "KNOWN_SUCCESS",
+      "request_id": "7cb43c4695944ec9a0ec83ded32e6ba3",
+      "command": "driver.godot.node.inspect",
+      "ok": true,
+      "backend": "driver:godot",
+      "policy_decision": "allow",
+      "mutation_applied": false
+    },
+    {
+      "request_file": "28-editor-after-save.request.json",
+      "classification": "KNOWN_SUCCESS",
+      "request_id": "5f5d5c59d7da4248bb35b7765e2500f5",
+      "command": "driver.godot.editor.state",
+      "ok": true,
+      "backend": "driver:godot",
+      "policy_decision": "allow",
+      "mutation_applied": false
+    },
+    {
+      "request_file": "29-reject-stale-camera-configure.request.json",
+      "classification": "UNKNOWN",
+      "request_id": "7ededffa579241e2b0f794653c379725",
+      "command": "driver.godot.camera.configure",
+      "ok": false,
+      "backend": "driver:godot",
+      "policy_decision": "allow",
+      "mutation_applied": false
+    },
+    {
+      "request_file": "30-camera-after-stale.request.json",
+      "classification": "KNOWN_SUCCESS",
+      "request_id": "7b9faf0adbe9432ba5380cd5b0345beb",
+      "command": "driver.godot.node.inspect",
+      "ok": true,
+      "backend": "driver:godot",
+      "policy_decision": "allow",
+      "mutation_applied": false
+    },
+    {
+      "request_file": "31-restore-main-tab.request.json",
+      "classification": "KNOWN_SUCCESS",
+      "request_id": "f2e2e16c665e43f884cdfb4723776cdb",
+      "command": "driver.godot.scene.open",
+      "ok": true,
+      "backend": "driver:godot",
+      "policy_decision": "allow_after_confirmation",
+      "mutation_applied": true
+    },
+    {
+      "request_file": "32-main-restored-00.request.json",
+      "classification": "KNOWN_SUCCESS",
+      "request_id": "0749b6e8f72b4f74a4dd782ddf234bf6",
+      "command": "driver.godot.project.inspect",
+      "ok": true,
+      "backend": "driver:godot",
+      "policy_decision": "allow",
+      "mutation_applied": false
+    },
+    {
+      "request_file": "33-main-nodes-after.request.json",
+      "classification": "KNOWN_SUCCESS",
+      "request_id": "0c00b948a9b3462bbe3d2a38b2a44817",
+      "command": "driver.godot.scene.inspect",
+      "ok": true,
+      "backend": "driver:godot",
+      "policy_decision": "allow",
+      "mutation_applied": false
+    },
+    {
+      "request_file": "34-main-editor-after.request.json",
+      "classification": "KNOWN_SUCCESS",
+      "request_id": "11f660b55c654644aef3e8b37b4eb1f8",
+      "command": "driver.godot.editor.state",
+      "ok": true,
+      "backend": "driver:godot",
+      "policy_decision": "allow",
+      "mutation_applied": false
+    }
+  ],
+  "outcome": "UNKNOWN",
+  "passed": false,
+  "requires_read_only_reconciliation": true,
+  "log_sha256": "2da327e95cceb3ba4c6f6b429b00b53cd6663ef9cd6b069ad7d4d381c23995e0"
+}

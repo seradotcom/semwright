@@ -1,0 +1,21 @@
+test_client_timeout_does_not_claim_broker_cancelled (test_godot_handoff_guard.HandoffGuardTests.test_client_timeout_does_not_claim_broker_cancelled) ... ok
+test_interrupted_client_is_reaped_without_claiming_broker_cancellation (test_godot_handoff_guard.HandoffGuardTests.test_interrupted_client_is_reaped_without_claiming_broker_cancellation) ... ok
+test_inventory_does_not_silence_directory_access_errors (test_godot_handoff_guard.HandoffGuardTests.test_inventory_does_not_silence_directory_access_errors) ... ok
+test_inventory_excludes_only_root_editor_cache (test_godot_handoff_guard.HandoffGuardTests.test_inventory_excludes_only_root_editor_cache) ... ok
+test_inventory_fails_before_descending_reparse_directory (test_godot_handoff_guard.HandoffGuardTests.test_inventory_fails_before_descending_reparse_directory) ... ok
+test_later_denial_does_not_erase_applied_mutation (test_godot_handoff_guard.HandoffGuardTests.test_later_denial_does_not_erase_applied_mutation) ... ok
+test_launch_failure_is_not_submitted_and_log_survives (test_godot_handoff_guard.HandoffGuardTests.test_launch_failure_is_not_submitted_and_log_survives) ... ok
+test_live_projection_ignores_only_ephemeral_ref (test_godot_handoff_guard.HandoffGuardTests.test_live_projection_ignores_only_ephemeral_ref) ... ok
+test_missing_mismatched_and_uncertain_envelopes_remain_unknown (test_godot_handoff_guard.HandoffGuardTests.test_missing_mismatched_and_uncertain_envelopes_remain_unknown) ... ok
+test_optimized_interpreter_cannot_disable_runner_checks (test_godot_handoff_guard.HandoffGuardTests.test_optimized_interpreter_cannot_disable_runner_checks) ... ok
+test_preflight_never_accepts_mutation_command (test_godot_handoff_guard.HandoffGuardTests.test_preflight_never_accepts_mutation_command) ... ok
+test_prior_submission_blocks_reads_and_writes_a_failure_receipt (test_godot_handoff_guard.HandoffGuardTests.test_prior_submission_blocks_reads_and_writes_a_failure_receipt) ... ok
+test_rejects_live_generation_revision_camera_and_unsaved_drift (test_godot_handoff_guard.HandoffGuardTests.test_rejects_live_generation_revision_camera_and_unsaved_drift) ... ok
+test_reused_pid_is_not_process_continuity (test_godot_handoff_guard.HandoffGuardTests.test_reused_pid_is_not_process_continuity) ... ok
+test_successful_reads_do_not_turn_denial_into_partial_mutation (test_godot_handoff_guard.HandoffGuardTests.test_successful_reads_do_not_turn_denial_into_partial_mutation) ... ok
+test_unapplied_or_wrong_backend_success_is_not_proof (test_godot_handoff_guard.HandoffGuardTests.test_unapplied_or_wrong_backend_success_is_not_proof) ... ok
+
+----------------------------------------------------------------------
+Ran 16 tests in 0.615s
+
+OK

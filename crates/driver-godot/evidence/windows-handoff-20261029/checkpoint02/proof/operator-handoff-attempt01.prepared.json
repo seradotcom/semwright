@@ -1,0 +1,66 @@
+{
+  "schema": 1,
+  "utc": "2026-10-29T03:40:30.619226+00:00",
+  "state": "PREPARED_NOT_SUBMITTED",
+  "project_root": "E:\\Projects\\worldwright-archipelago\\game",
+  "broker_pid": 27564,
+  "editor_pid": 39036,
+  "native_approval_requests": [
+    {
+      "command": "driver.godot.asset.reimport",
+      "path": "res://assets/review_20261029-semwright-rock-r22/GEO01_FARO_SEMWRIGHT_R22.glb",
+      "source_sha256": "6bdb95f2ecca8fd7528bc0b62240b975e152dd1e0ed0b8c3411289da6b1a78b3"
+    },
+    {
+      "command": "driver.godot.asset.reimport",
+      "path": "res://assets/review_20261029-semwright-threshold-r23/GEO01_FARO_THRESHOLD_SEMWRIGHT_R23.glb",
+      "source_sha256": "def7605cc8c5dc5e7a5e5a8e15d0741f61c69e07f5b92adb31360bb1493dceb8"
+    },
+    {
+      "command": "driver.godot.scene.open",
+      "path": "res://main.tscn"
+    },
+    {
+      "command": "driver.godot.scene.open",
+      "path": "res://proofs/semwright_godot_bridge01_02.tscn"
+    },
+    {
+      "command": "driver.godot.scene.open",
+      "path": "res://main.tscn"
+    }
+  ],
+  "native_approval_timeout_seconds": 120,
+  "other_effects": [
+    "Save owned supporting scene with existing external-resource mode",
+    "Reject one stale camera configure request",
+    "Read back geometry/camera/editor state"
+  ],
+  "protected_source_glbs": [
+    {
+      "path": "res://assets/review_20261029-semwright-rock-r22/GEO01_FARO_SEMWRIGHT_R22.glb",
+      "sha256": "6bdb95f2ecca8fd7528bc0b62240b975e152dd1e0ed0b8c3411289da6b1a78b3"
+    },
+    {
+      "path": "res://assets/review_20261029-semwright-threshold-r23/GEO01_FARO_THRESHOLD_SEMWRIGHT_R23.glb",
+      "sha256": "def7605cc8c5dc5e7a5e5a8e15d0741f61c69e07f5b92adb31360bb1493dceb8"
+    }
+  ],
+  "permitted_source_delta": [
+    "proofs/semwright_godot_bridge01_02.tscn",
+    "assets/review_20261029-semwright-rock-r22/GEO01_FARO_SEMWRIGHT_R22.glb.import",
+    "assets/review_20261029-semwright-threshold-r23/GEO01_FARO_THRESHOLD_SEMWRIGHT_R23.glb.import"
+  ],
+  "preexisting_unsaved_main": "Must retain original live projection and unsaved flag; never saved or discarded",
+  "build_report_sha256": "c00a28cdc80b470aec63ac9c546a15283dc947dd71ff3737c858318374ca0be8",
+  "binary": "E:\\Projects\\semwright-blender52\\.local\\target\\x86_64-pc-windows-gnu\\debug\\deps\\windows_broker_godot_handoff-6885b8490bbd7eda.exe",
+  "binary_sha256": "c71d1bb5dcea20c482f3f5f794c6c9f89419f09707551c9b19348842c0ef75a6",
+  "source_sha256": "7d89721ca05c3c3ce659c435fb589efa76e2f36f8f4364ae37cd5f685cfbbd8c",
+  "config_sha256": "b353bdbc9bba4315445363682825efdac60f9a1c4ad6d68c8a3ec0b78297f982",
+  "source_inventory_sha256": "5c8f67df7d5b1754eac6cacf226008ff519ae8c42d2973483ce448607b55a9c8",
+  "recovery_copy": "E:\\Projects\\worldwright-archipelago\\.local\\godot-bridge01-fixture-save-backup01",
+  "approval_input_automation": false,
+  "automatic_retry": false,
+  "G6": "NOT_COMPLETE",
+  "human_camera_claimed": false,
+  "art_status": "REVISE"
+}

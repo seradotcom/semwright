@@ -1,0 +1,9 @@
+{
+  "args": {
+    "session": "8044a769cd76689cd9276d3db99681d9"
+  },
+  "backend": null,
+  "command": "driver.godot.project.inspect",
+  "dry_run": false,
+  "request_id": "57d0218a84494ee1922f3a5d735a3b2f"
+}

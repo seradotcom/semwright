@@ -1,0 +1,15 @@
+{
+  "args": {
+    "dry_run": false,
+    "expect": {
+      "fingerprint": "a4be38ce924d1500249c1698135906cd9e9796cedbf7ee702d7484f9e0f089a1",
+      "revision": 9
+    },
+    "path": "res://proofs/semwright_godot_bridge01_02.tscn",
+    "session": "8044a769cd76689cd9276d3db99681d9"
+  },
+  "backend": null,
+  "command": "driver.godot.scene.open",
+  "dry_run": false,
+  "request_id": "31245db5441240dc82a88741cbe54911"
+}

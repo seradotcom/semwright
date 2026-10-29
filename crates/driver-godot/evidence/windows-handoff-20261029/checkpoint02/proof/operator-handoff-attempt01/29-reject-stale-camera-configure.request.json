@@ -1,0 +1,18 @@
+{
+  "args": {
+    "dry_run": false,
+    "expect": {
+      "fingerprint": "5c0f9e9dd16e0ae99d266ce62b9bdc8788fb46bc9dbac5822e8f89f90717fe6b",
+      "revision": 10
+    },
+    "far": 250.0,
+    "fov": 75.0,
+    "near": 0.2,
+    "session": "8044a769cd76689cd9276d3db99681d9",
+    "target": "ProofCamera"
+  },
+  "backend": null,
+  "command": "driver.godot.camera.configure",
+  "dry_run": false,
+  "request_id": "7ededffa579241e2b0f794653c379725"
+}

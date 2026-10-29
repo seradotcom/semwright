@@ -52,3 +52,27 @@ No PASS is attributed to this pending sequence. An independent fresh-process God
 ## Boundaries
 
 P3 remains partial, A05 remains PARTIAL_PENDING_PROJECT_CONFORMANCE, and G6 is NOT_COMPLETE. There is no demonstrated human-authored camera preservation and no geometric A-to-B reimport transition claim. Linux 4.5.14 remains NOT_RUN. Archipelago art remains REVISE and external publication remains unauthorized.
+
+
+## Completed native operator attempt and separate reconciliation
+
+The owner personally completed all five native challenges in operator-handoff-attempt01. The original compiled proof completed 35 correlated request/envelope pairs and passed in 142.52 seconds. Both r22/r23 reimports and all three scene opens have allow_after_confirmation plus applied:true; the supporting-scene save has allow plus applied:true. Main's live node projection and its unsaved flag were preserved, and main was restored as the active tab.
+
+Only proofs/semwright_godot_bridge01_02.tscn changed among 3,094 project sources: 118 to 736 bytes, SHA-256 37017d169c9cec25511b99f28a48443bfc4d16c5dceffd4b1d56ff461bd8ef41. Both GLBs and their import sidecars remained identical. The existing broker/editor stayed alive.
+
+The enclosing guard correctly retains outcome UNKNOWN and passed:false. Its one uncertain response is the intentional stale-camera Conflict, request 7ededffa579241e2b0f794653c379725: the Host redacts driver errors and reports outcome_known:false. The original response and runner receipt remain unchanged. No mutation was replayed and the classifier was not weakened.
+
+Separate read-only reconciliation passed. Camera projections before/after the probe matched excluding only ephemeral ref: FOV 60, revision 11 and identical fingerprint; the stale request proposed FOV 75 with expected revision 10. The installed plugin/rendering source hashes match the launch manifest. Their inspected control flow checks the expected revision before any camera write and returns that error synchronously without scheduling a mutation. This supports a scoped precondition-rejection inference and an observed unchanged postcondition; it does not rewrite the broker's original uncertainty.
+
+A fresh native Godot process independently loaded the persisted supporting scene in 1.5 seconds. Four meshes, their surfaces and global bounds (tolerance 0.0002 m), plus ProofCamera settings and transform matched. A subsequent full source inventory found zero source changes from this observer. The observation was direct native Godot; the preceding reimport/save operations were mediated by the first-party broker.
+
+Evidence anchors:
+- Original proof receipt: d29825f0c29acf3dd48d564a70b8dc2e1c22d22e9fc0eb979df87ef9a89e12bc.
+- Original UNKNOWN runner: 7f3b8401188bb1fffc4bc530c1e2b271862a211ab192c068c6723696a24da674.
+- Separate reconciliation: ceca07a49625dd9ee0a1a8e5e028cd441a6680164cc126d85623756c0cb8510e.
+- Independent persistence receipt: 3b94d195e0719e05ba48bd32606bd159f5eb2216563738a29920a07708839a72.
+- Archive checkpoint02 manifest: d5fdb3556922795051f5e7243c99ffbb4704c58ee8579c9ba7a47e7e4f596ef8.
+
+checkpoint02 contains 137 original payloads / 1,676,522 bytes, a consistent 224-record live-idle audit snapshot, 47 audit-correlated envelopes and 35 explicit request/envelope pairs with zero unmatched requests. Original build records remain in checkpoint01. Credential material was checked in memory and excluded. Audit consistency is not same-owner tamper resistance.
+
+The technical reimport/persistence subset is verified. P3 overall and A05 remain partial because a real human-authored camera edit has not yet been preserved across a later agent edit. This run reimported unchanged GLBs; it does not establish a geometric A-to-B resource transition. G6 remains NOT_COMPLETE, art REVISE, and both native Linux regressions NOT_RUN. The consumed attempt must not be submitted again.

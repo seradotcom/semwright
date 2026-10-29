@@ -1,0 +1,8 @@
+{
+  "utc": "2026-10-29T04:53:54.113707+00:00",
+  "preflight_receipt": "E:\\Projects\\worldwright-archipelago\\evidence\\integration\\20261029-godot-broker\\godot-bridge01\\operator-handoff-attempt01.preflight-20261029T045250Z-f77a28cb\\receipt.json",
+  "native_approval_response_must_be_human": true,
+  "automatic_retry": false,
+  "binary_sha256": "c71d1bb5dcea20c482f3f5f794c6c9f89419f09707551c9b19348842c0ef75a6",
+  "config_sha256": "b353bdbc9bba4315445363682825efdac60f9a1c4ad6d68c8a3ec0b78297f982"
+}

@@ -1,0 +1,29 @@
+{
+  "command": "driver.godot.camera.configure",
+  "error": {
+    "code": "Conflict",
+    "message": "Driver reported an error; untrusted payload was redacted",
+    "outcome_known": false
+  },
+  "execution": {
+    "backend": "driver:godot",
+    "dry_run": false,
+    "duration_ms": 85,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "c8e54bed962dab6ff688411435ee9ca3076228d2dd13011e9bfabcfc4674089c",
+      "execution_provider": "driver:godot",
+      "provider": "driver:godot",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": false,
+  "request_id": "7ededffa579241e2b0f794653c379725",
+  "warnings": []
+}

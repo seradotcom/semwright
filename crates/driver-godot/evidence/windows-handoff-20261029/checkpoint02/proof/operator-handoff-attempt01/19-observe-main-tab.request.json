@@ -1,0 +1,15 @@
+{
+  "args": {
+    "dry_run": false,
+    "expect": {
+      "fingerprint": "5c0f9e9dd16e0ae99d266ce62b9bdc8788fb46bc9dbac5822e8f89f90717fe6b",
+      "revision": 8
+    },
+    "path": "res://main.tscn",
+    "session": "8044a769cd76689cd9276d3db99681d9"
+  },
+  "backend": null,
+  "command": "driver.godot.scene.open",
+  "dry_run": false,
+  "request_id": "b992f0b29f334891bfa4073ea9257c86"
+}

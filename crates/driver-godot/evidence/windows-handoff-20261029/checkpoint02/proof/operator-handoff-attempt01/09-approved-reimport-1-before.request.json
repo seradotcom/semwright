@@ -1,0 +1,10 @@
+{
+  "args": {
+    "path": "res://assets/review_20261029-semwright-threshold-r23/GEO01_FARO_THRESHOLD_SEMWRIGHT_R23.glb",
+    "session": "8044a769cd76689cd9276d3db99681d9"
+  },
+  "backend": null,
+  "command": "driver.godot.asset.inspect",
+  "dry_run": false,
+  "request_id": "5b484d9dd3ff4be48dfe00a07d453d94"
+}

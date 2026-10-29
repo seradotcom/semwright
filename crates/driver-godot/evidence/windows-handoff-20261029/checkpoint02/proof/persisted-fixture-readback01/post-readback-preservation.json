@@ -1,0 +1,17 @@
+{
+  "schema": 1,
+  "utc": "2026-10-29T05:08:40.215197+00:00",
+  "passed": true,
+  "read_only": true,
+  "new_mutations_submitted": 0,
+  "original_runner_outcome_retained": "UNKNOWN",
+  "G6": "NOT_COMPLETE",
+  "human_edit_preservation_claimed": false,
+  "source_file_count": 3094,
+  "project_source_changes_from_reader": [],
+  "native_receipt_sha256": "3b94d195e0719e05ba48bd32606bd159f5eb2216563738a29920a07708839a72",
+  "reconciliation_receipt_sha256": "ceca07a49625dd9ee0a1a8e5e028cd441a6680164cc126d85623756c0cb8510e",
+  "original_runner_sha256": "7f3b8401188bb1fffc4bc530c1e2b271862a211ab192c068c6723696a24da674",
+  "owner_processes_preserved": true,
+  "script_sha256": "01920093b48bf347d37025974b155678dc3cc1bb9ed575179da027fbf0ccd5e8"
+}

@@ -1,0 +1,43 @@
+{
+  "command": "driver.godot.editor.state",
+  "data": {
+    "data": {
+      "playing": false,
+      "scene": "res://main.tscn",
+      "scene_class": "Node3D",
+      "selected_files": [
+        "res://main.tscn"
+      ],
+      "selected_nodes": [],
+      "unsaved_scenes": [
+        "res://main.tscn",
+        "res://proofs/semwright_godot_bridge01_02.tscn"
+      ]
+    },
+    "stamp": {
+      "fingerprint": "a4be38ce924d1500249c1698135906cd9e9796cedbf7ee702d7484f9e0f089a1",
+      "revision": 9
+    }
+  },
+  "execution": {
+    "backend": "driver:godot",
+    "dry_run": false,
+    "duration_ms": 95,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "e4f7382e6eb7887370900321388739d47267cf6488ba0eb93dc1de3d35c1aabd",
+      "execution_provider": "driver:godot",
+      "provider": "driver:godot",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "72def4f8eaa741d6983e9779134a8fa6",
+  "warnings": []
+}

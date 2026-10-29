@@ -1,0 +1,35 @@
+{
+  "command": "driver.godot.assets.status",
+  "data": {
+    "data": {
+      "importing": false,
+      "progress": 0.51385223865509,
+      "scanning": false
+    },
+    "stamp": {
+      "fingerprint": "5c0f9e9dd16e0ae99d266ce62b9bdc8788fb46bc9dbac5822e8f89f90717fe6b",
+      "revision": 8
+    }
+  },
+  "execution": {
+    "backend": "driver:godot",
+    "dry_run": false,
+    "duration_ms": 169,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "be7bf7af4b20cf281c1e87445e7fa12d41cabd27de88eb72160ef2fbd8f78901",
+      "execution_provider": "driver:godot",
+      "provider": "driver:godot",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "6e140ae0a73f400887f2512dd3d26068",
+  "warnings": []
+}

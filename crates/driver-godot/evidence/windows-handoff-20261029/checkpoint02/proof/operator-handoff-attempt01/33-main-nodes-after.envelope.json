@@ -1,0 +1,84 @@
+{
+  "command": "driver.godot.scene.inspect",
+  "data": {
+    "data": {
+      "nodes": [
+        {
+          "class": "Node3D",
+          "groups": [
+            "_vp_unhandled_input71923928308"
+          ],
+          "name": "Archipelago",
+          "path": ".",
+          "stored": {
+            "auto_translate_mode": 0,
+            "editor_description": "",
+            "physics_interpolation_mode": 0,
+            "process_mode": 0,
+            "process_physics_priority": 0,
+            "process_priority": 0,
+            "process_thread_group": 0,
+            "rotation_edit_mode": 0,
+            "rotation_order": 2,
+            "script": {
+              "$type": "Resource",
+              "class": "GDScript",
+              "path": "res://scripts/harbor_review.gd"
+            },
+            "top_level": false,
+            "transform": {
+              "$type": "Transform3D",
+              "value": [
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                0.0
+              ]
+            },
+            "unique_name_in_owner": false,
+            "visibility_parent": {
+              "$type": "NodePath",
+              "value": ""
+            },
+            "visible": true
+          }
+        }
+      ],
+      "scene": "res://main.tscn",
+      "scene_ref": "native:dd960eab84eb4e2aa5e6112d78033e73"
+    },
+    "stamp": {
+      "fingerprint": "a4be38ce924d1500249c1698135906cd9e9796cedbf7ee702d7484f9e0f089a1",
+      "revision": 12
+    }
+  },
+  "execution": {
+    "backend": "driver:godot",
+    "dry_run": false,
+    "duration_ms": 92,
+    "fallbacks_attempted": [],
+    "policy_decision": "allow",
+    "provenance": {
+      "capability_version": "1",
+      "catalog_revision": 160,
+      "descriptor_sha256": "9311acab4b9b2ed4790f3026f0ff997c88449b8f2659c3ec358736823ab32bf5",
+      "execution_provider": "driver:godot",
+      "provider": "driver:godot",
+      "provider_generation": 160,
+      "provider_version": "1.0.0",
+      "source": "driver",
+      "untrusted_metadata": true
+    }
+  },
+  "ok": true,
+  "request_id": "0c00b948a9b3462bbe3d2a38b2a44817",
+  "warnings": []
+}

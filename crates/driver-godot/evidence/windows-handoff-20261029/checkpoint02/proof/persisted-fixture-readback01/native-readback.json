@@ -1,0 +1,98 @@
+{
+  "camera": {
+    "far": 250.0,
+    "fov": 60.0,
+    "near": 0.200000002980232,
+    "path": "ProofCamera",
+    "position": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "rotation": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  "engine": {
+    "build": "official",
+    "hash": "ed1daf0bf001b61586d9930840f2f1394092c079",
+    "hex": 263938,
+    "major": 4,
+    "minor": 7,
+    "patch": 2,
+    "status": "stable",
+    "string": "4.7.2-stable (official)",
+    "timestamp": 0
+  },
+  "meshes": [
+    {
+      "max": [
+        -50.6500015258789,
+        10.5,
+        8.60000038146973
+      ],
+      "min": [
+        -52.0999984741211,
+        9.60000038146973,
+        5.40000009536743
+      ],
+      "name": "SW_c242f21a199d_bridge_threshold",
+      "path": "FaroThreshold/SW_c242f21a199d_bridge_threshold",
+      "surface_count": 1,
+      "vertex_count": 24
+    },
+    {
+      "max": [
+        -57.3043518066406,
+        2.65000009536743,
+        2.5652928352356
+      ],
+      "min": [
+        -63.4868621826172,
+        -1.25,
+        -1.28631365299225
+      ],
+      "name": "SW_dc08abe78a2a_low_shelf",
+      "path": "FaroRock/SW_dc08abe78a2a_low_shelf",
+      "surface_count": 1,
+      "vertex_count": 328
+    },
+    {
+      "max": [
+        -49.3480682373047,
+        10.1700000762939,
+        17.0
+      ],
+      "min": [
+        -65.6500015258789,
+        -1.25,
+        -1.25
+      ],
+      "name": "SW_dc08abe78a2a_integrated_limestone",
+      "path": "FaroRock/SW_dc08abe78a2a_integrated_limestone",
+      "surface_count": 1,
+      "vertex_count": 1648
+    },
+    {
+      "max": [
+        -57.3578681945801,
+        3.55000019073486,
+        15.0682516098022
+      ],
+      "min": [
+        -64.6799468994141,
+        -1.25,
+        10.2429513931274
+      ],
+      "name": "SW_dc08abe78a2a_coastal_toe",
+      "path": "FaroRock/SW_dc08abe78a2a_coastal_toe",
+      "surface_count": 1,
+      "vertex_count": 312
+    }
+  ],
+  "nodes": 8,
+  "scene": "res://proofs/semwright_godot_bridge01_02.tscn",
+  "source": "native base mesh vertex arrays"
+}

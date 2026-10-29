@@ -1,0 +1,42 @@
+
+running 1 test
+GODOT_BROKER_STEP {"label":"sessions","ok":true,"request_id":"abd259c89dfb40249e4ac9aaf4704126"}
+GODOT_BROKER_STEP {"label":"reconciled-fixture","ok":true,"request_id":"a684d36bbfa34020ae9403b17861bc89"}
+GODOT_BROKER_STEP {"label":"camera-before","ok":true,"request_id":"d6aac01728a745acbfe0e0d82db3073f"}
+GODOT_BROKER_STEP {"label":"approved-reimport-0-idle-before-00","ok":true,"request_id":"53592c3d6dd94ee9bead929af02ca243"}
+GODOT_BROKER_STEP {"label":"approved-reimport-0-before","ok":true,"request_id":"7ab4e70e7c044fdb818a0202be5563dc"}
+test windows_broker_godot_finalize_known_fixture has been running for over 60 seconds
+GODOT_BROKER_STEP {"label":"approved-reimport-0","ok":true,"request_id":"cc3b5682b826491088dfa3d2957df052"}
+GODOT_BROKER_STEP {"label":"approved-reimport-0-idle-after-00","ok":true,"request_id":"d85b41a40d4642d0bf5550092a80a88f"}
+GODOT_BROKER_STEP {"label":"approved-reimport-0-after","ok":true,"request_id":"05853f37bb0b459595ea416827b0f122"}
+GODOT_BROKER_STEP {"label":"approved-reimport-1-idle-before-00","ok":true,"request_id":"4785449c73e64d938d125bf30d48699e"}
+GODOT_BROKER_STEP {"label":"approved-reimport-1-before","ok":true,"request_id":"5b484d9dd3ff4be48dfe00a07d453d94"}
+GODOT_BROKER_STEP {"label":"approved-reimport-1","ok":true,"request_id":"45fd7d7c9ea04b68914c244773952904"}
+GODOT_BROKER_STEP {"label":"approved-reimport-1-idle-after-00","ok":true,"request_id":"6e140ae0a73f400887f2512dd3d26068"}
+GODOT_BROKER_STEP {"label":"approved-reimport-1-after","ok":true,"request_id":"59324db11eb348c3a99002d37bfb47d1"}
+GODOT_BROKER_STEP {"label":"native-geometry-after-assets","ok":true,"request_id":"b293571e5d5c4987ab5943ce98b184a4"}
+GODOT_BROKER_STEP {"label":"post-import-mesh-0","ok":true,"request_id":"b0beba63048e477db3af09f45c609261"}
+GODOT_BROKER_STEP {"label":"post-import-mesh-1","ok":true,"request_id":"12094907d5cf456a967b2e4583862353"}
+GODOT_BROKER_STEP {"label":"post-import-mesh-2","ok":true,"request_id":"27f6b6e671d445b3b14540fc7e43031b"}
+GODOT_BROKER_STEP {"label":"post-import-mesh-3","ok":true,"request_id":"59b76280717a46e6ad7b24a3c691980e"}
+GODOT_BROKER_STEP {"label":"camera-before-tab-switch","ok":true,"request_id":"ed7d01a1c21540089997d1a1b38e1919"}
+GODOT_BROKER_STEP {"label":"observe-main-tab","ok":true,"request_id":"b992f0b29f334891bfa4073ea9257c86"}
+GODOT_BROKER_STEP {"label":"main-opened-before-00","ok":true,"request_id":"2a442e0b191947f096f05e3c104cdb73"}
+GODOT_BROKER_STEP {"label":"main-nodes-before","ok":true,"request_id":"5aae6e9b9753482984ed7f180aeb57c1"}
+GODOT_BROKER_STEP {"label":"editor-before","ok":true,"request_id":"72def4f8eaa741d6983e9779134a8fa6"}
+GODOT_BROKER_STEP {"label":"return-fixture-tab","ok":true,"request_id":"31245db5441240dc82a88741cbe54911"}
+GODOT_BROKER_STEP {"label":"fixture-opened-00","ok":true,"request_id":"57d0218a84494ee1922f3a5d735a3b2f"}
+GODOT_BROKER_STEP {"label":"fixture-before-save","ok":true,"request_id":"ca02335607b9494cb9138eeb2e0fe407"}
+GODOT_BROKER_STEP {"label":"save-owned-fixture-with-external-mode","ok":true,"request_id":"5854e15060a54c1494d492543db9eee1"}
+GODOT_BROKER_STEP {"label":"camera-after-save","ok":true,"request_id":"7cb43c4695944ec9a0ec83ded32e6ba3"}
+GODOT_BROKER_STEP {"label":"editor-after-save","ok":true,"request_id":"5f5d5c59d7da4248bb35b7765e2500f5"}
+GODOT_BROKER_STEP {"label":"reject-stale-camera-configure","ok":false,"request_id":"7ededffa579241e2b0f794653c379725"}
+GODOT_BROKER_STEP {"label":"camera-after-stale","ok":true,"request_id":"7b9faf0adbe9432ba5380cd5b0345beb"}
+GODOT_BROKER_STEP {"label":"restore-main-tab","ok":true,"request_id":"f2e2e16c665e43f884cdfb4723776cdb"}
+GODOT_BROKER_STEP {"label":"main-restored-00","ok":true,"request_id":"0749b6e8f72b4f74a4dd782ddf234bf6"}
+GODOT_BROKER_STEP {"label":"main-nodes-after","ok":true,"request_id":"0c00b948a9b3462bbe3d2a38b2a44817"}
+GODOT_BROKER_STEP {"label":"main-editor-after","ok":true,"request_id":"11f660b55c654644aef3e8b37b4eb1f8"}
+test windows_broker_godot_finalize_known_fixture ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 142.52s
+
