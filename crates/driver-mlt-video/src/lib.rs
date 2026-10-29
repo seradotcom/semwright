@@ -16,6 +16,8 @@ pub mod hash;
 pub mod jobs;
 pub mod json;
 pub mod model;
+#[doc(hidden)]
+pub mod originals;
 pub mod refs;
 pub mod runtime;
 pub mod sync;

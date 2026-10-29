@@ -144,6 +144,17 @@ pub fn raw_video_probe_observation(bytes: &[u8]) -> Result<serde_json::Value> {
 // Bounded originals from the existing FFV1 Runtime. These records never grant
 // authority, run another process, change arguments, or prove stream EOF.
 pub const FFV1_CUSTODY_STREAM_PREFIX: usize = 16_384;
+// The complete probe already captures this many bytes per stream. Retention
+// must not truncate those accepted original buffers a second time.
+pub const FFV1_CUSTODY_PROBE_STREAM: usize = crate::color::REPORT_LIMIT;
+
+fn ffv1_stream_original_limit(stage: &str) -> usize {
+    if stage == "complete-probe" {
+        FFV1_CUSTODY_PROBE_STREAM
+    } else {
+        FFV1_CUSTODY_STREAM_PREFIX
+    }
+}
 pub const FFV1_CUSTODY_HOST_STREAM: usize = 262_144;
 pub const FFV1_CUSTODY_STDIN: usize = 65_536;
 pub const FFV1_CUSTODY_METADATA: usize = 65_536;
@@ -214,8 +225,9 @@ pub fn preflight_ffv1_custody(output: &crate::fs::Root, path: &str, host: bool) 
         }
     }
     // Read-only space check, never a reservation or a replacement scheduler.
-    let native =
-        6 * (2 * FFV1_CUSTODY_STREAM_PREFIX + FFV1_CUSTODY_METADATA) + FFV1_CUSTODY_METADATA;
+    let native = 5 * 2 * FFV1_CUSTODY_STREAM_PREFIX
+        + 2 * FFV1_CUSTODY_PROBE_STREAM
+        + 7 * FFV1_CUSTODY_METADATA;
     let host_bytes = if host {
         2 * (FFV1_CUSTODY_STDIN + 2 * FFV1_CUSTODY_HOST_STREAM + FFV1_CUSTODY_METADATA)
     } else {
@@ -314,31 +326,165 @@ fn process_spec_original(spec: &ProcessSpec, scope: &str) -> Result<serde_json::
     }))
 }
 
-pub(crate) struct Ffv1ProcessCustody<'a> {
+#[doc(hidden)]
+pub struct Ffv1ProcessCustody<'a> {
+    kind: crate::originals::VideoOriginalKind,
+    prefix: String,
+    work: Option<&'a crate::fs::Root>,
     output: &'a crate::fs::Root,
     output_path: &'a str,
     manifest_sha256: &'a str,
     stages: std::cell::RefCell<Vec<&'static str>>,
     failures: std::cell::RefCell<Vec<&'static str>>,
+    retention_errors: std::cell::RefCell<Vec<serde_json::Value>>,
 }
 
 impl<'a> Ffv1ProcessCustody<'a> {
+    #[cfg(test)]
     pub(crate) fn new(
         output: &'a crate::fs::Root,
         output_path: &'a str,
         manifest_sha256: &'a str,
     ) -> Result<Self> {
-        if !valid_digest(manifest_sha256) {
-            return Err(Error::invalid("FFV1 custody source manifest identity"));
-        }
         preflight_ffv1_custody(output, output_path, false)?;
+        Self::make(
+            output,
+            output_path,
+            manifest_sha256,
+            crate::originals::VideoOriginalKind::MotionFrames,
+            "ffv1".into(),
+            None,
+        )
+    }
+
+    pub fn with_owned_work(
+        output: &'a crate::fs::Root,
+        output_path: &'a str,
+        source_sha256: &'a str,
+        kind: crate::originals::VideoOriginalKind,
+        work: &'a crate::fs::Root,
+    ) -> Result<Self> {
+        Self::with_owned_work_prefix(
+            output,
+            output_path,
+            source_sha256,
+            kind,
+            kind.prefix().into(),
+            work,
+        )
+    }
+
+    pub fn for_input_probe(
+        output: &'a crate::fs::Root,
+        output_path: &'a str,
+        source_sha256: &'a str,
+        slot: usize,
+        work: &'a crate::fs::Root,
+    ) -> Result<Self> {
+        if slot >= 1_000_000 {
+            return Err(Error::limit("Input-probe slot exceeds its original roster"));
+        }
+        Self::with_owned_work_prefix(
+            output,
+            output_path,
+            source_sha256,
+            crate::originals::VideoOriginalKind::InputProbe,
+            format!("native-input-probe-{slot:06}"),
+            work,
+        )
+    }
+
+    fn with_owned_work_prefix(
+        output: &'a crate::fs::Root,
+        output_path: &'a str,
+        source_sha256: &'a str,
+        kind: crate::originals::VideoOriginalKind,
+        prefix: String,
+        work: &'a crate::fs::Root,
+    ) -> Result<Self> {
+        // The shared VideoOriginals preflight already declared and checked all
+        // output destinations and the complete raw-custody peak. Work backup
+        // names are closed by the same internal role roster.
+        if !work.readable || !work.writable {
+            return Err(Error::new(
+                "PermissionDenied",
+                "Owned work Root lacks custody access",
+            ));
+        }
+        for stage in kind.stages() {
+            for suffix in [
+                "stdout.original.bin",
+                "stderr.original.bin",
+                "terminal.original.json",
+            ] {
+                if work.exists(&format!("{prefix}-{stage}.{suffix}"))? {
+                    return Err(Error::new(
+                        "Conflict",
+                        "Original native process backup already exists",
+                    ));
+                }
+            }
+        }
+        if work.exists(&format!("{prefix}-process-custody.original.json"))? {
+            return Err(Error::new(
+                "Conflict",
+                "Original native process summary already exists",
+            ));
+        }
+        Self::make(output, output_path, source_sha256, kind, prefix, Some(work))
+    }
+
+    fn make(
+        output: &'a crate::fs::Root,
+        output_path: &'a str,
+        manifest_sha256: &'a str,
+        kind: crate::originals::VideoOriginalKind,
+        prefix: String,
+        work: Option<&'a crate::fs::Root>,
+    ) -> Result<Self> {
+        if !valid_digest(manifest_sha256) {
+            return Err(Error::invalid("Native custody source identity"));
+        }
         Ok(Self {
+            kind,
+            prefix,
+            work,
             output,
             output_path,
             manifest_sha256,
             stages: std::cell::RefCell::new(Vec::new()),
             failures: std::cell::RefCell::new(Vec::new()),
+            retention_errors: std::cell::RefCell::new(Vec::new()),
         })
+    }
+
+    fn retain_work(&self, basename: &str, bytes: &[u8], maximum: usize) {
+        if let Some(work) = self.work {
+            let retained = (|| -> Result<()> {
+                if bytes.len() > maximum {
+                    return Err(Error::limit(
+                        "Owned process original exceeds its closed bound",
+                    ));
+                }
+                let artifact = work.write_new("owned-work", basename, bytes)?;
+                if artifact.bytes != bytes.len() as u64
+                    || artifact.sha256 != crate::hash::sha256(bytes)
+                    || work.read(basename, maximum)? != bytes
+                {
+                    return Err(ffv1_custody_uncertain(
+                        "Owned process original readback differs",
+                    ));
+                }
+                Ok(())
+            })();
+            if let Err(error) = retained {
+                self.failed_error("owned-work-backup", &error);
+            }
+        }
+    }
+
+    pub fn original_capture_complete(&self) -> bool {
+        self.failures.borrow().is_empty()
     }
 
     fn failed(&self, code: &'static str) {
@@ -348,23 +494,48 @@ impl<'a> Ffv1ProcessCustody<'a> {
         }
     }
 
-    fn stream(&self, stage: &str, name: &str, bytes: &[u8]) -> serde_json::Value {
-        let prefix = &bytes[..bytes.len().min(FFV1_CUSTODY_STREAM_PREFIX)];
-        let path = format!("{}.ffv1-{stage}.{name}.original.bin", self.output_path);
-        let retained =
-            retain_ffv1_original(self.output, &path, prefix, FFV1_CUSTODY_STREAM_PREFIX).is_ok();
-        if !retained {
-            self.failed("stream-retention");
+    pub fn failed_error(&self, phase: &'static str, error: &Error) {
+        self.failed(phase);
+        // Calls are bounded by the closed process stage roster. Keep the real
+        // error rather than reducing a publication/readback failure to bool.
+        self.retention_errors.borrow_mut().push(serde_json::json!({
+            "phase":phase,"code":error.code,"message":error.message,
+            "outcome_known":error.outcome_known,
+        }));
+    }
+
+    pub fn secondary_report(&self) -> Option<serde_json::Value> {
+        if self.failures.borrow().is_empty() {
+            return None;
         }
+        Some(serde_json::json!({
+            "member_prefix":self.prefix,"source_sha256":self.manifest_sha256,
+            "secondary_failures":*self.failures.borrow(),
+            "retention_errors":*self.retention_errors.borrow(),
+            "observed_after_summary_retention":true,
+        }))
+    }
+
+    fn stream(&self, stage: &str, name: &str, bytes: &[u8]) -> serde_json::Value {
+        let limit = ffv1_stream_original_limit(stage);
+        let basename = format!("{}-{stage}.{name}.original.bin", self.prefix);
+        self.retain_work(&basename, bytes, limit);
+        let path = format!("{}.{basename}", self.output_path);
+        let retention = retain_ffv1_original(self.output, &path, bytes, limit);
+        if let Err(error) = &retention {
+            self.failed_error("stream-retention", error);
+        }
+        let retained = retention.is_ok();
         serde_json::json!({
-            "root":"output", "path":path, "sha256":crate::hash::sha256(prefix),
-            "bytes":prefix.len(), "returned_buffer_bytes":bytes.len(),
+            "root":"output", "path":path, "sha256":crate::hash::sha256(bytes),
+            "bytes":bytes.len(), "returned_buffer_bytes":bytes.len(),
             "returned_buffer_sha256":crate::hash::sha256(bytes),
-            "diagnostic_prefix_truncated":bytes.len()>prefix.len(), "retained":retained,
+            "diagnostic_prefix_truncated":false, "retention_limit":limit, "retained":retained,
             "upstream_stream_eof_attested":false
         })
     }
 
+    #[cfg(test)]
     fn record(
         &self,
         stage: &'static str,
@@ -373,12 +544,38 @@ impl<'a> Ffv1ProcessCustody<'a> {
         retained_limit: usize,
         total_limit: usize,
     ) {
+        self.record_observed(stage, spec, result, retained_limit, total_limit, None, None);
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn record_observed(
+        &self,
+        stage: &'static str,
+        spec: &ProcessSpec,
+        result: &Result<ProcessResult>,
+        retained_limit: usize,
+        total_limit: usize,
+        observation: Option<&ProcessObservation>,
+        file_size_limit: Option<u64>,
+    ) {
         let next = self.stages.borrow().len();
-        if FFV1_CUSTODY_STAGES.get(next).copied() != Some(stage) {
+        if self.kind.stages().get(next).copied() != Some(stage) {
             self.failed("stage-order");
             return;
         }
         self.stages.borrow_mut().push(stage);
+        if let Some(observed) = observation {
+            let failed_pipe =
+                |pipe: &CapturedPipe| pipe.panicked || pipe.stopped || pipe.read_error.is_some();
+            if observed.drain_stop_reason.is_some()
+                || observed.stdout.as_ref().is_some_and(failed_pipe)
+                || observed.stderr.as_ref().is_some_and(failed_pipe)
+                || (observed.spawn_attempted
+                    && (observed.stdout.is_none() || observed.stderr.is_none()))
+            {
+                self.failed("observed-stream-capture-incomplete");
+            }
+        }
         let spec = match ffv1_spec_original(spec) {
             Ok(spec) => spec,
             Err(_) => {
@@ -397,17 +594,28 @@ impl<'a> Ffv1ProcessCustody<'a> {
             Err(error) => serde_json::json!({
                 "process_result_received":false, "exit_code":null, "term_signal":null,
                 "cancelled":null, "timed_out":null, "output_exceeded":null,
-                "stdout":null, "stderr":null,
+                "stdout":observation.and_then(|value| value.stdout.as_ref()).map(|stream| self.stream(stage,"stdout",&stream.retained)),
+                "stderr":observation.and_then(|value| value.stderr.as_ref()).map(|stream| self.stream(stage,"stderr",&stream.retained)),
                 "original_error":{"code":error.code,"message":error.message,"outcome_known":error.outcome_known}
             }),
         };
         let document = serde_json::json!({
-            "schema":"semwright.ffv1-process-original/1", "stage":stage,
-            "output_path":self.output_path,"source_manifest_sha256":self.manifest_sha256,
+            "schema":if matches!(self.kind,crate::originals::VideoOriginalKind::MotionFrames) {"semwright.ffv1-process-original/1"} else {"semwright.native-video-process-original/1"}, "stage":stage,"role":self.kind.prefix(),"member_prefix":self.prefix,
+            "output_path":self.output_path,"source_manifest_sha256":if matches!(self.kind,crate::originals::VideoOriginalKind::MotionFrames) {Some(self.manifest_sha256)} else {None},
+            "source_sha256":self.manifest_sha256,
+            "source_kind":match self.kind {
+                crate::originals::VideoOriginalKind::MotionFrames => "motion-frame-manifest-bytes",
+                crate::originals::VideoOriginalKind::NativeRender
+                | crate::originals::VideoOriginalKind::HostNativeRender => "native-render-xml-bytes",
+                crate::originals::VideoOriginalKind::InputProbe => "staged-input-bytes",
+                crate::originals::VideoOriginalKind::AvAudioDecode => "staged-av-master-bytes",
+            },
             "source_capture_retained_limit":retained_limit,"source_capture_total_limit":total_limit,
-            "diagnostic_prefix_limit":FFV1_CUSTODY_STREAM_PREFIX,"spec":spec,"terminal":terminal,
+            "diagnostic_prefix_limit":ffv1_stream_original_limit(stage),"spec":spec,"terminal":terminal,
+            "same_spawn_observation":observation.map(ProcessObservation::metadata),
+            "file_size_limit_bytes":file_size_limit,
             "native_execution_retried":false,"stream_eof_attested":false,
-            "capture_scope":"existing-ProcessResult-before-checked-or-parse",
+            "capture_scope":"same-spawn-retained-buffers-before-checked-or-parse",
             "physical_acceptance":false
         });
         let bytes = match serde_json::to_vec(&document) {
@@ -417,35 +625,53 @@ impl<'a> Ffv1ProcessCustody<'a> {
                 return;
             }
         };
-        let path = format!("{}.ffv1-{stage}.terminal.original.json", self.output_path);
-        if retain_ffv1_original(self.output, &path, &bytes, FFV1_CUSTODY_METADATA).is_err() {
-            self.failed("terminal-retention");
+        let basename = format!("{}-{stage}.terminal.original.json", self.prefix);
+        self.retain_work(&basename, &bytes, FFV1_CUSTODY_METADATA);
+        let path = format!("{}.{basename}", self.output_path);
+        if let Err(error) = retain_ffv1_original(self.output, &path, &bytes, FFV1_CUSTODY_METADATA)
+        {
+            self.failed_error("terminal-retention", &error);
         }
     }
 
-    pub(crate) fn complete<T>(&self, original: Result<T>) -> Result<T> {
-        if original.is_ok() && self.stages.borrow().as_slice() != FFV1_CUSTODY_STAGES {
+    pub fn complete<T>(&self, original: Result<T>) -> Result<T> {
+        if original.is_ok() && self.stages.borrow().as_slice() != self.kind.stages() {
             self.failed("stage-coverage");
         }
         let document = serde_json::json!({
-            "schema":"semwright.ffv1-process-custody/1", "output_path":self.output_path,
-            "source_manifest_sha256":self.manifest_sha256,
+            "schema":if matches!(self.kind,crate::originals::VideoOriginalKind::MotionFrames) {"semwright.ffv1-process-custody/1"} else {"semwright.native-video-process-custody/1"}, "output_path":self.output_path,"role":self.kind.prefix(),"member_prefix":self.prefix,
+            "source_manifest_sha256":if matches!(self.kind,crate::originals::VideoOriginalKind::MotionFrames) {Some(self.manifest_sha256)} else {None},
+            "source_sha256":self.manifest_sha256,
+            "source_kind":match self.kind {
+                crate::originals::VideoOriginalKind::MotionFrames => "motion-frame-manifest-bytes",
+                crate::originals::VideoOriginalKind::NativeRender
+                | crate::originals::VideoOriginalKind::HostNativeRender => "native-render-xml-bytes",
+                crate::originals::VideoOriginalKind::InputProbe => "staged-input-bytes",
+                crate::originals::VideoOriginalKind::AvAudioDecode => "staged-av-master-bytes",
+            },
             "observed_stages":*self.stages.borrow(), "secondary_failures":*self.failures.borrow(),
+            "retention_errors":*self.retention_errors.borrow(),
+            "observation_boundary":"before-this-summary-retention",
             "original_operation_succeeded":original.is_ok(),
             "original_error":original.as_ref().err().map(|e| serde_json::json!({"code":e.code,"message":e.message,"outcome_known":e.outcome_known})),
             "stream_eof_attested":false,"native_execution_retried":false,"physical_acceptance":false
         });
-        let retained = serde_json::to_vec(&document).ok().is_some_and(|bytes| {
-            retain_ffv1_original(
-                self.output,
-                &format!("{}{FFV1_CUSTODY_SUMMARY}", self.output_path),
-                &bytes,
-                FFV1_CUSTODY_METADATA,
-            )
-            .is_ok()
-        });
-        if !retained {
-            self.failed("summary-retention");
+        let basename = format!("{}-process-custody.original.json", self.prefix);
+        let retained = serde_json::to_vec(&document)
+            .map_err(|error| {
+                Error::invalid(format!("Process summary serialization failed: {error}"))
+            })
+            .and_then(|bytes| {
+                self.retain_work(&basename, &bytes, FFV1_CUSTODY_METADATA);
+                retain_ffv1_original(
+                    self.output,
+                    &format!("{}.{basename}", self.output_path),
+                    &bytes,
+                    FFV1_CUSTODY_METADATA,
+                )
+            });
+        if let Err(error) = retained {
+            self.failed_error("summary-retention", &error);
         }
         // A custody failure must never replace the original native/domain error.
         match original {
@@ -458,6 +684,7 @@ impl<'a> Ffv1ProcessCustody<'a> {
     }
 }
 
+#[cfg(test)]
 fn checked_ffv1_original(
     custody: Option<&Ffv1ProcessCustody<'_>>,
     stage: &'static str,
@@ -470,6 +697,66 @@ fn checked_ffv1_original(
         custody.record(stage, spec, &result, retained_limit, total_limit);
     }
     result?.checked()
+}
+
+// The original process is executed exactly once. Its independently captured
+// partial pipes are available even when the supervisor returns Err rather than
+// a ProcessResult. Existing native error classification remains primary.
+fn run_checked_ffv1_original(
+    custody: Option<&Ffv1ProcessCustody<'_>>,
+    stage: &'static str,
+    spec: &ProcessSpec,
+    cancel: &AtomicBool,
+    retained_limit: usize,
+    total_limit: usize,
+    file_size_limit: u64,
+) -> Result<ProcessResult> {
+    let mut observation = ProcessObservation::default();
+    let result = run_with_file_limit_observed(
+        spec,
+        cancel,
+        retained_limit,
+        total_limit,
+        file_size_limit,
+        custody.map(|_| &mut observation),
+    );
+    if let Some(custody) = custody {
+        custody.record_observed(
+            stage,
+            spec,
+            &result,
+            retained_limit,
+            total_limit,
+            Some(&observation),
+            Some(file_size_limit),
+        );
+    }
+    checked_ffv1_process_observation(result, &observation)
+}
+
+#[doc(hidden)]
+pub fn checked_ffv1_process_observation(
+    result: Result<ProcessResult>,
+    observation: &ProcessObservation,
+) -> Result<ProcessResult> {
+    let result = result?;
+    // Preserve the legacy wait -> stdout panic -> stderr panic -> native flags
+    // error precedence after retaining the actual same-spawn observations.
+    if observation
+        .stdout
+        .as_ref()
+        .is_some_and(|pipe| pipe.panicked)
+    {
+        return Err(Error::new("Internal", "stdout reader failed"));
+    }
+    if observation
+        .stderr
+        .as_ref()
+        .is_some_and(|pipe| pipe.panicked)
+    {
+        return Err(Error::new("Internal", "stderr reader failed"));
+    }
+    result.checked()
 }
 
 pub const AUDIO_DERIVATIVE_STDIN_LIMIT: usize = 65_536;
@@ -1119,7 +1406,7 @@ impl Drop for CaptureThread {
 }
 
 #[derive(Debug, Default)]
-struct ProcessObservation {
+pub struct ProcessObservation {
     spawn_attempted: bool,
     pid: Option<u32>,
     terminal_observed: bool,
@@ -1318,6 +1605,25 @@ fn run_with_output_limits_observed(
     cancel: &AtomicBool,
     retained_limit: usize,
     total_limit: usize,
+    observation: Option<&mut ProcessObservation>,
+) -> Result<ProcessResult> {
+    run_with_file_limit_observed(
+        spec,
+        cancel,
+        retained_limit,
+        total_limit,
+        crate::jobs::MAX_ARTIFACT_BYTES,
+        observation,
+    )
+}
+
+#[doc(hidden)]
+pub fn run_with_file_limit_observed(
+    spec: &ProcessSpec,
+    cancel: &AtomicBool,
+    retained_limit: usize,
+    total_limit: usize,
+    file_size_limit: u64,
     mut observation: Option<&mut ProcessObservation>,
 ) -> Result<ProcessResult> {
     let result = run_with_output_limits_inner(
@@ -1325,6 +1631,7 @@ fn run_with_output_limits_observed(
         cancel,
         retained_limit,
         total_limit,
+        file_size_limit,
         observation.as_deref_mut(),
     );
     if let (Some(observation), Err(error)) = (observation, result.as_ref()) {
@@ -1341,10 +1648,16 @@ fn run_with_output_limits_inner(
     cancel: &AtomicBool,
     retained_limit: usize,
     total_limit: usize,
+    file_size_limit: u64,
     mut observation: Option<&mut ProcessObservation>,
 ) -> Result<ProcessResult> {
     if retained_limit == 0 || retained_limit > total_limit || total_limit > 8 * 1024 * 1024 {
         return Err(Error::limit("Process output capture budget is invalid"));
+    }
+    if file_size_limit == 0 || file_size_limit > crate::jobs::MAX_ARTIFACT_BYTES {
+        return Err(Error::limit(
+            "Process file-size limit is outside the existing bound",
+        ));
     }
     if !spec.executable.is_absolute()
         || !spec.cwd.is_absolute()
@@ -1380,7 +1693,7 @@ fn run_with_output_limits_inner(
             for (resource, budget) in [
                 (4u32, 0u64),
                 (0, cpu),
-                (1, 1073741824),
+                (1, file_size_limit),
                 (7, 128),
                 (9, address_space),
                 // RLIMIT_NPROC is intentionally owned by the outer DriverProvider sandbox.
@@ -2089,7 +2402,18 @@ impl Runtime {
         name: &str,
         cancel: &AtomicBool,
     ) -> Result<MediaInfo> {
-        self.probe_with_timeout(inputs, work, name, cancel, Duration::from_secs(5), None)
+        self.probe_observed(inputs, work, name, cancel, None)
+    }
+
+    pub(crate) fn probe_observed(
+        &self,
+        inputs: &Path,
+        work: &Path,
+        name: &str,
+        cancel: &AtomicBool,
+        custody: Option<&Ffv1ProcessCustody<'_>>,
+    ) -> Result<MediaInfo> {
+        self.probe_with_timeout(inputs, work, name, cancel, Duration::from_secs(5), custody)
     }
 
     fn probe_before_deadline(
@@ -2138,13 +2462,14 @@ impl Runtime {
         ))
         .collect();
         let spec = self.spec("ffprobe", args, inputs, work, timeout)?;
-        let r = checked_ffv1_original(
+        let r = run_checked_ffv1_original(
             custody,
             "media-probe",
             &spec,
-            run(&spec, cancel),
+            cancel,
             RETAIN_LOG,
             TOTAL_LOG,
+            crate::jobs::MAX_ARTIFACT_BYTES,
         )?;
         MediaInfo::parse(&r.stdout)
     }
@@ -2398,13 +2723,14 @@ impl Runtime {
             work,
             remaining_color_budget(deadline)?.min(Duration::from_secs(5)),
         )?;
-        let help = checked_ffv1_original(
+        let help = run_checked_ffv1_original(
             custody,
             "zscale-help",
             &spec,
-            run(&spec, cancel),
+            cancel,
             RETAIN_LOG,
             TOTAL_LOG,
+            crate::jobs::MAX_ARTIFACT_BYTES,
         )?;
         if !String::from_utf8_lossy(&help.stdout).contains("Filter zscale") {
             return Err(Error::new(
@@ -2466,13 +2792,14 @@ impl Runtime {
             work,
             remaining_color_budget(deadline)?,
         )?;
-        checked_ffv1_original(
+        run_checked_ffv1_original(
             custody,
             "encode",
             &spec,
-            run(&spec, cancel),
+            cancel,
             RETAIN_LOG,
             TOTAL_LOG,
+            crate::jobs::MAX_ARTIFACT_BYTES,
         )?;
         let info =
             self.probe_before_deadline(work, work, "mezzanine.mkv", cancel, deadline, custody)?;
@@ -2546,7 +2873,8 @@ impl Runtime {
     }
 
     #[allow(clippy::too_many_arguments)]
-    fn observe_video_file_observed(
+    #[doc(hidden)]
+    pub fn observe_video_file_observed(
         &self,
         work: &Path,
         name: &str,
@@ -2599,13 +2927,14 @@ impl Runtime {
             work,
             remaining_color_budget(deadline)?,
         )?;
-        let result = checked_ffv1_original(
+        let result = run_checked_ffv1_original(
             custody,
             "complete-probe",
             &spec,
-            run_with_output_limits(&spec, cancel, color::REPORT_LIMIT, color::REPORT_LIMIT),
+            cancel,
             color::REPORT_LIMIT,
             color::REPORT_LIMIT,
+            crate::jobs::MAX_ARTIFACT_BYTES,
         )?;
         let probe = color::parse_probe_profile(
             profile,
@@ -2630,13 +2959,14 @@ impl Runtime {
             work,
             remaining_color_budget(deadline)?.min(Duration::from_secs(5)),
         )?;
-        let version = checked_ffv1_original(
+        let version = run_checked_ffv1_original(
             custody,
             "decoder-version",
             &spec,
-            run(&spec, cancel),
+            cancel,
             RETAIN_LOG,
             TOTAL_LOG,
+            crate::jobs::MAX_ARTIFACT_BYTES,
         )?;
         let version = std::str::from_utf8(&version.stdout)
             .ok()
@@ -2691,13 +3021,14 @@ impl Runtime {
             work,
             remaining_color_budget(deadline)?,
         )?;
-        checked_ffv1_original(
+        run_checked_ffv1_original(
             custody,
             "decode",
             &spec,
-            run(&spec, cancel),
+            cancel,
             RETAIN_LOG,
             TOTAL_LOG,
+            budget.png_bytes_upper_bound,
         )?;
         if root.exists(&format!("decoded-{frame_count:06}.png"))? {
             return Err(Error::new(
@@ -2951,10 +3282,35 @@ impl Runtime {
         channels: u16,
         cancel: &AtomicBool,
     ) -> Result<MediaInfo> {
+        self.extract_audio_observed(
+            inputs,
+            work,
+            name,
+            sample_rate,
+            channels,
+            cancel,
+            crate::jobs::MAX_ARTIFACT_BYTES,
+            None,
+        )
+    }
+
+    pub(crate) fn extract_audio_observed(
+        &self,
+        inputs: &Path,
+        work: &Path,
+        name: &str,
+        sample_rate: u32,
+        channels: u16,
+        cancel: &AtomicBool,
+        maximum_bytes: u64,
+        custody: Option<&Ffv1ProcessCustody<'_>>,
+    ) -> Result<MediaInfo> {
         crate::fs::validate_relative(name)?;
         if name.contains('/')
             || sample_rate != 48_000
             || channels != 2
+            || maximum_bytes == 0
+            || maximum_bytes > crate::jobs::MAX_ARTIFACT_BYTES
             || cancel.load(Ordering::Acquire)
         {
             return Err(Error::invalid(
@@ -2982,12 +3338,16 @@ impl Runtime {
             "wav".into(),
             output.into_os_string(),
         ];
-        run(
+        run_checked_ffv1_original(
+            custody,
+            "audio-extract",
             &self.spec("ffmpeg", args, inputs, work, self.timeout)?,
             cancel,
-        )?
-        .checked()?;
-        let info = self.probe(work, work, "decoded-audio.wav", cancel)?;
+            RETAIN_LOG,
+            TOTAL_LOG,
+            maximum_bytes,
+        )?;
+        let info = self.probe_observed(work, work, "decoded-audio.wav", cancel, custody)?;
         if !info.audio
             || info.video
             || info.sample_rate != Some(sample_rate)
@@ -3010,23 +3370,40 @@ impl Runtime {
         cancel: &AtomicBool,
         deadline: Instant,
     ) -> Result<ProcessResult> {
+        self.render_observed(inputs, work, profile, cancel, deadline, None)
+    }
+
+    pub(crate) fn render_observed(
+        &self,
+        inputs: &Path,
+        work: &Path,
+        profile: &RenderProfile,
+        cancel: &AtomicBool,
+        deadline: Instant,
+        custody: Option<&Ffv1ProcessCustody<'_>>,
+    ) -> Result<ProcessResult> {
         let args = render_argv(
             self.input_path(inputs, "project.mlt").into_os_string(),
             self.work_path(work, &format!("partial.{}", profile.extension))
                 .into_os_string(),
             profile,
         );
-        run(
-            &self.spec(
-                "melt",
-                args,
-                inputs,
-                work,
-                remaining_color_budget(deadline)?,
-            )?,
+        let spec = self.spec(
+            "melt",
+            args,
+            inputs,
+            work,
+            remaining_color_budget(deadline)?,
+        )?;
+        run_checked_ffv1_original(
+            custody,
+            "render",
+            &spec,
             cancel,
-        )?
-        .checked()
+            RETAIN_LOG,
+            TOTAL_LOG,
+            crate::jobs::MAX_ARTIFACT_BYTES,
+        )
     }
     pub fn validate_output(
         &self,
@@ -3037,12 +3414,27 @@ impl Runtime {
         cancel: &AtomicBool,
         deadline: Instant,
     ) -> Result<ValidatedOutput> {
+        self.validate_output_observed(work, profile, expected, frames, cancel, deadline, None)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn validate_output_observed(
+        &self,
+        work: &Path,
+        profile: &RenderProfile,
+        expected: &Profile,
+        frames: u64,
+        cancel: &AtomicBool,
+        deadline: Instant,
+        custody: Option<&Ffv1ProcessCustody<'_>>,
+    ) -> Result<ValidatedOutput> {
         remaining_color_budget(deadline)?;
         let filename = format!("partial.{}", profile.extension);
-        let mut info = self.probe_before_deadline(work, work, &filename, cancel, deadline, None)?;
+        let mut info =
+            self.probe_before_deadline(work, work, &filename, cancel, deadline, custody)?;
         remaining_color_budget(deadline)?;
         let observation = if let Some(selected) = complete_observation_profile(profile) {
-            let observed = self.observe_video_file(
+            let observed = self.observe_video_file_observed(
                 work,
                 &filename,
                 selected,
@@ -3052,6 +3444,7 @@ impl Runtime {
                 expected.fps.den,
                 deadline,
                 cancel,
+                custody,
             )?;
             info.frames = Some(observed.frames.len() as u64);
             Some(observed)
@@ -4225,35 +4618,114 @@ mod ffv1_original_custody_tests {
         assert_eq!(saved["physical_acceptance"], false);
     }
     #[test]
-    fn ffv1_prefix_is_explicit_and_never_claims_upstream_eof() {
+    fn ffv1_complete_probe_retains_every_accepted_original_byte() {
         let (directory, root) = fixture();
         let pin = "a".repeat(64);
         let custody = Ffv1ProcessCustody::new(&root, "first.mkv", &pin).unwrap();
+        for stage in ["zscale-help", "encode", "media-probe"] {
+            checked_ffv1_original(
+                Some(&custody),
+                stage,
+                &spec(directory.path()),
+                Ok(result(0)),
+                RETAIN_LOG,
+                TOTAL_LOG,
+            )
+            .unwrap();
+        }
+        let bytes = vec![0xff; FFV1_CUSTODY_STREAM_PREFIX + 17];
         let mut observed = result(0);
-        observed.stdout = vec![0xff; FFV1_CUSTODY_STREAM_PREFIX + 1];
-        let output = checked_ffv1_original(
+        observed.stdout = bytes.clone();
+        checked_ffv1_original(
             Some(&custody),
-            "zscale-help",
+            "complete-probe",
             &spec(directory.path()),
             Ok(observed),
-            32768,
-            65536,
+            FFV1_CUSTODY_PROBE_STREAM,
+            FFV1_CUSTODY_PROBE_STREAM,
         )
         .unwrap();
-        assert_eq!(output.stdout.len(), 16385);
-        let saved = document(&root, "first.mkv.ffv1-zscale-help.terminal.original.json");
-        assert_eq!(saved["terminal"]["stdout"]["bytes"], 16384);
+        assert_eq!(
+            root.read(
+                "first.mkv.ffv1-complete-probe.stdout.original.bin",
+                FFV1_CUSTODY_PROBE_STREAM
+            )
+            .unwrap(),
+            bytes
+        );
+        let saved = document(
+            &root,
+            "first.mkv.ffv1-complete-probe.terminal.original.json",
+        );
+        assert_eq!(saved["terminal"]["stdout"]["bytes"], 16401);
         assert_eq!(
             saved["terminal"]["stdout"]["diagnostic_prefix_truncated"],
-            true
+            false
         );
         assert_eq!(
             saved["terminal"]["stdout"]["upstream_stream_eof_attested"],
             false
         );
-        assert_eq!(saved["source_capture_retained_limit"], 32768);
-        assert_eq!(saved["source_capture_total_limit"], 65536);
+        assert_eq!(saved["source_capture_retained_limit"], 8_388_608);
+        assert_eq!(saved["source_capture_total_limit"], 8_388_608);
     }
+
+    #[test]
+    fn ffv1_supervisor_error_keeps_observed_partial_originals_and_primary_error() {
+        let (directory, root) = fixture();
+        let pin = "a".repeat(64);
+        let custody = Ffv1ProcessCustody::new(&root, "first.mkv", &pin).unwrap();
+        let observation = ProcessObservation {
+            spawn_attempted: true,
+            pid: Some(123),
+            stdout: Some(CapturedPipe {
+                retained: vec![0, 255, 7],
+                observed_bytes: 3,
+                stopped: true,
+                ..CapturedPipe::default()
+            }),
+            stderr: Some(CapturedPipe {
+                retained: vec![254, 0],
+                observed_bytes: 2,
+                eof: true,
+                ..CapturedPipe::default()
+            }),
+            ..ProcessObservation::default()
+        };
+        let mut error = Error::new("BackendFailed", "original-supervisor-error");
+        error.outcome_known = false;
+        let original: Result<ProcessResult> = Err(error);
+        custody.record_observed(
+            "zscale-help",
+            &spec(directory.path()),
+            &original,
+            RETAIN_LOG,
+            TOTAL_LOG,
+            Some(&observation),
+            Some(crate::jobs::MAX_ARTIFACT_BYTES),
+        );
+        let error = custody.complete(original).unwrap_err();
+        assert_eq!(error.message, "original-supervisor-error");
+        assert!(!error.outcome_known);
+        assert_eq!(
+            root.read("first.mkv.ffv1-zscale-help.stdout.original.bin", RETAIN_LOG)
+                .unwrap(),
+            vec![0, 255, 7]
+        );
+        assert_eq!(
+            root.read("first.mkv.ffv1-zscale-help.stderr.original.bin", RETAIN_LOG)
+                .unwrap(),
+            vec![254, 0]
+        );
+        let saved = document(&root, "first.mkv.ffv1-zscale-help.terminal.original.json");
+        assert_eq!(
+            saved["same_spawn_observation"]["stdout"]["drain_stopped"],
+            true
+        );
+        assert_eq!(saved["same_spawn_observation"]["capture_complete"], false);
+        assert!(saved["terminal"]["exit_code"].is_null());
+    }
+
     #[test]
     fn ffv1_existing_sidecar_refuses_preflight_without_overwrite() {
         let (_directory, root) = fixture();
@@ -4309,6 +4781,221 @@ mod ffv1_original_custody_tests {
                 .unwrap(),
             b"retained-before"
         );
+    }
+
+    #[test]
+    fn ffv1_observed_reader_panics_keep_the_legacy_primary_error_order() {
+        let mut observation = ProcessObservation {
+            stdout: Some(CapturedPipe {
+                panicked: true,
+                ..CapturedPipe::default()
+            }),
+            stderr: Some(CapturedPipe {
+                panicked: true,
+                ..CapturedPipe::default()
+            }),
+            ..ProcessObservation::default()
+        };
+        let error = checked_ffv1_process_observation(Ok(result(7)), &observation).unwrap_err();
+        assert_eq!(error.code, "Internal");
+        assert_eq!(error.message, "stdout reader failed");
+        observation.stdout.as_mut().unwrap().panicked = false;
+        let error = checked_ffv1_process_observation(Ok(result(7)), &observation).unwrap_err();
+        assert_eq!(error.message, "stderr reader failed");
+        let error = checked_ffv1_process_observation(
+            Err(Error::new("BackendFailed", "original-wait-error")),
+            &observation,
+        )
+        .unwrap_err();
+        assert_eq!(error.message, "original-wait-error");
+        observation.stderr.as_mut().unwrap().panicked = false;
+        observation.stdout.as_mut().unwrap().observed_bytes = 100;
+        // Intentional legacy prefix capture is not reclassified as a panic.
+        assert!(checked_ffv1_process_observation(Ok(result(0)), &observation).is_ok());
+    }
+
+    #[test]
+    fn decode_file_size_limit_is_enforced_before_spawn() {
+        const MARKER: &str = "SEMWRIGHT_TEST_FSIZE_ORIGINAL_CHILD";
+        if std::env::var(MARKER).ok().as_deref() == Some("1") {
+            let mut file = OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open("bounded.original.bin")
+                .unwrap();
+            let result = file.write_all(&[0x61; 8192]);
+            // SIGXFSZ may terminate first. If the inherited disposition ignores
+            // it, Linux still returns EFBIG and the file cannot exceed the cap.
+            assert!(result.is_err());
+            assert!(file.metadata().unwrap().len() <= 4096);
+            return;
+        }
+        let (directory, _root) = fixture();
+        let spec = ProcessSpec {
+            executable: std::env::current_exe().unwrap(),
+            args: vec!["--exact".into(),
+                "runtime::ffv1_original_custody_tests::decode_file_size_limit_is_enforced_before_spawn".into(),
+                "--nocapture".into(), "--test-threads=1".into()],
+            cwd: directory.path().into(), timeout: Duration::from_secs(10),
+            cpu_seconds: 5, address_space_bytes: 536_870_912,
+            environment: BTreeMap::from([(MARKER.into(), "1".into())]),
+        };
+        let mut observation = ProcessObservation::default();
+        let result = run_with_file_limit_observed(
+            &spec,
+            &AtomicBool::new(false),
+            RETAIN_LOG,
+            TOTAL_LOG,
+            4096,
+            Some(&mut observation),
+        )
+        .unwrap();
+        let actual = std::fs::metadata(directory.path().join("bounded.original.bin")).unwrap();
+        assert_eq!(actual.len(), 4096);
+        assert!(result.exit_code == Some(0) || result.term_signal == Some(libc::SIGXFSZ));
+        assert!(observation.terminal_observed);
+        assert!(!result.timed_out && !result.cancelled && !result.output_exceeded);
+    }
+
+    #[test]
+    fn incomplete_observed_drain_does_not_claim_complete_original_custody() {
+        let (directory, root) = fixture();
+        let pin = "a".repeat(64);
+        let custody = Ffv1ProcessCustody::new(&root, "first.mkv", &pin).unwrap();
+        let observation = ProcessObservation {
+            spawn_attempted: true,
+            terminal_observed: true,
+            exit_code: Some(0),
+            drain_stop_reason: Some("deadline"),
+            stdout: Some(CapturedPipe {
+                stopped: true,
+                ..CapturedPipe::default()
+            }),
+            stderr: Some(CapturedPipe {
+                eof: true,
+                ..CapturedPipe::default()
+            }),
+            ..ProcessObservation::default()
+        };
+        custody.record_observed(
+            "zscale-help",
+            &spec(directory.path()),
+            &Ok(result(0)),
+            RETAIN_LOG,
+            TOTAL_LOG,
+            Some(&observation),
+            Some(crate::jobs::MAX_ARTIFACT_BYTES),
+        );
+        for stage in [
+            "encode",
+            "media-probe",
+            "complete-probe",
+            "decoder-version",
+            "decode",
+        ] {
+            checked_ffv1_original(
+                Some(&custody),
+                stage,
+                &spec(directory.path()),
+                Ok(result(0)),
+                RETAIN_LOG,
+                TOTAL_LOG,
+            )
+            .unwrap();
+        }
+        let error = custody.complete(Ok(())).unwrap_err();
+        assert!(!error.outcome_known);
+        assert!(!custody.original_capture_complete());
+        let report = document(&root, "first.mkv.ffv1-process-custody.original.json");
+        assert!(
+            report["secondary_failures"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|item| item == "observed-stream-capture-incomplete")
+        );
+    }
+
+    #[test]
+    fn input_probe_custody_keeps_the_real_slot_source_and_error() {
+        let (directory, root) = fixture();
+        let pin = "b".repeat(64);
+        let custody =
+            Ffv1ProcessCustody::for_input_probe(&root, "first.mkv", &pin, 4, &root).unwrap();
+        let original = checked_ffv1_original(
+            Some(&custody),
+            "media-probe",
+            &spec(directory.path()),
+            Ok(result(7)),
+            RETAIN_LOG,
+            TOTAL_LOG,
+        );
+        let error = custody.complete(original).unwrap_err();
+        assert!(error.message.contains("Some(7)"));
+        let stem = "first.mkv.native-input-probe-000004-media-probe";
+        assert_eq!(
+            root.read(&format!("{stem}.stdout.original.bin"), RETAIN_LOG)
+                .unwrap(),
+            vec![b'o', 255, 0]
+        );
+        assert_eq!(
+            root.read(
+                "native-input-probe-000004-media-probe.stdout.original.bin",
+                RETAIN_LOG
+            )
+            .unwrap(),
+            vec![b'o', 255, 0]
+        );
+        let report = document(&root, &format!("{stem}.terminal.original.json"));
+        assert_eq!(report["source_sha256"], pin);
+        assert_eq!(report["source_kind"], "staged-input-bytes");
+        assert!(report["source_manifest_sha256"].is_null());
+        assert_eq!(report["member_prefix"], "native-input-probe-000004");
+        assert_eq!(report["role"], "native-input-probe");
+    }
+
+    #[test]
+    fn summary_retention_error_remains_available_after_the_primary_error() {
+        let (directory, root) = fixture();
+        let (_work_directory, work_root) = fixture();
+        let pin = "b".repeat(64);
+        let custody =
+            Ffv1ProcessCustody::for_input_probe(&root, "first.mkv", &pin, 0, &work_root).unwrap();
+        let result = checked_ffv1_original(
+            Some(&custody),
+            "media-probe",
+            &spec(directory.path()),
+            Ok(result(7)),
+            RETAIN_LOG,
+            TOTAL_LOG,
+        );
+        let primary_message = result.as_ref().unwrap_err().message.clone();
+        let summary = "first.mkv.native-input-probe-000000-process-custody.original.json";
+        root.write_new("output", summary, b"prior-unknown-summary")
+            .unwrap();
+        let error = custody.complete(result).unwrap_err();
+        assert_eq!(error.message, primary_message);
+        let report = custody.secondary_report().unwrap();
+        assert_eq!(report["observed_after_summary_retention"], true);
+        let errors = report["retention_errors"].as_array().unwrap();
+        let secondary = errors
+            .iter()
+            .find(|error| error["phase"] == "summary-retention")
+            .unwrap();
+        assert_eq!(secondary["code"], "Conflict");
+        assert!(!secondary["message"].as_str().unwrap().is_empty());
+        assert_eq!(secondary["outcome_known"], true);
+        assert!(!custody.original_capture_complete());
+        assert_eq!(root.read(summary, 64).unwrap(), b"prior-unknown-summary");
+        let before = document(
+            &work_root,
+            "native-input-probe-000000-process-custody.original.json",
+        );
+        assert_eq!(
+            before["observation_boundary"],
+            "before-this-summary-retention"
+        );
+        assert_eq!(before["original_error"]["message"], primary_message);
     }
 }
 

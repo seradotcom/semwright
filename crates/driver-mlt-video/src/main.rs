@@ -13,6 +13,7 @@ use semwright_mlt_video::{
         MAX_MEDIA_BYTES, MAX_RETAINED_JOBS, RenderedOutput, State,
     },
     model::Profile,
+    originals::{VideoOriginalKind, VideoOriginals},
     runtime::{
         MediaInfo, NATIVE_DIAGNOSTIC_FILE, NATIVE_DIAGNOSTIC_LIMIT, RenderProfile, ServiceCatalog,
         VALIDATION_DIAGNOSTIC_FILE, native_failure_filename, raw_video_probe_observation,
@@ -31,6 +32,9 @@ struct HostRenderJob {
     snapshot: JobSnapshot,
     host_job: RuntimeToolJob,
     scratch: PrivateDir,
+    original_inputs: Option<PrivateDir>,
+    originals: Option<VideoOriginals>,
+    original_binding: Option<HostOriginalBinding>,
     profile: RenderProfile,
     expected_profile: Profile,
     frames: u64,
@@ -43,6 +47,140 @@ struct HostRenderDiagnostic<'a> {
     revision: &'a str,
     scratch_path: &'a std::path::Path,
     directory: &'a str,
+    original_roots: Option<(&'a Root, &'a Root)>,
+    original_binding: Option<&'a HostOriginalBinding>,
+}
+
+#[derive(Clone)]
+struct HostOriginalBinding {
+    output_path: String,
+    receipt_sha256: String,
+    input_asset_count: usize,
+}
+
+impl HostOriginalBinding {
+    fn directory(&self, inputs: bool) -> String {
+        format!(
+            "{}.raw-original-{}",
+            self.output_path,
+            if inputs { "inputs" } else { "work" }
+        )
+    }
+
+    fn append_args(&self, args: &mut Vec<RuntimeToolArg>, probe_slot: Option<usize>) {
+        let literal = |value: &str| RuntimeToolArg::Literal {
+            value: value.to_owned(),
+        };
+        args.extend([
+            literal("--original-output-root"),
+            RuntimeToolArg::MountPath {
+                mount: "output".into(),
+                relative: String::new(),
+            },
+            literal("--original-output-path"),
+            literal(&self.output_path),
+            literal("--original-workspaces-sha256"),
+            literal(&self.receipt_sha256),
+        ]);
+        if let Some(slot) = probe_slot {
+            args.extend([literal("--original-probe-slot"), literal(&slot.to_string())]);
+        }
+    }
+}
+
+fn revisioned_import_path(command: &str, args: &Value) -> Result<Option<String>> {
+    // This is the existing Motionwright request_digest framing. The revisioned
+    // import journal already commits these exact arguments before dispatch.
+    let revisioned = args.get("project").and_then(Value::as_str).is_some()
+        && args
+            .get("expected_revision")
+            .and_then(Value::as_str)
+            .is_some();
+    if revisioned {
+        Ok(Some(format!(
+            "asset-import-probe-{}",
+            sha256(&serde_json::to_vec(&(command, args))?)
+        )))
+    } else {
+        Ok(None)
+    }
+}
+
+fn original_import_path(
+    command: &str,
+    args: &Value,
+    context: &DriverExecutionContext,
+) -> Result<String> {
+    if let Some(path) = revisioned_import_path(command, args)? {
+        return Ok(path);
+    }
+    // Generic imports without a revision remain supported. Their opaque
+    // invocation identity is not claimed discoverable by the A4 journal.
+    let bytes = serde_json::to_vec(&(command, args, context.session(), context.request_id()))?;
+    Ok(format!("asset-import-invocation-{}", sha256(&bytes)))
+}
+
+// Retain only the actual buffers returned by this original Host call. A missing
+// terminal is not converted to empty streams or a claim of process-tree quietude.
+fn retain_visual_host_result(
+    work: &Root,
+    slot: usize,
+    phase: &str,
+    returned: Option<(i32, &[u8], &[u8])>,
+    error: Option<&Error>,
+) -> Result<()> {
+    use semwright_mlt_video::runtime as rt;
+    let stem = format!("native-host-call-{slot:06}");
+    let mut secondary = Vec::new();
+    let mut retain = |tail: &str, bytes: &[u8]| -> Option<Value> {
+        match rt::retain_ffv1_original(
+            work,
+            &format!("{stem}.{tail}.original.bin"),
+            bytes,
+            rt::FFV1_CUSTODY_HOST_STREAM,
+        ) {
+            Ok(artifact) => Some(
+                serde_json::json!({"path":artifact.path,"bytes":artifact.bytes,"sha256":artifact.sha256}),
+            ),
+            Err(failure) => {
+                secondary.push(serde_json::json!({"member":tail,"code":failure.code,
+                    "message":failure.message,"outcome_known":failure.outcome_known}));
+                None
+            }
+        }
+    };
+    let (stdout, stderr) = match returned {
+        Some((_, stdout, stderr)) => (retain("stdout", stdout), retain("stderr", stderr)),
+        None => (None, None),
+    };
+    let value = serde_json::json!({
+        "schema":"semwright.native-host-original-call/1","slot":slot,"phase":phase,
+        "exit_code":returned.map(|value| value.0),"returned_buffers_observed":returned.is_some(),
+        "stdout":stdout,"stderr":stderr,"secondary_errors":secondary,
+        "original_error":error.map(|value| serde_json::json!({"code":value.code,
+            "message":value.message,"outcome_known":value.outcome_known})),
+        "process_tree_quiescence_observed":false,"automatic_retry":false,
+        "physical_acceptance":false,
+    });
+    let bytes = serde_json::to_vec(&value)?;
+    rt::retain_ffv1_original(
+        work,
+        &format!("{stem}.terminal.original.json"),
+        &bytes,
+        rt::FFV1_CUSTODY_METADATA,
+    )
+    .map_err(map_error)?;
+    if value["secondary_errors"]
+        .as_array()
+        .is_some_and(|errors| !errors.is_empty())
+    {
+        return Err(Error::new(
+            ErrorCode::Unavailable,
+            "Original Host buffers were not completely retained",
+        )
+        .uncertain());
+    }
+    Ok(())
 }
 
 #[derive(Default)]
@@ -277,6 +415,7 @@ impl AvHostCustody {
 enum AvHostScope {
     Ffv1,
     AudioDerivative,
+    NativeMux,
 }
 
 impl AvHostCustody {
@@ -284,6 +423,7 @@ impl AvHostCustody {
         match self.scope {
             AvHostScope::Ffv1 => "ffv1",
             AvHostScope::AudioDerivative => "audio-derive",
+            AvHostScope::NativeMux => "mux",
         }
     }
 
@@ -291,6 +431,7 @@ impl AvHostCustody {
         match self.scope {
             AvHostScope::Ffv1 => "FFV1",
             AvHostScope::AudioDerivative => "Audio derivative",
+            AvHostScope::NativeMux => "Native AV mux",
         }
     }
 
@@ -298,12 +439,15 @@ impl AvHostCustody {
         match self.scope {
             AvHostScope::Ffv1 => "semwright.ffv1-host-original/1",
             AvHostScope::AudioDerivative => "semwright.audio-derivative-host-original/1",
+            AvHostScope::NativeMux => "semwright.native-mux-host-original/1",
         }
     }
 
     fn stdin_limit(&self) -> usize {
         match self.scope {
-            AvHostScope::Ffv1 => semwright_mlt_video::runtime::FFV1_CUSTODY_STDIN,
+            AvHostScope::Ffv1 | AvHostScope::NativeMux => {
+                semwright_mlt_video::runtime::FFV1_CUSTODY_STDIN
+            }
             AvHostScope::AudioDerivative => {
                 semwright_mlt_video::runtime::AUDIO_DERIVATIVE_STDIN_LIMIT
             }
@@ -312,7 +456,9 @@ impl AvHostCustody {
 
     fn stream_limit(&self) -> usize {
         match self.scope {
-            AvHostScope::Ffv1 => semwright_mlt_video::runtime::FFV1_CUSTODY_HOST_STREAM,
+            AvHostScope::Ffv1 | AvHostScope::NativeMux => {
+                semwright_mlt_video::runtime::FFV1_CUSTODY_HOST_STREAM
+            }
             AvHostScope::AudioDerivative => {
                 semwright_mlt_video::runtime::AUDIO_DERIVATIVE_STREAM_LIMIT
             }
@@ -321,7 +467,9 @@ impl AvHostCustody {
 
     fn metadata_limit(&self) -> usize {
         match self.scope {
-            AvHostScope::Ffv1 => semwright_mlt_video::runtime::FFV1_CUSTODY_METADATA,
+            AvHostScope::Ffv1 | AvHostScope::NativeMux => {
+                semwright_mlt_video::runtime::FFV1_CUSTODY_METADATA
+            }
             AvHostScope::AudioDerivative => {
                 semwright_mlt_video::runtime::AUDIO_DERIVATIVE_METADATA_LIMIT
             }
@@ -335,12 +483,14 @@ impl AvHostCustody {
         maximum: usize,
     ) -> semwright_mlt_video::Result<Artifact> {
         match self.scope {
-            AvHostScope::Ffv1 => semwright_mlt_video::runtime::retain_ffv1_original(
-                &self.output,
-                path,
-                bytes,
-                maximum,
-            ),
+            AvHostScope::Ffv1 | AvHostScope::NativeMux => {
+                semwright_mlt_video::runtime::retain_ffv1_original(
+                    &self.output,
+                    path,
+                    bytes,
+                    maximum,
+                )
+            }
             AvHostScope::AudioDerivative => {
                 semwright_mlt_video::runtime::retain_audio_derivative_original(
                     &self.output,
@@ -388,6 +538,72 @@ impl AvHostCustody {
             .map_err(map_error)?;
         Ok(custody)
     }
+
+    fn new_mux(app: &App, command: &str, descriptor: &str, args: &Value) -> Result<Self> {
+        use semwright_mlt_video::runtime as rt;
+        if command != "driver.mlt-video.av.mux" {
+            return Err(Error::invalid("Native mux custody is closed to av.mux"));
+        }
+        let output_path = args
+            .get("output_path")
+            .and_then(Value::as_str)
+            .ok_or_else(|| Error::invalid("Native mux original output is absent"))?
+            .to_owned();
+        semwright_mlt_video::fs::validate_relative(&output_path).map_err(map_error)?;
+        let output =
+            app.roots.get("output").cloned().ok_or_else(|| {
+                Error::new(ErrorCode::Unavailable, "Original output grant is absent")
+            })?;
+        for family in ["host", "catalog"] {
+            for tail in [
+                "stdin.original.bin",
+                "stdout.original.bin",
+                "stderr.original.bin",
+                "terminal.original.json",
+            ] {
+                if output
+                    .exists(&format!("{output_path}.mux-{family}.{tail}"))
+                    .map_err(map_error)?
+                {
+                    return Err(Error::new(
+                        ErrorCode::Conflict,
+                        "Original mux Host destination already exists",
+                    ));
+                }
+            }
+        }
+        let peak = 2u64
+            * (rt::FFV1_CUSTODY_STDIN as u64
+                + 2 * rt::FFV1_CUSTODY_HOST_STREAM as u64
+                + rt::FFV1_CUSTODY_METADATA as u64);
+        if output
+            .available_bytes_for(&output_path)
+            .map_err(map_error)?
+            < peak
+        {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Output lacks the declared mux Host originals",
+            ));
+        }
+        let request = serde_json::to_vec(&serde_json::json!({
+            "command":command,"descriptor_sha256":descriptor,"args":args
+        }))?;
+        let custody = Self {
+            output,
+            output_path,
+            request,
+            scope: AvHostScope::NativeMux,
+        };
+        custody
+            .retain(
+                &format!("{}.mux-host.stdin.original.bin", custody.output_path),
+                &custody.request,
+                custody.stdin_limit(),
+            )
+            .map_err(map_error)?;
+        Ok(custody)
+    }
 }
 
 fn now_ms() -> u64 {
@@ -416,7 +632,17 @@ fn host_custody_readback_uncertain() -> Error {
 }
 // Called once from the original Host completion. No renderer, reconstructed
 // request, process inspection, argv/environment capture, or retry exists here.
+#[cfg(test)]
 fn retain_original_host_custody(
+    work: &Root,
+    output: &Root,
+    original: &OriginalHostTerminal<'_>,
+) -> Result<Artifact> {
+    retain_original_host_custody_from_inputs(work, work, output, original)
+}
+
+fn retain_original_host_custody_from_inputs(
+    inputs: &Root,
     work: &Root,
     output: &Root,
     original: &OriginalHostTerminal<'_>,
@@ -441,7 +667,8 @@ fn retain_original_host_custody(
     }
     let descriptor = host_render_result(original.stdout, "partial.mkv", Some(original.request))?
         .ok_or_else(host_render_protocol_error)?;
-    let bound = bind_host_native_observation(work, original.request, &descriptor)?;
+    let bound =
+        bind_host_native_observation_from_inputs(inputs, work, original.request, &descriptor)?;
     if bound.request.output_path != original.output_path {
         return Err(host_render_protocol_error());
     }
@@ -690,12 +917,22 @@ struct BoundHostObservation {
     video_bytes: u64,
 }
 
+#[cfg(test)]
 fn bind_host_native_observation(
     work: &Root,
     original: &[u8],
     descriptor: &Artifact,
 ) -> Result<BoundHostObservation> {
-    let request = verify_host_native_request(work, original)?;
+    bind_host_native_observation_from_inputs(work, work, original, descriptor)
+}
+
+fn bind_host_native_observation_from_inputs(
+    inputs: &Root,
+    work: &Root,
+    original: &[u8],
+    descriptor: &Artifact,
+) -> Result<BoundHostObservation> {
+    let request = verify_host_native_request(inputs, original)?;
     if descriptor.root != "scratch"
         || descriptor.path != color::NATIVE_OBSERVATION_FILE
         || descriptor.bytes == 0
@@ -1149,6 +1386,18 @@ impl MltVideoDriver {
         count_video_frames: bool,
         context: &DriverExecutionContext,
     ) -> Result<(MediaInfo, Vec<u8>)> {
+        self.host_probe_staged_observed_owned(directory, name, count_video_frames, context, None)
+            .await
+    }
+
+    async fn host_probe_staged_observed_owned(
+        &self,
+        directory: &str,
+        name: &str,
+        count_video_frames: bool,
+        context: &DriverExecutionContext,
+        original: Option<(&HostOriginalBinding, &Root, usize, usize)>,
+    ) -> Result<(MediaInfo, Vec<u8>)> {
         let mut args = vec![
             RuntimeToolArg::Literal {
                 value: "probe".into(),
@@ -1170,7 +1419,12 @@ impl MltVideoDriver {
                 value: "--scratch-root".into(),
             },
             RuntimeToolArg::MountPath {
-                mount: "scratch".into(),
+                mount: if original.is_some() {
+                    "output"
+                } else {
+                    "scratch"
+                }
+                .into(),
                 relative: String::new(),
             },
             RuntimeToolArg::Literal {
@@ -1191,45 +1445,83 @@ impl MltVideoDriver {
                 value: "--count-video-frames".into(),
             });
         }
-        let output = if count_video_frames {
-            // Full frame decoding is bounded but may exceed 30 seconds for
-            // 36k FFV1 frames. Protocol v7 synchronous tools have a strict
-            // 30-second ceiling; use its *existing* Host-owned detached job
-            // with cancellation and reap-on-error semantics. Never weaken
-            // the protocol or run a consumer-side ffmpeg process.
-            let job = context
-                .start_runtime_tool_job_args(
-                    "mlt-runner",
-                    args,
-                    Vec::new(),
-                    std::time::Duration::from_secs(150),
-                    None,
-                )
-                .await?;
-            context.wait_runtime_tool_job(&job).await?
-        } else {
-            context
-                .execute_runtime_tool_args(
-                    "mlt-runner",
-                    args,
-                    Vec::new(),
-                    std::time::Duration::from_secs(30),
-                    None,
-                )
-                .await?
-        };
-        if output.exit_code != 0 {
-            let detail = host_runner_failure(&output.stdout);
-            return Err(Error::new(
-                ErrorCode::BackendFailed,
-                match detail {
-                    Some(detail) => format!("Host-mediated MLT probe failed: {detail}"),
-                    None => "Host-mediated MLT probe failed".into(),
-                },
-            ));
+        if let Some((binding, _, native_slot, _)) = original {
+            binding.append_args(&mut args, Some(native_slot));
         }
-        let media = host_media_info(&output.stdout)?;
-        Ok((media, output.stdout))
+        let returned = async {
+            if count_video_frames {
+                // Full frame decoding is bounded but may exceed 30 seconds for
+                // 36k FFV1 frames. Protocol v7 synchronous tools have a strict
+                // 30-second ceiling; use its *existing* Host-owned detached job
+                // with cancellation and reap-on-error semantics. Never weaken
+                // the protocol or run a consumer-side ffmpeg process.
+                let job = context
+                    .start_runtime_tool_job_args(
+                        "mlt-runner",
+                        args,
+                        Vec::new(),
+                        std::time::Duration::from_secs(150),
+                        None,
+                    )
+                    .await?;
+                context.wait_runtime_tool_job(&job).await
+            } else {
+                context
+                    .execute_runtime_tool_args(
+                        "mlt-runner",
+                        args,
+                        Vec::new(),
+                        std::time::Duration::from_secs(30),
+                        None,
+                    )
+                    .await
+            }
+        }
+        .await;
+        let parsed = match &returned {
+            Err(error) => Err(error.clone()),
+            Ok(output) if output.exit_code != 0 => {
+                let detail = host_runner_failure(&output.stdout);
+                let error = Error::new(
+                    ErrorCode::BackendFailed,
+                    match detail {
+                        Some(detail) => format!("Host-mediated MLT probe failed: {detail}"),
+                        None => "Host-mediated MLT probe failed".into(),
+                    },
+                );
+                Err(if original.is_some() {
+                    error.uncertain()
+                } else {
+                    error
+                })
+            }
+            Ok(output) => host_media_info(&output.stdout),
+        };
+        let custody = match original {
+            Some((_, work, _, host_slot)) => retain_visual_host_result(
+                work,
+                host_slot,
+                if count_video_frames {
+                    "final-full-frame-probe"
+                } else {
+                    "input-media-probe"
+                },
+                returned.as_ref().ok().map(|output| {
+                    (
+                        output.exit_code,
+                        output.stdout.as_slice(),
+                        output.stderr.as_slice(),
+                    )
+                }),
+                parsed.as_ref().err(),
+            ),
+            None => Ok(()),
+        };
+        let media = finish_ffv1_host_original(parsed, custody)?;
+        match returned {
+            Ok(output) => Ok((media, output.stdout)),
+            Err(error) => Err(error),
+        }
     }
 
     async fn host_probe_for(
@@ -1269,6 +1561,12 @@ impl MltVideoDriver {
                 "Media root is not mounted for probing",
             )
         })?;
+        if command == "driver.mlt-video.asset.import" && root_name == "output" {
+            return self
+                .host_import_probe(command, args, path, root, context)
+                .await
+                .map(Some);
+        }
         let mut source = root.read_file(path, MAX_MEDIA_BYTES).map_err(map_error)?;
 
         let scratch_root = workspace_mount("scratch")?;
@@ -1325,27 +1623,148 @@ impl MltVideoDriver {
             .map(Some)
     }
 
+    async fn host_import_probe(
+        &self,
+        command: &str,
+        args: &Value,
+        source_path: &str,
+        output: &Root,
+        context: &DriverExecutionContext,
+    ) -> Result<MediaInfo> {
+        let output_path = original_import_path(command, args, context)?;
+        let request = serde_json::to_vec(args)?;
+        if request.len() > semwright_mlt_video::json::MAX_JSON {
+            return Err(Error::new(
+                ErrorCode::ResourceExhausted,
+                "Original import arguments exceed their existing JSON bound",
+            ));
+        }
+        let (mut inputs, mut work) = output
+            .create_original_workspaces(&output_path)
+            .map_err(map_error)?;
+        let input_root = inputs.owned_root(true, false).map_err(map_error)?;
+        let work_root = work.owned_root(true, true).map_err(map_error)?;
+        let mut plan = VideoOriginals::new_host_asset_probe(output, &work_root, &output_path)
+            .map_err(map_error)?;
+        let receipt = plan
+            .declare_workspaces(
+                &inputs,
+                &work,
+                &[
+                    ("probe.bin".into(), MAX_MEDIA_BYTES + 1),
+                    (
+                        "import-request.original.json".into(),
+                        semwright_mlt_video::json::MAX_JSON as u64,
+                    ),
+                ],
+            )
+            .map_err(map_error)?;
+        let binding = HostOriginalBinding {
+            output_path,
+            receipt_sha256: receipt.sha256,
+            input_asset_count: 1,
+        };
+        let original: Result<MediaInfo> = async {
+            let mut request_file = inputs
+                .create("import-request.original.json")
+                .map_err(map_error)?;
+            request_file.write_all(&request).map_err(|_| {
+                Error::new(
+                    ErrorCode::BackendFailed,
+                    "Failed to retain original import arguments",
+                )
+            })?;
+            request_file.sync_all().map_err(|_| {
+                Error::new(
+                    ErrorCode::BackendFailed,
+                    "Failed to sync original import arguments",
+                )
+            })?;
+            drop(request_file);
+            inputs
+                .seal("import-request.original.json")
+                .map_err(map_error)?;
+            let mut source = output
+                .read_file(source_path, MAX_MEDIA_BYTES)
+                .map_err(map_error)?;
+            let mut destination = inputs.create("probe.bin").map_err(map_error)?;
+            // Preserve the original MAX+1 sentinel written by this bounded copy.
+            // It is already charged and remains recoverable if the check fails.
+            let copied = std::io::copy(
+                &mut (&mut source).take(MAX_MEDIA_BYTES + 1),
+                &mut destination,
+            )
+            .map_err(|_| {
+                Error::new(
+                    ErrorCode::BackendFailed,
+                    "Failed to stage bounded MLT probe input",
+                )
+            })?;
+            if copied > MAX_MEDIA_BYTES {
+                return Err(Error::new(
+                    ErrorCode::ResourceExhausted,
+                    "MLT probe input exceeds media byte budget",
+                ));
+            }
+            destination.flush().map_err(|_| {
+                Error::new(
+                    ErrorCode::BackendFailed,
+                    "Failed to flush bounded MLT probe input",
+                )
+            })?;
+            destination.sync_all().map_err(|_| {
+                Error::new(
+                    ErrorCode::BackendFailed,
+                    "Failed to sync bounded MLT probe input",
+                )
+            })?;
+            drop(destination);
+            inputs.seal("probe.bin").map_err(map_error)?;
+            self.host_probe_staged_observed_owned(
+                &binding.directory(true),
+                "probe.bin",
+                false,
+                context,
+                Some((&binding, &work_root, 0, 0)),
+            )
+            .await
+            .map(|(media, _)| media)
+        }
+        .await;
+        let source = input_root.digest("probe.bin", MAX_MEDIA_BYTES + 1).ok();
+        let state = match &original {
+            Ok(_) => Ok(()),
+            Err(error) => Err(to_internal_error(error.clone())),
+        };
+        let secondary = if original.is_ok() {
+            Vec::new()
+        } else {
+            vec![
+                serde_json::json!({"stage":"original-import-probe","complete":false,
+                "process_tree_quiescence_observed":false}),
+            ]
+        };
+        let retained = plan
+            .finish(
+                state,
+                source.as_deref(),
+                original.is_ok(),
+                &secondary,
+                &mut inputs,
+                &mut work,
+                &input_root,
+                &work_root,
+            )
+            .map_err(map_error);
+        finish_ffv1_host_original(original, retained)
+    }
+
     async fn start_host_render(
         &mut self,
         request: RenderRequest,
         context: &DriverExecutionContext,
     ) -> Result<JobSnapshot> {
         self.host_render_jobs.prepare_start()?;
-        let scratch_root = workspace_mount("scratch")?;
-        if !scratch_root.is_dir() {
-            return Err(Error::new(
-                ErrorCode::Unavailable,
-                "MLT scratch mount is unavailable",
-            ));
-        }
-        let scratch = PrivateDir::new(&scratch_root).map_err(map_error)?;
-        let directory = scratch
-            .path()
-            .file_name()
-            .and_then(|v| v.to_str())
-            .filter(|v| !v.is_empty() && v.len() <= 128)
-            .ok_or_else(|| Error::new(ErrorCode::Internal, "MLT scratch directory is invalid"))?
-            .to_owned();
         let sequence = request
             .project
             .sequence(&request.sequence)
@@ -1356,11 +1775,12 @@ impl MltVideoDriver {
             .app
             .roots
             .get("output")
+            .cloned()
             .ok_or_else(|| Error::new(ErrorCode::Unavailable, "Output mount disappeared"))?;
         if complete {
-            preflight_native_host_custody(output_root, &request.output)?;
+            preflight_native_host_custody(&output_root, &request.output)?;
             color::preflight_observation_output(
-                output_root,
+                &output_root,
                 &request.output,
                 request
                     .profile
@@ -1376,214 +1796,362 @@ impl MltVideoDriver {
             .map_err(map_error)?;
         }
         let (asset_ids, _) = jobs::required(&request.project, &sequence).map_err(map_error)?;
-        let input_root = Root::open(scratch.path(), true, false).map_err(map_error)?;
-        let mut staged = BTreeMap::new();
-        let mut staged_sources = Vec::new();
-        let mut total = 0u64;
-        for asset_id in asset_ids {
-            context.check_cancelled()?;
+        let mut input_members = Vec::new();
+        for asset_id in &asset_ids {
             let asset =
-                request.project.assets.get(&asset_id).ok_or_else(|| {
+                request.project.assets.get(asset_id).ok_or_else(|| {
                     Error::new(ErrorCode::InvalidArgument, "Render asset is missing")
                 })?;
-            if matches!(
+            if !matches!(
                 asset.resource,
                 semwright_mlt_video::model::Resource::Color(_)
             ) {
-                continue;
-            }
-            let (root_name, path) =
-                jobs::media_location(&request.project, asset).map_err(map_error)?;
-            let root =
-                self.app.roots.get(&root_name).ok_or_else(|| {
-                    Error::new(ErrorCode::PermissionDenied, "Media mount is absent")
-                })?;
-            let mut source = root.read_file(&path, MAX_MEDIA_BYTES).map_err(map_error)?;
-            let name = format!("asset-{}.bin", &sha256(asset_id.as_bytes())[..24]);
-            let mut destination = scratch.create(&name).map_err(map_error)?;
-            let mut copied = 0u64;
-            let mut buffer = [0u8; 65536];
-            loop {
-                context.check_cancelled()?;
-                let n = source.read(&mut buffer).map_err(|_| {
-                    Error::new(
-                        ErrorCode::BackendFailed,
-                        "Failed to read bounded MLT render input",
-                    )
-                })?;
-                if n == 0 {
-                    break;
-                }
-                copied = copied.checked_add(n as u64).ok_or_else(|| {
-                    Error::new(ErrorCode::ResourceExhausted, "MLT input size overflow")
-                })?;
-                total = total.checked_add(n as u64).ok_or_else(|| {
-                    Error::new(ErrorCode::ResourceExhausted, "MLT input total overflow")
-                })?;
-                if copied > MAX_MEDIA_BYTES || total > MAX_JOB_INPUT_BYTES {
-                    return Err(Error::new(
-                        ErrorCode::ResourceExhausted,
-                        "Staged MLT render inputs exceed their byte budget",
-                    ));
-                }
-                destination.write_all(&buffer[..n]).map_err(|_| {
-                    Error::new(
-                        ErrorCode::BackendFailed,
-                        "Failed to stage bounded MLT render input",
-                    )
-                })?;
-            }
-            destination.flush().map_err(|_| {
-                Error::new(
-                    ErrorCode::BackendFailed,
-                    "Failed to flush bounded MLT render input",
-                )
-            })?;
-            destination.sync_all().map_err(|_| {
-                Error::new(
-                    ErrorCode::BackendFailed,
-                    "Failed to sync bounded MLT render input",
-                )
-            })?;
-            drop(destination);
-            scratch.seal(&name).map_err(map_error)?;
-            if complete {
-                let actual = reader_hash(
-                    input_root
-                        .read_file(&name, MAX_MEDIA_BYTES)
-                        .map_err(map_error)?,
+                input_members.push((
+                    format!("asset-{}.bin", &sha256(asset_id.as_bytes())[..24]),
                     MAX_MEDIA_BYTES,
-                )
-                .map_err(map_error)?;
-                if actual.1 != copied {
-                    return Err(Error::new(
-                        ErrorCode::StaleReference,
-                        "Staged native input length changed before Host request",
-                    ));
-                }
-                staged_sources.push((
-                    Artifact {
-                        root: root_name,
-                        path,
-                        sha256: actual.0,
-                        bytes: actual.1,
-                    },
-                    name.clone(),
                 ));
             }
-            let info = self.host_probe_staged(&directory, &name, context).await?;
-            jobs::validate_staged_asset(&request.project, &sequence, &asset_id, &info)
-                .map_err(map_error)?;
-            staged.insert(asset_id, name);
         }
-        let prepared = jobs::prepare_render_document(
-            request.project,
-            &request.sequence,
-            &request.profile,
-            &staged,
-        )
-        .map_err(map_error)?;
-        let mut project_file = scratch.create("project.mlt").map_err(map_error)?;
-        project_file
-            .write_all(prepared.xml.as_bytes())
-            .map_err(|_| Error::new(ErrorCode::BackendFailed, "Failed to stage project.mlt"))?;
-        project_file
-            .sync_all()
-            .map_err(|_| Error::new(ErrorCode::BackendFailed, "Failed to sync project.mlt"))?;
-        drop(project_file);
-        scratch.seal("project.mlt").map_err(map_error)?;
-        let observation_request = if complete {
-            let bytes = color::native_observation_request(
+        let input_asset_count = input_members.len();
+        let (mut original_inputs, mut scratch) = if complete {
+            let (inputs, work) = output_root
+                .create_original_workspaces(&request.output)
+                .map_err(map_error)?;
+            (Some(inputs), work)
+        } else {
+            let scratch_root = workspace_mount("scratch")?;
+            if !scratch_root.is_dir() {
+                return Err(Error::new(
+                    ErrorCode::Unavailable,
+                    "MLT scratch mount is unavailable",
+                ));
+            }
+            (None, PrivateDir::new(&scratch_root).map_err(map_error)?)
+        };
+        let mut originals = None;
+        let original_binding = if let Some(inputs) = original_inputs.as_ref() {
+            let work_root = scratch.owned_root(true, true).map_err(map_error)?;
+            let mut plan = VideoOriginals::new(
+                &output_root,
+                &work_root,
                 &request.output,
-                prepared.xml.as_bytes(),
-                &prepared.expected_profile,
-                prepared.frames,
-                &staged_sources,
+                (
+                    request
+                        .profile
+                        .width
+                        .unwrap_or(request.project.profile.width),
+                    request
+                        .profile
+                        .height
+                        .unwrap_or(request.project.profile.height),
+                ),
+                sequence.duration(),
+                "partial.mkv",
+                VideoOriginalKind::HostNativeRender,
+                input_asset_count.checked_add(1).ok_or_else(|| {
+                    Error::new(
+                        ErrorCode::ResourceExhausted,
+                        "Original visual probe count overflow",
+                    )
+                })?,
             )
             .map_err(map_error)?;
-            let budget = color::observation_budget(
-                prepared.expected_profile.width,
-                prepared.expected_profile.height,
-                prepared.frames,
-            )
-            .map_err(|error| map_error(error.into()))?;
-            if input_root
-                .available_bytes_for("decoded-000000.png")
-                .map_err(map_error)?
-                < budget.peak_free_bytes + 2 * semwright_mlt_video::xml::MAX_XML as u64
-            {
-                return Err(Error::new(
-                    ErrorCode::ResourceExhausted,
-                    "Host scratch lacks complete observation free-space budget",
-                ));
-            }
-            let mut f = scratch
-                .create(color::NATIVE_OBSERVATION_REQUEST_FILE)
+            input_members.push((
+                "project.mlt".into(),
+                semwright_mlt_video::xml::MAX_XML as u64,
+            ));
+            input_members.push((
+                color::NATIVE_OBSERVATION_REQUEST_FILE.into(),
+                color::NATIVE_OBSERVATION_REQUEST_LIMIT as u64,
+            ));
+            let receipt = plan
+                .declare_workspaces(inputs, &scratch, &input_members)
                 .map_err(map_error)?;
-            f.write_all(&bytes).map_err(|_| {
-                Error::new(
-                    ErrorCode::BackendFailed,
-                    "Failed to stage native observation request",
-                )
-            })?;
-            f.sync_all().map_err(|_| {
-                Error::new(
-                    ErrorCode::BackendFailed,
-                    "Failed to sync native observation request",
-                )
-            })?;
-            drop(f);
-            scratch
-                .seal(color::NATIVE_OBSERVATION_REQUEST_FILE)
-                .map_err(map_error)?;
-            verify_host_native_request(&input_root, &bytes)?;
-            Some(bytes)
+            originals = Some(plan);
+            Some(HostOriginalBinding {
+                output_path: request.output.clone(),
+                receipt_sha256: receipt.sha256,
+                input_asset_count,
+            })
         } else {
             None
         };
-        let literal = |value: &str| RuntimeToolArg::Literal {
-            value: value.into(),
+        let directory = match &original_binding {
+            Some(binding) => binding.directory(false),
+            None => scratch
+                .path()
+                .file_name()
+                .and_then(|value| value.to_str())
+                .filter(|value| !value.is_empty() && value.len() <= 128)
+                .ok_or_else(|| Error::new(ErrorCode::Internal, "MLT scratch directory is invalid"))?
+                .to_owned(),
         };
-        let tool = |name: &str| RuntimeToolArg::ToolPath { tool: name.into() };
-        let mount = |name: &str| RuntimeToolArg::MountPath {
-            mount: name.into(),
-            relative: String::new(),
-        };
-        let mut argv = vec![
-            literal("render"),
-            literal("--runtime-root"),
-            mount("mlt-runtime"),
-            literal("--melt-sealed"),
-            tool("melt"),
-            literal("--scratch-root"),
-            mount("scratch"),
-            literal("--directory"),
-            literal(&directory),
-            literal("--profile"),
-            literal(request.profile.id),
-        ];
-        if complete {
-            argv.extend([
-                literal("--complete-observation"),
-                literal("--ffprobe-sealed"),
-                tool("ffprobe"),
-                literal("--ffmpeg-sealed"),
-                tool("ffmpeg"),
-            ]);
+        let input_directory = original_binding
+            .as_ref()
+            .map_or_else(|| directory.clone(), |binding| binding.directory(true));
+        let input_dir = original_inputs.as_ref().unwrap_or(&scratch);
+        let input_root = if complete {
+            input_dir.owned_root(true, false)
+        } else {
+            Root::open(input_dir.path(), true, false)
         }
-        // Allocate fallible local state before starting the Host job.
-        let id = format!("render:{}", random_id().map_err(map_error)?);
-        context.check_cancelled()?;
-        let host_job = context
-            .start_runtime_tool_job_args(
-                "mlt-runner",
-                argv,
-                Vec::new(),
-                // Existing Host CPU ceiling; one native render+observation deadline.
-                Duration::from_secs(300),
-                None,
+        .map_err(map_error)?;
+        let work_root = if complete {
+            Some(scratch.owned_root(true, true).map_err(map_error)?)
+        } else {
+            None
+        };
+        // Everything below is the first execution. On any early return its
+        // original error and owned partials are finalized without another call.
+        let preparation: Result<_> = async {
+            let mut staged = BTreeMap::new();
+            let mut staged_sources = Vec::new();
+            let mut total = 0u64;
+            let mut native_probe_slot = 0usize;
+            for asset_id in asset_ids {
+                context.check_cancelled()?;
+                let asset = request.project.assets.get(&asset_id).ok_or_else(|| {
+                    Error::new(ErrorCode::InvalidArgument, "Render asset is missing")
+                })?;
+                if matches!(
+                    asset.resource,
+                    semwright_mlt_video::model::Resource::Color(_)
+                ) {
+                    continue;
+                }
+                let (root_name, path) =
+                    jobs::media_location(&request.project, asset).map_err(map_error)?;
+                let root = self.app.roots.get(&root_name).ok_or_else(|| {
+                    Error::new(ErrorCode::PermissionDenied, "Media mount is absent")
+                })?;
+                let mut source = root.read_file(&path, MAX_MEDIA_BYTES).map_err(map_error)?;
+                let name = format!("asset-{}.bin", &sha256(asset_id.as_bytes())[..24]);
+                let mut destination = input_dir.create(&name).map_err(map_error)?;
+                let mut copied = 0u64;
+                let mut buffer = [0u8; 65536];
+                loop {
+                    context.check_cancelled()?;
+                    let n = source.read(&mut buffer).map_err(|_| {
+                        Error::new(
+                            ErrorCode::BackendFailed,
+                            "Failed to read bounded MLT render input",
+                        )
+                    })?;
+                    if n == 0 {
+                        break;
+                    }
+                    copied = copied.checked_add(n as u64).ok_or_else(|| {
+                        Error::new(ErrorCode::ResourceExhausted, "MLT input size overflow")
+                    })?;
+                    total = total.checked_add(n as u64).ok_or_else(|| {
+                        Error::new(ErrorCode::ResourceExhausted, "MLT input total overflow")
+                    })?;
+                    if copied > MAX_MEDIA_BYTES || total > MAX_JOB_INPUT_BYTES {
+                        return Err(Error::new(
+                            ErrorCode::ResourceExhausted,
+                            "Staged MLT render inputs exceed their byte budget",
+                        ));
+                    }
+                    destination.write_all(&buffer[..n]).map_err(|_| {
+                        Error::new(
+                            ErrorCode::BackendFailed,
+                            "Failed to stage bounded MLT render input",
+                        )
+                    })?;
+                }
+                destination.flush().map_err(|_| {
+                    Error::new(
+                        ErrorCode::BackendFailed,
+                        "Failed to flush bounded MLT render input",
+                    )
+                })?;
+                destination.sync_all().map_err(|_| {
+                    Error::new(
+                        ErrorCode::BackendFailed,
+                        "Failed to sync bounded MLT render input",
+                    )
+                })?;
+                drop(destination);
+                input_dir.seal(&name).map_err(map_error)?;
+                if complete {
+                    let actual = reader_hash(
+                        input_root
+                            .read_file(&name, MAX_MEDIA_BYTES)
+                            .map_err(map_error)?,
+                        MAX_MEDIA_BYTES,
+                    )
+                    .map_err(map_error)?;
+                    if actual.1 != copied {
+                        return Err(Error::new(
+                            ErrorCode::StaleReference,
+                            "Staged native input length changed before Host request",
+                        ));
+                    }
+                    staged_sources.push((
+                        Artifact {
+                            root: root_name,
+                            path,
+                            sha256: actual.0,
+                            bytes: actual.1,
+                        },
+                        name.clone(),
+                    ));
+                }
+                let info = self
+                    .host_probe_staged_observed_owned(
+                        &input_directory,
+                        &name,
+                        false,
+                        context,
+                        original_binding
+                            .as_ref()
+                            .zip(work_root.as_ref())
+                            .map(|(binding, work)| {
+                                (binding, work, native_probe_slot, native_probe_slot)
+                            }),
+                    )
+                    .await?
+                    .0;
+                native_probe_slot += 1;
+                jobs::validate_staged_asset(&request.project, &sequence, &asset_id, &info)
+                    .map_err(map_error)?;
+                staged.insert(asset_id, name);
+            }
+            let prepared = jobs::prepare_render_document(
+                request.project,
+                &request.sequence,
+                &request.profile,
+                &staged,
             )
-            .await?;
+            .map_err(map_error)?;
+            let mut project_file = input_dir.create("project.mlt").map_err(map_error)?;
+            project_file
+                .write_all(prepared.xml.as_bytes())
+                .map_err(|_| Error::new(ErrorCode::BackendFailed, "Failed to stage project.mlt"))?;
+            project_file
+                .sync_all()
+                .map_err(|_| Error::new(ErrorCode::BackendFailed, "Failed to sync project.mlt"))?;
+            drop(project_file);
+            input_dir.seal("project.mlt").map_err(map_error)?;
+            let observation_request = if complete {
+                let bytes = color::native_observation_request(
+                    &request.output,
+                    prepared.xml.as_bytes(),
+                    &prepared.expected_profile,
+                    prepared.frames,
+                    &staged_sources,
+                )
+                .map_err(map_error)?;
+                // The owned workspace declaration charged the full original peak,
+                // including both native metadata files, before the first probe.
+                let mut f = input_dir
+                    .create(color::NATIVE_OBSERVATION_REQUEST_FILE)
+                    .map_err(map_error)?;
+                f.write_all(&bytes).map_err(|_| {
+                    Error::new(
+                        ErrorCode::BackendFailed,
+                        "Failed to stage native observation request",
+                    )
+                })?;
+                f.sync_all().map_err(|_| {
+                    Error::new(
+                        ErrorCode::BackendFailed,
+                        "Failed to sync native observation request",
+                    )
+                })?;
+                drop(f);
+                input_dir
+                    .seal(color::NATIVE_OBSERVATION_REQUEST_FILE)
+                    .map_err(map_error)?;
+                verify_host_native_request(&input_root, &bytes)?;
+                Some(bytes)
+            } else {
+                None
+            };
+            let literal = |value: &str| RuntimeToolArg::Literal {
+                value: value.into(),
+            };
+            let tool = |name: &str| RuntimeToolArg::ToolPath { tool: name.into() };
+            let mount = |name: &str| RuntimeToolArg::MountPath {
+                mount: name.into(),
+                relative: String::new(),
+            };
+            let mut argv = vec![
+                literal("render"),
+                literal("--runtime-root"),
+                mount("mlt-runtime"),
+                literal("--melt-sealed"),
+                tool("melt"),
+                literal("--scratch-root"),
+                mount(if complete { "output" } else { "scratch" }),
+                literal("--directory"),
+                literal(&directory),
+                literal("--profile"),
+                literal(request.profile.id),
+            ];
+            if complete {
+                argv.extend([
+                    literal("--complete-observation"),
+                    literal("--ffprobe-sealed"),
+                    tool("ffprobe"),
+                    literal("--ffmpeg-sealed"),
+                    tool("ffmpeg"),
+                ]);
+                original_binding
+                    .as_ref()
+                    .ok_or_else(host_render_protocol_error)?
+                    .append_args(&mut argv, None);
+            }
+            // Allocate fallible local state before starting the Host job.
+            let id = format!("render:{}", random_id().map_err(map_error)?);
+            context.check_cancelled()?;
+            let started = context
+                .start_runtime_tool_job_args(
+                    "mlt-runner",
+                    argv,
+                    Vec::new(),
+                    // Existing Host CPU ceiling; one native render+observation deadline.
+                    Duration::from_secs(300),
+                    None,
+                )
+                .await;
+            if let (Err(error), Some(binding), Some(work)) =
+                (&started, &original_binding, &work_root)
+            {
+                let _ = retain_visual_host_result(
+                    work,
+                    binding.input_asset_count,
+                    "render-start",
+                    None,
+                    Some(error),
+                );
+            }
+            let host_job = started?;
+            Ok((prepared, observation_request, id, host_job))
+        }
+        .await;
+        let (prepared, observation_request, id, host_job) = match preparation {
+            Ok(prepared) => prepared,
+            Err(error) => {
+                if let (Some(plan), Some(inputs), Some(work)) = (
+                    originals.as_ref(),
+                    original_inputs.as_mut(),
+                    work_root.as_ref(),
+                ) {
+                    let _ = plan.finish::<()>(
+                        Err(to_internal_error(error.clone())),
+                        None,
+                        false,
+                        &[serde_json::json!({"stage":"host-prepare","complete":false})],
+                        inputs,
+                        &mut scratch,
+                        &input_root,
+                        work,
+                    );
+                }
+                return Err(error);
+            }
+        };
         let now = now_ms();
         let output_file = format!("partial.{}", request.profile.extension);
         let snapshot = JobSnapshot {
@@ -1610,6 +2178,9 @@ impl MltVideoDriver {
                 snapshot: snapshot.clone(),
                 host_job,
                 scratch,
+                original_inputs,
+                originals,
+                original_binding,
                 profile: request.profile,
                 expected_profile: prepared.expected_profile,
                 frames: prepared.frames,
@@ -1633,10 +2204,24 @@ impl MltVideoDriver {
     ) -> Result<RenderedOutput> {
         let scratch_path = diagnostic.scratch_path;
         context.check_cancelled()?;
-        let source_root = Root::open(scratch_path, true, false).map_err(map_error)?;
+        let source_root = match diagnostic.original_roots {
+            Some((_, work)) => work.try_clone(),
+            None => Root::open(scratch_path, true, false),
+        }
+        .map_err(map_error)?;
+        let input_root = match diagnostic.original_roots {
+            Some((inputs, _)) => inputs.try_clone(),
+            None => source_root.try_clone(),
+        }
+        .map_err(map_error)?;
         let native = match (profile.id == "lossless-video-only", observation) {
             (true, Some((request, descriptor))) => {
-                let bound = bind_host_native_observation(&source_root, request, descriptor)?;
+                let bound = bind_host_native_observation_from_inputs(
+                    &input_root,
+                    &source_root,
+                    request,
+                    descriptor,
+                )?;
                 if bound.request.output_path != output_path
                     || bound.request.width != expected_profile.width
                     || bound.request.height != expected_profile.height
@@ -1652,11 +2237,19 @@ impl MltVideoDriver {
             _ => return Err(host_render_protocol_error()),
         };
         let (mut media, raw_probe) = self
-            .host_probe_staged_observed(
+            .host_probe_staged_observed_owned(
                 diagnostic.directory,
                 output_file,
                 profile.id == "lossless-video-only",
                 context,
+                diagnostic.original_binding.map(|binding| {
+                    (
+                        binding,
+                        &source_root,
+                        binding.input_asset_count,
+                        binding.input_asset_count + 1,
+                    )
+                }),
             )
             .await?;
         if profile.id == "lossless-video-only" {
@@ -1709,13 +2302,13 @@ impl MltVideoDriver {
             context.check_cancelled()?;
             bound
                 .request
-                .verify_staged(&source_root)
+                .verify_staged(&input_root)
                 .map_err(map_error)?;
             let retained = output_root
                 .publish_verified(
                     "output",
                     &format!("{output_path}.native-input.mlt"),
-                    source_root
+                    input_root
                         .read_file("project.mlt", semwright_mlt_video::xml::MAX_XML as u64)
                         .map_err(map_error)?,
                     semwright_mlt_video::xml::MAX_XML as u64,
@@ -1747,7 +2340,7 @@ impl MltVideoDriver {
             native_input = Some(retained);
             // Recheck original request and sources immediately before final publication.
             verify_host_native_request(
-                &source_root,
+                &input_root,
                 observation.ok_or_else(host_render_protocol_error)?.0,
             )?;
         }
@@ -1807,8 +2400,17 @@ impl MltVideoDriver {
         let scratch_path = diagnostic.scratch_path;
         let directory = diagnostic.directory;
         let diagnostic_path = native_failure_filename(output_path, job_id).map_err(map_error)?;
-        let source = Root::open(scratch_path, true, true).map_err(map_error)?;
-        let xml = source
+        let source = match diagnostic.original_roots {
+            Some((_, work)) => work.try_clone(),
+            None => Root::open(scratch_path, true, true),
+        }
+        .map_err(map_error)?;
+        let inputs = match diagnostic.original_roots {
+            Some((inputs, _)) => inputs.try_clone(),
+            None => source.try_clone(),
+        }
+        .map_err(map_error)?;
+        let xml = inputs
             .read("project.mlt", semwright_mlt_video::xml::MAX_XML)
             .map_err(map_error)?;
         let native_bytes = source
@@ -1883,6 +2485,8 @@ impl MltVideoDriver {
             frames,
             output_file,
             observation_request,
+            original_binding,
+            original_roots,
         ) = {
             let job = self.host_render_jobs.entries.get(job_id).ok_or_else(|| {
                 Error::new(
@@ -1893,13 +2497,26 @@ impl MltVideoDriver {
             if job.snapshot.state.terminal() {
                 return Ok(job.snapshot.clone());
             }
-            let directory = job
-                .scratch
-                .path()
-                .file_name()
-                .and_then(|value| value.to_str())
-                .ok_or_else(|| Error::new(ErrorCode::Internal, "MLT scratch job is invalid"))?
-                .to_owned();
+            let directory = match &job.original_binding {
+                Some(binding) => binding.directory(false),
+                None => job
+                    .scratch
+                    .path()
+                    .file_name()
+                    .and_then(|value| value.to_str())
+                    .ok_or_else(|| Error::new(ErrorCode::Internal, "MLT scratch job is invalid"))?
+                    .to_owned(),
+            };
+            let original_roots = job
+                .original_inputs
+                .as_ref()
+                .map(|inputs| -> Result<_> {
+                    Ok((
+                        inputs.owned_root(true, false).map_err(map_error)?,
+                        job.scratch.owned_root(true, true).map_err(map_error)?,
+                    ))
+                })
+                .transpose()?;
             (
                 job.host_job.clone(),
                 job.snapshot.clone(),
@@ -1910,13 +2527,40 @@ impl MltVideoDriver {
                 job.frames,
                 job.output_file.clone(),
                 job.observation_request.clone(),
+                job.original_binding.clone(),
+                original_roots,
             )
         };
 
-        let status = if cancel {
-            context.cancel_runtime_tool_job(&host_job).await?
+        let queried = if cancel {
+            context.cancel_runtime_tool_job(&host_job).await
         } else {
-            context.runtime_tool_job_status(&host_job).await?
+            context.runtime_tool_job_status(&host_job).await
+        };
+        let status = match queried {
+            Ok(status) => status,
+            Err(error) => {
+                if let (Some(binding), Some((_, work))) = (&original_binding, &original_roots) {
+                    let error = error.uncertain();
+                    let _ = retain_visual_host_result(
+                        work,
+                        binding.input_asset_count,
+                        "render-host-status-unavailable",
+                        None,
+                        Some(&error),
+                    );
+                    // The original Host job may still have writers. Leave its
+                    // owned trees in place, do not read them as a quiet terminal,
+                    // and never start another effect to recover a response.
+                    if let Some(job) = self.host_render_jobs.entries.get_mut(job_id) {
+                        job.snapshot.state = State::Unknown;
+                        job.snapshot.completed_at = Some(now_ms());
+                        job.snapshot.error = Some(to_internal_error(error.clone()));
+                    }
+                    return Err(error);
+                }
+                return Err(error);
+            }
         };
         let mut next = current;
         if cancel {
@@ -1934,8 +2578,27 @@ impl MltVideoDriver {
                 next.state = State::Cancelled;
                 next.completed_at = Some(now_ms());
                 next.error = Some(internal_job_error("Cancelled", "Render cancelled"));
+                if let (Some(binding), Some((_, work))) = (&original_binding, &original_roots) {
+                    let error = Error::new(ErrorCode::Cancelled, "Render cancelled");
+                    let _ = retain_visual_host_result(
+                        work,
+                        binding.input_asset_count,
+                        "render-host-cancelled",
+                        None,
+                        Some(&error),
+                    );
+                }
             }
             RuntimeToolJobStatus::Failed { error } => {
+                if let (Some(binding), Some((_, work))) = (&original_binding, &original_roots) {
+                    let _ = retain_visual_host_result(
+                        work,
+                        binding.input_asset_count,
+                        "render-host-failed",
+                        None,
+                        Some(&error),
+                    );
+                }
                 next.state = if error.outcome_known {
                     State::Failed
                 } else {
@@ -1947,7 +2610,7 @@ impl MltVideoDriver {
             RuntimeToolJobStatus::Succeeded { output } => {
                 let terminal = if output.exit_code != 0 {
                     let detail = host_runner_failure(&output.stdout);
-                    Err(Error::new(
+                    let error = Error::new(
                         ErrorCode::BackendFailed,
                         match detail {
                             Some(detail) => format!("Host-mediated MLT render failed: {detail}"),
@@ -1956,21 +2619,47 @@ impl MltVideoDriver {
                                 output.exit_code
                             ),
                         },
-                    ))
+                    );
+                    Err(if original_binding.is_some() {
+                        error.uncertain()
+                    } else {
+                        error
+                    })
                 } else {
                     host_render_result(&output.stdout, &output_file, observation_request.as_deref())
                 };
+                let returned_custody = match (&original_binding, &original_roots) {
+                    (Some(binding), Some((_, work))) => retain_visual_host_result(
+                        work,
+                        binding.input_asset_count,
+                        "render-host-returned",
+                        Some((output.exit_code, &output.stdout, &output.stderr)),
+                        terminal.as_ref().err(),
+                    ),
+                    _ => Ok(()),
+                };
+                let terminal = finish_ffv1_host_original(terminal, returned_custody);
 
                 if let Some(request) = observation_request.as_deref() {
                     let custody = if output.exit_code == 0
                         && terminal.as_ref().is_ok_and(|value| value.is_some())
                     {
                         (|| -> Result<Artifact> {
-                            let work = Root::open(&scratch_path, true, false).map_err(map_error)?;
+                            let work = match &original_roots {
+                                Some((_, work)) => work.try_clone(),
+                                None => Root::open(&scratch_path, true, false),
+                            }
+                            .map_err(map_error)?;
+                            let inputs = match &original_roots {
+                                Some((inputs, _)) => inputs.try_clone(),
+                                None => work.try_clone(),
+                            }
+                            .map_err(map_error)?;
                             let destination = self.app.roots.get("output").ok_or_else(|| {
                                 Error::new(ErrorCode::Unavailable, "Output mount disappeared")
                             })?;
-                            retain_original_host_custody(
+                            retain_original_host_custody_from_inputs(
+                                &inputs,
                                 &work,
                                 destination,
                                 &OriginalHostTerminal {
@@ -2001,6 +2690,10 @@ impl MltVideoDriver {
                                 revision: &next.revision,
                                 scratch_path: &scratch_path,
                                 directory: &directory,
+                                original_roots: original_roots
+                                    .as_ref()
+                                    .map(|(inputs, work)| (inputs, work)),
+                                original_binding: original_binding.as_ref(),
                             },
                             &output_file,
                             &next.output,
@@ -2058,6 +2751,48 @@ impl MltVideoDriver {
                     "Render job disappeared during status update",
                 )
             })?;
+        if next.state.terminal() {
+            if let (Some(plan), Some(inputs), Some((input_root, work_root))) = (
+                job.originals.take(),
+                job.original_inputs.as_mut(),
+                original_roots.as_ref(),
+            ) {
+                let source = observation_request
+                    .as_deref()
+                    .and_then(|bytes| color::NativeObservationRequest::parse(bytes).ok())
+                    .map(|request| request.project_sha256);
+                let complete = next.state == State::Succeeded;
+                let original = match &next.error {
+                    Some(error) => Err(error.clone()),
+                    None => Ok(()),
+                };
+                let secondary = if complete {
+                    Vec::new()
+                } else {
+                    vec![
+                        serde_json::json!({"stage":"host-original-terminal","complete":false,
+                        "process_tree_quiescence_observed":false}),
+                    ]
+                };
+                let retained = plan.finish(
+                    original,
+                    source.as_deref(),
+                    complete,
+                    &secondary,
+                    inputs,
+                    &mut job.scratch,
+                    input_root,
+                    work_root,
+                );
+                if next.error.is_none() {
+                    if let Err(mut error) = retained {
+                        error.outcome_known = false;
+                        next.state = State::Unknown;
+                        next.error = Some(error);
+                    }
+                }
+            }
+        }
         if !job.snapshot.state.terminal() {
             job.snapshot = next;
         }
@@ -2226,6 +2961,13 @@ impl Driver for MltVideoDriver {
             )?)
         } else if command == semwright_mlt_video::runtime::AUDIO_DERIVATIVE_COMMAND {
             Some(AvHostCustody::new_audio(
+                &self.app,
+                command,
+                descriptor_sha256,
+                &args,
+            )?)
+        } else if command == "driver.mlt-video.av.mux" {
+            Some(AvHostCustody::new_mux(
                 &self.app,
                 command,
                 descriptor_sha256,
@@ -3397,5 +4139,143 @@ mod audio_derivative_host_tests {
             serde_json::json!(["driver:mlt-video"])
         );
         assert_eq!(descriptor["timeout_ms"], 300000);
+    }
+}
+
+#[cfg(test)]
+mod owned_host_original_tests {
+    use super::*;
+
+    struct Owned(std::path::PathBuf);
+    impl Drop for Owned {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+    fn output() -> (Owned, Root) {
+        let path = std::env::temp_dir().join(format!("mlt-owned-host-{}", random_id().unwrap()));
+        std::fs::create_dir(&path).unwrap();
+        let root = Root::open(&path, true, true).unwrap();
+        (Owned(path), root)
+    }
+    fn args(revision: char) -> Value {
+        serde_json::json!({"kind":"file","name":"Original híbrido 0","root":"output",
+            "path":"shared.mkv","project":"project:original","expected_revision":revision.to_string().repeat(64)})
+    }
+
+    #[test]
+    fn revisioned_import_uses_existing_digest_and_new_revision_gets_new_owned_destination() {
+        let command = "driver.mlt-video.asset.import";
+        let first = revisioned_import_path(command, &args('a'))
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            first,
+            "asset-import-probe-7ce2bd15f2c5810f0c4090b0ab790c19f39931552baedc6edccc22aba68256ac"
+        );
+        assert_eq!(
+            revisioned_import_path(command, &args('a'))
+                .unwrap()
+                .as_deref(),
+            Some(first.as_str())
+        );
+        let next = revisioned_import_path(command, &args('b'))
+            .unwrap()
+            .unwrap();
+        assert_ne!(first, next);
+        let (_owner, output) = output();
+        let (inputs, _work) = output.create_original_workspaces(&first).unwrap();
+        let input = inputs.owned_root(true, true).unwrap();
+        input
+            .write_new("owned-input", "probe.bin", b"original")
+            .unwrap();
+        assert!(output.create_original_workspaces(&first).is_err());
+        assert!(output.create_original_workspaces(&next).is_ok());
+        assert_eq!(input.read("probe.bin", 32).unwrap(), b"original");
+        let mut unrevisioned = args('a');
+        unrevisioned
+            .as_object_mut()
+            .unwrap()
+            .remove("expected_revision");
+        assert!(
+            revisioned_import_path(command, &unrevisioned)
+                .unwrap()
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn host_return_preserves_binary_and_empty_original_buffers_separately() {
+        let (_owner, work) = output();
+        retain_visual_host_result(
+            &work,
+            0,
+            "input-media-probe",
+            Some((0, &[0xff, 0, b'v'], &[])),
+            None,
+        )
+        .unwrap();
+        assert_eq!(
+            work.read("native-host-call-000000.stdout.original.bin", 32)
+                .unwrap(),
+            [0xff, 0, b'v']
+        );
+        assert!(
+            work.read("native-host-call-000000.stderr.original.bin", 32)
+                .unwrap()
+                .is_empty()
+        );
+        let terminal: Value = serde_json::from_slice(
+            &work
+                .read("native-host-call-000000.terminal.original.json", 65536)
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(terminal["returned_buffers_observed"], true);
+        assert_eq!(terminal["stderr"]["bytes"], 0);
+        assert_eq!(terminal["process_tree_quiescence_observed"], false);
+    }
+
+    #[test]
+    fn missing_host_return_is_not_fabricated_and_custody_error_keeps_primary_unknown() {
+        let (_owner, work) = output();
+        let primary = Error::new(ErrorCode::Timeout, "original Host response lost").uncertain();
+        retain_visual_host_result(
+            &work,
+            0,
+            "render-host-status-unavailable",
+            None,
+            Some(&primary),
+        )
+        .unwrap();
+        assert!(
+            !work
+                .exists("native-host-call-000000.stdout.original.bin")
+                .unwrap()
+        );
+        assert!(
+            !work
+                .exists("native-host-call-000000.stderr.original.bin")
+                .unwrap()
+        );
+        let before = work
+            .read("native-host-call-000000.terminal.original.json", 65536)
+            .unwrap();
+        let collision = retain_visual_host_result(
+            &work,
+            0,
+            "render-host-status-unavailable",
+            None,
+            Some(&primary),
+        );
+        let error = finish_ffv1_host_original::<()>(Err(primary), collision).unwrap_err();
+        assert_eq!(error.code, ErrorCode::Timeout);
+        assert_eq!(error.message, "original Host response lost");
+        assert!(!error.outcome_known);
+        assert_eq!(
+            work.read("native-host-call-000000.terminal.original.json", 65536)
+                .unwrap(),
+            before
+        );
     }
 }

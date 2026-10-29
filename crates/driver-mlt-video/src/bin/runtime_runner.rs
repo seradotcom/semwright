@@ -29,6 +29,214 @@ const GROUPS: [&str; 6] = [
     "audio_codecs",
 ];
 
+// These are identities inside the already delegated output grant. They do not
+// create a grant or select an arbitrary scratch directory. The original Driver
+// freezes the receipt before its first probe/render; the helper joins that same
+// attempt by descriptor identity and exact original receipt bytes.
+struct OriginalWorkspaceArgs {
+    output_root: PathBuf,
+    output_path: String,
+    receipt_sha256: String,
+    probe_slot: Option<usize>,
+}
+
+struct OriginalWorkspace {
+    output: semwright_mlt_video::fs::Root,
+    inputs: semwright_mlt_video::fs::PrivateDir,
+    work: semwright_mlt_video::fs::PrivateDir,
+    receipt: Value,
+}
+
+impl OriginalWorkspaceArgs {
+    fn open(&self) -> Result<OriginalWorkspace, String> {
+        use semwright_mlt_video::fs::Root;
+        let output = Root::open(&self.output_root, true, true)
+            .map_err(|e| format!("{}: {}", e.code, e.message))?;
+        let (inputs, work) = output
+            .reopen_original_workspaces(&self.output_path, &self.receipt_sha256)
+            .map_err(|e| format!("{}: {}", e.code, e.message))?;
+        let bytes = output
+            .read(
+                &format!("{}.raw-original-workspaces.json", self.output_path),
+                semwright_mlt_video::color::REPORT_LIMIT,
+            )
+            .map_err(|e| format!("{}: {}", e.code, e.message))?;
+        if semwright_mlt_video::hash::sha256(&bytes) != self.receipt_sha256 {
+            return Err("Original workspace declaration changed during handoff".into());
+        }
+        let receipt = serde_json::from_slice(&bytes)
+            .map_err(|_| "Original workspace declaration is malformed")?;
+        Ok(OriginalWorkspace {
+            output,
+            inputs,
+            work,
+            receipt,
+        })
+    }
+}
+
+fn original_probe_role(
+    receipt: &Value,
+    name: &str,
+    count_video_frames: bool,
+    slot: usize,
+) -> Result<(), String> {
+    let inputs = receipt["input_members"]
+        .as_array()
+        .ok_or("Original input roster is absent")?;
+    let assets = inputs
+        .iter()
+        .filter(|member| {
+            !matches!(
+                member["basename"].as_str(),
+                Some(
+                    "project.mlt"
+                        | "native-observation-request.json"
+                        | "import-request.original.json"
+                )
+            )
+        })
+        .collect::<Vec<_>>();
+    match receipt["original_kind"].as_str() {
+        Some("host-native-render") => {
+            if inputs.len() != assets.len() + 2
+                || inputs
+                    .iter()
+                    .filter(|member| {
+                        member["basename"] == "project.mlt"
+                            && member["maximum_bytes"].as_u64()
+                                == Some(semwright_mlt_video::xml::MAX_XML as u64)
+                    })
+                    .count()
+                    != 1
+                || inputs
+                    .iter()
+                    .filter(|member| {
+                        member["basename"] == "native-observation-request.json"
+                            && member["maximum_bytes"].as_u64()
+                                == Some(
+                                    semwright_mlt_video::color::NATIVE_OBSERVATION_REQUEST_LIMIT
+                                        as u64,
+                                )
+                    })
+                    .count()
+                    != 1
+            {
+                return Err("Original visual input metadata is outside its closed roster".into());
+            }
+            let expected = if count_video_frames {
+                slot == assets.len() && name == "partial.mkv"
+            } else {
+                assets.get(slot).is_some_and(|member| {
+                    member["basename"] == name
+                        && member["maximum_bytes"].as_u64()
+                            == Some(semwright_mlt_video::jobs::MAX_MEDIA_BYTES)
+                })
+            };
+            if !expected {
+                return Err(
+                    "Original probe slot differs from the declared visual asset order".into(),
+                );
+            }
+        }
+        Some("input-probe") => {
+            if count_video_frames
+                || slot != 0
+                || name != "probe.bin"
+                || assets.len() != 1
+                || inputs.len() != 2
+                || assets[0]["basename"] != name
+                || assets[0]["maximum_bytes"].as_u64()
+                    != Some(semwright_mlt_video::jobs::MAX_MEDIA_BYTES + 1)
+                || inputs
+                    .iter()
+                    .filter(|member| {
+                        member["basename"] == "import-request.original.json"
+                            && member["maximum_bytes"].as_u64()
+                                == Some(semwright_mlt_video::json::MAX_JSON as u64)
+                    })
+                    .count()
+                    != 1
+            {
+                return Err("Original import probe differs from its single declared role".into());
+            }
+        }
+        _ => return Err("Original probe workspace kind is not admitted".into()),
+    }
+    let work = receipt["work_members"]
+        .as_array()
+        .ok_or("Original work roster is absent")?;
+    for (tail, cap) in [
+        (
+            "media-probe.stdout.original.bin",
+            semwright_mlt_video::runtime::FFV1_CUSTODY_STREAM_PREFIX,
+        ),
+        (
+            "media-probe.stderr.original.bin",
+            semwright_mlt_video::runtime::FFV1_CUSTODY_STREAM_PREFIX,
+        ),
+        (
+            "media-probe.terminal.original.json",
+            semwright_mlt_video::runtime::FFV1_CUSTODY_METADATA,
+        ),
+        (
+            "process-custody.original.json",
+            semwright_mlt_video::runtime::FFV1_CUSTODY_METADATA,
+        ),
+    ] {
+        let basename = format!("native-input-probe-{slot:06}-{tail}");
+        if work
+            .iter()
+            .filter(|member| {
+                member["basename"] == basename
+                    && member["maximum_bytes"].as_u64() == Some(cap as u64)
+            })
+            .count()
+            != 1
+        {
+            return Err("Original probe is outside the frozen work roster".into());
+        }
+    }
+    Ok(())
+}
+
+fn original_workspace_flags(
+    first: Option<String>,
+    args: &mut impl Iterator<Item = String>,
+    with_probe_slot: bool,
+) -> Result<Option<OriginalWorkspaceArgs>, String> {
+    let Some(first) = first else {
+        return Ok(None);
+    };
+    if first != "--original-output-root" {
+        return Err("runtime runner received unexpected original-custody arguments".into());
+    }
+    let output_root = PathBuf::from(args.next().ok_or("Original output root is absent")?);
+    let output_path = required_flag(args, "--original-output-path", "original custody")?;
+    let receipt_sha256 = required_flag(args, "--original-workspaces-sha256", "original custody")?;
+    let probe_slot = if with_probe_slot {
+        let slot = required_flag(args, "--original-probe-slot", "original custody")?;
+        let parsed = slot
+            .parse::<usize>()
+            .map_err(|_| "Original probe slot is invalid")?;
+        if parsed >= 1_000_000 || parsed.to_string() != slot {
+            return Err("Original probe slot is outside its closed bound".into());
+        }
+        Some(parsed)
+    } else {
+        None
+    };
+    if args.next().is_some() {
+        return Err("runtime runner received unexpected arguments".into());
+    }
+    Ok(Some(OriginalWorkspaceArgs {
+        output_root,
+        output_path,
+        receipt_sha256,
+        probe_slot,
+    }))
+}
+
 fn dependency_path(value: &str) -> Result<PathBuf, String> {
     let path = PathBuf::from(value);
     if !path.is_absolute() || value.contains('\0') {
@@ -167,8 +375,82 @@ fn probe(
     directory: &str,
     name: &str,
     count_video_frames: bool,
+    originals: Option<&OriginalWorkspaceArgs>,
 ) -> Result<Value, String> {
-    let (work, target) = scratch_file(scratch_root, directory, name)?;
+    let owned = originals.map(OriginalWorkspaceArgs::open).transpose()?;
+    let (work, target) = if let (Some(binding), Some(owned)) = (originals, owned.as_ref()) {
+        original_probe_role(
+            &owned.receipt,
+            name,
+            count_video_frames,
+            binding.probe_slot.ok_or("Original probe slot is absent")?,
+        )?;
+        if owned.receipt["original_kind"] == "input-probe" {
+            let input_root = owned
+                .inputs
+                .owned_root(true, false)
+                .map_err(|e| format!("{}: {}", e.code, e.message))?;
+            let original_args = input_root
+                .read(
+                    "import-request.original.json",
+                    semwright_mlt_video::json::MAX_JSON,
+                )
+                .map_err(|e| format!("{}: {}", e.code, e.message))?;
+            let args: Value = serde_json::from_slice(&original_args)
+                .map_err(|_| "Original import arguments are malformed")?;
+            if binding.output_path.starts_with("asset-import-probe-") {
+                let framed = serde_json::to_vec(&("driver.mlt-video.asset.import", &args))
+                    .map_err(|_| "Original import identity encoding failed")?;
+                if binding.output_path
+                    != format!(
+                        "asset-import-probe-{}",
+                        semwright_mlt_video::hash::sha256(&framed)
+                    )
+                    || args.get("project").and_then(Value::as_str).is_none()
+                    || args
+                        .get("expected_revision")
+                        .and_then(Value::as_str)
+                        .is_none()
+                {
+                    return Err(
+                        "Original import arguments differ from the pre-dispatch journal identity"
+                            .into(),
+                    );
+                }
+            } else if !binding
+                .output_path
+                .strip_prefix("asset-import-invocation-")
+                .is_some_and(semwright_mlt_video::hash::valid_digest)
+            {
+                return Err("Original import namespace is not admitted".into());
+            }
+        }
+        let expected_directory = format!(
+            "{}.raw-original-{}",
+            binding.output_path,
+            if count_video_frames { "work" } else { "inputs" }
+        );
+        if scratch_root != binding.output_root.as_path()
+            || directory != expected_directory
+            || (count_video_frames && name != "partial.mkv")
+            || (!count_video_frames
+                && name != "probe.bin"
+                && !(name.len() == 34
+                    && name.starts_with("asset-")
+                    && name.ends_with(".bin")
+                    && name.as_bytes()[6..30].iter().all(u8::is_ascii_hexdigit)))
+        {
+            return Err("Original probe differs from the derived workspace role".into());
+        }
+        let source = if count_video_frames {
+            &owned.work
+        } else {
+            &owned.inputs
+        };
+        (source.path().to_path_buf(), source.path().join(name))
+    } else {
+        scratch_file(scratch_root, directory, name)?
+    };
     let mut args = vec![OsString::from("-v"), OsString::from("error")];
     if count_video_frames {
         // Exact opt-in: independently decode *all* video frames while
@@ -189,6 +471,85 @@ fn probe(
         args.extend(["-show_streams", "-show_format", "-of", "json"].map(OsString::from));
     }
     args.push(target.into_os_string());
+    if let (Some(binding), Some(owned)) = (originals, owned.as_ref()) {
+        use semwright_mlt_video::{
+            Error,
+            runtime::{
+                Ffv1ProcessCustody, ProcessObservation, checked_ffv1_process_observation,
+                run_with_file_limit_observed,
+            },
+        };
+        let source = if count_video_frames {
+            &owned.work
+        } else {
+            &owned.inputs
+        };
+        let source_root = source
+            .owned_root(true, false)
+            .map_err(|e| format!("{}: {}", e.code, e.message))?;
+        let work_root = owned
+            .work
+            .owned_root(true, true)
+            .map_err(|e| format!("{}: {}", e.code, e.message))?;
+        let cap = if count_video_frames {
+            semwright_mlt_video::jobs::MAX_ARTIFACT_BYTES
+        } else {
+            semwright_mlt_video::jobs::MAX_MEDIA_BYTES
+        };
+        let (source_sha, _) = reader_hash(
+            source_root
+                .read_file(name, cap)
+                .map_err(|e| format!("{}: {}", e.code, e.message))?,
+            cap,
+        )
+        .map_err(|e| format!("{}: {}", e.code, e.message))?;
+        let custody = Ffv1ProcessCustody::for_input_probe(
+            &owned.output,
+            &binding.output_path,
+            &source_sha,
+            binding.probe_slot.ok_or("Original probe slot is absent")?,
+            &work_root,
+        )
+        .map_err(|e| format!("{}: {}", e.code, e.message))?;
+        let spec = ProcessSpec {
+            executable: ffprobe.to_path_buf(),
+            args,
+            cwd: work,
+            timeout: Duration::from_secs(if count_video_frames { 120 } else { 5 }),
+            cpu_seconds: if count_video_frames { 180 } else { 30 },
+            address_space_bytes: 1_073_741_824,
+            environment: constrained_environment(),
+        };
+        let mut observed = ProcessObservation::default();
+        let result = run_with_file_limit_observed(
+            &spec,
+            &AtomicBool::new(false),
+            16_384,
+            262_144,
+            semwright_mlt_video::jobs::MAX_ARTIFACT_BYTES,
+            Some(&mut observed),
+        );
+        custody.record_observed(
+            "media-probe",
+            &spec,
+            &result,
+            16_384,
+            262_144,
+            Some(&observed),
+            Some(semwright_mlt_video::jobs::MAX_ARTIFACT_BYTES),
+        );
+        let original = checked_ffv1_process_observation(result, &observed).and_then(|result| {
+            let media: Value = serde_json::from_slice(&result.stdout)
+                .map_err(|_| Error::invalid("ffprobe returned malformed JSON"))?;
+            if !media.is_object() {
+                return Err(Error::invalid("ffprobe result must be a JSON object"));
+            }
+            Ok(json!({"schema":1,"operation":"probe","media":media}))
+        });
+        return custody
+            .complete(original)
+            .map_err(|e| format!("{}: {}", e.code, e.message));
+    }
     let (stdout, _stderr) = execute(
         ffprobe,
         args,
@@ -227,7 +588,21 @@ fn render(
     directory: &str,
     profile_id: &str,
     observation_runtime: Option<&semwright_mlt_video::runtime::Runtime>,
+    originals: Option<&OriginalWorkspaceArgs>,
 ) -> Result<Value, String> {
+    if let Some(binding) = originals {
+        if scratch_root != binding.output_root.as_path()
+            || directory != format!("{}.raw-original-work", binding.output_path)
+            || profile_id != "lossless-video-only"
+        {
+            return Err("Original render differs from the closed visual workspace".into());
+        }
+        return render_original(
+            melt,
+            observation_runtime.ok_or("Original render requires complete observation")?,
+            binding,
+        );
+    }
     let work = scratch_dir(scratch_root, directory)?;
     let project = work.join("project.mlt");
     let project_meta = std::fs::symlink_metadata(&project)
@@ -363,6 +738,159 @@ fn render(
         result["request_sha256"] = json!(semwright_mlt_video::hash::sha256(&request_bytes));
     }
     Ok(result)
+}
+
+fn render_original(
+    melt: &Path,
+    runtime: &semwright_mlt_video::runtime::Runtime,
+    binding: &OriginalWorkspaceArgs,
+) -> Result<Value, String> {
+    use semwright_mlt_video::{
+        Error, color,
+        originals::VideoOriginalKind,
+        runtime::{
+            Ffv1ProcessCustody, ProcessObservation, checked_ffv1_process_observation,
+            run_with_file_limit_observed,
+        },
+    };
+    let owned = binding.open()?;
+    if owned.receipt["original_kind"] != "host-native-render" {
+        return Err("Original render workspace kind is not admitted".into());
+    }
+    let inputs = owned
+        .inputs
+        .owned_root(true, false)
+        .map_err(|e| format!("{}: {}", e.code, e.message))?;
+    let work = owned
+        .work
+        .owned_root(true, true)
+        .map_err(|e| format!("{}: {}", e.code, e.message))?;
+    let request_bytes = inputs
+        .read(
+            color::NATIVE_OBSERVATION_REQUEST_FILE,
+            color::NATIVE_OBSERVATION_REQUEST_LIMIT,
+        )
+        .map_err(|e| format!("{}: {}", e.code, e.message))?;
+    let request = color::NativeObservationRequest::parse(&request_bytes)
+        .map_err(|e| format!("{}: {}", e.code, e.message))?;
+    if request.output_path != binding.output_path {
+        return Err("Original output binding differs".into());
+    }
+    request
+        .verify_staged(&inputs)
+        .map_err(|e| format!("{}: {}", e.code, e.message))?;
+    let project = inputs
+        .read("project.mlt", semwright_mlt_video::xml::MAX_XML)
+        .map_err(|e| format!("{}: {}", e.code, e.message))?;
+    let source_sha = semwright_mlt_video::hash::sha256(&project);
+    let custody = Ffv1ProcessCustody::with_owned_work(
+        &owned.output,
+        &binding.output_path,
+        &source_sha,
+        VideoOriginalKind::HostNativeRender,
+        &work,
+    )
+    .map_err(|e| format!("{}: {}", e.code, e.message))?;
+    let deadline_check = |deadline| {
+        require_render_deadline(deadline).map_err(|message| {
+            let mut error = Error::new("Timeout", message);
+            error.outcome_known = false;
+            error
+        })
+    };
+    let original = (|| -> semwright_mlt_video::Result<Value> {
+        let profile = RenderProfile::get("lossless-video-only")?;
+        if work.exists("partial.mkv")? {
+            return Err(Error::new("Conflict", "Render output already exists"));
+        }
+        let args = render_argv(
+            "project.mlt",
+            owned.work.path().join("partial.mkv").into_os_string(),
+            &profile,
+        );
+        // Same first render and same 120-second shared observation deadline;
+        // only its owned input/work placement and capture are joined here.
+        let deadline = Instant::now() + Duration::from_secs(120);
+        let spec = ProcessSpec {
+            executable: melt.to_path_buf(),
+            args: args.clone(),
+            cwd: owned.inputs.path().to_path_buf(),
+            timeout: Duration::from_secs(120),
+            cpu_seconds: 300,
+            address_space_bytes: 4_294_967_296,
+            environment: constrained_environment(),
+        };
+        let mut observed = ProcessObservation::default();
+        let process = run_with_file_limit_observed(
+            &spec,
+            &AtomicBool::new(false),
+            16_384,
+            262_144,
+            semwright_mlt_video::jobs::MAX_ARTIFACT_BYTES,
+            Some(&mut observed),
+        );
+        custody.record_observed(
+            "render",
+            &spec,
+            &process,
+            16_384,
+            262_144,
+            Some(&observed),
+            Some(semwright_mlt_video::jobs::MAX_ARTIFACT_BYTES),
+        );
+        let diagnostic = match &process {
+            Ok(result) => native_render_diagnostic(&project, &args, result).and_then(|bytes| {
+                work.write_new("owned-work", NATIVE_DIAGNOSTIC_FILE, &bytes)
+                    .map(|_| ())
+            }),
+            Err(_) => Ok(()),
+        };
+        if let Err(error) = &diagnostic {
+            custody.failed_error("native-render-diagnostic", error);
+        }
+        checked_ffv1_process_observation(process, &observed)?;
+        diagnostic?;
+        request.verify_staged(&inputs)?;
+        deadline_check(deadline)?;
+        let observed = runtime.observe_video_file_observed(
+            owned.work.path(),
+            "partial.mkv",
+            color::ObservationProfile::MltVisualFfv1,
+            (request.width, request.height),
+            request.frames,
+            request.fps_num,
+            request.fps_den,
+            deadline,
+            &AtomicBool::new(false),
+            Some(&custody),
+        )?;
+        deadline_check(deadline)?;
+        let sources = request.sources();
+        let report = color::build_observation_report(
+            &observed,
+            &request.output_path,
+            request.source_binding(),
+            Some(&sources),
+            request.width,
+            request.height,
+            request.fps_num,
+            request.fps_den,
+        )?;
+        let parsed = color::parse_complete_observation(&report)?;
+        request.verify_report(&parsed)?;
+        request.verify_staged(&inputs)?;
+        deadline_check(deadline)?;
+        let descriptor = work.write_new("scratch", color::NATIVE_OBSERVATION_FILE, &report)?;
+        let descriptor: Value = serde_json::from_str(&descriptor.json().encode())
+            .map_err(|_| Error::invalid("Native observation descriptor serialization"))?;
+        Ok(
+            json!({"schema":1,"operation":"render","output":"partial.mkv",
+            "observation":descriptor,"request_sha256":semwright_mlt_video::hash::sha256(&request_bytes)}),
+        )
+    })();
+    custody
+        .complete(original)
+        .map_err(|e| format!("{}: {}", e.code, e.message))
 }
 
 fn discover(melt: &Path) -> Result<Value, String> {
@@ -574,11 +1102,14 @@ fn parse() -> Result<Value, String> {
             let scratch_root = PathBuf::from(required_flag(&mut args, "--scratch-root", "probe")?);
             let directory = required_flag(&mut args, "--directory", "probe")?;
             let name = required_flag(&mut args, "--name", "probe")?;
-            let count_video_frames = match args.next() {
-                None => false,
-                Some(flag) if flag == "--count-video-frames" && args.next().is_none() => true,
-                _ => return Err("runtime runner received unexpected arguments".into()),
+            let next = args.next();
+            let count_video_frames = next.as_deref() == Some("--count-video-frames");
+            let first_original = if count_video_frames {
+                args.next()
+            } else {
+                next
             };
+            let originals = original_workspace_flags(first_original, &mut args, true)?;
             let ffprobe = runtime_entry(&runtime_root, &sealed_ffprobe, "ffprobe")?;
             probe(
                 &ffprobe,
@@ -586,6 +1117,7 @@ fn parse() -> Result<Value, String> {
                 &directory,
                 &name,
                 count_video_frames,
+                originals.as_ref(),
             )
         }
         "render" => {
@@ -595,6 +1127,7 @@ fn parse() -> Result<Value, String> {
             let scratch_root = PathBuf::from(required_flag(&mut args, "--scratch-root", "render")?);
             let directory = required_flag(&mut args, "--directory", "render")?;
             let profile = required_flag(&mut args, "--profile", "render")?;
+            let mut originals = None;
             let observation_runtime = match args.next().as_deref() {
                 None => None,
                 Some("--complete-observation") => {
@@ -611,9 +1144,7 @@ fn parse() -> Result<Value, String> {
                         "--ffmpeg-sealed",
                         "render observation",
                     )?)?;
-                    if args.next().is_some() {
-                        return Err("runtime runner received unexpected arguments".into());
-                    }
+                    originals = original_workspace_flags(args.next(), &mut args, false)?;
                     Some(host_runtime(
                         &runtime_root,
                         [&sealed_melt, &ffprobe, &ffmpeg],
@@ -633,6 +1164,7 @@ fn parse() -> Result<Value, String> {
                 &directory,
                 &profile,
                 observation_runtime.as_ref(),
+                originals.as_ref(),
             )
         }
         _ => Err("runtime operation is unsupported".into()),
@@ -670,6 +1202,103 @@ fn main() {
             );
             std::process::exit(1);
         }
+    }
+}
+
+#[cfg(test)]
+mod owned_original_probe_tests {
+    use super::*;
+
+    fn work(slots: usize) -> Vec<Value> {
+        (0..slots)
+            .flat_map(|slot| {
+                [
+            ("media-probe.stdout.original.bin", 16_384),
+            ("media-probe.stderr.original.bin", 16_384),
+            ("media-probe.terminal.original.json", 65_536),
+            ("process-custody.original.json", 65_536),
+        ].into_iter().map(move |(tail, cap)| json!({
+            "basename":format!("native-input-probe-{slot:06}-{tail}"),"maximum_bytes":cap
+        }))
+            })
+            .collect()
+    }
+
+    #[test]
+    fn visual_probe_slots_bind_actual_declared_order_and_final_full_frame_probe() {
+        let names = (0..3)
+            .map(|slot| format!("asset-{}.bin", slot.to_string().repeat(24)))
+            .collect::<Vec<_>>();
+        let mut inputs = names
+            .iter()
+            .map(|name| json!({"basename":name,"maximum_bytes":268_435_456}))
+            .collect::<Vec<_>>();
+        inputs.extend([
+            json!({"basename":"project.mlt","maximum_bytes":8_388_608}),
+            json!({"basename":"native-observation-request.json","maximum_bytes":1_048_576}),
+        ]);
+        let mut receipt = json!({"original_kind":"host-native-render","input_members":inputs,"work_members":work(4)});
+        assert!(original_probe_role(&receipt, &names[0], false, 0).is_ok());
+        assert!(original_probe_role(&receipt, &names[0], false, 1).is_err());
+        assert!(original_probe_role(&receipt, "partial.mkv", true, 3).is_ok());
+        assert!(original_probe_role(&receipt, "partial.mkv", true, 2).is_err());
+        receipt["work_members"].as_array_mut().unwrap().pop();
+        assert!(original_probe_role(&receipt, "partial.mkv", true, 3).is_err());
+    }
+
+    #[test]
+    fn import_probe_keeps_max_plus_one_input_and_is_not_a_visual_final_probe() {
+        let mut receipt = json!({"original_kind":"input-probe","input_members":[
+            {"basename":"probe.bin","maximum_bytes":268_435_457},
+            {"basename":"import-request.original.json","maximum_bytes":1_048_576}],
+            "work_members":work(1)});
+        assert!(original_probe_role(&receipt, "probe.bin", false, 0).is_ok());
+        assert!(original_probe_role(&receipt, "probe.bin", false, 1).is_err());
+        assert!(original_probe_role(&receipt, "probe.bin", true, 0).is_err());
+        receipt["input_members"][0]["maximum_bytes"] = json!(268_435_456);
+        assert!(original_probe_role(&receipt, "probe.bin", false, 0).is_err());
+    }
+
+    #[test]
+    fn original_cli_probe_slot_is_canonical_and_has_no_trailing_authority_arguments() {
+        let argv = |slot: &str| {
+            vec![
+                "/workspace/output".to_owned(),
+                "--original-output-path".into(),
+                "original.mkv".into(),
+                "--original-workspaces-sha256".into(),
+                "a".repeat(64),
+                "--original-probe-slot".into(),
+                slot.to_owned(),
+            ]
+        };
+        let mut valid = argv("3").into_iter();
+        assert_eq!(
+            original_workspace_flags(Some("--original-output-root".into()), &mut valid, true)
+                .unwrap()
+                .unwrap()
+                .probe_slot,
+            Some(3)
+        );
+        let mut noncanonical = argv("03").into_iter();
+        assert!(
+            original_workspace_flags(
+                Some("--original-output-root".into()),
+                &mut noncanonical,
+                true
+            )
+            .is_err()
+        );
+        let mut extra = argv("3");
+        extra.extend(["--project-root".into(), "/elsewhere".into()]);
+        assert!(
+            original_workspace_flags(
+                Some("--original-output-root".into()),
+                &mut extra.into_iter(),
+                true
+            )
+            .is_err()
+        );
     }
 }
 

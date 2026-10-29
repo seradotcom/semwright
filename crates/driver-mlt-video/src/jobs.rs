@@ -782,267 +782,424 @@ fn render_impl<F: FnOnce(&Path)>(
             "Runtime lacks a required MLT service or codec",
         ));
     }
-    let inputs = PrivateDir::new(Path::new("/tmp"))?;
-    let work = PrivateDir::new(Path::new("/tmp"))?;
+    let input_probe_roster = asset_ids
+        .iter()
+        .filter(|id| !matches!(p.assets[id.as_str()].resource, Resource::Color(_)))
+        .cloned()
+        .collect::<Vec<_>>();
+    let (mut inputs, mut work) = if selected.is_some() {
+        output_root.create_original_workspaces(output)?
+    } else {
+        (
+            PrivateDir::new(Path::new("/tmp"))?,
+            PrivateDir::new(Path::new("/tmp"))?,
+        )
+    };
+    let work_root = work.owned_root(true, true)?;
+    let input_root = inputs.owned_root(true, false)?;
+    let mut raw_originals = if selected.is_some() {
+        Some(crate::originals::VideoOriginals::new(
+            output_root,
+            &work_root,
+            output,
+            (
+                profile.width.unwrap_or(p.profile.width),
+                profile.height.unwrap_or(p.profile.height),
+            ),
+            seq.duration(),
+            &format!("partial.{}", profile.extension),
+            crate::originals::VideoOriginalKind::NativeRender,
+            input_probe_roster.len(),
+        )?)
+    } else {
+        None
+    };
+    if let Some(raw) = &mut raw_originals {
+        let mut input_members = input_probe_roster
+            .iter()
+            .map(|id| {
+                (
+                    format!("asset-{}.bin", &sha256(id.as_bytes())[..24]),
+                    MAX_MEDIA_BYTES,
+                )
+            })
+            .collect::<Vec<_>>();
+        input_members.push(("project.mlt".to_owned(), crate::xml::MAX_XML as u64));
+        raw.declare_workspaces(&inputs, &work, &input_members)?;
+    }
     if selected.is_some() {
         let budget = crate::color::observation_budget(
             profile.width.unwrap_or(p.profile.width),
             profile.height.unwrap_or(p.profile.height),
             seq.duration(),
         )?;
-        let scratch = Root::open(work.path(), true, false)?;
-        if scratch.available_bytes_for("decoded-000000.png")?
-            < budget.peak_free_bytes + 2 * crate::xml::MAX_XML as u64
-        {
+        let required = raw_originals
+            .as_ref()
+            .map_or(budget.peak_free_bytes, |raw| raw.required_free_bytes);
+        // declare_workspaces includes the same existing two-XML allowance,
+        // plus its own bounded pre-effect receipt on this output filesystem.
+        if work_root.available_bytes_for("decoded-000000.png")? < required {
             return Err(Error::limit(
                 "Native scratch lacks complete observation free-space budget",
             ));
         }
     }
-    let mut native_staged_sources = Vec::new();
-    let mut staged = BTreeMap::new();
-    let mut total = 0;
-    for id in &asset_ids {
-        check_cancel(cancel)?;
-        let a = &p.assets[id];
-        if matches!(a.resource, Resource::Color(_)) {
-            continue;
-        }
-        let (root, path) = media_location(&p, a)?;
-        let mount = roots
-            .get(&root)
-            .ok_or_else(|| Error::new("PermissionDenied", "Media mount absent"))?;
-        let mut source = mount.read_file(&path, MAX_MEDIA_BYTES)?;
-        let name = format!("asset-{}.bin", &sha256(id.as_bytes())[..24]);
-        let mut destination = inputs.create(&name)?;
-        let mut staged_hash = Sha256::new();
-        let mut buf = [0; 65536];
-        let mut size = 0;
-        loop {
+    let mut source_sha256: Option<String> = None;
+    let mut process_originals_complete = true;
+    let mut process_secondary_errors = Vec::new();
+    let original = (|| -> Result<RenderedOutput> {
+        let mut native_staged_sources = Vec::new();
+        let mut probe_slot = 0usize;
+        let mut staged = BTreeMap::new();
+        let mut total = 0;
+        for id in &asset_ids {
             check_cancel(cancel)?;
-            let n = source.read(&mut buf)?;
-            if n == 0 {
-                break;
+            let a = &p.assets[id];
+            if matches!(a.resource, Resource::Color(_)) {
+                continue;
             }
-            size += n as u64;
-            total += n as u64;
-            if size > MAX_MEDIA_BYTES || total > MAX_JOB_INPUT_BYTES {
-                return Err(Error::limit("Staged media exceeds job input budget"));
+            let (root, path) = media_location(&p, a)?;
+            let mount = roots
+                .get(&root)
+                .ok_or_else(|| Error::new("PermissionDenied", "Media mount absent"))?;
+            let mut source = mount.read_file(&path, MAX_MEDIA_BYTES)?;
+            let name = format!("asset-{}.bin", &sha256(id.as_bytes())[..24]);
+            let mut destination = inputs.create(&name)?;
+            let mut staged_hash = Sha256::new();
+            let mut buf = [0; 65536];
+            let mut size = 0;
+            loop {
+                check_cancel(cancel)?;
+                let n = source.read(&mut buf)?;
+                if n == 0 {
+                    break;
+                }
+                size += n as u64;
+                total += n as u64;
+                if size > MAX_MEDIA_BYTES || total > MAX_JOB_INPUT_BYTES {
+                    return Err(Error::limit("Staged media exceeds job input budget"));
+                }
+                staged_hash.update(&buf[..n]);
+                destination.write_all(&buf[..n])?;
             }
-            staged_hash.update(&buf[..n]);
-            destination.write_all(&buf[..n])?;
-        }
-        let staged_sha256 = staged_hash.finish();
-        if let Some(expected) = expected_sha256.and_then(|pins| pins.get(id))
-            && staged_sha256 != *expected
-        {
-            return Err(Error::new(
-                "StaleReference",
-                "Staged media bytes changed after the AV plan was prepared",
-            ));
-        }
-        if selected.is_some() {
-            native_staged_sources.push((
-                Artifact {
-                    root: root.clone(),
-                    path: path.clone(),
-                    sha256: staged_sha256,
-                    bytes: size,
-                },
-                name.clone(),
-            ));
-        }
-        destination.sync_all()?;
-        drop(destination);
-        inputs.seal(&name)?;
-        let info = runtime.probe(inputs.path(), work.path(), &name, cancel)?;
-        if !info.video && !info.audio {
-            return Err(Error::unsupported(
-                "Staged file is not recognized audio/video/image media",
-            ));
-        }
-        if a.kind != "image" {
-            let capacity = info
-                .frame_capacity(p.profile.fps)?
-                .ok_or_else(|| Error::unsupported("Staged media has no measurable duration"))?;
-            let required_end = seq
-                .tracks
-                .iter()
-                .flat_map(|t| &t.lanes)
-                .flat_map(|l| &l.clips)
-                .filter(|c| &c.asset == id)
-                .map(|c| c.source.end.0)
-                .max()
-                .unwrap_or(0);
-            if required_end > capacity {
+            let staged_sha256 = staged_hash.finish();
+            if let Some(expected) = expected_sha256.and_then(|pins| pins.get(id))
+                && staged_sha256 != *expected
+            {
                 return Err(Error::new(
-                    "Conflict",
-                    "Staged media is shorter than the planned source range",
+                    "StaleReference",
+                    "Staged media bytes changed after the AV plan was prepared",
                 ));
             }
+            if selected.is_some() {
+                native_staged_sources.push((
+                    Artifact {
+                        root: root.clone(),
+                        path: path.clone(),
+                        sha256: staged_sha256.clone(),
+                        bytes: size,
+                    },
+                    name.clone(),
+                ));
+            }
+            destination.sync_all()?;
+            drop(destination);
+            inputs.seal(&name)?;
+            if input_probe_roster.get(probe_slot) != Some(id) {
+                return Err(Error::new(
+                    "Internal",
+                    "Actual staged probe differs from its original ordered roster",
+                ));
+            }
+            let probe_custody = if selected.is_some() {
+                Some(crate::runtime::Ffv1ProcessCustody::for_input_probe(
+                    output_root,
+                    output,
+                    &staged_sha256,
+                    probe_slot,
+                    &work_root,
+                )?)
+            } else {
+                None
+            };
+            let probe = runtime.probe_observed(
+                inputs.path(),
+                work.path(),
+                &name,
+                cancel,
+                probe_custody.as_ref(),
+            );
+            let probe = if let Some(custody) = &probe_custody {
+                let result = custody.complete(probe);
+                process_originals_complete &= custody.original_capture_complete();
+                if let Some(report) = custody.secondary_report() {
+                    process_secondary_errors.push(report);
+                }
+                result
+            } else {
+                probe
+            };
+            probe_slot += 1;
+            let info = probe?;
+            if !info.video && !info.audio {
+                return Err(Error::unsupported(
+                    "Staged file is not recognized audio/video/image media",
+                ));
+            }
+            if a.kind != "image" {
+                let capacity = info
+                    .frame_capacity(p.profile.fps)?
+                    .ok_or_else(|| Error::unsupported("Staged media has no measurable duration"))?;
+                let required_end = seq
+                    .tracks
+                    .iter()
+                    .flat_map(|t| &t.lanes)
+                    .flat_map(|l| &l.clips)
+                    .filter(|c| &c.asset == id)
+                    .map(|c| c.source.end.0)
+                    .max()
+                    .unwrap_or(0);
+                if required_end > capacity {
+                    return Err(Error::new(
+                        "Conflict",
+                        "Staged media is shorter than the planned source range",
+                    ));
+                }
+            }
+            staged.insert(id.clone(), runtime.input_reference(inputs.path(), &name));
         }
-        staged.insert(id.clone(), runtime.input_reference(inputs.path(), &name));
-    }
-    let native_sources = native_staged_sources
-        .iter()
-        .map(|(source, _)| source.clone())
-        .collect::<Vec<_>>();
-    p.sequences = vec![seq];
-    p.assets.retain(|id, _| asset_ids.contains(id));
-    if let Some(width) = profile.width {
-        p.profile.width = width;
-    }
-    if let Some(height) = profile.height {
-        p.profile.height = height;
-    }
-    let mut document = adapters::write_normal_form(&p, Some(&staged))?;
-    bound_staged_decoder_threads(&mut document);
-    let xml = crate::xml::serialize(&document)?;
-    let mut f = inputs.create("project.mlt")?;
-    f.write_all(xml.as_bytes())?;
-    f.sync_all()?;
-    drop(f);
-    inputs.seal("project.mlt")?;
-    let input_root = Root::open(inputs.path(), true, false)?;
-    let native_before = if selected.is_some() {
-        Some(input_root.read("project.mlt", crate::xml::MAX_XML)?)
-    } else {
-        None
-    };
-    let native_identity = native_before
-        .as_ref()
-        .map(|bytes| (sha256(bytes), bytes.len() as u64));
-    let verify_native_inputs = || -> Result<()> {
-        if let Some((digest, bytes)) = &native_identity {
-            crate::color::verify_staged_native_inputs(
-                &input_root,
-                digest,
-                *bytes,
-                &native_staged_sources,
-            )?;
+        if probe_slot != input_probe_roster.len() {
+            return Err(Error::new(
+                "Internal",
+                "Original input-probe roster was not completely consumed",
+            ));
         }
-        Ok(())
-    };
-    check_cancel(cancel)?;
-    let deadline = Instant::now() + runtime.timeout;
-    on_running(inputs.path());
-    verify_native_inputs()?;
-    runtime.render(inputs.path(), work.path(), profile, cancel, deadline)?;
-    check_cancel(cancel)?;
-    verify_native_inputs()?;
-    let validated = runtime.validate_output(
-        work.path(),
-        profile,
-        &p.profile,
-        p.sequences[0].duration(),
-        cancel,
-        deadline,
-    )?;
-    let media = validated.media;
-    let work_root = Root::open(work.path(), true, false)?;
-    let mut native_input = None;
-    let mut color_observation = None;
-    if let Some(observed) = &validated.observation {
-        let before = native_before
+        let native_sources = native_staged_sources
+            .iter()
+            .map(|(source, _)| source.clone())
+            .collect::<Vec<_>>();
+        p.sequences = vec![seq];
+        p.assets.retain(|id, _| asset_ids.contains(id));
+        if let Some(width) = profile.width {
+            p.profile.width = width;
+        }
+        if let Some(height) = profile.height {
+            p.profile.height = height;
+        }
+        let mut document = adapters::write_normal_form(&p, Some(&staged))?;
+        bound_staged_decoder_threads(&mut document);
+        let xml = crate::xml::serialize(&document)?;
+        let mut f = inputs.create("project.mlt")?;
+        f.write_all(xml.as_bytes())?;
+        f.sync_all()?;
+        drop(f);
+        inputs.seal("project.mlt")?;
+        let native_before = if selected.is_some() {
+            Some(input_root.read("project.mlt", crate::xml::MAX_XML)?)
+        } else {
+            None
+        };
+        let native_identity = native_before
             .as_ref()
-            .ok_or_else(|| Error::invalid("Original native input bytes missing"))?;
-        let after = input_root.read("project.mlt", crate::xml::MAX_XML)?;
-        if after != *before {
-            return Err(Error::new(
-                "StaleReference",
-                "Actual native XML changed during render",
-            ));
-        }
-        let source_sha256 = sha256(&after);
-        let retained = output_root.publish_verified(
-            "output",
-            &format!("{output}.native-input.mlt"),
-            input_root.read_file("project.mlt", crate::xml::MAX_XML as u64)?,
-            crate::xml::MAX_XML as u64,
-            &source_sha256,
-            after.len() as u64,
-        )?;
-        if output_root.digest(&retained.path, crate::xml::MAX_XML as u64)? != retained.sha256 {
-            return Err(Error::new(
-                "StaleReference",
-                "Actual native XML retention changed",
-            ));
-        }
-        let source_binding = serde_json::json!({
-            "source_kind":"mlt_render_project_bytes","root":"output","path":retained.path,
-            "sha256":retained.sha256,"bytes":retained.bytes,"source_first_frame":0,
-        });
-        verify_native_inputs()?;
-        color_observation = Some(crate::color::publish_observation(
-            observed,
-            &work_root,
-            output_root,
-            output,
-            source_binding,
-            Some(&native_sources),
-            (p.profile.width, p.profile.height),
-            p.profile.fps.num,
-            p.profile.fps.den,
-            cancel,
-        )?);
-        native_input = Some(retained);
-    }
-    check_cancel(cancel)?;
-    let source = Root::open(work.path(), true, false)?
-        .read_file(&format!("partial.{}", profile.extension), artifact_limit)?;
-    struct CancelReader<'a> {
-        file: File,
-        cancel: &'a AtomicBool,
-    }
-    impl Read for CancelReader<'_> {
-        fn read(&mut self, b: &mut [u8]) -> std::io::Result<usize> {
-            if self.cancel.load(Ordering::Acquire) {
-                return Err(std::io::Error::new(
-                    std::io::ErrorKind::Interrupted,
-                    "cancelled",
-                ));
+            .map(|bytes| (sha256(bytes), bytes.len() as u64));
+        let verify_native_inputs = || -> Result<()> {
+            if let Some((digest, bytes)) = &native_identity {
+                crate::color::verify_staged_native_inputs(
+                    &input_root,
+                    digest,
+                    *bytes,
+                    &native_staged_sources,
+                )?;
             }
-            self.file.read(b)
-        }
-    }
-    let reader = CancelReader {
-        file: source,
-        cancel,
-    };
-    let publication = if let Some(observed) = &validated.observation {
-        output_root.publish_verified(
-            "output",
-            output,
-            reader,
-            artifact_limit,
-            &observed.video_sha256,
-            observed.video_bytes,
+            Ok(())
+        };
+        source_sha256 = native_identity.as_ref().map(|(digest, _)| digest.clone());
+        let custody = if let Some(source) = source_sha256.as_deref() {
+            Some(crate::runtime::Ffv1ProcessCustody::with_owned_work(
+                output_root,
+                output,
+                source,
+                crate::originals::VideoOriginalKind::NativeRender,
+                &work_root,
+            )?)
+        } else {
+            None
+        };
+        let mut native_input = None;
+        let original = (|| -> Result<RenderedOutput> {
+            check_cancel(cancel)?;
+            if let Some(before) = &native_before {
+                let retained = output_root.publish_verified(
+                    "output",
+                    &format!("{output}.native-input.mlt"),
+                    before.as_slice(),
+                    crate::xml::MAX_XML as u64,
+                    &sha256(before),
+                    before.len() as u64,
+                )?;
+                if output_root.digest(&retained.path, crate::xml::MAX_XML as u64)?
+                    != retained.sha256
+                {
+                    return Err(Error::new(
+                        "StaleReference",
+                        "Actual native XML original readback changed before render",
+                    ));
+                }
+                native_input = Some(retained);
+            }
+            let deadline = Instant::now() + runtime.timeout;
+            on_running(inputs.path());
+            verify_native_inputs()?;
+            runtime.render_observed(
+                inputs.path(),
+                work.path(),
+                profile,
+                cancel,
+                deadline,
+                custody.as_ref(),
+            )?;
+            check_cancel(cancel)?;
+            verify_native_inputs()?;
+            let validated = runtime.validate_output_observed(
+                work.path(),
+                profile,
+                &p.profile,
+                p.sequences[0].duration(),
+                cancel,
+                deadline,
+                custody.as_ref(),
+            )?;
+            let media = validated.media;
+            let mut color_observation = None;
+            if let Some(observed) = &validated.observation {
+                let before = native_before
+                    .as_ref()
+                    .ok_or_else(|| Error::invalid("Original native input bytes missing"))?;
+                let after = input_root.read("project.mlt", crate::xml::MAX_XML)?;
+                if after != *before {
+                    return Err(Error::new(
+                        "StaleReference",
+                        "Actual native XML changed during render",
+                    ));
+                }
+                let retained = native_input.as_ref().ok_or_else(|| {
+                    Error::invalid("Original native XML was not retained before render")
+                })?;
+                if retained.sha256 != sha256(&after) || retained.bytes != after.len() as u64 {
+                    return Err(Error::new(
+                        "StaleReference",
+                        "Retained native XML differs from actual rendered input",
+                    ));
+                }
+                if output_root.digest(&retained.path, crate::xml::MAX_XML as u64)?
+                    != retained.sha256
+                {
+                    return Err(Error::new(
+                        "StaleReference",
+                        "Actual native XML retention changed",
+                    ));
+                }
+                let source_binding = serde_json::json!({
+                    "source_kind":"mlt_render_project_bytes","root":"output","path":retained.path,
+                    "sha256":retained.sha256,"bytes":retained.bytes,"source_first_frame":0,
+                });
+                verify_native_inputs()?;
+                color_observation = Some(crate::color::publish_observation(
+                    observed,
+                    &work_root,
+                    output_root,
+                    output,
+                    source_binding,
+                    Some(&native_sources),
+                    (p.profile.width, p.profile.height),
+                    p.profile.fps.num,
+                    p.profile.fps.den,
+                    cancel,
+                )?);
+            }
+            check_cancel(cancel)?;
+            let source =
+                work_root.read_file(&format!("partial.{}", profile.extension), artifact_limit)?;
+            struct CancelReader<'a> {
+                file: File,
+                cancel: &'a AtomicBool,
+            }
+            impl Read for CancelReader<'_> {
+                fn read(&mut self, b: &mut [u8]) -> std::io::Result<usize> {
+                    if self.cancel.load(Ordering::Acquire) {
+                        return Err(std::io::Error::new(
+                            std::io::ErrorKind::Interrupted,
+                            "cancelled",
+                        ));
+                    }
+                    self.file.read(b)
+                }
+            }
+            let reader = CancelReader {
+                file: source,
+                cancel,
+            };
+            let publication = if let Some(observed) = &validated.observation {
+                output_root.publish_verified(
+                    "output",
+                    output,
+                    reader,
+                    artifact_limit,
+                    &observed.video_sha256,
+                    observed.video_bytes,
+                )
+            } else {
+                output_root.publish("output", output, reader, artifact_limit)
+            };
+            let artifact = match publication {
+                Ok(a) => a,
+                Err(e) => {
+                    if !e.outcome_known {
+                        return Err(e);
+                    }
+                    check_cancel(cancel)?;
+                    return Err(e);
+                }
+            };
+            // Publication is the success linearization point. A cancellation arriving after it does not
+            // delete a validated final artifact or relabel success as cancelled.
+            if validated.observation.is_some() {
+                crate::color::verify_published_video(output_root, &artifact)?;
+            }
+            Ok(RenderedOutput {
+                artifact,
+                media,
+                native_input,
+                native_input_sources: native_sources,
+                color_observation,
+            })
+        })();
+        let original = if let Some(custody) = &custody {
+            let result = custody.complete(original);
+            process_originals_complete &= custody.original_capture_complete();
+            if let Some(report) = custody.secondary_report() {
+                process_secondary_errors.push(report);
+            }
+            result
+        } else {
+            original
+        };
+        original
+    })();
+    if let Some(raw) = raw_originals {
+        raw.finish(
+            original,
+            source_sha256.as_deref(),
+            process_originals_complete,
+            &process_secondary_errors,
+            &mut inputs,
+            &mut work,
+            &input_root,
+            &work_root,
         )
     } else {
-        output_root.publish("output", output, reader, artifact_limit)
-    };
-    let artifact = match publication {
-        Ok(a) => a,
-        Err(e) => {
-            if !e.outcome_known {
-                return Err(e);
-            }
-            check_cancel(cancel)?;
-            return Err(e);
-        }
-    };
-    // Publication is the success linearization point. A cancellation arriving after it does not
-    // delete a validated final artifact or relabel success as cancelled.
-    if validated.observation.is_some() {
-        crate::color::verify_published_video(output_root, &artifact)?;
+        original
     }
-    Ok(RenderedOutput {
-        artifact,
-        media,
-        native_input,
-        native_input_sources: native_sources,
-        color_observation,
-    })
 }
 
 #[cfg(test)]

@@ -1920,276 +1920,360 @@ impl App {
             return Err(Error::limit("AV mux artifact byte budget"));
         }
 
-        let video_info = self.probe_resource(video_root, video_path)?;
-        let audio_info = self.probe_resource(audio_root, audio_path)?;
-        if !video_info.video
-            || video_info.audio
-            || video_info.width != Some(width)
-            || video_info.height != Some(height)
-            || video_info
-                .frames
-                .is_some_and(|frames| frames != frame_count)
-            || media_frames(&video_info, rate)? != frame_count
-        {
-            return Err(Error::new(
-                "Conflict",
-                "Verified Motion mezzanine does not match the AV delivery profile",
-            ));
-        }
-        if !audio_info.audio
-            || audio_info.video
-            || audio_info.sample_rate != Some(sample_rate)
-            || audio_info.channels != Some(channels)
-            || media_frames(&audio_info, rate)? != frame_count
-        {
-            return Err(Error::new(
-                "Conflict",
-                "Verified audio master does not match 48 kHz stereo AV duration",
-            ));
-        }
-
-        let runtime = self.runtime.as_ref().ok_or_else(|| {
-            Error::new(
-                "Unavailable",
-                "AV mux requires the pinned confined MLT/ffprobe/ffmpeg runtime",
-            )
-        })?;
-        let mut project = Project::new(Profile {
-            width,
-            height,
-            fps: rate,
-            progressive: true,
-            sample_aspect: (1, 1),
-            display_aspect: (width, height),
-            colorspace: 709,
-            audio_channels: u32::from(channels),
-        })?;
-        let range = FrameRange::new(0, frame_count)?;
-        project.assets.insert(
-            "av-video".into(),
-            MediaAsset {
-                id: "av-video".into(),
-                name: "Verified Motion mezzanine".into(),
-                kind: "video".into(),
-                resource: Resource::Scoped {
-                    root: video_root.into(),
-                    path: video_path.into(),
-                },
-                frames: Some(frame_count),
-                service: "avformat".into(),
-                original: None,
-                proxy: None,
-                opaque: false,
-            },
-        );
-        project.assets.insert(
-            "av-audio".into(),
-            MediaAsset {
-                id: "av-audio".into(),
-                name: "Verified final audio master".into(),
-                kind: "audio".into(),
-                resource: Resource::Scoped {
-                    root: audio_root.into(),
-                    path: audio_path.into(),
-                },
-                frames: Some(frame_count),
-                service: "avformat".into(),
-                original: None,
-                proxy: None,
-                opaque: false,
-            },
-        );
-        project.sequences[0].tracks = vec![
-            Track {
-                id: "av-video-track".into(),
-                name: "Video".into(),
-                kind: "video".into(),
-                muted: false,
-                hidden: false,
-                lanes: vec![Timeline {
-                    id: "av-video-lane".into(),
-                    clips: vec![Clip {
-                        id: "av-video-clip".into(),
-                        name: "Verified Motion".into(),
-                        asset: "av-video".into(),
-                        start: 0,
-                        source: range,
-                        effects: vec![],
-                        binding: None,
-                        speed: (1, 1),
-                    }],
-                }],
-                effects: vec![],
-                opaque: false,
-            },
-            Track {
-                id: "av-audio-track".into(),
-                name: "Audio".into(),
-                kind: "audio".into(),
-                muted: false,
-                hidden: false,
-                lanes: vec![Timeline {
-                    id: "av-audio-lane".into(),
-                    clips: vec![Clip {
-                        id: "av-audio-clip".into(),
-                        name: "Verified final mix".into(),
-                        asset: "av-audio".into(),
-                        start: 0,
-                        source: range,
-                        effects: vec![],
-                        binding: None,
-                        speed: (1, 1),
-                    }],
-                }],
-                effects: vec![],
-                opaque: false,
-            },
-        ];
-        project.validate()?;
-        let render_profile = RenderProfile {
-            id: "av-h264-aac",
-            width: Some(width),
-            height: Some(height),
-            video_codec: Some("libx264"),
-            audio_codec: Some("aac"),
-            container: "mp4",
-            extension: "mp4",
-        };
-        let pins = BTreeMap::from([
-            ("av-video".into(), video_sha256.into()),
-            ("av-audio".into(), audio_sha256.into()),
-        ]);
-        let cancel = AtomicBool::new(false);
-        let native = jobs::render_sync_pinned(
-            runtime,
-            project,
-            "sequence0",
-            &render_profile,
-            output_path,
-            self.roots.as_ref(),
-            &cancel,
-            &pins,
-            max_bytes,
-        )?;
-        let jobs::RenderedOutput {
-            artifact,
-            media,
-            native_input,
-            native_input_sources,
-            color_observation,
-        } = native;
-        let native_input =
-            native_input.ok_or_else(|| Error::invalid("AV native input was not retained"))?;
-        let color_observation =
-            color_observation.ok_or_else(|| Error::invalid("AV full video observation missing"))?;
-        if !media.video
-            || !media.audio
-            || media.width != Some(width)
-            || media.height != Some(height)
-            || media.frames.is_some_and(|frames| frames != frame_count)
-            || media.sample_rate != Some(sample_rate)
-            || media.channels != Some(channels)
-            || media.audio_sample_frames.is_none()
-            || media_frames(&media, rate)? != frame_count
-            || !media.codecs.iter().any(|codec| codec == "h264")
-            || !media.codecs.iter().any(|codec| codec == "aac")
-        {
-            return Err(Error::new(
-                "BackendFailed",
-                "Encoded AV master failed post-mux stream/profile verification",
-            ));
-        }
         let output_root = self
             .roots
             .get("output")
             .ok_or_else(|| Error::new("PermissionDenied", "AV output root absent"))?;
-        let mut master = output_root.read_file(output_path, max_bytes)?;
-        let decode_inputs = PrivateDir::new(Path::new("/tmp"))?;
-        let decode_work = PrivateDir::new(Path::new("/tmp"))?;
-        let mut staged = decode_inputs.create("master.mp4")?;
-        let mut staged_hash = Sha256::new();
-        let mut staged_bytes = 0u64;
-        let mut buffer = [0u8; 65_536];
-        loop {
-            let count = master.read(&mut buffer)?;
-            if count == 0 {
-                break;
-            }
-            staged_bytes = staged_bytes
-                .checked_add(count as u64)
-                .filter(|size| *size <= max_bytes)
-                .ok_or_else(|| Error::limit("AV master decode snapshot exceeds byte budget"))?;
-            staged_hash.update(&buffer[..count]);
-            staged.write_all(&buffer[..count])?;
-        }
-        staged.flush()?;
-        staged.sync_all()?;
-        drop(staged);
-        if staged_hash.finish() != artifact.sha256 {
-            return Err(Error::new(
-                "StaleReference",
-                "Published AV master changed before final-audio decode",
-            ));
-        }
-        decode_inputs.seal("master.mp4")?;
-        let decoded_media = runtime.extract_audio(
-            decode_inputs.path(),
-            decode_work.path(),
-            "master.mp4",
-            sample_rate,
-            channels,
-            &cancel,
+        let auxiliary_scope = format!("{output_path}.av-aux");
+        let (mut auxiliary_inputs, mut auxiliary_work) =
+            output_root.create_original_workspaces(&auxiliary_scope)?;
+        let auxiliary_input_root = auxiliary_inputs.owned_root(true, false)?;
+        let auxiliary_work_root = auxiliary_work.owned_root(true, true)?;
+        let mut raw_originals = crate::originals::VideoOriginals::new_av_auxiliary(
+            output_root,
+            &auxiliary_work_root,
+            output_path,
+            max_bytes,
         )?;
-        let decoded_path = format!(
-            "{}.decoded.wav",
-            output_path
-                .strip_suffix(".mp4")
-                .ok_or_else(|| Error::invalid("AV master path lost .mp4 suffix"))?
-        );
-        let decoded_source = Root::open(decode_work.path(), true, false)?
-            .read_file("decoded-audio.wav", max_bytes)?;
-        let decoded_artifact =
-            output_root.publish("output", &decoded_path, decoded_source, max_bytes)?;
+        raw_originals.declare_workspaces(
+            &auxiliary_inputs,
+            &auxiliary_work,
+            &[
+                ("video-probe.bin".into(), jobs::MAX_MEDIA_BYTES + 1),
+                ("audio-probe.bin".into(), jobs::MAX_MEDIA_BYTES + 1),
+                ("master.mp4".into(), max_bytes),
+            ],
+        )?;
+        let mut process_originals_complete = true;
+        let mut completed_process_groups = 0usize;
+        let mut process_secondary_errors = Vec::new();
+        let mut master_sha256 = None;
+        // The original two probes, render, audio extraction and publication
+        // all finish inside this Result before either persistent owner drops.
+        let original = (|| -> Result<Value> {
+            let video_info = self.probe_owned_av_resource(
+                video_root,
+                video_path,
+                video_sha256,
+                "video-probe.bin",
+                0,
+                output_root,
+                &auxiliary_scope,
+                &auxiliary_inputs,
+                &auxiliary_work,
+                &auxiliary_input_root,
+                &auxiliary_work_root,
+                &mut process_originals_complete,
+                &mut completed_process_groups,
+                &mut process_secondary_errors,
+            )?;
+            let audio_info = self.probe_owned_av_resource(
+                audio_root,
+                audio_path,
+                audio_sha256,
+                "audio-probe.bin",
+                1,
+                output_root,
+                &auxiliary_scope,
+                &auxiliary_inputs,
+                &auxiliary_work,
+                &auxiliary_input_root,
+                &auxiliary_work_root,
+                &mut process_originals_complete,
+                &mut completed_process_groups,
+                &mut process_secondary_errors,
+            )?;
+            if !video_info.video
+                || video_info.audio
+                || video_info.width != Some(width)
+                || video_info.height != Some(height)
+                || video_info
+                    .frames
+                    .is_some_and(|frames| frames != frame_count)
+                || media_frames(&video_info, rate)? != frame_count
+            {
+                return Err(Error::new(
+                    "Conflict",
+                    "Verified Motion mezzanine does not match the AV delivery profile",
+                ));
+            }
+            if !audio_info.audio
+                || audio_info.video
+                || audio_info.sample_rate != Some(sample_rate)
+                || audio_info.channels != Some(channels)
+                || media_frames(&audio_info, rate)? != frame_count
+            {
+                return Err(Error::new(
+                    "Conflict",
+                    "Verified audio master does not match 48 kHz stereo AV duration",
+                ));
+            }
 
-        Ok(obj([
-            ("artifact", artifact.json()),
-            ("native_input", native_input.json()),
-            (
-                "native_input_sources",
-                array(native_input_sources.iter().map(crate::fs::Artifact::json)),
-            ),
-            ("color_observation", color_observation.json()),
-            ("decoded_audio", decoded_artifact.json()),
-            ("decoded_audio_media", decoded_media.json()),
-            (
-                "decoded_audio_sample_frames",
-                decoded_media
-                    .audio_sample_frames
-                    .ok_or_else(|| {
-                        Error::new(
-                            "BackendFailed",
-                            "Decoded final audio WAV sample count missing",
-                        )
-                    })?
-                    .into(),
-            ),
-            ("profile", "h264-aac-mp4".into()),
-            ("frame_count", frame_count.into()),
-            ("fps_num", u64::from(rate.num).into()),
-            ("fps_den", u64::from(rate.den).into()),
-            ("sample_rate", u64::from(sample_rate).into()),
-            ("channels", u64::from(channels).into()),
-            (
-                "audio_sample_frames",
-                media
-                    .audio_sample_frames
-                    .ok_or_else(|| Error::new("BackendFailed", "Final audio sample count missing"))?
-                    .into(),
-            ),
-            ("media", media.json()),
-            ("video_sha256", video_sha256.into()),
-            ("audio_sha256", audio_sha256.into()),
-        ]))
+            let runtime = self.runtime.as_ref().ok_or_else(|| {
+                Error::new(
+                    "Unavailable",
+                    "AV mux requires the pinned confined MLT/ffprobe/ffmpeg runtime",
+                )
+            })?;
+            let mut project = Project::new(Profile {
+                width,
+                height,
+                fps: rate,
+                progressive: true,
+                sample_aspect: (1, 1),
+                display_aspect: (width, height),
+                colorspace: 709,
+                audio_channels: u32::from(channels),
+            })?;
+            let range = FrameRange::new(0, frame_count)?;
+            project.assets.insert(
+                "av-video".into(),
+                MediaAsset {
+                    id: "av-video".into(),
+                    name: "Verified Motion mezzanine".into(),
+                    kind: "video".into(),
+                    resource: Resource::Scoped {
+                        root: video_root.into(),
+                        path: video_path.into(),
+                    },
+                    frames: Some(frame_count),
+                    service: "avformat".into(),
+                    original: None,
+                    proxy: None,
+                    opaque: false,
+                },
+            );
+            project.assets.insert(
+                "av-audio".into(),
+                MediaAsset {
+                    id: "av-audio".into(),
+                    name: "Verified final audio master".into(),
+                    kind: "audio".into(),
+                    resource: Resource::Scoped {
+                        root: audio_root.into(),
+                        path: audio_path.into(),
+                    },
+                    frames: Some(frame_count),
+                    service: "avformat".into(),
+                    original: None,
+                    proxy: None,
+                    opaque: false,
+                },
+            );
+            project.sequences[0].tracks = vec![
+                Track {
+                    id: "av-video-track".into(),
+                    name: "Video".into(),
+                    kind: "video".into(),
+                    muted: false,
+                    hidden: false,
+                    lanes: vec![Timeline {
+                        id: "av-video-lane".into(),
+                        clips: vec![Clip {
+                            id: "av-video-clip".into(),
+                            name: "Verified Motion".into(),
+                            asset: "av-video".into(),
+                            start: 0,
+                            source: range,
+                            effects: vec![],
+                            binding: None,
+                            speed: (1, 1),
+                        }],
+                    }],
+                    effects: vec![],
+                    opaque: false,
+                },
+                Track {
+                    id: "av-audio-track".into(),
+                    name: "Audio".into(),
+                    kind: "audio".into(),
+                    muted: false,
+                    hidden: false,
+                    lanes: vec![Timeline {
+                        id: "av-audio-lane".into(),
+                        clips: vec![Clip {
+                            id: "av-audio-clip".into(),
+                            name: "Verified final mix".into(),
+                            asset: "av-audio".into(),
+                            start: 0,
+                            source: range,
+                            effects: vec![],
+                            binding: None,
+                            speed: (1, 1),
+                        }],
+                    }],
+                    effects: vec![],
+                    opaque: false,
+                },
+            ];
+            project.validate()?;
+            let render_profile = RenderProfile {
+                id: "av-h264-aac",
+                width: Some(width),
+                height: Some(height),
+                video_codec: Some("libx264"),
+                audio_codec: Some("aac"),
+                container: "mp4",
+                extension: "mp4",
+            };
+            let pins = BTreeMap::from([
+                ("av-video".into(), video_sha256.into()),
+                ("av-audio".into(), audio_sha256.into()),
+            ]);
+            let cancel = AtomicBool::new(false);
+            let native = jobs::render_sync_pinned(
+                runtime,
+                project,
+                "sequence0",
+                &render_profile,
+                output_path,
+                self.roots.as_ref(),
+                &cancel,
+                &pins,
+                max_bytes,
+            )?;
+            let jobs::RenderedOutput {
+                artifact,
+                media,
+                native_input,
+                native_input_sources,
+                color_observation,
+            } = native;
+            master_sha256 = Some(artifact.sha256.clone());
+            let native_input =
+                native_input.ok_or_else(|| Error::invalid("AV native input was not retained"))?;
+            let color_observation = color_observation
+                .ok_or_else(|| Error::invalid("AV full video observation missing"))?;
+            if !media.video
+                || !media.audio
+                || media.width != Some(width)
+                || media.height != Some(height)
+                || media.frames.is_some_and(|frames| frames != frame_count)
+                || media.sample_rate != Some(sample_rate)
+                || media.channels != Some(channels)
+                || media.audio_sample_frames.is_none()
+                || media_frames(&media, rate)? != frame_count
+                || !media.codecs.iter().any(|codec| codec == "h264")
+                || !media.codecs.iter().any(|codec| codec == "aac")
+            {
+                return Err(Error::new(
+                    "BackendFailed",
+                    "Encoded AV master failed post-mux stream/profile verification",
+                ));
+            }
+            let mut master = output_root.read_file(output_path, max_bytes)?;
+            let mut staged = auxiliary_inputs.create("master.mp4")?;
+            let mut staged_hash = Sha256::new();
+            let mut staged_bytes = 0u64;
+            let mut buffer = [0u8; 65_536];
+            loop {
+                let count = master.read(&mut buffer)?;
+                if count == 0 {
+                    break;
+                }
+                staged_bytes = staged_bytes
+                    .checked_add(count as u64)
+                    .filter(|size| *size <= max_bytes)
+                    .ok_or_else(|| Error::limit("AV master decode snapshot exceeds byte budget"))?;
+                staged_hash.update(&buffer[..count]);
+                staged.write_all(&buffer[..count])?;
+            }
+            staged.flush()?;
+            staged.sync_all()?;
+            drop(staged);
+            if staged_hash.finish() != artifact.sha256 {
+                return Err(Error::new(
+                    "StaleReference",
+                    "Published AV master changed before final-audio decode",
+                ));
+            }
+            auxiliary_inputs.seal("master.mp4")?;
+            let custody = crate::runtime::Ffv1ProcessCustody::with_owned_work(
+                output_root,
+                &auxiliary_scope,
+                &artifact.sha256,
+                crate::originals::VideoOriginalKind::AvAudioDecode,
+                &auxiliary_work_root,
+            )?;
+            let decoded = runtime.extract_audio_observed(
+                auxiliary_inputs.path(),
+                auxiliary_work.path(),
+                "master.mp4",
+                sample_rate,
+                channels,
+                &cancel,
+                max_bytes,
+                Some(&custody),
+            );
+            let decoded = custody.complete(decoded);
+            process_originals_complete &= custody.original_capture_complete();
+            completed_process_groups += 1;
+            if let Some(error) = custody.secondary_report() {
+                process_secondary_errors.push(error);
+            }
+            let decoded_media = decoded?;
+            let decoded_path = format!(
+                "{}.decoded.wav",
+                output_path
+                    .strip_suffix(".mp4")
+                    .ok_or_else(|| Error::invalid("AV master path lost .mp4 suffix"))?
+            );
+            let decoded_source = auxiliary_work_root.read_file("decoded-audio.wav", max_bytes)?;
+            let decoded_artifact =
+                output_root.publish("output", &decoded_path, decoded_source, max_bytes)?;
+
+            Ok(obj([
+                ("artifact", artifact.json()),
+                ("native_input", native_input.json()),
+                (
+                    "native_input_sources",
+                    array(native_input_sources.iter().map(crate::fs::Artifact::json)),
+                ),
+                ("color_observation", color_observation.json()),
+                ("decoded_audio", decoded_artifact.json()),
+                ("decoded_audio_media", decoded_media.json()),
+                (
+                    "decoded_audio_sample_frames",
+                    decoded_media
+                        .audio_sample_frames
+                        .ok_or_else(|| {
+                            Error::new(
+                                "BackendFailed",
+                                "Decoded final audio WAV sample count missing",
+                            )
+                        })?
+                        .into(),
+                ),
+                ("profile", "h264-aac-mp4".into()),
+                ("frame_count", frame_count.into()),
+                ("fps_num", u64::from(rate.num).into()),
+                ("fps_den", u64::from(rate.den).into()),
+                ("sample_rate", u64::from(sample_rate).into()),
+                ("channels", u64::from(channels).into()),
+                (
+                    "audio_sample_frames",
+                    media
+                        .audio_sample_frames
+                        .ok_or_else(|| {
+                            Error::new("BackendFailed", "Final audio sample count missing")
+                        })?
+                        .into(),
+                ),
+                ("media", media.json()),
+                ("video_sha256", video_sha256.into()),
+                ("audio_sha256", audio_sha256.into()),
+            ]))
+        })();
+        raw_originals.finish(
+            original,
+            master_sha256.as_deref(),
+            process_originals_complete && completed_process_groups == 3,
+            &process_secondary_errors,
+            &mut auxiliary_inputs,
+            &mut auxiliary_work,
+            &auxiliary_input_root,
+            &auxiliary_work_root,
+        )
     }
 
     fn frames_encode(&self, a: &Value) -> Result<Value> {
@@ -2292,7 +2376,7 @@ impl App {
                 "Motion frame manifest count does not match its render plan",
             ));
         }
-        let observation_budget = crate::color::observation_budget(width, height, frame_count)?;
+        crate::color::observation_budget(width, height, frame_count)?;
         let output = self
             .roots
             .get("output")
@@ -2315,11 +2399,29 @@ impl App {
             .rsplit_once('/')
             .map(|(parent, _)| parent)
             .unwrap_or("");
-        let inputs = PrivateDir::new(Path::new("/tmp"))?;
-        let work = PrivateDir::new(Path::new("/tmp"))?;
-        let staged_root = Root::open(inputs.path(), true, false)?;
-        let work_root = Root::open(work.path(), true, false)?;
-        if work_root.available_bytes_for("mezzanine.mkv")? < observation_budget.peak_free_bytes {
+        let (mut inputs, mut work) = output.create_original_workspaces(output_path)?;
+        let staged_root = inputs.owned_root(true, false)?;
+        let work_root = work.owned_root(true, true)?;
+        let mut raw_originals = crate::originals::VideoOriginals::new(
+            output,
+            &work_root,
+            output_path,
+            (width, height),
+            frame_count,
+            "mezzanine.mkv",
+            crate::originals::VideoOriginalKind::MotionFrames,
+            0,
+        )?;
+        let input_members = (0..frame_count)
+            .map(|index| {
+                first_frame
+                    .checked_add(index)
+                    .map(|number| (format!("{number:06}.png"), 32 * 1024 * 1024))
+                    .ok_or_else(|| Error::limit("Owned Motion input roster overflow"))
+            })
+            .collect::<Result<Vec<(String, u64)>>>()?;
+        raw_originals.declare_workspaces(&inputs, &work, &input_members)?;
+        if work_root.available_bytes_for("mezzanine.mkv")? < raw_originals.required_free_bytes {
             return Err(Error::limit(
                 "Scratch filesystem lacks complete-readback peak space",
             ));
@@ -2425,62 +2527,79 @@ impl App {
         let cancel = AtomicBool::new(false);
         // Uses only the already-admitted output Root. Stage originals are
         // published before PrivateDir drops, including the original error path.
-        let custody =
-            crate::runtime::Ffv1ProcessCustody::new(output, output_path, expected_manifest_sha256)?;
-        let original = runtime.encode_frames_observed(
-            inputs.path(),
-            work.path(),
-            first_frame,
-            frame_count,
-            fps_num,
-            fps_den,
-            width,
-            height,
-            &cancel,
-            Some(&custody),
-        );
-        let encoded = custody.complete(original)?;
-        let observed = &encoded.observation;
-        let work_root = Root::open(work.path(), true, false)?;
-        let source_binding = serde_json::json!({
-            "source_kind":"motion_canvas_frame_manifest_bytes","root":root_name,
-            "path":manifest_path,"sha256":expected_manifest_sha256,"bytes":manifest_bytes.len(),
-            "source_first_frame":first_frame,
-        });
-        let observation = crate::color::publish_observation(
-            observed,
-            &work_root,
+        let custody = crate::runtime::Ffv1ProcessCustody::with_owned_work(
             output,
             output_path,
-            source_binding,
-            None,
-            (width, height),
-            fps_num,
-            fps_den,
-            &cancel,
+            expected_manifest_sha256,
+            crate::originals::VideoOriginalKind::MotionFrames,
+            &work_root,
         )?;
-        let artifact = output.publish_verified(
-            "output",
-            output_path,
-            work_root.read_file("mezzanine.mkv", max_bytes)?,
-            max_bytes,
-            &observed.video_sha256,
-            observed.video_bytes,
-        )?;
-        crate::color::verify_published_video(output, &artifact)?;
-        Ok(obj([
-            ("artifact", artifact.json()),
-            ("color_observation", observation.json()),
-            ("source_manifest_sha256", expected_manifest_sha256.into()),
-            ("codec", "ffv1".into()),
-            ("container", "matroska".into()),
-            ("frame_count", (observed.frames.len() as u64).into()),
-            ("width", u64::from(width).into()),
-            ("height", u64::from(height).into()),
-            ("fps_num", u64::from(fps_num).into()),
-            ("fps_den", u64::from(fps_den).into()),
-            ("media", encoded.media.json()),
-        ]))
+        let original = (|| -> Result<Value> {
+            let encoded = runtime.encode_frames_observed(
+                inputs.path(),
+                work.path(),
+                first_frame,
+                frame_count,
+                fps_num,
+                fps_den,
+                width,
+                height,
+                &cancel,
+                Some(&custody),
+            )?;
+            let observed = &encoded.observation;
+            let source_binding = serde_json::json!({
+                "source_kind":"motion_canvas_frame_manifest_bytes","root":root_name,
+                "path":manifest_path,"sha256":expected_manifest_sha256,"bytes":manifest_bytes.len(),
+                "source_first_frame":first_frame,
+            });
+            let observation = crate::color::publish_observation(
+                observed,
+                &work_root,
+                output,
+                output_path,
+                source_binding,
+                None,
+                (width, height),
+                fps_num,
+                fps_den,
+                &cancel,
+            )?;
+            let artifact = output.publish_verified(
+                "output",
+                output_path,
+                work_root.read_file("mezzanine.mkv", max_bytes)?,
+                max_bytes,
+                &observed.video_sha256,
+                observed.video_bytes,
+            )?;
+            crate::color::verify_published_video(output, &artifact)?;
+            Ok(obj([
+                ("artifact", artifact.json()),
+                ("color_observation", observation.json()),
+                ("source_manifest_sha256", expected_manifest_sha256.into()),
+                ("codec", "ffv1".into()),
+                ("container", "matroska".into()),
+                ("frame_count", (observed.frames.len() as u64).into()),
+                ("width", u64::from(width).into()),
+                ("height", u64::from(height).into()),
+                ("fps_num", u64::from(fps_num).into()),
+                ("fps_den", u64::from(fps_den).into()),
+                ("media", encoded.media.json()),
+            ]))
+        })();
+        let original = custody.complete(original);
+        let process_secondary_errors = custody.secondary_report().into_iter().collect::<Vec<_>>();
+        raw_originals.finish(
+            original,
+            Some(expected_manifest_sha256),
+            custody.original_capture_complete(),
+            &process_secondary_errors,
+            &mut inputs,
+            &mut work,
+            &staged_root,
+            &work_root,
+        )
     }
 
     fn sync_probe(&self, a: &Value) -> Result<Value> {
@@ -2624,6 +2743,92 @@ impl App {
                 array(result.missing_audio.into_iter().map(Into::into)),
             ),
         ]))
+    }
+
+    /// The two AV probes use predeclared output-owned files. The MAX+1 staging
+    /// sentinel remains an original even when its growth check rejects it.
+    #[allow(clippy::too_many_arguments)]
+    fn probe_owned_av_resource(
+        &self,
+        root: &str,
+        path: &str,
+        expected_sha256: &str,
+        basename: &str,
+        slot: usize,
+        output: &Root,
+        auxiliary_scope: &str,
+        inputs: &PrivateDir,
+        work: &PrivateDir,
+        input_root: &Root,
+        work_root: &Root,
+        process_originals_complete: &mut bool,
+        completed_process_groups: &mut usize,
+        process_secondary_errors: &mut Vec<serde_json::Value>,
+    ) -> Result<crate::runtime::MediaInfo> {
+        if !matches!(
+            (slot, basename),
+            (0, "video-probe.bin") | (1, "audio-probe.bin")
+        ) || !matches!(root, "project" | "media" | "output")
+            || !valid_digest(expected_sha256)
+        {
+            return Err(Error::invalid(
+                "Owned AV probe is outside its original closed role",
+            ));
+        }
+        let runtime = self.runtime.as_ref().ok_or_else(|| {
+            Error::new(
+                "Unavailable",
+                "AV probe requires the pinned confined ffprobe runtime",
+            )
+        })?;
+        let mount = self
+            .roots
+            .get(root)
+            .ok_or_else(|| Error::new("PermissionDenied", "AV media mount absent"))?;
+        let mut source = mount.read_file(path, jobs::MAX_MEDIA_BYTES)?;
+        let mut destination = inputs.create(basename)?;
+        let copied = std::io::copy(
+            &mut (&mut source).take(jobs::MAX_MEDIA_BYTES + 1),
+            &mut destination,
+        )?;
+        if copied > jobs::MAX_MEDIA_BYTES {
+            return Err(Error::limit("Media grew during staging"));
+        }
+        destination.flush()?;
+        destination.sync_all()?;
+        drop(destination);
+        inputs.seal(basename)?;
+        let (staged_sha256, _) = reader_hash(
+            input_root.read_file(basename, jobs::MAX_MEDIA_BYTES)?,
+            jobs::MAX_MEDIA_BYTES,
+        )?;
+        if staged_sha256 != expected_sha256 {
+            return Err(Error::new(
+                "StaleReference",
+                "AV probe source differs from its verified input digest",
+            ));
+        }
+        let custody = crate::runtime::Ffv1ProcessCustody::for_input_probe(
+            output,
+            auxiliary_scope,
+            &staged_sha256,
+            slot,
+            work_root,
+        )?;
+        let original = runtime.probe_observed(
+            inputs.path(),
+            work.path(),
+            basename,
+            &AtomicBool::new(false),
+            Some(&custody),
+        );
+        let original = custody.complete(original);
+        *process_originals_complete &= custody.original_capture_complete();
+        *completed_process_groups += 1;
+        if let Some(error) = custody.secondary_report() {
+            process_secondary_errors.push(error);
+        }
+        original
     }
 
     fn probe_resource(&self, root: &str, path: &str) -> Result<crate::runtime::MediaInfo> {
