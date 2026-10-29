@@ -97,3 +97,12 @@ Candidate12 physically rejected the original 1,062-vertex recipe at the driver-o
 ## Godot broker — real partial progress
 
 The first-party paired Godot driver now has physical doctor/session, wrong-key handshake rejection, instantiation and complete four-mesh readback evidence. The Editor is an owner process; its driver is LPAC with zero additional capabilities and a read-only project mount. Reimport and scene open require the broker's native human console. The corrected finalizer is compiled and prepared, not executed. A05/G6 remain incomplete, artistic acceptance remains independent, and Linux native regression remains NOT_RUN. Full detail and preserved failures: WINDOWS_GODOT_HANDOFF_20261029.md.
+
+
+## Profile parity and guarded operator readiness
+
+The [profile parity matrix](BLENDER_PARITY_20261029.md) maps the exact runtime selectors, historical candidate evidence, restricted capabilities and remaining native regressions. It also records the existing pinned Linux 4.5.14 workflow commands without claiming a run or a corresponding pinned 5.2.1 lane. The driver README now distinguishes early failed activation probes from later successful bounded Windows candidates.
+
+Archipelago commit b25d813 adds 16 passing component tests for a read-only handoff guard and a physical seven-read broker preflight (zero approvals requested, zero mutations submitted). Its 20261029T043551Z receipt is READY_FOR_NATIVE_OPERATOR, SHA-256 bbebdb2ed3c84b56644ef9de813e0db5640cb141b727fe55e0a78bf431180055. The active support scene and camera were reobserved; 3,094 protected source files matched the prepared/recovery inventory. Both unsaved-scene flags were observed, while the inactive main scene's live projection remains NOT_REOBSERVED. The earlier preflight incorrectly required a Windows client ticket; that failure is preserved and the guard now follows the protocol's intentional fresh-client-session behavior on Windows.
+
+Submission requires a fresh preflight and personal answers in the native broker console. Reimport/save, independent persisted-scene reopen and real human-edit continuity remain pending. This readiness result does not change P3 PARTIAL, A05 PARTIAL_PENDING_PROJECT_CONFORMANCE, G6 NOT_COMPLETE, A02 REVISE or either Linux NOT_RUN result. This documentation follow-up made no driver/runtime changes and launched no native Blender process.

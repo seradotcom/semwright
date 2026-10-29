@@ -1,10 +1,13 @@
 # Semwright Blender deep driver
 
-> Experimental branch note: exact Blender 5.2.1 runtime profiles and a Windows
-> session-runner candidate are under development. Windows native startup remains
-> blocked in the tested LPAC profile; no Windows broker-to-Blender E2E has passed.
-> Linux 4.5.14 native regression has not been rerun on this Windows host.
-> See [the measured boundary](../../docs/blender/WINDOWS_52_EXPERIMENTAL.md).
+> Experimental branch checkpoint, 2026-10-29: Windows Blender 5.2.1 has bounded
+> physical production-Host proofs for typed static authoring, checkpoint/reopen
+> and GLB export under LPAC/Job, with explicit owner opt-in and registryRead.
+> This does not qualify the entire driver surface. Native Linux 4.5.14 and 5.2.1
+> regressions remain NOT_RUN for this contribution. See the
+> [current native profile](../../docs/blender/WINDOWS_NATIVE_PROFILE_20261029.md)
+> and [profile parity matrix](../../docs/blender/BLENDER_PARITY_20261029.md).
+> Earlier activation failures remain preserved as historical evidence.
 
 This first-party driver runs a private Blender process inside the Semwright DriverProvider sandbox.
 It is separate from the interactive `blender.*` add-on backend: the existing add-on remains useful
@@ -68,7 +71,7 @@ The command:
 The exported capability is tagged `artifact-out:model/3d`, so downstream orchestration can treat
 the result as a typed 3D-model handoff without granting generic Blender operator execution.
 
-## Blender runtime authority
+## Linux runtime authority (retained 4.5.14 profile)
 
 The deep driver no longer discovers Blender from `/usr/bin`, `/usr/local/bin` or ambient
 `PATH`. The owner must explicitly grant the supported Blender runtime:
@@ -101,7 +104,7 @@ write = false
 The executable file may live inside the runtime directory. Driver Host treats the file-backed tool
 authority separately from generic directory-backed filesystem/artifact providers.
 
-## Isolation
+## Linux isolation
 
 The DriverProvider pins the Rust driver ELF by SHA-256 and launches it through Bubblewrap plus
 Landlock. The Blender executable is separately digest-attested as an owner-pinned sealed tool.
@@ -112,6 +115,23 @@ disabled. The accepted live target is Blender 4.5.14 LTS.
 The driver requires read-only access to `/etc/fonts`, the read-only portable Blender runtime and a
 writable `workspace` grant. Blender itself remains a large native application; the sandbox reduces
 authority but is not a claim that Blender or third-party add-ons are memory-safe.
+
+## Experimental Windows 5.2.1 initial-process profile
+
+The exact Windows runtime profile is separate from the retained Linux route.
+The production Host owns the pinned executable/runtime, fixed bootstrap and
+arguments, LPAC token, attested one-process Job, bounded mounts and lifetime.
+The opt-in is disabled by default. The tested Blender native process has the
+explicitly authorized registryRead capability, without network or GPU; its Rust
+driver has a separate zero-capability LPAC. registryRead is not a whitelist of a
+single registry key.
+
+Candidate09 and later provide physical proofs for bounded static composition,
+new-only checkpoint, close/reap, fresh hash-bound reopen and GLB. Generic RNA
+mutation on 5.2 remains restricted. Introspection and acceptance of static shader
+nodes during recovery do not establish arbitrary modeling or node-graph editing.
+The static_mesh_scene_v1 recovery contract does not preserve undo history or a
+complete process. Read the parity matrix before assigning support to a capability.
 
 ## Verification
 
@@ -191,6 +211,9 @@ records four passing initial-process manifest fixtures under LPAC with zero
 additional capabilities, and separate failing dynamic CPU-component activation
 and loading probes. The [curated evidence index](evidence/windows-activation-20261028/INDEX.json)
 retains exact source and receipt hashes. These results do not establish Blender
-startup or a broker-to-Blender authoring path on Windows. Windows native Blender
-acceptance remains blocked; the native Linux 4.5.14 regression remains NOT_RUN
-on this host. No isolation policy or capability was broadened by these probes.
+startup or a broker-to-Blender authoring path on Windows by themselves.
+Later owner-authorized production-Host candidates demonstrated bounded Windows
+startup, authoring, persistence and GLB export; see the current profile above.
+Full platform acceptance and native Linux regression remain open. The earlier
+probes did not broaden isolation policy or capabilities; the later registryRead
+grant has its own explicit owner authorization and recorded scope.

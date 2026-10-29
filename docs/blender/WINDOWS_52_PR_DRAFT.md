@@ -56,3 +56,10 @@ Candidate11 produced a separate original stone threshold through the same isolat
 Candidate12 and checkpoint04 close the plan-output preflight regression with 20 driver tests, 60 registry/types tests and a physical same-session reject/valid-apply/persistence/GLB run. Details and exact authority limits: PLAN_OUTPUT_BUDGET_20261029.md.
 
 The subsequent Godot broker evidence covers authenticated pairing, wrong-key closure before Ready, native instantiation and four-mesh geometry readback. Reimport was denied before execution by native trusted-operator consent; strict nested-instance save remains unsupported. A native approval console and the corrected explicit handoff are prepared. The exact retired secret-lease ACL recovery preserved private validation and added no permission. See WINDOWS_GODOT_HANDOFF_20261029.md. The pending handoff has not been promoted to PASS.
+
+
+## Documentation parity and prepared Godot guard
+
+The [profile parity matrix](BLENDER_PARITY_20261029.md) separates exact implemented runtime selection, reported component tests and historical hosted-native candidate results. It retains both Linux profiles as NOT_RUN, identifies the existing pinned 4.5.14 native lane and avoids promoting bounded Windows static composition/recovery/GLB evidence to unrestricted authoring support. The driver README's obsolete Windows-startup-blocked status has been reconciled with the later receipts; failed probes remain preserved.
+
+The separate Archipelago b25d813 checkpoint adds a read-only live guard, 16 passing component tests and a physical seven-read preflight before the prepared Godot handoff. No approval or mutation was submitted. Active support/camera and protected source/recovery hashes matched; the inactive main scene's live projection remains NOT_REOBSERVED. Native console responses, mediated reimport/save, independent reopen and human-edit continuity remain pending. The full receipt identity and boundaries are in the parity matrix. These documentation changes do not establish a new Blender native PASS on the present source HEAD.
